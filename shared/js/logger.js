@@ -14,9 +14,10 @@
  */
 
 // Detect environment
-const IS_PRODUCTION = window.location.hostname !== 'localhost' &&
-                     window.location.hostname !== '127.0.0.1' &&
-                     !window.location.hostname.includes('192.168.');
+const IS_PRODUCTION =
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    !window.location.hostname.includes('192.168.');
 
 // Logger class
 class Logger {
@@ -93,7 +94,7 @@ if (typeof window !== 'undefined') {
             log: originalLog,
             warn: originalWarn,
             info: originalInfo,
-            debug: originalDebug
+            debug: originalDebug,
         };
     }
 }

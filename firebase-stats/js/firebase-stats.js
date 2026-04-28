@@ -30,92 +30,92 @@ const FIRESTORE_STATS_COLLECTIONS = [
         name: 'users',
         description: 'Thông tin người dùng, permissions, roleTemplate',
         modules: ['login', 'user-management', 'navigation'],
-        countable: true
+        countable: true,
     },
     {
         name: 'dathang',
         description: 'Dữ liệu đặt hàng chính',
         modules: ['bangkiemhang'],
-        countable: true
+        countable: true,
     },
     {
         name: 'edit_history',
         description: 'Lịch sử chỉnh sửa của tất cả modules',
         modules: ['all modules'],
-        countable: true
+        countable: true,
     },
     {
         name: 'livestream_reports',
         description: 'Báo cáo livestream và orders',
         modules: ['orders-report', 'livestream', 'tpos-pancake'],
-        countable: true
+        countable: true,
     },
     {
         name: 'customers',
         description: 'Thông tin khách hàng',
         modules: ['balance-history', 'customer-hub'],
-        countable: true
+        countable: true,
     },
     {
         name: 'ib',
         description: 'Quản lý inbox/messages',
         modules: ['ib'],
-        countable: true
+        countable: true,
     },
     {
         name: 'tokens',
         description: 'Lưu trữ API tokens (TPOS)',
         modules: ['orders-report', 'tpos-pancake'],
-        countable: true
+        countable: true,
     },
     {
         name: 'pancake_tokens',
         description: 'Lưu trữ Pancake JWT tokens',
         modules: ['orders-report', 'tpos-pancake'],
-        countable: true
+        countable: true,
     },
     {
         name: 'settings',
         description: 'Cài đặt chung (table_name, etc.)',
         modules: ['orders-report'],
-        countable: true
+        countable: true,
     },
     {
         name: 'nhanhang',
         description: 'Quản lý nhận hàng',
         modules: ['nhanhang'],
-        countable: true
+        countable: true,
     },
     {
         name: 'report_order_details',
         description: 'Chi tiết báo cáo orders (cache)',
         modules: ['orders-report'],
-        countable: true
+        countable: true,
     },
     {
         name: 'app_config',
         description: 'Cấu hình ứng dụng, version',
         modules: ['navigation-modern'],
-        countable: true
+        countable: true,
     },
     {
         name: 'order-logs',
         description: 'Logs đơn hàng',
         modules: ['soorder'],
-        countable: true
+        countable: true,
     },
     {
         name: 'ncc-names',
         description: 'Tên nhà cung cấp',
         modules: ['soorder'],
-        countable: true
+        countable: true,
     },
     {
         name: 'employeeRanges',
         description: 'Phân chia dãy nhân viên theo campaign',
         modules: ['orders-report'],
-        countable: true
-    }
+        countable: true,
+    },
 ];
 
 const REALTIME_NODES = [
@@ -128,7 +128,11 @@ const REALTIME_NODES = [
     { name: 'orderIsMergeVariants', description: 'Cài đặt gộp variants', status: 'active' },
     { name: 'orderSyncCurrentPage', description: 'Sync trang hiện tại', status: 'active' },
     { name: 'orderSyncSearchData', description: 'Sync dữ liệu tìm kiếm', status: 'active' },
-    { name: 'hiddenProductsDisplaySettings', description: 'Cài đặt hiển thị sản phẩm ẩn', status: 'active' },
+    {
+        name: 'hiddenProductsDisplaySettings',
+        description: 'Cài đặt hiển thị sản phẩm ẩn',
+        status: 'active',
+    },
     { name: 'bulkTagHistory', description: 'Lịch sử gắn tag hàng loạt', status: 'active' },
     { name: 'bulkTagDeleteHistory', description: 'Lịch sử xóa tag hàng loạt', status: 'active' },
     { name: 'syncSearchKeyword', description: 'Sync từ khóa tìm kiếm', status: 'active' },
@@ -155,7 +159,11 @@ const REALTIME_NODES = [
     { name: 'pancake_jwt_tokens', description: 'JWT tokens Pancake (multi)', status: 'active' },
     { name: 'pancake_images', description: 'Cache hình ảnh Pancake', status: 'active' },
     { name: 'productAssignments', description: 'Phân công sản phẩm', status: 'active' },
-    { name: 'productAssignments_v2_history', description: 'Lịch sử phân công v2', status: 'active' },
+    {
+        name: 'productAssignments_v2_history',
+        description: 'Lịch sử phân công v2',
+        status: 'active',
+    },
     { name: 'settings', description: 'Cài đặt chung (employee ranges)', status: 'active' },
     { name: 'report_order_details', description: 'Cache chi tiết báo cáo', status: 'active' },
 
@@ -168,13 +176,13 @@ const REALTIME_NODES = [
     { name: 'adminCurrentPage', description: 'Không còn sử dụng', status: 'deletable' },
     { name: 'app_version', description: 'Không còn sử dụng', status: 'deletable' },
     { name: 'isHideEditControls', description: 'Không còn sử dụng', status: 'deletable' },
-    { name: 'uploadSessionFinalize', description: 'Không còn sử dụng', status: 'deletable' }
+    { name: 'uploadSessionFinalize', description: 'Không còn sử dụng', status: 'deletable' },
 ];
 
 // Store document counts
 const documentCounts = {
     firestore: {},
-    realtime: {}
+    realtime: {},
 };
 
 // =====================================================
@@ -193,7 +201,7 @@ const elements = {
     btnCountRealtime: document.getElementById('btnCountRealtime'),
     tabs: document.querySelectorAll('.tab'),
     tabContents: document.querySelectorAll('.tab-content'),
-    filterBtns: document.querySelectorAll('.filter-btn')
+    filterBtns: document.querySelectorAll('.filter-btn'),
 };
 
 // =====================================================
@@ -251,16 +259,16 @@ function checkAuth() {
 // =====================================================
 
 function initTabs() {
-    elements.tabs.forEach(tab => {
+    elements.tabs.forEach((tab) => {
         tab.addEventListener('click', () => {
             const tabId = tab.dataset.tab;
 
             // Update active tab
-            elements.tabs.forEach(t => t.classList.remove('active'));
+            elements.tabs.forEach((t) => t.classList.remove('active'));
             tab.classList.add('active');
 
             // Update active content
-            elements.tabContents.forEach(content => {
+            elements.tabContents.forEach((content) => {
                 content.classList.remove('active');
                 if (content.id === `tab-${tabId}`) {
                     content.classList.add('active');
@@ -275,12 +283,12 @@ function initTabs() {
 // =====================================================
 
 function initFilters() {
-    elements.filterBtns.forEach(btn => {
+    elements.filterBtns.forEach((btn) => {
         btn.addEventListener('click', () => {
             const filter = btn.dataset.filter;
 
             // Update active filter
-            elements.filterBtns.forEach(b => b.classList.remove('active'));
+            elements.filterBtns.forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
 
             // Filter table
@@ -292,7 +300,7 @@ function initFilters() {
 function filterRealtimeTable(filter) {
     const rows = elements.realtimeTable.querySelectorAll('tr');
 
-    rows.forEach(row => {
+    rows.forEach((row) => {
         const status = row.dataset.status;
 
         if (filter === 'all') {
@@ -319,11 +327,12 @@ function renderFirestoreTable() {
     const tbody = elements.firestoreTable;
     tbody.innerHTML = '';
 
-    FIRESTORE_STATS_COLLECTIONS.forEach(collection => {
+    FIRESTORE_STATS_COLLECTIONS.forEach((collection) => {
         const count = documentCounts.firestore[collection.name];
-        const countDisplay = count !== undefined
-            ? `<span class="doc-count">${count.toLocaleString()}</span>`
-            : `<span class="doc-count loading">--</span>`;
+        const countDisplay =
+            count !== undefined
+                ? `<span class="doc-count">${count.toLocaleString()}</span>`
+                : `<span class="doc-count loading">--</span>`;
 
         const row = document.createElement('tr');
         row.dataset.collection = collection.name;
@@ -341,11 +350,12 @@ function renderRealtimeTable() {
     const tbody = elements.realtimeTable;
     tbody.innerHTML = '';
 
-    REALTIME_NODES.forEach(node => {
+    REALTIME_NODES.forEach((node) => {
         const count = documentCounts.realtime[node.name];
-        const countDisplay = count !== undefined
-            ? `<span class="doc-count">${count.toLocaleString()}</span>`
-            : `<span class="doc-count loading">--</span>`;
+        const countDisplay =
+            count !== undefined
+                ? `<span class="doc-count">${count.toLocaleString()}</span>`
+                : `<span class="doc-count loading">--</span>`;
 
         const row = document.createElement('tr');
         row.dataset.status = node.status;
@@ -365,7 +375,7 @@ function getStatusLabel(status) {
         active: 'Đang dùng',
         deletable: 'Có thể xóa',
         migration: 'Cần migrate',
-        verify: 'Cần kiểm tra'
+        verify: 'Cần kiểm tra',
     };
     return labels[status] || status;
 }
@@ -557,7 +567,7 @@ window.FirebaseStats = {
     renderData,
     filterRealtimeTable,
     countFirestoreDocuments,
-    countRealtimeRecords
+    countRealtimeRecords,
 };
 
 console.log('[Firebase Stats] Module loaded');

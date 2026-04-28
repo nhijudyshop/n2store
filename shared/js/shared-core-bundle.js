@@ -29,7 +29,7 @@
  * - window.AuthManager, window.authManager
  */
 
-(function(window) {
+(function (window) {
     'use strict';
 
     // Prevent double-loading
@@ -37,554 +37,548 @@
         return;
     }
 
-
     // ========================================
     // logger.js
     // ========================================
-/**
- * PRODUCTION-SAFE LOGGER
- * File: logger.js
- *
- * WRAPPER FILE - Backward compatibility layer
- * SOURCE OF TRUTH: /shared/browser/logger.js
- *
- * This file is kept for backward compatibility with existing code using:
- *   <script src="../shared/js/logger.js"></script>
- *
- * For new ES Module code, import directly from:
- *   import { Logger, logger } from '/shared/browser/logger.js';
- */
+    /**
+     * PRODUCTION-SAFE LOGGER
+     * File: logger.js
+     *
+     * WRAPPER FILE - Backward compatibility layer
+     * SOURCE OF TRUTH: /shared/browser/logger.js
+     *
+     * This file is kept for backward compatibility with existing code using:
+     *   <script src="../shared/js/logger.js"></script>
+     *
+     * For new ES Module code, import directly from:
+     *   import { Logger, logger } from '/shared/browser/logger.js';
+     */
 
-// Detect environment
-const IS_PRODUCTION = window.location.hostname !== 'localhost' &&
-                     window.location.hostname !== '127.0.0.1' &&
-                     !window.location.hostname.includes('192.168.');
+    // Detect environment
+    const IS_PRODUCTION =
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1' &&
+        !window.location.hostname.includes('192.168.');
 
-// Logger class
-class Logger {
-    constructor(enabled = !IS_PRODUCTION) {
-        this.enabled = enabled;
-    }
+    // Logger class
+    class Logger {
+        constructor(enabled = !IS_PRODUCTION) {
+            this.enabled = enabled;
+        }
 
-    log(...args) {
-        if (this.enabled) {
-            console.log(...args);
+        log(...args) {
+            if (this.enabled) {
+                console.log(...args);
+            }
+        }
+
+        warn(...args) {
+            if (this.enabled) {
+                console.warn(...args);
+            }
+        }
+
+        error(...args) {
+            // Always show errors, even in production
+            console.error(...args);
+        }
+
+        info(...args) {
+            if (this.enabled) {
+                console.info(...args);
+            }
+        }
+
+        debug(...args) {
+            if (this.enabled) {
+                console.debug(...args);
+            }
+        }
+
+        // Force enable/disable
+        enable() {
+            this.enabled = true;
+        }
+
+        disable() {
+            this.enabled = false;
+        }
+
+        // Toggle
+        toggle() {
+            this.enabled = !this.enabled;
         }
     }
 
-    warn(...args) {
-        if (this.enabled) {
-            console.warn(...args);
+    // Global logger instance — `var` (không phải `const`) để re-declaration an toàn nếu
+    // shared/js/logger.js cũng được nạp (smoke test 2026-04-28 thấy "Identifier 'logger'
+    // already declared" ở supplier-debt vì core-loader nạp logger.js + page nạp bundle này).
+    var logger = (typeof window !== 'undefined' && window.logger) || new Logger();
+
+    // Expose to window
+    if (typeof window !== 'undefined') {
+        window.logger = logger;
+        window.Logger = Logger;
+
+        // Backward compatibility - override console in production
+        if (IS_PRODUCTION) {
+            const originalLog = console.log;
+            const originalWarn = console.warn;
+            const originalInfo = console.info;
+            const originalDebug = console.debug;
+
+            console.log = (...args) => logger.log(...args);
+            console.warn = (...args) => logger.warn(...args);
+            console.info = (...args) => logger.info(...args);
+            console.debug = (...args) => logger.debug(...args);
+
+            // Keep original references for debugging
+            console._original = {
+                log: originalLog,
+                warn: originalWarn,
+                info: originalInfo,
+                debug: originalDebug,
+            };
         }
     }
 
-    error(...args) {
-        // Always show errors, even in production
-        console.error(...args);
+    // Module export
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { Logger, logger };
     }
-
-    info(...args) {
-        if (this.enabled) {
-            console.info(...args);
-        }
-    }
-
-    debug(...args) {
-        if (this.enabled) {
-            console.debug(...args);
-        }
-    }
-
-    // Force enable/disable
-    enable() {
-        this.enabled = true;
-    }
-
-    disable() {
-        this.enabled = false;
-    }
-
-    // Toggle
-    toggle() {
-        this.enabled = !this.enabled;
-    }
-}
-
-// Global logger instance — `var` (không phải `const`) để re-declaration an toàn nếu
-// shared/js/logger.js cũng được nạp (smoke test 2026-04-28 thấy "Identifier 'logger'
-// already declared" ở supplier-debt vì core-loader nạp logger.js + page nạp bundle này).
-var logger = (typeof window !== 'undefined' && window.logger) || new Logger();
-
-// Expose to window
-if (typeof window !== 'undefined') {
-    window.logger = logger;
-    window.Logger = Logger;
-
-    // Backward compatibility - override console in production
-    if (IS_PRODUCTION) {
-        const originalLog = console.log;
-        const originalWarn = console.warn;
-        const originalInfo = console.info;
-        const originalDebug = console.debug;
-
-        console.log = (...args) => logger.log(...args);
-        console.warn = (...args) => logger.warn(...args);
-        console.info = (...args) => logger.info(...args);
-        console.debug = (...args) => logger.debug(...args);
-
-        // Keep original references for debugging
-        console._original = {
-            log: originalLog,
-            warn: originalWarn,
-            info: originalInfo,
-            debug: originalDebug
-        };
-    }
-}
-
-// Module export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { Logger, logger };
-}
-
-
 
     // ========================================
     // dom-utils.js
     // ========================================
-/**
- * SAFE DOM MANIPULATION UTILITIES
- * File: dom-utils.js
- *
- * WRAPPER FILE - Backward compatibility layer
- * SOURCE OF TRUTH: /shared/browser/dom-utils.js
- *
- * This file is kept for backward compatibility with existing code using:
- *   <script src="../shared/js/dom-utils.js"></script>
- *
- * For new ES Module code, import directly from:
- *   import { DOMUtils } from '/shared/browser/dom-utils.js';
- */
-
-const DOMUtils = {
     /**
-     * Set text content safely (không dùng innerHTML)
-     * @param {HTMLElement} element
-     * @param {string} text
+     * SAFE DOM MANIPULATION UTILITIES
+     * File: dom-utils.js
+     *
+     * WRAPPER FILE - Backward compatibility layer
+     * SOURCE OF TRUTH: /shared/browser/dom-utils.js
+     *
+     * This file is kept for backward compatibility with existing code using:
+     *   <script src="../shared/js/dom-utils.js"></script>
+     *
+     * For new ES Module code, import directly from:
+     *   import { DOMUtils } from '/shared/browser/dom-utils.js';
      */
-    setText(element, text) {
-        if (element) {
-            element.textContent = text;
-        }
-    },
 
-    /**
-     * Set HTML content với sanitization
-     * @param {HTMLElement} element
-     * @param {string} html
-     */
-    setHTML(element, html) {
-        if (!element) return;
-
-        // Sanitize HTML để loại bỏ script tags và event handlers
-        const sanitized = this.sanitizeHTML(html);
-        element.innerHTML = sanitized;
-    },
-
-    /**
-     * Basic HTML sanitization
-     * Loại bỏ: <script>, on* attributes, javascript: protocols
-     * @param {string} html
-     * @returns {string}
-     */
-    sanitizeHTML(html) {
-        if (typeof html !== 'string') return '';
-
-        let cleaned = html;
-
-        // Remove script tags
-        cleaned = cleaned.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-
-        // Remove event handlers (onclick, onerror, etc.)
-        cleaned = cleaned.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
-        cleaned = cleaned.replace(/\son\w+\s*=\s*[^\s>]*/gi, '');
-
-        // Remove javascript: protocol
-        cleaned = cleaned.replace(/javascript:/gi, '');
-
-        // Remove data: protocol (can be used for XSS)
-        cleaned = cleaned.replace(/data:text\/html/gi, '');
-
-        return cleaned;
-    },
-
-    /**
-     * Create element với attributes an toàn
-     * @param {string} tagName
-     * @param {object} attributes
-     * @param {string} textContent
-     * @returns {HTMLElement}
-     */
-    createElement(tagName, attributes = {}, textContent = '') {
-        const element = document.createElement(tagName);
-
-        // Set attributes safely
-        for (const [key, value] of Object.entries(attributes)) {
-            // Skip dangerous attributes
-            if (key.startsWith('on')) continue;
-            if (key === 'innerHTML') continue;
-
-            if (key === 'className' || key === 'class') {
-                element.className = value;
-            } else if (key === 'style' && typeof value === 'object') {
-                Object.assign(element.style, value);
-            } else {
-                element.setAttribute(key, value);
+    const DOMUtils = {
+        /**
+         * Set text content safely (không dùng innerHTML)
+         * @param {HTMLElement} element
+         * @param {string} text
+         */
+        setText(element, text) {
+            if (element) {
+                element.textContent = text;
             }
-        }
+        },
 
-        // Set text content
-        if (textContent) {
-            element.textContent = textContent;
-        }
+        /**
+         * Set HTML content với sanitization
+         * @param {HTMLElement} element
+         * @param {string} html
+         */
+        setHTML(element, html) {
+            if (!element) return;
 
-        return element;
-    },
+            // Sanitize HTML để loại bỏ script tags và event handlers
+            const sanitized = this.sanitizeHTML(html);
+            element.innerHTML = sanitized;
+        },
 
-    /**
-     * Append child safely
-     * @param {HTMLElement} parent
-     * @param {HTMLElement} child
-     */
-    appendChild(parent, child) {
-        if (parent && child) {
-            parent.appendChild(child);
-        }
-    },
+        /**
+         * Basic HTML sanitization
+         * Loại bỏ: <script>, on* attributes, javascript: protocols
+         * @param {string} html
+         * @returns {string}
+         */
+        sanitizeHTML(html) {
+            if (typeof html !== 'string') return '';
 
-    /**
-     * Remove all children
-     * @param {HTMLElement} element
-     */
-    clearChildren(element) {
-        if (element) {
-            while (element.firstChild) {
-                element.removeChild(element.firstChild);
+            let cleaned = html;
+
+            // Remove script tags
+            cleaned = cleaned.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+            // Remove event handlers (onclick, onerror, etc.)
+            cleaned = cleaned.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+            cleaned = cleaned.replace(/\son\w+\s*=\s*[^\s>]*/gi, '');
+
+            // Remove javascript: protocol
+            cleaned = cleaned.replace(/javascript:/gi, '');
+
+            // Remove data: protocol (can be used for XSS)
+            cleaned = cleaned.replace(/data:text\/html/gi, '');
+
+            return cleaned;
+        },
+
+        /**
+         * Create element với attributes an toàn
+         * @param {string} tagName
+         * @param {object} attributes
+         * @param {string} textContent
+         * @returns {HTMLElement}
+         */
+        createElement(tagName, attributes = {}, textContent = '') {
+            const element = document.createElement(tagName);
+
+            // Set attributes safely
+            for (const [key, value] of Object.entries(attributes)) {
+                // Skip dangerous attributes
+                if (key.startsWith('on')) continue;
+                if (key === 'innerHTML') continue;
+
+                if (key === 'className' || key === 'class') {
+                    element.className = value;
+                } else if (key === 'style' && typeof value === 'object') {
+                    Object.assign(element.style, value);
+                } else {
+                    element.setAttribute(key, value);
+                }
             }
-        }
-    },
 
-    /**
-     * Escape HTML entities
-     * @param {string} text
-     * @returns {string}
-     */
-    escapeHTML(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    },
+            // Set text content
+            if (textContent) {
+                element.textContent = textContent;
+            }
 
-    /**
-     * Unescape HTML entities
-     * @param {string} html
-     * @returns {string}
-     */
-    unescapeHTML(html) {
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        return div.textContent;
+            return element;
+        },
+
+        /**
+         * Append child safely
+         * @param {HTMLElement} parent
+         * @param {HTMLElement} child
+         */
+        appendChild(parent, child) {
+            if (parent && child) {
+                parent.appendChild(child);
+            }
+        },
+
+        /**
+         * Remove all children
+         * @param {HTMLElement} element
+         */
+        clearChildren(element) {
+            if (element) {
+                while (element.firstChild) {
+                    element.removeChild(element.firstChild);
+                }
+            }
+        },
+
+        /**
+         * Escape HTML entities
+         * @param {string} text
+         * @returns {string}
+         */
+        escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        /**
+         * Unescape HTML entities
+         * @param {string} html
+         * @returns {string}
+         */
+        unescapeHTML(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            return div.textContent;
+        },
+    };
+
+    // Export to window
+    if (typeof window !== 'undefined') {
+        window.DOMUtils = DOMUtils;
     }
-};
 
-// Export to window
-if (typeof window !== 'undefined') {
-    window.DOMUtils = DOMUtils;
-}
-
-// Module export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { DOMUtils };
-}
-
-
+    // Module export
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { DOMUtils };
+    }
 
     // ========================================
     // common-utils.js
     // ========================================
-/**
- * Common UI Utilities - Các tiện ích giao diện chung
- * File: common-utils.js
- *
- * WRAPPER FILE - Backward compatibility layer
- * SOURCE OF TRUTH: /shared/browser/common-utils.js
- *
- * This file is kept for backward compatibility with existing code using:
- *   <script src="../shared/js/common-utils.js"></script>
- *
- * For new ES Module code, import directly from:
- *   import { CommonUtils } from '/shared/browser/common-utils.js';
- */
+    /**
+     * Common UI Utilities - Các tiện ích giao diện chung
+     * File: common-utils.js
+     *
+     * WRAPPER FILE - Backward compatibility layer
+     * SOURCE OF TRUTH: /shared/browser/common-utils.js
+     *
+     * This file is kept for backward compatibility with existing code using:
+     *   <script src="../shared/js/common-utils.js"></script>
+     *
+     * For new ES Module code, import directly from:
+     *   import { CommonUtils } from '/shared/browser/common-utils.js';
+     */
 
-/**
- * ====================================================================================
- * STATUS & NOTIFICATION SYSTEM
- * ====================================================================================
- */
+    /**
+     * ====================================================================================
+     * STATUS & NOTIFICATION SYSTEM
+     * ====================================================================================
+     */
 
-/**
- * Hiển thị thông báo status
- */
-function showStatusMessage(message, type = "info") {
-    const indicator = document.getElementById("statusIndicator");
-    if (indicator) {
-        indicator.textContent = message;
-        indicator.className = `status-indicator ${type} show`;
+    /**
+     * Hiển thị thông báo status
+     */
+    function showStatusMessage(message, type = 'info') {
+        const indicator = document.getElementById('statusIndicator');
+        if (indicator) {
+            indicator.textContent = message;
+            indicator.className = `status-indicator ${type} show`;
 
-        setTimeout(() => {
-            indicator.classList.remove("show");
-        }, 3000);
-    }
-}
-
-/**
- * ====================================================================================
- * ENHANCED FLOATING ALERT SYSTEM VỚI LOADING BLOCK
- * ====================================================================================
- */
-
-// Namespace để tránh conflicts
-window.FloatingAlert = window.FloatingAlert || {};
-
-// Global state tracking trong namespace
-if (typeof window.FloatingAlert.isPageBlocked === "undefined") {
-    window.FloatingAlert.isPageBlocked = false;
-    window.FloatingAlert.blockingOverlay = null;
-}
-
-/**
- * Enhanced floating alert với khóa tương tác khi loading
- */
-function showFloatingAlert(message, type = "info", duration = 3000) {
-    const alert = document.getElementById("floatingAlert");
-    if (alert) {
-        // Tìm elements an toàn
-        const alertText = alert.querySelector(".alert-text");
-        const spinner = alert.querySelector(".loading-spinner");
-
-        // Cập nhật nội dung
-        if (alertText) {
-            alertText.textContent = message;
-        } else {
-            // Fallback nếu không có .alert-text
-            alert.textContent = message;
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 3000);
         }
+    }
 
-        // Reset classes
-        alert.className = "show";
+    /**
+     * ====================================================================================
+     * ENHANCED FLOATING ALERT SYSTEM VỚI LOADING BLOCK
+     * ====================================================================================
+     */
 
-        if (type === "loading") {
-            alert.classList.add("loading");
-            if (spinner) spinner.style.display = "block";
+    // Namespace để tránh conflicts
+    window.FloatingAlert = window.FloatingAlert || {};
 
-            // KHÓA TƯƠNG TÁC KHI LOADING
-            blockPageInteractions();
-        } else {
-            alert.classList.add(type);
-            if (spinner) spinner.style.display = "none";
+    // Global state tracking trong namespace
+    if (typeof window.FloatingAlert.isPageBlocked === 'undefined') {
+        window.FloatingAlert.isPageBlocked = false;
+        window.FloatingAlert.blockingOverlay = null;
+    }
 
-            // MỞ KHÓA TƯƠNG TÁC CHO CÁC LOẠI KHÁC
+    /**
+     * Enhanced floating alert với khóa tương tác khi loading
+     */
+    function showFloatingAlert(message, type = 'info', duration = 3000) {
+        const alert = document.getElementById('floatingAlert');
+        if (alert) {
+            // Tìm elements an toàn
+            const alertText = alert.querySelector('.alert-text');
+            const spinner = alert.querySelector('.loading-spinner');
+
+            // Cập nhật nội dung
+            if (alertText) {
+                alertText.textContent = message;
+            } else {
+                // Fallback nếu không có .alert-text
+                alert.textContent = message;
+            }
+
+            // Reset classes
+            alert.className = 'show';
+
+            if (type === 'loading') {
+                alert.classList.add('loading');
+                if (spinner) spinner.style.display = 'block';
+
+                // KHÓA TƯƠNG TÁC KHI LOADING
+                blockPageInteractions();
+            } else {
+                alert.classList.add(type);
+                if (spinner) spinner.style.display = 'none';
+
+                // MỞ KHÓA TƯƠNG TÁC CHO CÁC LOẠI KHÁC
+                unblockPageInteractions();
+            }
+
+            // Auto hide cho non-loading alerts
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    alert.classList.remove('show');
+                }, duration);
+            }
+        }
+    }
+
+    /**
+     * Hide floating alert và mở khóa tương tác
+     */
+    function hideFloatingAlert() {
+        const alert = document.getElementById('floatingAlert');
+        if (alert) {
+            alert.classList.remove('show');
+
+            // MỞ KHÓA TƯƠNG TÁC KHI ẨN ALERT
             unblockPageInteractions();
         }
+    }
 
-        // Auto hide cho non-loading alerts
-        if (type !== "loading") {
-            setTimeout(() => {
-                alert.classList.remove("show");
-            }, duration);
+    /**
+     * KHÓA TƯƠNG TÁC TOÀN TRANG
+     */
+    function blockPageInteractions() {
+        if (window.FloatingAlert.isPageBlocked) return; // Tránh duplicate
+
+        window.FloatingAlert.isPageBlocked = true;
+
+        // Tạo overlay chặn
+        createBlockingOverlay();
+
+        // Vô hiệu hóa body interactions
+        document.body.style.pointerEvents = 'none';
+        document.body.style.userSelect = 'none';
+        document.body.classList.add('page-blocked');
+
+        // Cho phép alert vẫn hoạt động
+        const alert = document.getElementById('floatingAlert');
+        if (alert) {
+            alert.style.pointerEvents = 'auto';
+            alert.style.zIndex = '10000';
         }
-    }
-}
 
-/**
- * Hide floating alert và mở khóa tương tác
- */
-function hideFloatingAlert() {
-    const alert = document.getElementById("floatingAlert");
-    if (alert) {
-        alert.classList.remove("show");
+        // Vô hiệu hóa keyboard navigation
+        document.addEventListener('keydown', blockKeyboardInteraction, true);
+        document.addEventListener('keyup', blockKeyboardInteraction, true);
+        document.addEventListener('keypress', blockKeyboardInteraction, true);
 
-        // MỞ KHÓA TƯƠNG TÁC KHI ẨN ALERT
-        unblockPageInteractions();
-    }
-}
+        // Vô hiệu hóa context menu
+        document.addEventListener('contextmenu', preventDefaultAction, true);
 
-/**
- * KHÓA TƯƠNG TÁC TOÀN TRANG
- */
-function blockPageInteractions() {
-    if (window.FloatingAlert.isPageBlocked) return; // Tránh duplicate
-
-    window.FloatingAlert.isPageBlocked = true;
-
-    // Tạo overlay chặn
-    createBlockingOverlay();
-
-    // Vô hiệu hóa body interactions
-    document.body.style.pointerEvents = "none";
-    document.body.style.userSelect = "none";
-    document.body.classList.add("page-blocked");
-
-    // Cho phép alert vẫn hoạt động
-    const alert = document.getElementById("floatingAlert");
-    if (alert) {
-        alert.style.pointerEvents = "auto";
-        alert.style.zIndex = "10000";
+        // Vô hiệu hóa drag & drop
+        document.addEventListener('dragstart', preventDefaultAction, true);
     }
 
-    // Vô hiệu hóa keyboard navigation
-    document.addEventListener("keydown", blockKeyboardInteraction, true);
-    document.addEventListener("keyup", blockKeyboardInteraction, true);
-    document.addEventListener("keypress", blockKeyboardInteraction, true);
+    /**
+     * MỞ KHÓA TƯƠNG TÁC TOÀN TRANG
+     */
+    function unblockPageInteractions() {
+        if (!window.FloatingAlert.isPageBlocked) return; // Không cần unblock nếu chưa block
 
-    // Vô hiệu hóa context menu
-    document.addEventListener("contextmenu", preventDefaultAction, true);
+        window.FloatingAlert.isPageBlocked = false;
 
-    // Vô hiệu hóa drag & drop
-    document.addEventListener("dragstart", preventDefaultAction, true);
+        // Xóa overlay chặn
+        removeBlockingOverlay();
 
-}
+        // Kích hoạt lại body interactions
+        document.body.style.pointerEvents = '';
+        document.body.style.userSelect = '';
+        document.body.classList.remove('page-blocked');
 
-/**
- * MỞ KHÓA TƯƠNG TÁC TOÀN TRANG
- */
-function unblockPageInteractions() {
-    if (!window.FloatingAlert.isPageBlocked) return; // Không cần unblock nếu chưa block
+        // Reset alert styles
+        const alert = document.getElementById('floatingAlert');
+        if (alert) {
+            alert.style.pointerEvents = '';
+            alert.style.zIndex = '';
+        }
 
-    window.FloatingAlert.isPageBlocked = false;
+        // Kích hoạt lại keyboard navigation
+        document.removeEventListener('keydown', blockKeyboardInteraction, true);
+        document.removeEventListener('keyup', blockKeyboardInteraction, true);
+        document.removeEventListener('keypress', blockKeyboardInteraction, true);
 
-    // Xóa overlay chặn
-    removeBlockingOverlay();
+        // Kích hoạt lại context menu
+        document.removeEventListener('contextmenu', preventDefaultAction, true);
 
-    // Kích hoạt lại body interactions
-    document.body.style.pointerEvents = "";
-    document.body.style.userSelect = "";
-    document.body.classList.remove("page-blocked");
-
-    // Reset alert styles
-    const alert = document.getElementById("floatingAlert");
-    if (alert) {
-        alert.style.pointerEvents = "";
-        alert.style.zIndex = "";
+        // Kích hoạt lại drag & drop
+        document.removeEventListener('dragstart', preventDefaultAction, true);
     }
 
-    // Kích hoạt lại keyboard navigation
-    document.removeEventListener("keydown", blockKeyboardInteraction, true);
-    document.removeEventListener("keyup", blockKeyboardInteraction, true);
-    document.removeEventListener("keypress", blockKeyboardInteraction, true);
+    /**
+     * Tạo overlay chặn tương tác
+     */
+    function createBlockingOverlay() {
+        if (window.FloatingAlert.blockingOverlay) return; // Tránh tạo duplicate
 
-    // Kích hoạt lại context menu
-    document.removeEventListener("contextmenu", preventDefaultAction, true);
-
-    // Kích hoạt lại drag & drop
-    document.removeEventListener("dragstart", preventDefaultAction, true);
-
-}
-
-/**
- * Tạo overlay chặn tương tác
- */
-function createBlockingOverlay() {
-    if (window.FloatingAlert.blockingOverlay) return; // Tránh tạo duplicate
-
-    window.FloatingAlert.blockingOverlay = document.createElement("div");
-    window.FloatingAlert.blockingOverlay.id = "loadingBlockOverlay";
-    window.FloatingAlert.blockingOverlay.innerHTML = `
+        window.FloatingAlert.blockingOverlay = document.createElement('div');
+        window.FloatingAlert.blockingOverlay.id = 'loadingBlockOverlay';
+        window.FloatingAlert.blockingOverlay.innerHTML = `
         <div class="blocking-content">
             <div class="blocking-spinner"></div>
             <div class="blocking-message">Vui lòng đợi...</div>
         </div>
     `;
 
-    // Styles cho overlay
-    Object.assign(window.FloatingAlert.blockingOverlay.style, {
-        position: "fixed",
-        top: "0",
-        left: "0",
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-        zIndex: "9999",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backdropFilter: "blur(2px)",
-        cursor: "wait",
-    });
+        // Styles cho overlay
+        Object.assign(window.FloatingAlert.blockingOverlay.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            zIndex: '9999',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backdropFilter: 'blur(2px)',
+            cursor: 'wait',
+        });
 
-    document.body.appendChild(window.FloatingAlert.blockingOverlay);
+        document.body.appendChild(window.FloatingAlert.blockingOverlay);
 
-    // Animate in
-    setTimeout(() => {
-        if (window.FloatingAlert.blockingOverlay) {
-            window.FloatingAlert.blockingOverlay.style.opacity = "1";
-        }
-    }, 10);
-}
-
-/**
- * Xóa overlay chặn tương tác
- */
-function removeBlockingOverlay() {
-    if (window.FloatingAlert.blockingOverlay) {
-        window.FloatingAlert.blockingOverlay.style.opacity = "0";
+        // Animate in
         setTimeout(() => {
-            if (
-                window.FloatingAlert.blockingOverlay &&
-                window.FloatingAlert.blockingOverlay.parentNode
-            ) {
-                window.FloatingAlert.blockingOverlay.parentNode.removeChild(
-                    window.FloatingAlert.blockingOverlay,
-                );
+            if (window.FloatingAlert.blockingOverlay) {
+                window.FloatingAlert.blockingOverlay.style.opacity = '1';
             }
-            window.FloatingAlert.blockingOverlay = null;
-        }, 300);
-    }
-}
-
-/**
- * Chặn keyboard interactions
- */
-function blockKeyboardInteraction(event) {
-    // Chỉ cho phép ESC để cancel loading nếu cần
-    if (event.key === "Escape") {
-        return; // Có thể thêm logic cancel loading ở đây
+        }, 10);
     }
 
-    // Chặn tất cả các phím khác
-    event.preventDefault();
-    event.stopPropagation();
-    return false;
-}
+    /**
+     * Xóa overlay chặn tương tác
+     */
+    function removeBlockingOverlay() {
+        if (window.FloatingAlert.blockingOverlay) {
+            window.FloatingAlert.blockingOverlay.style.opacity = '0';
+            setTimeout(() => {
+                if (
+                    window.FloatingAlert.blockingOverlay &&
+                    window.FloatingAlert.blockingOverlay.parentNode
+                ) {
+                    window.FloatingAlert.blockingOverlay.parentNode.removeChild(
+                        window.FloatingAlert.blockingOverlay
+                    );
+                }
+                window.FloatingAlert.blockingOverlay = null;
+            }, 300);
+        }
+    }
 
-/**
- * Ngăn default actions
- */
-function preventDefaultAction(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    return false;
-}
+    /**
+     * Chặn keyboard interactions
+     */
+    function blockKeyboardInteraction(event) {
+        // Chỉ cho phép ESC để cancel loading nếu cần
+        if (event.key === 'Escape') {
+            return; // Có thể thêm logic cancel loading ở đây
+        }
 
-/**
- * Inject CSS cho blocking system
- */
-function injectBlockingStyles() {
-    if (document.getElementById("loadingBlockStyles")) return;
+        // Chặn tất cả các phím khác
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+    }
 
-    const styles = document.createElement("style");
-    styles.id = "loadingBlockStyles";
-    styles.textContent = `
+    /**
+     * Ngăn default actions
+     */
+    function preventDefaultAction(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+    }
+
+    /**
+     * Inject CSS cho blocking system
+     */
+    function injectBlockingStyles() {
+        if (document.getElementById('loadingBlockStyles')) return;
+
+        const styles = document.createElement('style');
+        styles.id = 'loadingBlockStyles';
+        styles.textContent = `
         /* Page blocked state */
         body.page-blocked {
             overflow: hidden;
@@ -635,414 +629,405 @@ function injectBlockingStyles() {
         }
     `;
 
-    document.head.appendChild(styles);
-}
-
-/**
- * Show loading với blocking
- */
-function showLoading(message = "Đang xử lý...") {
-    showFloatingAlert(message, "loading");
-}
-
-/**
- * Show success và unblock
- */
-function showSuccess(message = "Thành công!", duration = 2000) {
-    hideFloatingAlert();
-    setTimeout(() => {
-        showFloatingAlert(message, "success", duration);
-    }, 100);
-}
-
-/**
- * Show error và unblock
- */
-function showError(message = "Có lỗi xảy ra!", duration = 3000) {
-    hideFloatingAlert();
-    setTimeout(() => {
-        showFloatingAlert(message, "error", duration);
-    }, 100);
-}
-
-/**
- * Utility: Check nếu page đang bị block
- */
-function isPageCurrentlyBlocked() {
-    return window.FloatingAlert.isPageBlocked;
-}
-
-/**
- * Utility: Force unblock (emergency)
- */
-function forceUnblockPage() {
-    console.warn("Force unblocking page interactions");
-    unblockPageInteractions();
-    hideFloatingAlert();
-}
-
-/**
- * Auto-inject styles khi script load
- */
-(function () {
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", injectBlockingStyles);
-    } else {
-        injectBlockingStyles();
+        document.head.appendChild(styles);
     }
-})();
 
-/**
- * Auto-cleanup khi page unload
- */
-window.addEventListener("beforeunload", function () {
-    if (window.FloatingAlert.isPageBlocked) {
-        forceUnblockPage();
+    /**
+     * Show loading với blocking
+     */
+    function showLoading(message = 'Đang xử lý...') {
+        showFloatingAlert(message, 'loading');
     }
-});
 
-/**
- * ====================================================================================
- * EVENT HANDLERS SETUP
- * ====================================================================================
- */
+    /**
+     * Show success và unblock
+     */
+    function showSuccess(message = 'Thành công!', duration = 2000) {
+        hideFloatingAlert();
+        setTimeout(() => {
+            showFloatingAlert(message, 'success', duration);
+        }, 100);
+    }
 
-/**
- * Setup clipboard container drag & drop feedback
- */
-function setupClipboardContainers() {
-    const containers = ["container", "containerKH"];
-    containers.forEach((containerId) => {
-        const container = document.getElementById(containerId);
-        if (container) {
-            container.addEventListener("dragover", function (e) {
-                e.preventDefault();
-                this.style.borderColor = "#667eea";
-                this.style.background = "#f0f4ff";
-            });
+    /**
+     * Show error và unblock
+     */
+    function showError(message = 'Có lỗi xảy ra!', duration = 3000) {
+        hideFloatingAlert();
+        setTimeout(() => {
+            showFloatingAlert(message, 'error', duration);
+        }, 100);
+    }
 
-            container.addEventListener("dragleave", function (e) {
-                e.preventDefault();
-                this.style.borderColor = "#ddd";
-                this.style.background = "#f9f9f9";
-            });
+    /**
+     * Utility: Check nếu page đang bị block
+     */
+    function isPageCurrentlyBlocked() {
+        return window.FloatingAlert.isPageBlocked;
+    }
 
-            container.addEventListener("drop", function (e) {
-                e.preventDefault();
-                this.style.borderColor = "#28a745";
-                this.style.background = "#f8fff9";
-                this.classList.add("has-content");
-            });
+    /**
+     * Utility: Force unblock (emergency)
+     */
+    function forceUnblockPage() {
+        console.warn('Force unblocking page interactions');
+        unblockPageInteractions();
+        hideFloatingAlert();
+    }
+
+    /**
+     * Auto-inject styles khi script load
+     */
+    (function () {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', injectBlockingStyles);
+        } else {
+            injectBlockingStyles();
+        }
+    })();
+
+    /**
+     * Auto-cleanup khi page unload
+     */
+    window.addEventListener('beforeunload', function () {
+        if (window.FloatingAlert.isPageBlocked) {
+            forceUnblockPage();
         }
     });
-}
 
-/**
- * Setup form monitoring cho better UX
- */
-function setupFormMonitoring() {
-    const form = document.querySelector("#dataForm form");
-    if (form) {
-        form.addEventListener("input", function () {
-            const addButton = document.getElementById("addButton");
-            const requiredFields = form.querySelectorAll("[required]");
-            let allFilled = true;
+    /**
+     * ====================================================================================
+     * EVENT HANDLERS SETUP
+     * ====================================================================================
+     */
 
-            requiredFields.forEach((field) => {
-                if (!field.value.trim()) {
-                    allFilled = false;
-                }
-            });
+    /**
+     * Setup clipboard container drag & drop feedback
+     */
+    function setupClipboardContainers() {
+        const containers = ['container', 'containerKH'];
+        containers.forEach((containerId) => {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    this.style.borderColor = '#667eea';
+                    this.style.background = '#f0f4ff';
+                });
 
-            if (addButton) {
-                addButton.style.opacity = allFilled ? "1" : "0.6";
+                container.addEventListener('dragleave', function (e) {
+                    e.preventDefault();
+                    this.style.borderColor = '#ddd';
+                    this.style.background = '#f9f9f9';
+                });
+
+                container.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    this.style.borderColor = '#28a745';
+                    this.style.background = '#f8fff9';
+                    this.classList.add('has-content');
+                });
             }
         });
     }
-}
 
-/**
- * Setup security and performance indicators
- */
-function setupSecurityIndicators() {
-    // Update security indicator based on HTTPS
-    const securityIndicator = document.getElementById("securityIndicator");
-    if (securityIndicator) {
-        if (location.protocol !== "https:") {
-            securityIndicator.textContent = "Insecure";
-            securityIndicator.classList.add("insecure");
+    /**
+     * Setup form monitoring cho better UX
+     */
+    function setupFormMonitoring() {
+        const form = document.querySelector('#dataForm form');
+        if (form) {
+            form.addEventListener('input', function () {
+                const addButton = document.getElementById('addButton');
+                const requiredFields = form.querySelectorAll('[required]');
+                let allFilled = true;
+
+                requiredFields.forEach((field) => {
+                    if (!field.value.trim()) {
+                        allFilled = false;
+                    }
+                });
+
+                if (addButton) {
+                    addButton.style.opacity = allFilled ? '1' : '0.6';
+                }
+            });
         }
     }
 
-    // Show performance indicator
-    const performanceIndicator = document.getElementById(
-        "performanceIndicator",
-    );
-    if (performanceIndicator) {
-        performanceIndicator.style.display = "block";
-        setTimeout(() => {
-            performanceIndicator.style.display = "none";
-        }, 3000);
-    }
-}
-
-/**
- * ====================================================================================
- * MONITORING & ERROR HANDLING
- * ====================================================================================
- */
-
-/**
- * Performance monitoring
- */
-function setupPerformanceMonitoring() {
-    window.addEventListener("load", function () {
-        if (performance && performance.timing) {
-            const loadTime =
-                performance.timing.loadEventEnd -
-                performance.timing.navigationStart;
-            if (loadTime < 2000) {
-                showStatusMessage("Tải trang nhanh!", "success");
-            } else if (loadTime > 5000) {
-                showStatusMessage("Tải trang chậm", "error");
+    /**
+     * Setup security and performance indicators
+     */
+    function setupSecurityIndicators() {
+        // Update security indicator based on HTTPS
+        const securityIndicator = document.getElementById('securityIndicator');
+        if (securityIndicator) {
+            if (location.protocol !== 'https:') {
+                securityIndicator.textContent = 'Insecure';
+                securityIndicator.classList.add('insecure');
             }
         }
-    });
-}
 
-/**
- * Global error handler with user feedback
- */
-function setupErrorHandling() {
-    window.addEventListener("error", function (e) {
-        console.error("Global error:", e.error);
-        showStatusMessage("Có lỗi xảy ra!", "error");
-    });
-
-    // Handle unhandled promise rejections
-    window.addEventListener("unhandledrejection", function (e) {
-        console.error("Unhandled promise rejection:", e.reason);
-        showStatusMessage("Có lỗi xảy ra!", "error");
-    });
-}
-
-/**
- * ====================================================================================
- * INITIALIZATION
- * ====================================================================================
- */
-
-/**
- * Setup all common UI event handlers
- */
-function setupCommonEventHandlers() {
-    // Enhanced clipboard container feedback
-    setupClipboardContainers();
-
-    // Monitor form state
-    setupFormMonitoring();
-
-    // Setup security and performance indicators
-    setupSecurityIndicators();
-}
-
-/**
- * Initialize all common utilities
- */
-function initializeCommonUtils() {
-    // Setup common UI handlers
-    setupCommonEventHandlers();
-
-    // Setup performance monitoring
-    setupPerformanceMonitoring();
-
-    // Setup error handling
-    setupErrorHandling();
-
-}
-
-/**
- * ====================================================================================
- * EXPORTS
- * ====================================================================================
- */
-
-// Export cho window object để sử dụng globally
-if (typeof window !== "undefined") {
-    // Export individual functions
-    window.showStatusMessage = showStatusMessage;
-    window.showFloatingAlert = showFloatingAlert;
-    window.hideFloatingAlert = hideFloatingAlert;
-
-    // Export setup functions
-    window.setupClipboardContainers = setupClipboardContainers;
-    window.setupFormMonitoring = setupFormMonitoring;
-    window.setupSecurityIndicators = setupSecurityIndicators;
-    window.setupPerformanceMonitoring = setupPerformanceMonitoring;
-    window.setupErrorHandling = setupErrorHandling;
-    window.setupCommonEventHandlers = setupCommonEventHandlers;
-    window.initializeCommonUtils = initializeCommonUtils;
-
-    // Export Role
-    window.getRoleInfo = getRoleInfo;
-    window.initializePageTitle = initializePageTitle;
-    window.displayUserInfo = displayUserInfo;
-
-    // Export as CommonUtils namespace
-    window.CommonUtils = {
-        // Notification functions
-        showStatusMessage: showStatusMessage,
-        showFloatingAlert: showFloatingAlert,
-        hideFloatingAlert: hideFloatingAlert,
-
-        // Setup functions
-        setupClipboardContainers: setupClipboardContainers,
-        setupFormMonitoring: setupFormMonitoring,
-        setupSecurityIndicators: setupSecurityIndicators,
-        setupPerformanceMonitoring: setupPerformanceMonitoring,
-        setupErrorHandling: setupErrorHandling,
-        setupCommonEventHandlers: setupCommonEventHandlers,
-
-        // Main init
-        init: initializeCommonUtils,
-    };
-}
-
-// Export cho module systems (Node.js, ES6 modules)
-if (typeof module !== "undefined" && module.exports) {
-    module.exports = {
-        showStatusMessage,
-        showFloatingAlert,
-        hideFloatingAlert,
-        setupFormMonitoring,
-        setupSecurityIndicators,
-        setupPerformanceMonitoring,
-        setupErrorHandling,
-        setupCommonEventHandlers,
-        initializeCommonUtils,
-    };
-}
-
-/**
- * Hàm lấy icon và tên role dựa trên checkLogin
- * @param {number} checkLogin - Mã quyền hạn (0, 1, 2, 3, 777)
- * @returns {object} - Object chứa icon và text
- */
-function getRoleInfo(checkLogin) {
-    const roleMap = {
-        0: { icon: "👑", text: "Admin" },
-        1: { icon: "👤", text: "User" },
-        2: { icon: "🔒", text: "Limited" },
-        3: { icon: "💡", text: "Basic" },
-        777: { icon: "👥", text: "Guest" },
-    };
-
-    return roleMap[checkLogin] || { icon: "❓", text: "Unknown" };
-}
-
-/**
- * Hàm cập nhật title với role icon
- * @param {HTMLElement} titleElement - Element chứa title
- * @param {object} auth - Object chứa thông tin auth user
- */
-function updateTitleWithRoleEnhanced(titleElement, auth) {
-    if (!titleElement || !auth) return;
-
-    const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
-    const baseTitle = titleElement.textContent.split(" - ")[0];
-
-    // Clear và rebuild với proper structure
-    titleElement.innerHTML = "";
-
-    // Title text
-    const titleText = document.createTextNode(`${baseTitle} - `);
-    titleElement.appendChild(titleText);
-
-    // Icon với class theo role
-    const iconSpan = document.createElement("span");
-    iconSpan.className = "role-icon";
-
-    // Thêm class specific theo role
-    const roleClass =
-        {
-            0: "admin",
-            1: "user",
-            2: "limited",
-            3: "basic",
-            777: "guest",
-        }[parseInt(auth.checkLogin)] || "default";
-
-    iconSpan.classList.add(roleClass);
-    iconSpan.textContent = roleInfo.icon;
-    titleElement.appendChild(iconSpan);
-
-    // User name text
-    const userText = document.createTextNode(
-        ` ${auth.displayName || auth.username}`,
-    );
-    titleElement.appendChild(userText);
-}
-
-// Export enhanced version
-window.updateTitleWithRoleEnhanced = updateTitleWithRoleEnhanced;
-
-/**
- * Ví dụ sử dụng trong các trang
- */
-function initializePageTitle() {
-    try {
-        const authData = localStorage.getItem("loginindex_auth");
-        if (!authData) return;
-
-        const auth = JSON.parse(authData);
-        const titleElement = document.querySelector(
-            "h1, .page-title, .header h1",
-        );
-
-        if (titleElement && auth.checkLogin !== undefined) {
-            updateTitleWithRoleEnhanced(titleElement, auth);
+        // Show performance indicator
+        const performanceIndicator = document.getElementById('performanceIndicator');
+        if (performanceIndicator) {
+            performanceIndicator.style.display = 'block';
+            setTimeout(() => {
+                performanceIndicator.style.display = 'none';
+            }, 3000);
         }
-
-    } catch (error) {
-        console.error("Error updating page title:", error);
     }
-}
 
-/**
- * Hàm hiển thị user info với icon ở sidebar hoặc header
- * @param {string} containerSelector - Selector của container
- */
-function displayUserInfo(containerSelector = ".user-info") {
-    try {
-        const authData = localStorage.getItem("loginindex_auth");
-        if (!authData) return;
+    /**
+     * ====================================================================================
+     * MONITORING & ERROR HANDLING
+     * ====================================================================================
+     */
 
-        const auth = JSON.parse(authData);
-        const container = document.querySelector(containerSelector);
+    /**
+     * Performance monitoring
+     */
+    function setupPerformanceMonitoring() {
+        window.addEventListener('load', function () {
+            if (performance && performance.timing) {
+                const loadTime =
+                    performance.timing.loadEventEnd - performance.timing.navigationStart;
+                if (loadTime < 2000) {
+                    showStatusMessage('Tải trang nhanh!', 'success');
+                } else if (loadTime > 5000) {
+                    showStatusMessage('Tải trang chậm', 'error');
+                }
+            }
+        });
+    }
 
-        if (container) {
-            const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
-            container.innerHTML = `
+    /**
+     * Global error handler with user feedback
+     */
+    function setupErrorHandling() {
+        window.addEventListener('error', function (e) {
+            console.error('Global error:', e.error);
+            showStatusMessage('Có lỗi xảy ra!', 'error');
+        });
+
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', function (e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            showStatusMessage('Có lỗi xảy ra!', 'error');
+        });
+    }
+
+    /**
+     * ====================================================================================
+     * INITIALIZATION
+     * ====================================================================================
+     */
+
+    /**
+     * Setup all common UI event handlers
+     */
+    function setupCommonEventHandlers() {
+        // Enhanced clipboard container feedback
+        setupClipboardContainers();
+
+        // Monitor form state
+        setupFormMonitoring();
+
+        // Setup security and performance indicators
+        setupSecurityIndicators();
+    }
+
+    /**
+     * Initialize all common utilities
+     */
+    function initializeCommonUtils() {
+        // Setup common UI handlers
+        setupCommonEventHandlers();
+
+        // Setup performance monitoring
+        setupPerformanceMonitoring();
+
+        // Setup error handling
+        setupErrorHandling();
+    }
+
+    /**
+     * ====================================================================================
+     * EXPORTS
+     * ====================================================================================
+     */
+
+    // Export cho window object để sử dụng globally
+    if (typeof window !== 'undefined') {
+        // Export individual functions
+        window.showStatusMessage = showStatusMessage;
+        window.showFloatingAlert = showFloatingAlert;
+        window.hideFloatingAlert = hideFloatingAlert;
+
+        // Export setup functions
+        window.setupClipboardContainers = setupClipboardContainers;
+        window.setupFormMonitoring = setupFormMonitoring;
+        window.setupSecurityIndicators = setupSecurityIndicators;
+        window.setupPerformanceMonitoring = setupPerformanceMonitoring;
+        window.setupErrorHandling = setupErrorHandling;
+        window.setupCommonEventHandlers = setupCommonEventHandlers;
+        window.initializeCommonUtils = initializeCommonUtils;
+
+        // Export Role
+        window.getRoleInfo = getRoleInfo;
+        window.initializePageTitle = initializePageTitle;
+        window.displayUserInfo = displayUserInfo;
+
+        // Export as CommonUtils namespace
+        window.CommonUtils = {
+            // Notification functions
+            showStatusMessage: showStatusMessage,
+            showFloatingAlert: showFloatingAlert,
+            hideFloatingAlert: hideFloatingAlert,
+
+            // Setup functions
+            setupClipboardContainers: setupClipboardContainers,
+            setupFormMonitoring: setupFormMonitoring,
+            setupSecurityIndicators: setupSecurityIndicators,
+            setupPerformanceMonitoring: setupPerformanceMonitoring,
+            setupErrorHandling: setupErrorHandling,
+            setupCommonEventHandlers: setupCommonEventHandlers,
+
+            // Main init
+            init: initializeCommonUtils,
+        };
+    }
+
+    // Export cho module systems (Node.js, ES6 modules)
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            showStatusMessage,
+            showFloatingAlert,
+            hideFloatingAlert,
+            setupFormMonitoring,
+            setupSecurityIndicators,
+            setupPerformanceMonitoring,
+            setupErrorHandling,
+            setupCommonEventHandlers,
+            initializeCommonUtils,
+        };
+    }
+
+    /**
+     * Hàm lấy icon và tên role dựa trên checkLogin
+     * @param {number} checkLogin - Mã quyền hạn (0, 1, 2, 3, 777)
+     * @returns {object} - Object chứa icon và text
+     */
+    function getRoleInfo(checkLogin) {
+        const roleMap = {
+            0: { icon: '👑', text: 'Admin' },
+            1: { icon: '👤', text: 'User' },
+            2: { icon: '🔒', text: 'Limited' },
+            3: { icon: '💡', text: 'Basic' },
+            777: { icon: '👥', text: 'Guest' },
+        };
+
+        return roleMap[checkLogin] || { icon: '❓', text: 'Unknown' };
+    }
+
+    /**
+     * Hàm cập nhật title với role icon
+     * @param {HTMLElement} titleElement - Element chứa title
+     * @param {object} auth - Object chứa thông tin auth user
+     */
+    function updateTitleWithRoleEnhanced(titleElement, auth) {
+        if (!titleElement || !auth) return;
+
+        const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
+        const baseTitle = titleElement.textContent.split(' - ')[0];
+
+        // Clear và rebuild với proper structure
+        titleElement.innerHTML = '';
+
+        // Title text
+        const titleText = document.createTextNode(`${baseTitle} - `);
+        titleElement.appendChild(titleText);
+
+        // Icon với class theo role
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'role-icon';
+
+        // Thêm class specific theo role
+        const roleClass =
+            {
+                0: 'admin',
+                1: 'user',
+                2: 'limited',
+                3: 'basic',
+                777: 'guest',
+            }[parseInt(auth.checkLogin)] || 'default';
+
+        iconSpan.classList.add(roleClass);
+        iconSpan.textContent = roleInfo.icon;
+        titleElement.appendChild(iconSpan);
+
+        // User name text
+        const userText = document.createTextNode(` ${auth.displayName || auth.username}`);
+        titleElement.appendChild(userText);
+    }
+
+    // Export enhanced version
+    window.updateTitleWithRoleEnhanced = updateTitleWithRoleEnhanced;
+
+    /**
+     * Ví dụ sử dụng trong các trang
+     */
+    function initializePageTitle() {
+        try {
+            const authData = localStorage.getItem('loginindex_auth');
+            if (!authData) return;
+
+            const auth = JSON.parse(authData);
+            const titleElement = document.querySelector('h1, .page-title, .header h1');
+
+            if (titleElement && auth.checkLogin !== undefined) {
+                updateTitleWithRoleEnhanced(titleElement, auth);
+            }
+        } catch (error) {
+            console.error('Error updating page title:', error);
+        }
+    }
+
+    /**
+     * Hàm hiển thị user info với icon ở sidebar hoặc header
+     * @param {string} containerSelector - Selector của container
+     */
+    function displayUserInfo(containerSelector = '.user-info') {
+        try {
+            const authData = localStorage.getItem('loginindex_auth');
+            if (!authData) return;
+
+            const auth = JSON.parse(authData);
+            const container = document.querySelector(containerSelector);
+
+            if (container) {
+                const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
+                container.innerHTML = `
                 <span class="user-role-badge">
                     ${roleInfo.icon} ${auth.displayName || auth.username}
                     <small>(${roleInfo.text})</small>
                 </span>
             `;
+            }
+        } catch (error) {
+            console.error('Error displaying user info:', error);
         }
-    } catch (error) {
-        console.error("Error displaying user info:", error);
     }
-}
 
-/**
- * CSS cho user role badge
- */
-function injectRoleStyles() {
-    if (document.getElementById("roleStyles")) return;
+    /**
+     * CSS cho user role badge
+     */
+    function injectRoleStyles() {
+        if (document.getElementById('roleStyles')) return;
 
-    const styles = document.createElement("style");
-    styles.id = "roleStyles";
-    styles.textContent = `
+        const styles = document.createElement('style');
+        styles.id = 'roleStyles';
+        styles.textContent = `
         /* ================== BEAUTIFUL .page-title STYLES - FIXED VERSION ================== */
         
         /* Beautiful gradient .page-title styles */
@@ -1343,912 +1328,906 @@ function injectRoleStyles() {
         }
     `;
 
-    document.head.appendChild(styles);
-}
+        document.head.appendChild(styles);
+    }
 
-/**
- * Cách sử dụng trong code hiện tại của bạn:
- */
+    /**
+     * Cách sử dụng trong code hiện tại của bạn:
+     */
 
-// 1. Thay thế đoạn code hiện tại:
-// if (auth.checkLogin === 0) {
-//     titleElement.textContent += ' - 👑 ' + auth.displayName;
-// }
+    // 1. Thay thế đoạn code hiện tại:
+    // if (auth.checkLogin === 0) {
+    //     titleElement.textContent += ' - 👑 ' + auth.displayName;
+    // }
 
-// Bằng:
-// updateTitleWithRole(titleElement, auth);
+    // Bằng:
+    // updateTitleWithRole(titleElement, auth);
 
-// 2. Hoặc sử dụng cách ngắn gọn:
-function updatePageTitleSimple() {
-    try {
-        const authData = JSON.parse(
-            localStorage.getItem("loginindex_auth") || "{}",
-        );
-        const titleElement = document.querySelector(
-            "h1, .page-title, .header h1",
-        );
+    // 2. Hoặc sử dụng cách ngắn gọn:
+    function updatePageTitleSimple() {
+        try {
+            const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+            const titleElement = document.querySelector('h1, .page-title, .header h1');
 
-        if (titleElement && authData.checkLogin !== undefined) {
-            const roleInfo = getRoleInfo(parseInt(authData.checkLogin));
-            const baseTitle = titleElement.textContent.split(" - ")[0];
-            titleElement.textContent = `${baseTitle} - ${roleInfo.icon} ${authData.displayName || authData.username}`;
+            if (titleElement && authData.checkLogin !== undefined) {
+                const roleInfo = getRoleInfo(parseInt(authData.checkLogin));
+                const baseTitle = titleElement.textContent.split(' - ')[0];
+                titleElement.textContent = `${baseTitle} - ${roleInfo.icon} ${authData.displayName || authData.username}`;
+            }
+        } catch (error) {
+            console.error('Error updating title:', error);
         }
-    } catch (error) {
-        console.error("Error updating title:", error);
     }
-}
 
-// 3. Auto-initialize khi DOM ready
-document.addEventListener("DOMContentLoaded", function () {
-    injectRoleStyles();
+    // 3. Auto-initialize khi DOM ready
+    document.addEventListener('DOMContentLoaded', function () {
+        injectRoleStyles();
 
-    // Delay một chút để đảm bảo auth data đã load
-    setTimeout(() => {
-        initializePageTitle();
-    }, 100);
-});
+        // Delay một chút để đảm bảo auth data đã load
+        setTimeout(() => {
+            initializePageTitle();
+        }, 100);
+    });
 
-// Export để sử dụng global
-window.RoleManager = {
-    getRoleInfo: getRoleInfo,
-    updateTitleWithRoleEnhanced: updateTitleWithRoleEnhanced,
-    displayUserInfo: displayUserInfo,
-    initializePageTitle: initializePageTitle,
-};
+    // Export để sử dụng global
+    window.RoleManager = {
+        getRoleInfo: getRoleInfo,
+        updateTitleWithRoleEnhanced: updateTitleWithRoleEnhanced,
+        displayUserInfo: displayUserInfo,
+        initializePageTitle: initializePageTitle,
+    };
 
-window.addEventListener("load", function () {
-    const overlay = document.getElementById("loadingOverlay");
-    if (overlay) {
-        overlay.classList.remove("show");
-    }
-});
-
-
+    window.addEventListener('load', function () {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+        }
+    });
 
     // ========================================
     // date-utils.js
     // ========================================
-/**
- * Date Utilities - Shared Date Formatting Functions
- *
- * SOURCE OF TRUTH for all date operations across the application.
- *
- * Usage:
- * <script src="../shared/js/date-utils.js"></script>
- * <script>
- *   const formatted = formatDate(new Date());
- *   const parsed = parseVietnameseDate("25/12/2024");
- * </script>
- */
+    /**
+     * Date Utilities - Shared Date Formatting Functions
+     *
+     * SOURCE OF TRUTH for all date operations across the application.
+     *
+     * Usage:
+     * <script src="../shared/js/date-utils.js"></script>
+     * <script>
+     *   const formatted = formatDate(new Date());
+     *   const parsed = parseVietnameseDate("25/12/2024");
+     * </script>
+     */
 
-/**
- * Format date to Vietnamese format (DD/MM/YYYY)
- * @param {Date|string|number} date - Date to format
- * @returns {string} Formatted date string
- */
-function formatDate(date) {
-    if (!date) return "";
+    /**
+     * Format date to Vietnamese format (DD/MM/YYYY)
+     * @param {Date|string|number} date - Date to format
+     * @returns {string} Formatted date string
+     */
+    function formatDate(date) {
+        if (!date) return '';
 
-    // Convert to Date object if needed
-    if (!(date instanceof Date)) {
-        date = new Date(date);
-    }
-
-    if (isNaN(date.getTime())) return "";
-
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-}
-
-/**
- * Format date with time (DD/MM/YYYY, HH:mm)
- * @param {Date|string|number} date - Date to format
- * @returns {string} Formatted date-time string
- */
-function formatDateTime(date) {
-    if (!date) return "";
-
-    if (!(date instanceof Date)) {
-        date = new Date(date);
-    }
-
-    if (isNaN(date.getTime())) return "";
-
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear();
-    const hour = date.getHours().toString().padStart(2, "0");
-    const minute = date.getMinutes().toString().padStart(2, "0");
-    return `${day}/${month}/${year}, ${hour}:${minute}`;
-}
-
-/**
- * Get current date-time formatted
- * @returns {string} Current date-time string
- */
-function getFormattedDateTime() {
-    return formatDateTime(new Date());
-}
-
-/**
- * Parse Vietnamese date string (DD/MM/YYYY or DD/MM/YYYY HH:mm)
- * @param {string} dateString - Date string to parse
- * @returns {Date|null} Parsed Date object or null
- */
-function parseVietnameseDate(dateString) {
-    if (!dateString) return null;
-
-    try {
-        const cleanDateString = dateString.replace(/,?\s*/g, " ").trim();
-        const patterns = [
-            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/,
-            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
-        ];
-
-        for (let pattern of patterns) {
-            const match = cleanDateString.match(pattern);
-            if (match) {
-                const [, day, month, year, hour = 0, minute = 0] = match;
-                return new Date(
-                    parseInt(year),
-                    parseInt(month) - 1,
-                    parseInt(day),
-                    parseInt(hour),
-                    parseInt(minute)
-                );
-            }
+        // Convert to Date object if needed
+        if (!(date instanceof Date)) {
+            date = new Date(date);
         }
 
-        const date = new Date(dateString);
-        return isNaN(date.getTime()) ? null : date;
-    } catch (error) {
-        console.warn("[DateUtils] Error parsing date:", dateString, error);
-        return null;
+        if (isNaN(date.getTime())) return '';
+
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     }
-}
 
-/**
- * Get today's date in Vietnam timezone (YYYY-MM-DD for input fields)
- * @returns {string} Date string for input fields
- */
-function getTodayVN() {
-    const now = new Date();
-    const vnTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-    return vnTime.toISOString().split("T")[0];
-}
+    /**
+     * Format date with time (DD/MM/YYYY, HH:mm)
+     * @param {Date|string|number} date - Date to format
+     * @returns {string} Formatted date-time string
+     */
+    function formatDateTime(date) {
+        if (!date) return '';
 
-/**
- * Get current date formatted for HTML date input (YYYY-MM-DD)
- * @returns {string} Date string for input fields
- */
-function getCurrentDateForInput() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const day = now.getDate().toString().padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
+        if (!(date instanceof Date)) {
+            date = new Date(date);
+        }
 
-/**
- * Format date for HTML date input (YYYY-MM-DD)
- * @param {string} dateStr - Date string (DD/MM/YYYY)
- * @returns {string} Date string for input fields (YYYY-MM-DD)
- */
-function formatDateForInput(dateStr) {
-    if (!dateStr) return "";
-    const parts = dateStr.split("/");
-    if (parts.length !== 3) return "";
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-}
+        if (isNaN(date.getTime())) return '';
 
-/**
- * Format date from HTML input to display format
- * @param {string} inputValue - Date from input (YYYY-MM-DD)
- * @returns {string} Display format (DD/MM/YYYY)
- */
-function formatDateFromInput(inputValue) {
-    if (!inputValue) return "";
-    const parts = inputValue.split("-");
-    if (parts.length !== 3) return "";
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-}
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const hour = date.getHours().toString().padStart(2, '0');
+        const minute = date.getMinutes().toString().padStart(2, '0');
+        return `${day}/${month}/${year}, ${hour}:${minute}`;
+    }
 
-/**
- * Compare two date strings (DD/MM/YYYY format)
- * @param {string} date1Str - First date
- * @param {string} date2Str - Second date
- * @returns {number} -1 if date1 < date2, 0 if equal, 1 if date1 > date2
- */
-function compareDates(date1Str, date2Str) {
-    const date1 = parseVietnameseDate(date1Str);
-    const date2 = parseVietnameseDate(date2Str);
+    /**
+     * Get current date-time formatted
+     * @returns {string} Current date-time string
+     */
+    function getFormattedDateTime() {
+        return formatDateTime(new Date());
+    }
 
-    if (!date1 && !date2) return 0;
-    if (!date1) return -1;
-    if (!date2) return 1;
+    /**
+     * Parse Vietnamese date string (DD/MM/YYYY or DD/MM/YYYY HH:mm)
+     * @param {string} dateString - Date string to parse
+     * @returns {Date|null} Parsed Date object or null
+     */
+    function parseVietnameseDate(dateString) {
+        if (!dateString) return null;
 
-    return date1.getTime() - date2.getTime();
-}
+        try {
+            const cleanDateString = dateString.replace(/,?\s*/g, ' ').trim();
+            const patterns = [
+                /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/,
+                /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+            ];
 
-/**
- * Convert date to timestamp
- * @param {Date|string} date - Date to convert
- * @returns {number} Timestamp in milliseconds
- */
-function convertToTimestamp(date) {
-    if (!date) return 0;
-    if (date instanceof Date) return date.getTime();
-    const parsed = parseVietnameseDate(date);
-    return parsed ? parsed.getTime() : 0;
-}
+            for (let pattern of patterns) {
+                const match = cleanDateString.match(pattern);
+                if (match) {
+                    const [, day, month, year, hour = 0, minute = 0] = match;
+                    return new Date(
+                        parseInt(year),
+                        parseInt(month) - 1,
+                        parseInt(day),
+                        parseInt(hour),
+                        parseInt(minute)
+                    );
+                }
+            }
 
-/**
- * Format number with commas (Vietnamese currency format)
- * @param {number|string} x - Number to format
- * @returns {string} Formatted number string
- */
-function numberWithCommas(x) {
-    if (x === null || x === undefined) return "0";
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? null : date;
+        } catch (error) {
+            console.warn('[DateUtils] Error parsing date:', dateString, error);
+            return null;
+        }
+    }
 
-// Global exports
-if (typeof window !== "undefined") {
-    window.formatDate = formatDate;
-    window.formatDateTime = formatDateTime;
-    window.getFormattedDateTime = getFormattedDateTime;
-    window.parseVietnameseDate = parseVietnameseDate;
-    window.getTodayVN = getTodayVN;
-    window.getCurrentDateForInput = getCurrentDateForInput;
-    window.formatDateForInput = formatDateForInput;
-    window.formatDateFromInput = formatDateFromInput;
-    window.compareDates = compareDates;
-    window.convertToTimestamp = convertToTimestamp;
-    window.numberWithCommas = numberWithCommas;
-}
+    /**
+     * Get today's date in Vietnam timezone (YYYY-MM-DD for input fields)
+     * @returns {string} Date string for input fields
+     */
+    function getTodayVN() {
+        const now = new Date();
+        const vnTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        return vnTime.toISOString().split('T')[0];
+    }
 
+    /**
+     * Get current date formatted for HTML date input (YYYY-MM-DD)
+     * @returns {string} Date string for input fields
+     */
+    function getCurrentDateForInput() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
 
+    /**
+     * Format date for HTML date input (YYYY-MM-DD)
+     * @param {string} dateStr - Date string (DD/MM/YYYY)
+     * @returns {string} Date string for input fields (YYYY-MM-DD)
+     */
+    function formatDateForInput(dateStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return '';
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
 
+    /**
+     * Format date from HTML input to display format
+     * @param {string} inputValue - Date from input (YYYY-MM-DD)
+     * @returns {string} Display format (DD/MM/YYYY)
+     */
+    function formatDateFromInput(inputValue) {
+        if (!inputValue) return '';
+        const parts = inputValue.split('-');
+        if (parts.length !== 3) return '';
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    /**
+     * Compare two date strings (DD/MM/YYYY format)
+     * @param {string} date1Str - First date
+     * @param {string} date2Str - Second date
+     * @returns {number} -1 if date1 < date2, 0 if equal, 1 if date1 > date2
+     */
+    function compareDates(date1Str, date2Str) {
+        const date1 = parseVietnameseDate(date1Str);
+        const date2 = parseVietnameseDate(date2Str);
+
+        if (!date1 && !date2) return 0;
+        if (!date1) return -1;
+        if (!date2) return 1;
+
+        return date1.getTime() - date2.getTime();
+    }
+
+    /**
+     * Convert date to timestamp
+     * @param {Date|string} date - Date to convert
+     * @returns {number} Timestamp in milliseconds
+     */
+    function convertToTimestamp(date) {
+        if (!date) return 0;
+        if (date instanceof Date) return date.getTime();
+        const parsed = parseVietnameseDate(date);
+        return parsed ? parsed.getTime() : 0;
+    }
+
+    /**
+     * Format number with commas (Vietnamese currency format)
+     * @param {number|string} x - Number to format
+     * @returns {string} Formatted number string
+     */
+    function numberWithCommas(x) {
+        if (x === null || x === undefined) return '0';
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    // Global exports
+    if (typeof window !== 'undefined') {
+        window.formatDate = formatDate;
+        window.formatDateTime = formatDateTime;
+        window.getFormattedDateTime = getFormattedDateTime;
+        window.parseVietnameseDate = parseVietnameseDate;
+        window.getTodayVN = getTodayVN;
+        window.getCurrentDateForInput = getCurrentDateForInput;
+        window.formatDateForInput = formatDateForInput;
+        window.formatDateFromInput = formatDateFromInput;
+        window.compareDates = compareDates;
+        window.convertToTimestamp = convertToTimestamp;
+        window.numberWithCommas = numberWithCommas;
+    }
 
     // ========================================
     // form-utils.js
     // ========================================
-/**
- * Form Utilities - Shared Form/Input Helper Functions
- *
- * SOURCE OF TRUTH for form utilities across the application.
- *
- * Usage:
- * <script src="../shared/js/form-utils.js"></script>
- * <script>
- *   const clean = sanitizeInput(userInput);
- *   const id = generateUniqueID();
- *   const debouncedFn = debounce(myFunc, 300);
- * </script>
- */
+    /**
+     * Form Utilities - Shared Form/Input Helper Functions
+     *
+     * SOURCE OF TRUTH for form utilities across the application.
+     *
+     * Usage:
+     * <script src="../shared/js/form-utils.js"></script>
+     * <script>
+     *   const clean = sanitizeInput(userInput);
+     *   const id = generateUniqueID();
+     *   const debouncedFn = debounce(myFunc, 300);
+     * </script>
+     */
 
-/**
- * Sanitize user input to prevent XSS
- * @param {string} input - User input to sanitize
- * @returns {string} Sanitized string
- */
-function sanitizeInput(input) {
-    if (typeof input !== "string") return "";
-    return input.replace(/[<>"'&]/g, "").trim();
-}
+    /**
+     * Sanitize user input to prevent XSS
+     * @param {string} input - User input to sanitize
+     * @returns {string} Sanitized string
+     */
+    function sanitizeInput(input) {
+        if (typeof input !== 'string') return '';
+        return input.replace(/[<>"'&]/g, '').trim();
+    }
 
-/**
- * Generate a unique ID
- * @param {string} prefix - Optional prefix for the ID
- * @returns {string} Unique ID string
- */
-function generateUniqueID(prefix = "") {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 9);
-    return prefix ? `${prefix}_${timestamp}_${random}` : `${timestamp}_${random}`;
-}
+    /**
+     * Generate a unique ID
+     * @param {string} prefix - Optional prefix for the ID
+     * @returns {string} Unique ID string
+     */
+    function generateUniqueID(prefix = '') {
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).substr(2, 9);
+        return prefix ? `${prefix}_${timestamp}_${random}` : `${timestamp}_${random}`;
+    }
 
-/**
- * Generate a unique filename for uploads
- * @param {string} extension - File extension (default: 'png')
- * @returns {string} Unique filename
- */
-function generateUniqueFileName(extension = "png") {
-    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
-}
+    /**
+     * Generate a unique filename for uploads
+     * @param {string} extension - File extension (default: 'png')
+     * @returns {string} Unique filename
+     */
+    function generateUniqueFileName(extension = 'png') {
+        return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${extension}`;
+    }
 
-/**
- * Debounce function to limit execution frequency
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
+    /**
+     * Debounce function to limit execution frequency
+     * @param {Function} func - Function to debounce
+     * @param {number} wait - Wait time in milliseconds
+     * @returns {Function} Debounced function
+     */
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
             clearTimeout(timeout);
-            func(...args);
+            timeout = setTimeout(later, wait);
         };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+    }
 
-/**
- * Throttle function to limit execution rate
- * @param {Function} func - Function to throttle
- * @param {number} limit - Minimum time between calls in milliseconds
- * @returns {Function} Throttled function
- */
-function throttle(func, limit) {
-    let inThrottle;
-    return function(...args) {
-        if (!inThrottle) {
-            func.apply(this, args);
-            inThrottle = true;
-            setTimeout(() => (inThrottle = false), limit);
+    /**
+     * Throttle function to limit execution rate
+     * @param {Function} func - Function to throttle
+     * @param {number} limit - Minimum time between calls in milliseconds
+     * @returns {Function} Throttled function
+     */
+    function throttle(func, limit) {
+        let inThrottle;
+        return function (...args) {
+            if (!inThrottle) {
+                func.apply(this, args);
+                inThrottle = true;
+                setTimeout(() => (inThrottle = false), limit);
+            }
+        };
+    }
+
+    /**
+     * Copy text to clipboard
+     * @param {string} text - Text to copy
+     * @returns {Promise<boolean>} Success status
+     */
+    async function copyToClipboard(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            const success = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return success;
+        } catch (error) {
+            console.error('[FormUtils] Copy to clipboard failed:', error);
+            return false;
         }
-    };
-}
+    }
 
-/**
- * Copy text to clipboard
- * @param {string} text - Text to copy
- * @returns {Promise<boolean>} Success status
- */
-async function copyToClipboard(text) {
-    try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(text);
-            return true;
+    /**
+     * Export array data to CSV file
+     * @param {Array} data - Array of objects to export
+     * @param {string} filename - Output filename
+     * @param {Array} headers - Optional custom headers
+     */
+    function exportToCSV(data, filename = 'export.csv', headers = null) {
+        if (!data || !data.length) {
+            console.warn('[FormUtils] No data to export');
+            return;
         }
-        // Fallback for older browsers
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        document.body.appendChild(textArea);
-        textArea.select();
-        const success = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        return success;
-    } catch (error) {
-        console.error("[FormUtils] Copy to clipboard failed:", error);
-        return false;
-    }
-}
 
-/**
- * Export array data to CSV file
- * @param {Array} data - Array of objects to export
- * @param {string} filename - Output filename
- * @param {Array} headers - Optional custom headers
- */
-function exportToCSV(data, filename = "export.csv", headers = null) {
-    if (!data || !data.length) {
-        console.warn("[FormUtils] No data to export");
-        return;
-    }
+        const keys = headers || Object.keys(data[0]);
+        const csvRows = [];
 
-    const keys = headers || Object.keys(data[0]);
-    const csvRows = [];
+        // Header row
+        csvRows.push(keys.join(','));
 
-    // Header row
-    csvRows.push(keys.join(","));
+        // Data rows
+        for (const row of data) {
+            const values = keys.map((key) => {
+                const val = row[key];
+                if (val === null || val === undefined) return '';
+                const escaped = String(val).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        }
 
-    // Data rows
-    for (const row of data) {
-        const values = keys.map((key) => {
-            const val = row[key];
-            if (val === null || val === undefined) return "";
-            const escaped = String(val).replace(/"/g, '""');
-            return `"${escaped}"`;
-        });
-        csvRows.push(values.join(","));
+        const csvString = csvRows.join('\n');
+        const blob = new Blob(['\ufeff' + csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+
+        URL.revokeObjectURL(url);
     }
 
-    const csvString = csvRows.join("\n");
-    const blob = new Blob(["\ufeff" + csvString], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-
-    URL.revokeObjectURL(url);
-}
-
-/**
- * Validate email format
- * @param {string} email - Email to validate
- * @returns {boolean} Is valid email
- */
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-/**
- * Validate phone number (Vietnamese format)
- * @param {string} phone - Phone number to validate
- * @returns {boolean} Is valid phone
- */
-function isValidPhone(phone) {
-    const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ""));
-}
-
-/**
- * Get value from form input safely
- * @param {string} elementId - Element ID
- * @param {*} defaultValue - Default value if not found
- * @returns {*} Input value or default
- */
-function getInputValue(elementId, defaultValue = "") {
-    const element = document.getElementById(elementId);
-    return element ? element.value : defaultValue;
-}
-
-/**
- * Set value to form input safely
- * @param {string} elementId - Element ID
- * @param {*} value - Value to set
- */
-function setInputValue(elementId, value) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.value = value;
+    /**
+     * Validate email format
+     * @param {string} email - Email to validate
+     * @returns {boolean} Is valid email
+     */
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
     }
-}
 
-// Global exports
-if (typeof window !== "undefined") {
-    window.sanitizeInput = sanitizeInput;
-    window.generateUniqueID = generateUniqueID;
-    window.generateUniqueFileName = generateUniqueFileName;
-    window.debounce = debounce;
-    window.throttle = throttle;
-    window.copyToClipboard = copyToClipboard;
-    window.exportToCSV = exportToCSV;
-    window.isValidEmail = isValidEmail;
-    window.isValidPhone = isValidPhone;
-    window.getInputValue = getInputValue;
-    window.setInputValue = setInputValue;
-}
+    /**
+     * Validate phone number (Vietnamese format)
+     * @param {string} phone - Phone number to validate
+     * @returns {boolean} Is valid phone
+     */
+    function isValidPhone(phone) {
+        const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
+        return phoneRegex.test(phone.replace(/\s/g, ''));
+    }
 
+    /**
+     * Get value from form input safely
+     * @param {string} elementId - Element ID
+     * @param {*} defaultValue - Default value if not found
+     * @returns {*} Input value or default
+     */
+    function getInputValue(elementId, defaultValue = '') {
+        const element = document.getElementById(elementId);
+        return element ? element.value : defaultValue;
+    }
 
+    /**
+     * Set value to form input safely
+     * @param {string} elementId - Element ID
+     * @param {*} value - Value to set
+     */
+    function setInputValue(elementId, value) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.value = value;
+        }
+    }
 
+    // Global exports
+    if (typeof window !== 'undefined') {
+        window.sanitizeInput = sanitizeInput;
+        window.generateUniqueID = generateUniqueID;
+        window.generateUniqueFileName = generateUniqueFileName;
+        window.debounce = debounce;
+        window.throttle = throttle;
+        window.copyToClipboard = copyToClipboard;
+        window.exportToCSV = exportToCSV;
+        window.isValidEmail = isValidEmail;
+        window.isValidPhone = isValidPhone;
+        window.getInputValue = getInputValue;
+        window.setInputValue = setInputValue;
+    }
 
     // ========================================
     // shared-cache-manager.js
     // ========================================
-/**
- * SHARED PERSISTENT CACHE MANAGER
- * File: shared-cache-manager.js
- *
- * WRAPPER FILE - Backward compatibility layer
- * SOURCE OF TRUTH: /shared/browser/persistent-cache.js
- *
- * This file is kept for backward compatibility with existing code using:
- *   <script src="../shared/js/shared-cache-manager.js"></script>
- *
- * For new ES Module code, import directly from:
- *   import { PersistentCacheManager } from '/shared/browser/persistent-cache.js';
- */
-
-class PersistentCacheManager {
-    constructor(config = {}) {
-        this.cache = new Map();
-        this.maxAge = config.CACHE_EXPIRY || 24 * 60 * 60 * 1000; // 24h default
-        this.stats = { hits: 0, misses: 0 };
-        this.storageKey = config.storageKey || 'app_cache';
-        this.saveTimeout = null;
-        this.cleanupInterval = null;
-
-        // Load existing cache from localStorage
-        this.loadFromStorage();
-
-        // Auto cleanup expired items every 5 minutes
-        this.startAutoCleanup();
-    }
-
     /**
-     * Save cache to localStorage
+     * SHARED PERSISTENT CACHE MANAGER
+     * File: shared-cache-manager.js
+     *
+     * WRAPPER FILE - Backward compatibility layer
+     * SOURCE OF TRUTH: /shared/browser/persistent-cache.js
+     *
+     * This file is kept for backward compatibility with existing code using:
+     *   <script src="../shared/js/shared-cache-manager.js"></script>
+     *
+     * For new ES Module code, import directly from:
+     *   import { PersistentCacheManager } from '/shared/browser/persistent-cache.js';
      */
-    saveToStorage() {
-        try {
-            const cacheData = Array.from(this.cache.entries());
-            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
-            logger.log(`💾 Saved ${cacheData.length} items to localStorage (${this.storageKey})`);
-        } catch (error) {
-            logger.warn('Cannot save cache to localStorage:', error);
-            // If quota exceeded, clear old cache
-            if (error.name === 'QuotaExceededError') {
-                this.clearExpired();
-                try {
-                    const cacheData = Array.from(this.cache.entries());
-                    localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
-                } catch (retryError) {
-                    logger.error('Failed to save cache even after cleanup:', retryError);
-                }
-            }
-        }
-    }
 
-    /**
-     * Load cache from localStorage
-     */
-    loadFromStorage() {
-        try {
-            const stored = localStorage.getItem(this.storageKey);
-            if (!stored) return;
-
-            const cacheData = JSON.parse(stored);
-            const now = Date.now();
-            let validCount = 0;
-
-            cacheData.forEach(([key, value]) => {
-                if (value.expires > now) {
-                    this.cache.set(key, value);
-                    validCount++;
-                }
-            });
-
-            logger.log(`📦 Loaded ${validCount} valid items from localStorage (${this.storageKey})`);
-        } catch (error) {
-            logger.warn('Cannot load cache from localStorage:', error);
-            // Clear corrupted cache
-            localStorage.removeItem(this.storageKey);
-        }
-    }
-
-    /**
-     * Debounced save to localStorage (avoid too frequent writes)
-     */
-    debouncedSave() {
-        if (this.saveTimeout) clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(() => {
-            this.saveToStorage();
-        }, 2000);
-    }
-
-    /**
-     * Set cache value
-     * @param {string} key
-     * @param {*} value
-     * @param {string} type - Cache type for grouping
-     */
-    set(key, value, type = 'general') {
-        const cacheKey = type ? `${type}_${key}` : key;
-        this.cache.set(cacheKey, {
-            value,
-            timestamp: Date.now(),
-            expires: Date.now() + this.maxAge,
-            type,
-        });
-        this.debouncedSave();
-    }
-
-    /**
-     * Get cache value
-     * @param {string} key
-     * @param {string} type
-     * @returns {*} Cached value or null
-     */
-    get(key, type = 'general') {
-        const cacheKey = type ? `${type}_${key}` : key;
-        const cached = this.cache.get(cacheKey);
-
-        if (cached && cached.expires > Date.now()) {
-            this.stats.hits++;
-            logger.log(`✔ Cache HIT: ${cacheKey}`);
-            return cached.value;
-        }
-
-        if (cached) {
-            // Expired, remove it
-            this.cache.delete(cacheKey);
-        }
-
-        this.stats.misses++;
-        logger.log(`✗ Cache MISS: ${cacheKey}`);
-        return null;
-    }
-
-    /**
-     * Check if key exists and is valid
-     * @param {string} key
-     * @param {string} type
-     * @returns {boolean}
-     */
-    has(key, type = 'general') {
-        const cacheKey = type ? `${type}_${key}` : key;
-        const cached = this.cache.get(cacheKey);
-        return cached && cached.expires > Date.now();
-    }
-
-    /**
-     * Delete specific cache entry
-     * @param {string} key
-     * @param {string} type
-     */
-    delete(key, type = 'general') {
-        const cacheKey = type ? `${type}_${key}` : key;
-        const deleted = this.cache.delete(cacheKey);
-        if (deleted) {
-            this.debouncedSave();
-        }
-        return deleted;
-    }
-
-    /**
-     * Clear cache by type or all
-     * @param {string|null} type
-     */
-    clear(type = null) {
-        if (type) {
-            let cleared = 0;
-            for (const [key, value] of this.cache.entries()) {
-                if (value.type === type) {
-                    this.cache.delete(key);
-                    cleared++;
-                }
-            }
-            logger.log(`🗑️ Cleared ${cleared} items of type: ${type}`);
-        } else {
-            this.cache.clear();
-            localStorage.removeItem(this.storageKey);
-            logger.log('🗑️ Cleared ALL cache');
-        }
-        this.stats = { hits: 0, misses: 0 };
-        this.saveToStorage();
-    }
-
-    /**
-     * Clean expired entries
-     * @returns {number} Number of cleaned entries
-     */
-    cleanExpired() {
-        const now = Date.now();
-        let cleaned = 0;
-        for (const [key, value] of this.cache.entries()) {
-            if (value.expires <= now) {
-                this.cache.delete(key);
-                cleaned++;
-            }
-        }
-        if (cleaned > 0) {
-            logger.log(`🧹 Cleaned ${cleaned} expired entries`);
-            this.saveToStorage();
-        }
-        return cleaned;
-    }
-
-    /**
-     * Invalidate cache by pattern
-     * @param {string} pattern
-     * @returns {number} Number of invalidated entries
-     */
-    invalidatePattern(pattern) {
-        let invalidated = 0;
-        for (const [key] of this.cache.entries()) {
-            if (key.includes(pattern)) {
-                this.cache.delete(key);
-                invalidated++;
-            }
-        }
-        if (invalidated > 0) {
-            logger.log(`🗑️ Invalidated ${invalidated} entries matching: ${pattern}`);
-            this.debouncedSave();
-        }
-        return invalidated;
-    }
-
-    /**
-     * Get cache statistics
-     */
-    getStats() {
-        const hitRate = this.stats.hits + this.stats.misses > 0
-            ? (this.stats.hits / (this.stats.hits + this.stats.misses) * 100).toFixed(2)
-            : 0;
-
-        return {
-            hits: this.stats.hits,
-            misses: this.stats.misses,
-            hitRate: `${hitRate}%`,
-            totalEntries: this.cache.size,
-            storageKey: this.storageKey,
-            maxAge: this.maxAge,
-        };
-    }
-
-    /**
-     * Get storage size estimate
-     */
-    getStorageSize() {
-        try {
-            const stored = localStorage.getItem(this.storageKey);
-            if (!stored) return 0;
-            // Return size in KB
-            return (stored.length * 2 / 1024).toFixed(2) + ' KB';
-        } catch (error) {
-            return 'Unknown';
-        }
-    }
-
-    /**
-     * Start auto cleanup interval
-     */
-    startAutoCleanup() {
-        // Clean expired items every 5 minutes
-        this.cleanupInterval = setInterval(() => {
-            this.cleanExpired();
-        }, 5 * 60 * 1000);
-    }
-
-    /**
-     * Stop auto cleanup (call when destroying instance)
-     */
-    stopAutoCleanup() {
-        if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
+    class PersistentCacheManager {
+        constructor(config = {}) {
+            this.cache = new Map();
+            this.maxAge = config.CACHE_EXPIRY || 24 * 60 * 60 * 1000; // 24h default
+            this.stats = { hits: 0, misses: 0 };
+            this.storageKey = config.storageKey || 'app_cache';
+            this.saveTimeout = null;
             this.cleanupInterval = null;
+
+            // Load existing cache from localStorage
+            this.loadFromStorage();
+
+            // Auto cleanup expired items every 5 minutes
+            this.startAutoCleanup();
+        }
+
+        /**
+         * Save cache to localStorage
+         */
+        saveToStorage() {
+            try {
+                const cacheData = Array.from(this.cache.entries());
+                localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+                logger.log(
+                    `💾 Saved ${cacheData.length} items to localStorage (${this.storageKey})`
+                );
+            } catch (error) {
+                logger.warn('Cannot save cache to localStorage:', error);
+                // If quota exceeded, clear old cache
+                if (error.name === 'QuotaExceededError') {
+                    this.clearExpired();
+                    try {
+                        const cacheData = Array.from(this.cache.entries());
+                        localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+                    } catch (retryError) {
+                        logger.error('Failed to save cache even after cleanup:', retryError);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Load cache from localStorage
+         */
+        loadFromStorage() {
+            try {
+                const stored = localStorage.getItem(this.storageKey);
+                if (!stored) return;
+
+                const cacheData = JSON.parse(stored);
+                const now = Date.now();
+                let validCount = 0;
+
+                cacheData.forEach(([key, value]) => {
+                    if (value.expires > now) {
+                        this.cache.set(key, value);
+                        validCount++;
+                    }
+                });
+
+                logger.log(
+                    `📦 Loaded ${validCount} valid items from localStorage (${this.storageKey})`
+                );
+            } catch (error) {
+                logger.warn('Cannot load cache from localStorage:', error);
+                // Clear corrupted cache
+                localStorage.removeItem(this.storageKey);
+            }
+        }
+
+        /**
+         * Debounced save to localStorage (avoid too frequent writes)
+         */
+        debouncedSave() {
+            if (this.saveTimeout) clearTimeout(this.saveTimeout);
+            this.saveTimeout = setTimeout(() => {
+                this.saveToStorage();
+            }, 2000);
+        }
+
+        /**
+         * Set cache value
+         * @param {string} key
+         * @param {*} value
+         * @param {string} type - Cache type for grouping
+         */
+        set(key, value, type = 'general') {
+            const cacheKey = type ? `${type}_${key}` : key;
+            this.cache.set(cacheKey, {
+                value,
+                timestamp: Date.now(),
+                expires: Date.now() + this.maxAge,
+                type,
+            });
+            this.debouncedSave();
+        }
+
+        /**
+         * Get cache value
+         * @param {string} key
+         * @param {string} type
+         * @returns {*} Cached value or null
+         */
+        get(key, type = 'general') {
+            const cacheKey = type ? `${type}_${key}` : key;
+            const cached = this.cache.get(cacheKey);
+
+            if (cached && cached.expires > Date.now()) {
+                this.stats.hits++;
+                logger.log(`✔ Cache HIT: ${cacheKey}`);
+                return cached.value;
+            }
+
+            if (cached) {
+                // Expired, remove it
+                this.cache.delete(cacheKey);
+            }
+
+            this.stats.misses++;
+            logger.log(`✗ Cache MISS: ${cacheKey}`);
+            return null;
+        }
+
+        /**
+         * Check if key exists and is valid
+         * @param {string} key
+         * @param {string} type
+         * @returns {boolean}
+         */
+        has(key, type = 'general') {
+            const cacheKey = type ? `${type}_${key}` : key;
+            const cached = this.cache.get(cacheKey);
+            return cached && cached.expires > Date.now();
+        }
+
+        /**
+         * Delete specific cache entry
+         * @param {string} key
+         * @param {string} type
+         */
+        delete(key, type = 'general') {
+            const cacheKey = type ? `${type}_${key}` : key;
+            const deleted = this.cache.delete(cacheKey);
+            if (deleted) {
+                this.debouncedSave();
+            }
+            return deleted;
+        }
+
+        /**
+         * Clear cache by type or all
+         * @param {string|null} type
+         */
+        clear(type = null) {
+            if (type) {
+                let cleared = 0;
+                for (const [key, value] of this.cache.entries()) {
+                    if (value.type === type) {
+                        this.cache.delete(key);
+                        cleared++;
+                    }
+                }
+                logger.log(`🗑️ Cleared ${cleared} items of type: ${type}`);
+            } else {
+                this.cache.clear();
+                localStorage.removeItem(this.storageKey);
+                logger.log('🗑️ Cleared ALL cache');
+            }
+            this.stats = { hits: 0, misses: 0 };
+            this.saveToStorage();
+        }
+
+        /**
+         * Clean expired entries
+         * @returns {number} Number of cleaned entries
+         */
+        cleanExpired() {
+            const now = Date.now();
+            let cleaned = 0;
+            for (const [key, value] of this.cache.entries()) {
+                if (value.expires <= now) {
+                    this.cache.delete(key);
+                    cleaned++;
+                }
+            }
+            if (cleaned > 0) {
+                logger.log(`🧹 Cleaned ${cleaned} expired entries`);
+                this.saveToStorage();
+            }
+            return cleaned;
+        }
+
+        /**
+         * Invalidate cache by pattern
+         * @param {string} pattern
+         * @returns {number} Number of invalidated entries
+         */
+        invalidatePattern(pattern) {
+            let invalidated = 0;
+            for (const [key] of this.cache.entries()) {
+                if (key.includes(pattern)) {
+                    this.cache.delete(key);
+                    invalidated++;
+                }
+            }
+            if (invalidated > 0) {
+                logger.log(`🗑️ Invalidated ${invalidated} entries matching: ${pattern}`);
+                this.debouncedSave();
+            }
+            return invalidated;
+        }
+
+        /**
+         * Get cache statistics
+         */
+        getStats() {
+            const hitRate =
+                this.stats.hits + this.stats.misses > 0
+                    ? ((this.stats.hits / (this.stats.hits + this.stats.misses)) * 100).toFixed(2)
+                    : 0;
+
+            return {
+                hits: this.stats.hits,
+                misses: this.stats.misses,
+                hitRate: `${hitRate}%`,
+                totalEntries: this.cache.size,
+                storageKey: this.storageKey,
+                maxAge: this.maxAge,
+            };
+        }
+
+        /**
+         * Get storage size estimate
+         */
+        getStorageSize() {
+            try {
+                const stored = localStorage.getItem(this.storageKey);
+                if (!stored) return 0;
+                // Return size in KB
+                return ((stored.length * 2) / 1024).toFixed(2) + ' KB';
+            } catch (error) {
+                return 'Unknown';
+            }
+        }
+
+        /**
+         * Start auto cleanup interval
+         */
+        startAutoCleanup() {
+            // Clean expired items every 5 minutes
+            this.cleanupInterval = setInterval(
+                () => {
+                    this.cleanExpired();
+                },
+                5 * 60 * 1000
+            );
+        }
+
+        /**
+         * Stop auto cleanup (call when destroying instance)
+         */
+        stopAutoCleanup() {
+            if (this.cleanupInterval) {
+                clearInterval(this.cleanupInterval);
+                this.cleanupInterval = null;
+            }
+        }
+
+        /**
+         * Destroy cache manager (cleanup)
+         */
+        destroy() {
+            this.stopAutoCleanup();
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+            this.saveToStorage();
+            this.cache.clear();
         }
     }
 
-    /**
-     * Destroy cache manager (cleanup)
-     */
-    destroy() {
-        this.stopAutoCleanup();
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-        }
-        this.saveToStorage();
-        this.cache.clear();
+    // Export to window
+    if (typeof window !== 'undefined') {
+        window.PersistentCacheManager = PersistentCacheManager;
     }
-}
 
-// Export to window
-if (typeof window !== 'undefined') {
-    window.PersistentCacheManager = PersistentCacheManager;
-}
-
-// Module export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { PersistentCacheManager };
-}
-
-
+    // Module export
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { PersistentCacheManager };
+    }
 
     // ========================================
     // notification-system.js
     // ========================================
-/**
- * Notification System - Script-Tag Compatible Wrapper
- *
- * SOURCE OF TRUTH: /shared/browser/notification-system.js (ES Module)
- *
- * This file provides window.* exports for legacy script-tag usage.
- * For ES Module usage, import from '/shared/browser/notification-system.js'.
- *
- * Usage:
- * <script src="../shared/js/notification-system.js"></script>
- * <script>
- *   notificationManager.success('Saved!');
- *   notificationManager.error('Error!');
- *   const confirmed = await notificationManager.confirm('Are you sure?');
- * </script>
- */
+    /**
+     * Notification System - Script-Tag Compatible Wrapper
+     *
+     * SOURCE OF TRUTH: /shared/browser/notification-system.js (ES Module)
+     *
+     * This file provides window.* exports for legacy script-tag usage.
+     * For ES Module usage, import from '/shared/browser/notification-system.js'.
+     *
+     * Usage:
+     * <script src="../shared/js/notification-system.js"></script>
+     * <script>
+     *   notificationManager.success('Saved!');
+     *   notificationManager.error('Error!');
+     *   const confirmed = await notificationManager.confirm('Are you sure?');
+     * </script>
+     */
 
-// =====================================================
-// NOTIFICATION CONFIGURATION
-// =====================================================
+    // =====================================================
+    // NOTIFICATION CONFIGURATION
+    // =====================================================
 
-const NOTIFICATION_CONFIG = {
-    durations: {
-        success: 2000,
-        error: 4000,
-        warning: 3000,
-        info: 3000,
-    },
-    icons: {
-        success: 'check-circle',
-        error: 'x-circle',
-        warning: 'alert-triangle',
-        info: 'info',
-        loading: 'loader',
-    },
-    titles: {
-        success: 'Thành công',
-        error: 'Lỗi',
-        warning: 'Cảnh báo',
-        loading: 'Đang tải',
-    },
-    zIndex: {
-        container: 99999,
-        overlay: 2999,
-        confirmOverlay: 10010,
-    },
-};
+    const NOTIFICATION_CONFIG = {
+        durations: {
+            success: 2000,
+            error: 4000,
+            warning: 3000,
+            info: 3000,
+        },
+        icons: {
+            success: 'check-circle',
+            error: 'x-circle',
+            warning: 'alert-triangle',
+            info: 'info',
+            loading: 'loader',
+        },
+        titles: {
+            success: 'Thành công',
+            error: 'Lỗi',
+            warning: 'Cảnh báo',
+            loading: 'Đang tải',
+        },
+        zIndex: {
+            container: 99999,
+            overlay: 2999,
+            confirmOverlay: 10010,
+        },
+    };
 
-// =====================================================
-// NOTIFICATION MANAGER CLASS
-// =====================================================
+    // =====================================================
+    // NOTIFICATION MANAGER CLASS
+    // =====================================================
 
-class NotificationManager {
-    constructor(options = {}) {
-        this.container = null;
-        this.notifications = new Map();
-        this.notificationCounter = 0;
-        this.config = { ...NOTIFICATION_CONFIG, ...options };
-        this._stylesInjected = false;
-        this.init();
-    }
-
-    init() {
-        // Wait for DOM to be ready if body doesn't exist yet
-        if (!document.body) {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.init());
-            } else {
-                // Fallback: try again after a short delay
-                setTimeout(() => this.init(), 10);
-            }
-            return;
-        }
-
-        if (!this._stylesInjected) {
-            this._injectStyles();
-            this._stylesInjected = true;
-        }
-
-        this.container = document.createElement('div');
-        this.container.id = 'notification-container';
-        this.container.className = 'toast-container';
-        document.body.appendChild(this.container);
-    }
-
-    show(message, type = 'info', duration = 3000, options = {}) {
-        // Ensure container is ready
-        if (!this.container) {
+    class NotificationManager {
+        constructor(options = {}) {
+            this.container = null;
+            this.notifications = new Map();
+            this.notificationCounter = 0;
+            this.config = { ...NOTIFICATION_CONFIG, ...options };
+            this._stylesInjected = false;
             this.init();
-            // If still not ready (waiting for DOM), queue the notification
-            if (!this.container) {
-                setTimeout(() => this.show(message, type, duration, options), 50);
-                return null;
-            }
         }
 
-        const {
-            showOverlay = false,
-            showProgress = true,
-            persistent = false,
-            icon = null,
-            title = null,
-        } = options;
+        init() {
+            // Wait for DOM to be ready if body doesn't exist yet
+            if (!document.body) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => this.init());
+                } else {
+                    // Fallback: try again after a short delay
+                    setTimeout(() => this.init(), 10);
+                }
+                return;
+            }
 
-        if (showOverlay || persistent) this.clearAll();
+            if (!this._stylesInjected) {
+                this._injectStyles();
+                this._stylesInjected = true;
+            }
 
-        const notificationId = ++this.notificationCounter;
-        const notification = document.createElement('div');
-        notification.className = `toast ${type}`;
-        notification.dataset.id = notificationId;
+            this.container = document.createElement('div');
+            this.container.id = 'notification-container';
+            this.container.className = 'toast-container';
+            document.body.appendChild(this.container);
+        }
 
-        const selectedIcon = icon || this.config.icons[type] || 'bell';
+        show(message, type = 'info', duration = 3000, options = {}) {
+            // Ensure container is ready
+            if (!this.container) {
+                this.init();
+                // If still not ready (waiting for DOM), queue the notification
+                if (!this.container) {
+                    setTimeout(() => this.show(message, type, duration, options), 50);
+                    return null;
+                }
+            }
 
-        const iconHtml = `<i data-lucide="${selectedIcon}" class="toast-icon ${type === 'loading' ? 'spinning' : ''}"></i>`;
-        const titleHtml = title ? `<div class="toast-title">${title}</div>` : '';
-        const messageHtml = `<div class="toast-message">${message}</div>`;
-        const closeBtn = !persistent
-            ? `<button class="toast-close"><i data-lucide="x"></i></button>`
-            : '';
+            const {
+                showOverlay = false,
+                showProgress = true,
+                persistent = false,
+                icon = null,
+                title = null,
+            } = options;
 
-        notification.innerHTML = `
+            if (showOverlay || persistent) this.clearAll();
+
+            const notificationId = ++this.notificationCounter;
+            const notification = document.createElement('div');
+            notification.className = `toast ${type}`;
+            notification.dataset.id = notificationId;
+
+            const selectedIcon = icon || this.config.icons[type] || 'bell';
+
+            const iconHtml = `<i data-lucide="${selectedIcon}" class="toast-icon ${type === 'loading' ? 'spinning' : ''}"></i>`;
+            const titleHtml = title ? `<div class="toast-title">${title}</div>` : '';
+            const messageHtml = `<div class="toast-message">${message}</div>`;
+            const closeBtn = !persistent
+                ? `<button class="toast-close"><i data-lucide="x"></i></button>`
+                : '';
+
+            notification.innerHTML = `
             ${iconHtml}
             <div class="toast-content">
                 ${titleHtml}
@@ -2258,185 +2237,182 @@ class NotificationManager {
             ${showProgress && duration > 0 ? '<div class="toast-progress"></div>' : ''}
         `;
 
-        const closeBtnEl = notification.querySelector('.toast-close');
-        if (closeBtnEl) {
-            closeBtnEl.onclick = () => this.remove(notificationId);
-        }
-
-        if (showProgress && duration > 0) {
-            notification.style.setProperty('--duration', duration + 'ms');
-        }
-
-        this.container.appendChild(notification);
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-
-        this.notifications.set(notificationId, {
-            element: notification,
-            type,
-            timeout: null,
-            showOverlay,
-        });
-
-        if (showOverlay) {
-            this.showOverlay();
-            document.body.style.overflow = 'hidden';
-        }
-
-        requestAnimationFrame(() => notification.classList.add('show'));
-
-        if (duration > 0 && !persistent) {
-            const timeoutId = setTimeout(
-                () => this.remove(notificationId),
-                duration,
-            );
-            this.notifications.get(notificationId).timeout = timeoutId;
-        }
-
-        return notificationId;
-    }
-
-    remove(notificationId) {
-        const notification = this.notifications.get(notificationId);
-        if (!notification) return;
-
-        if (notification.timeout) clearTimeout(notification.timeout);
-        notification.element.classList.remove('show');
-
-        setTimeout(() => {
-            if (notification.element && notification.element.parentNode) {
-                notification.element.parentNode.removeChild(notification.element);
+            const closeBtnEl = notification.querySelector('.toast-close');
+            if (closeBtnEl) {
+                closeBtnEl.onclick = () => this.remove(notificationId);
             }
-            this.notifications.delete(notificationId);
-            if (notification.showOverlay) this.hideOverlay();
-        }, 300);
-    }
 
-    clearAll() {
-        for (const [id] of this.notifications) this.remove(id);
-        this.forceHideOverlay();
-    }
+            if (showProgress && duration > 0) {
+                notification.style.setProperty('--duration', duration + 'ms');
+            }
 
-    forceHideOverlay() {
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) overlay.classList.remove('show');
-        document.body.style.overflow = 'auto';
-    }
+            this.container.appendChild(notification);
 
-    showOverlay() {
-        let overlay = document.getElementById('loading-overlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'loading-overlay';
-            overlay.className = 'loading-overlay';
-            document.body.appendChild(overlay);
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            this.notifications.set(notificationId, {
+                element: notification,
+                type,
+                timeout: null,
+                showOverlay,
+            });
+
+            if (showOverlay) {
+                this.showOverlay();
+                document.body.style.overflow = 'hidden';
+            }
+
+            requestAnimationFrame(() => notification.classList.add('show'));
+
+            if (duration > 0 && !persistent) {
+                const timeoutId = setTimeout(() => this.remove(notificationId), duration);
+                this.notifications.get(notificationId).timeout = timeoutId;
+            }
+
+            return notificationId;
         }
-        overlay.classList.add('show');
-    }
 
-    hideOverlay() {
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) overlay.classList.remove('show');
-        document.body.style.overflow = 'auto';
-    }
+        remove(notificationId) {
+            const notification = this.notifications.get(notificationId);
+            if (!notification) return;
 
-    // Convenience methods
-    loading(message = 'Đang xử lý...', title = null) {
-        return this.show(message, 'info', 0, {
-            showOverlay: true,
-            persistent: true,
-            icon: 'loader',
-            title: title || this.config.titles.loading,
-        });
-    }
+            if (notification.timeout) clearTimeout(notification.timeout);
+            notification.element.classList.remove('show');
 
-    success(message, duration = this.config.durations.success, title = null) {
-        return this.show(message, 'success', duration, {
-            showProgress: true,
-            title: title || this.config.titles.success,
-        });
-    }
+            setTimeout(() => {
+                if (notification.element && notification.element.parentNode) {
+                    notification.element.parentNode.removeChild(notification.element);
+                }
+                this.notifications.delete(notificationId);
+                if (notification.showOverlay) this.hideOverlay();
+            }, 300);
+        }
 
-    error(message, duration = this.config.durations.error, title = null) {
-        return this.show(message, 'error', duration, {
-            showProgress: true,
-            title: title || this.config.titles.error,
-        });
-    }
+        clearAll() {
+            for (const [id] of this.notifications) this.remove(id);
+            this.forceHideOverlay();
+        }
 
-    warning(message, duration = this.config.durations.warning, title = null) {
-        return this.show(message, 'warning', duration, {
-            showProgress: true,
-            title: title || this.config.titles.warning,
-        });
-    }
+        forceHideOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
 
-    info(message, duration = this.config.durations.info, title = null) {
-        return this.show(message, 'info', duration, {
-            showProgress: true,
-            title: title,
-        });
-    }
+        showOverlay() {
+            let overlay = document.getElementById('loading-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'loading-overlay';
+                overlay.className = 'loading-overlay';
+                document.body.appendChild(overlay);
+            }
+            overlay.classList.add('show');
+        }
 
-    // Action-specific methods
-    uploading(current, total) {
-        const message = `Đang tải lên ${current}/${total} ảnh`;
-        return this.show(message, 'info', 0, {
-            showOverlay: true,
-            persistent: true,
-            icon: 'upload-cloud',
-            title: 'Upload',
-        });
-    }
+        hideOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
 
-    deleting(message = 'Đang xóa...') {
-        return this.show(message, 'warning', 0, {
-            showOverlay: true,
-            persistent: true,
-            icon: 'trash-2',
-            title: 'Xóa dữ liệu',
-        });
-    }
+        // Convenience methods
+        loading(message = 'Đang xử lý...', title = null) {
+            return this.show(message, 'info', 0, {
+                showOverlay: true,
+                persistent: true,
+                icon: 'loader',
+                title: title || this.config.titles.loading,
+            });
+        }
 
-    saving(message = 'Đang lưu...') {
-        return this.show(message, 'info', 0, {
-            showOverlay: true,
-            persistent: true,
-            icon: 'save',
-            title: 'Lưu',
-        });
-    }
+        success(message, duration = this.config.durations.success, title = null) {
+            return this.show(message, 'success', duration, {
+                showProgress: true,
+                title: title || this.config.titles.success,
+            });
+        }
 
-    loadingData(message = 'Đang tải dữ liệu...') {
-        return this.show(message, 'info', 0, {
-            showOverlay: true,
-            persistent: true,
-            icon: 'database',
-            title: 'Tải dữ liệu',
-        });
-    }
+        error(message, duration = this.config.durations.error, title = null) {
+            return this.show(message, 'error', duration, {
+                showProgress: true,
+                title: title || this.config.titles.error,
+            });
+        }
 
-    processing(message = 'Đang xử lý...') {
-        return this.show(message, 'info', 0, {
-            showOverlay: true,
-            persistent: true,
-            icon: 'cpu',
-            title: 'Xử lý',
-        });
-    }
+        warning(message, duration = this.config.durations.warning, title = null) {
+            return this.show(message, 'warning', duration, {
+                showProgress: true,
+                title: title || this.config.titles.warning,
+            });
+        }
 
-    // Custom confirm dialog
-    confirm(message, title = 'Xác nhận') {
-        return new Promise((resolve) => {
-            const overlay = document.createElement('div');
-            overlay.className = 'custom-confirm-overlay';
-            overlay.id = 'customConfirmOverlay';
+        info(message, duration = this.config.durations.info, title = null) {
+            return this.show(message, 'info', duration, {
+                showProgress: true,
+                title: title,
+            });
+        }
 
-            const modal = document.createElement('div');
-            modal.className = 'custom-confirm-modal';
-            modal.innerHTML = `
+        // Action-specific methods
+        uploading(current, total) {
+            const message = `Đang tải lên ${current}/${total} ảnh`;
+            return this.show(message, 'info', 0, {
+                showOverlay: true,
+                persistent: true,
+                icon: 'upload-cloud',
+                title: 'Upload',
+            });
+        }
+
+        deleting(message = 'Đang xóa...') {
+            return this.show(message, 'warning', 0, {
+                showOverlay: true,
+                persistent: true,
+                icon: 'trash-2',
+                title: 'Xóa dữ liệu',
+            });
+        }
+
+        saving(message = 'Đang lưu...') {
+            return this.show(message, 'info', 0, {
+                showOverlay: true,
+                persistent: true,
+                icon: 'save',
+                title: 'Lưu',
+            });
+        }
+
+        loadingData(message = 'Đang tải dữ liệu...') {
+            return this.show(message, 'info', 0, {
+                showOverlay: true,
+                persistent: true,
+                icon: 'database',
+                title: 'Tải dữ liệu',
+            });
+        }
+
+        processing(message = 'Đang xử lý...') {
+            return this.show(message, 'info', 0, {
+                showOverlay: true,
+                persistent: true,
+                icon: 'cpu',
+                title: 'Xử lý',
+            });
+        }
+
+        // Custom confirm dialog
+        confirm(message, title = 'Xác nhận') {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-confirm-overlay';
+                overlay.id = 'customConfirmOverlay';
+
+                const modal = document.createElement('div');
+                modal.className = 'custom-confirm-modal';
+                modal.innerHTML = `
                 <div class="custom-confirm-header">
                     <i data-lucide="alert-circle" class="custom-confirm-icon"></i>
                     <h3>${title}</h3>
@@ -2456,54 +2432,54 @@ class NotificationManager {
                 </div>
             `;
 
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
 
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
 
-            requestAnimationFrame(() => {
-                overlay.classList.add('show');
+                requestAnimationFrame(() => {
+                    overlay.classList.add('show');
+                });
+
+                const closeModal = (result) => {
+                    overlay.classList.remove('show');
+                    setTimeout(() => {
+                        overlay.remove();
+                        resolve(result);
+                    }, 200);
+                };
+
+                const cancelBtn = modal.querySelector('.custom-confirm-cancel');
+                const okBtn = modal.querySelector('.custom-confirm-ok');
+
+                cancelBtn.onclick = () => closeModal(false);
+                okBtn.onclick = () => closeModal(true);
+
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        closeModal(false);
+                    }
+                };
+
+                const handleKeydown = (e) => {
+                    if (e.key === 'Escape') {
+                        closeModal(false);
+                        document.removeEventListener('keydown', handleKeydown);
+                    } else if (e.key === 'Enter') {
+                        closeModal(true);
+                        document.removeEventListener('keydown', handleKeydown);
+                    }
+                };
+                document.addEventListener('keydown', handleKeydown);
+
+                okBtn.focus();
             });
+        }
 
-            const closeModal = (result) => {
-                overlay.classList.remove('show');
-                setTimeout(() => {
-                    overlay.remove();
-                    resolve(result);
-                }, 200);
-            };
-
-            const cancelBtn = modal.querySelector('.custom-confirm-cancel');
-            const okBtn = modal.querySelector('.custom-confirm-ok');
-
-            cancelBtn.onclick = () => closeModal(false);
-            okBtn.onclick = () => closeModal(true);
-
-            overlay.onclick = (e) => {
-                if (e.target === overlay) {
-                    closeModal(false);
-                }
-            };
-
-            const handleKeydown = (e) => {
-                if (e.key === 'Escape') {
-                    closeModal(false);
-                    document.removeEventListener('keydown', handleKeydown);
-                } else if (e.key === 'Enter') {
-                    closeModal(true);
-                    document.removeEventListener('keydown', handleKeydown);
-                }
-            };
-            document.addEventListener('keydown', handleKeydown);
-
-            okBtn.focus();
-        });
-    }
-
-    _injectStyles() {
-        const styles = `
+        _injectStyles() {
+            const styles = `
 <style id="notification-system-styles">
 .toast-container {
     position: fixed;
@@ -2629,337 +2605,341 @@ class NotificationManager {
 .custom-confirm-ok:focus { outline: none; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); }
 </style>`;
 
-        document.head.insertAdjacentHTML('beforeend', styles);
+            document.head.insertAdjacentHTML('beforeend', styles);
+        }
     }
-}
 
-// =====================================================
-// GLOBAL EXPORTS
-// =====================================================
+    // =====================================================
+    // GLOBAL EXPORTS
+    // =====================================================
 
-if (typeof window !== 'undefined') {
-    window.NotificationManager = NotificationManager;
-    window.NOTIFICATION_CONFIG = NOTIFICATION_CONFIG;
-    window.notificationManager = new NotificationManager();
-}
+    if (typeof window !== 'undefined') {
+        window.NotificationManager = NotificationManager;
+        window.NOTIFICATION_CONFIG = NOTIFICATION_CONFIG;
+        window.notificationManager = new NotificationManager();
+    }
 
-// Module exports
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { NotificationManager, NOTIFICATION_CONFIG };
-}
-
-
-
+    // Module exports
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { NotificationManager, NOTIFICATION_CONFIG };
+    }
 
     // ========================================
     // shared-auth-manager.js
     // ========================================
-/**
- * SHARED AUTHENTICATION MANAGER
- * File: shared-auth-manager.js
- *
- * ⚠️ DEPRECATED: This wrapper file is for backward compatibility only.
- *
- * SOURCE OF TRUTH: /shared/browser/auth-manager.js
- *
- * MIGRATION GUIDE:
- * ================
- * For ES Modules (recommended):
- *   import { AuthManager } from '/shared/browser/auth-manager.js';
- *
- * For script-tag (deprecated):
- *   <script type="module" src="../shared/esm/compat.js"></script>
- *   This auto-initializes window.authManager from the ES module source.
- *
- * This file contains duplicated logic and will be removed in future.
- * Please migrate to ES modules when possible.
- */
+    /**
+     * SHARED AUTHENTICATION MANAGER
+     * File: shared-auth-manager.js
+     *
+     * ⚠️ DEPRECATED: This wrapper file is for backward compatibility only.
+     *
+     * SOURCE OF TRUTH: /shared/browser/auth-manager.js
+     *
+     * MIGRATION GUIDE:
+     * ================
+     * For ES Modules (recommended):
+     *   import { AuthManager } from '/shared/browser/auth-manager.js';
+     *
+     * For script-tag (deprecated):
+     *   <script type="module" src="../shared/esm/compat.js"></script>
+     *   This auto-initializes window.authManager from the ES module source.
+     *
+     * This file contains duplicated logic and will be removed in future.
+     * Please migrate to ES modules when possible.
+     */
 
-// Log deprecation warning once
-if (typeof window !== 'undefined' && !window._sharedAuthManagerWarned) {
-    console.warn('[AuthManager] ⚠️ DEPRECATED: shared-auth-manager.js sẽ bị xóa. Dùng ES module từ /shared/browser/auth-manager.js');
-    window._sharedAuthManagerWarned = true;
-}
-
-// Prevent redeclaration if already loaded
-if (typeof window !== 'undefined' && window.AuthManager) {
-} else {
-    class AuthManager {
-    constructor(options = {}) {
-        this.storageKey = options.storageKey || 'loginindex_auth';
-        this.redirectUrl = options.redirectUrl || '/index.html';
-        this.sessionDuration = options.sessionDuration || 8 * 60 * 60 * 1000; // 8 hours
-        this.rememberDuration = options.rememberDuration || 30 * 24 * 60 * 60 * 1000; // 30 days
-        this.requiredPermissions = options.requiredPermissions || [];
+    // Log deprecation warning once
+    if (typeof window !== 'undefined' && !window._sharedAuthManagerWarned) {
+        console.warn(
+            '[AuthManager] ⚠️ DEPRECATED: shared-auth-manager.js sẽ bị xóa. Dùng ES module từ /shared/browser/auth-manager.js'
+        );
+        window._sharedAuthManagerWarned = true;
     }
 
-    /**
-     * Check if user is authenticated
-     * @returns {boolean}
-     */
-    isAuthenticated() {
-        const authData = this.getAuthData();
-        if (!authData) return false;
-
-        // Check if session expired
-        if (this.isSessionExpired(authData)) {
-            this.logout('Session expired');
-            return false;
-        }
-
-        return authData.isLoggedIn === 'true' || authData.isLoggedIn === true;
-    }
-
-    /**
-     * Get auth data from storage
-     * @returns {object|null}
-     */
-    getAuthData() {
-        try {
-            // Try sessionStorage first (session-only login)
-            let authDataStr = sessionStorage.getItem(this.storageKey);
-            let storage = 'session';
-
-            // If not in session, try localStorage (remember me)
-            if (!authDataStr) {
-                authDataStr = localStorage.getItem(this.storageKey);
-                storage = 'local';
+    // Prevent redeclaration if already loaded
+    if (typeof window !== 'undefined' && window.AuthManager) {
+    } else {
+        class AuthManager {
+            constructor(options = {}) {
+                this.storageKey = options.storageKey || 'loginindex_auth';
+                this.redirectUrl = options.redirectUrl || '/index.html';
+                this.sessionDuration = options.sessionDuration || 8 * 60 * 60 * 1000; // 8 hours
+                this.rememberDuration = options.rememberDuration || 30 * 24 * 60 * 60 * 1000; // 30 days
+                this.requiredPermissions = options.requiredPermissions || [];
             }
 
-            if (!authDataStr) return null;
+            /**
+             * Check if user is authenticated
+             * @returns {boolean}
+             */
+            isAuthenticated() {
+                const authData = this.getAuthData();
+                if (!authData) return false;
 
-            const authData = JSON.parse(authDataStr);
-            authData._storage = storage;
-            return authData;
-        } catch (error) {
-            logger.error('Error reading auth data:', error);
-            return null;
-        }
-    }
+                // Check if session expired
+                if (this.isSessionExpired(authData)) {
+                    this.logout('Session expired');
+                    return false;
+                }
 
-    /**
-     * Alias for getAuthData (backward compatibility)
-     * @returns {object|null}
-     */
-    getAuthState() {
-        return this.getAuthData();
-    }
-
-    /**
-     * Save auth data to storage
-     * @param {object} authData
-     * @param {boolean} rememberMe
-     */
-    saveAuthData(authData, rememberMe = false) {
-        try {
-            const dataToSave = {
-                ...authData,
-                timestamp: Date.now(),
-                expiresAt: Date.now() + (rememberMe ? this.rememberDuration : this.sessionDuration),
-                isRemembered: rememberMe
-            };
-
-            const authDataStr = JSON.stringify(dataToSave);
-
-            if (rememberMe) {
-                localStorage.setItem(this.storageKey, authDataStr);
-            } else {
-                sessionStorage.setItem(this.storageKey, authDataStr);
+                return authData.isLoggedIn === 'true' || authData.isLoggedIn === true;
             }
 
-            logger.log('✅ Auth data saved to', rememberMe ? 'localStorage' : 'sessionStorage');
-        } catch (error) {
-            logger.error('Error saving auth data:', error);
+            /**
+             * Get auth data from storage
+             * @returns {object|null}
+             */
+            getAuthData() {
+                try {
+                    // Try sessionStorage first (session-only login)
+                    let authDataStr = sessionStorage.getItem(this.storageKey);
+                    let storage = 'session';
+
+                    // If not in session, try localStorage (remember me)
+                    if (!authDataStr) {
+                        authDataStr = localStorage.getItem(this.storageKey);
+                        storage = 'local';
+                    }
+
+                    if (!authDataStr) return null;
+
+                    const authData = JSON.parse(authDataStr);
+                    authData._storage = storage;
+                    return authData;
+                } catch (error) {
+                    logger.error('Error reading auth data:', error);
+                    return null;
+                }
+            }
+
+            /**
+             * Alias for getAuthData (backward compatibility)
+             * @returns {object|null}
+             */
+            getAuthState() {
+                return this.getAuthData();
+            }
+
+            /**
+             * Save auth data to storage
+             * @param {object} authData
+             * @param {boolean} rememberMe
+             */
+            saveAuthData(authData, rememberMe = false) {
+                try {
+                    const dataToSave = {
+                        ...authData,
+                        timestamp: Date.now(),
+                        expiresAt:
+                            Date.now() +
+                            (rememberMe ? this.rememberDuration : this.sessionDuration),
+                        isRemembered: rememberMe,
+                    };
+
+                    const authDataStr = JSON.stringify(dataToSave);
+
+                    if (rememberMe) {
+                        localStorage.setItem(this.storageKey, authDataStr);
+                    } else {
+                        sessionStorage.setItem(this.storageKey, authDataStr);
+                    }
+
+                    logger.log(
+                        '✅ Auth data saved to',
+                        rememberMe ? 'localStorage' : 'sessionStorage'
+                    );
+                } catch (error) {
+                    logger.error('Error saving auth data:', error);
+                }
+            }
+
+            /**
+             * Check if session is expired
+             * @param {object} authData
+             * @returns {boolean}
+             */
+            isSessionExpired(authData) {
+                if (!authData.expiresAt) {
+                    // Legacy data without expiry - check timestamp
+                    const duration = authData.isRemembered
+                        ? this.rememberDuration
+                        : this.sessionDuration;
+                    return Date.now() - (authData.timestamp || 0) > duration;
+                }
+                return Date.now() > authData.expiresAt;
+            }
+
+            /**
+             * Get user info
+             * @returns {object|null}
+             */
+            getUserInfo() {
+                const authData = this.getAuthData();
+                if (!authData) return null;
+
+                return {
+                    username: authData.username,
+                    displayName: authData.displayName,
+                    checkLogin: authData.checkLogin,
+                    uid: authData.uid,
+                    userType: authData.userType,
+                    pagePermissions: authData.pagePermissions || [],
+                };
+            }
+
+            /**
+             * Check if user has permission for current page
+             * ALL users (including Admin) check detailedPermissions - NO bypass
+             * @param {string} pageName
+             * @returns {boolean}
+             */
+            hasPagePermission(pageName) {
+                const authData = this.getAuthData();
+                if (!authData) return false;
+
+                // ALL users check detailedPermissions - NO bypass
+                if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
+                    const pagePerms = authData.detailedPermissions[pageName];
+                    return Object.values(pagePerms).some((v) => v === true);
+                }
+
+                return false;
+            }
+
+            // getPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
+
+            // hasPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
+
+            /**
+             * Check if user has specific detailed permission
+             * ALL users (including Admin) check detailedPermissions - NO bypass
+             * @param {string} pageId
+             * @param {string} action
+             * @returns {boolean}
+             */
+            hasDetailedPermission(pageId, action) {
+                const authData = this.getAuthData();
+                // ALL users check detailedPermissions - NO bypass
+                if (!authData?.detailedPermissions?.[pageId]) return false;
+                return authData.detailedPermissions[pageId][action] === true;
+            }
+
+            /**
+             * Check if user has admin template (for UI display only)
+             * QUAN TRỌNG: Không dùng để bypass permission - chỉ để hiển thị UI
+             * @returns {boolean}
+             */
+            isAdminTemplate() {
+                const authData = this.getAuthData();
+                return authData?.roleTemplate === 'admin';
+            }
+
+            // isAdmin() — REMOVED: use isAdminTemplate() instead
+
+            // hasPermission() — REMOVED: legacy alias for hasPermissionLevel
+
+            /**
+             * Logout user
+             * @param {string} reason
+             */
+            logout(reason = '') {
+                if (reason) {
+                    logger.log('Logging out:', reason);
+                }
+
+                // Clear both storages
+                sessionStorage.removeItem(this.storageKey);
+                localStorage.removeItem(this.storageKey);
+
+                // Redirect to login
+                if (typeof window !== 'undefined') {
+                    window.location.href = this.redirectUrl;
+                }
+            }
+
+            /**
+             * Verify authentication and redirect if not authenticated
+             * @returns {boolean}
+             */
+            requireAuth() {
+                if (!this.isAuthenticated()) {
+                    logger.log('Not authenticated, redirecting to login...');
+                    this.logout('Authentication required');
+                    return false;
+                }
+                return true;
+            }
+
+            /**
+             * Verify page permission and redirect if not authorized
+             * @param {string} pageName
+             * @returns {boolean}
+             */
+            requirePagePermission(pageName) {
+                if (!this.requireAuth()) return false;
+
+                if (!this.hasPagePermission(pageName)) {
+                    logger.warn('Access denied to page:', pageName);
+                    alert('Bạn không có quyền truy cập trang này');
+                    window.location.href = '/live/index.html';
+                    return false;
+                }
+
+                return true;
+            }
+
+            // getRoleInfo() — REMOVED: legacy checkLogin-based role info, use standalone getRoleInfo() in common-utils for UI display
+
+            /**
+             * Extend session (refresh expiry time)
+             */
+            extendSession() {
+                const authData = this.getAuthData();
+                if (!authData) return;
+
+                const isRemembered = authData.isRemembered || authData._storage === 'local';
+                this.saveAuthData(authData, isRemembered);
+                logger.log('✅ Session extended');
+            }
+
+            /**
+             * Get session info
+             * @returns {object}
+             */
+            getSessionInfo() {
+                const authData = this.getAuthData();
+                if (!authData) {
+                    return {
+                        authenticated: false,
+                        expiresIn: 0,
+                        storage: null,
+                    };
+                }
+
+                const now = Date.now();
+                const expiresIn = authData.expiresAt ? authData.expiresAt - now : 0;
+
+                return {
+                    authenticated: true,
+                    expiresIn: Math.max(0, expiresIn),
+                    expiresInMinutes: Math.floor(expiresIn / 60000),
+                    storage: authData._storage,
+                    isRemembered: authData.isRemembered || false,
+                    user: this.getUserInfo(),
+                };
+            }
         }
-    }
 
-    /**
-     * Check if session is expired
-     * @param {object} authData
-     * @returns {boolean}
-     */
-    isSessionExpired(authData) {
-        if (!authData.expiresAt) {
-            // Legacy data without expiry - check timestamp
-            const duration = authData.isRemembered ? this.rememberDuration : this.sessionDuration;
-            return Date.now() - (authData.timestamp || 0) > duration;
-        }
-        return Date.now() > authData.expiresAt;
-    }
-
-    /**
-     * Get user info
-     * @returns {object|null}
-     */
-    getUserInfo() {
-        const authData = this.getAuthData();
-        if (!authData) return null;
-
-        return {
-            username: authData.username,
-            displayName: authData.displayName,
-            checkLogin: authData.checkLogin,
-            uid: authData.uid,
-            userType: authData.userType,
-            pagePermissions: authData.pagePermissions || []
-        };
-    }
-
-    /**
-     * Check if user has permission for current page
-     * ALL users (including Admin) check detailedPermissions - NO bypass
-     * @param {string} pageName
-     * @returns {boolean}
-     */
-    hasPagePermission(pageName) {
-        const authData = this.getAuthData();
-        if (!authData) return false;
-
-        // ALL users check detailedPermissions - NO bypass
-        if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
-            const pagePerms = authData.detailedPermissions[pageName];
-            return Object.values(pagePerms).some(v => v === true);
-        }
-
-        return false;
-    }
-
-    // getPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
-
-    // hasPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
-
-    /**
-     * Check if user has specific detailed permission
-     * ALL users (including Admin) check detailedPermissions - NO bypass
-     * @param {string} pageId
-     * @param {string} action
-     * @returns {boolean}
-     */
-    hasDetailedPermission(pageId, action) {
-        const authData = this.getAuthData();
-        // ALL users check detailedPermissions - NO bypass
-        if (!authData?.detailedPermissions?.[pageId]) return false;
-        return authData.detailedPermissions[pageId][action] === true;
-    }
-
-    /**
-     * Check if user has admin template (for UI display only)
-     * QUAN TRỌNG: Không dùng để bypass permission - chỉ để hiển thị UI
-     * @returns {boolean}
-     */
-    isAdminTemplate() {
-        const authData = this.getAuthData();
-        return authData?.roleTemplate === 'admin';
-    }
-
-    // isAdmin() — REMOVED: use isAdminTemplate() instead
-
-    // hasPermission() — REMOVED: legacy alias for hasPermissionLevel
-
-    /**
-     * Logout user
-     * @param {string} reason
-     */
-    logout(reason = '') {
-        if (reason) {
-            logger.log('Logging out:', reason);
-        }
-
-        // Clear both storages
-        sessionStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.storageKey);
-
-        // Redirect to login
+        // Export to window
         if (typeof window !== 'undefined') {
-            window.location.href = this.redirectUrl;
-        }
-    }
-
-    /**
-     * Verify authentication and redirect if not authenticated
-     * @returns {boolean}
-     */
-    requireAuth() {
-        if (!this.isAuthenticated()) {
-            logger.log('Not authenticated, redirecting to login...');
-            this.logout('Authentication required');
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Verify page permission and redirect if not authorized
-     * @param {string} pageName
-     * @returns {boolean}
-     */
-    requirePagePermission(pageName) {
-        if (!this.requireAuth()) return false;
-
-        if (!this.hasPagePermission(pageName)) {
-            logger.warn('Access denied to page:', pageName);
-            alert('Bạn không có quyền truy cập trang này');
-            window.location.href = '/live/index.html';
-            return false;
+            window.AuthManager = AuthManager;
         }
 
-        return true;
-    }
-
-    // getRoleInfo() — REMOVED: legacy checkLogin-based role info, use standalone getRoleInfo() in common-utils for UI display
-
-    /**
-     * Extend session (refresh expiry time)
-     */
-    extendSession() {
-        const authData = this.getAuthData();
-        if (!authData) return;
-
-        const isRemembered = authData.isRemembered || authData._storage === 'local';
-        this.saveAuthData(authData, isRemembered);
-        logger.log('✅ Session extended');
-    }
-
-    /**
-     * Get session info
-     * @returns {object}
-     */
-    getSessionInfo() {
-        const authData = this.getAuthData();
-        if (!authData) {
-            return {
-                authenticated: false,
-                expiresIn: 0,
-                storage: null
-            };
+        // Module export
+        if (typeof module !== 'undefined' && module.exports) {
+            module.exports = { AuthManager };
         }
-
-        const now = Date.now();
-        const expiresIn = authData.expiresAt ? authData.expiresAt - now : 0;
-
-        return {
-            authenticated: true,
-            expiresIn: Math.max(0, expiresIn),
-            expiresInMinutes: Math.floor(expiresIn / 60000),
-            storage: authData._storage,
-            isRemembered: authData.isRemembered || false,
-            user: this.getUserInfo()
-        };
     }
-    }
-
-    // Export to window
-    if (typeof window !== 'undefined') {
-        window.AuthManager = AuthManager;
-    }
-
-    // Module export
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { AuthManager };
-    }
-}
-
-
 
     // ========================================
     // AUTO-INITIALIZATION
@@ -2975,7 +2955,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
             window.authManager = new AuthManager({
                 redirectUrl: '../index.html',
                 sessionDuration: 8 * 60 * 60 * 1000,
-                rememberDuration: 30 * 24 * 60 * 60 * 1000
+                rememberDuration: 30 * 24 * 60 * 60 * 1000,
             });
         } catch (e) {
             console.warn('[Core Bundle] Failed to auto-init AuthManager:', e);
@@ -2994,5 +2974,4 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     // Dispatch event to signal core utilities are loaded
     document.dispatchEvent(new CustomEvent('coreUtilitiesLoaded'));
     window.dispatchEvent(new CustomEvent('sharedModulesLoaded'));
-
 })(typeof window !== 'undefined' ? window : this);
