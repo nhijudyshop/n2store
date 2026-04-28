@@ -15,14 +15,15 @@
     // CONFIGURATION
     // =====================================================
 
-    const API_BASE_URL = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000'
-        : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE_URL =
+        window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     const CONFIG = {
         REFRESH_INTERVAL: 30000, // 30 seconds
         PAGE_SIZE: 20,
-        PENDING_ALERT_HOURS: 24
+        PENDING_ALERT_HOURS: 24,
     };
 
     // =====================================================
@@ -36,17 +37,25 @@
         selectedIds: new Set(),
         pagination: {
             pending: { page: 1, totalPages: 1, total: 0 },
-            approved: { page: 1, totalPages: 1, total: 0 }
+            approved: { page: 1, totalPages: 1, total: 0 },
         },
         filters: {
             pending: { startDate: '', endDate: '', search: '', source: '', overdueOnly: false },
-            approved: { startDate: '', endDate: '', search: '', source: '', verifier: '', checked: '', adjusted: '' }
+            approved: {
+                startDate: '',
+                endDate: '',
+                search: '',
+                source: '',
+                verifier: '',
+                checked: '',
+                adjusted: '',
+            },
         },
         stats: {
             pending: 0,
             pendingOverdue: 0,
             approvedToday: 0,
-            rejectedToday: 0
+            rejectedToday: 0,
         },
         refreshTimer: null,
         isLoading: false,
@@ -55,14 +64,14 @@
             transactionId: null,
             imageUrl: null,
             imageFile: null,
-            isUploading: false
+            isUploading: false,
         },
         // Review modal state
         reviewModal: {
             imageUrl: null,
             imageFile: null,
-            isUploading: false
-        }
+            isUploading: false,
+        },
     };
 
     // Track whether correct customer was found on TPOS
@@ -170,7 +179,7 @@
 
         // Pagination
         paginationPending: null,
-        paginationApproved: null
+        paginationApproved: null,
     };
 
     // =====================================================
@@ -290,12 +299,12 @@
         }
 
         // Modal close buttons
-        document.querySelectorAll('.acc-modal-close').forEach(btn => {
+        document.querySelectorAll('.acc-modal-close').forEach((btn) => {
             btn.addEventListener('click', closeAllModals);
         });
 
         // Click outside modal to close
-        document.querySelectorAll('.acc-modal-overlay').forEach(overlay => {
+        document.querySelectorAll('.acc-modal-overlay').forEach((overlay) => {
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) closeAllModals();
             });
@@ -303,28 +312,39 @@
 
         // Filter Event Listeners
         // Presets
-        document.querySelectorAll('.acc-preset-btn').forEach(btn => {
+        document.querySelectorAll('.acc-preset-btn').forEach((btn) => {
             btn.addEventListener('click', (e) => setFilterPreset(e.target));
         });
 
         // Inputs
-        ['pending', 'approved'].forEach(tab => {
+        ['pending', 'approved'].forEach((tab) => {
             const start = elements[`${tab}StartDate`];
             const end = elements[`${tab}EndDate`];
             const search = elements[`${tab}Search`];
 
             if (start) start.addEventListener('change', () => handleFilterChange(tab));
             if (end) end.addEventListener('change', () => handleFilterChange(tab));
-            if (search) search.addEventListener('input', debounce(() => handleFilterChange(tab), 500));
+            if (search)
+                search.addEventListener(
+                    'input',
+                    debounce(() => handleFilterChange(tab), 500)
+                );
         });
 
         // Pending source filter
         if (elements.pendingSourceFilter) {
-            elements.pendingSourceFilter.addEventListener('change', () => handleFilterChange('pending'));
+            elements.pendingSourceFilter.addEventListener('change', () =>
+                handleFilterChange('pending')
+            );
         }
 
         // Approved extra filters (source, verifier, check, adjust)
-        ['approvedSourceFilter', 'approvedVerifierFilter', 'approvedCheckFilter', 'approvedAdjustFilter'].forEach(key => {
+        [
+            'approvedSourceFilter',
+            'approvedVerifierFilter',
+            'approvedCheckFilter',
+            'approvedAdjustFilter',
+        ].forEach((key) => {
             if (elements[key]) {
                 elements[key].addEventListener('change', () => handleFilterChange('approved'));
             }
@@ -477,12 +497,16 @@
         if (old) old.remove();
         const box = document.createElement('div');
         box.id = ID;
-        box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
+        box.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
         box.innerHTML = `<img src="${imgUrl}" alt="Ảnh duyệt CK" style="max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.5)">`;
         const close = () => box.remove();
         box.addEventListener('click', close);
         document.addEventListener('keydown', function onEsc(e) {
-            if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+            if (e.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', onEsc);
+            }
         });
         document.body.appendChild(box);
     }
@@ -497,7 +521,9 @@
         const tab = btn.dataset.tab; // 'pending' or 'approved'
 
         // Remove active class from all presets in this group
-        btn.parentElement.querySelectorAll('.acc-preset-btn').forEach(b => b.classList.remove('active'));
+        btn.parentElement
+            .querySelectorAll('.acc-preset-btn')
+            .forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
 
         // Calculate dates
@@ -583,12 +609,12 @@
         state.currentSubTab = tabName;
 
         // Update tab buttons
-        document.querySelectorAll('.acc-sub-tab').forEach(tab => {
+        document.querySelectorAll('.acc-sub-tab').forEach((tab) => {
             tab.classList.toggle('active', tab.dataset.tab === tabName);
         });
 
         // Update panels
-        document.querySelectorAll('.acc-sub-panel').forEach(panel => {
+        document.querySelectorAll('.acc-sub-panel').forEach((panel) => {
             panel.classList.toggle('active', panel.dataset.panel === tabName);
         });
 
@@ -632,7 +658,6 @@
 
             // Also load failed withdrawal stats (separate API)
             loadFailedWithdrawalStats();
-
         } catch (error) {
             console.error('[ACCOUNTANT] Stats error:', error);
         }
@@ -700,7 +725,7 @@
             limit: CONFIG.PAGE_SIZE,
             startDate: startDate || '',
             endDate: endDate || '',
-            search: search || ''
+            search: search || '',
         });
         if (overdueOnly) {
             query.set('overdueOnly', 'true');
@@ -721,10 +746,11 @@
             // Client-side source filter
             const sourceFilter = state.filters.pending.source;
             if (sourceFilter) {
-                state.pendingQueue = state.pendingQueue.filter(tx => {
-                    const group = typeof getStandardizedSourceGroup === 'function'
-                        ? getStandardizedSourceGroup(tx)
-                        : _fallbackSourceGroup(tx);
+                state.pendingQueue = state.pendingQueue.filter((tx) => {
+                    const group =
+                        typeof getStandardizedSourceGroup === 'function'
+                            ? getStandardizedSourceGroup(tx)
+                            : _fallbackSourceGroup(tx);
                     return group === sourceFilter;
                 });
             }
@@ -732,7 +758,7 @@
             state.pagination.pending = {
                 page: result.pagination.page,
                 totalPages: result.pagination.totalPages,
-                total: result.pagination.total
+                total: result.pagination.total,
             };
 
             renderPendingQueue();
@@ -742,7 +768,6 @@
             // Clear selection on page change
             state.selectedIds.clear();
             updateBulkBar();
-
         } catch (error) {
             console.error('[ACCOUNTANT] Load queue error:', error);
             showError(elements.pendingTableBody, error.message);
@@ -792,24 +817,29 @@
             return;
         }
 
-        elements.pendingTableBody.innerHTML = state.pendingQueue.map(tx => {
-            const amount = parseFloat(tx.amount || 0);
-            const amountFormatted = amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
-            const timeStr = formatDateTime(tx.transaction_date);
+        elements.pendingTableBody.innerHTML = state.pendingQueue
+            .map((tx) => {
+                const amount = parseFloat(tx.amount || 0);
+                const amountFormatted =
+                    amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+                const timeStr = formatDateTime(tx.transaction_date);
 
-            // Calculate wait time
-            const waitTime = calculateWaitTime(tx.verified_at || tx.created_at);
-            const waitClass = waitTime.hours >= 24 ? 'danger' : (waitTime.hours >= 2 ? 'warning' : 'normal');
+                // Calculate wait time
+                const waitTime = calculateWaitTime(tx.verified_at || tx.created_at);
+                const waitClass =
+                    waitTime.hours >= 24 ? 'danger' : waitTime.hours >= 2 ? 'warning' : 'normal';
 
-            // Customer display
-            const hasCustomer = tx.linked_customer_phone;
-            const canChange = hasCustomer && tx.wallet_processed !== true;
+                // Customer display
+                const hasCustomer = tx.linked_customer_phone;
+                const canChange = hasCustomer && tx.wallet_processed !== true;
 
-            // Escape for onclick
-            const escapedName = (tx.customer_name || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
-            const escapedPhone = (tx.linked_customer_phone || '').replace(/'/g, "\\'");
+                // Escape for onclick
+                const escapedName = (tx.customer_name || '')
+                    .replace(/'/g, "\\'")
+                    .replace(/"/g, '\\"');
+                const escapedPhone = (tx.linked_customer_phone || '').replace(/'/g, "\\'");
 
-            return `
+                return `
                 <tr data-tx-id="${tx.id}">
                     <td class="col-checkbox">
                         <input type="checkbox" class="acc-row-checkbox" data-id="${tx.id}"
@@ -822,21 +852,29 @@
                     <td class="col-content"><span class="content-tooltip" data-tooltip="${(tx.content || '').replace(/"/g, '&quot;')}">${truncate(tx.content || '', 30)}</span></td>
                     <td class="col-staff-note">${tx.staff_note || ''}</td>
                     <td class="col-customer">
-                        ${hasCustomer ? `
+                        ${
+                            hasCustomer
+                                ? `
                             <div class="acc-customer-info">
                                 <span class="customer-name">${tx.customer_name || 'Chưa có tên'}</span>
                                 <span class="customer-phone">${tx.linked_customer_phone}</span>
                             </div>
-                        ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
+                        `
+                                : `<span class="acc-text-muted">Chưa gán KH</span>`
+                        }
                     </td>
                     <td class="col-staff">${getMatchMethodBadge(tx)}</td>
                     <td class="col-wait">
                         <span class="acc-wait-time ${waitClass}">${waitTime.display}</span>
                     </td>
                     <td class="col-actions">
-                        ${tx.wallet_processed ? `
+                        ${
+                            tx.wallet_processed
+                                ? `
                             <span class="acc-text-muted acc-text-sm">🔒 Đã cộng ví</span>
-                        ` : (hasCustomer ? `
+                        `
+                                : hasCustomer
+                                  ? `
                             <div class="acc-action-buttons">
                                 <button class="acc-btn acc-btn-approve" onclick="AccountantModule.approve(${tx.id})" title="Duyệt">
                                     <i data-lucide="check" style="width:14px;height:14px"></i>
@@ -845,11 +883,14 @@
                                     <i data-lucide="x" style="width:14px;height:14px"></i>
                                 </button>
                             </div>
-                        ` : `<span class="acc-text-muted acc-text-sm">Gán KH trước</span>`)}
+                        `
+                                  : `<span class="acc-text-muted acc-text-sm">Gán KH trước</span>`
+                        }
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         // Re-render Lucide icons only in this container
         if (window.lucide && elements.pendingTableBody) {
@@ -905,15 +946,16 @@
      */
     function getMatchMethodBadge(tx) {
         // Use global getStandardizedSourceGroup from main.js (loaded before accountant.js)
-        const groupKey = typeof getStandardizedSourceGroup === 'function'
-            ? getStandardizedSourceGroup(tx)
-            : _fallbackSourceGroup(tx);
+        const groupKey =
+            typeof getStandardizedSourceGroup === 'function'
+                ? getStandardizedSourceGroup(tx)
+                : _fallbackSourceGroup(tx);
 
         const config = {
-            manual:  { label: 'Nhập tay', color: '#3b82f6' },
-            selected:{ label: 'Chọn KH', color: '#f97316' },
-            auto:    { label: 'Tự động',  color: '#10b981' },
-            unknown: { label: 'Chưa xác định', color: '#d1d5db' }
+            manual: { label: 'Nhập tay', color: '#3b82f6' },
+            selected: { label: 'Chọn KH', color: '#f97316' },
+            auto: { label: 'Tự động', color: '#10b981' },
+            unknown: { label: 'Chưa xác định', color: '#d1d5db' },
         };
         const cfg = config[groupKey] || config.unknown;
         return `<span class="badge" style="background-color: ${cfg.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${cfg.label}</span>`;
@@ -937,11 +979,11 @@
         if (!dropdown) return;
 
         const currentValue = dropdown.value;
-        const verifiers = [...new Set(data.map(tx => tx.verified_by).filter(Boolean))].sort();
+        const verifiers = [...new Set(data.map((tx) => tx.verified_by).filter(Boolean))].sort();
 
         // Keep the default "Tất cả" option, rebuild the rest
         dropdown.innerHTML = '<option value="">Tất cả</option>';
-        verifiers.forEach(name => {
+        verifiers.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = name;
             opt.textContent = name;
@@ -963,7 +1005,7 @@
         state.selectedIds.clear();
 
         if (isChecked) {
-            state.pendingQueue.forEach(tx => {
+            state.pendingQueue.forEach((tx) => {
                 if (!tx.wallet_processed && tx.linked_customer_phone) {
                     state.selectedIds.add(tx.id);
                 }
@@ -971,9 +1013,9 @@
         }
 
         // Update all checkboxes
-        document.querySelectorAll('.acc-row-checkbox').forEach(cb => {
+        document.querySelectorAll('.acc-row-checkbox').forEach((cb) => {
             const id = parseInt(cb.dataset.id);
-            const tx = state.pendingQueue.find(t => t.id === id);
+            const tx = state.pendingQueue.find((t) => t.id === id);
             if (tx && !tx.wallet_processed && tx.linked_customer_phone) {
                 cb.checked = isChecked;
             }
@@ -1007,8 +1049,8 @@
 
         // Update select all checkbox state
         if (elements.selectAllCheckbox) {
-            const selectableCount = state.pendingQueue.filter(tx =>
-                !tx.wallet_processed && tx.linked_customer_phone
+            const selectableCount = state.pendingQueue.filter(
+                (tx) => !tx.wallet_processed && tx.linked_customer_phone
             ).length;
             elements.selectAllCheckbox.checked = count > 0 && count === selectableCount;
             elements.selectAllCheckbox.indeterminate = count > 0 && count < selectableCount;
@@ -1037,7 +1079,7 @@
         }
 
         // Find transaction
-        const tx = state.pendingQueue.find(t => t.id === transactionId);
+        const tx = state.pendingQueue.find((t) => t.id === transactionId);
         if (!tx) {
             showNotification('Không tìm thấy giao dịch', 'error');
             return;
@@ -1059,7 +1101,7 @@
             isUploading: false,
             originalPhone: tx.linked_customer_phone || '',
             originalName: tx.customer_name || '',
-            changeCustomerExpanded: false
+            changeCustomerExpanded: false,
         };
 
         // Reset change customer section
@@ -1080,7 +1122,8 @@
         clearApproveImage();
 
         // Show transaction summary
-        const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+        const amount =
+            parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
         if (elements.approveSummary) {
             elements.approveSummary.innerHTML = `
                 <div class="summary-row">
@@ -1186,8 +1229,8 @@
                     image: base64Data,
                     fileName: filename,
                     folderPath: 'accountant-approvals',
-                    mimeType: file.type
-                })
+                    mimeType: file.type,
+                }),
             });
 
             const result = await response.json();
@@ -1206,7 +1249,6 @@
                 elements.approveUploadStatus.textContent = 'Đã tải lên thành công';
                 elements.approveUploadStatus.className = 'acc-upload-status success';
             }
-
         } catch (error) {
             console.error('[ACCOUNTANT] Image upload error:', error);
 
@@ -1221,7 +1263,6 @@
 
             showNotification(`Lỗi tải ảnh: ${error.message}`, 'error');
             state.approveModal.imageUrl = null;
-
         } finally {
             state.approveModal.isUploading = false;
             if (elements.approveConfirmBtn) {
@@ -1331,14 +1372,15 @@
             return;
         }
 
-        lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
+        lookupResult.innerHTML =
+            '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${normalized}`);
             const result = await response.json();
 
             const phoneGroups = result.data || [];
-            const customers = phoneGroups.flatMap(group => group.customers || []);
+            const customers = phoneGroups.flatMap((group) => group.customers || []);
 
             if (!result.success || !customers.length) {
                 lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH</div>';
@@ -1350,9 +1392,9 @@
                 document.getElementById('accApproveName').value = customer.name || '';
                 lookupResult.innerHTML = `<div class="tpos-result">✅ ${customer.name}</div>`;
             } else {
-                const options = customers.map(c =>
-                    `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`
-                ).join('');
+                const options = customers
+                    .map((c) => `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`)
+                    .join('');
                 lookupResult.innerHTML = `
                     <div class="tpos-multiple">
                         <span>⚠️ Tìm thấy ${customers.length} KH</span>
@@ -1398,34 +1440,40 @@
         const imageUrl = state.approveModal.imageUrl;
 
         const userInfo = window.authManager?.getUserInfo() || {};
-        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+        const performedBy =
+            userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
         // Check if customer info changed
         const customerChanged = hasCustomerChanged();
-        const newPhone = document.getElementById('accApprovePhone')?.value?.replace(/\D/g, '') || '';
+        const newPhone =
+            document.getElementById('accApprovePhone')?.value?.replace(/\D/g, '') || '';
         const newName = document.getElementById('accApproveName')?.value?.trim() || '';
 
         // Disable button
         if (elements.approveConfirmBtn) {
             elements.approveConfirmBtn.disabled = true;
-            elements.approveConfirmBtn.innerHTML = '<div class="acc-loading-spinner" style="width:14px;height:14px"></div> Đang xử lý...';
+            elements.approveConfirmBtn.innerHTML =
+                '<div class="acc-loading-spinner" style="width:14px;height:14px"></div> Đang xử lý...';
         }
 
         try {
             // If customer changed, update phone first (this API also approves)
             if (customerChanged) {
-                const changeResponse = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        phone: newPhone,
-                        customer_name: newName || null,
-                        entered_by: performedBy,
-                        is_accountant_correction: true,
-                        note: note,
-                        verification_image_url: imageUrl || null
-                    })
-                });
+                const changeResponse = await fetch(
+                    `${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`,
+                    {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: newPhone,
+                            customer_name: newName || null,
+                            entered_by: performedBy,
+                            is_accountant_correction: true,
+                            note: note,
+                            verification_image_url: imageUrl || null,
+                        }),
+                    }
+                );
 
                 const changeResult = await changeResponse.json();
 
@@ -1436,15 +1484,18 @@
                 showNotification(`Đã thay đổi SĐT thành ${newPhone} và duyệt giao dịch`, 'success');
             } else {
                 // Normal approval without customer change
-                const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        verified_by: performedBy,
-                        note: note,
-                        verification_image_url: imageUrl || null
-                    })
-                });
+                const response = await fetch(
+                    `${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            verified_by: performedBy,
+                            note: note,
+                            verification_image_url: imageUrl || null,
+                        }),
+                    }
+                );
 
                 const result = await response.json();
 
@@ -1460,32 +1511,41 @@
                 if (window.AuditLogger) {
                     window.AuditLogger.logAction('accountant_entry_create', {
                         module: 'balance-history',
-                        description: 'Kế toán duyệt giao dịch #' + transactionId + (newPhone ? ' (đổi SĐT: ' + newPhone + ')' : ''),
+                        description:
+                            'Kế toán duyệt giao dịch #' +
+                            transactionId +
+                            (newPhone ? ' (đổi SĐT: ' + newPhone + ')' : ''),
                         oldData: { status: 'PENDING_VERIFICATION' },
-                        newData: { status: 'APPROVED', txId: String(transactionId), note: note, imageUrl: imageUrl || null },
+                        newData: {
+                            status: 'APPROVED',
+                            txId: String(transactionId),
+                            note: note,
+                            imageUrl: imageUrl || null,
+                        },
                         approverUserId: performedBy,
                         approverUserName: performedBy,
                         entityId: String(transactionId),
-                        entityType: 'accountant_entry'
+                        entityType: 'accountant_entry',
                     });
                 }
-            } catch (e) { /* audit log error - ignore */ }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
 
             closeAllModals();
 
             // Refresh data
             loadDashboardStats();
             loadPendingQueue(state.pagination.pending.page);
-
         } catch (error) {
             console.error('[ACCOUNTANT] Approve error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
-
         } finally {
             // Re-enable button
             if (elements.approveConfirmBtn) {
                 elements.approveConfirmBtn.disabled = false;
-                elements.approveConfirmBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận duyệt';
+                elements.approveConfirmBtn.innerHTML =
+                    '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận duyệt';
                 if (window.lucide) lucide.createIcons();
             }
         }
@@ -1505,7 +1565,8 @@
 
         const ids = Array.from(state.selectedIds);
         const userInfo = window.authManager?.getUserInfo() || {};
-        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+        const performedBy =
+            userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
         if (!confirm(`Xác nhận duyệt ${ids.length} giao dịch?`)) {
             return;
@@ -1517,8 +1578,8 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     transaction_ids: ids,
-                    verified_by: performedBy
-                })
+                    verified_by: performedBy,
+                }),
             });
 
             const result = await response.json();
@@ -1534,7 +1595,6 @@
             updateBulkBar();
             loadDashboardStats();
             loadPendingQueue(state.pagination.pending.page);
-
         } catch (error) {
             console.error('[ACCOUNTANT] Bulk approve error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -1565,17 +1625,21 @@
         }
 
         const userInfo = window.authManager?.getUserInfo() || {};
-        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+        const performedBy =
+            userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/reject`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    rejected_by: performedBy,
-                    reason: reason
-                })
-            });
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/${transactionId}/reject`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rejected_by: performedBy,
+                        reason: reason,
+                    }),
+                }
+            );
 
             const result = await response.json();
 
@@ -1589,7 +1653,6 @@
             // Refresh
             loadDashboardStats();
             loadPendingQueue(state.pagination.pending.page);
-
         } catch (error) {
             console.error('[ACCOUNTANT] Reject error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -1611,7 +1674,7 @@
         }
 
         // Security check
-        const tx = state.pendingQueue.find(t => t.id === transactionId);
+        const tx = state.pendingQueue.find((t) => t.id === transactionId);
         if (tx?.wallet_processed === true) {
             showNotification('Không thể thay đổi SĐT - Giao dịch đã được cộng vào ví', 'error');
             return;
@@ -1653,7 +1716,8 @@
             return;
         }
 
-        lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
+        lookupResult.innerHTML =
+            '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
 
         try {
             // Use TPOS search API (same as main.js) for accurate customer names
@@ -1662,7 +1726,7 @@
 
             // API returns { success, data: [{ phone, count, customers: [...] }] }
             const phoneGroups = result.data || [];
-            const customers = phoneGroups.flatMap(group => group.customers || []);
+            const customers = phoneGroups.flatMap((group) => group.customers || []);
 
             if (!result.success || !customers.length) {
                 lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH</div>';
@@ -1675,9 +1739,9 @@
                 lookupResult.innerHTML = `<div class="tpos-result">✅ ${customer.name}</div>`;
             } else {
                 // Multiple customers
-                const options = customers.map(c =>
-                    `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`
-                ).join('');
+                const options = customers
+                    .map((c) => `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`)
+                    .join('');
                 lookupResult.innerHTML = `
                     <div class="tpos-multiple">
                         <span>⚠️ Tìm thấy ${customers.length} KH</span>
@@ -1705,23 +1769,31 @@
         }
 
         const userInfo = window.authManager?.getUserInfo() || {};
-        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+        const performedBy =
+            userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
-        if (!confirm(`Xác nhận THAY ĐỔI SĐT thành ${newPhone} và DUYỆT giao dịch #${transactionId}?\n\nTiền sẽ được cộng vào ví khách hàng mới ngay lập tức.`)) {
+        if (
+            !confirm(
+                `Xác nhận THAY ĐỔI SĐT thành ${newPhone} và DUYỆT giao dịch #${transactionId}?\n\nTiền sẽ được cộng vào ví khách hàng mới ngay lập tức.`
+            )
+        ) {
             return;
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: newPhone,
-                    customer_name: newName || null,
-                    entered_by: performedBy,
-                    is_accountant_correction: true
-                })
-            });
+            const response = await fetch(
+                `${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: newPhone,
+                        customer_name: newName || null,
+                        entered_by: performedBy,
+                        is_accountant_correction: true,
+                    }),
+                }
+            );
 
             const result = await response.json();
 
@@ -1735,7 +1807,6 @@
             // Refresh
             loadDashboardStats();
             loadPendingQueue(state.pagination.pending.page);
-
         } catch (error) {
             console.error('[ACCOUNTANT] Change error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -1751,7 +1822,8 @@
 
         showLoading(elements.approvedTableBody);
 
-        const { startDate, endDate, search, source, verifier, checked, adjusted } = state.filters.approved;
+        const { startDate, endDate, search, source, verifier, checked, adjusted } =
+            state.filters.approved;
         const query = new URLSearchParams({
             page: page,
             limit: CONFIG.PAGE_SIZE,
@@ -1761,7 +1833,7 @@
             source: source || '',
             verifier: verifier || '',
             checked: checked || '',
-            adjusted: adjusted || ''
+            adjusted: adjusted || '',
         });
 
         try {
@@ -1782,12 +1854,11 @@
             state.pagination.approved = {
                 page: result.pagination.page,
                 totalPages: result.pagination.totalPages,
-                total: result.pagination.total
+                total: result.pagination.total,
             };
 
             renderApprovedToday();
             updatePagination('approved');
-
         } catch (error) {
             console.error('[ACCOUNTANT] Load approved error:', error);
             showError(elements.approvedTableBody, error.message);
@@ -1809,110 +1880,119 @@
             return;
         }
 
-        elements.approvedTableBody.innerHTML = state.approvedToday.map(tx => {
-            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
-            const verifiedAt = formatDateTime(tx.verified_at);
-            const txDate = formatDateTime(tx.transaction_date);
+        elements.approvedTableBody.innerHTML = state.approvedToday
+            .map((tx) => {
+                const amount =
+                    parseFloat(tx.amount || 0).toLocaleString('vi-VN', {
+                        maximumFractionDigits: 0,
+                    }) + 'đ';
+                const verifiedAt = formatDateTime(tx.verified_at);
+                const txDate = formatDateTime(tx.transaction_date);
 
-            // Check if transaction has been manager reviewed
-            const isReviewed = tx.manager_reviewed || false;
-            const reviewNote = tx.manager_review_note || '';
-            const reviewedBy = tx.reviewed_by || '';
-            const reviewedAt = tx.reviewed_at ? formatDateTime(tx.reviewed_at) : '';
+                // Check if transaction has been manager reviewed
+                const isReviewed = tx.manager_reviewed || false;
+                const reviewNote = tx.manager_review_note || '';
+                const reviewedBy = tx.reviewed_by || '';
+                const reviewedAt = tx.reviewed_at ? formatDateTime(tx.reviewed_at) : '';
 
-            // Row class - add reviewed class if applicable
-            const rowClass = isReviewed ? 'acc-row-reviewed' : '';
+                // Row class - add reviewed class if applicable
+                const rowClass = isReviewed ? 'acc-row-reviewed' : '';
 
-            // Dịch ghi chú
-            let note = tx.verification_note || '';
-            let hasAdjustment = false;
-            let managerNote = '';
+                // Dịch ghi chú
+                let note = tx.verification_note || '';
+                let hasAdjustment = false;
+                let managerNote = '';
 
-            // Extract manager note [QL: ...] if exists
-            const managerNoteMatch = note.match(/\[QL:\s*([^\]]*)\]/);
-            if (managerNoteMatch) {
-                managerNote = managerNoteMatch[1] || 'Đã kiểm tra';
-                // Remove manager note from main note
-                note = note.replace(/\n?\[QL:[^\]]*\]/, '').trim();
-            }
+                // Extract manager note [QL: ...] if exists
+                const managerNoteMatch = note.match(/\[QL:\s*([^\]]*)\]/);
+                if (managerNoteMatch) {
+                    managerNote = managerNoteMatch[1] || 'Đã kiểm tra';
+                    // Remove manager note from main note
+                    note = note.replace(/\n?\[QL:[^\]]*\]/, '').trim();
+                }
 
-            if (note.includes('[Đã điều chỉnh:')) {
-                hasAdjustment = true;
-            }
-            if (note.includes('Auto-approved by accountant')) {
-                // Format: Auto-approved by accountant [user] at [time]
-                // Rút gọn vì đã có cột Duyệt bởi
-                note = 'Tự động duyệt';
-            } else if (note === 'Approved by accountant') {
-                note = 'Duyệt thủ công';
-            } else if (note === 'Bulk approved') {
-                note = 'Duyệt hàng loạt';
-            }
+                if (note.includes('[Đã điều chỉnh:')) {
+                    hasAdjustment = true;
+                }
+                if (note.includes('Auto-approved by accountant')) {
+                    // Format: Auto-approved by accountant [user] at [time]
+                    // Rút gọn vì đã có cột Duyệt bởi
+                    note = 'Tự động duyệt';
+                } else if (note === 'Approved by accountant') {
+                    note = 'Duyệt thủ công';
+                } else if (note === 'Bulk approved') {
+                    note = 'Duyệt hàng loạt';
+                }
 
-            // Build note cell with optional image thumbnail
-            let noteHtml = '<div class="acc-note-wrapper">';
-            if (tx.verification_image_url) {
-                noteHtml += `
+                // Build note cell with optional image thumbnail
+                let noteHtml = '<div class="acc-note-wrapper">';
+                if (tx.verification_image_url) {
+                    noteHtml += `
                     <div class="acc-approve-image-thumb">
                         <img src="${tx.verification_image_url}" alt="Xác nhận CK" loading="lazy">
                         <div class="acc-zoom-overlay" style="background-image: url('${tx.verification_image_url}')"></div>
                     </div>
                 `;
-            }
-            noteHtml += `<span class="acc-approve-note">${note}</span>`;
-
-            // Add manager note with orange styling if exists
-            if (managerNote) {
-                noteHtml += `<span class="acc-manager-note" title="${reviewedBy} lúc ${reviewedAt}">QL: ${reviewedBy}${managerNote !== 'Đã kiểm tra' ? ' - ' + managerNote : ' đã kiểm tra'}</span>`;
-            }
-            noteHtml += '</div>';
-
-            // Review button - show different state based on reviewed status
-            const reviewBtnHtml = isReviewed
-                ? `<span class="acc-reviewed-label" title="Đã kiểm tra lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
-                : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
-
-            // Eye button - mở lightbox xem ảnh duyệt CK (chỉ hiện khi có image url)
-            const eyeBtnHtml = tx.verification_image_url
-                ? `<button class="acc-eye-btn" data-img="${encodeURI(tx.verification_image_url)}" title="Xem ảnh duyệt CK"><i data-lucide="eye" style="width:14px;height:14px"></i></button>`
-                : '';
-
-            // Nút Điều chỉnh - disable nếu đã có adjustment
-            let adjustBtnHtml;
-            if (hasAdjustment) {
-                const fmt = (v) => new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
-                const legs = Array.isArray(tx.adjustment_legs) ? tx.adjustment_legs : [];
-                const debitLeg  = legs.find(l => parseFloat(l.amount) < 0);
-                const creditLeg = legs.find(l => parseFloat(l.amount) > 0);
-                const adjAmt = tx.adjustment_amount != null ? fmt(tx.adjustment_amount) : '';
-                const adjBy  = tx.adjusted_by || 'N/A';
-                const adjAt  = tx.adjusted_at ? formatDateTime(tx.adjusted_at) : '';
-                const reason = tx.adjustment_reason || '';
-                const wrongPhone = tx.wrong_customer_phone || tx.linked_customer_phone || '';
-                const correctPhone = tx.correct_customer_phone || '';
-
-                const tipLines = [];
-                if (adjAmt) tipLines.push(`⚠️ Điều chỉnh ${adjAmt}`);
-                if (reason) tipLines.push(`Lý do: ${reason}`);
-                tipLines.push(`Người điều chỉnh: ${adjBy}${adjAt ? ' (' + adjAt + ')' : ''}`);
-                tipLines.push('');
-                tipLines.push(`❌ Trừ ví SĐT ${wrongPhone}:`);
-                if (debitLeg) {
-                    tipLines.push(`   ${fmt(debitLeg.balance_before)} → ${fmt(debitLeg.balance_after)}`);
                 }
-                if (correctPhone) {
-                    tipLines.push(`✅ Cộng ví SĐT ${correctPhone}:`);
-                    if (creditLeg) {
-                        tipLines.push(`   ${fmt(creditLeg.balance_before)} → ${fmt(creditLeg.balance_after)}`);
+                noteHtml += `<span class="acc-approve-note">${note}</span>`;
+
+                // Add manager note with orange styling if exists
+                if (managerNote) {
+                    noteHtml += `<span class="acc-manager-note" title="${reviewedBy} lúc ${reviewedAt}">QL: ${reviewedBy}${managerNote !== 'Đã kiểm tra' ? ' - ' + managerNote : ' đã kiểm tra'}</span>`;
+                }
+                noteHtml += '</div>';
+
+                // Review button - show different state based on reviewed status
+                const reviewBtnHtml = isReviewed
+                    ? `<span class="acc-reviewed-label" title="Đã kiểm tra lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
+                    : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
+
+                // Eye button - mở lightbox xem ảnh duyệt CK (chỉ hiện khi có image url)
+                const eyeBtnHtml = tx.verification_image_url
+                    ? `<button class="acc-eye-btn" data-img="${encodeURI(tx.verification_image_url)}" title="Xem ảnh duyệt CK"><i data-lucide="eye" style="width:14px;height:14px"></i></button>`
+                    : '';
+
+                // Nút Điều chỉnh - disable nếu đã có adjustment
+                let adjustBtnHtml;
+                if (hasAdjustment) {
+                    const fmt = (v) =>
+                        new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
+                    const legs = Array.isArray(tx.adjustment_legs) ? tx.adjustment_legs : [];
+                    const debitLeg = legs.find((l) => parseFloat(l.amount) < 0);
+                    const creditLeg = legs.find((l) => parseFloat(l.amount) > 0);
+                    const adjAmt = tx.adjustment_amount != null ? fmt(tx.adjustment_amount) : '';
+                    const adjBy = tx.adjusted_by || 'N/A';
+                    const adjAt = tx.adjusted_at ? formatDateTime(tx.adjusted_at) : '';
+                    const reason = tx.adjustment_reason || '';
+                    const wrongPhone = tx.wrong_customer_phone || tx.linked_customer_phone || '';
+                    const correctPhone = tx.correct_customer_phone || '';
+
+                    const tipLines = [];
+                    if (adjAmt) tipLines.push(`⚠️ Điều chỉnh ${adjAmt}`);
+                    if (reason) tipLines.push(`Lý do: ${reason}`);
+                    tipLines.push(`Người điều chỉnh: ${adjBy}${adjAt ? ' (' + adjAt + ')' : ''}`);
+                    tipLines.push('');
+                    tipLines.push(`❌ Trừ ví SĐT ${wrongPhone}:`);
+                    if (debitLeg) {
+                        tipLines.push(
+                            `   ${fmt(debitLeg.balance_before)} → ${fmt(debitLeg.balance_after)}`
+                        );
                     }
+                    if (correctPhone) {
+                        tipLines.push(`✅ Cộng ví SĐT ${correctPhone}:`);
+                        if (creditLeg) {
+                            tipLines.push(
+                                `   ${fmt(creditLeg.balance_before)} → ${fmt(creditLeg.balance_after)}`
+                            );
+                        }
+                    }
+                    const tipText = tipLines.join('\n').replace(/"/g, '&quot;');
+                    adjustBtnHtml = `<span class="badge badge-secondary" title="${tipText}">✓ Đã điều chỉnh</span>`;
+                } else {
+                    adjustBtnHtml = `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
                 }
-                const tipText = tipLines.join('\n').replace(/"/g, '&quot;');
-                adjustBtnHtml = `<span class="badge badge-secondary" title="${tipText}">✓ Đã điều chỉnh</span>`;
-            } else {
-                adjustBtnHtml = `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
-            }
 
-            return `
+                return `
                 <tr class="${rowClass}">
                     <td>${verifiedAt}</td>
                     <td>${txDate}</td>
@@ -1930,7 +2010,8 @@
                     <td class="acc-action-cell">${eyeBtnHtml} ${reviewBtnHtml} ${adjustBtnHtml}</td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         if (window.lucide) lucide.createIcons();
     }
@@ -1941,7 +2022,8 @@
 
     function updatePagination(type) {
         const pag = state.pagination[type];
-        const container = type === 'pending' ? elements.paginationPending : elements.paginationApproved;
+        const container =
+            type === 'pending' ? elements.paginationPending : elements.paginationApproved;
 
         if (!container) return;
 
@@ -1998,7 +2080,7 @@
     }
 
     function closeAllModals() {
-        document.querySelectorAll('.acc-modal-overlay').forEach(modal => {
+        document.querySelectorAll('.acc-modal-overlay').forEach((modal) => {
             modal.classList.remove('visible');
         });
     }
@@ -2044,7 +2126,9 @@
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`);
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`
+            );
             const result = await response.json();
 
             if (result.success) {
@@ -2055,7 +2139,8 @@
                 if (checkbox) checkbox.checked = result.enabled;
                 if (status) {
                     status.textContent = result.enabled ? 'Đang bật' : 'Đã tắt';
-                    status.className = 'toggle-status ' + (result.enabled ? 'status-on' : 'status-off');
+                    status.className =
+                        'toggle-status ' + (result.enabled ? 'status-on' : 'status-off');
                 }
                 if (toggle) toggle.classList.remove('hidden');
             }
@@ -2098,11 +2183,14 @@
         if (checkbox) checkbox.disabled = true;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled, updated_by: updatedBy })
-            });
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, updated_by: updatedBy }),
+                }
+            );
 
             const result = await response.json();
 
@@ -2117,7 +2205,6 @@
             }
 
             showNotification(result.message, 'success');
-
         } catch (error) {
             console.error('[ACCOUNTANT] Toggle auto-approve error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -2148,7 +2235,9 @@
 
             // Gọi API kiểm tra có thể điều chỉnh không
             console.log('[ACCOUNTANT] Calling can-adjust API...');
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/can-adjust`);
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/${txId}/can-adjust`
+            );
             const result = await response.json();
             console.log('[ACCOUNTANT] can-adjust API response:', result);
 
@@ -2167,7 +2256,6 @@
             // Có thể điều chỉnh - hiển thị modal form
             console.log('[ACCOUNTANT] Can adjust, showing form modal');
             showAdjustmentFormModal(txId, result.transaction, result.wallet);
-
         } catch (error) {
             console.error('[ACCOUNTANT] openAdjustmentModal error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -2197,10 +2285,14 @@
                             <p>Số tiền: <strong>${parseFloat(transaction.amount).toLocaleString()}đ</strong></p>
                             <p>Khách hàng: <strong>${transaction.customer_name || transaction.phone}</strong></p>
                             <p>SĐT: <strong>${transaction.phone}</strong></p>
-                            ${wallet ? `
+                            ${
+                                wallet
+                                    ? `
                                 <p>Số dư hiện tại: <strong>${parseFloat(wallet.current_balance).toLocaleString()}đ</strong></p>
                                 ${wallet.used_amount > 0 ? `<p>Đã sử dụng: <strong class="text-danger">${parseFloat(wallet.used_amount).toLocaleString()}đ</strong></p>` : ''}
-                            ` : ''}
+                            `
+                                    : ''
+                            }
                         </div>
 
                         <div class="acc-blocked-action" style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 8px;">
@@ -2295,7 +2387,7 @@
         }
 
         // Add event listeners
-        document.querySelectorAll('input[name="adjustType"]').forEach(radio => {
+        document.querySelectorAll('input[name="adjustType"]').forEach((radio) => {
             radio.addEventListener('change', (e) => {
                 const correctGroup = document.getElementById('accCorrectCustomerGroup');
                 if (e.target.value === 'transfer_to_correct') {
@@ -2334,7 +2426,7 @@
             const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
             const result = await response.json();
 
-            const customers = (result.data || []).flatMap(g => g.customers || []);
+            const customers = (result.data || []).flatMap((g) => g.customers || []);
 
             if (customers.length > 0) {
                 const c = customers[0];
@@ -2401,7 +2493,7 @@
                 }
                 _correctCustomerFound = true;
                 showNotification(`Đã tạo khách hàng ${customer.name} trên TPOS`, 'success');
-            }
+            },
         });
     }
 
@@ -2425,7 +2517,10 @@
         }
 
         if (adjustType === 'transfer_to_correct' && !_correctCustomerFound) {
-            showNotification('Khách hàng chưa có trên TPOS. Vui lòng tạo khách hàng trước khi điều chỉnh.', 'error');
+            showNotification(
+                'Khách hàng chưa có trên TPOS. Vui lòng tạo khách hàng trước khi điều chỉnh.',
+                'error'
+            );
             return;
         }
 
@@ -2441,10 +2536,11 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     adjustment_type: adjustType,
-                    correct_customer_phone: adjustType === 'transfer_to_correct' ? correctPhone : null,
+                    correct_customer_phone:
+                        adjustType === 'transfer_to_correct' ? correctPhone : null,
                     reason,
-                    performed_by: window.authManager?.getUserInfo()?.username || 'accountant'
-                })
+                    performed_by: window.authManager?.getUserInfo()?.username || 'accountant',
+                }),
             });
 
             const result = await response.json();
@@ -2458,7 +2554,6 @@
 
             // Reload bảng Đã Duyệt
             await loadApprovedToday(state.pagination.approved.page);
-
         } catch (error) {
             console.error('[ACCOUNTANT] confirmAdjustment error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -2509,7 +2604,7 @@
         currentReviewTxId = txId;
 
         // Find transaction in state
-        const tx = state.approvedToday.find(t => t.id == txId);
+        const tx = state.approvedToday.find((t) => t.id == txId);
         if (!tx) {
             showNotification('Không tìm thấy giao dịch', 'error');
             return;
@@ -2518,7 +2613,9 @@
         // Populate summary
         const summaryEl = document.getElementById('accReviewSummary');
         if (summaryEl) {
-            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+            const amount =
+                parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) +
+                'đ';
             summaryEl.innerHTML = `
                 <div class="summary-row">
                     <span class="summary-label">Số tiền:</span>
@@ -2572,22 +2669,26 @@
         // Disable button while processing
         if (confirmBtn) {
             confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Đang xử lý...';
+            confirmBtn.innerHTML =
+                '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Đang xử lý...';
         }
 
         try {
             // API call to backend
             const reviewImageUrl = state.reviewModal.imageUrl || null;
 
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${currentReviewTxId}/manager-review`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    manager_review_note: reviewNote,
-                    reviewed_by: reviewedBy,
-                    review_image_url: reviewImageUrl
-                })
-            });
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/${currentReviewTxId}/manager-review`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        manager_review_note: reviewNote,
+                        reviewed_by: reviewedBy,
+                        review_image_url: reviewImageUrl,
+                    }),
+                }
+            );
 
             const result = await response.json();
 
@@ -2596,7 +2697,7 @@
             }
 
             // Update local state
-            const txIndex = state.approvedToday.findIndex(t => t.id == currentReviewTxId);
+            const txIndex = state.approvedToday.findIndex((t) => t.id == currentReviewTxId);
             if (txIndex !== -1) {
                 state.approvedToday[txIndex].manager_reviewed = true;
                 state.approvedToday[txIndex].manager_review_note = reviewNote;
@@ -2615,26 +2716,36 @@
             // Log to audit history
             try {
                 if (window.AuditLogger) {
-                    const tx = state.approvedToday.find(t => t.id == txId) || {};
+                    const tx = state.approvedToday.find((t) => t.id == txId) || {};
                     window.AuditLogger.logAction('transaction_verify', {
                         module: 'balance-history',
-                        description: 'Kiểm tra giao dịch #' + txId + (tx.linked_customer_phone ? ' (KH: ' + (tx.customer_name || '') + ' - ' + tx.linked_customer_phone + ')' : ''),
+                        description:
+                            'Kiểm tra giao dịch #' +
+                            txId +
+                            (tx.linked_customer_phone
+                                ? ' (KH: ' +
+                                  (tx.customer_name || '') +
+                                  ' - ' +
+                                  tx.linked_customer_phone +
+                                  ')'
+                                : ''),
                         oldData: { manager_reviewed: false },
                         newData: {
                             manager_reviewed: true,
                             review_note: reviewNote,
                             reviewed_by: reviewedBy,
                             review_image_url: reviewImageUrl || null,
-                            txId: String(txId)
+                            txId: String(txId),
                         },
                         approverUserId: reviewedBy,
                         approverUserName: reviewedBy,
                         entityId: String(txId),
-                        entityType: 'balance_history'
+                        entityType: 'balance_history',
                     });
                 }
-            } catch (e) { /* audit log error - ignore */ }
-
+            } catch (e) {
+                /* audit log error - ignore */
+            }
         } catch (error) {
             console.error('[ACCOUNTANT] Manager review error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
@@ -2642,7 +2753,8 @@
             // Re-enable button
             if (confirmBtn) {
                 confirmBtn.disabled = false;
-                confirmBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận đã kiểm tra';
+                confirmBtn.innerHTML =
+                    '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận đã kiểm tra';
                 if (window.lucide) lucide.createIcons();
             }
             currentReviewTxId = null;
@@ -2699,7 +2811,10 @@
         const confirmBtn = document.getElementById('accReviewConfirmBtn');
 
         if (overlay) overlay.style.display = 'flex';
-        if (statusEl) { statusEl.textContent = 'Đang tải lên...'; statusEl.className = 'acc-upload-status uploading'; }
+        if (statusEl) {
+            statusEl.textContent = 'Đang tải lên...';
+            statusEl.className = 'acc-upload-status uploading';
+        }
         if (confirmBtn) confirmBtn.disabled = true;
 
         try {
@@ -2715,8 +2830,8 @@
                     image: base64Data,
                     fileName: filename,
                     folderPath: 'accountant-reviews',
-                    mimeType: file.type
-                })
+                    mimeType: file.type,
+                }),
             });
 
             const result = await response.json();
@@ -2725,13 +2840,18 @@
             state.reviewModal.imageUrl = result.url;
 
             if (overlay) overlay.style.display = 'none';
-            if (statusEl) { statusEl.textContent = 'Đã tải lên'; statusEl.className = 'acc-upload-status success'; }
+            if (statusEl) {
+                statusEl.textContent = 'Đã tải lên';
+                statusEl.className = 'acc-upload-status success';
+            }
             if (confirmBtn) confirmBtn.disabled = false;
-
         } catch (error) {
             console.error('[ACCOUNTANT] Review image upload error:', error);
             if (overlay) overlay.style.display = 'none';
-            if (statusEl) { statusEl.textContent = 'Lỗi tải lên'; statusEl.className = 'acc-upload-status error'; }
+            if (statusEl) {
+                statusEl.textContent = 'Lỗi tải lên';
+                statusEl.className = 'acc-upload-status error';
+            }
             if (confirmBtn) confirmBtn.disabled = false;
             showNotification(`Lỗi tải ảnh: ${error.message}`, 'error');
         } finally {
@@ -2835,22 +2955,25 @@
             return;
         }
 
-        tbody.innerHTML = allRecords.map(record => {
-            const isPending = record.status === 'pending';
-            const createdDate = record.createdAt ? new Date(record.createdAt).toLocaleString('vi-VN') : '—';
-            const statusHTML = isPending
-                ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Chờ xử lý</span>'
-                : `<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đã hoàn thành</span>`;
-            const actionHTML = isPending
-                ? `<button class="acc-btn acc-btn-sm acc-btn-primary" onclick="AccountantModule.completeWalletAdjustment('${record._id}')" style="background:#059669;border-color:#059669;">
+        tbody.innerHTML = allRecords
+            .map((record) => {
+                const isPending = record.status === 'pending';
+                const createdDate = record.createdAt
+                    ? new Date(record.createdAt).toLocaleString('vi-VN')
+                    : '—';
+                const statusHTML = isPending
+                    ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Chờ xử lý</span>'
+                    : `<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đã hoàn thành</span>`;
+                const actionHTML = isPending
+                    ? `<button class="acc-btn acc-btn-sm acc-btn-primary" onclick="AccountantModule.completeWalletAdjustment('${record._id}')" style="background:#059669;border-color:#059669;">
                     <i data-lucide="check" style="width:14px;height:14px"></i> Hoàn thành
                    </button>
                    <button class="acc-btn acc-btn-sm" onclick="AccountantModule.deleteWalletAdjustment('${record._id}')" style="color:#dc2626;" title="Xóa yêu cầu">
                     <i data-lucide="trash-2" style="width:14px;height:14px"></i>
                    </button>`
-                : `<span style="color:#6b7280;font-size:12px;">${record.completedBy || ''} - ${record.completedAt ? new Date(record.completedAt).toLocaleString('vi-VN') : ''}</span>`;
+                    : `<span style="color:#6b7280;font-size:12px;">${record.completedBy || ''} - ${record.completedAt ? new Date(record.completedAt).toLocaleString('vi-VN') : ''}</span>`;
 
-            return `<tr style="${isPending ? 'background:#fef2f2;' : ''}">
+                return `<tr style="${isPending ? 'background:#fef2f2;' : ''}">
                 <td><strong>${record.orderCode || record._id}</strong></td>
                 <td>${record.customerName || '—'}</td>
                 <td>${record.oldPhone || '—'}</td>
@@ -2862,7 +2985,8 @@
                 <td>${statusHTML}</td>
                 <td>${actionHTML}</td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         updateWalletAdjUI();
 
@@ -2879,14 +3003,19 @@
         const record = window.WalletAdjustmentStore.get(orderId);
         if (!record) return;
 
-        const note = prompt(`Hoàn thành điều chỉnh công nợ cho đơn ${record.orderCode || orderId}.\n\nGhi chú (tùy chọn):`);
+        const note = prompt(
+            `Hoàn thành điều chỉnh công nợ cho đơn ${record.orderCode || orderId}.\n\nGhi chú (tùy chọn):`
+        );
         if (note === null) return; // User cancelled
 
         const userName = window.authManager?.currentUser?.displayName || '';
         await window.WalletAdjustmentStore.markCompleted(orderId, note, userName);
 
         if (window.notificationManager) {
-            window.notificationManager.show(`Đã hoàn thành điều chỉnh công nợ cho đơn ${record.orderCode || orderId}`, 'success');
+            window.notificationManager.show(
+                `Đã hoàn thành điều chỉnh công nợ cho đơn ${record.orderCode || orderId}`,
+                'success'
+            );
         }
 
         renderWalletAdjustments();
@@ -2899,7 +3028,8 @@
         if (!orderId || !window.WalletAdjustmentStore) return;
 
         const record = window.WalletAdjustmentStore.get(orderId);
-        if (!confirm(`Xóa yêu cầu điều chỉnh công nợ cho đơn ${record?.orderCode || orderId}?`)) return;
+        if (!confirm(`Xóa yêu cầu điều chỉnh công nợ cho đơn ${record?.orderCode || orderId}?`))
+            return;
 
         await window.WalletAdjustmentStore.delete(orderId);
 
@@ -2999,12 +3129,22 @@
         try {
             // Fetch both FAILED and PENDING records
             const [failedRes, pendingRes] = await Promise.all([
-                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=FAILED&limit=50`).then(r => r.json()),
-                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=PENDING&limit=50`).then(r => r.json()),
+                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=FAILED&limit=50`).then(
+                    (r) => r.json()
+                ),
+                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=PENDING&limit=50`).then(
+                    (r) => r.json()
+                ),
             ]);
 
-            const failedRows = (failedRes.success ? failedRes.data : []).map(r => ({ ...r, _displayStatus: 'FAILED' }));
-            const pendingRows = (pendingRes.success ? pendingRes.data : []).map(r => ({ ...r, _displayStatus: 'PENDING' }));
+            const failedRows = (failedRes.success ? failedRes.data : []).map((r) => ({
+                ...r,
+                _displayStatus: 'FAILED',
+            }));
+            const pendingRows = (pendingRes.success ? pendingRes.data : []).map((r) => ({
+                ...r,
+                _displayStatus: 'PENDING',
+            }));
 
             const allRows = [...failedRows, ...pendingRows];
 
@@ -3014,22 +3154,32 @@
                 return;
             }
 
-            tbody.innerHTML = allRows.map((row, idx) => {
-                const isFailed = row._displayStatus === 'FAILED';
-                const createdAt = row.created_at ? new Date(row.created_at).toLocaleString('vi-VN') : '—';
-                const updatedAt = row.updated_at ? new Date(row.updated_at).toLocaleString('vi-VN') : '';
-                const amount = parseFloat(row.amount) || 0;
-                const sourceLabel = row.source === 'FAST_SALE' ? 'PBH Loạt' : row.source === 'SALE_ORDER' ? 'PBH Lẻ' : (row.source || '—');
+            tbody.innerHTML = allRows
+                .map((row, idx) => {
+                    const isFailed = row._displayStatus === 'FAILED';
+                    const createdAt = row.created_at
+                        ? new Date(row.created_at).toLocaleString('vi-VN')
+                        : '—';
+                    const updatedAt = row.updated_at
+                        ? new Date(row.updated_at).toLocaleString('vi-VN')
+                        : '';
+                    const amount = parseFloat(row.amount) || 0;
+                    const sourceLabel =
+                        row.source === 'FAST_SALE'
+                            ? 'PBH Loạt'
+                            : row.source === 'SALE_ORDER'
+                              ? 'PBH Lẻ'
+                              : row.source || '—';
 
-                const statusHtml = isFailed
-                    ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Thất bại</span>'
-                    : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đang chờ</span>';
+                    const statusHtml = isFailed
+                        ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Thất bại</span>'
+                        : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đang chờ</span>';
 
-                const retryBtn = `<button class="failed-wd-retry-btn" onclick="AccountantModule.retryWithdrawal(${row.id})" title="Thử lại trừ ví">
+                    const retryBtn = `<button class="failed-wd-retry-btn" onclick="AccountantModule.retryWithdrawal(${row.id})" title="Thử lại trừ ví">
                     <i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry
                 </button>`;
 
-                return `<tr style="${isFailed ? 'background:#fef2f2;' : ''}">
+                    return `<tr style="${isFailed ? 'background:#fef2f2;' : ''}">
                     <td>${idx + 1}</td>
                     <td><strong>${row.order_id || '—'}</strong></td>
                     <td>${row.phone || '—'}${row.customer_name ? `<br><small style="color:#6b7280;">${row.customer_name}</small>` : ''}</td>
@@ -3041,7 +3191,8 @@
                     <td>${createdAt}${updatedAt ? `<br><small style="color:#94a3b8;">Cập nhật: ${updatedAt}</small>` : ''}</td>
                     <td>${retryBtn}</td>
                 </tr>`;
-            }).join('');
+                })
+                .join('');
 
             loadFailedWithdrawalStats();
 
@@ -3059,10 +3210,13 @@
         if (!confirm(`Thử lại trừ ví cho giao dịch #${id}?`)) return;
 
         try {
-            const response = await fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals/${id}/retry`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            });
+            const response = await fetch(
+                `${RENDER_API_URL}/api/v2/pending-withdrawals/${id}/retry`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            );
             const result = await response.json();
 
             if (result.success) {
@@ -3070,7 +3224,10 @@
                     const msg = result.result?.success
                         ? `Trừ ví thành công cho giao dịch #${id}`
                         : `Đã ghi nhận retry cho giao dịch #${id}, sẽ xử lý tiếp`;
-                    window.notificationManager.show(msg, result.result?.success ? 'success' : 'info');
+                    window.notificationManager.show(
+                        msg,
+                        result.result?.success ? 'success' : 'info'
+                    );
                 }
             } else {
                 if (window.notificationManager) {
@@ -3140,7 +3297,7 @@
         // Failed Wallet Withdrawal functions (trừ ví thất bại)
         loadFailedWithdrawals,
         loadFailedWithdrawalStats,
-        retryWithdrawal
+        retryWithdrawal,
     };
 
     // Auto-initialize when DOM is ready
@@ -3150,5 +3307,4 @@
         // DOM already loaded, but wait a tick for other scripts
         setTimeout(init, 100);
     }
-
 })();
