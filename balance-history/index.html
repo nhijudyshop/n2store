@@ -765,9 +765,17 @@
                             <label>Nguồn:</label>
                             <select id="accApprovedSourceFilter" class="acc-input-select">
                                 <option value="">Tất cả</option>
-                                <option value="manual">Nhập tay</option>
-                                <option value="selected">Chọn KH</option>
-                                <option value="auto">Tự động</option>
+                                <optgroup label="── Khách CK (Sepay) ──">
+                                    <option value="khach_ck">Khách CK (tất cả)</option>
+                                    <option value="manual">↳ Nhập tay</option>
+                                    <option value="selected">↳ Chọn KH</option>
+                                    <option value="auto">↳ Tự động</option>
+                                </optgroup>
+                                <optgroup label="── Ví nội bộ ──">
+                                    <option value="thu_ve">Thu về</option>
+                                    <option value="cong_no_ao">Cộng nợ ảo</option>
+                                    <option value="hoan_tien">Hoàn tiền hủy đơn</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div class="acc-filter-group">

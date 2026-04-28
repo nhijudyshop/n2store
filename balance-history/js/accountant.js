@@ -918,17 +918,28 @@
         if (tx && (tx.src === 'wt' || tx.match_method === 'wallet_internal')) {
             const wtType = tx.wt_type || '';
             const wtSource = tx.wt_source || '';
+            const note = tx.verification_note || tx.content || '';
             // DEPOSIT + ORDER_CANCEL_REFUND → Hoàn tiền hủy đơn
             const isCancelRefund = wtType === 'DEPOSIT' && wtSource === 'ORDER_CANCEL_REFUND';
-            const wtLabel = isCancelRefund
-                ? 'Hoàn tiền'
-                : {
-                      VIRTUAL_CREDIT: 'Cộng nợ ảo',
-                      WALLET_REFUND: 'Hoàn ví',
-                      RETURN_SHIPPER: 'Thu về',
-                      RETURN_CLIENT: 'Trả khách',
-                  }[wtType] || 'Ví nội bộ';
-            const titleSuffix = isCancelRefund ? `${wtType}/${wtSource}` : wtType;
+            // VIRTUAL_CREDIT_ISSUE từ ticket Thu về (RETURN_SHIPPER) — note có pattern "Công Nợ Ảo Từ Thu Về" hoặc "Thu Về"
+            const isThuVe =
+                wtType === 'VIRTUAL_CREDIT' &&
+                (wtSource === 'VIRTUAL_CREDIT_ISSUE' || /Thu\s*Về/i.test(note));
+            let wtLabel;
+            if (isCancelRefund) {
+                wtLabel = 'Hoàn tiền';
+            } else if (isThuVe) {
+                wtLabel = 'Thu về';
+            } else {
+                wtLabel =
+                    {
+                        VIRTUAL_CREDIT: 'Cộng nợ ảo',
+                        WALLET_REFUND: 'Hoàn ví',
+                        RETURN_SHIPPER: 'Thu về',
+                        RETURN_CLIENT: 'Khách gửi',
+                    }[wtType] || 'Ví nội bộ';
+            }
+            const titleSuffix = wtSource ? `${wtType}/${wtSource}` : wtType;
             return `<span class="badge" style="background-color: #8b5cf6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;" title="Giao dịch +tiền nội bộ (${titleSuffix})">${wtLabel}</span>`;
         }
 
@@ -938,14 +949,15 @@
                 ? getStandardizedSourceGroup(tx)
                 : _fallbackSourceGroup(tx);
 
+        // bh rows = Khách CK (sepay deposit). Sub-method shown nhỏ bên dưới.
         const config = {
-            manual: { label: 'Nhập tay', color: '#3b82f6' },
-            selected: { label: 'Chọn KH', color: '#f97316' },
-            auto: { label: 'Tự động', color: '#10b981' },
-            unknown: { label: 'Chưa xác định', color: '#d1d5db' },
+            manual: { sub: 'Nhập tay', color: '#3b82f6' },
+            selected: { sub: 'Chọn KH', color: '#f97316' },
+            auto: { sub: 'Tự động', color: '#10b981' },
+            unknown: { sub: '—', color: '#64748b' },
         };
         const cfg = config[groupKey] || config.unknown;
-        return `<span class="badge" style="background-color: ${cfg.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${cfg.label}</span>`;
+        return `<span class="badge acc-badge-stack" style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;background-color: ${cfg.color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; line-height:1.1;" title="Khách CK qua Sepay (${cfg.sub})"><span style="font-weight:600">Khách CK</span><span style="font-size:0.65rem;opacity:0.85">${cfg.sub}</span></span>`;
     }
 
     // Fallback mapping in case main.js getStandardizedSourceGroup is not available

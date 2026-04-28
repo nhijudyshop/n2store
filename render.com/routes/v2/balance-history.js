@@ -1151,7 +1151,7 @@ router.get('/approved-today', async (req, res) => {
             paramCount++;
         }
 
-        // Source filter (match_method groups)
+        // Source filter (match_method groups + wallet-internal categories)
         if (source) {
             if (source === 'manual') {
                 whereConditions.push(`bh.match_method IN ('manual_entry', 'manual_link')`);
@@ -1159,6 +1159,11 @@ router.get('/approved-today', async (req, res) => {
                 whereConditions.push(`bh.match_method = 'pending_match'`);
             } else if (source === 'auto') {
                 whereConditions.push(`(bh.match_method IN ('qr_code', 'exact_phone', 'single_match') OR bh.extraction_note LIKE 'MOMO:%' OR bh.extraction_note LIKE 'VCB:%')`);
+            } else if (source === 'khach_ck') {
+                // Tất cả bh rows (sepay deposit) — không filter thêm
+            } else if (source === 'thu_ve' || source === 'cong_no_ao' || source === 'hoan_tien') {
+                // Wallet-internal only — bh side trả 0 row
+                whereConditions.push(`FALSE`);
             }
         }
 
@@ -1366,10 +1371,18 @@ router.get('/approved-today', async (req, res) => {
                 wtConds.push(`(wt.manager_reviewed IS NULL OR wt.manager_reviewed = FALSE)`);
             }
 
-            // Source filter chỉ áp dụng cho bh — wt rows chỉ render khi không lọc source hoặc source rỗng.
-            // Nếu user lọc theo bh.match_method (qr_code, manual_entry, …) thì SKIP wt rows.
-            if (source && source !== '') {
-                wtConds.push(`FALSE`); // skip wt entirely
+            // Source filter cho wt side: xử lý các option wallet-internal mới.
+            // Các option bh-side (manual/selected/auto/khach_ck) → SKIP wt entirely.
+            if (source === 'thu_ve') {
+                wtConds.push(`(wt.type = 'VIRTUAL_CREDIT' AND (wt.source = 'VIRTUAL_CREDIT_ISSUE' OR wt.note ILIKE '%Thu Về%'))`);
+            } else if (source === 'cong_no_ao') {
+                // VIRTUAL_CREDIT không phải từ Thu về (manual virtual credit)
+                wtConds.push(`(wt.type = 'VIRTUAL_CREDIT' AND wt.source <> 'VIRTUAL_CREDIT_ISSUE' AND (wt.note IS NULL OR wt.note NOT ILIKE '%Thu Về%'))`);
+            } else if (source === 'hoan_tien') {
+                wtConds.push(`(wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND')`);
+            } else if (source && source !== '') {
+                // Filter bh-side (manual/selected/auto/khach_ck) — wt KHÔNG có những giá trị này
+                wtConds.push(`FALSE`);
             }
 
             // Adjustment filter: wt rows không có adjustment, nên 'adjusted' filter cũng skip wt.

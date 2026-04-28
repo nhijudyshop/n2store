@@ -151,6 +151,15 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [balance-history][feat] Tab Đã Duyệt — badge Nguồn taxonomy mới + filter Thu về/Khách CK/Cộng nợ ảo/Hoàn tiền
+| | |
+|---|---|
+| **Files** | `balance-history/index.html`, `balance-history/js/accountant.js`, `render.com/routes/v2/balance-history.js` |
+| **Vấn đề** | Cột Nguồn dùng "Cộng nợ ảo" (DB action) thay vì "Thu về" (ticket type) — user muốn label theo nguồn thực tế. Filter dropdown chỉ có 3 option bh sub-method, thiếu phân loại wt. |
+| **Badge update** | (a) wt VIRTUAL_CREDIT_ISSUE → "Thu về" (was "Cộng nợ ảo"). (b) wt VIRTUAL_CREDIT khác → "Cộng nợ ảo" giữ. (c) wt DEPOSIT/ORDER_CANCEL_REFUND → "Hoàn tiền" (đã có). (d) bh rows → 2-line badge "Khách CK" + sub-method (Nhập tay/Chọn KH/Tự động) — primary "Khách CK" nhất quán với customer-hub. |
+| **Filter dropdown** | optgroup "Khách CK (Sepay)": khach_ck (all bh) + 3 sub-method giữ nguyên. optgroup "Ví nội bộ": thu_ve + cong_no_ao + hoan_tien. Backend xử lý 4 option mới ở cả bh-side + wt-side WHERE clauses. |
+| **Status** | 🔄 Done code — chờ Render deploy + verify browser |
+
 ### [balance-history][feat] Tab Đã Duyệt — bổ sung Hoàn Tiền Hủy Đơn + sửa cột Ghi chú dùng wt.note thay wt.source
 | | |
 |---|---|
