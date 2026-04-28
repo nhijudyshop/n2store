@@ -269,8 +269,7 @@
         });
         const combined = matching.concat(rest);
         // Không highlight nếu không có đơn nào match hoặc tất cả đều match
-        const boundaryIndex =
-            matching.length === 0 || rest.length === 0 ? -1 : matching.length;
+        const boundaryIndex = matching.length === 0 || rest.length === 0 ? -1 : matching.length;
         return { data: combined, boundaryIndex };
     }
 
@@ -2442,7 +2441,9 @@
 
         async function fetchCustomer(phone) {
             if (customerCache.has(phone)) return customerCache.get(phone);
-            const resp = await fetch(`${RENDER_URL}/api/v2/customers/${encodeURIComponent(phone)}/quick-view`);
+            const resp = await fetch(
+                `${RENDER_URL}/api/v2/customers/${encodeURIComponent(phone)}/quick-view`
+            );
             if (!resp.ok) {
                 if (resp.status === 404) {
                     customerCache.set(phone, null);
@@ -2461,7 +2462,10 @@
             const number = targetEl.dataset.number || '';
             const key = `bill:${id}`;
             activeKey = key;
-            if (!id) { showError(targetEl, 'Không có ID hóa đơn'); return; }
+            if (!id) {
+                showError(targetEl, 'Không có ID hóa đơn');
+                return;
+            }
             showLoading(targetEl, `Đang tải bill ${number}…`);
             try {
                 const html = await fetchBillHtml(id);
@@ -2483,12 +2487,18 @@
             const phone = targetEl.dataset.phone;
             const key = `cust:${phone}`;
             activeKey = key;
-            if (!phone) { showError(targetEl, 'Không có SĐT'); return; }
+            if (!phone) {
+                showError(targetEl, 'Không có SĐT');
+                return;
+            }
             showLoading(targetEl, `Đang tải khách hàng ${phone}…`);
             try {
                 const data = await fetchCustomer(phone);
                 if (activeKey !== key) return;
-                if (!data) { showError(targetEl, 'Khách chưa có trong hệ thống'); return; }
+                if (!data) {
+                    showError(targetEl, 'Khách chưa có trong hệ thống');
+                    return;
+                }
                 renderCustomer(data, phone);
                 position(targetEl);
             } catch (e) {
@@ -2506,7 +2516,13 @@
             if (!iso) return '';
             const d = new Date(iso);
             if (isNaN(d)) return iso;
-            return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+            return d.toLocaleString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
         }
 
         function txConfig(tx) {
@@ -2517,21 +2533,43 @@
             let label = 'Khác';
             switch (t) {
                 case 'DEPOSIT':
-                    label = /ORDER_CANCEL_REFUND|hoàn|hoan/i.test(tx.source || note) ? 'HOÀN' : 'Nạp tiền';
+                    label = /ORDER_CANCEL_REFUND|hoàn|hoan/i.test(tx.source || note)
+                        ? 'HOÀN'
+                        : 'Nạp tiền';
                     break;
                 case 'WITHDRAW':
                     label = /thanh\s*toán/i.test(note) ? 'Thanh toán' : 'Rút tiền';
                     break;
-                case 'VIRTUAL_CREDIT': label = 'Cộng nợ ảo'; break;
-                case 'VIRTUAL_DEBIT': label = 'Trừ nợ ảo'; break;
-                case 'VIRTUAL_EXPIRE': label = 'Nợ hết hạn'; break;
-                case 'VIRTUAL_CANCEL': label = 'Thu hồi nợ'; break;
-                case 'ADJUSTMENT': label = 'Điều chỉnh'; break;
-                case 'FIX_COD': label = 'Sửa COD'; break;
-                case 'COD_ADJUSTMENT': label = 'Điều chỉnh COD'; break;
-                case 'BOOM': label = 'Boom hàng'; break;
-                case 'RETURN_SHIPPER': label = 'Thu về'; break;
-                case 'RETURN_CLIENT': label = 'Trả hàng'; break;
+                case 'VIRTUAL_CREDIT':
+                    label = 'Cộng nợ ảo';
+                    break;
+                case 'VIRTUAL_DEBIT':
+                    label = 'Trừ nợ ảo';
+                    break;
+                case 'VIRTUAL_EXPIRE':
+                    label = 'Nợ hết hạn';
+                    break;
+                case 'VIRTUAL_CANCEL':
+                    label = 'Thu hồi nợ';
+                    break;
+                case 'ADJUSTMENT':
+                    label = 'Điều chỉnh';
+                    break;
+                case 'FIX_COD':
+                    label = 'Sửa COD';
+                    break;
+                case 'COD_ADJUSTMENT':
+                    label = 'Điều chỉnh COD';
+                    break;
+                case 'BOOM':
+                    label = 'Boom hàng';
+                    break;
+                case 'RETURN_SHIPPER':
+                    label = 'Thu về';
+                    break;
+                case 'RETURN_CLIENT':
+                    label = 'Trả hàng';
+                    break;
             }
             return { label, isCredit, amount };
         }
@@ -2545,15 +2583,17 @@
             const tier = c.tier || '';
             const totalOrders = c.total_orders || 0;
             const totalSpent = parseFloat(c.total_spent) || 0;
-            const txHtml = txs.length === 0
-                ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
-                : txs.map((tx) => {
-                    const { label, isCredit, amount } = txConfig(tx);
-                    const sign = isCredit ? '+' : '';
-                    const cls = isCredit ? 'credit' : 'debit';
-                    const note = (tx.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
-                    const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
-                    return `
+            const txHtml =
+                txs.length === 0
+                    ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
+                    : txs
+                          .map((tx) => {
+                              const { label, isCredit, amount } = txConfig(tx);
+                              const sign = isCredit ? '+' : '';
+                              const cls = isCredit ? 'credit' : 'debit';
+                              const note = (tx.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                              const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
+                              return `
                         <div class="dr-hp-tx ${cls}">
                             <div class="dr-hp-tx-head">
                                 <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
@@ -2562,7 +2602,8 @@
                             </div>
                             ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
                         </div>`;
-                }).join('');
+                          })
+                          .join('');
             const pop = ensurePopover();
             pop.innerHTML = `
                 <div class="dr-hp-header">
@@ -2572,11 +2613,11 @@
                 <div class="dr-hp-wallet-grid">
                     <div class="dr-hp-stat">
                         <div class="dr-hp-stat-label">Số dư thật</div>
-                        <div class="dr-hp-stat-value ${(+w.balance) > 0 ? 'pos' : ''}">${fmtMoney(w.balance)}đ</div>
+                        <div class="dr-hp-stat-value ${+w.balance > 0 ? 'pos' : ''}">${fmtMoney(w.balance)}đ</div>
                     </div>
                     <div class="dr-hp-stat">
                         <div class="dr-hp-stat-label">Công nợ ảo</div>
-                        <div class="dr-hp-stat-value ${(+w.virtual_balance) > 0 ? 'pos' : ''}">${fmtMoney(w.virtual_balance)}đ</div>
+                        <div class="dr-hp-stat-value ${+w.virtual_balance > 0 ? 'pos' : ''}">${fmtMoney(w.virtual_balance)}đ</div>
                     </div>
                     <div class="dr-hp-stat">
                         <div class="dr-hp-stat-label">Đơn / Doanh thu</div>
@@ -2619,8 +2660,16 @@
             root.addEventListener('mouseover', onMouseEnter);
             root.addEventListener('mouseout', onMouseLeave);
             // Hide on scroll/resize/escape
-            window.addEventListener('scroll', () => { if (popoverEl) popoverEl.style.display = 'none'; }, true);
-            window.addEventListener('resize', () => { if (popoverEl) popoverEl.style.display = 'none'; });
+            window.addEventListener(
+                'scroll',
+                () => {
+                    if (popoverEl) popoverEl.style.display = 'none';
+                },
+                true
+            );
+            window.addEventListener('resize', () => {
+                if (popoverEl) popoverEl.style.display = 'none';
+            });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && popoverEl) popoverEl.style.display = 'none';
             });
