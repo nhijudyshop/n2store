@@ -1466,29 +1466,16 @@
     to { transform: rotate(360deg); }
 }
 
-/* Bill body — render TPOS print HTML scaled down */
-.dr-hp-bill-body {
-    overflow: auto;
-    max-height: calc(70vh - 50px);
-    padding: 10px 14px;
-    background: #ffffff;
-}
-.dr-hp-bill-body * {
-    max-width: 100%;
-    box-sizing: border-box;
-}
-.dr-hp-bill-body table {
-    border-collapse: collapse;
+/* Bill iframe — sandboxed render of TPOS print HTML.
+   Iframe isolates TPOS' own <style> block (which sets html,body width:80mm
+   and would shrink the parent page if injected via innerHTML). */
+.dr-hp-bill-frame {
     width: 100%;
-    font-size: 12px;
-}
-.dr-hp-bill-body td,
-.dr-hp-bill-body th {
-    padding: 2px 4px;
-}
-.dr-hp-bill-body img {
-    max-width: 100%;
-    height: auto;
+    height: calc(70vh - 50px);
+    min-height: 360px;
+    border: 0;
+    background: #ffffff;
+    display: block;
 }
 
 /* Customer wallet content */

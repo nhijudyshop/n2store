@@ -2471,11 +2471,14 @@
                 const html = await fetchBillHtml(id);
                 if (activeKey !== key) return;
                 const pop = ensurePopover();
+                // Sandbox bill HTML in iframe — TPOS print HTML ships its own <style>
+                // (e.g. `html, body { width: 80mm }`) that would leak to the parent page.
+                const srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
                 pop.innerHTML = `
                     <div class="dr-hp-header">
                         <span class="dr-hp-title"><i class="fas fa-receipt"></i> ${escapeHtml(number)}</span>
                     </div>
-                    <div class="dr-hp-bill-body">${html}</div>`;
+                    <iframe class="dr-hp-bill-frame" sandbox="allow-same-origin" srcdoc="${escapeHtml(srcdoc)}"></iframe>`;
                 position(targetEl);
             } catch (e) {
                 if (activeKey !== key) return;
@@ -2659,14 +2662,9 @@
             const root = document.getElementById('drTableWrapper') || document.body;
             root.addEventListener('mouseover', onMouseEnter);
             root.addEventListener('mouseout', onMouseLeave);
-            // Hide on scroll/resize/escape
-            window.addEventListener(
-                'scroll',
-                () => {
-                    if (popoverEl) popoverEl.style.display = 'none';
-                },
-                true
-            );
+            // Hide on resize/escape. Scroll-hide removed — popover uses page coords
+            // so it stays anchored; auto-hiding on scroll caused dismissal during
+            // late table re-renders (rows pushing layout while popover was visible).
             window.addEventListener('resize', () => {
                 if (popoverEl) popoverEl.style.display = 'none';
             });
