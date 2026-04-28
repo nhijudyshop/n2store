@@ -476,7 +476,6 @@
                     const txId = reviewBtn.dataset.id;
                     openManagerReviewModal(txId);
                 }
-
             });
         }
     }
