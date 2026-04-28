@@ -2605,14 +2605,16 @@
             const totalSpent = parseFloat(c.total_spent) || 0;
 
             // Pending block (Duyệt button per row)
-            const pendingHtml = pendingTxs.length === 0
-                ? ''
-                : `<div class="dr-hp-section-title">Chờ duyệt</div>
-                   <div class="dr-hp-tx-list">${pendingTxs.map((p) => {
-                       const amt = parseFloat(p.amount) || 0;
-                       const content = (p.content || '').slice(0, 80);
-                       const eye = eyeBtnHtml(p.sepay_image_url);
-                       return `
+            const pendingHtml =
+                pendingTxs.length === 0
+                    ? ''
+                    : `<div class="dr-hp-section-title">Chờ duyệt</div>
+                   <div class="dr-hp-tx-list">${pendingTxs
+                       .map((p) => {
+                           const amt = parseFloat(p.amount) || 0;
+                           const content = (p.content || '').slice(0, 80);
+                           const eye = eyeBtnHtml(p.sepay_image_url);
+                           return `
                            <div class="dr-hp-tx pending">
                                <div class="dr-hp-tx-head">
                                    <span class="dr-hp-tx-amount">+${fmtMoney(amt)}đ</span>
@@ -2622,23 +2624,28 @@
                                </div>
                                ${content ? `<div class="dr-hp-tx-note">${escapeHtml(content)}</div>` : ''}
                            </div>`;
-                   }).join('')}</div>`;
+                       })
+                       .join('')}</div>`;
 
             // Recent (processed) transactions
-            const txHtml = txs.length === 0
-                ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
-                : txs.map((tx) => {
-                      const { label, isCredit, amount } = txConfig(tx);
-                      const sign = isCredit ? '+' : '';
-                      const cls = isCredit ? 'credit' : 'debit';
-                      const noteRaw = tx.note || '';
-                      // Existing pattern: "[Ảnh GD: <url>]" embedded in note for legacy CK records
-                      const inlineImgMatch = noteRaw.match(/\[Ảnh GD:\s*(https?:\/\/[^\]]+)\]/);
-                      const inlineImg = inlineImgMatch ? inlineImgMatch[1] : null;
-                      const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
-                      const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
-                      const eye = eyeBtnHtml(tx.sepay_image_url || inlineImg);
-                      return `
+            const txHtml =
+                txs.length === 0
+                    ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
+                    : txs
+                          .map((tx) => {
+                              const { label, isCredit, amount } = txConfig(tx);
+                              const sign = isCredit ? '+' : '';
+                              const cls = isCredit ? 'credit' : 'debit';
+                              const noteRaw = tx.note || '';
+                              // Existing pattern: "[Ảnh GD: <url>]" embedded in note for legacy CK records
+                              const inlineImgMatch = noteRaw.match(
+                                  /\[Ảnh GD:\s*(https?:\/\/[^\]]+)\]/
+                              );
+                              const inlineImg = inlineImgMatch ? inlineImgMatch[1] : null;
+                              const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                              const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
+                              const eye = eyeBtnHtml(tx.sepay_image_url || inlineImg);
+                              return `
                           <div class="dr-hp-tx ${cls}">
                               <div class="dr-hp-tx-head">
                                   <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
@@ -2648,7 +2655,8 @@
                               </div>
                               ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
                           </div>`;
-                  }).join('');
+                          })
+                          .join('');
 
             const pop = ensurePopover();
             pop.innerHTML = `
@@ -2716,9 +2724,10 @@
         // Approve a pending balance_history row from the popover
         async function approvePending(pendingId, amount, btn) {
             if (!pendingId) return;
-            const verifiedBy = window.authManager?.getUserInfo?.()?.username
-                || window.authManager?.currentUser?.displayName
-                || 'admin';
+            const verifiedBy =
+                window.authManager?.getUserInfo?.()?.username ||
+                window.authManager?.currentUser?.displayName ||
+                'admin';
             if (!confirm(`Duyệt giao dịch +${fmtMoney(amount)}đ?`)) return;
             const original = btn ? btn.innerHTML : '';
             if (btn) {
@@ -2726,11 +2735,14 @@
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             }
             try {
-                const resp = await fetch(`${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(pendingId)}/approve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ verified_by: verifiedBy }),
-                });
+                const resp = await fetch(
+                    `${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(pendingId)}/approve`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ verified_by: verifiedBy }),
+                    }
+                );
                 const json = await resp.json().catch(() => ({}));
                 if (!resp.ok || json.success === false) {
                     throw new Error(json.error || `HTTP ${resp.status}`);
@@ -2772,7 +2784,11 @@
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    approvePending(btn.dataset.pendingId, parseFloat(btn.dataset.pendingAmt) || 0, btn);
+                    approvePending(
+                        btn.dataset.pendingId,
+                        parseFloat(btn.dataset.pendingAmt) || 0,
+                        btn
+                    );
                 });
             });
         }
