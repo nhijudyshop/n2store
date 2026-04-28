@@ -126,6 +126,14 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [verify] Live test commit 78d09adc sau Render+GH Pages deploy
+| | |
+|---|---|
+| **Bug 1 — QL fallback** | (1) `accountant.js` deployed: `manager_review_note?.trim` confirmed. (2) Open balance-history Đã Duyệt tab: 4 wt rows visible (wt:7564 ✓, wt:7556 ✓, wt:7544 ✗, wt:7542 ✗). (3) wt:7564 + wt:7556 (đã reviewed từ trước) hiện QL note đầy đủ: "QL: Administrator - Live test wt:7564..." và "QL: Tâm - kiểm tra giao dịch test". (4) Click ✓ trên wt:7544 → modal mở → fill "Live test fix QL: bug1 verify wt:7544" → submit → row chuyển sang orange (acc-row-reviewed), hiện "QL: Administrator - Live test fix QL: ..." + label "ĐÃ KIỂM TRA". DB persisted: `manager_reviewed=true, reviewed_by='Administrator', manager_review_note='Live test fix QL: bug1 verify wt:7544', reviewed_at=2026-04-28T09:22:54Z`. ✅ |
+| **Bug 2 — Render endpoint accept created_by** | POST `/api/v2/tickets/TEST_NONEXISTENT/resolve-credit` với `{"phone":"0000000000","amount":1000,"created_by":"test_param_check"}` → success: `wt:7586` tạo với `verified_by="test_param_check"` (= `wallet_transactions.created_by`). Endpoint nhận `created_by` field đúng theo fix. ✅ |
+| **Test artifact** | wt:7586 + virtual_credit_id 157 trên phone 0000000000 — isolated test wallet, harmless, không cần cleanup. |
+| **Status** | ✅ Bug 1 fully fixed live + Bug 2 endpoint deploy verified. Caller (issue-tracking script.js) sẽ áp dụng cho TX mới khi user resolve ticket Thu Về tiếp theo. |
+
 ### [balance-history][bugfix] QL: ... đã kiểm tra không hiện cho wt rows sau khi save modal
 | | |
 |---|---|
