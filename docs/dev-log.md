@@ -10,9 +10,23 @@
 
 > 4 scripts auto test dự án — login 1 lần, capture errors, run lại bao nhiêu lần cũng được.
 
-### ⚡ Quy tắc — ƯU TIÊN LOCALHOST, online CHỈ khi cần verify deploy
-- **Localhost (recommended)**: nhanh, không phụ thuộc GH Pages. Server: `python3 -m http.server 8080 &`. Mọi script có flag `--base http://localhost:8080`.
-- **Online**: sau `git push origin main`, **đợi GH Pages CI/CD hoàn thành (~2-4 phút)** → curl-verify path → mới run smoke với BASE mặc định.
+### ⚡ LIVE CODING workflow — vừa code vừa test luôn (recommended)
+1. Khởi động 1 lần: `python3 -m http.server 8080 &`
+2. Khởi động persistent browser session 1 lần (point sang localhost):
+   ```bash
+   mkfifo /tmp/n2store-session.fifo
+   (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &
+   ```
+3. Sau mỗi `Edit` file → đẩy command vào FIFO test NGAY (không restart browser):
+   ```bash
+   echo "nav http://localhost:8080/orders-report/main.html?t=$(date +%s)" > /tmp/n2store-session.fifo
+   echo "feval window.someFunction()" > /tmp/n2store-session.fifo
+   echo "search 0914495309" > /tmp/n2store-session.fifo
+   ```
+4. JS auto-busted (`cache-control: no-cache` đã set trong route). HTML cần `?t=$(date +%s)` query string.
+
+### ⚡ Online test CHỈ khi cần verify deploy thật
+- Sau `git push origin main`, **đợi GH Pages CI/CD hoàn thành (~2-4 phút)** → curl-verify path → mới run smoke với BASE mặc định.
 
 ### Quick start (sau commit lớn → verify 144 pages):
 ```bash
