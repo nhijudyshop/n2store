@@ -895,13 +895,16 @@ export class CustomerProfileModule {
                                         tx.source === 'ORDER_CANCEL_REFUND';
                                     const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
                                     const isWithdraw = tx.type === 'WITHDRAW';
-                                    const label = isDeposit
-                                        ? 'Duyệt bởi'
-                                        : isWithdraw
-                                          ? 'Tạo bởi'
-                                          : isRefund
-                                            ? 'Hoàn bởi'
-                                            : 'Bởi';
+                                    // VIRTUAL_CREDIT (Công Nợ Ảo Từ Thu Về) cũng là +tiền do nhân viên duyệt
+                                    const isVirtualCredit = tx.type === 'VIRTUAL_CREDIT';
+                                    const label =
+                                        isDeposit || isVirtualCredit
+                                            ? 'Duyệt bởi'
+                                            : isWithdraw
+                                              ? 'Tạo bởi'
+                                              : isRefund
+                                                ? 'Hoàn bởi'
+                                                : 'Bởi';
                                     operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">${label} ${createdBy}</span>`;
                                 }
 

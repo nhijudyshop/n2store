@@ -1812,6 +1812,10 @@ async function handleConfirmAction() {
                 ticket_code: ticketCode,
                 note: walletNote,
                 expires_in_days: 15,
+                created_by:
+                    window.authManager?.getUserInfo()?.username ||
+                    window.authManager?.getAuthState()?.email ||
+                    'warehouse_staff',
             });
 
             notificationManager.remove(loadingId);

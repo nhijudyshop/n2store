@@ -126,6 +126,25 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [balance-history][bugfix] QL: ... đã kiểm tra không hiện cho wt rows sau khi save modal
+| | |
+|---|---|
+| **File** | `balance-history/js/accountant.js` (renderApprovedToday) |
+| **Bug** | Bấm V trên wt row → modal điền note → submit OK (server lưu `manager_reviewed=true, reviewed_by, manager_review_note`) → đóng modal → row hiện "ĐÃ KIỂM TRA" nhưng KHÔNG có dòng "QL: <user> đã kiểm tra". |
+| **Nguyên nhân** | Render code chỉ derive `managerNote` bằng regex `/\[QL:([^\]]*)\]/` trên `tx.verification_note`. Backend wt branch (line 1711-1719) chỉ UPDATE `manager_reviewed/manager_review_note/reviewed_by/reviewed_at` columns, KHÔNG embed `[QL: ...]` vào `verification_note` (vì wt rows không có verification_note column như bh). → `managerNote = ''` → block "QL: ..." không render. |
+| **Fix** | Sau khi parse marker từ verification_note, fallback: `if (isReviewed && !managerNote) managerNote = tx.manager_review_note?.trim() || 'Đã kiểm tra'`. Áp dụng cho cả bh và wt rows mà API trả về `manager_review_note` column trực tiếp. |
+| **Status** | ✅ Done |
+
+### [tickets][customer-hub][bugfix] +tiền (Hoàn tiền/Khách CK/VIRTUAL_CREDIT) thiếu "Duyệt bởi" trong activity feed
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/tickets.js` (resolve, resolve-credit), `issue-tracking/js/script.js` (resolveTicketCredit caller), `customer-hub/js/modules/customer-profile.js` (operator label) |
+| **Bug** | Activity feed customer profile hiển thị `+200K Công Nợ Ảo Từ Thu Về (NJD/...) - 14:08 28/04/2026` không có operator (Duyệt bởi/Tạo bởi/...). |
+| **Root cause** | (a) `tickets.js` `/resolve` (compensation) và `/resolve-credit` không pass `performed_by`/`created_by` xuống `issueVirtualCredit()`/`processManualDeposit()` → `wallet_transactions.created_by` = NULL. (b) `issue-tracking/script.js` gọi `ApiService.resolveTicketCredit({...})` không gửi `created_by`. (c) `customer-hub` operator label logic không nhận diện `tx.type==='VIRTUAL_CREDIT'` là +tiền do user duyệt → fallback label "Bởi" thay vì "Duyệt bởi". |
+| **Fix** | (1) `tickets.js`: `/resolve` truyền `performed_by` cho cả 2 nhánh `issueVirtualCredit` (param 7) và `processManualDeposit` (param 8); `/resolve-credit` accept `created_by` từ body, pass param 7. (2) `issue-tracking/script.js`: thêm `created_by: window.authManager?.getUserInfo()?.username || ...` vào payload `resolveTicketCredit`. (3) `customer-profile.js`: thêm `isVirtualCredit = tx.type==='VIRTUAL_CREDIT'` vào label rule, OR với `isDeposit` → label = 'Duyệt bởi'. |
+| **Note** | Chỉ áp dụng cho TX MỚI tạo sau deploy. Các tx cũ đã có `created_by=NULL` cần backfill SQL nếu user yêu cầu. |
+| **Status** | ✅ Done |
+
 ### [balance-history][feat] Đã Duyệt UNION wallet_transactions +tiền nội bộ (VIRTUAL_CREDIT/REFUND/RETURN)
 | | |
 |---|---|

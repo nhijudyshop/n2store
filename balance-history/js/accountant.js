@@ -1892,12 +1892,16 @@
                 let hasAdjustment = false;
                 let managerNote = '';
 
-                // Extract manager note [QL: ...] if exists
+                // Extract manager note [QL: ...] from verification_note (legacy bh rows embed marker)
                 const managerNoteMatch = note.match(/\[QL:\s*([^\]]*)\]/);
                 if (managerNoteMatch) {
                     managerNote = managerNoteMatch[1] || 'Đã kiểm tra';
-                    // Remove manager note from main note
                     note = note.replace(/\n?\[QL:[^\]]*\]/, '').trim();
+                }
+
+                // Fallback: dùng column manager_review_note trực tiếp (wt rows không embed [QL:] vào verification_note)
+                if (isReviewed && !managerNote) {
+                    managerNote = tx.manager_review_note?.trim() || 'Đã kiểm tra';
                 }
 
                 if (note.includes('[Đã điều chỉnh:')) {
