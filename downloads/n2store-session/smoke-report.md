@@ -1,39 +1,21 @@
 # Smoke Test Report — 144 pages
 
-Generated: 2026-04-28T05:40:23.630Z
+Generated: 2026-04-28T05:47:36.833Z
 
-- ✅ Clean: **138**
-- ❌ Issues: **6**
+- ✅ Clean: **144**
+- ❌ Issues: **0**
 
 ## Pages with issues (sorted by severity)
 
 | Path | HTTP | Title | Errors | Unhandled | Visible | Body? | Notes |
 |---|---|---|---|---|---|---|---|
-| `/` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
-| `/orders-report/main.html` | 200 | Hệ Thống Quản Lý - N2STORE | 164 | 0 |  | ✓ |  |
-| `/orders-report/tab1-orders.html` | 200 | Quản lý đơn hàng | 170 | 0 |  | ✓ |  |
-| `/product-warehouse/index.html` | 200 | Kho Sản Phẩm - N2STORE | 1 | 0 |  | ✓ |  |
-| `/quy-trinh/index.html` | 200 | Quy Trình Nghiệp Vụ — N2Store | 0 | 0 | lỗi nặng | ✓ |  |
 
 ## Top errors (first 3 per broken page)
 
-### `/orders-report/main.html`
-- err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
 
-### `/orders-report/tab1-orders.html`
-- err: Failed to load resource: net::ERR_FAILED
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
-- err: Failed to load resource: net::ERR_HTTP2_SERVER_REFUSED_STREAM
+## Clean pages (144)
 
-### `/product-warehouse/index.html`
-- err: Failed to load resource: the server responded with a status of 404 ()
-
-
-## Clean pages (138)
-
+- `/`
 - `/AI/gemini.html`
 - `/balance-history/index.html`
 - `/bangkiemhang/index.html`
@@ -46,6 +28,7 @@ Generated: 2026-04-28T05:40:23.630Z
 - `/firebase-stats/index.html`
 - `/hanghoan/index.html`
 - `/inbox/index.html`
+- `/index.html`
 - `/inventory-tracking/index.html`
 - `/invoice-compare/index.html`
 - `/issue-tracking/index.html`
@@ -55,19 +38,23 @@ Generated: 2026-04-28T05:40:23.630Z
 - `/order-management/hidden-products.html`
 - `/order-management/index.html`
 - `/order-management/order-list.html`
+- `/orders-report/main.html`
 - `/orders-report/migration-kpi-per-user.html`
 - `/orders-report/tab-kpi-commission.html`
 - `/orders-report/tab-live-ledger.html`
 - `/orders-report/tab-overview.html`
 - `/orders-report/tab-pending-delete.html`
+- `/orders-report/tab1-orders.html`
 - `/orders-report/tab3-product-assignment.html`
 - `/phone-management/index.html`
 - `/phone-management/monitor.html`
 - `/privacy-policy.html`
+- `/product-warehouse/index.html`
 - `/project-tracker/index.html`
 - `/purchase-orders/goods-receiving/index.html`
 - `/purchase-orders/index.html`
 - `/purchase-orders/label-test.html`
+- `/quy-trinh/index.html`
 - `/render-data-manager/index.html`
 - `/resident/index.html`
 - `/service-costs/index.html`
