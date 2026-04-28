@@ -258,12 +258,29 @@ async function smokeOne(ctx, urlPath) {
         title = await page.title().catch(() => '');
         const meta = await page.evaluate(() => {
             const txt = document.body?.innerText || '';
-            const visibleErrEls = document.body?.innerText?.match(
-                /(404|500|Lỗi|Error loading|Forbidden|Unauthorized)[^\n]{0,80}/i
-            );
+            // Tighten regex để loại false-positive "500 / trang" (pagination), "500.000 đ" (giá),
+            // "500 requests" (rate-limit info). Match chỉ khi đứng riêng + có context lỗi rõ ràng.
+            const PATTERNS = [
+                /\b(404)\s*(error|not\s*found|page\s*not\s*found)/i,
+                /\b(500)\s*(internal|server\s*error)\b/i,
+                /HTTP\s*(404|500|503)\b/i,
+                /\bError\s*loading\b/i,
+                /\bForbidden\b/i,
+                /\bUnauthorized\b/i,
+                /Lỗi\s*(nặng|tải|hệ\s*thống|nghiêm\s*trọng|xử\s*lý\s*dữ\s*liệu)/i,
+                /\bLỖI\b\s*[\(:].*?(không|fail)/i,
+            ];
+            let hit = '';
+            for (const re of PATTERNS) {
+                const m = txt.match(re);
+                if (m) {
+                    hit = m[0];
+                    break;
+                }
+            }
             return {
                 bodyChars: txt.length,
-                visibleErr: visibleErrEls ? visibleErrEls[0] : '',
+                visibleErr: hit,
                 hasMain: !!document.querySelector('main, #app, .app-container, .main-content'),
             };
         });

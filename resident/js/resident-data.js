@@ -10,20 +10,25 @@
     // Mock data files (resident/data/*.json) chứa PII khách hàng nên gitignored.
     // Trên GitHub Pages production → 404 27 lần khi load các key. Skip toàn bộ fetch
     // nếu phát hiện không có catalog → trả null, không spam console + browser.
-    let _mockDataAvailable = null; // null = chưa probe, true = có, false = đã miss
+    // Single in-flight promise — concurrent calls await cùng probe, không fire 27 lần.
+    let _probePromise = null;
 
-    async function _probeMockData() {
-        if (_mockDataAvailable !== null) return _mockDataAvailable;
-        try {
-            const r = await fetch('data/_catalog.json', { method: 'HEAD' });
-            _mockDataAvailable = r.ok;
-        } catch {
-            _mockDataAvailable = false;
-        }
-        if (!_mockDataAvailable) {
-            console.info('[resident-data] mock data files chưa deploy — skip tất cả fetch');
-        }
-        return _mockDataAvailable;
+    function _probeMockData() {
+        if (_probePromise) return _probePromise;
+        _probePromise = (async () => {
+            try {
+                const r = await fetch('data/_catalog.json', { method: 'HEAD' });
+                if (!r.ok) {
+                    console.info('[resident-data] mock data files chưa deploy — skip tất cả fetch');
+                    return false;
+                }
+                return true;
+            } catch {
+                console.info('[resident-data] mock data files chưa deploy — skip tất cả fetch');
+                return false;
+            }
+        })();
+        return _probePromise;
     }
 
     async function load(key) {
