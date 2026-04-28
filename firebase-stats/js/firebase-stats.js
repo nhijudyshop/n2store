@@ -25,7 +25,7 @@ try {
 // DATA DEFINITIONS
 // =====================================================
 
-const FIRESTORE_COLLECTIONS = [
+const FIRESTORE_STATS_COLLECTIONS = [
     {
         name: 'users',
         description: 'Thông tin người dùng, permissions, roleTemplate',
@@ -319,7 +319,7 @@ function renderFirestoreTable() {
     const tbody = elements.firestoreTable;
     tbody.innerHTML = '';
 
-    FIRESTORE_COLLECTIONS.forEach(collection => {
+    FIRESTORE_STATS_COLLECTIONS.forEach(collection => {
         const count = documentCounts.firestore[collection.name];
         const countDisplay = count !== undefined
             ? `<span class="doc-count">${count.toLocaleString()}</span>`
@@ -371,7 +371,7 @@ function getStatusLabel(status) {
 }
 
 function updateCounts() {
-    elements.firestoreCount.textContent = FIRESTORE_COLLECTIONS.length;
+    elements.firestoreCount.textContent = FIRESTORE_STATS_COLLECTIONS.length;
     elements.realtimeCount.textContent = REALTIME_NODES.length;
 }
 
@@ -388,7 +388,7 @@ async function countFirestoreDocuments() {
 
     let totalDocs = 0;
 
-    for (const collection of FIRESTORE_COLLECTIONS) {
+    for (const collection of FIRESTORE_STATS_COLLECTIONS) {
         if (!collection.countable) continue;
 
         try {
@@ -551,7 +551,7 @@ function setupEventListeners() {
 // =====================================================
 
 window.FirebaseStats = {
-    FIRESTORE_COLLECTIONS,
+    FIRESTORE_STATS_COLLECTIONS,
     REALTIME_NODES,
     documentCounts,
     renderData,

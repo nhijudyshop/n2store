@@ -11,9 +11,14 @@ async function initializeInventorySystem() {
     notificationManager = new NotificationManager();
     window.notificationManager = notificationManager;
 
-    // Check authentication
-    const auth = getAuthState();
-    if (!isAuthenticated()) {
+    // Check authentication — getAuthState/isAuthenticated là method của AuthManager,
+    // không phải global function (smoke test 2026-04-28 phát hiện ReferenceError).
+    const auth = window.authManager?.getAuthState?.() || null;
+    const isAuth =
+        typeof window.authManager?.isAuthenticated === 'function'
+            ? window.authManager.isAuthenticated()
+            : !!auth;
+    if (!isAuth) {
         console.log("User not authenticated, redirecting to login");
         // Uncomment for production:
         // window.location.href = '../index.html';
@@ -91,12 +96,13 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 });
 
-// Debug functions for development
+// Debug functions for development — `invalidateCache`/`getAuthState` không phải global,
+// reference qua window.* (nullable) để tránh ReferenceError tại module-load time.
 window.debugInventoryFunctions = {
     loadInventoryData,
     refreshInventoryData,
-    invalidateCache,
-    getAuthState,
+    invalidateCache: (...a) => window.invalidateCache?.(...a),
+    getAuthState: () => window.authManager?.getAuthState?.() || null,
     exportToExcel,
     updateOrderInventoryData,
     removeInventoryDataFromOrder,

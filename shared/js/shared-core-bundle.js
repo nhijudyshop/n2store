@@ -110,8 +110,10 @@ class Logger {
     }
 }
 
-// Global logger instance
-const logger = new Logger();
+// Global logger instance — `var` (không phải `const`) để re-declaration an toàn nếu
+// shared/js/logger.js cũng được nạp (smoke test 2026-04-28 thấy "Identifier 'logger'
+// already declared" ở supplier-debt vì core-loader nạp logger.js + page nạp bundle này).
+var logger = (typeof window !== 'undefined' && window.logger) || new Logger();
 
 // Expose to window
 if (typeof window !== 'undefined') {

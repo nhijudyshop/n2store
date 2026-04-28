@@ -68,8 +68,8 @@ class Logger {
     }
 }
 
-// Global logger instance
-const logger = new Logger();
+// Global logger instance — `var` để an toàn khi double-load
+var logger = (typeof window !== 'undefined' && window.logger) || new Logger();
 
 // Expose to window
 if (typeof window !== 'undefined') {
