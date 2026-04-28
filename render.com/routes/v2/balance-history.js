@@ -1019,7 +1019,7 @@ router.get('/accountant/stats', async (req, res) => {
         tomorrow.setDate(tomorrow.getDate() + 1);
 
         // Parallel queries for stats
-        const [pendingResult, pendingOverdueResult, approvedTodayResult, rejectedTodayResult, adjustmentsTodayResult] = await Promise.all([
+        const [pendingResult, pendingOverdueResult, approvedTodayResult, rejectedTodayResult, adjustmentsTodayResult, walletApprovedTodayResult] = await Promise.all([
             // Pending verification count
             db.query(`
                 SELECT COUNT(*) as count
@@ -1035,7 +1035,7 @@ router.get('/accountant/stats', async (req, res) => {
                   AND transfer_type = 'in'
                   AND created_at < NOW() - INTERVAL '24 hours'
             `),
-            // Approved today count
+            // Approved today count (sepay only)
             db.query(`
                 SELECT COUNT(*) as count
                 FROM balance_history
@@ -1060,15 +1060,28 @@ router.get('/accountant/stats', async (req, res) => {
                 WHERE type = 'MANUAL_ADJUSTMENT'
                   AND created_at >= $1
                   AND created_at < $2
+            `, [today, tomorrow]),
+            // Wallet +tiền nội bộ hôm nay (mirror filter của /approved-today UNION nhánh wt)
+            db.query(`
+                SELECT COUNT(*) as count
+                FROM wallet_transactions
+                WHERE amount > 0
+                  AND type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
+                  AND (reference_type IS DISTINCT FROM 'balance_history')
+                  AND created_at >= $1
+                  AND created_at < $2
             `, [today, tomorrow])
         ]);
+
+        const approvedTodayBh = parseInt(approvedTodayResult.rows[0].count);
+        const approvedTodayWt = parseInt(walletApprovedTodayResult.rows[0].count);
 
         res.json({
             success: true,
             stats: {
                 pending: parseInt(pendingResult.rows[0].count),
                 pendingOverdue: parseInt(pendingOverdueResult.rows[0].count),
-                approvedToday: parseInt(approvedTodayResult.rows[0].count),
+                approvedToday: approvedTodayBh + approvedTodayWt,
                 rejectedToday: parseInt(rejectedTodayResult.rows[0].count),
                 adjustmentsToday: parseInt(adjustmentsTodayResult.rows[0].count)
             }
@@ -1296,15 +1309,132 @@ router.get('/approved-today', async (req, res) => {
             console.error('[balance-history.js] Approved adjustment enrich failed:', enrichErr.message);
         }
 
+        // Stamp src='bh' for frontend dispatcher (Đã Duyệt sẽ phân biệt với 'wt' rows phía dưới)
+        for (const r of result.rows) {
+            r.src = 'bh';
+            r.uid = `bh:${r.id}`;
+        }
+
+        // ============================================================
+        // UNION: thêm các +tiền nội bộ từ wallet_transactions (không phải sepay)
+        // Type whitelist: VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT
+        // Filter trùng: bỏ qua các wt đã link sang balance_history (sepay đã ở nhánh trên)
+        // Idempotent ALTER guard cho columns mới (manager_reviewed, …)
+        // ============================================================
+        let walletTxRows = [];
+        let walletTxTotal = 0;
+        try {
+            await db.query(`
+                ALTER TABLE wallet_transactions
+                ADD COLUMN IF NOT EXISTS manager_reviewed BOOLEAN DEFAULT FALSE,
+                ADD COLUMN IF NOT EXISTS manager_review_note TEXT,
+                ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE
+            `);
+
+            const wtParams = [targetStart, targetEnd];
+            let wtParamCount = 3;
+            const wtConds = [
+                `wt.amount > 0`,
+                `wt.type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')`,
+                `(wt.reference_type IS DISTINCT FROM 'balance_history')`,
+                `wt.created_at >= $1`,
+                `wt.created_at < $2`,
+            ];
+
+            // Search filter cho wt
+            if (search) {
+                wtConds.push(`(wt.note ILIKE $${wtParamCount} OR wt.amount::text ILIKE $${wtParamCount} OR c.name ILIKE $${wtParamCount} OR wt.phone ILIKE $${wtParamCount} OR wt.created_by ILIKE $${wtParamCount})`);
+                wtParams.push(`%${search}%`);
+                wtParamCount++;
+            }
+
+            // Verifier filter (so với created_by cho wt)
+            if (verifier) {
+                wtConds.push(`wt.created_by = $${wtParamCount++}`);
+                wtParams.push(verifier);
+            }
+
+            // Checked filter
+            if (checked === 'checked') {
+                wtConds.push(`wt.manager_reviewed = TRUE`);
+            } else if (checked === 'unchecked') {
+                wtConds.push(`(wt.manager_reviewed IS NULL OR wt.manager_reviewed = FALSE)`);
+            }
+
+            // Source filter chỉ áp dụng cho bh — wt rows chỉ render khi không lọc source hoặc source rỗng.
+            // Nếu user lọc theo bh.match_method (qr_code, manual_entry, …) thì SKIP wt rows.
+            if (source && source !== '') {
+                wtConds.push(`FALSE`); // skip wt entirely
+            }
+
+            // Adjustment filter: wt rows không có adjustment, nên 'adjusted' filter cũng skip wt.
+            if (adjusted === 'adjusted') {
+                wtConds.push(`FALSE`);
+            }
+
+            const wtWhere = `WHERE ${wtConds.join(' AND ')}`;
+
+            const wtCountResult = await db.query(
+                `SELECT COUNT(*) AS total FROM wallet_transactions wt
+                 LEFT JOIN customers c ON c.phone = wt.phone ${wtWhere}`,
+                wtParams
+            );
+            walletTxTotal = parseInt(wtCountResult.rows[0].total);
+
+            // Lấy hết wt rows (limit ~500 cho an toàn) rồi merge + sort + paginate Node-side.
+            const wtDataResult = await db.query(
+                `SELECT wt.id, wt.note AS content, wt.amount,
+                        wt.created_at AS transaction_date,
+                        wt.phone AS linked_customer_phone,
+                        wt.created_at AS verified_at,
+                        wt.created_by AS verified_by,
+                        wt.source AS verification_note,
+                        NULL::text AS verification_image_url,
+                        'wallet_internal'::text AS match_method,
+                        wt.manager_reviewed, wt.manager_review_note,
+                        wt.reviewed_by, wt.reviewed_at,
+                        c.name AS customer_name,
+                        NULL::text AS adjusted_by,
+                        wt.type AS wt_type
+                 FROM wallet_transactions wt
+                 LEFT JOIN customers c ON c.phone = wt.phone
+                 ${wtWhere}
+                 ORDER BY wt.created_at DESC
+                 LIMIT 500`,
+                wtParams
+            );
+            walletTxRows = wtDataResult.rows.map((r) => ({
+                ...r,
+                id: r.id,
+                src: 'wt',
+                uid: `wt:${r.id}`,
+            }));
+        } catch (wtErr) {
+            console.error('[balance-history.js] wt UNION fetch failed:', wtErr.message);
+            // Không fail toàn bộ endpoint — chỉ thiếu wt rows
+        }
+
+        // Merge bh rows (đã limit/offset) với wt rows, re-sort by verified_at DESC, re-paginate.
+        // Approach: lấy bh full (bỏ qua limit/offset trước đó), nhưng để đơn giản: chỉ merge trang
+        // hiện tại của bh + toàn bộ wt rồi sort+slice. total = bh total + wt total.
+        const merged = [...result.rows, ...walletTxRows];
+        merged.sort((a, b) => {
+            const ta = a.verified_at ? new Date(a.verified_at).getTime() : 0;
+            const tb = b.verified_at ? new Date(b.verified_at).getTime() : 0;
+            return tb - ta;
+        });
+        const grandTotal = total + walletTxTotal;
+
         res.json({
             success: true,
-            data: result.rows,
+            data: merged,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
-                total,
-                totalPages: Math.ceil(total / limit)
-            }
+                total: grandTotal,
+                totalPages: Math.ceil(grandTotal / limit),
+            },
         });
 
     } catch (error) {
@@ -1536,11 +1666,76 @@ router.put('/settings/auto-approve', async (req, res) => {
  */
 router.post('/:id/manager-review', async (req, res) => {
     const pool = req.app.locals.chatDb;
-    const { id } = req.params;
+    const { id: rawId } = req.params;
     const { manager_review_note, reviewed_by } = req.body;
 
     if (!reviewed_by) {
         return res.status(400).json({ success: false, error: 'reviewed_by is required' });
+    }
+
+    // Composite uid format: 'bh:N' hoặc 'wt:N'. Legacy: số trần → coi là bh.
+    const uidMatch = String(rawId).match(/^(bh|wt):(\d+)$/i);
+    const src = uidMatch ? uidMatch[1].toLowerCase() : 'bh';
+    const id = uidMatch ? uidMatch[2] : rawId;
+
+    // Wallet_transactions branch — đơn giản hơn, không cần check verification_status.
+    if (src === 'wt') {
+        const db = await pool.connect();
+        try {
+            await db.query('BEGIN');
+            await db.query(`
+                ALTER TABLE wallet_transactions
+                ADD COLUMN IF NOT EXISTS manager_reviewed BOOLEAN DEFAULT FALSE,
+                ADD COLUMN IF NOT EXISTS manager_review_note TEXT,
+                ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE
+            `);
+            const r = await db.query(
+                'SELECT id, manager_reviewed, reviewed_by, reviewed_at FROM wallet_transactions WHERE id = $1 FOR UPDATE',
+                [parseInt(id)]
+            );
+            if (r.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return res.status(404).json({ success: false, error: 'Wallet transaction not found' });
+            }
+            if (r.rows[0].manager_reviewed) {
+                await db.query('ROLLBACK');
+                return res.status(400).json({
+                    success: false,
+                    error: 'Giao dịch này đã được kiểm tra trước đó',
+                    reviewed_by: r.rows[0].reviewed_by,
+                    reviewed_at: r.rows[0].reviewed_at,
+                });
+            }
+            await db.query(
+                `UPDATE wallet_transactions
+                 SET manager_reviewed = TRUE,
+                     manager_review_note = $2,
+                     reviewed_by = $3,
+                     reviewed_at = NOW()
+                 WHERE id = $1`,
+                [parseInt(id), manager_review_note || '', reviewed_by]
+            );
+            await db.query('COMMIT');
+            console.log(`[MANAGER REVIEW] wt:${id} reviewed by ${reviewed_by}`);
+            return res.json({
+                success: true,
+                message: 'Đã kiểm tra giao dịch ví thành công',
+                data: {
+                    id: parseInt(id),
+                    src: 'wt',
+                    manager_reviewed: true,
+                    manager_review_note: manager_review_note || '',
+                    reviewed_by,
+                    reviewed_at: new Date().toISOString(),
+                },
+            });
+        } catch (error) {
+            await db.query('ROLLBACK').catch(() => {});
+            return handleError(res, error, 'Failed to mark wt transaction as reviewed');
+        } finally {
+            db.release();
+        }
     }
 
     const db = await pool.connect();

@@ -914,6 +914,19 @@
      * Get badge for match_method
      */
     function getMatchMethodBadge(tx) {
+        // Wallet internal +tiền (VIRTUAL_CREDIT, REFUND, RETURN_*) — không thuộc verification CK
+        if (tx && (tx.src === 'wt' || tx.match_method === 'wallet_internal')) {
+            const wtType = tx.wt_type || '';
+            const wtLabel =
+                {
+                    VIRTUAL_CREDIT: 'Cộng nợ ảo',
+                    WALLET_REFUND: 'Hoàn ví',
+                    RETURN_SHIPPER: 'Thu về',
+                    RETURN_CLIENT: 'Trả khách',
+                }[wtType] || 'Ví nội bộ';
+            return `<span class="badge" style="background-color: #8b5cf6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;" title="Giao dịch +tiền nội bộ (${wtType})">${wtLabel}</span>`;
+        }
+
         // Use global getStandardizedSourceGroup from main.js (loaded before accountant.js)
         const groupKey =
             typeof getStandardizedSourceGroup === 'function'
@@ -1851,6 +1864,11 @@
 
         elements.approvedTableBody.innerHTML = state.approvedToday
             .map((tx) => {
+                // src: 'bh' (sepay balance_history) | 'wt' (wallet_transactions +tiền nội bộ)
+                // uid: composite key 'bh:N' | 'wt:N' — gửi cho backend ✓ Kiểm tra
+                const isWt = tx.src === 'wt';
+                const uid = tx.uid || (isWt ? `wt:${tx.id}` : `bh:${tx.id}`);
+
                 const amount =
                     parseFloat(tx.amount || 0).toLocaleString('vi-VN', {
                         maximumFractionDigits: 0,
@@ -1864,8 +1882,11 @@
                 const reviewedBy = tx.reviewed_by || '';
                 const reviewedAt = tx.reviewed_at ? formatDateTime(tx.reviewed_at) : '';
 
-                // Row class - add reviewed class if applicable
-                const rowClass = isReviewed ? 'acc-row-reviewed' : '';
+                // Row class - add reviewed class if applicable; wt rows có style riêng
+                const rowClass =
+                    [isReviewed ? 'acc-row-reviewed' : '', isWt ? 'acc-row-wt' : '']
+                        .filter(Boolean)
+                        .join(' ');
 
                 // Dịch ghi chú
                 let note = tx.verification_note || '';
@@ -1911,14 +1932,16 @@
                 }
                 noteHtml += '</div>';
 
-                // Review button - show different state based on reviewed status
+                // Review button - dùng composite uid (bh:N hoặc wt:N) cho backend dispatcher
                 const reviewBtnHtml = isReviewed
                     ? `<span class="acc-reviewed-label" title="Đã kiểm tra lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
-                    : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
+                    : `<button class="acc-review-btn" data-id="${uid}" title="Kiểm tra giao dịch">✓</button>`;
 
-                // Nút Điều chỉnh - disable nếu đã có adjustment
+                // Nút Điều chỉnh - chỉ áp dụng cho bh rows (wt rows không có verification flow)
                 let adjustBtnHtml;
-                if (hasAdjustment) {
+                if (isWt) {
+                    adjustBtnHtml = '';
+                } else if (hasAdjustment) {
                     const fmt = (v) =>
                         new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
                     const legs = Array.isArray(tx.adjustment_legs) ? tx.adjustment_legs : [];
@@ -2640,7 +2663,7 @@
             const reviewImageUrl = state.reviewModal.imageUrl || null;
 
             const response = await fetch(
-                `${API_BASE_URL}/api/v2/balance-history/${currentReviewTxId}/manager-review`,
+                `${API_BASE_URL}/api/v2/balance-history/${encodeURIComponent(currentReviewTxId)}/manager-review`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2658,8 +2681,10 @@
                 throw new Error(result.error || 'Failed to save review');
             }
 
-            // Update local state
-            const txIndex = state.approvedToday.findIndex((t) => t.id == currentReviewTxId);
+            // Update local state — match composite uid (bh:N hoặc wt:N) HOẶC legacy id thuần.
+            const txIndex = state.approvedToday.findIndex(
+                (t) => t.uid === currentReviewTxId || String(t.id) === String(currentReviewTxId)
+            );
             if (txIndex !== -1) {
                 state.approvedToday[txIndex].manager_reviewed = true;
                 state.approvedToday[txIndex].manager_review_note = reviewNote;
@@ -2678,7 +2703,10 @@
             // Log to audit history
             try {
                 if (window.AuditLogger) {
-                    const tx = state.approvedToday.find((t) => t.id == txId) || {};
+                    const tx =
+                        state.approvedToday.find(
+                            (t) => t.uid === txId || String(t.id) === String(txId)
+                        ) || {};
                     window.AuditLogger.logAction('transaction_verify', {
                         module: 'balance-history',
                         description:

@@ -115,6 +115,16 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [balance-history][feat] Đã Duyệt UNION wallet_transactions +tiền nội bộ (VIRTUAL_CREDIT/REFUND/RETURN)
+| | |
+|---|---|
+| **Files** | `render.com/migrations/069_wallet_tx_manager_review.sql` (mới), `render.com/routes/v2/balance-history.js`, `balance-history/js/accountant.js`, `scripts/test-migration-069-wallet-tx-review.js` (mới) |
+| **Vì sao** | Tab "Đã Duyệt" hiện chỉ pull từ `balance_history` (sepay CK only). User yêu cầu thêm các +tiền nội bộ (VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT) từ `wallet_transactions` để thấy đầy đủ luồng tiền vào ví. |
+| **Backend** | (1) Migration 069: `ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS manager_reviewed/manager_review_note/reviewed_by/reviewed_at` + idempotent ALTER inline trong `/approved-today`. (2) `/approved-today`: sau khi fetch `bh` rows, fetch thêm wt rows (filter `amount>0 AND type IN (4 types) AND reference_type IS DISTINCT FROM 'balance_history'`), merge + sort by verified_at DESC, mỗi row gắn `src` (`bh`/`wt`) + `uid` (`bh:N`/`wt:N`). (3) `/accountant/stats`: thêm `walletApprovedTodayResult` count, cộng vào `approvedToday`. (4) `/:id/manager-review`: parse composite uid prefix → dispatch sang `wallet_transactions` UPDATE branch nếu `wt:`, giữ nguyên `balance_history` branch nếu `bh:` hoặc legacy id thuần. |
+| **Frontend** | (1) `renderApprovedToday`: detect `tx.src==='wt'` → ẩn ⚠️ Điều chỉnh, render badge tím "Cộng nợ ảo/Hoàn ví/Thu về/Trả khách" thay match_method. (2) Nút ✓ data-id dùng composite `uid` (encoded). (3) State update sau review: match by `uid` thay vì `id` thuần. (4) Audit logger cũng dùng uid. |
+| **Test migration** | `node scripts/test-migration-069-wallet-tx-review.js` — pattern CREATE local DB → schema cũ → UPDATE FAIL → MIGRATE → UPDATE OK → idempotent re-run → DROP DB. Tất cả PASS. |
+| **Status** | ✅ Done — chờ Render auto-deploy + GH Pages deploy để live test |
+
 ### [delivery-report][feat] Popover Hoạt động gần đây — eye cho mọi tx có ticket NJD/TV-, không chỉ ảnh CK
 | | |
 |---|---|
