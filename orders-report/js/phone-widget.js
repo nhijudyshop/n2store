@@ -442,6 +442,7 @@ const PhoneWidget = (() => {
                         <span class="pw-ext-chip-caret">▾</span>
                     </button>
                     <button class="pw-hi" onclick="PhoneWidget.toggleHistory()" title="Lịch sử gọi" id="pwHistBtn">🕐</button>
+                    <button class="pw-hi" onclick="PhoneWidget.refresh()" title="Làm mới widget (kết nối lại tổng đài)" id="pwRefreshBtn">↻</button>
                     <button class="pw-hi" onclick="PhoneWidget.toggleSettings()" title="Cài đặt">⚙</button>
                     <button class="pw-hi" onclick="PhoneWidget.toggleMinimize()" title="Thu nhỏ" id="pwMinBtn">−</button>
                     <button class="pw-hi" onclick="PhoneWidget.hide()" title="Đóng">×</button>
@@ -1942,8 +1943,49 @@ const PhoneWidget = (() => {
     }
     _initFabBadgeOnLoad();
 
+    /**
+     * Refresh widget — disconnect + re-init (kết nối lại tổng đài, re-fetch ICE/TURN, re-register SIP).
+     * Dùng khi widget hiển thị lỗi: "Mic bị chặn", "Reg failed", "WS disconnected", hoặc bị treo.
+     * Spin nút ↻ trong 1.5s để báo hiệu cho user.
+     */
+    async function refresh() {
+        const btn = document.getElementById('pwRefreshBtn');
+        if (btn) {
+            btn.style.transition = 'transform 1.5s ease-out';
+            btn.style.transform = 'rotate(360deg)';
+            btn.disabled = true;
+            setTimeout(() => {
+                if (btn) {
+                    btn.style.transition = 'none';
+                    btn.style.transform = 'rotate(0deg)';
+                    btn.disabled = false;
+                }
+            }, 1500);
+        }
+        addLog('🔄 Refresh widget — kết nối lại tổng đài...');
+        setStatus('calling', 'Đang kết nối lại...');
+        try {
+            disconnect();
+        } catch (e) {
+            console.warn('[PhoneWidget] refresh disconnect warn:', e?.message);
+        }
+        // Clear ICE cache để fetch fresh TURN credentials
+        _iceServersCache = null;
+        _iceServersFetchedAt = 0;
+        // Slight delay để WebSocket cleanup hoàn toàn
+        await new Promise((r) => setTimeout(r, 300));
+        try {
+            await init();
+            addLog('✅ Refresh xong');
+        } catch (e) {
+            addLog('❌ Refresh thất bại: ' + (e?.message || e), 'error');
+            setStatus('error', 'Refresh thất bại');
+        }
+    }
+
     return {
         init,
+        refresh,
         makeCall,
         hangup,
         toggleMute,
