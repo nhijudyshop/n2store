@@ -6,6 +6,87 @@
 
 ---
 
+## 🧪 Browser Test Scripts (Playwright) — luôn dùng để verify
+
+> 4 scripts auto test dự án — login 1 lần, capture errors, run lại bao nhiêu lần cũng được.
+
+### Quick start (sau commit lớn → verify 144 pages):
+```bash
+cd /Users/mac/Desktop/n2store
+# Lưu baseline trước khi sửa (nếu cần diff sau)
+cp downloads/n2store-session/smoke-report.json downloads/n2store-session/smoke-report-before.json
+# Smoke 144 pages
+node scripts/n2store-smoke-all-pages.js --user admin --pass admin@@ --concurrency 5 --per-page-secs 7
+# Đọc summary
+tail -3 /Users/mac/Desktop/n2store/downloads/n2store-session/smoke-report.md
+```
+
+### Persistent REPL (debug live không cần restart browser):
+```bash
+mkfifo /tmp/n2store-session.fifo
+(tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ &
+# Sau đó:
+echo "search 0914495309" > /tmp/n2store-session.fifo
+echo "openchat" > /tmp/n2store-session.fifo
+echo "switchpage Nhi Judy House" > /tmp/n2store-session.fifo
+echo "chatstate" > /tmp/n2store-session.fifo
+echo "netlast 10" > /tmp/n2store-session.fifo
+echo "filter subtag_CHUA_PHAN_HOI" > /tmp/n2store-session.fifo
+echo "shot /tmp/debug.png" > /tmp/n2store-session.fifo
+echo "feval window.currentChatPSID" > /tmp/n2store-session.fifo
+echo "nav https://nhijudyshop.github.io/n2store/orders-report/main.html" > /tmp/n2store-session.fifo
+echo "quit" > /tmp/n2store-session.fifo
+```
+**Commands**: `nav <url>`, `eval <js>`, `feval <js>`, `filter <key|null>`, `flag <key>`, `search <q>`, `openchat [sel]`, `switchpage <id|name>`, `chatstate`, `netlast [N]`, `clearnet`, `shot <path>`, `help`, `quit`.
+
+### DB schema change → test trên local DB riêng (KHÔNG đụng prod):
+```bash
+brew services start postgresql@14   # nếu chưa chạy
+node scripts/test-migration-social-tags.js [--copy-prod]
+# → CREATE n2store_migration_test → schema cũ → INSERT FAIL → MIGRATE → INSERT OK → DROP DB
+```
+Pattern bắt buộc khi đổi schema: idempotent block + drop test DB sau khi xong.
+
+### Interactive smoke 24 priority pages (sau UI/UX changes):
+```bash
+node scripts/n2store-interactive-smoke.js --user admin --pass admin@@ --per-page-secs 10
+```
+
+### Reports luôn ở `downloads/n2store-session/`:
+- `FINAL-CLEAN-REPORT.md` — verdict gần nhất (144/144 clean, 0 app errors)
+- `smoke-report.{json,md}` — smoke mới nhất + `smoke-report-before.json` baseline
+- `interactive-smoke-report.{json,md}` — interactive
+- `test-history.md` — lịch sử debug + customer chạm
+- `PHASE-1-5-FINAL-REPORT.md` — chi tiết 6 nhóm bug G1-G6 đã fix
+
+### Diff baseline vs current (after fix):
+```bash
+node -e "
+const before = require('./downloads/n2store-session/smoke-report-before.json');
+const after  = require('./downloads/n2store-session/smoke-report.json');
+const score = r => (r.errors?.length||0)+(r.unhandled?.length||0);
+const beforeM = new Map(before.map(r=>[r.path, score(r)]));
+const afterM  = new Map(after.map(r=>[r.path, score(r)]));
+let fixed=[], stillBroken=[], newBroken=[];
+for (const [p,b] of beforeM) {
+  const a = afterM.get(p)??0;
+  if (b>0&&a===0) fixed.push(p);
+  else if (b>0&&a>0) stillBroken.push(p+' ('+b+'→'+a+')');
+}
+for (const [p,a] of afterM) if (a>0&&!(beforeM.get(p)>0)) newBroken.push(p);
+console.log('FIXED:',fixed); console.log('STILL:',stillBroken); console.log('NEW:',newBroken);
+"
+```
+
+### Login mặc định
+- `admin / admin@@` (n2store user). Browser session lưu cookies + localStorage tự động.
+- Base URL: `https://nhijudyshop.github.io/n2store`
+
+### Logic chi tiết từng script
+Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projects/-Users-mac-Desktop-n2store/memory/reference_browser_test_scripts.md) (auto-loaded) hoặc **CLAUDE.md** section "Browser Test Scripts (Playwright)".
+
+---
+
 ## 2026-04-28
 
 ### [delivery-report][feat] Hover preview: invoice number → bill TPOS, customer cell → ví khách
