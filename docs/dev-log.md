@@ -46,10 +46,11 @@
    ```
    Helper template: tạo `scripts/test-migration-<feature>.js` cho mọi DB schema change.
 
-2. **Test customer/order browser flow** — dùng dữ liệu GIẢ:
-   - SĐT: `0900000000`, `0900000001`, ...
+2. **Test customer/order browser flow** — ưu tiên test customer mặc định:
+   - **Mặc định**: `Huỳnh Thành Đạt — 0123456788` (sẵn trong DB cho mọi flow: chat / sale / PBH / SMS)
+   - Cần khách khác → SĐT giả `0900000000`, `0900000001`, ...
    - Mã đơn / code: prefix `TEST-` (vd `TEST-20260428-001`)
-   - KHÔNG dùng SĐT/order/customer ID thật trong write tests.
+   - KHÔNG dùng SĐT/order/customer ID khách thật khác trong write tests.
 
 3. **Cleanup sau test** (BẮT BUỘC):
    - Drop test DB

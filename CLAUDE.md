@@ -171,10 +171,11 @@ Project có **4 scripts test dự án qua Playwright** (auto-login + capture err
    - `CREATE DATABASE n2store_migration_test` (local Postgres) → schema cũ → INSERT fake → apply migration → verify → **`DROP DATABASE`** (cleanup hoàn toàn).
    - KHÔNG đụng prod DB.
 
-2. **Test customer / order browser flow** → tạo dữ liệu giả:
-   - SĐT giả: `0900000000`, `0900000001`, ...
+2. **Test customer / order browser flow** → ưu tiên dùng test customer mặc định:
+   - **Mặc định**: `Huỳnh Thành Đạt — 0123456788` (đã có sẵn trong DB cho test, dùng được cho mọi flow: chat, sale, PBH, gửi tin nhắn)
+   - Cần nhiều khách khác → SĐT giả: `0900000000`, `0900000001`, ...
    - Mã đơn / customer code: prefix `TEST-` để dễ filter cleanup sau (vd `TEST-20260428-001`)
-   - KHÔNG dùng SĐT/order ID khách thật trong write tests.
+   - KHÔNG dùng SĐT/order ID khách thật khác trong write tests.
 
 3. **Sau test xong → cleanup ngay**:
    - Drop test DB / test schema
