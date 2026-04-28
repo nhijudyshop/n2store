@@ -2582,10 +2582,43 @@
             return { label, isCredit, amount };
         }
 
-        // Build a small "view image" eye button for a tx with sepay_image_url
+        // Build a small "view image" eye button for a tx with sepay_image_url (legacy signature)
         function eyeBtnHtml(imageUrl) {
             if (!imageUrl) return '';
-            return `<button type="button" class="dr-hp-eye-btn" data-img="${escapeHtml(imageUrl)}" title="Xem ảnh duyệt CK"><i class="fas fa-eye"></i></button>`;
+            return `<button type="button" class="dr-hp-eye-btn" data-eye-kind="image" data-img="${escapeHtml(imageUrl)}" title="Xem ảnh duyệt CK"><i class="fas fa-eye"></i></button>`;
+        }
+
+        // Pick evidence for a recent_transactions row.
+        // Priority: sepay/inline image → ticket reference (TV- > NJD-).
+        // Returns {kind:'image'|'ticket', value} or null.
+        function pickTxEvidence(tx) {
+            if (!tx) return null;
+            const note = String(tx.note || '');
+            const inlineMatch = note.match(/\[Ảnh GD:\s*(https?:\/\/[^\]]+)\]/);
+            const imgUrl = tx.sepay_image_url || (inlineMatch ? inlineMatch[1] : null);
+            if (imgUrl) return { kind: 'image', value: imgUrl };
+            const fields = [tx.reference_id, tx.note, tx.source].filter(Boolean);
+            for (const f of fields) {
+                const m = String(f).match(/TV-\d{4}-\d+/);
+                if (m) return { kind: 'ticket', value: m[0] };
+            }
+            for (const f of fields) {
+                const m = String(f).match(/NJD\/\d{4}\/\d+/i);
+                if (m) return { kind: 'ticket', value: m[0].toUpperCase() };
+            }
+            return null;
+        }
+
+        // Build eye button for any tx — chooses image lightbox vs ticket viewer.
+        function eyeBtnHtmlForTx(tx) {
+            const ev = pickTxEvidence(tx);
+            if (!ev) return '';
+            const title = ev.kind === 'image' ? 'Xem ảnh duyệt CK' : 'Xem chi tiết phiếu';
+            const dataAttr =
+                ev.kind === 'image'
+                    ? `data-img="${escapeHtml(ev.value)}"`
+                    : `data-ticket="${escapeHtml(ev.value)}"`;
+            return `<button type="button" class="dr-hp-eye-btn" data-eye-kind="${ev.kind}" ${dataAttr} title="${title}"><i class="fas fa-eye"></i></button>`;
         }
 
         // Build a Duyệt button for a pending balance_history row
@@ -2637,14 +2670,9 @@
                               const sign = isCredit ? '+' : '';
                               const cls = isCredit ? 'credit' : 'debit';
                               const noteRaw = tx.note || '';
-                              // Existing pattern: "[Ảnh GD: <url>]" embedded in note for legacy CK records
-                              const inlineImgMatch = noteRaw.match(
-                                  /\[Ảnh GD:\s*(https?:\/\/[^\]]+)\]/
-                              );
-                              const inlineImg = inlineImgMatch ? inlineImgMatch[1] : null;
                               const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
                               const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
-                              const eye = eyeBtnHtml(tx.sepay_image_url || inlineImg);
+                              const eye = eyeBtnHtmlForTx(tx);
                               return `
                           <div class="dr-hp-tx ${cls}">
                               <div class="dr-hp-tx-head">
@@ -2767,6 +2795,35 @@
             }
         }
 
+        // Lazy-load shared ticket viewer when eye → ticket clicked.
+        let _ticketViewerLoading = null;
+        async function ensureTicketViewer() {
+            if (typeof window.showTicketHistoryViewer === 'function') return;
+            if (_ticketViewerLoading) return _ticketViewerLoading;
+            _ticketViewerLoading = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = '../shared/js/ticket-history-viewer.js';
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('ticket-history-viewer.js load failed'));
+                document.head.appendChild(s);
+            });
+            return _ticketViewerLoading;
+        }
+        async function openTicketDetail(code) {
+            if (!code) return;
+            try {
+                await ensureTicketViewer();
+                if (typeof window.showTicketHistoryViewer === 'function') {
+                    window.showTicketHistoryViewer(code);
+                } else {
+                    alert('Không mở được chi tiết phiếu');
+                }
+            } catch (err) {
+                console.error('[DR HoverPreview] ticket detail load failed:', err);
+                alert(`Không mở được chi tiết phiếu: ${err.message}`);
+            }
+        }
+
         function wirePopoverActions(phone) {
             const pop = ensurePopover();
             pop.dataset.phone = phone;
@@ -2775,8 +2832,14 @@
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    const url = btn.getAttribute('data-img');
-                    if (url) openLightbox(url);
+                    const kind = btn.getAttribute('data-eye-kind') || 'image';
+                    if (kind === 'ticket') {
+                        const code = btn.getAttribute('data-ticket');
+                        openTicketDetail(code);
+                    } else {
+                        const url = btn.getAttribute('data-img');
+                        if (url) openLightbox(url);
+                    }
                 });
             });
             pop.querySelectorAll('.dr-hp-approve-btn:not([data-bound])').forEach((btn) => {

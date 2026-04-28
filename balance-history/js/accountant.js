@@ -477,38 +477,8 @@
                     openManagerReviewModal(txId);
                 }
 
-                // Eye button → open lightbox xem ảnh duyệt CK
-                const eyeBtn = e.target.closest('.acc-eye-btn');
-                if (eyeBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const url = eyeBtn.dataset.img;
-                    if (url) showImageLightbox(url);
-                }
             });
         }
-    }
-
-    // Lightbox đơn giản cho ảnh duyệt CK — đóng khi click ngoài hoặc Esc.
-    function showImageLightbox(imgUrl) {
-        if (!imgUrl) return;
-        const ID = 'acc-eye-lightbox';
-        const old = document.getElementById(ID);
-        if (old) old.remove();
-        const box = document.createElement('div');
-        box.id = ID;
-        box.style.cssText =
-            'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
-        box.innerHTML = `<img src="${imgUrl}" alt="Ảnh duyệt CK" style="max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.5)">`;
-        const close = () => box.remove();
-        box.addEventListener('click', close);
-        document.addEventListener('keydown', function onEsc(e) {
-            if (e.key === 'Escape') {
-                close();
-                document.removeEventListener('keydown', onEsc);
-            }
-        });
-        document.body.appendChild(box);
     }
 
     // =====================================================
@@ -1947,11 +1917,6 @@
                     ? `<span class="acc-reviewed-label" title="Đã kiểm tra lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
                     : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
 
-                // Eye button - mở lightbox xem ảnh duyệt CK (chỉ hiện khi có image url)
-                const eyeBtnHtml = tx.verification_image_url
-                    ? `<button class="acc-eye-btn" data-img="${encodeURI(tx.verification_image_url)}" title="Xem ảnh duyệt CK"><i data-lucide="eye" style="width:14px;height:14px"></i></button>`
-                    : '';
-
                 // Nút Điều chỉnh - disable nếu đã có adjustment
                 let adjustBtnHtml;
                 if (hasAdjustment) {
@@ -2007,13 +1972,11 @@
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
                     <td>${tx.adjusted_by ? `<span class="badge badge-warning">${tx.adjusted_by}</span>` : ''}</td>
                     <td>${noteHtml}</td>
-                    <td class="acc-action-cell">${eyeBtnHtml} ${reviewBtnHtml} ${adjustBtnHtml}</td>
+                    <td class="acc-action-cell">${reviewBtnHtml} ${adjustBtnHtml}</td>
                 </tr>
             `;
             })
             .join('');
-
-        if (window.lucide) lucide.createIcons();
     }
 
     // =====================================================

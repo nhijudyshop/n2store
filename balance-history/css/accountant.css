@@ -1858,28 +1858,6 @@
     transition: all 0.2s ease;
 }
 
-.acc-eye-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 26px;
-    padding: 0;
-    border: 1px solid #93c5fd;
-    background: transparent;
-    color: #2563eb;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    vertical-align: middle;
-}
-
-.acc-eye-btn:hover {
-    background: #dbeafe;
-    border-color: #1d4ed8;
-    color: #1d4ed8;
-}
-
 .acc-adjust-btn:hover {
     background: #fef3c7;
     border-color: #d97706;

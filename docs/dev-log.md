@@ -115,6 +115,22 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 
 ## 2026-04-28
 
+### [delivery-report][feat] Popover Hoạt động gần đây — eye cho mọi tx có ticket NJD/TV-, không chỉ ảnh CK
+| | |
+|---|---|
+| **File** | `delivery-report/js/delivery-report.js` |
+| **Vì sao** | Trước đây eye trong popover chỉ render khi tx có `sepay_image_url` hoặc inline `[Ảnh GD: ...]`. Các +tiền khác (HOÀN, VIRTUAL_CREDIT, RETURN_SHIPPER, …) có reference NJD/TV- không có nút mắt → user không xem được phiếu liên quan. |
+| **Thay đổi** | (1) Thêm `pickTxEvidence(tx)` priority: image → ticket TV- → ticket NJD-. (2) `eyeBtnHtmlForTx(tx)` dùng `pickTxEvidence` để render eye button với `data-eye-kind="image"` (mở `openLightbox`) hoặc `data-eye-kind="ticket"` (mở `window.showTicketHistoryViewer` qua `ensureTicketViewer()` lazy-loader). (3) `wirePopoverActions` route theo `data-eye-kind`. |
+| **Status** | ✅ Done — pattern khớp với customer-hub TxEvidence |
+
+### [balance-history][revert] Bỏ eye buttons khỏi Đã Duyệt (revert commit 1657f88e)
+| | |
+|---|---|
+| **Files** | `balance-history/js/accountant.js`, `balance-history/css/accountant.css` |
+| **Vì sao** | User yêu cầu bỏ — cột Ghi chú đã có thumbnail hover-zoom đủ rồi, nút mắt riêng dư thừa trong UI này. |
+| **Thay đổi** | Xóa `eyeBtnHtml` render trong `renderApprovedToday()`, xóa event handler `.acc-eye-btn`, xóa function `showImageLightbox`, xóa CSS `.acc-eye-btn`, xóa `lucide.createIcons()` redundant. |
+| **Status** | ✅ Done |
+
 ### [login][fix] Localhost login — fallback Cloudflare Worker khi Render local (port 3000) không chạy
 | | |
 |---|---|
