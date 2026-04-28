@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { ensureLocalServer } = require('./lib/ensure-local-server');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
@@ -310,6 +311,9 @@ async function testOne(ctx, urlPath) {
 }
 
 (async () => {
+    // Auto-start localhost server nếu BASE là localhost
+    await ensureLocalServer(BASE, path.join(__dirname, '..'));
+
     const browser = await chromium.launch({ headless: true });
     const ctx = await loginContext(browser);
 

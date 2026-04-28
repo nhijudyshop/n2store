@@ -158,10 +158,11 @@ Project có **4 scripts test dự án qua Playwright** (auto-login + capture err
 
 ### ⚡ Quy tắc test — LIVE CODING workflow
 - **Localhost = vừa code vừa test luôn** (workflow chuẩn):
-  1. Khởi động 1 lần: `python3 -m http.server 8080 &`
+  1. **Auto server**: 3 script test tự spawn `python3 -m http.server <port>` từ project root khi `--base http://localhost:PORT` được truyền và port chưa listen. Helper: `scripts/lib/ensure-local-server.js`. KHÔNG cần user pre-launch server.
   2. Khởi động persistent browser session 1 lần: `mkfifo /tmp/n2store-session.fifo; (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &`
   3. Sau mỗi `Edit` file → file saved → đẩy command vào FIFO test ngay: `echo "nav http://localhost:8080/<path>?t=$(date +%s)" > /tmp/n2store-session.fifo; echo "feval ..." > /tmp/n2store-session.fifo`
   4. **KHÔNG restart browser** giữa các iteration. Cache-bust HTML bằng `?t=...`. JS đã `cache-control: no-cache` sẵn trong route handler.
+  5. Stop local server khi xong: `pkill -f "http.server 8080"` (server detached từ script test, sống tiếp khi script exit).
 - **Online test CHỈ khi cần verify deploy thật**: sau `git push origin main`, đợi GH Pages CI/CD ~2-4 phút, curl-verify path mới, rồi mới smoke với BASE mặc định.
 - Verify deploy xong: `curl -s "https://nhijudyshop.github.io/n2store/<path>" | grep "<expected change>"` trước khi smoke.
 

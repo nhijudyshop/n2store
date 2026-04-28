@@ -27,6 +27,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { chromium } = require('playwright');
+const { ensureLocalServer } = require('./lib/ensure-local-server');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
@@ -61,6 +62,9 @@ const log = (...a) => {
 };
 
 (async () => {
+    // Auto-start localhost server nếu BASE là localhost (không cần user pre-launch)
+    await ensureLocalServer(BASE, path.join(__dirname, '..'));
+
     log('Launching Chromium (no-cache, headless=false)…');
     const browser = await chromium.launch({
         headless: false,
