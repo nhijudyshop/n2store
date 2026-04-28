@@ -799,14 +799,56 @@ router.get('/:id/quick-view', async (req, res) => {
               AND wallet_processed = FALSE
         `, [lookupPhone]);
 
-        // 4. Get 5 recent wallet transactions
-        const transactionsResult = await db.query(`
-            SELECT type, amount, note, created_at
-            FROM wallet_transactions
-            WHERE phone = $1
-            ORDER BY created_at DESC
-            LIMIT 5
-        `, [lookupPhone]);
+        // 4. Get 5 recent wallet transactions (incl. sepay image url for processed CK deposits)
+        let transactionsResult;
+        try {
+            transactionsResult = await db.query(`
+                SELECT wt.type, wt.amount, wt.note, wt.created_at,
+                       wt.source, wt.reference_type, wt.reference_id,
+                       bh.verification_image_url AS sepay_image_url
+                FROM wallet_transactions wt
+                LEFT JOIN balance_history bh
+                  ON wt.reference_type = 'balance_history'
+                 AND wt.reference_id = bh.id::text
+                WHERE wt.phone = $1
+                ORDER BY wt.created_at DESC
+                LIMIT 5
+            `, [lookupPhone]);
+        } catch (joinErr) {
+            // Fallback for older schemas without verification_image_url
+            if (joinErr.message && joinErr.message.includes('verification_image_url')) {
+                transactionsResult = await db.query(`
+                    SELECT type, amount, note, created_at,
+                           source, reference_type, reference_id,
+                           NULL AS sepay_image_url
+                    FROM wallet_transactions
+                    WHERE phone = $1
+                    ORDER BY created_at DESC
+                    LIMIT 5
+                `, [lookupPhone]);
+            } else {
+                throw joinErr;
+            }
+        }
+
+        // 5. Get pending balance_history rows (for inline approve button in popovers)
+        let pendingTransactions = [];
+        try {
+            const pendingTxResult = await db.query(`
+                SELECT id, transfer_amount AS amount, content, transaction_date,
+                       gateway, account_number, customer_name, linked_customer_phone,
+                       verification_image_url AS sepay_image_url, wallet_processed
+                FROM balance_history
+                WHERE linked_customer_phone = $1
+                  AND verification_status = 'PENDING_VERIFICATION'
+                  AND wallet_processed = FALSE
+                ORDER BY transaction_date DESC
+                LIMIT 5
+            `, [lookupPhone]);
+            pendingTransactions = pendingTxResult.rows;
+        } catch (pendErr) {
+            console.warn('[V2 QUICK-VIEW] pending_transactions query failed:', pendErr.message);
+        }
 
         res.json({
             success: true,
@@ -823,7 +865,8 @@ router.get('/:id/quick-view', async (req, res) => {
                     count: parseInt(pendingResult.rows[0].count) || 0,
                     total: parseFloat(pendingResult.rows[0].total) || 0
                 },
-                recent_transactions: transactionsResult.rows
+                recent_transactions: transactionsResult.rows,
+                pending_transactions: pendingTransactions
             }
         });
 

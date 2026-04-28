@@ -2582,36 +2582,74 @@
             return { label, isCredit, amount };
         }
 
+        // Build a small "view image" eye button for a tx with sepay_image_url
+        function eyeBtnHtml(imageUrl) {
+            if (!imageUrl) return '';
+            return `<button type="button" class="dr-hp-eye-btn" data-img="${escapeHtml(imageUrl)}" title="Xem ảnh duyệt CK"><i class="fas fa-eye"></i></button>`;
+        }
+
+        // Build a Duyệt button for a pending balance_history row
+        function approveBtnHtml(pendingId, amount) {
+            return `<button type="button" class="dr-hp-approve-btn" data-pending-id="${escapeHtml(String(pendingId))}" data-pending-amt="${escapeHtml(String(amount || 0))}" title="Duyệt giao dịch"><i class="fas fa-check"></i> Duyệt</button>`;
+        }
+
         function renderCustomer(data, phone) {
             const c = data.customer || {};
             const w = data.wallet || { balance: 0, virtual_balance: 0 };
             const txs = (data.recent_transactions || []).slice(0, 5);
+            const pendingTxs = (data.pending_transactions || []).slice(0, 5);
             const pend = data.pending_deposits || { count: 0, total: 0 };
             const status = c.status || '';
             const tier = c.tier || '';
             const totalOrders = c.total_orders || 0;
             const totalSpent = parseFloat(c.total_spent) || 0;
-            const txHtml =
-                txs.length === 0
-                    ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
-                    : txs
-                          .map((tx) => {
-                              const { label, isCredit, amount } = txConfig(tx);
-                              const sign = isCredit ? '+' : '';
-                              const cls = isCredit ? 'credit' : 'debit';
-                              const note = (tx.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
-                              const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
-                              return `
-                        <div class="dr-hp-tx ${cls}">
-                            <div class="dr-hp-tx-head">
-                                <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
-                                <span class="dr-hp-tx-label">${escapeHtml(label)}</span>
-                                <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(tx.created_at))}</span>
-                            </div>
-                            ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
-                        </div>`;
-                          })
-                          .join('');
+
+            // Pending block (Duyệt button per row)
+            const pendingHtml = pendingTxs.length === 0
+                ? ''
+                : `<div class="dr-hp-section-title">Chờ duyệt</div>
+                   <div class="dr-hp-tx-list">${pendingTxs.map((p) => {
+                       const amt = parseFloat(p.amount) || 0;
+                       const content = (p.content || '').slice(0, 80);
+                       const eye = eyeBtnHtml(p.sepay_image_url);
+                       return `
+                           <div class="dr-hp-tx pending">
+                               <div class="dr-hp-tx-head">
+                                   <span class="dr-hp-tx-amount">+${fmtMoney(amt)}đ</span>
+                                   <span class="dr-hp-tx-label pending">CHỜ DUYỆT</span>
+                                   <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(p.transaction_date))}</span>
+                                   <span class="dr-hp-tx-actions">${eye}${approveBtnHtml(p.id, amt)}</span>
+                               </div>
+                               ${content ? `<div class="dr-hp-tx-note">${escapeHtml(content)}</div>` : ''}
+                           </div>`;
+                   }).join('')}</div>`;
+
+            // Recent (processed) transactions
+            const txHtml = txs.length === 0
+                ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
+                : txs.map((tx) => {
+                      const { label, isCredit, amount } = txConfig(tx);
+                      const sign = isCredit ? '+' : '';
+                      const cls = isCredit ? 'credit' : 'debit';
+                      const noteRaw = tx.note || '';
+                      // Existing pattern: "[Ảnh GD: <url>]" embedded in note for legacy CK records
+                      const inlineImgMatch = noteRaw.match(/\[Ảnh GD:\s*(https?:\/\/[^\]]+)\]/);
+                      const inlineImg = inlineImgMatch ? inlineImgMatch[1] : null;
+                      const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                      const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
+                      const eye = eyeBtnHtml(tx.sepay_image_url || inlineImg);
+                      return `
+                          <div class="dr-hp-tx ${cls}">
+                              <div class="dr-hp-tx-head">
+                                  <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
+                                  <span class="dr-hp-tx-label">${escapeHtml(label)}</span>
+                                  <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(tx.created_at))}</span>
+                                  ${eye ? `<span class="dr-hp-tx-actions">${eye}</span>` : ''}
+                              </div>
+                              ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
+                          </div>`;
+                  }).join('');
+
             const pop = ensurePopover();
             pop.innerHTML = `
                 <div class="dr-hp-header">
@@ -2632,10 +2670,111 @@
                         <div class="dr-hp-stat-value">${totalOrders} · ${fmtMoney(totalSpent)}đ</div>
                     </div>
                 </div>
-                ${pend.count > 0 ? `<div class="dr-hp-pending"><i class="fas fa-clock"></i> ${pend.count} nạp chờ duyệt · ${fmtMoney(pend.total)}đ</div>` : ''}
+                ${pend.count > 0 && pendingTxs.length === 0 ? `<div class="dr-hp-pending"><i class="fas fa-clock"></i> ${pend.count} nạp chờ duyệt · ${fmtMoney(pend.total)}đ</div>` : ''}
+                ${pendingHtml}
                 <div class="dr-hp-section-title">Hoạt động gần đây</div>
                 <div class="dr-hp-tx-list">${txHtml}</div>
             `;
+            wirePopoverActions(phone);
+        }
+
+        // Open a compressed lightbox for an image URL via render image-proxy
+        function openLightbox(imageUrl) {
+            const proxied = `${RENDER_URL}/api/image-proxy?url=${encodeURIComponent(imageUrl)}&w=900&q=70`;
+            const existing = document.getElementById('dr-hp-lightbox');
+            if (existing) existing.remove();
+            const box = document.createElement('div');
+            box.id = 'dr-hp-lightbox';
+            box.className = 'dr-hp-lightbox';
+            box.innerHTML = `
+                <div class="dr-hp-lightbox-inner">
+                    <div class="dr-hp-lightbox-spinner"></div>
+                    <img alt="Ảnh duyệt CK" loading="lazy" />
+                </div>`;
+            const img = box.querySelector('img');
+            img.addEventListener('load', () => box.classList.add('loaded'));
+            img.addEventListener('error', () => {
+                // Proxy/resize failed → fallback to original URL once
+                if (img.dataset.fallback !== '1') {
+                    img.dataset.fallback = '1';
+                    img.src = imageUrl;
+                } else {
+                    box.classList.add('error');
+                }
+            });
+            img.src = proxied;
+            box.addEventListener('click', () => box.remove());
+            document.addEventListener('keydown', function onEsc(e) {
+                if (e.key === 'Escape') {
+                    box.remove();
+                    document.removeEventListener('keydown', onEsc);
+                }
+            });
+            document.body.appendChild(box);
+        }
+
+        // Approve a pending balance_history row from the popover
+        async function approvePending(pendingId, amount, btn) {
+            if (!pendingId) return;
+            const verifiedBy = window.authManager?.getUserInfo?.()?.username
+                || window.authManager?.currentUser?.displayName
+                || 'admin';
+            if (!confirm(`Duyệt giao dịch +${fmtMoney(amount)}đ?`)) return;
+            const original = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            try {
+                const resp = await fetch(`${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(pendingId)}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ verified_by: verifiedBy }),
+                });
+                const json = await resp.json().catch(() => ({}));
+                if (!resp.ok || json.success === false) {
+                    throw new Error(json.error || `HTTP ${resp.status}`);
+                }
+                // Invalidate customer cache so next hover refetches
+                if (btn) {
+                    const popover = btn.closest('.dr-hover-popover');
+                    const phone = popover?.dataset?.phone;
+                    if (phone) customerCache.delete(phone);
+                }
+                if (btn) {
+                    btn.classList.add('approved');
+                    btn.innerHTML = '<i class="fas fa-check"></i> Đã duyệt';
+                }
+            } catch (e) {
+                console.error('[DR HoverPreview] approve failed:', e);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
+                alert(`Duyệt thất bại: ${e.message}`);
+            }
+        }
+
+        function wirePopoverActions(phone) {
+            const pop = ensurePopover();
+            pop.dataset.phone = phone;
+            pop.querySelectorAll('.dr-hp-eye-btn:not([data-bound])').forEach((btn) => {
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url = btn.getAttribute('data-img');
+                    if (url) openLightbox(url);
+                });
+            });
+            pop.querySelectorAll('.dr-hp-approve-btn:not([data-bound])').forEach((btn) => {
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    approvePending(btn.dataset.pendingId, parseFloat(btn.dataset.pendingAmt) || 0, btn);
+                });
+            });
         }
 
         let currentCell = null;
