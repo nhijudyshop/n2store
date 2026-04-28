@@ -30,19 +30,23 @@ const { chromium } = require('playwright');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
-    const out = { user: '', pass: '' };
+    const out = { user: '', pass: '', base: 'https://nhijudyshop.github.io/n2store' };
     for (let i = 0; i < a.length; i++) {
         if (a[i] === '--user') out.user = a[++i];
         else if (a[i] === '--pass') out.pass = a[++i];
+        else if (a[i] === '--base') out.base = a[++i];
     }
     return out;
 })();
 if (!ARGS.user || !ARGS.pass) {
-    console.error('Usage: node scripts/n2store-browser-session.js --user U --pass P');
+    console.error(
+        'Usage: node scripts/n2store-browser-session.js --user U --pass P [--base URL]\n' +
+            '  Localhost: --base http://localhost:8080  (cần `python3 -m http.server 8080`)'
+    );
     process.exit(1);
 }
 
-const BASE = 'https://nhijudyshop.github.io/n2store';
+const BASE = ARGS.base.replace(/\/+$/, '');
 const ORDERS = `${BASE}/orders-report/main.html`;
 const OUT_DIR = path.join(__dirname, '..', 'downloads', 'n2store-session');
 fs.mkdirSync(OUT_DIR, { recursive: true });

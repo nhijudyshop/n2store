@@ -156,8 +156,18 @@ Chạy lại script nếu cần: `bash scripts/add-note-header.sh` (idempotent, 
 
 Project có **4 scripts test dự án qua Playwright** (auto-login + capture errors). Dùng để verify mọi commit lớn, repro bug, debug live.
 
+### ⚡ Quy tắc test
+- **Ưu tiên localhost trước** (nhanh, không phụ thuộc deploy). Khởi động local server: `cd /Users/mac/Desktop/n2store && python3 -m http.server 8080 &` rồi thêm flag `--base http://localhost:8080`.
+- **Online test CHỈ khi cần verify deploy thật**: sau `git push origin main`, đợi GH Pages CI/CD ~2-4 phút mới run smoke với BASE mặc định.
+- Verify deploy xong: `curl -s "https://nhijudyshop.github.io/n2store/<path>" | grep "<expected change>"` trước khi smoke.
+
 ### 1. `scripts/n2store-smoke-all-pages.js` — Auto smoke 144 HTML pages
 ```bash
+# Localhost (ưu tiên)
+python3 -m http.server 8080 &
+node scripts/n2store-smoke-all-pages.js --user admin --pass admin@@ --concurrency 5 --per-page-secs 7 --base http://localhost:8080
+
+# Online (sau push, đợi deploy ~3 min)
 node scripts/n2store-smoke-all-pages.js --user admin --pass admin@@ --concurrency 5 --per-page-secs 7
 ```
 - Login 1 lần, 5-parallel, capture HTTP/console errors/unhandled/visible

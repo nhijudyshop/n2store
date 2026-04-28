@@ -10,13 +10,25 @@
 
 > 4 scripts auto test dự án — login 1 lần, capture errors, run lại bao nhiêu lần cũng được.
 
+### ⚡ Quy tắc — ƯU TIÊN LOCALHOST, online CHỈ khi cần verify deploy
+- **Localhost (recommended)**: nhanh, không phụ thuộc GH Pages. Server: `python3 -m http.server 8080 &`. Mọi script có flag `--base http://localhost:8080`.
+- **Online**: sau `git push origin main`, **đợi GH Pages CI/CD hoàn thành (~2-4 phút)** → curl-verify path → mới run smoke với BASE mặc định.
+
 ### Quick start (sau commit lớn → verify 144 pages):
 ```bash
 cd /Users/mac/Desktop/n2store
 # Lưu baseline trước khi sửa (nếu cần diff sau)
 cp downloads/n2store-session/smoke-report.json downloads/n2store-session/smoke-report-before.json
-# Smoke 144 pages
+
+# 1) LOCALHOST — KHÔNG cần đợi deploy
+python3 -m http.server 8080 &
+node scripts/n2store-smoke-all-pages.js --user admin --pass admin@@ --concurrency 5 --per-page-secs 7 --base http://localhost:8080
+
+# 2) ONLINE — chỉ khi cần verify deploy thật, đợi GH Pages CI/CD ~3 min
+git push origin main
+# Verify deploy: curl -s "https://nhijudyshop.github.io/n2store/<path>" | grep "<expected>"
 node scripts/n2store-smoke-all-pages.js --user admin --pass admin@@ --concurrency 5 --per-page-secs 7
+
 # Đọc summary
 tail -3 /Users/mac/Desktop/n2store/downloads/n2store-session/smoke-report.md
 ```

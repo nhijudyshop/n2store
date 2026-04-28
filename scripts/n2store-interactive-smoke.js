@@ -13,20 +13,29 @@ const { chromium } = require('playwright');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
-    const out = { user: '', pass: '', perPageSecs: 12 };
+    const out = {
+        user: '',
+        pass: '',
+        perPageSecs: 12,
+        base: 'https://nhijudyshop.github.io/n2store',
+    };
     for (let i = 0; i < a.length; i++) {
         if (a[i] === '--user') out.user = a[++i];
         else if (a[i] === '--pass') out.pass = a[++i];
         else if (a[i] === '--per-page-secs') out.perPageSecs = Number(a[++i]) || 12;
+        else if (a[i] === '--base') out.base = a[++i];
     }
     return out;
 })();
 if (!ARGS.user || !ARGS.pass) {
-    console.error('Usage: --user U --pass P [--per-page-secs 12]');
+    console.error(
+        'Usage: --user U --pass P [--per-page-secs 12] [--base URL]\n' +
+            '  Localhost: --base http://localhost:8080'
+    );
     process.exit(1);
 }
 
-const BASE = 'https://nhijudyshop.github.io/n2store';
+const BASE = ARGS.base.replace(/\/+$/, '');
 const OUT_DIR = path.join(__dirname, '..', 'downloads', 'n2store-session');
 const REPORT_JSON = path.join(OUT_DIR, 'interactive-smoke-report.json');
 const REPORT_MD = path.join(OUT_DIR, 'interactive-smoke-report.md');
