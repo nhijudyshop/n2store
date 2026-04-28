@@ -1814,6 +1814,85 @@ router.post('/:id/manager-review', async (req, res) => {
     }
 });
 
+/**
+ * DELETE /api/v2/balance-history/:id/manager-review
+ * Revert manager review (admin/maintenance use — undo accidental review)
+ * Composite uid: 'bh:N' or 'wt:N' (legacy bare integer = bh)
+ */
+router.delete('/:id/manager-review', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    const { id: rawId } = req.params;
+
+    const uidMatch = String(rawId).match(/^(bh|wt):(\d+)$/i);
+    const src = uidMatch ? uidMatch[1].toLowerCase() : 'bh';
+    const id = uidMatch ? uidMatch[2] : rawId;
+
+    if (src === 'wt') {
+        const db = await pool.connect();
+        try {
+            await db.query('BEGIN');
+            const r = await db.query(
+                'SELECT id, manager_reviewed FROM wallet_transactions WHERE id = $1 FOR UPDATE',
+                [parseInt(id)]
+            );
+            if (r.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return res.status(404).json({ success: false, error: 'Wallet transaction not found' });
+            }
+            await db.query(
+                `UPDATE wallet_transactions
+                 SET manager_reviewed = FALSE,
+                     manager_review_note = NULL,
+                     reviewed_by = NULL,
+                     reviewed_at = NULL
+                 WHERE id = $1`,
+                [parseInt(id)]
+            );
+            await db.query('COMMIT');
+            console.log(`[MANAGER REVIEW REVERT] wt:${id}`);
+            return res.json({ success: true, message: 'Đã revert manager review', data: { id: parseInt(id), src: 'wt' } });
+        } catch (error) {
+            await db.query('ROLLBACK').catch(() => {});
+            return handleError(res, error, 'Failed to revert wt manager review');
+        } finally {
+            db.release();
+        }
+    }
+
+    const db = await pool.connect();
+    try {
+        await db.query('BEGIN');
+        const r = await db.query(
+            'SELECT id, manager_reviewed, verification_note FROM balance_history WHERE id = $1 FOR UPDATE',
+            [parseInt(id)]
+        );
+        if (r.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+        // Strip [QL: ...] marker from verification_note
+        const cleanedNote = (r.rows[0].verification_note || '').replace(/\n?\[QL:[^\]]*\]/g, '').trim();
+        await db.query(
+            `UPDATE balance_history
+             SET manager_reviewed = FALSE,
+                 manager_review_note = NULL,
+                 reviewed_by = NULL,
+                 reviewed_at = NULL,
+                 verification_note = $2
+             WHERE id = $1`,
+            [parseInt(id), cleanedNote]
+        );
+        await db.query('COMMIT');
+        console.log(`[MANAGER REVIEW REVERT] bh:${id}`);
+        return res.json({ success: true, message: 'Đã revert manager review', data: { id: parseInt(id), src: 'bh' } });
+    } catch (error) {
+        await db.query('ROLLBACK').catch(() => {});
+        handleError(res, error, 'Failed to revert manager review');
+    } finally {
+        db.release();
+    }
+});
+
 // =====================================================
 // ADJUSTMENT ENDPOINTS - Điều chỉnh giao dịch đã duyệt
 // =====================================================
