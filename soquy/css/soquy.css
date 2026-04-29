@@ -3063,6 +3063,49 @@
     font-style: italic;
 }
 
+.report-detail-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 12px 4px;
+    font-size: 12.5px;
+    color: #475569;
+}
+
+.report-page-btn {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    color: #334155;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.report-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #1e293b;
+}
+
+.report-page-btn:active:not(:disabled) {
+    background: #e2e8f0;
+}
+
+.report-page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.report-page-info {
+    color: #64748b;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
 /* =====================================================
    REPORT: DAILY CASH FLOW (Nhóm 8)
    ===================================================== */

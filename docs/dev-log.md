@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-29
+
+### [soquy] Drill-down "Chi tiết theo loại" — phân trang 50 phiếu/trang thay cho text "Hiện X phiếu nữa..."
+| | |
+|---|---|
+| **Files** | MODIFIED: [soquy/js/soquy-report.js](../soquy/js/soquy-report.js) — `renderCategoryBreakdown()`: bỏ slice(0, 20) + text tĩnh "Hiện X phiếu nữa..."; tách logic render bảng chi tiết ra `renderCategoryDetailRows(catKey)` với state `categoryDetailPages` (catKey→page) + cache `categoryDetailCache`; lazy-render khi mở dropdown lần đầu. Pagination control: `← Trước` / `Trang X/N · A-B/Total phiếu` / `Sau →`, page size = 50. MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — thêm `.report-detail-pagination`, `.report-page-btn` (hover/active/disabled state), `.report-page-info`. |
+| **Chi tiết** | **Bug user**: mở drill-down 1 category có 126 phiếu, chỉ thấy 20 phiếu đầu + text "Hiện 106 phiếu nữa..." không bấm được → user không xem được phiếu còn lại. **Giải pháp**: chuyển sang pagination 50/trang với 2 nút Prev/Next + label "Trang X/Y · M-N/Total phiếu". Lazy render: detail rows chỉ build HTML khi user mở dropdown để giảm cost render lần đầu. Pagination buttons có `e.stopPropagation()` để không bubble lên row click (toggle dropdown). Reset page=0 khi re-render data mới. |
+| **Status** | ✅ Done. |
+
+---
+
 ## 🧪 Browser Test Scripts (Playwright) — luôn dùng để verify
 
 > 4 scripts auto test dự án — login 1 lần, capture errors, run lại bao nhiêu lần cũng được.

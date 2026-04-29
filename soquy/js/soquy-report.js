@@ -611,6 +611,80 @@ const SoquyReport = (function () {
     }
 
     // Nhóm 6: Drill-down category breakdown
+    const CATEGORY_PAGE_SIZE = 50;
+    const categoryDetailPages = {}; // catKey -> currentPage (0-indexed)
+    let categoryDetailCache = {};   // catKey -> vouchers array (for pagination re-render)
+
+    function renderCategoryDetailRows(catKey) {
+        const cat = categoryDetailCache[catKey];
+        if (!cat) return;
+        const detailRow = document.querySelector(`[data-cat-detail="${catKey}"]`);
+        if (!detailRow) return;
+        const inner = detailRow.querySelector('.report-cat-details');
+        if (!inner) return;
+
+        const totalPages = Math.max(1, Math.ceil(cat.vouchers.length / CATEGORY_PAGE_SIZE));
+        let currentPage = categoryDetailPages[catKey] || 0;
+        if (currentPage >= totalPages) currentPage = totalPages - 1;
+        if (currentPage < 0) currentPage = 0;
+        categoryDetailPages[catKey] = currentPage;
+
+        const startIdx = currentPage * CATEGORY_PAGE_SIZE;
+        const endIdx = Math.min(startIdx + CATEGORY_PAGE_SIZE, cat.vouchers.length);
+        const pageVouchers = cat.vouchers.slice(startIdx, endIdx);
+
+        const detailRows = pageVouchers.map(v => {
+            const dateStr = dbModule.formatVoucherDateTime(v.voucherDateTime);
+            const isPayment = v.type === 'payment_cn' || v.type === 'payment_kd';
+            const typeLabel = v.type === 'receipt' ? 'Thu' : v.type === 'payment_kd' ? 'Chi KD' : 'Chi CN';
+            return `<tr>
+                <td>${escapeHtml(dateStr)}</td>
+                <td>${escapeHtml(v.personName || v.collector || '-')}</td>
+                <td>${typeLabel}</td>
+                <td class="${isPayment ? 'text-danger' : 'text-success'}">${isPayment ? '-' : ''}${fmt(v.amount)}</td>
+                <td>${escapeHtml(v.note || '-')}</td>
+            </tr>`;
+        }).join('');
+
+        let paginationHTML = '';
+        if (cat.vouchers.length > CATEGORY_PAGE_SIZE) {
+            paginationHTML = `
+                <div class="report-detail-pagination" data-cat-pag="${catKey}">
+                    <button type="button" class="report-page-btn" data-page-action="prev" ${currentPage === 0 ? 'disabled' : ''}>← Trước</button>
+                    <span class="report-page-info">Trang ${currentPage + 1}/${totalPages} · ${startIdx + 1}-${endIdx}/${cat.vouchers.length} phiếu</span>
+                    <button type="button" class="report-page-btn" data-page-action="next" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Sau →</button>
+                </div>
+            `;
+        }
+
+        inner.innerHTML = `
+            <table class="report-detail-table">
+                <thead><tr><th>Ngày</th><th>Người</th><th>Loại thu chi</th><th>Số tiền</th><th>Ghi chú</th></tr></thead>
+                <tbody>${detailRows || '<tr><td colspan="5">Không có phiếu</td></tr>'}</tbody>
+            </table>
+            ${paginationHTML}
+        `;
+
+        // Bind pagination buttons
+        const pag = inner.querySelector('.report-detail-pagination');
+        if (pag) {
+            pag.querySelectorAll('.report-page-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (btn.disabled) return;
+                    const action = btn.dataset.pageAction;
+                    const cur = categoryDetailPages[catKey] || 0;
+                    if (action === 'prev') {
+                        categoryDetailPages[catKey] = Math.max(0, cur - 1);
+                    } else if (action === 'next') {
+                        categoryDetailPages[catKey] = cur + 1;
+                    }
+                    renderCategoryDetailRows(catKey);
+                });
+            });
+        }
+    }
+
     function renderCategoryBreakdown() {
         const tbody = document.getElementById('reportCategoryBody');
         if (!tbody) return;
@@ -619,10 +693,14 @@ const SoquyReport = (function () {
 
         if (categories.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="report-empty">Không có dữ liệu</td></tr>';
+            categoryDetailCache = {};
             return;
         }
 
         const colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16', '#a0d911', '#2f54eb'];
+
+        // Reset cache; reset page index for new render so pages do not desync with new data
+        categoryDetailCache = {};
 
         tbody.innerHTML = categories.map((cat, i) => {
             const color = colors[i % colors.length];
@@ -632,19 +710,10 @@ const SoquyReport = (function () {
                     ? '<span class="report-tag report-tag--kd">KD</span>'
                     : '<span class="report-tag report-tag--thu">Thu</span>';
 
-            // Nhóm 6: Drill-down voucher list
-            const detailRows = cat.vouchers.slice(0, 20).map(v => {
-                const dateStr = dbModule.formatVoucherDateTime(v.voucherDateTime);
-                const isPayment = v.type === 'payment_cn' || v.type === 'payment_kd';
-                const typeLabel = v.type === 'receipt' ? 'Thu' : v.type === 'payment_kd' ? 'Chi KD' : 'Chi CN';
-                return `<tr>
-                    <td>${escapeHtml(dateStr)}</td>
-                    <td>${escapeHtml(v.personName || v.collector || '-')}</td>
-                    <td>${typeLabel}</td>
-                    <td class="${isPayment ? 'text-danger' : 'text-success'}">${isPayment ? '-' : ''}${fmt(v.amount)}</td>
-                    <td>${escapeHtml(v.note || '-')}</td>
-                </tr>`;
-            }).join('');
+            const catKey = String(i);
+            categoryDetailCache[catKey] = cat;
+            // Reset page when re-rendering (data may have changed)
+            categoryDetailPages[catKey] = 0;
 
             return `<tr class="report-cat-row" data-cat-idx="${i}">
                 <td>
@@ -670,13 +739,7 @@ const SoquyReport = (function () {
             </tr>
             <tr class="report-cat-detail-row" data-cat-detail="${i}" style="display:none;">
                 <td colspan="4">
-                    <div class="report-cat-details">
-                        <table class="report-detail-table">
-                            <thead><tr><th>Ngày</th><th>Người</th><th>Loại thu chi</th><th>Số tiền</th><th>Ghi chú</th></tr></thead>
-                            <tbody>${detailRows || '<tr><td colspan="5">Không có phiếu</td></tr>'}</tbody>
-                        </table>
-                        ${cat.vouchers.length > 20 ? `<div class="report-detail-more">Hiện ${cat.vouchers.length - 20} phiếu nữa...</div>` : ''}
-                    </div>
+                    <div class="report-cat-details"></div>
                 </td>
             </tr>`;
         }).join('');
@@ -695,6 +758,10 @@ const SoquyReport = (function () {
                     row.classList.toggle('expanded', !isVisible);
                     if (chevron) {
                         chevron.style.transform = isVisible ? '' : 'rotate(90deg)';
+                    }
+                    // Lazy-render detail rows on first open
+                    if (!isVisible) {
+                        renderCategoryDetailRows(idx);
                     }
                 }
             });
