@@ -2854,6 +2854,35 @@
     grid-column: 1 / -1;
 }
 
+/* Collapsible section */
+.report-section--collapsible .report-section-header--clickable {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+}
+
+.report-section--collapsible .report-section-header--clickable:hover {
+    background: #f8fafc;
+}
+
+.report-section-chevron {
+    width: 18px !important;
+    height: 18px !important;
+    color: #64748b;
+    transition: transform 0.2s ease;
+}
+
+.report-section--collapsible.collapsed .report-section-chevron {
+    transform: rotate(-90deg);
+}
+
+.report-section--collapsible.collapsed .report-section-body {
+    display: none;
+}
+
 .report-bar-chart {
     display: flex;
     align-items: flex-end;

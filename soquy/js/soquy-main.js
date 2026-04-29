@@ -924,6 +924,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Toggle bar chart section (collapsed by default to save space for category breakdown)
+        const barChartToggle = document.getElementById('reportBarChartToggle');
+        if (barChartToggle) {
+            barChartToggle.addEventListener('click', () => {
+                const section = document.getElementById('reportBarChartSection');
+                if (section) section.classList.toggle('collapsed');
+            });
+        }
+
         // Toggle trend section and category full-width
         const toggleTrendBtn = document.getElementById('toggleTrendBtn');
         if (toggleTrendBtn) {

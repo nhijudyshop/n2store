@@ -8,6 +8,13 @@
 
 ## 2026-04-29
 
+### [soquy] "Biểu đồ thu chi" mặc định thu gọn (collapsed) — bấm header để mở
+| | |
+|---|---|
+| **Files** | MODIFIED: [soquy/index.html](../soquy/index.html) — section bar chart thêm class `report-section--collapsible collapsed`, header thêm class `report-section-header--clickable` + icon chevron `report-section-chevron`, id `reportBarChartSection` + `reportBarChartToggle`. MODIFIED: [soquy/js/soquy-main.js](../soquy/js/soquy-main.js) — bind click toggle `.collapsed` class. MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — `.report-section--collapsible` (cursor/hover), `.report-section-chevron` (rotate -90deg khi collapsed), ẩn `.report-section-body` khi collapsed. |
+| **Chi tiết** | **Trigger user**: "Biểu đồ thu chi mặc định thu nhỏ, khi nào cần xem thì bấm vào mở để tối ưu hiển thị cho khung Chi tiết theo loại". **UX**: header click toggle (cả title + chevron); chevron quay -90° khi đóng → 0° khi mở; vẫn tự render bar chart trong `renderAll()` (HTML đã sẵn, chỉ ẩn body) → mở ra là thấy ngay không cần re-fetch. |
+| **Status** | ✅ Done. |
+
 ### [soquy] Drill-down "Chi tiết theo loại" — phân trang 50 phiếu/trang thay cho text "Hiện X phiếu nữa..."
 | | |
 |---|---|
