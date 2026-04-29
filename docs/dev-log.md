@@ -8,6 +8,13 @@
 
 ## 2026-04-29
 
+### [soquy] "Chi tiết theo loại" full-width mặc định, bỏ max-height → cuộn dọc xem các bảng khác bên dưới
+| | |
+|---|---|
+| **Files** | MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — `.report-section--category` đổi `grid-column: 1 / 2` → `1 / -1` (full-width); `.report-section--category .report-section-body` đổi `max-height: 680px` → `none` (bỏ giới hạn chiều cao). MODIFIED: [soquy/js/soquy-main.js](../soquy/js/soquy-main.js) — bỏ logic toggle gridColumn của category trong handler `toggleTrendBtn` (luôn giữ full-width). |
+| **Chi tiết** | **Trigger user**: "CHO PHẦN CHI TIẾT LOẠI PHIẾU MẶC ĐỊNH HIỂN THỊ FULL KHUNG, CẦN XEM CÁC BẢNG KHÁC THÌ SCROLL XUỐNG". Trước đây section "Chi tiết theo loại" chỉ chiếm 1/2 khung và body bị clip ở 680px → user phải scroll trong list nhỏ. Sau thay đổi: section chiếm full grid (`1 / -1`), không max-height → toàn bộ category list trải dài tự nhiên; "Biểu đồ thu chi" + "Giao dịch lớn nhất" + "Phân bổ theo quỹ" nằm bên dưới → user scroll trang để xem. |
+| **Status** | ✅ Done. |
+
 ### [soquy] "Biểu đồ thu chi" mặc định thu gọn (collapsed) — bấm header để mở
 | | |
 |---|---|

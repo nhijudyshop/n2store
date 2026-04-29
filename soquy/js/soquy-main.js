@@ -942,14 +942,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             toggleTrendBtn.addEventListener('click', throttleClick(function() {
                 const section = document.getElementById('trendSection');
-                const catSec = document.querySelector('.report-section--category');
                 if (!section) return;
                 const isHidden = section.style.display === 'none';
                 section.style.display = isHidden ? '' : 'none';
                 this.classList.toggle('active', isHidden);
-                if (catSec) {
-                    catSec.style.gridColumn = isHidden ? '' : '1 / -1';
-                }
+                // Keep category section full-width regardless — user wants
+                // "Chi tiết theo loại" hiển thị full khung mặc định, scroll xuống xem các bảng khác.
             }));
         }
 

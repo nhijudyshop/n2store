@@ -2585,11 +2585,11 @@
 }
 
 .report-section--category {
-    grid-column: 1 / 2;
+    grid-column: 1 / -1;
 }
 
 .report-section--category .report-section-body {
-    max-height: 680px;
+    max-height: none;
 }
 
 .report-section--trend {
