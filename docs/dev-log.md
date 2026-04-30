@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [orders] Bill PBH hiển thị `STT: X + Y` cho đơn đã gộp (TAG XL custom flag GOP_*)
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — `generateCustomBillHTML()` sau block parse "Gộp X Y" từ TPOS Tags, thêm fallback đọc `window.ProcessingTagState.getOrderData(orderCode).flags`, tìm flag id match `/^GOP_\d+(_\d+)+$/` (vd `GOP_84_313`), extract số STT bằng `match(/\d+/g)` → set `mergeTagNumbers = [84, 313]` → `sttDisplay = "84 + 313"`. |
+| **Chi tiết** | **Trigger user**: bill PBH NJD/2026/63983 (Huỳnh Thành Đạt 0123456788) chỉ hiện `STT: 313` thay vì `STT: 84 + 313`. Root cause: TAG XL "GỘP 84 313" lưu trong `ProcessingTagState._orderData[code].flags` (custom flag id `GOP_84_313`), KHÔNG nằm trong `order.Tags` (TPOS). Bill-service trước chỉ check `orderTags.find(t => t.Name.startsWith('Gộp '))` → miss. **Verify localhost**: `feval window.generateCustomBillHTML(order, {})` → match `<strong>STT:</strong> 84 + 313` ✅. Order code 260402102 / id 30150000-5d4d-0015-3e86-08de9872e286 có `xlFlags: [..., {id:"GOP_84_313", name:"GỘP 84 313"}]`. |
+| **Status** | ✅ Done. |
+
 ### [inventory-tracking] Đơn giá / Tiền HĐ hiển thị song song "Trung (VNĐ)" — chuyển CNY → VND nghìn theo `tiGia` của shipment
 | | |
 |---|---|
