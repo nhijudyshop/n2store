@@ -183,7 +183,8 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 | **Vấn đề** | Cột Nguồn dùng "Cộng nợ ảo" (DB action) thay vì "Thu về" (ticket type) — user muốn label theo nguồn thực tế. Filter dropdown chỉ có 3 option bh sub-method, thiếu phân loại wt. |
 | **Badge update** | (a) wt VIRTUAL_CREDIT_ISSUE → "Thu về" (was "Cộng nợ ảo"). (b) wt VIRTUAL_CREDIT khác → "Cộng nợ ảo" giữ. (c) wt DEPOSIT/ORDER_CANCEL_REFUND → "Hoàn tiền" (đã có). (d) bh rows → 2-line badge "Khách CK" + sub-method (Nhập tay/Chọn KH/Tự động) — primary "Khách CK" nhất quán với customer-hub. |
 | **Filter dropdown** | optgroup "Khách CK (Sepay)": khach_ck (all bh) + 3 sub-method giữ nguyên. optgroup "Ví nội bộ": thu_ve + cong_no_ao + hoan_tien. Backend xử lý 4 option mới ở cả bh-side + wt-side WHERE clauses. |
-| **Status** | 🔄 Done code — chờ Render deploy + verify browser |
+| **Live verify** | Browser test 28/04 (data có sẵn): 8 wt rows badge "Thu về"×2 + "Hoàn tiền"×2..., 20 bh rows badge "Khách CK" + sub Nhập tay/Tự động. Filter `thu_ve` → 5 wt only (Thu về). Filter `khach_ck` → 20 bh only. Filter `hoan_tien` → 3 wt only. Filter `cong_no_ao` → 0 (chưa có manual virtual credit). ✅ |
+| **Status** | ✅ Done — deploy + verify browser |
 
 ### [balance-history][feat] Tab Đã Duyệt — bổ sung Hoàn Tiền Hủy Đơn + sửa cột Ghi chú dùng wt.note thay wt.source
 | | |
