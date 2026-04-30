@@ -1920,11 +1920,14 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
                 : formatNumber(numNew)
             : '-'
         : newValue || '-';
-    const restoreValue = isNumeric && oldValue !== '' && oldValue !== '-'
-        ? field === 'giaDonVi'
-            ? `${formatNumber(parseFloat(oldValue) || 0)}${_vndSuffixHtml(parseFloat(oldValue) || 0, tg)}`
-            : formatNumber(parseFloat(oldValue) || 0)
-        : oldValue === '' ? '-' : oldValue;
+    const restoreValue =
+        isNumeric && oldValue !== '' && oldValue !== '-'
+            ? field === 'giaDonVi'
+                ? `${formatNumber(parseFloat(oldValue) || 0)}${_vndSuffixHtml(parseFloat(oldValue) || 0, tg)}`
+                : formatNumber(parseFloat(oldValue) || 0)
+            : oldValue === ''
+              ? '-'
+              : oldValue;
 
     // No change
     if (newValue === oldValue || (newValue === '' && oldValue === '-')) {

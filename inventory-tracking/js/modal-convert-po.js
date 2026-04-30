@@ -21,6 +21,7 @@ let _convertDiscount = 0;
 let _convertShipping = 0;
 let _convertItemCounter = 0;
 let _selectedInvoiceImgs = new Set(); // URLs đã chọn làm ảnh hóa đơn (từ ảnh NCC)
+let _convertCurrentTiGia = 0; // tỉ giá CNY→VND của shipment cha
 
 // Nested variant modal state
 let _poVariantItemKey = null; // item._key đang mở variant modal
@@ -55,7 +56,14 @@ function openConvertToPurchaseOrderModal(invoiceId) {
         typeof getProductImagesForNcc === 'function'
             ? getProductImagesForNcc(found.sttNCC, found.ngayDiHang, found.dotSo)
             : [];
-    _convertItems = _explodeSanPhamToItems(found.sanPham || []);
+    // Resolve tỉ giá (CNY → VND) from the parent shipment so giaDonVi (Trung)
+    // can be converted to full VND for the purchase-order draft.
+    const parentShipment = (globalState.shipments || []).find((s) =>
+        (s.hoaDon || []).some((hd) => String(hd.id) === String(invoiceId))
+    );
+    const tiGia = parseFloat(parentShipment?.tiGia) || 0;
+    _convertItems = _explodeSanPhamToItems(found.sanPham || [], tiGia);
+    _convertCurrentTiGia = tiGia;
     _convertDiscount = 0;
     _convertShipping = 0;
     _selectedInvoiceImgs = new Set();
@@ -65,16 +73,18 @@ function openConvertToPurchaseOrderModal(invoiceId) {
     if (window.lucide) lucide.createIcons();
 }
 
-function _explodeSanPhamToItems(sanPhamArr) {
+function _explodeSanPhamToItems(sanPhamArr, tiGia = 0) {
     const items = [];
     _convertItemCounter = 0;
-    // Inventory-tracking stores prices in NGHÌN ĐỒNG (shorthand, ×1000 implicit).
-    // Purchase-orders stores full VND. Multiply ×1000 at load time.
-    const INV_TO_VND = 1000;
+    // Inventory-tracking stores prices in tiền Trung (CNY).
+    // Purchase-orders stores full VND. Multiply by `tiGia` (CNY→VND) at load time.
+    // Fallback ×1000 only when tỉ giá chưa được nhập, để giữ hành vi cũ.
+    const tg = parseFloat(tiGia) || 0;
+    const INV_TO_VND = tg > 0 ? tg : 1000;
     for (const p of sanPhamArr) {
         const baseName = p.moTa && p.moTa !== '-' ? p.moTa : p.maSP || '';
         const mauSac = Array.isArray(p.mauSac) ? p.mauSac : [];
-        const priceVnd = (parseFloat(p.giaDonVi) || 0) * INV_TO_VND;
+        const priceVnd = Math.round((parseFloat(p.giaDonVi) || 0) * INV_TO_VND);
         if (mauSac.length > 0) {
             for (const mv of mauSac) {
                 items.push(
@@ -154,8 +164,13 @@ function _renderConvertModal() {
 
     const inv = _convertCurrentInvoice;
     const todayIso = new Date().toISOString().split('T')[0];
-    // Inventory stores tongTienHD in "nghìn" shorthand — multiply ×1000 to get full VND
-    const invoiceAmt = (parseFloat(inv.tongTienHD || inv.tongTien) || 0) * 1000;
+    // Inventory stores tongTienHD in tiền Trung (CNY) — convert to full VND via tỉ giá.
+    // Fallback ×1000 if tỉ giá missing (legacy behavior).
+    const tg = parseFloat(_convertCurrentTiGia) || 0;
+    const invToVnd = tg > 0 ? tg : 1000;
+    const invoiceAmt = Math.round(
+        (parseFloat(inv.tongTienHD || inv.tongTien) || 0) * invToVnd
+    );
     const nccName = inv.tenNCC || String(inv.sttNCC || '');
     const invImgs = Array.isArray(inv.anhHoaDon) ? inv.anhHoaDon : [];
 
