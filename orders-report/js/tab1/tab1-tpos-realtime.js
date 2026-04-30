@@ -281,7 +281,11 @@
                 }
             }
             if (matchingEntries.length === 0) {
-                console.log('[TPOS-RT] 📄 polled-deleted Id', invoiceId, '— không có trong Store, skip');
+                console.log(
+                    '[TPOS-RT] 📄 polled-deleted Id',
+                    invoiceId,
+                    '— không có trong Store, skip'
+                );
                 return;
             }
             console.log(
@@ -293,8 +297,8 @@
             );
             // Xóa từng entry chính xác qua API endpoint compound_key
             const apiBase =
-                (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
-                '/api/invoice-status';
+                (window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
             for (const { key } of matchingEntries) {
                 try {
                     await fetch(`${apiBase}/entries/${encodeURIComponent(key)}`, {

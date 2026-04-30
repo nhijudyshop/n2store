@@ -1771,22 +1771,10 @@ async function fetchAndPrintTPOSBill(
 
         console.log('[SALE-CONFIRM] HTML bill fetched successfully');
 
-        // Get STT from order data
-        let sttDisplay = '';
-        console.log('[SALE-CONFIRM] Order data for STT:', {
-            SessionIndex: orderData?.SessionIndex,
-            IsMerged: orderData?.IsMerged,
-            OriginalOrders: orderData?.OriginalOrders?.length,
-        });
-
-        if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
-            const allSTTs = orderData.OriginalOrders.map((o) => o.SessionIndex)
-                .filter((stt) => stt)
-                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-            sttDisplay = allSTTs.join(', ');
-        } else {
-            sttDisplay = orderData?.SessionIndex || '';
-        }
+        // Get STT from order data — merge-aware (TPOS Tags + IsMerged + TAG XL flag GOP_*)
+        let sttDisplay = (typeof window.getMergedSttDisplay === 'function')
+            ? window.getMergedSttDisplay(orderData)
+            : (orderData?.SessionIndex || '');
         console.log('[SALE-CONFIRM] STT display value:', sttDisplay);
 
         // Modify HTML to add STT below "Người bán" if STT exists

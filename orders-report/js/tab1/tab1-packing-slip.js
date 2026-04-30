@@ -39,7 +39,10 @@ async function openPackingSlipModal() {
     const customerName = order.PartnerName || order.Name || '';
     const phone = order.Telephone || order.PartnerPhone || '';
     const address = order.PartnerAddress || order.Address || '';
-    const stt = order.SessionIndex || '';
+    // STT — merge-aware (đơn gộp X Y → "X + Y") qua TAG XL custom flag GOP_*
+    const stt = (typeof window.getMergedSttDisplay === 'function')
+        ? window.getMergedSttDisplay(order)
+        : (order.SessionIndex || '');
 
     // Get nhân viên from employee assignment (based on SessionIndex)
     const nhanVien = (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
@@ -317,7 +320,10 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
     const customerName = order.PartnerName || order.Name || '';
     const phone = order.Telephone || order.PartnerPhone || '';
     const address = order.PartnerAddress || order.Address || '';
-    const stt = order.SessionIndex || '';
+    // STT — merge-aware (đơn gộp X Y → "X + Y")
+    const stt = (typeof window.getMergedSttDisplay === 'function')
+        ? window.getMergedSttDisplay(order)
+        : (order.SessionIndex || '');
 
     // Nhân viên from employee assignment (based on SessionIndex)
     const nhanVien = (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';

@@ -37,9 +37,7 @@ const BillService = (function () {
         const mergeTag = orderTags.find((t) => {
             const n = (t.Name || '').trim();
             return (
-                n.toLowerCase().startsWith('gộp ') ||
-                n.startsWith('Gộp ') ||
-                n.startsWith('GỘP ')
+                n.toLowerCase().startsWith('gộp ') || n.startsWith('Gộp ') || n.startsWith('GỘP ')
             );
         });
         if (mergeTag) {
@@ -1920,6 +1918,7 @@ ${
         openCombinedPrintPopup,
         generateBillImage,
         sendBillToCustomer,
+        getMergedSttDisplay,
         // TPOS bill functions
         fetchTPOSBillHTML,
         openPrintPopupWithHtml,
@@ -1933,6 +1932,7 @@ window.BillService = BillService;
 
 // Also expose individual functions for backward compatibility
 window.generateCustomBillHTML = BillService.generateCustomBillHTML;
+window.getMergedSttDisplay = BillService.getMergedSttDisplay;
 window.openPrintPopup = BillService.openPrintPopup;
 window.openCombinedPrintPopup = BillService.openCombinedPrintPopup;
 window.generateBillImage = BillService.generateBillImage;
