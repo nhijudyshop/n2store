@@ -616,19 +616,36 @@
             }
 
             // Search all compound keys for this SaleOnlineId
-            let latest = null;
-            let latestTs = 0;
+            // ƯU TIÊN latest NON-CANCELLED entry (đại diện trạng thái thực của đơn).
+            // Khi đơn có nhiều phiếu (vd 17 PBH gồm cancelled + active mix) và phiếu
+            // mới nhất theo timestamp bị huỷ → trả về active gần nhất, KHÔNG trả về phiếu
+            // huỷ (gây cell hiển thị "−" che mất các phiếu xác nhận/đối soát còn active).
+            // Fallback: nếu mọi phiếu đều cancelled, trả về cancelled mới nhất (giữ behavior
+            // "hiện − khi tất cả đều huỷ").
+            let latestActive = null;
+            let latestActiveTs = 0;
+            let latestAny = null;
+            let latestAnyTs = 0;
             for (const [key, value] of this._data.entries()) {
                 const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
-                if (keySoId === soId) {
-                    const ts = value.timestamp || 0;
-                    if (ts > latestTs || !latest) {
-                        latest = value;
-                        latestTs = ts;
-                    }
+                if (keySoId !== soId) continue;
+                const ts = value.timestamp || 0;
+                const cancelled =
+                    value.State === 'cancel' ||
+                    value.StateCode === 'cancel' ||
+                    value.IsMergeCancel === true ||
+                    value.ShowState === 'Huỷ bỏ' ||
+                    value.ShowState === 'Hủy bỏ';
+                if (ts > latestAnyTs || !latestAny) {
+                    latestAny = value;
+                    latestAnyTs = ts;
+                }
+                if (!cancelled && (ts > latestActiveTs || !latestActive)) {
+                    latestActive = value;
+                    latestActiveTs = ts;
                 }
             }
-            return latest;
+            return latestActive || latestAny;
         },
 
         /**

@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [orders] InvoiceStatusStore.getLatest ưu tiên latest NON-CANCELLED → cell PBH map đúng phiếu đại diện active
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `getLatest(saleOnlineId)` — track 2 cursors: `latestActive` (cao nhất theo timestamp trong các entry KHÔNG cancelled — kiểm bằng `State==='cancel' \|\| StateCode==='cancel' \|\| IsMergeCancel \|\| ShowState∈{'Huỷ bỏ','Hủy bỏ'}`) và `latestAny` (latest theo timestamp bất kể state). Return `latestActive ?? latestAny`. |
+| **Chi tiết** | **Trigger user**: order `260402102` có 17 PBH (active + cancelled mix). Khi user hủy phiếu mới nhất → entry vừa hủy có timestamp cao nhất → `getLatest()` trước đây trả về phiếu hủy → `renderInvoiceStatusCell()` thấy `isCancelled` → render `−` (như chưa có PBH) → che mất 16 phiếu xác nhận/đối soát còn active. **Fix**: ưu tiên `latestActive`, fallback `latestAny` khi tất cả đều cancelled (giữ behavior cũ "hiện − khi đơn không còn phiếu nào active"). Mọi caller (chat-core, sale, fast-sale, table) đều mong muốn "phiếu đại diện active" → fix tại nguồn `getLatest` để propagate đúng cho tất cả. |
+| **Status** | ✅ Done. |
+
 ### [orders] PBH realtime nhận event lean payload `{Id, State}` (action payment / cancel / delete) — fetch fallback by Id
 | | |
 |---|---|
