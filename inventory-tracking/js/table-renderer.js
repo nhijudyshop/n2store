@@ -693,6 +693,7 @@ function renderInvoicesSection(shipment) {
     const invoices = shipment.hoaDon || [];
     const costs = shipment.chiPhiHangVe || [];
     const canViewCost = permissionHelper?.can('view_chiPhiHangVe');
+    const shipTiGia = parseFloat(shipment.tiGia) || 0;
 
     if (invoices.length === 0) {
         return `
@@ -765,6 +766,7 @@ function renderInvoicesSection(shipment) {
                     anhHoaDon: hd.anhHoaDon,
                     batchNgay: shipment.ngayDiHang,
                     batchDotSo: shipment.dotSo || 1,
+                    tiGia: shipTiGia,
                 })
             );
             absoluteRowIdx++;
@@ -797,6 +799,9 @@ function renderInvoicesSection(shipment) {
                         hasSubInvoice,
                         subInvoice: hd.subInvoice,
                         anhHoaDon: hd.anhHoaDon,
+                        batchNgay: shipment.ngayDiHang,
+                        batchDotSo: shipment.dotSo || 1,
+                        tiGia: shipTiGia,
                     })
                 );
                 absoluteRowIdx++;
@@ -816,8 +821,8 @@ function renderInvoicesSection(shipment) {
                             <th class="col-desc">Mô tả</th>
                             <th class="col-colors">Chi tiết màu sắc</th>
                             <th class="col-qty text-center">Tổng SL</th>
-                            <th class="col-price text-right">Đơn giá</th>
-                            <th class="col-amount text-right">Tiền HĐ</th>
+                            <th class="col-price text-right">Đơn giá <span class="th-currency-tag">(Trung)</span></th>
+                            <th class="col-amount text-right">Tiền HĐ <span class="th-currency-tag">(Trung / VNĐ)</span></th>
                             <th class="col-total text-center">Tổng Món</th>
                             <th class="col-shortage text-center">Thiếu</th>
                             <th class="col-image text-center">Ảnh</th>
@@ -832,7 +837,7 @@ function renderInvoicesSection(shipment) {
                     <tfoot>
                         <tr class="total-row">
                             <td class="tfoot-total-label text-right" colspan="5"><strong>TỔNG:</strong></td>
-                            <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}</strong></td>
+                            <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}${_vndSuffixHtml(totalAmount, shipTiGia)}</strong></td>
                             <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
                             <td class="text-center total-shortage-cell"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
                             <td></td>
@@ -937,7 +942,9 @@ function renderProductRow(opts) {
         anhHoaDon,
         batchNgay,
         batchDotSo,
+        tiGia,
     } = opts;
+    const tg = parseFloat(tiGia) || 0;
 
     const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
 
@@ -996,12 +1003,12 @@ function renderProductRow(opts) {
             <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
             <td class="col-colors editable-cell ${borderClass}" ${editAttrs} ondblclick="window.openVariantModal(this)" title="Nhấp đúp để tạo biến thể">${colorDetails}</td>
             <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
-            <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${giaDonVi > 0 ? formatNumber(giaDonVi) : '-'}</td>
+            <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-ti-gia="${tg}" data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa (Đơn giá tiền Trung) — VND hiển thị trong ngoặc">${giaDonVi > 0 ? `${formatNumber(giaDonVi)}${_vndSuffixHtml(giaDonVi, tg)}` : '-'}</td>
             ${
                 isFirstRow
                     ? `
-                <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}">
-                    <strong class="amount-value">${formatNumber(tongTienHD)}</strong>
+                <td class="col-amount text-right ${rowspanBorderClass}" rowspan="${rowSpan}" data-ti-gia="${tg}">
+                    <strong class="amount-value">${formatNumber(tongTienHD)}${_vndSuffixHtml(tongTienHD, tg)}</strong>
                 </td>
                 <td class="col-total text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
@@ -1858,8 +1865,12 @@ function startInlineEdit(td) {
     const productIdx = parseInt(td.dataset.productIdx);
     if (!field || !invoiceId || isNaN(productIdx)) return;
 
-    const oldValue = td.textContent.trim().replace(/,/g, '');
     const isNumeric = field === 'tongSoLuong' || field === 'giaDonVi';
+    // For giaDonVi cells the rendered text is "127 (505)" — Trung (VNĐ).
+    // Strip the trailing "(...)" so the editable value is the Trung amount only.
+    let rawText = td.textContent.trim();
+    if (isNumeric) rawText = rawText.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const oldValue = rawText.replace(/,/g, '');
 
     const input = document.createElement(field === 'moTa' ? 'textarea' : 'input');
     if (isNumeric) {
@@ -1886,7 +1897,13 @@ function startInlineEdit(td) {
         }
         if (e.key === 'Escape') {
             input.removeEventListener('blur', commit);
-            td.textContent = oldValue === '' ? '-' : oldValue;
+            if (isNumeric && field === 'giaDonVi' && oldValue && oldValue !== '-') {
+                const tg = parseFloat(td.dataset.tiGia) || 0;
+                const n = parseFloat(oldValue) || 0;
+                td.innerHTML = n > 0 ? `${formatNumber(n)}${_vndSuffixHtml(n, tg)}` : '-';
+            } else {
+                td.textContent = oldValue === '' ? '-' : oldValue;
+            }
         }
     });
 }
@@ -1894,15 +1911,24 @@ function startInlineEdit(td) {
 async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValue) {
     const newValue = input.value.trim();
     const isNumeric = field === 'tongSoLuong' || field === 'giaDonVi';
+    const tg = parseFloat(td.dataset.tiGia) || 0;
+    const numNew = parseFloat(newValue) || 0;
     const displayValue = isNumeric
-        ? parseFloat(newValue) > 0
-            ? formatNumber(parseFloat(newValue))
+        ? numNew > 0
+            ? field === 'giaDonVi'
+                ? `${formatNumber(numNew)}${_vndSuffixHtml(numNew, tg)}`
+                : formatNumber(numNew)
             : '-'
         : newValue || '-';
+    const restoreValue = isNumeric && oldValue !== '' && oldValue !== '-'
+        ? field === 'giaDonVi'
+            ? `${formatNumber(parseFloat(oldValue) || 0)}${_vndSuffixHtml(parseFloat(oldValue) || 0, tg)}`
+            : formatNumber(parseFloat(oldValue) || 0)
+        : oldValue === '' ? '-' : oldValue;
 
     // No change
     if (newValue === oldValue || (newValue === '' && oldValue === '-')) {
-        td.textContent = oldValue === '' ? '-' : oldValue;
+        td.innerHTML = restoreValue;
         return;
     }
 
@@ -1946,7 +1972,7 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
             tongTienHD: targetDot.tongTienHD,
         });
 
-        td.textContent = displayValue;
+        td.innerHTML = displayValue;
         flattenNCCData();
 
         // Re-render totals in current card if tongMon/tongTienHD changed
@@ -1958,7 +1984,9 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
                     const amt = r.querySelector('.amount-value');
                     const tot = r.querySelector('.total-value');
                     if (amt && r.querySelector(`td[data-invoice-id="${invoiceId}"]`)) {
-                        amt.textContent = formatNumber(targetDot.tongTienHD);
+                        const amtCell = amt.closest('.col-amount');
+                        const amtTg = parseFloat(amtCell?.dataset.tiGia) || 0;
+                        amt.innerHTML = `${formatNumber(targetDot.tongTienHD)}${_vndSuffixHtml(targetDot.tongTienHD, amtTg)}`;
                     }
                     if (tot && r.querySelector(`td[data-invoice-id="${invoiceId}"]`)) {
                         tot.textContent = formatNumber(targetDot.tongMon);
@@ -1970,7 +1998,7 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
         window.notificationManager?.success('Đã cập nhật');
     } catch (error) {
         console.error('[INLINE-EDIT] Error:', error);
-        td.textContent = oldValue;
+        td.innerHTML = restoreValue;
         window.notificationManager?.error('Không thể cập nhật: ' + error.message);
     }
 }

@@ -4455,6 +4455,16 @@ textarea.inline-edit-input { resize: vertical; min-height: 28px; }
     letter-spacing: 0;
 }
 
+.th-currency-tag {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 0.72em;
+    font-weight: 500;
+    color: var(--gray-500);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
 /* Expandable HĐ/CP lines */
 .pp-line-expandable { cursor: pointer; user-select: none; }
 .pp-line-expandable:hover { background: var(--gray-50); border-radius: 4px; }

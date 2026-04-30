@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-04-30
+
+### [inventory-tracking] Đơn giá / Tiền HĐ hiển thị song song "Trung (VNĐ)" — chuyển CNY → VND nghìn theo `tiGia` của shipment
+| | |
+|---|---|
+| **Files** | MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` lấy `shipTiGia = shipment.tiGia`, gắn vào header (`Đơn giá (Trung)`, `Tiền HĐ (Trung / VNĐ)`), pass xuống `renderProductRow()`, gắn VND suffix vào tfoot total; `renderProductRow()` nhận `tiGia` opt, render `_vndSuffixHtml` next to `giaDonVi` + `tongTienHD` + thêm `data-ti-gia` attr trên 2 cell để inline-edit dùng được; `startInlineEdit()` strip `(...)` khỏi text trước khi parseFloat; `commitInlineEdit()` re-render VND suffix sau update + amount-value cell rowspanned cũng được sync. MODIFIED: [inventory-tracking/css/modern.css](../inventory-tracking/css/modern.css) — thêm `.th-currency-tag` (label nhỏ hơn, gray-500). |
+| **Chi tiết** | **Trigger user**: "giá tiền nhập vào bảng này là tiền tệ trung nên cần x 4.5 ghi rõ tiền trung, vnđ". Tỉ giá thực tế đọc từ `shipment.tiGia` (vd `3979`), không hard-code 4.5. Format VND: `(yuan × tiGia / 1000)` rounded, hiện trong `<span class="vnd-inline">(...)</span>` xanh — đồng bộ với header stats bar và Tổng HĐ ngoài shipment header đã có sẵn. **Verify localhost**: header `Đơn giá (Trung)` / `Tiền HĐ (Trung / VNĐ)`; cell `127 (505)` = 127 yuan / 505k VND, `7.244 (28.824)`, tfoot `10.909 (43.407)` đúng. **Inline edit**: textContent trim regex `/\s*\([^)]*\)\s*$/` đảm bảo input lấy giá Trung gốc; commit/Escape/error path đều dùng innerHTML để khôi phục VND suffix. |
+| **Status** | ✅ Done. |
+
 ## 2026-04-29
 
 ### [soquy] "Chi tiết theo loại" full-width mặc định, bỏ max-height → cuộn dọc xem các bảng khác bên dưới
