@@ -1772,9 +1772,10 @@ async function fetchAndPrintTPOSBill(
         console.log('[SALE-CONFIRM] HTML bill fetched successfully');
 
         // Get STT from order data — merge-aware (TPOS Tags + IsMerged + TAG XL flag GOP_*)
-        let sttDisplay = (typeof window.getMergedSttDisplay === 'function')
-            ? window.getMergedSttDisplay(orderData)
-            : (orderData?.SessionIndex || '');
+        let sttDisplay =
+            typeof window.getMergedSttDisplay === 'function'
+                ? window.getMergedSttDisplay(orderData)
+                : orderData?.SessionIndex || '';
         console.log('[SALE-CONFIRM] STT display value:', sttDisplay);
 
         // Modify HTML to add STT below "Người bán" if STT exists

@@ -18,7 +18,7 @@ async function openPackingSlipModal() {
     }
 
     const orderId = Array.from(selectedOrderIds)[0];
-    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+    const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
 
     if (!order) {
         if (window.notificationManager) {
@@ -40,12 +40,14 @@ async function openPackingSlipModal() {
     const phone = order.Telephone || order.PartnerPhone || '';
     const address = order.PartnerAddress || order.Address || '';
     // STT — merge-aware (đơn gộp X Y → "X + Y") qua TAG XL custom flag GOP_*
-    const stt = (typeof window.getMergedSttDisplay === 'function')
-        ? window.getMergedSttDisplay(order)
-        : (order.SessionIndex || '');
+    const stt =
+        typeof window.getMergedSttDisplay === 'function'
+            ? window.getMergedSttDisplay(order)
+            : order.SessionIndex || '';
 
     // Get nhân viên from employee assignment (based on SessionIndex)
-    const nhanVien = (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
+    const nhanVien =
+        (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
 
     customerInfo.innerHTML = `
         <div style="display:flex; gap:20px; flex-wrap:wrap;">
@@ -107,23 +109,27 @@ function renderPackingSlipProducts() {
     const tbody = document.getElementById('packingSlipProductBody');
 
     if (packingSlipOrderLines.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
+        tbody.innerHTML =
+            '<tr><td colspan="5" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
         return;
     }
 
     let totalQty = 0;
     let totalAmount = 0;
 
-    const rows = packingSlipOrderLines.map((line, idx) => {
-        const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
-        const warehouseSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(line) : 0;
-        const displayName = `${warehouseSTT} - ${productName}`;
-        const productNote = line.Note || '';
-        const qty = line.ProductUOMQty || line.Quantity || 1;
+    const rows = packingSlipOrderLines
+        .map((line, idx) => {
+            const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
+            const warehouseSTT = window.WebWarehouseCache
+                ? window.WebWarehouseCache.getSTT(line)
+                : 0;
+            const displayName = `${warehouseSTT} - ${productName}`;
+            const productNote = line.Note || '';
+            const qty = line.ProductUOMQty || line.Quantity || 1;
 
-        totalQty += qty;
+            totalQty += qty;
 
-        return `
+            return `
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:8px 6px; text-align:center;">${idx + 1}</td>
                 <td style="padding:8px 6px; text-align:center;">
@@ -144,7 +150,8 @@ function renderPackingSlipProducts() {
                 </td>
             </tr>
         `;
-    }).join('');
+        })
+        .join('');
 
     // Add total row
     const totalRow = `
@@ -182,7 +189,7 @@ function printPackingSlip() {
     // Collect "Chờ Hàng" selections
     const checkboxes = document.querySelectorAll('.packing-slip-wait-cb');
     const waitingIndices = new Set();
-    checkboxes.forEach(cb => {
+    checkboxes.forEach((cb) => {
         if (cb.checked) {
             waitingIndices.add(parseInt(cb.dataset.lineIndex));
         }
@@ -191,7 +198,7 @@ function printPackingSlip() {
     // Collect notes
     const noteInputs = document.querySelectorAll('.packing-slip-note');
     const notes = {};
-    noteInputs.forEach(input => {
+    noteInputs.forEach((input) => {
         const idx = parseInt(input.dataset.noteIndex);
         const val = input.value.trim();
         if (val) notes[idx] = val;
@@ -206,7 +213,8 @@ function printPackingSlip() {
 
     const iframe = document.createElement('iframe');
     iframe.id = 'packingSlipPrintFrame';
-    iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
+    iframe.style.cssText =
+        'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow.document;
@@ -227,11 +235,15 @@ function printPackingSlip() {
         };
         if (iframe.contentWindow.matchMedia) {
             const mql = iframe.contentWindow.matchMedia('print');
-            mql.addEventListener('change', (e) => { if (!e.matches) cleanup(); });
+            mql.addEventListener('change', (e) => {
+                if (!e.matches) cleanup();
+            });
         }
         iframe.contentWindow.onafterprint = cleanup;
         // Fallback cleanup
-        setTimeout(() => { if (document.getElementById('packingSlipPrintFrame')) iframe.remove(); }, 60000);
+        setTimeout(() => {
+            if (document.getElementById('packingSlipPrintFrame')) iframe.remove();
+        }, 60000);
     };
 
     iframe.onload = () => setTimeout(triggerPrint, 300);
@@ -271,19 +283,30 @@ async function autoTagChoHangVe() {
                 const success = await window.addTagToOrder(saleOnlineId, {
                     Id: tag.Id,
                     Name: tag.Name,
-                    Color: tag.Color || '#6366f1'
+                    Color: tag.Color || '#6366f1',
                 });
                 if (success) {
                     console.log('[PACKING-SLIP] Auto-tagged order with "CHỜ HÀNG VỀ"');
                     // Update local data and UI row
-                    const localOrder = window.OrderStore?.get(saleOnlineId) || allData?.find(o => o.Id === saleOnlineId);
+                    const localOrder =
+                        window.OrderStore?.get(saleOnlineId) ||
+                        allData?.find((o) => o.Id === saleOnlineId);
                     if (localOrder) {
                         let currentTags = [];
                         try {
-                            currentTags = typeof localOrder.Tags === 'string' ? JSON.parse(localOrder.Tags) : (localOrder.Tags || []);
-                        } catch (e) { currentTags = []; }
-                        if (!currentTags.some(t => t.Id === tag.Id)) {
-                            currentTags.push({ Id: tag.Id, Name: tag.Name, Color: tag.Color || '#6366f1' });
+                            currentTags =
+                                typeof localOrder.Tags === 'string'
+                                    ? JSON.parse(localOrder.Tags)
+                                    : localOrder.Tags || [];
+                        } catch (e) {
+                            currentTags = [];
+                        }
+                        if (!currentTags.some((t) => t.Id === tag.Id)) {
+                            currentTags.push({
+                                Id: tag.Id,
+                                Name: tag.Name,
+                                Color: tag.Color || '#6366f1',
+                            });
                         }
                         const newTagsJson = JSON.stringify(currentTags);
                         localOrder.Tags = newTagsJson;
@@ -321,12 +344,14 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
     const phone = order.Telephone || order.PartnerPhone || '';
     const address = order.PartnerAddress || order.Address || '';
     // STT — merge-aware (đơn gộp X Y → "X + Y")
-    const stt = (typeof window.getMergedSttDisplay === 'function')
-        ? window.getMergedSttDisplay(order)
-        : (order.SessionIndex || '');
+    const stt =
+        typeof window.getMergedSttDisplay === 'function'
+            ? window.getMergedSttDisplay(order)
+            : order.SessionIndex || '';
 
     // Nhân viên from employee assignment (based on SessionIndex)
-    const nhanVien = (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
+    const nhanVien =
+        (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
 
     // Bill number uses the order's STT
     const billNumber = stt || '';
@@ -336,30 +361,33 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
     // Product rows
     let totalQty = 0;
 
-    const productRows = lines.map((line, idx) => {
-        const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
-        const warehouseSTT = window.WebWarehouseCache ? window.WebWarehouseCache.getSTT(line) : 0;
-        const displayName = `${warehouseSTT} - ${productName}`;
-        const productNote = line.Note || '';
-        const qty = line.ProductUOMQty || line.Quantity || 1;
-        const price = line.PriceUnit || line.Price || 0;
-        const isWaiting = waitingIndices.has(idx);
-        const note = notes[idx] || '';
+    const productRows = lines
+        .map((line, idx) => {
+            const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
+            const warehouseSTT = window.WebWarehouseCache
+                ? window.WebWarehouseCache.getSTT(line)
+                : 0;
+            const displayName = `${warehouseSTT} - ${productName}`;
+            const productNote = line.Note || '';
+            const qty = line.ProductUOMQty || line.Quantity || 1;
+            const price = line.PriceUnit || line.Price || 0;
+            const isWaiting = waitingIndices.has(idx);
+            const note = notes[idx] || '';
 
-        totalQty += qty;
+            totalQty += qty;
 
-        const priceShort = Math.round(price / 1000);
+            const priceShort = Math.round(price / 1000);
 
-        // Build ghi chú: nếu Chờ Hàng thì thêm "CH" in đậm lớn
-        let ghiChu = '';
-        if (isWaiting) {
-            ghiChu += '<b style="font-size:18px;">CH</b>';
-        }
-        if (note) {
-            ghiChu += (ghiChu ? ' ' : '') + `<span style="font-size:12px;">${note}</span>`;
-        }
+            // Build ghi chú: nếu Chờ Hàng thì thêm "CH" in đậm lớn
+            let ghiChu = '';
+            if (isWaiting) {
+                ghiChu += '<b style="font-size:18px;">CH</b>';
+            }
+            if (note) {
+                ghiChu += (ghiChu ? ' ' : '') + `<span style="font-size:12px;">${note}</span>`;
+            }
 
-        return `
+            return `
             <tr>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${idx + 1}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:14px; font-weight:bold;">
@@ -370,7 +398,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                 <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${ghiChu}</td>
             </tr>`;
-    }).join('');
+        })
+        .join('');
 
     // Total row
     const totalRow = `
