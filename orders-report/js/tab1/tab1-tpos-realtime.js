@@ -254,11 +254,7 @@
             ''; // e.g. "NJD/2026/60576"
         // FastSaleOrder Id ở root payload (vd payment/cancel events:
         // {Id: 432724, State: "paid"} không kèm Order.Code)
-        const invoiceId =
-            eventData.Id ||
-            eventData.data?.Id ||
-            eventData.Data?.Id ||
-            null;
+        const invoiceId = eventData.Id || eventData.data?.Id || eventData.Data?.Id || null;
         const message = eventData.message || eventData.Message || '';
 
         if (!invoiceNumber && !invoiceId) {
