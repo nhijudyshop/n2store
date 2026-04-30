@@ -1133,8 +1133,14 @@ const https = require('https');
 const TPOS_ODATA_BASE_POLL = 'https://tomato.tpos.vn/odata';
 const tposPollHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 const INVOICE_POLL_INTERVAL_MS = 60_000;
-const INVOICE_POLL_LOOKBACK_MIN = 5;
-const INVOICE_POLL_TOP = 50;
+// TPOS OData GetView IGNORE filter `WriteDate ge X` (verified empty result),
+// `Id eq X` (verified random record), `State eq 'cancel'` (verified empty).
+// CHỈ filter `DateInvoice ge X` hoạt động → lookback theo ngày TẠO phiếu.
+// Lookback 60 phút cover phiếu vừa tạo + bị cancel ngay sau (user thường
+// hủy phiếu mới trong vòng vài phút). Phiếu cũ hơn 60 phút bị hủy sẽ KHÔNG
+// detect realtime — cần refresh manual hoặc tăng lookback (cost: thêm load).
+const INVOICE_POLL_LOOKBACK_MIN = 60;
+const INVOICE_POLL_TOP = 100;
 const recentInvoiceState = new Map(); // invoiceId -> { stateKey, ts }
 let invoicePollColdStart = true; // lần đầu chỉ populate cache, không broadcast
 let invoicePollRunning = false;
@@ -1146,10 +1152,10 @@ setInterval(async () => {
         const token = await tposTokenManager.getToken().catch(() => null);
         if (!token) return;
         const since = new Date(Date.now() - INVOICE_POLL_LOOKBACK_MIN * 60_000).toISOString();
-        const filter = `WriteDate ge ${since}`;
+        const filter = `DateInvoice ge ${since}`;
         const url =
             `${TPOS_ODATA_BASE_POLL}/FastSaleOrder/ODataService.GetView` +
-            `?$top=${INVOICE_POLL_TOP}&$orderby=WriteDate desc` +
+            `?$top=${INVOICE_POLL_TOP}&$orderby=DateInvoice desc` +
             `&$filter=${encodeURIComponent(filter)}`;
         const resp = await fetch(url, {
             headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
