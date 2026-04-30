@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [orders] Cell PHIẾU BÁN HÀNG ghi rõ Number + Ngày + Tooltip nút X — tránh hủy nhầm phiếu cũ
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `renderInvoiceStatusCell()` Row 1: Number badge (NJD/2026/X) tăng `font-size: 9→11px`, `font-weight: 500→600`, thêm `font-family: ui-monospace`. Thêm Date badge mới (định dạng `DD/MM HH:mm` từ `DateInvoice ?? DateCreated`) màu vàng nhạt cạnh Number. Tooltip nút ✕ "Nhờ hủy đơn" → multiline rõ ràng: `🛑 Hủy phiếu: NJD/2026/X` + `Ngày: 30/04 14:23` + `Tổng: 422.000đ` + `(Đơn có N phiếu — kiểm tra số phiếu trên cell)`. Thêm attr `data-invoice-number` lên button để debug. |
+| **Chi tiết** | **Trigger user**: "cột phiếu bán hàng ghi rõ để nhận diện không hủy nhầm đơn cũ được không?". Trước đây Number badge nhỏ (9px) khó đọc, không có ngày, tooltip nút X chỉ "Nhờ hủy đơn" → user không biết đang nhằm phiếu nào trong N phiếu của đơn (vd đơn 260402102 có 17 PBH). **Sau fix**: Number to monospace dễ đọc, Date badge hiển thị ngay phân biệt phiếu mới/cũ, hover nút ✕ thấy đầy đủ Number + Ngày + Tổng tiền + cảnh báo nếu đơn có nhiều phiếu. |
+| **Status** | ✅ Done. |
+
 ### [orders] InvoiceStatusStore.getLatest ưu tiên latest NON-CANCELLED → cell PBH map đúng phiếu đại diện active
 | | |
 |---|---|

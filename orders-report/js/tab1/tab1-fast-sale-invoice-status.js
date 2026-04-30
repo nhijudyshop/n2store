@@ -2077,10 +2077,26 @@
             html += `<span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;" title="Người tạo bill">${invoiceData.UserName}</span>`;
         }
 
-        // Invoice Number badge (e.g. NJD/2026/60576)
+        // Invoice Number badge (e.g. NJD/2026/60576) — to và rõ để tránh hủy nhầm phiếu
         if (invoiceData.Number) {
             const shortNum = invoiceData.Number.replace(/^NJD\//, '');
-            html += `<span style="background: #f0f9ff; color: #0369a1; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 500; border: 1px solid #bae6fd; cursor: pointer;" onclick="navigator.clipboard.writeText('${invoiceData.Number.replace(/'/g, "\\'")}'); window.notificationManager?.success('Đã copy ${invoiceData.Number.replace(/'/g, "\\'")}', 1500); event.stopPropagation();" title="Click để copy mã phiếu">${shortNum}</span>`;
+            html += `<span style="background: #f0f9ff; color: #0369a1; font-size: 11px; padding: 1px 5px; border-radius: 3px; font-weight: 600; border: 1px solid #bae6fd; cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;" onclick="navigator.clipboard.writeText('${invoiceData.Number.replace(/'/g, "\\'")}'); window.notificationManager?.success('Đã copy ${invoiceData.Number.replace(/'/g, "\\'")}', 1500); event.stopPropagation();" title="Click để copy mã phiếu">${shortNum}</span>`;
+        }
+
+        // Date badge (DD/MM HH:mm) — phiếu mới/cũ thấy ngay không nhầm
+        const __formatShortDate = (iso) => {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            return `${dd}/${mm} ${hh}:${mi}`;
+        };
+        const dateShort = __formatShortDate(invoiceData.DateInvoice || invoiceData.DateCreated);
+        if (dateShort) {
+            html += `<span style="background: #fefce8; color: #854d0e; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500; border: 1px solid #fde68a;" title="Ngày tạo phiếu (DateInvoice)">${dateShort}</span>`;
         }
 
         // Messenger button or sent badge - show for confirmed/paid invoices
@@ -2116,12 +2132,31 @@
 
         // X button for confirmed/paid invoices - to request cancellation
         if (canSendBill) {
+            // Tooltip chi tiết để tránh hủy nhầm phiếu — show Number + Date + Amount + tổng PBH count
+            const __amount = invoiceData.AmountTotal
+                ? new Intl.NumberFormat('vi-VN').format(invoiceData.AmountTotal) + 'đ'
+                : '';
+            const __pbhCount = (() => {
+                try {
+                    return InvoiceStatusStore.getAll(order.Id).length;
+                } catch (_) {
+                    return 0;
+                }
+            })();
+            const __tooltipParts = [
+                `🛑 Hủy phiếu: ${invoiceData.Number || '?'}`,
+                dateShort ? `Ngày: ${dateShort}` : '',
+                __amount ? `Tổng: ${__amount}` : '',
+                __pbhCount > 1 ? `(Đơn có ${__pbhCount} phiếu — kiểm tra số phiếu trên cell)` : '',
+            ].filter(Boolean);
+            const __tooltip = __tooltipParts.join('\n').replace(/"/g, '&quot;');
             html += `
                 <button type="button"
                     class="btn-cancel-order-main"
                     data-order-id="${order.Id}"
+                    data-invoice-number="${(invoiceData.Number || '').replace(/"/g, '&quot;')}"
                     onclick="window.showCancelOrderModalFromMain('${order.Id}'); event.stopPropagation();"
-                    title="Nhờ hủy đơn"
+                    title="${__tooltip}"
                     style="background: #dc2626; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; gap: 2px; margin-left: 2px;">
                     ✕
                 </button>
