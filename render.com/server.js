@@ -966,12 +966,15 @@ class TposRealtimeClient {
                     return;
                 }
 
-                // Handle FastSaleOrder — invoice created/updated → cập nhật cột Phiếu bán hàng
-                if (eventType === 'FastSaleOrder' && (eventAction === 'created' || eventAction === 'updated')) {
-                    console.log('[TPOS-WS] 📄 INVOICE', (eventAction || '').toUpperCase() + ':', msgPreview);
+                // Handle FastSaleOrder — broadcast MỌI action (created/updated/cancelled/deleted/...)
+                // để cập nhật cột Phiếu bán hàng. Trước đây chỉ filter created|updated → khi user
+                // hủy phiếu (action `cancelled`/`canceled`/`deleted`) bị nuốt → web không update.
+                // Client tab1-tpos-realtime.js tự fetch lại OData để lấy ShowState mới.
+                if (eventType === 'FastSaleOrder') {
+                    console.log('[TPOS-WS] 📄 INVOICE', (eventAction || 'unknown').toUpperCase() + ':', msgPreview);
                     broadcastToClients({
                         type: 'tpos:invoice-update',
-                        action: eventAction,
+                        action: eventAction || 'unknown',
                         data: data
                     });
                     return;
