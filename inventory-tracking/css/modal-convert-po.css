@@ -519,3 +519,75 @@
     .pov-grid { grid-template-columns: 1fr 1fr; }
     .po-footer-totals { flex-direction: column; align-items: stretch; gap: 10px; }
 }
+
+/* =================== PRODUCT PICKER — autocomplete dropdown =================== */
+.po-name-wrap { position: relative; }
+
+.po-suggest {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    max-height: 320px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    padding: 4px;
+}
+
+.po-suggest[hidden] { display: none; }
+
+.po-suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.po-suggest-item:hover { background: #eef2ff; }
+
+.po-suggest-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: #f3f4f6;
+    flex-shrink: 0;
+}
+
+.po-suggest-img--empty {
+    display: inline-block;
+    background: repeating-linear-gradient(45deg, #f3f4f6 0 6px, #e5e7eb 6px 12px);
+}
+
+.po-suggest-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.po-suggest-line1 {
+    font-size: 13px;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.po-suggest-line2 {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.po-suggest-price { color: #059669; font-weight: 600; }
+.po-suggest-qty--zero { color: #dc2626; font-weight: 600; }

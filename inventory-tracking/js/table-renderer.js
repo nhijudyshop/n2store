@@ -693,7 +693,8 @@ function renderInvoicesSection(shipment) {
     const invoices = shipment.hoaDon || [];
     const costs = shipment.chiPhiHangVe || [];
     const canViewCost = permissionHelper?.can('view_chiPhiHangVe');
-    const shipTiGia = parseFloat(shipment.tiGia) || 0;
+    // Tỉ giá Trung→VND cố định ×4500 cho bảng SP (user yêu cầu).
+    const shipTiGia = 4500;
 
     if (invoices.length === 0) {
         return `

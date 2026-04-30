@@ -79,8 +79,8 @@ function _explodeSanPhamToItems(sanPhamArr, tiGia = 0) {
     // Inventory-tracking stores prices in tiền Trung (CNY).
     // Purchase-orders stores full VND. Multiply by `tiGia` (CNY→VND) at load time.
     // Fallback ×1000 only when tỉ giá chưa được nhập, để giữ hành vi cũ.
-    const tg = parseFloat(tiGia) || 0;
-    const INV_TO_VND = tg > 0 ? tg : 1000;
+    // Tỉ giá Trung→VND cố định ×4500 (bypass shipment.tiGia per user yêu cầu).
+    const INV_TO_VND = 4500;
     for (const p of sanPhamArr) {
         const baseName = p.moTa && p.moTa !== '-' ? p.moTa : p.maSP || '';
         const mauSac = Array.isArray(p.mauSac) ? p.mauSac : [];
@@ -164,11 +164,8 @@ function _renderConvertModal() {
 
     const inv = _convertCurrentInvoice;
     const todayIso = new Date().toISOString().split('T')[0];
-    // Inventory stores tongTienHD in tiền Trung (CNY) — convert to full VND via tỉ giá.
-    // Fallback ×1000 if tỉ giá missing (legacy behavior).
-    const tg = parseFloat(_convertCurrentTiGia) || 0;
-    const invToVnd = tg > 0 ? tg : 1000;
-    const invoiceAmt = Math.round((parseFloat(inv.tongTienHD || inv.tongTien) || 0) * invToVnd);
+    // Inventory stores tongTienHD in tiền Trung (CNY) — convert to full VND ×4500 cố định.
+    const invoiceAmt = Math.round((parseFloat(inv.tongTienHD || inv.tongTien) || 0) * 4500);
     const nccName = inv.tenNCC || String(inv.sttNCC || '');
     const invImgs = Array.isArray(inv.anhHoaDon) ? inv.anhHoaDon : [];
 
@@ -332,7 +329,10 @@ function _renderItemRow(it, idx) {
         <tr data-key="${it._key}">
             <td class="po-col-stt">${idx + 1}</td>
             <td class="po-col-name">
-                <input type="text" class="po-it-input" data-field="productName" value="${_esc(it.productName)}" placeholder="VD: 2003 B5 SET ÁO DÀI">
+                <div class="po-name-wrap">
+                    <input type="text" class="po-it-input po-it-name" data-field="productName" data-key="${it._key}" value="${_esc(it.productName)}" placeholder="Gõ tên/mã SP để chọn từ kho..." autocomplete="off">
+                    <div class="po-suggest" data-key="${it._key}" hidden></div>
+                </div>
             </td>
             <td class="po-col-variant">${variantCell}</td>
             <td class="po-col-code">
@@ -425,6 +425,18 @@ function _bindMainEvents() {
     // Confirm button in footer
     const btnConfirm = document.getElementById('btnConfirmConvertPO');
     if (btnConfirm) btnConfirm.onclick = _confirmConvertToPO;
+
+    // Click outside → close any open suggestion dropdowns
+    if (!window.__poSuggestOutsideBound) {
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.po-name-wrap')) return;
+            document.querySelectorAll('#modalConvertPO .po-suggest').forEach((d) => {
+                d.hidden = true;
+                d.innerHTML = '';
+            });
+        });
+        window.__poSuggestOutsideBound = true;
+    }
 }
 
 function _onItemInput(e) {
@@ -449,10 +461,106 @@ function _onItemInput(e) {
         }
     } else {
         item[field] = input.value;
+        if (field === 'productName') _scheduleSuggest(key, input);
+    }
+}
+
+// =====================================================
+// PRODUCT PICKER (autocomplete từ kho sản phẩm — WarehouseAPI)
+// =====================================================
+const _suggestTimers = new Map(); // key → debounce timer id
+
+function _scheduleSuggest(key, input) {
+    if (!window.WarehouseAPI) return;
+    const old = _suggestTimers.get(key);
+    if (old) clearTimeout(old);
+    const q = (input.value || '').trim();
+    const drop = input.closest('.po-name-wrap')?.querySelector('.po-suggest');
+    if (!drop) return;
+    if (q.length < 2) {
+        drop.hidden = true;
+        drop.innerHTML = '';
+        return;
+    }
+    const timer = setTimeout(() => _runSuggest(key, q, drop), 220);
+    _suggestTimers.set(key, timer);
+}
+
+async function _runSuggest(key, q, drop) {
+    try {
+        const rows = await window.WarehouseAPI.search(q, 8);
+        if (!Array.isArray(rows) || rows.length === 0) {
+            drop.hidden = true;
+            drop.innerHTML = '';
+            return;
+        }
+        drop.innerHTML = rows
+            .map((r) => {
+                const code = r.product_code || '';
+                const name = r.name_get || r.product_name || '';
+                const price = parseFloat(r.selling_price) || 0;
+                const qty = parseFloat(r.tpos_qty_available) || 0;
+                const img = window.WarehouseAPI.proxyImageUrl(r);
+                const imgHtml = img
+                    ? `<img class="po-suggest-img" src="${_esc(img)}" alt="" loading="lazy">`
+                    : `<span class="po-suggest-img po-suggest-img--empty"></span>`;
+                return `<div class="po-suggest-item" data-code="${_esc(code)}" data-name="${_esc(name)}" data-price="${price}">
+                    ${imgHtml}
+                    <div class="po-suggest-info">
+                        <div class="po-suggest-line1"><strong>${_esc(code)}</strong> — ${_esc(name)}</div>
+                        <div class="po-suggest-line2">
+                            <span class="po-suggest-price">${_fmtVND(price)} đ</span>
+                            <span class="po-suggest-qty${qty <= 0 ? ' po-suggest-qty--zero' : ''}">Tồn: ${qty}</span>
+                        </div>
+                    </div>
+                </div>`;
+            })
+            .join('');
+        drop.hidden = false;
+    } catch (err) {
+        console.warn('[CONVERT-PO] suggest error:', err.message);
+        drop.hidden = true;
+    }
+}
+
+function _applySuggestPick(key, code, name, price) {
+    const item = _convertItems.find((i) => i._key === key);
+    if (!item) return;
+    item.productName = name || item.productName;
+    item.productCode = code || item.productCode;
+    if (price > 0) item.sellingPrice = price;
+    // Cập nhật DOM input không re-render toàn bảng (giữ focus + giá mua user nhập)
+    const tr = document.querySelector(`#poItemsBody tr[data-key="${key}"]`);
+    if (tr) {
+        const nameInp = tr.querySelector('.po-it-input[data-field="productName"]');
+        const codeInp = tr.querySelector('.po-it-input[data-field="productCode"]');
+        const sellInp = tr.querySelector('.po-it-input[data-field="sellingPrice"]');
+        if (nameInp) nameInp.value = item.productName;
+        if (codeInp) codeInp.value = item.productCode;
+        if (sellInp && price > 0) sellInp.value = _fmtVND(price);
+    }
+    const drop = tr?.querySelector('.po-suggest');
+    if (drop) {
+        drop.hidden = true;
+        drop.innerHTML = '';
     }
 }
 
 function _onItemClick(e) {
+    const suggestItem = e.target.closest('.po-suggest-item');
+    if (suggestItem) {
+        const drop = suggestItem.closest('.po-suggest');
+        const key = drop?.dataset.key;
+        if (key) {
+            _applySuggestPick(
+                key,
+                suggestItem.dataset.code || '',
+                suggestItem.dataset.name || '',
+                parseFloat(suggestItem.dataset.price) || 0
+            );
+        }
+        return;
+    }
     const delBtn = e.target.closest('.po-btn-del');
     const varBtn = e.target.closest('.po-variant-btn, .po-variant-chip');
     const genBtn = e.target.closest('.po-btn-gen-code');

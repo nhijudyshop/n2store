@@ -22,6 +22,13 @@
 | **Chi tiết** | **Trigger user**: bill PBH NJD/2026/63983 (Huỳnh Thành Đạt 0123456788) chỉ hiện `STT: 313` thay vì `STT: 84 + 313`. Root cause: TAG XL "GỘP 84 313" lưu trong `ProcessingTagState._orderData[code].flags` (custom flag id `GOP_84_313`), KHÔNG nằm trong `order.Tags` (TPOS). Bill-service trước chỉ check `orderTags.find(t => t.Name.startsWith('Gộp '))` → miss. **Verify localhost**: `feval window.generateCustomBillHTML(order, {})` → match `<strong>STT:</strong> 84 + 313` ✅. Order code 260402102 / id 30150000-5d4d-0015-3e86-08de9872e286 có `xlFlags: [..., {id:"GOP_84_313", name:"GỘP 84 313"}]`. |
 | **Status** | ✅ Done. |
 
+### [inventory-tracking] Tỉ giá Trung→VND cố định ×4500 + product picker từ kho cho modal "Tạo đơn đặt hàng"
+| | |
+|---|---|
+| **Files** | MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` đổi `shipTiGia = parseFloat(shipment.tiGia)` → `shipTiGia = 4500` cố định. MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — bỏ `tiGia` arg từ shipment, dùng hằng số `INV_TO_VND = 4500` ở `_explodeSanPhamToItems()` + `_renderConvertModal()`; thêm autocomplete picker (cell Tên SP) gọi `WarehouseAPI.search()` với debounce 220ms ≥ 2 ký tự, hiển thị 8 gợi ý (ảnh + mã + tên + giá bán + tồn kho), click → fill `productName` + `productCode` + `sellingPrice`; click-outside hide dropdown (singleton listener flag). MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — load `../shared/js/warehouse-api.js` trước `modal-convert-po.js`. MODIFIED: [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css) — `.po-name-wrap` (relative), `.po-suggest` (dropdown 320px max-h, shadow), `.po-suggest-item` (img 36x36 + 2-line info), `.po-suggest-price` xanh / `.po-suggest-qty--zero` đỏ. |
+| **Chi tiết** | **Trigger user**: "1/Số tiền ở bảng và modal tạo đơn đặt hàng là x 4500. 2/Cho chọn sản phẩm từ kho sản phẩm ở modal tạo đơn đặt hàng". **Verify localhost**: bảng SP hiển thị `127 (572)`, `87 (392)`, tfoot `10.909 (49.091)` — đúng ×4500/1000. Modal: `invAmt=32.598.000` (7244×4500), `buyInputs=[571.500, 571.500, 391.500]` (127×4500, 87×4500). Picker: gõ "ao" → 8 suggestions; click `[B968X] 0101 B47 ÁO KHOÁC GÂN TRƠN TAY SỌC (Xám)` → name + code (`B968X`) + giá bán (`230.000`) auto-fill, dropdown ẩn. |
+| **Status** | ✅ Done. |
+
 ### [inventory-tracking] Modal "Tạo đơn đặt hàng" — convert Trung→VND đúng theo `tiGia` (thay vì ×1000 cứng)
 | | |
 |---|---|
