@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [orders] Mở rộng `STT: X + Y` (TAG XL gộp) sang Phiếu Soạn Hàng + TPOS bill — tách helper `getMergedSttDisplay()`
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — tách `getMergedSttDisplay(order, orderResult)` (priority: TPOS Tags "Gộp X Y" → `IsMerged.OriginalOrders` → ProcessingTagState custom flag id `GOP_<sttList>` → `SessionIndex`); `generateCustomBillHTML()` dùng helper thay vì 3 đoạn duplicate; export `window.getMergedSttDisplay`. MODIFIED: [orders-report/js/tab1/tab1-packing-slip.js](../orders-report/js/tab1/tab1-packing-slip.js) — `openPackingSlipModal()` (modal preview) + `generatePackingSlipHTML()` (HTML in) dùng `window.getMergedSttDisplay(order)` thay vì `order.SessionIndex`. MODIFIED: [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) — TPOS bill (modify HTML thêm STT dưới "Người bán") dùng helper, gồm fallback TAG XL vốn chỉ check `IsMerged` trước đây. |
+| **Chi tiết** | **Trigger user**: "phiếu khác phiếu bán hàng đã có logic tag xl chưa?" → check thấy Phiếu Soạn Hàng + TPOS bill (sale-confirm) chỉ dùng `order.SessionIndex` hoặc check `IsMerged` mà không check TAG XL `GOP_<X>_<Y>` flag. **Refactor**: tách helper chung trong bill-service để các consumer (PBH web, PBH TPOS, Phiếu Soạn Hàng) cùng dùng — giảm 24 dòng duplicate. **Verify**: order STT 313 (code 260402102) có flag `{id:"GOP_84_313", name:"GỘP 84 313"}` → tất cả 3 phiếu hiển thị `STT: 84 + 313` (logic identical với fix trước, đã pass test "84 + 313"). |
+| **Status** | ✅ Done. |
+
 ### [render+orders] Phát hiện DELETE phiếu TPOS — verify single-key 404 + cleanup DB Render + Memory client
 | | |
 |---|---|
