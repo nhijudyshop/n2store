@@ -150,6 +150,31 @@ const BillService = (function () {
             }
         }
 
+        // Fallback: check TAG XL (ProcessingTagState) for merge custom flag "Gộp X Y"
+        // Merge marker is stored as custom flag with id "GOP_<sttList>" / label "GỘP X Y"
+        if (mergeTagNumbers.length === 0 && window.ProcessingTagState) {
+            const orderCode = order?.Code || orderResult?.Code;
+            if (orderCode) {
+                const xlData =
+                    window.ProcessingTagState.getOrderData(String(orderCode)) ||
+                    window.ProcessingTagState.getOrderDataByIdFallback(
+                        String(order?.Id || orderResult?.Id || '')
+                    );
+                const xlFlags = xlData?.flags || [];
+                const xlMergeFlag = xlFlags.find((f) => {
+                    const fId = typeof f === 'string' ? f : f?.id;
+                    return typeof fId === 'string' && /^GOP_\d+(_\d+)+$/.test(fId);
+                });
+                if (xlMergeFlag) {
+                    const fId = typeof xlMergeFlag === 'string' ? xlMergeFlag : xlMergeFlag.id;
+                    const numbers = fId.match(/\d+/g);
+                    if (numbers && numbers.length > 1) {
+                        mergeTagNumbers = numbers;
+                    }
+                }
+            }
+        }
+
         // Order comment - get from form or data (pre-filled by fast sale modal)
         const orderComment =
             (isModalVisible && document.getElementById('saleReceiverNote')?.value) ||
