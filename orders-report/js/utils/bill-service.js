@@ -9,6 +9,74 @@
  */
 const BillService = (function () {
     /**
+     * Get merged STT display string for an order.
+     * Returns "84 + 313" if order is a merge target, else single STT or empty string.
+     * Priority:
+     *   1) TPOS Tags "Gộp X Y" / "GỘP X Y"
+     *   2) order.IsMerged + order.OriginalOrders[].SessionIndex
+     *   3) TAG XL custom flag id GOP_<sttList> (ProcessingTagState)
+     *   4) Fallback: order.SessionIndex
+     * @param {Object} order - Order object (may have Tags, IsMerged, OriginalOrders, Code, Id, SessionIndex)
+     * @param {Object} [orderResult] - Optional secondary source for Tags/Code/Id/SessionIndex
+     * @returns {string} STT display value (e.g., "84 + 313" or "313" or "")
+     */
+    function getMergedSttDisplay(order, orderResult) {
+        const src = order || orderResult || {};
+        const fallback = orderResult || {};
+        // 1) TPOS Tags
+        let orderTags = [];
+        try {
+            const tagsRaw = src.Tags || fallback.Tags;
+            if (tagsRaw) {
+                orderTags = typeof tagsRaw === 'string' ? JSON.parse(tagsRaw) : tagsRaw;
+                if (!Array.isArray(orderTags)) orderTags = [];
+            }
+        } catch (e) {
+            orderTags = [];
+        }
+        const mergeTag = orderTags.find((t) => {
+            const n = (t.Name || '').trim();
+            return (
+                n.toLowerCase().startsWith('gộp ') ||
+                n.startsWith('Gộp ') ||
+                n.startsWith('GỘP ')
+            );
+        });
+        if (mergeTag) {
+            const nums = mergeTag.Name.match(/\d+/g);
+            if (nums && nums.length > 1) return nums.sort((a, b) => +a - +b).join(' + ');
+        }
+        // 2) IsMerged + OriginalOrders
+        if (src.IsMerged && Array.isArray(src.OriginalOrders) && src.OriginalOrders.length > 1) {
+            const sttList = src.OriginalOrders.map((o) => o.SessionIndex)
+                .filter((s) => s)
+                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+            if (sttList.length > 1) return sttList.join(' + ');
+        }
+        // 3) TAG XL custom flag
+        if (window.ProcessingTagState) {
+            const code = src.Code || fallback.Code;
+            const id = src.Id || fallback.Id;
+            const xlData =
+                (code && window.ProcessingTagState.getOrderData(String(code))) ||
+                (id && window.ProcessingTagState.getOrderDataByIdFallback(String(id))) ||
+                null;
+            const xlFlags = xlData?.flags || [];
+            const xlMergeFlag = xlFlags.find((f) => {
+                const fId = typeof f === 'string' ? f : f?.id;
+                return typeof fId === 'string' && /^GOP_\d+(_\d+)+$/.test(fId);
+            });
+            if (xlMergeFlag) {
+                const fId = typeof xlMergeFlag === 'string' ? xlMergeFlag : xlMergeFlag.id;
+                const nums = fId.match(/\d+/g);
+                if (nums && nums.length > 1) return nums.sort((a, b) => +a - +b).join(' + ');
+            }
+        }
+        // 4) Single STT fallback
+        return String(src.SessionIndex || fallback.SessionIndex || '');
+    }
+
+    /**
      * Generate bill HTML from order data (EXACT TPOS template copy)
      *
      * This is a fallback bill template that matches TPOS bill format EXACTLY.
@@ -133,47 +201,8 @@ const BillService = (function () {
             orderTags = [];
         }
 
-        // Find merge tag (Gộp X Y Z or GỘP X Y Z) for STT display
-        let mergeTagNumbers = [];
-        const mergeTag = orderTags.find((t) => {
-            const tagName = (t.Name || '').trim();
-            return (
-                tagName.toLowerCase().startsWith('gộp ') ||
-                tagName.startsWith('Gộp ') ||
-                tagName.startsWith('GỘP ')
-            );
-        });
-        if (mergeTag) {
-            const numbers = mergeTag.Name.match(/\d+/g);
-            if (numbers && numbers.length > 0) {
-                mergeTagNumbers = numbers;
-            }
-        }
-
-        // Fallback: check TAG XL (ProcessingTagState) for merge custom flag "Gộp X Y"
-        // Merge marker is stored as custom flag with id "GOP_<sttList>" / label "GỘP X Y"
-        if (mergeTagNumbers.length === 0 && window.ProcessingTagState) {
-            const orderCode = order?.Code || orderResult?.Code;
-            if (orderCode) {
-                const xlData =
-                    window.ProcessingTagState.getOrderData(String(orderCode)) ||
-                    window.ProcessingTagState.getOrderDataByIdFallback(
-                        String(order?.Id || orderResult?.Id || '')
-                    );
-                const xlFlags = xlData?.flags || [];
-                const xlMergeFlag = xlFlags.find((f) => {
-                    const fId = typeof f === 'string' ? f : f?.id;
-                    return typeof fId === 'string' && /^GOP_\d+(_\d+)+$/.test(fId);
-                });
-                if (xlMergeFlag) {
-                    const fId = typeof xlMergeFlag === 'string' ? xlMergeFlag : xlMergeFlag.id;
-                    const numbers = fId.match(/\d+/g);
-                    if (numbers && numbers.length > 1) {
-                        mergeTagNumbers = numbers;
-                    }
-                }
-            }
-        }
+        // STT merge display — covers TPOS Tags, IsMerged, and TAG XL custom flag GOP_*
+        const sttDisplayMerged = getMergedSttDisplay(order, orderResult);
 
         // Order comment - get from form or data (pre-filled by fast sale modal)
         const orderComment =
@@ -219,20 +248,8 @@ const BillService = (function () {
             orderResult?.UserName ||
             '';
 
-        // STT (Session Index) - prioritize merge tag numbers
-        let sttDisplay = '';
-        if (mergeTagNumbers.length > 1) {
-            // If has merge tag "Gộp 745 923", show "745 + 923"
-            sttDisplay = mergeTagNumbers.join(' + ');
-        } else if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
-            // Fallback to merged orders STTs
-            const allSTTs = order.OriginalOrders.map((o) => o.SessionIndex)
-                .filter((stt) => stt)
-                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-            sttDisplay = allSTTs.join(' + ');
-        } else {
-            sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
-        }
+        // STT (Session Index) - merge-aware via getMergedSttDisplay()
+        const sttDisplay = sttDisplayMerged;
 
         // Bill number and date (data should already be complete from InvoiceStatusStore)
         const billNumber = orderResult?.Number || '';
