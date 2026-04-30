@@ -168,9 +168,7 @@ function _renderConvertModal() {
     // Fallback ×1000 if tỉ giá missing (legacy behavior).
     const tg = parseFloat(_convertCurrentTiGia) || 0;
     const invToVnd = tg > 0 ? tg : 1000;
-    const invoiceAmt = Math.round(
-        (parseFloat(inv.tongTienHD || inv.tongTien) || 0) * invToVnd
-    );
+    const invoiceAmt = Math.round((parseFloat(inv.tongTienHD || inv.tongTien) || 0) * invToVnd);
     const nccName = inv.tenNCC || String(inv.sttNCC || '');
     const invImgs = Array.isArray(inv.anhHoaDon) ? inv.anhHoaDon : [];
 

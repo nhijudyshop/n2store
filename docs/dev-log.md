@@ -15,6 +15,13 @@
 | **Chi tiết** | **Trigger user**: bill PBH NJD/2026/63983 (Huỳnh Thành Đạt 0123456788) chỉ hiện `STT: 313` thay vì `STT: 84 + 313`. Root cause: TAG XL "GỘP 84 313" lưu trong `ProcessingTagState._orderData[code].flags` (custom flag id `GOP_84_313`), KHÔNG nằm trong `order.Tags` (TPOS). Bill-service trước chỉ check `orderTags.find(t => t.Name.startsWith('Gộp '))` → miss. **Verify localhost**: `feval window.generateCustomBillHTML(order, {})` → match `<strong>STT:</strong> 84 + 313` ✅. Order code 260402102 / id 30150000-5d4d-0015-3e86-08de9872e286 có `xlFlags: [..., {id:"GOP_84_313", name:"GỘP 84 313"}]`. |
 | **Status** | ✅ Done. |
 
+### [inventory-tracking] Modal "Tạo đơn đặt hàng" — convert Trung→VND đúng theo `tiGia` (thay vì ×1000 cứng)
+| | |
+|---|---|
+| **Files** | MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — thêm state `_convertCurrentTiGia`; `openConvertToPurchaseOrderModal()` resolve `tiGia` từ shipment cha (`globalState.shipments`), pass xuống `_explodeSanPhamToItems(sanPhamArr, tiGia)`; `_renderConvertModal()` dùng `tiGia` để compute `invoiceAmt` (Số tiền hóa đơn VND); fallback ×1000 vẫn giữ khi shipment chưa có tỉ giá. |
+| **Chi tiết** | **Trigger user**: "vào modal này sẽ là tiền VNĐ". Trước đây modal mặc định `INV_TO_VND = 1000`, hiển thị 127 yuan thành 127.000 VND — sai. Nay dùng `tiGia` của shipment (vd 3979) → `127 × 3979 = 505.333` VND đúng. **Verify localhost**: Số tiền hóa đơn 7.244 yuan → `28.823.876` VND; Giá mua 127/87/97 yuan → `505.333 / 346.173 / 385.963` VND. **Fallback**: shipment chưa nhập tỉ giá thì giữ ×1000 để không phá legacy data. |
+| **Status** | ✅ Done. |
+
 ### [inventory-tracking] Đơn giá / Tiền HĐ hiển thị song song "Trung (VNĐ)" — chuyển CNY → VND nghìn theo `tiGia` của shipment
 | | |
 |---|---|
