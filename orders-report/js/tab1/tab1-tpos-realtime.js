@@ -252,29 +252,46 @@
             eventData.Data?.Order?.Code ||
             eventData.Order?.Code ||
             ''; // e.g. "NJD/2026/60576"
+        // FastSaleOrder Id ở root payload (vd payment/cancel events:
+        // {Id: 432724, State: "paid"} không kèm Order.Code)
+        const invoiceId =
+            eventData.Id ||
+            eventData.data?.Id ||
+            eventData.Data?.Id ||
+            null;
         const message = eventData.message || eventData.Message || '';
 
-        if (!invoiceNumber) {
-            console.log('[TPOS-RT] Invoice event without Order.Code, skipping');
+        if (!invoiceNumber && !invoiceId) {
+            console.log('[TPOS-RT] Invoice event without Order.Code AND Id, skipping');
             return;
         }
 
-        // Deduplicate
-        const dedupeKey = `inv_${invoiceNumber}_${action}`;
+        // Deduplicate (key theo Number nếu có, ngược lại theo Id)
+        const dedupeKey = `inv_${invoiceNumber || invoiceId}_${action}`;
         if (isRecentlyProcessed(dedupeKey)) return;
         markProcessed(dedupeKey);
 
-        console.log('[TPOS-RT] 📄 Invoice', action, ':', invoiceNumber, '-', message);
+        console.log(
+            '[TPOS-RT] 📄 Invoice',
+            action,
+            ':',
+            invoiceNumber || `Id=${invoiceId}`,
+            '-',
+            message
+        );
 
-        // Fetch invoice by Number (dùng đúng format TPOS OData: contains(Number, '...'))
-        // rồi lấy Reference → tìm order trong table → cập nhật cột PBH
+        // Fetch invoice from TPOS OData. Ưu tiên Number (tạo phiếu thường có Order.Code);
+        // fallback Id khi payload chỉ chứa {Id, State} (vd action `fast_sale_order_payment`,
+        // `cancelled`, `deleted` — TPOS push lean payload).
         try {
             if (!window.tokenManager?.getAuthHeader) return;
             const tposOData =
                 window.API_CONFIG?.TPOS_ODATA ||
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const headers = await window.tokenManager.getAuthHeader();
-            const filter = `(Type eq 'invoice' and contains(Number,'${invoiceNumber}'))`;
+            const filter = invoiceNumber
+                ? `(Type eq 'invoice' and contains(Number,'${invoiceNumber}'))`
+                : `(Id eq ${invoiceId})`;
             const url =
                 `${tposOData}/FastSaleOrder/ODataService.GetView` +
                 `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;

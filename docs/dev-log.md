@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [orders] PBH realtime nhận event lean payload `{Id, State}` (action payment / cancel / delete) — fetch fallback by Id
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — extract thêm `invoiceId` từ root payload (`eventData.Id`, `data.Id`, `Data.Id`); guard mới: skip CHỈ khi cả `invoiceNumber` LẪN `invoiceId` đều thiếu; OData filter dùng `Id eq <invoiceId>` khi không có Number; dedupe key fallback theo Id. |
+| **Chi tiết** | **Trigger user**: TPOS gửi event `fast_sale_order_payment` payload `{Id: 432728, State: "open"}` — chỉ Id, không có `Order.Code` → client log `Invoice event without Order.Code, skipping` → bỏ qua mọi event payment / hủy phiếu / xóa. **Verify từ log live 2-tab test**: 03:21:36 invoice 432724 paid, 03:22:39 invoice 432726 open, 03:25:47 invoice 432728 open — 3 event đều bị skip. **Fix**: hủy phiếu (action `cancelled`) cũng push lean payload tương tự → cần OData lookup by Id thay vì by Number. Dedupe vẫn đảm bảo không xử lý trùng do TPOS replay. Action `created` (NJD/2026/64530) đã hoạt động OK (có Order.Code). |
+| **Status** | ✅ Done. |
+
 ### [render] TPOS WS Watchdog — auto-detect dead socket + refresh token + reconnect (60s loop)
 | | |
 |---|---|
