@@ -1166,8 +1166,10 @@ setInterval(async () => {
         const invoices = Array.isArray(result?.value) ? result.value : [];
 
         let broadcasted = 0;
+        const currentIds = new Set();
         for (const inv of invoices) {
             if (!inv.Id) continue;
+            currentIds.add(inv.Id);
             const stateKey = `${inv.State || ''}|${inv.ShowState || ''}`;
             const cached = recentInvoiceState.get(inv.Id);
             if (!invoicePollColdStart && (!cached || cached.stateKey !== stateKey)) {
@@ -1195,13 +1197,61 @@ setInterval(async () => {
                     stateKey
                 );
             }
-            recentInvoiceState.set(inv.Id, { stateKey, ts: Date.now() });
+            recentInvoiceState.set(inv.Id, {
+                stateKey,
+                ts: Date.now(),
+                lastSeenInPoll: Date.now(),
+            });
         }
         if (invoicePollColdStart) {
             console.log(
                 `[INVOICE-POLL] Cold start populated ${invoices.length} invoices, polling armed`
             );
             invoicePollColdStart = false;
+        }
+
+        // DELETE DETECTION: entries vừa thấy trong cache (< 2 cycles ago) NHƯNG
+        // không xuất hiện trong current poll result → suspect deleted khỏi TPOS.
+        // Verify bằng single-key endpoint /FastSaleOrder({id}) — 404 = confirmed deleted.
+        // Broadcast `polled-deleted` để client cleanup InvoiceStatusStore + DB.
+        if (!invoicePollColdStart) {
+            const deleteCutoff = Date.now() - 2 * INVOICE_POLL_INTERVAL_MS; // 120s
+            const candidatesDeleted = [];
+            for (const [id, v] of recentInvoiceState) {
+                if (currentIds.has(id)) continue;
+                if (v.lastSeenInPoll && v.lastSeenInPoll > deleteCutoff) {
+                    candidatesDeleted.push(id);
+                }
+            }
+            for (const id of candidatesDeleted) {
+                try {
+                    const verifyResp = await fetch(
+                        `${TPOS_ODATA_BASE_POLL}/FastSaleOrder(${id})`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                accept: 'application/json',
+                            },
+                            agent: tposPollHttpsAgent,
+                        }
+                    );
+                    if (verifyResp.status === 404) {
+                        console.log('[INVOICE-POLL] DELETE detected: Id', id);
+                        broadcastToClients({
+                            type: 'tpos:invoice-update',
+                            action: 'polled-deleted',
+                            data: { Id: id },
+                        });
+                        broadcasted++;
+                        recentInvoiceState.delete(id);
+                    } else if (verifyResp.ok) {
+                        // Vẫn tồn tại nhưng ra ngoài DateInvoice lookback — refresh lastSeen
+                        recentInvoiceState.set(id, { ...v, lastSeenInPoll: Date.now() });
+                    }
+                } catch (e) {
+                    // network error — skip, retry next cycle
+                }
+            }
         }
         // Cleanup cache > 30 phút (tránh memory leak)
         const cutoff = Date.now() - 30 * 60_000;

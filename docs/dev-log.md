@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [render+orders] Phát hiện DELETE phiếu TPOS — verify single-key 404 + cleanup DB Render + Memory client
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/server.js](../render.com/server.js) poll cycle — track `currentIds` set mỗi cycle. Sau broadcast state-change, identify candidates deleted (entries trong cache có `lastSeenInPoll` < 2 cycles ago NHƯNG không trong currentIds). Verify từng candidate qua single-key endpoint `/FastSaleOrder({id})`: HTTP 404 = confirmed deleted → broadcast `{type:'tpos:invoice-update', action:'polled-deleted', data:{Id}}` + xóa khỏi cache. HTTP 200 (vẫn tồn tại nhưng ra ngoài DateInvoice lookback) → refresh `lastSeenInPoll`. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — branch mới khi `action === 'polled-deleted'`: scan `InvoiceStatusStore._data` tìm entries có `Id === invoiceId`, gọi `DELETE ${API_BASE}/entries/{compoundKey}` cho từng entry → xóa local Map → re-render PBH cell các order liên quan. |
+| **Chi tiết** | **Trigger user**: "xóa tpos mà không xóa render db nó sẽ lỗi". Trước đây: cancel (State='cancel') được polling phát hiện qua diff state, nhưng DELETE thực sự (invoice biến mất khỏi TPOS DB) — poll không thấy invoice trong result → cache vẫn giữ state cũ → DB Render giữ entry stale → web hiển thị PBH không tồn tại. **Logic mới**: cache structure thêm `lastSeenInPoll` ts. Mỗi poll cycle, sau khi process current invoices, scan cache tìm entries vừa thấy < 2 cycles ago (120s) nhưng KHÔNG trong current → suspect deleted. Verify single-key 404 → confirmed → broadcast `polled-deleted`. Tránh false positive (entry ra ngoài DateInvoice lookback NATURAL nhưng vẫn tồn tại) bằng verify 200 → refresh lastSeen. Client xóa CHÍNH XÁC entry by `compoundKey` (không xóa toàn bộ saleOnlineId — đơn có nhiều phiếu phải giữ phiếu khác active). |
+| **Status** | ✅ Done. |
+
 ### [render+orders] Hủy phiếu TPOS realtime fix — TPOS không emit cancel event → poll fallback + single-key OData lookup
 | | |
 |---|---|

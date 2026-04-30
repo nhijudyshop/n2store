@@ -267,6 +267,60 @@
         if (isRecentlyProcessed(dedupeKey)) return;
         markProcessed(dedupeKey);
 
+        // Action `polled-deleted`: invoice đã bị xóa hoàn toàn khỏi TPOS DB
+        // (verified bởi server poll qua single-key 404). Tìm entry trong
+        // InvoiceStatusStore có Id matching tposInvoiceId → DELETE qua API
+        // → cleanup DB Render + memory + re-render PBH cell.
+        if (action === 'polled-deleted' && invoiceId && window.InvoiceStatusStore) {
+            const allOrderIds = new Set();
+            const matchingEntries = [];
+            for (const [key, value] of window.InvoiceStatusStore._data.entries()) {
+                if (value.Id === invoiceId) {
+                    matchingEntries.push({ key, soId: value.SaleOnlineId });
+                    if (value.SaleOnlineId) allOrderIds.add(value.SaleOnlineId);
+                }
+            }
+            if (matchingEntries.length === 0) {
+                console.log('[TPOS-RT] 📄 polled-deleted Id', invoiceId, '— không có trong Store, skip');
+                return;
+            }
+            console.log(
+                '[TPOS-RT] 📄 polled-deleted Id',
+                invoiceId,
+                '→ xóa',
+                matchingEntries.length,
+                'entry(s)'
+            );
+            // Xóa từng entry chính xác qua API endpoint compound_key
+            const apiBase =
+                (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
+                '/api/invoice-status';
+            for (const { key } of matchingEntries) {
+                try {
+                    await fetch(`${apiBase}/entries/${encodeURIComponent(key)}`, {
+                        method: 'DELETE',
+                    });
+                } catch (e) {
+                    console.warn('[TPOS-RT] DELETE entry failed:', key, e.message);
+                }
+                window.InvoiceStatusStore._data.delete(key);
+                window.InvoiceStatusStore._myKeys?.delete(key);
+            }
+            // Re-render PBH cells của các order liên quan
+            if (typeof window.renderInvoiceStatusCell === 'function') {
+                for (const soId of allOrderIds) {
+                    const row = document.querySelector(`tr[data-order-id="${soId}"]`);
+                    if (!row) continue;
+                    const cell = row.querySelector('td[data-column="invoice-status"]');
+                    if (!cell) continue;
+                    const order =
+                        typeof allData !== 'undefined' && allData.find((o) => o.Id === soId);
+                    if (order) cell.innerHTML = window.renderInvoiceStatusCell(order);
+                }
+            }
+            return;
+        }
+
         console.log(
             '[TPOS-RT] 📄 Invoice',
             action,
