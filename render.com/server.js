@@ -1119,6 +1119,102 @@ console.log(
     `[TPOS-WATCHDOG] Active — checks every ${TPOS_WATCHDOG_INTERVAL_MS / 1000}s, dead threshold ${TPOS_DEAD_THRESHOLD_MS / 1000}s`
 );
 
+// =====================================================
+// INVOICE STATE POLLING — fallback cho event TPOS không emit
+// =====================================================
+// TPOS chatomni socket KHÔNG emit FastSaleOrder.cancelled khi user click
+// "Hủy phiếu bán hàng" trên TPOS UI. Verified bằng 2-tab live test:
+// 35 phút log chỉ thấy actions `created` và `fast_sale_order_payment`,
+// không có `cancelled`/`deleted`/`updated` cho bất kỳ invoice nào.
+// Giải pháp: poll TPOS OData mỗi 60s lấy invoices recent, diff State với
+// cache local, broadcast `tpos:invoice-update` cho mọi state change → web
+// realtime cập nhật cancel/state đổi mà không cần TPOS event.
+const https = require('https');
+const TPOS_ODATA_BASE_POLL = 'https://tomato.tpos.vn/odata';
+const tposPollHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+const INVOICE_POLL_INTERVAL_MS = 60_000;
+const INVOICE_POLL_LOOKBACK_MIN = 5;
+const INVOICE_POLL_TOP = 50;
+const recentInvoiceState = new Map(); // invoiceId -> { stateKey, ts }
+let invoicePollColdStart = true; // lần đầu chỉ populate cache, không broadcast
+let invoicePollRunning = false;
+
+setInterval(async () => {
+    if (invoicePollRunning) return;
+    invoicePollRunning = true;
+    try {
+        const token = await tposTokenManager.getToken().catch(() => null);
+        if (!token) return;
+        const since = new Date(Date.now() - INVOICE_POLL_LOOKBACK_MIN * 60_000).toISOString();
+        const filter = `WriteDate ge ${since}`;
+        const url =
+            `${TPOS_ODATA_BASE_POLL}/FastSaleOrder/ODataService.GetView` +
+            `?$top=${INVOICE_POLL_TOP}&$orderby=WriteDate desc` +
+            `&$filter=${encodeURIComponent(filter)}`;
+        const resp = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+            agent: tposPollHttpsAgent,
+        });
+        if (!resp.ok) return;
+        const result = await resp.json();
+        const invoices = Array.isArray(result?.value) ? result.value : [];
+
+        let broadcasted = 0;
+        for (const inv of invoices) {
+            if (!inv.Id) continue;
+            const stateKey = `${inv.State || ''}|${inv.ShowState || ''}`;
+            const cached = recentInvoiceState.get(inv.Id);
+            if (!invoicePollColdStart && (!cached || cached.stateKey !== stateKey)) {
+                // Broadcast lean payload giống event TPOS thật → client logic
+                // (tab1-tpos-realtime.js handleInvoiceUpdate) handle đã có sẵn:
+                // fetch by Id qua single-key endpoint, update InvoiceStatusStore.
+                broadcastToClients({
+                    type: 'tpos:invoice-update',
+                    action: 'polled-state-change',
+                    data: {
+                        Id: inv.Id,
+                        Number: inv.Number,
+                        Reference: inv.Reference,
+                        State: inv.State,
+                        ShowState: inv.ShowState,
+                        Order: { Id: inv.Id, Code: inv.Number },
+                    },
+                });
+                broadcasted++;
+                console.log(
+                    '[INVOICE-POLL] State change:',
+                    inv.Number || `Id=${inv.Id}`,
+                    cached?.stateKey || '(new)',
+                    '→',
+                    stateKey
+                );
+            }
+            recentInvoiceState.set(inv.Id, { stateKey, ts: Date.now() });
+        }
+        if (invoicePollColdStart) {
+            console.log(
+                `[INVOICE-POLL] Cold start populated ${invoices.length} invoices, polling armed`
+            );
+            invoicePollColdStart = false;
+        }
+        // Cleanup cache > 30 phút (tránh memory leak)
+        const cutoff = Date.now() - 30 * 60_000;
+        for (const [id, v] of recentInvoiceState) {
+            if (v.ts < cutoff) recentInvoiceState.delete(id);
+        }
+        if (broadcasted > 0) {
+            console.log(`[INVOICE-POLL] Broadcasted ${broadcasted} state-change events`);
+        }
+    } catch (e) {
+        console.warn('[INVOICE-POLL] error:', e.message);
+    } finally {
+        invoicePollRunning = false;
+    }
+}, INVOICE_POLL_INTERVAL_MS);
+console.log(
+    `[INVOICE-POLL] Active — every ${INVOICE_POLL_INTERVAL_MS / 1000}s, lookback ${INVOICE_POLL_LOOKBACK_MIN}min, top ${INVOICE_POLL_TOP}`
+);
+
 // Initialize Global Client with DB connection
 const realtimeClient = new RealtimeClient();
 realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates

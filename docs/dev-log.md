@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [render+orders] Hủy phiếu TPOS realtime fix — TPOS không emit cancel event → poll fallback + single-key OData lookup
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/server.js](../render.com/server.js) — sau watchdog block thêm INVOICE STATE POLLING `setInterval` 60s: gọi `tposTokenManager.getToken()` → query `${TPOS_ODATA}/FastSaleOrder/ODataService.GetView?$filter=WriteDate ge <5min ago>&$top=50&$orderby=WriteDate desc` → diff `State|ShowState` với cache `Map<invoiceId, {stateKey, ts}>` → broadcast `{type:'tpos:invoice-update', action:'polled-state-change', data:{Id,Number,Reference,State,ShowState,Order:{Id,Code:Number}}}` cho mọi state change. Cold start lần đầu chỉ populate cache (tránh spam 50 events). Cleanup cache entries > 30min. Guard `invoicePollRunning` tránh chạy chồng. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — đổi lookup khi không có Number: từ filter `Id eq <id>` (TPOS GetView IGNORE filter này, trả record random!) sang single-key endpoint `/FastSaleOrder({id})` (200 OK trả đúng record). Handle response shape: GetView `{value:[...]}` vs single-key object `{Id, ...}`. |
+| **Chi tiết** | **Trigger user**: hủy phiếu 432792 (NJD/2026/64593) trên TPOS UI → web không update. **Verify từ 2-tab live test**: 35 phút WS log chỉ thấy actions `created` và `fast_sale_order_payment`, **không có** `cancelled`/`deleted`/`updated`. **Verify cancel thật**: GET `/api/odata/FastSaleOrder(432792)` → State='cancel', ShowState='Hủy bỏ' → cancel SUCCESS bên TPOS, nhưng KHÔNG emit qua chatomni socket. **2 bug song song**: (A) TPOS GetView filter `Id eq X` bị ignore → ngay cả khi event lean payload `{Id,State}` đến, lookup OData trả record sai; (B) cancel không emit event nên không có gì để trigger lookup. **Fix**: (A) single-key endpoint hoạt động đúng (verified); (B) Render poll TPOS mỗi 60s, broadcast event tự custom action `polled-state-change` — client tab1 handle đã có sẵn (handleInvoiceUpdate fetch by Id → update Store + re-render PBH cell). |
+| **Status** | ✅ Done. Auto-deploy via push. Render poll cold start ~10s sau boot, sau đó cancel phiếu sẽ phát hiện trong vòng 60s qua poll fallback. |
+
 ### [orders] Cell PHIẾU BÁN HÀNG ghi rõ Number + Ngày + Tooltip nút X — tránh hủy nhầm phiếu cũ
 | | |
 |---|---|

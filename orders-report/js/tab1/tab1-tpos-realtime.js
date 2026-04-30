@@ -285,16 +285,28 @@
                 window.API_CONFIG?.TPOS_ODATA ||
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const headers = await window.tokenManager.getAuthHeader();
-            const filter = invoiceNumber
-                ? `(Type eq 'invoice' and contains(Number,'${invoiceNumber}'))`
-                : `(Id eq ${invoiceId})`;
-            const url =
-                `${tposOData}/FastSaleOrder/ODataService.GetView` +
-                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            // TPOS OData GetView IGNORE filter `Id eq X` (verified: trả về record random
+            // thay vì record có Id đúng) → khi chỉ có invoiceId, dùng endpoint single-key
+            // `/FastSaleOrder({id})` (200 OK trả đúng 1 record). Khi có Number, vẫn dùng
+            // GetView với Number filter (Number filter HOẠT ĐỘNG).
+            let url;
+            if (invoiceNumber) {
+                const filter = `(Type eq 'invoice' and contains(Number,'${invoiceNumber}'))`;
+                url =
+                    `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                    `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            } else {
+                url = `${tposOData}/FastSaleOrder(${invoiceId})`;
+            }
             const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
             if (!resp.ok) return;
             const result = await resp.json();
-            const list = Array.isArray(result?.value) ? result.value : [];
+            // GetView trả `{value: [...]}`; single-key trả single object trực tiếp.
+            const list = Array.isArray(result?.value)
+                ? result.value
+                : result && typeof result === 'object' && result.Id
+                  ? [result]
+                  : [];
             if (list.length === 0) return;
 
             const inv = list[0];
