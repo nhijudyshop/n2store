@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [inventory] Modal "Tạo đơn đặt hàng" — share mã theo tên SP, validate trùng tên khác mã, khóa overlay
+| | |
+|---|---|
+| **Files** | MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — `_generateCodesForAll`: build `nameCodeMap` (normalized name→code) từ items đã có code, mỗi target check map → reuse code thay vì gọi generator. Thêm `_clearItemErrorHighlights` + `_validateSameNameSameCode`: group validItems theo `productName.trim().toLowerCase()`, group có ≥2 distinct codes → tô đỏ tất cả rows + báo "STT X, Y có cùng tên SP nhưng mã khác nhau". Gọi trong `_confirmConvertToPO` sau missing-code check. MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — bỏ `onclick="closeModal('modalConvertPO')"` trên `.modal-overlay` của `#modalConvertPO` → click ngoài không tắt modal, chỉ Hủy / X mới đóng. MODIFIED: [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css) — thêm `.po-row-error` (background `#fef2f2`, inset shadow đỏ trái) cho row vi phạm validation. |
+| **Chi tiết** | **Trigger user**: "1) Tạo mã tất cả: STT cùng tên 100% phải dùng chung mã của STT đầu tiên (vd 24/1 Trắng N4106 → 24/1 Đen cũng N4106). 2) Tạo đơn hàng: kiểm tra cùng tên khác mã → tô đỏ + bắt sửa. 3) Click ngoài modal không tắt — phải Hủy/X". **Implementation**: (1) Sequential gen vẫn giữ để tránh trùng mã khi nhiều prefix cùng nhóm, nhưng thêm step reuse-from-map đứng trước generator call → cùng tên = cùng code. (2) Validation chạy AFTER missing-code check (đảm bảo tất cả items có code mới so sánh). Highlight persist (không setTimeout) đến khi user sửa & re-submit → `_clearItemErrorHighlights` clear trước mỗi lần validate. (3) Overlay vẫn render dimming, chỉ bỏ click handler — pattern cũ `purchase-orders` modal cũng làm vậy. |
+| **Status** | ✅ Done. |
+
 ### [orders] Click "+ PBH" trên đơn còn phiếu chưa hủy → modal cảnh báo + xác nhận "Tạo tiếp"
 | | |
 |---|---|
@@ -91,6 +98,7 @@
 | **Files** | MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` lấy `shipTiGia = shipment.tiGia`, gắn vào header (`Đơn giá (Trung)`, `Tiền HĐ (Trung / VNĐ)`), pass xuống `renderProductRow()`, gắn VND suffix vào tfoot total; `renderProductRow()` nhận `tiGia` opt, render `_vndSuffixHtml` next to `giaDonVi` + `tongTienHD` + thêm `data-ti-gia` attr trên 2 cell để inline-edit dùng được; `startInlineEdit()` strip `(...)` khỏi text trước khi parseFloat; `commitInlineEdit()` re-render VND suffix sau update + amount-value cell rowspanned cũng được sync. MODIFIED: [inventory-tracking/css/modern.css](../inventory-tracking/css/modern.css) — thêm `.th-currency-tag` (label nhỏ hơn, gray-500). |
 | **Chi tiết** | **Trigger user**: "giá tiền nhập vào bảng này là tiền tệ trung nên cần x 4.5 ghi rõ tiền trung, vnđ". Tỉ giá thực tế đọc từ `shipment.tiGia` (vd `3979`), không hard-code 4.5. Format VND: `(yuan × tiGia / 1000)` rounded, hiện trong `<span class="vnd-inline">(...)</span>` xanh — đồng bộ với header stats bar và Tổng HĐ ngoài shipment header đã có sẵn. **Verify localhost**: header `Đơn giá (Trung)` / `Tiền HĐ (Trung / VNĐ)`; cell `127 (505)` = 127 yuan / 505k VND, `7.244 (28.824)`, tfoot `10.909 (43.407)` đúng. **Inline edit**: textContent trim regex `/\s*\([^)]*\)\s*$/` đảm bảo input lấy giá Trung gốc; commit/Escape/error path đều dùng innerHTML để khôi phục VND suffix. |
 | **Status** | ✅ Done. |
+---
 
 ## 2026-04-29
 

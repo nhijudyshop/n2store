@@ -608,19 +608,42 @@ async function _generateCodesForAll(btn) {
         return;
     }
 
+    // Build name → existing code map. Items with same productName must share productCode.
+    const nameCodeMap = new Map();
+    for (const it of _convertItems) {
+        const name = (it.productName || '').trim().toLowerCase();
+        const code = (it.productCode || '').trim();
+        if (name && code && !nameCodeMap.has(name)) {
+            nameCodeMap.set(name, code);
+        }
+    }
+
     const originalHTML = btn?.innerHTML;
     if (btn) {
         btn.disabled = true;
     }
 
     let success = 0;
+    let reused = 0;
     let failed = 0;
     try {
         for (let i = 0; i < targets.length; i++) {
             const item = targets[i];
+            const normalizedName = (item.productName || '').trim().toLowerCase();
             if (btn)
                 btn.innerHTML = `<i data-lucide="loader"></i> Đang tạo... ${i + 1}/${targets.length}`;
             if (window.lucide) lucide.createIcons();
+
+            // Reuse existing code when another item with identical name already has one
+            if (nameCodeMap.has(normalizedName)) {
+                const code = nameCodeMap.get(normalizedName);
+                item.productCode = code;
+                const row = document.querySelector(`tr[data-key="${item._key}"]`);
+                const input = row?.querySelector('input[data-field="productCode"]');
+                if (input) input.value = code;
+                reused++;
+                continue;
+            }
 
             try {
                 const existing = _convertItems
@@ -629,6 +652,7 @@ async function _generateCodesForAll(btn) {
                 const code = await gen.generateProductCodeFromMax(item.productName, existing, 30);
                 if (code) {
                     item.productCode = code;
+                    nameCodeMap.set(normalizedName, code);
                     const row = document.querySelector(`tr[data-key="${item._key}"]`);
                     const input = row?.querySelector('input[data-field="productCode"]');
                     if (input) input.value = code;
@@ -642,11 +666,13 @@ async function _generateCodesForAll(btn) {
             }
         }
 
-        if (success > 0 && failed === 0) {
-            window.notificationManager?.success(`Đã tạo mã cho ${success} sản phẩm`);
-        } else if (success > 0 && failed > 0) {
+        const total = success + reused;
+        if (total > 0 && failed === 0) {
+            const reusedMsg = reused > 0 ? ` (${reused} dùng lại mã trùng tên)` : '';
+            window.notificationManager?.success(`Đã tạo mã cho ${total} sản phẩm${reusedMsg}`);
+        } else if (total > 0 && failed > 0) {
             window.notificationManager?.warning(
-                `Tạo được ${success}/${targets.length} mã (${failed} lỗi)`
+                `Tạo được ${total}/${targets.length} mã (${failed} lỗi)`
             );
         } else {
             window.notificationManager?.error('Không tạo được mã nào');
@@ -951,6 +977,62 @@ function _applyVariantToItem() {
 }
 
 // =====================================================
+// VALIDATION — same name must share the same product code
+// =====================================================
+function _clearItemErrorHighlights() {
+    document.querySelectorAll('#poItemsBody tr.po-row-error').forEach((tr) => {
+        tr.classList.remove('po-row-error');
+        tr.querySelectorAll(
+            'input[data-field="productCode"], input[data-field="productName"]'
+        ).forEach((inp) => {
+            inp.style.borderColor = '';
+            inp.style.boxShadow = '';
+        });
+    });
+}
+
+function _validateSameNameSameCode(validItems) {
+    const groups = new Map(); // normalized name → items[]
+    for (const it of validItems) {
+        const name = (it.productName || '').trim().toLowerCase();
+        if (!name) continue;
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(it);
+    }
+
+    const conflictItems = [];
+    for (const items of groups.values()) {
+        if (items.length < 2) continue;
+        const codes = new Set(
+            items.map((i) => (i.productCode || '').trim()).filter(Boolean)
+        );
+        if (codes.size > 1) conflictItems.push(...items);
+    }
+
+    if (conflictItems.length === 0) return true;
+
+    const stts = conflictItems
+        .map((it) => _convertItems.indexOf(it) + 1)
+        .sort((a, b) => a - b);
+    conflictItems.forEach((it) => {
+        const row = document.querySelector(`tr[data-key="${it._key}"]`);
+        if (!row) return;
+        row.classList.add('po-row-error');
+        row.querySelectorAll(
+            'input[data-field="productCode"], input[data-field="productName"]'
+        ).forEach((inp) => {
+            inp.style.borderColor = '#ef4444';
+            inp.style.boxShadow = '0 0 0 2px rgba(239,68,68,0.2)';
+        });
+    });
+
+    window.notificationManager?.warning(
+        `STT ${stts.join(', ')} có cùng tên sản phẩm nhưng mã khác nhau. Vui lòng kiểm tra lại mã sản phẩm rồi bấm Tạo đơn hàng lại.`
+    );
+    return false;
+}
+
+// =====================================================
 // SUBMIT — POST lên purchase-orders API
 // =====================================================
 async function _confirmConvertToPO() {
@@ -965,6 +1047,9 @@ async function _confirmConvertToPO() {
     const validItems = _convertItems.filter(
         (i) => (i.productName || '').trim() || (i.productCode || '').trim()
     );
+
+    // Clear stale error highlights from previous validation runs
+    _clearItemErrorHighlights();
 
     // Tất cả items (có tên SP) BẮT BUỘC có productCode — ép user bấm nút refresh sinh mã
     const missingCodeItems = validItems.filter((i) => !(i.productCode || '').trim());
@@ -989,6 +1074,9 @@ async function _confirmConvertToPO() {
         });
         return;
     }
+
+    // Items có cùng tên (100%) PHẢI có cùng mã — tô đỏ các dòng sai
+    if (!_validateSameNameSameCode(validItems)) return;
 
     const orderDateStr =
         document.getElementById('poOrderDate')?.value || new Date().toISOString().split('T')[0];

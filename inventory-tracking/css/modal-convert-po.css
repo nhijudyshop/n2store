@@ -514,6 +514,14 @@
     font-style: italic;
 }
 
+/* Same-name / different-code conflict highlight */
+.po-items tbody tr.po-row-error td {
+    background: #fef2f2;
+}
+.po-items tbody tr.po-row-error {
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .pov-grid { grid-template-columns: 1fr 1fr; }
