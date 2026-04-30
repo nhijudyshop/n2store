@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [render] TPOS WS Watchdog — auto-detect dead socket + refresh token + reconnect (60s loop)
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/server.js](../render.com/server.js) — sau `new TposRealtimeClient()` thêm `setInterval` 60s gọi `getStatus()`; nếu `!connected` HOẶC `Date.now() - lastPingFromTPOS > 90000ms` → `tposTokenManager.refresh()` → `getToken()` → `tposRealtimeClient.stop()` + sleep 1.5s + `start(newToken, room)` → `saveRealtimeCredentials('tpos', ...)` để persist. Guard `tposWatchdogRunning` tránh chạy chồng. |
+| **Chi tiết** | **Trigger user**: SĐT `0123456788` đơn đã xác nhận trên TPOS, tạo phiếu PBH bên TPOS nhưng web orders-report KHÔNG tự cập nhật. **Root cause**: `GET /api/realtime/tpos/status` → `connected: false`, `wsReadyState: OPEN`, `lastPingFromTPOS = 1777517511545` (= 09:11:51 ICT, **40 phút trước** lúc check). TPOS silent half-close socket: WS readyState vẫn OPEN nhưng không nhận ping/event nữa → `TposRealtimeClient` không broadcast `tpos:invoice-update` xuống tab → mất realtime. **Fix tự động hoàn toàn**: watchdog dùng env `TPOS_USERNAME`/`TPOS_PASSWORD` (đã configured) để tự re-fetch Bearer token mỗi khi detect dead, không cần user thao tác. Chu kỳ 60s phát hiện → 1.5s gap → start → trong 5-10s rejoin xong → realtime hoạt động lại. |
+| **Status** | ✅ Done. Auto-deploy via push → Render rolling restart pick up watchdog. |
+
 ### [orders] Bill PBH hiển thị `STT: X + Y` cho đơn đã gộp (TAG XL custom flag GOP_*)
 | | |
 |---|---|

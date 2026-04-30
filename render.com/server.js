@@ -1054,6 +1054,68 @@ class TposRealtimeClient {
 // Initialize Global TPOS Client
 const tposRealtimeClient = new TposRealtimeClient();
 
+// =====================================================
+// TPOS WS WATCHDOG — auto-detect dead socket, refresh token, reconnect
+// =====================================================
+// Vấn đề: TPOS thỉnh thoảng silent half-close socket (WS readyState vẫn OPEN
+// nhưng không gửi ping nữa, không nhận event nữa) → orders-report mất realtime.
+// Giải pháp: mỗi 60s check status; nếu !connected hoặc lastPing > 90s thì
+// force refresh token (TPOS_USERNAME/PASSWORD env vars) và restart client.
+const TPOS_WATCHDOG_INTERVAL_MS = 60_000;
+const TPOS_DEAD_THRESHOLD_MS = 90_000;
+let tposWatchdogRunning = false;
+
+setInterval(async () => {
+    if (tposWatchdogRunning) return; // tránh chạy chồng nếu cycle trước chưa xong
+    const status = tposRealtimeClient.getStatus();
+    const now = Date.now();
+    const sinceLastPing = status.lastPingFromTPOS ? now - status.lastPingFromTPOS : Infinity;
+
+    // Chỉ watchdog nếu client đã từng start (có token). Nếu chưa start thì skip.
+    if (!status.hasToken) return;
+
+    const isDead =
+        !status.connected ||
+        (status.lastPingFromTPOS && sinceLastPing > TPOS_DEAD_THRESHOLD_MS);
+
+    if (!isDead) return;
+
+    tposWatchdogRunning = true;
+    console.warn(
+        '[TPOS-WATCHDOG] ⚠️ Dead socket detected — connected:',
+        status.connected,
+        '| sinceLastPing:',
+        sinceLastPing === Infinity ? 'never' : `${sinceLastPing}ms`,
+        '| auto-restarting…'
+    );
+
+    try {
+        // Force fresh token (sẽ throw nếu env vars thiếu)
+        await tposTokenManager.refresh();
+        const newToken = await tposTokenManager.getToken();
+
+        // Stop old client (close ws, clear timers), wait nhỏ rồi start lại
+        tposRealtimeClient.stop();
+        await new Promise((r) => setTimeout(r, 1500));
+        tposRealtimeClient.start(newToken, status.room || 'tomato.tpos.vn');
+
+        // Persist token mới để auto-reconnect khi server restart
+        await saveRealtimeCredentials(chatDbPool, 'tpos', {
+            token: newToken,
+            room: status.room || 'tomato.tpos.vn',
+        }).catch((e) => console.warn('[TPOS-WATCHDOG] save credentials warn:', e.message));
+
+        console.log('[TPOS-WATCHDOG] ✅ Restarted with fresh token');
+    } catch (e) {
+        console.error('[TPOS-WATCHDOG] ❌ Auto-restart failed:', e.message);
+    } finally {
+        tposWatchdogRunning = false;
+    }
+}, TPOS_WATCHDOG_INTERVAL_MS);
+console.log(
+    `[TPOS-WATCHDOG] Active — checks every ${TPOS_WATCHDOG_INTERVAL_MS / 1000}s, dead threshold ${TPOS_DEAD_THRESHOLD_MS / 1000}s`
+);
+
 // Initialize Global Client with DB connection
 const realtimeClient = new RealtimeClient();
 realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates
