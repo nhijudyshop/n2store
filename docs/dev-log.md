@@ -8,6 +8,13 @@
 
 ## 2026-04-30
 
+### [orders] Click "+ PBH" trên đơn còn phiếu chưa hủy → modal cảnh báo + xác nhận "Tạo tiếp"
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `window._forceCreatePBH` — trước khi set bypass + open sale modal, lọc `InvoiceStatusStore.getAll(orderId)` lấy entries CHƯA huỷ (loại State='cancel', StateCode='cancel', IsMergeCancel, ShowState∈{'Huỷ bỏ','Hủy bỏ'}). Nếu 0 active → tạo trực tiếp như cũ. Nếu ≥1 active → render modal cảnh báo bảng các phiếu (Số phiếu link TPOS, Ngày tạo `DD/MM HH:mm`, Trạng thái badge, Tổng tiền VNĐ, Người tạo); 2 nút: "Đóng — không tạo" và "Tạo tiếp dù còn phiếu cũ" (đỏ) → click → close modal + proceedCreate. Click overlay đóng modal. |
+| **Chi tiết** | **Trigger user**: "phiếu đã có đơn mà tạo mới thì mở modal hiện các phiếu đã xác nhận của đơn đó — cho nút tạo tiếp nếu user vẫn muốn tạo". Trước đây click "+ PBH" force tạo ngay → user dễ tạo trùng lặp khi quên rằng đơn còn phiếu xác nhận / chưa đối soát. **Sau fix**: hiển thị danh sách rõ Số phiếu / Ngày / Tổng tiền / Người tạo → user kiểm tra trước khi tạo; click số phiếu mở TPOS form invoiceform1 để xem chi tiết / hủy. Modal inline DOM (không phụ thuộc lib), backdrop blur, overlay click đóng. |
+| **Status** | ✅ Done. |
+
 ### [orders] Mở rộng `STT: X + Y` (TAG XL gộp) sang Phiếu Soạn Hàng + TPOS bill — tách helper `getMergedSttDisplay()`
 | | |
 |---|---|

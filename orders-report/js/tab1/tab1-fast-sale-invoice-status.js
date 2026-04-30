@@ -3866,28 +3866,141 @@
         window.bulkSendSelectedBills = bulkSendSelectedBills;
 
         /**
-         * Force create PBH for an order — bypass all duplicate guards
-         * Sets a global flag that tab1-sale.js and tab1-fast-sale.js check
+         * Force create PBH for an order — bypass all duplicate guards.
+         * Nếu đơn có ≥1 phiếu chưa hủy (active) → mở modal liệt kê các phiếu
+         * này, kèm nút "Tạo tiếp" để user confirm trước khi tạo phiếu mới
+         * (tránh tạo nhầm khi quên rằng đơn còn phiếu cũ).
          */
         window._forceCreatePBH = function (orderId) {
-            // Set bypass flag — checked by confirmAndPrintSale() and showFastSaleModal()
-            window._forceCreatePBHBypass = true;
+            const proceedCreate = () => {
+                window._forceCreatePBHBypass = true;
+                const checkbox = document.querySelector(
+                    `tr[data-order-id="${orderId}"] input[type="checkbox"]`
+                );
+                if (checkbox && !checkbox.checked) {
+                    checkbox.checked = true;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                if (typeof window.openSaleButtonModal === 'function') {
+                    window.openSaleButtonModal();
+                } else {
+                    window.notificationManager?.error('Chức năng tạo PBH chưa sẵn sàng');
+                }
+            };
 
-            // Select this order in the table
-            const checkbox = document.querySelector(
-                `tr[data-order-id="${orderId}"] input[type="checkbox"]`
-            );
-            if (checkbox && !checkbox.checked) {
-                checkbox.checked = true;
-                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            // Lọc các phiếu CHƯA HỦY (active) của đơn
+            const allEntries =
+                typeof InvoiceStatusStore.getAll === 'function'
+                    ? InvoiceStatusStore.getAll(orderId)
+                    : [];
+            const activeEntries = allEntries.filter((e) => {
+                const cancelled =
+                    e.State === 'cancel' ||
+                    e.StateCode === 'cancel' ||
+                    e.IsMergeCancel === true ||
+                    e.ShowState === 'Huỷ bỏ' ||
+                    e.ShowState === 'Hủy bỏ';
+                return !cancelled;
+            });
+
+            if (activeEntries.length === 0) {
+                // Không còn phiếu active → tạo trực tiếp
+                proceedCreate();
+                return;
             }
 
-            // Open sale modal
-            if (typeof window.openSaleButtonModal === 'function') {
-                window.openSaleButtonModal();
-            } else {
-                window.notificationManager?.error('Chức năng tạo PBH chưa sẵn sàng');
-            }
+            // Có phiếu active → render modal cảnh báo
+            const fmtMoney = (n) =>
+                n ? new Intl.NumberFormat('vi-VN').format(n) + 'đ' : '—';
+            const fmtDate = (iso) => {
+                if (!iso) return '—';
+                const d = new Date(iso);
+                if (isNaN(d.getTime())) return '—';
+                const pad = (x) => String(x).padStart(2, '0');
+                return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+
+            const rowsHtml = activeEntries
+                .map(
+                    (e) => `
+                <tr>
+                    <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">
+                        <a href="https://tomato.tpos.vn/#/app/fastsaleorder/invoiceform1?id=${e.Id}"
+                           target="_blank" rel="noopener"
+                           style="color:#0369a1;font-weight:600;font-family:ui-monospace,monospace;text-decoration:none;">
+                            ${e.Number || '—'}
+                        </a>
+                    </td>
+                    <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#475569;">
+                        ${fmtDate(e.DateInvoice || e.DateCreated)}
+                    </td>
+                    <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">
+                        <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;">${e.ShowState || '—'}</span>
+                    </td>
+                    <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#0f172a;">
+                        ${fmtMoney(e.AmountTotal)}
+                    </td>
+                    <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;color:#64748b;">
+                        ${e.UserName || '—'}
+                    </td>
+                </tr>
+            `
+                )
+                .join('');
+
+            const existingModal = document.getElementById('pbhActiveCheckModal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'pbhActiveCheckModal';
+            modal.style.cssText =
+                'position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);';
+            modal.innerHTML = `
+                <div style="background:#fff;border-radius:12px;max-width:780px;width:92%;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+                    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;">
+                        <span style="background:#fef3c7;color:#a16207;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;">⚠ CẢNH BÁO</span>
+                        <h3 style="margin:0;font-size:15px;color:#0f172a;">
+                            Đơn này đã có <strong>${activeEntries.length}</strong> phiếu CHƯA HỦY
+                        </h3>
+                    </div>
+                    <div style="padding:8px 20px 4px;color:#475569;font-size:13px;">
+                        Vui lòng kiểm tra danh sách trước khi tạo phiếu mới — bạn có thể đang tạo trùng lặp.
+                    </div>
+                    <table style="width:calc(100% - 40px);margin:12px 20px;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <th style="padding:8px 10px;text-align:left;">Số phiếu</th>
+                                <th style="padding:8px 10px;text-align:left;">Ngày tạo</th>
+                                <th style="padding:8px 10px;text-align:left;">Trạng thái</th>
+                                <th style="padding:8px 10px;text-align:right;">Tổng tiền</th>
+                                <th style="padding:8px 10px;text-align:left;">Người tạo</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                    <div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end;background:#f8fafc;border-radius:0 0 12px 12px;">
+                        <button id="pbhActiveCancelBtn" type="button"
+                            style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">
+                            Đóng — không tạo
+                        </button>
+                        <button id="pbhActiveProceedBtn" type="button"
+                            style="background:#dc2626;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                            Tạo tiếp dù còn phiếu cũ
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const close = () => modal.remove();
+            modal.querySelector('#pbhActiveCancelBtn').addEventListener('click', close);
+            modal.querySelector('#pbhActiveProceedBtn').addEventListener('click', () => {
+                close();
+                proceedCreate();
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) close();
+            });
         };
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
