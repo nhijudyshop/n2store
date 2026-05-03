@@ -659,15 +659,28 @@ async function selectOrder(order) {
             );
             document.getElementById('res-cod').textContent = formatCurrency(details.cod);
 
-            // Generate product checklist for partial return (with quantity input)
+            // Generate product checklist for partial return (with quantity input).
+            // Hiển thị giá sau giảm (proportional discount ratio) để user thấy đúng
+            // số tiền sẽ hoàn — không phải giá gốc trên TPOS. Vd đơn 422K + 20K ship -
+            // 180K giảm: ratio = (422-180)/422 ≈ 0.5735 → SP 222K thật sự khách trả
+            // ~127.3K, SP 200K thật sự khách trả ~114.7K.
+            const __subtotal = parseFloat(details.amountTotal) || 0;
+            const __decreaseAmount = parseFloat(details.decreaseAmount) || 0;
+            const __discountRatio =
+                __subtotal > 0 ? Math.max(0, (__subtotal - __decreaseAmount) / __subtotal) : 1;
+            const __hasDiscount = __decreaseAmount > 0 && __discountRatio < 1;
             checklist.innerHTML = details.products
-                .map(
-                    (p) => `
+                .map((p) => {
+                    const discountedUnit = Math.round((parseFloat(p.price) || 0) * __discountRatio);
+                    const priceLabel = __hasDiscount
+                        ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(discountedUnit)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(p.price)}</span>`
+                        : formatCurrency(p.price);
+                    return `
                 <div class="checkbox-item" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:4px;">
                     <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked
-                           data-price="${p.price}" data-qty="${p.quantity}"
+                           data-price="${p.price}" data-discounted-price="${discountedUnit}" data-qty="${p.quantity}"
                            onchange="updateCodReduceFromProducts()" style="margin:0;">
-                    <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${formatCurrency(p.price)}</label>
+                    <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${priceLabel}</label>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span style="font-size:11px;color:#64748b;">SL:</span>
                         <input type="number"
@@ -679,8 +692,8 @@ async function selectOrder(order) {
                                style="width:50px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:3px;text-align:center;font-size:12px;">
                     </div>
                 </div>
-            `
-                )
+            `;
+                })
                 .join('');
         } else {
             // No products found
@@ -1010,7 +1023,9 @@ window.toggleCodReduceEdit = function () {
     }
 };
 
-// Calculate COD reduce from selected products (for REJECT_PARTIAL)
+// Calculate COD reduce from selected products (for REJECT_PARTIAL).
+// Ưu tiên discounted-price (giá sau giảm) — số tiền khách thật sự trả cho mỗi
+// SP. Nếu data-discounted-price không có (đơn không discount), fallback price.
 function updateCodReduceFromProducts() {
     const checkedInputs = document.querySelectorAll(
         '#product-checklist input[type="checkbox"]:checked'
@@ -1021,7 +1036,10 @@ function updateCodReduceFromProducts() {
         const productId = cb.value;
         const qtyInput = document.getElementById(`prod-qty-${productId}`);
         const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-        const price = parseFloat(cb.dataset.price) || 0;
+        const discountedPrice = parseFloat(cb.dataset.discountedPrice);
+        const price = Number.isFinite(discountedPrice)
+            ? discountedPrice
+            : parseFloat(cb.dataset.price) || 0;
         totalReduce += price * qty;
     });
 
@@ -3199,6 +3217,9 @@ window.onOldOrderSelected = async function (orderIndex) {
             const details = await ApiService.getOrderDetails(selectedOldOrder.id);
             if (details && details.products) {
                 selectedOldOrder.products = details.products;
+                // Save amountTotal + decreaseAmount để áp tỷ lệ giảm giá khi render
+                selectedOldOrder.amountTotal = details.amountTotal;
+                selectedOldOrder.decreaseAmount = details.decreaseAmount;
                 // Update cached order data
                 orders[orderIndex] = selectedOldOrder;
                 container.dataset.orders = JSON.stringify(orders);
@@ -3232,9 +3253,22 @@ function renderOldOrderProducts(order) {
         return;
     }
 
+    // Tỷ lệ giảm giá đơn cũ — dùng để hiển thị giá thật khách trả mỗi SP
+    const __oldSubtotal = parseFloat(order.amountTotal) || 0;
+    const __oldDecreaseAmount = parseFloat(order.decreaseAmount) || 0;
+    const __oldDiscountRatio =
+        __oldSubtotal > 0 ? Math.max(0, (__oldSubtotal - __oldDecreaseAmount) / __oldSubtotal) : 1;
+    const __hasOldDiscount = __oldDecreaseAmount > 0 && __oldDiscountRatio < 1;
     container.innerHTML = order.products
-        .map(
-            (product, idx) => `
+        .map((product, idx) => {
+            const origTotal =
+                parseFloat(product.total) ||
+                (parseFloat(product.price) || 0) * (product.quantity || 0);
+            const discountedTotal = Math.round(origTotal * __oldDiscountRatio);
+            const totalLabel = __hasOldDiscount
+                ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(discountedTotal)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(origTotal)}</span>`
+                : formatCurrency(origTotal);
+            return `
         <div class="product-check-item" style="padding:8px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;">
             <label style="display:flex;align-items:center;cursor:pointer;">
                 <input type="checkbox" name="old-order-product"
@@ -3242,7 +3276,8 @@ function renderOldOrderProducts(order) {
                        value="${product.id || idx}"
                        data-product-id="${product.productId || ''}"
                        data-code="${product.code || ''}"
-                       data-total="${product.total || product.price * product.quantity}"
+                       data-total="${origTotal}"
+                       data-discounted-total="${discountedTotal}"
                        data-unit-price="${product.price}"
                        data-name="${product.name}"
                        data-quantity="${product.quantity}"
@@ -3251,7 +3286,7 @@ function renderOldOrderProducts(order) {
                 <div style="flex:1;">
                     <div style="font-weight:500;">${product.name}</div>
                     <div style="font-size:12px;color:#64748b;">
-                        Đã mua: x${product.quantity} - ${formatCurrency(product.total || product.price * product.quantity)}
+                        Đã mua: x${product.quantity} - ${totalLabel}
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:5px;">
@@ -3263,8 +3298,8 @@ function renderOldOrderProducts(order) {
                 </div>
             </label>
         </div>
-    `
-        )
+    `;
+        })
         .join('');
 
     section.classList.remove('hidden');
