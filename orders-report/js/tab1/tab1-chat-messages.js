@@ -1081,6 +1081,7 @@ function _wireInfiniteScroll(container) {
                 scheduled = false;
                 if (container.scrollTop > SCROLL_THRESHOLD_PX) return;
                 if (window.isLoadingMoreMessages) return;
+                if (window._chatNoMoreMessages) return;
                 if (!window.currentChatCursor || !window.currentConversationId) return;
                 if (typeof window.loadMoreMessages === 'function') {
                     window.loadMoreMessages();
