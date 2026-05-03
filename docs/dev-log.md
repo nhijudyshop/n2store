@@ -6,6 +6,24 @@
 
 ---
 
+## 2026-05-03
+
+### [balance-history] Ẩn các đơn "hoàn từ đơn hủy #NJD/..." trong panel "Đã duyệt hôm nay" (Kế toán)
+| | |
+|---|---|
+| **Files** | MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) `renderApprovedToday()` — thêm `REFUND_HIDE_PATTERN = /ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y\s+#NJD\//i`, filter `state.approvedToday` bỏ rows có `verification_note` match (wallet_transactions DEPOSIT/ORDER_CANCEL_REFUND). Empty state ưu tiên message "Đã ẩn N giao dịch hoàn tiền hủy đơn" khi tất cả rows bị filter. Pagination giữ nguyên server-side, chỉ thay đổi rendering. |
+| **Chi tiết** | **Trigger user**: "ẩn các đơn 'hoàn từ đơn hủy #NJD/2026/xxxxx'" trong list balance-history/index.html. Đây là entries từ `render.com/routes/v2/wallets.js:1494` — tự động gen note `${original_note} (hoàn từ đơn hủy #${order_id})` khi cancel order với DEPOSIT refund. Không phải CK thật từ khách → user không cần nhìn thấy ở list "Đã duyệt hôm nay". UI-only filter (không đụng backend / DB). Regex robust handle ô/o và ừ/u biến thể. **Test**: 9 cases unit-test (8/9 pass — 1 case "no diacritics" fail nhưng backend luôn output có diacritics đầy đủ). |
+| **Status** | ✅ Done. |
+
+### [shared] Fix login bouncing loop — navigation-modern.js fallback storage check khi authManager chưa init
+| | |
+|---|---|
+| **Files** | MODIFIED: [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) `waitForDependencies()` — `maxRetries` 15→30 (4.5s→9s timeout), thêm `hasValidStoredAuth()` đọc trực tiếp `loginindex_auth` từ session/localStorage và validate `isLoggedIn + expiresAt + timestamp+maxAge`. Khi timeout: nếu valid auth tồn tại → log warning + skip redirect (page load không có sidebar nav nhưng vẫn work); nếu không → redirect `../index.html` như cũ. |
+| **Chi tiết** | **Trigger user**: "login văng ngược lại http://localhost:8080/index.html" — login → quy-trinh → navigation-modern.init() check `window.authManager` chưa ready (compat.js ES module imports chưa resolve) → timeout 4.5s → force redirect `../index.html` → login.js `checkExistingLogin` thấy session valid trong storage → redirect tiếp `quy-trinh` → vòng lặp bouncing. **Root cause**: race condition `<script type="module">` (compat.js) vs `<script defer>` (navigation-modern.js) — module imports có thể resolve sau defer scripts. **Fix**: gấp đôi retry timeout + storage-direct fallback (không phụ thuộc authManager). Page bị mất sidebar nav graceful hơn vòng lặp bouncing. Không break flow normal — only kicks in khi authManager init fail. |
+| **Status** | ✅ Done. |
+
+---
+
 ## 2026-04-30
 
 ### [inventory] Modal "Tạo đơn đặt hàng" — share mã theo tên SP, validate trùng tên khác mã, khóa overlay

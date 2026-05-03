@@ -1867,19 +1867,32 @@
     function renderApprovedToday() {
         if (!elements.approvedTableBody) return;
 
-        if (state.approvedToday.length === 0) {
+        // Ẩn các đơn hoàn tiền hủy (note chứa "hoàn từ đơn hủy #NJD/...")
+        // Đây là wallet_transactions DEPOSIT/ORDER_CANCEL_REFUND — không phải CK thật,
+        // không cần hiển thị ở list "Đã duyệt hôm nay".
+        const REFUND_HIDE_PATTERN = /ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y\s+#NJD\//i;
+        const visibleRows = (state.approvedToday || []).filter((tx) => {
+            const note = tx.verification_note || '';
+            return !REFUND_HIDE_PATTERN.test(note);
+        });
+        const hiddenRefundCount = (state.approvedToday || []).length - visibleRows.length;
+
+        if (visibleRows.length === 0) {
+            const msg = hiddenRefundCount > 0
+                ? `Đã ẩn ${hiddenRefundCount} giao dịch hoàn tiền hủy đơn`
+                : 'Chưa có giao dịch được duyệt ngày này';
             elements.approvedTableBody.innerHTML = `
                 <tr>
                     <td colspan="9" class="acc-empty-state">
                         <div class="empty-icon">📋</div>
-                        <div class="empty-text">Chưa có giao dịch được duyệt ngày này</div>
+                        <div class="empty-text">${msg}</div>
                     </td>
                 </tr>
             `;
             return;
         }
 
-        elements.approvedTableBody.innerHTML = state.approvedToday
+        elements.approvedTableBody.innerHTML = visibleRows
             .map((tx) => {
                 // src: 'bh' (sepay balance_history) | 'wt' (wallet_transactions +tiền nội bộ)
                 // uid: composite key 'bh:N' | 'wt:N' — gửi cho backend ✓ Kiểm tra
