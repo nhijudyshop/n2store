@@ -125,11 +125,7 @@
     const NON_CORS_PATTERNS = [/img\d*\.tpos\.vn/i];
     const WORKER_URL_FALLBACK = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     function getWorkerUrl() {
-        return (
-            window.WORKER_URL ||
-            window.API_CONFIG?.WORKER_URL ||
-            WORKER_URL_FALLBACK
-        );
+        return window.WORKER_URL || window.API_CONFIG?.WORKER_URL || WORKER_URL_FALLBACK;
     }
     function toCorsUrl(url) {
         // Đã là proxy URL rồi → giữ nguyên
@@ -372,7 +368,9 @@
     function attachAutoObserver() {
         if (typeof MutationObserver === 'undefined') return;
         const scan = (root) => {
-            (root || document).querySelectorAll('img[src]:not([data-cache-wired])').forEach(autoCacheImg);
+            (root || document)
+                .querySelectorAll('img[src]:not([data-cache-wired])')
+                .forEach(autoCacheImg);
         };
         const mo = new MutationObserver((muts) => {
             for (const m of muts) {
@@ -381,7 +379,9 @@
                         if (n.nodeType !== 1) return;
                         if (n.tagName === 'IMG') autoCacheImg(n);
                         else if (n.querySelectorAll) {
-                            n.querySelectorAll('img[src]:not([data-cache-wired])').forEach(autoCacheImg);
+                            n.querySelectorAll('img[src]:not([data-cache-wired])').forEach(
+                                autoCacheImg
+                            );
                         }
                     });
                 } else if (m.type === 'attributes' && m.target.tagName === 'IMG') {
