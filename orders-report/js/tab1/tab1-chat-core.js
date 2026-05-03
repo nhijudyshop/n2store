@@ -1221,32 +1221,44 @@ function _resetTransientChatState() {
     }
 }
 
-// Shared: reconcile optimistic private-reply placeholders ("pr_*") in `existing`
-// against `incoming` real shop messages by text+60s window. Mutates store marks.
+// Shared: reconcile optimistic placeholders ("pr_*" private-reply, "opt_*" inbox send)
+// trong `existing` against `incoming` real shop messages — match theo text. Khi server đã
+// có bản tin thật → drop optimistic để tránh hiện 2 tin trùng (flicker khi realtime/refetch
+// trả về tin thật trong lúc opt_* vẫn còn). Mutates PrivateReplyStore marks cho pr_*.
 window._reconcileOptimisticReplies = function (existing, incoming) {
     if (!existing?.length || !incoming?.length) return existing || [];
+    const isTempId = (id) => {
+        const s = String(id || '');
+        return s.startsWith('pr_') || s.startsWith('opt_');
+    };
     const realShopTexts = new Set(
-        incoming.filter((m) => m.sender === 'shop').map((m) => (m.text || '').trim())
+        incoming
+            .filter((m) => m.sender === 'shop')
+            .map((m) => (m.text || '').trim())
+            .filter((t) => t !== '')
     );
     const survivors = [];
     for (const o of existing) {
-        if (typeof o.id !== 'string' || !o.id.startsWith('pr_')) {
+        if (!isTempId(o.id)) {
             survivors.push(o);
             continue;
         }
         const txt = (o.text || '').trim();
-        if (!realShopTexts.has(txt)) {
+        if (!txt || !realShopTexts.has(txt)) {
             survivors.push(o);
             continue;
         }
-        // Matched — migrate PrivateReplyStore mark to real id
-        const real = incoming.find((m) => m.sender === 'shop' && (m.text || '').trim() === txt);
-        if (real && window.PrivateReplyStore?.has?.(o.id)) {
-            try {
-                window.PrivateReplyStore.mark(real.id, o.text, o.senderName);
-                window.PrivateReplyStore.unmark?.(o.id);
-            } catch (_) {}
+        // Matched — migrate PrivateReplyStore mark cho pr_* sang real id
+        if (String(o.id).startsWith('pr_')) {
+            const real = incoming.find((m) => m.sender === 'shop' && (m.text || '').trim() === txt);
+            if (real && window.PrivateReplyStore?.has?.(o.id)) {
+                try {
+                    window.PrivateReplyStore.mark(real.id, o.text, o.senderName);
+                    window.PrivateReplyStore.unmark?.(o.id);
+                } catch (_) {}
+            }
         }
+        // Drop optimistic — server đã có bản thật
     }
     return survivors;
 };

@@ -623,17 +623,29 @@ window.sendMessage = async function () {
                             }
                         });
                     }
-                    // Preserve optimistic private-reply messages (pr_*) not yet in server data
-                    const optimisticMsgs = window.allChatMessages.filter(
+                    // Preserve optimistic messages (opt_*, opt_img_*, pr_*) chưa có
+                    // bản tin tương ứng từ server. Match qua text + sender (server có
+                    // thể đã include tin vừa gửi → drop optimistic).
+                    const isTempId = (id) => {
+                        const s = String(id || '');
+                        return s.startsWith('pr_') || s.startsWith('opt_');
+                    };
+                    const optimisticMsgs = (window.allChatMessages || []).filter(
                         (m) =>
-                            String(m.id).startsWith('pr_') &&
-                            !messages.some((sm) => sm.text === m.text && sm.sender === 'shop')
+                            isTempId(m.id) &&
+                            !messages.some(
+                                (sm) =>
+                                    sm.sender === 'shop' &&
+                                    (sm.text || '').trim() === (m.text || '').trim() &&
+                                    (sm.text || '').trim() !== ''
+                            )
                     );
                     // Merge: giữ tin cũ đã load qua infinite-scroll mà API page-1 không trả lại.
-                    // Trước đây overwrite allChatMessages → mất hết tin cũ user vừa scroll up xem.
+                    // CRITICAL: bỏ tất cả tin optimistic ra khỏi olderKept — tránh hiện
+                    // 2 tin trùng (opt_* + bản server) gây giật UI khi gửi xong.
                     const freshIds = new Set(messages.map((m) => m.id));
                     const olderKept = (window.allChatMessages || []).filter(
-                        (m) => !String(m.id).startsWith('pr_') && !freshIds.has(m.id)
+                        (m) => !isTempId(m.id) && !freshIds.has(m.id)
                     );
                     const merged = [...olderKept, ...messages, ...optimisticMsgs];
                     window.allChatMessages = merged;
