@@ -860,12 +860,40 @@ export class CustomerProfileModule {
                                         // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
                                         const headRe =
                                             /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                                        const rewritten = headRe.test(note)
+                                        let rewritten = headRe.test(note)
                                             ? note.replace(
                                                   headRe,
                                                   `Thanh Toán Đơn Hàng #${orderCode}`
                                               )
                                             : `Thanh Toán Đơn Hàng #${orderCode}`;
+                                        // Sửa math nếu breakdown sai (legacy data — vd "Hàng: 1090K +
+                                        // Ship: 20K - Giảm: 60K = 1110K" — sai vì 1090+20-60=1050, không
+                                        // phải 1110). Recompute đúng + chú thích COD nếu khác.
+                                        const breakdownRe =
+                                            /\(Hàng:\s*([\d.,]+)đ(?:\s*\+\s*Ship:\s*([\d.,]+)đ)?(?:\s*-\s*Giảm:\s*([\d.,]+)đ)?\s*=\s*([\d.,]+)đ\)/;
+                                        const m = rewritten.match(breakdownRe);
+                                        if (m) {
+                                            const toInt = (s) =>
+                                                parseInt(
+                                                    String(s || '0').replace(/[.,]/g, ''),
+                                                    10
+                                                ) || 0;
+                                            const goods = toInt(m[1]);
+                                            const ship = toInt(m[2]);
+                                            const discount = toInt(m[3]);
+                                            const displayed = toInt(m[4]);
+                                            const computed = goods + ship - discount;
+                                            if (computed !== displayed) {
+                                                let fixed = `(Hàng: ${goods.toLocaleString('vi-VN')}đ`;
+                                                if (ship > 0)
+                                                    fixed += ` + Ship: ${ship.toLocaleString('vi-VN')}đ`;
+                                                if (discount > 0)
+                                                    fixed += ` - Giảm: ${discount.toLocaleString('vi-VN')}đ`;
+                                                fixed += ` = ${computed.toLocaleString('vi-VN')}đ`;
+                                                fixed += `, COD: ${displayed.toLocaleString('vi-VN')}đ)`;
+                                                rewritten = rewritten.replace(breakdownRe, fixed);
+                                            }
+                                        }
                                         detailParts.push(rewritten);
                                         if (date) detailParts.push(date);
                                         if (createdBy) {

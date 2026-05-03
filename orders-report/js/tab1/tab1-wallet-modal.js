@@ -4,24 +4,24 @@
 // Hiển thị khi click vào wallet debt badge
 // =====================================================
 
-(function() {
+(function () {
     'use strict';
 
     const WALLET_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
     const WALLET_TYPE_CONFIG = {
-        'DEPOSIT':              { label: 'Cộng Tiền',          iconChar: '+', isCredit: true },
-        'WITHDRAW':             { label: 'Trừ Tiền',           iconChar: '-', isCredit: false },
-        'VIRTUAL_CREDIT':       { label: 'Cộng Công Nợ Ảo',   iconChar: '+', isCredit: true },
-        'VIRTUAL_DEBIT':        { label: 'Trừ Công Nợ Ảo',    iconChar: '-', isCredit: false },
-        'VIRTUAL_CANCEL':       { label: 'Thu Hồi Công Nợ Ảo', iconChar: '-', isCredit: false },
-        'VIRTUAL_EXPIRE':       { label: 'Công Nợ Hết Hạn',   iconChar: '-', isCredit: false },
-        'ADJUSTMENT':           { label: 'Điều Chỉnh Số Dư',  iconChar: '~', isCredit: true },
-        'ORDER_CANCEL_REFUND':  { label: 'Hoàn Tiền Hủy Đơn', iconChar: '+', isCredit: true },
-        'RETURN_SHIPPER':       { label: 'Phiếu Thu Về',       iconChar: '+', isCredit: true },
-        'RETURN_CLIENT':        { label: 'Phiếu Trả Hàng',    iconChar: '+', isCredit: true },
-        'BOOM':                 { label: 'Phiếu Boom Hàng',   iconChar: '-', isCredit: false },
-        'COD_ADJUSTMENT':       { label: 'Điều Chỉnh COD',    iconChar: '~', isCredit: true },
+        DEPOSIT: { label: 'Cộng Tiền', iconChar: '+', isCredit: true },
+        WITHDRAW: { label: 'Trừ Tiền', iconChar: '-', isCredit: false },
+        VIRTUAL_CREDIT: { label: 'Cộng Công Nợ Ảo', iconChar: '+', isCredit: true },
+        VIRTUAL_DEBIT: { label: 'Trừ Công Nợ Ảo', iconChar: '-', isCredit: false },
+        VIRTUAL_CANCEL: { label: 'Thu Hồi Công Nợ Ảo', iconChar: '-', isCredit: false },
+        VIRTUAL_EXPIRE: { label: 'Công Nợ Hết Hạn', iconChar: '-', isCredit: false },
+        ADJUSTMENT: { label: 'Điều Chỉnh Số Dư', iconChar: '~', isCredit: true },
+        ORDER_CANCEL_REFUND: { label: 'Hoàn Tiền Hủy Đơn', iconChar: '+', isCredit: true },
+        RETURN_SHIPPER: { label: 'Phiếu Thu Về', iconChar: '+', isCredit: true },
+        RETURN_CLIENT: { label: 'Phiếu Trả Hàng', iconChar: '+', isCredit: true },
+        BOOM: { label: 'Phiếu Boom Hàng', iconChar: '-', isCredit: false },
+        COD_ADJUSTMENT: { label: 'Điều Chỉnh COD', iconChar: '~', isCredit: true },
     };
     const DEFAULT_CONFIG = { label: 'Giao Dịch Ví', iconChar: '~', isCredit: false };
 
@@ -39,7 +39,11 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     // Group COD payments of the same order into a single line
@@ -48,11 +52,16 @@
         const groupMap = new Map();
         for (const tx of txs) {
             const rn = tx.note || tx.source || '';
-            const isCod = tx.type === 'WITHDRAW'
-                && (tx.source === 'SALE_ORDER' || /Thanh toán.*đơn hàng/i.test(rn));
-            if (!isCod) { out.push(tx); continue; }
-            const m = rn.match(/#?(NJD\/\d{4}\/\d+)/i)
-                || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+            const isCod =
+                tx.type === 'WITHDRAW' &&
+                (tx.source === 'SALE_ORDER' || /Thanh toán.*đơn hàng/i.test(rn));
+            if (!isCod) {
+                out.push(tx);
+                continue;
+            }
+            const m =
+                rn.match(/#?(NJD\/\d{4}\/\d+)/i) ||
+                (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
             const orderCode = m ? m[1] : '';
             const key = `${orderCode}`;
             if (!orderCode || !groupMap.has(key)) {
@@ -61,14 +70,22 @@
             } else {
                 const ex = out[groupMap.get(key)];
                 ex.amount = (parseFloat(ex.amount) || 0) + (parseFloat(tx.amount) || 0);
-                const exAfter = (parseFloat(ex.balance_after) || 0) + (parseFloat(ex.virtual_balance_after) || 0);
-                const txAfter = (parseFloat(tx.balance_after) || 0) + (parseFloat(tx.virtual_balance_after) || 0);
+                const exAfter =
+                    (parseFloat(ex.balance_after) || 0) +
+                    (parseFloat(ex.virtual_balance_after) || 0);
+                const txAfter =
+                    (parseFloat(tx.balance_after) || 0) +
+                    (parseFloat(tx.virtual_balance_after) || 0);
                 if (txAfter < exAfter) {
                     ex.balance_after = tx.balance_after;
                     ex.virtual_balance_after = tx.virtual_balance_after;
                 }
-                const exBefore = (parseFloat(ex.balance_before) || 0) + (parseFloat(ex.virtual_balance_before) || 0);
-                const txBefore = (parseFloat(tx.balance_before) || 0) + (parseFloat(tx.virtual_balance_before) || 0);
+                const exBefore =
+                    (parseFloat(ex.balance_before) || 0) +
+                    (parseFloat(ex.virtual_balance_before) || 0);
+                const txBefore =
+                    (parseFloat(tx.balance_before) || 0) +
+                    (parseFloat(tx.virtual_balance_before) || 0);
                 if (txBefore > exBefore) {
                     ex.balance_before = tx.balance_before;
                     ex.virtual_balance_before = tx.virtual_balance_before;
@@ -129,7 +146,9 @@
         try {
             const [walletRes, txRes] = await Promise.all([
                 fetch(`${WALLET_API_URL}/v2/wallets/${encodeURIComponent(phone)}`),
-                fetch(`${WALLET_API_URL}/v2/wallets/${encodeURIComponent(phone)}/transactions?limit=20`)
+                fetch(
+                    `${WALLET_API_URL}/v2/wallets/${encodeURIComponent(phone)}/transactions?limit=20`
+                ),
             ]);
 
             if (walletRes.ok) {
@@ -157,7 +176,7 @@
                 const nameDiv = row.querySelector('.customer-name');
                 if (nameDiv) {
                     const clone = nameDiv.cloneNode(true);
-                    clone.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
+                    clone.querySelectorAll('.wallet-debt-badge').forEach((b) => b.remove());
                     customerName = clone.textContent.trim();
                     break;
                 }
@@ -215,7 +234,7 @@
                     <span class="wdm-activity-count">${grouped.length} hoạt động</span>
                 </div>
                 <div class="wdm-activity-list">
-                    ${grouped.map(tx => renderTransaction(tx)).join('')}
+                    ${grouped.map((tx) => renderTransaction(tx)).join('')}
                 </div>
             `;
         }
@@ -238,7 +257,7 @@
 
         const amount = parseFloat(tx.amount) || 0;
         const isAdjust = tx.type === 'ADJUSTMENT';
-        const isCredit = isAdjust ? (amount >= 0) : cfg.isCredit;
+        const isCredit = isAdjust ? amount >= 0 : cfg.isCredit;
 
         const sign = isCredit ? '+' : '-';
         const amountColor = isCredit ? '#16a34a' : '#dc2626';
@@ -258,12 +277,19 @@
 
         const date = tx.created_at
             ? new Date(tx.created_at).toLocaleDateString('vi-VN', {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            })
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+              })
             : '';
-        const createdBy = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
-            : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
+        const createdBy =
+            tx.created_by && tx.created_by !== 'system'
+                ? tx.created_by
+                : tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')
+                  ? tx.reference_id
+                  : '';
 
         // Extract image URL + clean note text (Nạp từ CK → Khách CK)
         const rawNote = tx.note || tx.source || '';
@@ -279,48 +305,82 @@
             const cpPhone = tx.correct_customer_phone || '';
             const amtFmt = formatCurrency(Math.abs(amount));
             if (wp && cpPhone) {
-                detailParts.push(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${escapeHtml(wp)} → SĐT ${escapeHtml(cpPhone)} (${sign}${amtFmt})`);
+                detailParts.push(
+                    `Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${escapeHtml(wp)} → SĐT ${escapeHtml(cpPhone)} (${sign}${amtFmt})`
+                );
             } else if (wp) {
                 detailParts.push(`Điều chỉnh trừ ví SĐT ${escapeHtml(wp)} (${sign}${amtFmt})`);
             }
-            if (tx.adjustment_reason) detailParts.push('Lý do: ' + escapeHtml(tx.adjustment_reason));
+            if (tx.adjustment_reason)
+                detailParts.push('Lý do: ' + escapeHtml(tx.adjustment_reason));
             if (date) detailParts.push(date);
         } else {
-            const orderMatch = (rawNote.match(/#?(NJD\/\d{4}\/\d+)/i)
-                || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i));
-            const orderCode = orderMatch ? orderMatch[1] : (tx.reference_id || '');
+            const orderMatch =
+                rawNote.match(/#?(NJD\/\d{4}\/\d+)/i) ||
+                (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+            const orderCode = orderMatch ? orderMatch[1] : tx.reference_id || '';
 
-            const isCodPayment = tx.type === 'WITHDRAW'
-                && (tx.source === 'SALE_ORDER' || /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
+            const isCodPayment =
+                tx.type === 'WITHDRAW' &&
+                (tx.source === 'SALE_ORDER' || /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
             const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
 
             if (isCodPayment) {
                 // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
                 const headRe = /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                const rewritten = headRe.test(note)
+                let rewritten = headRe.test(note)
                     ? note.replace(headRe, `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)}`)
                     : `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)}`;
+                // Sửa math sai trong breakdown legacy (vd "Hàng+Ship-Giảm = X" với X
+                // không khớp công thức) — recompute và chú thích COD nếu khác.
+                const breakdownRe =
+                    /\(Hàng:\s*([\d.,]+)đ(?:\s*\+\s*Ship:\s*([\d.,]+)đ)?(?:\s*-\s*Giảm:\s*([\d.,]+)đ)?\s*=\s*([\d.,]+)đ\)/;
+                const m = rewritten.match(breakdownRe);
+                if (m) {
+                    const toInt = (s) => parseInt(String(s || '0').replace(/[.,]/g, ''), 10) || 0;
+                    const goods = toInt(m[1]);
+                    const ship = toInt(m[2]);
+                    const discount = toInt(m[3]);
+                    const displayed = toInt(m[4]);
+                    const computed = goods + ship - discount;
+                    if (computed !== displayed) {
+                        let fixed = `(Hàng: ${goods.toLocaleString('vi-VN')}đ`;
+                        if (ship > 0) fixed += ` + Ship: ${ship.toLocaleString('vi-VN')}đ`;
+                        if (discount > 0) fixed += ` - Giảm: ${discount.toLocaleString('vi-VN')}đ`;
+                        fixed += ` = ${computed.toLocaleString('vi-VN')}đ`;
+                        fixed += `, COD: ${displayed.toLocaleString('vi-VN')}đ)`;
+                        rewritten = rewritten.replace(breakdownRe, fixed);
+                    }
+                }
                 detailParts.push(rewritten);
                 if (date) detailParts.push(date);
                 if (createdBy) {
-                    detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Tạo ${escapeHtml(createdBy)}</span>`);
+                    detailParts.push(
+                        `<span style="color:#ef4444;font-weight:700;">Người Tạo ${escapeHtml(createdBy)}</span>`
+                    );
                 }
                 suppressOperator = true;
             } else if (isCancelRefund) {
                 detailParts.push(`Hoàn Tiền Hủy Đơn Công Nợ #${escapeHtml(orderCode)}`);
                 if (date) detailParts.push(date);
                 if (createdBy) {
-                    detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Hủy ${escapeHtml(createdBy)}</span>`);
+                    detailParts.push(
+                        `<span style="color:#ef4444;font-weight:700;">Người Hủy ${escapeHtml(createdBy)}</span>`
+                    );
                 }
                 suppressOperator = true;
             } else {
                 // Tách "(Duyệt bởi X)" cuối note → đưa ra sau date
-                const approverMatch = note.match(/\s*\((Duyệt bởi|Tạo bởi|Hoàn bởi|Bởi)\s+([^)]+)\)\s*$/i);
+                const approverMatch = note.match(
+                    /\s*\((Duyệt bởi|Tạo bởi|Hoàn bởi|Bởi)\s+([^)]+)\)\s*$/i
+                );
                 if (approverMatch) {
                     const head = note.slice(0, approverMatch.index).trim();
                     if (head) detailParts.push(escapeHtml(head));
                     if (date) detailParts.push(date);
-                    detailParts.push(`<span style="color:#1e293b;font-weight:700;">(${escapeHtml(approverMatch[1])} ${escapeHtml(approverMatch[2].trim())})</span>`);
+                    detailParts.push(
+                        `<span style="color:#1e293b;font-weight:700;">(${escapeHtml(approverMatch[1])} ${escapeHtml(approverMatch[2].trim())})</span>`
+                    );
                     suppressOperator = true;
                 } else {
                     if (note) detailParts.push(escapeHtml(note));
@@ -336,7 +396,13 @@
             const isRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
             const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
             const isWithdraw = tx.type === 'WITHDRAW';
-            const labelOp = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
+            const labelOp = isDeposit
+                ? 'Duyệt bởi'
+                : isWithdraw
+                  ? 'Tạo bởi'
+                  : isRefund
+                    ? 'Hoàn bởi'
+                    : 'Bởi';
             operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">${labelOp} ${escapeHtml(createdBy)}</span>`;
         }
 
@@ -521,5 +587,4 @@
 
     // Export globally
     window.openWalletDebtModal = openWalletDebtModal;
-
 })();

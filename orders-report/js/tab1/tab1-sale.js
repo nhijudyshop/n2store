@@ -1243,11 +1243,21 @@ async function confirmAndPrintSale() {
                     parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
                 const discountVal = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
 
+                // Math: TOTAL = Hàng + Ship - Giảm. Trước đây dùng codAmount cho `=`,
+                // sai khi user set COD trên TPOS không khớp công thức (vd: COD bao gồm
+                // Hàng+Ship nhưng quên trừ Giảm → công thức hiển thị "1090K + 20K - 60K
+                // = 1110K" sai math). Tính đúng = Hàng+Ship-Giảm. Nếu codAmount khác
+                // computed → ghi chú thêm "(COD: X)" để minh bạch.
+                const computedTotal = goodsValue + shippingFee - discountVal;
                 let saleNote = `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`;
                 saleNote += ` (Hàng: ${goodsValue.toLocaleString('vi-VN')}đ`;
                 if (shippingFee > 0) saleNote += ` + Ship: ${shippingFee.toLocaleString('vi-VN')}đ`;
                 if (discountVal > 0) saleNote += ` - Giảm: ${discountVal.toLocaleString('vi-VN')}đ`;
-                saleNote += ` = ${codAmount.toLocaleString('vi-VN')}đ)`;
+                saleNote += ` = ${computedTotal.toLocaleString('vi-VN')}đ`;
+                if (codAmount && codAmount !== computedTotal) {
+                    saleNote += `, COD: ${codAmount.toLocaleString('vi-VN')}đ`;
+                }
+                saleNote += `)`;
 
                 // Use pending-withdrawals API on Render server directly (not via CF Worker)
                 // The API will: 1) Record pending, 2) Try withdraw, 3) Cron will retry if failed
