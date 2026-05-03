@@ -339,6 +339,36 @@ function initModalHandlers() {
 }
 
 /**
+ * Tính số tiền hoàn cho hàng trả về, có áp dụng tỷ lệ giảm giá của đơn.
+ *
+ * Lý do: TPOS lưu mỗi OrderLine với `PriceUnit` (giá gốc) — khi đơn có
+ * `DecreaseAmount` (giảm giá tổng đơn), số khách thật sự đã trả = subtotal -
+ * decreaseAmount. Nếu khách trả 1 món, hoàn theo PriceUnit sẽ vượt quá phần
+ * khách trả cho món đó. Phân bổ giảm giá theo tỷ lệ:
+ *   refund = price × returnQuantity × (subtotal - decreaseAmount) / subtotal
+ *
+ * Edge cases:
+ * - subtotal = 0 → return 0 (không có sản phẩm để hoàn)
+ * - decreaseAmount = 0 → discountRatio = 1 (no discount, refund full)
+ * - decreaseAmount > subtotal → discountRatio = 0 (đơn freebie, không hoàn)
+ *
+ * @param {Array<{price:number, returnQuantity:number}>} products
+ * @param {{amountTotal?:number, decreaseAmount?:number}} order
+ * @returns {number} Refund amount (rounded to integer)
+ */
+function computeRefundWithDiscount(products, order) {
+    if (!Array.isArray(products) || products.length === 0) return 0;
+    const subtotal = parseFloat(order?.amountTotal) || 0;
+    const decreaseAmount = parseFloat(order?.decreaseAmount) || 0;
+    const discountRatio = subtotal > 0 ? Math.max(0, (subtotal - decreaseAmount) / subtotal) : 1;
+    const raw = products.reduce(
+        (sum, p) => sum + (parseFloat(p.price) || 0) * (parseFloat(p.returnQuantity) || 0),
+        0
+    );
+    return Math.round(raw * discountRatio);
+}
+
+/**
  * NEW: Helper function to normalize phone numbers
  */
 function normalizePhone(phone) {
@@ -1287,8 +1317,12 @@ async function handleSubmitTicket() {
             };
         });
 
-        // Giá trị hoàn = tổng giá trị sản phẩm trả về
-        money = selectedProducts.reduce((sum, p) => sum + p.price * p.returnQuantity, 0);
+        // Giá trị hoàn = tổng giá trị sản phẩm trả về × tỷ lệ giảm giá
+        // Trước đây dùng giá gốc → khi đơn có decreaseAmount, hoàn nhiều hơn
+        // số khách thật sự đã trả → bug refund vượt quá thanh toán.
+        // Fix: discountRatio = (subtotal - decreaseAmount) / subtotal, áp dụng
+        // proportionally cho mỗi sản phẩm trả.
+        money = computeRefundWithDiscount(selectedProducts, selectedOrder);
     } else if (type === 'OTHER') {
         status = 'COMPLETED';
         money = 0;
