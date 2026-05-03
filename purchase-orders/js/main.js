@@ -150,6 +150,8 @@ class PurchaseOrderController {
                 onCopy: (orderId) => this.handleCopyOrder(orderId),
                 onPrintBarcode: (orderId) => this.handlePrintBarcode(orderId),
                 onDelete: (orderId) => this.handleDeleteOrder(orderId),
+                onMarkReceived: (orderId) => this.handleMarkReceived(orderId),
+                onMarkCompleted: (orderId) => this.handleMarkCompleted(orderId),
                 onSelect: (orderId, selected) => this.handleSelectOrder(orderId, selected),
                 onSelectAll: (selected) => this.handleSelectAll(selected),
                 onRowClick: (orderId) => this.handleRowClick(orderId),
@@ -2470,6 +2472,64 @@ class PurchaseOrderController {
         }
 
         window.BarcodeLabelDialog.open(order);
+    }
+
+    /**
+     * Handle mark order as received (AWAITING_DELIVERY → RECEIVED)
+     */
+    async handleMarkReceived(orderId) {
+        const order = await this.dataManager.getOrder(orderId);
+        if (!order) {
+            this.ui.showToast('Không tìm thấy đơn hàng', 'error');
+            return;
+        }
+        if (order.status !== this.config.OrderStatus.AWAITING_DELIVERY) {
+            this.ui.showToast('Chỉ chuyển được đơn ở trạng thái Chờ hàng', 'warning');
+            return;
+        }
+        const confirmed = await this.ui.showConfirmDialog({
+            title: 'Đã nhận hàng',
+            message: 'Xác nhận đơn hàng đã nhận đủ?',
+            confirmText: 'Đã nhận',
+            type: 'success',
+        });
+        if (!confirmed) return;
+        try {
+            await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.RECEIVED);
+            this.ui.showToast('Đã chuyển đơn sang Đã nhận', 'success');
+            this.switchOrRefreshTab(this.config.OrderStatus.RECEIVED);
+        } catch (error) {
+            this.ui.showToast(error.userMessage || 'Không thể cập nhật trạng thái', 'error');
+        }
+    }
+
+    /**
+     * Handle mark order as completed (RECEIVED → COMPLETED)
+     */
+    async handleMarkCompleted(orderId) {
+        const order = await this.dataManager.getOrder(orderId);
+        if (!order) {
+            this.ui.showToast('Không tìm thấy đơn hàng', 'error');
+            return;
+        }
+        if (order.status !== this.config.OrderStatus.RECEIVED) {
+            this.ui.showToast('Chỉ chuyển được đơn ở trạng thái Đã nhận', 'warning');
+            return;
+        }
+        const confirmed = await this.ui.showConfirmDialog({
+            title: 'Hoàn thành đơn hàng',
+            message: 'Đơn hàng đã hoàn tất xử lý? Trạng thái này không đổi được nữa.',
+            confirmText: 'Hoàn thành',
+            type: 'success',
+        });
+        if (!confirmed) return;
+        try {
+            await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.COMPLETED);
+            this.ui.showToast('Đã chuyển đơn sang Hoàn thành', 'success');
+            this.switchOrRefreshTab(this.config.OrderStatus.COMPLETED);
+        } catch (error) {
+            this.ui.showToast(error.userMessage || 'Không thể cập nhật trạng thái', 'error');
+        }
     }
 
     async handleCopyOrder(orderId) {
