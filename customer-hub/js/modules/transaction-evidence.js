@@ -180,43 +180,12 @@
     }
 
     /**
-     * Show TPOS invoice (PBH) for a SaleOnline order code.
-     * Fetch fresh OData by Reference, render modal với danh sách phiếu.
+     * Render danh sách TPOS invoice cho 1 NJD order code vào container.
+     * Fetch fresh OData by Reference.
      */
-    async function showOrderInvoice(orderCode) {
-        if (!orderCode) return;
-        injectStyle();
-        let box = document.getElementById(LIGHTBOX_ID);
-        if (box) box.remove();
-        // Render simple modal — không dùng lightbox layout
-        const modalId = 'tx-order-modal';
-        const existing = document.getElementById(modalId);
-        if (existing) existing.remove();
-        const modal = document.createElement('div');
-        modal.id = modalId;
-        modal.style.cssText =
-            'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;';
-        modal.innerHTML = `
-            <div style="background:#fff;border-radius:12px;max-width:720px;width:100%;max-height:80vh;overflow:auto;padding:20px;cursor:default;box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">
-                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#1e293b;">Phiếu bán hàng đơn ${escapeAttr(orderCode)}</h3>
-                    <button onclick="document.getElementById('${modalId}').remove()" style="background:none;border:0;font-size:24px;color:#64748b;cursor:pointer;line-height:1;">&times;</button>
-                </div>
-                <div id="tx-order-body" style="font-size:13px;color:#334155;">
-                    <div style="text-align:center;padding:30px;color:#64748b;">Đang tải dữ liệu TPOS…</div>
-                </div>
-            </div>
-        `;
-        modal.addEventListener('click', () => modal.remove());
-        document.addEventListener('keydown', function onEsc(e) {
-            if (e.key === 'Escape') {
-                modal.remove();
-                document.removeEventListener('keydown', onEsc);
-            }
-        });
-        document.body.appendChild(modal);
-
-        const body = modal.querySelector('#tx-order-body');
+    async function _renderTposInvoices(orderCode, container) {
+        if (!container) return;
+        container.innerHTML = `<div style="text-align:center;padding:30px;color:#64748b;">Đang tải dữ liệu TPOS…</div>`;
         try {
             if (!window.tokenManager?.getAuthHeader) {
                 throw new Error('Token manager chưa sẵn sàng');
@@ -236,7 +205,7 @@
             const result = await resp.json();
             const invoices = Array.isArray(result?.value) ? result.value : [];
             if (invoices.length === 0) {
-                body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Không tìm thấy phiếu bán hàng cho đơn ${escapeAttr(orderCode)}</div>`;
+                container.innerHTML = `<div style="text-align:center;padding:30px;color:#94a3b8;">Không có phiếu bán hàng (PBH) cho đơn ${escapeAttr(orderCode)}</div>`;
                 return;
             }
             const fmt = (v) => new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
@@ -253,7 +222,7 @@
                 const fg = isCancel ? '#dc2626' : '#2563eb';
                 return `<span style="background:${bg};color:${fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${escapeAttr(s)}</span>`;
             };
-            body.innerHTML = invoices
+            container.innerHTML = invoices
                 .map(
                     (inv) => `
                 <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px;">
@@ -276,8 +245,117 @@
                 .join('');
         } catch (e) {
             console.error('[TxEvidence] order invoice fetch failed:', e);
-            body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải phiếu: ${escapeAttr(e.message)}</div>`;
+            container.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải phiếu: ${escapeAttr(e.message)}</div>`;
         }
+    }
+
+    /**
+     * Render Phiếu Hoàn (ticket) cho 1 NJD order code vào container.
+     */
+    async function _renderReturnTickets(orderCode, container) {
+        if (!container) return;
+        container.innerHTML = `<div style="text-align:center;padding:30px;color:#64748b;">Đang tải phiếu hoàn…</div>`;
+        try {
+            const api = window.ApiService || window.apiService;
+            if (!api || typeof api.searchTicketsServer !== 'function') {
+                throw new Error('ApiService.searchTicketsServer không khả dụng');
+            }
+            const results = await api.searchTicketsServer(orderCode);
+            if (!Array.isArray(results) || results.length === 0) {
+                container.innerHTML = `<div style="text-align:center;padding:30px;color:#94a3b8;">Không có phiếu hoàn cho đơn ${escapeAttr(orderCode)}</div>`;
+                return;
+            }
+            container.innerHTML = results
+                .map((t) => {
+                    const code = t.ticket_code || t.code || '';
+                    const status = t.status || '';
+                    const isCancelled = status === 'CANCELLED';
+                    const bg = isCancelled ? '#fee2e2' : '#dcfce7';
+                    const fg = isCancelled ? '#dc2626' : '#16a34a';
+                    const date = t.created_at ? new Date(t.created_at).toLocaleString('vi-VN') : '';
+                    return `
+                    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;" onclick="window.TxEvidence.showTicketDetail('${escapeAttr(code)}')">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <strong style="font-size:14px;color:#1e293b;">${escapeAttr(code)}</strong>
+                            <span style="background:${bg};color:${fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${escapeAttr(status)}</span>
+                        </div>
+                        <div style="font-size:12px;color:#64748b;">
+                            ${escapeAttr(t.type || '')} · ${date}${t.refund_amount ? ' · Hoàn: ' + new Intl.NumberFormat('vi-VN').format(t.refund_amount) + 'đ' : ''}
+                        </div>
+                        ${t.internal_note ? `<div style="font-size:12px;color:#475569;margin-top:4px;">${escapeAttr(t.internal_note)}</div>` : ''}
+                    </div>
+                `;
+                })
+                .join('');
+        } catch (e) {
+            console.error('[TxEvidence] return tickets fetch failed:', e);
+            container.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải phiếu hoàn: ${escapeAttr(e.message)}</div>`;
+        }
+    }
+
+    /**
+     * Modal 2-tab: TPOS PBH + Phiếu Hoàn cho 1 NJD order code.
+     * defaultTab='pbh' (COD payment) hoặc 'ticket' (ticket-related tx).
+     */
+    function showOrderTabbedModal(orderCode, defaultTab = 'pbh') {
+        if (!orderCode) return;
+        injectStyle();
+        const modalId = 'tx-order-modal';
+        const existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:85vh;display:flex;flex-direction:column;cursor:default;box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e2e8f0;">
+                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#1e293b;">Đơn ${escapeAttr(orderCode)}</h3>
+                    <button data-close style="background:none;border:0;font-size:24px;color:#64748b;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+                </div>
+                <div style="display:flex;border-bottom:1px solid #e2e8f0;">
+                    <button data-tab="pbh" class="tx-tab" style="flex:1;padding:10px;background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;">📄 TPOS PBH</button>
+                    <button data-tab="ticket" class="tx-tab" style="flex:1;padding:10px;background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;">↩ Phiếu Hoàn</button>
+                </div>
+                <div data-content style="padding:16px 20px;overflow:auto;flex:1;font-size:13px;color:#334155;"></div>
+            </div>
+        `;
+        modal.addEventListener('click', () => modal.remove());
+        modal.querySelector('[data-close]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            modal.remove();
+        });
+        document.addEventListener('keydown', function onEsc(e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', onEsc);
+            }
+        });
+        document.body.appendChild(modal);
+
+        const content = modal.querySelector('[data-content]');
+        const tabs = modal.querySelectorAll('.tx-tab');
+        const activate = (which) => {
+            tabs.forEach((t) => {
+                const isActive = t.dataset.tab === which;
+                t.style.borderBottomColor = isActive ? '#2563eb' : 'transparent';
+                t.style.color = isActive ? '#2563eb' : '#64748b';
+            });
+            if (which === 'pbh') _renderTposInvoices(orderCode, content);
+            else _renderReturnTickets(orderCode, content);
+        };
+        tabs.forEach((t) =>
+            t.addEventListener('click', (e) => {
+                e.stopPropagation();
+                activate(t.dataset.tab);
+            })
+        );
+        activate(defaultTab);
+    }
+
+    // Backward-compat alias
+    function showOrderInvoice(orderCode) {
+        showOrderTabbedModal(orderCode, 'pbh');
     }
 
     /**
@@ -295,8 +373,12 @@
                 const kind = btn.getAttribute('data-eye-kind');
                 const val = btn.getAttribute('data-eye-val');
                 if (kind === 'sepay') showSepayImage(val);
-                else if (kind === 'order') showOrderInvoice(val);
-                else if (kind === 'ticket') showTicketDetail(val);
+                else if (kind === 'order') showOrderTabbedModal(val, 'pbh');
+                else if (kind === 'ticket') {
+                    // TV-YYYY-NNNNN: ticket trực tiếp. NJD/YYYY/NNNNN: modal 2 tab (PBH + Hoàn).
+                    if (/^TV-\d{4}-\d+$/i.test(val)) showTicketDetail(val);
+                    else showOrderTabbedModal(val, 'ticket');
+                }
             });
         });
     }
@@ -317,6 +399,7 @@
         showSepayImage,
         showTicketDetail,
         showOrderInvoice,
+        showOrderTabbedModal,
         bindHandlers,
     };
 })();
