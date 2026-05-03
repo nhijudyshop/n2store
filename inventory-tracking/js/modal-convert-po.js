@@ -523,7 +523,9 @@ async function _runSuggest(key, q, drop) {
         drop.innerHTML = rows
             .map((r) => {
                 const code = r.product_code || '';
-                const name = r.name_get || r.product_name || '';
+                // r.name_get format: "[CODE] real product name" → strip leading [...] khỏi tên
+                const rawName = r.name_get || r.product_name || '';
+                const name = rawName.replace(/^\s*\[[^\]]*\]\s*/, '').trim() || rawName;
                 const price = parseFloat(r.selling_price) || 0;
                 const qty = parseFloat(r.tpos_qty_available) || 0;
                 const tposId = r.tpos_product_id || '';
