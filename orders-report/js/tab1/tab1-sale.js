@@ -687,8 +687,11 @@ async function confirmAndPrintSale() {
         return;
     }
 
-    // Guard duplicate: nếu đơn này đã có PBH "Đã xác nhận"/"Đã thanh toán" thì không tạo lại
-    // Bypass if _forceCreatePBHBypass flag is set (from "+ PBH" button in invoice status column)
+    // Guard duplicate: fetch FRESH PBH từ TPOS OData để check chính xác.
+    // Trước đây guard dùng `currentSaleOrderData.StatusText === 'Đơn hàng'` —
+    // sai vì đây là Status SaleOnline, không phải Status PBH; mọi đơn bình
+    // thường đều có Status='Đơn hàng' → block tạo PBH ngay cả khi chưa có PBH.
+    // Bypass nếu _forceCreatePBHBypass flag set (từ button "+ PBH").
     try {
         const forceBypass = window._forceCreatePBHBypass === true;
         if (forceBypass) {
@@ -697,39 +700,71 @@ async function confirmAndPrintSale() {
         }
 
         if (!forceBypass) {
-            if (
-                currentSaleOrderData.ShowState === 'Đã xác nhận' ||
-                currentSaleOrderData.ShowState === 'Đã thanh toán' ||
-                currentSaleOrderData.State === 'open' ||
-                currentSaleOrderData.StatusText === 'Đơn hàng' ||
-                currentSaleOrderData.Status === 'Đơn hàng'
-            ) {
-                const label =
-                    currentSaleOrderData.StatusText ||
-                    currentSaleOrderData.Status ||
-                    currentSaleOrderData.ShowState ||
-                    currentSaleOrderData.State;
-                const msg = `Đơn này đang ở trạng thái "${label}", không thể tạo PBH (tránh tạo trùng).`;
-                console.warn('[SALE-CONFIRM] ⚠️', msg);
-                if (window.notificationManager) window.notificationManager.warning(msg, 4000);
-                else alert(msg);
-                return;
-            }
+            const orderCode = currentSaleOrderData?.Code;
             const saleOnlineId = currentSaleOrderData?.Id;
-            if (saleOnlineId && window.InvoiceStatusStore) {
-                const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
-                if (
-                    invoiceData &&
-                    (invoiceData.ShowState === 'Đã xác nhận' ||
-                        invoiceData.ShowState === 'Đã thanh toán' ||
-                        invoiceData.State === 'open')
-                ) {
-                    const msg = `Đơn này đã có PBH "${invoiceData.ShowState || invoiceData.State}" trong store. Bỏ qua để tránh tạo trùng.`;
-                    console.warn('[SALE-CONFIRM] ⚠️', msg);
-                    if (window.notificationManager) window.notificationManager.warning(msg, 4000);
-                    else alert(msg);
-                    return;
+            // FETCH FRESH từ TPOS — nguồn chân thật duy nhất, không phụ thuộc Store stale
+            let activePBH = null;
+            if (orderCode && window.tokenManager?.getAuthHeader) {
+                try {
+                    const tposOData =
+                        window.API_CONFIG?.TPOS_ODATA ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const filter = `(Type eq 'invoice' and Reference eq '${String(orderCode).replace(/'/g, "''")}')`;
+                    const url =
+                        `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                        `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
+                    const resp = await fetch(url, {
+                        headers: { ...headers, accept: 'application/json' },
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        const invoices = Array.isArray(result?.value) ? result.value : [];
+                        // Active PBH = chưa hủy (state khác 'cancel' và không IsMergeCancel)
+                        activePBH = invoices.find(
+                            (inv) =>
+                                inv.State !== 'cancel' &&
+                                inv.StateCode !== 'cancel' &&
+                                !inv.IsMergeCancel &&
+                                inv.ShowState !== 'Huỷ bỏ' &&
+                                inv.ShowState !== 'Hủy bỏ'
+                        );
+                        // Đồng bộ Store với data fresh — tránh stale ở lần sau
+                        if (saleOnlineId && window.InvoiceStatusStore) {
+                            for (const inv of invoices) {
+                                window.InvoiceStatusStore.set(saleOnlineId, inv, {
+                                    Id: saleOnlineId,
+                                    Code: orderCode,
+                                    Name: inv.PartnerDisplayName || '',
+                                    Telephone: inv.Phone || '',
+                                    Address: inv.Address || '',
+                                });
+                            }
+                        }
+                    }
+                } catch (fetchErr) {
+                    console.warn(
+                        '[SALE-CONFIRM] Fresh PBH fetch failed (continuing):',
+                        fetchErr.message
+                    );
                 }
+            }
+
+            if (activePBH) {
+                const msg = `Đơn này đã có PBH "${activePBH.Number}" trạng thái "${activePBH.ShowState || activePBH.State}". Không tạo trùng.`;
+                console.warn('[SALE-CONFIRM] ⚠️', msg);
+                if (window.notificationManager) window.notificationManager.warning(msg, 5000);
+                else alert(msg);
+                // Re-render PBH cell để user thấy phiếu thật
+                if (typeof window.renderInvoiceStatusCell === 'function' && saleOnlineId) {
+                    const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+                    const cell = row?.querySelector('td[data-column="invoice-status"]');
+                    const order =
+                        typeof allData !== 'undefined' &&
+                        allData.find((o) => o.Id === saleOnlineId);
+                    if (order && cell) cell.innerHTML = window.renderInvoiceStatusCell(order);
+                }
+                return;
             }
         } else {
             console.log(
