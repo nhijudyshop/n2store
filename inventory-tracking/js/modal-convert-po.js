@@ -462,7 +462,24 @@ function _onItemInput(e) {
     } else {
         item[field] = input.value;
         if (field === 'productName') _scheduleSuggest(key, input);
+        // Khi user gõ thủ công productCode → propagate sang siblings cùng productName.
+        // Debounce 400ms để tránh propagate sau mỗi ký tự khi gõ dở.
+        if (field === 'productCode') _scheduleCodePropagation(key);
     }
+}
+
+const _codePropagationTimers = new Map();
+function _scheduleCodePropagation(itemKey) {
+    const old = _codePropagationTimers.get(itemKey);
+    if (old) clearTimeout(old);
+    const timer = setTimeout(() => {
+        const item = _convertItems.find((i) => i._key === itemKey);
+        if (!item) return;
+        const code = (item.productCode || '').trim();
+        if (!code) return;
+        _propagateCodeToSiblings(itemKey, code);
+    }, 400);
+    _codePropagationTimers.set(itemKey, timer);
 }
 
 // =====================================================
