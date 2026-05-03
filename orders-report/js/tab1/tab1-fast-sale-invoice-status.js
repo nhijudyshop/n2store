@@ -3910,8 +3910,7 @@
             }
 
             // Có phiếu active → render modal cảnh báo
-            const fmtMoney = (n) =>
-                n ? new Intl.NumberFormat('vi-VN').format(n) + 'đ' : '—';
+            const fmtMoney = (n) => (n ? new Intl.NumberFormat('vi-VN').format(n) + 'đ' : '—');
             const fmtDate = (iso) => {
                 if (!iso) return '—';
                 const d = new Date(iso);
