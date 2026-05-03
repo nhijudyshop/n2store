@@ -544,6 +544,25 @@ function _applySuggestPick(key, code, name, price) {
         drop.hidden = true;
         drop.innerHTML = '';
     }
+    // Logic TPOS: variants cùng productName share parent code → propagate sang
+    // các row cùng tên (cũng update giá bán nếu pick có giá).
+    if (code) {
+        const propagated = _propagateCodeToSiblings(key, code);
+        if (propagated > 0 && price > 0) {
+            for (const it of _convertItems) {
+                if (it._key === key) continue;
+                if (
+                    (it.productName || '').trim().toLowerCase() !==
+                    (item.productName || '').trim().toLowerCase()
+                )
+                    continue;
+                it.sellingPrice = price;
+                const row = document.querySelector(`#poItemsBody tr[data-key="${it._key}"]`);
+                const sellInp = row?.querySelector('.po-it-input[data-field="sellingPrice"]');
+                if (sellInp) sellInp.value = _fmtVND(price);
+            }
+        }
+    }
 }
 
 function _onItemClick(e) {
@@ -726,7 +745,15 @@ async function _generateCodeForItem(itemKey, btn) {
         const row = document.querySelector(`tr[data-key="${itemKey}"]`);
         const input = row?.querySelector('input[data-field="productCode"]');
         if (input) input.value = code;
-        window.notificationManager?.success(`Đã tạo mã: ${code}`);
+        // Propagate cùng productCode cho mọi biến thể cùng productName (logic TPOS:
+        // mọi variant của 1 template share parent code; suffix biến thể do TPOS
+        // tự sinh khi upload, không cần derive client-side).
+        const propagated = _propagateCodeToSiblings(itemKey, code);
+        const msg =
+            propagated > 0
+                ? `Đã tạo mã: ${code} (áp dụng cho ${propagated + 1} biến thể)`
+                : `Đã tạo mã: ${code}`;
+        window.notificationManager?.success(msg);
     } catch (err) {
         console.error('[CONVERT-PO] Generate code failed:', err);
         window.notificationManager?.error('Lỗi tạo mã: ' + (err.message || ''));
@@ -737,6 +764,30 @@ async function _generateCodeForItem(itemKey, btn) {
             if (window.lucide) lucide.createIcons();
         }
     }
+}
+
+/**
+ * Áp productCode cho mọi item cùng productName với sourceItemKey (trừ chính nó).
+ * Bắt chước TPOS: mọi variant của cùng template share cùng parent DefaultCode.
+ * Trả về số lượng item được áp.
+ */
+function _propagateCodeToSiblings(sourceItemKey, code) {
+    const src = _convertItems.find((i) => i._key === sourceItemKey);
+    if (!src) return 0;
+    const srcName = (src.productName || '').trim().toLowerCase();
+    if (!srcName || !code) return 0;
+    let count = 0;
+    for (const it of _convertItems) {
+        if (it._key === sourceItemKey) continue;
+        if ((it.productName || '').trim().toLowerCase() !== srcName) continue;
+        if ((it.productCode || '').trim() === code) continue;
+        it.productCode = code;
+        const row = document.querySelector(`#poItemsBody tr[data-key="${it._key}"]`);
+        const input = row?.querySelector('input[data-field="productCode"]');
+        if (input) input.value = code;
+        count++;
+    }
+    return count;
 }
 
 function _addBlankItem() {
@@ -1003,17 +1054,13 @@ function _validateSameNameSameCode(validItems) {
     const conflictItems = [];
     for (const items of groups.values()) {
         if (items.length < 2) continue;
-        const codes = new Set(
-            items.map((i) => (i.productCode || '').trim()).filter(Boolean)
-        );
+        const codes = new Set(items.map((i) => (i.productCode || '').trim()).filter(Boolean));
         if (codes.size > 1) conflictItems.push(...items);
     }
 
     if (conflictItems.length === 0) return true;
 
-    const stts = conflictItems
-        .map((it) => _convertItems.indexOf(it) + 1)
-        .sort((a, b) => a - b);
+    const stts = conflictItems.map((it) => _convertItems.indexOf(it) + 1).sort((a, b) => a - b);
     conflictItems.forEach((it) => {
         const row = document.querySelector(`tr[data-key="${it._key}"]`);
         if (!row) return;
