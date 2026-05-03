@@ -1642,10 +1642,22 @@ class PurchaseOrderFormModal {
                     parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
                 const sellingVal = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
                 const subtotal = purchaseVal * (parseInt(item.quantity) || 0);
+                // Item đến từ kho TPOS (đã có tposProductId hoặc tposSynced) → khoá biến thể + mã
+                const fromWarehouse = !!(
+                    item.tposProductId ||
+                    item.tposSynced ||
+                    item._fromWarehouse
+                );
+                const wareLockTitle = fromWarehouse
+                    ? 'Sản phẩm chọn từ kho TPOS — không sửa được mã/biến thể'
+                    : '';
+                const wareBadge = fromWarehouse
+                    ? `<span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 6px;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;border-radius:999px;font-size:10px;font-weight:600;line-height:1;white-space:nowrap" title="${wareLockTitle}">✓ TPOS</span>`
+                    : '';
 
                 return `
-                <tr data-item-id="${item.id}">
-                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}</td>
+                <tr data-item-id="${item.id}" ${fromWarehouse ? 'data-from-warehouse="1"' : ''}>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}${wareBadge}</td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
                         <textarea data-field="productName" rows="1" placeholder="VD: 2003 B5 SET ÁO DÀI" title="${(item.productName || '').replace(/"/g, '&quot;')}" style="
                             width: 100%;
@@ -1664,16 +1676,17 @@ class PurchaseOrderFormModal {
                         ">${item.productName || ''}</textarea>
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
-                        <button type="button" data-action="variant" style="
+                        <button type="button" data-action="variant" ${fromWarehouse ? 'disabled' : ''} title="${fromWarehouse ? wareLockTitle : ''}" style="
                             height: 32px;
                             padding: 0 12px;
-                            border: 1px solid #d1d5db;
+                            border: 1px solid ${fromWarehouse ? '#e5e7eb' : '#d1d5db'};
                             border-radius: 6px;
-                            background: white;
-                            cursor: pointer;
+                            background: ${fromWarehouse ? '#f3f4f6' : 'white'};
+                            cursor: ${fromWarehouse ? 'not-allowed' : 'pointer'};
+                            color: ${fromWarehouse ? '#6b7280' : 'inherit'};
                             font-size: 12px;
                             white-space: nowrap;
-                        ">${item.variant || 'Nhấn để tạo biến thể'}</button>
+                        ">${fromWarehouse ? item.variant || 'Không có biến thể' : item.variant || 'Nhấn để tạo biến thể'}</button>
                         ${
                             (item.selectedAttributeValueIds || []).length > 0
                                 ? `<div style="margin-top: 4px;">
@@ -1699,7 +1712,7 @@ class PurchaseOrderFormModal {
                                 cursor: default;
                             ">
                             ${
-                                this.isEdit && item._isExistingItem
+                                (this.isEdit && item._isExistingItem) || fromWarehouse
                                     ? ''
                                     : `<button type="button" data-action="refreshCode" title="Cập nhật mã theo tên" style="
                                 width: 32px;
