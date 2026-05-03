@@ -8,11 +8,11 @@
 
 ## 2026-05-03
 
-### [balance-history] Ẩn các đơn "hoàn từ đơn hủy #NJD/..." trong panel "Đã duyệt hôm nay" (Kế toán)
+### [balance-history] Ẩn tất cả đơn nguồn "Hoàn tiền" (wallet ORDER_CANCEL_REFUND) trong panel "Đã duyệt"
 | | |
 |---|---|
-| **Files** | MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) `renderApprovedToday()` — thêm `REFUND_HIDE_PATTERN = /ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y\s+#NJD\//i`, filter `state.approvedToday` bỏ rows có `verification_note` match (wallet_transactions DEPOSIT/ORDER_CANCEL_REFUND). Empty state ưu tiên message "Đã ẩn N giao dịch hoàn tiền hủy đơn" khi tất cả rows bị filter. Pagination giữ nguyên server-side, chỉ thay đổi rendering. |
-| **Chi tiết** | **Trigger user**: "ẩn các đơn 'hoàn từ đơn hủy #NJD/2026/xxxxx'" trong list balance-history/index.html. Đây là entries từ `render.com/routes/v2/wallets.js:1494` — tự động gen note `${original_note} (hoàn từ đơn hủy #${order_id})` khi cancel order với DEPOSIT refund. Không phải CK thật từ khách → user không cần nhìn thấy ở list "Đã duyệt hôm nay". UI-only filter (không đụng backend / DB). Regex robust handle ô/o và ừ/u biến thể. **Test**: 9 cases unit-test (8/9 pass — 1 case "no diacritics" fail nhưng backend luôn output có diacritics đầy đủ). |
+| **Files** | MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) `renderApprovedToday()` — `isCancelRefund(tx)` check theo SOURCE FLAG (`tx.wt_type === 'DEPOSIT' && tx.wt_source === 'ORDER_CANCEL_REFUND'`) thay vì regex trên note. Note regex `REFUND_NOTE_FALLBACK = /(ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y\|ho[àa]n\s+ti[ềe]n\s+h[ủu]y\s+đơn)\s*#NJD\//i` chỉ làm fallback cho legacy data thiếu wt_source. |
+| **Chi tiết** | **Trigger user**: "ẩn các đơn có nguồn hoàn tiền" — không chỉ format cũ "(hoàn từ đơn hủy #NJD/...)" mà cả format mới "Hoàn tiền hủy đơn #NJD/2026/64599 (Thật: 515,000đ, Công nợ: 0đ)". **Fix**: chuyển từ note-text matching sang source-flag matching. Bất kể backend đổi format note thế nào, hễ wt_source là `ORDER_CANCEL_REFUND` thì ẩn. Robust hơn pattern matching. **Test**: 8/8 unit cases pass (cả 2 format note + edge cases). |
 | **Status** | ✅ Done. |
 
 ### [shared] Fix login bouncing loop — navigation-modern.js fallback storage check khi authManager chưa init

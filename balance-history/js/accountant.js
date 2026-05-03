@@ -1867,14 +1867,18 @@
     function renderApprovedToday() {
         if (!elements.approvedTableBody) return;
 
-        // Ẩn các đơn hoàn tiền hủy (note chứa "hoàn từ đơn hủy #NJD/...")
-        // Đây là wallet_transactions DEPOSIT/ORDER_CANCEL_REFUND — không phải CK thật,
-        // không cần hiển thị ở list "Đã duyệt hôm nay".
-        const REFUND_HIDE_PATTERN = /ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y\s+#NJD\//i;
-        const visibleRows = (state.approvedToday || []).filter((tx) => {
-            const note = tx.verification_note || '';
-            return !REFUND_HIDE_PATTERN.test(note);
-        });
+        // Ẩn tất cả đơn nguồn "Hoàn tiền" — wallet_transactions DEPOSIT/ORDER_CANCEL_REFUND.
+        // Bắt theo source flag (wt_type='DEPOSIT' + wt_source='ORDER_CANCEL_REFUND') để
+        // robust với mọi format note ("hoàn từ đơn hủy", "Hoàn tiền hủy đơn", v.v.).
+        // Note pattern là fallback cho legacy data có thể thiếu wt_source.
+        const REFUND_NOTE_FALLBACK =
+            /(ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y|ho[àa]n\s+ti[ềe]n\s+h[ủu]y\s+đơn)\s*#NJD\//i;
+        const isCancelRefund = (tx) => {
+            if (!tx) return false;
+            if (tx.wt_type === 'DEPOSIT' && tx.wt_source === 'ORDER_CANCEL_REFUND') return true;
+            return REFUND_NOTE_FALLBACK.test(tx.verification_note || '');
+        };
+        const visibleRows = (state.approvedToday || []).filter((tx) => !isCancelRefund(tx));
         const hiddenRefundCount = (state.approvedToday || []).length - visibleRows.length;
 
         if (visibleRows.length === 0) {
