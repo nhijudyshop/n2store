@@ -4010,7 +4010,10 @@
                 }
             };
 
-            // Lọc các phiếu CHƯA HỦY (active) của đơn
+            // Lọc các phiếu ACTIVE (đã xác nhận / đã thanh toán). KHÔNG count:
+            // - Đã hủy (State=cancel, IsMergeCancel, ShowState=Huỷ bỏ)
+            // - Nháp (State=draft, ShowState=Nháp) — phiếu tạm chưa xác nhận,
+            //   user feedback "trạng thái nháp vẫn cho tạo đơn chứ".
             const allEntries =
                 typeof InvoiceStatusStore.getAll === 'function'
                     ? InvoiceStatusStore.getAll(orderId)
@@ -4022,7 +4025,9 @@
                     e.IsMergeCancel === true ||
                     e.ShowState === 'Huỷ bỏ' ||
                     e.ShowState === 'Hủy bỏ';
-                return !cancelled;
+                const isDraft =
+                    e.State === 'draft' || e.StateCode === 'draft' || e.ShowState === 'Nháp';
+                return !cancelled && !isDraft;
             });
 
             if (activeEntries.length === 0) {

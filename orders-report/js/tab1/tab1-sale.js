@@ -720,14 +720,21 @@ async function confirmAndPrintSale() {
                     if (resp.ok) {
                         const result = await resp.json();
                         const invoices = Array.isArray(result?.value) ? result.value : [];
-                        // Active PBH = chưa hủy (state khác 'cancel' và không IsMergeCancel)
+                        // Active PBH = đã xác nhận / đã thanh toán (block tạo trùng).
+                        // KHÔNG block: 'cancel' (đã hủy), 'draft' (Nháp — user có thể
+                        // tạo phiếu mới song song để chọn cái xài). User feedback:
+                        // "trạng thái nháp vẫn cho tạo đơn chứ" — draft chỉ là phiếu
+                        // tạm chưa xác nhận, không lock được order.
                         activePBH = invoices.find(
                             (inv) =>
                                 inv.State !== 'cancel' &&
+                                inv.State !== 'draft' &&
                                 inv.StateCode !== 'cancel' &&
+                                inv.StateCode !== 'draft' &&
                                 !inv.IsMergeCancel &&
                                 inv.ShowState !== 'Huỷ bỏ' &&
-                                inv.ShowState !== 'Hủy bỏ'
+                                inv.ShowState !== 'Hủy bỏ' &&
+                                inv.ShowState !== 'Nháp'
                         );
                         // Đồng bộ Store với data fresh — tránh stale ở lần sau
                         if (saleOnlineId && window.InvoiceStatusStore) {
