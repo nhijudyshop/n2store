@@ -2078,14 +2078,55 @@
 
         if (!container) return;
 
+        // Build page-number list với compact ellipsis cho tổng số trang lớn.
+        // Hiển thị: 1 ... (cur-1) cur (cur+1) ... last. Luôn show first + last.
+        const buildPageList = (cur, total) => {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = new Set([1, 2, total - 1, total, cur - 1, cur, cur + 1]);
+            const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+            const result = [];
+            for (let i = 0; i < sorted.length; i++) {
+                if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push('...');
+                result.push(sorted[i]);
+            }
+            return result;
+        };
+        const pages = buildPageList(pag.page, pag.totalPages);
+        const pageBtns = pages
+            .map((p) => {
+                if (p === '...') {
+                    return `<span class="acc-page-ellipsis" style="padding:0 4px;color:#94a3b8;">…</span>`;
+                }
+                const isActive = p === pag.page;
+                const activeStyle = isActive
+                    ? 'background:#16a34a;color:#fff;border-color:#16a34a;font-weight:700;'
+                    : '';
+                return `<button class="acc-btn acc-btn-secondary acc-page-btn" data-page="${p}" onclick="AccountantModule.gotoPage('${type}', ${p})" style="min-width:32px;padding:4px 8px;${activeStyle}">${p}</button>`;
+            })
+            .join('');
+
+        // Page jump select — quick navigation cho > 10 pages
+        const showJump = pag.totalPages > 10;
+        const jumpOptions = [];
+        for (let p = 1; p <= pag.totalPages; p++) {
+            jumpOptions.push(
+                `<option value="${p}" ${p === pag.page ? 'selected' : ''}>Trang ${p}</option>`
+            );
+        }
+        const jumpHtml = showJump
+            ? `<select class="acc-page-jump" onchange="AccountantModule.gotoPage('${type}', parseInt(this.value, 10))" style="margin-left:8px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">${jumpOptions.join('')}</select>`
+            : '';
+
         container.innerHTML = `
             <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.changePage('${type}', -1)" ${pag.page <= 1 ? 'disabled' : ''}>
                 <i data-lucide="chevron-left" style="width:16px;height:16px"></i> Trước
             </button>
-            <span class="page-info">Trang ${pag.page} / ${pag.totalPages} (${pag.total} GD)</span>
+            <div class="acc-page-list" style="display:inline-flex;gap:4px;align-items:center;margin:0 4px;">${pageBtns}</div>
             <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.changePage('${type}', 1)" ${pag.page >= pag.totalPages ? 'disabled' : ''}>
                 Sau <i data-lucide="chevron-right" style="width:16px;height:16px"></i>
             </button>
+            <span class="page-info" style="margin-left:8px;color:#64748b;font-size:12px;">${pag.total} GD</span>
+            ${jumpHtml}
         `;
 
         if (window.lucide) lucide.createIcons();
@@ -2094,11 +2135,19 @@
     function changePage(type, delta) {
         const newPage = state.pagination[type].page + delta;
         if (newPage < 1 || newPage > state.pagination[type].totalPages) return;
+        gotoPage(type, newPage);
+    }
 
+    function gotoPage(type, page) {
+        const pag = state.pagination[type];
+        if (!pag) return;
+        const target = parseInt(page, 10);
+        if (!Number.isFinite(target) || target < 1 || target > pag.totalPages) return;
+        if (target === pag.page) return;
         if (type === 'pending') {
-            loadPendingQueue(newPage);
+            loadPendingQueue(target);
         } else if (type === 'approved') {
-            loadApprovedToday(newPage);
+            loadApprovedToday(target);
         }
     }
 
@@ -3320,6 +3369,7 @@
         confirmChange,
         toggleSelect,
         changePage,
+        gotoPage,
         stopAutoRefresh,
         setFilterPreset,
         handleFilterChange,
