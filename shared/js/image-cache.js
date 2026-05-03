@@ -20,10 +20,12 @@
     const STORE = 'blobs';
     const DB_VERSION = 1;
     const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày
-    const MAX_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB cap
-    const MAX_SIZE_TARGET = 160 * 1024 * 1024; // evict tới 160MB khi vượt cap
+    const MAX_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB cap (catalog ảnh TPOS lớn)
+    const MAX_SIZE_TARGET = 400 * 1024 * 1024; // evict tới 400MB khi vượt cap
     const CLEANUP_KEY = 'imageCache_lastCleanupTs';
-    const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 1 lần/ngày
+    const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // age-cleanup 1 lần/ngày
+    const SIZE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // size check 5 phút/lần (không throttle như age-cleanup)
+    const SIZE_CHECK_KEY = 'imageCache_lastSizeCheckTs';
 
     let dbPromise = null;
 
@@ -197,6 +199,28 @@
     }
 
     /**
+     * Size-only check (throttle ngắn 5 phút) — evict khi cache vượt cap.
+     * Không scan từng entry để xóa expired (đó là việc của cleanup).
+     */
+    async function sizeCheck() {
+        try {
+            const last = parseInt(localStorage.getItem(SIZE_CHECK_KEY) || '0', 10);
+            if (Date.now() - last < SIZE_CHECK_INTERVAL_MS) return;
+            const db = await openDB();
+            if (!db) return;
+            const all = await reqAsPromise(tx(db).getAll());
+            const totalSize = all.reduce((s, e) => s + (e.size || 0), 0);
+            if (totalSize > MAX_SIZE_BYTES) {
+                console.log(
+                    `[ImageCache] size-check: ${Math.round(totalSize / 1024 / 1024)}MB > cap ${MAX_SIZE_BYTES / 1024 / 1024}MB → evict to ${MAX_SIZE_TARGET / 1024 / 1024}MB`
+                );
+                await evictToTarget(MAX_SIZE_TARGET);
+            }
+            localStorage.setItem(SIZE_CHECK_KEY, String(Date.now()));
+        } catch (_) {}
+    }
+
+    /**
      * Cleanup: xóa entries > 7 ngày + evict nếu vượt cap.
      * Throttled qua localStorage timestamp — chỉ chạy 1 lần/ngày trên client.
      */
@@ -262,11 +286,15 @@
         });
     }
 
-    // Auto-cleanup khi load (throttled 1 lần/ngày)
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => cleanup());
-    } else {
+    // Auto-cleanup khi load: age-cleanup (1/ngày) + size-check (5 phút)
+    function runMaintenance() {
         cleanup();
+        sizeCheck();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runMaintenance);
+    } else {
+        runMaintenance();
     }
 
     /**
@@ -384,6 +412,7 @@
         getUrl,
         prefetch,
         cleanup,
+        sizeCheck,
         stats,
         clear,
         applyTo,

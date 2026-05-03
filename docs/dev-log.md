@@ -8,6 +8,13 @@
 
 ## 2026-05-03
 
+### [orders-report+image-cache] Auto-observer + CORS proxy + bump cap 500MB
+| | |
+|---|---|
+| **Files** | MODIFIED: [shared/js/image-cache.js](../shared/js/image-cache.js) — (1) thêm `attachAutoObserver()` MutationObserver tự động auto-cache mọi `<img>` match `AUTO_PATTERNS = [/img\d*\.tpos\.vn/, /firebasestorage\.googleapis\.com/, /\/api\/image-proxy\?/]` (idempotent qua data-cache-wired). (2) Thêm `toCorsUrl(url)` route `img\d.tpos.vn` qua CF Worker `/api/image-proxy?url=...` để có CORS — TPOS direct domain không trả CORS header → fetch từ JS sẽ fail và cache miss luôn. Cache key giữ URL gốc → share giữa caller. (3) Bump `MAX_SIZE_BYTES` 200→500MB (catalog ảnh lớn), `MAX_SIZE_TARGET` 160→400MB. (4) Thêm `sizeCheck()` chạy 5 phút/lần (throttle ngắn) — không phụ thuộc age-cleanup 24h, evict ngay khi vượt cap. MODIFIED: [shared/js/tpos-image-proxy.js](../shared/js/tpos-image-proxy.js) `rewriteImg()` — sau khi rewrite proxy URL, gọi `ImageCache.setImgSrc` (idempotent qua data-cache-wired). MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) + [orders-report/tab3-product-assignment.html](../orders-report/tab3-product-assignment.html) — load image-cache.js trước tpos-image-proxy.js. |
+| **Chi tiết** | **Trigger user**: scan toàn project apply ImageCache. **Test prod**: nav `tab1-orders.html` (campaign T5 đã chọn) → 763 TPOS images, **all 763 swap thành blob: URL** (cache hit/store). Cache stats: 527 entries, 238MB. **Bug-fix flow**: lần đầu test, blobCount=0 vì TPOS direct domain `img1.tpos.vn` không cho CORS → fetch fail → fallback remote URL. Fix bằng `toCorsUrl()` wrap qua CF Worker proxy. **Skip realtime**: chat-messages, chat-core, merge-live-waiting đều dùng URL pattern khác (Pancake CDN / Facebook), không match AUTO_PATTERNS. |
+| **Status** | ✅ Done. |
+
 ### [customer-hub+delivery-report+inventory] Mở rộng ImageCache (TTL 7d) sang wallet/profile/lightbox/gallery
 | | |
 |---|---|
