@@ -134,6 +134,35 @@ window.TPOSProductCreator = (function () {
     }
 
     /**
+     * Resolve free-text variant string ("Trắng, S" or "Trắng") to UUIDs từ attrValueMap.
+     * Match: case-insensitive + remove diacritics. Trả về [] nếu không match được.
+     * Dùng khi item có variant text nhưng selectedAttributeValueIds rỗng (vd nhập tay).
+     */
+    function resolveVariantTextToIds(variantText) {
+        if (!variantText || !attrValueMap) return [];
+        const tokens = String(variantText)
+            .split(/[\/,|]/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        if (tokens.length === 0) return [];
+        const norm = (s) => removeDiacritics(String(s).trim().toUpperCase());
+        const ids = [];
+        for (const token of tokens) {
+            const tokenN = norm(token);
+            let matched = null;
+            for (const [uuid, val] of attrValueMap) {
+                if (norm(val.value) === tokenN || norm(val.code) === tokenN) {
+                    matched = uuid;
+                    break;
+                }
+            }
+            if (matched) ids.push(matched);
+            else console.warn(`[TPOSCreator] Variant text "${token}" không match attribute value`);
+        }
+        return ids;
+    }
+
+    /**
      * Group resolved attribute values by attribute_id
      * Returns Map<attribute_id, value[]> sorted by display_order
      */
@@ -1201,6 +1230,29 @@ window.TPOSProductCreator = (function () {
             // Step 1: Load attribute CSV data
             await loadAttributeData();
 
+            // Step 1b: Auto-resolve free-text variants → selectedAttributeValueIds.
+            // User có thể chỉ điền text "Trắng"/"Đen" mà không qua nested variant picker
+            // → selectedAttributeValueIds rỗng. Match text với attrValueMap để build UUIDs,
+            // nhờ đó processGroup phát hiện CASE 2 (có variants) → upload AttributeLines +
+            // ProductVariants → sau khi TPOS gán DefaultCode (vd N4107T/N4107D) thì
+            // matchVariantBarcodes sẽ cập nhật item.productCode về.
+            for (const item of items) {
+                if (
+                    item &&
+                    item.variant &&
+                    (!Array.isArray(item.selectedAttributeValueIds) ||
+                        item.selectedAttributeValueIds.length === 0)
+                ) {
+                    const ids = resolveVariantTextToIds(item.variant);
+                    if (ids.length > 0) {
+                        item.selectedAttributeValueIds = ids;
+                        console.log(
+                            `[TPOSCreator] Auto-resolved variant "${item.variant}" → ${ids.length} attribute value(s)`
+                        );
+                    }
+                }
+            }
+
             // Step 2: Group items
             const groups = groupOrderItems(items);
             if (groups.size === 0) {
@@ -1465,6 +1517,7 @@ window.TPOSProductCreator = (function () {
         loadAttributeData,
         groupOrderItems,
         resolveAttributeValues,
+        resolveVariantTextToIds,
         buildBasePayload,
         buildAttributeLines,
         buildProductVariants,
