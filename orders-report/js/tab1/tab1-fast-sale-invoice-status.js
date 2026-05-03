@@ -2031,11 +2031,16 @@
             return '<span style="color: #9ca3af;">−</span>';
         }
 
+        // Refresh button — force fetch fresh PBH từ TPOS cho order này.
+        // Hiển thị trên mọi trạng thái cell (kể cả empty) để user manual check.
+        const refreshBtnHtml = `<button type="button" class="invoice-refresh-btn" onclick="window.refreshPBHForOrder('${order.Id}'); event.stopPropagation();" title="Làm mới trạng thái phiếu từ TPOS" style="background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:3px;padding:1px 5px;cursor:pointer;font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:2px;">↻</button>`;
+
         // Check if this order has an invoice
         const invoiceData = InvoiceStatusStore.get(order.Id);
 
         if (!invoiceData) {
-            return '<span style="color: #9ca3af;">−</span>';
+            // Empty cell: cho phép refresh để check phiếu mới xuất hiện trên TPOS
+            return `<div style="display:inline-flex;align-items:center;gap:4px;"><span style="color:#9ca3af;">−</span>${refreshBtnHtml}</div>`;
         }
 
         const showState = invoiceData.ShowState || '';
@@ -2051,7 +2056,8 @@
             showState === 'Huỷ bỏ' ||
             showState === 'Hủy bỏ';
         if (isCancelled) {
-            return '<span style="color: #9ca3af;">−</span>';
+            // Cell hiển thị empty nhưng vẫn cho refresh để user check phiếu mới trên TPOS
+            return `<div style="display:inline-flex;align-items:center;gap:4px;"><span style="color:#9ca3af;">−</span>${refreshBtnHtml}</div>`;
         }
         const showStateConfig = getShowStateConfig(showState);
         const stateCodeConfig = getStateCodeConfig(stateCode, isMergeCancel);
@@ -2185,6 +2191,8 @@
         const allEntries = InvoiceStatusStore.getAll(order.Id);
         const entryCount = allEntries.length;
         html += `<button type="button" onclick="window._forceCreatePBH('${order.Id}'); event.stopPropagation();" title="Tạo phiếu bán hàng mới (đã tạo ${entryCount} lần)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;font-weight:600;">+ PBH${entryCount > 1 ? ' (' + entryCount + ')' : ''}</button>`;
+        // Refresh button — fetch fresh PBH state từ TPOS cho order này
+        html += refreshBtnHtml;
         html += `</div>`;
 
         html += `</div>`;
@@ -3864,6 +3872,120 @@
         window.sendBillManually = sendBillManually;
         window.sendBillBatch = sendBillBatch;
         window.bulkSendSelectedBills = bulkSendSelectedBills;
+
+        /**
+         * Refresh PBH cho 1 order — fetch fresh từ TPOS OData by Reference
+         * (order Code), update InvoiceStatusStore + DB, re-render cell. Bao
+         * phủ cả case: phiếu vừa tạo trên TPOS chưa polling tới, phiếu vừa
+         * hủy trên TPOS chưa polling tới (workaround cho việc TPOS không
+         * emit cancel event realtime).
+         */
+        window.refreshPBHForOrder = async function (orderId) {
+            if (!orderId) return;
+            const order =
+                (typeof allData !== 'undefined' && allData.find((o) => o.Id === orderId)) ||
+                (typeof window.displayedData !== 'undefined' &&
+                    window.displayedData.find((o) => o.Id === orderId));
+            if (!order || !order.Code) {
+                window.notificationManager?.error('Không tìm thấy thông tin đơn để refresh');
+                return;
+            }
+            // Visual loading state — disable refresh buttons trong cell này
+            const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+            const cellRefreshBtns = row?.querySelectorAll('.invoice-refresh-btn');
+            cellRefreshBtns?.forEach((b) => {
+                b.disabled = true;
+                b.style.opacity = '0.5';
+                b.textContent = '⟳';
+            });
+            try {
+                if (!window.tokenManager?.getAuthHeader) {
+                    throw new Error('Token manager chưa sẵn sàng');
+                }
+                const tposOData =
+                    window.API_CONFIG?.TPOS_ODATA ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+                const headers = await window.tokenManager.getAuthHeader();
+                const filter = `(Type eq 'invoice' and Reference eq '${String(order.Code).replace(/'/g, "''")}')`;
+                const url =
+                    `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                    `?$top=50&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
+                const resp = await fetch(url, {
+                    headers: { ...headers, accept: 'application/json' },
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const result = await resp.json();
+                const invoices = Array.isArray(result?.value) ? result.value : [];
+
+                // Build orderShim 1 lần — share giữa các invoice
+                const orderShim = {
+                    Id: order.Id,
+                    Code: order.Code,
+                    Name: order.Name || '',
+                    Telephone: order.Telephone || '',
+                    Address: order.Address || '',
+                };
+
+                // Drop entries cũ trong Store cho saleOnlineId này mà TPOS không trả về nữa
+                // (phiếu bị xóa hoàn toàn trên TPOS — polled-deleted scenario)
+                const freshTposIds = new Set(invoices.map((inv) => inv.Id));
+                const stale = [];
+                for (const [key, value] of InvoiceStatusStore._data.entries()) {
+                    if (
+                        String(value.SaleOnlineId) === String(orderId) &&
+                        value.Id &&
+                        !freshTposIds.has(value.Id)
+                    ) {
+                        stale.push(key);
+                    }
+                }
+                const apiBase =
+                    (window.API_CONFIG?.WORKER_URL ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
+                for (const k of stale) {
+                    try {
+                        await fetch(`${apiBase}/entries/${encodeURIComponent(k)}`, {
+                            method: 'DELETE',
+                        });
+                    } catch (_) {}
+                    InvoiceStatusStore._data.delete(k);
+                    InvoiceStatusStore._myKeys?.delete(k);
+                }
+
+                // Upsert fresh data
+                for (const inv of invoices) {
+                    InvoiceStatusStore.set(orderId, inv, orderShim);
+                }
+
+                // Re-render cell
+                if (row) {
+                    const cell = row.querySelector('td[data-column="invoice-status"]');
+                    if (cell) cell.innerHTML = renderInvoiceStatusCell(order);
+                }
+
+                const activeCount = invoices.filter(
+                    (inv) =>
+                        inv.State !== 'cancel' &&
+                        inv.StateCode !== 'cancel' &&
+                        !inv.IsMergeCancel &&
+                        inv.ShowState !== 'Huỷ bỏ' &&
+                        inv.ShowState !== 'Hủy bỏ'
+                ).length;
+                window.notificationManager?.success(
+                    `✓ Refresh OK: ${invoices.length} phiếu (${activeCount} active${stale.length ? `, xóa ${stale.length} stale` : ''})`,
+                    2500
+                );
+            } catch (e) {
+                console.error('[REFRESH-PBH]', orderId, e);
+                window.notificationManager?.error(`Refresh thất bại: ${e.message}`, 3000);
+                // Restore buttons trên error
+                cellRefreshBtns?.forEach((b) => {
+                    b.disabled = false;
+                    b.style.opacity = '';
+                    b.textContent = '↻';
+                });
+            }
+        };
 
         /**
          * Force create PBH for an order — bypass all duplicate guards.
