@@ -836,8 +836,11 @@ export class CustomerProfileModule {
                                         ? orderMatch[1]
                                         : tx.reference_id || '';
 
+                                    // COD payment có thể là WITHDRAW (trừ ví thật) HOẶC VIRTUAL_DEBIT
+                                    // (trừ công nợ ảo) — cùng note pattern. Trước đây chỉ check WITHDRAW
+                                    // → VIRTUAL_DEBIT bypass branch → math sai không được fix.
                                     const isCodPayment =
-                                        tx.type === 'WITHDRAW' &&
+                                        (tx.type === 'WITHDRAW' || tx.type === 'VIRTUAL_DEBIT') &&
                                         (tx.source === 'SALE_ORDER' ||
                                             /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
                                     const isCancelRefund =

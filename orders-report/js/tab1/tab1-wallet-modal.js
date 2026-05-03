@@ -53,7 +53,7 @@
         for (const tx of txs) {
             const rn = tx.note || tx.source || '';
             const isCod =
-                tx.type === 'WITHDRAW' &&
+                (tx.type === 'WITHDRAW' || tx.type === 'VIRTUAL_DEBIT') &&
                 (tx.source === 'SALE_ORDER' || /Thanh toán.*đơn hàng/i.test(rn));
             if (!isCod) {
                 out.push(tx);
@@ -320,8 +320,10 @@
                 (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
             const orderCode = orderMatch ? orderMatch[1] : tx.reference_id || '';
 
+            // COD payment có thể là WITHDRAW (trừ ví thật) HOẶC VIRTUAL_DEBIT
+            // (trừ công nợ ảo) — cùng note pattern.
             const isCodPayment =
-                tx.type === 'WITHDRAW' &&
+                (tx.type === 'WITHDRAW' || tx.type === 'VIRTUAL_DEBIT') &&
                 (tx.source === 'SALE_ORDER' || /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
             const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
 
