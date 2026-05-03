@@ -595,6 +595,18 @@ window.TPOSProductCreator = (function () {
      *   variants: [{ Id, DefaultCode, ProductTmplId, Barcode, NameGet, AttributeValues }]
      */
     async function checkProductExists(productCode) {
+        // Step 1: Check qua warehouse cache (Render DB) trước — nhanh hơn TPOS OData,
+        // ít rate-limit. Chỉ khi server warehouse lỗi (5xx/network) mới fallback TPOS.
+        const warehouseResult = await _checkProductInWarehouse(productCode);
+        if (warehouseResult.ok) {
+            // Warehouse trả lời thành công → tin vào kết quả (kể cả empty)
+            return { exists: warehouseResult.exists, variants: warehouseResult.variants };
+        }
+
+        // Step 2: Warehouse server lỗi → fallback TPOS OData (nguồn truth gốc)
+        console.warn(
+            `[TPOSCreator] Warehouse lỗi cho ${productCode} (${warehouseResult.error}) → fallback TPOS OData`
+        );
         try {
             // startswith bao hàm cả exact match và biến thể (Q130 → Q130, Q130T, Q130D…)
             const url = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode,'${encodeURIComponent(productCode)}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet,AttributeValues`;
@@ -617,6 +629,48 @@ window.TPOSProductCreator = (function () {
         } catch (err) {
             console.warn(`[TPOSCreator] checkProductExists ${productCode} error:`, err);
             return { exists: false, variants: [] };
+        }
+    }
+
+    /**
+     * Check sản phẩm trong warehouse cache (Render DB qua /search).
+     * @param {string} productCode
+     * @returns {Promise<{ok: boolean, exists?: boolean, variants?: Array, error?: string}>}
+     *   - ok=true: warehouse trả lời thành công (dùng exists/variants)
+     *   - ok=false: server lỗi/timeout → caller fallback TPOS
+     */
+    async function _checkProductInWarehouse(productCode) {
+        if (!window.WarehouseAPI || typeof window.WarehouseAPI.search !== 'function') {
+            return { ok: false, error: 'WarehouseAPI not loaded' };
+        }
+        const BASE_URL = window.WarehouseAPI.BASE_URL;
+        // Direct fetch để biết HTTP status — WarehouseAPI.search nuốt error trả [].
+        try {
+            const url = `${BASE_URL}/search?q=${encodeURIComponent(productCode)}&limit=50`;
+            const resp = await fetch(url);
+            if (!resp.ok) {
+                // 5xx server error → fallback TPOS; 4xx vẫn coi là lỗi để fallback an toàn.
+                return { ok: false, error: `HTTP ${resp.status}` };
+            }
+            const result = await resp.json();
+            const rows = result.data || [];
+            const re = new RegExp(
+                `^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Z0-9]{0,4}$`,
+                'i'
+            );
+            const matches = rows.filter((r) => re.test(r.product_code || ''));
+            // Map sang shape giống TPOS variants để downstream code dùng được.
+            const variants = matches.map((r) => ({
+                Id: r.tpos_product_id,
+                DefaultCode: r.product_code,
+                Barcode: r.product_code,
+                NameGet: r.name_get || r.product_name,
+                ProductTmplId: r.tpos_template_id,
+                AttributeValues: null,
+            }));
+            return { ok: true, exists: variants.length > 0, variants };
+        } catch (err) {
+            return { ok: false, error: err.message || 'network' };
         }
     }
 
