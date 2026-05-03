@@ -393,7 +393,13 @@
             params.set('ToDate', new Date(f.toDate).toISOString());
         }
 
-        params.set('Q', f.keyword);
+        // Phone-aware search: nếu keyword match Vietnamese phone pattern (10-11 digit
+        // starting 0/3/5/7/8/9), KHÔNG gửi Q lên TPOS (Q chỉ search Number/TrackingRef,
+        // không match Phone) → fetch full date range, lọc client-side theo Phone.
+        // Loại trừ: barcode dài (>12 chars hoặc chứa ký tự không-digit-không-/-không-_).
+        if (f.keyword && !isPhoneSearchKeyword(f.keyword)) {
+            params.set('Q', f.keyword);
+        }
 
         // Fetch all data (client-side pagination)
         params.set('$top', '10000');
@@ -416,10 +422,50 @@
     }
 
     // =====================================================
-    // CLIENT-SIDE FILTER (carrier + tra soát)
+    // PHONE SEARCH HELPERS
+    // =====================================================
+    /**
+     * Vietnamese phone pattern: chuỗi 9-11 chữ số, bắt đầu 0/3/5/7/8/9.
+     * Loại trừ barcode (chứa ký tự không-digit, hoặc length quá dài/ngắn).
+     */
+    function isPhoneSearchKeyword(kw) {
+        if (!kw) return false;
+        const trimmed = String(kw).trim();
+        // Pure digits, length 9-11
+        if (!/^\d{9,11}$/.test(trimmed)) return false;
+        // Vietnamese phone: bắt đầu 0 (10-11 digit) hoặc 3/5/7/8/9 (9-10 digit không có 0 prefix)
+        return /^0/.test(trimmed) || /^[35789]/.test(trimmed);
+    }
+
+    /**
+     * Normalize phone for comparison: bỏ hết khoảng trắng + leading 0/+84.
+     * VD: "0905550610" / "905550610" / "+84905550610" → "905550610"
+     */
+    function normalizePhone(phone) {
+        if (!phone) return '';
+        let p = String(phone).replace(/[\s\-()+\.]/g, '');
+        if (p.startsWith('84')) p = p.slice(2);
+        if (p.startsWith('0')) p = p.slice(1);
+        return p;
+    }
+
+    function matchesPhoneFilter(item, kw) {
+        const target = normalizePhone(kw);
+        if (!target) return true;
+        const candidates = [item.Phone, item.Ship_Receiver_Phone, item.Telephone];
+        for (const c of candidates) {
+            if (c && normalizePhone(c).includes(target)) return true;
+        }
+        return false;
+    }
+
+    // =====================================================
+    // CLIENT-SIDE FILTER (carrier + tra soát + phone)
     // =====================================================
     function getFilteredData() {
         const state = DeliveryReportState;
+        const kw = state.filters?.keyword || '';
+        const phoneFilter = isPhoneSearchKeyword(kw);
 
         if (state.traSoatMode) {
             // In tra soát mode: use tab filter + scan filter
@@ -429,11 +475,19 @@
             } else {
                 data = data.filter((item) => state.scannedNumbers.has(item.Number));
             }
+            // Phone filter applied trên cả tra soát mode
+            if (phoneFilter) {
+                data = data.filter((item) => matchesPhoneFilter(item, kw));
+            }
             return data;
         }
 
-        // Normal mode: no additional filter
-        return state.allData || [];
+        // Normal mode: phone filter nếu keyword là SĐT
+        const all = state.allData || [];
+        if (phoneFilter) {
+            return all.filter((item) => matchesPhoneFilter(item, kw));
+        }
+        return all;
     }
 
     // =====================================================
