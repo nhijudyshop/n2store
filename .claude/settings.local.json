@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/mac/Desktop/n2store && if [ -n \"$(git diff HEAD --name-only 2>/dev/null)\" ]; then git add -u && git commit -m \"auto: session update\" && git push 2>&1; fi",
+            "command": "cd /Users/mac/Desktop/n2store && if [ -n \"$(git diff HEAD --name-only 2>/dev/null)\" ]; then git add -u && git commit -m \"auto: session update\" && git pull --rebase --autostash origin main && git push origin main 2>&1; else git pull --rebase --autostash origin main 2>&1; fi",
             "async": true,
             "timeout": 60
           }
