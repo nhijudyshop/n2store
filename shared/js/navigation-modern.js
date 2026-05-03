@@ -6086,9 +6086,7 @@ function waitForDependencies(callback, maxRetries = 30, delay = 300) {
             const now = Date.now();
             if (auth.expiresAt && now > auth.expiresAt) return false;
             if (!auth.expiresAt && auth.timestamp) {
-                const maxAge = auth.isRemembered
-                    ? 30 * 24 * 60 * 60 * 1000
-                    : 8 * 60 * 60 * 1000;
+                const maxAge = auth.isRemembered ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
                 if (now - auth.timestamp > maxAge) return false;
             }
             return true;

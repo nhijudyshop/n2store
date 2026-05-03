@@ -1878,9 +1878,10 @@
         const hiddenRefundCount = (state.approvedToday || []).length - visibleRows.length;
 
         if (visibleRows.length === 0) {
-            const msg = hiddenRefundCount > 0
-                ? `Đã ẩn ${hiddenRefundCount} giao dịch hoàn tiền hủy đơn`
-                : 'Chưa có giao dịch được duyệt ngày này';
+            const msg =
+                hiddenRefundCount > 0
+                    ? `Đã ẩn ${hiddenRefundCount} giao dịch hoàn tiền hủy đơn`
+                    : 'Chưa có giao dịch được duyệt ngày này';
             elements.approvedTableBody.innerHTML = `
                 <tr>
                     <td colspan="9" class="acc-empty-state">
