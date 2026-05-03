@@ -8,6 +8,49 @@
 // UTILITIES
 // =====================================================
 
+/**
+ * Effective product quantity — fallback chain:
+ *   stored tongSoLuong > 0  → use it
+ *   variants sum (mauSac)   → use it
+ *   soLuong field           → use it
+ * Fixes products có tongSoLuong=0 (vd biến thể chưa nhập SL) nhưng soLuong=35.
+ */
+function getProductEffectiveQty(p) {
+    if (!p) return 0;
+    const stored = parseInt(p.tongSoLuong) || 0;
+    if (stored > 0) return stored;
+    if (Array.isArray(p.mauSac) && p.mauSac.length > 0) {
+        const variantSum = p.mauSac.reduce((s, m) => s + (parseInt(m.soLuong) || 0), 0);
+        if (variantSum > 0) return variantSum;
+    }
+    return parseInt(p.soLuong) || 0;
+}
+
+/** thanhTien = effective qty × giaDonVi (không tin field thanhTien đã lưu). */
+function getProductAmount(p) {
+    return getProductEffectiveQty(p) * (parseFloat(p?.giaDonVi) || 0);
+}
+
+/** Tổng tiền HĐ — sum tươi từ products; fallback hd.tongTienHD nếu không có products. */
+function getInvoiceAmount(hd) {
+    const products = hd?.sanPham || [];
+    if (products.length === 0) return parseFloat(hd?.tongTienHD || hd?.tongTien) || 0;
+    return products.reduce((s, p) => s + getProductAmount(p), 0);
+}
+
+/** Tổng số món HĐ — sum effective qty của products. */
+function getInvoiceTotalQty(hd) {
+    const products = hd?.sanPham || [];
+    if (products.length === 0) return parseInt(hd?.tongMon) || 0;
+    return products.reduce((s, p) => s + getProductEffectiveQty(p), 0);
+}
+
+// Expose globally so crud-operations.js có thể dùng cùng helper.
+window.getProductEffectiveQty = getProductEffectiveQty;
+window.getProductAmount = getProductAmount;
+window.getInvoiceAmount = getInvoiceAmount;
+window.getInvoiceTotalQty = getInvoiceTotalQty;
+
 /** Escape string for safe use in HTML attributes (onclick, title, data-*) */
 function _escAttr(str) {
     if (!str) return '';
@@ -708,15 +751,10 @@ function renderInvoicesSection(shipment) {
         `;
     }
 
-    // Support both tongTienHD (new) and tongTien (old) field names
-    const totalAmount = invoices.reduce((sum, hd) => sum + (hd.tongTienHD || hd.tongTien || 0), 0);
-    // Calculate tongMon from products if not available
-    const totalItems = invoices.reduce((sum, hd) => {
-        if (hd.tongMon) return sum + hd.tongMon;
-        // Fallback: calculate from products
-        const products = hd.sanPham || [];
-        return sum + products.reduce((pSum, p) => pSum + (p.soLuong || 0), 0);
-    }, 0);
+    // Compute fresh from products — không tin tongTienHD/thanhTien đã lưu vì có thể stale
+    // (vd 24/1 tongSoLuong=0 nhưng soLuong=35 → thanhTien lưu = 0, sai).
+    const totalAmount = invoices.reduce((sum, hd) => sum + getInvoiceAmount(hd), 0);
+    const totalItems = invoices.reduce((sum, hd) => sum + getInvoiceTotalQty(hd), 0);
     const totalShortage = invoices.reduce((sum, hd) => sum + (hd.soMonThieu || 0), 0);
     const totalCost = costs.reduce((sum, c) => sum + (c.soTien || 0), 0);
 
@@ -730,9 +768,9 @@ function renderInvoicesSection(shipment) {
         const imageCount = hd.anhHoaDon?.length || 0;
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
 
-        // Calculate tongMon for this invoice (fallback from products if not set)
-        const invoiceTongMon = hd.tongMon || products.reduce((sum, p) => sum + (p.soLuong || 0), 0);
-        const invoiceTongTienHD = hd.tongTienHD || hd.tongTien || 0;
+        // Compute fresh — bỏ qua field đã lưu vì có thể sai (ví dụ tongSoLuong=0).
+        const invoiceTongMon = getInvoiceTotalQty(hd);
+        const invoiceTongTienHD = getInvoiceAmount(hd);
 
         // Check if invoice has subInvoice
         const hasSubInvoice = !!hd.subInvoice;
@@ -991,7 +1029,8 @@ function renderProductRow(opts) {
     const nccCheckbox = `<label class="ncc-done-label" onclick="event.stopPropagation()"><input type="checkbox" class="ncc-done-check" data-ncc-key="${nccKey}" ${nccDone ? 'checked' : ''} onchange="toggleNccDone('${_escAttr(shipmentId)}', '${nccKey}', this.checked)"></label>`;
     const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${_escAttr(invoiceId)}')" title="Xóa NCC ${nccKey}"><i data-lucide="trash-2"></i></button>`;
     const nccConvertBtn = `<button class="btn-convert-po" onclick="event.stopPropagation(); window.openConvertToPurchaseOrderModal('${_escAttr(invoiceId)}')" title="Chuyển NCC ${nccKey} qua Đặt hàng Nháp"><i data-lucide="shopping-cart"></i></button>`;
-    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccConvertBtn}${nccDeleteBtn}`;
+    const nccEditBtn = `<button class="btn-edit-ncc" onclick="event.stopPropagation(); window.openEditNccInvoiceModal('${_escAttr(invoiceId)}')" title="Sửa hóa đơn NCC ${nccKey}"><i data-lucide="pencil"></i></button>`;
+    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccEditBtn}${nccConvertBtn}${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
@@ -1959,15 +1998,15 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
             product[field] = newValue;
         }
 
-        // Recalculate totals
+        // Recalculate totals — dùng getProductEffectiveQty để fallback đúng
+        // (tongSoLuong=0 → variants sum → soLuong).
         if (field === 'tongSoLuong' || field === 'giaDonVi') {
-            product.thanhTien =
-                (product.tongSoLuong || product.soLuong || 0) * (product.giaDonVi || 0);
+            product.thanhTien = getProductAmount(product);
             targetDot.tongMon = targetDot.sanPham.reduce(
-                (s, p) => s + (p.tongSoLuong || p.soLuong || 0),
+                (s, p) => s + getProductEffectiveQty(p),
                 0
             );
-            targetDot.tongTienHD = targetDot.sanPham.reduce((s, p) => s + (p.thanhTien || 0), 0);
+            targetDot.tongTienHD = targetDot.sanPham.reduce((s, p) => s + getProductAmount(p), 0);
         }
 
         await shipmentsApi.update(invoiceId, {

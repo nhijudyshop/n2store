@@ -305,11 +305,12 @@ async function deleteProductRow(invoiceId, productIdx) {
     try {
         // Remove product from array
         const newProducts = products.filter((_, i) => i !== productIdx);
-        const newTongMon = newProducts.reduce(
-            (sum, p) => sum + (p.tongSoLuong || p.soLuong || 0),
-            0
-        );
-        const newTongTien = newProducts.reduce((sum, p) => sum + (p.thanhTien || 0), 0);
+        const qtyOf = window.getProductEffectiveQty || ((p) => p.tongSoLuong || p.soLuong || 0);
+        const amtOf =
+            window.getProductAmount ||
+            ((p) => (p.tongSoLuong || p.soLuong || 0) * (p.giaDonVi || 0));
+        const newTongMon = newProducts.reduce((sum, p) => sum + qtyOf(p), 0);
+        const newTongTien = newProducts.reduce((sum, p) => sum + amtOf(p), 0);
 
         await shipmentsApi.update(invoiceId, {
             sanPham: newProducts,
