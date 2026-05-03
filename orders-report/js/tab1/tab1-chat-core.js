@@ -293,7 +293,8 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     window.currentConversationId = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
-    window.currentChatCursor = null; window._chatNoMoreMessages = false;
+    window.currentChatCursor = null;
+    window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
     window.currentSendPageId = pageId;
     window.isSendingMessage = false;
@@ -588,7 +589,8 @@ window.closeChatModal = function () {
     window.currentConversationType = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
-    window.currentChatCursor = null; window._chatNoMoreMessages = false;
+    window.currentChatCursor = null;
+    window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
 
     // Clear image previews
@@ -1206,7 +1208,8 @@ function _resetTransientChatState() {
     window.currentConversationId = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
-    window.currentChatCursor = null; window._chatNoMoreMessages = false;
+    window.currentChatCursor = null;
+    window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
     window.isLoadingMoreMessages = false;
     const preview = document.getElementById('replyPreview');

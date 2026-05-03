@@ -731,14 +731,12 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
                     customers_len: msgData?.customers?.length || 0,
                     customers_with_global_id: (msgData?.customers || []).filter((c) => c.global_id)
                         .length,
-                    customers_sample: (msgData?.customers || [])
-                        .slice(0, 2)
-                        .map((c) => ({
-                            id: c.id,
-                            fb_id: c.fb_id,
-                            global_id: c.global_id,
-                            name: c.name,
-                        })),
+                    customers_sample: (msgData?.customers || []).slice(0, 2).map((c) => ({
+                        id: c.id,
+                        fb_id: c.fb_id,
+                        global_id: c.global_id,
+                        name: c.name,
+                    })),
                 });
                 if (msgData?.conversation) {
                     if (msgData.conversation.thread_id)
