@@ -629,9 +629,17 @@ window.sendMessage = async function () {
                             String(m.id).startsWith('pr_') &&
                             !messages.some((sm) => sm.text === m.text && sm.sender === 'shop')
                     );
-                    window.allChatMessages = [...messages, ...optimisticMsgs];
-                    window.currentChatCursor = messages.length;
-                    window.renderChatMessages(messages);
+                    // Merge: giữ tin cũ đã load qua infinite-scroll mà API page-1 không trả lại.
+                    // Trước đây overwrite allChatMessages → mất hết tin cũ user vừa scroll up xem.
+                    const freshIds = new Set(messages.map((m) => m.id));
+                    const olderKept = (window.allChatMessages || []).filter(
+                        (m) => !String(m.id).startsWith('pr_') && !freshIds.has(m.id)
+                    );
+                    const merged = [...olderKept, ...messages, ...optimisticMsgs];
+                    window.allChatMessages = merged;
+                    // Cursor = tổng số tin đã load (để loadMoreMessages tiếp tục đúng)
+                    window.currentChatCursor = merged.length;
+                    window.renderChatMessages(merged);
                 }
             }
         }, reloadDelay);
