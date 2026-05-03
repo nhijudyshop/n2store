@@ -292,5 +292,80 @@
             });
     }
 
-    window.ImageCache = { getUrl, prefetch, cleanup, stats, clear, applyTo, setImgSrc };
+    /**
+     * Auto-observe DOM for img elements matching configured URL patterns,
+     * và auto-swap src → blob URL từ cache. Idempotent qua data-cache-wired flag.
+     *
+     * Default patterns: TPOS CDN (img\d+\.tpos\.vn), Firebase Storage,
+     * Cloudflare Worker image-proxy. Caller có thể append patterns.
+     */
+    const AUTO_PATTERNS = [
+        /img\d*\.tpos\.vn/i,
+        /firebasestorage\.googleapis\.com/i,
+        /\/api\/image-proxy\?/i,
+    ];
+
+    function shouldAutoCache(src) {
+        if (!src || src.startsWith('blob:') || src.startsWith('data:')) return false;
+        return AUTO_PATTERNS.some((p) => p.test(src));
+    }
+
+    function autoCacheImg(img) {
+        if (!img || img.getAttribute('data-cache-wired')) return;
+        const src = img.getAttribute('src') || img.src;
+        if (!shouldAutoCache(src)) return;
+        img.setAttribute('data-cache-wired', '1');
+        setImgSrc(img, src);
+    }
+
+    function attachAutoObserver() {
+        if (typeof MutationObserver === 'undefined') return;
+        const scan = (root) => {
+            (root || document).querySelectorAll('img[src]:not([data-cache-wired])').forEach(autoCacheImg);
+        };
+        const mo = new MutationObserver((muts) => {
+            for (const m of muts) {
+                if (m.type === 'childList') {
+                    m.addedNodes.forEach((n) => {
+                        if (n.nodeType !== 1) return;
+                        if (n.tagName === 'IMG') autoCacheImg(n);
+                        else if (n.querySelectorAll) {
+                            n.querySelectorAll('img[src]:not([data-cache-wired])').forEach(autoCacheImg);
+                        }
+                    });
+                } else if (m.type === 'attributes' && m.target.tagName === 'IMG') {
+                    autoCacheImg(m.target);
+                }
+            }
+        });
+        const start = () => {
+            scan();
+            mo.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['src'],
+            });
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', start, { once: true });
+        } else {
+            start();
+        }
+    }
+
+    // Bật auto-observer mặc định — chỉ caches URLs match AUTO_PATTERNS.
+    attachAutoObserver();
+
+    window.ImageCache = {
+        getUrl,
+        prefetch,
+        cleanup,
+        stats,
+        clear,
+        applyTo,
+        setImgSrc,
+        shouldAutoCache,
+        AUTO_PATTERNS,
+    };
 })();
