@@ -2680,6 +2680,36 @@
             return `<button type="button" class="dr-hp-approve-btn" data-pending-id="${escapeHtml(String(pendingId))}" data-pending-amt="${escapeHtml(String(amount || 0))}" title="Duyệt giao dịch"><i class="fas fa-check"></i> Duyệt</button>`;
         }
 
+        // Build "Kiểm tra giao dịch" button cho tx đã duyệt (manager review).
+        // Chỉ hiện cho tx có balance_history reference (sepay) hoặc wallet_transactions
+        // chưa được kiểm tra. Khi đã kiểm tra, hiện badge "ĐÃ KT" thay button.
+        function reviewBtnHtmlForTx(tx) {
+            if (!tx) return '';
+            // Composite uid: ưu tiên bh:N (sepay) khi có balance_history reference
+            let uid = '';
+            let reviewed = false;
+            let reviewedBy = '';
+            let reviewedAt = '';
+            if (tx.reference_type === 'balance_history' && tx.reference_id) {
+                uid = `bh:${tx.reference_id}`;
+                reviewed = !!tx.bh_manager_reviewed;
+                reviewedBy = tx.bh_reviewed_by || '';
+                reviewedAt = tx.bh_reviewed_at || '';
+            } else if (tx.id) {
+                uid = `wt:${tx.id}`;
+                reviewed = !!tx.wt_manager_reviewed;
+                reviewedBy = tx.wt_reviewed_by || '';
+                reviewedAt = tx.wt_reviewed_at || '';
+            }
+            if (!uid) return '';
+            if (reviewed) {
+                const t = reviewedAt ? new Date(reviewedAt).toLocaleString('vi-VN') : '';
+                const tip = `Đã kiểm tra${reviewedBy ? ' bởi ' + reviewedBy : ''}${t ? ' lúc ' + t : ''}`;
+                return `<span class="dr-hp-reviewed-badge" title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;">✓ ĐÃ KT</span>`;
+            }
+            return `<button type="button" class="dr-hp-review-btn" data-uid="${escapeHtml(uid)}" title="Kiểm tra giao dịch" style="background:#fef3c7;color:#a16207;border:1px solid #fde68a;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:2px;"><i class="fas fa-clipboard-check"></i></button>`;
+        }
+
         function renderCustomer(data, phone) {
             const c = data.customer || {};
             const w = data.wallet || { balance: 0, virtual_balance: 0 };
@@ -2727,13 +2757,15 @@
                               const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
                               const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
                               const eye = eyeBtnHtmlForTx(tx);
+                              const review = reviewBtnHtmlForTx(tx);
+                              const actions = [eye, review].filter(Boolean).join('');
                               return `
                           <div class="dr-hp-tx ${cls}">
                               <div class="dr-hp-tx-head">
                                   <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
                                   <span class="dr-hp-tx-label">${escapeHtml(label)}</span>
                                   <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(tx.created_at))}</span>
-                                  ${eye ? `<span class="dr-hp-tx-actions">${eye}</span>` : ''}
+                                  ${actions ? `<span class="dr-hp-tx-actions" style="display:inline-flex;gap:4px;align-items:center;">${actions}</span>` : ''}
                               </div>
                               ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
                           </div>`;
@@ -2911,6 +2943,54 @@
                     );
                 });
             });
+            pop.querySelectorAll('.dr-hp-review-btn:not([data-bound])').forEach((btn) => {
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    reviewTransaction(btn.dataset.uid, btn);
+                });
+            });
+        }
+
+        // Manager review: mark wallet/balance_history transaction as reviewed.
+        // Confirm trước khi gọi API (per balance-history pattern). Sau success
+        // thay button bằng badge "ĐÃ KT".
+        async function reviewTransaction(uid, btn) {
+            if (!uid) return;
+            if (!confirm('Đánh dấu giao dịch này đã được kiểm tra?')) return;
+            const reviewedBy = window.authManager?.getUserInfo?.()?.username || 'admin';
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                const url = `${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(uid)}/manager-review`;
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        manager_review_note: '',
+                        reviewed_by: reviewedBy,
+                    }),
+                });
+                const result = await resp.json();
+                if (!result.success) throw new Error(result.error || 'Review failed');
+                // Replace button with badge
+                const t = new Date().toLocaleString('vi-VN');
+                const tip = `Đã kiểm tra bởi ${reviewedBy} lúc ${t}`;
+                const badge = document.createElement('span');
+                badge.className = 'dr-hp-reviewed-badge';
+                badge.title = tip;
+                badge.style.cssText =
+                    'display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;';
+                badge.textContent = '✓ ĐÃ KT';
+                btn.replaceWith(badge);
+            } catch (err) {
+                console.error('[REVIEW-TX]', uid, err);
+                alert('Lỗi kiểm tra giao dịch: ' + (err.message || err));
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
         }
 
         let currentCell = null;
