@@ -118,9 +118,31 @@
         }
     }
 
+    // Một số CDN không cho CORS từ origin khác (TPOS img\d.tpos.vn) →
+    // route fetch qua CF Worker proxy để có response CORS-ok.
+    const NON_CORS_PATTERNS = [/img\d*\.tpos\.vn/i];
+    const WORKER_URL_FALLBACK = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    function getWorkerUrl() {
+        return (
+            window.WORKER_URL ||
+            window.API_CONFIG?.WORKER_URL ||
+            WORKER_URL_FALLBACK
+        );
+    }
+    function toCorsUrl(url) {
+        // Đã là proxy URL rồi → giữ nguyên
+        if (/\/api\/image-proxy\?/.test(url)) return url;
+        if (NON_CORS_PATTERNS.some((p) => p.test(url))) {
+            return `${getWorkerUrl()}/api/image-proxy?url=${encodeURIComponent(url)}`;
+        }
+        return url;
+    }
+
     /**
      * Get blob URL (object URL từ cache, hoặc direct URL nếu cache fail).
      * Caller KHÔNG cần revoke — object URL valid suốt session.
+     * KEY trong cache là URL gốc (không phải proxy URL) — share cache giữa
+     * các caller dùng url gốc khác nhau.
      */
     async function getUrl(remoteUrl) {
         if (!remoteUrl) return remoteUrl;
@@ -128,8 +150,9 @@
             const cached = await get(remoteUrl);
             if (cached) return URL.createObjectURL(cached);
 
-            // Fetch + cache
-            const res = await fetch(remoteUrl, { mode: 'cors', credentials: 'omit' });
+            // Fetch + cache. Wrap qua proxy nếu domain không cho CORS.
+            const fetchUrl = toCorsUrl(remoteUrl);
+            const res = await fetch(fetchUrl, { mode: 'cors', credentials: 'omit' });
             if (!res.ok) return remoteUrl;
             const blob = await res.blob();
             put(remoteUrl, blob).catch(() => {});
