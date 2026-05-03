@@ -32,6 +32,7 @@
     <!-- TPOSImageProxy hooks phải load SỚM NHẤT để rewrite innerHTML / img.src trước khi
          bất kỳ code nào render <img src="https://vn.img1.tpos.vn/...">. Nếu load muộn,
          browser parser đã start network request raw URL → hit HTTP/2 stream limit. -->
+    <script src="../shared/js/image-cache.js?v=20260503a"></script>
     <script src="../shared/js/tpos-image-proxy.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
