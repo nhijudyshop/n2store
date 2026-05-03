@@ -891,7 +891,9 @@ window.TPOSProductCreator = (function () {
      */
     async function processGroup(orderId, groupItems) {
         // Skip if all items already synced to TPOS
-        if (groupItems.every((i) => i.tposSynced)) {
+        // Items pre-synced từ kho TPOS (có tposProductId) hoặc đã sync trước đó (tposSynced=true)
+        // → skip upload toàn bộ group, không gọi InsertV2.
+        if (groupItems.every((i) => i.tposSynced || i.tposProductId || i._fromWarehouse)) {
             console.log(`[TPOSCreator] Skipping ${groupItems[0].productCode} — already synced`);
             return { success: true, productCode: groupItems[0].productCode, skipped: true };
         }
@@ -1151,10 +1153,49 @@ window.TPOSProductCreator = (function () {
                 return;
             }
 
-            console.log(`[TPOSCreator] ${groups.size} product groups to sync`);
+            // Filter pre-synced groups out (mọi item trong group có tposProductId
+            // hoặc tposSynced hoặc _fromWarehouse → đã có sẵn trên TPOS, skip).
+            const skippedGroups = [];
+            const pendingGroups = new Map();
+            for (const [k, gItems] of groups) {
+                const allSynced = gItems.every(
+                    (i) => i.tposSynced || i.tposProductId || i._fromWarehouse
+                );
+                if (allSynced) {
+                    skippedGroups.push(k);
+                    // Đảm bảo tposSynced=true để UI hiển thị đúng (đã được map từ form rồi).
+                    for (const it of gItems) {
+                        if (!it.tposSynced && (it.tposProductId || it._fromWarehouse)) {
+                            it.tposSynced = true;
+                        }
+                    }
+                } else {
+                    pendingGroups.set(k, gItems);
+                }
+            }
+            if (skippedGroups.length > 0) {
+                console.log(
+                    `[TPOSCreator] Skip ${skippedGroups.length} groups (đã có sẵn từ kho TPOS): ${skippedGroups.join(', ')}`
+                );
+            }
 
-            // Step 3: Process groups in parallel batches
-            const groupEntries = [...groups.entries()];
+            if (pendingGroups.size === 0) {
+                console.log('[TPOSCreator] All items already synced — no upload needed');
+                if (window.notificationManager) {
+                    window.notificationManager.show(
+                        `${skippedGroups.length} sản phẩm đã có sẵn trên TPOS — bỏ qua tạo mới`,
+                        'info'
+                    );
+                }
+                return;
+            }
+
+            console.log(
+                `[TPOSCreator] ${pendingGroups.size} product groups to sync (${skippedGroups.length} skipped)`
+            );
+
+            // Step 3: Process groups in parallel batches (chỉ groups chưa sync)
+            const groupEntries = [...pendingGroups.entries()];
             console.log(
                 `[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of ${TPOS_SYNC_CONCURRENCY}`
             );
