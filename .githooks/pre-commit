@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Pre-commit hook: prettier format staged JS/HTML/CSS files + re-stage.
+# Đảm bảo commit luôn chứa version đã format → không có diff sót sau commit.
+# Skip với SKIP_PRETTIER=1 git commit ... khi cần.
+
+set -e
+
+if [ "$SKIP_PRETTIER" = "1" ]; then
+    exit 0
+fi
+
+# Lấy danh sách file staged (Added/Copied/Modified) match extension prettier xử lý
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|jsx|ts|tsx|html|css|md|json|yaml|yml)$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+# Tìm prettier — ưu tiên local node_modules, fallback npx
+if [ -x "node_modules/.bin/prettier" ]; then
+    PRETTIER="node_modules/.bin/prettier"
+elif command -v npx >/dev/null 2>&1; then
+    PRETTIER="npx --no-install prettier"
+else
+    exit 0
+fi
+
+# Format từng file (chỉ những file prettier biết). 2>/dev/null vì .prettierignore
+# có thể skip 1 số file → không fail toàn bộ commit.
+echo "$STAGED_FILES" | while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    [ ! -f "$file" ] && continue
+    $PRETTIER --write "$file" 2>/dev/null || true
+done
+
+# Re-stage các file đã format (nếu có thay đổi sau prettier)
+echo "$STAGED_FILES" | while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    [ ! -f "$file" ] && continue
+    git add -- "$file"
+done
+
+exit 0
