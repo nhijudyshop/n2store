@@ -8,6 +8,13 @@
 
 ## 2026-05-03
 
+### [orders-report+chat] Wire infinite scroll cho modal tin nhắn — kéo lên đầu load tin cũ
+| | |
+|---|---|
+| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js) — `renderChatMessages()` gọi `_wireInfiniteScroll(container)` (idempotent qua `data-scroll-wired` flag). Thêm helper `_wireInfiniteScroll`: scroll listener (passive + rAF throttle) — khi `scrollTop < 80px` và không loading → gọi `window.loadMoreMessages()`. MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — thêm flag `window._chatNoMoreMessages` (init false ở top). `loadMoreMessages` early-return nếu flag true; khi API trả `newMessages.length === 0` → set flag true (ngừng trigger lại). Reset flag = false ở 3 điểm `currentChatCursor = null` (switch conversation/page/type). |
+| **Chi tiết** | **Trigger user**: "modal tin nhắn không scroll để load thêm dữ liệu được". **Root cause**: `window.loadMoreMessages` ĐÃ TỒN TẠI ở chat-core (line 1123 — fetch qua `pdm.fetchMessages(pageId, convId, currentChatCursor)`, prepend, restore scroll position) nhưng KHÔNG có scroll listener nào trigger nó. **Pancake API**: `current_count=N` parameter → return tin cũ hơn N tin đầu tiên. **Fix**: wire scroll listener trong `renderChatMessages` (chạy mỗi lần render, idempotent). Threshold 80px tránh trigger khi user gần đầu mà chưa thực sự muốn load. rAF throttle tránh fire liên tục. Stop flag tránh request loop khi đã hết tin cũ (API trả 0 message). |
+| **Status** | ✅ Done. |
+
 ### [orders-report+image-cache] Auto-observer + CORS proxy + bump cap 500MB
 | | |
 |---|---|

@@ -16,6 +16,7 @@ window.currentCustomerName = null;
 window.currentConversationData = null; // full Pancake conversation object
 window.allChatMessages = [];
 window.currentChatCursor = null; // pagination cursor (current_count)
+window._chatNoMoreMessages = false; // true khi loadMoreMessages trả 0 → stop infinite scroll
 window.isLoadingMoreMessages = false;
 window.currentReplyMessage = null; // reply-to context {id, text, sender}
 window.currentSendPageId = null; // override send from page
@@ -292,7 +293,7 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     window.currentConversationId = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
-    window.currentChatCursor = null;
+    window.currentChatCursor = null; window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
     window.currentSendPageId = pageId;
     window.isSendingMessage = false;
@@ -587,7 +588,7 @@ window.closeChatModal = function () {
     window.currentConversationType = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
-    window.currentChatCursor = null;
+    window.currentChatCursor = null; window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
 
     // Clear image previews
@@ -1121,7 +1122,12 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
  * Load more messages (scroll up pagination)
  */
 window.loadMoreMessages = async function () {
-    if (window.isLoadingMoreMessages || !window.currentConversationId || !window.currentChatCursor)
+    if (
+        window.isLoadingMoreMessages ||
+        window._chatNoMoreMessages ||
+        !window.currentConversationId ||
+        !window.currentChatCursor
+    )
         return;
     window.isLoadingMoreMessages = true;
 
@@ -1177,6 +1183,9 @@ window.loadMoreMessages = async function () {
             if (messagesEl) {
                 messagesEl.scrollTop = messagesEl.scrollHeight - prevScrollHeight;
             }
+        } else {
+            // API trả 0 message → đã hết tin cũ. Stop infinite scroll trigger.
+            window._chatNoMoreMessages = true;
         }
     } catch (e) {
         console.error('[Chat-Core] loadMoreMessages error:', e);
@@ -1197,7 +1206,7 @@ function _resetTransientChatState() {
     window.currentConversationId = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
-    window.currentChatCursor = null;
+    window.currentChatCursor = null; window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
     window.isLoadingMoreMessages = false;
     const preview = document.getElementById('replyPreview');

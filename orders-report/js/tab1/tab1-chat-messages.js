@@ -133,6 +133,10 @@ window.renderChatMessages = function (messages) {
     const container = document.getElementById('chatMessages');
     if (!container) return;
 
+    // Wire infinite-scroll handler 1 lần — kéo lên đầu container thì
+    // tự động gọi loadMoreMessages (Pancake API trả tin nhắn cũ hơn).
+    _wireInfiniteScroll(container);
+
     // Update post info banner & deleted comment banner
     _renderPostInfoBanner();
 
@@ -1051,6 +1055,41 @@ window.toggleHideComment = async function (msgId) {
     }
     window.renderChatMessages(window.allChatMessages);
 };
+
+// =====================================================
+// INFINITE SCROLL — pagination khi user kéo lên đầu container
+// =====================================================
+
+const SCROLL_THRESHOLD_PX = 80; // trigger khi scrollTop < threshold
+
+/**
+ * Wire scroll listener 1 lần per container (idempotent qua data-scroll-wired flag).
+ * Khi user kéo lên gần đầu, gọi window.loadMoreMessages() — function này đã có
+ * sẵn ở chat-core, lo phần fetch + prepend + restore scroll position.
+ */
+function _wireInfiniteScroll(container) {
+    if (!container || container.dataset.scrollWired === '1') return;
+    container.dataset.scrollWired = '1';
+
+    let scheduled = false;
+    container.addEventListener(
+        'scroll',
+        () => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                if (container.scrollTop > SCROLL_THRESHOLD_PX) return;
+                if (window.isLoadingMoreMessages) return;
+                if (!window.currentChatCursor || !window.currentConversationId) return;
+                if (typeof window.loadMoreMessages === 'function') {
+                    window.loadMoreMessages();
+                }
+            });
+        },
+        { passive: true }
+    );
+}
 
 // =====================================================
 // POST INFO BANNER (COMMENT view)
