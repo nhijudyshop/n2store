@@ -148,6 +148,9 @@ const ImageManager = (() => {
         });
 
         if (window.lucide) lucide.createIcons();
+
+        // Wire ImageCache cho thumbnails đã upload (TTL 7d trong IndexedDB)
+        window.ImageCache?.applyTo?.(body);
     }
 
     /**
@@ -172,7 +175,7 @@ const ImageManager = (() => {
                                     .map(
                                         (url, idx) => `
                                     <div class="img-mgr-thumb" onclick="event.stopPropagation()">
-                                        <img src="${url}" alt="Ảnh" onclick="openImageLightbox('${url}')">
+                                        <img src="${url}" data-cache-src="${url}" alt="Ảnh" onclick="openImageLightbox('${url}')">
                                         <button class="img-mgr-delete" onclick="event.stopPropagation(); ImageManager.removeImage('${row.id}', ${idx})" title="Xóa ảnh">
                                             <i data-lucide="x"></i>
                                         </button>
@@ -453,7 +456,7 @@ const ImageManager = (() => {
                     .map(
                         (url, idx) => `
                     <div class="img-gallery-item" onclick="ImageManager._openLightbox(${idx})">
-                        <img src="${url}" alt="Ảnh ${idx + 1}">
+                        <img src="${url}" data-cache-src="${url}" alt="Ảnh ${idx + 1}">
                     </div>
                 `
                     )
@@ -481,6 +484,7 @@ const ImageManager = (() => {
         body._galleryIdx = 0;
 
         if (window.lucide) lucide.createIcons();
+        window.ImageCache?.applyTo?.(body);
         openModal('modalImageViewer');
     }
 
@@ -495,7 +499,8 @@ const ImageManager = (() => {
         const counter = document.getElementById('imgLightboxCounter');
 
         if (lb && img) {
-            img.src = images[idx];
+            if (window.ImageCache?.setImgSrc) window.ImageCache.setImgSrc(img, images[idx]);
+            else img.src = images[idx];
             counter.textContent = `${idx + 1} / ${images.length}`;
             lb.style.display = 'flex';
         }

@@ -2714,7 +2714,8 @@
             wirePopoverActions(phone);
         }
 
-        // Open a compressed lightbox for an image URL via render image-proxy
+        // Open a compressed lightbox for an image URL via render image-proxy.
+        // ImageCache (IndexedDB TTL 7d) cache cả URL proxy lẫn URL gốc fallback.
         function openLightbox(imageUrl) {
             const proxied = `${RENDER_URL}/api/image-proxy?url=${encodeURIComponent(imageUrl)}&w=900&q=70`;
             const existing = document.getElementById('dr-hp-lightbox');
@@ -2733,12 +2734,14 @@
                 // Proxy/resize failed → fallback to original URL once
                 if (img.dataset.fallback !== '1') {
                     img.dataset.fallback = '1';
-                    img.src = imageUrl;
+                    if (window.ImageCache?.setImgSrc) window.ImageCache.setImgSrc(img, imageUrl);
+                    else img.src = imageUrl;
                 } else {
                     box.classList.add('error');
                 }
             });
-            img.src = proxied;
+            if (window.ImageCache?.setImgSrc) window.ImageCache.setImgSrc(img, proxied);
+            else img.src = proxied;
             box.addEventListener('click', () => box.remove());
             document.addEventListener('keydown', function onEsc(e) {
                 if (e.key === 'Escape') {

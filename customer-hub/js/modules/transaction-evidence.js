@@ -108,12 +108,13 @@
         if (box) box.remove();
         box = document.createElement('div');
         box.id = LIGHTBOX_ID;
-        box.innerHTML = `<img src="${escapeAttr(imgUrl)}" alt="Ảnh duyệt CK">`;
+        box.innerHTML = `<img src="${escapeAttr(imgUrl)}" data-cache-src="${escapeAttr(imgUrl)}" alt="Ảnh duyệt CK">`;
         box.addEventListener('click', () => box.remove());
         document.addEventListener('keydown', function onEsc(e) {
             if (e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', onEsc); }
         });
         document.body.appendChild(box);
+        window.ImageCache?.applyTo?.(box);
     }
 
     let ticketViewerLoading = null;

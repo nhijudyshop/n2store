@@ -291,6 +291,9 @@ export class WalletPanelModule {
 
         // Bind filter events
         this._bindManualFilters();
+
+        // Wire ImageCache cho thumbnail GD (TTL 7d trong IndexedDB)
+        window.ImageCache?.applyTo?.(contentEl);
     }
 
     _renderManualTxList(transactions) {
@@ -444,7 +447,10 @@ export class WalletPanelModule {
 
             // Update list
             const listEl = this.container.querySelector('#manual-tx-list');
-            if (listEl) listEl.innerHTML = this._renderManualTxList(filtered);
+            if (listEl) {
+                listEl.innerHTML = this._renderManualTxList(filtered);
+                window.ImageCache?.applyTo?.(listEl);
+            }
 
             // Update summary
             const summaryEl = this.container.querySelector('#manual-summary');
@@ -860,12 +866,12 @@ export class WalletPanelModule {
             // Note + small thumbnail inline
             html = `<div class="flex items-center gap-1.5">
                 <p class="text-[10px] text-slate-500 truncate flex-1">${this._escapeHtml(textPart)}</p>
-                <img src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer flex-shrink-0" alt="Ảnh GD">
+                <img src="${imgMatch[1]}" data-cache-src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer flex-shrink-0" alt="Ảnh GD">
             </div>`;
         } else if (textPart) {
             html = `<p class="text-[10px] text-slate-500 truncate">${this._escapeHtml(textPart)}</p>`;
         } else if (imgMatch) {
-            html = `<img src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer" alt="Ảnh GD">`;
+            html = `<img src="${imgMatch[1]}" data-cache-src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer" alt="Ảnh GD">`;
         }
         return html;
     }
@@ -877,9 +883,10 @@ export class WalletPanelModule {
         window._walletShowImage = (url) => {
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;cursor:pointer';
-            overlay.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);object-fit:contain">`;
+            overlay.innerHTML = `<img src="${url}" data-cache-src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);object-fit:contain">`;
             overlay.onclick = () => overlay.remove();
             document.body.appendChild(overlay);
+            window.ImageCache?.applyTo?.(overlay);
         };
 
         // Event delegation for click only

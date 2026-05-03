@@ -72,9 +72,9 @@
                 return null;
             }
             // LRU touch — async, không await
-            reqAsPromise(
-                tx(db, 'readwrite').put({ ...entry, lastAccessedAt: Date.now() })
-            ).catch(() => {});
+            reqAsPromise(tx(db, 'readwrite').put({ ...entry, lastAccessedAt: Date.now() })).catch(
+                () => {}
+            );
             return entry.blob;
         } catch (e) {
             return null;
@@ -246,5 +246,51 @@
         cleanup();
     }
 
-    window.ImageCache = { getUrl, prefetch, cleanup, stats, clear };
+    /**
+     * Quét rootEl tìm <img data-cache-src> + [data-cache-bg], hoán src/background sang blob URL.
+     * Idempotent — đã apply rồi sẽ skip (đánh dấu data-cache-applied).
+     */
+    function applyTo(root) {
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        const imgs = root.querySelectorAll('img[data-cache-src]:not([data-cache-applied])');
+        imgs.forEach((img) => {
+            const remote = img.getAttribute('data-cache-src');
+            if (!remote) return;
+            img.setAttribute('data-cache-applied', '1');
+            getUrl(remote)
+                .then((blobUrl) => {
+                    if (blobUrl && blobUrl !== remote) img.src = blobUrl;
+                })
+                .catch(() => {});
+        });
+        const bgs = root.querySelectorAll('[data-cache-bg]:not([data-cache-applied])');
+        bgs.forEach((el) => {
+            const remote = el.getAttribute('data-cache-bg');
+            if (!remote) return;
+            el.setAttribute('data-cache-applied', '1');
+            getUrl(remote)
+                .then((blobUrl) => {
+                    if (blobUrl && blobUrl !== remote)
+                        el.style.backgroundImage = `url('${blobUrl}')`;
+                })
+                .catch(() => {});
+        });
+    }
+
+    /**
+     * Set src của <img> qua cache (async). Caller có thể giữ fallback src cũ
+     * trong lúc chờ cache resolve.
+     */
+    function setImgSrc(imgEl, remoteUrl) {
+        if (!imgEl || !remoteUrl) return;
+        getUrl(remoteUrl)
+            .then((blobUrl) => {
+                if (blobUrl) imgEl.src = blobUrl;
+            })
+            .catch(() => {
+                imgEl.src = remoteUrl;
+            });
+    }
+
+    window.ImageCache = { getUrl, prefetch, cleanup, stats, clear, applyTo, setImgSrc };
 })();

@@ -158,6 +158,9 @@ export class CustomerProfileModule {
 
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
+
+                // Wire ImageCache cho thumbnail GD trong tickets card (TTL 7d trong IndexedDB)
+                window.ImageCache?.applyTo?.(this.contentLoaded);
             } else {
                 // V2 API returned no data — try TPOS fallback
                 await this._tryTPOSFallback(phone);
@@ -228,6 +231,9 @@ export class CustomerProfileModule {
 
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
+
+                // Wire ImageCache cho thumbnail GD trong tickets card (TTL 7d trong IndexedDB)
+                window.ImageCache?.applyTo?.(this.contentLoaded);
                 return true;
             } else {
                 this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
@@ -975,7 +981,7 @@ export class CustomerProfileModule {
                                 <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
                                     <span style="font-size:17px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
                                     <span style="flex:1; font-size:15px; font-weight:700; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
-                                    ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
+                                    ${imgMatch ? `<img src="${imgMatch[1]}" data-cache-src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
                                     ${eyeBtn}
                                     <span style="font-size:16px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
                                 </div>

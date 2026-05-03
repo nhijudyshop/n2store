@@ -8,6 +8,13 @@
 
 ## 2026-05-03
 
+### [customer-hub+delivery-report+inventory] Mở rộng ImageCache (TTL 7d) sang wallet/profile/lightbox/gallery
+| | |
+|---|---|
+| **Files** | MODIFIED: [shared/js/image-cache.js](../shared/js/image-cache.js) — thêm helper `applyTo(rootEl)` quét `[data-cache-src]`/`[data-cache-bg]` và hoán URL → blob URL (idempotent qua flag `data-cache-applied`); thêm `setImgSrc(imgEl, url)` async-set src qua cache. MODIFIED: [customer-hub/js/modules/wallet-panel.js](../customer-hub/js/modules/wallet-panel.js) — thumbnail `.wallet-tx-thumb` (note inline + lone img) thêm `data-cache-src`; lightbox `_walletShowImage` cũng thêm + gọi `applyTo`. Sau render `_renderManualHistoryTab` + filter update gọi `applyTo`. MODIFIED: [customer-hub/js/modules/customer-profile.js](../customer-hub/js/modules/customer-profile.js) — thumbnail GD trong tickets card thêm `data-cache-src`, sau render `render()` gọi `applyTo(this.contentLoaded)`. MODIFIED: [customer-hub/js/modules/transaction-evidence.js](../customer-hub/js/modules/transaction-evidence.js) — `showSepayImage()` lightbox thêm `data-cache-src` + applyTo. MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `openLightbox()` dùng `setImgSrc` cho cả proxied URL và fallback. MODIFIED: [inventory-tracking/js/modal-image-manager.js](../inventory-tracking/js/modal-image-manager.js) — gallery thumbnails (img-mgr-thumb + img-gallery-item) thêm `data-cache-src`, post-render gọi applyTo; `_openLightbox()` dùng `setImgSrc`. MODIFIED: [customer-hub/index.html](../customer-hub/index.html) + [delivery-report/index.html](../delivery-report/index.html) + [inventory-tracking/index.html](../inventory-tracking/index.html) — load `image-cache.js` trước module dependent. |
+| **Chi tiết** | **Trigger user**: scan toàn bộ project áp ImageCache cho mọi nơi render ảnh persistent (Firebase Storage / image-proxy). **Tránh đụng**: realtime channels (inbox/tpos-pancake/render-data-manager — chat hình động liên tục). **Implementation pattern**: HTML template giữ nguyên `src=` (fallback), thêm `data-cache-src=`. Sau render gọi `ImageCache.applyTo(container)` quét và hoán src → `URL.createObjectURL(blob)`. Idempotent qua `data-cache-applied` flag. Lightboxes set src trực tiếp dùng `setImgSrc()` async API. **Kết quả**: ảnh xác nhận CK (balance-history accountant), thumbnail GD wallet (customer-hub), gallery NCC (inventory-tracking), lightbox delivery-report — tất cả cache 7 ngày trong IndexedDB, share cache toàn project (cùng key `n2store_image_cache.blobs`). |
+| **Status** | ✅ Done. |
+
 ### [shared+balance-history] IndexedDB image cache TTL 7 ngày — giảm fetch lại Firebase Storage
 | | |
 |---|---|
