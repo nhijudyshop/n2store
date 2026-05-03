@@ -1244,18 +1244,24 @@ async function confirmAndPrintSale() {
                 const discountVal = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
 
                 // Math: TOTAL = Hàng + Ship - Giảm. Trước đây dùng codAmount cho `=`,
-                // sai khi user set COD trên TPOS không khớp công thức (vd: COD bao gồm
-                // Hàng+Ship nhưng quên trừ Giảm → công thức hiển thị "1090K + 20K - 60K
-                // = 1110K" sai math). Tính đúng = Hàng+Ship-Giảm. Nếu codAmount khác
-                // computed → ghi chú thêm "(COD: X)" để minh bạch.
+                // sai khi user set COD trên TPOS không khớp công thức.
+                // Note format: ngoài breakdown đơn (Hàng+Ship-Giảm=Total, COD), thêm
+                // "Trả từ ví: X" để user biết wallet đóng góp bao nhiêu (vs phần thu
+                // qua COD/cash sau). Vd: ví có 240K, đơn 1.110K → ví trả 240K, COD
+                // thu 870K còn lại — không phải toàn bộ 1.110K trừ ví.
                 const computedTotal = goodsValue + shippingFee - discountVal;
+                const codCash = Math.max(0, codAmount - actualPayment);
                 let saleNote = `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`;
-                saleNote += ` (Hàng: ${goodsValue.toLocaleString('vi-VN')}đ`;
-                if (shippingFee > 0) saleNote += ` + Ship: ${shippingFee.toLocaleString('vi-VN')}đ`;
-                if (discountVal > 0) saleNote += ` - Giảm: ${discountVal.toLocaleString('vi-VN')}đ`;
+                saleNote += ` — Trả từ ví: ${actualPayment.toLocaleString('vi-VN')}đ`;
+                saleNote += ` (Đơn: ${goodsValue.toLocaleString('vi-VN')}đ`;
+                if (shippingFee > 0) saleNote += ` + ${shippingFee.toLocaleString('vi-VN')}đ ship`;
+                if (discountVal > 0) saleNote += ` - ${discountVal.toLocaleString('vi-VN')}đ giảm`;
                 saleNote += ` = ${computedTotal.toLocaleString('vi-VN')}đ`;
                 if (codAmount && codAmount !== computedTotal) {
                     saleNote += `, COD: ${codAmount.toLocaleString('vi-VN')}đ`;
+                }
+                if (codCash > 0) {
+                    saleNote += `, COD thu khi giao: ${codCash.toLocaleString('vi-VN')}đ`;
                 }
                 saleNote += `)`;
 

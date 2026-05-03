@@ -328,11 +328,13 @@
             const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
 
             if (isCodPayment) {
-                // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
+                // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu.
+                // Thêm "Trả từ ví: X" để user thấy wallet đóng góp bao nhiêu.
                 const headRe = /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                let rewritten = headRe.test(note)
-                    ? note.replace(headRe, `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)}`)
-                    : `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)}`;
+                const walletPaid = Math.abs(parseFloat(tx.amount) || 0);
+                const walletPaidStr = `Trả từ ví: ${walletPaid.toLocaleString('vi-VN')}đ`;
+                const newHead = `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)} — ${escapeHtml(walletPaidStr)}`;
+                let rewritten = headRe.test(note) ? note.replace(headRe, newHead) : newHead;
                 // Sửa math sai trong breakdown legacy (vd "Hàng+Ship-Giảm = X" với X
                 // không khớp công thức) — recompute và chú thích COD nếu khác.
                 const breakdownRe =
