@@ -339,33 +339,67 @@ function initModalHandlers() {
 }
 
 /**
- * Tính số tiền hoàn cho hàng trả về, có áp dụng tỷ lệ giảm giá của đơn.
+ * Parse giá đã giảm từ Note OrderLine TPOS.
+ * TPOS lưu per-line discount qua Note: "10k", "22k", "100K (NÂU)", "sale 200k còn"
+ * → trả về số tiền (giá thật khách trả, đã giảm). 0 nếu không có pattern.
  *
- * Lý do: TPOS lưu mỗi OrderLine với `PriceUnit` (giá gốc) — khi đơn có
- * `DecreaseAmount` (giảm giá tổng đơn), số khách thật sự đã trả = subtotal -
- * decreaseAmount. Nếu khách trả 1 món, hoàn theo PriceUnit sẽ vượt quá phần
- * khách trả cho món đó. Phân bổ giảm giá theo tỷ lệ:
- *   refund = price × returnQuantity × (subtotal - decreaseAmount) / subtotal
- *
- * Edge cases:
- * - subtotal = 0 → return 0 (không có sản phẩm để hoàn)
- * - decreaseAmount = 0 → discountRatio = 1 (no discount, refund full)
- * - decreaseAmount > subtotal → discountRatio = 0 (đơn freebie, không hoàn)
- *
- * @param {Array<{price:number, returnQuantity:number}>} products
- * @param {{amountTotal?:number, decreaseAmount?:number}} order
- * @returns {number} Refund amount (rounded to integer)
+ * Mirror parseDiscountFromNoteSale ở orders-report/tab1-sale.js.
  */
-function computeRefundWithDiscount(products, order) {
+function parseDiscountedPriceFromNote(note) {
+    if (!note || typeof note !== 'string') return 0;
+    const cleanNote = note.trim().toLowerCase();
+    if (!cleanNote) return 0;
+    const kMatch = cleanNote.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*k(?:\s|$|\(|\))/i);
+    if (kMatch) {
+        const num = parseFloat(kMatch[1].replace(',', '.'));
+        return Math.round(num * 1000);
+    }
+    const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (plainMatch) {
+        const numStr = plainMatch[1].replace(/[.,]/g, '');
+        const num = parseInt(numStr, 10);
+        if (num >= 1000) return num;
+        if (num > 0) return num * 1000;
+    }
+    return 0;
+}
+
+/**
+ * Lấy giá thật (sau giảm) cho 1 OrderLine. Ưu tiên parseDiscountedPriceFromNote
+ * (per-line discount qua Note). Fallback PriceUnit khi note không có giảm.
+ */
+function getEffectivePriceForLine(product) {
+    if (!product) return 0;
+    const priceUnit = parseFloat(product.price) || 0;
+    const noteDiscounted = parseDiscountedPriceFromNote(product.note || '');
+    if (noteDiscounted > 0 && noteDiscounted < priceUnit) {
+        return noteDiscounted;
+    }
+    return priceUnit;
+}
+
+/**
+ * Tính số tiền hoàn cho hàng trả về, sử dụng giá đã giảm per-line từ Note.
+ *
+ * Lý do: TPOS lưu giảm giá PER-LINE trong Note OrderLine (vd "10k" = SP giảm
+ * còn 10K). order.decreaseAmount là TỔNG của các giảm này, KHÔNG phải giảm
+ * order-level chia đều. Logic cũ dùng tỷ lệ (subtotal-decrease)/subtotal SAI
+ * khi discount phân bố không đều giữa SP. Vd đơn 200K + 222K + 370K, giảm
+ * 190K (SP 200K → còn 10K) + 200K (SP 222K → còn 22K) + 0K (SP 370K không
+ * giảm). Trả SP 370K → hoàn 370K (không giảm). Trả SP 200K → chỉ hoàn 10K
+ * (đã giảm). Logic mới: refund = effectivePrice × qty.
+ *
+ * @param {Array<{price:number, returnQuantity:number, note?:string}>} products
+ * @returns {number} Refund amount
+ */
+function computeRefundWithDiscount(products, _order) {
     if (!Array.isArray(products) || products.length === 0) return 0;
-    const subtotal = parseFloat(order?.amountTotal) || 0;
-    const decreaseAmount = parseFloat(order?.decreaseAmount) || 0;
-    const discountRatio = subtotal > 0 ? Math.max(0, (subtotal - decreaseAmount) / subtotal) : 1;
-    const raw = products.reduce(
-        (sum, p) => sum + (parseFloat(p.price) || 0) * (parseFloat(p.returnQuantity) || 0),
-        0
-    );
-    return Math.round(raw * discountRatio);
+    const raw = products.reduce((sum, p) => {
+        const effPrice = getEffectivePriceForLine(p);
+        const qty = parseFloat(p.returnQuantity) || 0;
+        return sum + effPrice * qty;
+    }, 0);
+    return Math.round(raw);
 }
 
 /**
@@ -660,25 +694,22 @@ async function selectOrder(order) {
             document.getElementById('res-cod').textContent = formatCurrency(details.cod);
 
             // Generate product checklist for partial return (with quantity input).
-            // Hiển thị giá sau giảm (proportional discount ratio) để user thấy đúng
-            // số tiền sẽ hoàn — không phải giá gốc trên TPOS. Vd đơn 422K + 20K ship -
-            // 180K giảm: ratio = (422-180)/422 ≈ 0.5735 → SP 222K thật sự khách trả
-            // ~127.3K, SP 200K thật sự khách trả ~114.7K.
-            const __subtotal = parseFloat(details.amountTotal) || 0;
-            const __decreaseAmount = parseFloat(details.decreaseAmount) || 0;
-            const __discountRatio =
-                __subtotal > 0 ? Math.max(0, (__subtotal - __decreaseAmount) / __subtotal) : 1;
-            const __hasDiscount = __decreaseAmount > 0 && __discountRatio < 1;
+            // Per-line discount: TPOS lưu giảm giá trong Note OrderLine (vd "10k"
+            // = giá còn 10K). getEffectivePriceForLine parse note → giá thật
+            // khách trả. Hiển thị "discountedPrice (gốc)" khi có discount.
             checklist.innerHTML = details.products
                 .map((p) => {
-                    const discountedUnit = Math.round((parseFloat(p.price) || 0) * __discountRatio);
-                    const priceLabel = __hasDiscount
-                        ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(discountedUnit)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(p.price)}</span>`
-                        : formatCurrency(p.price);
+                    const priceUnit = parseFloat(p.price) || 0;
+                    const effectivePrice = getEffectivePriceForLine(p);
+                    const hasDiscount = effectivePrice < priceUnit;
+                    const priceLabel = hasDiscount
+                        ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(effectivePrice)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(priceUnit)}</span>`
+                        : formatCurrency(priceUnit);
                     return `
                 <div class="checkbox-item" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:4px;">
                     <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked
-                           data-price="${p.price}" data-discounted-price="${discountedUnit}" data-qty="${p.quantity}"
+                           data-price="${priceUnit}" data-discounted-price="${effectivePrice}" data-qty="${p.quantity}"
+                           data-note="${(p.note || '').replace(/"/g, '&quot;')}"
                            onchange="updateCodReduceFromProducts()" style="margin:0;">
                     <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${priceLabel}</label>
                     <div style="display:flex;align-items:center;gap:4px;">
@@ -1335,11 +1366,9 @@ async function handleSubmitTicket() {
             };
         });
 
-        // Giá trị hoàn = tổng giá trị sản phẩm trả về × tỷ lệ giảm giá
-        // Trước đây dùng giá gốc → khi đơn có decreaseAmount, hoàn nhiều hơn
-        // số khách thật sự đã trả → bug refund vượt quá thanh toán.
-        // Fix: discountRatio = (subtotal - decreaseAmount) / subtotal, áp dụng
-        // proportionally cho mỗi sản phẩm trả.
+        // Giá trị hoàn = Σ(effectivePrice × returnQuantity) trong đó effectivePrice
+        // parse từ Note OrderLine TPOS (vd "10k" = giá còn 10K). Per-line discount,
+        // không dùng tỷ lệ chia đều (giảm giá phân bố không đều giữa các SP).
         money = computeRefundWithDiscount(selectedProducts, selectedOrder);
     } else if (type === 'OTHER') {
         status = 'COMPLETED';
