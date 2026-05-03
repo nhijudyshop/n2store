@@ -8,6 +8,13 @@
 
 ## 2026-05-03
 
+### [shared+balance-history] IndexedDB image cache TTL 7 ngày — giảm fetch lại Firebase Storage
+| | |
+|---|---|
+| **Files** | NEW: [shared/js/image-cache.js](../shared/js/image-cache.js) — module IIFE expose `window.ImageCache.{getUrl, prefetch, cleanup, stats, clear}`. IndexedDB store `n2store_image_cache.blobs` keyPath `url`, schema `{url, blob, size, addedAt, lastAccessedAt}`. Auto-cleanup 1 lần/ngày: xóa entries `addedAt > 7d`, evict LRU khi tổng size > 200MB (target 160MB). Request `navigator.storage.persist()` best-effort tránh browser auto-evict. MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) `renderApprovedToday()` — `<img>` thumbnail + `.acc-zoom-overlay` thêm `data-cache-src`/`data-cache-bg`, sau render hook `ImageCache.getUrl()` hoán đổi sang blob URL. Fallback im lặng về remote URL nếu cache fail. MODIFIED: [balance-history/index.html](../balance-history/index.html) — load `image-cache.js` trước accountant.js. |
+| **Chi tiết** | **Trigger user**: ảnh xác nhận CK Firebase Storage cache HTTP `max-age=3600` (1h), sau đó refetch tốn data — yêu cầu cache persistent 7 ngày. **Implementation**: IndexedDB blob cache → `URL.createObjectURL()` render. Mỗi page ~60 thumbnail, page 2-26 chia sẻ cache nếu user scroll lại. Cleanup LRU + age-based: evict cũ nhất khi vượt 200MB cap. Throttle cleanup qua localStorage `imageCache_lastCleanupTs` — 1 lần/24h. **Quota**: Chrome ~60% disk, Firefox ~10%, Safari iOS ~1GB. Persistent storage flag → tránh auto-evict. **Failure modes**: IndexedDB unavailable / QuotaExceededError → fallback render direct URL (không break UX). |
+| **Status** | ✅ Done. |
+
 ### [balance-history] Ẩn tất cả đơn nguồn "Hoàn tiền" (wallet ORDER_CANCEL_REFUND) trong panel "Đã duyệt"
 | | |
 |---|---|

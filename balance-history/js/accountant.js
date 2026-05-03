@@ -1953,12 +1953,14 @@
                 }
 
                 // Build note cell with optional image thumbnail
+                // data-cache-src: ImageCache hook hoán đổi src→blob URL khi available (TTL 7 ngày trong IndexedDB)
                 let noteHtml = '<div class="acc-note-wrapper">';
                 if (tx.verification_image_url) {
+                    const imgUrl = tx.verification_image_url;
                     noteHtml += `
                     <div class="acc-approve-image-thumb">
-                        <img src="${tx.verification_image_url}" alt="Xác nhận CK" loading="lazy">
-                        <div class="acc-zoom-overlay" style="background-image: url('${tx.verification_image_url}')"></div>
+                        <img src="${imgUrl}" data-cache-src="${imgUrl}" alt="Xác nhận CK" loading="lazy">
+                        <div class="acc-zoom-overlay" data-cache-bg="${imgUrl}" style="background-image: url('${imgUrl}')"></div>
                     </div>
                 `;
                 }
@@ -2037,6 +2039,32 @@
             `;
             })
             .join('');
+
+        // Hook ImageCache: hoán đổi src/background-image sang blob URL từ IndexedDB cache (TTL 7d).
+        // Fallback im lặng về remote URL nếu cache không khả dụng.
+        if (window.ImageCache) {
+            const imgs = elements.approvedTableBody.querySelectorAll('img[data-cache-src]');
+            imgs.forEach((img) => {
+                const remote = img.getAttribute('data-cache-src');
+                if (!remote) return;
+                window.ImageCache.getUrl(remote)
+                    .then((blobUrl) => {
+                        if (blobUrl && blobUrl !== remote) img.src = blobUrl;
+                    })
+                    .catch(() => {});
+            });
+            const overlays = elements.approvedTableBody.querySelectorAll('[data-cache-bg]');
+            overlays.forEach((el) => {
+                const remote = el.getAttribute('data-cache-bg');
+                if (!remote) return;
+                window.ImageCache.getUrl(remote)
+                    .then((blobUrl) => {
+                        if (blobUrl && blobUrl !== remote)
+                            el.style.backgroundImage = `url('${blobUrl}')`;
+                    })
+                    .catch(() => {});
+            });
+        }
     }
 
     // =====================================================
