@@ -70,13 +70,40 @@
     }
 
     /**
+     * Detect COD payment tx: WITHDRAW hoặc VIRTUAL_DEBIT có note "Thanh toán
+     * công nợ qua COD đơn hàng" → eye icon → TPOS invoice (PBH), KHÔNG phải
+     * ticket return. Trước đây đi qua getTicketCode → searchTicketsServer
+     * không tìm thấy ticket → hiện "Không tìm thấy phiếu cho đơn".
+     */
+    function getOrderCodeForCodPayment(tx) {
+        if (!tx) return null;
+        const isCod =
+            (tx.type === 'WITHDRAW' || tx.type === 'VIRTUAL_DEBIT') &&
+            (tx.source === 'SALE_ORDER' ||
+                tx.source === 'ORDER_PAYMENT' ||
+                /Thanh toán công nợ.*đơn hàng/i.test(tx.note || ''));
+        if (!isCod) return null;
+        const fields = [tx.reference_id, tx.note];
+        for (const f of fields) {
+            if (!f) continue;
+            const m = String(f).match(/NJD\/\d{4}\/\d+/i);
+            if (m) return m[0].toUpperCase();
+        }
+        return null;
+    }
+
+    /**
      * Pick which eye icon (if any) to show for a transaction.
-     * Priority: sepay > ticket. Skip if note already contains [Ảnh GD:] (existing thumbnail).
+     * Priority: sepay > order (COD payment) > ticket. Skip if note already
+     * contains [Ảnh GD:] (existing thumbnail).
      */
     function pickEvidence(tx) {
         const hasInlineImage = /\[Ảnh GD: https?:\/\//.test(String(tx?.note || ''));
         const sepay = !hasInlineImage ? getSepayImageUrl(tx) : null;
         if (sepay) return { kind: 'sepay', value: sepay };
+        // COD payment → mở TPOS PBH (không phải ticket return)
+        const orderCode = getOrderCodeForCodPayment(tx);
+        if (orderCode) return { kind: 'order', value: orderCode };
         const ticket = getTicketCode(tx);
         if (ticket) return { kind: 'ticket', value: ticket };
         return null;
@@ -153,6 +180,107 @@
     }
 
     /**
+     * Show TPOS invoice (PBH) for a SaleOnline order code.
+     * Fetch fresh OData by Reference, render modal với danh sách phiếu.
+     */
+    async function showOrderInvoice(orderCode) {
+        if (!orderCode) return;
+        injectStyle();
+        let box = document.getElementById(LIGHTBOX_ID);
+        if (box) box.remove();
+        // Render simple modal — không dùng lightbox layout
+        const modalId = 'tx-order-modal';
+        const existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:12px;max-width:720px;width:100%;max-height:80vh;overflow:auto;padding:20px;cursor:default;box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">
+                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#1e293b;">Phiếu bán hàng đơn ${escapeAttr(orderCode)}</h3>
+                    <button onclick="document.getElementById('${modalId}').remove()" style="background:none;border:0;font-size:24px;color:#64748b;cursor:pointer;line-height:1;">&times;</button>
+                </div>
+                <div id="tx-order-body" style="font-size:13px;color:#334155;">
+                    <div style="text-align:center;padding:30px;color:#64748b;">Đang tải dữ liệu TPOS…</div>
+                </div>
+            </div>
+        `;
+        modal.addEventListener('click', () => modal.remove());
+        document.addEventListener('keydown', function onEsc(e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', onEsc);
+            }
+        });
+        document.body.appendChild(modal);
+
+        const body = modal.querySelector('#tx-order-body');
+        try {
+            if (!window.tokenManager?.getAuthHeader) {
+                throw new Error('Token manager chưa sẵn sàng');
+            }
+            const tposOData =
+                window.API_CONFIG?.TPOS_ODATA ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const headers = await window.tokenManager.getAuthHeader();
+            const filter = `(Type eq 'invoice' and Reference eq '${String(orderCode).replace(/'/g, "''")}')`;
+            const url =
+                `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
+            const resp = await fetch(url, {
+                headers: { ...headers, accept: 'application/json' },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+            const invoices = Array.isArray(result?.value) ? result.value : [];
+            if (invoices.length === 0) {
+                body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Không tìm thấy phiếu bán hàng cho đơn ${escapeAttr(orderCode)}</div>`;
+                return;
+            }
+            const fmt = (v) => new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
+            const fmtDate = (d) => {
+                if (!d) return '';
+                const x = new Date(d);
+                return isNaN(x.getTime()) ? '' : x.toLocaleString('vi-VN');
+            };
+            const stateBadge = (inv) => {
+                const s = inv.ShowState || inv.State || '';
+                const isCancel =
+                    inv.State === 'cancel' || inv.IsMergeCancel || /Hu[ỷy] b[ỏo]/i.test(s);
+                const bg = isCancel ? '#fee2e2' : '#dbeafe';
+                const fg = isCancel ? '#dc2626' : '#2563eb';
+                return `<span style="background:${bg};color:${fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${escapeAttr(s)}</span>`;
+            };
+            body.innerHTML = invoices
+                .map(
+                    (inv) => `
+                <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <strong style="font-size:14px;color:#1e293b;">${escapeAttr(inv.Number || '?')}</strong>
+                        ${stateBadge(inv)}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+                        <div><span style="color:#64748b;">Ngày:</span> ${fmtDate(inv.DateInvoice)}</div>
+                        <div><span style="color:#64748b;">Khách:</span> ${escapeAttr(inv.PartnerDisplayName || '')}</div>
+                        <div><span style="color:#64748b;">Tổng tiền:</span> <strong>${fmt(inv.AmountTotal)}</strong></div>
+                        <div><span style="color:#64748b;">COD:</span> ${fmt(inv.CashOnDelivery)}</div>
+                        <div><span style="color:#64748b;">Đã thanh toán:</span> ${fmt(inv.PaymentAmount)}</div>
+                        <div><span style="color:#64748b;">Vận chuyển:</span> ${escapeAttr(inv.CarrierName || inv.Carrier?.Name || '')}</div>
+                        ${inv.TrackingRef ? `<div style="grid-column:1/-1;"><span style="color:#64748b;">Mã VĐ:</span> <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">${escapeAttr(inv.TrackingRef)}</code></div>` : ''}
+                    </div>
+                </div>
+            `
+                )
+                .join('');
+        } catch (e) {
+            console.error('[TxEvidence] order invoice fetch failed:', e);
+            body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải phiếu: ${escapeAttr(e.message)}</div>`;
+        }
+    }
+
+    /**
      * Bind click handlers on all .tx-eye-btn inside a given root.
      * Safe to call multiple times; uses data attr flag to avoid double-binding.
      */
@@ -167,6 +295,7 @@
                 const kind = btn.getAttribute('data-eye-kind');
                 const val = btn.getAttribute('data-eye-val');
                 if (kind === 'sepay') showSepayImage(val);
+                else if (kind === 'order') showOrderInvoice(val);
                 else if (kind === 'ticket') showTicketDetail(val);
             });
         });
@@ -182,10 +311,12 @@
     window.TxEvidence = {
         getSepayImageUrl,
         getTicketCode,
+        getOrderCodeForCodPayment,
         pickEvidence,
         renderEyeButton,
         showSepayImage,
         showTicketDetail,
+        showOrderInvoice,
         bindHandlers,
     };
 })();
