@@ -35,9 +35,13 @@
             return;
         }
 
+        // Hiển thị tên NCC: tenNCC nếu có, fallback về sttNCC (giống table).
+        // _origTenNCC giữ nguyên để biết user có sửa không (tránh ép tenNCC = "24" string khi save).
         _editState = {
             invoiceId,
-            tenNCC: dot.tenNCC || '',
+            sttNCC: dot.sttNCC,
+            _origTenNCC: dot.tenNCC || '',
+            tenNCC: dot.tenNCC || (dot.sttNCC ? String(dot.sttNCC) : ''),
             ghiChu: dot.ghiChu || '',
             // Clone sản phẩm — giữ giaDonVi nguyên (Trung), tongSoLuong/soLuong, mauSac
             sanPham: (dot.sanPham || []).map((p, i) => ({
@@ -250,7 +254,11 @@
         const btn = document.getElementById('btnSaveEditNcc');
         const nccInp = document.getElementById('encNcc');
         const noteInp = document.getElementById('encNote');
-        const tenNCC = (nccInp?.value || '').trim();
+        const tenNCCInput = (nccInp?.value || '').trim();
+        // Nếu user không sửa và giá trị bằng sttNCC fallback → lưu lại empty (giữ nguyên data shape).
+        const fallbackSttStr = _editState.sttNCC ? String(_editState.sttNCC) : '';
+        const tenNCC =
+            tenNCCInput && tenNCCInput !== fallbackSttStr ? tenNCCInput : _editState._origTenNCC;
         const ghiChu = (noteInp?.value || '').trim();
         const sanPham = _editState.sanPham
             .filter((p) => (p.maSP || '').trim() || (p.moTa || '').trim() || p.tongSoLuong > 0)
