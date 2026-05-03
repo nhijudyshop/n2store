@@ -372,12 +372,10 @@ app.get('/api/auth/token/:provider', requireApiKey, async (req, res) => {
         res.json({ token: t.token, expires_at: t.expires_at, metadata: t.metadata });
     } catch (e) {
         if (e.message && e.message.startsWith('pancake:not_found')) {
-            return res
-                .status(404)
-                .json({
-                    error: 'no_pancake_token',
-                    message: 'Browser must push token via /api/realtime/start first',
-                });
+            return res.status(404).json({
+                error: 'no_pancake_token',
+                message: 'Browser must push token via /api/realtime/start first',
+            });
         }
         console.error('[AUTH-API] getToken error:', e.message);
         res.status(500).json({ error: e.message });
@@ -1380,6 +1378,10 @@ setInterval(async () => {
     try {
         if (!chatDbPool) return;
         // Chỉ check entries chưa final — paid/cancel/done tránh waste API.
+        // Sort updated_at ASC NULLS FIRST: rotate cũ nhất trước, mỗi cycle pick
+        // 200 entry chưa check lâu nhất → đảm bảo phủ toàn bộ pool sau N cycles.
+        // Trước đây DESC by entry_timestamp → luôn lặp 200 entry mới nhất,
+        // entry cũ rank > 200 không bao giờ được check (vd 63983 day 3 ranked > 200).
         const sinceMs = Date.now() - INVOICE_STALE_LOOKBACK_DAYS * 86400_000;
         const { rows: entries } = await chatDbPool.query(
             `SELECT compound_key, sale_online_id, tpos_id, reference, state, show_state
@@ -1388,7 +1390,7 @@ setInterval(async () => {
                 AND reference IS NOT NULL
                 AND entry_timestamp >= $1
                 AND (state IS NULL OR state NOT IN ('cancel','paid','done'))
-              ORDER BY entry_timestamp DESC
+              ORDER BY updated_at ASC NULLS FIRST
               LIMIT $2`,
             [sinceMs, INVOICE_STALE_MAX_PER_CYCLE]
         );
