@@ -1312,19 +1312,23 @@ async function handleSubmitTicket() {
             // Status: PENDING_GOODS (chờ hàng cũ về kho)
             status = 'PENDING_GOODS';
 
-            // Lấy sản phẩm được chọn từ đơn cũ (include productId và code for matching)
+            // Lấy sản phẩm được chọn từ đơn cũ. Dùng effectivePrice (giá sau
+            // giảm per-line) thay vì unitPrice — đảm bảo giá trị SP hoàn về
+            // khớp số khách thật trả cho SP đó.
             selectedProducts = Array.from(checkedOldOrderInputs).map((input) => {
                 const productId = input.value;
                 const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
                 const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
                 const unitPrice = parseInt(input.dataset.unitPrice) || 0;
+                const effPriceRaw = parseFloat(input.dataset.effectivePrice);
+                const effPrice = Number.isFinite(effPriceRaw) ? effPriceRaw : unitPrice;
 
                 return {
                     id: productId,
                     productId: input.dataset.productId || '',
                     code: input.dataset.code || '',
                     name: input.dataset.name,
-                    price: unitPrice * returnQty, // Tổng giá theo số lượng trả
+                    price: effPrice * returnQty, // Tổng giá sau giảm theo số lượng trả
                     quantity: parseInt(input.dataset.quantity) || 1,
                     returnQuantity: returnQty,
                 };
@@ -3282,19 +3286,18 @@ function renderOldOrderProducts(order) {
         return;
     }
 
-    // Tỷ lệ giảm giá đơn cũ — dùng để hiển thị giá thật khách trả mỗi SP
-    const __oldSubtotal = parseFloat(order.amountTotal) || 0;
-    const __oldDecreaseAmount = parseFloat(order.decreaseAmount) || 0;
-    const __oldDiscountRatio =
-        __oldSubtotal > 0 ? Math.max(0, (__oldSubtotal - __oldDecreaseAmount) / __oldSubtotal) : 1;
-    const __hasOldDiscount = __oldDecreaseAmount > 0 && __oldDiscountRatio < 1;
+    // Per-line discount: TPOS lưu giảm giá trong Note OrderLine (vd "10k" =
+    // SP còn 10K). getEffectivePriceForLine parse note → giá thật. Hiển thị
+    // discountedTotal cho mỗi SP nếu có giảm.
     container.innerHTML = order.products
         .map((product, idx) => {
-            const origTotal =
-                parseFloat(product.total) ||
-                (parseFloat(product.price) || 0) * (product.quantity || 0);
-            const discountedTotal = Math.round(origTotal * __oldDiscountRatio);
-            const totalLabel = __hasOldDiscount
+            const priceUnit = parseFloat(product.price) || 0;
+            const qty = parseInt(product.quantity) || 0;
+            const origTotal = parseFloat(product.total) || priceUnit * qty;
+            const effPrice = getEffectivePriceForLine(product);
+            const discountedTotal = Math.round(effPrice * qty);
+            const hasLineDiscount = effPrice < priceUnit;
+            const totalLabel = hasLineDiscount
                 ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(discountedTotal)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(origTotal)}</span>`
                 : formatCurrency(origTotal);
             return `
@@ -3307,7 +3310,9 @@ function renderOldOrderProducts(order) {
                        data-code="${product.code || ''}"
                        data-total="${origTotal}"
                        data-discounted-total="${discountedTotal}"
-                       data-unit-price="${product.price}"
+                       data-unit-price="${priceUnit}"
+                       data-effective-price="${effPrice}"
+                       data-note="${(product.note || '').replace(/"/g, '&quot;')}"
                        data-name="${product.name}"
                        data-quantity="${product.quantity}"
                        onchange="updateCodReduceFromOldOrderProducts()"
@@ -3343,8 +3348,12 @@ window.updateCodReduceFromOldOrderProducts = function () {
     );
     let totalReduce = 0;
 
+    // Ưu tiên data-effective-price (giá sau giảm per-line), fallback unitPrice.
     checkedInputs.forEach((input) => {
-        const unitPrice = parseInt(input.dataset.unitPrice) || 0;
+        const effPrice = parseFloat(input.dataset.effectivePrice);
+        const unitPrice = Number.isFinite(effPrice)
+            ? effPrice
+            : parseInt(input.dataset.unitPrice) || 0;
         const productId = input.value;
         const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
         const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
