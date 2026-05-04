@@ -302,6 +302,86 @@ window.walletDebtData = new Map();
 // Use direct Render API URL (same as WalletIntegration) - proxy may not handle POST correctly
 const WALLET_BATCH_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
+// =====================================================
+// PERSISTENT CACHE — localStorage SWR pattern
+// Cache walletDebtData để badge render INSTANT lúc page mở thay vì đợi
+// 1s fetch round-trip. SSE realtime + scheduled re-fetch keep data fresh.
+// =====================================================
+const WALLET_CACHE_LS_KEY = 'n2s_wallet_debt_cache_v1';
+const WALLET_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — sau đó revalidate
+const WALLET_FETCH_DEBOUNCE_MS = 300;
+const WALLET_FETCH_COOLDOWN_MS = 15000; // Skip re-fetch trong 15s (burst protection)
+let _walletCacheLoadedAt = 0;
+let _lastFetchAt = 0;
+
+function _loadWalletCacheFromLS() {
+    try {
+        const raw = localStorage.getItem(WALLET_CACHE_LS_KEY);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        const ts = obj?.timestamp || 0;
+        if (Date.now() - ts > WALLET_CACHE_TTL_MS) return; // expired
+        const entries = obj?.entries || {};
+        let count = 0;
+        for (const [phone, data] of Object.entries(entries)) {
+            if ((data?.total || 0) > 0) {
+                window.walletDebtData.set(phone, data);
+                count++;
+            }
+        }
+        _walletCacheLoadedAt = ts;
+        console.log(`[WALLET-DEBT] Loaded ${count} entries from localStorage cache`);
+    } catch (e) {
+        console.warn('[WALLET-DEBT] Cache load failed:', e?.message);
+    }
+}
+
+let _saveCacheTimer = null;
+function _saveWalletCacheToLS() {
+    if (_saveCacheTimer) return; // debounce 1s — burst write coalesce
+    _saveCacheTimer = setTimeout(() => {
+        _saveCacheTimer = null;
+        try {
+            const entries = {};
+            window.walletDebtData.forEach((data, phone) => {
+                entries[phone] = data;
+            });
+            localStorage.setItem(
+                WALLET_CACHE_LS_KEY,
+                JSON.stringify({ timestamp: Date.now(), entries })
+            );
+        } catch (e) {
+            // localStorage quota — silent
+        }
+    }, 1000);
+}
+
+// Load cache ngay khi script execute
+_loadWalletCacheFromLS();
+
+// Sau DOMContentLoaded + table render đầu tiên, apply badges từ cache instant.
+// renderTable() trigger triggerWalletDebtFetch (debounce 300ms + cooldown
+// check) — apply badges ngay trước khi fetch round-trip xong.
+function _scheduleApplyOnFirstRender() {
+    let attempts = 0;
+    const tryApply = () => {
+        attempts++;
+        if (window.walletDebtData.size === 0) return; // no cache
+        const hasRows = document.querySelectorAll('tr[data-order-id]').length > 0;
+        if (hasRows) {
+            updateWalletDebtBadgesInTable();
+            return;
+        }
+        if (attempts < 20) setTimeout(tryApply, 300); // retry 6s max
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(tryApply, 200));
+    } else {
+        setTimeout(tryApply, 200);
+    }
+}
+_scheduleApplyOnFirstRender();
+
 const WALLET_DEBT_BADGE_CONFIG = {
     BANK_TRANSFER: { label: 'CK', bg: '#10b981' },
     RETURN_GOODS: { label: 'Khách gửi', bg: '#8b5cf6' },
@@ -354,6 +434,8 @@ async function fetchWalletDebtBatch(phones) {
                         window.walletDebtData.delete(phone);
                     }
                 }
+                // Persist to localStorage cache (debounced)
+                _saveWalletCacheToLS();
             }
         } catch (error) {
             console.error(
@@ -524,48 +606,68 @@ function _applyWalletAutoTags() {
 }
 
 /**
- * Update wallet debt badges in table for a specific phone (or all phones)
+ * Update wallet debt badges in table for a specific phone (or all phones).
+ * OPTIMIZED: thay vì query mọi td.customer (51 cells), build phone→row index
+ * 1 lần rồi chỉ touch các row có wallet data. Nhanh hơn ~10x cho bảng 51 rows
+ * mà chỉ ~5 phone có wallet data.
  */
 function updateWalletDebtBadgesInTable(targetPhone) {
     const normalized = targetPhone ? normalizePhoneForQR(targetPhone) : null;
-    document.querySelectorAll('td[data-column="customer"]').forEach((cell) => {
-        const row = cell.closest('tr');
-        if (!row) return;
+
+    // Build phone → cells lookup 1 lần (mỗi row có 1 phone cell + 1 customer cell)
+    const phoneCellsMap = new Map(); // phone → [{ row, customerCell, phoneCell }, ...]
+    document.querySelectorAll('tr[data-order-id]').forEach((row) => {
         const phoneCell = row.querySelector('td[data-column="phone"]');
-        if (!phoneCell) return;
+        const customerCell = row.querySelector('td[data-column="customer"]');
+        if (!phoneCell || !customerCell) return;
         const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
-        if (normalized && rowPhone !== normalized) return;
-
-        // Remove existing badges
-        cell.querySelectorAll('.wallet-debt-badge').forEach((b) => b.remove());
-
-        const nameDiv = cell.querySelector('.customer-name');
-        if (!nameDiv) return;
-
-        if (rowPhone && window.walletDebtData.has(rowPhone)) {
-            const data = window.walletDebtData.get(rowPhone);
-            if ((data.total || 0) <= 0) {
-                cell.style.background = '';
-                return;
-            }
-
-            // Insert badges
-            const temp = document.createElement('span');
-            temp.innerHTML = renderWalletDebtBadges(rowPhone);
-            while (temp.firstChild) {
-                nameDiv.appendChild(temp.firstChild);
-            }
-
-            // Watermark background
-            cell.style.background =
-                'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
-
-            // Schedule auto-tag CK / Trừ Công Nợ (tách ra function riêng để retry khi _isLoaded=false)
-            _scheduleWalletAutoTag();
-        } else {
-            cell.style.background = '';
-        }
+        if (!rowPhone) return;
+        if (!phoneCellsMap.has(rowPhone)) phoneCellsMap.set(rowPhone, []);
+        phoneCellsMap.get(rowPhone).push({ row, customerCell });
     });
+
+    // Apply badge per affected phone
+    const phonesToProcess = normalized
+        ? [normalized]
+        : Array.from(new Set([...phoneCellsMap.keys(), ...window.walletDebtData.keys()]));
+
+    let appliedCount = 0;
+    for (const phone of phonesToProcess) {
+        const cells = phoneCellsMap.get(phone);
+        if (!cells || cells.length === 0) continue;
+
+        const data = window.walletDebtData.get(phone);
+        const hasData = data && (data.total || 0) > 0;
+        const badgesHTML = hasData ? renderWalletDebtBadges(phone) : '';
+
+        for (const { customerCell } of cells) {
+            // Remove existing badges
+            const oldBadges = customerCell.querySelectorAll('.wallet-debt-badge');
+            oldBadges.forEach((b) => b.remove());
+
+            if (!hasData) {
+                customerCell.style.background = '';
+                continue;
+            }
+
+            const nameDiv = customerCell.querySelector('.customer-name');
+            if (!nameDiv) continue;
+
+            // Insert new badges
+            const temp = document.createElement('span');
+            temp.innerHTML = badgesHTML;
+            while (temp.firstChild) nameDiv.appendChild(temp.firstChild);
+
+            // Watermark background (gradient xanh nhạt highlight có nợ)
+            customerCell.style.background =
+                'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
+            appliedCount++;
+        }
+    }
+
+    if (appliedCount > 0) {
+        _scheduleWalletAutoTag();
+    }
 }
 
 /**
@@ -574,23 +676,42 @@ function updateWalletDebtBadgesInTable(targetPhone) {
  * Debounced to avoid multiple rapid calls.
  */
 let _walletDebtFetchTimer = null;
-function triggerWalletDebtFetch() {
+function triggerWalletDebtFetch(opts = {}) {
     clearTimeout(_walletDebtFetchTimer);
     _walletDebtFetchTimer = setTimeout(() => {
+        // Cooldown: skip nếu vừa fetch trong 15s (trừ khi force=true). Tránh
+        // burst fetch khi renderTable() chạy nhiều lần liên tiếp (filter, sort,
+        // surgical replace với nhiều WS event). Cache localStorage đã có data
+        // → badge vẫn render instant từ cache.
+        const sinceLast = Date.now() - _lastFetchAt;
+        if (!opts.force && sinceLast < WALLET_FETCH_COOLDOWN_MS && _lastFetchAt > 0) {
+            // Còn fresh — chỉ apply badges từ cache hiện có (không re-fetch)
+            updateWalletDebtBadgesInTable();
+            return;
+        }
+
         const phones = [];
         document.querySelectorAll('td[data-column="phone"]').forEach((cell) => {
             const p = cell.textContent.trim();
             if (p) phones.push(p);
         });
         const unique = [...new Set(phones)];
+
+        // Apply badges từ cache có sẵn TRƯỚC khi fetch — instant render từ
+        // cache localStorage, fresh data đến sẽ patch lại sau (SWR pattern).
+        if (window.walletDebtData.size > 0) {
+            updateWalletDebtBadgesInTable();
+        }
+
         if (unique.length > 0) {
+            _lastFetchAt = Date.now();
             fetchWalletDebtBatch(unique)
                 .then(() => {
                     updateWalletDebtBadgesInTable();
                 })
                 .catch((err) => console.error('[WALLET-DEBT] Fetch error:', err));
         }
-    }, 300);
+    }, WALLET_FETCH_DEBOUNCE_MS);
 }
 
 // =====================================================
