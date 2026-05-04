@@ -7,15 +7,21 @@
 // =====================================================
 // INITIALIZATION #INIT
 // =====================================================
-window.addEventListener("DOMContentLoaded", async function () {
+window.addEventListener('DOMContentLoaded', async function () {
     // Apply orders table font size from settings
-    const ordersTableFontSize = localStorage.getItem("ordersTableFontSize") || "14";
-    document.documentElement.style.setProperty("--orders-table-font-size", `${ordersTableFontSize}px`);
+    const ordersTableFontSize = localStorage.getItem('ordersTableFontSize') || '14';
+    document.documentElement.style.setProperty(
+        '--orders-table-font-size',
+        `${ordersTableFontSize}px`
+    );
 
     // Listen for font size changes from parent window
-    window.addEventListener("storage", (e) => {
-        if (e.key === "ordersTableFontSize") {
-            document.documentElement.style.setProperty("--orders-table-font-size", `${e.newValue}px`);
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'ordersTableFontSize') {
+            document.documentElement.style.setProperty(
+                '--orders-table-font-size',
+                `${e.newValue}px`
+            );
         }
     });
 
@@ -54,7 +60,7 @@ window.addEventListener("DOMContentLoaded", async function () {
                     }
                 }
 
-                keysToClean.forEach(key => {
+                keysToClean.forEach((key) => {
                     localStorage.removeItem(key);
                 });
             }
@@ -64,8 +70,8 @@ window.addEventListener("DOMContentLoaded", async function () {
     })();
 
     if (window.cacheManager) {
-        window.cacheManager.clear("orders");
-        window.cacheManager.clear("campaigns");
+        window.cacheManager.clear('orders');
+        window.cacheManager.clear('campaigns');
     }
 
     // Check and complete any pending held products cleanup from previous session
@@ -77,33 +83,22 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Vì auto-load cần dates để fetch orders
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    document.getElementById("endDate").value = formatDateTimeLocal(now);
-    document.getElementById("startDate").value =
-        formatDateTimeLocal(thirtyDaysAgo);
+    document.getElementById('endDate').value = formatDateTimeLocal(now);
+    document.getElementById('startDate').value = formatDateTimeLocal(thirtyDaysAgo);
 
     // Event listeners
-    document
-        .getElementById("loadCampaignsBtn")
-        .addEventListener("click", handleLoadCampaigns);
-    document
-        .getElementById("clearCacheBtn")
-        .addEventListener("click", handleClearCache);
-    document
-        .getElementById("selectAll")
-        .addEventListener("change", handleSelectAll);
-    document
-        .getElementById("campaignFilter")
-        .addEventListener("change", handleCampaignChange);
+    document.getElementById('loadCampaignsBtn').addEventListener('click', handleLoadCampaigns);
+    document.getElementById('clearCacheBtn').addEventListener('click', handleClearCache);
+    document.getElementById('selectAll').addEventListener('change', handleSelectAll);
+    document.getElementById('campaignFilter').addEventListener('change', handleCampaignChange);
 
     // 🎯 Event listener for custom date filter - auto-search when date changes
-    document
-        .getElementById("customStartDate")
-        .addEventListener("change", handleCustomDateChange);
+    document.getElementById('customStartDate').addEventListener('change', handleCustomDateChange);
 
     // 🎯 Event listener for custom end date - trigger search when manually changed
-    const customEndDateInput = document.getElementById("customEndDate");
+    const customEndDateInput = document.getElementById('customEndDate');
     if (customEndDateInput) {
-        customEndDateInput.addEventListener("change", handleCustomEndDateChange);
+        customEndDateInput.addEventListener('change', handleCustomEndDateChange);
     }
 
     // Event listener for employee campaign selector
@@ -115,7 +110,10 @@ window.addEventListener("DOMContentLoaded", async function () {
                 const campaign = JSON.parse(selectedOption.dataset.campaign);
                 loadEmployeeRangesForCampaign(campaign.displayName).then(() => {
                     // Re-render table with new ranges
-                    if (window.userEmployeeLoader && window.userEmployeeLoader.getUsers().length > 0) {
+                    if (
+                        window.userEmployeeLoader &&
+                        window.userEmployeeLoader.getUsers().length > 0
+                    ) {
                         renderEmployeeTable(window.userEmployeeLoader.getUsers());
                     }
                 });
@@ -139,8 +137,9 @@ window.addEventListener("DOMContentLoaded", async function () {
         window.pancakeTokenManager.initialize();
 
         // Start data manager init but DON'T WAIT - run in parallel with orders loading
-        pancakeInitPromise = window.pancakeDataManager.initialize()
-            .then(async success => {
+        pancakeInitPromise = window.pancakeDataManager
+            .initialize()
+            .then(async (success) => {
                 if (success) {
                     // Set chatDataManager alias for compatibility
                     window.chatDataManager = window.pancakeDataManager;
@@ -152,7 +151,7 @@ window.addEventListener("DOMContentLoaded", async function () {
                 }
                 return success;
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
                 return false;
             });
@@ -181,10 +180,15 @@ window.addEventListener("DOMContentLoaded", async function () {
             const userId = decoded?.uid || decoded?.user_id || decoded?.id;
             const pageIds = pdm.pageIds || [];
             if (!userId || !pageIds.length) {
-                console.warn('[REALTIME] Missing userId or pageIds for WebSocket', { userId, pageCount: pageIds.length });
+                console.warn('[REALTIME] Missing userId or pageIds for WebSocket', {
+                    userId,
+                    pageCount: pageIds.length,
+                });
                 return;
             }
-            console.log(`[REALTIME] Connecting WebSocket: userId=${userId}, pages=${pageIds.length}`);
+            console.log(
+                `[REALTIME] Connecting WebSocket: userId=${userId}, pages=${pageIds.length}`
+            );
             await window.realtimeManager.initWebSocket({ accessToken: token, userId, pageIds });
 
             // Also push fresh token to server for its own WS connection (pending_customers tracking)
@@ -197,11 +201,14 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Push fresh Pancake token to server so it can maintain its own WS connection
     async function _pushTokenToServer(token, userId, pageIds) {
         try {
-            const resp = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, userId, pageIds })
-            });
+            const resp = await fetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/start',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, userId, pageIds }),
+                }
+            );
             if (resp.ok) {
                 console.log('[REALTIME] Pushed fresh token to server');
             }
@@ -223,18 +230,20 @@ window.addEventListener("DOMContentLoaded", async function () {
 
             // Transform server format → notifier format (INBOX only, skip COMMENT)
             const pending = data.customers
-                .filter(c => c.type !== 'COMMENT')
-                .map(c => ({
+                .filter((c) => c.type !== 'COMMENT')
+                .map((c) => ({
                     psid: c.psid,
                     pageId: c.page_id,
                     inboxCount: c.message_count || 1,
                     snippet: c.last_message_snippet || '',
-                    timestamp: c.last_message_time ? new Date(c.last_message_time).getTime() : Date.now(),
+                    timestamp: c.last_message_time
+                        ? new Date(c.last_message_time).getTime()
+                        : Date.now(),
                 }));
 
             // Group by psid (server may have multiple INBOX rows per psid)
             const grouped = new Map();
-            pending.forEach(p => {
+            pending.forEach((p) => {
                 const existing = grouped.get(p.psid);
                 if (existing) {
                     existing.inboxCount += p.inboxCount;
@@ -268,14 +277,18 @@ window.addEventListener("DOMContentLoaded", async function () {
         if (!badge) {
             badge = document.createElement('span');
             badge.id = 'wsStatusBadge';
-            badge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;cursor:help;';
-            const toolbar = document.querySelector('.filter-bar') || document.querySelector('.toolbar-right');
+            badge.style.cssText =
+                'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;cursor:help;';
+            const toolbar =
+                document.querySelector('.filter-bar') || document.querySelector('.toolbar-right');
             if (toolbar) toolbar.appendChild(badge);
         }
         badge.style.background = connected ? '#d1fae5' : '#fee2e2';
         badge.style.color = connected ? '#059669' : '#dc2626';
         badge.textContent = connected ? '● WS' : '○ WS';
-        badge.title = connected ? 'Pancake WebSocket: Connected — tin nhắn realtime hoạt động' : 'Pancake WebSocket: Disconnected — dùng polling fallback';
+        badge.title = connected
+            ? 'Pancake WebSocket: Connected — tin nhắn realtime hoạt động'
+            : 'Pancake WebSocket: Disconnected — dùng polling fallback';
     });
 
     // ⚡ OPTIMIZATION FIX: Defer TAG/KPI BASE listeners to reduce initial blocking
@@ -295,19 +308,19 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
 
     // Scroll to top button
-    const scrollBtn = document.getElementById("scrollToTopBtn");
-    const tableWrapper = document.getElementById("tableWrapper");
+    const scrollBtn = document.getElementById('scrollToTopBtn');
+    const tableWrapper = document.getElementById('tableWrapper');
 
-    tableWrapper.addEventListener("scroll", function () {
+    tableWrapper.addEventListener('scroll', function () {
         if (tableWrapper.scrollTop > 300) {
-            scrollBtn.classList.add("show");
+            scrollBtn.classList.add('show');
         } else {
-            scrollBtn.classList.remove("show");
+            scrollBtn.classList.remove('show');
         }
     });
 
-    scrollBtn.addEventListener("click", function () {
-        tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
+    scrollBtn.addEventListener('click', function () {
+        tableWrapper.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     // 🎯 ĐƠN GIẢN HÓA: Dùng Campaign System mới (merged)
@@ -316,20 +329,28 @@ window.addEventListener("DOMContentLoaded", async function () {
     // ⚡ OPTIMIZATION FIX: Make initializeApp() non-blocking
     // Previous: await initializeApp() blocked everything
     // New: Run in background, show loading indicator
-    initializeApp().then(() => {
-        // Fetch offline pending customers after table is rendered
-        _fetchOfflinePendingCustomers();
-    }).catch(err => {
-        console.error('[APP] ❌ Initialization failed:', err);
-        alert('Lỗi khởi tạo ứng dụng. Vui lòng refresh lại trang.');
-    });
+    initializeApp()
+        .then(() => {
+            // Fetch offline pending customers after table is rendered
+            _fetchOfflinePendingCustomers();
+        })
+        .catch((err) => {
+            console.error('[APP] ❌ Initialization failed:', err);
+            alert('Lỗi khởi tạo ứng dụng. Vui lòng refresh lại trang.');
+        });
 
     // ⚡ PHASE 1 OPTIMIZATION: After orders loaded, wait for Pancake and re-render chat columns
     if (pancakeInitPromise) {
-        pancakeInitPromise.then(success => {
+        pancakeInitPromise.then((success) => {
             if (success && allData.length > 0 && window.chatDataManager) {
-                // Re-render table to show chat columns now that chatDataManager is ready
-                performTableSearch();
+                // Chat columns chỉ là placeholders + badge "X MỚI" managed bởi
+                // newMessagesNotifier. Pancake init xong → notifier sẵn sàng tô badge,
+                // KHÔNG cần performTableSearch full re-render gây nháy bảng.
+                // reapply() là idempotent và chỉ touch row có pending state đổi (sau
+                // fix 260dcfbb). Trước đây full re-render rebuild 50 rows → nháy.
+                if (window.newMessagesNotifier?.reapply) {
+                    window.newMessagesNotifier.reapply();
+                }
             }
         });
     }
@@ -338,34 +359,37 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Must run AFTER select options are in DOM but BEFORE the user can interact.
     // Awaited so that the first table render uses the restored filter values.
     if (window.FilterPersistence) {
-        try { await window.FilterPersistence.init(); }
-        catch (e) { console.warn('[FILTER-PERSIST] init failed:', e); }
+        try {
+            await window.FilterPersistence.init();
+        } catch (e) {
+            console.warn('[FILTER-PERSIST] init failed:', e);
+        }
     }
 
     // Search functionality
-    const searchInput = document.getElementById("tableSearchInput");
-    const searchClearBtn = document.getElementById("searchClearBtn");
+    const searchInput = document.getElementById('tableSearchInput');
+    const searchClearBtn = document.getElementById('searchClearBtn');
 
     // If FilterPersistence restored a search query into searchQuery, sync UI now
     if (typeof searchQuery === 'string' && searchQuery && searchInput && !searchInput.value) {
         searchInput.value = searchQuery;
     }
 
-    searchInput.addEventListener("input", function (e) {
+    searchInput.addEventListener('input', function (e) {
         handleTableSearch(e.target.value);
     });
 
-    searchClearBtn.addEventListener("click", function () {
-        searchInput.value = "";
-        handleTableSearch("");
+    searchClearBtn.addEventListener('click', function () {
+        searchInput.value = '';
+        handleTableSearch('');
         searchInput.focus();
     });
 
     // Clear search on Escape
-    searchInput.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") {
-            searchInput.value = "";
-            handleTableSearch("");
+    searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            handleTableSearch('');
         }
     });
 
@@ -399,18 +423,24 @@ window.addEventListener("DOMContentLoaded", async function () {
                     throw new Error('tokenManager not available');
                 }
                 const token = await window.tokenManager.getToken();
-                window.parent.postMessage({
-                    type: 'TOKEN_RESPONSE',
-                    requestId: event.data.requestId,
-                    token: token
-                }, '*');
+                window.parent.postMessage(
+                    {
+                        type: 'TOKEN_RESPONSE',
+                        requestId: event.data.requestId,
+                        token: token,
+                    },
+                    '*'
+                );
             } catch (error) {
                 console.error('[TAB1] ❌ Error getting token:', error);
-                window.parent.postMessage({
-                    type: 'TOKEN_RESPONSE',
-                    requestId: event.data.requestId,
-                    error: error.message
-                }, '*');
+                window.parent.postMessage(
+                    {
+                        type: 'TOKEN_RESPONSE',
+                        requestId: event.data.requestId,
+                        error: error.message,
+                    },
+                    '*'
+                );
             }
         }
 
@@ -431,12 +461,15 @@ window.addEventListener("DOMContentLoaded", async function () {
                 state: order.Status || order.State,
                 dateOrder: order.DateCreated || order.DateOrder,
                 Tags: order.Tags,
-                liveCampaignName: order.LiveCampaignName
+                liveCampaignName: order.LiveCampaignName,
             }));
-            window.parent.postMessage({
-                type: 'ORDERS_DATA_RESPONSE_TAB3',
-                orders: orders
-            }, '*');
+            window.parent.postMessage(
+                {
+                    type: 'ORDERS_DATA_RESPONSE_TAB3',
+                    orders: orders,
+                },
+                '*'
+            );
         }
 
         // Handle orders data request from Overview tab
@@ -444,7 +477,8 @@ window.addEventListener("DOMContentLoaded", async function () {
             const orders = window.getAllOrders ? window.getAllOrders() : [];
             // Get current table name from campaign manager
             const campaign = window.campaignManager?.activeCampaign;
-            const tableName = campaign?.name || localStorage.getItem('orders_table_name') || 'Bảng 1';
+            const tableName =
+                campaign?.name || localStorage.getItem('orders_table_name') || 'Bảng 1';
 
             // Serialize ProcessingTagState data for overview statistics
             const ptagData = {};
@@ -455,17 +489,20 @@ window.addEventListener("DOMContentLoaded", async function () {
                         subTag: data.subTag,
                         subState: data.subState,
                         flags: data.flags || [],
-                        tTags: data.tTags || []
+                        tTags: data.tTags || [],
                     };
                 }
             }
 
-            window.parent.postMessage({
-                type: 'ORDERS_DATA_RESPONSE_OVERVIEW',
-                orders: orders,
-                tableName: tableName,
-                processingTags: ptagData
-            }, '*');
+            window.parent.postMessage(
+                {
+                    type: 'ORDERS_DATA_RESPONSE_OVERVIEW',
+                    orders: orders,
+                    tableName: tableName,
+                    processingTags: ptagData,
+                },
+                '*'
+            );
         }
 
         // Handle retail sale from Social tab
@@ -492,7 +529,11 @@ window.addEventListener("DOMContentLoaded", async function () {
             else if (event.key === 'Tab') {
                 const tagSearchInput = document.getElementById('tagSearchInput');
                 // Only trigger if we're at the input and no dropdown is focused
-                if (document.activeElement === tagSearchInput || !document.activeElement || document.activeElement === document.body) {
+                if (
+                    document.activeElement === tagSearchInput ||
+                    !document.activeElement ||
+                    document.activeElement === document.body
+                ) {
                     event.preventDefault();
                     saveOrderTags();
                 }
@@ -562,7 +603,9 @@ async function initializeApp() {
             if (firebaseWaitAttempts >= MAX_FIREBASE_WAIT_ATTEMPTS) {
                 console.error('[APP] ❌ Firebase failed to load after 10 seconds');
                 appInitialized = false;
-                alert('Không thể kết nối Firebase. Vui lòng kiểm tra kết nối mạng và refresh lại trang.');
+                alert(
+                    'Không thể kết nối Firebase. Vui lòng kiểm tra kết nối mạng và refresh lại trang.'
+                );
                 return;
             }
 
@@ -584,7 +627,7 @@ async function initializeApp() {
             activeCampaignId: null,
             activeCampaign: null,
             currentUserId: null,
-            initialized: false
+            initialized: false,
         };
         window.campaignManager.currentUserId = getCurrentUserId();
 
@@ -592,7 +635,7 @@ async function initializeApp() {
         const [campaigns, activeCampaignId, _] = await Promise.all([
             loadAllCampaigns(),
             loadActiveCampaignId(),
-            Promise.resolve() // Employee ranges loaded per-campaign, not globally
+            Promise.resolve(), // Employee ranges loaded per-campaign, not globally
         ]);
 
         // 3. ⭐ CHECK ACTIVE CAMPAIGN FIRST (Fast path)
@@ -620,7 +663,6 @@ async function initializeApp() {
 
         // 5. No campaigns exist at all → show create modal
         showNoCampaignsModal();
-
     } catch (error) {
         console.error('[APP] ❌ Initialization error:', error);
         if (window.notificationManager) {
@@ -658,7 +700,8 @@ async function loadActiveCampaignId() {
 
         window.campaignManager.activeCampaignId = activeCampaignId;
         if (activeCampaignId && window.campaignManager.allCampaigns[activeCampaignId]) {
-            window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[activeCampaignId];
+            window.campaignManager.activeCampaign =
+                window.campaignManager.allCampaigns[activeCampaignId];
         }
 
         return activeCampaignId;
@@ -740,7 +783,6 @@ async function continueAfterCampaignSelect(campaignId) {
             console.warn('[APP] loadEmployeeRangesForCampaign function not available');
         }
 
-
         // ⭐ FETCH ORDERS (1 lần duy nhất)
         await handleSearch();
 
@@ -748,7 +790,6 @@ async function continueAfterCampaignSelect(campaignId) {
         if (window.realtimeManager) {
             window.realtimeManager.connectServerMode();
         }
-
     } catch (error) {
         console.error('[APP] ❌ Error in continueAfterCampaignSelect:', error);
         if (window.notificationManager) {
@@ -768,4 +809,3 @@ function updateActiveCampaignLabel(name) {
 }
 // Export to window for inline HTML scripts
 window.updateActiveCampaignLabel = updateActiveCampaignLabel;
-
