@@ -8,6 +8,16 @@
 
 ## 2026-05-04
 
+### [issue-tracking] Search bỏ dấu (accent-insensitive) + Hard delete ticket TV-2026-00619
+
+**Files**: MODIFIED: [issue-tracking/js/script.js](../issue-tracking/js/script.js) — thêm `stripAccent()` helper (NFD + strip combining marks U+0300–U+036F + đ→d/Đ→D + lower). Áp dụng vào: dashboard search input listener, type-tabs filter, date filter, history-search filter, + 2 chỗ filter so sánh trường (`renderDashboard`/`renderHistoryTab`) — strip dấu cả searchTerm và `t.customer`/`t.orderId`/`t.firebaseId` trước khi `.includes()`. Phone giữ nguyên (chỉ digits).
+
+**Chi tiết**: **Trigger user**: "search cho tìm không dấu". Trước: gõ "diem" không match khách "Diễm Nguyễn", "dat" không match "Đạt", "huynh" không match "Huỳnh". Sau: tất cả match. Smoke test node: `diem→Diễm:true`, `dat→Đạt:true`, `huynh→Huỳnh:true`, phone passthrough OK, mã đơn `NJD/2026/63835` match `njd` OK. Syntax OK (`node --check`).
+
+**Cùng commit**: Hard-delete ticket Render `TV-2026-00619` (id=752, đơn TPOS `63835`/`#432116`, COD 165.000đ, Diem Nguyen 0948138675) qua `DELETE /api/v2/tickets/TV-2026-00619?hard=true` — `success:true, virtualCreditCancelled:false`. Verify list theo phone → `total:0`.
+
+**Status**: ✅ Done.
+
 ### [orders-report] Tăng cường UI bảng — debounce reapply badges/stats + content-visibility:auto + contain:layout
 
 **Files**: MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — surgical row replace path nay gọi `_scheduleBadgeReapply()` + `_scheduleStatsUpdate()` (mỗi cái lock 80ms timer) thay vì `setTimeout(reapply, 0)` + `updateStats()` ngay. WS burst 15 surgical replaces trong 100ms → chỉ 1 lần `newMessagesNotifier.reapply()` (scan toàn tbody) + 1 lần `updateStats()` thay vì 15 lần. MODIFIED: [orders-report/css/tab1-orders.css](../orders-report/css/tab1-orders.css) `.table tbody tr` — thêm `content-visibility: auto` + `contain-intrinsic-size: auto 52px` + `contain: layout style`.

@@ -218,9 +218,7 @@ function initTabs() {
             btn.classList.add('active');
             const activeTab =
                 document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
-            const term = (document.getElementById('search-ticket')?.value || '')
-                .toLowerCase()
-                .trim();
+            const term = stripAccent(document.getElementById('search-ticket')?.value || '').trim();
             renderDashboard(activeTab, term);
         });
     });
@@ -288,9 +286,7 @@ function initModalHandlers() {
     if (filterDateCreated) {
         filterDateCreated.addEventListener('change', () => {
             const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-            const term = (document.getElementById('search-ticket')?.value || '')
-                .toLowerCase()
-                .trim();
+            const term = stripAccent(document.getElementById('search-ticket')?.value || '').trim();
             renderDashboard(activeTab, term);
         });
     }
@@ -2405,13 +2401,14 @@ function renderDashboard(tabName, searchTerm = '') {
         filtered = filtered.filter((t) => t.type === typeFilter);
     }
 
-    // Filter by Search
+    // Filter by Search (accent-insensitive: "Diem" matches "Diễm")
     if (searchTerm) {
+        const termNoAccent = stripAccent(searchTerm);
         filtered = filtered.filter(
             (t) =>
-                (t.phone && t.phone.includes(searchTerm)) ||
-                (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
-                (t.customer && t.customer.toLowerCase().includes(searchTerm))
+                (t.phone && t.phone.includes(termNoAccent)) ||
+                (t.orderId && stripAccent(t.orderId).includes(termNoAccent)) ||
+                (t.customer && stripAccent(t.customer).includes(termNoAccent))
         );
     }
 
@@ -3454,9 +3451,7 @@ function updateTableHeaders(tabName) {
  */
 function renderHistoryTab() {
     // Read filter values
-    const searchTerm = (document.getElementById('history-search')?.value || '')
-        .toLowerCase()
-        .trim();
+    const searchTerm = stripAccent(document.getElementById('history-search')?.value || '').trim();
     const filterType = document.getElementById('history-filter-type')?.value || 'all';
     const filterStatus = document.getElementById('history-filter-status')?.value || 'all';
     const dateFrom = document.getElementById('history-date-from')?.value;
@@ -3465,14 +3460,14 @@ function renderHistoryTab() {
     // Start with all tickets
     let filtered = [...TICKETS];
 
-    // Filter by search text
+    // Filter by search text (accent-insensitive)
     if (searchTerm) {
         filtered = filtered.filter(
             (t) =>
                 (t.phone && t.phone.includes(searchTerm)) ||
-                (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
-                (t.customer && t.customer.toLowerCase().includes(searchTerm)) ||
-                (t.firebaseId && t.firebaseId.toLowerCase().includes(searchTerm))
+                (t.orderId && stripAccent(t.orderId).includes(searchTerm)) ||
+                (t.customer && stripAccent(t.customer).includes(searchTerm)) ||
+                (t.firebaseId && stripAccent(t.firebaseId).includes(searchTerm))
         );
     }
 
