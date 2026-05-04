@@ -2728,6 +2728,7 @@
         <script src="js/tab1/tab1-empty-cart-auto-sync.js"></script>
 
         <!-- 9. Edit Modal: Order editing, inline search (lines 8393-10015) -->
+        <script src="js/tab1/tab1-edit-history.js"></script>
         <script src="js/tab1/tab1-edit-modal.js"></script>
 
         <!-- 10. Chat: will be rebuilt (new Pancake API + Extension Bypass) -->
@@ -4941,6 +4942,17 @@
                         </div>
                     </div>
                     <div class="modal-footer">
+                        <button
+                            type="button"
+                            class="btn btn-warning"
+                            id="editRestoreBtn"
+                            onclick="restoreOrderEdits()"
+                            style="display: none; margin-right: auto"
+                            title="Khôi phục lại sản phẩm như lúc mở modal"
+                        >
+                            <i class="fas fa-undo"></i> Khôi phục
+                            <span id="editRestoreCount" class="badge bg-light text-dark"></span>
+                        </button>
                         <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
                             <i class="fas fa-times"></i> Đóng
                         </button>

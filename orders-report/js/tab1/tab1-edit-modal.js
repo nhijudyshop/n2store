@@ -30,12 +30,36 @@ document.addEventListener('click', function (e) {
     }
 });
 
+// SWR cache cho order data — TTL 2min, return stale + revalidate background.
+// Lần mở lại trong session = instant render từ cache, fresh data đến → re-render.
+const _editOrderCache = new Map(); // orderId → { data, timestamp }
+const EDIT_CACHE_TTL = 2 * 60 * 1000;
+
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
     hasUnsavedOrderChanges = false; // Reset dirty flag
     const modal = document.getElementById('editOrderModal');
     modal.classList.add('show');
     switchEditTab('info');
+
+    // SWR: nếu có cached data → render ngay, đồng thời background revalidate.
+    const cached = _editOrderCache.get(String(orderId));
+    if (cached?.data) {
+        currentEditOrderData = cached.data;
+        try {
+            await updateModalWithData(currentEditOrderData);
+        } catch (e) {
+            console.warn('[EDIT-MODAL] Cached render failed:', e?.message);
+        }
+        // Background revalidate (no spinner)
+        const isStale = Date.now() - cached.timestamp >= EDIT_CACHE_TTL;
+        if (isStale) {
+            fetchOrderData(orderId, { silent: true }).catch(() => {});
+        }
+        return;
+    }
+
+    // Cache miss → show spinner + fetch
     document.getElementById('editModalBody').innerHTML =
         `<div class="loading-state"><div class="loading-spinner"></div><div class="loading-text">Đang tải dữ liệu đơn hàng...</div></div>`;
     try {
@@ -48,7 +72,7 @@ async function openEditModal(orderId) {
 // Export to window for use in discount stats UI
 window.openEditModal = openEditModal;
 
-async function fetchOrderData(orderId) {
+async function fetchOrderData(orderId, opts = {}) {
     const headers = await window.tokenManager.getAuthHeader();
     const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
     const response = await API_CONFIG.smartFetch(apiUrl, {
@@ -59,9 +83,95 @@ async function fetchOrderData(orderId) {
         },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    currentEditOrderData = await response.json();
+    const fresh = await response.json();
+    // Update cache
+    _editOrderCache.set(String(orderId), { data: fresh, timestamp: Date.now() });
+
+    // Silent revalidate — chỉ update state + re-render nếu user vẫn đang xem order này
+    if (opts.silent) {
+        if (currentEditOrderId === orderId && !hasUnsavedOrderChanges) {
+            currentEditOrderData = fresh;
+            await updateModalWithData(fresh);
+        }
+        return;
+    }
+
+    currentEditOrderData = fresh;
     await updateModalWithData(currentEditOrderData);
 }
+
+// Invalidate cache khi user save changes (từ saveOrderChanges)
+window.invalidateEditOrderCache = function (orderId) {
+    if (orderId) _editOrderCache.delete(String(orderId));
+};
+
+// Show/hide Restore button based on edit history changes count.
+// Gọi sau mỗi action add/remove/qty/price + khi modal mở.
+function _refreshRestoreButton() {
+    const btn = document.getElementById('editRestoreBtn');
+    const badge = document.getElementById('editRestoreCount');
+    if (!btn || !window.OrderEditHistory) return;
+    const orderId = currentEditOrderId;
+    if (!orderId) {
+        btn.style.display = 'none';
+        return;
+    }
+    const entry = window.OrderEditHistory.getEntry(orderId);
+    if (!entry || !entry.snapshot) {
+        btn.style.display = 'none';
+        return;
+    }
+    // Chỉ count actions sửa (loại trừ 'restore' meta)
+    const userChanges = (entry.changes || []).filter((c) => c.action !== 'restore');
+    if (userChanges.length === 0) {
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = '';
+    if (badge) badge.textContent = String(userChanges.length);
+}
+
+// Restore handler — confirm → revert Details → re-render → log.
+window.restoreOrderEdits = async function () {
+    if (!currentEditOrderData || !currentEditOrderId || !window.OrderEditHistory) return;
+    const entry = window.OrderEditHistory.getEntry(currentEditOrderId);
+    if (!entry?.snapshot) {
+        if (window.notificationManager?.error) {
+            window.notificationManager.error('Không có snapshot để khôi phục.', 3000);
+        }
+        return;
+    }
+    const userChanges = (entry.changes || []).filter((c) => c.action !== 'restore');
+    let confirmed = false;
+    if (window.notificationManager?.confirm) {
+        confirmed = await window.notificationManager.confirm(
+            `Khôi phục ${userChanges.length} thay đổi (add/remove/qty/price)? Sản phẩm sẽ trở về trạng thái lúc mở modal.`,
+            'Xác nhận khôi phục'
+        );
+    } else {
+        confirmed = confirm('Khôi phục lại trạng thái lúc mở modal?');
+    }
+    if (!confirmed) return;
+
+    const restoredDetails = window.OrderEditHistory.restore(currentEditOrderId);
+    if (!restoredDetails) return;
+
+    currentEditOrderData.Details = restoredDetails;
+    hasUnsavedOrderChanges = true;
+    _refreshRestoreButton(); // Restore tạo state khác → cần Lưu để sync TPOS
+
+    // Re-render products tab nếu đang xem
+    const activeTab = document.querySelector('.edit-tab-btn.active');
+    const tabName = activeTab?.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+    if (tabName === 'products') {
+        switchEditTab('products');
+    }
+    document.getElementById('editProductCount').textContent = restoredDetails.length;
+    if (typeof showSaveIndicator === 'function') {
+        showSaveIndicator('success', 'Đã khôi phục — nhớ bấm Lưu để cập nhật TPOS');
+    }
+    _refreshRestoreButton();
+};
 
 async function updateModalWithData(data) {
     document.getElementById('modalOrderCode').textContent = data.Code || '';
@@ -69,6 +179,13 @@ async function updateModalWithData(data) {
         'vi-VN'
     );
     document.getElementById('editProductCount').textContent = data.Details?.length || 0;
+
+    // Capture snapshot Details TRƯỚC KHI user sửa → cho phép restore. Idempotent —
+    // gọi lại khi revalidate fresh sẽ không overwrite snapshot ban đầu.
+    if (window.OrderEditHistory && data.Id) {
+        window.OrderEditHistory.captureSnapshot(data.Id, data.Code, data.Details || []);
+    }
+    _refreshRestoreButton();
 
     // Load KPI sale flags trước khi renderProductsTab() đọc cache đồng bộ.
     // Cần await để tránh race: user click tab "Sản phẩm" trước khi GET flags trả về
@@ -192,7 +309,8 @@ function updateOrderInfo(field, value) {
     }
 
     currentEditOrderData[field] = value;
-    hasUnsavedOrderChanges = true; // Set dirty flag
+    hasUnsavedOrderChanges = true;
+    _refreshRestoreButton(); // Set dirty flag
 
     // Show quick feedback
     if (window.showSaveIndicator) {
@@ -890,6 +1008,21 @@ function updateProductQuantity(index, change, value = null) {
     const oldQty = product.Quantity || 0;
     let newQty = value !== null ? parseInt(value, 10) : oldQty + change;
     if (newQty < 1) newQty = 1;
+
+    // Edit history log — track quantity change
+    if (newQty !== oldQty && window.OrderEditHistory) {
+        window.OrderEditHistory.logChange(currentEditOrderData.Id, 'qty', {
+            orderCode: currentEditOrderData.Code,
+            productId: product.ProductId,
+            productCode: product.ProductCode || '',
+            productName: product.ProductName || product.ProductNameGet || '',
+            oldQty,
+            newQty,
+        });
+        hasUnsavedOrderChanges = true;
+        _refreshRestoreButton();
+    }
+
     product.Quantity = newQty;
 
     // KPI Audit Log - ghi nhận thay đổi số lượng (Render PostgreSQL)
@@ -947,6 +1080,21 @@ async function removeProduct(index) {
     );
     if (!confirmed) return;
 
+    // Edit history log — track removed product for restore
+    if (window.OrderEditHistory) {
+        window.OrderEditHistory.logChange(currentEditOrderData.Id, 'remove', {
+            orderCode: currentEditOrderData.Code,
+            productId: product.ProductId,
+            productCode: product.ProductCode || '',
+            productName: product.ProductName || product.ProductNameGet || '',
+            quantity: product.Quantity || 1,
+            price: product.Price || 0,
+            atIndex: index,
+        });
+    }
+    hasUnsavedOrderChanges = true;
+    _refreshRestoreButton();
+
     // Remove product from array
     currentEditOrderData.Details.splice(index, 1);
 
@@ -998,6 +1146,20 @@ function editProductDetail(index) {
 function saveProductDetail(index) {
     const product = currentEditOrderData.Details[index];
     const newPrice = parseInt(document.getElementById(`price-edit-${index}`).value, 10) || 0;
+    const oldPrice = product.Price || 0;
+
+    if (newPrice !== oldPrice && window.OrderEditHistory) {
+        window.OrderEditHistory.logChange(currentEditOrderData.Id, 'price', {
+            orderCode: currentEditOrderData.Code,
+            productId: product.ProductId,
+            productCode: product.ProductCode || '',
+            productName: product.ProductName || product.ProductNameGet || '',
+            oldPrice,
+            newPrice,
+        });
+        hasUnsavedOrderChanges = true;
+        _refreshRestoreButton();
+    }
 
     // Update price
     product.Price = newPrice;
@@ -1668,7 +1830,21 @@ async function addProductToOrderFromInline(productId) {
             currentEditOrderData.Details.push(newProduct);
             showSaveIndicator('success', 'Đã thêm sản phẩm');
             console.log('[INLINE ADD] Product added with computed fields:', newProduct);
+
+            // Edit history log — track added product
+            if (window.OrderEditHistory) {
+                window.OrderEditHistory.logChange(currentEditOrderData.Id, 'add', {
+                    orderCode: currentEditOrderData.Code,
+                    productId: newProduct.ProductId,
+                    productCode: newProduct.ProductCode || '',
+                    productName: newProduct.ProductName || '',
+                    quantity: newProduct.Quantity || 1,
+                    price: newProduct.Price || 0,
+                });
+            }
         }
+        hasUnsavedOrderChanges = true;
+        _refreshRestoreButton();
 
         // ⚠️ QUAN TRỌNG: KHÔNG xóa input và KHÔNG ẩn results
         // Điều này cho phép user tiếp tục thêm sản phẩm khác từ cùng danh sách gợi ý
