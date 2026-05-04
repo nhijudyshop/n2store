@@ -127,8 +127,13 @@
         /img\d*\.tpos\.vn/i,
         /firebasestorage\.googleapis\.com/i,
         /graph\.facebook\.com\/.+\/picture/i,
-        /scontent[-\w]*\.\w+\.fbcdn\.net/i,
+        // FB CDN — cho phép subdomain phức tạp như scontent.fdad5-1.fna.fbcdn.net
+        // (hyphen + dot trong subdomain). Trước đây regex \w+ không match hyphen
+        // → sticker FB CDN bypass cache → fail load.
+        /(?:scontent|video)[\w.-]*\.fbcdn\.net/i,
         /platform-lookaside\.fbsbx\.com/i,
+        // Pancake sticker CDN — block hotlink, cần qua CF Worker proxy
+        /content\.pancake\.vn\/.+\/stickers\//i,
     ];
     const WORKER_URL_FALLBACK = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     function getWorkerUrl() {
@@ -384,8 +389,11 @@
         /\/api\/image-proxy\?/i,
         /\/api\/fb-avatar\?/i,
         /graph\.facebook\.com\/.+\/picture/i,
-        /scontent[-\w]*\.\w+\.fbcdn\.net/i,
+        // FB CDN regex fix — match `scontent.fdad5-1.fna.fbcdn.net` (hyphen + dots)
+        /(?:scontent|video)[\w.-]*\.fbcdn\.net/i,
         /platform-lookaside\.fbsbx\.com/i,
+        // Pancake sticker CDN
+        /content\.pancake\.vn\/.+\/stickers\//i,
     ];
 
     function shouldAutoCache(src) {

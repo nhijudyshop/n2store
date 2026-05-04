@@ -418,9 +418,12 @@ function _renderAttachments(attachments) {
                 const safeUrl = url.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                 return `<div class="message-media"><img class="message-image" src="${safeUrl}" alt="Ảnh" data-full-url="${safeUrl}" onclick="window.showImageZoom ? showImageZoom(this.dataset.fullUrl) : window.open(this.dataset.fullUrl,'_blank')" loading="lazy"></div>`;
             }
-            // Sticker / GIF
+            // Sticker / GIF — Pancake CDN + FB CDN. Image-cache auto-routes qua
+            // CF Worker proxy nếu match NON_CORS_PATTERNS. onerror fallback hiện
+            // emoji 🎨 thay vì broken image icon nếu cả direct + proxy fail.
             if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {
-                return `<div class="message-media"><img class="message-sticker" src="${url}" alt="Sticker" loading="lazy"></div>`;
+                const safeUrl = url.replace(/"/g, '&quot;');
+                return `<div class="message-media"><img class="message-sticker" src="${safeUrl}" alt="Sticker" loading="lazy" onerror="this.outerHTML='<span class=\\'sticker-fallback\\' title=\\'Sticker không tải được\\' style=\\'font-size:32px;display:inline-block;padding:4px;\\'>🎨</span>'"></div>`;
             }
             // Video
             if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
