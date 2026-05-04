@@ -151,9 +151,25 @@
         return JSON.parse(JSON.stringify(_store));
     }
 
+    /**
+     * Format hiển thị: "<originalName> - <nickname>" (giống format TPOS sync).
+     * Strip existing " - X" suffix từ originalName trước khi append để idempotent
+     * (tránh "Original - X - X" khi nickname thay đổi).
+     */
+    function _stripSuffix(name) {
+        return (
+            String(name || '')
+                .replace(/\s*-\s*[^-]+$/, '')
+                .trim() ||
+            name ||
+            ''
+        );
+    }
     function getDisplayName(phone, fallbackName) {
         const nick = getNickname(phone);
-        return nick || fallbackName || phone || '';
+        if (!nick) return fallbackName || phone || '';
+        const original = _stripSuffix(fallbackName);
+        return `${original} - ${nick}`;
     }
 
     // ===== Init =====
