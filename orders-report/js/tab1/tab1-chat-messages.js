@@ -300,11 +300,62 @@ window.renderChatMessages = function (messages) {
         .join('');
 
     container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
+    // Auto-scroll xuống cuối — fix bug "phải scroll tay khi mở modal".
+    // Set scrollTop ngay sau innerHTML không đủ vì:
+    //   1) layout chưa flush (browser tính scrollHeight chưa chính xác)
+    //   2) images bên trong messages chưa load → scrollHeight underestimated
+    //      → khi img onload, height tăng → bottom không còn ở scrollTop
+    // Solution: rAF + re-scroll nhiều lần đến khi scrollHeight ổn định.
+    _scrollChatToBottom(container);
 
     // Check if all customer comments are deleted
     _updateDeletedBanner(messages);
 };
+
+/**
+ * Auto-scroll xuống cuối container, robust với image load timing.
+ * - rAF lần 1: layout flushed → scrollHeight chính xác cho text
+ * - rAF lần 2 sau 100ms: catch images đã decode initial paint
+ * - Listen img.onload trong container: re-scroll nếu user vẫn ở gần đáy
+ *   (within 100px) — không stick scroll khi user đã cuộn lên xem tin cũ.
+ */
+function _scrollChatToBottom(container) {
+    if (!container) return;
+    const stickToBottom = () => {
+        container.scrollTop = container.scrollHeight;
+    };
+
+    requestAnimationFrame(() => {
+        stickToBottom();
+        requestAnimationFrame(stickToBottom);
+    });
+
+    // Re-scroll khi images load lần đầu (bounded để tránh chạy mãi)
+    const imgs = container.querySelectorAll('img');
+    let pending = imgs.length;
+    if (pending === 0) return;
+    let cancelled = false;
+    setTimeout(() => (cancelled = true), 4000); // bounded 4s
+
+    imgs.forEach((img) => {
+        if (img.complete) {
+            pending--;
+            return;
+        }
+        const onDone = () => {
+            if (cancelled) return;
+            // Chỉ stick nếu user vẫn gần đáy (within 100px) — tránh ngắt scroll
+            // khi user đã cuộn lên xem tin cũ.
+            const distFromBottom =
+                container.scrollHeight - container.scrollTop - container.clientHeight;
+            if (distFromBottom < 100) {
+                stickToBottom();
+            }
+        };
+        img.addEventListener('load', onDone, { once: true });
+        img.addEventListener('error', onDone, { once: true });
+    });
+}
 
 // =====================================================
 // AVATAR HELPER
