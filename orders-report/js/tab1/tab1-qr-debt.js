@@ -375,41 +375,65 @@ function hasWalletDebt(phone) {
 
 /**
  * Render wallet debt badges for a phone number
- * Returns HTML string with one badge per active source
+ * Returns HTML string with one badge per active source.
+ * - Background dùng đúng config.bg (CK xanh, Thu về vàng, Khách gửi tím, ...)
+ *   thay vì hardcoded #10b981 → fix bug user báo "Thu về 290k màu xanh".
+ * - Inline styles minimal: chỉ giữ background-color (variable per source).
+ *   Common styles move qua CSS class .wallet-debt-badge ở polish-shared.css.
+ * - Pre-format amount số tiền (Intl.NumberFormat) cache tránh tạo lại Intl
+ *   instance per-render (51 rows × 2 badges = 102 calls/render).
  */
+const _vnNumFmt = new Intl.NumberFormat('vi-VN');
 function renderWalletDebtBadges(phone) {
     if (!phone) return '';
     const normalized = normalizePhoneForQR(phone);
-    if (!normalized || !window.walletDebtData.has(normalized)) return '';
-
+    if (!normalized) return '';
     const data = window.walletDebtData.get(normalized);
+    if (!data) return '';
+
     const sources = data.sourceBreakdown || {};
     const total = data.total || 0;
     if (total <= 0) return '';
 
-    // Build badges for each source that has positive amount
-    // Determine effective source amounts based on current balance/virtualBalance
     const badges = [];
     for (const [source, config] of Object.entries(WALLET_DEBT_BADGE_CONFIG)) {
         const sourceAmount = sources[source] || 0;
         if (sourceAmount <= 0) continue;
-
         const shortAmt = formatAmountShort(sourceAmount);
+        const fullAmt = _vnNumFmt.format(sourceAmount);
         badges.push(
-            `<span class="wallet-debt-badge" data-source="${source}" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="${config.label}: ${new Intl.NumberFormat('vi-VN').format(sourceAmount)}đ">${config.label} ${shortAmt}</span>`
+            `<span class="wallet-debt-badge" data-source="${source}" data-phone="${normalized}" style="background:${config.bg}" title="${config.label}: ${fullAmt}đ">${config.label} ${shortAmt}</span>`
         );
     }
 
-    // If no source breakdown available but total > 0, show generic badge
+    // Fallback generic badge khi server không trả sourceBreakdown chi tiết
     if (badges.length === 0 && total > 0) {
         const shortAmt = formatAmountShort(total);
+        const fullAmt = _vnNumFmt.format(total);
         badges.push(
-            `<span class="wallet-debt-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="Số dư ví: ${new Intl.NumberFormat('vi-VN').format(total)}đ">Ví ${shortAmt}</span>`
+            `<span class="wallet-debt-badge" data-phone="${normalized}" style="background:#10b981" title="Số dư ví: ${fullAmt}đ">Ví ${shortAmt}</span>`
         );
     }
 
-    return ' ' + badges.join(' ');
+    return badges.length ? ' ' + badges.join(' ') : '';
 }
+
+// Event delegation cho click — replace 51 onclick attributes per page render
+// (1 listener tbody-level thay vì 51+ inline onclick → giảm parse cost +
+// HTML size ~80 bytes/badge × ~100 badges = ~8KB tbody HTML).
+document.addEventListener(
+    'click',
+    function (e) {
+        const badge = e.target.closest('.wallet-debt-badge');
+        if (!badge) return;
+        const phone = badge.dataset.phone;
+        if (phone && typeof window.openWalletDebtModal === 'function') {
+            e.stopPropagation();
+            window.openWalletDebtModal(phone);
+        }
+    },
+    true
+);
 
 /**
  * Auto-tag CK / Trừ Công Nợ — retry nếu ProcessingTagState chưa loaded.

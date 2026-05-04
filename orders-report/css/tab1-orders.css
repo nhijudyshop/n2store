@@ -7422,3 +7422,28 @@ td[data-column='cs-notes'] {
 .select-all-range-apply:hover {
     background: #4f46e5;
 }
+
+/* =====================================================
+   WALLET DEBT BADGES (cột Khách hàng)
+   Badge "CK", "Thu về", "Khách gửi", "Nạp Tay", "Ví" với background-color
+   variable per source (set inline qua style="background:..."). Tách common
+   styles ra CSS class để giảm inline bloat (~80 bytes/badge × 100 badges
+   = ~8KB tbody HTML giảm).
+   ===================================================== */
+.wallet-debt-badge {
+    display: inline-block;
+    color: white;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 600;
+    vertical-align: middle;
+    margin-left: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.4;
+    transition: filter 100ms ease;
+}
+.wallet-debt-badge:hover {
+    filter: brightness(1.1);
+}
