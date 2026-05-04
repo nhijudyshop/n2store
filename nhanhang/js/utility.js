@@ -14,15 +14,7 @@ function getVietnamDate(date = new Date()) {
 
 function getVietnamDateAtMidnight(date = new Date()) {
     const vnDate = getVietnamDate(date);
-    return new Date(
-        vnDate.getFullYear(),
-        vnDate.getMonth(),
-        vnDate.getDate(),
-        0,
-        0,
-        0,
-        0,
-    );
+    return new Date(vnDate.getFullYear(), vnDate.getMonth(), vnDate.getDate(), 0, 0, 0, 0);
 }
 
 // =====================================================
@@ -31,32 +23,32 @@ function getVietnamDateAtMidnight(date = new Date()) {
 
 function getCachedData() {
     try {
-        const cached = dataCache.get("receipts", "data");
+        const cached = dataCache.get('receipts', 'data');
         if (cached) {
             console.log(`Cache hit: ${cached.length} items`);
             return sortDataByNewest([...cached]);
         }
     } catch (e) {
-        console.warn("Error accessing cache:", e);
-        dataCache.clear("data");
+        console.warn('Error accessing cache:', e);
+        dataCache.clear('data');
     }
-    console.log("Cache miss");
+    console.log('Cache miss');
     return null;
 }
 
 function setCachedData(data) {
     try {
         const sortedData = sortDataByNewest([...data]);
-        dataCache.set("receipts", sortedData, "data");
+        dataCache.set('receipts', sortedData, 'data');
         console.log(`Cached ${sortedData.length} items successfully`);
     } catch (e) {
-        console.warn("Cannot cache data:", e);
+        console.warn('Cannot cache data:', e);
     }
 }
 
 function invalidateCache() {
-    dataCache.clear("data");
-    console.log("Cache invalidated");
+    dataCache.clear('data');
+    console.log('Cache invalidated');
 }
 
 // Get cache statistics
@@ -74,7 +66,7 @@ function invalidateCachePattern(pattern) {
 // Validate cache against server
 async function validateCacheWithServer() {
     try {
-        const doc = await collectionRef.doc("nhanhang").get();
+        const doc = await collectionRef.doc('nhanhang').get();
 
         if (!doc.exists) return false;
 
@@ -87,30 +79,30 @@ async function validateCacheWithServer() {
 
         const isValid = serverData.data.length === cachedData.length;
 
-        console.log(`Cache validation: ${isValid ? "VALID" : "INVALID"}`);
+        console.log(`Cache validation: ${isValid ? 'VALID' : 'INVALID'}`);
         console.log(`   Server: ${serverData.data.length} items`);
         console.log(`   Cache: ${cachedData.length} items`);
 
         return isValid;
     } catch (error) {
-        console.error("Error validating cache:", error);
+        console.error('Error validating cache:', error);
         return false;
     }
 }
 
 // Force refresh data from server
 async function forceRefreshData() {
-    const notifId = notificationManager.loadingData("Đang làm mới dữ liệu...");
+    const notifId = notificationManager.loadingData('Đang làm mới dữ liệu...');
 
     try {
         invalidateCache();
         await displayReceiptData();
 
         notificationManager.remove(notifId);
-        notificationManager.success("Đã làm mới dữ liệu!", 2000);
+        notificationManager.success('Đã làm mới dữ liệu!', 2000);
     } catch (error) {
         notificationManager.remove(notifId);
-        notificationManager.error("Lỗi khi làm mới: " + error.message, 3000);
+        notificationManager.error('Lỗi khi làm mới: ' + error.message, 3000);
     }
 }
 
@@ -118,84 +110,128 @@ async function forceRefreshData() {
 // DISPLAY RECEIPT DATA WITH CACHE VALIDATION
 // =====================================================
 
+/**
+ * Tính content fingerprint nhanh: id|daKiemTra|soKg|soKien per item (sort by id).
+ * Bắt được mọi thay đổi mark/unmark/edit dù length không đổi.
+ */
+function _fingerprintReceipts(arr) {
+    if (!Array.isArray(arr)) return '';
+    return arr
+        .map((r) => `${r.id || ''}|${r.daKiemTra ? 1 : 0}|${r.soKg || 0}|${r.soKien || 0}`)
+        .sort()
+        .join(';');
+}
+
 async function displayReceiptData() {
     let notifId = null;
 
     try {
-        // Always fetch from server to check data length
-        const doc = await collectionRef.doc("nhanhang").get();
+        // Always fetch from server (source of truth)
+        const doc = await collectionRef.doc('nhanhang').get();
 
         if (!doc.exists) {
-            notificationManager.error("Không tìm thấy dữ liệu!", 3000);
+            notificationManager.error('Không tìm thấy dữ liệu!', 3000);
             return;
         }
 
         const data = doc.data();
         if (!data || !Array.isArray(data.data)) {
-            notificationManager.error("Dữ liệu không hợp lệ!", 3000);
+            notificationManager.error('Dữ liệu không hợp lệ!', 3000);
             return;
         }
 
-        const serverDataLength = data.data.length;
-
-        // Try cache first
         const cachedData = getCachedData();
 
         if (cachedData) {
-            const cacheDataLength = cachedData.length;
+            // Content fingerprint: bắt cả thay đổi daKiemTra, soKg, soKien — không chỉ length.
+            // Trước đây compare length-only nên máy A mark phiếu → máy B reload thấy length match → dùng stale cache → không thấy mark.
+            const serverFp = _fingerprintReceipts(data.data);
+            const cacheFp = _fingerprintReceipts(cachedData);
 
-            // Compare lengths
-            if (serverDataLength !== cacheDataLength) {
-                console.log(
-                    `Data mismatch detected: Server=${serverDataLength}, Cache=${cacheDataLength}`,
-                );
-                console.log("Clearing old cache and using fresh data...");
-
-                // Clear cache
+            if (serverFp !== cacheFp) {
+                console.log('Cache stale (fingerprint mismatch) → using server data');
                 invalidateCache();
-
-                // Show notification
-                notificationManager.info(
-                    `Phát hiện thay đổi dữ liệu (${cacheDataLength} -> ${serverDataLength}). Đã làm mới!`,
-                    2500,
-                );
-
-                // Use server data
                 const sortedData = sortDataByNewest(data.data);
                 renderDataToTable(sortedData);
                 setCachedData(sortedData);
-
+                _setupRealtimeListener();
                 return;
             }
 
-            // Length matches, use cache
-            console.log(`Cache valid: ${cacheDataLength} items`);
+            // Cache valid — sử dụng cache
+            console.log(`Cache valid: ${cachedData.length} items (fp match)`);
             const sortedCacheData = sortDataByNewest(cachedData);
             renderDataToTable(sortedCacheData);
+            _setupRealtimeListener();
             return;
         }
 
         // No cache, load from server
-        notifId = notificationManager.loadingData(
-            "Đang tải dữ liệu từ server...",
-        );
+        notifId = notificationManager.loadingData('Đang tải dữ liệu từ server...');
 
         const sortedData = sortDataByNewest(data.data);
         renderDataToTable(sortedData);
         setCachedData(sortedData);
 
         if (notifId) notificationManager.remove(notifId);
-        notificationManager.success("Tải dữ liệu hoàn tất!", 2000);
+        notificationManager.success('Tải dữ liệu hoàn tất!', 2000);
+
+        _setupRealtimeListener();
     } catch (error) {
         console.error(error);
         if (notifId) notificationManager.remove(notifId);
-        notificationManager.error(
-            "Lỗi khi tải dữ liệu: " + error.message,
-            3000,
-        );
+        notificationManager.error('Lỗi khi tải dữ liệu: ' + error.message, 3000);
 
         // Clear cache on error
         invalidateCache();
+    }
+}
+
+// =====================================================
+// FIRESTORE REAL-TIME LISTENER (sync giữa các máy)
+// =====================================================
+
+let _realtimeUnsub = null;
+let _lastFingerprint = null;
+
+/**
+ * Setup snapshot listener trên doc nhanhang. Khi máy khác thay đổi
+ * (mark/unmark/add/edit/delete) → fingerprint khác → invalidate cache + re-render.
+ * Idempotent — chỉ setup 1 lần.
+ */
+function _setupRealtimeListener() {
+    if (_realtimeUnsub) return; // đã setup
+    if (!collectionRef) return;
+
+    try {
+        _realtimeUnsub = collectionRef.doc('nhanhang').onSnapshot(
+            (snap) => {
+                if (!snap.exists) return;
+                // Bỏ qua snapshot của chính mình (pending writes chưa ack)
+                if (snap.metadata.hasPendingWrites) return;
+
+                const data = snap.data();
+                if (!data || !Array.isArray(data.data)) return;
+
+                const newFp = _fingerprintReceipts(data.data);
+                if (newFp === _lastFingerprint) return; // không thay đổi
+                _lastFingerprint = newFp;
+
+                console.log('[Realtime] Firestore change detected → re-render');
+                const sortedData = sortDataByNewest(data.data);
+                setCachedData(sortedData);
+                if (typeof renderDataToTable === 'function') {
+                    renderDataToTable(sortedData);
+                }
+            },
+            (err) => {
+                console.warn('[Realtime] listener error:', err);
+                _realtimeUnsub = null;
+            }
+        );
+        console.log('[Realtime] listener attached');
+    } catch (e) {
+        console.warn('[Realtime] setup failed:', e);
     }
 }
 
@@ -204,26 +240,26 @@ async function displayReceiptData() {
 // =====================================================
 
 function sanitizeInput(input) {
-    if (typeof input !== "string") return "";
-    return input.replace(/[<>"'&]/g, "").trim();
+    if (typeof input !== 'string') return '';
+    return input.replace(/[<>"'&]/g, '').trim();
 }
 
 function numberWithCommas(x) {
-    if (!x && x !== 0) return "0";
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (!x && x !== 0) return '0';
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function formatDate(date) {
-    if (!date || !(date instanceof Date)) return "";
+    if (!date || !(date instanceof Date)) return '';
     const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
     return `${day}/${month}/${year}`;
 }
 
 function formatCurrency(amount) {
-    if (!amount && amount !== 0) return "0 kg";
-    return numberWithCommas(amount) + " kg";
+    if (!amount && amount !== 0) return '0 kg';
+    return numberWithCommas(amount) + ' kg';
 }
 
 function debounce(func, wait) {
@@ -249,7 +285,7 @@ function generateUniqueID() {
 }
 
 function generateUniqueFileName() {
-    return Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".jpg";
+    return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.jpg';
 }
 
 // =====================================================
@@ -258,11 +294,11 @@ function generateUniqueFileName() {
 
 function getFormattedDateTime() {
     const vnDate = getVietnamDate();
-    const day = vnDate.getDate().toString().padStart(2, "0");
-    const month = (vnDate.getMonth() + 1).toString().padStart(2, "0");
+    const day = vnDate.getDate().toString().padStart(2, '0');
+    const month = (vnDate.getMonth() + 1).toString().padStart(2, '0');
     const year = vnDate.getFullYear();
-    const hour = vnDate.getHours().toString().padStart(2, "0");
-    const minute = vnDate.getMinutes().toString().padStart(2, "0");
+    const hour = vnDate.getHours().toString().padStart(2, '0');
+    const minute = vnDate.getMinutes().toString().padStart(2, '0');
     return `${day}/${month}/${year}, ${hour}:${minute}`;
 }
 
@@ -270,16 +306,16 @@ function setCurrentUserName() {
     if (tenNguoiNhanInput) {
         const userName = getUserName();
         tenNguoiNhanInput.value = userName;
-        tenNguoiNhanInput.setAttribute("readonly", true);
+        tenNguoiNhanInput.setAttribute('readonly', true);
     }
 }
 
 function initializeInputValidation() {
     if (soKgInput) {
-        soKgInput.addEventListener("input", function () {
+        soKgInput.addEventListener('input', function () {
             const enteredValue = parseFloat(soKgInput.value);
             if (enteredValue < 0) {
-                soKgInput.value = "0";
+                soKgInput.value = '0';
             }
         });
     }
@@ -289,13 +325,7 @@ function initializeInputValidation() {
 // LOGGING FUNCTIONS
 // =====================================================
 
-function logAction(
-    action,
-    description,
-    oldData = null,
-    newData = null,
-    pageName = "Nhận Hàng",
-) {
+function logAction(action, description, oldData = null, newData = null, pageName = 'Nhận Hàng') {
     const logEntry = {
         timestamp: getVietnamDate(),
         user: getUserName(),
@@ -304,16 +334,16 @@ function logAction(
         description: description,
         oldData: oldData,
         newData: newData,
-        id: Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
     };
 
     historyCollectionRef
         .add(logEntry)
         .then(() => {
-            console.log("Log entry saved successfully");
+            console.log('Log entry saved successfully');
         })
         .catch((error) => {
-            console.error("Error saving log entry: ", error);
+            console.error('Error saving log entry: ', error);
         });
 }
 
@@ -324,8 +354,8 @@ function logAction(
 function sortDataByNewest(dataArray) {
     if (!Array.isArray(dataArray)) return dataArray;
 
-    console.log("=== SORT DEBUG ===");
-    console.log("First 3 items BEFORE sort:");
+    console.log('=== SORT DEBUG ===');
+    console.log('First 3 items BEFORE sort:');
     dataArray.slice(0, 3).forEach((item, i) => {
         console.log(`  ${i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
     });
@@ -348,12 +378,12 @@ function sortDataByNewest(dataArray) {
         return timeB.getTime() - timeA.getTime();
     });
 
-    console.log("First 3 items AFTER sort:");
+    console.log('First 3 items AFTER sort:');
     sorted.slice(0, 3).forEach((item, i) => {
         console.log(`  ${i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
     });
 
-    console.log("LAST 3 items AFTER sort:");
+    console.log('LAST 3 items AFTER sort:');
     sorted.slice(-3).forEach((item, i) => {
         console.log(`  ${sorted.length - 3 + i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
     });
@@ -365,10 +395,7 @@ function parseVietnameseDate(dateString) {
     if (!dateString) return null;
 
     try {
-        const cleanDateString = dateString
-            .replace(/,/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
+        const cleanDateString = dateString.replace(/,/g, '').replace(/\s+/g, ' ').trim();
 
         const patterns = [
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/,
@@ -384,7 +411,7 @@ function parseVietnameseDate(dateString) {
                     parseInt(month) - 1,
                     parseInt(day),
                     parseInt(hour),
-                    parseInt(minute),
+                    parseInt(minute)
                 );
 
                 if (!isNaN(parsedDate.getTime())) {
@@ -396,21 +423,21 @@ function parseVietnameseDate(dateString) {
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? null : date;
     } catch (error) {
-        console.warn("Error parsing date:", dateString, error);
+        console.warn('Error parsing date:', dateString, error);
         return null;
     }
 }
 
 function extractTimestampFromId(id) {
-    if (!id || !id.startsWith("receipt_")) return 0;
+    if (!id || !id.startsWith('receipt_')) return 0;
 
     try {
-        const parts = id.split("_");
+        const parts = id.split('_');
         if (parts.length >= 2) {
             return parseInt(parts[1], 36);
         }
     } catch (error) {
-        console.warn("Error extracting timestamp from ID:", id, error);
+        console.warn('Error extracting timestamp from ID:', id, error);
     }
 
     return 0;
@@ -465,52 +492,44 @@ function showError(message) {
 function exportToExcel() {
     const cachedData = getCachedData();
     if (!cachedData || cachedData.length === 0) {
-        notificationManager.error("Không có dữ liệu để xuất", 3000);
+        notificationManager.error('Không có dữ liệu để xuất', 3000);
         return;
     }
 
-    let notifId = notificationManager.show(
-        "Đang tạo file Excel...",
-        "info",
-        0,
-        {
-            showOverlay: true,
-            persistent: true,
-            icon: "file-spreadsheet",
-            title: "Xuất Excel",
-        },
-    );
+    let notifId = notificationManager.show('Đang tạo file Excel...', 'info', 0, {
+        showOverlay: true,
+        persistent: true,
+        icon: 'file-spreadsheet',
+        title: 'Xuất Excel',
+    });
 
     try {
         const filteredData = applyFiltersToData(cachedData);
         const excelData = filteredData.map((receipt, index) => ({
             STT: index + 1,
-            "Tên người nhận": receipt.tenNguoiNhan || "",
-            "Số kg": receipt.soKg || 0,
-            "Số kiện": receipt.soKien || 0,
-            "Ghi chú": receipt.ghiChu || "",
-            "Thời gian nhận": receipt.thoiGianNhan || "",
-            "Người tạo": receipt.user || "",
-            ID: receipt.id || "",
+            'Tên người nhận': receipt.tenNguoiNhan || '',
+            'Số kg': receipt.soKg || 0,
+            'Số kiện': receipt.soKien || 0,
+            'Ghi chú': receipt.ghiChu || '',
+            'Thời gian nhận': receipt.thoiGianNhan || '',
+            'Người tạo': receipt.user || '',
+            ID: receipt.id || '',
         }));
 
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Nhận Hàng");
+        XLSX.utils.book_append_sheet(wb, ws, 'Nhận Hàng');
 
         const vnDate = getVietnamDate();
         const fileName = `NhanHang_${vnDate.getDate()}-${vnDate.getMonth() + 1}-${vnDate.getFullYear()}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
         notificationManager.remove(notifId);
-        notificationManager.success(
-            `Xuất thành công ${filteredData.length} phiếu nhận!`,
-            2500,
-        );
+        notificationManager.success(`Xuất thành công ${filteredData.length} phiếu nhận!`, 2500);
     } catch (error) {
-        console.error("Lỗi khi xuất Excel:", error);
+        console.error('Lỗi khi xuất Excel:', error);
         notificationManager.remove(notifId);
-        notificationManager.error("Lỗi khi xuất Excel: " + error.message, 4000);
+        notificationManager.error('Lỗi khi xuất Excel: ' + error.message, 4000);
     }
 }
 
@@ -525,11 +544,11 @@ window.cacheDebug = {
     },
     clear: () => {
         dataCache.clear();
-        console.log("Cache cleared");
+        console.log('Cache cleared');
     },
     viewCache: () => {
         const data = getCachedData();
-        console.log("Cached data:", data);
+        console.log('Cached data:', data);
         return data;
     },
     cleanExpired: () => {
@@ -544,9 +563,9 @@ window.cacheDebug = {
     },
     validate: async () => {
         const isValid = await validateCacheWithServer();
-        console.log(`Cache is ${isValid ? "VALID" : "INVALID"}`);
+        console.log(`Cache is ${isValid ? 'VALID' : 'INVALID'}`);
         if (!isValid) {
-            console.log("Run window.cacheDebug.forceRefresh() to fix");
+            console.log('Run window.cacheDebug.forceRefresh() to fix');
         }
         return isValid;
     },
@@ -555,5 +574,5 @@ window.cacheDebug = {
     },
 };
 
-console.log("Utility functions loaded with CACHE VALIDATION (No Packaging)");
-console.log("Use window.cacheDebug for cache management");
+console.log('Utility functions loaded with CACHE VALIDATION (No Packaging)');
+console.log('Use window.cacheDebug for cache management');

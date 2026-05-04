@@ -8,6 +8,12 @@
 
 ## 2026-05-04
 
+### [nhanhang] Fix bug đa máy hiển thị khác nhau — fingerprint cache check + Firestore realtime listener
+
+**Files**: MODIFIED: [nhanhang/js/utility.js](../nhanhang/js/utility.js) — `_fingerprintReceipts(arr)` build content fingerprint `id|daKiemTra|soKg|soKien` per item (sorted by id) bắt mọi thay đổi flag/edit. `displayReceiptData()` thay length-only compare → fingerprint compare. Thêm `_setupRealtimeListener()` qua `collectionRef.doc("nhanhang").onSnapshot()` — máy khác mark/edit → fp khác → invalidate cache + re-render. Skip own pending writes qua `snap.metadata.hasPendingWrites`. Idempotent attach (`_realtimeUnsub` flag).
+**Chi tiết**: **Trigger user**: "dữ liệu lưu local thì phải nên mỗi máy thấy đã kiểm tra khác nhau". **Root cause**: `displayReceiptData()` cũ check `serverDataLength !== cacheDataLength` — chỉ so length! Khi máy A mark 5 phiếu → Firestore update + length vẫn 285 → máy B reload thấy length match (285==285) → **dùng stale localStorage cache** → không thấy 5 phiếu marked. Mark/unmark/edit không thay đổi length → bug âm thầm. **Fix #1 (fingerprint)**: build chuỗi `id|daKiemTra|soKg|soKien` sorted, bắt cả mark/unmark/edit. **Fix #2 (realtime sync)**: snapshot listener auto-update khi máy khác change — không cần reload. **Test**: simulate máy A mark 1 → máy B (same browser, tampered localStorage để giả stale + reload) → fingerprint mismatch → fetch fresh → counts đúng (45 Chưa KT / 240 Đã KT) + `withFlagAfter:240` confirm server data dùng, không phải stale cache. **Pattern source**: docs/architecture/DATA-SYNCHRONIZATION.md "Firebase as Source of Truth + Real-time Listener" — đã apply cho InvoiceStatusStore/InvoiceStatusDeleteStore từ trước.
+**Status**: ✅ Done.
+
 ### [nhanhang] Backfill 239 phiếu legacy (trước 01/04/2026) → daKiemTra=true
 
 **Files**: MODIFIED: [nhanhang/js/main.js](../nhanhang/js/main.js) — `isReceiptChecked(receipt)` chỉ kiểm `!!receipt.daKiemTra` (gỡ cutoff filter ngầm — DB giờ là source of truth sau backfill). DATA (Firestore prod): collection `nhanhang/nhanhang.data` — 239/285 receipts có `daKiemTra=true, kiemTraBy="admin", kiemTraAt="04/05/2026, 09:47"`.
