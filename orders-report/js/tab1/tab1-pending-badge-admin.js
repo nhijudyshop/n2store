@@ -39,6 +39,11 @@
                     <button class="pba-btn pba-btn-danger" data-act="clear-local">Xóa local</button>
                     <button class="pba-btn pba-btn-danger" data-act="wipe-server">⚠ Xóa toàn bộ server</button>
                 </div>
+                <div class="pba-confirm" style="display:none">
+                    <span class="pba-confirm-msg"></span>
+                    <button class="pba-btn pba-btn-secondary" data-confirm="cancel">Hủy</button>
+                    <button class="pba-btn pba-btn-danger" data-confirm="ok">Xác nhận</button>
+                </div>
                 <div class="pba-stats">
                     <span><strong class="pba-count-local">0</strong> local · <strong class="pba-count-server">?</strong> server</span>
                 </div>
@@ -64,7 +69,8 @@
         `;
         document.body.appendChild(modal);
 
-        // Event delegation
+        // Stop click propagation từ content để overlay click không bubble lên
+        modal.querySelector('.pba-content').addEventListener('click', (e) => e.stopPropagation());
         modal.querySelector('.pba-overlay').addEventListener('click', close);
         modal.querySelector('.pba-close').addEventListener('click', close);
         modal.querySelector('.pba-search').addEventListener('input', _renderList);
@@ -76,6 +82,19 @@
             .querySelector('[data-act="wipe-server"]')
             .addEventListener('click', _wipeServerConfirm);
 
+        // Inline confirm bar handlers
+        const confirmBar = modal.querySelector('.pba-confirm');
+        confirmBar.querySelector('[data-confirm="cancel"]').addEventListener('click', () => {
+            confirmBar.style.display = 'none';
+            confirmBar._action = null;
+        });
+        confirmBar.querySelector('[data-confirm="ok"]').addEventListener('click', () => {
+            const fn = confirmBar._action;
+            confirmBar.style.display = 'none';
+            confirmBar._action = null;
+            if (typeof fn === 'function') fn();
+        });
+
         modal.querySelector('tbody').addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-clear-psid]');
             if (!btn) return;
@@ -86,12 +105,30 @@
             }
         });
 
-        // ESC to close
+        // ESC: nếu đang hiện inline confirm → cancel confirm trước; nếu không → close modal
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('show')) close();
+            if (e.key !== 'Escape' || !modal.classList.contains('show')) return;
+            if (confirmBar.style.display !== 'none') {
+                confirmBar.style.display = 'none';
+                confirmBar._action = null;
+            } else {
+                close();
+            }
         });
 
         return modal;
+    }
+
+    // -----------------------------------------------------------------
+    // Inline confirm helper — replace browser confirm() (gây giật popup)
+    // -----------------------------------------------------------------
+    function _showConfirm(message, onOk) {
+        const modal = document.getElementById(MODAL_ID);
+        if (!modal) return;
+        const bar = modal.querySelector('.pba-confirm');
+        bar.querySelector('.pba-confirm-msg').textContent = message;
+        bar._action = onOk;
+        bar.style.display = 'flex';
     }
 
     // -----------------------------------------------------------------
@@ -231,52 +268,72 @@
     // Bulk actions
     // -----------------------------------------------------------------
     function _clearLocalConfirm() {
-        if (!confirm('Xóa toàn bộ pending badges trên máy này (local + localStorage)?')) return;
-        if (window.newMessagesNotifier?.clearAll) {
-            window.newMessagesNotifier.clearAll();
-            _renderList();
-        }
-    }
-
-    async function _wipeServerConfirm() {
-        if (
-            !confirm(
-                '⚠ XÓA TOÀN BỘ pending_customers + realtime_updates trên server cho MỌI USER. Tiếp tục?'
-            )
-        )
-            return;
-        const modal = document.getElementById(MODAL_ID);
-        try {
-            // Thử CF Worker proxy trước, fallback Render direct
-            let resp;
-            try {
-                resp = await fetch(`${API_BASE}/wipe-all`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-                if (!resp.ok) throw new Error('proxy failed');
-            } catch {
-                resp = await fetch(`${FALLBACK_BASE}/wipe-all`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-            }
-            const data = await resp.json();
-            if (data.success) {
-                alert(
-                    `✓ Đã xóa server:\n  pending_customers: ${data.wiped?.pending_customers || 0}\n  realtime_updates: ${data.wiped?.realtime_updates || 0}`
-                );
-                // Sau wipe, clear local cũng để đồng bộ
+        const data = window.newMessagesNotifier?.getPendingCustomers?.() || [];
+        _showConfirm(
+            `Xóa ${data.length} pending badges trên máy này (local + localStorage)?`,
+            () => {
                 if (window.newMessagesNotifier?.clearAll) {
                     window.newMessagesNotifier.clearAll();
+                    _renderList();
                 }
-                await _refreshFromServer();
-            } else {
-                alert('Lỗi: ' + (data.error || 'unknown'));
             }
-        } catch (e) {
-            alert('Wipe failed: ' + e.message);
+        );
+    }
+
+    function _wipeServerConfirm() {
+        _showConfirm(
+            '⚠ XÓA TOÀN BỘ pending_customers + realtime_updates trên server cho MỌI USER. Tiếp tục?',
+            async () => {
+                try {
+                    let resp;
+                    try {
+                        resp = await fetch(`${API_BASE}/wipe-all`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                        if (!resp.ok) throw new Error('proxy failed');
+                    } catch {
+                        resp = await fetch(`${FALLBACK_BASE}/wipe-all`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                    }
+                    const data = await resp.json();
+                    if (data.success) {
+                        _showStatus(
+                            `✓ Đã xóa server: pending=${data.wiped?.pending_customers || 0}, updates=${data.wiped?.realtime_updates || 0}`,
+                            'success'
+                        );
+                        if (window.newMessagesNotifier?.clearAll)
+                            window.newMessagesNotifier.clearAll();
+                        await _refreshFromServer();
+                    } else {
+                        _showStatus('Lỗi: ' + (data.error || 'unknown'), 'error');
+                    }
+                } catch (e) {
+                    _showStatus('Wipe failed: ' + e.message, 'error');
+                }
+            }
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Inline status toast (thay alert()) — auto-dismiss 4s
+    // -----------------------------------------------------------------
+    function _showStatus(message, kind) {
+        const modal = document.getElementById(MODAL_ID);
+        if (!modal) return;
+        let bar = modal.querySelector('.pba-status');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'pba-status';
+            modal.querySelector('.pba-content').appendChild(bar);
         }
+        bar.textContent = message;
+        bar.className = 'pba-status pba-status-' + (kind || 'info');
+        bar.style.display = 'block';
+        clearTimeout(bar._t);
+        bar._t = setTimeout(() => (bar.style.display = 'none'), 4000);
     }
 
     // -----------------------------------------------------------------
@@ -341,6 +398,21 @@
             .pba-table td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
             .pba-table tbody tr:hover { background: #f9fafb; }
             .pba-empty { padding: 40px; text-align: center; color: #6b7280; font-size: 14px; }
+            .pba-confirm {
+                display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+                background: #fef3c7; border-bottom: 2px solid #fbbf24;
+                font-size: 13px; color: #78350f;
+            }
+            .pba-confirm-msg { flex: 1; font-weight: 500; }
+            .pba-status {
+                position: absolute; left: 50%; transform: translateX(-50%);
+                bottom: 16px; padding: 10px 16px; border-radius: 8px;
+                font-size: 13px; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10;
+            }
+            .pba-status-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+            .pba-status-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+            .pba-status-info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
         `;
         document.head.appendChild(style);
     }
