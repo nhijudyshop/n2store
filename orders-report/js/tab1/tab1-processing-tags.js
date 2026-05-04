@@ -1150,6 +1150,22 @@
         if (!options?.suppressSync && typeof window.syncXLToTPOS === 'function') {
             window.syncXLToTPOS(orderCode, 'flag');
         }
+
+        // Selective ADD-only sync cho TAG XL "THẺ KHÁCH LẠ" → cột TAG TPOS "THẺ KHÁCH LẠ".
+        // syncXLToTPOS hiện disabled toàn cục (ký 2026-04-24) — exception cho flag này
+        // theo yêu cầu user: "TAG XL THẺ KHÁCH LẠ thì đánh bên cột TAG THẺ KHÁCH LẠ luôn".
+        // Chỉ ADD khi user thêm flag (isAdding=true), KHÔNG remove khi gỡ flag để tránh
+        // xoá oan khi staff gỡ TAG XL nhưng vẫn muốn giữ TPOS tag.
+        if (
+            !options?.suppressSync &&
+            isAdding &&
+            flagKey === 'THE_KHACH_LA' &&
+            typeof window.syncXLFlagAddToTPOS === 'function'
+        ) {
+            window.syncXLFlagAddToTPOS(orderCode, flagKey).catch((e) => {
+                console.warn(`${PTAG_LOG} syncXLFlagAddToTPOS failed:`, e.message);
+            });
+        }
     }
 
     // Force clear: xóa SẠCH toàn bộ XL state (category + subTag + flags + tTags + pickingSlipPrinted).
