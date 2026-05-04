@@ -766,16 +766,30 @@ class RealtimeClient {
                         console.error('[SERVER-WS] Failed to save update:', err.message)
                     );
 
-                // Upsert pending_customers CHỈ cho INBOX — COMMENT events không nên
-                // tăng badge "tin nhắn mới" (badge này chỉ track inbox unread).
-                // Trước đây mọi update_conversation đều upsert → ON CONFLICT increment
-                // count cho row INBOX cũ → badge "20 tin nhắn mới" thực ra là 20 bình
-                // luận. Bug user báo: "đâu có tin nhắn mới, chỉ có bình luận mới mà nó
-                // ghi 20 tin nhắn mới".
+                // Upsert pending_customers CHỈ cho INBOX với unread_count > 0.
+                // COMMENT events không count (badge "tin nhắn" chỉ track inbox unread).
+                // unread_count = 0 nghĩa là shop đã đọc → KHÔNG bump count, ngược lại
+                // DELETE row để clear badge cho mọi user (multi-staff sync).
                 if (convType === 'INBOX') {
-                    upsertPendingCustomer(this.db, updateData).catch((err) =>
-                        console.error('[SERVER-WS] Failed to upsert pending:', err.message)
-                    );
+                    const unread = conversation.unread_count || 0;
+                    if (unread > 0) {
+                        upsertPendingCustomer(this.db, updateData).catch((err) =>
+                            console.error('[SERVER-WS] Failed to upsert pending:', err.message)
+                        );
+                    } else if (updateData.psid && updateData.pageId) {
+                        // unread = 0 → shop bất kỳ vừa đọc → clear pending cho mọi user
+                        this.db
+                            .query(
+                                `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2`,
+                                [updateData.psid, updateData.pageId]
+                            )
+                            .catch((err) =>
+                                console.error(
+                                    '[SERVER-WS] Failed to clear pending on read:',
+                                    err.message
+                                )
+                            );
+                    }
                 }
             }
         }

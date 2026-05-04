@@ -362,6 +362,7 @@
             const conv = payload?.conversation || payload;
             const unread = conv?.unread_count || payload?.unread_count || 0;
             const snippet = conv?.snippet || '';
+            const convType = conv?.type || 'INBOX';
             const fromId = String(
                 conv?.from_psid ||
                     conv?.from?.id ||
@@ -382,11 +383,24 @@
                     psid: fromId,
                     pageId: pageId,
                     snippet: snippet,
-                    type: conv?.type || 'INBOX',
+                    type: convType,
                     unread_count: unread || 1,
                     eventTimeMs: ts ? new Date(ts).getTime() : Date.now(),
                 };
                 if (normalized.psid) onNewConversationEvent(normalized);
+                return;
+            }
+
+            // unread_count = 0 cho INBOX = bất kỳ shop staff nào vừa đọc/reply.
+            // Clear local badge cho psid này → multi-user sync đúng (Staff B đọc thì
+            // máy của Staff A cũng mất badge tin mới ngay không cần reload).
+            // Skip COMMENT events vì badge tin nhắn chỉ track INBOX unread.
+            if (convType === 'INBOX' && unread <= 0 && fromId && fromId !== pageId) {
+                if (
+                    _pendingCustomers.some((pc) => String(pc.psid || pc.from_psid || '') === fromId)
+                ) {
+                    clearPendingForCustomer(fromId);
+                }
             }
         });
     }
