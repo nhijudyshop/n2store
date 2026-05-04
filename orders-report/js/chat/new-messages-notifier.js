@@ -145,18 +145,30 @@
             if (!psid) return;
 
             const pending = pendingMap.get(String(psid));
+            const shouldHaveClass = !!pending;
+            const hasClass = row.classList.contains('pending-customer-row');
+
+            // CHỈ toggle class khi state thực sự đổi — tránh 51 rows × invalidate style
+            // mỗi lần có tin mới (gây "nháy bảng" do browser repaint composite full table).
+            // Trước: class.remove() chạy trên cả 51 rows kể cả không có pending.
+            if (shouldHaveClass !== hasClass) {
+                if (shouldHaveClass) {
+                    row.classList.add('pending-customer-row');
+                } else {
+                    row.classList.remove('pending-customer-row');
+                }
+            }
+
             if (!pending) {
-                // Remove highlights and badges if no longer pending
-                row.classList.remove('pending-customer-row');
-                row.querySelectorAll('.new-msg-badge').forEach((el) => el.remove());
+                // Remove badges only if exists (skip pure row scan when no badge)
+                const existing = row.querySelector('.new-msg-badge');
+                if (existing) existing.remove();
                 return;
             }
 
             matched++;
-            // Add row highlight
-            row.classList.add('pending-customer-row');
-
-            // Update messages column badge (create or update existing)
+            // Update messages column badge (create or update existing — _upsertBadge
+            // already idempotent — chỉ thay textContent nếu count đổi).
             _upsertBadge(row, 'td[data-column="messages"]', 'new-msg-badge', pending.inboxCount);
         });
 
@@ -177,14 +189,16 @@
         let badge = cell.querySelector(`.${badgeClass}`);
 
         if (count > 0) {
+            const newText = `${count} MỚI`;
             if (badge) {
-                // Update existing badge text
-                badge.textContent = `${count} MỚI`;
+                // Update existing badge text — chỉ ghi nếu thật sự đổi
+                // (tránh layout invalidate cho hàng có badge giống count cũ).
+                if (badge.textContent !== newText) badge.textContent = newText;
             } else {
                 // Create new badge
                 badge = document.createElement('span');
                 badge.className = badgeClass;
-                badge.textContent = `${count} MỚI`;
+                badge.textContent = newText;
                 cell.prepend(badge);
             }
         } else if (badge) {
