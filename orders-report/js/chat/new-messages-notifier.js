@@ -264,7 +264,17 @@
      */
     function setPendingCustomers(customers) {
         if (!customers || !customers.length) {
-            // Server returned empty — keep existing data (from localStorage/realtime)
+            // Server returned empty → server là authoritative source. Clear local
+            // localStorage để đồng bộ với server (sau wipe / reset toàn bộ DB).
+            // Trước đây "keep existing" gây stale: server đã wipe nhưng client vẫn
+            // hiện badge cũ từ localStorage cho tới khi nhận event mới.
+            // Lưu ý: chỉ ảnh hưởng khi client gọi _fetchOfflinePendingCustomers
+            // và server return success+empty — trường hợp lỗi network không gọi
+            // setPendingCustomers (đã catch trong _fetchOfflinePendingCustomers).
+            if (_pendingCustomers.length > 0) {
+                _pendingCustomers = [];
+                _saveToLocalStorage();
+            }
             reapply();
             return;
         }
