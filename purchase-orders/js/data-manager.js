@@ -129,6 +129,24 @@ class PurchaseOrderDataManager {
         const service = window.purchaseOrderService;
         const config = window.PurchaseOrderConfig;
 
+        // Cache key cho list: status + filter signature + pagination cursor.
+        // Chỉ cache cho trang đầu (reset=true, không có lastDoc) — trang sau dùng cursor động.
+        const filterKey = `${this.filters.startDate || ''}|${this.filters.endDate || ''}|${this.filters.searchTerm || ''}`;
+        const cacheKey = `list_${status}_${filterKey}`;
+        if (reset) {
+            const cached = this.cache.get(cacheKey);
+            if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+                // Hit cache → instant render, không gọi API.
+                this.currentStatus = status;
+                this.orders = cached.data.orders;
+                this.lastDoc = cached.data.lastDoc;
+                this.hasMore = cached.data.hasMore;
+                this.currentPage = 1;
+                this.emit('ordersChange', this.orders);
+                return;
+            }
+        }
+
         try {
             this.setLoading(true);
             this.setError(null);
@@ -155,6 +173,15 @@ class PurchaseOrderDataManager {
 
             if (reset) {
                 this.orders = result.orders;
+                // Lưu cache trang đầu — invalidate khi mutation (create/update/delete/status).
+                this.cache.set(cacheKey, {
+                    data: {
+                        orders: result.orders,
+                        lastDoc: result.lastDoc,
+                        hasMore: result.hasMore,
+                    },
+                    timestamp: Date.now(),
+                });
             } else {
                 this.orders = [...this.orders, ...result.orders];
             }
@@ -168,6 +195,13 @@ class PurchaseOrderDataManager {
             this.setError(error);
         } finally {
             this.setLoading(false);
+        }
+    }
+
+    /** Invalidate list cache — gọi sau mọi mutation để tránh stale data ở các tab. */
+    invalidateListCache() {
+        for (const key of [...this.cache.keys()]) {
+            if (key.startsWith('list_')) this.cache.delete(key);
         }
     }
 
@@ -349,7 +383,8 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             const orderId = await service.createOrder(orderData);
 
-            // Refresh data
+            // Mutation → invalidate list cache trước khi refresh để fetch fresh.
+            this.invalidateListCache();
             await this.refresh();
 
             this.emit('orderCreated', orderId);
@@ -375,7 +410,9 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             await service.updateOrder(orderId, updateData);
 
-            // Refresh data
+            // Invalidate cả list cache + cache theo orderId.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             await this.refresh();
 
             this.emit('orderUpdated', orderId);
@@ -401,7 +438,9 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             await service.updateOrderStatus(orderId, newStatus, reason);
 
-            // Refresh data
+            // Status change → đơn nhảy giữa tabs → invalidate toàn bộ list cache.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             await this.refresh();
 
             this.emit('orderStatusUpdated', { orderId, newStatus });
@@ -429,6 +468,9 @@ class PurchaseOrderDataManager {
             this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
+            // Mutation → invalidate caches list + order.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Refresh counts
             await this.loadStatsAndCounts();
 
@@ -457,6 +499,9 @@ class PurchaseOrderDataManager {
             this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
+            // Restore → đơn về tab cũ → invalidate cache.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Refresh counts
             await this.loadStatsAndCounts();
 
@@ -485,6 +530,8 @@ class PurchaseOrderDataManager {
             this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Refresh counts
             await this.loadStatsAndCounts();
 
