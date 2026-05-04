@@ -457,6 +457,12 @@ function _buildMessageActions(msg, isCommentConv) {
         actions.push(
             `<button class="msg-action-btn" onclick="window.setReplyMessage('${msg.id}')" title="Trả lời"><i class="fas fa-reply"></i></button>`
         );
+
+        // Address detection — nếu text có địa chỉ Việt Nam, render nút "📍 Thêm địa chỉ"
+        if (typeof window.buildAddressActionButton === 'function') {
+            const addrBtn = window.buildAddressActionButton(msg);
+            if (addrBtn) actions.push(addrBtn);
+        }
     }
 
     // Comment-specific actions
