@@ -240,11 +240,36 @@
         );
 
         if (!existing) {
-            existing = { psid, pageId: event.page_id || event.pageId || '', inboxCount: 0 };
+            existing = {
+                psid,
+                pageId: event.page_id || event.pageId || '',
+                customerName: event.customerName || event.customer_name || event.from?.name || '',
+                inboxCount: 0,
+            };
             _pendingCustomers.push(existing);
         }
 
-        existing.inboxCount = (existing.inboxCount || 0) + 1;
+        // Pancake's unread_count là authoritative source. Khi event có unread_count
+        // hợp lệ → SET inboxCount đúng giá trị Pancake (không tích lũy local).
+        // Trước đây luôn +=1 → tích lũy sai khi shop trả lời (Nv.My snippet với
+        // count 285, trong khi Pancake unread=0 hoặc nhỏ).
+        // Fallback +=1 chỉ áp khi event KHÔNG có unread_count (vd pages:new_message
+        // single message event); pages:update_conversation luôn có unread_count.
+        const eventUnread =
+            typeof event.unread_count === 'number'
+                ? event.unread_count
+                : typeof event.unreadCount === 'number'
+                  ? event.unreadCount
+                  : null;
+        if (eventUnread !== null && eventUnread >= 0) {
+            existing.inboxCount = eventUnread;
+        } else {
+            existing.inboxCount = (existing.inboxCount || 0) + 1;
+        }
+
+        // Update customerName nếu event có (server WS push có from.name)
+        const evName = event.customerName || event.customer_name || event.from?.name;
+        if (evName && !existing.customerName) existing.customerName = evName;
 
         existing.snippet = event.snippet || event.message || existing.snippet;
         existing.timestamp = eventTimeMs || Date.now();
@@ -306,6 +331,10 @@
                     existing.timestamp = pc.timestamp;
                 }
                 existing.pageId = pc.pageId || existing.pageId;
+                // Preserve customerName: ưu tiên server data (mới hơn local cache).
+                if (pc.customerName || pc.customer_name) {
+                    existing.customerName = pc.customerName || pc.customer_name;
+                }
             } else {
                 merged.set(key, { ...pc });
             }
@@ -353,12 +382,13 @@
         if (!window.realtimeManager) return;
 
         window.realtimeManager.on('pages:new_message', (payload) => {
-            // Pancake raw format: { message: { from: { id } }, page_id, conversation_id }
+            // Pancake raw format: { message: { from: { id, name } }, page_id, conversation_id }
             const msg = payload?.message || payload;
             const ts = msg?.inserted_at || msg?.created_at || payload?.inserted_at;
             const normalized = {
                 psid: String(msg?.from?.id || payload?.from_psid || payload?.from?.id || ''),
                 pageId: String(payload?.page_id || msg?.page_id || ''),
+                customerName: msg?.from?.name || payload?.from?.name || '',
                 snippet: msg?.message || msg?.original_message || '',
                 type: 'INBOX',
                 inboxCount: 1,
@@ -383,29 +413,45 @@
             const pageId = String(conv?.page_id || payload?.page_id || '');
             const ts = conv?.updated_at || conv?.last_sent_at || payload?.updated_at;
 
+            // Shop là người gửi cuối → conversation đã được shop xử lý/reply.
+            // Pancake không phải lúc nào cũng auto-clear unread_count khi shop reply
+            // qua direct API → ta tự detect và force clear.
+            // User báo bug: snippet "...Nv.My" (Nv signature = shop reply) nhưng
+            // count vẫn 285. Detection dùng last_sent_by.id === pageId.
+            const lastSentById = String(
+                conv?.last_sent_by?.id ||
+                    conv?.last_message?.from?.id ||
+                    payload?.last_sent_by?.id ||
+                    ''
+            );
+            const shopSentLast = !!lastSentById && lastSentById === pageId;
+
             // Reactions: unread_count=0, seen=true, but snippet starts with [emoji Name]
-            // e.g. "[❤ Huỳnh Thành Đạt] ...\nNv. Administrator"
             const isReaction =
                 unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
 
-            if (unread > 0 || isReaction) {
+            // Force unread=0 khi shop sent last (override Pancake's value).
+            const effectiveUnread = shopSentLast ? 0 : unread;
+
+            if (effectiveUnread > 0 || (isReaction && !shopSentLast)) {
+                const customerName =
+                    conv?.from?.name || conv?.customers?.[0]?.name || payload?.from?.name || '';
                 const normalized = {
                     psid: fromId,
                     pageId: pageId,
+                    customerName,
                     snippet: snippet,
                     type: convType,
-                    unread_count: unread || 1,
+                    unread_count: effectiveUnread || 1,
                     eventTimeMs: ts ? new Date(ts).getTime() : Date.now(),
                 };
                 if (normalized.psid) onNewConversationEvent(normalized);
                 return;
             }
 
-            // unread_count = 0 cho INBOX = bất kỳ shop staff nào vừa đọc/reply.
-            // Clear local badge cho psid này → multi-user sync đúng (Staff B đọc thì
-            // máy của Staff A cũng mất badge tin mới ngay không cần reload).
-            // Skip COMMENT events vì badge tin nhắn chỉ track INBOX unread.
-            if (convType === 'INBOX' && unread <= 0 && fromId && fromId !== pageId) {
+            // unread = 0 (hoặc shop-sent-last) cho INBOX = shop staff đọc/reply.
+            // Clear local badge → multi-user sync. Skip COMMENT events.
+            if (convType === 'INBOX' && fromId && fromId !== pageId) {
                 if (
                     _pendingCustomers.some((pc) => String(pc.psid || pc.from_psid || '') === fromId)
                 ) {

@@ -234,6 +234,7 @@ window.addEventListener('DOMContentLoaded', async function () {
                 .map((c) => ({
                     psid: c.psid,
                     pageId: c.page_id,
+                    customerName: c.customer_name || '',
                     inboxCount: c.message_count || 1,
                     snippet: c.last_message_snippet || '',
                     timestamp: c.last_message_time
@@ -250,6 +251,10 @@ window.addEventListener('DOMContentLoaded', async function () {
                     if (p.timestamp > existing.timestamp) {
                         existing.snippet = p.snippet;
                         existing.timestamp = p.timestamp;
+                    }
+                    // Preserve customer name từ entry nào có (server có thể trả null cho 1 row, có cho row khác)
+                    if (!existing.customerName && p.customerName) {
+                        existing.customerName = p.customerName;
                     }
                 } else {
                     grouped.set(p.psid, { ...p });

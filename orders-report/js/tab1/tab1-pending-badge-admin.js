@@ -145,9 +145,22 @@
                 const snippet = (pc.snippet || pc.lastMessage || '').slice(0, 60);
                 const ts = pc.timestamp || pc.updated_at;
                 const tsStr = ts ? new Date(ts).toLocaleString('vi-VN') : '—';
-                // Tìm row trong bảng để extract customer name (data-psid match)
-                const row = document.querySelector(`tr[data-psid="${psid}"] .customer-name span`);
-                const customerName = row?.textContent?.trim() || '(không rõ)';
+                // Ưu tiên: 1) data từ server/WS event 2) allData (full ~1500 orders đã load,
+                // match Facebook_ASUserId === psid) 3) DOM row visible 4) fallback "(không rõ)"
+                let customerName = pc.customerName || pc.customer_name || '';
+                if (!customerName) {
+                    const orderMatch =
+                        typeof allData !== 'undefined' &&
+                        allData.find((o) => String(o.Facebook_ASUserId || '') === psid);
+                    if (orderMatch?.Name) customerName = orderMatch.Name;
+                }
+                if (!customerName) {
+                    const row = document.querySelector(
+                        `tr[data-psid="${psid}"] .customer-name span`
+                    );
+                    customerName = row?.textContent?.trim() || '';
+                }
+                if (!customerName) customerName = '(không rõ)';
 
                 return `
                     <tr>
