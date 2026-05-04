@@ -25,6 +25,17 @@ let appSettings = { ...DEFAULT_SETTINGS };
 // Notification Manager instance
 let notificationManager = null;
 
+// Strip Vietnamese diacritics for accent-insensitive search ("Diem" matches "Diễm", "đat" matches "Đạt")
+function stripAccent(str) {
+    if (!str) return '';
+    return String(str)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase();
+}
+
 // DOM Elements
 const elements = {
     tabs: document.querySelectorAll('.tab-btn'),
@@ -236,7 +247,7 @@ function initModalHandlers() {
     const searchInput = document.getElementById('search-ticket');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase().trim();
+            const term = stripAccent(e.target.value).trim();
             const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
             const localCount = renderDashboard(activeTab, term);
 
@@ -248,7 +259,7 @@ function initModalHandlers() {
                         const serverResults = await ApiService.searchTicketsServer(term);
                         if (
                             serverResults.length > 0 &&
-                            searchInput.value.toLowerCase().trim() === term
+                            stripAccent(searchInput.value).trim() === term
                         ) {
                             // Merge server results into TICKETS (avoid duplicates)
                             const existingIds = new Set(TICKETS.map((t) => t.ticketCode));
