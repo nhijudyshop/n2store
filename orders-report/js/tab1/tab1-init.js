@@ -297,11 +297,6 @@ window.addEventListener('DOMContentLoaded', async function () {
     if (database) {
         setTimeout(() => {
             setupTagRealtimeListeners();
-
-            // TEMPORARILY DISABLED - KPI BASE feature
-            // console.log('[KPI-BASE] Setting up KPI BASE listeners (deferred)...');
-            // setupKPIBaseRealtimeListener();
-            // preloadKPIBaseStatus(); // Preload BASE status for all orders
         }, 1000); // Defer 1 second
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');

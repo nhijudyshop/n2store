@@ -371,122 +371,14 @@ window.testTagListeners = function () {
 };
 
 // =====================================================
-// KPI BASE STATUS PRELOAD #FIREBASE
+// KPI BASE STATUS — REMOVED (badge 🔒 không còn hiển thị)
+// Trước đây track ordersWithKPIBase + render <span.kpi-base-indicator> ổ khóa
+// xanh ở cột STT để admin biết đơn nào đã snapshot baseline. Loại bỏ theo yêu
+// cầu user. KPI snapshot vẫn lưu Firebase path 'kpi_base' qua kpi-manager.js,
+// chỉ không vẽ badge nữa.
 // =====================================================
-
-/**
- * Preload KPI BASE status for all orders
- * This allows synchronous checking in createRowHTML
- */
-async function preloadKPIBaseStatus() {
-    if (!database) {
-        console.warn('[KPI-BASE] Firebase database not available');
-        return;
-    }
-
-    try {
-        const snapshot = await database.ref('kpi_base').once('value');
-        const allBases = snapshot.val() || {};
-
-        // Clear and rebuild the cache
-        ordersWithKPIBase.clear();
-        for (const orderId in allBases) {
-            ordersWithKPIBase.add(orderId);
-        }
-
-        // Surgical update — chỉ thêm KPI badge vào các row đã render, không full re-render.
-        // Trước: gọi performTableSearch() → renderTable() rebuild 50 rows → bảng nháy.
-        // updateKPIBaseIndicator(id, true) chỉ thêm <span.kpi-base-indicator> vào td[data-column=stt].
-        if (allData && allData.length > 0) {
-            for (const orderId of ordersWithKPIBase) {
-                try {
-                    updateKPIBaseIndicator(orderId, true);
-                } catch (e) {}
-            }
-        }
-    } catch (error) {
-        console.error('[KPI-BASE] Error preloading BASE status:', error);
-    }
-}
-
-/**
- * Setup realtime listener for KPI BASE changes
- */
-function setupKPIBaseRealtimeListener() {
-    if (!database) return;
-
-    // Cleanup existing listener before setting up new one
-    cleanupKPIBaseRealtimeListener();
-
-    // Store reference for cleanup
-    kpiBaseRef = database.ref('kpi_base');
-
-    kpiBaseRef.on('child_added', (snapshot) => {
-        const orderId = snapshot.key;
-        ordersWithKPIBase.add(orderId);
-        // Update the specific row if visible
-        updateKPIBaseIndicator(orderId, true);
-    });
-
-    kpiBaseRef.on('child_removed', (snapshot) => {
-        const orderId = snapshot.key;
-        ordersWithKPIBase.delete(orderId);
-        // Update the specific row if visible
-        updateKPIBaseIndicator(orderId, false);
-    });
-}
-
-/**
- * Update KPI BASE indicator for a specific order row
- */
-function updateKPIBaseIndicator(orderId, hasBase) {
-    // Find the row by order ID
-    const checkbox = document.querySelector(`input[type="checkbox"][value="${orderId}"]`);
-    if (!checkbox) return;
-
-    const row = checkbox.closest('tr');
-    if (!row) return;
-
-    const sttCell = row.querySelector('td[data-column="stt"]');
-    if (!sttCell) return;
-
-    // Check if indicator already exists
-    let indicator = sttCell.querySelector('.kpi-base-indicator');
-
-    if (hasBase && !indicator) {
-        // Add indicator
-        const div = sttCell.querySelector('div') || sttCell;
-        const indicatorEl = document.createElement('span');
-        indicatorEl.className = 'kpi-base-indicator';
-        indicatorEl.title = 'Đã lưu BASE tính KPI';
-        indicatorEl.innerHTML =
-            '<i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i>';
-        indicatorEl.style.marginLeft = '4px';
-        div.appendChild(indicatorEl);
-    } else if (!hasBase && indicator) {
-        // Remove indicator
-        indicator.remove();
-    }
-}
-
-// Store KPI Base reference for cleanup
-let kpiBaseRef = null;
-
-/**
- * Cleanup KPI Base realtime listeners to prevent memory leaks
- */
-function cleanupKPIBaseRealtimeListener() {
-    if (kpiBaseRef) {
-        kpiBaseRef.off();
-        kpiBaseRef = null;
-    }
-}
 
 // Cleanup all Firebase listeners on page unload
 window.addEventListener('beforeunload', () => {
     cleanupTagRealtimeListeners();
-    cleanupKPIBaseRealtimeListener();
 });
-
-// Export cleanup function for external use
-window.cleanupKPIBaseRealtimeListener = cleanupKPIBaseRealtimeListener;

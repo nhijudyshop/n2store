@@ -1350,7 +1350,6 @@ function createRowHTML(order) {
                     ${window.StockStatusEngine?.renderBadge?.(order.Id) || ''}
                     <span>${order.SessionIndex || ''}</span>
                     ${mergedIcon}
-                    ${ordersWithKPIBase.has(order.Id) ? '<span class="kpi-base-indicator" title="Đã lưu BASE tính KPI"><i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i></span>' : ''}
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
