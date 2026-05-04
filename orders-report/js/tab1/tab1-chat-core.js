@@ -1110,6 +1110,17 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken, opts
             window.renderChatMessages(messages);
         }
 
+        // Mark as seen — user đã mở modal và xem messages, clear badge "tin nhắn mới".
+        // Trước đây chỉ clear khi gửi reply → user đọc rồi đóng modal vẫn còn badge.
+        // Clear cả local (newMessagesNotifier + localStorage) và server (pending_customers DB)
+        // để badge không quay lại khi reload hoặc setPendingCustomers re-merge từ server.
+        if (window.currentChatPSID) {
+            window.newMessagesNotifier?.clearPendingForCustomer?.(window.currentChatPSID);
+            if (typeof _markRepliedOnServer === 'function') {
+                _markRepliedOnServer(window.currentChatPSID, pageId);
+            }
+        }
+
         // Fire-and-forget: sync customer data to Render DB
         _syncPancakeCustomerToDB(result, pageId);
     } catch (e) {
