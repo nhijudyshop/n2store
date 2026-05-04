@@ -36,12 +36,9 @@
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.06);
-    --shadow-md:
-        0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
-    --shadow-lg:
-        0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
-    --shadow-xl:
-        0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
 
     /* Spacing */
     --spacing-xs: 0.25rem;
@@ -86,10 +83,10 @@ html {
 
 body {
     font-family:
-        "Inter",
+        'Inter',
         -apple-system,
         BlinkMacSystemFont,
-        "Segoe UI",
+        'Segoe UI',
         sans-serif;
     font-size: 0.875rem;
     line-height: 1.6;
@@ -219,6 +216,234 @@ button {
 
 .btn-danger:hover {
     background: #dc2626;
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+}
+
+.btn-success:hover {
+    background: #059669;
+}
+
+.btn-warning {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+}
+
+/* =====================================================
+   CHECK TABS (Chưa kiểm tra / Đã kiểm tra)
+   ===================================================== */
+
+.check-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 var(--spacing-xl);
+    border-bottom: 1px solid var(--border);
+    background: var(--gray-50);
+}
+
+.check-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    margin-bottom: -1px;
+}
+
+.check-tab:hover {
+    color: var(--text-primary);
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.check-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: var(--surface);
+}
+
+.check-tab i {
+    width: 18px;
+    height: 18px;
+}
+
+.check-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 11px;
+    background: var(--gray-200);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.check-tab.active .check-tab-count {
+    background: var(--primary);
+    color: white;
+}
+
+/* =====================================================
+   BULK ACTION BAR
+   ===================================================== */
+
+.bulk-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: 12px var(--spacing-xl);
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.bulk-action-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gray-700);
+    font-size: 0.9375rem;
+    font-weight: 500;
+}
+
+.bulk-selected-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 14px;
+    background: var(--primary);
+    color: white;
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+.bulk-action-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* =====================================================
+   CHECKBOX COLUMN + ROW
+   ===================================================== */
+
+.col-check {
+    width: 44px;
+    text-align: center;
+}
+
+.col-check input[type='checkbox'],
+.row-check input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+.row-check {
+    text-align: center;
+}
+
+tr.row-checked {
+    background: rgba(16, 185, 129, 0.06);
+}
+
+tr.row-selected {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+/* Status pill */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.status-pill.checked {
+    background: rgba(16, 185, 129, 0.12);
+    color: #065f46;
+}
+
+.status-pill.unchecked {
+    background: rgba(245, 158, 11, 0.12);
+    color: #92400e;
+}
+
+.status-pill i {
+    width: 12px;
+    height: 12px;
+}
+
+/* Mark / Unmark per-row buttons */
+.mark-button,
+.unmark-button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: white;
+}
+
+.mark-button {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.mark-button:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.unmark-button {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.unmark-button:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
 }
 
 /* =====================================================
@@ -443,7 +668,7 @@ button {
     color: white;
 }
 
-.radio-label input[type="radio"] {
+.radio-label input[type='radio'] {
     margin: 0;
     width: 18px;
     height: 18px;
@@ -643,12 +868,7 @@ button {
     left: 0;
     right: 0;
     padding: var(--spacing-xl);
-    background: linear-gradient(
-        to top,
-        rgba(0, 0, 0, 0.8),
-        rgba(0, 0, 0, 0.4),
-        transparent
-    );
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.4), transparent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -698,7 +918,7 @@ button {
 }
 
 .camera-capture-button::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -942,7 +1162,7 @@ button {
     font-size: 0.875rem;
 }
 
-.date-input-wrapper input[type="text"] {
+.date-input-wrapper input[type='text'] {
     width: 100%;
     padding: var(--spacing-md);
     border: 1px solid var(--border);
@@ -952,7 +1172,7 @@ button {
     letter-spacing: 0.05em;
 }
 
-.date-input-wrapper input[type="text"]:focus {
+.date-input-wrapper input[type='text']:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
@@ -1246,7 +1466,9 @@ table td:has(.product-image) {
     min-height: 60px;
 }
 
-.w-100 { width: 100%; }
+.w-100 {
+    width: 100%;
+}
 
 .modal-content {
     background: white;
@@ -1411,7 +1633,6 @@ table td:has(.product-image) {
    RESPONSIVE
    ===================================================== */
 
-
 @media (max-width: 768px) {
     .stats-section {
         grid-template-columns: 1fr;
@@ -1552,7 +1773,8 @@ button:focus-visible {
 
 @media (max-width: 768px) {
     /* --- CHẶN SCROLL NGANG --- */
-    html, body {
+    html,
+    body {
         overflow-x: hidden !important;
         width: 100% !important;
         max-width: 100vw !important;
@@ -1564,7 +1786,9 @@ button:focus-visible {
     }
 
     /* --- ẨN MOBILE TOP BAR --- */
-    .mobile-top-bar { display: none !important; }
+    .mobile-top-bar {
+        display: none !important;
+    }
 
     /* --- MAIN CONTENT FULL WIDTH --- */
     .main-content {
@@ -1583,7 +1807,9 @@ button:focus-visible {
         background: #fff;
         border-bottom: 1px solid #e5e7eb;
     }
-    .top-bar-right { display: none; }
+    .top-bar-right {
+        display: none;
+    }
 
     /* --- STATS SECTION: 2-column grid --- */
     .stats-section {
@@ -1598,30 +1824,52 @@ button:focus-visible {
         background: #fff;
         border-radius: 10px;
         border: 1px solid #f1f5f9;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
-    .stat-icon { width: 40px; height: 40px; }
-    .stat-icon i { width: 20px; height: 20px; }
-    .stat-value { font-size: 1.1rem; }
-    .stat-label { font-size: 0.7rem; }
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+    }
+    .stat-icon i {
+        width: 20px;
+        height: 20px;
+    }
+    .stat-value {
+        font-size: 1.1rem;
+    }
+    .stat-label {
+        font-size: 0.7rem;
+    }
     .stat-card:last-child {
         grid-column: 1 / -1;
     }
 
     /* --- CARD LAYOUT --- */
-    .card { margin: 0 12px 12px; }
-    .card-header { padding: 12px 14px; }
-    .card-body { padding: 12px 14px; }
+    .card {
+        margin: 0 12px 12px;
+    }
+    .card-header {
+        padding: 12px 14px;
+    }
+    .card-body {
+        padding: 12px 14px;
+    }
     .card-actions {
         flex-direction: column;
         gap: 8px;
         width: 100%;
     }
-    .filter-group { width: 100%; }
-    .filter-group select { width: 100%; }
+    .filter-group {
+        width: 100%;
+    }
+    .filter-group select {
+        width: 100%;
+    }
 
     /* --- TABLE → CARD LIST --- */
-    .table-container { display: none !important; }
+    .table-container {
+        display: none !important;
+    }
 
     .mobile-card-list {
         display: flex;
@@ -1636,11 +1884,13 @@ button:focus-visible {
         border-radius: 12px;
         padding: 14px 16px;
         border: 1px solid #f1f5f9;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         cursor: pointer;
         transition: transform 0.15s ease;
     }
-    .m-receipt-card:active { transform: scale(0.98); }
+    .m-receipt-card:active {
+        transform: scale(0.98);
+    }
 
     .m-receipt-header {
         display: flex;
@@ -1737,6 +1987,80 @@ button:focus-visible {
         opacity: 0.5;
     }
 
+    /* --- MOBILE: tabs + bulk action --- */
+    .check-tabs {
+        padding: 0 12px;
+        gap: 2px;
+    }
+    .check-tab {
+        padding: 10px 12px;
+        font-size: 0.875rem;
+    }
+    .check-tab span:not(.check-tab-count) {
+        display: none;
+    }
+    .check-tab i {
+        width: 16px;
+        height: 16px;
+    }
+    .check-tab-count {
+        min-width: 20px;
+        height: 20px;
+        font-size: 0.7rem;
+    }
+
+    .bulk-action-bar {
+        padding: 10px 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .bulk-action-buttons {
+        justify-content: space-between;
+        width: 100%;
+    }
+    .bulk-action-buttons .btn {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 10px;
+    }
+    .bulk-action-buttons .btn span {
+        font-size: 0.75rem;
+    }
+
+    /* --- MOBILE: card checkbox + status badge --- */
+    .m-receipt-check {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 8px;
+    }
+    .m-receipt-check input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+    }
+    .m-receipt-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #f1f5f9;
+    }
+    .m-receipt-actions .mark-button,
+    .m-receipt-actions .unmark-button {
+        flex: 1;
+        padding: 8px 10px;
+        font-size: 0.75rem;
+        justify-content: center;
+    }
+    .m-receipt-card.row-checked {
+        border-left: 3px solid #10b981;
+    }
+    .m-receipt-card.row-selected {
+        background: rgba(99, 102, 241, 0.06);
+        border-color: var(--primary);
+    }
+
     /* --- UPLOAD SECTION: now uses modal, hide old section --- */
     .upload-section {
         display: none !important;
@@ -1787,7 +2111,7 @@ button:focus-visible {
         width: 20px;
         height: 20px;
     }
-    .mobile-file-upload-label input[type="file"] {
+    .mobile-file-upload-label input[type='file'] {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -1872,7 +2196,9 @@ button:focus-visible {
         cursor: pointer;
         transition: transform 0.2s ease;
     }
-    .mobile-fab-btn:active { transform: scale(0.92); }
+    .mobile-fab-btn:active {
+        transform: scale(0.92);
+    }
     .mobile-fab-btn svg {
         width: 24px;
         height: 24px;
@@ -1908,11 +2234,13 @@ button:focus-visible {
         border: 1px solid #e8ecf1;
         border-radius: 24px;
         padding: 10px 14px 10px 16px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
         cursor: pointer;
         white-space: nowrap;
     }
-    .mobile-fab-item:active { background: #f0f7ff; }
+    .mobile-fab-item:active {
+        background: #f0f7ff;
+    }
     .mobile-fab-item-label {
         font-size: 13px;
         font-weight: 500;
@@ -1924,12 +2252,23 @@ button:focus-visible {
         padding: 2px 8px;
         border-radius: 4px;
     }
-    .fab-icon-add { background: #eef2ff; color: #6366f1; }
-    .fab-icon-export { background: #f0fdf4; color: #16a34a; }
-    .fab-icon-ai { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+    .fab-icon-add {
+        background: #eef2ff;
+        color: #6366f1;
+    }
+    .fab-icon-export {
+        background: #f0fdf4;
+        color: #16a34a;
+    }
+    .fab-icon-ai {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+    }
 
     /* --- ẨN AI CHAT FAB MẶC ĐỊNH --- */
-    .ai-chat-fab { display: none !important; }
+    .ai-chat-fab {
+        display: none !important;
+    }
 
     /* --- SCROLL CHÍNH: padding bottom --- */
     .gallery-section .card-body {
@@ -1942,9 +2281,10 @@ button:focus-visible {
         padding: 12px 14px;
         gap: 8px;
     }
-    .date-input-wrapper { min-width: 0; }
+    .date-input-wrapper {
+        min-width: 0;
+    }
 }
-
 
 /* =====================================================
    EAGER UPLOAD PROGRESS BAR OVERLAY

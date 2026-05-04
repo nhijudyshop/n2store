@@ -10,7 +10,10 @@
         <meta charset="UTF-8" />
         <title>Cân nặng hàng</title>
         <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
         <link rel="shortcut icon" href="../index/logo.jpg" />
 
         <!-- Modern CSS -->
@@ -20,13 +23,15 @@
         <!-- N2Store Optimization: Core Utilities Loader -->
         <!-- ES Module: Shared utilities -->
         <script type="module" src="../shared/esm/compat.js"></script>
-<!-- Fallback for file:// protocol -->
-<script>
-    if (window.location.protocol === 'file:') {
-        document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-        document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-    }
-</script>
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
 
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
@@ -44,11 +49,15 @@
 
         <!-- Common Scripts -->
         <script defer src="../shared/js/navigation-modern.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <!-- typography:shared -->
+    </head>
 
     <body>
         <!-- Main Content -->
@@ -69,11 +78,7 @@
                         <i data-lucide="plus"></i>
                         <span>Thêm Phiếu</span>
                     </button>
-                    <button
-                        class="btn-icon"
-                        id="btnRefresh"
-                        title="Làm mới dữ liệu"
-                    >
+                    <button class="btn-icon" id="btnRefresh" title="Làm mới dữ liệu">
                         <i data-lucide="refresh-cw"></i>
                     </button>
                     <button class="btn-icon" id="btnExport" title="Xuất Excel">
@@ -114,7 +119,7 @@
             </section>
 
             <!-- Upload Section (placeholder for desktop backward compat) -->
-            <section class="upload-section card" id="uploadSection" style="display:none;"></section>
+            <section class="upload-section card" id="uploadSection" style="display: none"></section>
 
             <!-- Gallery Section -->
             <section class="gallery-section card">
@@ -138,36 +143,91 @@
                                 <option value="yesterday">Hôm qua</option>
                                 <option value="week">Tuần này</option>
                                 <option value="month">Tháng này</option>
-                                <option value="custom">
-                                    Khoảng ngày tùy chọn
-                                </option>
+                                <option value="custom">Khoảng ngày tùy chọn</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
                 <!-- Custom Date Range -->
-                <div
-                    class="date-range-group"
-                    id="dateRangeGroup"
-                    style="display: none"
-                >
+                <div class="date-range-group" id="dateRangeGroup" style="display: none">
                     <div class="date-input-wrapper">
                         <label for="startDate">Từ ngày:</label>
-                        <input type="text" id="startDate" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric" />
+                        <input
+                            type="text"
+                            id="startDate"
+                            placeholder="dd/mm/yyyy"
+                            maxlength="10"
+                            inputmode="numeric"
+                        />
                     </div>
                     <div class="date-input-wrapper">
                         <label for="endDate">Đến ngày:</label>
-                        <input type="text" id="endDate" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric" />
+                        <input
+                            type="text"
+                            id="endDate"
+                            placeholder="dd/mm/yyyy"
+                            maxlength="10"
+                            inputmode="numeric"
+                        />
                     </div>
-                    <button
-                        type="button"
-                        id="applyDateRange"
-                        class="btn btn-primary"
-                    >
+                    <button type="button" id="applyDateRange" class="btn btn-primary">
                         <i data-lucide="check"></i>
                         Áp dụng
                     </button>
+                </div>
+
+                <!-- Tabs: Chưa kiểm tra / Đã kiểm tra -->
+                <div class="check-tabs" role="tablist" aria-label="Trạng thái kiểm tra">
+                    <button
+                        type="button"
+                        class="check-tab active"
+                        role="tab"
+                        data-tab="unchecked"
+                        aria-selected="true"
+                    >
+                        <i data-lucide="circle-dashed"></i>
+                        <span>Chưa kiểm tra</span>
+                        <span class="check-tab-count" id="countUnchecked">0</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="check-tab"
+                        role="tab"
+                        data-tab="checked"
+                        aria-selected="false"
+                    >
+                        <i data-lucide="check-circle-2"></i>
+                        <span>Đã kiểm tra</span>
+                        <span class="check-tab-count" id="countChecked">0</span>
+                    </button>
+                </div>
+
+                <!-- Bulk Action Bar (hiện khi có row được chọn) -->
+                <div class="bulk-action-bar" id="bulkActionBar" style="display: none">
+                    <div class="bulk-action-info">
+                        <span class="bulk-selected-count" id="bulkSelectedCount">0</span>
+                        <span>phiếu đã chọn</span>
+                    </div>
+                    <div class="bulk-action-buttons">
+                        <button type="button" class="btn btn-secondary btn-sm" id="bulkClearBtn">
+                            <i data-lucide="x"></i>
+                            <span>Bỏ chọn</span>
+                        </button>
+                        <button type="button" class="btn btn-success btn-sm" id="bulkMarkBtn">
+                            <i data-lucide="check-check"></i>
+                            <span>Đánh dấu đã kiểm tra</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-warning btn-sm"
+                            id="bulkUnmarkBtn"
+                            style="display: none"
+                        >
+                            <i data-lucide="rotate-ccw"></i>
+                            <span>Hủy đã kiểm tra</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card-body">
@@ -176,12 +236,20 @@
                         <table>
                             <thead>
                                 <tr>
+                                    <th class="col-check">
+                                        <input
+                                            type="checkbox"
+                                            id="selectAllReceipts"
+                                            aria-label="Chọn tất cả"
+                                        />
+                                    </th>
                                     <th>Tên người nhận</th>
                                     <th>Số kg</th>
                                     <th>Số kiện</th>
                                     <th>Ghi chú</th>
                                     <th>Hình ảnh</th>
                                     <th>Ngày giờ nhận</th>
+                                    <th>Trạng thái</th>
                                     <th>Thao tác</th>
                                 </tr>
                             </thead>
@@ -195,11 +263,7 @@
                     <div class="mobile-card-list" id="mobileCardList"></div>
 
                     <!-- Empty State -->
-                    <div
-                        class="empty-state"
-                        id="emptyState"
-                        style="display: none"
-                    >
+                    <div class="empty-state" id="emptyState" style="display: none">
                         <i data-lucide="inbox"></i>
                         <h3>Chưa có phiếu nhận nào</h3>
                         <p>Hãy thêm phiếu nhận đầu tiên của bạn</p>
@@ -226,7 +290,7 @@
         </main>
 
         <!-- Create Modal (Thêm Phiếu) — giống sổ quỹ -->
-        <div class="modal" id="createModal" style="display: none;">
+        <div class="modal" id="createModal" style="display: none">
             <div class="modal-overlay" id="createModalOverlay"></div>
             <div class="modal-content k-modal">
                 <div class="modal-header k-modal-header">
@@ -241,8 +305,13 @@
                         <div class="form-row">
                             <div class="form-group k-group w-100">
                                 <label>Tên người nhận</label>
-                                <input type="text" id="tenNguoiNhan" class="form-control"
-                                    placeholder="Tự động từ tài khoản..." readonly />
+                                <input
+                                    type="text"
+                                    id="tenNguoiNhan"
+                                    class="form-control"
+                                    placeholder="Tự động từ tài khoản..."
+                                    readonly
+                                />
                             </div>
                         </div>
 
@@ -253,34 +322,72 @@
                                 <div class="camera-section">
                                     <!-- Mobile: simple file input -->
                                     <div class="mobile-file-upload" id="mobileFileUpload">
-                                        <label class="mobile-file-upload-label" id="mobileFileLabel">
+                                        <label
+                                            class="mobile-file-upload-label"
+                                            id="mobileFileLabel"
+                                        >
                                             <i data-lucide="image-plus"></i>
                                             Chọn ảnh hoặc chụp ảnh
-                                            <input type="file" id="mobileFileInput" accept="image/*" />
+                                            <input
+                                                type="file"
+                                                id="mobileFileInput"
+                                                accept="image/*"
+                                            />
                                         </label>
-                                        <div class="mobile-file-upload-preview" id="mobileFilePreview"></div>
+                                        <div
+                                            class="mobile-file-upload-preview"
+                                            id="mobileFilePreview"
+                                        ></div>
                                     </div>
 
                                     <!-- Desktop: camera controls -->
                                     <div class="camera-controls">
-                                        <button type="button" id="startCamera" class="camera-button">
+                                        <button
+                                            type="button"
+                                            id="startCamera"
+                                            class="camera-button"
+                                        >
                                             <i data-lucide="camera"></i> Khởi động Camera
                                         </button>
-                                        <button type="button" id="takePicture" class="camera-button" style="display:none">
+                                        <button
+                                            type="button"
+                                            id="takePicture"
+                                            class="camera-button"
+                                            style="display: none"
+                                        >
                                             <i data-lucide="circle"></i> Chụp Ảnh
                                         </button>
-                                        <button type="button" id="retakePicture" class="camera-button" style="display:none">
+                                        <button
+                                            type="button"
+                                            id="retakePicture"
+                                            class="camera-button"
+                                            style="display: none"
+                                        >
                                             <i data-lucide="rotate-ccw"></i> Chụp Lại
                                         </button>
-                                        <button type="button" id="uploadFileButton" class="camera-button" style="background:var(--secondary)">
+                                        <button
+                                            type="button"
+                                            id="uploadFileButton"
+                                            class="camera-button"
+                                            style="background: var(--secondary)"
+                                        >
                                             <i data-lucide="upload"></i> Tải ảnh từ file
                                         </button>
-                                        <input type="file" id="fileInput" accept="image/*" style="display:none" />
+                                        <input
+                                            type="file"
+                                            id="fileInput"
+                                            accept="image/*"
+                                            style="display: none"
+                                        />
                                     </div>
 
-                                    <div class="camera-preview" id="cameraPreview" style="display:none">
+                                    <div
+                                        class="camera-preview"
+                                        id="cameraPreview"
+                                        style="display: none"
+                                    >
                                         <video id="cameraVideo" autoplay muted playsinline></video>
-                                        <canvas id="cameraCanvas" style="display:none"></canvas>
+                                        <canvas id="cameraCanvas" style="display: none"></canvas>
                                     </div>
 
                                     <div class="image-display-area" id="imageDisplayArea">
@@ -295,13 +402,27 @@
                         <div class="form-row">
                             <div class="form-group k-group">
                                 <label>Số kg</label>
-                                <input type="number" id="soKg" class="form-control"
-                                    min="0" step="any" placeholder="0" required />
+                                <input
+                                    type="number"
+                                    id="soKg"
+                                    class="form-control"
+                                    min="0"
+                                    step="any"
+                                    placeholder="0"
+                                    required
+                                />
                             </div>
                             <div class="form-group k-group">
                                 <label>Số kiện</label>
-                                <input type="number" id="soKien" class="form-control"
-                                    min="0" step="any" placeholder="0" required />
+                                <input
+                                    type="number"
+                                    id="soKien"
+                                    class="form-control"
+                                    min="0"
+                                    step="any"
+                                    placeholder="0"
+                                    required
+                                />
                             </div>
                         </div>
 
@@ -309,8 +430,12 @@
                         <div class="form-row">
                             <div class="form-group k-group w-100">
                                 <label>Ghi chú</label>
-                                <textarea id="ghiChu" class="form-control"
-                                    placeholder="Nhập ghi chú (không bắt buộc)..." rows="2"></textarea>
+                                <textarea
+                                    id="ghiChu"
+                                    class="form-control"
+                                    placeholder="Nhập ghi chú (không bắt buộc)..."
+                                    rows="2"
+                                ></textarea>
                             </div>
                         </div>
                     </form>
@@ -327,7 +452,7 @@
         </div>
 
         <!-- Edit Modal — k-modal pattern giống createModal & soquy -->
-        <div id="editModal" class="modal" style="display: none;">
+        <div id="editModal" class="modal" style="display: none">
             <div class="modal-overlay" id="editModalOverlay"></div>
             <div class="modal-content k-modal">
                 <div class="modal-header k-modal-header">
@@ -344,7 +469,12 @@
                         <div class="form-row">
                             <div class="form-group k-group w-100">
                                 <label>Tên người nhận</label>
-                                <input type="text" id="editTenNguoiNhan" class="form-control" required />
+                                <input
+                                    type="text"
+                                    id="editTenNguoiNhan"
+                                    class="form-control"
+                                    required
+                                />
                             </div>
                         </div>
 
@@ -353,7 +483,7 @@
                             <div class="form-group k-group w-100">
                                 <label>Ảnh nhận hàng</label>
                                 <div id="currentImageContainer" class="image-display-area">
-                                    <p style="color: #6c757d; font-style: italic;">Không có ảnh</p>
+                                    <p style="color: #6c757d; font-style: italic">Không có ảnh</p>
                                 </div>
                             </div>
                         </div>
@@ -362,11 +492,25 @@
                         <div class="form-row">
                             <div class="form-group k-group">
                                 <label>Số kg</label>
-                                <input type="number" id="editSoKg" class="form-control" min="0" step="any" required />
+                                <input
+                                    type="number"
+                                    id="editSoKg"
+                                    class="form-control"
+                                    min="0"
+                                    step="any"
+                                    required
+                                />
                             </div>
                             <div class="form-group k-group">
                                 <label>Số kiện</label>
-                                <input type="number" id="editSoKien" class="form-control" min="0" step="any" required />
+                                <input
+                                    type="number"
+                                    id="editSoKien"
+                                    class="form-control"
+                                    min="0"
+                                    step="any"
+                                    required
+                                />
                             </div>
                         </div>
 
@@ -374,7 +518,11 @@
                         <div class="form-row">
                             <div class="form-group k-group w-100">
                                 <label>Thời gian nhận</label>
-                                <input type="datetime-local" id="editThoiGianNhan" class="form-control" />
+                                <input
+                                    type="datetime-local"
+                                    id="editThoiGianNhan"
+                                    class="form-control"
+                                />
                             </div>
                         </div>
 
@@ -382,17 +530,26 @@
                         <div class="form-row">
                             <div class="form-group k-group w-100">
                                 <label>Ghi chú</label>
-                                <textarea id="editGhiChu" class="form-control"
-                                    placeholder="Nhập ghi chú (không bắt buộc)..." rows="2"></textarea>
+                                <textarea
+                                    id="editGhiChu"
+                                    class="form-control"
+                                    placeholder="Nhập ghi chú (không bắt buộc)..."
+                                    rows="2"
+                                ></textarea>
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer k-modal-footer">
-                    <button type="button" class="btn btn-danger" id="deleteFromEditButton" style="display:none;">
+                    <button
+                        type="button"
+                        class="btn btn-danger"
+                        id="deleteFromEditButton"
+                        style="display: none"
+                    >
                         <i data-lucide="trash-2"></i> Xóa phiếu
                     </button>
-                    <div style="flex: 1;"></div>
+                    <div style="flex: 1"></div>
                     <button type="button" class="btn btn-secondary" id="cancelEditButton">
                         <i data-lucide="x"></i> Hủy
                     </button>
@@ -410,6 +567,8 @@
 
         <!-- Scripts -->
         <script src="../shared/js/permissions-helper.js"></script>
+        <!-- Image cache (auto-observer sẽ swap firebasestorage.googleapis.com URLs sang blob: URL từ IndexedDB) -->
+        <script src="../shared/js/image-cache.js"></script>
         <script src="js/config.js"></script>
         <script src="js/utility.js?v=20260118"></script>
         <script src="js/ui.js"></script>
@@ -419,8 +578,8 @@
 
         <script>
             // Initialize Lucide icons after DOM load
-            document.addEventListener("DOMContentLoaded", function () {
-                if (typeof lucide !== "undefined") {
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
             });

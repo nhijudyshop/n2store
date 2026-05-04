@@ -11,9 +11,57 @@ let customDateRange = {
     end: null,
 };
 
+// Tab state: 'unchecked' (default) | 'checked'
+let activeCheckTab = 'unchecked';
+
+// Selection state for bulk actions (set of receipt IDs)
+const selectedReceiptIds = new Set();
+
+function clearSelectionState() {
+    selectedReceiptIds.clear();
+    updateBulkActionBar();
+    const selectAll = document.getElementById('selectAllReceipts');
+    if (selectAll) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+    }
+}
+
+function updateBulkActionBar() {
+    const bar = document.getElementById('bulkActionBar');
+    const countEl = document.getElementById('bulkSelectedCount');
+    const markBtn = document.getElementById('bulkMarkBtn');
+    const unmarkBtn = document.getElementById('bulkUnmarkBtn');
+    if (!bar) return;
+
+    const n = selectedReceiptIds.size;
+    if (n === 0) {
+        bar.style.display = 'none';
+    } else {
+        bar.style.display = 'flex';
+        if (countEl) countEl.textContent = String(n);
+        // Show appropriate action based on active tab
+        if (markBtn)
+            markBtn.style.display = activeCheckTab === 'unchecked' ? 'inline-flex' : 'none';
+        if (unmarkBtn)
+            unmarkBtn.style.display = activeCheckTab === 'checked' ? 'inline-flex' : 'none';
+    }
+}
+
 // =====================================================
 // FILTER SYSTEM
 // =====================================================
+
+/**
+ * Filter only by tab status (đã/chưa kiểm tra).
+ * Used for tab-specific rendering and per-tab statistics.
+ */
+function filterByCheckTab(dataArray, tab = activeCheckTab) {
+    return dataArray.filter((r) => {
+        const isChecked = !!r.daKiemTra;
+        return tab === 'checked' ? isChecked : !isChecked;
+    });
+}
 
 function applyFiltersToData(dataArray) {
     const filterUser = filterUserSelect.value;
@@ -22,30 +70,36 @@ function applyFiltersToData(dataArray) {
     // Helper: chuyển Date thành "YYYY-MM-DD" string - so sánh chuỗi tránh mọi vấn đề timezone
     function toDateStr(date) {
         const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, "0");
-        const d = String(date.getDate()).padStart(2, "0");
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     }
 
     // Tính các mốc ngày theo giờ Việt Nam
     const vnNow = getVietnamDate();
-    const vnY = vnNow.getFullYear(), vnM = vnNow.getMonth(), vnD = vnNow.getDate();
+    const vnY = vnNow.getFullYear(),
+        vnM = vnNow.getMonth(),
+        vnD = vnNow.getDate();
 
-    const todayStr     = toDateStr(new Date(vnY, vnM, vnD));
+    const todayStr = toDateStr(new Date(vnY, vnM, vnD));
     const yesterdayStr = toDateStr(new Date(vnY, vnM, vnD - 1));
 
-    const dayOfWeek    = vnNow.getDay(); // 0=CN
-    const daysToMon    = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const mondayStr    = toDateStr(new Date(vnY, vnM, vnD - daysToMon));
-    const sundayStr    = toDateStr(new Date(vnY, vnM, vnD - daysToMon + 6));
-    const monthAgoStr  = toDateStr(new Date(vnY, vnM - 1, vnD));
+    const dayOfWeek = vnNow.getDay(); // 0=CN
+    const daysToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const mondayStr = toDateStr(new Date(vnY, vnM, vnD - daysToMon));
+    const sundayStr = toDateStr(new Date(vnY, vnM, vnD - daysToMon + 6));
+    const monthAgoStr = toDateStr(new Date(vnY, vnM - 1, vnD));
 
     return dataArray.filter((receipt) => {
-        const matchUser =
-            filterUser === "all" || receipt.tenNguoiNhan === filterUser;
+        // Tab filter: chưa kiểm tra (default) hoặc đã kiểm tra
+        const isChecked = !!receipt.daKiemTra;
+        const matchTab = activeCheckTab === 'checked' ? isChecked : !isChecked;
+        if (!matchTab) return false;
+
+        const matchUser = filterUser === 'all' || receipt.tenNguoiNhan === filterUser;
 
         let matchDate = true;
-        if (filterDate !== "all") {
+        if (filterDate !== 'all') {
             const receiptDate = parseVietnameseDate(receipt.thoiGianNhan);
 
             if (!receiptDate) {
@@ -55,24 +109,23 @@ function applyFiltersToData(dataArray) {
                 // So sánh chuỗi YYYY-MM-DD: không bị ảnh hưởng timezone
                 const receiptStr = toDateStr(receiptDate);
 
-                if (filterDate === "today") {
+                if (filterDate === 'today') {
                     matchDate = receiptStr === todayStr;
-                } else if (filterDate === "yesterday") {
+                } else if (filterDate === 'yesterday') {
                     matchDate = receiptStr === yesterdayStr;
-                } else if (filterDate === "week") {
+                } else if (filterDate === 'week') {
                     matchDate = receiptStr >= mondayStr && receiptStr <= sundayStr;
-                } else if (filterDate === "month") {
+                } else if (filterDate === 'month') {
                     matchDate = receiptStr >= monthAgoStr;
                 } else if (
-                    filterDate === "custom" &&
+                    filterDate === 'custom' &&
                     customDateRange.start &&
                     customDateRange.end
                 ) {
                     // customDateRange.start/end là "YYYY-MM-DD" từ input type="date"
                     // So sánh chuỗi trực tiếp - chính xác 100%
                     matchDate =
-                        receiptStr >= customDateRange.start &&
-                        receiptStr <= customDateRange.end;
+                        receiptStr >= customDateRange.start && receiptStr <= customDateRange.end;
                 }
             }
         }
@@ -85,10 +138,10 @@ const debouncedApplyFilters = debounce(() => {
     if (isFilteringInProgress) return;
     isFilteringInProgress = true;
 
-    const notifId = notificationManager.show("Đang lọc dữ liệu...", "info", 0, {
+    const notifId = notificationManager.show('Đang lọc dữ liệu...', 'info', 0, {
         persistent: true,
-        icon: "filter",
-        title: "Lọc dữ liệu",
+        icon: 'filter',
+        title: 'Lọc dữ liệu',
     });
 
     setTimeout(() => {
@@ -100,11 +153,11 @@ const debouncedApplyFilters = debounce(() => {
                 displayReceiptData();
             }
             notificationManager.remove(notifId);
-            notificationManager.success("Lọc dữ liệu hoàn tất!", 2000);
+            notificationManager.success('Lọc dữ liệu hoàn tất!', 2000);
         } catch (error) {
-            console.error("Error during filtering:", error);
+            console.error('Error during filtering:', error);
             notificationManager.remove(notifId);
-            notificationManager.error("Có lỗi xảy ra khi lọc dữ liệu", 3000);
+            notificationManager.error('Có lỗi xảy ra khi lọc dữ liệu', 3000);
         } finally {
             isFilteringInProgress = false;
         }
@@ -123,13 +176,10 @@ function calculateStatistics(dataArray) {
     const filteredData = applyFiltersToData(dataArray);
 
     const totalReceipts = filteredData.length;
-    const totalKg = filteredData.reduce(
-        (sum, receipt) => sum + (parseFloat(receipt.soKg) || 0),
-        0,
-    );
+    const totalKg = filteredData.reduce((sum, receipt) => sum + (parseFloat(receipt.soKg) || 0), 0);
     const totalKien = filteredData.reduce(
         (sum, receipt) => sum + (parseFloat(receipt.soKien) || 0),
-        0,
+        0
     );
 
     return {
@@ -142,16 +192,13 @@ function calculateStatistics(dataArray) {
 function updateStatisticsDisplay(dataArray) {
     const stats = calculateStatistics(dataArray);
 
-    const totalReceiptsEl = document.getElementById("totalReceipts");
-    const totalKgEl = document.getElementById("totalKg");
-    const totalKienEl = document.getElementById("totalKien");
+    const totalReceiptsEl = document.getElementById('totalReceipts');
+    const totalKgEl = document.getElementById('totalKg');
+    const totalKienEl = document.getElementById('totalKien');
 
-    if (totalReceiptsEl)
-        totalReceiptsEl.textContent = numberWithCommas(stats.totalReceipts);
-    if (totalKgEl)
-        totalKgEl.textContent = numberWithCommas(stats.totalKg) + " kg";
-    if (totalKienEl)
-        totalKienEl.textContent = numberWithCommas(stats.totalKien);
+    if (totalReceiptsEl) totalReceiptsEl.textContent = numberWithCommas(stats.totalReceipts);
+    if (totalKgEl) totalKgEl.textContent = numberWithCommas(stats.totalKg) + ' kg';
+    if (totalKienEl) totalKienEl.textContent = numberWithCommas(stats.totalKien);
 }
 
 // =====================================================
@@ -206,86 +253,200 @@ function sortByDateDescending(data) {
  * Create a table row for a receipt
  */
 function createReceiptRow(receipt, imageObserver, imageCounter) {
-    const tr = document.createElement("tr");
-    tr.setAttribute("data-receipt-id", receipt.id || "");
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-receipt-id', receipt.id || '');
+
+    const isChecked = !!receipt.daKiemTra;
+    if (isChecked) tr.classList.add('row-checked');
+    if (selectedReceiptIds.has(receipt.id)) tr.classList.add('row-selected');
+
+    // Cell -1: Checkbox để bulk select
+    const cellCheck = document.createElement('td');
+    cellCheck.className = 'row-check';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'receipt-checkbox';
+    cb.setAttribute('data-receipt-id', receipt.id || '');
+    cb.setAttribute('aria-label', `Chọn phiếu ${sanitizeInput(receipt.tenNguoiNhan || '')}`);
+    cb.checked = selectedReceiptIds.has(receipt.id);
+    cb.addEventListener('click', (e) => e.stopPropagation());
+    cb.addEventListener('change', function () {
+        toggleReceiptSelection(receipt.id, this.checked, tr);
+    });
+    cellCheck.appendChild(cb);
 
     // Cell 0: Tên người nhận
-    const cellName = document.createElement("td");
-    cellName.textContent = sanitizeInput(receipt.tenNguoiNhan || "");
+    const cellName = document.createElement('td');
+    cellName.textContent = sanitizeInput(receipt.tenNguoiNhan || '');
 
     // Cell 1: Số kg
-    const cellKg = document.createElement("td");
+    const cellKg = document.createElement('td');
     cellKg.textContent = parseFloat(receipt.soKg) || 0;
 
     // Cell 2: Số kiện
-    const cellKien = document.createElement("td");
+    const cellKien = document.createElement('td');
     cellKien.textContent = parseFloat(receipt.soKien) || 0;
 
     // Cell 3: Ghi chú
-    const cellGhiChu = document.createElement("td");
-    cellGhiChu.textContent = sanitizeInput(receipt.ghiChu || "");
-    cellGhiChu.style.maxWidth = "200px";
-    cellGhiChu.style.whiteSpace = "pre-wrap";
-    cellGhiChu.style.wordBreak = "break-word";
+    const cellGhiChu = document.createElement('td');
+    cellGhiChu.textContent = sanitizeInput(receipt.ghiChu || '');
+    cellGhiChu.style.maxWidth = '200px';
+    cellGhiChu.style.whiteSpace = 'pre-wrap';
+    cellGhiChu.style.wordBreak = 'break-word';
 
     // Cell 4: Hình ảnh
-    const cellImage = document.createElement("td");
+    const cellImage = document.createElement('td');
     if (receipt.anhNhanHang) {
-        const img = document.createElement("img");
+        const img = document.createElement('img');
         img.dataset.src = receipt.anhNhanHang;
-        img.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZGRkIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIyMCIgeT0iMjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5OTkiPi4uLjwvdGV4dD48L3N2Zz4=";
-        img.alt = "Ảnh nhận hàng";
-        img.className = "product-image";
-        img.style.cursor = "pointer";
+        img.src =
+            'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZGRkIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIyMCIgeT0iMjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5OTkiPi4uLjwvdGV4dD48L3N2Zz4=';
+        img.alt = 'Ảnh nhận hàng';
+        img.className = 'product-image';
+        img.style.cursor = 'pointer';
         imageCounter.total++;
         imageObserver.observe(img);
         cellImage.appendChild(img);
     } else {
-        cellImage.textContent = "Không có ảnh";
+        cellImage.textContent = 'Không có ảnh';
     }
 
     // Cell 4: Ngày giờ nhận
-    const cellDate = document.createElement("td");
-    cellDate.textContent = receipt.thoiGianNhan || "Chưa nhập";
+    const cellDate = document.createElement('td');
+    cellDate.textContent = receipt.thoiGianNhan || 'Chưa nhập';
 
-    // Cell 5: Thao tác
-    const cellActions = document.createElement("td");
-    const actionContainer = document.createElement("div");
-    actionContainer.className = "action-buttons";
+    // Cell 5: Trạng thái kiểm tra
+    const cellStatus = document.createElement('td');
+    cellStatus.className = 'cell-status';
+    const pill = document.createElement('span');
+    if (isChecked) {
+        pill.className = 'status-pill checked';
+        pill.innerHTML = '<i data-lucide="check-circle-2"></i> Đã kiểm tra';
+        pill.title = receipt.kiemTraBy
+            ? `Kiểm tra bởi ${sanitizeInput(receipt.kiemTraBy)}${receipt.kiemTraAt ? ' lúc ' + sanitizeInput(receipt.kiemTraAt) : ''}`
+            : 'Đã kiểm tra';
+    } else {
+        pill.className = 'status-pill unchecked';
+        pill.innerHTML = '<i data-lucide="circle-dashed"></i> Chưa kiểm tra';
+    }
+    cellStatus.appendChild(pill);
 
-    const editButton = document.createElement("button");
-    editButton.className = "edit-button";
-    editButton.setAttribute("data-receipt-id", receipt.id || "");
-    editButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`);
+    // Cell 6: Thao tác
+    const cellActions = document.createElement('td');
+    const actionContainer = document.createElement('div');
+    actionContainer.className = 'action-buttons';
+
+    // Mark / Unmark button
+    const checkButton = document.createElement('button');
+    checkButton.setAttribute('data-receipt-id', receipt.id || '');
+    if (isChecked) {
+        checkButton.className = 'unmark-button';
+        checkButton.innerHTML = '<i data-lucide="rotate-ccw"></i><span>Hủy KT</span>';
+        checkButton.title = 'Hủy đã kiểm tra';
+        checkButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = checkButton.getAttribute('data-receipt-id');
+            if (id) unmarkReceiptsAsChecked([id]);
+        });
+    } else {
+        checkButton.className = 'mark-button';
+        checkButton.innerHTML = '<i data-lucide="check"></i><span>Đã KT</span>';
+        checkButton.title = 'Đánh dấu đã kiểm tra';
+        checkButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = checkButton.getAttribute('data-receipt-id');
+            if (id) markReceiptsAsChecked([id]);
+        });
+    }
+
+    const editButton = document.createElement('button');
+    editButton.className = 'edit-button';
+    editButton.setAttribute('data-receipt-id', receipt.id || '');
+    editButton.setAttribute(
+        'data-receipt-info',
+        `${sanitizeInput(receipt.tenNguoiNhan || '')} - ${formatCurrency(receipt.soKg || 0)}`
+    );
     editButton.innerHTML = '<i data-lucide="edit"></i><span>Sửa</span>';
-    editButton.addEventListener("click", openEditModal);
+    editButton.addEventListener('click', openEditModal);
 
-    const deleteButton = document.createElement("button");
-    deleteButton.className = "delete-button";
-    deleteButton.setAttribute("data-receipt-id", receipt.id || "");
-    deleteButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`);
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'delete-button';
+    deleteButton.setAttribute('data-receipt-id', receipt.id || '');
+    deleteButton.setAttribute(
+        'data-receipt-info',
+        `${sanitizeInput(receipt.tenNguoiNhan || '')} - ${formatCurrency(receipt.soKg || 0)}`
+    );
     deleteButton.innerHTML = '<i data-lucide="trash-2"></i><span>Xóa</span>';
-    deleteButton.addEventListener("click", deleteReceiptByID);
+    deleteButton.addEventListener('click', deleteReceiptByID);
 
+    actionContainer.appendChild(checkButton);
     actionContainer.appendChild(editButton);
     actionContainer.appendChild(deleteButton);
     cellActions.appendChild(actionContainer);
 
     // Apply permissions via detailedPermissions
     if (!PermissionHelper.hasPermission('nhanhang', 'cancel')) {
-        deleteButton.style.display = "none";
+        deleteButton.style.display = 'none';
+    }
+    if (!PermissionHelper.hasPermission('nhanhang', 'edit')) {
+        checkButton.style.display = 'none';
     }
 
     // Append all cells
+    tr.appendChild(cellCheck);
     tr.appendChild(cellName);
     tr.appendChild(cellKg);
     tr.appendChild(cellKien);
     tr.appendChild(cellGhiChu);
     tr.appendChild(cellImage);
     tr.appendChild(cellDate);
+    tr.appendChild(cellStatus);
     tr.appendChild(cellActions);
 
     return tr;
+}
+
+// =====================================================
+// SELECTION HELPERS
+// =====================================================
+
+function toggleReceiptSelection(receiptId, checked, rowEl) {
+    if (!receiptId) return;
+    if (checked) {
+        selectedReceiptIds.add(receiptId);
+        if (rowEl) rowEl.classList.add('row-selected');
+    } else {
+        selectedReceiptIds.delete(receiptId);
+        if (rowEl) rowEl.classList.remove('row-selected');
+    }
+    syncSelectAllCheckbox();
+    updateBulkActionBar();
+}
+
+function syncSelectAllCheckbox() {
+    const selectAll = document.getElementById('selectAllReceipts');
+    if (!selectAll) return;
+    const visibleCheckboxes = document.querySelectorAll('#receiptTableBody .receipt-checkbox');
+    const total = visibleCheckboxes.length;
+    if (total === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+    }
+    let checkedCount = 0;
+    visibleCheckboxes.forEach((cb) => {
+        if (cb.checked) checkedCount++;
+    });
+    if (checkedCount === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+    } else if (checkedCount === total) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+    } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = true;
+    }
 }
 
 /**
@@ -293,12 +454,12 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
  */
 function renderDataToTable(dataArray) {
     if (!tbody) {
-        console.error("tbody element not found!");
+        console.error('tbody element not found!');
         return;
     }
 
     // Clear table
-    tbody.innerHTML = "";
+    tbody.innerHTML = '';
 
     // Filter data
     const filteredData = applyFiltersToData(dataArray);
@@ -309,15 +470,26 @@ function renderDataToTable(dataArray) {
     // Update statistics
     updateStatisticsDisplay(dataArray);
 
+    // Update tab counts (always show across all data, only filtered by date/user)
+    updateTabCounts(dataArray);
+
+    // Prune selection: only keep IDs that are still visible
+    if (selectedReceiptIds.size > 0) {
+        const visibleIds = new Set(filteredData.map((r) => r.id));
+        for (const id of [...selectedReceiptIds]) {
+            if (!visibleIds.has(id)) selectedReceiptIds.delete(id);
+        }
+    }
+
     // Show empty state if no data
     if (sortedData.length === 0) {
-        const emptyRow = document.createElement("tr");
-        const emptyTd = document.createElement("td");
-        emptyTd.colSpan = 7;
-        emptyTd.textContent = "Không có dữ liệu";
-        emptyTd.style.textAlign = "center";
-        emptyTd.style.padding = "20px";
-        emptyTd.style.color = "#6c757d";
+        const emptyRow = document.createElement('tr');
+        const emptyTd = document.createElement('td');
+        emptyTd.colSpan = 9;
+        emptyTd.textContent = 'Không có dữ liệu';
+        emptyTd.style.textAlign = 'center';
+        emptyTd.style.padding = '20px';
+        emptyTd.style.color = '#6c757d';
         emptyRow.appendChild(emptyTd);
         tbody.appendChild(emptyRow);
         renderMobileCards(sortedData);
@@ -325,15 +497,15 @@ function renderDataToTable(dataArray) {
     }
 
     // Summary row
-    const summaryRow = document.createElement("tr");
-    summaryRow.style.backgroundColor = "#f8f9fa";
-    summaryRow.style.fontWeight = "bold";
-    const summaryTd = document.createElement("td");
-    summaryTd.colSpan = 7;
+    const summaryRow = document.createElement('tr');
+    summaryRow.style.backgroundColor = '#f8f9fa';
+    summaryRow.style.fontWeight = 'bold';
+    const summaryTd = document.createElement('td');
+    summaryTd.colSpan = 9;
     summaryTd.textContent = `Tổng: ${sortedData.length} phiếu nhận`;
-    summaryTd.style.textAlign = "center";
-    summaryTd.style.color = "#007bff";
-    summaryTd.style.padding = "8px";
+    summaryTd.style.textAlign = 'center';
+    summaryTd.style.color = '#007bff';
+    summaryTd.style.padding = '8px';
     summaryRow.appendChild(summaryTd);
     tbody.appendChild(summaryRow);
 
@@ -353,13 +525,13 @@ function renderDataToTable(dataArray) {
                             }
                         };
                         img.src = actualSrc;
-                        img.removeAttribute("data-src");
+                        img.removeAttribute('data-src');
                     }
                     imageObserver.unobserve(img);
                 }
             });
         },
-        { rootMargin: "50px" }
+        { rootMargin: '50px' }
     );
 
     // Render rows
@@ -371,14 +543,14 @@ function renderDataToTable(dataArray) {
 
     // Warning if data exceeds limit
     if (sortedData.length > MAX_VISIBLE_ROWS) {
-        const warningRow = document.createElement("tr");
-        warningRow.style.backgroundColor = "#fff3cd";
-        warningRow.style.color = "#856404";
-        const warningTd = document.createElement("td");
-        warningTd.colSpan = 7;
+        const warningRow = document.createElement('tr');
+        warningRow.style.backgroundColor = '#fff3cd';
+        warningRow.style.color = '#856404';
+        const warningTd = document.createElement('td');
+        warningTd.colSpan = 9;
         warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${sortedData.length} phiếu nhận. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
-        warningTd.style.textAlign = "center";
-        warningTd.style.padding = "8px";
+        warningTd.style.textAlign = 'center';
+        warningTd.style.padding = '8px';
         warningRow.appendChild(warningTd);
         tbody.appendChild(warningRow);
     }
@@ -387,7 +559,7 @@ function renderDataToTable(dataArray) {
     renderMobileCards(sortedData);
 
     // Initialize Lucide icons
-    if (typeof lucide !== "undefined") {
+    if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 
@@ -398,6 +570,31 @@ function renderDataToTable(dataArray) {
 
     // Update dropdown options
     updateDropdownOptions(dataArray);
+
+    // Sync selection UI
+    syncSelectAllCheckbox();
+    updateBulkActionBar();
+}
+
+/**
+ * Tab count badges = số phiếu theo trạng thái, sau khi áp filter user/date,
+ * KHÔNG áp filter tab (vì tab chính là cái chúng ta đang đếm).
+ */
+function updateTabCounts(dataArray) {
+    const prevTab = activeCheckTab;
+
+    // Switch tab tạm để tính cho từng nhóm, dùng lại applyFiltersToData
+    activeCheckTab = 'unchecked';
+    const uncheckedCount = applyFiltersToData(dataArray).length;
+    activeCheckTab = 'checked';
+    const checkedCount = applyFiltersToData(dataArray).length;
+
+    activeCheckTab = prevTab;
+
+    const cu = document.getElementById('countUnchecked');
+    const cc = document.getElementById('countChecked');
+    if (cu) cu.textContent = numberWithCommas(uncheckedCount);
+    if (cc) cc.textContent = numberWithCommas(checkedCount);
 }
 
 // =====================================================
@@ -418,25 +615,48 @@ function renderMobileCards(sortedData) {
         return;
     }
 
-    container.innerHTML = sortedData.map(receipt => {
-        const name = sanitizeInput(receipt.tenNguoiNhan || '');
-        const kg = parseFloat(receipt.soKg) || 0;
-        const kien = parseFloat(receipt.soKien) || 0;
-        const date = sanitizeInput(receipt.thoiGianNhan || 'Chưa nhập');
-        const ghiChu = sanitizeInput(receipt.ghiChu || '');
-        const hasImage = !!receipt.anhNhanHang;
-        const thumbHtml = hasImage
-            ? `<img class="m-receipt-thumb" src="${receipt.anhNhanHang}" alt="Ảnh" loading="lazy">`
-            : '';
-        const ghiChuHtml = ghiChu
-            ? `<div class="m-receipt-row"><span class="m-receipt-label">Ghi chú:</span><span class="m-receipt-value-text">${ghiChu}</span></div>`
-            : '';
+    const canEdit = PermissionHelper.hasPermission('nhanhang', 'edit');
 
-        return `
-            <div class="m-receipt-card" data-receipt-id="${receipt.id || ''}">
+    container.innerHTML = sortedData
+        .map((receipt) => {
+            const name = sanitizeInput(receipt.tenNguoiNhan || '');
+            const kg = parseFloat(receipt.soKg) || 0;
+            const kien = parseFloat(receipt.soKien) || 0;
+            const date = sanitizeInput(receipt.thoiGianNhan || 'Chưa nhập');
+            const ghiChu = sanitizeInput(receipt.ghiChu || '');
+            const hasImage = !!receipt.anhNhanHang;
+            const isChecked = !!receipt.daKiemTra;
+            const isSelected = selectedReceiptIds.has(receipt.id);
+            const thumbHtml = hasImage
+                ? `<img class="m-receipt-thumb" src="${receipt.anhNhanHang}" alt="Ảnh" loading="lazy">`
+                : '';
+            const ghiChuHtml = ghiChu
+                ? `<div class="m-receipt-row"><span class="m-receipt-label">Ghi chú:</span><span class="m-receipt-value-text">${ghiChu}</span></div>`
+                : '';
+
+            const statusBadge = isChecked
+                ? `<span class="status-pill checked"><i data-lucide="check-circle-2"></i> Đã KT</span>`
+                : `<span class="status-pill unchecked"><i data-lucide="circle-dashed"></i> Chưa KT</span>`;
+
+            const actionBtn = canEdit
+                ? isChecked
+                    ? `<button class="unmark-button" data-action="unmark" data-receipt-id="${receipt.id || ''}"><i data-lucide="rotate-ccw"></i><span>Hủy KT</span></button>`
+                    : `<button class="mark-button" data-action="mark" data-receipt-id="${receipt.id || ''}"><i data-lucide="check"></i><span>Đã KT</span></button>`
+                : '';
+
+            const cardClass = ['m-receipt-card'];
+            if (isChecked) cardClass.push('row-checked');
+            if (isSelected) cardClass.push('row-selected');
+
+            return `
+            <div class="${cardClass.join(' ')}" data-receipt-id="${receipt.id || ''}">
                 <div class="m-receipt-header">
                     <div class="m-receipt-header-left">
+                        <label class="m-receipt-check" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="receipt-checkbox-mobile" data-receipt-id="${receipt.id || ''}" ${isSelected ? 'checked' : ''} aria-label="Chọn phiếu" />
+                        </label>
                         <span class="m-receipt-name">${name}</span>
+                        ${statusBadge}
                     </div>
                     <div class="m-receipt-values">
                         <span class="m-receipt-kg">${kg} kg</span>
@@ -451,16 +671,48 @@ function renderMobileCards(sortedData) {
                     </div>
                     ${ghiChuHtml}
                 </div>
+                ${actionBtn ? `<div class="m-receipt-actions" onclick="event.stopPropagation()">${actionBtn}</div>` : ''}
             </div>`;
-    }).join('');
+        })
+        .join('');
 
     // Bind card click → open edit modal
-    container.querySelectorAll('.m-receipt-card[data-receipt-id]').forEach(card => {
-        card.addEventListener('click', () => {
+    container.querySelectorAll('.m-receipt-card[data-receipt-id]').forEach((card) => {
+        card.addEventListener('click', (e) => {
+            // Skip if clicked on a checkbox or action button
+            if (e.target.closest('input[type="checkbox"]') || e.target.closest('button')) return;
             const receiptId = card.dataset.receiptId;
             if (receiptId && typeof openEditModal === 'function') {
-                const fakeEvent = { currentTarget: { getAttribute: (attr) => receiptId } };
+                const fakeEvent = { currentTarget: { getAttribute: () => receiptId } };
                 openEditModal(fakeEvent);
+            }
+        });
+    });
+
+    // Bind mobile checkbox
+    container.querySelectorAll('.receipt-checkbox-mobile').forEach((cb) => {
+        cb.addEventListener('change', function () {
+            const id = this.getAttribute('data-receipt-id');
+            const card = this.closest('.m-receipt-card');
+            toggleReceiptSelection(id, this.checked, card);
+            // also sync desktop checkbox if visible
+            const deskCb = document.querySelector(
+                `#receiptTableBody .receipt-checkbox[data-receipt-id="${id}"]`
+            );
+            if (deskCb) deskCb.checked = this.checked;
+        });
+    });
+
+    // Bind mobile mark/unmark buttons
+    container.querySelectorAll('button[data-action]').forEach((btn) => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const id = this.getAttribute('data-receipt-id');
+            if (!id) return;
+            if (this.dataset.action === 'mark') {
+                markReceiptsAsChecked([id]);
+            } else {
+                unmarkReceiptsAsChecked([id]);
             }
         });
     });
@@ -516,14 +768,14 @@ function bindMobileFileUpload() {
     const mobileFilePreview = document.getElementById('mobileFilePreview');
     if (!mobileFileInput) return;
 
-    mobileFileInput.addEventListener('change', function(event) {
+    mobileFileInput.addEventListener('change', function (event) {
         const file = event.target.files[0];
         if (!file) return;
 
         // Show preview on mobile
         if (mobileFilePreview && file.type.startsWith('image/')) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 mobileFilePreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
             };
             reader.readAsDataURL(file);
@@ -536,26 +788,20 @@ function bindMobileFileUpload() {
     });
 }
 
-
-
 function applyRowPermissions(row, inputs, button, userRole) {
     // Legacy function kept for compatibility - now uses PermissionHelper
     if (!PermissionHelper.hasPermission('nhanhang', 'cancel')) {
         inputs.forEach((input) => (input.disabled = true));
-        button.style.display = "none";
+        button.style.display = 'none';
     } else {
         inputs.forEach((input) => (input.disabled = false));
-        button.style.display = "";
+        button.style.display = '';
     }
 }
 
 function updateDropdownOptions(fullDataArray) {
     const users = [
-        ...new Set(
-            fullDataArray
-                .map((receipt) => receipt.tenNguoiNhan)
-                .filter((user) => user),
-        ),
+        ...new Set(fullDataArray.map((receipt) => receipt.tenNguoiNhan).filter((user) => user)),
     ];
     if (filterUserSelect) {
         const currentSelectedValue = filterUserSelect.value;
@@ -563,14 +809,14 @@ function updateDropdownOptions(fullDataArray) {
             filterUserSelect.removeChild(filterUserSelect.lastChild);
         }
         users.forEach((user) => {
-            const option = document.createElement("option");
+            const option = document.createElement('option');
             option.value = user;
             option.textContent = user;
             filterUserSelect.appendChild(option);
         });
         if (
             currentSelectedValue &&
-            currentSelectedValue !== "all" &&
+            currentSelectedValue !== 'all' &&
             users.includes(currentSelectedValue)
         ) {
             filterUserSelect.value = currentSelectedValue;
@@ -583,13 +829,13 @@ function updateDropdownOptions(fullDataArray) {
 // =====================================================
 
 function toggleDateRangeInputs() {
-    const dateRangeGroup = document.getElementById("dateRangeGroup");
+    const dateRangeGroup = document.getElementById('dateRangeGroup');
     const dateFilterValue = dateFilterSelect.value;
 
-    if (dateFilterValue === "custom") {
-        dateRangeGroup.style.display = "flex";
+    if (dateFilterValue === 'custom') {
+        dateRangeGroup.style.display = 'flex';
     } else {
-        dateRangeGroup.style.display = "none";
+        dateRangeGroup.style.display = 'none';
         customDateRange.start = null;
         customDateRange.end = null;
         applyFilters();
@@ -606,7 +852,9 @@ function parseDDMMYYYYtoISO(str) {
     if (!match) return null;
     const [, dd, mm, yyyy] = match;
     // Validate date
-    const d = parseInt(dd, 10), m = parseInt(mm, 10), y = parseInt(yyyy, 10);
+    const d = parseInt(dd, 10),
+        m = parseInt(mm, 10),
+        y = parseInt(yyyy, 10);
     if (m < 1 || m > 12 || d < 1 || d > 31) return null;
     const testDate = new Date(y, m - 1, d);
     if (testDate.getDate() !== d || testDate.getMonth() !== m - 1) return null;
@@ -617,27 +865,24 @@ function parseDDMMYYYYtoISO(str) {
  * Auto-format date input as user types: dd/mm/yyyy
  */
 function autoFormatDateInput(input) {
-    input.addEventListener("input", function (e) {
-        let val = this.value.replace(/[^\d]/g, "");
+    input.addEventListener('input', function (e) {
+        let val = this.value.replace(/[^\d]/g, '');
         if (val.length > 8) val = val.substring(0, 8);
         if (val.length >= 5) {
-            val = val.substring(0, 2) + "/" + val.substring(2, 4) + "/" + val.substring(4);
+            val = val.substring(0, 2) + '/' + val.substring(2, 4) + '/' + val.substring(4);
         } else if (val.length >= 3) {
-            val = val.substring(0, 2) + "/" + val.substring(2);
+            val = val.substring(0, 2) + '/' + val.substring(2);
         }
         this.value = val;
     });
 }
 
 function applyDateRangeFilter() {
-    const startDateInput = document.getElementById("startDate");
-    const endDateInput = document.getElementById("endDate");
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
 
     if (!startDateInput.value || !endDateInput.value) {
-        notificationManager.warning(
-            "Vui lòng chọn cả ngày bắt đầu và ngày kết thúc",
-            3000,
-        );
+        notificationManager.warning('Vui lòng chọn cả ngày bắt đầu và ngày kết thúc', 3000);
         return;
     }
 
@@ -645,18 +890,12 @@ function applyDateRangeFilter() {
     const endISO = parseDDMMYYYYtoISO(endDateInput.value);
 
     if (!startISO || !endISO) {
-        notificationManager.warning(
-            "Định dạng ngày không hợp lệ. Vui lòng nhập dd/mm/yyyy",
-            3000,
-        );
+        notificationManager.warning('Định dạng ngày không hợp lệ. Vui lòng nhập dd/mm/yyyy', 3000);
         return;
     }
 
     if (startISO > endISO) {
-        notificationManager.warning(
-            "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc",
-            3000,
-        );
+        notificationManager.warning('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc', 3000);
         return;
     }
 
@@ -666,7 +905,7 @@ function applyDateRangeFilter() {
     applyFilters();
     notificationManager.success(
         `Đã lọc từ ${startDateInput.value} đến ${endDateInput.value}`,
-        2500,
+        2500
     );
 }
 
@@ -679,39 +918,39 @@ async function initializeWithMigration() {
         await migrateDataWithIDs();
         await displayReceiptData();
     } catch (error) {
-        console.error("Lỗi khởi tạo:", error);
-        notificationManager.error(
-            "Lỗi khởi tạo ứng dụng: " + error.message,
-            4000,
-        );
+        console.error('Lỗi khởi tạo:', error);
+        notificationManager.error('Lỗi khởi tạo ứng dụng: ' + error.message, 4000);
     }
 }
 
 function toggleForm() {
-    if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền truy cập biểu mẫu' })) {
+    if (
+        !PermissionHelper.checkBeforeAction('nhanhang', 'create', {
+            alertMessage: 'Không có quyền truy cập biểu mẫu',
+        })
+    ) {
         return;
     }
     openCreateModal();
 }
 
 function openCreateModal() {
-    const createModal = document.getElementById("createModal");
+    const createModal = document.getElementById('createModal');
     if (!createModal) return;
-    createModal.style.display = "flex";
-    if (typeof lucide !== "undefined") lucide.createIcons();
+    createModal.style.display = 'flex';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function closeCreateModalFunction() {
-    const createModal = document.getElementById("createModal");
+    const createModal = document.getElementById('createModal');
     if (!createModal) return;
-    createModal.style.display = "none";
+    createModal.style.display = 'none';
     // Cancel pending eager upload khi đóng modal
     if (typeof cancelPendingUpload === 'function') cancelPendingUpload();
     clearReceiptForm();
-    const mobilePreview = document.getElementById("mobileFilePreview");
-    if (mobilePreview) mobilePreview.innerHTML = "";
+    const mobilePreview = document.getElementById('mobileFilePreview');
+    if (mobilePreview) mobilePreview.innerHTML = '';
 }
-
 
 function initializeFormElements() {
     setCurrentUserName();
@@ -719,111 +958,111 @@ function initializeFormElements() {
     initializeInputValidation();
 
     if (receiptForm) {
-        receiptForm.addEventListener("submit", addReceipt);
+        receiptForm.addEventListener('submit', addReceipt);
     }
 
     // Create modal events
-    const closeCreateModal = document.getElementById("closeCreateModal");
+    const closeCreateModal = document.getElementById('closeCreateModal');
     if (closeCreateModal) {
-        closeCreateModal.addEventListener("click", closeCreateModalFunction);
+        closeCreateModal.addEventListener('click', closeCreateModalFunction);
     }
-    const createModalOverlay = document.getElementById("createModalOverlay");
+    const createModalOverlay = document.getElementById('createModalOverlay');
     if (createModalOverlay) {
-        createModalOverlay.addEventListener("click", closeCreateModalFunction);
+        createModalOverlay.addEventListener('click', closeCreateModalFunction);
     }
 
     // addButton is outside <form> in modal-footer, trigger form submit
-    const addButton = document.getElementById("addButton");
+    const addButton = document.getElementById('addButton');
     if (addButton && receiptForm) {
-        addButton.addEventListener("click", function (e) {
+        addButton.addEventListener('click', function (e) {
             e.preventDefault();
-            receiptForm.dispatchEvent(new Event("submit", { cancelable: true }));
+            receiptForm.dispatchEvent(new Event('submit', { cancelable: true }));
         });
     }
 
     // Edit modal events
     if (editForm) {
-        editForm.addEventListener("submit", updateReceipt);
+        editForm.addEventListener('submit', updateReceipt);
     }
 
     if (closeEditModal) {
-        closeEditModal.addEventListener("click", closeEditModalFunction);
+        closeEditModal.addEventListener('click', closeEditModalFunction);
     }
 
     if (cancelEditButton) {
-        cancelEditButton.addEventListener("click", closeEditModalFunction);
+        cancelEditButton.addEventListener('click', closeEditModalFunction);
     }
 
     // Edit modal overlay click to close
-    const editModalOverlay = document.getElementById("editModalOverlay");
+    const editModalOverlay = document.getElementById('editModalOverlay');
     if (editModalOverlay) {
-        editModalOverlay.addEventListener("click", closeEditModalFunction);
+        editModalOverlay.addEventListener('click', closeEditModalFunction);
     }
 
     // updateButton is outside <form> in modal-footer, trigger form submit
     if (updateButton && editForm) {
-        updateButton.addEventListener("click", function (e) {
+        updateButton.addEventListener('click', function (e) {
             e.preventDefault();
-            editForm.dispatchEvent(new Event("submit", { cancelable: true }));
+            editForm.dispatchEvent(new Event('submit', { cancelable: true }));
         });
     }
 
-    const clearDataButton = document.getElementById("clearDataButton");
+    const clearDataButton = document.getElementById('clearDataButton');
     if (clearDataButton) {
-        clearDataButton.addEventListener("click", clearReceiptForm);
+        clearDataButton.addEventListener('click', clearReceiptForm);
     }
 
-    const toggleFormButton = document.getElementById("toggleFormButton");
+    const toggleFormButton = document.getElementById('toggleFormButton');
     if (toggleFormButton) {
-        toggleFormButton.addEventListener("click", toggleForm);
+        toggleFormButton.addEventListener('click', toggleForm);
     }
 }
 
 function initializeFilterEvents() {
     if (filterUserSelect) {
-        filterUserSelect.addEventListener("change", applyFilters);
+        filterUserSelect.addEventListener('change', applyFilters);
     }
     if (dateFilterSelect) {
-        dateFilterSelect.addEventListener("change", () => {
+        dateFilterSelect.addEventListener('change', () => {
             toggleDateRangeInputs();
-            if (dateFilterSelect.value !== "custom") {
+            if (dateFilterSelect.value !== 'custom') {
                 applyFilters();
             }
         });
     }
 
     // Date range filter button
-    const applyDateRangeBtn = document.getElementById("applyDateRange");
+    const applyDateRangeBtn = document.getElementById('applyDateRange');
     if (applyDateRangeBtn) {
-        applyDateRangeBtn.addEventListener("click", applyDateRangeFilter);
+        applyDateRangeBtn.addEventListener('click', applyDateRangeFilter);
     }
 
     // Auto-format dd/mm/yyyy + Enter key to apply
-    const startDateInput = document.getElementById("startDate");
-    const endDateInput = document.getElementById("endDate");
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
 
     if (startDateInput) {
         autoFormatDateInput(startDateInput);
-        startDateInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") applyDateRangeFilter();
+        startDateInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') applyDateRangeFilter();
         });
     }
 
     if (endDateInput) {
         autoFormatDateInput(endDateInput);
-        endDateInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") applyDateRangeFilter();
+        endDateInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') applyDateRangeFilter();
         });
     }
 }
 
 function initializeTooltipHandlers() {
     if (tbody) {
-        tbody.addEventListener("click", function (e) {
+        tbody.addEventListener('click', function (e) {
             // Image zoom functionality
-            if (e.target.classList.contains("product-image")) {
+            if (e.target.classList.contains('product-image')) {
                 const imgSrc = e.target.src;
-                if (imgSrc && !imgSrc.includes("data:image/svg+xml")) {
+                if (imgSrc && !imgSrc.includes('data:image/svg+xml')) {
                     showImageZoom(imgSrc);
                 }
                 return;
@@ -833,22 +1072,22 @@ function initializeTooltipHandlers() {
             // ALL users check detailedPermissions - NO admin bypass
             const hasAdvancedView = auth?.detailedPermissions?.['nhanhang']?.['delete'] === true;
             if (hasAdvancedView) {
-                const tooltip = document.getElementById("tooltip");
-                const row = e.target.closest("tr");
+                const tooltip = document.getElementById('tooltip');
+                const row = e.target.closest('tr');
                 if (!row) return;
 
-                const deleteButton = row.querySelector(".delete-button");
+                const deleteButton = row.querySelector('.delete-button');
                 const value = deleteButton
-                    ? deleteButton.getAttribute("data-receipt-info")
-                    : "Không có nút xóa";
+                    ? deleteButton.getAttribute('data-receipt-info')
+                    : 'Không có nút xóa';
 
                 if (tooltip) {
                     tooltip.textContent = value;
-                    tooltip.style.display = "block";
-                    tooltip.style.top = e.pageY + 10 + "px";
-                    tooltip.style.left = e.pageX + 10 + "px";
+                    tooltip.style.display = 'block';
+                    tooltip.style.top = e.pageY + 10 + 'px';
+                    tooltip.style.left = e.pageX + 10 + 'px';
                     setTimeout(() => {
-                        tooltip.style.display = "none";
+                        tooltip.style.display = 'none';
                     }, 1000);
                 }
             }
@@ -862,23 +1101,23 @@ function initializeTooltipHandlers() {
 
 function createImageZoomOverlay() {
     // Check if overlay already exists
-    let overlay = document.getElementById("imageZoomOverlay");
+    let overlay = document.getElementById('imageZoomOverlay');
     if (!overlay) {
-        overlay = document.createElement("div");
-        overlay.id = "imageZoomOverlay";
-        overlay.className = "image-zoom-overlay";
+        overlay = document.createElement('div');
+        overlay.id = 'imageZoomOverlay';
+        overlay.className = 'image-zoom-overlay';
 
-        const container = document.createElement("div");
-        container.className = "image-zoom-container";
+        const container = document.createElement('div');
+        container.className = 'image-zoom-container';
 
-        const closeBtn = document.createElement("button");
-        closeBtn.className = "image-zoom-close";
-        closeBtn.innerHTML = "×";
-        closeBtn.setAttribute("aria-label", "Đóng");
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'image-zoom-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.setAttribute('aria-label', 'Đóng');
 
-        const img = document.createElement("img");
-        img.id = "zoomedImage";
-        img.alt = "Ảnh phóng to";
+        const img = document.createElement('img');
+        img.id = 'zoomedImage';
+        img.alt = 'Ảnh phóng to';
 
         container.appendChild(img);
         overlay.appendChild(closeBtn);
@@ -886,18 +1125,18 @@ function createImageZoomOverlay() {
         document.body.appendChild(overlay);
 
         // Close on overlay click
-        overlay.addEventListener("click", function (e) {
+        overlay.addEventListener('click', function (e) {
             if (e.target === overlay) {
                 hideImageZoom();
             }
         });
 
         // Close on button click
-        closeBtn.addEventListener("click", hideImageZoom);
+        closeBtn.addEventListener('click', hideImageZoom);
 
         // Close on ESC key
-        document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape") {
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
                 hideImageZoom();
             }
         });
@@ -907,34 +1146,153 @@ function createImageZoomOverlay() {
 
 function showImageZoom(imgSrc) {
     const overlay = createImageZoomOverlay();
-    const img = document.getElementById("zoomedImage");
+    const img = document.getElementById('zoomedImage');
 
     if (img && imgSrc) {
         img.src = imgSrc;
-        overlay.classList.add("active");
-        document.body.style.overflow = "hidden"; // Prevent scrolling
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
     }
 }
 
 function hideImageZoom() {
-    const overlay = document.getElementById("imageZoomOverlay");
+    const overlay = document.getElementById('imageZoomOverlay');
     if (overlay) {
-        overlay.classList.remove("active");
-        document.body.style.overflow = ""; // Restore scrolling
+        overlay.classList.remove('active');
+        document.body.style.overflow = ''; // Restore scrolling
     }
 }
 
 function handleLogout() {
-    const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
+    const confirmLogout = confirm('Bạn có chắc muốn đăng xuất?');
     if (confirmLogout) {
-        notificationManager.info("Đang đăng xuất...", 1500);
+        notificationManager.info('Đang đăng xuất...', 1500);
         setTimeout(() => {
             clearAuthState();
             invalidateCache();
             localStorage.clear();
             sessionStorage.clear();
-            window.location.href = "../index.html";
+            window.location.href = '../index.html';
         }, 500);
+    }
+}
+
+// =====================================================
+// CHECK TAB EVENTS
+// =====================================================
+
+function initializeCheckTabEvents() {
+    const tabs = document.querySelectorAll('.check-tab[data-tab]');
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const newTab = tab.getAttribute('data-tab');
+            if (!newTab || newTab === activeCheckTab) return;
+
+            activeCheckTab = newTab;
+
+            // Update tab UI
+            tabs.forEach((t) => {
+                const isActive = t === tab;
+                t.classList.toggle('active', isActive);
+                t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            // Reset selection when switching tabs
+            clearSelectionState();
+
+            // Re-render
+            const cachedData = getCachedData();
+            if (cachedData) {
+                renderDataToTable(cachedData);
+            } else {
+                displayReceiptData();
+            }
+        });
+    });
+}
+
+// =====================================================
+// BULK SELECTION EVENTS
+// =====================================================
+
+function initializeBulkSelectionEvents() {
+    // Select all
+    const selectAll = document.getElementById('selectAllReceipts');
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            const checked = this.checked;
+            const visibleCheckboxes = document.querySelectorAll(
+                '#receiptTableBody .receipt-checkbox'
+            );
+            visibleCheckboxes.forEach((cb) => {
+                cb.checked = checked;
+                const id = cb.getAttribute('data-receipt-id');
+                const row = cb.closest('tr');
+                if (id) {
+                    if (checked) {
+                        selectedReceiptIds.add(id);
+                        if (row) row.classList.add('row-selected');
+                    } else {
+                        selectedReceiptIds.delete(id);
+                        if (row) row.classList.remove('row-selected');
+                    }
+                }
+            });
+            // Sync mobile cards too
+            document.querySelectorAll('.receipt-checkbox-mobile').forEach((cb) => {
+                cb.checked = checked;
+                const card = cb.closest('.m-receipt-card');
+                if (card) card.classList.toggle('row-selected', checked);
+            });
+            updateBulkActionBar();
+        });
+    }
+
+    // Clear selection
+    const clearBtn = document.getElementById('bulkClearBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            // Uncheck all visible boxes
+            document
+                .querySelectorAll('#receiptTableBody .receipt-checkbox, .receipt-checkbox-mobile')
+                .forEach((cb) => {
+                    cb.checked = false;
+                });
+            document
+                .querySelectorAll('tr.row-selected, .m-receipt-card.row-selected')
+                .forEach((el) => {
+                    el.classList.remove('row-selected');
+                });
+            clearSelectionState();
+        });
+    }
+
+    // Bulk mark
+    const markBtn = document.getElementById('bulkMarkBtn');
+    if (markBtn) {
+        markBtn.addEventListener('click', async () => {
+            const ids = [...selectedReceiptIds];
+            if (ids.length === 0) {
+                notificationManager.warning('Chưa chọn phiếu nào', 2500);
+                return;
+            }
+            if (!confirm(`Đánh dấu ${ids.length} phiếu là "đã kiểm tra"?`)) return;
+            await markReceiptsAsChecked(ids);
+        });
+    }
+
+    // Bulk unmark
+    const unmarkBtn = document.getElementById('bulkUnmarkBtn');
+    if (unmarkBtn) {
+        unmarkBtn.addEventListener('click', async () => {
+            const ids = [...selectedReceiptIds];
+            if (ids.length === 0) {
+                notificationManager.warning('Chưa chọn phiếu nào', 2500);
+                return;
+            }
+            if (!confirm(`Hủy đã kiểm tra ${ids.length} phiếu?`)) return;
+            await unmarkReceiptsAsChecked(ids);
+        });
     }
 }
 
@@ -945,44 +1303,44 @@ function handleLogout() {
 async function initializeApplication() {
     const auth = getAuthState();
     if (!isAuthenticated()) {
-        console.log("User not authenticated, redirecting to login");
-        notificationManager.warning("Vui lòng đăng nhập", 2000);
+        console.log('User not authenticated, redirecting to login');
+        notificationManager.warning('Vui lòng đăng nhập', 2000);
         setTimeout(() => {
             localStorage.clear();
             sessionStorage.clear();
-            window.location.href = "../index.html";
+            window.location.href = '../index.html';
         }, 1000);
         return;
     }
 
     if (auth.userType) {
-        const titleElement = document.querySelector(".page-title");
+        const titleElement = document.querySelector('.page-title');
         if (titleElement) {
-            titleElement.textContent += " - " + auth.displayName;
+            titleElement.textContent += ' - ' + auth.displayName;
         }
     }
 
-    const parentContainer = document.getElementById("parentContainer");
+    const parentContainer = document.getElementById('parentContainer');
     if (parentContainer) {
-        parentContainer.style.display = "flex";
-        parentContainer.style.justifyContent = "center";
-        parentContainer.style.alignItems = "center";
+        parentContainer.style.display = 'flex';
+        parentContainer.style.justifyContent = 'center';
+        parentContainer.style.alignItems = 'center';
     }
 
     initializeFormElements();
     initializeFilterEvents();
     initializeTooltipHandlers();
+    initializeCheckTabEvents();
+    initializeBulkSelectionEvents();
     await initializeWithMigration();
 
-    const toggleLogoutButton = document.getElementById("toggleLogoutButton");
+    const toggleLogoutButton = document.getElementById('toggleLogoutButton');
     if (toggleLogoutButton) {
-        toggleLogoutButton.addEventListener("click", handleLogout);
+        toggleLogoutButton.addEventListener('click', handleLogout);
     }
 
-    console.log(
-        "Enhanced Goods Receipt Management System initialized successfully",
-    );
-    notificationManager.success("Hệ thống đã sẵn sàng!", 2000);
+    console.log('Enhanced Goods Receipt Management System initialized successfully');
+    notificationManager.success('Hệ thống đã sẵn sàng!', 2000);
 
     // Initialize mobile FAB events
     bindMobileFabEvents();
@@ -994,17 +1352,17 @@ async function initializeApplication() {
 // =====================================================
 
 // Global error handlers
-window.addEventListener("error", function (e) {
-    console.error("Global error:", e.error);
+window.addEventListener('error', function (e) {
+    console.error('Global error:', e.error);
     if (window.notificationManager) {
-        window.notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.", 5000);
+        window.notificationManager.error('Có lỗi xảy ra. Vui lòng tải lại trang.', 5000);
     }
 });
 
-window.addEventListener("unhandledrejection", function (e) {
-    console.error("Unhandled promise rejection:", e.reason);
+window.addEventListener('unhandledrejection', function (e) {
+    console.error('Unhandled promise rejection:', e.reason);
     if (window.notificationManager) {
-        window.notificationManager.error("Có lỗi xảy ra trong xử lý dữ liệu.", 4000);
+        window.notificationManager.error('Có lỗi xảy ra trong xử lý dữ liệu.', 4000);
     }
 });
 
@@ -1013,15 +1371,15 @@ window.addEventListener("unhandledrejection", function (e) {
 // =====================================================
 
 // Camera cleanup on page unload
-window.addEventListener("beforeunload", function () {
+window.addEventListener('beforeunload', function () {
     stopCamera();
     stopEditCamera();
 });
 
 // DOM initialization
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener('DOMContentLoaded', function () {
     const adsElement = document.querySelector(
-        'div[style*="position: fixed"][style*="z-index:9999999"]',
+        'div[style*="position: fixed"][style*="z-index:9999999"]'
     );
     if (adsElement) {
         adsElement.remove();
@@ -1029,39 +1387,34 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeApplication();
 
     // Open create modal from top bar button
-    const btnShowUpload = document.getElementById("btnShowUpload");
+    const btnShowUpload = document.getElementById('btnShowUpload');
     if (btnShowUpload) {
-        btnShowUpload.addEventListener("click", () => {
+        btnShowUpload.addEventListener('click', () => {
             toggleForm();
         });
     }
 
     // Refresh button
-    const btnRefresh = document.getElementById("btnRefresh");
+    const btnRefresh = document.getElementById('btnRefresh');
     if (btnRefresh) {
-        btnRefresh.addEventListener("click", async () => {
-            const notifId = notificationManager.loadingData(
-                "Đang làm mới dữ liệu...",
-            );
+        btnRefresh.addEventListener('click', async () => {
+            const notifId = notificationManager.loadingData('Đang làm mới dữ liệu...');
             try {
                 invalidateCache();
                 await displayReceiptData();
                 notificationManager.remove(notifId);
-                notificationManager.success("Đã làm mới dữ liệu!", 2000);
+                notificationManager.success('Đã làm mới dữ liệu!', 2000);
             } catch (error) {
                 notificationManager.remove(notifId);
-                notificationManager.error(
-                    "Lỗi khi làm mới: " + error.message,
-                    3000,
-                );
+                notificationManager.error('Lỗi khi làm mới: ' + error.message, 3000);
             }
         });
     }
 
     // Export button
-    const btnExport = document.getElementById("btnExport");
+    const btnExport = document.getElementById('btnExport');
     if (btnExport) {
-        btnExport.addEventListener("click", exportToExcel);
+        btnExport.addEventListener('click', exportToExcel);
     }
 });
 
@@ -1072,10 +1425,10 @@ document.addEventListener("DOMContentLoaded", function () {
 // Debug functions
 window.debugFunctions = {
     checkDataIntegrity: async function () {
-        const doc = await collectionRef.doc("nhanhang").get();
+        const doc = await collectionRef.doc('nhanhang').get();
         if (doc.exists) {
             const data = doc.data();
-            console.log("Data integrity check:", {
+            console.log('Data integrity check:', {
                 total: data.data.length,
                 withId: data.data.filter((item) => item.id).length,
                 withoutId: data.data.filter((item) => !item.id).length,
@@ -1110,5 +1463,5 @@ window.debugFunctions = {
     updateStatisticsDisplay,
 };
 
-console.log("Enhanced Goods Receipt Management System loaded successfully");
-console.log("Debug functions available at window.debugFunctions");
+console.log('Enhanced Goods Receipt Management System loaded successfully');
+console.log('Debug functions available at window.debugFunctions');
