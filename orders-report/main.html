@@ -660,24 +660,39 @@
             </div>
 
             <!-- Tab Content -->
+            <!-- ordersFrame eager-loaded (tab default active). Các tab khác lazy-load
+                 qua data-src + switchTab() — tránh load song song 5 iframe nặng (mỗi
+                 iframe tự fetch ~250 resources). Bật src lần đầu user click tab. -->
             <div id="ordersTab" class="tab-content active">
                 <iframe id="ordersFrame" src="tab1-orders.html" allow="microphone"></iframe>
             </div>
 
             <div id="productAssignmentTab" class="tab-content">
-                <iframe id="productAssignmentFrame" src="tab3-product-assignment.html"></iframe>
+                <iframe
+                    id="productAssignmentFrame"
+                    data-src="tab3-product-assignment.html"
+                    src="about:blank"
+                ></iframe>
             </div>
 
             <div id="overviewTab" class="tab-content">
-                <iframe id="overviewFrame" src="tab-overview.html"></iframe>
+                <iframe id="overviewFrame" data-src="tab-overview.html" src="about:blank"></iframe>
             </div>
 
             <div id="pendingDeleteTab" class="tab-content">
-                <iframe id="pendingDeleteFrame" src="tab-pending-delete.html"></iframe>
+                <iframe
+                    id="pendingDeleteFrame"
+                    data-src="tab-pending-delete.html"
+                    src="about:blank"
+                ></iframe>
             </div>
 
             <div id="kpiCommissionTab" class="tab-content">
-                <iframe id="kpiCommissionFrame" src="tab-kpi-commission.html"></iframe>
+                <iframe
+                    id="kpiCommissionFrame"
+                    data-src="tab-kpi-commission.html"
+                    src="about:blank"
+                ></iframe>
             </div>
 
             <div id="reportOnlineTab" class="tab-content">
@@ -840,55 +855,96 @@
                     content.classList.remove('active');
                 });
 
+                // Helper: hydrate data-src → src lần đầu user click tab
+                // (lazy iframe load — tránh load song song 5 iframe khi page mở)
+                function _hydrateLazyIframe(frameId) {
+                    var f = document.getElementById(frameId);
+                    if (f && f.dataset.src && f.src.endsWith('about:blank')) {
+                        f.src = f.dataset.src;
+                        return true; // newly hydrated → caller chờ load event nếu cần postMessage
+                    }
+                    return false;
+                }
+
+                // Helper: postMessage tới iframe sau khi nó load xong (one-shot listener)
+                function _afterFrameLoad(frameId, fn) {
+                    var f = document.getElementById(frameId);
+                    if (!f) return;
+                    if (f.contentWindow && !f.src.endsWith('about:blank')) {
+                        // Đã loaded — gọi luôn (nhưng chờ tick để contentWindow ready)
+                        setTimeout(fn, 0);
+                        return;
+                    }
+                    f.addEventListener('load', fn, { once: true });
+                }
+
                 if (tabName === 'orders') {
                     document.getElementById('ordersTab').classList.add('active');
                 } else if (tabName === 'product-assignment') {
                     document.getElementById('productAssignmentTab').classList.add('active');
-                    // Send orders data to product assignment tab
-                    const ordersFrame = document.getElementById('ordersFrame');
-                    if (ordersFrame && ordersFrame.contentWindow) {
-                        // Request orders data from tab1
-                        ordersFrame.contentWindow.postMessage({ type: 'REQUEST_ORDERS_DATA' }, '*');
+                    var freshlyLoaded = _hydrateLazyIframe('productAssignmentFrame');
+                    var sendToTab3 = function () {
+                        var ordersFrame = document.getElementById('ordersFrame');
+                        if (ordersFrame && ordersFrame.contentWindow) {
+                            ordersFrame.contentWindow.postMessage(
+                                { type: 'REQUEST_ORDERS_DATA' },
+                                '*'
+                            );
+                        }
+                    };
+                    if (freshlyLoaded) {
+                        _afterFrameLoad('productAssignmentFrame', sendToTab3);
+                    } else {
+                        sendToTab3();
                     }
                 } else if (tabName === 'overview') {
                     document.getElementById('overviewTab').classList.add('active');
-                    // Request fresh orders data from Tab1 for overview
-                    const ordersFrameForOverview = document.getElementById('ordersFrame');
-                    if (ordersFrameForOverview && ordersFrameForOverview.contentWindow) {
-                        ordersFrameForOverview.contentWindow.postMessage(
-                            { type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW' },
-                            '*'
-                        );
+                    var freshlyLoadedOv = _hydrateLazyIframe('overviewFrame');
+                    var sendToOverview = function () {
+                        var ordersFrame = document.getElementById('ordersFrame');
+                        if (ordersFrame && ordersFrame.contentWindow) {
+                            ordersFrame.contentWindow.postMessage(
+                                { type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW' },
+                                '*'
+                            );
+                        }
+                    };
+                    if (freshlyLoadedOv) {
+                        _afterFrameLoad('overviewFrame', sendToOverview);
+                    } else {
+                        sendToOverview();
                     }
                 } else if (tabName === 'pending-delete') {
                     document.getElementById('pendingDeleteTab').classList.add('active');
-                    // Refresh deleted bills data
-                    const pendingDeleteFrame = document.getElementById('pendingDeleteFrame');
-                    if (
-                        pendingDeleteFrame &&
-                        pendingDeleteFrame.contentWindow &&
-                        pendingDeleteFrame.contentWindow.loadData
-                    ) {
-                        pendingDeleteFrame.contentWindow.loadData();
+                    var freshlyLoadedPd = _hydrateLazyIframe('pendingDeleteFrame');
+                    var refreshPending = function () {
+                        var pdf = document.getElementById('pendingDeleteFrame');
+                        if (pdf && pdf.contentWindow && pdf.contentWindow.loadData) {
+                            pdf.contentWindow.loadData();
+                        }
+                    };
+                    if (freshlyLoadedPd) {
+                        _afterFrameLoad('pendingDeleteFrame', refreshPending);
+                    } else {
+                        refreshPending();
                     }
                 } else if (tabName === 'kpi-commission') {
                     document.getElementById('kpiCommissionTab').classList.add('active');
-                    // Refresh KPI data
-                    const kpiFrame = document.getElementById('kpiCommissionFrame');
-                    if (
-                        kpiFrame &&
-                        kpiFrame.contentWindow &&
-                        kpiFrame.contentWindow.KPICommission
-                    ) {
-                        kpiFrame.contentWindow.KPICommission.init();
+                    var freshlyLoadedKpi = _hydrateLazyIframe('kpiCommissionFrame');
+                    var refreshKpi = function () {
+                        var kf = document.getElementById('kpiCommissionFrame');
+                        if (kf && kf.contentWindow && kf.contentWindow.KPICommission) {
+                            kf.contentWindow.KPICommission.init();
+                        }
+                    };
+                    if (freshlyLoadedKpi) {
+                        _afterFrameLoad('kpiCommissionFrame', refreshKpi);
+                    } else {
+                        refreshKpi();
                     }
                 } else if (tabName === 'report-online') {
                     document.getElementById('reportOnlineTab').classList.add('active');
-                    // Lazy-load on first click — prevent recursive iframe load
-                    var rf = document.getElementById('reportOnlineFrame');
-                    if (rf && rf.dataset.src && rf.src === 'about:blank') {
-                        rf.src = rf.dataset.src;
-                    }
+                    _hydrateLazyIframe('reportOnlineFrame');
                 }
 
                 // Reinitialize icons after DOM change
