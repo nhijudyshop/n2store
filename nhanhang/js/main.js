@@ -27,6 +27,84 @@ function clearSelectionState() {
     }
 }
 
+/**
+ * Surgical DOM update: chỉ remove các row vừa thay đổi trạng thái khỏi tab hiện tại.
+ * Tránh full re-render 280+ rows mỗi lần mark/unmark.
+ *
+ * @param {string[]} receiptIds - IDs vừa được mark/unmark
+ * @param {Object[]} updatedCachedData - Toàn bộ cached data đã được update (để recompute stats + badges)
+ */
+function removeRowsFromCurrentView(receiptIds, updatedCachedData) {
+    if (!Array.isArray(receiptIds) || receiptIds.length === 0) return;
+
+    const idSet = new Set(receiptIds);
+    let removedCount = 0;
+
+    // Remove desktop table rows
+    const tbodyEl = document.getElementById('receiptTableBody');
+    if (tbodyEl) {
+        idSet.forEach((id) => {
+            const tr = tbodyEl.querySelector(`tr[data-receipt-id="${CSS.escape(id)}"]`);
+            if (tr) {
+                tr.remove();
+                removedCount++;
+            }
+        });
+    }
+
+    // Remove mobile cards
+    const mobileList = document.getElementById('mobileCardList');
+    if (mobileList) {
+        idSet.forEach((id) => {
+            const card = mobileList.querySelector(
+                `.m-receipt-card[data-receipt-id="${CSS.escape(id)}"]`
+            );
+            if (card) card.remove();
+        });
+    }
+
+    // Drop từ selection nếu đang chọn
+    idSet.forEach((id) => selectedReceiptIds.delete(id));
+    updateBulkActionBar();
+
+    // Update "Tổng X phiếu" summary row
+    if (tbodyEl) {
+        const remainingDataRows = tbodyEl.querySelectorAll('tr[data-receipt-id]').length;
+        const summaryRow = tbodyEl.querySelector('tr td[colspan="9"]');
+        if (summaryRow) {
+            // Có thể là summary row hoặc empty/warning row
+            const text = summaryRow.textContent;
+            if (text && text.startsWith('Tổng:')) {
+                summaryRow.textContent = `Tổng: ${remainingDataRows} phiếu nhận`;
+            }
+        }
+
+        // Show empty state nếu hết row
+        if (remainingDataRows === 0) {
+            // Wipe summary row + show empty
+            tbodyEl.innerHTML = '';
+            const emptyRow = document.createElement('tr');
+            const emptyTd = document.createElement('td');
+            emptyTd.colSpan = 9;
+            emptyTd.textContent = 'Không có dữ liệu';
+            emptyTd.style.textAlign = 'center';
+            emptyTd.style.padding = '20px';
+            emptyTd.style.color = '#6c757d';
+            emptyRow.appendChild(emptyTd);
+            tbodyEl.appendChild(emptyRow);
+        }
+    }
+
+    // Recompute statistics + tab badges từ updated cached data
+    if (Array.isArray(updatedCachedData)) {
+        updateStatisticsDisplay(updatedCachedData);
+        updateTabCounts(updatedCachedData);
+    }
+
+    // Sync select-all checkbox state
+    syncSelectAllCheckbox();
+}
+
 function updateBulkActionBar() {
     const bar = document.getElementById('bulkActionBar');
     const countEl = document.getElementById('bulkSelectedCount');

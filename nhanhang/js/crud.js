@@ -470,8 +470,72 @@ async function setReceiptsCheckedStatus(receiptIds, checked) {
 
     const idSet = new Set(receiptIds);
     const actionLabel = checked ? 'đánh dấu đã kiểm tra' : 'hủy đã kiểm tra';
-    const notifId = notificationManager.saving(`Đang ${actionLabel} ${receiptIds.length} phiếu...`);
+    const userName = getUserName();
+    const nowStr = getFormattedDateTime();
 
+    // Helper: apply mark/unmark to an item immutably
+    const applyChange = (item) => {
+        if (!idSet.has(item.id)) return item;
+        if (checked) {
+            return { ...item, daKiemTra: true, kiemTraBy: userName, kiemTraAt: nowStr };
+        }
+        const next = { ...item };
+        delete next.daKiemTra;
+        delete next.kiemTraBy;
+        delete next.kiemTraAt;
+        return next;
+    };
+
+    // === OPTIMISTIC PATH ===
+    // Có cache → update local + surgical DOM update, ghi Firestore nền.
+    const cached = getCachedData();
+    if (cached && cached.length > 0) {
+        const prevSnapshot = cached.map((it) => ({ ...it })); // shallow snapshot for rollback
+        const newData = cached.map(applyChange);
+        const updatedCount = newData.reduce((n, it, i) => n + (it !== cached[i] ? 1 : 0), 0);
+
+        if (updatedCount === 0) {
+            notificationManager.warning('Không tìm thấy phiếu nào khớp ID', 2500);
+            return;
+        }
+
+        // 1. Update cache (debounced save to localStorage)
+        setCachedData(newData);
+
+        // 2. Surgical DOM update — chỉ remove rows vừa thay đổi khỏi tab hiện tại
+        //    (không re-render toàn bộ table). Mark/unmark luôn làm row leave tab hiện tại.
+        if (typeof removeRowsFromCurrentView === 'function') {
+            removeRowsFromCurrentView(receiptIds, newData);
+        } else if (typeof renderDataToTable === 'function') {
+            // Fallback: full re-render
+            renderDataToTable(newData);
+        }
+
+        // KHÔNG hiển thị toast "đang đồng bộ" / "thành công" — silent path.
+        // Chỉ show toast khi LỖI (10s).
+        try {
+            await collectionRef.doc('nhanhang').update({ data: newData });
+            // Fire-and-forget log (không await để khỏi delay)
+            try {
+                logAction(
+                    checked ? 'mark_checked' : 'unmark_checked',
+                    `${checked ? 'Đánh dấu' : 'Hủy'} đã kiểm tra ${updatedCount} phiếu nhận`,
+                    null,
+                    { ids: receiptIds, count: updatedCount }
+                );
+            } catch (_) {}
+        } catch (error) {
+            // Rollback: restore cache + full re-render
+            console.error('Lỗi khi cập nhật trạng thái kiểm tra (rollback):', error);
+            setCachedData(prevSnapshot);
+            if (typeof renderDataToTable === 'function') renderDataToTable(prevSnapshot);
+            notificationManager.error(`Lỗi khi ${actionLabel}: ` + error.message, 10000);
+        }
+        return;
+    }
+
+    // === FALLBACK PATH (no cache) ===
+    // Không có cache → phải fetch trước. Vẫn không show toast loading/success.
     try {
         const doc = await collectionRef.doc('nhanhang').get();
         if (!doc.exists) throw new Error("Không tìm thấy tài liệu 'nhanhang'");
@@ -479,32 +543,8 @@ async function setReceiptsCheckedStatus(receiptIds, checked) {
         const data = doc.data();
         if (!Array.isArray(data.data)) throw new Error('Dữ liệu không hợp lệ');
 
-        const userName = getUserName();
-        const nowStr = getFormattedDateTime();
-        let updatedCount = 0;
-
-        // Immutable map: produce new array with updated entries
-        const newData = data.data.map((item) => {
-            if (!idSet.has(item.id)) return item;
-
-            updatedCount++;
-
-            if (checked) {
-                return {
-                    ...item,
-                    daKiemTra: true,
-                    kiemTraBy: userName,
-                    kiemTraAt: nowStr,
-                };
-            }
-
-            // Unmark: remove the 3 fields
-            const next = { ...item };
-            delete next.daKiemTra;
-            delete next.kiemTraBy;
-            delete next.kiemTraAt;
-            return next;
-        });
+        const newData = data.data.map(applyChange);
+        const updatedCount = newData.reduce((n, it, i) => n + (it !== data.data[i] ? 1 : 0), 0);
 
         if (updatedCount === 0) {
             throw new Error('Không tìm thấy phiếu nào khớp ID');
@@ -512,25 +552,25 @@ async function setReceiptsCheckedStatus(receiptIds, checked) {
 
         await collectionRef.doc('nhanhang').update({ data: newData });
 
-        logAction(
-            checked ? 'mark_checked' : 'unmark_checked',
-            `${checked ? 'Đánh dấu' : 'Hủy'} đã kiểm tra ${updatedCount} phiếu nhận`,
-            null,
-            { ids: receiptIds, count: updatedCount }
-        );
+        try {
+            logAction(
+                checked ? 'mark_checked' : 'unmark_checked',
+                `${checked ? 'Đánh dấu' : 'Hủy'} đã kiểm tra ${updatedCount} phiếu nhận`,
+                null,
+                { ids: receiptIds, count: updatedCount }
+            );
+        } catch (_) {}
 
-        invalidateCache();
-        notificationManager.remove(notifId);
-        notificationManager.success(`Đã ${actionLabel} ${updatedCount} phiếu!`, 2500);
-
-        // Clear selection state
-        if (typeof clearSelectionState === 'function') clearSelectionState();
-
-        await displayReceiptData();
+        // Update cache + surgical render (không refetch)
+        setCachedData(newData);
+        if (typeof removeRowsFromCurrentView === 'function') {
+            removeRowsFromCurrentView(receiptIds, newData);
+        } else if (typeof renderDataToTable === 'function') {
+            renderDataToTable(newData);
+        }
     } catch (error) {
-        notificationManager.remove(notifId);
         console.error('Lỗi khi cập nhật trạng thái kiểm tra:', error);
-        notificationManager.error(`Lỗi khi ${actionLabel}: ` + error.message, 4000);
+        notificationManager.error(`Lỗi khi ${actionLabel}: ` + error.message, 10000);
     }
 }
 
