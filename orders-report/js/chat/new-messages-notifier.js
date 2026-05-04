@@ -5,7 +5,7 @@
    localStorage persistence + server merge + realtime updates
    ===================================================== */
 
-(function() {
+(function () {
     'use strict';
 
     // Module guard — chống IIFE chạy 2 lần
@@ -15,9 +15,14 @@
     window.__newMessagesNotifierLoaded = true;
 
     const LS_KEY = 'n2s_pending_customers';
+    const LS_REPLIED_KEY = 'n2s_recently_replied_v1';
+    const REPLIED_TTL_MS = 24 * 60 * 60 * 1000; // 24h — đủ dài để chặn server stale data
 
     // Cached pending customers data (persisted to localStorage)
     let _pendingCustomers = [];
+    // psid → repliedAt timestamp (ms). Mọi event/server data có message_time <=
+    // repliedAt sẽ bị bỏ qua → ngăn badge "tin mới" quay lại sau khi reply.
+    let _recentlyRepliedAt = {};
     let _isApplying = false;
     let _reapplyTimer = null;
 
@@ -28,19 +33,51 @@
     function _saveToLocalStorage() {
         try {
             localStorage.setItem(LS_KEY, JSON.stringify(_pendingCustomers));
-        } catch(e) {}
+        } catch (e) {}
     }
 
     function _loadFromLocalStorage() {
         try {
             const saved = localStorage.getItem(LS_KEY);
             if (saved) return JSON.parse(saved);
-        } catch(e) {}
+        } catch (e) {}
         return [];
+    }
+
+    function _saveRepliedMap() {
+        try {
+            localStorage.setItem(LS_REPLIED_KEY, JSON.stringify(_recentlyRepliedAt));
+        } catch (e) {}
+    }
+
+    function _loadRepliedMap() {
+        try {
+            const saved = localStorage.getItem(LS_REPLIED_KEY);
+            const obj = saved ? JSON.parse(saved) : {};
+            // Cleanup expired (> 24h)
+            const cutoff = Date.now() - REPLIED_TTL_MS;
+            const cleaned = {};
+            for (const [psid, ts] of Object.entries(obj)) {
+                if (typeof ts === 'number' && ts > cutoff) cleaned[psid] = ts;
+            }
+            return cleaned;
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function _wasRecentlyReplied(psid, eventTimeMs) {
+        const repliedAt = _recentlyRepliedAt[String(psid)];
+        if (!repliedAt) return false;
+        // Nếu event timestamp <= thời điểm reply → là tin cũ trước reply, bỏ qua.
+        // Nếu không rõ event time, fallback về Date.now() để cho phép "tin mới sau reply".
+        const evTs = typeof eventTimeMs === 'number' ? eventTimeMs : Date.now();
+        return evTs <= repliedAt;
     }
 
     // Load immediately from localStorage (before server fetch completes)
     _pendingCustomers = _loadFromLocalStorage();
+    _recentlyRepliedAt = _loadRepliedMap();
     console.log(`[NOTIFIER] Init: loaded ${_pendingCustomers.length} from localStorage`);
 
     // Schedule initial reapply after DOM ready
@@ -82,12 +119,12 @@
     function _applyBadgesToRows() {
         // Build lookup map: psid → pending data
         const pendingMap = new Map();
-        _pendingCustomers.forEach(pc => {
+        _pendingCustomers.forEach((pc) => {
             const key = String(pc.psid || pc.from_psid || pc.fbId || '');
             if (key) {
                 const existing = pendingMap.get(key);
                 if (existing) {
-                    existing.inboxCount += (pc.inboxCount || pc.unread_count || 0);
+                    existing.inboxCount += pc.inboxCount || pc.unread_count || 0;
                 } else {
                     pendingMap.set(key, {
                         psid: key,
@@ -103,7 +140,7 @@
         // Find all table rows with psid
         const rows = document.querySelectorAll('tr[data-psid], tr[data-fb-id]');
         let matched = 0;
-        rows.forEach(row => {
+        rows.forEach((row) => {
             const psid = row.dataset.psid || row.dataset.fbId || '';
             if (!psid) return;
 
@@ -111,7 +148,7 @@
             if (!pending) {
                 // Remove highlights and badges if no longer pending
                 row.classList.remove('pending-customer-row');
-                row.querySelectorAll('.new-msg-badge').forEach(el => el.remove());
+                row.querySelectorAll('.new-msg-badge').forEach((el) => el.remove());
                 return;
             }
 
@@ -123,7 +160,9 @@
             _upsertBadge(row, 'td[data-column="messages"]', 'new-msg-badge', pending.inboxCount);
         });
 
-        console.log(`[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`);
+        console.log(
+            `[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`
+        );
     }
 
     /**
@@ -167,9 +206,23 @@
         const psid = String(event.from_psid || event.psid || event.from?.id || '');
         if (!psid) return;
 
+        const type = event.type || event.conversation_type || 'INBOX';
+        if (type === 'COMMENT') return; // Skip comments — no badge tracking for comment column
+
+        // Suppress stale broadcast: nếu user vừa reply thì các event có message_time
+        // <= repliedAt là echo cũ (broadcast lan từ chính reply hoặc Pancake chậm clear
+        // unread_count). Date.now() fallback chỉ áp khi event không kèm timestamp.
+        const eventTimeMs =
+            (typeof event.eventTimeMs === 'number' && event.eventTimeMs) ||
+            (event.timestamp ? new Date(event.timestamp).getTime() : null) ||
+            (event.updated_at ? new Date(event.updated_at).getTime() : null);
+        if (_wasRecentlyReplied(psid, eventTimeMs)) {
+            return;
+        }
+
         // Find or create entry
-        let existing = _pendingCustomers.find(pc =>
-            String(pc.psid || pc.from_psid || '') === psid
+        let existing = _pendingCustomers.find(
+            (pc) => String(pc.psid || pc.from_psid || '') === psid
         );
 
         if (!existing) {
@@ -177,12 +230,10 @@
             _pendingCustomers.push(existing);
         }
 
-        const type = event.type || event.conversation_type || 'INBOX';
-        if (type === 'COMMENT') return; // Skip comments — no badge tracking for comment column
         existing.inboxCount = (existing.inboxCount || 0) + 1;
 
         existing.snippet = event.snippet || event.message || existing.snippet;
-        existing.timestamp = Date.now();
+        existing.timestamp = eventTimeMs || Date.now();
 
         // Persist to localStorage
         _saveToLocalStorage();
@@ -208,15 +259,21 @@
         const merged = new Map();
 
         // Load existing first (from localStorage/realtime)
-        _pendingCustomers.forEach(pc => {
+        _pendingCustomers.forEach((pc) => {
             const key = String(pc.psid || '');
             if (key) merged.set(key, { ...pc });
         });
 
-        // Merge server data (take higher count — server accumulates while browser offline)
-        customers.forEach(pc => {
+        // Merge server data — bỏ qua entry server nào đã được user reply rồi
+        // (server có thể lag chưa cập nhật DELETE từ /api/realtime/mark-replied,
+        // hoặc có entry với last_message_time <= repliedAt là tin cũ trước reply).
+        customers.forEach((pc) => {
             const key = String(pc.psid || '');
             if (!key) return;
+
+            // Skip nếu user đã reply sau khi nhận tin này
+            if (_wasRecentlyReplied(key, pc.timestamp)) return;
+
             const existing = merged.get(key);
             if (existing) {
                 existing.inboxCount = Math.max(existing.inboxCount || 0, pc.inboxCount || 0);
@@ -240,10 +297,14 @@
      */
     function clearPendingForCustomer(psid) {
         if (!psid) return;
-        _pendingCustomers = _pendingCustomers.filter(pc =>
-            String(pc.psid || pc.from_psid || '') !== String(psid)
+        _pendingCustomers = _pendingCustomers.filter(
+            (pc) => String(pc.psid || pc.from_psid || '') !== String(psid)
         );
+        // Đánh dấu thời điểm reply để chặn server stale data + WS echo broadcast
+        // re-add cùng psid trong vòng 24h tới (xem _wasRecentlyReplied).
+        _recentlyRepliedAt[String(psid)] = Date.now();
         _saveToLocalStorage();
+        _saveRepliedMap();
         reapply();
     }
 
@@ -254,10 +315,10 @@
         _pendingCustomers = [];
         _saveToLocalStorage();
         // Remove all highlights
-        document.querySelectorAll('.pending-customer-row').forEach(row => {
+        document.querySelectorAll('.pending-customer-row').forEach((row) => {
             row.classList.remove('pending-customer-row');
         });
-        document.querySelectorAll('.new-msg-badge').forEach(el => el.remove());
+        document.querySelectorAll('.new-msg-badge').forEach((el) => el.remove());
     }
 
     // =====================================================
@@ -270,12 +331,14 @@
         window.realtimeManager.on('pages:new_message', (payload) => {
             // Pancake raw format: { message: { from: { id } }, page_id, conversation_id }
             const msg = payload?.message || payload;
+            const ts = msg?.inserted_at || msg?.created_at || payload?.inserted_at;
             const normalized = {
                 psid: String(msg?.from?.id || payload?.from_psid || payload?.from?.id || ''),
                 pageId: String(payload?.page_id || msg?.page_id || ''),
                 snippet: msg?.message || msg?.original_message || '',
                 type: 'INBOX',
                 inboxCount: 1,
+                eventTimeMs: ts ? new Date(ts).getTime() : Date.now(),
             };
             if (normalized.psid) onNewConversationEvent(normalized);
         });
@@ -285,12 +348,20 @@
             const conv = payload?.conversation || payload;
             const unread = conv?.unread_count || payload?.unread_count || 0;
             const snippet = conv?.snippet || '';
-            const fromId = String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || '');
+            const fromId = String(
+                conv?.from_psid ||
+                    conv?.from?.id ||
+                    conv?.customers?.[0]?.fb_id ||
+                    payload?.from_psid ||
+                    ''
+            );
             const pageId = String(conv?.page_id || payload?.page_id || '');
+            const ts = conv?.updated_at || conv?.last_sent_at || payload?.updated_at;
 
             // Reactions: unread_count=0, seen=true, but snippet starts with [emoji Name]
             // e.g. "[❤ Huỳnh Thành Đạt] ...\nNv. Administrator"
-            const isReaction = unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
+            const isReaction =
+                unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
 
             if (unread > 0 || isReaction) {
                 const normalized = {
@@ -299,6 +370,7 @@
                     snippet: snippet,
                     type: conv?.type || 'INBOX',
                     unread_count: unread || 1,
+                    eventTimeMs: ts ? new Date(ts).getTime() : Date.now(),
                 };
                 if (normalized.psid) onNewConversationEvent(normalized);
             }
@@ -355,5 +427,4 @@
         clearAll,
         getPendingCustomers: () => [..._pendingCustomers],
     };
-
 })();
