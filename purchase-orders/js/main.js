@@ -2809,32 +2809,56 @@ class PurchaseOrderController {
      */
     bindTrashActions() {
         if (!this.elements.tableContainer) return;
+        // IMPORTANT: bind chỉ 1 lần — renderTableForCurrentPage gọi mọi lần render
+        // → trước đây listener cộng dồn, click 1 lần triggers N lần restore/delete.
+        if (this._trashActionsBound) return;
+        this._trashActionsBound = true;
 
-        // Restore button
+        const guardClick = async (btn, fn) => {
+            if (btn.dataset.busy === '1') return; // chống double-click
+            btn.dataset.busy = '1';
+            btn.classList.add('disabled');
+            try {
+                await fn();
+            } finally {
+                btn.dataset.busy = '';
+                btn.classList.remove('disabled');
+            }
+        };
+
         this.elements.tableContainer.addEventListener('click', async (e) => {
+            // Bỏ qua nếu currentTab không phải Thùng rác (sự kiện rò rỉ qua tab khác)
+            if (this.currentTab !== this.config.OrderStatus.DELETED) return;
+
             const restoreBtn = e.target.closest('[data-trash-action="restore"]');
             if (restoreBtn) {
-                const orderId = restoreBtn.dataset.orderId;
-                await this.handleRestoreOrder(orderId);
+                e.stopPropagation();
+                await guardClick(restoreBtn, () =>
+                    this.handleRestoreOrder(restoreBtn.dataset.orderId)
+                );
                 return;
             }
 
             const permanentDeleteBtn = e.target.closest('[data-trash-action="permanent-delete"]');
             if (permanentDeleteBtn) {
-                const orderId = permanentDeleteBtn.dataset.orderId;
-                await this.handlePermanentDeleteOrder(orderId);
+                e.stopPropagation();
+                await guardClick(permanentDeleteBtn, () =>
+                    this.handlePermanentDeleteOrder(permanentDeleteBtn.dataset.orderId)
+                );
                 return;
             }
 
             const bulkRestoreBtn = e.target.closest('[data-trash-bulk="restore"]');
             if (bulkRestoreBtn) {
-                await this.handleBulkRestore();
+                e.stopPropagation();
+                await guardClick(bulkRestoreBtn, () => this.handleBulkRestore());
                 return;
             }
 
             const bulkPermanentDeleteBtn = e.target.closest('[data-trash-bulk="permanent-delete"]');
             if (bulkPermanentDeleteBtn) {
-                await this.handleBulkPermanentDelete();
+                e.stopPropagation();
+                await guardClick(bulkPermanentDeleteBtn, () => this.handleBulkPermanentDelete());
                 return;
             }
         });
@@ -2845,11 +2869,20 @@ class PurchaseOrderController {
      * @param {string} orderId
      */
     async handleRestoreOrder(orderId) {
+        // In-flight guard theo orderId — tránh restore song song khi double-click
+        if (!this._inFlightRestore) this._inFlightRestore = new Set();
+        if (this._inFlightRestore.has(orderId)) {
+            console.warn('[Restore] Already in-flight for', orderId);
+            return;
+        }
+        this._inFlightRestore.add(orderId);
         try {
             await this.dataManager.restoreOrder(orderId);
             this.ui.showToast('Đã khôi phục đơn hàng', 'success');
         } catch (error) {
             this.ui.showToast(error.userMessage || 'Không thể khôi phục đơn hàng', 'error');
+        } finally {
+            this._inFlightRestore.delete(orderId);
         }
     }
 
@@ -2858,6 +2891,11 @@ class PurchaseOrderController {
      * @param {string} orderId
      */
     async handlePermanentDeleteOrder(orderId) {
+        if (!this._inFlightPermDelete) this._inFlightPermDelete = new Set();
+        if (this._inFlightPermDelete.has(orderId)) {
+            console.warn('[PermanentDelete] Already in-flight for', orderId);
+            return;
+        }
         const order = await this.dataManager.getOrder(orderId);
         const orderNumber = order?.orderNumber || orderId;
 
@@ -2870,11 +2908,14 @@ class PurchaseOrderController {
 
         if (!confirmed) return;
 
+        this._inFlightPermDelete.add(orderId);
         try {
             await this.dataManager.permanentDeleteOrder(orderId);
             this.ui.showToast('Đã xóa vĩnh viễn đơn hàng', 'success');
         } catch (error) {
             this.ui.showToast(error.userMessage || 'Không thể xóa vĩnh viễn đơn hàng', 'error');
+        } finally {
+            this._inFlightPermDelete.delete(orderId);
         }
     }
 
