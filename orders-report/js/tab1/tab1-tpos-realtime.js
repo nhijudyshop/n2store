@@ -568,9 +568,56 @@
             }
         }
 
-        // Re-apply search/filters and re-render — debounce để coalesce burst khi
-        // nhiều order cùng tạo trong live phase, tránh giật bảng.
-        if (typeof window.schedulePerformTableSearch === 'function') {
+        // Surgical insert ở đầu bảng khi không có search/sort/employee view —
+        // tránh giật toàn bộ tbody (re-render 50+ rows) khi realtime burst.
+        // Top-level `let` (searchQuery, currentSortColumn) shared giữa các script tags;
+        // dùng try/catch để safe khi script chưa load.
+        let _hasSearch = false,
+            _hasSort = false,
+            _hasEmployee = false;
+        try {
+            _hasSearch =
+                typeof searchQuery !== 'undefined' && !!searchQuery && !!String(searchQuery).trim();
+        } catch (e) {}
+        try {
+            _hasSort = typeof currentSortColumn !== 'undefined' && !!currentSortColumn;
+        } catch (e) {}
+        try {
+            _hasEmployee = typeof employeeViewMode !== 'undefined' && !!employeeViewMode;
+        } catch (e) {}
+        const canSurgicalInsert =
+            !_hasEmployee &&
+            !_hasSort &&
+            !_hasSearch &&
+            typeof window.applyOrderMembershipFlip === 'function';
+
+        if (canSurgicalInsert) {
+            // Capture scroll position để preserve view sau khi insert row ở đầu.
+            // Tránh nội dung trong viewport bị "đẩy xuống 52px" khi user đang scroll giữa bảng.
+            const scrollEl =
+                document.getElementById('tableWrapper') ||
+                document.scrollingElement ||
+                document.documentElement;
+            const beforeScroll = scrollEl ? scrollEl.scrollTop : 0;
+
+            // applyOrderMembershipFlip sẽ insert vào filteredData/displayedData
+            // theo allData index (đầu bảng) và DOM tr ngay tại vị trí đó.
+            const handled = window.applyOrderMembershipFlip(order.Code, order.Id, true);
+
+            // Nếu user đã scroll khỏi đỉnh, bù scrollTop bằng đúng row height (~52px)
+            // để hàng đang nhìn không bị đẩy xuống.
+            if (handled && scrollEl && beforeScroll > 24) {
+                const ROW_H = 52;
+                scrollEl.scrollTop = beforeScroll + ROW_H;
+            }
+
+            if (!handled) {
+                // Fallback nếu surgical insert từ chối (vd. employee view bật giữa chừng)
+                if (typeof window.schedulePerformTableSearch === 'function') {
+                    window.schedulePerformTableSearch(150);
+                }
+            }
+        } else if (typeof window.schedulePerformTableSearch === 'function') {
             window.schedulePerformTableSearch(150);
         } else if (typeof performTableSearch === 'function') {
             performTableSearch();

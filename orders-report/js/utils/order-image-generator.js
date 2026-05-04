@@ -45,9 +45,10 @@ class OrderImageGenerator {
             document.body.appendChild(container);
 
             // Wait a bit for rendering
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
-            // Generate image using html2canvas
+            // Generate image using html2canvas (lazy-loaded)
+            if (typeof window.loadHtml2Canvas === 'function') await window.loadHtml2Canvas();
             this.log('🎨 Rendering with html2canvas...');
             const canvas = await html2canvas(container, {
                 backgroundColor: '#ffffff',
@@ -55,20 +56,19 @@ class OrderImageGenerator {
                 logging: false,
                 useCORS: false,
                 allowTaint: true,
-                proxy: null
+                proxy: null,
             });
 
             // Remove container
             document.body.removeChild(container);
 
             // Convert to blob
-            const blob = await new Promise(resolve => {
+            const blob = await new Promise((resolve) => {
                 canvas.toBlob(resolve, 'image/png');
             });
 
             this.log('✅ Image generated:', blob.size, 'bytes');
             return blob;
-
         } catch (error) {
             this.log('❌ Error generating image:', error);
             throw error;
@@ -96,8 +96,8 @@ class OrderImageGenerator {
                     const response = await fetch(proxiedUrl, {
                         method: 'GET',
                         headers: {
-                            'Accept': 'image/*'
-                        }
+                            Accept: 'image/*',
+                        },
                     });
 
                     if (!response.ok) {
@@ -109,7 +109,6 @@ class OrderImageGenerator {
 
                     this.log('✅ Fetched image:', product.name.substring(0, 30));
                     return { ...product, imageBase64: base64 };
-
                 } catch (error) {
                     this.log('⚠️ Failed to fetch image for:', product.name, error.message);
                     return { ...product, imageBase64: null };
@@ -219,13 +218,14 @@ class OrderImageGenerator {
             `;
         }
 
-        const productsHTML = products.map((product, index) => {
-            const imageBase64 = product.imageBase64; // Use base64 instead of URL
-            const productName = product.name || 'Sản phẩm';
-            const quantity = product.quantity || 0;
-            const total = product.total || 0;
+        const productsHTML = products
+            .map((product, index) => {
+                const imageBase64 = product.imageBase64; // Use base64 instead of URL
+                const productName = product.name || 'Sản phẩm';
+                const quantity = product.quantity || 0;
+                const total = product.total || 0;
 
-            return `
+                return `
                 <div style="
                     display: flex;
                     align-items: center;
@@ -236,7 +236,9 @@ class OrderImageGenerator {
                     background: white;
                     gap: 15px;
                 ">
-                    ${imageBase64 ? `
+                    ${
+                        imageBase64
+                            ? `
                         <img
                             src="${imageBase64}"
                             style="
@@ -248,7 +250,8 @@ class OrderImageGenerator {
                                 border: 1px solid #e5e7eb;
                             "
                         />
-                    ` : `
+                    `
+                            : `
                         <div style="
                             width: ${this.PRODUCT_IMAGE_SIZE}px;
                             height: ${this.PRODUCT_IMAGE_SIZE}px;
@@ -261,14 +264,16 @@ class OrderImageGenerator {
                             color: #9ca3af;
                             font-size: 12px;
                         ">[IMG]</div>
-                    `}
+                    `
+                    }
                     <div style="flex: 1; font-size: 14px; line-height: 1.4;">
                         ${productName}<br>
                         <span style="color: #6b7280;">x${quantity} = ${this.formatCurrency(total)}</span>
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         return `
             <div style="border-left: 2px solid #000; border-right: 2px solid #000; border-bottom: 2px solid #000; margin-bottom: 0;">
@@ -322,7 +327,7 @@ class OrderImageGenerator {
 
         this.log('⏳ Waiting for', images.length, 'images to load...');
 
-        const promises = Array.from(images).map(img => {
+        const promises = Array.from(images).map((img) => {
             return new Promise((resolve, reject) => {
                 if (img.complete) {
                     resolve();
@@ -352,15 +357,14 @@ class OrderImageGenerator {
      * Format currency
      */
     formatCurrency(amount) {
-        const numericAmount = typeof amount === 'string'
-            ? parseFloat(amount.replace(/[^\d.-]/g, ''))
-            : amount;
+        const numericAmount =
+            typeof amount === 'string' ? parseFloat(amount.replace(/[^\d.-]/g, '')) : amount;
 
         if (isNaN(numericAmount)) return '0₫';
 
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
-            currency: 'VND'
+            currency: 'VND',
         }).format(numericAmount);
     }
 }

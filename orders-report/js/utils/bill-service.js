@@ -1265,7 +1265,8 @@ ${
             // Get actual content height (add small padding)
             const contentHeight = iframeBody.scrollHeight + 20;
 
-            // Check if html2canvas is available
+            // Check if html2canvas is available (lazy-loaded)
+            if (typeof window.loadHtml2Canvas === 'function') await window.loadHtml2Canvas();
             if (typeof html2canvas === 'undefined') {
                 throw new Error('html2canvas library not loaded');
             }

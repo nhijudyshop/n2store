@@ -2469,6 +2469,7 @@ async function _ensureDetailStockLoaded() {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const blob = await response.blob();
+            if (typeof window.loadXLSX === 'function') await window.loadXLSX();
             if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
 
             const arrayBuffer = await blob.arrayBuffer();

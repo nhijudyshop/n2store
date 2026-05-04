@@ -123,7 +123,13 @@
     // Một số CDN không cho CORS từ origin khác (TPOS img\d.tpos.vn,
     // Firebase Storage default) → route fetch qua CF Worker proxy để có
     // response CORS-ok và cache được Blob trong IndexedDB.
-    const NON_CORS_PATTERNS = [/img\d*\.tpos\.vn/i, /firebasestorage\.googleapis\.com/i];
+    const NON_CORS_PATTERNS = [
+        /img\d*\.tpos\.vn/i,
+        /firebasestorage\.googleapis\.com/i,
+        /graph\.facebook\.com\/.+\/picture/i,
+        /scontent[-\w]*\.\w+\.fbcdn\.net/i,
+        /platform-lookaside\.fbsbx\.com/i,
+    ];
     const WORKER_URL_FALLBACK = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     function getWorkerUrl() {
         return window.WORKER_URL || window.API_CONFIG?.WORKER_URL || WORKER_URL_FALLBACK;
@@ -351,6 +357,10 @@
         /img\d*\.tpos\.vn/i,
         /firebasestorage\.googleapis\.com/i,
         /\/api\/image-proxy\?/i,
+        /\/api\/fb-avatar\?/i,
+        /graph\.facebook\.com\/.+\/picture/i,
+        /scontent[-\w]*\.\w+\.fbcdn\.net/i,
+        /platform-lookaside\.fbsbx\.com/i,
     ];
 
     function shouldAutoCache(src) {

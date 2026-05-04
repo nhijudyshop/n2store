@@ -11,12 +11,12 @@ class EnhancedProductSearchManager {
         this.isLoaded = false;
         this.isLoading = false;
         this.lastFetchTime = null;
-        this.storageKey = "product_excel_cache_v2";
-        this.fullProductsKey = "product_full_details_cache";
+        this.storageKey = 'product_excel_cache_v2';
+        this.fullProductsKey = 'product_full_details_cache';
         this.CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
         this.EXCEL_ENDPOINT =
-            "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice";
-        this.PRODUCT_API_BASE = "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product";
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice';
+        this.PRODUCT_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product';
 
         this.init();
     }
@@ -46,14 +46,12 @@ class EnhancedProductSearchManager {
             }
 
             this.excelProducts = data.products || [];
-            this.lastFetchTime = new Date(data.timestamp).toLocaleString(
-                "vi-VN",
-            );
+            this.lastFetchTime = new Date(data.timestamp).toLocaleString('vi-VN');
             this.isLoaded = this.excelProducts.length > 0;
 
             return true;
         } catch (error) {
-            console.error("[PRODUCT] Error loading cache:", error);
+            console.error('[PRODUCT] Error loading cache:', error);
             return false;
         }
     }
@@ -66,14 +64,12 @@ class EnhancedProductSearchManager {
             };
 
             sessionStorage.setItem(this.storageKey, JSON.stringify(cacheData));
-            this.lastFetchTime = new Date().toLocaleString("vi-VN");
+            this.lastFetchTime = new Date().toLocaleString('vi-VN');
         } catch (error) {
-            console.error("[PRODUCT] Error saving to cache:", error);
+            console.error('[PRODUCT] Error saving to cache:', error);
 
-            if (error.name === "QuotaExceededError") {
-                console.warn(
-                    "[PRODUCT] Storage quota exceeded, clearing old cache",
-                );
+            if (error.name === 'QuotaExceededError') {
+                console.warn('[PRODUCT] Storage quota exceeded, clearing old cache');
                 sessionStorage.removeItem(this.storageKey);
             }
         }
@@ -95,7 +91,7 @@ class EnhancedProductSearchManager {
                 this.fullProductCache.set(parseInt(id), product);
             });
         } catch (error) {
-            console.error("[PRODUCT] Error loading full product cache:", error);
+            console.error('[PRODUCT] Error loading full product cache:', error);
         }
     }
 
@@ -109,7 +105,7 @@ class EnhancedProductSearchManager {
 
             localStorage.setItem(this.fullProductsKey, JSON.stringify(data));
         } catch (error) {
-            console.error("[PRODUCT] Error saving full product cache:", error);
+            console.error('[PRODUCT] Error saving full product cache:', error);
         }
     }
 
@@ -135,15 +131,15 @@ class EnhancedProductSearchManager {
             // Show loading notification
             if (window.notificationManager) {
                 notificationId = window.notificationManager.show(
-                    "Đang tải danh sách sản phẩm từ Excel...",
-                    "info",
+                    'Đang tải danh sách sản phẩm từ Excel...',
+                    'info',
                     0,
                     {
                         showOverlay: true,
                         persistent: true,
-                        icon: "file-spreadsheet",
-                        title: "Tải Excel",
-                    },
+                        icon: 'file-spreadsheet',
+                        title: 'Tải Excel',
+                    }
                 );
             }
 
@@ -152,22 +148,20 @@ class EnhancedProductSearchManager {
 
             // POST request to get Excel file
             const response = await fetch(this.EXCEL_ENDPOINT, {
-                method: "POST",
+                method: 'POST',
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify({
-                    model: { Active: "true" },
-                    ids: "",
+                    model: { Active: 'true' },
+                    ids: '',
                 }),
             });
 
             if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             // Get blob data
@@ -177,7 +171,7 @@ class EnhancedProductSearchManager {
             const products = await this.parseExcelBlob(blob);
 
             if (products.length === 0) {
-                throw new Error("No products found in Excel file");
+                throw new Error('No products found in Excel file');
             }
 
             this.excelProducts = products;
@@ -191,15 +185,15 @@ class EnhancedProductSearchManager {
             if (window.notificationManager && notificationId) {
                 window.notificationManager.remove(notificationId);
                 window.notificationManager.success(
-                    `Đã tải ${products.length.toLocaleString("vi-VN")} sản phẩm`,
+                    `Đã tải ${products.length.toLocaleString('vi-VN')} sản phẩm`,
                     2000,
-                    "Thành công",
+                    'Thành công'
                 );
             }
 
             return products;
         } catch (error) {
-            console.error("[PRODUCT] Error fetching Excel:", error);
+            console.error('[PRODUCT] Error fetching Excel:', error);
 
             if (window.notificationManager) {
                 if (notificationId) {
@@ -208,7 +202,7 @@ class EnhancedProductSearchManager {
                 window.notificationManager.error(
                     `Không thể tải Excel: ${error.message}`,
                     4000,
-                    "Lỗi",
+                    'Lỗi'
                 );
             }
 
@@ -230,7 +224,7 @@ class EnhancedProductSearchManager {
             return this.excelProducts;
         }
 
-        throw new Error("Excel load timeout");
+        throw new Error('Excel load timeout');
     }
 
     // ========================================
@@ -238,6 +232,7 @@ class EnhancedProductSearchManager {
     // ========================================
 
     async parseExcelBlob(blob) {
+        if (typeof window.loadXLSX === 'function') await window.loadXLSX();
         return new Promise((resolve, reject) => {
             try {
                 const reader = new FileReader();
@@ -245,16 +240,15 @@ class EnhancedProductSearchManager {
                 reader.onload = (e) => {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: "array" });
+                        const workbook = XLSX.read(data, { type: 'array' });
 
-                        const firstSheet =
-                            workbook.Sheets[workbook.SheetNames[0]];
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
                             header: 1,
                         });
 
                         if (jsonData.length < 2) {
-                            throw new Error("Excel file is empty or invalid");
+                            throw new Error('Excel file is empty or invalid');
                         }
 
                         // Parse rows (skip header)
@@ -272,7 +266,7 @@ class EnhancedProductSearchManager {
                             // Column 1: Tên sản phẩm
                             // Column 2: Giá biến thể
                             const productId = parseInt(row[0]);
-                            const productName = row[1] || "";
+                            const productName = row[1] || '';
                             const productPrice = parseFloat(row[2]) || 0;
 
                             // Skip if no valid ID
@@ -281,8 +275,7 @@ class EnhancedProductSearchManager {
                             const product = {
                                 Id: productId,
                                 Name: productName,
-                                NameNoSign:
-                                    this.removeVietnameseTones(productName),
+                                NameNoSign: this.removeVietnameseTones(productName),
                                 Price: productPrice,
                                 Code: null, // Will be populated from full product details
                                 ImageUrl: null, // Will be populated from full product cache
@@ -296,17 +289,13 @@ class EnhancedProductSearchManager {
 
                             // Check if we have full details cached
                             if (this.fullProductCache.has(productId)) {
-                                const fullProduct =
-                                    this.fullProductCache.get(productId);
+                                const fullProduct = this.fullProductCache.get(productId);
                                 product.Code =
-                                    fullProduct.DefaultCode ||
-                                    fullProduct.Barcode ||
-                                    product.Code;
+                                    fullProduct.DefaultCode || fullProduct.Barcode || product.Code;
                                 product.ImageUrl = fullProduct.ImageUrl;
                                 product.Thumbnails = fullProduct.Thumbnails;
                                 product.QtyAvailable = fullProduct.QtyAvailable;
-                                product.StandardPrice =
-                                    fullProduct.StandardPrice;
+                                product.StandardPrice = fullProduct.StandardPrice;
                                 product.Category = fullProduct.Categ?.Name;
                                 product.Price =
                                     fullProduct.PriceVariant ||
@@ -320,19 +309,19 @@ class EnhancedProductSearchManager {
 
                         resolve(products);
                     } catch (error) {
-                        console.error("[PRODUCT] Error parsing Excel:", error);
+                        console.error('[PRODUCT] Error parsing Excel:', error);
                         reject(error);
                     }
                 };
 
                 reader.onerror = (error) => {
-                    console.error("[PRODUCT] FileReader error:", error);
+                    console.error('[PRODUCT] FileReader error:', error);
                     reject(error);
                 };
 
                 reader.readAsArrayBuffer(blob);
             } catch (error) {
-                console.error("[PRODUCT] Error reading Excel blob:", error);
+                console.error('[PRODUCT] Error reading Excel blob:', error);
                 reject(error);
             }
         });
@@ -347,9 +336,7 @@ class EnhancedProductSearchManager {
             return [];
         }
 
-        const searchTerm = this.removeVietnameseTones(
-            query.toLowerCase().trim(),
-        );
+        const searchTerm = this.removeVietnameseTones(query.toLowerCase().trim());
         const results = [];
 
         for (const product of this.excelProducts) {
@@ -357,15 +344,14 @@ class EnhancedProductSearchManager {
             if (results.length >= limit) break;
 
             // Search in multiple fields
-            const nameMatch =
-                product.NameNoSign?.toLowerCase().includes(searchTerm);
+            const nameMatch = product.NameNoSign?.toLowerCase().includes(searchTerm);
             const codeMatch = product.Code?.toLowerCase().includes(searchTerm);
             const idMatch = product.Id?.toString().includes(query);
 
             if (nameMatch || codeMatch || idMatch) {
                 results.push({
                     ...product,
-                    _matchType: nameMatch ? "name" : codeMatch ? "code" : "id",
+                    _matchType: nameMatch ? 'name' : codeMatch ? 'code' : 'id',
                 });
             }
         }
@@ -395,38 +381,30 @@ class EnhancedProductSearchManager {
             const url = `${this.PRODUCT_API_BASE}(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`;
 
             const response = await fetch(url, {
-                method: "GET",
+                method: 'GET',
                 headers: {
                     ...headers,
-                    Accept: "application/json",
+                    Accept: 'application/json',
                 },
             });
 
             if (!response.ok) {
                 // If 404, product might not exist
                 if (response.status === 404) {
-                    console.warn(
-                        `[PRODUCT] Product ${productId} not found (404)`,
-                    );
+                    console.warn(`[PRODUCT] Product ${productId} not found (404)`);
 
                     // Try to refresh Excel cache
                     await this.fetchExcelProducts(true);
 
                     // Check if product exists in new Excel
-                    const existsInExcel = this.excelProducts.some(
-                        (p) => p.Id === productId,
-                    );
+                    const existsInExcel = this.excelProducts.some((p) => p.Id === productId);
 
                     if (!existsInExcel) {
-                        throw new Error(
-                            `Sản phẩm ID ${productId} không tồn tại trong hệ thống`,
-                        );
+                        throw new Error(`Sản phẩm ID ${productId} không tồn tại trong hệ thống`);
                     }
                 }
 
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const fullProduct = await response.json();
@@ -440,10 +418,7 @@ class EnhancedProductSearchManager {
 
             return fullProduct;
         } catch (error) {
-            console.error(
-                `[PRODUCT] Error fetching product ${productId}:`,
-                error,
-            );
+            console.error(`[PRODUCT] Error fetching product ${productId}:`, error);
             throw error;
         }
     }
@@ -465,23 +440,17 @@ class EnhancedProductSearchManager {
                     fullProduct.PriceVariant ||
                     fullProduct.ListPrice ||
                     this.excelProducts[index].Price,
-                StandardPrice:
-                    fullProduct.StandardPrice ||
-                    this.excelProducts[index].StandardPrice,
+                StandardPrice: fullProduct.StandardPrice || this.excelProducts[index].StandardPrice,
                 Name: fullProduct.NameGet || fullProduct.Name || this.excelProducts[index].Name,
                 NameNoSign: this.removeVietnameseTones(
-                    fullProduct.NameGet || fullProduct.Name || this.excelProducts[index].Name,
+                    fullProduct.NameGet || fullProduct.Name || this.excelProducts[index].Name
                 ),
                 Code:
                     fullProduct.DefaultCode ||
                     fullProduct.Barcode ||
                     this.excelProducts[index].Code,
-                QtyAvailable:
-                    fullProduct.QtyAvailable ??
-                    this.excelProducts[index].QtyAvailable,
-                Category:
-                    fullProduct.Categ?.Name ||
-                    this.excelProducts[index].Category,
+                QtyAvailable: fullProduct.QtyAvailable ?? this.excelProducts[index].QtyAvailable,
+                Category: fullProduct.Categ?.Name || this.excelProducts[index].Category,
                 HasFullDetails: true,
                 LastUpdated: new Date().toISOString(),
             };
@@ -506,13 +475,10 @@ class EnhancedProductSearchManager {
                     ...product,
                     ImageUrl: fullProduct.ImageUrl,
                     Thumbnails: fullProduct.Thumbnails,
-                    Price:
-                        fullProduct.PriceVariant ||
-                        fullProduct.ListPrice ||
-                        product.Price,
+                    Price: fullProduct.PriceVariant || fullProduct.ListPrice || product.Price,
                     Name: fullProduct.NameGet || fullProduct.Name || product.Name,
                     NameNoSign: this.removeVietnameseTones(
-                        fullProduct.NameGet || fullProduct.Name || product.Name,
+                        fullProduct.NameGet || fullProduct.Name || product.Name
                     ),
                     HasFullDetails: true,
                 };
@@ -531,23 +497,21 @@ class EnhancedProductSearchManager {
     // ========================================
 
     removeVietnameseTones(str) {
-        if (!str) return "";
+        if (!str) return '';
 
         return str
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/đ/g, "d")
-            .replace(/Đ/g, "D");
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D');
     }
 
     getStats() {
         return {
             totalSuggestions: this.excelProducts.length,
             cachedFullProducts: this.fullProductCache.size,
-            enrichedSuggestions: this.excelProducts.filter(
-                (p) => p.HasFullDetails,
-            ).length,
-            lastFetch: this.lastFetchTime || "Chưa tải",
+            enrichedSuggestions: this.excelProducts.filter((p) => p.HasFullDetails).length,
+            lastFetch: this.lastFetchTime || 'Chưa tải',
             isLoaded: this.isLoaded,
             cacheAge: this.getCacheAge(),
         };
@@ -556,19 +520,17 @@ class EnhancedProductSearchManager {
     getCacheAge() {
         try {
             const cached = sessionStorage.getItem(this.storageKey);
-            if (!cached) return "N/A";
+            if (!cached) return 'N/A';
 
             const data = JSON.parse(cached);
-            const ageMinutes = Math.floor(
-                (Date.now() - data.timestamp) / 1000 / 60,
-            );
+            const ageMinutes = Math.floor((Date.now() - data.timestamp) / 1000 / 60);
 
             if (ageMinutes < 60) return `${ageMinutes} phút`;
 
             const ageHours = Math.floor(ageMinutes / 60);
             return `${ageHours} giờ`;
         } catch {
-            return "N/A";
+            return 'N/A';
         }
     }
 
