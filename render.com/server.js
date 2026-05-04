@@ -747,9 +747,10 @@ class RealtimeClient {
 
             // Save to PostgreSQL for later retrieval
             if (this.db && conversation) {
+                const convType = conversation.type || 'INBOX';
                 const updateData = {
                     conversationId: conversation.id,
-                    type: conversation.type || 'INBOX',
+                    type: convType,
                     snippet: conversation.snippet || conversation.last_message?.message,
                     unreadCount: conversation.unread_count || 0,
                     pageId:
@@ -765,10 +766,17 @@ class RealtimeClient {
                         console.error('[SERVER-WS] Failed to save update:', err.message)
                     );
 
-                // Also upsert to pending_customers for tracking unread
-                upsertPendingCustomer(this.db, updateData).catch((err) =>
-                    console.error('[SERVER-WS] Failed to upsert pending:', err.message)
-                );
+                // Upsert pending_customers CHỈ cho INBOX — COMMENT events không nên
+                // tăng badge "tin nhắn mới" (badge này chỉ track inbox unread).
+                // Trước đây mọi update_conversation đều upsert → ON CONFLICT increment
+                // count cho row INBOX cũ → badge "20 tin nhắn mới" thực ra là 20 bình
+                // luận. Bug user báo: "đâu có tin nhắn mới, chỉ có bình luận mới mà nó
+                // ghi 20 tin nhắn mới".
+                if (convType === 'INBOX') {
+                    upsertPendingCustomer(this.db, updateData).catch((err) =>
+                        console.error('[SERVER-WS] Failed to upsert pending:', err.message)
+                    );
+                }
             }
         }
 
