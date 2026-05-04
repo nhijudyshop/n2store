@@ -360,10 +360,7 @@ router.post('/mark-replied', async (req, res) => {
 
 /**
  * POST /api/realtime/pending-customers/reset-counts
- * Admin tool: reset message_count về 1 cho mọi row pending_customers — dùng để
- * dọn dẹp count rác do bug cũ (COMMENT events tăng count của row INBOX trước khi
- * server fix filter type ở /api/realtime/pages:update_conversation handler).
- * Sau reset, count sẽ tăng đúng từ INBOX events mới.
+ * Legacy tool: reset message_count về 1 (giữ lại record nhưng count = 1).
  */
 router.post('/pending-customers/reset-counts', async (req, res) => {
     try {
@@ -378,6 +375,39 @@ router.post('/pending-customers/reset-counts', async (req, res) => {
     } catch (error) {
         console.error('[REALTIME-API] Error resetting counts:', error);
         res.status(500).json({ error: 'Failed to reset counts' });
+    }
+});
+
+/**
+ * POST /api/realtime/wipe-all
+ * Admin tool: XÓA TOÀN BỘ lịch sử cũ trong:
+ *   - pending_customers (badge tin nhắn / bình luận chưa đọc)
+ *   - realtime_updates (event log của Pancake updates)
+ * Sau wipe, hệ thống tự build lại từ events mới về (đã filter đúng INBOX-only
+ * theo fix server.js:769). Không động đến invoice_status_v2 / processing_tags.
+ * Dùng để clean slate sau bug count COMMENT-as-INBOX.
+ */
+router.post('/wipe-all', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+
+        const pcResult = await db.query(`DELETE FROM pending_customers RETURNING psid`);
+        const ruResult = await db.query(`DELETE FROM realtime_updates RETURNING id`);
+
+        console.log(
+            `[REALTIME-DB] WIPED ALL — pending_customers: ${pcResult.rowCount} rows, realtime_updates: ${ruResult.rowCount} rows`
+        );
+        res.json({
+            success: true,
+            wiped: {
+                pending_customers: pcResult.rowCount,
+                realtime_updates: ruResult.rowCount,
+            },
+        });
+    } catch (error) {
+        console.error('[REALTIME-API] Error wiping all:', error);
+        res.status(500).json({ error: 'Failed to wipe all', detail: error.message });
     }
 });
 
