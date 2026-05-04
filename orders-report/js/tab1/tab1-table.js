@@ -1389,7 +1389,7 @@ function createRowHTML(order) {
                 const finalSrc = cached || avatarUrl;
                 const wired = cached ? ' data-cache-wired="1"' : '';
                 return `<img src="${finalSrc}"${wired} class="customer-avatar" loading="lazy" onerror="this.style.display='none'">`;
-            })()}<span>${highlight(order.Name)}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
+            })()}<span>${highlight(window.CustomerPrefs?.getDisplayName ? window.CustomerPrefs.getDisplayName(order.Telephone, order.Name) : order.Name || '')}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     ${order.Telephone ? `<i class="fas fa-phone call-phone-btn" onclick="initiateCall('${order.Telephone}', '${(order.Name || '').replace(/'/g, "\\'")}', '${order.Code || ''}'); event.stopPropagation();" title="Gọi điện" style="cursor: pointer; color: #10b981; font-size: 11px;"></i>` : ''}

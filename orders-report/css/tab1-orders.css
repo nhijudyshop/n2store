@@ -7447,3 +7447,116 @@ td[data-column='cs-notes'] {
 .wallet-debt-badge:hover {
     filter: brightness(1.1);
 }
+
+/* =====================================================
+   CUSTOMER PREFS section trong popup info (.cip-prefs-section)
+   Nickname + Do-not-call toggle
+   ===================================================== */
+.cip-prefs-section {
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 14px;
+    background: #fafafa;
+}
+.cip-pref-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+.cip-pref-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    flex: 0 0 110px;
+}
+.cip-pref-control {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+}
+.cip-pref-control input[type='text'] {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.cip-pref-control input[type='text']:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+.cip-pref-save {
+    padding: 5px 10px;
+    background: #10b981;
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.cip-pref-save:hover {
+    background: #059669;
+}
+.cip-pref-toggle-row.cip-pref-active-danger {
+    background: #fee2e2;
+    border-radius: 6px;
+    padding-left: 8px;
+}
+.cip-pref-toggle {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    cursor: pointer;
+}
+.cip-pref-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.cip-pref-slider {
+    position: absolute;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 22px;
+    transition: 0.2s;
+}
+.cip-pref-slider::before {
+    position: absolute;
+    content: '';
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    top: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+.cip-pref-toggle input:checked + .cip-pref-slider {
+    background: #ef4444;
+}
+.cip-pref-toggle input:checked + .cip-pref-slider::before {
+    transform: translateX(18px);
+}
+.cip-pref-hint {
+    font-size: 11px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: #fee2e2;
+    border-radius: 6px;
+}
+.cip-pref-hint.cip-text-danger {
+    color: #991b1b;
+}
+
+/* Disable visual cho nút gọi khi phone in do-not-call list */
+.call-phone-btn.do-not-call {
+    color: #9ca3af !important;
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+.call-phone-btn.do-not-call:hover {
+    color: #ef4444 !important;
+    opacity: 1;
+}

@@ -600,7 +600,23 @@ function initiateCall(phone, customerName, orderCode) {
     const normalized = phone.replace(/[\s\-()]/g, '');
     if (normalized.length < 4) return;
 
-    const displayName = customerName || normalized;
+    // Do-not-call check — số này được toggle "Không gọi" trong popup customer info
+    if (window.CustomerPrefs?.isDoNotCall?.(normalized)) {
+        const nickOrName =
+            window.CustomerPrefs.getNickname(normalized) || customerName || normalized;
+        if (window.notificationManager?.error) {
+            window.notificationManager.error(
+                `🚫 ${nickOrName} đang bật chặn gọi. Mở popup khách → tắt toggle "Không gọi" để gọi lại.`,
+                4500
+            );
+        } else {
+            alert(`🚫 ${nickOrName} đang bật chặn gọi.`);
+        }
+        return;
+    }
+
+    const displayName =
+        window.CustomerPrefs?.getNickname?.(normalized) || customerName || normalized;
 
     // Use WebRTC PhoneWidget if available
     if (typeof PhoneWidget !== 'undefined') {

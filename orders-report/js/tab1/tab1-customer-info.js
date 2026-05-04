@@ -203,11 +203,122 @@
         </div>`
             : '';
 
+        // Nickname (biệt danh) + Do-not-call toggle — persist localStorage +
+        // Firebase RTDB (sync đa máy). Stored per-phone, không touch Pancake/TPOS.
+        const phone = c.phone || '';
+        const currentNick = window.CustomerPrefs?.getNickname?.(phone) || '';
+        const dnc = !!window.CustomerPrefs?.isDoNotCall?.(phone);
+        const safePhone = escapeHtml(phone);
+        const prefsHtml = phone
+            ? `<div class="cip-prefs-section">
+                <div class="cip-pref-row">
+                    <label class="cip-pref-label"><i class="fas fa-id-badge"></i> Biệt danh</label>
+                    <div class="cip-pref-control">
+                        <input type="text" id="cip-nickname-input" placeholder="Đặt biệt danh cho khách..." value="${escapeHtml(currentNick)}" />
+                        <button class="cip-pref-save" onclick="window._cipSaveNickname('${safePhone}')" title="Lưu biệt danh"><i class="fas fa-check"></i></button>
+                    </div>
+                </div>
+                <div class="cip-pref-row cip-pref-toggle-row ${dnc ? 'cip-pref-active-danger' : ''}">
+                    <label class="cip-pref-label"><i class="fas fa-phone-slash"></i> Không gọi</label>
+                    <label class="cip-pref-toggle">
+                        <input type="checkbox" id="cip-dnc-toggle" ${dnc ? 'checked' : ''} onchange="window._cipToggleDoNotCall('${safePhone}', this.checked)" />
+                        <span class="cip-pref-slider"></span>
+                    </label>
+                </div>
+                ${dnc ? '<div class="cip-pref-hint cip-text-danger"><i class="fas fa-exclamation-circle"></i> Số này đã bật chặn gọi — nút gọi sẽ disable</div>' : ''}
+            </div>`
+            : '';
+
         container.innerHTML = `
             <div class="cip-info">${rows.join('')}</div>
+            ${prefsHtml}
             ${notesHtml}
             ${addNoteHtml}
         `;
+    }
+
+    // ===== Save nickname / toggle do-not-call =====
+
+    window._cipSaveNickname = function (phone) {
+        const input = document.getElementById('cip-nickname-input');
+        if (!input || !window.CustomerPrefs) return;
+        const newNick = input.value.trim();
+        window.CustomerPrefs.setNickname(phone, newNick);
+        if (window.notificationManager?.success) {
+            window.notificationManager.success(
+                newNick ? `Đã đặt biệt danh: ${newNick}` : 'Đã xóa biệt danh',
+                2000
+            );
+        }
+        // Re-render row name in table (surgical)
+        _refreshCustomerNameInTable(phone, newNick);
+    };
+
+    window._cipToggleDoNotCall = function (phone, checked) {
+        if (!window.CustomerPrefs) return;
+        window.CustomerPrefs.setDoNotCall(phone, checked);
+        if (window.notificationManager?.success) {
+            window.notificationManager.success(
+                checked ? '🚫 Đã bật chặn gọi' : '☎ Đã tắt chặn gọi',
+                2000
+            );
+        }
+        // Re-render call buttons trong bảng cho phone này
+        _refreshCallButtonsInTable(phone);
+        // Re-render popup hint
+        const popup = document.getElementById('customerInfoPopup');
+        const row = popup?.querySelector('.cip-pref-toggle-row');
+        if (row) row.classList.toggle('cip-pref-active-danger', checked);
+        const hint = popup?.querySelector('.cip-pref-hint');
+        if (checked && !hint) {
+            row?.insertAdjacentHTML(
+                'afterend',
+                '<div class="cip-pref-hint cip-text-danger"><i class="fas fa-exclamation-circle"></i> Số này đã bật chặn gọi — nút gọi sẽ disable</div>'
+            );
+        } else if (!checked && hint) {
+            hint.remove();
+        }
+    };
+
+    // ===== Helpers to re-render table rows when prefs change =====
+
+    function _refreshCustomerNameInTable(phone, newNick) {
+        // Tìm rows có Telephone match phone → update span tên (giữ wallet badge)
+        const norm = window.CustomerPrefs?._normalizePhone?.(phone);
+        if (!norm) return;
+        const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
+        const orderIds = allData
+            .filter((o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm)
+            .map((o) => o.Id);
+        for (const orderId of orderIds) {
+            const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+            if (!row) continue;
+            const nameSpan = row.querySelector('.customer-name > span:first-of-type');
+            if (!nameSpan) continue;
+            const order = allData.find((o) => o.Id === orderId);
+            const display = newNick || order?.Name || '';
+            // Preserve highlight wrapper nếu có search
+            if (typeof window.highlight === 'function') {
+                nameSpan.innerHTML = window.highlight(display);
+            } else {
+                nameSpan.textContent = display;
+            }
+        }
+    }
+
+    function _refreshCallButtonsInTable(phone) {
+        const norm = window.CustomerPrefs?._normalizePhone?.(phone);
+        if (!norm) return;
+        const dnc = window.CustomerPrefs.isDoNotCall(phone);
+        document.querySelectorAll('.call-phone-btn').forEach((btn) => {
+            const onclick = btn.getAttribute('onclick') || '';
+            const m = onclick.match(/initiateCall\('([^']+)'/);
+            if (!m) return;
+            const btnPhone = window.CustomerPrefs._normalizePhone(m[1]);
+            if (btnPhone !== norm) return;
+            btn.classList.toggle('do-not-call', dnc);
+            btn.title = dnc ? 'Số này đã bật chặn gọi' : 'Gọi điện';
+        });
     }
 
     // ===== Add Note =====
