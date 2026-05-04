@@ -65,9 +65,44 @@ function updateOrderInTable(orderId, updatedOrderData) {
             console.log('[UPDATE] ✓ Tags updated inline (no scroll reset)');
         }
     } else {
-        // Re-apply all filters and re-render table for non-tag updates.
-        // Dùng debounced wrapper để coalesce burst WS updates (TPOS realtime) —
-        // tránh re-render liên tục gây giật ngang bảng khi nhiều đơn cùng update.
+        // Surgical row replace: build new HTML cho 1 row và swap trong tbody —
+        // tránh schedulePerformTableSearch full re-render 50 rows mỗi WS update.
+        // Chỉ fallback full re-render khi: (a) row không có trong DOM (filter ẩn),
+        // (b) employee view bật (nhiều bảng), (c) sort active (vị trí có thể đổi).
+        const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
+        const existingRow = order && document.querySelector(`tr[data-order-id="${orderId}"]`);
+        const canSurgicalReplace =
+            !!existingRow &&
+            !window.employeeViewMode &&
+            !window.currentSortColumn &&
+            typeof createRowHTML === 'function';
+
+        if (canSurgicalReplace) {
+            try {
+                const html = createRowHTML(order);
+                if (html) {
+                    const tmp = document.createElement('tbody');
+                    tmp.innerHTML = html;
+                    const newRow = tmp.firstElementChild;
+                    if (newRow) {
+                        existingRow.replaceWith(newRow);
+                        // Re-apply badges trên row mới (notifier observer chỉ scan
+                        // childList add — replaceWith add → trigger observer OK).
+                        if (window.newMessagesNotifier?.reapply) {
+                            setTimeout(() => window.newMessagesNotifier.reapply(), 0);
+                        }
+                        console.log('[UPDATE] ✓ Surgical row replaced (no full re-render)');
+                        // Update stats và return sớm — không call schedulePerformTableSearch.
+                        if (typeof updateStats === 'function') updateStats();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('[UPDATE] Surgical replace failed, fallback full render:', e.message);
+            }
+        }
+
+        // Fallback: full re-render (debounce coalesce WS bursts)
         if (typeof window.schedulePerformTableSearch === 'function') {
             window.schedulePerformTableSearch(150);
         } else {
