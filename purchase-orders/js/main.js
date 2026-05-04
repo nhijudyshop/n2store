@@ -397,6 +397,72 @@ class PurchaseOrderController {
 
         // Check overdue notes and show banner
         this.checkOverdueNotes();
+        // Check trash items sắp bị xóa vĩnh viễn (≤2 ngày) → warning banner toàn web
+        this.checkExpiringTrash();
+    }
+
+    /**
+     * Check trash items với daysRemaining ≤ 2 → render warning banner.
+     * Banner hiển thị ở mọi tab (cố định trên main-content), click để chuyển Thùng rác.
+     */
+    async checkExpiringTrash() {
+        const banner = document.getElementById('trashExpiringBanner');
+        if (!banner) return;
+        try {
+            const config = window.PurchaseOrderConfig;
+            const retention = config?.TRASH_RETENTION_DAYS || 7;
+            const warnDays = 2;
+            const cutoffMs = (retention - warnDays) * 24 * 60 * 60 * 1000;
+            const service = window.purchaseOrderService;
+            // Cache 60s — fetch full trash là expensive, không cần realtime cho banner.
+            const TTL = 60_000;
+            if (!this._expiringTrashCache) this._expiringTrashCache = { ts: 0, data: null };
+            let result;
+            if (this._expiringTrashCache.data && Date.now() - this._expiringTrashCache.ts < TTL) {
+                result = this._expiringTrashCache.data;
+            } else {
+                result = await service.getOrdersByStatus(config.OrderStatus.DELETED, {
+                    pageSize: 200,
+                });
+                this._expiringTrashCache = { ts: Date.now(), data: result };
+            }
+            const now = Date.now();
+            const expiring = (result.orders || []).filter((o) => {
+                const deletedAtRaw = o.deletedAt?.toDate ? o.deletedAt.toDate() : o.deletedAt;
+                if (!deletedAtRaw) return false;
+                const deletedMs = new Date(deletedAtRaw).getTime();
+                return now - deletedMs >= cutoffMs;
+            });
+            if (expiring.length === 0) {
+                banner.hidden = true;
+                banner.innerHTML = '';
+                return;
+            }
+            // Hiển thị banner
+            const minDaysLeft = Math.min(
+                ...expiring.map((o) => {
+                    const deletedAt = new Date(
+                        o.deletedAt?.toDate ? o.deletedAt.toDate() : o.deletedAt
+                    );
+                    const expiry = deletedAt.getTime() + retention * 24 * 60 * 60 * 1000;
+                    return Math.max(0, Math.ceil((expiry - now) / (24 * 60 * 60 * 1000)));
+                })
+            );
+            banner.innerHTML = `
+                <i data-lucide="alert-triangle" class="trash-warning-banner__icon"></i>
+                <div class="trash-warning-banner__content">
+                    <div class="trash-warning-banner__title">Cảnh báo: ${expiring.length} đơn trong thùng rác sắp bị xóa vĩnh viễn</div>
+                    <div class="trash-warning-banner__detail">${expiring.length} đơn còn ${minDaysLeft} ngày trước khi hệ thống tự xóa. Khôi phục ngay nếu cần.</div>
+                </div>
+                <span class="trash-warning-banner__action">Mở thùng rác →</span>
+            `;
+            banner.hidden = false;
+            banner.onclick = () => this.handleTabChange(config.OrderStatus.DELETED);
+            if (window.lucide) window.lucide.createIcons();
+        } catch (err) {
+            console.warn('[PurchaseOrders] checkExpiringTrash failed:', err);
+            banner.hidden = true;
+        }
     }
 
     /**
@@ -681,6 +747,9 @@ class PurchaseOrderController {
 
         // Re-render filter bar for Firestore tabs
         this.renderFilterBarWithHandlers();
+
+        // Refresh trash warning banner sau mỗi tab change (background, no await)
+        this.checkExpiringTrash();
     }
 
     /**

@@ -198,10 +198,10 @@ class PurchaseOrderDataManager {
         }
     }
 
-    /** Invalidate list cache — gọi sau mọi mutation để tránh stale data ở các tab. */
+    /** Invalidate list + stats cache — gọi sau mọi mutation để tránh stale data ở các tab. */
     invalidateListCache() {
         for (const key of [...this.cache.keys()]) {
-            if (key.startsWith('list_')) this.cache.delete(key);
+            if (key.startsWith('list_') || key.startsWith('stats_')) this.cache.delete(key);
         }
     }
 
@@ -228,11 +228,23 @@ class PurchaseOrderDataManager {
      */
     async loadStatsAndCounts() {
         const service = window.purchaseOrderService;
+        // Cache stats 30s — gọi rất thường xuyên (init + mọi mutation refresh).
+        // Invalidate qua invalidateListCache() (đã xoá toàn bộ list_* + stats_*).
+        const cacheKey = 'stats_counts';
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+            this.stats = cached.data.stats;
+            this.statusCounts = cached.data.counts;
+            this.emit('statsChange', this.stats);
+            this.emit('statusCountsChange', this.statusCounts);
+            return;
+        }
 
         try {
             const { stats, counts } = await service.getStatsAndCounts();
             this.stats = stats;
             this.statusCounts = counts;
+            this.cache.set(cacheKey, { data: { stats, counts }, timestamp: Date.now() });
             this.emit('statsChange', this.stats);
             this.emit('statusCountsChange', this.statusCounts);
         } catch (error) {
