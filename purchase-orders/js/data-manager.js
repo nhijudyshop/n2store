@@ -488,11 +488,28 @@ class PurchaseOrderDataManager {
 
             this.emit('orderDeleted', orderId);
         } catch (error) {
+            // 404/đơn không tồn tại = đã xoá thành công ở lần trước (race) → không setError
+            // (setError → errorChange → overlay "Không thể tải dữ liệu" che cả bảng).
+            if (this._isAlreadyGoneError(error)) {
+                this.orders = this.orders.filter((o) => o.id !== orderId);
+                this.emit('ordersChange', this.orders);
+                this.invalidateListCache();
+                this.cache.delete(`order_${orderId}`);
+                this.emit('orderDeleted', orderId);
+                return;
+            }
             this.setError(error);
             throw error;
         } finally {
             this.setLoading(false);
         }
+    }
+
+    /** Detect "đơn không tồn tại" error (404 race) — không phải lỗi nghiêm trọng. */
+    _isAlreadyGoneError(error) {
+        if (!error) return false;
+        const msg = error.userMessage || error.message || '';
+        return /không tồn tại|not found|404/i.test(msg);
     }
 
     /**
@@ -519,6 +536,15 @@ class PurchaseOrderDataManager {
 
             this.emit('orderRestored', orderId);
         } catch (error) {
+            // Race condition: đã restore lần trước → 404. Coi như thành công.
+            if (this._isAlreadyGoneError(error)) {
+                this.orders = this.orders.filter((o) => o.id !== orderId);
+                this.emit('ordersChange', this.orders);
+                this.invalidateListCache();
+                this.cache.delete(`order_${orderId}`);
+                this.emit('orderRestored', orderId);
+                return;
+            }
             this.setError(error);
             throw error;
         } finally {
@@ -549,6 +575,15 @@ class PurchaseOrderDataManager {
 
             this.emit('orderPermanentDeleted', orderId);
         } catch (error) {
+            // Race condition: đã xoá vĩnh viễn lần trước → 404. Coi như thành công.
+            if (this._isAlreadyGoneError(error)) {
+                this.orders = this.orders.filter((o) => o.id !== orderId);
+                this.emit('ordersChange', this.orders);
+                this.invalidateListCache();
+                this.cache.delete(`order_${orderId}`);
+                this.emit('orderPermanentDeleted', orderId);
+                return;
+            }
             this.setError(error);
             throw error;
         } finally {

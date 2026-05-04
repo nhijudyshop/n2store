@@ -281,6 +281,9 @@ class PurchaseOrderController {
                     this.ui.renderErrorState(error, this.elements.tableContainer, () => {
                         this.dataManager.refresh();
                     });
+                } else {
+                    // Error cleared → re-render bảng để overlay biến mất.
+                    this.renderTableForCurrentPage();
                 }
             })
         );
