@@ -1300,8 +1300,48 @@
                         🎆 Bắn Pháo Hoa
                     </button>
                 </div>
+                <button
+                    id="openPendingBadgeAdminBtn"
+                    class="admin-action-btn"
+                    style="
+                        margin-top: 12px;
+                        width: 100%;
+                        padding: 8px 12px;
+                        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                        color: #fff;
+                        border: 0;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        transition: opacity 0.15s;
+                    "
+                >
+                    🔔 Quản lý badge tin nhắn
+                </button>
             </div>
         </div>
+        <script>
+            // Wire button: postMessage tới iframe orders để mở modal quản lý
+            (function () {
+                const btn = document.getElementById('openPendingBadgeAdminBtn');
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    const f = document.getElementById('ordersFrame');
+                    if (f && f.contentWindow) {
+                        f.contentWindow.postMessage({ type: 'OPEN_PENDING_BADGE_ADMIN' }, '*');
+                    }
+                    // Đóng panel admin sau khi click
+                    document.getElementById('adminSettingsPanel')?.classList.remove('show');
+                });
+                btn.addEventListener('mouseenter', () => (btn.style.opacity = '0.9'));
+                btn.addEventListener('mouseleave', () => (btn.style.opacity = '1'));
+            })();
+        </script>
         <script src="js/celebration.js"></script>
     </body>
 </html>
