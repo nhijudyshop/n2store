@@ -80,7 +80,7 @@ function removeRowsFromCurrentView(receiptIds, updatedCachedData) {
     // Update "Tổng X phiếu" summary row
     if (tbodyEl) {
         const remainingDataRows = tbodyEl.querySelectorAll('tr[data-receipt-id]').length;
-        const summaryRow = tbodyEl.querySelector('tr td[colspan="9"]');
+        const summaryRow = tbodyEl.querySelector('tr td[colspan="8"]');
         if (summaryRow) {
             // Có thể là summary row hoặc empty/warning row
             const text = summaryRow.textContent;
@@ -95,7 +95,7 @@ function removeRowsFromCurrentView(receiptIds, updatedCachedData) {
             tbodyEl.innerHTML = '';
             const emptyRow = document.createElement('tr');
             const emptyTd = document.createElement('td');
-            emptyTd.colSpan = 9;
+            emptyTd.colSpan = 8;
             emptyTd.textContent = 'Không có dữ liệu';
             emptyTd.style.textAlign = 'center';
             emptyTd.style.padding = '20px';
@@ -404,23 +404,7 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     const cellDate = document.createElement('td');
     cellDate.textContent = receipt.thoiGianNhan || 'Chưa nhập';
 
-    // Cell 5: Trạng thái kiểm tra
-    const cellStatus = document.createElement('td');
-    cellStatus.className = 'cell-status';
-    const pill = document.createElement('span');
-    if (isChecked) {
-        pill.className = 'status-pill checked';
-        pill.innerHTML = '<i data-lucide="check-circle-2"></i> Đã kiểm tra';
-        pill.title = receipt.kiemTraBy
-            ? `Kiểm tra bởi ${sanitizeInput(receipt.kiemTraBy)}${receipt.kiemTraAt ? ' lúc ' + sanitizeInput(receipt.kiemTraAt) : ''}`
-            : 'Đã kiểm tra';
-    } else {
-        pill.className = 'status-pill unchecked';
-        pill.innerHTML = '<i data-lucide="circle-dashed"></i> Chưa kiểm tra';
-    }
-    cellStatus.appendChild(pill);
-
-    // Cell 6: Thao tác
+    // Cell 5: Thao tác
     const cellActions = document.createElement('td');
     const actionContainer = document.createElement('div');
     actionContainer.className = 'action-buttons';
@@ -489,7 +473,6 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     tr.appendChild(cellGhiChu);
     tr.appendChild(cellImage);
     tr.appendChild(cellDate);
-    tr.appendChild(cellStatus);
     tr.appendChild(cellActions);
 
     return tr;
@@ -574,7 +557,7 @@ function renderDataToTable(dataArray) {
     if (sortedData.length === 0) {
         const emptyRow = document.createElement('tr');
         const emptyTd = document.createElement('td');
-        emptyTd.colSpan = 9;
+        emptyTd.colSpan = 8;
         emptyTd.textContent = 'Không có dữ liệu';
         emptyTd.style.textAlign = 'center';
         emptyTd.style.padding = '20px';
@@ -590,7 +573,7 @@ function renderDataToTable(dataArray) {
     summaryRow.style.backgroundColor = '#f8f9fa';
     summaryRow.style.fontWeight = 'bold';
     const summaryTd = document.createElement('td');
-    summaryTd.colSpan = 9;
+    summaryTd.colSpan = 8;
     summaryTd.textContent = `Tổng: ${sortedData.length} phiếu nhận`;
     summaryTd.style.textAlign = 'center';
     summaryTd.style.color = '#007bff';
@@ -636,7 +619,7 @@ function renderDataToTable(dataArray) {
         warningRow.style.backgroundColor = '#fff3cd';
         warningRow.style.color = '#856404';
         const warningTd = document.createElement('td');
-        warningTd.colSpan = 9;
+        warningTd.colSpan = 8;
         warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${sortedData.length} phiếu nhận. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
         warningTd.style.textAlign = 'center';
         warningTd.style.padding = '8px';
