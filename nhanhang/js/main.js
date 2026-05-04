@@ -14,6 +14,25 @@ let customDateRange = {
 // Tab state: 'unchecked' (default) | 'checked'
 let activeCheckTab = 'unchecked';
 
+// Cutoff (GMT+7): phiếu có thoiGianNhan < UNCHECKED_TAB_CUTOFF_STR
+// được coi như "đã kiểm tra ngầm" → ẩn khỏi tab "Chưa KT", hiện ở tab "Đã KT".
+// User muốn chỉ làm việc với phiếu từ 01/04/2026 trở đi (data trước đó là legacy).
+const UNCHECKED_TAB_CUTOFF_STR = '2026-04-01'; // YYYY-MM-DD, inclusive
+
+/**
+ * Check xem 1 receipt có được coi là "đã kiểm tra" không.
+ * = đã có flag daKiemTra=true HOẶC có thoiGianNhan trước cutoff (legacy data).
+ */
+function isReceiptChecked(receipt) {
+    if (receipt.daKiemTra) return true;
+    const d = parseVietnameseDate(receipt.thoiGianNhan);
+    if (!d) return false; // không parse được → giữ ở "Chưa KT" để user xử lý
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}` < UNCHECKED_TAB_CUTOFF_STR;
+}
+
 // Selection state for bulk actions (set of receipt IDs)
 const selectedReceiptIds = new Set();
 
@@ -136,8 +155,8 @@ function updateBulkActionBar() {
  */
 function filterByCheckTab(dataArray, tab = activeCheckTab) {
     return dataArray.filter((r) => {
-        const isChecked = !!r.daKiemTra;
-        return tab === 'checked' ? isChecked : !isChecked;
+        const checked = isReceiptChecked(r);
+        return tab === 'checked' ? checked : !checked;
     });
 }
 
@@ -170,8 +189,9 @@ function applyFiltersToData(dataArray) {
 
     return dataArray.filter((receipt) => {
         // Tab filter: chưa kiểm tra (default) hoặc đã kiểm tra
-        const isChecked = !!receipt.daKiemTra;
-        const matchTab = activeCheckTab === 'checked' ? isChecked : !isChecked;
+        // Bao gồm cả legacy: phiếu trước UNCHECKED_TAB_CUTOFF_STR coi như đã kiểm tra ngầm
+        const checked = isReceiptChecked(receipt);
+        const matchTab = activeCheckTab === 'checked' ? checked : !checked;
         if (!matchTab) return false;
 
         const matchUser = filterUser === 'all' || receipt.tenNguoiNhan === filterUser;
@@ -334,7 +354,7 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     const tr = document.createElement('tr');
     tr.setAttribute('data-receipt-id', receipt.id || '');
 
-    const isChecked = !!receipt.daKiemTra;
+    const isChecked = isReceiptChecked(receipt);
     if (isChecked) tr.classList.add('row-checked');
     if (selectedReceiptIds.has(receipt.id)) tr.classList.add('row-selected');
 
@@ -703,7 +723,7 @@ function renderMobileCards(sortedData) {
             const date = sanitizeInput(receipt.thoiGianNhan || 'Chưa nhập');
             const ghiChu = sanitizeInput(receipt.ghiChu || '');
             const hasImage = !!receipt.anhNhanHang;
-            const isChecked = !!receipt.daKiemTra;
+            const isChecked = isReceiptChecked(receipt);
             const isSelected = selectedReceiptIds.has(receipt.id);
             const thumbHtml = hasImage
                 ? `<img class="m-receipt-thumb" src="${receipt.anhNhanHang}" alt="Ảnh" loading="lazy">`
