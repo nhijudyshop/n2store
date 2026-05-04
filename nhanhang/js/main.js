@@ -14,23 +14,14 @@ let customDateRange = {
 // Tab state: 'unchecked' (default) | 'checked'
 let activeCheckTab = 'unchecked';
 
-// Cutoff (GMT+7): phiếu có thoiGianNhan < UNCHECKED_TAB_CUTOFF_STR
-// được coi như "đã kiểm tra ngầm" → ẩn khỏi tab "Chưa KT", hiện ở tab "Đã KT".
-// User muốn chỉ làm việc với phiếu từ 01/04/2026 trở đi (data trước đó là legacy).
-const UNCHECKED_TAB_CUTOFF_STR = '2026-04-01'; // YYYY-MM-DD, inclusive
-
 /**
  * Check xem 1 receipt có được coi là "đã kiểm tra" không.
- * = đã có flag daKiemTra=true HOẶC có thoiGianNhan trước cutoff (legacy data).
+ * Chỉ dựa vào flag `daKiemTra` trong Firestore.
+ * (Backfill 04/05/2026: 239 phiếu trước 01/04/2026 đã được set daKiemTra=true,
+ * kiemTraBy=admin, kiemTraAt="04/05/2026, 09:47" — xem dev-log.)
  */
 function isReceiptChecked(receipt) {
-    if (receipt.daKiemTra) return true;
-    const d = parseVietnameseDate(receipt.thoiGianNhan);
-    if (!d) return false; // không parse được → giữ ở "Chưa KT" để user xử lý
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dd}` < UNCHECKED_TAB_CUTOFF_STR;
+    return !!receipt.daKiemTra;
 }
 
 // Selection state for bulk actions (set of receipt IDs)
