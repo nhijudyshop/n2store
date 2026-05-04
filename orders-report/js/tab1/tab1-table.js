@@ -1378,7 +1378,18 @@ function createRowHTML(order) {
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>
-            <td data-column="customer" ${typeof hasWalletDebt === 'function' && hasWalletDebt(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name" onclick="if(window.openCustomerInfoPopup)openCustomerInfoPopup('${order.Telephone || ''}','${(order.Name || '').replace(/'/g, "\\'")}',this);event.stopPropagation();" style="cursor:pointer;display:flex;align-items:center;gap:6px;" title="Xem thông tin khách hàng">${order.Facebook_ASUserId ? `<img src="https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${order.Facebook_ASUserId}${pageId ? '&page=' + pageId : ''}" class="customer-avatar" loading="lazy" onerror="this.style.display='none'">` : ''}<span>${highlight(order.Name)}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
+            <td data-column="customer" ${typeof hasWalletDebt === 'function' && hasWalletDebt(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name" onclick="if(window.openCustomerInfoPopup)openCustomerInfoPopup('${order.Telephone || ''}','${(order.Name || '').replace(/'/g, "\\'")}',this);event.stopPropagation();" style="cursor:pointer;display:flex;align-items:center;gap:6px;" title="Xem thông tin khách hàng">${(() => {
+                if (!order.Facebook_ASUserId) return '';
+                const avatarUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${order.Facebook_ASUserId}${pageId ? '&page=' + pageId : ''}`;
+                // Pre-resolve blob URL từ mem cache nếu đã wire trước đó →
+                // tránh fetch URL gốc (và flicker tạm thời) khi surgical row replace.
+                // Nếu chưa wire (lần đầu), trả về URL gốc + auto-observer của
+                // image-cache sẽ wire sau DOM insert.
+                const cached = window.ImageCache?.getUrlSync?.(avatarUrl);
+                const finalSrc = cached || avatarUrl;
+                const wired = cached ? ' data-cache-wired="1"' : '';
+                return `<img src="${finalSrc}"${wired} class="customer-avatar" loading="lazy" onerror="this.style.display='none'">`;
+            })()}<span>${highlight(order.Name)}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     ${order.Telephone ? `<i class="fas fa-phone call-phone-btn" onclick="initiateCall('${order.Telephone}', '${(order.Name || '').replace(/'/g, "\\'")}', '${order.Code || ''}'); event.stopPropagation();" title="Gọi điện" style="cursor: pointer; color: #10b981; font-size: 11px;"></i>` : ''}

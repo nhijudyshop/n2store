@@ -143,6 +143,21 @@
         return url;
     }
 
+    // In-memory blob URL cache: remoteUrl → blob: object URL (string).
+    // Tái dùng cùng 1 blob URL across nhiều <img> + nhiều surgical row replaces.
+    // Tránh tạo URL.createObjectURL mới mỗi lần (mỗi blob URL = decode session
+    // riêng; với surgical replace tần suất cao, browser re-decode → flicker avatar).
+    const _memBlobUrls = new Map();
+
+    /**
+     * Sync lookup blob URL trong memory cache. Trả về null nếu chưa wired.
+     * Dùng cho fast-path autoCacheImg để set src đồng bộ → không flicker.
+     */
+    function getUrlSync(remoteUrl) {
+        if (!remoteUrl) return null;
+        return _memBlobUrls.get(remoteUrl) || null;
+    }
+
     /**
      * Get blob URL (object URL từ cache, hoặc direct URL nếu cache fail).
      * Caller KHÔNG cần revoke — object URL valid suốt session.
@@ -151,9 +166,17 @@
      */
     async function getUrl(remoteUrl) {
         if (!remoteUrl) return remoteUrl;
+        // Mem cache fast path
+        const memUrl = _memBlobUrls.get(remoteUrl);
+        if (memUrl) return memUrl;
+
         try {
             const cached = await get(remoteUrl);
-            if (cached) return URL.createObjectURL(cached);
+            if (cached) {
+                const blobUrl = URL.createObjectURL(cached);
+                _memBlobUrls.set(remoteUrl, blobUrl);
+                return blobUrl;
+            }
 
             // Fetch + cache. Wrap qua proxy nếu domain không cho CORS.
             const fetchUrl = toCorsUrl(remoteUrl);
@@ -161,7 +184,9 @@
             if (!res.ok) return remoteUrl;
             const blob = await res.blob();
             put(remoteUrl, blob).catch(() => {});
-            return URL.createObjectURL(blob);
+            const blobUrl = URL.createObjectURL(blob);
+            _memBlobUrls.set(remoteUrl, blobUrl);
+            return blobUrl;
         } catch (e) {
             return remoteUrl; // fallback
         }
@@ -373,6 +398,17 @@
         const src = img.getAttribute('src') || img.src;
         if (!shouldAutoCache(src)) return;
         img.setAttribute('data-cache-wired', '1');
+
+        // SYNC fast path: nếu blob URL đã có trong mem cache (URL này đã wire 1
+        // lần trước) → set src ngay đồng bộ → KHÔNG flicker.
+        // Chỉ áp dụng khi setUrlSync ra blob:... hợp lệ — tránh ghi cùng URL gốc
+        // gây loop observer.
+        const memUrl = _memBlobUrls.get(src);
+        if (memUrl && memUrl !== src) {
+            img.src = memUrl;
+            return;
+        }
+
         setImgSrc(img, src);
     }
 
@@ -421,6 +457,7 @@
 
     window.ImageCache = {
         getUrl,
+        getUrlSync,
         prefetch,
         cleanup,
         sizeCheck,
