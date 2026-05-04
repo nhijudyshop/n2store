@@ -1009,109 +1009,123 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
  * Load messages for a conversation
  * @param {object} [opts] - { signal } for AbortController propagation
  */
+/**
+ * Apply messages result vào state + render. Tách thành function riêng để
+ * SWR pattern: gọi 1 lần với cached, gọi lại khi revalidate có fresh data.
+ */
+function _applyMessagesResult(result, pageId, conversationId) {
+    if (!result) return;
+
+    // Store conversation data (for extension bypass - thread_id, global_id)
+    if (result.conversation) {
+        const rc = result.conversation;
+        if (!window.currentConversationData) window.currentConversationData = {};
+        const existingThreadId =
+            window.currentConversationData.thread_id ||
+            window.currentConversationData._raw?.thread_id;
+        window.currentConversationData._raw = rc;
+        if (!rc.thread_id && existingThreadId) {
+            rc.thread_id = existingThreadId;
+        }
+        window.currentConversationData.customers = result.customers || [];
+        window.currentConversationData._messagesData = {
+            customers: result.customers || [],
+            post: result.post || null,
+            activities: result.activities || [],
+        };
+
+        const gid =
+            result.global_id ||
+            rc.page_customer?.global_id ||
+            (result.customers || []).find((c) => c.global_id)?.global_id;
+        if (gid) {
+            const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
+            _setGlobalIdCache(cacheKey, gid);
+            window.currentConversationData._globalId = gid;
+        }
+
+        window.currentConversationData._canInbox = result.can_inbox ?? true;
+    }
+
+    // Map messages
+    const messages = (result.messages || []).map((msg) => {
+        const isFromPage = msg.from?.id === pageId;
+        const text = msg.original_message || _stripHtml(msg.message || '');
+        return {
+            id: msg.id,
+            text,
+            time: _parseTimestamp(msg.inserted_at || msg.created_time) || new Date(),
+            sender: isFromPage ? 'shop' : 'customer',
+            senderName: msg.from?.name || '',
+            fromId: msg.from?.id || '',
+            attachments: msg.attachments || [],
+            reactions: (msg.attachments || []).filter((a) => a.type === 'reaction'),
+            reactionSummary: msg.reaction_summary || msg.reactions || null,
+            isHidden: msg.is_hidden || false,
+            isRemoved: msg.is_removed || false,
+            canHide: msg.can_hide !== false,
+            canRemove: msg.can_remove !== false,
+            canLike: msg.can_like !== false,
+            userLikes: msg.user_likes || false,
+            parentId: msg.parent_id || null,
+            canReplyPrivately: msg.can_reply_privately || false,
+            privateReplyConversation: msg.private_reply_conversation || null,
+        };
+    });
+
+    if (window.currentConversationType === 'COMMENT' && window.PrivateReplyStore) {
+        messages.forEach((m) => {
+            if (m.privateReplyConversation && !window.PrivateReplyStore.has(m.id)) {
+                window.PrivateReplyStore.mark(m.id, m.text, m.senderName);
+            }
+        });
+    }
+
+    // Reconcile optimistic placeholders với fresh data
+    const survivors = window
+        ._reconcileOptimisticReplies(window.allChatMessages, messages)
+        .filter((m) => typeof m.id === 'string' && m.id.startsWith('pr_'));
+    if (survivors.length) messages.push(...survivors);
+
+    window.allChatMessages = messages;
+    window.currentChatCursor = result.current_count || messages.length;
+
+    if (window.renderChatMessages) {
+        window.renderChatMessages(messages);
+    }
+
+    // Fire-and-forget DB sync (chỉ khi fresh data, không fire-on-cache để tránh dup)
+    if (!result.fromCache) {
+        _syncPancakeCustomerToDB(result, pageId);
+    }
+}
+
 async function _loadMessages(pageId, conversationId, customerId, loadToken, opts = {}) {
     const pdm = window.pancakeDataManager;
     if (!pdm) return;
     if (loadToken == null) loadToken = window._chatLoadSeq;
     const _isStale = () => loadToken !== window._chatLoadSeq;
 
+    // SWR: callback re-render khi background revalidate trả fresh data.
+    // Tận dụng cùng processing chain qua _applyMessagesResult().
+    const onRevalidate = (fresh) => {
+        if (_isStale()) return;
+        try {
+            _applyMessagesResult(fresh, pageId, conversationId);
+        } catch (e) {
+            console.warn('[CHAT] revalidate apply failed:', e?.message || e);
+        }
+    };
+
     try {
         // P5: throwOnError — let error bubble to openChatModal catch which shows retry button
         const result = await pdm.fetchMessages(pageId, conversationId, null, customerId, false, {
             signal: opts.signal,
             throwOnError: true,
+            onRevalidate,
         });
         if (_isStale()) return;
-
-        // Store conversation data (for extension bypass - thread_id, global_id)
-        if (result.conversation) {
-            const rc = result.conversation;
-            if (!window.currentConversationData) window.currentConversationData = {};
-            // Preserve thread_id from conversation list API (messages API often lacks it)
-            const existingThreadId =
-                window.currentConversationData.thread_id ||
-                window.currentConversationData._raw?.thread_id;
-            window.currentConversationData._raw = rc;
-            if (!rc.thread_id && existingThreadId) {
-                rc.thread_id = existingThreadId;
-            }
-            window.currentConversationData.customers = result.customers || [];
-            window.currentConversationData._messagesData = {
-                customers: result.customers || [],
-                post: result.post || null,
-                activities: result.activities || [],
-            };
-
-            // Proactive global_id caching — use rich data from messages response
-            const gid =
-                result.global_id ||
-                rc.page_customer?.global_id ||
-                (result.customers || []).find((c) => c.global_id)?.global_id;
-            if (gid) {
-                const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
-                _setGlobalIdCache(cacheKey, gid);
-                // Store on conv data for extension bypass reuse (avoids re-fetch)
-                window.currentConversationData._globalId = gid;
-            }
-
-            // Store can_inbox flag
-            window.currentConversationData._canInbox = result.can_inbox ?? true;
-        }
-
-        // Map messages
-        const messages = (result.messages || []).map((msg) => {
-            const isFromPage = msg.from?.id === pageId;
-            const text = msg.original_message || _stripHtml(msg.message || '');
-            return {
-                id: msg.id,
-                text,
-                time: _parseTimestamp(msg.inserted_at || msg.created_time) || new Date(),
-                sender: isFromPage ? 'shop' : 'customer',
-                senderName: msg.from?.name || '',
-                fromId: msg.from?.id || '',
-                attachments: msg.attachments || [],
-                reactions: (msg.attachments || []).filter((a) => a.type === 'reaction'),
-                reactionSummary: msg.reaction_summary || msg.reactions || null,
-                isHidden: msg.is_hidden || false,
-                isRemoved: msg.is_removed || false,
-                canHide: msg.can_hide !== false,
-                canRemove: msg.can_remove !== false,
-                canLike: msg.can_like !== false,
-                userLikes: msg.user_likes || false,
-                parentId: msg.parent_id || null,
-                canReplyPrivately: msg.can_reply_privately || false,
-                privateReplyConversation: msg.private_reply_conversation || null,
-            };
-        });
-
-        // Auto-mark private reply messages in store (for cross-device sync)
-        if (window.currentConversationType === 'COMMENT' && window.PrivateReplyStore) {
-            messages.forEach((m) => {
-                if (m.privateReplyConversation && !window.PrivateReplyStore.has(m.id)) {
-                    window.PrivateReplyStore.mark(m.id, m.text, m.senderName);
-                }
-            });
-        }
-
-        // Reconcile any optimistic private-reply placeholders ("pr_*") with
-        // real shop messages from server (text+60s match). Surviving optimistic
-        // are appended so user still sees their pending sends.
-        const survivors = window
-            ._reconcileOptimisticReplies(window.allChatMessages, messages)
-            .filter((m) => typeof m.id === 'string' && m.id.startsWith('pr_'));
-        if (survivors.length) messages.push(...survivors);
-
-        window.allChatMessages = messages;
-        // Use API pagination value if available, fallback to array length
-        window.currentChatCursor = result.current_count || messages.length;
-
-        // Render
-        if (window.renderChatMessages) {
-            window.renderChatMessages(messages);
-        }
-
-        // Fire-and-forget: sync customer data to Render DB
-        _syncPancakeCustomerToDB(result, pageId);
+        _applyMessagesResult(result, pageId, conversationId);
     } catch (e) {
         if (_isStale()) return;
         if (e?.name === 'AbortError') return; // stale cancellation, silent
