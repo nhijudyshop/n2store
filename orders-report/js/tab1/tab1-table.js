@@ -3,6 +3,31 @@
 // RENDERING & UI UPDATES
 // =====================================================
 
+// Debounced reapply badges + stats — coalesce burst của surgical row replace
+// (WS push 15 updates trong 100ms → 1 lần reapply thay vì 15 lần scan tbody).
+let _badgeReapplyTimer = null;
+let _statsUpdateTimer = null;
+function _scheduleBadgeReapply() {
+    if (!window.newMessagesNotifier?.reapply) return;
+    if (_badgeReapplyTimer) return;
+    _badgeReapplyTimer = setTimeout(() => {
+        _badgeReapplyTimer = null;
+        try {
+            window.newMessagesNotifier.reapply();
+        } catch (e) {}
+    }, 80);
+}
+function _scheduleStatsUpdate() {
+    if (typeof updateStats !== 'function') return;
+    if (_statsUpdateTimer) return;
+    _statsUpdateTimer = setTimeout(() => {
+        _statsUpdateTimer = null;
+        try {
+            updateStats();
+        } catch (e) {}
+    }, 80);
+}
+
 // 🔄 CẬP NHẬT ORDER TRONG BẢNG SAU KHI SAVE
 // OPTIMIZED: Sử dụng OrderStore O(1) thay vì findIndex O(n)
 function updateOrderInTable(orderId, updatedOrderData) {
@@ -86,14 +111,10 @@ function updateOrderInTable(orderId, updatedOrderData) {
                     const newRow = tmp.firstElementChild;
                     if (newRow) {
                         existingRow.replaceWith(newRow);
-                        // Re-apply badges trên row mới (notifier observer chỉ scan
-                        // childList add — replaceWith add → trigger observer OK).
-                        if (window.newMessagesNotifier?.reapply) {
-                            setTimeout(() => window.newMessagesNotifier.reapply(), 0);
-                        }
-                        console.log('[UPDATE] ✓ Surgical row replaced (no full re-render)');
-                        // Update stats và return sớm — không call schedulePerformTableSearch.
-                        if (typeof updateStats === 'function') updateStats();
+                        // Debounced badge re-apply: WS burst 15 updates trong 100ms
+                        // → 1 lần reapply duy nhất thay vì 15 lần scan toàn tbody.
+                        _scheduleBadgeReapply();
+                        _scheduleStatsUpdate();
                         return;
                     }
                 }

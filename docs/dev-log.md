@@ -8,6 +8,16 @@
 
 ## 2026-05-04
 
+### [orders-report] Tăng cường UI bảng — debounce reapply badges/stats + content-visibility:auto + contain:layout
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — surgical row replace path nay gọi `_scheduleBadgeReapply()` + `_scheduleStatsUpdate()` (mỗi cái lock 80ms timer) thay vì `setTimeout(reapply, 0)` + `updateStats()` ngay. WS burst 15 surgical replaces trong 100ms → chỉ 1 lần `newMessagesNotifier.reapply()` (scan toàn tbody) + 1 lần `updateStats()` thay vì 15 lần. MODIFIED: [orders-report/css/tab1-orders.css](../orders-report/css/tab1-orders.css) `.table tbody tr` — thêm `content-visibility: auto` + `contain-intrinsic-size: auto 52px` + `contain: layout style`.
+
+**Chi tiết**: **Trigger user**: continue iteration "coi lại toàn bộ bảng render". **Diagnosed thêm 2 bottleneck UI bảng**:
+(1) **Reapply badges fire 12 lần trong 15s WS idle** (1 lần / WS update) — mỗi lần `querySelectorAll('tr[data-psid]')` + iterate 51 rows + scan 17 badges. Sau khi áp surgical replace, mỗi replace lại trigger 1 reapply → còn nguyên overhead. Fix: debounce 80ms — burst 15 replace chỉ 1 reapply.
+(2) **Hàng off-screen vẫn paint full**: bảng cao 4902px (~94 rows × 52px) trong viewport 580px → ~88% hàng off-screen nhưng browser vẫn paint hết → wasted GPU work khi scroll. Fix: `content-visibility: auto` cho `.table tbody tr` báo Chrome skip render off-screen rows; `contain-intrinsic-size: auto 52px` reserve placeholder height cho scrollbar chính xác; `contain: layout style` mỗi row độc lập — layout 1 row không reflow propagate.
+**Test localhost**: rows count 51 unchanged, firstRow/lastRow heights normal (91/62px content-driven), tbodyHeight 4902px (reserve đúng), `contentVisibility:auto + contain:layout style + intrinsicSize:auto 52px` apply OK, `tableLayout:auto` giữ nguyên (column width vẫn auto-compute từ visible rows), 0 errors, layoutTriggerMs 0.5ms, 951 cells query 2ms. Visual: scroll smooth, không thấy hàng nào collapse.
+**Status**: ✅ Done.
+
 ### [orders-report] Surgical row replace trong updateOrderInTable — diệt 12x re-render burst trong 15s WS idle
 
 **Files**: MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) `updateOrderInTable()` — thêm surgical row replace path: nếu row đang trong DOM + không employee view + không sort active → build HTML mới qua `createRowHTML(order)`, swap `<tr>` qua `existingRow.replaceWith(newRow)` (1 row thay vì 50). Re-apply badges qua notifier sau swap. Update stats và return sớm — không fallthrough vào `schedulePerformTableSearch`. Fallback full re-render chỉ khi: row không trong DOM (filter ẩn), employee view, sort, hoặc createRowHTML throw.
