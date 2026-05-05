@@ -601,6 +601,11 @@
             case 'failedWithdrawal':
                 loadFailedWithdrawals();
                 break;
+            case 'history':
+                if (window.AccountantHistoryModule) {
+                    window.AccountantHistoryModule.load();
+                }
+                break;
         }
 
         // Reinitialize Lucide icons
@@ -1588,6 +1593,31 @@
             }
 
             showNotification(`Đã duyệt ${result.approved} giao dịch`, 'success');
+
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('accountant_entry_create', {
+                        module: 'balance-history',
+                        description:
+                            'Kế toán duyệt hàng loạt ' +
+                            (result.approved || ids.length) +
+                            ' giao dịch',
+                        oldData: { status: 'PENDING_VERIFICATION' },
+                        newData: {
+                            status: 'APPROVED',
+                            txIds: ids.map(String),
+                            count: result.approved || ids.length,
+                            bulk: true,
+                        },
+                        approverUserId: performedBy,
+                        approverUserName: performedBy,
+                        entityId: ids.length === 1 ? String(ids[0]) : 'bulk_' + Date.now(),
+                        entityType: 'accountant_entry',
+                    });
+                }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
 
             // Clear selection and refresh
             state.selectedIds.clear();
@@ -2630,6 +2660,11 @@
             confirmBtn.innerHTML = 'Đang xử lý...';
         }
 
+        const performedBy = window.authManager?.getUserInfo()?.username || 'accountant';
+        const txSnapshot =
+            state.approvedToday.find((t) => t.uid === txId || String(t.id) === String(txId)) ||
+            null;
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/adjust`, {
                 method: 'POST',
@@ -2639,7 +2674,7 @@
                     correct_customer_phone:
                         adjustType === 'transfer_to_correct' ? correctPhone : null,
                     reason,
-                    performed_by: window.authManager?.getUserInfo()?.username || 'accountant',
+                    performed_by: performedBy,
                 }),
             });
 
@@ -2650,6 +2685,41 @@
             }
 
             showNotification(result.message || 'Điều chỉnh thành công!', 'success');
+
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('transaction_adjust', {
+                        module: 'balance-history',
+                        description:
+                            'Điều chỉnh giao dịch #' +
+                            txId +
+                            (adjustType === 'transfer_to_correct'
+                                ? ' (chuyển sang ' + correctPhone + ')'
+                                : ' (chỉ trừ ví khách sai)'),
+                        oldData: txSnapshot
+                            ? {
+                                  phone: txSnapshot.phone || txSnapshot.linked_customer_phone,
+                                  customer_name: txSnapshot.customer_name,
+                                  amount: txSnapshot.amount,
+                              }
+                            : null,
+                        newData: {
+                            txId: String(txId),
+                            adjustment_type: adjustType,
+                            correct_customer_phone:
+                                adjustType === 'transfer_to_correct' ? correctPhone : null,
+                            reason,
+                        },
+                        approverUserId: performedBy,
+                        approverUserName: performedBy,
+                        entityId: String(txId),
+                        entityType: 'balance_history',
+                    });
+                }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
+
             closeAdjustmentModal();
 
             // Reload bảng Đã Duyệt

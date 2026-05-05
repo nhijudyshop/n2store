@@ -8,6 +8,19 @@
 
 ## 2026-05-05
 
+### [balance-history][feat] Tab "Lịch Sử" — log toàn bộ Duyệt / Điều chỉnh / Kiểm tra với filter
+
+**Files**:
+
+- NEW: [balance-history/js/accountant-history.js](../balance-history/js/accountant-history.js) — module `AccountantHistoryModule` query Firestore `edit_history` (`module=='balance-history'`, sort client-side để tránh composite index). Map `actionType` → category (approve / adjust / verify). Filter: date range, action type, performer, search. Pagination 50/trang + page select. Stats summary 4 ô (Tổng + 3 loại).
+- MODIFIED: [balance-history/index.html](../balance-history/index.html) — thêm tab "Lịch Sử" (cuối acc-sub-tabs) + panel với filter bar đầy đủ + table 6 cột (Thời gian / Loại / Mã GD / Người thực hiện / Mô tả / Nội dung thay đổi). Wire script `accountant-history.js?v=20260505b`.
+- MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) — `switchSubTab('history')` → gọi `AccountantHistoryModule.load()`. Thêm audit log cho `confirmAdjustment` (actionType `transaction_adjust` — trước đây thiếu) + `bulkApprove` (actionType `accountant_entry_create` với `bulk:true`).
+- MODIFIED: [balance-history/css/accountant.css](../balance-history/css/accountant.css) — style `.acc-history-stats`, `.acc-history-badge` (badge-approve / badge-adjust / badge-verify), `.diff-pill` / `.diff-meta` / `.diff-reason`, pagination `.acc-page-btn` / `.acc-page-select`.
+
+**Chi tiết**: **User feedback**: "thêm 1 tab lịch sử bên phải Trừ Ví Thất Bại để lưu toàn bộ 3 thao tác Duyệt (Chờ Duyệt) + Điều chỉnh + Kiểm tra (Đã Duyệt). Ghi rõ ngày giờ, người thực hiện, loại thao tác, nội dung thay đổi, ghi chú. Đầy đủ filter date / loại / người thực hiện. Tự debug, test, commit push tới khi hết lỗi". **Source dữ liệu**: tận dụng `AuditLogger` (Firestore `edit_history`) đã có sẵn — `transaction_verify` (kiểm tra) đã log từ trước, `accountant_entry_create` (duyệt) đã log từ trước; bổ sung `transaction_adjust` (điều chỉnh) + `bulkApprove` để complete coverage. **Tránh composite index**: query với `where('module', '==', 'balance-history').limit(1000)` rồi sort client-side theo timestamp DESC. **Browser-tested live qua FIFO** trên localhost:8080: 661 records load, filter `action=verify` → 268 records (chỉ badge "Kiểm tra"), search "duyệt" → 393 records, filter `user=My` → 50 records (toàn người duyệt "My"), date preset "today" → 0 records (đúng vì chưa có log mới hôm nay).
+
+**Status**: ✅ Done — committed & pushed.
+
 ### [orders-report] Nickname → TPOS Partner endpoint (canonical) + optimistic UI + filter theo tên
 
 **Files**: MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js) — refactor `_syncNicknameToTPOS`: bỏ flow loop từng `SaleOnline_Order` (22+ requests), chuyển sang Partner endpoint canonical:
