@@ -516,28 +516,95 @@
         }
         await Promise.all(workers);
 
-        // Step 3: Update local (OrderStore + allData) — đảm bảo bảng hiển thị đúng
-        // ngay cả khi TPOS không cascade Name xuống SaleOnline_Order
+        // Step 3: PUT cả SaleOnline_Order.Name cho mọi đơn match phone (TPOS
+        // KHÔNG cascade Partner.Name xuống Order.Name → bảng list + edit-modal
+        // sẽ hiển thị tên cũ nếu không cập nhật từng order).
+        // Concurrency 3, fire-and-forget per-order (lỗi 1 đơn không block đơn khác).
+        let orderOk = 0;
+        let orderFail = 0;
         try {
             const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
             const matchedOrders = allData.filter(
                 (o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm
             );
-            for (const order of matchedOrders) {
-                const orig = _stripNicknameSuffix(order.Name || '');
-                const newOrderName = nickname ? `${orig} - ${nickname}` : orig;
-                if (order.Name !== newOrderName) {
-                    order.Name = newOrderName;
-                    if (window.OrderStore?.update) {
-                        window.OrderStore.update(order.Id, { Name: newOrderName });
-                    }
-                }
+            const orderQueue = [...matchedOrders];
+            const orderWorkers = [];
+            for (let i = 0; i < Math.min(3, orderQueue.length); i++) {
+                orderWorkers.push(
+                    (async () => {
+                        while (orderQueue.length > 0) {
+                            const order = orderQueue.shift();
+                            try {
+                                const orderUrl = `${TPOS_ODATA}/SaleOnline_Order(${order.Id})`;
+                                const getRes = await window.API_CONFIG.smartFetch(
+                                    `${orderUrl}?$expand=Details,Partner,User,CRMTeam`,
+                                    { headers: baseHeaders }
+                                );
+                                if (!getRes.ok) throw new Error(`GET ${getRes.status}`);
+                                const fullOrder = await getRes.json();
+                                const orig = _stripNicknameSuffix(fullOrder.Name || '');
+                                const newOrderName = nickname ? `${orig} - ${nickname}` : orig;
+                                if (newOrderName === fullOrder.Name) {
+                                    orderOk++;
+                                    continue;
+                                }
+                                let payload;
+                                if (typeof window.prepareOrderPayload === 'function') {
+                                    const mock = { ...fullOrder, Name: newOrderName };
+                                    const prev = window.currentEditOrderData;
+                                    try {
+                                        window.currentEditOrderData = mock;
+                                        payload = window.prepareOrderPayload(mock);
+                                    } finally {
+                                        window.currentEditOrderData = prev;
+                                    }
+                                } else {
+                                    payload = { ...fullOrder, Name: newOrderName };
+                                }
+                                const putRes = await window.API_CONFIG.smartFetch(orderUrl, {
+                                    method: 'PUT',
+                                    headers: jsonHeaders,
+                                    body: JSON.stringify(payload),
+                                });
+                                if (!putRes.ok) throw new Error(`PUT ${putRes.status}`);
+                                // Update local
+                                order.Name = newOrderName;
+                                if (window.OrderStore?.update) {
+                                    window.OrderStore.update(order.Id, { Name: newOrderName });
+                                }
+                                if (typeof window.invalidateEditOrderCache === 'function') {
+                                    window.invalidateEditOrderCache(order.Id);
+                                }
+                                orderOk++;
+                            } catch (e) {
+                                console.warn(
+                                    `[CustomerInfo] PUT Order(${order.Id}) failed:`,
+                                    e?.message
+                                );
+                                orderFail++;
+                            }
+                        }
+                    })()
+                );
             }
+            await Promise.all(orderWorkers);
+            // Refresh DOM cho rows match phone (các Name đã update local)
+            _refreshCustomerNameInTable(phone);
+            console.log(
+                `[CustomerInfo] SaleOnline_Order PUT: ${orderOk} ok, ${orderFail} fail (${matchedOrders.length} total)`
+            );
         } catch (e) {
-            console.warn('[CustomerInfo] Update local OrderStore failed:', e?.message);
+            console.warn('[CustomerInfo] Update Orders failed:', e?.message);
         }
 
-        return { ok, fail, skipped: skippedDifferentName, partnersUpdated: partnerIds.length };
+        return {
+            ok,
+            fail,
+            skipped: skippedDifferentName,
+            partnersUpdated: partnerIds.length,
+            ordersUpdated: orderOk,
+            ordersFailed: orderFail,
+        };
     }
 
     window._cipToggleDoNotCall = function (phone, checked) {

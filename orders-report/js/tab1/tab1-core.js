@@ -188,6 +188,24 @@ let allData = [];
 let filteredData = [];
 let displayedData = [];
 
+// Expose top-level `let` arrays qua window getter (let không tự attach vào window).
+// Getter dynamic trả về reference hiện tại → các module khác (tab1-customer-info,
+// tab1-search, ...) có thể đọc fresh sau mỗi reassign (vd `allData = []` reset).
+try {
+    Object.defineProperty(window, 'allData', {
+        get: () => allData,
+        configurable: true,
+    });
+    Object.defineProperty(window, 'filteredData', {
+        get: () => filteredData,
+        configurable: true,
+    });
+    Object.defineProperty(window, 'displayedData', {
+        get: () => displayedData,
+        configurable: true,
+    });
+} catch (e) {}
+
 // =====================================================
 // ORDER STORE - O(1) Lookup Data Structure (Phase A Optimization)
 // Replaces O(n) findIndex() calls with O(1) Map.get() lookups

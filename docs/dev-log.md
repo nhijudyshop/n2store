@@ -8,6 +8,27 @@
 
 ## 2026-05-05
 
+### [orders-report] Nickname: PUT cả SaleOnline_Order.Name + expose `window.allData` getter
+
+**Files**:
+
+- MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js) — `_syncNicknameToTPOS` PUT cả **SaleOnline_Order.Name** cho mỗi đơn match phone (concurrency 3) sau khi PUT Partner. TPOS không cascade Partner.Name → Order.Name nên bảng list + edit-modal phải update từng order trực tiếp. Optimistic local update `allData[i].Name` + DOM trước, sync TPOS nền + refresh DOM lần 2 sau khi xong.
+- MODIFIED: [orders-report/js/tab1/tab1-core.js](../orders-report/js/tab1/tab1-core.js) — expose `window.allData/filteredData/displayedData` qua `Object.defineProperty` getter (vì `let` top-level không tự attach vào window). Getter dynamic trả về reference hiện tại → các module khác (tab1-customer-info, ...) đọc fresh sau mỗi reassign.
+
+**Trigger user**: "sao nó không sửa tên khách hàng ở cột khách hàng của bảng?" + "À phải sửa cả tên ở chỉnh sửa đơn hàng".
+
+**Root cause**: tab1-customer-info.js đọc `window.allData` nhưng tab1-core.js declare `let allData = []` ở top-level (let KHÔNG attach window). Result: `matchedOrders = []` luôn, save flow không bao giờ chạy đúng. Bảng KHÔNG update vì `_refreshCustomerNameInTable` filter rỗng. Edit-modal cũ vẫn hiển thị tên gốc vì TPOS không cascade Partner.Name xuống SaleOnline_Order.Name.
+
+**E2E real data verified**:
+
+- Order Id thực tế = UUID string (vd `30150000-5d4d-0015-3e86-08de9872e286`)
+- Save nickname → `tFastMs: 6ms` (optimistic)
+- 8s sau verify: tableName + allData.Name + TPOS Order.Name + TPOS Partner.Name đều = `"Huỳnh Thành Đạt - REAL_E2E_..."`
+- Edit-modal mở → input "Tên khách hàng" hiển thị đúng
+- Cleanup empty nickname → tất cả về `"Huỳnh Thành Đạt"` verified
+
+**Status**: ✅ Done.
+
 ### [orders-report] Nickname: TPOS Partner.Name là SOURCE OF TRUTH duy nhất — bỏ localStorage persist
 
 **Files**:
