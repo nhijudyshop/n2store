@@ -1712,21 +1712,233 @@ const KPICommission = {
     },
 
     // ========================================
+    // RECONCILIATION HELPERS (UI redesign)
+    // ========================================
+
+    _setReconProgress(stage, pct, detail) {
+        const el = document.getElementById('reconProgress');
+        if (!el) return;
+        el.style.display = '';
+        const stageEl = document.getElementById('reconProgressStage');
+        const pctEl = document.getElementById('reconProgressPct');
+        const fillEl = document.getElementById('reconProgressFill');
+        const detailEl = document.getElementById('reconProgressDetail');
+        if (stageEl) stageEl.textContent = stage || '';
+        if (pctEl) pctEl.textContent = `${Math.round(pct || 0)}%`;
+        if (fillEl) fillEl.style.width = `${Math.max(2, Math.min(100, pct || 0))}%`;
+        if (detailEl) detailEl.textContent = detail || '';
+    },
+
+    _hideReconProgress() {
+        const el = document.getElementById('reconProgress');
+        if (el) el.style.display = 'none';
+    },
+
+    _animateCount(el, target, duration = 600) {
+        if (!el) return;
+        const start = parseInt((el.textContent || '0').replace(/\D/g, '')) || 0;
+        const delta = target - start;
+        if (delta === 0) {
+            el.textContent = target.toLocaleString('vi-VN');
+            return;
+        }
+        const t0 = performance.now();
+        const tick = (now) => {
+            const elapsed = now - t0;
+            const t = Math.min(1, elapsed / duration);
+            const eased = 1 - Math.pow(1 - t, 3);
+            const v = Math.round(start + delta * eased);
+            el.textContent = v.toLocaleString('vi-VN');
+            if (t < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    },
+
+    _formatVnd(amount) {
+        if (!amount) return '0 ₫';
+        return amount.toLocaleString('vi-VN') + ' ₫';
+    },
+
+    _bindReconChips() {
+        const chips = document.querySelectorAll('.recon-chip');
+        const cards = document.querySelectorAll('.recon-stat-card');
+        const apply = (key) => {
+            this._reconFilter = key;
+            chips.forEach((c) => c.classList.toggle('is-active', c.dataset.filter === key));
+            cards.forEach((c) => c.classList.toggle('is-active', c.dataset.filter === key));
+            this._applyReconFilter();
+        };
+        chips.forEach((chip) => {
+            if (chip.__reconBound) return;
+            chip.__reconBound = true;
+            chip.addEventListener('click', () => apply(chip.dataset.filter));
+        });
+        cards.forEach((card) => {
+            if (card.__reconBound) return;
+            card.__reconBound = true;
+            card.addEventListener('click', () => apply(card.dataset.filter));
+        });
+    },
+
+    _applyReconFilter() {
+        const filter = this._reconFilter || 'all';
+        const tbody = document.getElementById('reconTableBody');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr[data-recon-row]');
+        let visible = 0;
+        rows.forEach((row) => {
+            const status = row.dataset.reconStatus;
+            const show =
+                filter === 'all' ||
+                (filter === 'ok' && status === 'ok') ||
+                (filter === 'refunded' && status === 'refunded') ||
+                (filter === 'discrepancy' && status === 'discrepancy');
+            row.style.display = show ? '' : 'none';
+            const detail = row.nextElementSibling;
+            if (detail && detail.classList.contains('recon-detail-row')) {
+                detail.style.display = show && detail.dataset.open === '1' ? '' : 'none';
+            }
+            if (show) visible++;
+        });
+        const emptyFilterEl = document.getElementById('reconEmptyFilter');
+        if (emptyFilterEl) emptyFilterEl.style.display = visible === 0 ? '' : 'none';
+    },
+
+    _bindReconSort() {
+        const headers = document.querySelectorAll('#reconResultsWrapper thead th[data-sort]');
+        headers.forEach((th) => {
+            if (th.__reconBound) return;
+            th.__reconBound = true;
+            th.addEventListener('click', () => {
+                const key = th.dataset.sort;
+                const cur = this._reconSort || {};
+                const dir = cur.key === key && cur.dir === 'asc' ? 'desc' : 'asc';
+                this._reconSort = { key, dir };
+                headers.forEach((h) => h.classList.toggle('is-sorted', h === th));
+                this._sortReconResults();
+            });
+        });
+    },
+
+    _sortReconResults() {
+        const sort = this._reconSort;
+        if (!sort) return;
+        const tbody = document.getElementById('reconTableBody');
+        if (!tbody) return;
+        const allRows = Array.from(tbody.children);
+        const pairs = [];
+        for (let i = 0; i < allRows.length; i++) {
+            if (allRows[i].dataset.reconRow != null) {
+                const detail = allRows[i + 1]?.classList.contains('recon-detail-row')
+                    ? allRows[i + 1]
+                    : null;
+                pairs.push({ main: allRows[i], detail });
+            }
+        }
+        pairs.sort((a, b) => {
+            const av = a.main.dataset[`sort_${sort.key}`] || '';
+            const bv = b.main.dataset[`sort_${sort.key}`] || '';
+            const an = parseFloat(av);
+            const bn = parseFloat(bv);
+            const isNum = !isNaN(an) && !isNaN(bn);
+            const cmp = isNum ? an - bn : av.localeCompare(bv);
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+        const frag = document.createDocumentFragment();
+        pairs.forEach(({ main, detail }) => {
+            frag.appendChild(main);
+            if (detail) frag.appendChild(detail);
+        });
+        tbody.appendChild(frag);
+    },
+
+    _toggleReconDetail(orderId) {
+        const tbody = document.getElementById('reconTableBody');
+        if (!tbody) return;
+        const main = tbody.querySelector(`tr[data-order-id="${orderId}"]`);
+        if (!main) return;
+        const detail = main.nextElementSibling;
+        if (!detail || !detail.classList.contains('recon-detail-row')) return;
+        const isOpen = detail.dataset.open === '1';
+        detail.dataset.open = isOpen ? '0' : '1';
+        detail.style.display = isOpen ? 'none' : '';
+        const btn = main.querySelector('.recon-toggle-btn');
+        if (btn) btn.classList.toggle('is-open', !isOpen);
+    },
+
+    async exportReconciliationExcel() {
+        if (!this._reconResults || this._reconResults.length === 0) {
+            alert('Không có dữ liệu đối soát để xuất');
+            return;
+        }
+        if (typeof XLSX === 'undefined') {
+            alert('XLSX chưa load');
+            return;
+        }
+        const rows = [
+            [
+                'Mã ĐH',
+                'Số phiếu (TPOS)',
+                'STT',
+                'Expected',
+                'Actual',
+                'Delta',
+                'Trạng thái',
+                'Ghi chú',
+            ],
+        ];
+        for (const r of this._reconResults) {
+            const status = r.isRefunded
+                ? 'Đã hoàn (loại KPI)'
+                : r.hasDiscrepancy
+                  ? 'Sai lệch'
+                  : 'OK';
+            const note = (r.discrepancies || []).map((d) => `[${d.type}] ${d.message}`).join(' | ');
+            rows.push([
+                r.orderCode,
+                r.invoiceNumber || '',
+                r.stt != null ? r.stt : '',
+                r.expectedNet,
+                typeof r.actualNet === 'number' ? r.actualNet : r.actualNet,
+                typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '',
+                status,
+                note,
+            ]);
+        }
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 14 },
+            { wch: 18 },
+            { wch: 8 },
+            { wch: 12 },
+            { wch: 12 },
+            { wch: 10 },
+            { wch: 22 },
+            { wch: 60 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Đối soát KPI');
+        const fname = `doi-soat-kpi-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fname);
+    },
+
+    // ========================================
     // RUN RECONCILIATION (12.14) — refresh + check refund excel
     // ========================================
     async runReconciliation() {
         const btn = document.getElementById('btnRunReconciliation');
         if (btn) btn.disabled = true;
 
-        this.showEl('reconLoading');
         this.hideEl('reconEmpty');
         this.hideEl('reconResultsWrapper');
-        const loadingEl = document.getElementById('reconLoading');
-        const setLoadingMsg = (msg) => {
-            if (loadingEl) {
-                const p = loadingEl.querySelector('p');
-                if (p) p.textContent = msg;
-            }
+        const statsEl = document.getElementById('reconStatsCards');
+        const ctrlEl = document.getElementById('reconControlBar');
+        if (statsEl) statsEl.style.display = 'none';
+        if (ctrlEl) ctrlEl.style.display = 'none';
+        this._setReconProgress('Đang khởi tạo...', 2, '');
+
+        const setLoadingMsg = (msg, pct, detail) => {
+            this._setReconProgress(msg, pct, detail || '');
         };
 
         try {
@@ -1753,7 +1965,11 @@ const KPICommission = {
             }
 
             // Step 1a: Load invoice cache (mapping SaleOnlineId → Invoice Number)
-            setLoadingMsg('Đang load invoice status...');
+            setLoadingMsg(
+                'Load invoice status từ Render...',
+                8,
+                'Cache mapping SaleOnline UUID → Invoice Number'
+            );
             try {
                 await this.loadInvoiceStatusData();
             } catch (e) {
@@ -1761,8 +1977,11 @@ const KPICommission = {
             }
 
             // Step 1b: Fetch refund excel 3 tháng → Set invoice Number đã hoàn
-            // Refund excel cột "Tham chiếu" = invoice Number gốc (NJD/2026/X)
-            setLoadingMsg('Đang tải file refund excel 3 tháng từ TPOS...');
+            setLoadingMsg(
+                'Tải refund excel 3 tháng từ TPOS...',
+                18,
+                'POST FastSaleOrder/ExportFileRefund (~1-3s)'
+            );
             let refundInfo = { codes: new Set(), totalRows: 0 };
             try {
                 refundInfo = await this.fetchRefundedOrderCodes(3);
@@ -1777,12 +1996,13 @@ const KPICommission = {
             }
             const refundedInvoiceNumbers = refundInfo.codes;
 
-            // Step 1c: Map orderId → invoiceNumber (qua _invoiceCache), rồi check
-            // có nằm trong refundedInvoiceNumbers không
+            // Step 1c: Map orderId → invoiceNumber, check refunded
             const orderIdToRefunded = new Map();
+            const orderIdToInvoice = new Map();
             for (const order of allOrders) {
                 const inv = this._invoiceCache.get(order.orderId);
                 const invNumber = inv?.Number || '';
+                orderIdToInvoice.set(order.orderId, inv || null);
                 orderIdToRefunded.set(
                     order.orderId,
                     invNumber && refundedInvoiceNumbers.has(invNumber)
@@ -1790,13 +2010,18 @@ const KPICommission = {
             }
             const refundedKpiCount = [...orderIdToRefunded.values()].filter(Boolean).length;
 
-            // Step 2: Reconcile từng đơn (audit log + actual NET)
+            // Step 2: Reconcile từng đơn — progress per-order
             setLoadingMsg(
-                `Đang kiểm tra ${allOrders.length} đơn hàng (loại bỏ ${refundedKpiCount} đơn đã hoàn)...`
+                `Kiểm tra audit log từng đơn (0/${allOrders.length})`,
+                25,
+                `${refundedKpiCount} đơn đã được mark hoàn từ refund excel`
             );
             const results = [];
+            const total = allOrders.length;
+            let processed = 0;
             for (const order of allOrders) {
                 const isRefunded = orderIdToRefunded.get(order.orderId) || false;
+                const invoice = orderIdToInvoice.get(order.orderId);
                 try {
                     let result;
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
@@ -1814,8 +2039,6 @@ const KPICommission = {
                             discrepancies: [],
                         };
                     }
-
-                    // Đơn đã hoàn → KHÔNG tính KPI: mark hasDiscrepancy=true với type=refunded
                     const refundDiscrepancy = isRefunded
                         ? [
                               {
@@ -1824,10 +2047,12 @@ const KPICommission = {
                               },
                           ]
                         : [];
-
                     results.push({
                         orderId: order.orderId,
                         orderCode: order.orderCode || '',
+                        invoiceNumber: invoice?.Number || '',
+                        invoiceState: invoice?.ShowState || '',
+                        kpiAmount: order.kpi || 0,
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
                         actualNet:
@@ -1841,6 +2066,9 @@ const KPICommission = {
                     results.push({
                         orderCode: order.orderCode || '',
                         orderId: order.orderId,
+                        invoiceNumber: invoice?.Number || '',
+                        invoiceState: invoice?.ShowState || '',
+                        kpiAmount: order.kpi || 0,
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
                         actualNet: 'Lỗi',
@@ -1852,44 +2080,26 @@ const KPICommission = {
                         ],
                     });
                 }
-            }
-
-            this.hideEl('reconLoading');
-
-            const refundedCount = results.filter((r) => r.isRefunded).length;
-            const otherDiscrepancies = results.filter(
-                (r) => r.hasDiscrepancy && !r.isRefunded
-            ).length;
-            const okCount = results.length - refundedCount - otherDiscrepancies;
-
-            const summaryMsg = `✅ Đã kiểm tra ${results.length} đơn · ${okCount} OK · ${refundedCount} đã hoàn (loại KPI) · ${otherDiscrepancies} sai lệch khác · refund excel 3 tháng có ${refundInfo.totalRows} dòng (${refundedInvoiceNumbers.size} mã đơn)`;
-
-            // Hiển thị bảng nếu có refund hoặc discrepancy
-            const toShow = results.filter((r) => r.hasDiscrepancy);
-            if (toShow.length === 0) {
-                this.showEl('reconEmpty');
-                const emptyEl = document.getElementById('reconEmpty');
-                if (emptyEl) emptyEl.querySelector('p').textContent = summaryMsg;
-            } else {
-                this.showEl('reconResultsWrapper');
-                this.renderReconciliationResults(results);
-                // Insert summary trên đầu wrapper
-                const wrapper = document.getElementById('reconResultsWrapper');
-                if (wrapper) {
-                    let summaryEl = document.getElementById('reconSummary');
-                    if (!summaryEl) {
-                        summaryEl = document.createElement('div');
-                        summaryEl.id = 'reconSummary';
-                        summaryEl.style.cssText =
-                            'padding:10px 14px;margin-bottom:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;color:#9a3412;font-size:13px;';
-                        wrapper.parentElement.insertBefore(summaryEl, wrapper);
-                    }
-                    summaryEl.textContent = summaryMsg;
+                processed++;
+                if (processed % 5 === 0 || processed === total) {
+                    const pct = 25 + Math.round((processed / total) * 70); // 25%→95%
+                    setLoadingMsg(
+                        `Kiểm tra audit log từng đơn (${processed}/${total})`,
+                        pct,
+                        `${refundedKpiCount} đã hoàn · ${results.filter((r) => r.hasDiscrepancy && !r.isRefunded).length} sai lệch khác phát hiện`
+                    );
                 }
             }
+
+            setLoadingMsg('Render bảng kết quả...', 98, '');
+            await new Promise((r) => setTimeout(r, 100));
+
+            this._reconResults = results;
+            this._renderReconciliationUI(results, refundInfo);
+            this._hideReconProgress();
         } catch (error) {
             console.error('[KPI Tab] Reconciliation error:', error);
-            this.hideEl('reconLoading');
+            this._hideReconProgress();
             this.showEl('reconEmpty');
             const emptyEl = document.getElementById('reconEmpty');
             if (emptyEl) emptyEl.querySelector('p').textContent = `Lỗi đối soát: ${error.message}`;
@@ -1898,41 +2108,154 @@ const KPICommission = {
         }
     },
 
+    _renderReconciliationUI(results, refundInfo) {
+        const refundedCount = results.filter((r) => r.isRefunded).length;
+        const otherDiscrepancies = results.filter((r) => r.hasDiscrepancy && !r.isRefunded).length;
+        const okCount = results.length - refundedCount - otherDiscrepancies;
+
+        const refundedKpiAmount = results
+            .filter((r) => r.isRefunded)
+            .reduce((sum, r) => sum + (r.kpiAmount || 0), 0);
+
+        // Show stats cards + animate count
+        const statsEl = document.getElementById('reconStatsCards');
+        if (statsEl) statsEl.style.display = '';
+        this._animateCount(document.getElementById('reconStatTotal'), results.length);
+        this._animateCount(document.getElementById('reconStatOk'), okCount);
+        this._animateCount(document.getElementById('reconStatRefunded'), refundedCount);
+        this._animateCount(document.getElementById('reconStatDiscrepancy'), otherDiscrepancies);
+        const refundSubEl = document.getElementById('reconStatRefundedSub');
+        if (refundSubEl) {
+            refundSubEl.textContent = refundedKpiAmount
+                ? `Loại bỏ KPI: ${this._formatVnd(refundedKpiAmount)}`
+                : '0 ₫ KPI bị loại';
+        }
+
+        // Show control bar + chip counts
+        const ctrlEl = document.getElementById('reconControlBar');
+        if (ctrlEl) ctrlEl.style.display = '';
+        const setChip = (id, n) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = n.toLocaleString('vi-VN');
+        };
+        setChip('chipCountAll', results.length);
+        setChip('chipCountOk', okCount);
+        setChip('chipCountRefunded', refundedCount);
+        setChip('chipCountDiscrepancy', otherDiscrepancies);
+        const metaEl = document.getElementById('reconMetaInfo');
+        if (metaEl) {
+            metaEl.textContent = `Refund excel: ${refundInfo.totalRows} dòng · ${refundInfo.codes.size} mã đơn unique · check 3 tháng`;
+        }
+
+        // Render table
+        this.showEl('reconResultsWrapper');
+        this.hideEl('reconEmpty');
+        // Remove old summary nếu có
+        const oldSummary = document.getElementById('reconSummary');
+        if (oldSummary) oldSummary.remove();
+        this.renderReconciliationResults(results);
+
+        // Bind chips/sort/cards (idempotent)
+        this._bindReconChips();
+        this._bindReconSort();
+
+        // Default filter: highlight refunded + discrepancy first
+        if (refundedCount > 0 || otherDiscrepancies > 0) {
+            this._reconFilter = 'refunded';
+            if (refundedCount === 0) this._reconFilter = 'discrepancy';
+        } else {
+            this._reconFilter = 'all';
+        }
+        document
+            .querySelectorAll('.recon-chip')
+            .forEach((c) =>
+                c.classList.toggle('is-active', c.dataset.filter === this._reconFilter)
+            );
+        document
+            .querySelectorAll('.recon-stat-card')
+            .forEach((c) =>
+                c.classList.toggle('is-active', c.dataset.filter === this._reconFilter)
+            );
+        this._applyReconFilter();
+
+        // Re-init lucide icons cho elements mới
+        if (window.lucide?.createIcons) {
+            window.lucide.createIcons();
+        }
+    },
+
     renderReconciliationResults(results) {
         const tbody = document.getElementById('reconTableBody');
         if (!tbody) return;
 
         let html = '';
-        results.forEach((r) => {
-            const delta = typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '---';
+        results.forEach((r, idx) => {
+            const deltaNum = typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : null;
             let deltaClass = 'delta-zero';
-            if (typeof delta === 'number') {
-                if (delta > 0) deltaClass = 'delta-positive';
-                else if (delta < 0) deltaClass = 'delta-negative';
+            if (deltaNum != null) {
+                if (deltaNum > 0) deltaClass = 'delta-positive';
+                else if (deltaNum < 0) deltaClass = 'delta-negative';
             }
+
+            const status = r.isRefunded ? 'refunded' : r.hasDiscrepancy ? 'discrepancy' : 'ok';
 
             let statusHtml;
             if (r.isRefunded) {
                 statusHtml =
-                    '<span class="status-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">↩ Đã hoàn (loại KPI)</span>';
+                    '<span class="status-badge status-refunded">↩ Đã hoàn (loại KPI)</span>';
             } else if (r.hasDiscrepancy) {
-                statusHtml = '<span class="status-badge status-discrepancy">⚠️ Sai lệch</span>';
+                statusHtml = '<span class="status-badge status-discrepancy">⚠ Sai lệch</span>';
             } else {
                 statusHtml = '<span class="status-badge status-ok">✅ OK</span>';
             }
 
-            const rowStyle = r.isRefunded
-                ? 'background:#fef2f2;text-decoration:line-through;text-decoration-color:#fca5a5;'
+            const invHtml = r.invoiceNumber
+                ? `<span class="recon-invoice-num">${this.escapeHtml(r.invoiceNumber)}</span>${r.invoiceState ? ` <span style="font-size:11px;color:#6b7280;">${this.escapeHtml(r.invoiceState)}</span>` : ''}`
+                : '<span class="recon-invoice-num is-empty">— chưa có invoice</span>';
+
+            const hasDetail = (r.discrepancies || []).length > 0;
+            const toggleBtn = hasDetail
+                ? `<button class="recon-toggle-btn" onclick="window.KPICommission._toggleReconDetail('${this.escapeHtml(r.orderId)}')" title="Xem chi tiết"><i data-lucide="chevron-right"></i></button>`
                 : '';
 
-            html += `<tr style="${rowStyle}">
-                <td>${this.escapeHtml(r.orderCode || r.orderId)}</td>
-                <td>${r.stt != null ? r.stt : '---'}</td>
-                <td>${r.expectedNet}</td>
-                <td>${r.actualNet}</td>
-                <td class="${deltaClass}">${typeof delta === 'number' ? (delta >= 0 ? '+' : '') + delta : delta}</td>
+            const refundedClass = r.isRefunded ? 'is-refunded' : '';
+            const animDelay = Math.min(idx * 12, 600); // stagger fade-in
+
+            html += `<tr class="${refundedClass}" data-recon-row="1" data-recon-status="${status}" data-order-id="${this.escapeHtml(r.orderId)}" data-sort_orderCode="${this.escapeHtml(r.orderCode || '')}" data-sort_stt="${r.stt != null ? r.stt : ''}" data-sort_expectedNet="${r.expectedNet}" data-sort_actualNet="${typeof r.actualNet === 'number' ? r.actualNet : ''}" data-sort_delta="${deltaNum != null ? deltaNum : ''}" style="animation-delay:${animDelay}ms;">
+                <td>${toggleBtn}</td>
+                <td class="recon-cell-code"><strong>${this.escapeHtml(r.orderCode || r.orderId)}</strong></td>
+                <td>${invHtml}</td>
+                <td class="recon-cell-num">${r.stt != null ? r.stt : '—'}</td>
+                <td class="recon-cell-num">${(r.expectedNet || 0).toLocaleString('vi-VN')}</td>
+                <td class="recon-cell-num">${typeof r.actualNet === 'number' ? r.actualNet.toLocaleString('vi-VN') : this.escapeHtml(String(r.actualNet))}</td>
+                <td class="recon-cell-num ${deltaClass}">${deltaNum != null ? (deltaNum >= 0 ? '+' : '') + deltaNum.toLocaleString('vi-VN') : '—'}</td>
                 <td>${statusHtml}</td>
             </tr>`;
+
+            if (hasDetail) {
+                const tagMap = {
+                    refunded: 'tag-refund',
+                    error: 'tag-error',
+                    discrepancy: 'tag-discrepancy',
+                    productMissing: 'tag-discrepancy',
+                    quantityMismatch: 'tag-discrepancy',
+                    statusMismatch: 'tag-discrepancy',
+                };
+                const detailItems = r.discrepancies
+                    .map((d) => {
+                        const tagClass = tagMap[d.type] || 'tag-discrepancy';
+                        return `<li><span class="recon-detail-tag ${tagClass}">${this.escapeHtml(d.type)}</span> ${this.escapeHtml(d.message || '')}</li>`;
+                    })
+                    .join('');
+                html += `<tr class="recon-detail-row" data-open="0" style="display:none;">
+                    <td colspan="8">
+                        <div class="recon-detail-content">
+                            <div style="font-weight:600;color:#374151;margin-bottom:6px;">Chi tiết sai lệch / lý do loại:</div>
+                            <ul>${detailItems}</ul>
+                        </div>
+                    </td>
+                </tr>`;
+            }
         });
 
         tbody.innerHTML = html;
