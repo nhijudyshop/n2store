@@ -247,6 +247,7 @@
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         }
+        const prevNick = window.CustomerPrefs.getNickname(phone) || '';
         const newNick = input.value.trim();
         window.CustomerPrefs.setNickname(phone, newNick);
         // Optimistic UI: refresh bảng NGAY (local instant), TPOS sync chạy nền
@@ -286,6 +287,22 @@
         }
         _syncNicknameToTPOS(phone, newNick, displayName)
             .then((res) => {
+                // Fallback: nếu TPOS fail toàn bộ → revert local + bảng về nickname cũ
+                if (res.fail > 0 && res.ok === 0) {
+                    console.warn(
+                        '[CustomerInfo] TPOS sync FAIL toàn bộ → revert local về:',
+                        prevNick
+                    );
+                    window.CustomerPrefs.setNickname(phone, prevNick);
+                    _refreshCustomerNameInTable(phone, prevNick);
+                    if (window.notificationManager?.error) {
+                        window.notificationManager.error(
+                            'Lỗi đồng bộ TPOS — đã hoàn tác biệt danh',
+                            3500
+                        );
+                    }
+                    return;
+                }
                 if (window.notificationManager) {
                     if (res.ok && window.notificationManager.info) {
                         window.notificationManager.info(
@@ -302,6 +319,15 @@
             })
             .catch((e) => {
                 console.warn('[CustomerInfo] TPOS sync failed (non-blocking):', e?.message);
+                // Catch-all fallback: revert local nếu Promise reject hẳn
+                window.CustomerPrefs.setNickname(phone, prevNick);
+                _refreshCustomerNameInTable(phone, prevNick);
+                if (window.notificationManager?.error) {
+                    window.notificationManager.error(
+                        'Lỗi đồng bộ TPOS — đã hoàn tác biệt danh',
+                        3500
+                    );
+                }
             });
     };
 
@@ -516,20 +542,24 @@
     // ===== Helpers to re-render table rows when prefs change =====
 
     function _refreshCustomerNameInTable(phone, newNick) {
-        // Tìm rows có Telephone match phone → update span tên (giữ wallet badge)
+        // Tìm rows có Telephone match phone → update span tên hiển thị
+        // "<original> - <nickname>" (giống getDisplayName) thay vì chỉ nickname
         const norm = window.CustomerPrefs?._normalizePhone?.(phone);
         if (!norm) return;
         const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
-        const orderIds = allData
-            .filter((o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm)
-            .map((o) => o.Id);
-        for (const orderId of orderIds) {
-            const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+        const matchedOrders = allData.filter(
+            (o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm
+        );
+        for (const order of matchedOrders) {
+            const row = document.querySelector(`tr[data-order-id="${order.Id}"]`);
             if (!row) continue;
             const nameSpan = row.querySelector('.customer-name > span:first-of-type');
             if (!nameSpan) continue;
-            const order = allData.find((o) => o.Id === orderId);
-            const display = newNick || order?.Name || '';
+            const display = window.CustomerPrefs?.getDisplayName
+                ? window.CustomerPrefs.getDisplayName(phone, order.Name || '')
+                : newNick
+                  ? `${order.Name || ''} - ${newNick}`
+                  : order.Name || '';
             // Preserve highlight wrapper nếu có search
             if (typeof window.highlight === 'function') {
                 nameSpan.innerHTML = window.highlight(display);
