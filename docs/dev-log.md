@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-05-05
+
+### [orders-report] Nickname → TPOS Partner endpoint (canonical) + optimistic UI + filter theo tên
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js) — refactor `_syncNicknameToTPOS`: bỏ flow loop từng `SaleOnline_Order` (22+ requests), chuyển sang Partner endpoint canonical:
+
+1. GET `Partner/ODataService.GetViewV2?Name=<phone>&Type=Customer` (search SĐT)
+2. **Filter Partners theo `displayName`** (strip suffix `" - X"` rồi so case-insensitive) — tránh đụng record khác cùng SĐT (vd "Nguyễn Tâm" share `0123456788` với "Huỳnh Thành Đạt")
+3. Concurrency 3: GET `Partner({id})` → `Name = "<original> - <nickname>"` (idempotent strip suffix cũ) → PUT `Partner({id})`
+4. Local: update `OrderStore` + `allData.Name` cho mọi đơn cùng SĐT (không phụ thuộc TPOS cascade xuống `SaleOnline_Order`)
+
+**`_cipSaveNickname` đổi thành OPTIMISTIC**: `setNickname` + `_refreshCustomerNameInTable` chạy NGAY (UI update <5ms), TPOS sync chạy nền non-blocking với `.then/.catch`. Toast "Đã đặt biệt danh" hiện ngay; toast thứ 2 "Đã đồng bộ TPOS: N Partner" hiện khi sync xong. `displayName` lấy từ `popup.cip-title` (đã strip suffix) để filter Partner.
+
+**Chi tiết**: **Trigger user**: "đặt biệt danh -> xác nhận -> nó cập nhật bảng lâu vậy?" + "check lại xem có request vào tpos không? Nếu chưa thì browser test vào tpos xem cách thực hiện đổi tên khách hàng -> ...customer/form?id=563966". **Browser-tested live qua FIFO REPL** với customer test "Huỳnh Thành Đạt" SĐT `0123456788`:
+
+- SĐT có 3 Partner records (`568377`, `563966`, `562767`); 2 đầu là "Huỳnh Thành Đạt", record `562767` là "Nguyễn Tâm" (cùng SĐT khác tên)
+- PUT `Partner({id})` body=full payload + `Name` mới → status `204 No Content` (TPOS chấp nhận)
+- E2E `_cipSaveNickname` trả về 2ms (optimistic), 4.5s sau verify TPOS: 2 record "Huỳnh Thành Đạt" → "Huỳnh Thành Đạt - VIP*AUTO*...", record "Nguyễn Tâm" KHÔNG đụng vào (filter đúng)
+- Cleanup test: clear nickname → tất cả về tên gốc trên TPOS
+
+**Status**: ✅ Done — verified live trên TPOS prod (tên test customer 0123456788, đã restore sau test).
+
+---
+
 ## 2026-05-04
 
 ### [issue-tracking] Search bỏ dấu (accent-insensitive) + Hard delete ticket TV-2026-00619

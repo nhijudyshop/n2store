@@ -249,45 +249,60 @@
         }
         const newNick = input.value.trim();
         window.CustomerPrefs.setNickname(phone, newNick);
+        // Optimistic UI: refresh bảng NGAY (local instant), TPOS sync chạy nền
+        _refreshCustomerNameInTable(phone, newNick);
 
-        // Sync TPOS: build name = "<originalName> - <nickname>" và PUT cho mọi
-        // SaleOnline_Order match phone trong allData. Idempotent: strip suffix
-        // " - X" nếu đã có để tránh double-append (Original-X-Y).
-        // SAFETY: skip nếu window.__tpos_nickname_dryrun = true (để test không
-        // động vào prod data — set trong console để verify flow).
-        let tposResult = { ok: 0, fail: 0, dryRun: false };
-        if (window.__tpos_nickname_dryrun) {
-            tposResult.dryRun = true;
-            console.log(
-                '[CustomerInfo] DRYRUN — không PUT TPOS. Phone:',
-                phone,
-                'nickname:',
-                newNick
-            );
-        } else {
-            try {
-                tposResult = await _syncNicknameToTPOS(phone, newNick);
-            } catch (e) {
-                console.warn('[CustomerInfo] TPOS sync failed (non-blocking):', e?.message);
-            }
-        }
+        // Lấy tên gốc từ popup title (để filter Partners có cùng tên — tránh
+        // PUT lên Partner khác share SĐT, vd "Nguyễn Tâm" cùng phone).
+        const popupTitle =
+            document.querySelector('#customerInfoPopup .cip-title')?.textContent || '';
+        const displayName = _stripNicknameSuffix(popupTitle);
 
+        // Toast nhanh — báo đã lưu local
         if (window.notificationManager?.success) {
-            let tposMsg = '';
-            if (tposResult.dryRun) tposMsg = ' · [DRYRUN]';
-            else if (tposResult.ok)
-                tposMsg = ` · Đồng bộ TPOS: ${tposResult.ok} đơn${tposResult.fail ? ` (${tposResult.fail} fail)` : ''}`;
             window.notificationManager.success(
-                (newNick ? `Đã đặt biệt danh: ${newNick}` : 'Đã xóa biệt danh') + tposMsg,
-                3000
+                newNick ? `Đã đặt biệt danh: ${newNick}` : 'Đã xóa biệt danh',
+                2000
             );
         }
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<i class="fas fa-check"></i>';
         }
-        // Re-render row name in table (surgical)
-        _refreshCustomerNameInTable(phone, newNick);
+
+        // Sync TPOS: chạy NỀN (non-blocking). Idempotent: strip suffix " - X"
+        // nếu đã có để tránh double-append (Original-X-Y).
+        // SAFETY: skip nếu window.__tpos_nickname_dryrun = true.
+        if (window.__tpos_nickname_dryrun) {
+            console.log(
+                '[CustomerInfo] DRYRUN — không PUT TPOS. Phone:',
+                phone,
+                'nickname:',
+                newNick,
+                'displayName:',
+                displayName
+            );
+            return;
+        }
+        _syncNicknameToTPOS(phone, newNick, displayName)
+            .then((res) => {
+                if (window.notificationManager) {
+                    if (res.ok && window.notificationManager.info) {
+                        window.notificationManager.info(
+                            `Đã đồng bộ TPOS: ${res.ok} Partner${res.fail ? ` (${res.fail} fail)` : ''}${res.skipped ? ` · ${res.skipped} bỏ qua (tên khác)` : ''}`,
+                            2500
+                        );
+                    } else if (!res.ok && !res.fail && window.notificationManager.warning) {
+                        window.notificationManager.warning(
+                            'Không tìm thấy Partner cùng tên trên TPOS — chỉ lưu local',
+                            2500
+                        );
+                    }
+                }
+            })
+            .catch((e) => {
+                console.warn('[CustomerInfo] TPOS sync failed (non-blocking):', e?.message);
+            });
     };
 
     /**
@@ -306,117 +321,140 @@
     }
 
     /**
-     * Tìm tất cả orders match phone trong allData → PUT SaleOnline_Order với
-     * Name field mới = "<original> - <nickname>" (hoặc "<original>" khi nick rỗng).
+     * Sync nickname → TPOS Partner record (canonical, giống TPOS UI).
+     *
+     * Flow chuẩn (match cách TPOS form Khách hàng làm):
+     *   1. Search Partner theo SĐT: GET /odata/Partner/ODataService.GetViewV2?Name=<phone>&Type=Customer
+     *   2. Filter Partners theo `displayName` để tránh đụng record khác cùng phone
+     *      (vd "Nguyễn Tâm" share SĐT 0123456788 với "Huỳnh Thành Đạt").
+     *   3. Với mỗi Partner match: GET /odata/Partner({id}) → strip suffix " - X" cũ →
+     *      Name = "<original> - <nickname>" (hoặc "<original>" khi nick rỗng) → PUT.
+     *   4. Local: update OrderStore + allData.Name cho mọi đơn cùng SĐT.
+     *
+     * Nhanh hơn 10-20x so với loop từng SaleOnline_Order (1 phone thường có 1-3
+     * Partner records, vs 22+ orders).
      */
-    async function _syncNicknameToTPOS(phone, nickname) {
+    async function _syncNicknameToTPOS(phone, nickname, displayName) {
         const norm = window.CustomerPrefs?._normalizePhone?.(phone);
         if (!norm) return { ok: 0, fail: 0 };
-        const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
-        const orders = allData.filter(
-            (o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm
-        );
-        if (orders.length === 0) return { ok: 0, fail: 0 };
         if (!window.tokenManager?.getAuthHeader || !window.API_CONFIG?.smartFetch) {
+            console.warn('[CustomerInfo] tokenManager/API_CONFIG missing — skip TPOS sync');
             return { ok: 0, fail: 0 };
         }
 
         const headers = await window.tokenManager.getAuthHeader();
-        const TPOS_ODATA = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+        const baseHeaders = {
+            ...headers,
+            accept: 'application/json, text/plain, */*',
+            'feature-version': '2',
+            'x-tpos-lang': 'vi',
+        };
+        const jsonHeaders = { ...baseHeaders, 'content-type': 'application/json;charset=UTF-8' };
+        const TPOS_ODATA =
+            (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') +
+            '/api/odata';
+
+        // Step 1: Search Partner theo phone (giống Pattern updatePartnerStatus)
+        let partnerIds = [];
+        let skippedDifferentName = 0;
+        try {
+            const searchUrl = `${TPOS_ODATA}/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(norm)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+            console.log('[CustomerInfo] Search Partner:', searchUrl);
+            const searchRes = await window.API_CONFIG.smartFetch(searchUrl, {
+                method: 'GET',
+                headers: baseHeaders,
+            });
+            if (!searchRes.ok) throw new Error(`search HTTP ${searchRes.status}`);
+            const searchData = await searchRes.json();
+            const partners = searchData.value || [];
+
+            // Filter Partners có tên gốc khớp displayName (case-insensitive,
+            // strip suffix " - X" trước khi so sánh). Nếu không có displayName
+            // thì update tất cả (fallback an toàn).
+            const targetName = (displayName || '').trim().toLowerCase();
+            const filtered = targetName
+                ? partners.filter((p) => {
+                      const partnerOrig = _stripNicknameSuffix(p.Name || '').toLowerCase();
+                      return partnerOrig === targetName;
+                  })
+                : partners;
+            skippedDifferentName = partners.length - filtered.length;
+            partnerIds = filtered.map((p) => p.Id).filter(Boolean);
+            console.log(
+                `[CustomerInfo] SĐT ${norm}: ${partners.length} Partner total, match tên "${displayName}": ${partnerIds.length} (skip ${skippedDifferentName} record khác tên)`,
+                partnerIds
+            );
+        } catch (e) {
+            console.warn('[CustomerInfo] Search Partner failed:', e?.message);
+            return { ok: 0, fail: 1, skipped: 0 };
+        }
+
+        if (partnerIds.length === 0) {
+            console.warn('[CustomerInfo] Không tìm thấy Partner cùng tên — không sync TPOS');
+            return { ok: 0, fail: 0, skipped: skippedDifferentName };
+        }
+
+        // Step 2: PUT từng Partner với Name mới (concurrency cap 3)
         let ok = 0;
         let fail = 0;
-
-        // Concurrency cap 3 để tránh flood
-        const queue = [...orders];
+        const queue = [...partnerIds];
         const workers = [];
         for (let i = 0; i < Math.min(3, queue.length); i++) {
             workers.push(
                 (async () => {
                     while (queue.length > 0) {
-                        const order = queue.shift();
+                        const id = queue.shift();
                         try {
-                            // Fetch full order
-                            const res = await window.API_CONFIG.smartFetch(
-                                `${TPOS_ODATA}/SaleOnline_Order(${order.Id})?$expand=Details,Partner,User,CRMTeam`,
-                                {
-                                    headers: {
-                                        ...headers,
-                                        'Content-Type': 'application/json',
-                                        Accept: 'application/json',
-                                    },
-                                }
-                            );
-                            if (!res.ok) throw new Error(`fetch ${res.status}`);
-                            const fullOrder = await res.json();
+                            const partnerUrl = `${TPOS_ODATA}/Partner(${id})`;
+                            // GET full
+                            const getRes = await window.API_CONFIG.smartFetch(partnerUrl, {
+                                method: 'GET',
+                                headers: baseHeaders,
+                            });
+                            if (!getRes.ok) throw new Error(`GET HTTP ${getRes.status}`);
+                            const partner = await getRes.json();
 
-                            // Build new name idempotent
-                            const original = _stripNicknameSuffix(fullOrder.Name || '');
+                            // Build new Name idempotent
+                            const original = _stripNicknameSuffix(partner.Name || '');
                             const newName = nickname ? `${original} - ${nickname}` : original;
-                            if (newName === fullOrder.Name) {
-                                ok++; // Skip — already correct
+                            if (newName === partner.Name) {
+                                console.log(`[CustomerInfo] Partner ${id} Name đã đúng — skip`);
+                                ok++;
                                 continue;
                             }
 
-                            // Snapshot vào OrderEditHistory (cho restore)
-                            if (window.OrderEditHistory) {
-                                window.OrderEditHistory.captureSnapshot(
-                                    fullOrder.Id,
-                                    fullOrder.Code,
-                                    fullOrder.Details || []
-                                );
-                                window.OrderEditHistory.logChange(fullOrder.Id, 'name', {
-                                    orderCode: fullOrder.Code,
-                                    oldName: fullOrder.Name || '',
+                            // Snapshot edit history (cho restore)
+                            if (window.OrderEditHistory?.logChange) {
+                                window.OrderEditHistory.logChange(`partner_${id}`, 'partner_name', {
+                                    partnerId: id,
+                                    oldName: partner.Name || '',
                                     newName,
+                                    phone: norm,
                                     nickname: nickname || '',
                                     source: 'customer_info_popup',
                                 });
                             }
 
-                            // Build payload
-                            let payload;
-                            if (typeof window.prepareOrderPayload === 'function') {
-                                const mock = { ...fullOrder, Name: newName };
-                                const prev = window.currentEditOrderData;
-                                try {
-                                    window.currentEditOrderData = mock;
-                                    payload = window.prepareOrderPayload(mock);
-                                } finally {
-                                    window.currentEditOrderData = prev;
-                                }
-                            } else {
-                                payload = { ...fullOrder, Name: newName };
-                            }
-
-                            const putRes = await window.API_CONFIG.smartFetch(
-                                `${TPOS_ODATA}/SaleOnline_Order(${order.Id})`,
-                                {
-                                    method: 'PUT',
-                                    headers: {
-                                        ...headers,
-                                        'Content-Type': 'application/json',
-                                        Accept: 'application/json',
-                                    },
-                                    body: JSON.stringify(payload),
-                                }
+                            // PUT full payload với Name mới
+                            const payload = { ...partner, Name: newName };
+                            console.log(
+                                `[CustomerInfo] PUT Partner(${id}): "${partner.Name}" → "${newName}"`
                             );
-                            if (!putRes.ok) throw new Error(`put ${putRes.status}`);
-
-                            // Update local
-                            if (window.OrderStore?.update) {
-                                window.OrderStore.update(order.Id, { Name: newName });
+                            const putRes = await window.API_CONFIG.smartFetch(partnerUrl, {
+                                method: 'PUT',
+                                headers: jsonHeaders,
+                                body: JSON.stringify(payload),
+                            });
+                            if (!putRes.ok) {
+                                const errTxt = await putRes.text().catch(() => '');
+                                throw new Error(
+                                    `PUT HTTP ${putRes.status}: ${errTxt.slice(0, 100)}`
+                                );
                             }
-                            if (typeof window.invalidateEditOrderCache === 'function') {
-                                window.invalidateEditOrderCache(order.Id);
-                            }
-                            // Update allData entry directly
-                            order.Name = newName;
+                            console.log(`[CustomerInfo] ✓ Partner(${id}) updated`);
                             ok++;
                         } catch (e) {
-                            console.warn(
-                                `[CustomerInfo] PUT TPOS failed for order ${order.Code || order.Id}:`,
-                                e?.message
-                            );
+                            console.warn(`[CustomerInfo] PUT Partner(${id}) failed:`, e?.message);
                             fail++;
                         }
                     }
@@ -424,7 +462,29 @@
             );
         }
         await Promise.all(workers);
-        return { ok, fail };
+
+        // Step 3: Update local (OrderStore + allData) — đảm bảo bảng hiển thị đúng
+        // ngay cả khi TPOS không cascade Name xuống SaleOnline_Order
+        try {
+            const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
+            const matchedOrders = allData.filter(
+                (o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm
+            );
+            for (const order of matchedOrders) {
+                const orig = _stripNicknameSuffix(order.Name || '');
+                const newOrderName = nickname ? `${orig} - ${nickname}` : orig;
+                if (order.Name !== newOrderName) {
+                    order.Name = newOrderName;
+                    if (window.OrderStore?.update) {
+                        window.OrderStore.update(order.Id, { Name: newOrderName });
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[CustomerInfo] Update local OrderStore failed:', e?.message);
+        }
+
+        return { ok, fail, skipped: skippedDifferentName, partnersUpdated: partnerIds.length };
     }
 
     window._cipToggleDoNotCall = function (phone, checked) {
