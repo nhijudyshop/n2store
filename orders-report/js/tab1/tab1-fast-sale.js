@@ -271,12 +271,12 @@ function getTposAccountDisplay() {
  * Throws error if not configured
  */
 async function getBillAuthHeader() {
-    // Ensure credentials are loaded (important for incognito mode)
+    // Force re-sync với Render: active account có thể đã đổi ở tab khác / device khác.
+    // Tránh trường hợp activeLabel stale → bill creates with wrong TPOS account.
     if (window.billTokenManager) {
-        await window.billTokenManager.ensureCredentialsLoaded();
+        await window.billTokenManager.loadFromRender();
     }
 
-    // Check if billTokenManager has credentials
     if (!window.billTokenManager?.hasCredentials()) {
         const errorMsg =
             'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.';
@@ -285,8 +285,9 @@ async function getBillAuthHeader() {
     }
 
     const credInfo = window.billTokenManager.getCredentialsInfo();
-    const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
-    console.log(`[FAST-SALE] ✓ Using billTokenManager (${accountInfo})`);
+    const accountInfo =
+        credInfo.label || (credInfo.type === 'password' ? credInfo.username : 'Bearer Token');
+    console.log(`[FAST-SALE] ✓ Using billTokenManager (active: ${accountInfo})`);
 
     return await window.billTokenManager.getAuthHeader();
 }

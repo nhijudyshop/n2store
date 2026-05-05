@@ -807,22 +807,43 @@ async function confirmAndPrintSale() {
 
     try {
         // Get auth header from billTokenManager (same as fastSaleModal)
-        // Per-bill override: nếu user chọn account khác trong dropdown, dùng account đó
+        // Per-bill override: nếu user chọn account khác trong dropdown, dùng account đó.
+        // Đảm bảo dropdown đã populate (idempotent — preserve current value).
+        if (typeof window.populateSaleTposAccountSelect === 'function') {
+            window.populateSaleTposAccountSelect();
+        }
         const overrideLabelEl = document.getElementById('saleTposAccountSelect');
         const overrideLabel = overrideLabelEl?.value?.trim() || null;
+        console.log(
+            '[SALE-CONFIRM] TPOS account override =',
+            overrideLabel || '(none, dùng active)'
+        );
         let headers;
         if (window.billTokenManager) {
-            await window.billTokenManager.ensureCredentialsLoaded();
+            // Force re-sync với Render để đảm bảo activeLabel + accounts mới nhất
+            // (user có thể đã đổi active ở tab khác / device khác)
+            await window.billTokenManager.loadFromRender();
             if (!window.billTokenManager.hasCredentials(overrideLabel)) {
                 throw new Error(
                     'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.'
                 );
             }
-            headers = await window.billTokenManager.getAuthHeader(overrideLabel);
+            const _activeLabel = window.billTokenManager.getActiveLabel();
+            const _usedLabel = overrideLabel || _activeLabel;
+            const _credInfo = window.billTokenManager.getCredentialsInfo(_usedLabel);
             console.log(
-                '[SALE-CONFIRM] Using billTokenManager for auth' +
-                    (overrideLabel ? ' (override: ' + overrideLabel + ')' : ' (active)')
+                '[SALE-CONFIRM] TPOS account = ' +
+                    _usedLabel +
+                    ' (user: ' +
+                    (_credInfo.username || _credInfo.type) +
+                    ')' +
+                    (overrideLabel ? ' [override]' : ' [active]')
             );
+            // Refresh dropdown để show latest list
+            if (typeof window.populateSaleTposAccountSelect === 'function') {
+                window.populateSaleTposAccountSelect();
+            }
+            headers = await window.billTokenManager.getAuthHeader(overrideLabel);
         } else {
             // Use tokenManager for selected company token
             const token = window.tokenManager ? await window.tokenManager.getToken() : null;
