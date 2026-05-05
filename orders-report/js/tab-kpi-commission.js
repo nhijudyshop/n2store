@@ -883,6 +883,203 @@ const KPICommission = {
     },
 
     // ========================================
+    // LEADERBOARD + HERO HELPERS (redesign)
+    // ========================================
+
+    _initials(name) {
+        const parts = String(name || '')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+        if (parts.length === 0) return '?';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    },
+
+    _avatarColor(seed) {
+        const palette = [
+            'linear-gradient(135deg, #6366f1, #ec4899)',
+            'linear-gradient(135deg, #06b6d4, #3b82f6)',
+            'linear-gradient(135deg, #f59e0b, #ef4444)',
+            'linear-gradient(135deg, #10b981, #14b8a6)',
+            'linear-gradient(135deg, #8b5cf6, #d946ef)',
+            'linear-gradient(135deg, #ec4899, #f97316)',
+        ];
+        let hash = 0;
+        for (let i = 0; i < (seed || '').length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+        return palette[hash % palette.length];
+    },
+
+    _renderLeaderboard(aggregated) {
+        const wrap = document.getElementById('kpiLeaderboardWrapper');
+        if (!wrap) return;
+        if (!aggregated || aggregated.length === 0) {
+            wrap.innerHTML = '';
+            return;
+        }
+        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
+        const fullMode = this.state.displayMode === 'full';
+        const maxNetKpi = aggregated.reduce((max, e) => {
+            const loss = (this._reconKpiLossByUser?.get(e.userId) || {}).kpiLost || 0;
+            return Math.max(max, e.totalKPI - loss);
+        }, 0);
+        let html = '';
+        aggregated.forEach((emp, idx) => {
+            const rank = idx + 1;
+            let rankCls = '';
+            if (rank === 1) rankCls = 'is-gold';
+            else if (rank === 2) rankCls = 'is-silver';
+            else if (rank === 3) rankCls = 'is-bronze';
+            const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+
+            const orderCount = emp.orders.filter((o) => {
+                if (o._stale) return false;
+                if (fullMode) return true;
+                return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
+            }).length;
+
+            const lossInfo = this._reconKpiLossByUser?.get(emp.userId) || {
+                kpiLost: 0,
+                refundCount: 0,
+            };
+            const kpiNet = emp.totalKPI - lossInfo.kpiLost;
+            const netPct = maxNetKpi > 0 ? Math.max(2, Math.round((kpiNet / maxNetKpi) * 100)) : 2;
+            const lossPct =
+                emp.totalKPI > 0 ? Math.round((lossInfo.kpiLost / emp.totalKPI) * 100) : 0;
+
+            const initials = this._initials(emp.resolvedName);
+            const avatarBg = this._avatarColor(emp.userId || emp.resolvedName);
+
+            const refundBadge =
+                reconRan && lossInfo.refundCount > 0
+                    ? `<span class="lb-emp-refund-badge"><i data-lucide="undo-2"></i>${lossInfo.refundCount} hoàn</span>`
+                    : '';
+
+            html += `<div class="lb-row" onclick="window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')" tabindex="0" role="button">
+                <div class="lb-rank ${rankCls}" title="Hạng ${rank}">${rankIcon}</div>
+                <div class="lb-employee">
+                    <div class="lb-avatar" style="background:${avatarBg};">${this.escapeHtml(initials)}</div>
+                    <div class="lb-emp-info">
+                        <div class="lb-emp-name">${this.escapeHtml(emp.resolvedName)}</div>
+                        <div class="lb-emp-meta">
+                            <span class="lb-emp-meta-item"><i data-lucide="package"></i>${orderCount} đơn</span>
+                            <span class="lb-emp-meta-item"><i data-lucide="layers"></i>${emp.totalNetProducts} SP NET</span>
+                            ${refundBadge}
+                        </div>
+                    </div>
+                </div>
+                <div class="lb-kpi-bar-wrap">
+                    <div class="lb-kpi-bar-label">
+                        <span>KPI thực</span>
+                        <span class="lb-kpi-bar-pct">${maxNetKpi > 0 ? Math.round((kpiNet / maxNetKpi) * 100) : 0}%</span>
+                    </div>
+                    <div class="lb-kpi-bar">
+                        <div class="lb-kpi-bar-net" style="width:${netPct}%;"></div>
+                        ${lossInfo.kpiLost > 0 ? `<div class="lb-kpi-bar-loss" style="left:${netPct}%;width:${Math.min(lossPct, 100 - netPct)}%;" title="Bị loại do refund: ${this.formatCurrency(lossInfo.kpiLost)}"></div>` : ''}
+                    </div>
+                </div>
+                <div class="lb-kpi-amount">
+                    <div class="lb-kpi-amount-net">${this.formatCurrency(kpiNet)}</div>
+                    <div class="lb-kpi-amount-gross ${lossInfo.kpiLost > 0 ? 'has-loss' : ''}">${lossInfo.kpiLost > 0 ? `gross ${this.formatCurrency(emp.totalKPI)} − ${this.formatCurrency(lossInfo.kpiLost)} hoàn` : 'không có loss'}</div>
+                </div>
+                <div class="lb-action">
+                    <button class="lb-detail-btn" onclick="event.stopPropagation();window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')"><i data-lucide="chevron-right"></i> Chi tiết</button>
+                </div>
+            </div>`;
+        });
+        wrap.innerHTML = html;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    },
+
+    _updateHeroStats(aggregated) {
+        const totalKpiNet = aggregated.reduce((sum, e) => {
+            const loss = (this._reconKpiLossByUser?.get(e.userId) || {}).kpiLost || 0;
+            return sum + (e.totalKPI - loss);
+        }, 0);
+        const totalKpiGross = aggregated.reduce((sum, e) => sum + e.totalKPI, 0);
+        const totalRefunds = [...(this._reconKpiLossByUser?.values() || [])].reduce(
+            (sum, v) => sum + (v.refundCount || 0),
+            0
+        );
+        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
+
+        const set = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        set('kpiHeroTotal', this.formatCurrency(totalKpiNet));
+        set(
+            'kpiHeroSub',
+            reconRan
+                ? `Đã đối soát · gross ${this.formatCurrency(totalKpiGross)}, loại ${this.formatCurrency(totalKpiGross - totalKpiNet)}`
+                : 'Chưa chạy đối soát — hãy chạy để loại đơn hoàn'
+        );
+        set('kpiHeroEmps', aggregated.length.toLocaleString('vi-VN'));
+        set('kpiHeroRefunds', reconRan ? totalRefunds.toLocaleString('vi-VN') : '—');
+    },
+
+    _bindLeaderboardToggle() {
+        const btns = document.querySelectorAll('.lb-toggle-btn');
+        btns.forEach((b) => {
+            if (b.__lbBound) return;
+            b.__lbBound = true;
+            b.addEventListener('click', () => {
+                const view = b.dataset.view;
+                this._kpiViewMode = view;
+                btns.forEach((x) => x.classList.toggle('is-active', x === b));
+                const lbWrap = document.getElementById('kpiLeaderboardWrapper');
+                const tableWrap = document.getElementById('kpiTableWrapper');
+                if (view === 'leaderboard') {
+                    if (lbWrap) lbWrap.style.display = '';
+                    if (tableWrap) tableWrap.style.display = 'none';
+                } else {
+                    if (lbWrap) lbWrap.style.display = 'none';
+                    if (tableWrap) tableWrap.style.display = '';
+                }
+            });
+        });
+    },
+
+    _bindModalL1Tabs() {
+        const tabs = document.querySelectorAll('.modalL1-tab');
+        tabs.forEach((t) => {
+            if (t.__l1Bound) return;
+            t.__l1Bound = true;
+            t.addEventListener('click', () => {
+                const key = t.dataset.l1Tab;
+                tabs.forEach((x) => x.classList.toggle('is-active', x === t));
+                this._applyL1Tab(key);
+            });
+        });
+    },
+
+    _applyL1Tab(key) {
+        this._l1ActiveTab = key;
+        const tbody = document.getElementById('modalL1TableBody');
+        const wrapper = document.getElementById('modalL1TableWrapper');
+        const summary = document.getElementById('modalL1Summary');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr[data-l1-order]');
+        if (key === 'overview') {
+            // Show only summary, hide table
+            if (summary) summary.style.display = '';
+            if (wrapper) wrapper.style.display = 'none';
+            return;
+        }
+        if (wrapper) wrapper.style.display = '';
+        if (summary) summary.style.display = '';
+        rows.forEach((r) => {
+            const isRefunded = r.classList.contains('is-refunded');
+            const show = key === 'orders' || (key === 'refunds' && isRefunded);
+            r.style.display = show ? '' : 'none';
+            const detail = r.nextElementSibling;
+            if (detail && detail.classList.contains('l1-detail-row')) {
+                detail.style.display = show && detail.dataset.open === '1' ? '' : 'none';
+            }
+        });
+    },
+
+    // ========================================
     // RENDER KPI TABLE (12.6)
     // ========================================
     async renderKPITable(filteredData) {
@@ -891,13 +1088,32 @@ const KPICommission = {
         if (!filteredData || filteredData.length === 0) {
             this.showEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
+            const lbWrap = document.getElementById('kpiLeaderboardWrapper');
+            if (lbWrap) lbWrap.style.display = 'none';
             return;
         }
 
         this.hideEl('kpiTableEmpty');
-        this.showEl('kpiTableWrapper');
 
         const aggregated = await this.aggregateByEmployee(filteredData);
+
+        // Render leaderboard cards (default view) + table (alt view)
+        this._renderLeaderboard(aggregated);
+        this._updateHeroStats(aggregated);
+        this._bindLeaderboardToggle();
+
+        // Apply current view
+        const viewMode = this._kpiViewMode || 'leaderboard';
+        const lbWrap = document.getElementById('kpiLeaderboardWrapper');
+        const tableWrap = document.getElementById('kpiTableWrapper');
+        if (viewMode === 'leaderboard') {
+            if (lbWrap) lbWrap.style.display = '';
+            if (tableWrap) tableWrap.style.display = 'none';
+        } else {
+            if (lbWrap) lbWrap.style.display = 'none';
+            if (tableWrap) tableWrap.style.display = '';
+        }
+
         const tbody = document.getElementById('kpiTableBody');
         if (!tbody) return;
 
@@ -1164,6 +1380,23 @@ const KPICommission = {
                 summary.style.display = 'none';
             }
         }
+
+        // Update tab counts
+        const setTab = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        setTab('l1TabCountAll', totalOrders);
+        setTab('l1TabCountRefund', refundOrders);
+
+        // Bind tab clicks (idempotent)
+        this._bindModalL1Tabs();
+        // Apply current tab filter (default = orders)
+        if (!this._l1ActiveTab) this._l1ActiveTab = 'orders';
+        document
+            .querySelectorAll('.modalL1-tab')
+            .forEach((t) => t.classList.toggle('is-active', t.dataset.l1Tab === this._l1ActiveTab));
+        this._applyL1Tab(this._l1ActiveTab);
 
         if (window.lucide?.createIcons) window.lucide.createIcons();
     },

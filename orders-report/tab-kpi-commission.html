@@ -45,15 +45,42 @@
     </head>
 
     <body>
-        <div class="main-content">
-            <!-- Page Header -->
-            <div class="page-header">
-                <div>
-                    <h1 class="page-title">
-                        <i data-lucide="award"></i>
-                        KPI - Hoa Hồng Upselling
-                    </h1>
-                    <p class="page-subtitle">Quản lý và kiểm soát KPI upselling sản phẩm</p>
+        <div class="main-content kpi-redesign">
+            <!-- Hero Header — gradient with live total KPI -->
+            <div class="kpi-hero">
+                <div class="kpi-hero-bg" aria-hidden="true">
+                    <span class="kpi-hero-orb kpi-hero-orb-1"></span>
+                    <span class="kpi-hero-orb kpi-hero-orb-2"></span>
+                </div>
+                <div class="kpi-hero-content">
+                    <div class="kpi-hero-left">
+                        <div class="kpi-hero-eyebrow">
+                            <i data-lucide="award"></i> KPI Hoa Hồng Upselling
+                        </div>
+                        <h1 class="kpi-hero-title">Bảng điều khiển KPI</h1>
+                        <p class="kpi-hero-sub">
+                            Quản lý KPI upselling, đối soát đơn hoàn, chi tiết theo từng nhân viên
+                        </p>
+                    </div>
+                    <div class="kpi-hero-stats">
+                        <div class="kpi-hero-stat">
+                            <div class="kpi-hero-stat-label">Tổng KPI thực</div>
+                            <div class="kpi-hero-stat-value" id="kpiHeroTotal">—</div>
+                            <div class="kpi-hero-stat-sub" id="kpiHeroSub">Chưa chạy đối soát</div>
+                        </div>
+                        <div class="kpi-hero-stat-mini">
+                            <div class="kpi-hero-mini-row">
+                                <span><i data-lucide="users"></i></span>
+                                <span class="kpi-hero-mini-value" id="kpiHeroEmps">0</span>
+                                <span class="kpi-hero-mini-label">NV có KPI</span>
+                            </div>
+                            <div class="kpi-hero-mini-row">
+                                <span class="kpi-hero-undo-icon"><i data-lucide="undo-2"></i></span>
+                                <span class="kpi-hero-mini-value" id="kpiHeroRefunds">—</span>
+                                <span class="kpi-hero-mini-label">đơn hoàn</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -151,13 +178,31 @@
                 </div>
             </div>
 
-            <!-- ===== MAIN KPI TABLE (11.4) ===== -->
-            <div class="section-card">
+            <!-- ===== MAIN KPI LEADERBOARD (11.4 — redesign) ===== -->
+            <div class="section-card kpi-leaderboard-section">
                 <div class="section-header">
                     <h2 class="section-title">
-                        <i data-lucide="table"></i>
-                        Bảng KPI theo nhân viên
+                        <i data-lucide="trophy"></i>
+                        Bảng xếp hạng KPI theo nhân viên
                     </h2>
+                    <div class="kpi-leaderboard-toggle" role="tablist" aria-label="View mode">
+                        <button
+                            class="lb-toggle-btn is-active"
+                            data-view="leaderboard"
+                            type="button"
+                            title="Bảng xếp hạng"
+                        >
+                            <i data-lucide="layout-grid"></i>
+                        </button>
+                        <button
+                            class="lb-toggle-btn"
+                            data-view="table"
+                            type="button"
+                            title="Bảng truyền thống"
+                        >
+                            <i data-lucide="table"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Loading state -->
@@ -172,7 +217,12 @@
                     <p>Chưa có dữ liệu KPI. Hãy chọn bộ lọc và nhấn "Lọc".</p>
                 </div>
 
-                <!-- Table -->
+                <!-- Leaderboard cards (default view) -->
+                <div class="kpi-leaderboard" id="kpiLeaderboardWrapper" style="display: none">
+                    <!-- Rendered by JS -->
+                </div>
+
+                <!-- Table view (alternative) -->
                 <div class="table-wrapper" id="kpiTableWrapper" style="display: none">
                     <table class="kpi-main-table">
                         <thead>
@@ -392,7 +442,24 @@
                     </div>
                 </div>
 
-                <!-- Modal L1 Table -->
+                <!-- Tab navigation -->
+                <div class="modalL1-tabs" role="tablist" aria-label="Modal sections">
+                    <button class="modalL1-tab is-active" data-l1-tab="overview" type="button">
+                        <i data-lucide="layout-dashboard"></i> Tổng quan
+                    </button>
+                    <button class="modalL1-tab" data-l1-tab="orders" type="button">
+                        <i data-lucide="list-ordered"></i> Tất cả đơn
+                        <span class="modalL1-tab-count" id="l1TabCountAll">0</span>
+                    </button>
+                    <button class="modalL1-tab" data-l1-tab="refunds" type="button">
+                        <i data-lucide="undo-2"></i> Đơn hoàn
+                        <span class="modalL1-tab-count l1-tab-refund-count" id="l1TabCountRefund"
+                            >0</span
+                        >
+                    </button>
+                </div>
+
+                <!-- Modal L1 Body -->
                 <div class="modal-body">
                     <div id="modalL1Loading" class="loading-state" style="display: none">
                         <div class="spinner"></div>
