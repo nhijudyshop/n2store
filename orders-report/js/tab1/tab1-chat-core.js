@@ -317,6 +317,7 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     // Show modal
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
 
     // Click outside modal content to close
     modal.onclick = function (e) {
@@ -550,6 +551,7 @@ window.closeChatModal = function () {
     const modal = document.getElementById('chatModal');
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
 
     // Stop chat polling
     _stopChatPolling();
