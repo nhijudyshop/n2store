@@ -106,6 +106,19 @@
         return null;
     }
 
+    const STATUS_LABELS_VI = {
+        PENDING_VERIFICATION: 'Chờ duyệt',
+        APPROVED: 'Đã duyệt',
+        REJECTED: 'Từ chối',
+        ADJUSTED: 'Đã điều chỉnh',
+        VERIFIED: 'Đã kiểm tra',
+    };
+
+    function viStatus(s) {
+        if (!s) return s;
+        return STATUS_LABELS_VI[s] || s;
+    }
+
     function formatChangeContent(rec) {
         const category = ACTION_TYPE_TO_CATEGORY[rec.actionType];
         const oldD = rec.oldData || {};
@@ -115,7 +128,7 @@
         if (category === 'approve') {
             if (oldD.status && newD.status) {
                 parts.push(
-                    `<span class="diff-pill diff-old">${escapeHtml(oldD.status)}</span> → <span class="diff-pill diff-new">${escapeHtml(newD.status)}</span>`
+                    `<span class="diff-pill diff-old">${escapeHtml(viStatus(oldD.status))}</span> → <span class="diff-pill diff-new">${escapeHtml(viStatus(newD.status))}</span>`
                 );
             }
             if (newD.bulk) {
