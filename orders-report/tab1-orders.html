@@ -5977,6 +5977,37 @@
                         Xác nhận và in (F9)
                     </button>
 
+                    <!-- TPOS Account selector (per-bill override) -->
+                    <div
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            margin-left: 8px;
+                            padding: 4px 10px;
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 6px;
+                        "
+                    >
+                        <i class="fas fa-user-cog" style="color: #1d4ed8; font-size: 12px"></i>
+                        <span style="font-size: 12px; color: #1d4ed8; font-weight: 600">TPOS:</span>
+                        <select
+                            id="saleTposAccountSelect"
+                            style="
+                                border: none;
+                                background: transparent;
+                                font-size: 12px;
+                                color: #1e3a8a;
+                                font-weight: 600;
+                                cursor: pointer;
+                                outline: none;
+                            "
+                        >
+                            <option value="">(active)</option>
+                        </select>
+                    </div>
+
                     <!-- Bill Type Toggle (hidden - always use Web bill for single sale) -->
                     <div
                         style="
@@ -6730,12 +6761,12 @@
 
         <!-- TPOS Account Settings Modal -->
         <div class="merge-modal" id="tposAccountModal">
-            <div class="merge-modal-content" style="max-width: 500px">
+            <div class="merge-modal-content" style="max-width: 560px">
                 <div class="merge-modal-header ds-modal-header-primary">
                     <div class="merge-header-info">
                         <h3><i class="fas fa-user-cog"></i> Tài khoản TPOS</h3>
                         <p style="font-size: 13px; opacity: 0.9">
-                            Cài đặt tài khoản TPOS cho tạo bill
+                            Quản lý nhiều tài khoản TPOS, chọn 1 đang dùng
                         </p>
                     </div>
                     <button class="merge-close-btn" onclick="closeTposAccountModal()">
@@ -6750,13 +6781,114 @@
                             padding: 15px;
                             background: #f3f4f6;
                             border-radius: 8px;
-                            margin-bottom: 20px;
+                            margin-bottom: 16px;
                         "
                     >
                         <div style="display: flex; align-items: center; gap: 10px">
                             <i class="fas fa-info-circle" style="color: #6b7280"></i>
                             <span>Đang tải...</span>
                         </div>
+                    </div>
+
+                    <!-- Account list -->
+                    <div style="margin-bottom: 16px">
+                        <div
+                            style="
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                margin-bottom: 8px;
+                            "
+                        >
+                            <label style="font-weight: 600; color: #374151; font-size: 13px">
+                                <i class="fas fa-list"></i> Danh sách tài khoản
+                            </label>
+                            <button
+                                type="button"
+                                class="bill-settings-tab"
+                                onclick="newTposAccountForm()"
+                                style="
+                                    background: #10b981;
+                                    color: #fff;
+                                    border: none;
+                                    padding: 4px 10px;
+                                    font-size: 12px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                "
+                            >
+                                <i class="fas fa-plus"></i> Thêm account
+                            </button>
+                        </div>
+                        <div
+                            id="tposAccountList"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                max-height: 200px;
+                                overflow-y: auto;
+                                background: #fff;
+                            "
+                        >
+                            <div
+                                style="
+                                    padding: 12px;
+                                    text-align: center;
+                                    color: #9ca3af;
+                                    font-size: 13px;
+                                "
+                            >
+                                Đang tải...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form section header -->
+                    <div
+                        id="tposAccountFormHeader"
+                        style="
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            margin-bottom: 12px;
+                            padding-top: 12px;
+                            border-top: 1px solid #e5e7eb;
+                        "
+                    >
+                        <span
+                            id="tposAccountFormTitle"
+                            style="font-weight: 600; color: #374151; font-size: 13px"
+                        >
+                            <i class="fas fa-pencil-alt"></i> Cài đặt tài khoản
+                        </span>
+                    </div>
+
+                    <!-- Account label input -->
+                    <div style="margin-bottom: 12px">
+                        <label
+                            style="
+                                display: block;
+                                margin-bottom: 5px;
+                                font-weight: 600;
+                                color: #374151;
+                                font-size: 13px;
+                            "
+                        >
+                            <i class="fas fa-tag"></i> Tên hiển thị
+                        </label>
+                        <input
+                            type="text"
+                            id="tposAccountLabel"
+                            class="form-control"
+                            placeholder="Ví dụ: Nhi Judy, Kế Toán A..."
+                            autocomplete="off"
+                            style="
+                                width: 100%;
+                                padding: 8px 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                            "
+                        />
                     </div>
 
                     <!-- Auth Type Tabs -->
@@ -6882,26 +7014,14 @@
                 </div>
                 <div
                     class="merge-modal-footer"
-                    style="display: flex; justify-content: space-between; gap: 10px"
+                    style="display: flex; justify-content: flex-end; gap: 10px"
                 >
-                    <button
-                        class="merge-btn-cancel"
-                        onclick="clearTposAccount()"
-                        style="background: #ef4444; color: white"
-                    >
-                        <i class="fas fa-trash"></i> Xóa
+                    <button class="merge-btn-cancel" onclick="testTposAccount()">
+                        <i class="fas fa-vial"></i> Test
                     </button>
-                    <div style="display: flex; gap: 10px">
-                        <button class="merge-btn-cancel" onclick="testTposAccount()">
-                            <i class="fas fa-vial"></i> Test
-                        </button>
-                        <button
-                            class="merge-btn-confirm ds-btn-primary"
-                            onclick="saveTposAccount()"
-                        >
-                            <i class="fas fa-save"></i> Lưu
-                        </button>
-                    </div>
+                    <button class="merge-btn-confirm ds-btn-primary" onclick="saveTposAccount()">
+                        <i class="fas fa-save"></i> Lưu
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,76 +1,65 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
-// BILL TOKEN MANAGER - Separate TPOS Auth for Bill Creation
+// BILL TOKEN MANAGER - Multi-account TPOS Auth for Bill Creation
 //
-// Quản lý TPOS credentials riêng cho việc tạo bill (PBH)
-// - Lưu lên Render backend: /api/tpos-credentials (per user per company)
-// - KHÔNG lưu credentials vào localStorage (chỉ cache token tạm thời trong memory)
+// Quản lý DANH SÁCH TPOS accounts cho việc tạo bill (PBH).
+// Mỗi user (web) có thể cấu hình nhiều TPOS accounts; 1 active.
+// - Lưu lên Render: /api/tpos-credentials (per username + company_id + account_label)
+// - Active account dùng mặc định khi tạo bill
+// - Có thể override per-bill khi tạo (sale modal có dropdown chọn account)
 // =====================================================
 
 class BillTokenManager {
     constructor() {
-        // Multi-company: use per-company storage keys
         this.companyId = BillTokenManager.getCompanyId();
         this.RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/tpos-credentials';
         this.TOKEN_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
 
-        this.credentials = null; // { username, password } or { bearerToken }
-        this.token = null;
-        this.tokenExpiry = null;
-        this.refreshToken = null; // Keep refresh_token in memory
-        this.isRefreshing = false;
+        // Multi-account: list of { label, authType, username, password, bearerToken, refreshToken, isActive, updatedAt }
+        this.accounts = [];
+        this.activeLabel = null;
 
-        // Clean up old localStorage data (migration)
+        // Token cache: Map<label, { token, tokenExpiry, refreshToken, isRefreshing }>
+        this._tokenCache = new Map();
+
         this._cleanupOldStorage();
 
-        // Listen for company changes
         window.addEventListener('shopChanged', (e) => {
             const newCompanyId = e.detail?.config?.CompanyId || 1;
             if (newCompanyId !== this.companyId) {
                 this.companyId = newCompanyId;
-                // Reset state and reload from Render for new company
-                this.token = null;
-                this.tokenExpiry = null;
-                this.refreshToken = null;
-                this.credentials = null;
+                this.accounts = [];
+                this.activeLabel = null;
+                this._tokenCache.clear();
                 this.init();
             }
         });
     }
 
-    /**
-     * Get current company ID from ShopConfig
-     */
     static getCompanyId() {
         return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
     }
 
-    /**
-     * Clean up old localStorage keys (one-time migration)
-     */
     _cleanupOldStorage() {
         try {
-            // Remove all old credential keys from localStorage
             const keysToRemove = [
-                'bill_tpos_credentials', 'bill_tpos_token',
-                'bill_tpos_credentials_1', 'bill_tpos_token_1',
-                'bill_tpos_credentials_2', 'bill_tpos_token_2'
+                'bill_tpos_credentials',
+                'bill_tpos_token',
+                'bill_tpos_credentials_1',
+                'bill_tpos_token_1',
+                'bill_tpos_credentials_2',
+                'bill_tpos_token_2',
             ];
-            keysToRemove.forEach(key => localStorage.removeItem(key));
-        } catch (e) { /* ignore */ }
+            keysToRemove.forEach((key) => localStorage.removeItem(key));
+        } catch (e) {
+            /* ignore */
+        }
     }
 
-    // =====================================================
-    // RENDER API METHODS (Source of Truth)
-    // =====================================================
-
-    /**
-     * Get current web user ID from authManager
-     */
     getWebUserId() {
         try {
-            const authData = window.authManager?.getAuthData?.() ||
-                             window.authManager?.getAuthState?.();
+            const authData =
+                window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
             return authData?.username || authData?.userId || authData?.user?.username || null;
         } catch (error) {
             console.error('[BILL-TOKEN] Error getting web user ID:', error);
@@ -78,65 +67,133 @@ class BillTokenManager {
         }
     }
 
-    /**
-     * Save credentials to Render backend
-     */
-    async saveToRender(refreshToken = null) {
-        if (!this.credentials) {
-            console.warn('[BILL-TOKEN] No credentials to save');
-            return false;
-        }
+    // =====================================================
+    // ACCOUNT MANAGEMENT (multi)
+    // =====================================================
 
+    /**
+     * Load list of accounts from Render
+     */
+    async loadFromRender() {
         const username = this.getWebUserId();
-        if (!username) {
-            console.warn('[BILL-TOKEN] Cannot save: no web user ID');
-            // Retry after 3s if auth not ready
-            if (!this._pendingSave) {
-                this._pendingSave = true;
-                setTimeout(() => {
-                    this._pendingSave = false;
-                    this.saveToRender(refreshToken);
-                }, 3000);
-            }
-            return false;
-        }
+        if (!username) return false;
 
         try {
-            const body = {
-                username,
-                companyId: this.companyId,
-                authType: this.credentials.bearerToken ? 'bearer' : 'password',
-                tposUsername: this.credentials.username || null,
-                tposPassword: this.credentials.password || null,
-                bearerToken: this.credentials.bearerToken || null,
-                refreshToken: refreshToken || this.refreshToken || null
-            };
-
-            const response = await fetch(this.RENDER_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
+            const url = `${this.RENDER_API}/list?username=${encodeURIComponent(username)}&company_id=${this.companyId}`;
+            const response = await fetch(url);
             const result = await response.json();
-            if (result.success) {
-                return true;
-            } else {
-                console.error('[BILL-TOKEN] Render save failed:', result.message);
-                return false;
-            }
+            if (!result.success || !Array.isArray(result.data)) return false;
+
+            this.accounts = result.data;
+            const active = this.accounts.find((a) => a.isActive);
+            this.activeLabel = active ? active.label : this.accounts[0]?.label || null;
+
+            return this.accounts.length > 0;
         } catch (error) {
-            console.error('[BILL-TOKEN] Error saving to Render:', error);
+            console.error('[BILL-TOKEN] Error loading from Render:', error);
             return false;
         }
     }
 
     /**
-     * Save refresh_token to Render (called after successful token fetch)
+     * Save / upsert account on Render
+     * @param {object} creds - { label, username, password, bearerToken, setActive }
      */
-    async saveRefreshTokenToRender(refreshToken) {
-        if (!refreshToken) return false;
+    async saveAccount(creds) {
+        const username = this.getWebUserId();
+        if (!username) {
+            console.warn('[BILL-TOKEN] Cannot save: no web user ID');
+            return { success: false, message: 'No web user ID' };
+        }
+        const label = (creds.label || 'Mặc định').trim() || 'Mặc định';
+        const authType = creds.bearerToken ? 'bearer' : 'password';
 
+        const body = {
+            username,
+            companyId: this.companyId,
+            label,
+            authType,
+            tposUsername: creds.username || null,
+            tposPassword: creds.password || null,
+            bearerToken: creds.bearerToken || null,
+            refreshToken: creds.refreshToken || null,
+            setActive: !!creds.setActive,
+        };
+
+        try {
+            const response = await fetch(this.RENDER_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const result = await response.json();
+            if (!result.success) return { success: false, message: result.message };
+
+            // Reload list
+            await this.loadFromRender();
+            // Reset token cache cho label đó (force re-auth)
+            this._tokenCache.delete(label);
+            return { success: true, label, isActive: result.isActive };
+        } catch (error) {
+            console.error('[BILL-TOKEN] saveAccount error:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Switch active account
+     */
+    async setActiveAccount(label) {
+        const username = this.getWebUserId();
+        if (!username) return { success: false, message: 'No web user ID' };
+
+        try {
+            const response = await fetch(`${this.RENDER_API}/active`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, companyId: this.companyId, label }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.activeLabel = label;
+                this.accounts.forEach((a) => {
+                    a.isActive = a.label === label;
+                });
+            }
+            return result;
+        } catch (error) {
+            console.error('[BILL-TOKEN] setActiveAccount error:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Delete an account by label
+     */
+    async deleteAccount(label) {
+        const username = this.getWebUserId();
+        if (!username) return { success: false, message: 'No web user ID' };
+
+        try {
+            const url = `${this.RENDER_API}?username=${encodeURIComponent(username)}&company_id=${this.companyId}&label=${encodeURIComponent(label)}`;
+            const response = await fetch(url, { method: 'DELETE' });
+            const result = await response.json();
+            if (result.success) {
+                this._tokenCache.delete(label);
+                await this.loadFromRender();
+            }
+            return result;
+        } catch (error) {
+            console.error('[BILL-TOKEN] deleteAccount error:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Save refresh_token after fetching new token
+     */
+    async saveRefreshTokenToRender(refreshToken, label) {
+        if (!refreshToken) return false;
         const username = this.getWebUserId();
         if (!username) return false;
 
@@ -147,202 +204,177 @@ class BillTokenManager {
                 body: JSON.stringify({
                     username,
                     companyId: this.companyId,
-                    refreshToken
-                })
+                    refreshToken,
+                    label,
+                }),
             });
-
             const result = await response.json();
-            if (result.success) {
-            }
             return result.success;
         } catch (error) {
-            console.error('[BILL-TOKEN] Error saving refresh token to Render:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Load credentials from Render backend
-     */
-    async loadFromRender() {
-        const username = this.getWebUserId();
-        if (!username) {
-            console.warn('[BILL-TOKEN] Cannot load from Render: no web user ID');
-            return false;
-        }
-
-        try {
-            const url = `${this.RENDER_API}?username=${encodeURIComponent(username)}&company_id=${this.companyId}`;
-            const response = await fetch(url);
-            const result = await response.json();
-
-            if (!result.success || !result.data) {
-                return false;
-            }
-
-            const data = result.data;
-
-            if (data.authType === 'bearer' && data.bearerToken) {
-                this.credentials = { bearerToken: data.bearerToken };
-            } else if (data.authType === 'password' && data.username && data.password) {
-                this.credentials = { username: data.username, password: data.password };
-            } else {
-                return false;
-            }
-
-            // Store refresh_token in memory
-            if (data.refreshToken) {
-                this.refreshToken = data.refreshToken;
-            }
-
-            return true;
-        } catch (error) {
-            console.error('[BILL-TOKEN] Error loading from Render:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Delete credentials from Render backend
-     */
-    async deleteFromRender() {
-        const username = this.getWebUserId();
-        if (!username) return false;
-
-        try {
-            const url = `${this.RENDER_API}?username=${encodeURIComponent(username)}&company_id=${this.companyId}`;
-            const response = await fetch(url, { method: 'DELETE' });
-            const result = await response.json();
-
-            if (result.success) {
-            }
-            return result.success;
-        } catch (error) {
-            console.error('[BILL-TOKEN] Error deleting from Render:', error);
+            console.error('[BILL-TOKEN] saveRefreshTokenToRender error:', error);
             return false;
         }
     }
 
     // =====================================================
-    // AUTHENTICATION METHODS
+    // ACTIVE ACCOUNT GETTERS (backwards-compat surface)
     // =====================================================
 
-    /**
-     * Check if token is valid
-     */
-    isTokenValid() {
-        if (!this.token || !this.tokenExpiry) return false;
-        const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
-        return Date.now() < (this.tokenExpiry - bufferTime);
+    _getAccount(label) {
+        const target = label || this.activeLabel;
+        if (!target) return this.accounts[0] || null;
+        return this.accounts.find((a) => a.label === target) || null;
     }
 
     /**
-     * Check if credentials are configured
+     * Returns active account creds.
+     * Compatibility: existing code reads `this.credentials` — provide as getter.
      */
-    hasCredentials() {
-        if (!this.credentials) return false;
-        return !!(this.credentials.bearerToken ||
-                  (this.credentials.username && this.credentials.password));
+    get credentials() {
+        const acc = this._getAccount();
+        if (!acc) return null;
+        if (acc.authType === 'bearer' && acc.bearerToken) {
+            return { bearerToken: acc.bearerToken };
+        }
+        if (acc.username && acc.password) {
+            return { username: acc.username, password: acc.password };
+        }
+        return null;
+    }
+
+    hasCredentials(label) {
+        const acc = this._getAccount(label);
+        if (!acc) return false;
+        if (acc.authType === 'bearer') return !!acc.bearerToken;
+        return !!(acc.username && acc.password);
+    }
+
+    getCredentialsInfo(label) {
+        const acc = this._getAccount(label);
+        if (!acc) return { configured: false };
+        if (acc.authType === 'bearer') {
+            return {
+                configured: true,
+                type: 'bearer',
+                preview: (acc.bearerToken || '').substring(0, 20) + '...',
+                label: acc.label,
+            };
+        }
+        if (acc.username) {
+            return {
+                configured: true,
+                type: 'password',
+                username: acc.username,
+                label: acc.label,
+            };
+        }
+        return { configured: false };
     }
 
     /**
-     * Set credentials (username/password or bearer token)
-     * @param {Object} creds - { username, password } or { bearerToken }
+     * Username (TPOS) của active hoặc account chỉ định
      */
-    async setCredentials(creds) {
-        this.credentials = {
-            ...creds,
-            updatedAt: Date.now()
-        };
-
-        // Preserve existing refresh token
-        const existingRefresh = this.refreshToken;
-
-        // Clear old token
-        this.token = null;
-        this.tokenExpiry = null;
-
-        // Save to Render backend (source of truth)
-        await this.saveToRender(existingRefresh);
-
+    getUsername(label) {
+        const acc = this._getAccount(label);
+        if (!acc) return null;
+        return acc.username || acc.label || null;
     }
 
     /**
-     * Fetch new token from TPOS API
+     * Trả về list accounts cho dropdown UI
      */
-    async fetchToken() {
-        if (!this.hasCredentials()) {
-            throw new Error('No credentials configured');
+    listAccounts() {
+        return this.accounts.map((a) => ({
+            label: a.label,
+            authType: a.authType,
+            username: a.username,
+            isActive: a.isActive,
+            updatedAt: a.updatedAt,
+        }));
+    }
+
+    getActiveLabel() {
+        return this.activeLabel;
+    }
+
+    // =====================================================
+    // AUTHENTICATION (per account)
+    // =====================================================
+
+    _getCacheEntry(label) {
+        if (!this._tokenCache.has(label)) {
+            this._tokenCache.set(label, {
+                token: null,
+                tokenExpiry: null,
+                refreshToken: null,
+                isRefreshing: false,
+            });
+        }
+        return this._tokenCache.get(label);
+    }
+
+    _isTokenValid(entry) {
+        if (!entry || !entry.token || !entry.tokenExpiry) return false;
+        const bufferTime = 5 * 60 * 1000;
+        return Date.now() < entry.tokenExpiry - bufferTime;
+    }
+
+    async _fetchToken(label) {
+        const acc = this._getAccount(label);
+        if (!acc) throw new Error('No account: ' + (label || 'active'));
+
+        const entry = this._getCacheEntry(acc.label);
+
+        if (acc.authType === 'bearer' && acc.bearerToken) {
+            entry.token = acc.bearerToken;
+            entry.tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+            return entry.token;
         }
 
-        // If using direct bearer token (no refresh capability)
-        if (this.credentials.bearerToken) {
-            this.token = this.credentials.bearerToken;
-            // Set expiry to 30 days from now (bearer tokens usually have long validity)
-            this.tokenExpiry = Date.now() + (30 * 24 * 60 * 60 * 1000);
-            return this.token;
-        }
-
-        // Try refresh token first if available
-        if (this.refreshToken) {
+        // Try refresh token first
+        const refresh = entry.refreshToken || acc.refreshToken;
+        if (refresh) {
             try {
-                const refreshed = await this.refreshWithToken(this.refreshToken);
-                if (refreshed) {
-                    return this.token;
-                }
-            } catch (error) {
-                console.warn('[BILL-TOKEN] Refresh token failed, will use password:', error.message);
+                const ok = await this._refreshWithToken(acc.label, refresh);
+                if (ok) return entry.token;
+            } catch (err) {
+                console.warn('[BILL-TOKEN] Refresh failed for', acc.label, '-', err.message);
             }
         }
 
-        // Fetch using username/password
-        const { username, password } = this.credentials;
-
+        // Fall back to username/password
+        if (!acc.username || !acc.password) {
+            throw new Error('No password creds for account: ' + acc.label);
+        }
         const formData = new URLSearchParams();
         formData.append('grant_type', 'password');
-        formData.append('username', username);
-        formData.append('password', password);
+        formData.append('username', acc.username);
+        formData.append('password', acc.password);
         formData.append('client_id', 'tmtWebApp');
 
         const response = await fetch(this.TOKEN_API_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: formData.toString()
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString(),
         });
-
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Token fetch failed: ${response.status} - ${errorText}`);
         }
-
         const data = await response.json();
+        if (!data.access_token) throw new Error('Invalid token response');
 
-        if (!data.access_token) {
-            throw new Error('Invalid token response');
-        }
-
-        // Calculate expiry (expires_in is in seconds)
         const expiresIn = data.expires_in || 3600;
-        this.token = data.access_token;
-        this.tokenExpiry = Date.now() + (expiresIn * 1000);
-
-        // Save refresh_token in memory and to Render
+        entry.token = data.access_token;
+        entry.tokenExpiry = Date.now() + expiresIn * 1000;
         if (data.refresh_token) {
-            this.refreshToken = data.refresh_token;
-            this.saveRefreshTokenToRender(data.refresh_token);
+            entry.refreshToken = data.refresh_token;
+            this.saveRefreshTokenToRender(data.refresh_token, acc.label);
         }
-
-        return this.token;
+        return entry.token;
     }
 
-    /**
-     * Refresh token using refresh_token grant
-     * @param {string} refreshToken - The refresh token
-     * @returns {boolean} - Whether refresh was successful
-     */
-    async refreshWithToken(refreshToken) {
+    async _refreshWithToken(label, refreshToken) {
         const formData = new URLSearchParams();
         formData.append('grant_type', 'refresh_token');
         formData.append('refresh_token', refreshToken);
@@ -350,192 +382,190 @@ class BillTokenManager {
 
         const response = await fetch(this.TOKEN_API_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: formData.toString()
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString(),
         });
-
-        if (!response.ok) {
-            throw new Error(`Refresh failed: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`Refresh failed: ${response.status}`);
         const data = await response.json();
+        if (!data.access_token) throw new Error('Invalid refresh response');
 
-        if (!data.access_token) {
-            throw new Error('Invalid refresh response');
-        }
-
-        // Calculate expiry
+        const entry = this._getCacheEntry(label);
         const expiresIn = data.expires_in || 3600;
-        this.token = data.access_token;
-        this.tokenExpiry = Date.now() + (expiresIn * 1000);
-
-        // Save new refresh_token if provided
-        const newRefreshToken = data.refresh_token || refreshToken;
-        this.refreshToken = newRefreshToken;
-
-        // Save new refresh_token to Render if it changed
+        entry.token = data.access_token;
+        entry.tokenExpiry = Date.now() + expiresIn * 1000;
+        const newRefresh = data.refresh_token || refreshToken;
+        entry.refreshToken = newRefresh;
         if (data.refresh_token) {
-            this.saveRefreshTokenToRender(data.refresh_token);
+            this.saveRefreshTokenToRender(data.refresh_token, label);
         }
-
         return true;
     }
 
     /**
-     * Get valid token (refresh if needed)
+     * Get valid token for active account (or specified label).
      */
-    async getToken() {
-        // Return cached token if valid
-        if (this.isTokenValid()) {
-            return this.token;
+    async getToken(label) {
+        const acc = this._getAccount(label);
+        if (!acc) throw new Error('No active TPOS account');
+        const entry = this._getCacheEntry(acc.label);
+
+        if (this._isTokenValid(entry)) return entry.token;
+
+        if (entry.isRefreshing) {
+            await new Promise((r) => setTimeout(r, 1000));
+            return entry.token;
         }
-
-        // Prevent multiple simultaneous refreshes
-        if (this.isRefreshing) {
-            // Wait for refresh to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return this.token;
-        }
-
-        this.isRefreshing = true;
-
+        entry.isRefreshing = true;
         try {
-            await this.fetchToken();
-            return this.token;
+            await this._fetchToken(acc.label);
+            return entry.token;
         } finally {
-            this.isRefreshing = false;
+            entry.isRefreshing = false;
         }
     }
 
     /**
-     * Get auth header for API requests
+     * Get auth header — main entry point for callers.
      */
-    async getAuthHeader() {
-        const token = await this.getToken();
-        return {
-            'Authorization': `Bearer ${token}`
-        };
+    async getAuthHeader(label) {
+        const token = await this.getToken(label);
+        return { Authorization: `Bearer ${token}` };
     }
 
     /**
      * Test credentials by fetching token
      */
-    async testCredentials() {
+    async testCredentials(label) {
         try {
-            // Clear existing token to force fetch
-            this.token = null;
-            this.tokenExpiry = null;
-            this.refreshToken = null;
-
-            await this.fetchToken();
+            const acc = this._getAccount(label);
+            if (!acc) throw new Error('Không có account để test');
+            this._tokenCache.delete(acc.label);
+            await this._fetchToken(acc.label);
             return { success: true, message: 'Xác thực thành công!' };
         } catch (error) {
             return { success: false, message: error.message };
         }
     }
 
+    // =====================================================
+    // BACKWARDS-COMPAT SURFACE (legacy callers)
+    // =====================================================
+
     /**
-     * Get current credentials info (masked)
+     * Legacy: setCredentials(creds) → save as 'Mặc định' label, set active.
      */
-    getCredentialsInfo() {
-        if (!this.credentials) {
-            return { configured: false };
-        }
-
-        if (this.credentials.bearerToken) {
-            return {
-                configured: true,
-                type: 'bearer',
-                preview: this.credentials.bearerToken.substring(0, 20) + '...'
-            };
-        }
-
-        if (this.credentials.username) {
-            return {
-                configured: true,
-                type: 'password',
-                username: this.credentials.username
-            };
-        }
-
-        return { configured: false };
+    async setCredentials(creds) {
+        const out = await this.saveAccount({
+            label: creds.label || 'Mặc định',
+            username: creds.username,
+            password: creds.password,
+            bearerToken: creds.bearerToken,
+            refreshToken: creds.refreshToken,
+            setActive: true,
+        });
+        return out.success;
     }
 
     /**
-     * Clear all credentials (memory + Render)
+     * Legacy: clearCredentials() → delete tất cả accounts.
      */
     async clearCredentials() {
-        this.credentials = null;
-        this.token = null;
-        this.tokenExpiry = null;
-        this.refreshToken = null;
+        const username = this.getWebUserId();
+        if (!username) return false;
+        try {
+            const url = `${this.RENDER_API}?username=${encodeURIComponent(username)}&company_id=${this.companyId}`;
+            await fetch(url, { method: 'DELETE' });
+            this.accounts = [];
+            this.activeLabel = null;
+            this._tokenCache.clear();
+            return true;
+        } catch (error) {
+            console.error('[BILL-TOKEN] clearCredentials error:', error);
+            return false;
+        }
+    }
 
-        // Delete from Render backend
-        await this.deleteFromRender();
+    // Legacy compat: token getter for code that reads `manager.token` directly
+    get token() {
+        const acc = this._getAccount();
+        if (!acc) return null;
+        return this._tokenCache.get(acc.label)?.token || null;
+    }
+    set token(v) {
+        const acc = this._getAccount();
+        if (!acc) return;
+        const entry = this._getCacheEntry(acc.label);
+        entry.token = v;
+        if (!v) entry.tokenExpiry = null;
+    }
+
+    get tokenExpiry() {
+        const acc = this._getAccount();
+        if (!acc) return null;
+        return this._tokenCache.get(acc.label)?.tokenExpiry || null;
+    }
+    set tokenExpiry(v) {
+        const acc = this._getAccount();
+        if (!acc) return;
+        this._getCacheEntry(acc.label).tokenExpiry = v;
+    }
+
+    isTokenValid() {
+        const acc = this._getAccount();
+        if (!acc) return false;
+        return this._isTokenValid(this._tokenCache.get(acc.label));
     }
 
     // =====================================================
     // INITIALIZATION
     // =====================================================
 
-    /**
-     * Initialize - load credentials from Render backend
-     */
     async init() {
-        // Load from Render backend (source of truth)
         if (this.getWebUserId()) {
             await this.loadFromRender();
         } else {
-            // Auth not ready yet, retry after 2 seconds
             setTimeout(() => this._retryLoadFromRender(), 2000);
         }
 
-        // Default credentials if none found
-        if (!this.hasCredentials()) {
-            this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
+        // Default credentials nếu chưa có account nào (giữ behaviour cũ)
+        if (this.accounts.length === 0) {
+            await this.saveAccount({
+                label: 'Mặc định',
+                username: 'nvqldonhang',
+                password: 'Aa@123456987',
+                setActive: true,
+            });
         }
     }
 
-    /**
-     * Retry loading from Render (called after delay)
-     */
     async _retryLoadFromRender() {
-        if (this.hasCredentials()) return;
-
+        if (this.accounts.length > 0) return;
         if (this.getWebUserId()) {
             await this.loadFromRender();
         }
-
-        // Default credentials if still none
-        if (!this.hasCredentials()) {
-            this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
+        if (this.accounts.length === 0) {
+            await this.saveAccount({
+                label: 'Mặc định',
+                username: 'nvqldonhang',
+                password: 'Aa@123456987',
+                setActive: true,
+            });
         }
     }
 
-    /**
-     * Ensure credentials are loaded (fallback if init() didn't load)
-     */
     async ensureCredentialsLoaded() {
-        if (this.hasCredentials()) {
-            return true;
-        }
-
+        if (this.hasCredentials()) return true;
         if (this.getWebUserId()) {
             return await this.loadFromRender();
         }
-
         return false;
     }
 }
 
-// Create global instance — singleton guard
 if (!window.billTokenManager) {
     window.billTokenManager = new BillTokenManager();
 }
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         window.billTokenManager.init();

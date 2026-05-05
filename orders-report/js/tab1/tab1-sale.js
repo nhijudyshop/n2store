@@ -807,16 +807,22 @@ async function confirmAndPrintSale() {
 
     try {
         // Get auth header from billTokenManager (same as fastSaleModal)
+        // Per-bill override: nếu user chọn account khác trong dropdown, dùng account đó
+        const overrideLabelEl = document.getElementById('saleTposAccountSelect');
+        const overrideLabel = overrideLabelEl?.value?.trim() || null;
         let headers;
         if (window.billTokenManager) {
             await window.billTokenManager.ensureCredentialsLoaded();
-            if (!window.billTokenManager.hasCredentials()) {
+            if (!window.billTokenManager.hasCredentials(overrideLabel)) {
                 throw new Error(
                     'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.'
                 );
             }
-            headers = await window.billTokenManager.getAuthHeader();
-            console.log('[SALE-CONFIRM] Using billTokenManager for auth');
+            headers = await window.billTokenManager.getAuthHeader(overrideLabel);
+            console.log(
+                '[SALE-CONFIRM] Using billTokenManager for auth' +
+                    (overrideLabel ? ' (override: ' + overrideLabel + ')' : ' (active)')
+            );
         } else {
             // Use tokenManager for selected company token
             const token = window.tokenManager ? await window.tokenManager.getToken() : null;
@@ -932,9 +938,15 @@ async function confirmAndPrintSale() {
         // Retry on 401: force-refresh bill token and retry once (same idempotency key)
         if (response.status === 401 && window.billTokenManager) {
             console.log('[SALE-CONFIRM] 401 received, force-refreshing bill token...');
-            window.billTokenManager.token = null;
-            window.billTokenManager.tokenExpiry = null;
-            headers = await window.billTokenManager.getAuthHeader();
+            // Clear cache cho label đang dùng (nếu có override label, clear label đó; else active)
+            const mgr = window.billTokenManager;
+            const labelToRefresh = overrideLabel || mgr.getActiveLabel?.();
+            if (labelToRefresh && mgr._tokenCache?.has(labelToRefresh)) {
+                const entry = mgr._tokenCache.get(labelToRefresh);
+                entry.token = null;
+                entry.tokenExpiry = null;
+            }
+            headers = await mgr.getAuthHeader(overrideLabel);
             response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: {

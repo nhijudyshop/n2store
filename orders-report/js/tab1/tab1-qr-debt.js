@@ -1160,6 +1160,11 @@ async function openSaleButtonModal() {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
 
+    // Populate TPOS account dropdown (active = first option)
+    if (typeof window.populateSaleTposAccountSelect === 'function') {
+        window.populateSaleTposAccountSelect();
+    }
+
     // Reset confirm button state (in case it was disabled from previous session)
     const confirmBtn = document.querySelector('.sale-btn-teal');
     if (confirmBtn) {
@@ -1366,6 +1371,11 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     // Show modal
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
+
+    // Populate TPOS account dropdown
+    if (typeof window.populateSaleTposAccountSelect === 'function') {
+        window.populateSaleTposAccountSelect();
+    }
 
     // Reset confirm button
     const confirmBtn = document.querySelector('.sale-btn-teal');
