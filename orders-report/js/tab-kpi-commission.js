@@ -1697,25 +1697,23 @@ const KPICommission = {
 
         tbody.innerHTML = html;
 
-        // Render summary card
+        // Render summary card — luôn populate values cho đúng count.
+        // Show/hide xử lý ở _applyL1Tab (tab Tổng quan luôn show summary kèm
+        // empty-state nếu chưa recon).
         const summary = document.getElementById('modalL1Summary');
         if (summary) {
-            if (reconRan) {
-                summary.style.display = '';
-                const set = (id, v) => {
-                    const el = document.getElementById(id);
-                    if (el) el.textContent = v;
-                };
-                set('l1SumTotalOrders', totalOrders.toLocaleString('vi-VN'));
-                set('l1SumOkOrders', okOrders.toLocaleString('vi-VN'));
-                set('l1SumRefundOrders', refundOrders.toLocaleString('vi-VN'));
-                set('l1SumKpiGross', this.formatCurrency(kpiGross));
-                set('l1SumKpiLost', this.formatCurrency(kpiLost));
-                set('l1SumKpiNet', this.formatCurrency(kpiGross - kpiLost));
-            } else {
-                summary.style.display = 'none';
-            }
+            const set = (id, v) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = v;
+            };
+            set('l1SumTotalOrders', totalOrders.toLocaleString('vi-VN'));
+            set('l1SumOkOrders', okOrders.toLocaleString('vi-VN'));
+            set('l1SumRefundOrders', refundOrders.toLocaleString('vi-VN'));
+            set('l1SumKpiGross', this.formatCurrency(kpiGross));
+            set('l1SumKpiLost', this.formatCurrency(kpiLost));
+            set('l1SumKpiNet', this.formatCurrency(kpiGross - kpiLost));
         }
+        this._l1ReconRan = reconRan;
 
         // Update tab counts
         const setTab = (id, v) => {

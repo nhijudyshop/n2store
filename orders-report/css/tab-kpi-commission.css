@@ -2532,7 +2532,12 @@ body {
 }
 
 .invoice-detail-modal {
-    z-index: 100;
+    /* Phải cao hơn modal L1 (1000) và L2 (1100) để stack đúng khi click số phiếu trong modal khác */
+    z-index: 1200 !important;
+}
+.invoice-detail-modal .modal-container {
+    /* Override max-width của modal-overlay rule chung */
+    max-width: 1100px !important;
 }
 .invoice-detail-container {
     max-width: 1000px;
