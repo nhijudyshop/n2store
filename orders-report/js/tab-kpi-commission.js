@@ -37,8 +37,11 @@ const KPICommission = {
         // 'full'   = hiển thị TẤT CẢ đơn gồm cả đơn chưa tick KPI (KPI = 0).
         // Persist localStorage per-user để giữ giữa session.
         displayMode: (() => {
-            try { return localStorage.getItem('kpiDisplayMode') || 'simple'; }
-            catch (e) { return 'simple'; }
+            try {
+                return localStorage.getItem('kpiDisplayMode') || 'simple';
+            } catch (e) {
+                return 'simple';
+            }
         })(),
     },
 
@@ -532,7 +535,9 @@ const KPICommission = {
     toggleDisplayMode() {
         const next = this.state.displayMode === 'simple' ? 'full' : 'simple';
         this.state.displayMode = next;
-        try { localStorage.setItem('kpiDisplayMode', next); } catch (e) {}
+        try {
+            localStorage.setItem('kpiDisplayMode', next);
+        } catch (e) {}
         this.updateDisplayModeLabel();
         // Re-apply filter + render với mode mới
         this.applyFilters();
@@ -1190,8 +1195,9 @@ const KPICommission = {
 
             const products = Object.entries(kpiResult.details || {})
                 .map(([pid, data]) => {
-                    const isSaleChecked = !!(window.KpiSaleFlagStore
-                        && window.KpiSaleFlagStore.get(orderCode, pid));
+                    const isSaleChecked = !!(
+                        window.KpiSaleFlagStore && window.KpiSaleFlagStore.get(orderCode, pid)
+                    );
                     const excluded = data.excludedBySaleFlag === true;
                     const unitKPI = data.unitKPI || this.KPI_PER_PRODUCT;
                     // KPI = 0 cho SP bị loại (chưa tick); ngược lại = net * unitKPI.
@@ -1597,7 +1603,116 @@ const KPICommission = {
     },
 
     // ========================================
-    // RUN RECONCILIATION (12.14)
+    // FETCH REFUND EXCEL (3 months) — TPOS FastSaleOrder/ExportFileRefund
+    // ========================================
+
+    /**
+     * Fetch + parse refund excel 3 tháng gần nhất, return Set<orderCode> đã hoàn.
+     * Refund excel có cột "Tham chiếu" = mã đơn gốc (vd "NJD/2026/62621").
+     *
+     * Endpoint: POST /api/FastSaleOrder/ExportFileRefund?TagIds=
+     * Body: { data: JSON.stringify({Filter:{...}}), ids: [] }
+     * Response: XLSX binary, sheet "Trả hàng", header row 3 (range:2 in JSON parse).
+     */
+    async fetchRefundedOrderCodes(monthsBack = 3) {
+        if (typeof XLSX === 'undefined') {
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        // KPI iframe không có tokenManager — fetch token qua proxy /api/token (giống trahang.js)
+        let authHeader;
+        const tokenManager = window.tokenManager || window.parent?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            authHeader = await tokenManager.getAuthHeader();
+        } else {
+            const companyId =
+                window.ShopConfig?.getConfig?.()?.CompanyId ||
+                window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
+                1;
+            const creds =
+                companyId === 2
+                    ? {
+                          grant_type: 'password',
+                          username: 'nvktshop1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      }
+                    : {
+                          grant_type: 'password',
+                          username: 'nvktlive1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      };
+            const formData = new URLSearchParams();
+            for (const [k, v] of Object.entries(creds)) formData.append(k, v);
+            const tokenRes = await fetch(`${WORKER}/api/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+            });
+            if (!tokenRes.ok) throw new Error(`Token HTTP ${tokenRes.status}`);
+            const tokenData = await tokenRes.json();
+            if (!tokenData.access_token) throw new Error('Invalid token response');
+            authHeader = { Authorization: `Bearer ${tokenData.access_token}` };
+        }
+        const headers = authHeader;
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - monthsBack);
+        const startISO = new Date(
+            startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000
+        ).toISOString();
+        const endISO = new Date(
+            endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000
+        ).toISOString();
+        const filter = {
+            Filter: {
+                logic: 'and',
+                filters: [
+                    { field: 'Type', operator: 'eq', value: 'refund' },
+                    { field: 'DateInvoice', operator: 'gte', value: startISO },
+                    { field: 'DateInvoice', operator: 'lte', value: endISO },
+                    { field: 'IsMergeCancel', operator: 'neq', value: true },
+                ],
+            },
+        };
+        const res = await fetch(`${WORKER}/api/FastSaleOrder/ExportFileRefund?TagIds=`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                Accept: '*/*',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ data: JSON.stringify(filter), ids: [] }),
+        });
+        if (!res.ok) throw new Error(`ExportFileRefund HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        // range:2 = skip 2 title rows, header is row 3 ("STT", "Khách hàng", ..., "Tham chiếu", ...)
+        const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
+        const codes = new Set();
+        for (const row of rows) {
+            const ref = String(row['Tham chiếu'] || '').trim();
+            if (ref) codes.add(ref);
+        }
+        console.log(
+            `[KPI Tab] Refund excel ${monthsBack} tháng: ${rows.length} dòng, ${codes.size} mã đơn unique`
+        );
+        return { codes, totalRows: rows.length, startISO, endISO };
+    },
+
+    // ========================================
+    // RUN RECONCILIATION (12.14) — refresh + check refund excel
     // ========================================
     async runReconciliation() {
         const btn = document.getElementById('btnRunReconciliation');
@@ -1606,6 +1721,13 @@ const KPICommission = {
         this.showEl('reconLoading');
         this.hideEl('reconEmpty');
         this.hideEl('reconResultsWrapper');
+        const loadingEl = document.getElementById('reconLoading');
+        const setLoadingMsg = (msg) => {
+            if (loadingEl) {
+                const p = loadingEl.querySelector('p');
+                if (p) p.textContent = msg;
+            }
+        };
 
         try {
             const db = this.getDb();
@@ -1630,10 +1752,51 @@ const KPICommission = {
                 return;
             }
 
-            const results = [];
+            // Step 1a: Load invoice cache (mapping SaleOnlineId → Invoice Number)
+            setLoadingMsg('Đang load invoice status...');
+            try {
+                await this.loadInvoiceStatusData();
+            } catch (e) {
+                console.warn('[KPI Tab] Load invoice cache failed:', e?.message);
+            }
 
-            // Use kpiManager.reconcileKPI if available
+            // Step 1b: Fetch refund excel 3 tháng → Set invoice Number đã hoàn
+            // Refund excel cột "Tham chiếu" = invoice Number gốc (NJD/2026/X)
+            setLoadingMsg('Đang tải file refund excel 3 tháng từ TPOS...');
+            let refundInfo = { codes: new Set(), totalRows: 0 };
+            try {
+                refundInfo = await this.fetchRefundedOrderCodes(3);
+            } catch (e) {
+                console.warn('[KPI Tab] Fetch refund excel failed:', e?.message);
+                if (window.notificationManager?.warning) {
+                    window.notificationManager.warning(
+                        'Không tải được refund excel — đối soát chỉ check trạng thái đơn',
+                        2500
+                    );
+                }
+            }
+            const refundedInvoiceNumbers = refundInfo.codes;
+
+            // Step 1c: Map orderId → invoiceNumber (qua _invoiceCache), rồi check
+            // có nằm trong refundedInvoiceNumbers không
+            const orderIdToRefunded = new Map();
             for (const order of allOrders) {
+                const inv = this._invoiceCache.get(order.orderId);
+                const invNumber = inv?.Number || '';
+                orderIdToRefunded.set(
+                    order.orderId,
+                    invNumber && refundedInvoiceNumbers.has(invNumber)
+                );
+            }
+            const refundedKpiCount = [...orderIdToRefunded.values()].filter(Boolean).length;
+
+            // Step 2: Reconcile từng đơn (audit log + actual NET)
+            setLoadingMsg(
+                `Đang kiểm tra ${allOrders.length} đơn hàng (loại bỏ ${refundedKpiCount} đơn đã hoàn)...`
+            );
+            const results = [];
+            for (const order of allOrders) {
+                const isRefunded = orderIdToRefunded.get(order.orderId) || false;
                 try {
                     let result;
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
@@ -1643,7 +1806,6 @@ const KPICommission = {
                             order.orderCode
                         );
                     } else {
-                        // Fallback: basic reconciliation
                         result = {
                             orderId: order.orderId,
                             hasDiscrepancy: false,
@@ -1653,6 +1815,16 @@ const KPICommission = {
                         };
                     }
 
+                    // Đơn đã hoàn → KHÔNG tính KPI: mark hasDiscrepancy=true với type=refunded
+                    const refundDiscrepancy = isRefunded
+                        ? [
+                              {
+                                  type: 'refunded',
+                                  message: `Đơn đã có trong refund excel — không tính KPI`,
+                              },
+                          ]
+                        : [];
+
                     results.push({
                         orderId: order.orderId,
                         orderCode: order.orderCode || '',
@@ -1660,8 +1832,9 @@ const KPICommission = {
                         expectedNet: order.netProducts || 0,
                         actualNet:
                             result.actualNet != null ? result.actualNet : order.netProducts || 0,
-                        hasDiscrepancy: result.hasDiscrepancy,
-                        discrepancies: result.discrepancies || [],
+                        hasDiscrepancy: isRefunded || result.hasDiscrepancy,
+                        isRefunded,
+                        discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
                     });
                 } catch (e) {
                     console.error('[KPI Tab] Reconciliation error for order:', order.orderId, e);
@@ -1672,30 +1845,54 @@ const KPICommission = {
                         expectedNet: order.netProducts || 0,
                         actualNet: 'Lỗi',
                         hasDiscrepancy: true,
-                        discrepancies: [{ type: 'error', message: e.message }],
+                        isRefunded,
+                        discrepancies: [
+                            ...(isRefunded ? [{ type: 'refunded', message: 'Đơn đã hoàn' }] : []),
+                            { type: 'error', message: e.message },
+                        ],
                     });
                 }
             }
 
             this.hideEl('reconLoading');
 
-            // Filter to show only discrepancies or all
-            const discrepancies = results.filter((r) => r.hasDiscrepancy);
+            const refundedCount = results.filter((r) => r.isRefunded).length;
+            const otherDiscrepancies = results.filter(
+                (r) => r.hasDiscrepancy && !r.isRefunded
+            ).length;
+            const okCount = results.length - refundedCount - otherDiscrepancies;
 
-            if (discrepancies.length === 0) {
+            const summaryMsg = `✅ Đã kiểm tra ${results.length} đơn · ${okCount} OK · ${refundedCount} đã hoàn (loại KPI) · ${otherDiscrepancies} sai lệch khác · refund excel 3 tháng có ${refundInfo.totalRows} dòng (${refundedInvoiceNumbers.size} mã đơn)`;
+
+            // Hiển thị bảng nếu có refund hoặc discrepancy
+            const toShow = results.filter((r) => r.hasDiscrepancy);
+            if (toShow.length === 0) {
                 this.showEl('reconEmpty');
                 const emptyEl = document.getElementById('reconEmpty');
-                if (emptyEl)
-                    emptyEl.querySelector('p').textContent =
-                        `✅ Đã kiểm tra ${results.length} đơn hàng. Không phát hiện sai lệch.`;
+                if (emptyEl) emptyEl.querySelector('p').textContent = summaryMsg;
             } else {
                 this.showEl('reconResultsWrapper');
                 this.renderReconciliationResults(results);
+                // Insert summary trên đầu wrapper
+                const wrapper = document.getElementById('reconResultsWrapper');
+                if (wrapper) {
+                    let summaryEl = document.getElementById('reconSummary');
+                    if (!summaryEl) {
+                        summaryEl = document.createElement('div');
+                        summaryEl.id = 'reconSummary';
+                        summaryEl.style.cssText =
+                            'padding:10px 14px;margin-bottom:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;color:#9a3412;font-size:13px;';
+                        wrapper.parentElement.insertBefore(summaryEl, wrapper);
+                    }
+                    summaryEl.textContent = summaryMsg;
+                }
             }
         } catch (error) {
             console.error('[KPI Tab] Reconciliation error:', error);
             this.hideEl('reconLoading');
             this.showEl('reconEmpty');
+            const emptyEl = document.getElementById('reconEmpty');
+            if (emptyEl) emptyEl.querySelector('p').textContent = `Lỗi đối soát: ${error.message}`;
         } finally {
             if (btn) btn.disabled = false;
         }
@@ -1714,11 +1911,21 @@ const KPICommission = {
                 else if (delta < 0) deltaClass = 'delta-negative';
             }
 
-            const statusHtml = r.hasDiscrepancy
-                ? '<span class="status-badge status-discrepancy">⚠️ Sai lệch</span>'
-                : '<span class="status-badge status-ok">✅ OK</span>';
+            let statusHtml;
+            if (r.isRefunded) {
+                statusHtml =
+                    '<span class="status-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">↩ Đã hoàn (loại KPI)</span>';
+            } else if (r.hasDiscrepancy) {
+                statusHtml = '<span class="status-badge status-discrepancy">⚠️ Sai lệch</span>';
+            } else {
+                statusHtml = '<span class="status-badge status-ok">✅ OK</span>';
+            }
 
-            html += `<tr>
+            const rowStyle = r.isRefunded
+                ? 'background:#fef2f2;text-decoration:line-through;text-decoration-color:#fca5a5;'
+                : '';
+
+            html += `<tr style="${rowStyle}">
                 <td>${this.escapeHtml(r.orderCode || r.orderId)}</td>
                 <td>${r.stt != null ? r.stt : '---'}</td>
                 <td>${r.expectedNet}</td>
@@ -2053,3 +2260,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 });
+
+// Expose to window — `const KPICommission` không tự attach cho iframe parent / debug
+try {
+    window.KPICommission = KPICommission;
+} catch (e) {}

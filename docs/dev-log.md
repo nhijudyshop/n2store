@@ -8,6 +8,32 @@
 
 ## 2026-05-05
 
+### [orders-report][KPI] "Chạy đối soát" tích hợp refund excel 3 tháng — đơn đã hoàn loại khỏi KPI
+
+**Files**: MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js)
+
+- NEW `KPICommission.fetchRefundedOrderCodes(3)`: POST `/api/FastSaleOrder/ExportFileRefund?TagIds=` với filter `Type=refund, DateInvoice 3 tháng, IsMergeCancel != true` → parse XLSX (sheet "Trả hàng", range:2) → trả `Set<invoiceNumber>` từ cột "Tham chiếu" (vd `NJD/2026/62621`). Auto load XLSX CDN. Token: dùng `window.tokenManager` nếu có, fallback fetch qua `/api/token` (giống `hanghoan/trahang.js`).
+- MODIFIED `runReconciliation()`: thêm 3 bước trước reconcile loop:
+    1. `loadInvoiceStatusData()` build `_invoiceCache: orderId → {Number, ShowState, ...}` (mapping SaleOnline UUID → invoice Number)
+    2. `fetchRefundedOrderCodes(3)` → Set invoice Numbers đã hoàn
+    3. Build `orderIdToRefunded` Map: lookup `_invoiceCache.get(orderId).Number` → check có trong refundedSet → mark `isRefunded=true`
+- Reconcile loop: `isRefunded` → `hasDiscrepancy=true` type=refunded, msg "Đơn đã có trong refund excel — không tính KPI"
+- Render: row refunded có `background:#fef2f2` + `text-decoration:line-through` + badge "↩ Đã hoàn (loại KPI)"
+- Summary: `N đơn · K OK · X đã hoàn · Y sai lệch · refund excel có Z dòng (W mã đơn)`
+- Expose `window.KPICommission = KPICommission` (const không tự attach window)
+
+**Trigger user**: "Browser test refundlist → tìm hiểu request xuất excel 3 tháng → KPI - HOA HỒNG nút chạy đối soát refresh + so sánh excel → đơn không có trong file = tính KPI".
+
+**Root cause mapping**: KPI orderCode = `SaleOnline_Order.Code` (vd `260404699`). Refund excel "Tham chiếu" = `FastSaleOrder.Number` (vd `NJD/2026/62621`). Cần `_invoiceCache` (Render API `/api/invoice-status/load`) làm cầu nối: SaleOnline UUID → invoice Number.
+
+**E2E browser-tested live**:
+
+- Refund excel POST 200, 1.1s, 40KB XLSX, 274 dòng, 268 mã unique
+- Invoice cache: 7291 entries
+- Click "Chạy đối soát" → 134 KPI orders → **133 OK · 1 đã hoàn (loại KPI) · 0 sai lệch khác**
+
+**Status**: ✅ Done.
+
 ### [orders-report] Nickname: PUT cả SaleOnline_Order.Name + expose `window.allData` getter
 
 **Files**:
@@ -617,26 +643,6 @@ Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projec
 **Files**: MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — render row: thêm class `dr-hover-bill` + `data-id` + `data-number` cho cell `data-col="number"`; class `dr-hover-customer` cho cell `data-col="customer"`. Module `HoverPreview` mới (~210 LOC, IIFE) trước public API: tạo singleton popover, debounce show 350ms, hide 180ms, cache `Map<id,html>` cho bill và `Map<phone,data>` cho customer. `fetchBillHtml(id)` gọi `${WORKER_URL}/api/fastsaleorder/print1?ids=${id}` kèm Bearer token từ `getToken()`. `fetchCustomer(phone)` gọi `${RENDER_URL}/api/v2/customers/${phone}/quick-view`. `renderCustomer()` build wallet grid (số dư thật / nợ ảo / đơn+doanh thu) + pending alert + danh sách 5 giao dịch gần nhất với màu credit/debit. Mouseover/mouseout delegated trên `#drTableWrapper`, check `relatedTarget` để tránh flicker khi di chuyển trong cell hoặc vào popover. Khởi tạo qua `HoverPreview.init()` trong `initDeliveryReport()`. MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — thêm block `.dr-hover-popover` (z-9999, max 460×70vh, shadow), `.dr-hp-header/title/sub`, `.dr-hp-loading/error/empty/spinner`, `.dr-hp-bill-body` (scroll, table reset), `.dr-hp-wallet-grid` (3 col stat cards), `.dr-hp-pending` (alert vàng), `.dr-hp-tx` (border-left + tint xanh/đỏ theo credit/debit), hover-cell highlight `dr-hover-bill:hover` (vàng) + `dr-hover-customer:hover` (tím).
 **Chi tiết**: **Trigger**: user "Hình 1 hover vào số 'NJD/2026/63929' hiện bill phiếu bán hàng hình 2, hover vào tên khách hàng/sđt hiện hoạt động ví hình 3". **API tái dùng**: TPOS print1 (đã dùng ở `bill-service.js:1683`) cho HTML bill — cần Bearer; quick-view endpoint trả gọn `customer + wallet + recent_transactions[3-5] + pending_deposits` (đã verify 200 OK với `0948138675`). **UX**: 350ms hover delay tránh trigger oan khi lướt chuột; popover position prefer right-of-cell, fallback left khi tràn viewport; ESC/scroll/resize đều ẩn; user có thể di chuột vào popover để đọc/scroll mà không bị mất. Cache theo `id`/`phone` cho session — không refetch khi quay lại cùng dòng.
 **Status**: ✅ Done. Syntax check pass. Endpoints smoke-tested: customer 200 (public), bill 401 không token (đúng mong đợi — token được attach lúc runtime qua `getToken()` từ tokenManager/localStorage).
-
-## 2026-04-27
-
-### [issue-tracking] Nút bút sửa → modal nhập ghi chú xử lý, hiển thị ngay dưới nút action
-
-**Files**: MODIFIED: [issue-tracking/js/script.js](../issue-tracking/js/script.js) — `renderActionButtons()`: sau cụm action button, render thêm `<div.ticket-processing-note>` (background vàng nhạt, border-left cam) hiển thị `ticket.processingNote` ngay dưới nút Thanh toán/Nhận hàng. Inline escape HTML. `editTicket()`: bỏ alert "đang phát triển", gọi `openProcessingNoteModal(ticket)` — modal overlay với textarea, 3 nút (Lưu / Xóa ghi chú / Hủy). Save qua `ApiService.updateTicket(firebaseId, {processingNote, processingNoteUpdatedAt, processingNoteUpdatedBy})` + optimistic repaint qua `renderDashboard(activeTab)`.
-**Chi tiết**: **Trigger**: user "khi bấm vào cây bút sửa hiện modal điền ghi chú để ghi nhớ tình trạng xử lý của phiếu" + "hiện ghi chú ngay dưới nút hành động (thanh toán, nhận hàng) luôn". **Field mới**: `processingNote` (string), `processingNoteUpdatedAt` (timestamp), `processingNoteUpdatedBy` (username) — append-only, không động endpoint TPOS/KPI. **UX**: note hiển thị inline trong cell HÀNH ĐỘNG → vừa nhìn ticket vừa thấy lý do/trạng thái nội bộ; click ✏️ → modal popup compact 480px. ESC/click overlay/nút Hủy đều đóng. Nút "Xóa ghi chú" có confirm. Firestore listener sẽ tự sync giữa các tab.
-**Status**: ✅ Done.
-
-### [balance-history][bug] Alert "Xem ngay" chờ duyệt >24h không filter — vẫn hiện toàn bộ giao dịch
-
-**Files**: MODIFIED: [render.com/routes/v2/balance-history.js:529](../render.com/routes/v2/balance-history.js#L529) — `/verification-queue` nhận thêm query `overdueOnly`; thêm where `bh.created_at < NOW() - INTERVAL '24 hours'` (khớp logic count `pendingOverdue` ở `accountant/stats`); ORDER BY chuyển ASC khi overdueOnly để tx cũ nhất hiện đầu. MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) — `state.filters.pending.overdueOnly`; `loadPendingQueue` truyền query `overdueOnly=true`; thêm `viewOverdue()`/`clearOverdueFilter()`/`updateOverdueChip()`; `handleFilterChange` chuyển sang merge để giữ flag; export public API. MODIFIED: [balance-history/index.html:562](../balance-history/index.html#L562) — alert `onclick="…switchSubTab('pending')"` → `viewOverdue()`; thêm `#accOverdueChip` chip "Đang lọc: chỉ hiển thị giao dịch quá 24h" với nút bỏ lọc. MODIFIED: [balance-history/css/accountant.css](../balance-history/css/accountant.css) — `.acc-active-filter-chip` styles.
-**Chi tiết**: **Bug user**: bấm "Xem ngay" trong alert "1 giao dịch chờ duyệt > 24h" vẫn hiển thị toàn bộ pending. **Root cause**: handler chỉ gọi `switchSubTab('pending')` không apply filter; thêm nữa `verification-queue` ORDER BY `transaction_date DESC` nên tx cũ nhất (overdue) nằm ở trang cuối → client-side filter không khả dụng do paginated. **Giải pháp**: thêm server filter `overdueOnly=true` (cùng logic `created_at < NOW()-24h` với count overdue), lật ASC để overdue lên trang 1; UI chip chủ động hiển thị trạng thái filter để user dễ dismiss.
-**Status**: ✅ Done.
-
-### [issue-tracking] Đổi ngưỡng cảnh báo ticket Thu về quá hạn: 20 → 10 ngày
-
-**Files**: MODIFIED: [issue-tracking/index.html:53](../issue-tracking/index.html#L53) — banner text "quá 20 ngày" → "quá 10 ngày". MODIFIED: [issue-tracking/js/script.js:2278](../issue-tracking/js/script.js#L2278) — filter tab `overdue`: `OVERDUE_DAYS = 20` → `10`. MODIFIED: [issue-tracking/js/script.js:2696](../issue-tracking/js/script.js#L2696) — `checkOverdueTickets()`: `OVERDUE_DAYS = 20` → `10`. MODIFIED: [render.com/cron/scheduler.js:174-195](../render.com/cron/scheduler.js#L174-L195) — cron daily 9AM: `INTERVAL '20 days'` → `'10 days'`, title/description "20 ngày" → "10 ngày".
-**Chi tiết**: **Trigger**: user "thông báo có ticket thu về quá 20 ngày nhận hàng sửa thành 10 ngày". **Scope**: cập nhật đồng bộ cả 3 nơi để banner UI, filter tab "Hủy/Quá hạn", và cron alert TICKET_OVERDUE đều dùng cùng ngưỡng 10 ngày — tránh lệch số đếm.
-**Status**: ✅ Done.
 
 <!--
 HƯỚNG DẪN THÊM ENTRY MỚI:
