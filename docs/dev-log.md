@@ -8,6 +8,35 @@
 
 ## 2026-05-05
 
+### [orders-report] Nickname: TPOS Partner.Name là SOURCE OF TRUTH duy nhất — bỏ localStorage persist
+
+**Files**:
+
+- MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js)
+- MODIFIED: [orders-report/js/tab1/tab1-customer-prefs.js](../orders-report/js/tab1/tab1-customer-prefs.js) — `getNickname/setNickname/getDisplayName` thành no-op stubs (DEPRECATED), giữ chỉ để legacy callers không break. `isDoNotCall/setDoNotCall` vẫn local (TPOS không có field này).
+- MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — render row dùng `order.Name` thẳng, bỏ `getDisplayName` wrapper.
+
+**Trigger user**: "sao bạn lại lưu tên vào local, tôi tưởng request tpos thì lấy tên render từ tpos luôn chứ" + "đặt biệt danh nó không sửa liền tên khách hàng ở cột khách hàng à? Sửa liền đi, nếu lỗi thì fallback thôi" + "test coi f5 có bị mất dữ liệu hay không".
+
+**Logic mới** (TPOS-only):
+
+1. **Đọc nickname** trong popup: parse suffix `" - X"` từ `allData[i].Name` (đã sync với TPOS sau order list refresh) — KHÔNG đọc CustomerPrefs.
+2. **Save** flow:
+    - Snapshot `matchedOrders.map(o => ({id, Name}))` để rollback
+    - Optimistic: `allData[i].Name = "<original> - <newNick>"` + DOM cell update ngay (<5ms)
+    - `_syncNicknameToTPOS` PUT Partner endpoint canonical (filter theo displayName để bỏ qua "Nguyễn Tâm" cùng SĐT)
+    - **Fallback**: Nếu `res.fail>0 && res.ok===0` hoặc Promise reject → restore `allData[i].Name` từ snapshot + refresh DOM + toast error "Lỗi đồng bộ TPOS — đã hoàn tác biệt danh"
+3. **Bảng render** (`tab1-table.js:1392`): `order.Name` thẳng — không qua wrapper, vì Name đã ở format đúng.
+
+**E2E browser test live** (FIFO REPL với khách 0123456788):
+
+- Mock allData 2 đơn → save nickname "VIP*E2E*..." → 4.5s sau verify: `allData[].Name` + DOM cell + TPOS Partner.Name **đồng nhất** = `"Huỳnh Thành Đạt - VIP_E2E_..."`
+- F5 reload → set lại `allData[0].Name` từ TPOS GET → mở popup → input value = `"VIP_E2E_..."` (parse từ TPOS Name)
+- localStorage `n2s_customer_prefs_v1[norm].nickname` = empty (không persist)
+- Cleanup TPOS Partner về tên gốc verified.
+
+**Status**: ✅ Done — TPOS là single source of truth, F5 không mất dữ liệu vì đọc từ TPOS.
+
 ### [balance-history][feat] Tab "Lịch Sử" — log toàn bộ Duyệt / Điều chỉnh / Kiểm tra với filter
 
 **Files**:

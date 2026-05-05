@@ -105,26 +105,13 @@
 
     // ===== Public API =====
 
-    function getNickname(phone) {
-        const k = _normalizePhone(phone);
-        return _store[k]?.nickname || '';
+    // DEPRECATED: nickname giờ source-of-truth = TPOS Partner.Name (parse suffix
+    // " - X" từ order.Name trong allData). API này giữ no-op để tránh break
+    // legacy callers, nhưng KHÔNG còn persist nickname riêng.
+    function getNickname() {
+        return '';
     }
-
-    function setNickname(phone, nickname) {
-        const k = _normalizePhone(phone);
-        if (!k) return;
-        const existing = _store[k] || {};
-        const data = {
-            ...existing,
-            nickname: String(nickname || '').trim(),
-            updatedAt: Date.now(),
-            updatedBy: _getCurrentUser(),
-        };
-        _store[k] = data;
-        _saveLocal();
-        _emitFirebase(k, data);
-        _broadcastChange();
-    }
+    function setNickname() {}
 
     function isDoNotCall(phone) {
         const k = _normalizePhone(phone);
@@ -151,25 +138,10 @@
         return JSON.parse(JSON.stringify(_store));
     }
 
-    /**
-     * Format hiển thị: "<originalName> - <nickname>" (giống format TPOS sync).
-     * Strip existing " - X" suffix từ originalName trước khi append để idempotent
-     * (tránh "Original - X - X" khi nickname thay đổi).
-     */
-    function _stripSuffix(name) {
-        return (
-            String(name || '')
-                .replace(/\s*-\s*[^-]+$/, '')
-                .trim() ||
-            name ||
-            ''
-        );
-    }
-    function getDisplayName(phone, fallbackName) {
-        const nick = getNickname(phone);
-        if (!nick) return fallbackName || phone || '';
-        const original = _stripSuffix(fallbackName);
-        return `${original} - ${nick}`;
+    // DEPRECATED: TPOS Partner.Name là source of truth. Bảng render `order.Name`
+    // thẳng. Hàm này giữ no-op trả về fallbackName cho legacy callers.
+    function getDisplayName(_phone, fallbackName) {
+        return fallbackName || '';
     }
 
     // ===== Init =====

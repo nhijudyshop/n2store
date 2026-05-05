@@ -203,10 +203,22 @@
         </div>`
             : '';
 
-        // Nickname (biệt danh) + Do-not-call toggle — persist localStorage +
-        // Firebase RTDB (sync đa máy). Stored per-phone, không touch Pancake/TPOS.
+        // Nickname (biệt danh): SOURCE OF TRUTH = TPOS Partner.Name
+        // Đọc nickname = parse suffix " - X" cuối từ allData[].Name (đã sync với
+        // TPOS sau lần update gần nhất). Save = PUT TPOS Partner trực tiếp.
+        // Do-not-call: lưu local-only (TPOS không có field này).
         const phone = c.phone || '';
-        const currentNick = window.CustomerPrefs?.getNickname?.(phone) || '';
+        const currentNick = (() => {
+            const norm = window.CustomerPrefs?._normalizePhone?.(phone);
+            if (!norm) return '';
+            const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
+            const o = allData.find(
+                (x) => window.CustomerPrefs?._normalizePhone?.(x.Telephone) === norm
+            );
+            const n = String(o?.Name || '');
+            const m = n.match(/\s-\s(.+)$/);
+            return m ? m[1].trim() : '';
+        })();
         const dnc = !!window.CustomerPrefs?.isDoNotCall?.(phone);
         const safePhone = escapeHtml(phone);
         const prefsHtml = phone
@@ -241,25 +253,39 @@
 
     window._cipSaveNickname = async function (phone) {
         const input = document.getElementById('cip-nickname-input');
-        if (!input || !window.CustomerPrefs) return;
+        if (!input) return;
         const saveBtn = document.querySelector('.cip-pref-save');
         if (saveBtn) {
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         }
-        const prevNick = window.CustomerPrefs.getNickname(phone) || '';
         const newNick = input.value.trim();
-        window.CustomerPrefs.setNickname(phone, newNick);
-        // Optimistic UI: refresh bảng NGAY (local instant), TPOS sync chạy nền
-        _refreshCustomerNameInTable(phone, newNick);
 
-        // Lấy tên gốc từ popup title (để filter Partners có cùng tên — tránh
-        // PUT lên Partner khác share SĐT, vd "Nguyễn Tâm" cùng phone).
+        // Source of truth = TPOS Partner.Name. Snapshot allData rows hiện tại
+        // (Name cũ) để rollback nếu PUT fail. Optimistic update local rows
+        // luôn để bảng phản ánh ngay; lỗi → revert.
+        const norm = window.CustomerPrefs?._normalizePhone?.(phone);
+        const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
+        const matchedOrders = norm
+            ? allData.filter((o) => window.CustomerPrefs._normalizePhone(o.Telephone) === norm)
+            : [];
+        const snapshot = matchedOrders.map((o) => ({ id: o.Id, Name: o.Name }));
+
+        // Lấy tên gốc (strip suffix) — dùng làm displayName để filter Partner cùng tên
         const popupTitle =
             document.querySelector('#customerInfoPopup .cip-title')?.textContent || '';
         const displayName = _stripNicknameSuffix(popupTitle);
+        const buildNew = (origName) => {
+            const orig = _stripNicknameSuffix(origName || displayName);
+            return newNick ? `${orig} - ${newNick}` : orig;
+        };
 
-        // Toast nhanh — báo đã lưu local
+        // Optimistic: update allData[i].Name + DOM cell ngay
+        for (const o of matchedOrders) {
+            o.Name = buildNew(o.Name);
+        }
+        _refreshCustomerNameInTable(phone);
+
         if (window.notificationManager?.success) {
             window.notificationManager.success(
                 newNick ? `Đã đặt biệt danh: ${newNick}` : 'Đã xóa biệt danh',
@@ -271,9 +297,6 @@
             saveBtn.innerHTML = '<i class="fas fa-check"></i>';
         }
 
-        // Sync TPOS: chạy NỀN (non-blocking). Idempotent: strip suffix " - X"
-        // nếu đã có để tránh double-append (Original-X-Y).
-        // SAFETY: skip nếu window.__tpos_nickname_dryrun = true.
         if (window.__tpos_nickname_dryrun) {
             console.log(
                 '[CustomerInfo] DRYRUN — không PUT TPOS. Phone:',
@@ -285,16 +308,20 @@
             );
             return;
         }
+
+        // PUT TPOS Partner (canonical) chạy nền. Fail → revert allData + DOM
         _syncNicknameToTPOS(phone, newNick, displayName)
             .then((res) => {
-                // Fallback: nếu TPOS fail toàn bộ → revert local + bảng về nickname cũ
                 if (res.fail > 0 && res.ok === 0) {
-                    console.warn(
-                        '[CustomerInfo] TPOS sync FAIL toàn bộ → revert local về:',
-                        prevNick
-                    );
-                    window.CustomerPrefs.setNickname(phone, prevNick);
-                    _refreshCustomerNameInTable(phone, prevNick);
+                    console.warn('[CustomerInfo] TPOS sync FAIL toàn bộ → revert local Name');
+                    for (const s of snapshot) {
+                        const o = allData.find((x) => x.Id === s.id);
+                        if (o) o.Name = s.Name;
+                        if (window.OrderStore?.update) {
+                            window.OrderStore.update(s.id, { Name: s.Name });
+                        }
+                    }
+                    _refreshCustomerNameInTable(phone);
                     if (window.notificationManager?.error) {
                         window.notificationManager.error(
                             'Lỗi đồng bộ TPOS — đã hoàn tác biệt danh',
@@ -303,25 +330,25 @@
                     }
                     return;
                 }
-                if (window.notificationManager) {
-                    if (res.ok && window.notificationManager.info) {
-                        window.notificationManager.info(
-                            `Đã đồng bộ TPOS: ${res.ok} Partner${res.fail ? ` (${res.fail} fail)` : ''}${res.skipped ? ` · ${res.skipped} bỏ qua (tên khác)` : ''}`,
-                            2500
-                        );
-                    } else if (!res.ok && !res.fail && window.notificationManager.warning) {
-                        window.notificationManager.warning(
-                            'Không tìm thấy Partner cùng tên trên TPOS — chỉ lưu local',
-                            2500
-                        );
-                    }
+                if (window.notificationManager?.info && res.ok) {
+                    window.notificationManager.info(
+                        `Đã đồng bộ TPOS: ${res.ok} Partner${res.fail ? ` (${res.fail} fail)` : ''}${res.skipped ? ` · ${res.skipped} bỏ qua (tên khác)` : ''}`,
+                        2500
+                    );
+                } else if (!res.ok && !res.fail && window.notificationManager?.warning) {
+                    window.notificationManager.warning(
+                        'Không tìm thấy Partner cùng tên trên TPOS',
+                        2500
+                    );
                 }
             })
             .catch((e) => {
-                console.warn('[CustomerInfo] TPOS sync failed (non-blocking):', e?.message);
-                // Catch-all fallback: revert local nếu Promise reject hẳn
-                window.CustomerPrefs.setNickname(phone, prevNick);
-                _refreshCustomerNameInTable(phone, prevNick);
+                console.warn('[CustomerInfo] TPOS sync error → revert:', e?.message);
+                for (const s of snapshot) {
+                    const o = allData.find((x) => x.Id === s.id);
+                    if (o) o.Name = s.Name;
+                }
+                _refreshCustomerNameInTable(phone);
                 if (window.notificationManager?.error) {
                     window.notificationManager.error(
                         'Lỗi đồng bộ TPOS — đã hoàn tác biệt danh',
@@ -541,9 +568,9 @@
 
     // ===== Helpers to re-render table rows when prefs change =====
 
-    function _refreshCustomerNameInTable(phone, newNick) {
-        // Tìm rows có Telephone match phone → update span tên hiển thị
-        // "<original> - <nickname>" (giống getDisplayName) thay vì chỉ nickname
+    function _refreshCustomerNameInTable(phone) {
+        // Source of truth = order.Name trong allData (đã sync với TPOS).
+        // Update DOM span = order.Name thẳng, không qua CustomerPrefs.
         const norm = window.CustomerPrefs?._normalizePhone?.(phone);
         if (!norm) return;
         const allData = (typeof window.allData !== 'undefined' && window.allData) || [];
@@ -555,12 +582,7 @@
             if (!row) continue;
             const nameSpan = row.querySelector('.customer-name > span:first-of-type');
             if (!nameSpan) continue;
-            const display = window.CustomerPrefs?.getDisplayName
-                ? window.CustomerPrefs.getDisplayName(phone, order.Name || '')
-                : newNick
-                  ? `${order.Name || ''} - ${newNick}`
-                  : order.Name || '';
-            // Preserve highlight wrapper nếu có search
+            const display = order.Name || '';
             if (typeof window.highlight === 'function') {
                 nameSpan.innerHTML = window.highlight(display);
             } else {
