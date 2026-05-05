@@ -217,7 +217,10 @@
     align-items: center;
     gap: 12px;
     min-width: 0;
-    flex: 1;
+    flex: 1 1 auto;
+    /* Cho tên dài có chỗ thoáng — không bị siblings (Gửi Bill, Gửi QR, ...)
+       ép xuống <120px khiến tên bị "..." dù còn nhiều khoảng trống */
+    min-width: 220px;
 }
 
 /* Avatar wrapper with online dot */
@@ -270,10 +273,14 @@
     font-weight: 700;
     font-size: 1.125rem;
     color: #312e81;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     line-height: 1.3;
+    /* Cho phép wrap 2 dòng cho tên dài (vd "Huỳnh Thành Đạt - KHÔNG BOOM!!!"),
+       giữ ellipsis chỉ khi vượt 2 dòng. Tránh truncate khi còn rất nhiều space. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
 }
 
 .chat-header-sub {
