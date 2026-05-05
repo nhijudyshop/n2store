@@ -1071,6 +1071,7 @@ function updateBulkActionBar() {
     if (!container) return;
     const statusFilter = document.getElementById('statusFilter');
     const currentFilter = statusFilter?.value || 'all';
+    const selectedCount = SocialOrderState.selectedOrders.size;
 
     if (currentFilter === 'cancelled') {
         container.innerHTML = `
@@ -1082,7 +1083,15 @@ function updateBulkActionBar() {
             </button>
         `;
     } else {
+        // "Phiếu Soạn Hàng" chỉ hiện khi chọn đúng 1 đơn (giống tab1 orders-report)
+        const packingSlipBtn =
+            selectedCount === 1
+                ? `<button class="btn-primary" onclick="openPackingSlipModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff;">
+                <i class="fas fa-clipboard-list"></i> Phiếu Soạn Hàng
+            </button>`
+                : '';
         container.innerHTML = `
+            ${packingSlipBtn}
             <button class="btn-primary" onclick="cancelSelectedOrders()" style="background:#f59e0b;">
                 <i class="fas fa-ban"></i> Hủy đơn đã chọn
             </button>

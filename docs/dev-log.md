@@ -8,6 +8,18 @@
 
 ## 2026-05-05
 
+### [don-inbox][feat] Nút "Phiếu Soạn Hàng" clone 100% từ orders-report tab1
+
+**Files**:
+
+- NEW: [don-inbox/js/tab-social-packing-slip.js](../don-inbox/js/tab-social-packing-slip.js) — clone logic từ [orders-report/js/tab1/tab1-packing-slip.js](../orders-report/js/tab1/tab1-packing-slip.js), adapt data shape: `order.PartnerName/Telephone/PartnerAddress` + `OrderLine.ProductName/PriceUnit/ProductUOMQty` (tab1) → `order.customerName/phone/address` + `products.productName/sellingPrice/quantity` (don-inbox social order). Modal mở → render bảng products có checkbox "Chờ Hàng" + ô ghi chú/dòng → in qua hidden iframe (A4 layout) → close modal + clear bulk selection.
+- MODIFIED: [don-inbox/index.html](../don-inbox/index.html) — thêm `<div id="packingSlipModal">` trước `</body>` với header gradient cam, table 5 cột, footer Hủy/In. Wire `tab-social-packing-slip.js`.
+- MODIFIED: [don-inbox/js/tab-social-table.js](../don-inbox/js/tab-social-table.js) — `updateBulkActionBar()` thêm nút "Phiếu Soạn Hàng" (chỉ hiện khi `selectedCount === 1`).
+
+**Chi tiết**: User: "tìm hiểu chức năng nút phiếu soạn hàng ở orders-report → làm cho don-inbox/index.html nút phiếu soạn hàng, chức năng giống 100%". **Browser-tested localhost** với order `SO-20260505-5173` (NV CẨM, 6 SP): bulk bar hiện nút PSH khi select 1 đơn → modal open render đúng customer + 6 product rows + total row → mock print → modal close + selection clear.
+
+**Status**: ✅ Done.
+
 ### [orders-report][KPI] "Chạy đối soát" tích hợp refund excel 3 tháng — đơn đã hoàn loại khỏi KPI
 
 **Files**: MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js)
