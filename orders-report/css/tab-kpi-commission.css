@@ -559,18 +559,19 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    /* Backdrop đậm tự che content sau — KHÔNG dùng backdrop-filter blur vì
+       gây lag scroll nặng (paint expensive khi modal body scroll, browser
+       phải re-blur full backdrop mỗi frame). */
+    background: rgba(15, 23, 42, 0.78);
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    overflow-y: auto;
+    overflow: hidden; /* Body scroll bên trong, không scroll overlay */
     animation: fadeIn 0.2s ease-out;
 }
-/* Đảm bảo modal-container có background đặc + che hết content phía sau */
+/* Modal container đặc + paint isolation để scroll không trigger reflow ngoài */
 .modal-overlay .modal-container {
     background: white;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
@@ -580,12 +581,15 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    contain: layout style paint;
 }
-/* Body scroll riêng — modal không bị tràn */
+/* Body scroll riêng + paint contain để cô lập scroll, ngăn lag */
 .modal-overlay .modal-body {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+    contain: layout style paint;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-overlay-l2 {
@@ -1247,7 +1251,7 @@ body {
 
 .recon-table tbody tr {
     transition: background 120ms ease;
-    animation: reconRowFade 250ms ease-out both;
+    contain: layout style;
 }
 .recon-table tbody tr:hover {
     background: #f9fafb;

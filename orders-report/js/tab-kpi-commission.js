@@ -2625,37 +2625,34 @@ const KPICommission = {
                 return;
             }
 
-            // Step 1a: Load invoice cache (mapping SaleOnlineId → Invoice Number)
+            // Step 1: Load invoice cache + fetch refund excel SONG SONG
+            // (independent — không phụ thuộc nhau, dùng Promise.all)
             setLoadingMsg(
-                'Load invoice status từ Render...',
+                'Load invoice cache + refund excel song song...',
                 8,
-                'Cache mapping SaleOnline UUID → Invoice Number'
+                'Promise.all 2 tasks độc lập'
             );
-            try {
-                await this.loadInvoiceStatusData();
-            } catch (e) {
-                console.warn('[KPI Tab] Load invoice cache failed:', e?.message);
-            }
-
-            // Step 1b: Fetch refund excel 3 tháng → Set invoice Number đã hoàn
-            setLoadingMsg(
-                'Tải refund excel 3 tháng từ TPOS...',
-                18,
-                'POST FastSaleOrder/ExportFileRefund (~1-3s)'
-            );
-            let refundInfo = { codes: new Set(), totalRows: 0 };
-            try {
-                refundInfo = await this.fetchRefundedOrderCodes(3);
-            } catch (e) {
-                console.warn('[KPI Tab] Fetch refund excel failed:', e?.message);
-                if (window.notificationManager?.warning) {
-                    window.notificationManager.warning(
-                        'Không tải được refund excel — đối soát chỉ check trạng thái đơn',
-                        2500
-                    );
-                }
-            }
+            const t1 = performance.now();
+            const [, refundResult] = await Promise.all([
+                this.loadInvoiceStatusData().catch((e) => {
+                    console.warn('[KPI Tab] Load invoice cache failed:', e?.message);
+                }),
+                this.fetchRefundedOrderCodes(3).catch((e) => {
+                    console.warn('[KPI Tab] Fetch refund excel failed:', e?.message);
+                    if (window.notificationManager?.warning) {
+                        window.notificationManager.warning(
+                            'Không tải được refund excel — đối soát chỉ check trạng thái đơn',
+                            2500
+                        );
+                    }
+                    return { codes: new Set(), totalRows: 0 };
+                }),
+            ]);
+            const refundInfo = refundResult || { codes: new Set(), totalRows: 0 };
             const refundedInvoiceNumbers = refundInfo.codes;
+            console.log(
+                `[KPI Tab] Step 1 (parallel) hoàn tất trong ${Math.round(performance.now() - t1)}ms`
+            );
 
             // Step 1c: Map orderId → invoiceNumber, check refunded
             const orderIdToRefunded = new Map();
@@ -2671,20 +2668,26 @@ const KPICommission = {
             }
             const refundedKpiCount = [...orderIdToRefunded.values()].filter(Boolean).length;
 
-            // Step 2: Reconcile từng đơn — progress per-order
+            // Step 2: Reconcile từng đơn — WORKER POOL CONCURRENCY 8 (song song)
+            // Trước: 134 sequential awaits ~30-60s. Sau: 8 workers parallel ~5-10s.
+            const CONCURRENCY = 8;
+            const total = allOrders.length;
             setLoadingMsg(
-                `Kiểm tra audit log từng đơn (0/${allOrders.length})`,
+                `Kiểm tra audit log song song ${CONCURRENCY} workers (0/${total})`,
                 25,
                 `${refundedKpiCount} đơn đã được mark hoàn từ refund excel`
             );
-            const results = [];
-            const total = allOrders.length;
+            const results = new Array(total); // preserve order via index
             let processed = 0;
-            for (const order of allOrders) {
+            let nextIdx = 0;
+            const t2 = performance.now();
+
+            const reconcileOne = async (idx) => {
+                const order = allOrders[idx];
                 const isRefunded = orderIdToRefunded.get(order.orderId) || false;
                 const invoice = orderIdToInvoice.get(order.orderId);
+                let result;
                 try {
-                    let result;
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
                         result = await window.kpiManager.reconcileKPI(
                             order.orderId,
@@ -2708,7 +2711,7 @@ const KPICommission = {
                               },
                           ]
                         : [];
-                    results.push({
+                    results[idx] = {
                         orderId: order.orderId,
                         orderCode: order.orderCode || '',
                         invoiceNumber: invoice?.Number || '',
@@ -2721,10 +2724,10 @@ const KPICommission = {
                         hasDiscrepancy: isRefunded || result.hasDiscrepancy,
                         isRefunded,
                         discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
-                    });
+                    };
                 } catch (e) {
                     console.error('[KPI Tab] Reconciliation error for order:', order.orderId, e);
-                    results.push({
+                    results[idx] = {
                         orderCode: order.orderCode || '',
                         orderId: order.orderId,
                         invoiceNumber: invoice?.Number || '',
@@ -2739,18 +2742,40 @@ const KPICommission = {
                             ...(isRefunded ? [{ type: 'refunded', message: 'Đơn đã hoàn' }] : []),
                             { type: 'error', message: e.message },
                         ],
-                    });
+                    };
                 }
-                processed++;
-                if (processed % 5 === 0 || processed === total) {
-                    const pct = 25 + Math.round((processed / total) * 70); // 25%→95%
-                    setLoadingMsg(
-                        `Kiểm tra audit log từng đơn (${processed}/${total})`,
-                        pct,
-                        `${refundedKpiCount} đã hoàn · ${results.filter((r) => r.hasDiscrepancy && !r.isRefunded).length} sai lệch khác phát hiện`
-                    );
+            };
+
+            // Throttled progress UI update — chỉ refresh mỗi 200ms để tránh
+            // reflow liên tục khi 8 workers fire callback đồng thời
+            let lastProgressUpdate = 0;
+            const updateProgress = (force) => {
+                const now = performance.now();
+                if (!force && now - lastProgressUpdate < 200) return;
+                lastProgressUpdate = now;
+                const pct = 25 + Math.round((processed / total) * 70);
+                setLoadingMsg(
+                    `Kiểm tra song song ${CONCURRENCY} workers (${processed}/${total})`,
+                    pct,
+                    `${refundedKpiCount} đã hoàn · ${results.filter((r) => r?.hasDiscrepancy && !r?.isRefunded).length} sai lệch khác phát hiện`
+                );
+            };
+
+            // Worker pool: spawn N concurrent workers, each pulls from queue
+            const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, async () => {
+                while (true) {
+                    const myIdx = nextIdx++;
+                    if (myIdx >= total) break;
+                    await reconcileOne(myIdx);
+                    processed++;
+                    updateProgress(false);
                 }
-            }
+            });
+            await Promise.all(workers);
+            updateProgress(true);
+            console.log(
+                `[KPI Tab] Step 2 (concurrency ${CONCURRENCY}) hoàn tất ${total} đơn trong ${Math.round(performance.now() - t2)}ms`
+            );
 
             setLoadingMsg('Render bảng kết quả...', 98, '');
             await new Promise((r) => setTimeout(r, 100));
