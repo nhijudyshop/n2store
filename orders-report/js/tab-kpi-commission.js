@@ -351,6 +351,9 @@ const KPICommission = {
             // Sync nút toggle mode với state đã khôi phục từ localStorage
             this.updateDisplayModeLabel();
 
+            // Bind filter v2 (date presets, status chips, more menu) — sets default 30d
+            this._bindFilterV2();
+
             await this.applyFilters();
             this.reinitIcons();
         } catch (error) {
@@ -568,7 +571,7 @@ const KPICommission = {
     },
 
     async applyFilters() {
-        // Read filter values
+        // Read filter values — status từ chip, các value khác từ inputs
         this.state.filters.campaign =
             (document.getElementById('kpiFilterCampaign') || {}).value || '';
         this.state.filters.employee =
@@ -576,7 +579,10 @@ const KPICommission = {
         this.state.filters.dateFrom =
             (document.getElementById('kpiFilterDateFrom') || {}).value || '';
         this.state.filters.dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
-        this.state.filters.status = (document.getElementById('kpiFilterStatus') || {}).value || '';
+        // Status đọc từ active chip (filter v2) thay vì select cũ
+        const activeChip = document.querySelector('.kpi-status-chips .kpi-chip.is-active');
+        this.state.filters.status = activeChip ? activeChip.dataset.status || '' : '';
+        this._renderFiltersSummary();
 
         const { campaign, employee, dateFrom, dateTo, status } = this.state.filters;
 
@@ -883,6 +889,336 @@ const KPICommission = {
     },
 
     // ========================================
+    // INVOICE DETAIL MODAL — click số phiếu xem chi tiết
+    // ========================================
+
+    async showInvoiceDetail(invoiceId, invoiceNumber) {
+        // Tạo modal nếu chưa có
+        let modal = document.getElementById('invoiceDetailModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'invoiceDetailModal';
+            modal.className = 'modal-overlay invoice-detail-modal';
+            modal.innerHTML = `
+                <div class="modal-container invoice-detail-container">
+                    <div class="modal-header">
+                        <h3 class="modal-title">
+                            <i data-lucide="receipt"></i>
+                            Chi tiết phiếu <span id="invDetailNumber">—</span>
+                        </h3>
+                        <div class="invoice-detail-actions">
+                            <a href="#" target="_blank" id="invDetailTposLink" class="kpi-icon-btn" title="Mở trên TPOS">
+                                <i data-lucide="external-link"></i> TPOS
+                            </a>
+                            <button class="modal-close" onclick="document.getElementById('invoiceDetailModal').style.display='none'">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modal-body invoice-detail-body" id="invDetailBody">
+                        <div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            // Click outside to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.style.display = 'none';
+            });
+        }
+        modal.style.display = 'flex';
+        document.getElementById('invDetailNumber').textContent = invoiceNumber || '—';
+        const tposLink = document.getElementById('invDetailTposLink');
+        if (tposLink && invoiceId) {
+            tposLink.href = `https://tomato.tpos.vn/#/app/fastsaleorder/${invoiceId}`;
+        }
+        const body = document.getElementById('invDetailBody');
+        if (body)
+            body.innerHTML =
+                '<div class="loading-state"><div class="spinner"></div><p>Đang tải chi tiết phiếu...</p></div>';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        if (!invoiceId) {
+            if (body)
+                body.innerHTML =
+                    '<div class="empty-state"><p>Phiếu không có ID — không thể tải chi tiết.</p></div>';
+            return;
+        }
+
+        try {
+            const data = await this._fetchInvoiceDetail(invoiceId);
+            if (!data) {
+                if (body)
+                    body.innerHTML =
+                        '<div class="empty-state"><p>Không tải được chi tiết phiếu từ TPOS.</p></div>';
+                return;
+            }
+            this._renderInvoiceDetail(body, data);
+        } catch (e) {
+            console.warn('[KPI Tab] Invoice detail fetch failed:', e?.message);
+            if (body)
+                body.innerHTML = `<div class="empty-state"><p>Lỗi: ${this.escapeHtml(e.message || '')}</p></div>`;
+        }
+    },
+
+    async _fetchInvoiceDetail(invoiceId) {
+        if (!this._invoiceDetailCache) this._invoiceDetailCache = new Map();
+        if (this._invoiceDetailCache.has(invoiceId)) {
+            return this._invoiceDetailCache.get(invoiceId);
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        let authHeader;
+        const tokenManager = window.tokenManager || window.parent?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            authHeader = await tokenManager.getAuthHeader();
+        } else {
+            // Fallback to /api/token
+            const companyId =
+                window.ShopConfig?.getConfig?.()?.CompanyId ||
+                window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
+                1;
+            const creds =
+                companyId === 2
+                    ? {
+                          grant_type: 'password',
+                          username: 'nvktshop1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      }
+                    : {
+                          grant_type: 'password',
+                          username: 'nvktlive1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      };
+            const formData = new URLSearchParams();
+            for (const [k, v] of Object.entries(creds)) formData.append(k, v);
+            const tokenRes = await fetch(`${WORKER}/api/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+            });
+            const tokenData = await tokenRes.json();
+            authHeader = { Authorization: `Bearer ${tokenData.access_token}` };
+        }
+        const res = await fetch(
+            `${WORKER}/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines,Partner,User`,
+            {
+                headers: {
+                    ...authHeader,
+                    accept: 'application/json',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        this._invoiceDetailCache.set(invoiceId, data);
+        return data;
+    },
+
+    _renderInvoiceDetail(container, data) {
+        if (!container) return;
+        const fmt = (n) => (n || 0).toLocaleString('vi-VN') + ' ₫';
+        const date = data.DateInvoice ? new Date(data.DateInvoice).toLocaleString('vi-VN') : '—';
+        const lines = data.OrderLines || [];
+        const totalQty = lines.reduce((s, l) => s + (l.Quantity || 0), 0);
+
+        const linesHtml = lines.length
+            ? `<table class="inv-detail-items">
+                <thead>
+                    <tr>
+                        <th>Sản phẩm</th>
+                        <th>Mã</th>
+                        <th>SL</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${lines
+                        .map(
+                            (l) => `<tr>
+                        <td>${this.escapeHtml(l.ProductName || l.ProductNameGet || l.Name || '—')}</td>
+                        <td><code>${this.escapeHtml(l.ProductCode || '—')}</code></td>
+                        <td class="num">${l.Quantity || 0}</td>
+                        <td class="num">${fmt(l.Price)}</td>
+                        <td class="num"><strong>${fmt(l.PriceSubTotal || (l.Price || 0) * (l.Quantity || 0))}</strong></td>
+                    </tr>`
+                        )
+                        .join('')}
+                </tbody>
+            </table>`
+            : '<div class="empty-state"><p>Phiếu không có dòng sản phẩm.</p></div>';
+
+        container.innerHTML = `
+            <div class="inv-detail-grid">
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Số phiếu</div>
+                    <div class="inv-detail-value"><strong>${this.escapeHtml(data.Number || '')}</strong></div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Ngày lập</div>
+                    <div class="inv-detail-value">${this.escapeHtml(date)}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Trạng thái</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.ShowState || data.State || '—')}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Khách hàng</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.PartnerDisplayName || data.Partner?.Name || '—')}<br><small>${this.escapeHtml(data.Phone || data.Partner?.Phone || '')}</small></div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">SĐT giao hàng</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.Phone || '—')}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Địa chỉ</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.Address || data.FullAddress || '—')}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">NV bán</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.UserName || data.User?.Name || '—')}</div>
+                </div>
+                <div class="inv-detail-card inv-detail-total">
+                    <div class="inv-detail-label">Tổng tiền</div>
+                    <div class="inv-detail-value"><strong>${fmt(data.AmountTotal)}</strong></div>
+                </div>
+            </div>
+            ${data.Comment || data.Note ? `<div class="inv-detail-note"><strong>Ghi chú:</strong> ${this.escapeHtml(data.Comment || data.Note)}</div>` : ''}
+            <h4 class="inv-detail-section-title"><i data-lucide="package"></i> Sản phẩm (${lines.length} loại, ${totalQty} SP)</h4>
+            ${linesHtml}
+        `;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    },
+
+    // ========================================
+    // FILTER BAR V2 — date presets, status chips, more menu
+    // ========================================
+
+    _formatDateForInput(d) {
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yy}-${mm}-${dd}`;
+    },
+
+    _applyDatePreset(preset) {
+        const fromEl = document.getElementById('kpiFilterDateFrom');
+        const toEl = document.getElementById('kpiFilterDateTo');
+        const customWrap = document.getElementById('kpiDateCustom');
+        if (!fromEl || !toEl) return;
+        const today = new Date();
+        const setRange = (from, to) => {
+            fromEl.value = this._formatDateForInput(from);
+            toEl.value = this._formatDateForInput(to);
+        };
+        if (preset === 'today') {
+            setRange(today, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === '7d') {
+            const from = new Date(today);
+            from.setDate(from.getDate() - 6);
+            setRange(from, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === '30d') {
+            const from = new Date(today);
+            from.setDate(from.getDate() - 29);
+            setRange(from, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === 'thismonth') {
+            const from = new Date(today.getFullYear(), today.getMonth(), 1);
+            setRange(from, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === 'custom') {
+            if (customWrap) customWrap.style.display = '';
+        }
+    },
+
+    _bindFilterV2() {
+        if (this.__filterV2Bound) return;
+        this.__filterV2Bound = true;
+
+        // Date preset buttons
+        document.querySelectorAll('.kpi-preset-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document
+                    .querySelectorAll('.kpi-preset-btn')
+                    .forEach((b) => b.classList.toggle('is-active', b === btn));
+                const preset = btn.dataset.preset;
+                this._applyDatePreset(preset);
+                if (preset !== 'custom') {
+                    this.applyFilters();
+                }
+            });
+        });
+
+        // Status chips
+        document.querySelectorAll('.kpi-status-chips .kpi-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                document
+                    .querySelectorAll('.kpi-status-chips .kpi-chip')
+                    .forEach((c) => c.classList.toggle('is-active', c === chip));
+                this.applyFilters();
+            });
+        });
+
+        // Auto-apply on date inputs change
+        ['kpiFilterDateFrom', 'kpiFilterDateTo'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.applyFilters());
+            }
+        });
+        // Auto-apply on campaign / employee change
+        ['kpiFilterCampaign', 'kpiFilterEmployee'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.applyFilters());
+            }
+        });
+
+        // More actions menu
+        const moreBtn = document.getElementById('btnKpiMoreActions');
+        const moreMenu = document.getElementById('kpiMoreMenu');
+        if (moreBtn && moreMenu) {
+            moreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                moreMenu.classList.toggle('is-open');
+            });
+            document.addEventListener('click', () => {
+                moreMenu.classList.remove('is-open');
+            });
+            moreMenu.addEventListener('click', (e) => e.stopPropagation());
+        }
+
+        // Apply initial preset (30d)
+        this._applyDatePreset('30d');
+    },
+
+    _renderFiltersSummary() {
+        const el = document.getElementById('kpiFiltersSummary');
+        if (!el) return;
+        const parts = [];
+        const f = this.state.filters || {};
+        if (f.dateFrom && f.dateTo) {
+            parts.push(`📅 ${f.dateFrom} → ${f.dateTo}`);
+        }
+        if (f.campaign) parts.push(`🎯 ${f.campaign}`);
+        if (f.employee) {
+            const empSel = document.getElementById('kpiFilterEmployee');
+            const label = empSel?.options[empSel.selectedIndex]?.text || f.employee;
+            parts.push(`👤 ${label}`);
+        }
+        if (f.status) parts.push(f.status === 'ok' ? '✓ OK' : '⚠ Sai lệch');
+        el.textContent = parts.length ? 'Filter: ' + parts.join(' · ') : '';
+    },
+
+    // ========================================
     // LEADERBOARD + HERO HELPERS (redesign)
     // ========================================
 
@@ -958,7 +1294,6 @@ const KPICommission = {
             html += `<div class="lb-row" onclick="window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')" tabindex="0" role="button">
                 <div class="lb-rank ${rankCls}" title="Hạng ${rank}">${rankIcon}</div>
                 <div class="lb-employee">
-                    <div class="lb-avatar" style="background:${avatarBg};">${this.escapeHtml(initials)}</div>
                     <div class="lb-emp-info">
                         <div class="lb-emp-name">${this.escapeHtml(emp.resolvedName)}</div>
                         <div class="lb-emp-meta">
@@ -1322,8 +1657,9 @@ const KPICommission = {
                     '<span class="kpi-status-pill pill-untracked" title="Chưa chạy đối soát">— chưa check</span>';
             }
 
+            const invId = this._invoiceCache?.get(order.orderId)?.Id;
             const invHtml = invNumber
-                ? `<span class="recon-invoice-num">${this.escapeHtml(invNumber)}</span>`
+                ? `<a class="recon-invoice-num is-link" href="javascript:void(0)" onclick="event.stopPropagation();window.KPICommission.showInvoiceDetail('${invId || ''}', '${this.escapeHtml(invNumber)}')" title="Xem chi tiết phiếu ${this.escapeHtml(invNumber)}">${this.escapeHtml(invNumber)}</a>`
                 : '<span class="recon-invoice-num is-empty">—</span>';
 
             const toggleBtn = isRefunded
@@ -2754,8 +3090,9 @@ const KPICommission = {
                 statusHtml = '<span class="status-badge status-ok">✅ OK</span>';
             }
 
+            const invId = this._invoiceCache?.get(r.orderId)?.Id;
             const invHtml = r.invoiceNumber
-                ? `<span class="recon-invoice-num">${this.escapeHtml(r.invoiceNumber)}</span>${r.invoiceState ? ` <span style="font-size:11px;color:#6b7280;">${this.escapeHtml(r.invoiceState)}</span>` : ''}`
+                ? `<a class="recon-invoice-num is-link" href="javascript:void(0)" onclick="event.stopPropagation();window.KPICommission.showInvoiceDetail('${invId || ''}', '${this.escapeHtml(r.invoiceNumber)}')" title="Xem chi tiết phiếu ${this.escapeHtml(r.invoiceNumber)}">${this.escapeHtml(r.invoiceNumber)}</a>${r.invoiceState ? ` <span style="font-size:11px;color:#6b7280;">${this.escapeHtml(r.invoiceState)}</span>` : ''}`
                 : '<span class="recon-invoice-num is-empty">— chưa có invoice</span>';
 
             const hasDetail = (r.discrepancies || []).length > 0;

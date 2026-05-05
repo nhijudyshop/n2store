@@ -84,74 +84,105 @@
                 </div>
             </div>
 
-            <!-- ===== FILTER SECTION (11.2) ===== -->
-            <div class="kpi-filters">
-                <div class="filter-row">
-                    <div class="filter-group">
-                        <label>Campaign</label>
-                        <select id="kpiFilterCampaign">
-                            <option value="">Tất cả</option>
+            <!-- ===== FILTER BAR (compact, sticky) ===== -->
+            <div class="kpi-filters-v2">
+                <div class="kpi-filters-row">
+                    <!-- Date range presets -->
+                    <div class="kpi-date-presets" role="tablist" aria-label="Khoảng thời gian">
+                        <button class="kpi-preset-btn" data-preset="today" type="button">
+                            Hôm nay
+                        </button>
+                        <button class="kpi-preset-btn" data-preset="7d" type="button">
+                            7 ngày
+                        </button>
+                        <button class="kpi-preset-btn is-active" data-preset="30d" type="button">
+                            30 ngày
+                        </button>
+                        <button class="kpi-preset-btn" data-preset="thismonth" type="button">
+                            Tháng này
+                        </button>
+                        <button class="kpi-preset-btn" data-preset="custom" type="button">
+                            <i data-lucide="calendar"></i>
+                        </button>
+                    </div>
+
+                    <!-- Custom date inputs (shown when preset = custom) -->
+                    <div class="kpi-date-custom" id="kpiDateCustom" style="display: none">
+                        <input type="date" id="kpiFilterDateFrom" aria-label="Từ ngày" />
+                        <span class="kpi-date-sep">→</span>
+                        <input type="date" id="kpiFilterDateTo" aria-label="Đến ngày" />
+                    </div>
+
+                    <!-- Campaign + Employee selects -->
+                    <div class="kpi-select-wrap">
+                        <i data-lucide="megaphone"></i>
+                        <select id="kpiFilterCampaign" title="Campaign">
+                            <option value="">Tất cả campaign</option>
                         </select>
                     </div>
-                    <div class="filter-group">
-                        <label>Nhân viên</label>
-                        <select id="kpiFilterEmployee">
-                            <option value="">Tất cả</option>
+                    <div class="kpi-select-wrap">
+                        <i data-lucide="user"></i>
+                        <select id="kpiFilterEmployee" title="Nhân viên">
+                            <option value="">Tất cả NV</option>
                         </select>
                     </div>
-                    <div class="filter-group">
-                        <label>Từ ngày</label>
-                        <input type="date" id="kpiFilterDateFrom" />
+
+                    <!-- Status chips (replace dropdown) -->
+                    <div class="kpi-status-chips" role="tablist" aria-label="Trạng thái">
+                        <button class="kpi-chip is-active" data-status="" type="button">
+                            Tất cả
+                        </button>
+                        <button class="kpi-chip" data-status="ok" type="button">
+                            <i data-lucide="check"></i> OK
+                        </button>
+                        <button
+                            class="kpi-chip kpi-chip-warn"
+                            data-status="discrepancy"
+                            type="button"
+                        >
+                            <i data-lucide="alert-triangle"></i> Sai lệch
+                        </button>
                     </div>
-                    <div class="filter-group">
-                        <label>Đến ngày</label>
-                        <input type="date" id="kpiFilterDateTo" />
-                    </div>
-                    <div class="filter-group">
-                        <label>Trạng thái</label>
-                        <select id="kpiFilterStatus">
-                            <option value="">Tất cả</option>
-                            <option value="ok">OK</option>
-                            <option value="discrepancy">Cần đối soát</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="filter-actions">
-                    <button
-                        onclick="KPICommission.applyFilters()"
-                        class="btn-primary ds-btn ds-btn-primary"
-                    >
-                        <i data-lucide="filter"></i> Lọc
-                    </button>
-                    <button
-                        onclick="KPICommission.refreshData()"
-                        class="btn-secondary ds-btn ds-btn-ghost"
-                    >
-                        <i data-lucide="refresh-cw"></i> Làm mới
-                    </button>
+
+                    <!-- Display mode quick toggle -->
                     <button
                         id="btnToggleDisplayMode"
                         onclick="KPICommission.toggleDisplayMode()"
-                        class="btn-secondary ds-btn ds-btn-ghost"
-                        title="Chuyển đổi giữa xem đầy đủ (cả SP chưa tick KPI) và chỉ xem SP có KPI"
+                        class="kpi-icon-btn"
+                        title="Chỉ KPI / Đầy đủ"
                     >
                         <i data-lucide="eye"></i> <span id="displayModeLabel">Chỉ có KPI</span>
                     </button>
-                    <button
-                        id="btnRecomputeAllKPI"
-                        onclick="KPICommission.recomputeAllKPI()"
-                        class="btn-warning ds-btn ds-btn-ghost"
-                        title="Tính lại toàn bộ KPI theo logic biến thể mới (chạy lâu)"
-                    >
-                        <i data-lucide="calculator"></i> Tính lại KPI toàn bộ
+
+                    <!-- Primary action -->
+                    <button onclick="KPICommission.applyFilters()" class="kpi-apply-btn">
+                        <i data-lucide="filter"></i> Lọc
                     </button>
-                    <button
-                        onclick="KPICommission.exportExcel()"
-                        class="btn-success ds-btn ds-btn-success"
-                    >
-                        <i data-lucide="file-spreadsheet"></i> Export Excel
-                    </button>
+
+                    <!-- More actions menu -->
+                    <div class="kpi-more-wrap">
+                        <button
+                            class="kpi-icon-btn kpi-more-trigger"
+                            type="button"
+                            id="btnKpiMoreActions"
+                            title="Thêm hành động"
+                        >
+                            <i data-lucide="more-horizontal"></i>
+                        </button>
+                        <div class="kpi-more-menu" id="kpiMoreMenu">
+                            <button onclick="KPICommission.refreshData()">
+                                <i data-lucide="refresh-cw"></i> Làm mới dữ liệu
+                            </button>
+                            <button onclick="KPICommission.recomputeAllKPI()">
+                                <i data-lucide="calculator"></i> Tính lại KPI toàn bộ
+                            </button>
+                            <button onclick="KPICommission.exportExcel()">
+                                <i data-lucide="file-spreadsheet"></i> Export Excel
+                            </button>
+                        </div>
+                    </div>
                 </div>
+                <div class="kpi-filters-summary" id="kpiFiltersSummary"></div>
             </div>
 
             <!-- ===== SUMMARY CARDS (11.3) ===== -->
