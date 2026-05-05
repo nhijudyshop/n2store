@@ -19,7 +19,9 @@
 
     const COLLECTION = 'edit_history';
     const PAGE_SIZE = 50;
-    const MAX_FETCH = 1000;
+    const MAX_FETCH = 300;
+    const CACHE_KEY = 'acc_history_cache_v1';
+    const CACHE_TTL_MS = 60 * 1000; // 60s — stale-while-revalidate
 
     // Map raw actionType → category trong tab
     const ACTION_TYPE_TO_CATEGORY = {
@@ -440,6 +442,34 @@
         document.getElementById('accHistoryEndDate').value = iso(end);
     }
 
+    function readCache() {
+        try {
+            const raw = localStorage.getItem(CACHE_KEY);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            if (!obj || !Array.isArray(obj.records) || !obj.savedAt) return null;
+            // Records cache lưu timestamp ms (đã convert) + giữ raw fields khác
+            return obj;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function writeCache(records) {
+        try {
+            const slim = records.map((rec) => {
+                const ts = getRecordTimestamp(rec);
+                return {
+                    ...rec,
+                    timestamp: ts ? ts.getTime() : null,
+                };
+            });
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), records: slim }));
+        } catch (e) {
+            // QuotaExceeded etc. — bỏ qua
+        }
+    }
+
     async function fetchRecords() {
         const db = getDb();
         if (!db) {
@@ -472,17 +502,39 @@
         }
     }
 
-    async function load() {
-        readFiltersFromUI();
-        state.loading = true;
-        renderTable();
-        const records = await fetchRecords();
-        state.rawRecords = records;
-        state.loading = false;
+    function applyAndRender() {
         populateUserDropdown();
         applyFilters();
         renderStats();
         renderTable();
+    }
+
+    async function load(forceRefresh) {
+        readFiltersFromUI();
+
+        // Stale-while-revalidate: nếu có cache, hiển thị NGAY rồi fetch nền
+        const cached = !forceRefresh ? readCache() : null;
+        const cacheAgeMs = cached ? Date.now() - cached.savedAt : Infinity;
+
+        if (cached) {
+            state.rawRecords = cached.records;
+            state.loading = false;
+            applyAndRender();
+            // Nếu cache còn fresh (<60s) và không force, bỏ qua refetch
+            if (cacheAgeMs < CACHE_TTL_MS) return;
+        } else {
+            state.loading = true;
+            renderTable();
+        }
+
+        // Background fetch
+        const records = await fetchRecords();
+        if (records.length) {
+            state.rawRecords = records;
+            writeCache(records);
+        }
+        state.loading = false;
+        applyAndRender();
     }
 
     function bindFilterEvents() {
