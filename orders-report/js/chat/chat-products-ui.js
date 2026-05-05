@@ -325,15 +325,16 @@
         const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
             ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
             : false);
-        const kpiToggleHtml = (orderCode && p.ProductId)
-            ? `<label class="chat-kpi-toggle" title="Tick = SP bán hàng, được tính KPI">
+        const kpiToggleHtml =
+            orderCode && p.ProductId
+                ? `<label class="chat-kpi-toggle" title="Tick = SP bán hàng, được tính KPI">
                     <input type="checkbox" class="chat-kpi-check"
                         data-product-id="${p.ProductId}"
                         ${isSale ? 'checked' : ''}
                         onchange="window.handleChatKpiSaleToggle(${p.ProductId}, this.checked)">
                     <span>KPI</span>
                </label>`
-            : '';
+                : '';
 
         return `
         <tr class="chat-product-row" data-product-id="${p.ProductId}">
@@ -852,8 +853,54 @@
     };
 
     /**
+     * Resize/compress blob to fit Pancake 500KB upload limit.
+     * Strategy: nếu blob đã <= 480KB → giữ nguyên. Nếu lớn hơn → vẽ lên canvas
+     * với max dimension 1280, JPEG quality 0.85, giảm dần quality + dimension cho tới
+     * khi <= MAX_BYTES hoặc kiệt option.
+     */
+    async function _resizeBlobUnderLimit(blob, MAX_BYTES = 480 * 1024) {
+        if (!blob || blob.size <= MAX_BYTES) return blob;
+        // GIF không nén qua canvas (mất animation) — fallback giữ nguyên
+        if ((blob.type || '').toLowerCase().includes('gif')) return blob;
+
+        const bitmap = await (typeof createImageBitmap === 'function'
+            ? createImageBitmap(blob)
+            : new Promise((resolve, reject) => {
+                  const img = new Image();
+                  img.onload = () => resolve(img);
+                  img.onerror = reject;
+                  img.src = URL.createObjectURL(blob);
+              }));
+
+        const drawTo = (w, h, quality) =>
+            new Promise((resolve) => {
+                const c = document.createElement('canvas');
+                c.width = Math.max(1, Math.round(w));
+                c.height = Math.max(1, Math.round(h));
+                const ctx = c.getContext('2d');
+                ctx.drawImage(bitmap, 0, 0, c.width, c.height);
+                c.toBlob((b) => resolve(b), 'image/jpeg', quality);
+            });
+
+        const widthCandidates = [1280, 1024, 800, 640, 480];
+        const qualityCandidates = [0.85, 0.75, 0.65, 0.5, 0.4];
+
+        for (const w of widthCandidates) {
+            for (const q of qualityCandidates) {
+                const ratio = bitmap.width > 0 ? w / bitmap.width : 1;
+                const targetW = Math.min(bitmap.width, w);
+                const targetH = Math.round(bitmap.height * Math.min(1, ratio));
+                const out = await drawTo(targetW, targetH, q);
+                if (out && out.size <= MAX_BYTES) return out;
+            }
+        }
+        // Last resort: return smallest version we tried
+        return drawTo(480, Math.round(bitmap.height * (480 / bitmap.width)), 0.4);
+    }
+
+    /**
      * Send product image to chat via Pancake API
-     * Downloads image → uploads via upload_contents → sends with content_ids
+     * Downloads image → resize <500KB → uploads via upload_contents → sends with content_ids
      */
     window.sendImageToChat = async function (imageUrl, productName, productId, productCode) {
         if (!imageUrl) {
@@ -890,15 +937,24 @@
                 : imageUrl;
             const resp = await fetch(fetchUrl);
             if (!resp.ok) throw new Error('Tải ảnh thất bại');
-            const blob = await resp.blob();
-            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+            let blob = await resp.blob();
+
+            // Pancake upload_contents giới hạn 500KB → resize trước nếu lớn hơn
+            blob = await _resizeBlobUnderLimit(blob);
+            const useJpeg = (blob.type || '').includes('jpeg') || (blob.type || '').includes('jpg');
+            const ext = useJpeg
+                ? 'jpg'
+                : imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
             const file = new File([blob], `product-${productId || 'img'}.${ext}`, {
                 type: blob.type || `image/${ext}`,
             });
 
             // Upload via upload_contents API
             const uploadResult = await pdm.uploadMedia(channelId, file, pat);
-            if (!uploadResult?.id) throw new Error('Upload không trả về content_id');
+            if (!uploadResult?.id) {
+                const errMsg = uploadResult?.message || 'Upload không trả về content_id';
+                throw new Error(errMsg);
+            }
 
             // Send image with content_ids
             const sendResult = await pdm.sendMessage(
