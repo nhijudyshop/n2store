@@ -902,25 +902,42 @@ const KPICommission = {
         if (!tbody) return;
 
         const fullMode = this.state.displayMode === 'full';
+        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
         let html = '';
         aggregated.forEach((emp, idx) => {
             const invoiceSummaryHtml = this.renderKPIInvoiceStatusSummary(emp.orders);
 
-            // "SỐ ĐƠN" column:
-            //   Simple mode → chỉ đếm đơn có KPI > 0 (hành vi cũ).
-            //   Full mode   → đếm TẤT CẢ đơn không stale (bao gồm đơn KPI = 0).
             const orderCount = emp.orders.filter((o) => {
                 if (o._stale) return false;
                 if (fullMode) return true;
                 return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
             }).length;
 
+            const lossInfo = this._reconKpiLossByUser?.get(emp.userId) || {
+                kpiLost: 0,
+                refundCount: 0,
+            };
+            const kpiNet = emp.totalKPI - lossInfo.kpiLost;
+            const hasLoss = lossInfo.kpiLost > 0;
+
+            const grossCellHtml = hasLoss
+                ? `<td class="col-kpi-gross" title="Tổng KPI trước khi loại đơn hoàn">${this.formatCurrency(emp.totalKPI)}</td>`
+                : `<td class="col-kpi-gross" style="text-decoration:none;color:inherit;">${this.formatCurrency(emp.totalKPI)}</td>`;
+
+            const refundCellHtml = reconRan
+                ? `<td class="col-refund-count"><span class="refund-badge ${lossInfo.refundCount === 0 ? 'is-zero' : ''}" title="${lossInfo.refundCount} đơn hoàn — bị loại ${this.formatCurrency(lossInfo.kpiLost)}">↩ ${lossInfo.refundCount}</span></td>`
+                : `<td class="col-refund-count" style="color:#9ca3af;font-size:11px;" title="Chưa chạy đối soát">—</td>`;
+
+            const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? 'Bị loại ' + this.formatCurrency(lossInfo.kpiLost) + ' do refund' : 'Không có đơn hoàn'}">${this.formatCurrency(kpiNet)}</td>`;
+
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
                 <td>${orderCount}</td>
                 <td>${emp.totalNetProducts}</td>
-                <td>${this.formatCurrency(emp.totalKPI)}</td>
+                ${grossCellHtml}
+                ${refundCellHtml}
+                ${netCellHtml}
                 <td>${invoiceSummaryHtml}</td>
             </tr>`;
         });
@@ -1044,27 +1061,82 @@ const KPICommission = {
         if (!tbody) return;
 
         const simpleMode = this.state.displayMode === 'simple';
+        const reconRan = !!(this._reconByOrder && this._reconByOrder.size > 0);
         let html = '';
+        let totalOrders = 0;
+        let okOrders = 0;
+        let refundOrders = 0;
+        let kpiGross = 0;
+        let kpiLost = 0;
+
         orders.forEach((order) => {
-            // Luôn ẩn đơn stale.
             if (order._stale) return;
-            // Simple mode: ẩn đơn 0 KPI (không có SP nào được tick trong đơn).
-            // Full mode: hiện đầy đủ, kể cả đơn KPI = 0 để user review.
-            if (simpleMode && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
+            const recon = this._reconByOrder?.get(order.orderId);
+            const isRefunded = !!recon?.isRefunded;
+            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện đơn refunded để user
+            // thấy lý do "đã hoàn — không tính KPI" dù KPI=0
+            if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
+                return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
+            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isRefunded;
+            const invNumber =
+                recon?.invoiceNumber || this._invoiceCache?.get(order.orderId)?.Number || '';
 
-            html += `<tr>
-                <td>${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
+            totalOrders++;
+            kpiGross += order.kpi || 0;
+            if (isRefunded) {
+                refundOrders++;
+                kpiLost += order.kpi || 0;
+            } else {
+                okOrders++;
+            }
+
+            const rowClass = isRefunded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
+
+            let statusPill;
+            if (isRefunded) {
+                statusPill = '<span class="kpi-status-pill pill-refund">↩ Đã hoàn</span>';
+            } else if (hasDiscrepancy) {
+                statusPill = '<span class="kpi-status-pill pill-discrepancy">⚠ Sai lệch</span>';
+            } else if (reconRan) {
+                statusPill = '<span class="kpi-status-pill pill-ok">✓ OK</span>';
+            } else {
+                statusPill =
+                    '<span class="kpi-status-pill pill-untracked" title="Chưa chạy đối soát">— chưa check</span>';
+            }
+
+            const invHtml = invNumber
+                ? `<span class="recon-invoice-num">${this.escapeHtml(invNumber)}</span>`
+                : '<span class="recon-invoice-num is-empty">—</span>';
+
+            const toggleBtn = isRefunded
+                ? `<button class="recon-toggle-btn l1-toggle-btn" onclick="window.KPICommission._toggleL1OrderDetail('${this.escapeHtml(order.orderId)}')" title="Xem món trả + lý do"><i data-lucide="chevron-right"></i></button>`
+                : '';
+
+            html += `<tr class="${rowClass}" data-l1-order="${this.escapeHtml(order.orderId)}">
+                <td>${toggleBtn}${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
                 <td><a class="order-link" onclick="KPICommission.showOrderDetails('${this.escapeHtml(order.orderId)}')">${this.escapeHtml(order.orderCode || order.orderId)}</a></td>
+                <td>${invHtml}</td>
                 <td>${this.escapeHtml(order.campaignName || '---')}</td>
                 <td>${order.netProducts || 0}</td>
                 <td>${this.formatCurrency(order.kpi || 0)}</td>
+                <td>${statusPill}</td>
                 <td>${invoiceHtml}</td>
             </tr>`;
+
+            // Detail row — empty initially, populated lazy on click cho đơn refunded
+            if (isRefunded) {
+                html += `<tr class="recon-detail-row l1-detail-row" data-open="0" style="display:none;">
+                    <td colspan="8">
+                        <div class="recon-detail-content l1-detail-content">
+                            <em>Click để load chi tiết món trả...</em>
+                        </div>
+                    </td>
+                </tr>`;
+            }
         });
 
-        // Nếu sau filter không còn đơn nào
         if (!html) {
             this.showEl('modalL1Empty');
             this.hideEl('modalL1TableWrapper');
@@ -1072,6 +1144,28 @@ const KPICommission = {
         }
 
         tbody.innerHTML = html;
+
+        // Render summary card
+        const summary = document.getElementById('modalL1Summary');
+        if (summary) {
+            if (reconRan) {
+                summary.style.display = '';
+                const set = (id, v) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = v;
+                };
+                set('l1SumTotalOrders', totalOrders.toLocaleString('vi-VN'));
+                set('l1SumOkOrders', okOrders.toLocaleString('vi-VN'));
+                set('l1SumRefundOrders', refundOrders.toLocaleString('vi-VN'));
+                set('l1SumKpiGross', this.formatCurrency(kpiGross));
+                set('l1SumKpiLost', this.formatCurrency(kpiLost));
+                set('l1SumKpiNet', this.formatCurrency(kpiGross - kpiLost));
+            } else {
+                summary.style.display = 'none';
+            }
+        }
+
+        if (window.lucide?.createIcons) window.lucide.createIcons();
     },
 
     closeEmployeeOrders() {
@@ -2095,7 +2189,14 @@ const KPICommission = {
             await new Promise((r) => setTimeout(r, 100));
 
             this._reconResults = results;
+            this._indexReconResults(results);
             this._renderReconciliationUI(results, refundInfo);
+            // Đồng bộ refund vào main KPI table (re-render để show cột Hoàn + KPI thực)
+            try {
+                await this.renderKPITable(this.state.filteredData || []);
+            } catch (e) {
+                console.warn('[KPI Tab] Sync KPI table after recon failed:', e?.message);
+            }
             this._hideReconProgress();
         } catch (error) {
             console.error('[KPI Tab] Reconciliation error:', error);
@@ -2105,6 +2206,217 @@ const KPICommission = {
             if (emptyEl) emptyEl.querySelector('p').textContent = `Lỗi đối soát: ${error.message}`;
         } finally {
             if (btn) btn.disabled = false;
+        }
+    },
+
+    /**
+     * Build maps để các bảng khác (main KPI, modal L1) đọc nhanh:
+     *   - _reconByOrder: orderId → { isRefunded, hasDiscrepancy, invoiceNumber, ... }
+     *   - _reconRefundedRowMap: invoiceNumber → row excel (Khách hàng, Số phiếu, Tổng tiền,...)
+     *   - _reconKpiLossByUser: userId → tổng KPI bị loại do refund
+     */
+    _indexReconResults(results) {
+        this._reconByOrder = new Map();
+        this._reconKpiLossByUser = new Map();
+        for (const r of results) {
+            this._reconByOrder.set(r.orderId, r);
+        }
+        // Aggregate KPI loss per user via this.state.filteredData
+        const refundedSet = new Set(results.filter((r) => r.isRefunded).map((r) => r.orderId));
+        for (const emp of this.state.filteredData || []) {
+            let lossSum = 0;
+            let refundCount = 0;
+            for (const order of emp.orders || []) {
+                if (refundedSet.has(order.orderId)) {
+                    lossSum += order.kpi || 0;
+                    refundCount++;
+                }
+            }
+            this._reconKpiLossByUser.set(emp.userId, {
+                kpiLost: lossSum,
+                refundCount,
+            });
+        }
+    },
+
+    /**
+     * Fetch FastSaleOrder refund detail (món trả + lý do) on-demand cho 1 invoice.
+     * Cache trong _reconRefundDetailCache để tránh fetch lặp.
+     */
+    async _fetchRefundDetailForInvoice(originalInvoiceNumber) {
+        if (!this._reconRefundDetailCache) this._reconRefundDetailCache = new Map();
+        if (this._reconRefundDetailCache.has(originalInvoiceNumber)) {
+            return this._reconRefundDetailCache.get(originalInvoiceNumber);
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        let authHeader;
+        const tokenManager = window.tokenManager || window.parent?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            authHeader = await tokenManager.getAuthHeader();
+        } else if (this._reconAuthHeader) {
+            authHeader = this._reconAuthHeader;
+        } else {
+            // Re-fetch token (shouldn't reach normally)
+            authHeader = { Authorization: '' };
+        }
+
+        try {
+            // Step 1: Find original invoice by Number qua GetView (OData direct trả 500)
+            const findFilter = encodeURIComponent(
+                "(Type eq 'invoice' and Number eq '" +
+                    originalInvoiceNumber.replace(/'/g, "''") +
+                    "')"
+            );
+            const findUrl = `${WORKER}/api/odata/FastSaleOrder/ODataService.GetView?$filter=${findFilter}&$top=1`;
+            const findRes = await fetch(findUrl, {
+                headers: {
+                    ...authHeader,
+                    accept: 'application/json',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            });
+            if (!findRes.ok) throw new Error(`Find HTTP ${findRes.status}`);
+            const findData = await findRes.json();
+            const origInvoice = findData.value?.[0];
+            if (!origInvoice?.Id) {
+                this._reconRefundDetailCache.set(originalInvoiceNumber, null);
+                return null;
+            }
+
+            // Step 2: Find refund by RefundOrderId = origInvoice.Id (qua GetView)
+            const refundFilter = encodeURIComponent(
+                "(Type eq 'refund' and RefundOrderId eq " + origInvoice.Id + ')'
+            );
+            const refundUrl = `${WORKER}/api/odata/FastSaleOrder/ODataService.GetView?$filter=${refundFilter}&$top=5`;
+            const refundRes = await fetch(refundUrl, {
+                headers: {
+                    ...authHeader,
+                    accept: 'application/json',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            });
+            if (!refundRes.ok) throw new Error(`Refund HTTP ${refundRes.status}`);
+            const refundDataList = await refundRes.json();
+            const refundSummaries = refundDataList.value || [];
+
+            // Step 3: GET full FastSaleOrder({id})?$expand=OrderLines cho mỗi refund
+            const refunds = [];
+            for (const summ of refundSummaries) {
+                try {
+                    const fullRes = await fetch(
+                        `${WORKER}/api/odata/FastSaleOrder(${summ.Id})?$expand=OrderLines`,
+                        {
+                            headers: {
+                                ...authHeader,
+                                accept: 'application/json',
+                                'feature-version': '2',
+                                'x-tpos-lang': 'vi',
+                            },
+                        }
+                    );
+                    if (fullRes.ok) {
+                        const full = await fullRes.json();
+                        refunds.push(full);
+                    } else {
+                        refunds.push(summ);
+                    }
+                } catch (_) {
+                    refunds.push(summ);
+                }
+            }
+            const detail = {
+                originalNumber: originalInvoiceNumber,
+                refunds: refunds.map((r) => ({
+                    Number: r.Number,
+                    DateInvoice: r.DateInvoice,
+                    AmountTotal: r.AmountTotal,
+                    Comment: r.Comment || r.Note || '',
+                    State: r.State,
+                    ShowState: r.ShowState,
+                    OrderLines: (r.OrderLines || []).map((l) => ({
+                        ProductName: l.ProductName || l.ProductNameGet || l.Name,
+                        Quantity: l.Quantity,
+                        Price: l.Price,
+                        Note: l.Note || '',
+                    })),
+                })),
+            };
+            this._reconRefundDetailCache.set(originalInvoiceNumber, detail);
+            return detail;
+        } catch (e) {
+            console.warn('[KPI Tab] Fetch refund detail failed:', e?.message);
+            this._reconRefundDetailCache.set(originalInvoiceNumber, null);
+            return null;
+        }
+    },
+
+    /**
+     * Modal L1: expand row để load + hiển thị chi tiết món trả (cho đơn refunded).
+     */
+    async _toggleL1OrderDetail(orderId) {
+        const tbody = document.getElementById('modalL1TableBody');
+        if (!tbody) return;
+        const row = tbody.querySelector(`tr[data-l1-order="${orderId}"]`);
+        if (!row) return;
+        const detail = row.nextElementSibling;
+        if (!detail || !detail.classList.contains('l1-detail-row')) return;
+        const isOpen = detail.dataset.open === '1';
+        detail.dataset.open = isOpen ? '0' : '1';
+        detail.style.display = isOpen ? 'none' : '';
+        const btn = row.querySelector('.l1-toggle-btn');
+        if (btn) btn.classList.toggle('is-open', !isOpen);
+        if (!isOpen && detail.dataset.loaded !== '1') {
+            // Lazy fetch refund detail
+            const recon = this._reconByOrder?.get(orderId);
+            const invNumber = recon?.invoiceNumber;
+            const contentEl = detail.querySelector('.l1-detail-content');
+            if (recon?.isRefunded && invNumber && contentEl) {
+                contentEl.innerHTML =
+                    '<div class="l1-detail-loading"><i class="fas fa-spinner fa-spin"></i> Đang tải chi tiết refund từ TPOS...</div>';
+                const refundDetail = await this._fetchRefundDetailForInvoice(invNumber);
+                if (!refundDetail || refundDetail.refunds.length === 0) {
+                    contentEl.innerHTML =
+                        '<div class="l1-detail-empty">Không tìm thấy chi tiết refund trên TPOS.</div>';
+                } else {
+                    contentEl.innerHTML = refundDetail.refunds
+                        .map((rf) => {
+                            const date = rf.DateInvoice
+                                ? new Date(rf.DateInvoice).toLocaleString('vi-VN')
+                                : '';
+                            const reasonHtml = rf.Comment
+                                ? `<div class="l1-detail-reason"><strong>Lý do:</strong> ${this.escapeHtml(rf.Comment)}</div>`
+                                : '<div class="l1-detail-reason l1-detail-reason-empty">Không có lý do.</div>';
+                            const itemsHtml = rf.OrderLines.length
+                                ? `<table class="l1-detail-items"><thead><tr><th>SP</th><th>SL</th><th>Giá</th><th>Ghi chú</th></tr></thead><tbody>${rf.OrderLines.map(
+                                      (l) =>
+                                          `<tr><td>${this.escapeHtml(l.ProductName || '—')}</td><td>${l.Quantity}</td><td>${(l.Price || 0).toLocaleString('vi-VN')}đ</td><td>${this.escapeHtml(l.Note || '')}</td></tr>`
+                                  ).join('')}</tbody></table>`
+                                : '<div class="l1-detail-empty">Không có dòng sản phẩm trong refund.</div>';
+                            return `<div class="l1-detail-refund">
+                                <div class="l1-detail-header">
+                                    <span class="l1-detail-tag">↩ ${this.escapeHtml(rf.Number)}</span>
+                                    <span class="l1-detail-date">${this.escapeHtml(date)}</span>
+                                    <span class="l1-detail-amount">${(rf.AmountTotal || 0).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                ${reasonHtml}
+                                <div class="l1-detail-items-title">Món trả:</div>
+                                ${itemsHtml}
+                            </div>`;
+                        })
+                        .join('');
+                }
+            } else if (contentEl) {
+                contentEl.innerHTML =
+                    '<div class="l1-detail-empty">Đơn này không có refund. Click order link để xem chi tiết KPI items.</div>';
+            }
+            detail.dataset.loaded = '1';
+            if (window.lucide?.createIcons) window.lucide.createIcons();
         }
     },
 

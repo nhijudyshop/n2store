@@ -181,7 +181,13 @@
                                 <th>Tên nhân viên</th>
                                 <th>Số đơn</th>
                                 <th>SP NET</th>
-                                <th>Tổng KPI (VNĐ)</th>
+                                <th title="KPI tổng (chưa trừ đơn hoàn)">KPI gross</th>
+                                <th title="Đơn hoàn — chỉ hiển thị sau khi chạy đối soát">
+                                    <i data-lucide="undo-2"></i> Hoàn
+                                </th>
+                                <th title="KPI thực = KPI gross - KPI bị loại do refund">
+                                    KPI thực (VNĐ)
+                                </th>
                                 <th style="min-width: 200px">Phiếu bán hàng</th>
                             </tr>
                         </thead>
@@ -395,15 +401,44 @@
                     <div id="modalL1Empty" class="empty-state" style="display: none">
                         <p>Không có đơn hàng nào.</p>
                     </div>
+                    <!-- Summary card cho NV (hiển thị khi có recon data) -->
+                    <div id="modalL1Summary" class="modalL1-summary" style="display: none">
+                        <div class="l1-sum-item">
+                            <div class="l1-sum-label">Tổng đơn</div>
+                            <div class="l1-sum-value" id="l1SumTotalOrders">0</div>
+                        </div>
+                        <div class="l1-sum-item l1-sum-ok">
+                            <div class="l1-sum-label">OK (tính KPI)</div>
+                            <div class="l1-sum-value" id="l1SumOkOrders">0</div>
+                        </div>
+                        <div class="l1-sum-item l1-sum-refund">
+                            <div class="l1-sum-label">Đơn hoàn</div>
+                            <div class="l1-sum-value" id="l1SumRefundOrders">0</div>
+                        </div>
+                        <div class="l1-sum-item l1-sum-kpi">
+                            <div class="l1-sum-label">KPI gross</div>
+                            <div class="l1-sum-value" id="l1SumKpiGross">0</div>
+                        </div>
+                        <div class="l1-sum-item l1-sum-kpi-loss">
+                            <div class="l1-sum-label">Bị loại (refund)</div>
+                            <div class="l1-sum-value" id="l1SumKpiLost">0</div>
+                        </div>
+                        <div class="l1-sum-item l1-sum-kpi-net">
+                            <div class="l1-sum-label">KPI thực</div>
+                            <div class="l1-sum-value" id="l1SumKpiNet">0</div>
+                        </div>
+                    </div>
                     <div class="table-wrapper" id="modalL1TableWrapper" style="display: none">
-                        <table class="kpi-main-table">
+                        <table class="kpi-main-table modalL1-table">
                             <thead>
                                 <tr>
                                     <th>STT đơn</th>
                                     <th>Mã ĐH</th>
+                                    <th>Số phiếu</th>
                                     <th>Campaign</th>
                                     <th>SP NET</th>
                                     <th>KPI (VNĐ)</th>
+                                    <th>Trạng thái</th>
                                     <th style="min-width: 200px">Phiếu bán hàng</th>
                                 </tr>
                             </thead>

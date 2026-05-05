@@ -1417,3 +1417,256 @@ body {
         text-align: left;
     }
 }
+
+/* ============================================================
+   MODAL L1 — Employee orders summary + refund-aware rows
+   ============================================================ */
+.modalL1-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    animation: reconFadeIn 250ms ease-out;
+}
+.l1-sum-item {
+    padding: 8px 10px;
+    background: #fff;
+    border-radius: 8px;
+    border-left: 3px solid #6366f1;
+}
+.l1-sum-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.l1-sum-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+.l1-sum-ok {
+    border-left-color: #16a34a;
+}
+.l1-sum-ok .l1-sum-value {
+    color: #16a34a;
+}
+.l1-sum-refund {
+    border-left-color: #dc2626;
+}
+.l1-sum-refund .l1-sum-value {
+    color: #dc2626;
+}
+.l1-sum-kpi {
+    border-left-color: #6366f1;
+}
+.l1-sum-kpi-loss {
+    border-left-color: #dc2626;
+}
+.l1-sum-kpi-loss .l1-sum-value {
+    color: #dc2626;
+}
+.l1-sum-kpi-net {
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+}
+.l1-sum-kpi-net .l1-sum-value {
+    color: #16a34a;
+    font-size: 19px;
+}
+
+.modalL1-table tbody tr.is-refunded {
+    background: #fef2f2;
+    color: #7f1d1d;
+}
+.modalL1-table tbody tr.is-refunded:hover {
+    background: #fee2e2;
+}
+.modalL1-table tbody tr.is-refunded .order-link {
+    text-decoration: line-through;
+    text-decoration-color: rgba(220, 38, 38, 0.5);
+    color: #991b1b;
+}
+.modalL1-table tbody tr.is-discrepancy {
+    background: #fff7ed;
+}
+.kpi-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.kpi-status-pill.pill-ok {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+}
+.kpi-status-pill.pill-refund {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+.kpi-status-pill.pill-discrepancy {
+    background: #fff7ed;
+    color: #ea580c;
+    border: 1px solid #fed7aa;
+}
+.kpi-status-pill.pill-untracked {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border: 1px solid #e5e7eb;
+}
+
+/* Main KPI table — refund column + KPI thực highlight */
+.kpi-main-table .col-kpi-net {
+    color: #16a34a;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-main-table .col-kpi-net.has-loss {
+    color: #ea580c;
+}
+.kpi-main-table .col-kpi-gross {
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    text-decoration: line-through;
+    text-decoration-color: rgba(0, 0, 0, 0.2);
+}
+.kpi-main-table .col-refund-count {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-main-table .col-refund-count .refund-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    font-size: 11px;
+    font-weight: 700;
+}
+.kpi-main-table .col-refund-count .refund-badge.is-zero {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border-color: #e5e7eb;
+}
+
+/* ============================================================
+   MODAL L1 — Detail row (món trả + lý do)
+   ============================================================ */
+.l1-detail-content {
+    padding: 14px 18px;
+    background: #fafaf9;
+}
+.l1-detail-loading,
+.l1-detail-empty {
+    color: #9ca3af;
+    font-style: italic;
+    font-size: 12px;
+    padding: 8px;
+}
+.l1-detail-refund {
+    background: #fff;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+.l1-detail-refund:last-child {
+    margin-bottom: 0;
+}
+.l1-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.l1-detail-tag {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+.l1-detail-date {
+    color: #6b7280;
+    font-size: 12px;
+}
+.l1-detail-amount {
+    margin-left: auto;
+    color: #dc2626;
+    font-weight: 700;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+.l1-detail-reason {
+    background: #fef2f2;
+    border-left: 3px solid #dc2626;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 12px;
+    color: #7f1d1d;
+    border-radius: 4px;
+}
+.l1-detail-reason-empty {
+    background: #f3f4f6;
+    border-left-color: #d1d5db;
+    color: #9ca3af;
+    font-style: italic;
+}
+.l1-detail-items-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    font-weight: 700;
+    margin: 10px 0 4px;
+}
+.l1-detail-items {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 12px;
+}
+.l1-detail-items th {
+    background: #f9fafb;
+    color: #374151;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+.l1-detail-items td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: top;
+}
+.l1-detail-items td:nth-child(2),
+.l1-detail-items td:nth-child(3) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
