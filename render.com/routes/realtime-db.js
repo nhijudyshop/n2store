@@ -1109,17 +1109,23 @@ router.get('/kpi-sale-flag/history', async (req, res) => {
                   .filter(Boolean)
             : [];
 
+        // Cast `created_at` to ISO UTC text trực tiếp trong SQL — bypass pg-driver
+        // session-TZ interpretation. Postgres column là TIMESTAMP (không TZ), giá trị
+        // stored là UTC từ CURRENT_TIMESTAMP — `to_char` format literally giá trị
+        // wall-clock + suffix 'Z' để client parse đúng UTC.
+        const SELECT_COLS = `id, order_code, product_id, action, user_id, user_name,
+                 to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at_iso`;
         let q;
         let params;
         if (codes.length > 0) {
-            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
+            q = `SELECT ${SELECT_COLS}
                  FROM kpi_sale_flag_history
                  WHERE order_code = ANY($1::text[])
                  ORDER BY created_at DESC
                  LIMIT $2`;
             params = [codes, limit];
         } else {
-            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
+            q = `SELECT ${SELECT_COLS}
                  FROM kpi_sale_flag_history
                  ORDER BY created_at DESC
                  LIMIT $1`;
@@ -1135,7 +1141,7 @@ router.get('/kpi-sale-flag/history', async (req, res) => {
                 action: r.action,
                 userId: r.user_id,
                 userName: r.user_name,
-                createdAt: _normalizePgTimestampUtc(r.created_at),
+                createdAt: r.created_at_iso, // ISO UTC chuẩn (`...Z`) từ to_char trong SQL
             })),
         });
     } catch (error) {
