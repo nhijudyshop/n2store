@@ -8,6 +8,16 @@
 
 ## 2026-05-06
 
+### [delivery-report] Modal "Kiểm tra giao dịch" trên hover popover (port từ balance-history)
+
+**Files**: MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `HoverPreview` module: thêm `getTxUid()`, `ensureReviewModal()`, `openReviewModal()`, `confirmReview()`, `handleReviewImageSelect()`, `uploadReviewImage()`, `clearReviewImage()`, `closeReviewModal()`. `reviewTransaction()` viết lại: thay `confirm()` flow bằng mở rich modal. `renderCustomer()` stash `__reviewCtx = { customerName, phone, txByUid }` lên popover để modal lookup tx data.
+
+**User báo**: nút clipboard vàng "Kiểm tra giao dịch" trên popover hover khách hàng (delivery-report) chỉ confirm-then-API → muốn mở modal đầy đủ giống balance-history (summary tx + ảnh ghi chú gốc + ô ghi chú kiểm tra + paste/drop ảnh đính kèm + Xác nhận đã kiểm tra).
+
+**Implement**: Lazy-create modal đơn (append `body`) lần click đầu, namespace `dr-rev-*`, inline style để khỏi đụng CSS file. Reuse endpoints có sẵn: `POST {RENDER_URL}/api/upload/image` (folder `accountant-reviews`) → `POST {RENDER_URL}/api/v2/balance-history/:uid/manager-review` body `{ manager_review_note, reviewed_by, review_image_url }`. Sau success: replace nút clipboard bằng badge "✓ ĐÃ KT", invalidate `customerCache[phone]` để hover lần sau refetch reviewed status. Esc/click overlay/Hủy đều close modal. Paste (Ctrl+V) bind trên modal element, drag-drop bind trên dropzone.
+
+**Status**: ✅ Done — `node --check` pass, chờ smoke browser xác nhận.
+
 ### [delivery-report] Hover popover khách hàng bám sát số điện thoại
 
 **Files**: MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `HoverPreview.position()`.

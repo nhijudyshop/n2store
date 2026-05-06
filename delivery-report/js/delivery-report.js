@@ -2842,28 +2842,33 @@
             return `<button type="button" class="dr-hp-approve-btn" data-pending-id="${escapeHtml(String(pendingId))}" data-pending-amt="${escapeHtml(String(amount || 0))}" title="Duyệt giao dịch"><i class="fas fa-check"></i> Duyệt</button>`;
         }
 
+        // Compute composite uid for a tx — bh:N (balance_history sepay) hoặc wt:N (wallet).
+        function getTxUid(tx) {
+            if (!tx) return '';
+            if (tx.reference_type === 'balance_history' && tx.reference_id)
+                return `bh:${tx.reference_id}`;
+            if (tx.id) return `wt:${tx.id}`;
+            return '';
+        }
+
         // Build "Kiểm tra giao dịch" button cho tx đã duyệt (manager review).
         // Chỉ hiện cho tx có balance_history reference (sepay) hoặc wallet_transactions
         // chưa được kiểm tra. Khi đã kiểm tra, hiện badge "ĐÃ KT" thay button.
         function reviewBtnHtmlForTx(tx) {
-            if (!tx) return '';
-            // Composite uid: ưu tiên bh:N (sepay) khi có balance_history reference
-            let uid = '';
+            const uid = getTxUid(tx);
+            if (!uid) return '';
             let reviewed = false;
             let reviewedBy = '';
             let reviewedAt = '';
-            if (tx.reference_type === 'balance_history' && tx.reference_id) {
-                uid = `bh:${tx.reference_id}`;
+            if (uid.startsWith('bh:')) {
                 reviewed = !!tx.bh_manager_reviewed;
                 reviewedBy = tx.bh_reviewed_by || '';
                 reviewedAt = tx.bh_reviewed_at || '';
-            } else if (tx.id) {
-                uid = `wt:${tx.id}`;
+            } else {
                 reviewed = !!tx.wt_manager_reviewed;
                 reviewedBy = tx.wt_reviewed_by || '';
                 reviewedAt = tx.wt_reviewed_at || '';
             }
-            if (!uid) return '';
             if (reviewed) {
                 const t = reviewedAt ? new Date(reviewedAt).toLocaleString('vi-VN') : '';
                 const tip = `Đã kiểm tra${reviewedBy ? ' bởi ' + reviewedBy : ''}${t ? ' lúc ' + t : ''}`;
@@ -2935,6 +2940,12 @@
                           .join('');
 
             const pop = ensurePopover();
+            // Stash tx data so the review modal can look up details by uid.
+            pop.__reviewCtx = {
+                customerName: c.name || '',
+                phone,
+                txByUid: new Map(txs.map((tx) => [getTxUid(tx), tx]).filter(([k]) => k)),
+            };
             pop.innerHTML = `
                 <div class="dr-hp-header">
                     <span class="dr-hp-title"><i class="fas fa-user"></i> ${escapeHtml(c.name || phone)}</span>
@@ -3115,43 +3126,320 @@
             });
         }
 
-        // Manager review: mark wallet/balance_history transaction as reviewed.
-        // Confirm trước khi gọi API (per balance-history pattern). Sau success
-        // thay button bằng badge "ĐÃ KT".
-        async function reviewTransaction(uid, btn) {
+        // Manager review: open rich modal (giống balance-history) cho phép nhập
+        // ghi chú + đính kèm ảnh (Ctrl+V hoặc kéo thả) trước khi xác nhận.
+        function reviewTransaction(uid, btn) {
             if (!uid) return;
-            if (!confirm('Đánh dấu giao dịch này đã được kiểm tra?')) return;
+            const ctx = popoverEl?.__reviewCtx;
+            const tx = ctx?.txByUid?.get(uid) || null;
+            const customerName = ctx?.customerName || '';
+            const phone = ctx?.phone || '';
+            openReviewModal(uid, btn, tx, { customerName, phone });
+        }
+
+        // Lazy-create the manager-review modal (giống balance-history).
+        let reviewModalEl = null;
+        const reviewState = { uid: null, btn: null, imageFile: null, imageUrl: null, isUploading: false };
+
+        function ensureReviewModal() {
+            if (reviewModalEl) return reviewModalEl;
+            reviewModalEl = document.createElement('div');
+            reviewModalEl.id = 'dr-rev-modal';
+            reviewModalEl.style.cssText =
+                'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;align-items:center;justify-content:center;padding:20px;';
+            reviewModalEl.innerHTML = `
+                <div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%;max-width:450px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
+                        <h3 style="margin:0;font-size:16px;font-weight:600;color:#111827;">✓ Kiểm tra giao dịch</h3>
+                        <button type="button" id="dr-rev-close" style="background:none;border:none;font-size:24px;color:#6b7280;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+                    </div>
+                    <div style="padding:16px 18px;overflow-y:auto;flex:1;">
+                        <div id="dr-rev-summary" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px;"></div>
+                        <div id="dr-rev-existing-img-wrap" style="display:none;margin-bottom:14px;">
+                            <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Ảnh trong ghi chú giao dịch</label>
+                            <div style="width:100%;max-width:240px;border-radius:6px;overflow:hidden;cursor:pointer;border:1px solid #e5e7eb;" id="dr-rev-existing-img-thumb">
+                                <img id="dr-rev-existing-img" alt="Ảnh ghi chú" style="display:block;width:100%;height:auto;" />
+                            </div>
+                        </div>
+                        <div style="margin-bottom:14px;">
+                            <label for="dr-rev-note" style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Ghi chú kiểm tra (đơn hàng đã sử dụng)</label>
+                            <textarea id="dr-rev-note" placeholder="VD: Đã dùng cho đơn hàng #12345, khách Nguyễn Văn A..." style="width:100%;min-height:72px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Ảnh đính kèm (Ctrl+V để dán)</label>
+                            <div id="dr-rev-dropzone" style="border:2px dashed #d1d5db;border-radius:8px;padding:24px 12px;text-align:center;color:#6b7280;font-size:13px;cursor:pointer;background:#fafafa;">
+                                <div style="font-size:28px;margin-bottom:6px;">🖼️</div>
+                                <div>Paste (Ctrl+V) hoặc kéo thả hình vào đây</div>
+                            </div>
+                            <div id="dr-rev-preview" style="display:none;position:relative;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+                                <img id="dr-rev-preview-img" alt="Preview" style="display:block;width:100%;height:auto;max-height:240px;object-fit:contain;background:#f3f4f6;" />
+                                <div id="dr-rev-upload-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.5);color:white;font-size:13px;align-items:center;justify-content:center;">Đang tải lên...</div>
+                                <button type="button" id="dr-rev-remove-img" title="Xóa ảnh" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;">×</button>
+                                <span id="dr-rev-upload-status" style="position:absolute;bottom:6px;left:6px;font-size:11px;padding:2px 6px;border-radius:3px;"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e5e7eb;background:#f8fafc;">
+                        <button type="button" id="dr-rev-cancel" style="padding:8px 14px;border:1px solid #d1d5db;background:white;color:#374151;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;">Hủy</button>
+                        <button type="button" id="dr-rev-confirm" style="padding:8px 14px;background:#10b981;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">✓ Xác nhận đã kiểm tra</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(reviewModalEl);
+
+            // Wire close handlers
+            const close = () => closeReviewModal();
+            reviewModalEl.querySelector('#dr-rev-close').addEventListener('click', close);
+            reviewModalEl.querySelector('#dr-rev-cancel').addEventListener('click', close);
+            reviewModalEl.addEventListener('click', (e) => {
+                if (e.target === reviewModalEl) close();
+            });
+
+            // Existing image — open lightbox on click
+            reviewModalEl.querySelector('#dr-rev-existing-img-thumb').addEventListener('click', () => {
+                const img = reviewModalEl.querySelector('#dr-rev-existing-img');
+                if (img && img.src) openLightbox(img.src);
+            });
+
+            // Confirm
+            reviewModalEl.querySelector('#dr-rev-confirm').addEventListener('click', confirmReview);
+
+            // Image paste
+            reviewModalEl.addEventListener('paste', (e) => {
+                if (reviewModalEl.style.display === 'none') return;
+                const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+                if (!items) return;
+                for (const item of items) {
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        handleReviewImageSelect(item.getAsFile());
+                        break;
+                    }
+                }
+            });
+
+            // Drag-drop
+            const dz = reviewModalEl.querySelector('#dr-rev-dropzone');
+            dz.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dz.style.borderColor = '#10b981';
+                dz.style.background = '#f0fdf4';
+            });
+            dz.addEventListener('dragleave', () => {
+                dz.style.borderColor = '#d1d5db';
+                dz.style.background = '#fafafa';
+            });
+            dz.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dz.style.borderColor = '#d1d5db';
+                dz.style.background = '#fafafa';
+                const f = e.dataTransfer.files?.[0];
+                if (f && f.type.startsWith('image/')) handleReviewImageSelect(f);
+            });
+
+            // Remove image
+            reviewModalEl.querySelector('#dr-rev-remove-img').addEventListener('click', clearReviewImage);
+
+            // Esc to close
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && reviewModalEl.style.display !== 'none') close();
+            });
+
+            return reviewModalEl;
+        }
+
+        function openReviewModal(uid, btn, tx, customerCtx) {
+            const modal = ensureReviewModal();
+            reviewState.uid = uid;
+            reviewState.btn = btn;
+            clearReviewImage();
+            modal.querySelector('#dr-rev-note').value = '';
+
+            const amount = parseFloat(tx?.amount) || 0;
+            const sign = amount >= 0 ? '+' : '−';
+            const amtColor = amount >= 0 ? '#16a34a' : '#dc2626';
+            const dateStr = fmtDateTime(tx?.transaction_date || tx?.created_at);
+            const noteRaw = (tx?.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+            const customerLabel = [customerCtx?.customerName, customerCtx?.phone].filter(Boolean).join(' - ') || '—';
+
+            modal.querySelector('#dr-rev-summary').innerHTML = `
+                <div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;">
+                    <span style="color:#6b7280;">Số tiền:</span>
+                    <span style="font-weight:700;color:${amtColor};">${sign}${fmtMoney(Math.abs(amount))}đ</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;">
+                    <span style="color:#6b7280;">Khách hàng:</span>
+                    <span style="font-weight:500;color:#111827;">${escapeHtml(customerLabel)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;">
+                    <span style="color:#6b7280;flex-shrink:0;">Nội dung CK:</span>
+                    <span style="color:#111827;text-align:right;word-break:break-word;">${escapeHtml(noteRaw || '—')}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;">
+                    <span style="color:#6b7280;">Ngày GD:</span>
+                    <span style="color:#111827;">${escapeHtml(dateStr)}</span>
+                </div>`;
+
+            // Existing note image preview
+            const existingWrap = modal.querySelector('#dr-rev-existing-img-wrap');
+            const existingImg = modal.querySelector('#dr-rev-existing-img');
+            const evidence = pickTxEvidence(tx);
+            if (evidence?.kind === 'image' && evidence.value) {
+                existingImg.src = evidence.value;
+                existingWrap.style.display = '';
+            } else {
+                existingImg.removeAttribute('src');
+                existingWrap.style.display = 'none';
+            }
+
+            modal.style.display = 'flex';
+            // Focus the note textarea so paste captures the modal first
+            setTimeout(() => modal.querySelector('#dr-rev-note')?.focus(), 30);
+        }
+
+        function closeReviewModal() {
+            if (!reviewModalEl) return;
+            reviewModalEl.style.display = 'none';
+            reviewState.uid = null;
+            reviewState.btn = null;
+            clearReviewImage();
+        }
+
+        async function handleReviewImageSelect(file) {
+            if (!file) return;
+            const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowed.includes(file.type)) {
+                alert('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File quá lớn (tối đa 5MB)');
+                return;
+            }
+            reviewState.imageFile = file;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const previewImg = reviewModalEl.querySelector('#dr-rev-preview-img');
+                const previewWrap = reviewModalEl.querySelector('#dr-rev-preview');
+                const dz = reviewModalEl.querySelector('#dr-rev-dropzone');
+                previewImg.src = e.target.result;
+                previewWrap.style.display = 'block';
+                dz.style.display = 'none';
+                await uploadReviewImage(file, e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadReviewImage(file, base64Data) {
+            if (reviewState.isUploading) return;
+            reviewState.isUploading = true;
+            const overlay = reviewModalEl.querySelector('#dr-rev-upload-overlay');
+            const statusEl = reviewModalEl.querySelector('#dr-rev-upload-status');
+            const confirmBtn = reviewModalEl.querySelector('#dr-rev-confirm');
+            overlay.style.display = 'flex';
+            statusEl.textContent = 'Đang tải lên...';
+            statusEl.style.cssText += 'background:rgba(59,130,246,0.9);color:white;';
+            confirmBtn.disabled = true;
+            try {
+                const ts = Date.now();
+                const rand = Math.random().toString(36).substring(2, 8);
+                const ext = file.name?.split('.').pop() || 'jpg';
+                const filename = `review_${ts}_${rand}.${ext}`;
+                const resp = await fetch(`${RENDER_URL}/api/upload/image`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: base64Data,
+                        fileName: filename,
+                        folderPath: 'accountant-reviews',
+                        mimeType: file.type,
+                    }),
+                });
+                const result = await resp.json();
+                if (!result.success) throw new Error(result.error || 'Upload failed');
+                reviewState.imageUrl = result.url;
+                overlay.style.display = 'none';
+                statusEl.textContent = 'Đã tải lên';
+                statusEl.style.cssText += 'background:rgba(16,185,129,0.9);color:white;';
+                confirmBtn.disabled = false;
+            } catch (err) {
+                console.error('[DR REVIEW] upload failed:', err);
+                overlay.style.display = 'none';
+                statusEl.textContent = 'Lỗi tải lên';
+                statusEl.style.cssText += 'background:rgba(220,38,38,0.9);color:white;';
+                confirmBtn.disabled = false;
+                alert(`Lỗi tải ảnh: ${err.message}`);
+            } finally {
+                reviewState.isUploading = false;
+            }
+        }
+
+        function clearReviewImage() {
+            reviewState.imageFile = null;
+            reviewState.imageUrl = null;
+            if (!reviewModalEl) return;
+            const previewWrap = reviewModalEl.querySelector('#dr-rev-preview');
+            const dz = reviewModalEl.querySelector('#dr-rev-dropzone');
+            const previewImg = reviewModalEl.querySelector('#dr-rev-preview-img');
+            const statusEl = reviewModalEl.querySelector('#dr-rev-upload-status');
+            const overlay = reviewModalEl.querySelector('#dr-rev-upload-overlay');
+            if (previewWrap) previewWrap.style.display = 'none';
+            if (dz) dz.style.display = '';
+            if (previewImg) previewImg.removeAttribute('src');
+            if (statusEl) {
+                statusEl.textContent = '';
+                statusEl.style.background = 'transparent';
+            }
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        async function confirmReview() {
+            const { uid, btn } = reviewState;
+            if (!uid) return;
+            if (reviewState.isUploading) {
+                alert('Đang tải ảnh — vui lòng đợi.');
+                return;
+            }
             const reviewedBy = window.authManager?.getUserInfo?.()?.username || 'admin';
-            const originalHtml = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            const note = reviewModalEl.querySelector('#dr-rev-note').value.trim();
+            const reviewImageUrl = reviewState.imageUrl || null;
+            const confirmBtn = reviewModalEl.querySelector('#dr-rev-confirm');
+            const originalConfirmHtml = confirmBtn.innerHTML;
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
             try {
                 const url = `${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(uid)}/manager-review`;
                 const resp = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        manager_review_note: '',
+                        manager_review_note: note,
                         reviewed_by: reviewedBy,
+                        review_image_url: reviewImageUrl,
                     }),
                 });
                 const result = await resp.json();
                 if (!result.success) throw new Error(result.error || 'Review failed');
-                // Replace button with badge
-                const t = new Date().toLocaleString('vi-VN');
-                const tip = `Đã kiểm tra bởi ${reviewedBy} lúc ${t}`;
-                const badge = document.createElement('span');
-                badge.className = 'dr-hp-reviewed-badge';
-                badge.title = tip;
-                badge.style.cssText =
-                    'display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;';
-                badge.textContent = '✓ ĐÃ KT';
-                btn.replaceWith(badge);
+                // Replace trigger button with badge
+                if (btn && btn.parentNode) {
+                    const t = new Date().toLocaleString('vi-VN');
+                    const tip = `Đã kiểm tra bởi ${reviewedBy} lúc ${t}`;
+                    const badge = document.createElement('span');
+                    badge.className = 'dr-hp-reviewed-badge';
+                    badge.title = tip;
+                    badge.style.cssText =
+                        'display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;';
+                    badge.textContent = '✓ ĐÃ KT';
+                    btn.replaceWith(badge);
+                }
+                // Invalidate cache so next hover refetches reviewed status
+                const phone = popoverEl?.__reviewCtx?.phone;
+                if (phone) customerCache.delete(phone);
+                closeReviewModal();
             } catch (err) {
-                console.error('[REVIEW-TX]', uid, err);
+                console.error('[DR REVIEW]', uid, err);
                 alert('Lỗi kiểm tra giao dịch: ' + (err.message || err));
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalConfirmHtml;
             }
         }
 
