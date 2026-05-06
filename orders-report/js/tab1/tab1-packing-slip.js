@@ -360,6 +360,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 
     // Product rows
     let totalQty = 0;
+    let totalPrice = 0;
 
     const productRows = lines
         .map((line, idx) => {
@@ -375,6 +376,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             const note = notes[idx] || '';
 
             totalQty += qty;
+            totalPrice += qty * price;
 
             const priceShort = Math.round(price / 1000);
 
@@ -402,11 +404,12 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
         .join('');
 
     // Total row
+    const totalPriceFormatted = totalPrice.toLocaleString('vi-VN');
     const totalRow = `
         <tr>
             <td colspan="2" style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold;">Tổng:</td>
             <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-weight:bold;">${totalQty}</td>
-            <td style="border:1px solid #000; padding:5px 4px;"></td>
+            <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold; font-size:12px;">${totalPriceFormatted}</td>
             <td style="border:1px solid #000; padding:5px 4px;"></td>
         </tr>`;
 
