@@ -8,6 +8,34 @@
 
 ## 2026-05-06
 
+### [orders][fix] Chat modal video: dùng `video_data.url` (mp4 thật) thay vì `att.url` (= thumbnail JPG)
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js)
+
+User: "không play được trong modal chat inbox".
+
+**Root cause**: Pancake API trả attachment shape:
+
+```json
+{
+    "type": "video",
+    "url": "https://content.pancake.vn/.../thumbnail.jpg",
+    "video_data": { "url": "https://scontent.../real.mp4", "width": 500, "height": 280 }
+}
+```
+
+Render code trước dùng `att.url || att.file_url || ...` cho `<video src>` — đó là URL **thumbnail JPG** (con không phải mp4) → browser không decode được video → controls greyed out, không play. Image-proxy route đúng nhưng input URL đã sai từ đầu.
+
+**Fix**: Trong render video block, ưu tiên `att.video_data?.url` cho video URL, dùng `att.url` làm `poster`. Helper rộng hơn: thêm `att.video_url` fallback. Vẫn route qua image-proxy cho FB/Pancake CDN, vẫn có 2 `<source>` (proxy + direct) + onerror fallback link.
+
+**Browser-tested localhost** (chat modal cho Huỳnh Thành Đạt 0123456788):
+
+- 1 video message từ Pancake (sent earlier in test): `att.url` = pancake thumbnail JPG, `att.video_data.url` = FB CDN `*.mp4`.
+- Sau fix render: `<video poster="<thumbnail JPG>"><source src="<image-proxy>?url=<encoded mp4>"><source src="<direct mp4>"></video>`.
+- `readyState: 4` (HAVE_ENOUGH_DATA), `videoWidth: 500, videoHeight: 280, duration: 1.93s` — metadata parsed thành công.
+- `v.play()` thành công, `playing: true, currentTime: 0.49, paused: false` ✅
+- Screenshot xác nhận video frame thật hiển thị + controls native enabled.
+
 ### [orders][feat] Chat modal: xem video qua image-proxy + đính kèm/gửi video
 
 **Files**: MODIFIED [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js), [orders-report/js/tab1/tab1-chat-images.js](../orders-report/js/tab1/tab1-chat-images.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
