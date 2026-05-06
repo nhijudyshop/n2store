@@ -1267,6 +1267,18 @@ async function saveAllOrderChanges() {
 
     if (!userConfirmed) return;
 
+    // In-flight guard: chống rapid-fire double-save (user click "Lưu tất cả" 2 lần
+    // trong khi PUT đầu tiên chưa hoàn tất). Bỏ qua call thứ 2 thay vì serialize —
+    // user phải đợi PUT 1 xong + modal refresh trước khi save lại.
+    if (window.__editModalSaveInFlight) {
+        console.warn('[SAVE] Save already in-flight, ignoring duplicate click');
+        if (window.notificationManager) {
+            window.notificationManager.warning('Đang lưu, vui lòng đợi...', 2000);
+        }
+        return;
+    }
+    window.__editModalSaveInFlight = true;
+
     let notifId = null;
 
     try {
@@ -1363,6 +1375,8 @@ async function saveAllOrderChanges() {
             }
             window.notificationManager.error(`Lỗi khi lưu: ${error.message}`, 5000);
         }
+    } finally {
+        window.__editModalSaveInFlight = false;
     }
 }
 

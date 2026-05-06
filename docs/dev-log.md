@@ -8,6 +8,31 @@
 
 ## 2026-05-06
 
+### [orders][fix] Edit-modal — in-flight guard cho saveAllOrderChanges
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js)
+
+User: "Browser test → kiểm tra lại toàn bộ, tất cả tab xem còn bug race condition hoặc bug nào không?"
+
+**Audit toàn bộ flow PUT** trong orders-report:
+
+- ✅ tab1-sale.js `updateSaleOrderWithAPI` — FIXED (merge + chain)
+- ⚠️ tab1-edit-modal.js `saveAllOrderChanges` — modal có thể mở lâu (minutes/hours), `currentEditOrderData` set 1 lần khi fetchOrderData → click "Lưu tất cả" 2 lần rapid-fire = 2 PUTs
+- ✅ tab1-table.js `saveInlineProductNote` (2864) — fetch fresh ngay trước PUT, window <100ms
+- ✅ tab1-chat-address.js `applyAddressToOrder` — fetch fresh ngay trước PUT
+- ✅ tab1-merge.js — đã có concurrency conflict detection (412/409)
+- ✅ tab1-customer-info.js, tab1-fast-sale.js, tab3-removal.js, tab3-upload.js — fetch-then-PUT ngay, server làm base
+
+**Fix**: Thêm `window.__editModalSaveInFlight` flag — chặn rapid-fire double-click button "Lưu tất cả thay đổi", show warning "Đang lưu, vui lòng đợi...". Reset trong `finally`.
+
+**Browser-tested**:
+
+- Smoke 144 pages: 41 issues trước = 41 issues sau, **0 regressions / 0 new errors** từ fix.
+- Race scenario (Promise.all 2 ops chain-serialized): final 6 lines, all 3 added products (1904 Đen + Vàng + 1726 Vàng) preserved. Bug không tái diễn.
+- In-flight flag verified: set/check/reset đều OK trong iframe.
+
+**Edit-modal cross-flow race** (theoretical, unfixed): Nếu user mở edit-modal 5+ phút, trong khoảng đó chat-address hoặc tab3 PUT cùng đơn → "Lưu tất cả" sẽ overwrite changes đó (vì RowVersion trong currentEditOrderData stale). Risk thấp do CF Worker chưa allow `If-Match` header. Khi worker được update, có thể bật optimistic concurrency check (xem `tab1-merge.js:160-168` cho pattern).
+
 ### [orders][fix] Sale modal — chống race condition stale-snapshot ghi đè SP
 
 **Files**: MODIFIED [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js); ADDED [scripts/test-merge-local-lines.js](../scripts/test-merge-local-lines.js)
