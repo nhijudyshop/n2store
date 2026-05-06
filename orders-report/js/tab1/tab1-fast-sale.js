@@ -2530,6 +2530,16 @@ async function saveFastSaleOrders(isApprove = false) {
                 console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing address`);
                 return true;
             }
+            if (!Array.isArray(m.OrderLines) || m.OrderLines.length === 0) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing products`);
+                return true;
+            }
+            // Mọi line phải có ProductId thực — TPOS API cần ProductId > 0
+            const missingPid = m.OrderLines.some((l) => !l.ProductId || l.ProductId === 0);
+            if (missingPid) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) line without ProductId`);
+                return true;
+            }
             return false;
         });
 
@@ -2539,13 +2549,17 @@ async function saveFastSaleOrders(isApprove = false) {
                 ? 'đối tác ship'
                 : !firstInvalid.Partner?.Phone
                   ? 'số điện thoại'
-                  : 'địa chỉ';
+                  : !firstInvalid.Partner?.Street
+                    ? 'địa chỉ'
+                    : !firstInvalid.OrderLines || firstInvalid.OrderLines.length === 0
+                      ? 'sản phẩm'
+                      : 'mã sản phẩm (ProductId)';
             showFastSaleStatus(
                 `Đơn ${firstInvalid.Reference || 'N/A'} thiếu ${missingField}`,
                 'warning'
             );
             window.notificationManager.error(
-                `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
+                `Có ${invalidOrders.length} đơn hàng thiếu ${missingField} — không thể tạo bill rỗng. Kiểm tra danh sách sản phẩm trước khi ra đơn.`,
                 'Lỗi validation'
             );
             resetFastSaleSubmissionState();

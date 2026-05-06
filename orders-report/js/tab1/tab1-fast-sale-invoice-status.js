@@ -2734,6 +2734,38 @@
             }
         }
 
+        // Fallback OrderLines: nếu invoiceData.OrderLines rỗng (legacy entries / cache stale),
+        // thử lấy từ OrderStore Details. Tránh gửi bill rỗng cho khách.
+        let orderLinesForBill = invoiceData.OrderLines || [];
+        if (orderLinesForBill.length === 0) {
+            const fallbackOrder =
+                window.OrderStore?.get(orderId) ||
+                displayedData?.find((o) => String(o.Id) === String(orderId));
+            const fallbackDetails = fallbackOrder?.Details || fallbackOrder?.OrderLines || [];
+            if (fallbackDetails.length > 0) {
+                orderLinesForBill = fallbackDetails.map((d) => ({
+                    ProductName: d.ProductName || d.ProductNameGet || '',
+                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                    PriceUnit: d.PriceUnit || d.Price || 0,
+                    PriceTotal:
+                        d.PriceTotal ||
+                        (d.Quantity || d.ProductUOMQty || 1) * (d.PriceUnit || d.Price || 0),
+                    Note: d.Note || '',
+                }));
+                console.warn(
+                    `[INVOICE-STATUS] OrderLines empty in invoiceData for ${orderId}, fell back to OrderStore Details (${orderLinesForBill.length} lines)`
+                );
+            }
+        }
+
+        // Block gửi bill nếu vẫn không có sản phẩm — bill rỗng vô nghĩa cho khách
+        if (orderLinesForBill.length === 0) {
+            window.notificationManager?.error(
+                'Đơn hàng không có sản phẩm — không thể gửi bill rỗng. Vui lòng kiểm tra lại đơn.'
+            );
+            return;
+        }
+
         const enrichedOrder = {
             Id: invoiceData.Id,
             Number: invoiceData.Number, // Already complete (never null)
@@ -2752,7 +2784,7 @@
             Comment: invoiceData.Comment,
             DeliveryNote: invoiceData.DeliveryNote,
             SaleOnlineIds: [orderId],
-            OrderLines: invoiceData.OrderLines || [],
+            OrderLines: orderLinesForBill,
             Partner: {
                 Name: invoiceData.ReceiverName,
                 Phone: invoiceData.ReceiverPhone,
@@ -2837,6 +2869,27 @@
             );
             if (districtInfo) carrierName = getCarrierNameFromDistrict(districtInfo);
         }
+
+        // Fallback OrderLines từ OrderStore Details nếu invoiceData rỗng
+        let orderLinesForBill = invoiceData.OrderLines || [];
+        if (orderLinesForBill.length === 0) {
+            const fallbackOrder =
+                window.OrderStore?.get(orderId) ||
+                displayedData?.find((o) => String(o.Id) === String(orderId));
+            const fallbackDetails = fallbackOrder?.Details || fallbackOrder?.OrderLines || [];
+            if (fallbackDetails.length > 0) {
+                orderLinesForBill = fallbackDetails.map((d) => ({
+                    ProductName: d.ProductName || d.ProductNameGet || '',
+                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                    PriceUnit: d.PriceUnit || d.Price || 0,
+                    PriceTotal:
+                        d.PriceTotal ||
+                        (d.Quantity || d.ProductUOMQty || 1) * (d.PriceUnit || d.Price || 0),
+                    Note: d.Note || '',
+                }));
+            }
+        }
+
         return {
             Id: invoiceData.Id,
             Number: invoiceData.Number,
@@ -2855,7 +2908,7 @@
             Comment: invoiceData.Comment,
             DeliveryNote: invoiceData.DeliveryNote,
             SaleOnlineIds: [orderId],
-            OrderLines: invoiceData.OrderLines || [],
+            OrderLines: orderLinesForBill,
             Partner: {
                 Name: invoiceData.ReceiverName,
                 Phone: invoiceData.ReceiverPhone,
