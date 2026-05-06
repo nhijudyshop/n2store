@@ -84,11 +84,13 @@
     function _computeStats() {
         const all = window.allData || [];
         const store = window.KpiSaleFlagStore;
+        const invStore = window.InvoiceStatusStore;
         if (!store?.hasKpiFlag) {
-            return { total: 0, notApproved: 0, totalProducts: 0, kpiOrders: [] };
+            return { total: 0, approved: 0, notApproved: 0, totalProducts: 0, kpiOrders: [] };
         }
 
         let total = 0;
+        let approved = 0;
         let notApproved = 0;
         const kpiOrders = [];
         for (const o of all) {
@@ -96,9 +98,14 @@
             if (store.hasKpiFlag(o.Code)) {
                 total++;
                 kpiOrders.push(o);
-                const status = o.StatusText || o.Status || '';
-                // "Đơn hàng" = approved/confirmed; mọi state khác (Nháp, …) = chưa duyệt.
-                if (status !== 'Đơn hàng') notApproved++;
+                // "Đã duyệt" = đơn có invoice đã "Hoàn thành đối soát" (StateCode === 'CrossCheckComplete')
+                // — đây mới là KPI thực. Mọi state khác = "Dự tính" (chưa đối soát xong).
+                const inv = invStore?.get?.(o.Id);
+                if (inv && inv.StateCode === 'CrossCheckComplete') {
+                    approved++;
+                } else {
+                    notApproved++;
+                }
             }
         }
 
@@ -131,7 +138,7 @@
                 }
             }
         }
-        return { total, notApproved, totalProducts, kpiOrders, hasIncompleteCache };
+        return { total, approved, notApproved, totalProducts, kpiOrders, hasIncompleteCache };
     }
 
     function _refreshCounter() {
@@ -164,6 +171,17 @@
         }, 200);
     }
 
+    function _wireOpenFullHistoryBtn() {
+        const btn = document.getElementById('kpiOpenHistoryBtn');
+        if (!btn || btn._wired) return;
+        btn._wired = true;
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            _hideTooltip();
+            _openFullHistoryModal();
+        });
+    }
+
     async function _showTooltip(anchor) {
         const tooltip = _ensureTooltip();
         const stats = _computeStats();
@@ -172,6 +190,7 @@
         tooltip.innerHTML = _renderTooltipHtml(stats, null, true);
         _positionTooltip(anchor, tooltip);
         tooltip.style.display = 'block';
+        _wireOpenFullHistoryBtn();
 
         // Fetch history (lazy — chỉ fetch khi hover).
         try {
@@ -188,6 +207,7 @@
             console.warn('[KPI-STATS] history fetch failed:', e?.message);
             tooltip.innerHTML = _renderTooltipHtml(stats, [], false);
         }
+        _wireOpenFullHistoryBtn();
     }
 
     function _hideTooltip() {
@@ -250,7 +270,7 @@
                         return `
                             <div style="display:flex; gap:8px; padding:4px 0; border-top:1px dashed #f3f4f6; font-size:11px; align-items:center;">
                                 <span style="color:${color}; font-weight:600; min-width:60px;">${action}</span>
-                                <span style="color:#6b7280; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${userName} → ${code}</span>
+                                <span style="color:#6b7280; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><b style="color:#374151;">${userName}</b> → ${code}</span>
                                 <span style="color:#9ca3af; font-size:10px;">${_formatTime(h.createdAt)}</span>
                             </div>`;
                     })
@@ -269,27 +289,207 @@
                     <div style="font-size:16px; font-weight:700; color:#f59e0b;">${stats.total}</div>
                 </div>
                 <div>
-                    <div style="font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px;">Chưa duyệt</div>
-                    <div style="font-size:16px; font-weight:700; color:${stats.notApproved > 0 ? '#dc2626' : '#10b981'};">${stats.notApproved}</div>
+                    <div style="font-size:10px; color:#10b981; text-transform:uppercase; letter-spacing:0.5px;" title="Đơn đã 'Hoàn thành đối soát' — KPI thực">KPI thực ✓</div>
+                    <div style="font-size:16px; font-weight:700; color:#10b981;">${stats.approved || 0}</div>
                 </div>
-                <div style="grid-column: 1 / -1;">
+                <div>
+                    <div style="font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px;" title="Đơn KPI chưa 'Hoàn thành đối soát' — số dự tính, làm động lực">Dự tính ⏳</div>
+                    <div style="font-size:16px; font-weight:700; color:#f59e0b;">${stats.notApproved}</div>
+                </div>
+                <div>
                     <div style="font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px;">Tổng SP đã đánh dấu KPI</div>
                     <div style="font-size:14px; font-weight:600; color:#111827;">${totalProductsLabel}${totalProductsHint}</div>
                 </div>
             </div>
 
             <div style="margin-top:8px;">
-                <div style="font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
-                    Lịch sử check / uncheck (10 gần nhất)
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                    <div style="font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px;">
+                        Lịch sử check / uncheck (10 gần nhất)
+                    </div>
+                    <button type="button" id="kpiOpenHistoryBtn" style="font-size:10px; padding:3px 8px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:4px; cursor:pointer; font-weight:600;" title="Mở modal xem full lịch sử">
+                        📜 Xem full
+                    </button>
                 </div>
                 <div style="max-height:220px; overflow-y:auto;">
                     ${historyHtml}
                 </div>
                 <div style="font-size:10px; color:#9ca3af; margin-top:6px; font-style:italic;">
-                    Lịch sử tự xoá sau 90 ngày.
+                    KPI thực (đã đối soát) là số chính thức tính lương; dự tính giúp users theo dõi tiến độ. Lịch sử tự xoá sau 90 ngày.
                 </div>
             </div>
         `;
+    }
+
+    // ─── Full history modal ───
+    const MODAL_ID = 'kpiHistoryModal';
+
+    function _ensureFullHistoryModal() {
+        let modal = document.getElementById(MODAL_ID);
+        if (modal) return modal;
+        modal = document.createElement('div');
+        modal.id = MODAL_ID;
+        modal.style.cssText = [
+            'position: fixed',
+            'inset: 0',
+            'display: none',
+            'z-index: 10001',
+            'background: rgba(15, 23, 42, 0.45)',
+            'backdrop-filter: blur(2px)',
+            'align-items: center',
+            'justify-content: center',
+        ].join(';');
+        modal.innerHTML = `
+            <div id="kpiHistoryModalDialog" style="background:#fff; border-radius:12px; box-shadow:0 16px 48px rgba(0,0,0,0.18); width: min(720px, 92vw); max-height: 86vh; display:flex; flex-direction:column; overflow:hidden;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%); border-bottom:1px solid #fcd34d;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="fas fa-history" style="color:#92400e; font-size:16px;"></i>
+                        <strong style="font-size:14px; color:#78350f;">Lịch sử check / uncheck KPI (full)</strong>
+                    </div>
+                    <button type="button" id="kpiHistoryModalClose" style="border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer; color:#78350f;" title="Đóng">×</button>
+                </div>
+                <div style="display:flex; gap:8px; padding:10px 18px; border-bottom:1px solid #f3f4f6; align-items:center;">
+                    <input type="text" id="kpiHistoryFilterInput" placeholder="Lọc theo user / order code…"
+                        style="flex:1; padding:6px 10px; border:1px solid #e5e7eb; border-radius:6px; font-size:12px; outline:none;">
+                    <select id="kpiHistoryActionFilter" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:6px; font-size:12px; background:#fff; cursor:pointer;">
+                        <option value="all">Tất cả</option>
+                        <option value="check">Check ✓</option>
+                        <option value="uncheck">Uncheck ✗</option>
+                    </select>
+                    <button type="button" id="kpiHistoryRefresh" style="padding:6px 10px; background:#10b981; color:#fff; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;" title="Làm mới">↻</button>
+                </div>
+                <div id="kpiHistoryModalBody" style="flex:1; overflow-y:auto; padding:8px 18px 16px;">
+                    <div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>
+                </div>
+                <div style="padding:8px 18px; background:#f9fafb; border-top:1px solid #f3f4f6; font-size:11px; color:#6b7280;">
+                    Tối đa 200 entry mới nhất. Lịch sử tự xoá sau 90 ngày.
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Close handlers
+        modal.addEventListener('click', (ev) => {
+            if (ev.target === modal) _closeFullHistoryModal();
+        });
+        modal
+            .querySelector('#kpiHistoryModalClose')
+            .addEventListener('click', _closeFullHistoryModal);
+
+        // Filter live
+        const inp = modal.querySelector('#kpiHistoryFilterInput');
+        const actionFilter = modal.querySelector('#kpiHistoryActionFilter');
+        const refresh = modal.querySelector('#kpiHistoryRefresh');
+        let _t = null;
+        inp.addEventListener('input', () => {
+            clearTimeout(_t);
+            _t = setTimeout(_renderFullHistoryRows, 120);
+        });
+        actionFilter.addEventListener('change', _renderFullHistoryRows);
+        refresh.addEventListener('click', _loadFullHistory);
+
+        // ESC closes
+        modal._escHandler = (ev) => {
+            if (ev.key === 'Escape' && modal.style.display !== 'none') _closeFullHistoryModal();
+        };
+        document.addEventListener('keydown', modal._escHandler);
+        return modal;
+    }
+
+    let _fullHistoryRows = [];
+
+    async function _openFullHistoryModal() {
+        const modal = _ensureFullHistoryModal();
+        modal.style.display = 'flex';
+        await _loadFullHistory();
+    }
+
+    function _closeFullHistoryModal() {
+        const modal = document.getElementById(MODAL_ID);
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function _loadFullHistory() {
+        const body = document.getElementById('kpiHistoryModalBody');
+        if (!body) return;
+        body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>`;
+        try {
+            const res = await fetch(`${API_BASE}/kpi-sale-flag/history?limit=200`);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            _fullHistoryRows = data.history || [];
+        } catch (e) {
+            console.warn('[KPI-STATS] full history fetch failed:', e?.message);
+            body.innerHTML = `<div style="color:#dc2626; padding:24px 0; text-align:center;">⚠ Không tải được lịch sử: ${_escapeHtml(e?.message || e)}</div>`;
+            return;
+        }
+        _renderFullHistoryRows();
+    }
+
+    function _renderFullHistoryRows() {
+        const body = document.getElementById('kpiHistoryModalBody');
+        if (!body) return;
+        const inp = document.getElementById('kpiHistoryFilterInput');
+        const actionFilter = document.getElementById('kpiHistoryActionFilter');
+        const q = (inp?.value || '').trim().toLowerCase();
+        const actionMode = actionFilter?.value || 'all';
+
+        const filtered = _fullHistoryRows.filter((h) => {
+            if (actionMode !== 'all' && h.action !== actionMode) return false;
+            if (!q) return true;
+            const blob =
+                `${h.userName || ''} ${h.userId || ''} ${h.orderCode || ''} ${h.productId || ''}`.toLowerCase();
+            return blob.includes(q);
+        });
+
+        if (filtered.length === 0) {
+            body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center; font-style:italic;">Chưa có lịch sử khớp bộ lọc.</div>`;
+            return;
+        }
+
+        const rows = filtered
+            .map((h) => {
+                const isCheck = h.action === 'check';
+                const actionLabel = isCheck ? '✓ Check' : '✗ Uncheck';
+                const actionColor = isCheck ? '#10b981' : '#ef4444';
+                const userName = _escapeHtml(h.userName || h.userId || '?');
+                const code = _escapeHtml(h.orderCode);
+                const pid = _escapeHtml(h.productId);
+                return `
+                    <div style="display:grid; grid-template-columns: 70px 1fr 90px 110px; gap:10px; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:12px; align-items:center;">
+                        <span style="color:${actionColor}; font-weight:700;">${actionLabel}</span>
+                        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            <b style="color:#111827;">${userName}</b>
+                            <span style="color:#9ca3af; margin:0 4px;">→</span>
+                            <span style="color:#374151; font-family:monospace;">${code}</span>
+                            <span style="color:#9ca3af; margin-left:6px; font-size:11px;">SP #${pid}</span>
+                        </div>
+                        <span style="color:#6b7280; font-size:11px;">${_formatTime(h.createdAt)}</span>
+                        <span style="color:#9ca3af; font-size:10px; text-align:right;">${_relativeTime(h.createdAt)}</span>
+                    </div>
+                `;
+            })
+            .join('');
+
+        const summary = `<div style="display:flex; justify-content:space-between; padding:6px 4px; font-size:11px; color:#6b7280; background:#f9fafb; border-radius:4px; margin-bottom:6px;">
+            <span>${filtered.length} entries${filtered.length !== _fullHistoryRows.length ? ` / ${_fullHistoryRows.length} tổng` : ''}</span>
+        </div>`;
+        body.innerHTML = summary + rows;
+    }
+
+    function _relativeTime(iso) {
+        if (!iso) return '';
+        const t = new Date(iso).getTime();
+        if (!t) return '';
+        const diff = Date.now() - t;
+        const s = Math.floor(diff / 1000);
+        if (s < 60) return s + 's';
+        const m = Math.floor(s / 60);
+        if (m < 60) return m + 'm';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + 'h';
+        const d = Math.floor(h / 24);
+        return d + 'd';
     }
 
     // ─── Wire events ───
@@ -340,4 +540,5 @@
     // Public API
     window.refreshKpiStatsCounter = _refreshCounter;
     window.computeKpiStats = _computeStats;
+    window.openKpiHistoryModal = _openFullHistoryModal;
 })();

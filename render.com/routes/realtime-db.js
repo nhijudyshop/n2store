@@ -1063,6 +1063,64 @@ router.post('/kpi-sale-flag/bulk-summary', async (req, res) => {
 });
 
 /**
+ * GET /api/realtime/kpi-sale-flag/history?codes=NJD/A,NJD/B&limit=20
+ * Trả về N entry gần nhất (default 20, max 200) trong history table.
+ * Nếu codes không truyền → tất cả; truyền → filter theo codes (CSV).
+ *
+ * IMPORTANT: route này phải nằm TRƯỚC `:orderCode` route, ngược lại Express
+ * sẽ match `:orderCode = "history"` và trả về flags empty thay vì history.
+ */
+router.get('/kpi-sale-flag/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureKpiHistoryTable(pool);
+
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 200);
+        const codesRaw = (req.query.codes || '').toString().trim();
+        const codes = codesRaw
+            ? codesRaw
+                  .split(',')
+                  .map((c) => c.trim())
+                  .filter(Boolean)
+            : [];
+
+        let q;
+        let params;
+        if (codes.length > 0) {
+            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
+                 FROM kpi_sale_flag_history
+                 WHERE order_code = ANY($1::text[])
+                 ORDER BY created_at DESC
+                 LIMIT $2`;
+            params = [codes, limit];
+        } else {
+            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
+                 FROM kpi_sale_flag_history
+                 ORDER BY created_at DESC
+                 LIMIT $1`;
+            params = [limit];
+        }
+        const result = await pool.query(q, params);
+
+        res.json({
+            history: result.rows.map((r) => ({
+                id: Number(r.id),
+                orderCode: r.order_code,
+                productId: Number(r.product_id),
+                action: r.action,
+                userId: r.user_id,
+                userName: r.user_name,
+                createdAt: r.created_at,
+            })),
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-sale-flag/history error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/realtime/kpi-sale-flag/:orderCode
  * Trả về danh sách flags cho mọi product_id đã được user đánh dấu.
  * Không có row nào → [] (mọi SP mặc định FALSE = không tính KPI với orders post-cutoff).
@@ -1153,61 +1211,6 @@ router.put('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
         });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-sale-flag error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /api/realtime/kpi-sale-flag/history?codes=NJD/A,NJD/B&limit=20
- * Trả về N entry gần nhất (default 20, max 200) trong history table.
- * Nếu codes không truyền → tất cả; truyền → filter theo codes (CSV).
- */
-router.get('/kpi-sale-flag/history', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-        await ensureKpiHistoryTable(pool);
-
-        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 200);
-        const codesRaw = (req.query.codes || '').toString().trim();
-        const codes = codesRaw
-            ? codesRaw
-                  .split(',')
-                  .map((c) => c.trim())
-                  .filter(Boolean)
-            : [];
-
-        let q;
-        let params;
-        if (codes.length > 0) {
-            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
-                 FROM kpi_sale_flag_history
-                 WHERE order_code = ANY($1::text[])
-                 ORDER BY created_at DESC
-                 LIMIT $2`;
-            params = [codes, limit];
-        } else {
-            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
-                 FROM kpi_sale_flag_history
-                 ORDER BY created_at DESC
-                 LIMIT $1`;
-            params = [limit];
-        }
-        const result = await pool.query(q, params);
-
-        res.json({
-            history: result.rows.map((r) => ({
-                id: Number(r.id),
-                orderCode: r.order_code,
-                productId: Number(r.product_id),
-                action: r.action,
-                userId: r.user_id,
-                userName: r.user_name,
-                createdAt: r.created_at,
-            })),
-        });
-    } catch (error) {
-        console.error('[REALTIME-DB] GET /kpi-sale-flag/history error:', error);
         res.status(500).json({ error: error.message });
     }
 });
