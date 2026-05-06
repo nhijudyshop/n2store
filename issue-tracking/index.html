@@ -325,6 +325,28 @@
                             <label>Shipper / Đội giao hàng</label>
                             <input type="text" id="return-shipper-name" placeholder="Tên shipper mang về">
                         </div>
+
+                        <!-- Editable refund amount + customer compensation -->
+                        <div class="form-group hidden" id="refund-amount-group">
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label id="refund-amount-label">Tổng tiền thu về</label>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <input type="number" id="refund-amount-input" class="select-input" placeholder="0" min="0" oninput="onRefundAmountManualEdit()" style="flex:1;">
+                                        <button type="button" id="btn-edit-refund-amount" onclick="toggleRefundAmountEdit()" style="padding:8px 10px;border:1px solid #e0e7ff;border-radius:6px;background:#f8fafc;cursor:pointer;" title="Chỉnh sửa thủ công">
+                                            ✏️
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-group half">
+                                    <label>Khách bù (trừ vào tổng)</label>
+                                    <input type="number" id="customer-compensation-input" class="select-input" placeholder="0" min="0" value="0" oninput="updateRefundFinalDisplay()">
+                                </div>
+                            </div>
+                            <p class="calc-hint" style="margin:8px 0 0 0;">
+                                Tiền cuối cùng vào ví: <strong id="refund-final-display" style="color:#10b981;">0đ</strong>
+                            </p>
+                        </div>
                     </div>
 
                     <!-- BOOM Sub-reason Fields -->

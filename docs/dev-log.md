@@ -8,9 +8,43 @@
 
 ## 2026-05-06
 
+### [issue-tracking][feat] Tổng tiền thu về/Khách gửi editable + ô "Khách bù"
+
+**Files**: MODIFIED [issue-tracking/index.html](../issue-tracking/index.html), [issue-tracking/js/script.js](../issue-tracking/js/script.js)
+
+User: "trên ô ghi chú nội bộ, tổng tiền thu về, khách gửi sẽ hiện trong input để cho chỉnh sửa, có thêm 1 ô input khách bù (trừ vào tổng tiền để ra tiền cuối cùng bỏ vào payload)".
+
+**Trước**: Modal "Tạo Phiếu Mới" với type RETURN_SHIPPER/RETURN_CLIENT auto-tính `money` qua `computeRefundWithDiscount(selectedProducts, selectedOrder)` — user không nhìn thấy số tiền cũng không sửa được trước khi submit.
+
+**Fix**:
+
+- Thêm section `#refund-amount-group` (hidden default, ẩn trong `data-type="RETURN"` field-group) với 2 input + display:
+    - `#refund-amount-input` — auto-tính từ SP × effectivePrice; readOnly + 🔒 toggle ✏️ để edit thủ công.
+    - `#customer-compensation-input` — "Khách bù", default 0.
+    - `#refund-final-display` — hiển thị "Tiền cuối cùng vào ví: X" = max(0, refund - khách_bù).
+- Label tự đổi theo type: RETURN_SHIPPER → "Tổng tiền thu về"; RETURN_CLIENT → "Khách gửi (tổng tiền)".
+- `syncRefundAmountSection(issueType)` show/hide + reset comp=0 mỗi lần đổi type. BOOM/FIX_COD ẩn hoàn toàn.
+- `refundAmountManuallyEdited` flag: khi user click ✏️ và sửa tay, checkbox/qty change SP **không** ghi đè giá trị. Click 🔒 = recompute từ SP + clear flag.
+- `updateCodReduceFromProducts` hook thêm `updateRefundAmountFromProducts()` để live-sync khi tick SP.
+- Submit handler RETURN_SHIPPER/RETURN_CLIENT: `money = max(0, refundInput - customerComp)` thay vì call lại `computeRefundWithDiscount`.
+
+**Browser-tested** (Playwright local + persistent FIFO REPL với KH test `Huỳnh Thành Đạt 0123456788`):
+
+1. Open modal → search → auto-select 1 đơn (NJD/2026/65627, 1 SP 100k). Refund-group hidden mặc định ✅.
+2. Chọn RETURN_SHIPPER → group visible, label "Tổng tiền thu về", value=100000, readOnly=true, comp=0, final=100.000đ ✅.
+3. Comp = 30k → final = 70.000đ ✅.
+4. Đổi type RETURN_CLIENT → label đổi "Khách gửi (tổng tiền)", comp reset 0, value giữ 100k, final=100k ✅.
+5. Click ✏️ → readOnly=false, btn=🔒. Sửa tay 250k → final=250k ✅. Bỏ tick SP → vẫn giữ 250k (không bị auto ghi đè) ✅. Click 🔒 → recompute = 0đ (SP đã uncheck) ✅.
+6. Đổi BOOM/FIX_COD → group hidden ✅. Đổi lại RETURN_SHIPPER → group visible, value=0 (no products), tick lại SP → value=100000 ✅.
+7. Intercept `ApiService.createTicket`: refund=200k, comp=50k → payload `money: 150000` ✅.
+8. Edge: comp(200k) > refund(100k) → final="0 ₫", `money: 0` ✅.
+
+Status: ✅ Done
+
 ### [orders][feat] Banner cảnh báo "Auto T đang BẬT" trong fast-sale modal
 
-**Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+**Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js), [orders-report/tab1-orders.html](../orders-report/tab1-order
+s.html)
 
 User: "tạo phiếu bán hàng nó không thông báo đang bật auto t hả? tôi nhớ có chức năng này".
 

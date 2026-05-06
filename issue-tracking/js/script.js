@@ -550,6 +550,15 @@ async function selectOrder(order) {
     document.getElementById('issue-type-select').value = '';
     document.getElementById('ticket-note').value = '';
 
+    // Reset refund-amount section
+    refundAmountManuallyEdited = false;
+    const refundAmountGroup = document.getElementById('refund-amount-group');
+    if (refundAmountGroup) refundAmountGroup.classList.add('hidden');
+    const refundAmountInputReset = document.getElementById('refund-amount-input');
+    if (refundAmountInputReset) refundAmountInputReset.value = '';
+    const compInputReset = document.getElementById('customer-compensation-input');
+    if (compInputReset) compInputReset.value = 0;
+
     // Reset RETURN_OLD_ORDER UI section
     const oldOrdersList = document.getElementById('old-orders-list');
     const oldOrderProductsSection = document.getElementById('old-order-products-section');
@@ -948,6 +957,9 @@ function handleIssueTypeChange(e) {
         }
     }
 
+    // Show/hide editable refund-amount section (RETURN_SHIPPER + RETURN_CLIENT only)
+    syncRefundAmountSection(issueType);
+
     console.log('[DEBUG] Final state:', {
         fixCodHidden: fixCodGroup?.classList.contains('hidden'),
         returnHidden: returnGroup?.classList.contains('hidden'),
@@ -1083,10 +1095,125 @@ function updateCodReduceFromProducts() {
 
     document.getElementById('cod-reduce-amount').value = totalReduce;
     calculateCodRemaining();
+
+    // Also refresh editable refund-amount section if it's currently visible
+    // (RETURN_SHIPPER / RETURN_CLIENT). Safe no-op when hidden.
+    const refundGroup = document.getElementById('refund-amount-group');
+    if (refundGroup && !refundGroup.classList.contains('hidden')) {
+        updateRefundAmountFromProducts();
+    }
 }
 
 // Expose for checkbox/quantity change events
 window.updateCodReduceFromProducts = updateCodReduceFromProducts;
+
+// ==========================================================================
+// Refund Amount (Tổng tiền thu về / Khách gửi) — editable + customer comp
+// ==========================================================================
+// Tracks whether user manually edited the refund amount input. When true, do
+// NOT auto-recompute on product checkbox change — preserve user's value.
+let refundAmountManuallyEdited = false;
+
+function getCheckedReturnProducts() {
+    const checked = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
+    return Array.from(checked).map((cb) => {
+        const productId = cb.value;
+        const qtyInput = document.getElementById(`prod-qty-${productId}`);
+        const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+        const product = selectedOrder?.products?.find((p) => String(p.id) === String(productId));
+        return { ...product, returnQuantity: returnQty };
+    });
+}
+
+function computeAutoRefundAmount() {
+    return computeRefundWithDiscount(getCheckedReturnProducts(), selectedOrder);
+}
+
+window.updateRefundFinalDisplay = function () {
+    const refundInput = document.getElementById('refund-amount-input');
+    const compInput = document.getElementById('customer-compensation-input');
+    const finalDisplay = document.getElementById('refund-final-display');
+    if (!refundInput || !compInput || !finalDisplay) return;
+
+    const refund = parseInt(refundInput.value) || 0;
+    const comp = parseInt(compInput.value) || 0;
+    const final = Math.max(0, refund - comp);
+    finalDisplay.textContent = formatCurrency(final);
+};
+
+window.onRefundAmountManualEdit = function () {
+    refundAmountManuallyEdited = true;
+    updateRefundFinalDisplay();
+};
+
+window.toggleRefundAmountEdit = function () {
+    const refundInput = document.getElementById('refund-amount-input');
+    const editBtn = document.getElementById('btn-edit-refund-amount');
+    if (!refundInput || !editBtn) return;
+
+    if (refundInput.readOnly) {
+        // Unlock for manual editing
+        refundInput.readOnly = false;
+        refundInput.style.backgroundColor = '';
+        refundInput.focus();
+        editBtn.innerHTML = '🔒';
+        editBtn.title = 'Khóa & tính tự động';
+    } else {
+        // Lock + recompute from products
+        refundInput.readOnly = true;
+        refundInput.style.backgroundColor = '#f1f5f9';
+        editBtn.innerHTML = '✏️';
+        editBtn.title = 'Chỉnh sửa thủ công';
+        refundAmountManuallyEdited = false;
+        updateRefundAmountFromProducts();
+    }
+};
+
+function updateRefundAmountFromProducts() {
+    const refundInput = document.getElementById('refund-amount-input');
+    if (!refundInput) return;
+    // Don't overwrite user's manual edit
+    if (refundAmountManuallyEdited && !refundInput.readOnly) {
+        updateRefundFinalDisplay();
+        return;
+    }
+    refundInput.value = computeAutoRefundAmount();
+    updateRefundFinalDisplay();
+}
+window.updateRefundAmountFromProducts = updateRefundAmountFromProducts;
+
+function syncRefundAmountSection(issueType) {
+    const group = document.getElementById('refund-amount-group');
+    const label = document.getElementById('refund-amount-label');
+    const refundInput = document.getElementById('refund-amount-input');
+    const editBtn = document.getElementById('btn-edit-refund-amount');
+    if (!group || !label || !refundInput) return;
+
+    const isReturn = issueType === 'RETURN_SHIPPER' || issueType === 'RETURN_CLIENT';
+    if (!isReturn) {
+        group.classList.add('hidden');
+        return;
+    }
+
+    label.textContent =
+        issueType === 'RETURN_CLIENT' ? 'Khách gửi (tổng tiền)' : 'Tổng tiền thu về';
+
+    // Reset to auto-computed mode each time type is (re)selected
+    refundAmountManuallyEdited = false;
+    refundInput.readOnly = true;
+    refundInput.style.backgroundColor = '#f1f5f9';
+    if (editBtn) {
+        editBtn.innerHTML = '✏️';
+        editBtn.title = 'Chỉnh sửa thủ công';
+    }
+
+    const compInput = document.getElementById('customer-compensation-input');
+    if (compInput) compInput.value = 0;
+
+    group.classList.remove('hidden');
+    updateRefundAmountFromProducts();
+}
+window.syncRefundAmountSection = syncRefundAmountSection;
 
 // Toggle all product checkboxes (select all / deselect all)
 window.toggleAllProducts = function (selectAll, containerId = 'product-checklist') {
@@ -1377,10 +1504,17 @@ async function handleSubmitTicket() {
             };
         });
 
-        // Giá trị hoàn = Σ(effectivePrice × returnQuantity) trong đó effectivePrice
-        // parse từ Note OrderLine TPOS (vd "10k" = giá còn 10K). Per-line discount,
-        // không dùng tỷ lệ chia đều (giảm giá phân bố không đều giữa các SP).
-        money = computeRefundWithDiscount(selectedProducts, selectedOrder);
+        // Giá trị hoàn = giá trị trong input "Tổng tiền thu về" / "Khách gửi" (auto
+        // tính từ SP × effectivePrice nhưng user có thể edit thủ công) TRỪ "Khách bù".
+        // Nếu input rỗng → fallback computeRefundWithDiscount để an toàn.
+        const refundInputEl = document.getElementById('refund-amount-input');
+        const compInputEl = document.getElementById('customer-compensation-input');
+        const refundEntered = refundInputEl ? parseInt(refundInputEl.value) : NaN;
+        const compEntered = compInputEl ? parseInt(compInputEl.value) || 0 : 0;
+        const refundBase = Number.isFinite(refundEntered)
+            ? refundEntered
+            : computeRefundWithDiscount(selectedProducts, selectedOrder);
+        money = Math.max(0, refundBase - compEntered);
     } else if (type === 'OTHER') {
         status = 'COMPLETED';
         money = 0;
@@ -2892,6 +3026,15 @@ function resetCreateForm() {
     document.getElementById('issue-details-form').classList.add('hidden');
     document.getElementById('issue-type-select').value = '';
     document.getElementById('ticket-note').value = '';
+
+    // Reset refund-amount section
+    refundAmountManuallyEdited = false;
+    const refundAmountGroupClose = document.getElementById('refund-amount-group');
+    if (refundAmountGroupClose) refundAmountGroupClose.classList.add('hidden');
+    const refundAmountInputClose = document.getElementById('refund-amount-input');
+    if (refundAmountInputClose) refundAmountInputClose.value = '';
+    const compInputClose = document.getElementById('customer-compensation-input');
+    if (compInputClose) compInputClose.value = 0;
 
     // Restore search section visibility (in case it was hidden by openOrderDetailModal)
     document.querySelector('.search-section label').style.display = '';
