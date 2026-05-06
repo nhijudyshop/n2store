@@ -560,6 +560,9 @@ async function showFastSaleModal() {
 
         // Render modal body
         renderFastSaleModalBody();
+        // Auto T status banner — báo user T-tag sẽ tự xoá nếu Auto T ON, để
+        // không bị surprise bởi modal confirm bật ra giữa flow tạo PBH.
+        renderFastSaleAutoTBanner();
     } catch (error) {
         console.error('[FAST-SALE] Error loading data:', error);
         showFastSaleStatus('Lỗi khi tải dữ liệu: ' + error.message, 'error');
@@ -583,6 +586,12 @@ function closeFastSaleModal() {
     fastSaleOrdersData = [];
     window.fastSaleOrdersData = fastSaleOrdersData;
     clearFastSaleStatus(); // Clear status message when closing modal
+    // Reset Auto T banner để session sau hiện lại fresh (nếu user dismiss).
+    const banner = document.getElementById('fastSaleAutoTBanner');
+    if (banner) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+    }
 }
 
 /**
@@ -662,6 +671,8 @@ function removeOrderFromFastSale(index) {
         showNotification('Đã bỏ tất cả đơn hàng khỏi danh sách', 'info');
     } else {
         renderFastSaleModalBody();
+        // Re-render Auto T banner — count đơn có T-tag thay đổi sau khi remove.
+        renderFastSaleAutoTBanner();
         showNotification(`Đã bỏ đơn ${removedOrder.Reference || ''} khỏi danh sách`, 'info');
     }
 }
@@ -809,6 +820,99 @@ async function fetchFastSaleOrdersData(orderIds) {
             .filter((o) => o !== null);
     }
 }
+
+/**
+ * Render Auto T status banner trong fast-sale modal.
+ * Hiển thị KHI Auto T đang BẬT — báo user là T-tag (chờ hàng) sẽ tự xoá
+ * cho đơn đã có T-tag, ngay sau khi tạo PBH thành công. Banner còn báo
+ * count cụ thể đơn nào sẽ bị ảnh hưởng để user thấy scope.
+ *
+ * Có nút toggle TẮT inline + nút × dismiss (cho session này).
+ */
+function renderFastSaleAutoTBanner() {
+    const banner = document.getElementById('fastSaleAutoTBanner');
+    if (!banner) return;
+
+    const isOn =
+        typeof window.isAutoTClearEnabled === 'function' ? window.isAutoTClearEnabled() : true; // default ON khi chưa load setting
+
+    if (!isOn) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+    }
+
+    // Đếm số đơn có T-tag trong fastSaleOrdersData. Đọc từ window để consumer
+    // ngoài module (test, devtools) có thể inject mảng custom mà vẫn render đúng.
+    const ordersData =
+        Array.isArray(window.fastSaleOrdersData) && window.fastSaleOrdersData.length > 0
+            ? window.fastSaleOrdersData
+            : fastSaleOrdersData;
+    let ordersWithTTag = 0;
+    let totalTTags = 0;
+    const ptag = window.ProcessingTagState;
+    if (ptag) {
+        for (const order of ordersData || []) {
+            const code =
+                order.SaleOnlineNames?.[0] ||
+                (order.SaleOnlineIds?.[0]
+                    ? window.OrderStore?.get(order.SaleOnlineIds[0])?.Code ||
+                      displayedData.find((d) => d.Id === order.SaleOnlineIds[0])?.Code
+                    : null);
+            if (!code) continue;
+            const data = ptag.getOrderData(String(code));
+            if (Array.isArray(data?.tTags) && data.tTags.length > 0) {
+                ordersWithTTag++;
+                totalTTags += data.tTags.length;
+            }
+        }
+    }
+
+    const detailHtml =
+        ordersWithTTag > 0
+            ? `<div style="font-size:12px;color:#92400e;margin-top:4px;">→ <strong>${ordersWithTTag}</strong> đơn có T-tag (tổng ${totalTTags} tag) sẽ bị xoá tự động sau khi ra đơn.</div>`
+            : `<div style="font-size:12px;color:#78350f;margin-top:4px;opacity:0.85;">→ Không đơn nào có T-tag — Auto T sẽ không ảnh hưởng lần này.</div>`;
+
+    banner.style.cssText = [
+        'display: block',
+        'margin: 12px 16px 0 16px',
+        'padding: 10px 14px',
+        'background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)',
+        'border: 1px solid #f59e0b',
+        'border-radius: 8px',
+        'color: #78350f',
+    ].join(';');
+
+    banner.innerHTML = `
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+            <div style="flex-shrink:0; font-size:18px; line-height:1;">⚠️</div>
+            <div style="flex:1;">
+                <div style="font-weight:600; font-size:13px;">
+                    Auto T đang BẬT
+                </div>
+                <div style="font-size:12px; margin-top:2px;">
+                    Sau khi ra đơn thành công, T-tag (chờ hàng) của đơn sẽ <strong>tự xoá</strong>.
+                    ${detailHtml.includes('không đơn') ? '' : 'Để giữ T-tag, tắt Auto T trước khi ra đơn.'}
+                </div>
+                ${detailHtml}
+            </div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+                <button type="button"
+                        onclick="window.toggleAutoTClear?.(); window.renderFastSaleAutoTBanner?.();"
+                        style="background:#fff; border:1px solid #f59e0b; color:#92400e; padding:4px 10px; border-radius:6px; font-size:11px; cursor:pointer; white-space:nowrap;"
+                        title="Tắt Auto T (giữ T-tag sau khi ra đơn)">
+                    Tắt Auto T
+                </button>
+                <button type="button"
+                        onclick="document.getElementById('fastSaleAutoTBanner').style.display='none'"
+                        style="background:transparent; border:none; color:#92400e; font-size:18px; cursor:pointer; padding:0 4px; line-height:1;"
+                        title="Ẩn cảnh báo">×</button>
+            </div>
+        </div>
+    `;
+}
+
+window.renderFastSaleAutoTBanner = renderFastSaleAutoTBanner;
 
 /**
  * Render Fast Sale Modal Body

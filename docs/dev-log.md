@@ -8,6 +8,24 @@
 
 ## 2026-05-06
 
+### [orders][feat] Banner cảnh báo "Auto T đang BẬT" trong fast-sale modal
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "tạo phiếu bán hàng nó không thông báo đang bật auto t hả? tôi nhớ có chức năng này".
+
+Trước: Auto T toggle chỉ hiện badge nhỏ ở header table. Khi user "Lưu xác nhận" trong fast-sale modal mà Auto T ON + đơn có T-tag → modal confirm "Xóa T-tag?" bật bất ngờ giữa flow. User không biết Auto T đang bật cho đến lúc đó.
+
+**Fix**: Banner amber gradient ở đầu fast-sale modal (`<div id="fastSaleAutoTBanner">`) hiển thị khi Auto T ON với:
+
+- ⚠️ "Auto T đang BẬT" + subtitle "Sau khi ra đơn thành công, T-tag (chờ hàng) của đơn sẽ tự xoá."
+- Detail: "→ N đơn có T-tag (tổng X tag) sẽ bị xoá tự động" hoặc "Không đơn nào có T-tag — Auto T sẽ không ảnh hưởng lần này".
+- 2 nút: "Tắt Auto T" (toggle inline + re-render) + × dismiss session.
+
+Expose `window.isAutoTClearEnabled()` reader (trước chỉ có `toggleAutoTClear` write). Banner auto re-render khi open modal (sau load data) + remove order (count đổi). Reset khi `closeFastSaleModal`.
+
+**Browser-tested**: 1 đơn 2 T-tag → "→ 1 đơn có T-tag (tổng 2 tag)" ✅. Toggle off → `display:none`; toggle on → `display:block` ✅. Screenshot xác nhận amber banner ngay dưới modal header.
+
 ### [orders][fix] Chat modal video: dùng `video_data.url` (mp4 thật) thay vì `att.url` (= thumbnail JPG)
 
 **Files**: MODIFIED [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js)

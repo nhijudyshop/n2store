@@ -7032,6 +7032,9 @@
     }
 
     window.toggleAutoTClear = toggleAutoTClear;
+    // Public reader — fast-sale modal banner cần biết state Auto T để cảnh báo user
+    // trước khi tạo PBH (T-tag sẽ tự xoá nếu Auto T ON).
+    window.isAutoTClearEnabled = () => _autoTClearEnabled;
     // Test/debug hooks
     window._showAutoTConfirmModal = _showAutoTConfirmModal;
     window._resetAutoTConfirmSuppressed = () => {
