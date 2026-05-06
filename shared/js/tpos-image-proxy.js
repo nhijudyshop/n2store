@@ -141,6 +141,17 @@
                 img.setAttribute('onerror', hook + prev);
             }
         }
+        // ImageCache (TTL 7d trong IndexedDB) — hoán proxied URL → blob URL nếu cache khả dụng.
+        // Idempotent: chỉ wire 1 lần qua data-cache-wired flag.
+        if (
+            window.ImageCache &&
+            typeof window.ImageCache.setImgSrc === 'function' &&
+            !img.getAttribute('data-cache-wired')
+        ) {
+            img.setAttribute('data-cache-wired', '1');
+            const proxied = img.getAttribute('src');
+            if (proxied) window.ImageCache.setImgSrc(img, proxied);
+        }
     }
 
     // Proactive HTML string rewrite — ngăn browser parser load raw TPOS URL ngay từ đầu.

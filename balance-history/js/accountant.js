@@ -601,6 +601,11 @@
             case 'failedWithdrawal':
                 loadFailedWithdrawals();
                 break;
+            case 'history':
+                if (window.AccountantHistoryModule) {
+                    window.AccountantHistoryModule.load();
+                }
+                break;
         }
 
         // Reinitialize Lucide icons
@@ -1589,6 +1594,31 @@
 
             showNotification(`Đã duyệt ${result.approved} giao dịch`, 'success');
 
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('accountant_entry_create', {
+                        module: 'balance-history',
+                        description:
+                            'Kế toán duyệt hàng loạt ' +
+                            (result.approved || ids.length) +
+                            ' giao dịch',
+                        oldData: { status: 'PENDING_VERIFICATION' },
+                        newData: {
+                            status: 'APPROVED',
+                            txIds: ids.map(String),
+                            count: result.approved || ids.length,
+                            bulk: true,
+                        },
+                        approverUserId: performedBy,
+                        approverUserName: performedBy,
+                        entityId: ids.length === 1 ? String(ids[0]) : 'bulk_' + Date.now(),
+                        entityType: 'accountant_entry',
+                    });
+                }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
+
             // Clear selection and refresh
             state.selectedIds.clear();
             updateBulkBar();
@@ -1867,19 +1897,37 @@
     function renderApprovedToday() {
         if (!elements.approvedTableBody) return;
 
-        if (state.approvedToday.length === 0) {
+        // Ẩn tất cả đơn nguồn "Hoàn tiền" — wallet_transactions DEPOSIT/ORDER_CANCEL_REFUND.
+        // Bắt theo source flag (wt_type='DEPOSIT' + wt_source='ORDER_CANCEL_REFUND') để
+        // robust với mọi format note ("hoàn từ đơn hủy", "Hoàn tiền hủy đơn", v.v.).
+        // Note pattern là fallback cho legacy data có thể thiếu wt_source.
+        const REFUND_NOTE_FALLBACK =
+            /(ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y|ho[àa]n\s+ti[ềe]n\s+h[ủu]y\s+đơn)\s*#NJD\//i;
+        const isCancelRefund = (tx) => {
+            if (!tx) return false;
+            if (tx.wt_type === 'DEPOSIT' && tx.wt_source === 'ORDER_CANCEL_REFUND') return true;
+            return REFUND_NOTE_FALLBACK.test(tx.verification_note || '');
+        };
+        const visibleRows = (state.approvedToday || []).filter((tx) => !isCancelRefund(tx));
+        const hiddenRefundCount = (state.approvedToday || []).length - visibleRows.length;
+
+        if (visibleRows.length === 0) {
+            const msg =
+                hiddenRefundCount > 0
+                    ? `Đã ẩn ${hiddenRefundCount} giao dịch hoàn tiền hủy đơn`
+                    : 'Chưa có giao dịch được duyệt ngày này';
             elements.approvedTableBody.innerHTML = `
                 <tr>
                     <td colspan="9" class="acc-empty-state">
                         <div class="empty-icon">📋</div>
-                        <div class="empty-text">Chưa có giao dịch được duyệt ngày này</div>
+                        <div class="empty-text">${msg}</div>
                     </td>
                 </tr>
             `;
             return;
         }
 
-        elements.approvedTableBody.innerHTML = state.approvedToday
+        elements.approvedTableBody.innerHTML = visibleRows
             .map((tx) => {
                 // src: 'bh' (sepay balance_history) | 'wt' (wallet_transactions +tiền nội bộ)
                 // uid: composite key 'bh:N' | 'wt:N' — gửi cho backend ✓ Kiểm tra
@@ -1935,12 +1983,14 @@
                 }
 
                 // Build note cell with optional image thumbnail
+                // data-cache-src: ImageCache hook hoán đổi src→blob URL khi available (TTL 7 ngày trong IndexedDB)
                 let noteHtml = '<div class="acc-note-wrapper">';
                 if (tx.verification_image_url) {
+                    const imgUrl = tx.verification_image_url;
                     noteHtml += `
                     <div class="acc-approve-image-thumb">
-                        <img src="${tx.verification_image_url}" alt="Xác nhận CK" loading="lazy">
-                        <div class="acc-zoom-overlay" style="background-image: url('${tx.verification_image_url}')"></div>
+                        <img src="${imgUrl}" data-cache-src="${imgUrl}" alt="Xác nhận CK" loading="lazy">
+                        <div class="acc-zoom-overlay" data-cache-bg="${imgUrl}" style="background-image: url('${imgUrl}')"></div>
                     </div>
                 `;
                 }
@@ -2019,6 +2069,32 @@
             `;
             })
             .join('');
+
+        // Hook ImageCache: hoán đổi src/background-image sang blob URL từ IndexedDB cache (TTL 7d).
+        // Fallback im lặng về remote URL nếu cache không khả dụng.
+        if (window.ImageCache) {
+            const imgs = elements.approvedTableBody.querySelectorAll('img[data-cache-src]');
+            imgs.forEach((img) => {
+                const remote = img.getAttribute('data-cache-src');
+                if (!remote) return;
+                window.ImageCache.getUrl(remote)
+                    .then((blobUrl) => {
+                        if (blobUrl && blobUrl !== remote) img.src = blobUrl;
+                    })
+                    .catch(() => {});
+            });
+            const overlays = elements.approvedTableBody.querySelectorAll('[data-cache-bg]');
+            overlays.forEach((el) => {
+                const remote = el.getAttribute('data-cache-bg');
+                if (!remote) return;
+                window.ImageCache.getUrl(remote)
+                    .then((blobUrl) => {
+                        if (blobUrl && blobUrl !== remote)
+                            el.style.backgroundImage = `url('${blobUrl}')`;
+                    })
+                    .catch(() => {});
+            });
+        }
     }
 
     // =====================================================
@@ -2032,14 +2108,55 @@
 
         if (!container) return;
 
+        // Build page-number list với compact ellipsis cho tổng số trang lớn.
+        // Hiển thị: 1 ... (cur-1) cur (cur+1) ... last. Luôn show first + last.
+        const buildPageList = (cur, total) => {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = new Set([1, 2, total - 1, total, cur - 1, cur, cur + 1]);
+            const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+            const result = [];
+            for (let i = 0; i < sorted.length; i++) {
+                if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push('...');
+                result.push(sorted[i]);
+            }
+            return result;
+        };
+        const pages = buildPageList(pag.page, pag.totalPages);
+        const pageBtns = pages
+            .map((p) => {
+                if (p === '...') {
+                    return `<span class="acc-page-ellipsis" style="padding:0 4px;color:#94a3b8;">…</span>`;
+                }
+                const isActive = p === pag.page;
+                const activeStyle = isActive
+                    ? 'background:#16a34a;color:#fff;border-color:#16a34a;font-weight:700;'
+                    : '';
+                return `<button class="acc-btn acc-btn-secondary acc-page-btn" data-page="${p}" onclick="AccountantModule.gotoPage('${type}', ${p})" style="min-width:32px;padding:4px 8px;${activeStyle}">${p}</button>`;
+            })
+            .join('');
+
+        // Page jump select — quick navigation cho > 10 pages
+        const showJump = pag.totalPages > 10;
+        const jumpOptions = [];
+        for (let p = 1; p <= pag.totalPages; p++) {
+            jumpOptions.push(
+                `<option value="${p}" ${p === pag.page ? 'selected' : ''}>Trang ${p}</option>`
+            );
+        }
+        const jumpHtml = showJump
+            ? `<select class="acc-page-jump" onchange="AccountantModule.gotoPage('${type}', parseInt(this.value, 10))" style="margin-left:8px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">${jumpOptions.join('')}</select>`
+            : '';
+
         container.innerHTML = `
             <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.changePage('${type}', -1)" ${pag.page <= 1 ? 'disabled' : ''}>
                 <i data-lucide="chevron-left" style="width:16px;height:16px"></i> Trước
             </button>
-            <span class="page-info">Trang ${pag.page} / ${pag.totalPages} (${pag.total} GD)</span>
+            <div class="acc-page-list" style="display:inline-flex;gap:4px;align-items:center;margin:0 4px;">${pageBtns}</div>
             <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.changePage('${type}', 1)" ${pag.page >= pag.totalPages ? 'disabled' : ''}>
                 Sau <i data-lucide="chevron-right" style="width:16px;height:16px"></i>
             </button>
+            <span class="page-info" style="margin-left:8px;color:#64748b;font-size:12px;">${pag.total} GD</span>
+            ${jumpHtml}
         `;
 
         if (window.lucide) lucide.createIcons();
@@ -2048,11 +2165,19 @@
     function changePage(type, delta) {
         const newPage = state.pagination[type].page + delta;
         if (newPage < 1 || newPage > state.pagination[type].totalPages) return;
+        gotoPage(type, newPage);
+    }
 
+    function gotoPage(type, page) {
+        const pag = state.pagination[type];
+        if (!pag) return;
+        const target = parseInt(page, 10);
+        if (!Number.isFinite(target) || target < 1 || target > pag.totalPages) return;
+        if (target === pag.page) return;
         if (type === 'pending') {
-            loadPendingQueue(newPage);
+            loadPendingQueue(target);
         } else if (type === 'approved') {
-            loadApprovedToday(newPage);
+            loadApprovedToday(target);
         }
     }
 
@@ -2535,6 +2660,11 @@
             confirmBtn.innerHTML = 'Đang xử lý...';
         }
 
+        const performedBy = window.authManager?.getUserInfo()?.username || 'accountant';
+        const txSnapshot =
+            state.approvedToday.find((t) => t.uid === txId || String(t.id) === String(txId)) ||
+            null;
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/adjust`, {
                 method: 'POST',
@@ -2544,7 +2674,7 @@
                     correct_customer_phone:
                         adjustType === 'transfer_to_correct' ? correctPhone : null,
                     reason,
-                    performed_by: window.authManager?.getUserInfo()?.username || 'accountant',
+                    performed_by: performedBy,
                 }),
             });
 
@@ -2555,6 +2685,41 @@
             }
 
             showNotification(result.message || 'Điều chỉnh thành công!', 'success');
+
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('transaction_adjust', {
+                        module: 'balance-history',
+                        description:
+                            'Điều chỉnh giao dịch #' +
+                            txId +
+                            (adjustType === 'transfer_to_correct'
+                                ? ' (chuyển sang ' + correctPhone + ')'
+                                : ' (chỉ trừ ví khách sai)'),
+                        oldData: txSnapshot
+                            ? {
+                                  phone: txSnapshot.phone || txSnapshot.linked_customer_phone,
+                                  customer_name: txSnapshot.customer_name,
+                                  amount: txSnapshot.amount,
+                              }
+                            : null,
+                        newData: {
+                            txId: String(txId),
+                            adjustment_type: adjustType,
+                            correct_customer_phone:
+                                adjustType === 'transfer_to_correct' ? correctPhone : null,
+                            reason,
+                        },
+                        approverUserId: performedBy,
+                        approverUserName: performedBy,
+                        entityId: String(txId),
+                        entityType: 'balance_history',
+                    });
+                }
+            } catch (e) {
+                /* audit log error - ignore */
+            }
+
             closeAdjustmentModal();
 
             // Reload bảng Đã Duyệt
@@ -3274,6 +3439,7 @@
         confirmChange,
         toggleSelect,
         changePage,
+        gotoPage,
         stopAutoRefresh,
         setFilterPreset,
         handleFilterChange,

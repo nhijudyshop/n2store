@@ -444,9 +444,107 @@ function recalculateSaleTotals() {
 }
 
 /**
+ * Merge local sale orderLines into server Details (server = base of truth).
+ * Prevents stale-snapshot overwrite where local lacks lines another flow added.
+ *
+ * Rules:
+ *   - Server lines absent locally → KEPT (don't drop other-flow additions).
+ *   - Local line with Id → matched to server by Id, qty/price/note overridden.
+ *   - Local line without Id → matched to server by ProductId+UOMId; if found,
+ *     treat as duplicate-add and bump qty by local qty (not replace). Otherwise
+ *     append as new line.
+ */
+function mergeLocalLinesIntoServerDetails(serverDetails, localLines, orderId, createdById) {
+    const serverArr = Array.isArray(serverDetails) ? serverDetails : [];
+    const localArr = Array.isArray(localLines) ? localLines : [];
+
+    const result = serverArr.map((d) => ({ ...d }));
+    const byId = new Map();
+    const byProductKey = new Map();
+    result.forEach((d, idx) => {
+        if (d.Id) byId.set(d.Id, idx);
+        const key = `${d.ProductId}_${d.UOMId || 1}`;
+        if (!byProductKey.has(key)) byProductKey.set(key, idx);
+    });
+
+    const localIdsSeen = new Set();
+
+    for (const line of localArr) {
+        const lineId = line.Id;
+        const productId = line.ProductId || line.Product?.Id;
+        const uomId = line.ProductUOMId || line.ProductUOM?.Id || 1;
+        const qty = line.ProductUOMQty || line.Quantity || 1;
+        const price = line.PriceUnit || line.Price || 0;
+        const note = line.Note ?? null;
+
+        if (lineId && byId.has(lineId)) {
+            const idx = byId.get(lineId);
+            result[idx] = {
+                ...result[idx],
+                Quantity: qty,
+                Price: price,
+                Note: note,
+            };
+            localIdsSeen.add(lineId);
+            continue;
+        }
+
+        const key = `${productId}_${uomId}`;
+        if (!lineId && byProductKey.has(key)) {
+            const idx = byProductKey.get(key);
+            const serverLine = result[idx];
+            if (!localIdsSeen.has(serverLine.Id)) {
+                result[idx] = {
+                    ...serverLine,
+                    Quantity: (serverLine.Quantity || 0) + qty,
+                    Price: price > 0 ? price : serverLine.Price,
+                    Note: note ?? serverLine.Note,
+                };
+                if (serverLine.Id) localIdsSeen.add(serverLine.Id);
+                continue;
+            }
+        }
+
+        result.push({
+            ProductId: productId,
+            Quantity: qty,
+            Price: price,
+            Note: note,
+            UOMId: uomId,
+            Factor: 1,
+            Priority: 0,
+            OrderId: orderId,
+            LiveCampaign_DetailId: null,
+            ProductWeight: line.Weight || 0,
+            ProductName: line.Product?.Name || line.ProductName || '',
+            ProductNameGet: line.Product?.NameGet || line.ProductNameGet || '',
+            ProductCode: line.Product?.DefaultCode || line.ProductCode || '',
+            UOMName: line.ProductUOMName || line.ProductUOM?.Name || 'Cái',
+            ImageUrl: line.Product?.ImageUrl || '',
+            IsOrderPriority: null,
+            QuantityRegex: null,
+            IsDisabledLiveCampaignDetail: false,
+            CreatedById: createdById,
+        });
+    }
+
+    return result;
+}
+
+if (typeof window !== 'undefined') {
+    window.__mergeLocalLinesIntoServerDetails = mergeLocalLinesIntoServerDetails;
+}
+
+/**
  * Update Sale Order via PUT API
  * Similar to updateOrderWithFullPayload() from Edit Modal (~15687)
- * Fetches FULL order object from API, merges local changes, then PUTs back
+ * Fetches FULL order object from API, merges local changes, then PUTs back.
+ *
+ * Race-safety:
+ *   - In-flight lock: parallel calls serialize via __saleUpdateChain.
+ *   - Server merge: server.Details is base, local lines merged on top
+ *     (preserves additions from other flows / other tabs).
+ *   - On 412 (RowVersion mismatch from optimistic concurrency), refetch and retry once.
  */
 async function updateSaleOrderWithAPI() {
     if (!currentSaleOrderData || !currentSaleOrderData.Id) {
@@ -454,124 +552,147 @@ async function updateSaleOrderWithAPI() {
         return null;
     }
 
+    const previous = window.__saleUpdateChain || Promise.resolve();
+    const next = previous.catch(() => {}).then(() => _updateSaleOrderWithAPIImpl());
+    window.__saleUpdateChain = next;
     try {
-        console.log('[SALE-API] Preparing to update order:', currentSaleOrderData.Id);
-
-        // Get auth headers
-        const headers = await window.tokenManager.getAuthHeader();
-
-        // 🔥 STEP 1: Fetch FULL order object from API first (critical!)
-        // This ensures we have all required fields like RowVersion, Partner, User, CRMTeam, etc.
-        const getUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})?$expand=Details,Partner,User,CRMTeam`;
-        console.log('[SALE-API] Fetching full order from API...');
-
-        const getResponse = await fetch(getUrl, {
-            method: 'GET',
-            headers: {
-                ...headers,
-                Accept: 'application/json',
-            },
-        });
-
-        if (!getResponse.ok) {
-            throw new Error(`Failed to fetch order: HTTP ${getResponse.status}`);
+        return await next;
+    } finally {
+        if (window.__saleUpdateChain === next) {
+            window.__saleUpdateChain = null;
         }
+    }
+}
 
-        const fullOrder = await getResponse.json();
-        console.log('[SALE-API] Got full order from API:', fullOrder);
+/**
+ * Format RowVersion for OData If-Match header.
+ * RowVersion is base64-encoded byte array — wrap in weak ETag W/"...".
+ */
+function _formatRowVersionETag(rowVersion) {
+    if (rowVersion == null || rowVersion === '') return null;
+    return `W/"${String(rowVersion).replace(/"/g, '\\"')}"`;
+}
 
-        // 🔥 STEP 2: Merge local changes (orderLines) into full order object
-        // Clone to avoid mutation
-        const payload = JSON.parse(JSON.stringify(fullOrder));
+async function _updateSaleOrderWithAPIImpl() {
+    const MAX_RETRIES = 2;
+    let lastError = null;
 
-        // Add @odata.context (CRITICAL for PUT request)
-        if (!payload['@odata.context']) {
-            payload['@odata.context'] =
-                'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
-        }
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            if (attempt > 0) {
+                console.warn(
+                    `[SALE-API] Retry ${attempt}/${MAX_RETRIES} after concurrency conflict — re-fetching + re-merging...`
+                );
+            } else {
+                console.log('[SALE-API] Preparing to update order:', currentSaleOrderData.Id);
+            }
 
-        // Get CreatedById from order or auth
-        const createdById = fullOrder.CreatedById || fullOrder.UserId;
+            const headers = await window.tokenManager.getAuthHeader();
 
-        // Convert local orderLines to Details format (API expects Details, not orderLines)
-        if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
-            payload.Details = currentSaleOrderData.orderLines.map((line) => {
-                const cleaned = {
-                    ProductId: line.ProductId || line.Product?.Id,
-                    Quantity: line.ProductUOMQty || line.Quantity || 1,
-                    Price: line.PriceUnit || line.Price || 0,
-                    Note: line.Note || null,
-                    UOMId: line.ProductUOMId || line.ProductUOM?.Id || 1,
-                    Factor: 1,
-                    Priority: 0,
-                    OrderId: currentSaleOrderData.Id,
-                    LiveCampaign_DetailId: null,
-                    ProductWeight: line.Weight || 0,
-                    ProductName: line.Product?.Name || line.ProductName || '',
-                    ProductNameGet: line.Product?.NameGet || line.ProductNameGet || '',
-                    ProductCode: line.Product?.DefaultCode || line.ProductCode || '',
-                    UOMName: line.ProductUOMName || line.ProductUOM?.Name || 'Cái',
-                    ImageUrl: line.Product?.ImageUrl || '',
-                    IsOrderPriority: null,
-                    QuantityRegex: null,
-                    IsDisabledLiveCampaignDetail: false,
-                    CreatedById: createdById,
-                };
-
-                // Keep Id if it exists (for existing details)
-                if (line.Id) {
-                    cleaned.Id = line.Id;
-                }
-
-                return cleaned;
+            // 🔥 STEP 1: Fetch FULL order object from API (always fresh, even on retry)
+            const getUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})?$expand=Details,Partner,User,CRMTeam`;
+            const getResponse = await fetch(getUrl, {
+                method: 'GET',
+                headers: { ...headers, Accept: 'application/json' },
             });
-        }
+            if (!getResponse.ok) {
+                throw new Error(`Failed to fetch order: HTTP ${getResponse.status}`);
+            }
+            const fullOrder = await getResponse.json();
 
-        // Calculate totals from local orderLines
-        let totalQuantity = 0;
-        let totalAmount = 0;
-        if (payload.Details) {
-            payload.Details.forEach((detail) => {
-                const qty = detail.Quantity || 1;
-                const price = detail.Price || 0;
-                totalQuantity += qty;
-                totalAmount += qty * price;
+            // 🔥 STEP 2: Merge local changes on top of SERVER Details.
+            const payload = JSON.parse(JSON.stringify(fullOrder));
+            if (!payload['@odata.context']) {
+                payload['@odata.context'] =
+                    'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+            }
+            const createdById = fullOrder.CreatedById || fullOrder.UserId;
+            if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
+                payload.Details = mergeLocalLinesIntoServerDetails(
+                    fullOrder.Details || [],
+                    currentSaleOrderData.orderLines,
+                    currentSaleOrderData.Id,
+                    createdById
+                );
+            }
+
+            // Recalculate totals from merged Details.
+            let totalQuantity = 0;
+            let totalAmount = 0;
+            (payload.Details || []).forEach((d) => {
+                totalQuantity += d.Quantity || 1;
+                totalAmount += (d.Quantity || 1) * (d.Price || 0);
             });
-        }
+            payload.TotalAmount = totalAmount;
+            payload.TotalQuantity = totalQuantity;
 
-        payload.TotalAmount = totalAmount;
-        payload.TotalQuantity = totalQuantity;
+            console.log('[SALE-API] PUT payload:', {
+                attempt,
+                orderId: currentSaleOrderData.Id,
+                detailsCount: payload.Details?.length || 0,
+                totalAmount: payload.TotalAmount,
+                totalQuantity: payload.TotalQuantity,
+                hasRowVersion: !!payload.RowVersion,
+            });
 
-        console.log('[SALE-API] PUT payload:', {
-            orderId: currentSaleOrderData.Id,
-            detailsCount: payload.Details?.length || 0,
-            totalAmount: payload.TotalAmount,
-            totalQuantity: payload.TotalQuantity,
-            hasContext: !!payload['@odata.context'],
-            hasRowVersion: !!payload.RowVersion,
-            hasPartner: !!payload.Partner,
-            hasUser: !!payload.User,
-            hasCRMTeam: !!payload.CRMTeam,
-        });
-
-        // 🔥 STEP 3: PUT updated order back to API
-        const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
-        const response = await fetch(putUrl, {
-            method: 'PUT',
-            headers: {
+            // 🔥 STEP 3: PUT with If-Match header for optimistic concurrency.
+            // CF Worker forwards If-Match → TPOS rejects with 412 if RowVersion mismatched.
+            const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
+            const putHeaders = {
                 ...headers,
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
+            };
+            const etag = _formatRowVersionETag(payload.RowVersion);
+            if (etag) putHeaders['If-Match'] = etag;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[SALE-API] PUT failed:', errorText);
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+            const response = await fetch(putUrl, {
+                method: 'PUT',
+                headers: putHeaders,
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                // Concurrency conflict — re-fetch + re-merge + retry.
+                if (
+                    (response.status === 412 ||
+                        (response.status === 409 &&
+                            /rowversion|etag|concurren|conflict/i.test(errorText))) &&
+                    attempt < MAX_RETRIES
+                ) {
+                    console.warn(
+                        `[SALE-API] 🔀 Concurrency conflict (HTTP ${response.status}), will retry...`
+                    );
+                    lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+                    await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+                    continue;
+                }
+                console.error('[SALE-API] PUT failed:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            // Success — break out of retry loop.
+            return await _finalizeSaleOrderUpdate(response, payload, getUrl, headers);
+        } catch (err) {
+            lastError = err;
+            // Network/transient errors — retry up to MAX_RETRIES.
+            if (attempt < MAX_RETRIES && /HTTP 50\d|NetworkError|fetch/i.test(err.message)) {
+                console.warn(
+                    `[SALE-API] Transient error, retry ${attempt + 1}/${MAX_RETRIES}:`,
+                    err.message
+                );
+                await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+                continue;
+            }
+            throw err;
         }
+    }
+    throw lastError || new Error('Sale order update failed after retries');
+}
 
+async function _finalizeSaleOrderUpdate(response, payload, getUrl, headers) {
+    try {
         // Handle empty response body (PUT often returns 200 OK with no content)
         let data = null;
         const responseText = await response.text();
@@ -595,8 +716,8 @@ async function updateSaleOrderWithAPI() {
         // Update the order table row (quantity column & total)
         if (typeof updateOrderInTable === 'function') {
             updateOrderInTable(currentSaleOrderData.Id, {
-                TotalQuantity: totalQuantity,
-                TotalAmount: totalAmount,
+                TotalQuantity: payload.TotalQuantity,
+                TotalAmount: payload.TotalAmount,
             });
         }
 
@@ -687,8 +808,11 @@ async function confirmAndPrintSale() {
         return;
     }
 
-    // Guard duplicate: nếu đơn này đã có PBH "Đã xác nhận"/"Đã thanh toán" thì không tạo lại
-    // Bypass if _forceCreatePBHBypass flag is set (from "+ PBH" button in invoice status column)
+    // Guard duplicate: fetch FRESH PBH từ TPOS OData để check chính xác.
+    // Trước đây guard dùng `currentSaleOrderData.StatusText === 'Đơn hàng'` —
+    // sai vì đây là Status SaleOnline, không phải Status PBH; mọi đơn bình
+    // thường đều có Status='Đơn hàng' → block tạo PBH ngay cả khi chưa có PBH.
+    // Bypass nếu _forceCreatePBHBypass flag set (từ button "+ PBH").
     try {
         const forceBypass = window._forceCreatePBHBypass === true;
         if (forceBypass) {
@@ -697,39 +821,78 @@ async function confirmAndPrintSale() {
         }
 
         if (!forceBypass) {
-            if (
-                currentSaleOrderData.ShowState === 'Đã xác nhận' ||
-                currentSaleOrderData.ShowState === 'Đã thanh toán' ||
-                currentSaleOrderData.State === 'open' ||
-                currentSaleOrderData.StatusText === 'Đơn hàng' ||
-                currentSaleOrderData.Status === 'Đơn hàng'
-            ) {
-                const label =
-                    currentSaleOrderData.StatusText ||
-                    currentSaleOrderData.Status ||
-                    currentSaleOrderData.ShowState ||
-                    currentSaleOrderData.State;
-                const msg = `Đơn này đang ở trạng thái "${label}", không thể tạo PBH (tránh tạo trùng).`;
-                console.warn('[SALE-CONFIRM] ⚠️', msg);
-                if (window.notificationManager) window.notificationManager.warning(msg, 4000);
-                else alert(msg);
-                return;
-            }
+            const orderCode = currentSaleOrderData?.Code;
             const saleOnlineId = currentSaleOrderData?.Id;
-            if (saleOnlineId && window.InvoiceStatusStore) {
-                const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
-                if (
-                    invoiceData &&
-                    (invoiceData.ShowState === 'Đã xác nhận' ||
-                        invoiceData.ShowState === 'Đã thanh toán' ||
-                        invoiceData.State === 'open')
-                ) {
-                    const msg = `Đơn này đã có PBH "${invoiceData.ShowState || invoiceData.State}" trong store. Bỏ qua để tránh tạo trùng.`;
-                    console.warn('[SALE-CONFIRM] ⚠️', msg);
-                    if (window.notificationManager) window.notificationManager.warning(msg, 4000);
-                    else alert(msg);
-                    return;
+            // FETCH FRESH từ TPOS — nguồn chân thật duy nhất, không phụ thuộc Store stale
+            let activePBH = null;
+            if (orderCode && window.tokenManager?.getAuthHeader) {
+                try {
+                    const tposOData =
+                        window.API_CONFIG?.TPOS_ODATA ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const filter = `(Type eq 'invoice' and Reference eq '${String(orderCode).replace(/'/g, "''")}')`;
+                    const url =
+                        `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                        `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
+                    const resp = await fetch(url, {
+                        headers: { ...headers, accept: 'application/json' },
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        const invoices = Array.isArray(result?.value) ? result.value : [];
+                        // Active PBH = đã xác nhận / đã thanh toán (block tạo trùng).
+                        // KHÔNG block: 'cancel' (đã hủy), 'draft' (Nháp — user có thể
+                        // tạo phiếu mới song song để chọn cái xài). User feedback:
+                        // "trạng thái nháp vẫn cho tạo đơn chứ" — draft chỉ là phiếu
+                        // tạm chưa xác nhận, không lock được order.
+                        activePBH = invoices.find(
+                            (inv) =>
+                                inv.State !== 'cancel' &&
+                                inv.State !== 'draft' &&
+                                inv.StateCode !== 'cancel' &&
+                                inv.StateCode !== 'draft' &&
+                                !inv.IsMergeCancel &&
+                                inv.ShowState !== 'Huỷ bỏ' &&
+                                inv.ShowState !== 'Hủy bỏ' &&
+                                inv.ShowState !== 'Nháp'
+                        );
+                        // Đồng bộ Store với data fresh — tránh stale ở lần sau
+                        if (saleOnlineId && window.InvoiceStatusStore) {
+                            for (const inv of invoices) {
+                                window.InvoiceStatusStore.set(saleOnlineId, inv, {
+                                    Id: saleOnlineId,
+                                    Code: orderCode,
+                                    Name: inv.PartnerDisplayName || '',
+                                    Telephone: inv.Phone || '',
+                                    Address: inv.Address || '',
+                                });
+                            }
+                        }
+                    }
+                } catch (fetchErr) {
+                    console.warn(
+                        '[SALE-CONFIRM] Fresh PBH fetch failed (continuing):',
+                        fetchErr.message
+                    );
                 }
+            }
+
+            if (activePBH) {
+                const msg = `Đơn này đã có PBH "${activePBH.Number}" trạng thái "${activePBH.ShowState || activePBH.State}". Không tạo trùng.`;
+                console.warn('[SALE-CONFIRM] ⚠️', msg);
+                if (window.notificationManager) window.notificationManager.warning(msg, 5000);
+                else alert(msg);
+                // Re-render PBH cell để user thấy phiếu thật
+                if (typeof window.renderInvoiceStatusCell === 'function' && saleOnlineId) {
+                    const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+                    const cell = row?.querySelector('td[data-column="invoice-status"]');
+                    const order =
+                        typeof allData !== 'undefined' &&
+                        allData.find((o) => o.Id === saleOnlineId);
+                    if (order && cell) cell.innerHTML = window.renderInvoiceStatusCell(order);
+                }
+                return;
             }
         } else {
             console.log(
@@ -765,16 +928,43 @@ async function confirmAndPrintSale() {
 
     try {
         // Get auth header from billTokenManager (same as fastSaleModal)
+        // Per-bill override: nếu user chọn account khác trong dropdown, dùng account đó.
+        // Đảm bảo dropdown đã populate (idempotent — preserve current value).
+        if (typeof window.populateSaleTposAccountSelect === 'function') {
+            window.populateSaleTposAccountSelect();
+        }
+        const overrideLabelEl = document.getElementById('saleTposAccountSelect');
+        const overrideLabel = overrideLabelEl?.value?.trim() || null;
+        console.log(
+            '[SALE-CONFIRM] TPOS account override =',
+            overrideLabel || '(none, dùng active)'
+        );
         let headers;
         if (window.billTokenManager) {
-            await window.billTokenManager.ensureCredentialsLoaded();
-            if (!window.billTokenManager.hasCredentials()) {
+            // Force re-sync với Render để đảm bảo activeLabel + accounts mới nhất
+            // (user có thể đã đổi active ở tab khác / device khác)
+            await window.billTokenManager.loadFromRender();
+            if (!window.billTokenManager.hasCredentials(overrideLabel)) {
                 throw new Error(
                     'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.'
                 );
             }
-            headers = await window.billTokenManager.getAuthHeader();
-            console.log('[SALE-CONFIRM] Using billTokenManager for auth');
+            const _activeLabel = window.billTokenManager.getActiveLabel();
+            const _usedLabel = overrideLabel || _activeLabel;
+            const _credInfo = window.billTokenManager.getCredentialsInfo(_usedLabel);
+            console.log(
+                '[SALE-CONFIRM] TPOS account = ' +
+                    _usedLabel +
+                    ' (user: ' +
+                    (_credInfo.username || _credInfo.type) +
+                    ')' +
+                    (overrideLabel ? ' [override]' : ' [active]')
+            );
+            // Refresh dropdown để show latest list
+            if (typeof window.populateSaleTposAccountSelect === 'function') {
+                window.populateSaleTposAccountSelect();
+            }
+            headers = await window.billTokenManager.getAuthHeader(overrideLabel);
         } else {
             // Use tokenManager for selected company token
             const token = window.tokenManager ? await window.tokenManager.getToken() : null;
@@ -890,9 +1080,15 @@ async function confirmAndPrintSale() {
         // Retry on 401: force-refresh bill token and retry once (same idempotency key)
         if (response.status === 401 && window.billTokenManager) {
             console.log('[SALE-CONFIRM] 401 received, force-refreshing bill token...');
-            window.billTokenManager.token = null;
-            window.billTokenManager.tokenExpiry = null;
-            headers = await window.billTokenManager.getAuthHeader();
+            // Clear cache cho label đang dùng (nếu có override label, clear label đó; else active)
+            const mgr = window.billTokenManager;
+            const labelToRefresh = overrideLabel || mgr.getActiveLabel?.();
+            if (labelToRefresh && mgr._tokenCache?.has(labelToRefresh)) {
+                const entry = mgr._tokenCache.get(labelToRefresh);
+                entry.token = null;
+                entry.tokenExpiry = null;
+            }
+            headers = await mgr.getAuthHeader(overrideLabel);
             response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: {
@@ -1208,11 +1404,27 @@ async function confirmAndPrintSale() {
                     parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
                 const discountVal = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
 
+                // Math: TOTAL = Hàng + Ship - Giảm. Trước đây dùng codAmount cho `=`,
+                // sai khi user set COD trên TPOS không khớp công thức.
+                // Note format: ngoài breakdown đơn (Hàng+Ship-Giảm=Total, COD), thêm
+                // "Trả từ ví: X" để user biết wallet đóng góp bao nhiêu (vs phần thu
+                // qua COD/cash sau). Vd: ví có 240K, đơn 1.110K → ví trả 240K, COD
+                // thu 870K còn lại — không phải toàn bộ 1.110K trừ ví.
+                const computedTotal = goodsValue + shippingFee - discountVal;
+                const codCash = Math.max(0, codAmount - actualPayment);
                 let saleNote = `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`;
-                saleNote += ` (Hàng: ${goodsValue.toLocaleString('vi-VN')}đ`;
-                if (shippingFee > 0) saleNote += ` + Ship: ${shippingFee.toLocaleString('vi-VN')}đ`;
-                if (discountVal > 0) saleNote += ` - Giảm: ${discountVal.toLocaleString('vi-VN')}đ`;
-                saleNote += ` = ${codAmount.toLocaleString('vi-VN')}đ)`;
+                saleNote += ` — Trả từ ví: ${actualPayment.toLocaleString('vi-VN')}đ`;
+                saleNote += ` (Đơn: ${goodsValue.toLocaleString('vi-VN')}đ`;
+                if (shippingFee > 0) saleNote += ` + ${shippingFee.toLocaleString('vi-VN')}đ ship`;
+                if (discountVal > 0) saleNote += ` - ${discountVal.toLocaleString('vi-VN')}đ giảm`;
+                saleNote += ` = ${computedTotal.toLocaleString('vi-VN')}đ`;
+                if (codAmount && codAmount !== computedTotal) {
+                    saleNote += `, COD: ${codAmount.toLocaleString('vi-VN')}đ`;
+                }
+                if (codCash > 0) {
+                    saleNote += `, COD thu khi giao: ${codCash.toLocaleString('vi-VN')}đ`;
+                }
+                saleNote += `)`;
 
                 // Use pending-withdrawals API on Render server directly (not via CF Worker)
                 // The API will: 1) Record pending, 2) Try withdraw, 3) Cron will retry if failed

@@ -45,7 +45,9 @@ function getUserFromHeaders(req) {
         if (authData) {
             let jsonStr;
             try {
-                jsonStr = decodeURIComponent(escape(Buffer.from(authData, 'base64').toString('binary')));
+                jsonStr = decodeURIComponent(
+                    escape(Buffer.from(authData, 'base64').toString('binary'))
+                );
             } catch (_) {
                 jsonStr = authData;
             }
@@ -53,10 +55,12 @@ function getUserFromHeaders(req) {
             return {
                 uid: parsed.userId || parsed.userType || 'anonymous',
                 displayName: parsed.userName || 'User',
-                email: parsed.email || ''
+                email: parsed.email || '',
             };
         }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+        /* ignore */
+    }
     return { uid: 'anonymous', displayName: 'Anonymous', email: '' };
 }
 
@@ -72,10 +76,13 @@ function toSnakeOrder(row) {
         deletedAt: row.deleted_at,
         status: row.status,
         previousStatus: row.previous_status,
-        supplier: (row.supplier_code || row.supplier_name) ? {
-            code: row.supplier_code || '',
-            name: row.supplier_name || ''
-        } : null,
+        supplier:
+            row.supplier_code || row.supplier_name
+                ? {
+                      code: row.supplier_code || '',
+                      name: row.supplier_name || '',
+                  }
+                : null,
         invoiceAmount: parseFloat(row.invoice_amount) || 0,
         totalAmount: parseFloat(row.total_amount) || 0,
         discountAmount: parseFloat(row.discount_amount) || 0,
@@ -90,13 +97,13 @@ function toSnakeOrder(row) {
         createdBy: {
             uid: row.created_by_uid || '',
             displayName: row.created_by_name || '',
-            email: row.created_by_email || ''
+            email: row.created_by_email || '',
         },
         lastModifiedBy: {
             uid: row.last_modified_by_uid || '',
             displayName: row.last_modified_by_name || '',
-            email: row.last_modified_by_email || ''
-        }
+            email: row.last_modified_by_email || '',
+        },
     };
 }
 
@@ -157,9 +164,10 @@ router.get('/stats', async (req, res) => {
                 totalValue,
                 todayOrders: todayResult.rows[0]?.count || 0,
                 todayValue: parseFloat(todayResult.rows[0]?.total_value) || 0,
-                tposSyncRate: totalOrders > 0 ? Math.round((tposSyncedCount / totalOrders) * 100) : 0
+                tposSyncRate:
+                    totalOrders > 0 ? Math.round((tposSyncedCount / totalOrders) * 100) : 0,
             },
-            counts
+            counts,
         });
     } catch (error) {
         console.error('[PO API] Stats error:', error);
@@ -182,7 +190,7 @@ router.get('/', async (req, res) => {
             search,
             orderBy = 'created_at',
             orderDirection = 'DESC',
-            statusFilter
+            statusFilter,
         } = req.query;
 
         const params = [];
@@ -241,7 +249,13 @@ router.get('/', async (req, res) => {
         const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
         // Validate orderBy to prevent SQL injection
-        const allowedOrderBy = ['created_at', 'updated_at', 'order_date', 'final_amount', 'order_number'];
+        const allowedOrderBy = [
+            'created_at',
+            'updated_at',
+            'order_date',
+            'final_amount',
+            'order_number',
+        ];
         const safeOrderBy = allowedOrderBy.includes(orderBy) ? orderBy : 'created_at';
         const safeDirection = orderDirection.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -266,7 +280,7 @@ router.get('/', async (req, res) => {
             orders,
             hasMore,
             page: parseInt(page),
-            pageSize: parseInt(pageSize)
+            pageSize: parseInt(pageSize),
         });
     } catch (error) {
         console.error('[PO API] List error:', error);
@@ -288,9 +302,13 @@ const upload = multer({
         if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error(`Loại file không hợp lệ: ${file.mimetype}. Chỉ chấp nhận JPEG, PNG, WebP, GIF.`));
+            cb(
+                new Error(
+                    `Loại file không hợp lệ: ${file.mimetype}. Chỉ chấp nhận JPEG, PNG, WebP, GIF.`
+                )
+            );
         }
-    }
+    },
 });
 
 const BASE_URL = 'https://n2store-fallback.onrender.com';
@@ -313,52 +331,66 @@ router.options('/images/:id', (_req, res) => {
 // ========================================
 // POST /images — Upload image
 // ========================================
-router.post('/images', (req, res, next) => {
-    upload.single('image')(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-            if (err.code === 'LIMIT_FILE_SIZE') {
-                return res.status(413).json({ success: false, error: `File quá lớn. Tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
+router.post(
+    '/images',
+    (req, res, next) => {
+        upload.single('image')(req, res, (err) => {
+            if (err instanceof multer.MulterError) {
+                if (err.code === 'LIMIT_FILE_SIZE') {
+                    return res
+                        .status(413)
+                        .json({
+                            success: false,
+                            error: `File quá lớn. Tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
+                        });
+                }
+                return res.status(400).json({ success: false, error: err.message });
             }
-            return res.status(400).json({ success: false, error: err.message });
-        }
-        if (err) {
-            return res.status(400).json({ success: false, error: err.message });
-        }
-        next();
-    });
-}, async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: 'Không có file được upload. Sử dụng field name "image".' });
-        }
+            if (err) {
+                return res.status(400).json({ success: false, error: err.message });
+            }
+            next();
+        });
+    },
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        error: 'Không có file được upload. Sử dụng field name "image".',
+                    });
+            }
 
-        const pool = getDb(req);
-        const { buffer, mimetype, originalname, size } = req.file;
+            const pool = getDb(req);
+            const { buffer, mimetype, originalname, size } = req.file;
 
-        const result = await pool.query(
-            `INSERT INTO purchase_order_images (data, content_type, filename, size_bytes)
+            const result = await pool.query(
+                `INSERT INTO purchase_order_images (data, content_type, filename, size_bytes)
              VALUES ($1, $2, $3, $4)
              RETURNING id, content_type, filename, size_bytes, created_at`,
-            [buffer, mimetype, originalname || null, size || buffer.length]
-        );
+                [buffer, mimetype, originalname || null, size || buffer.length]
+            );
 
-        const row = result.rows[0];
-        res.json({
-            success: true,
-            url: `${BASE_URL}/api/v2/purchase-orders/images/${row.id}`,
-            image: {
-                id: row.id,
-                contentType: row.content_type,
-                filename: row.filename,
-                sizeBytes: row.size_bytes,
-                createdAt: row.created_at
-            }
-        });
-    } catch (error) {
-        console.error('[PO API] Image upload error:', error);
-        res.status(500).json({ success: false, error: 'Không thể upload ảnh' });
+            const row = result.rows[0];
+            res.json({
+                success: true,
+                url: `${BASE_URL}/api/v2/purchase-orders/images/${row.id}`,
+                image: {
+                    id: row.id,
+                    contentType: row.content_type,
+                    filename: row.filename,
+                    sizeBytes: row.size_bytes,
+                    createdAt: row.created_at,
+                },
+            });
+        } catch (error) {
+            console.error('[PO API] Image upload error:', error);
+            res.status(500).json({ success: false, error: 'Không thể upload ảnh' });
+        }
     }
-});
+);
 
 // ========================================
 // GET /images/:id — Serve image
@@ -493,7 +525,9 @@ router.put('/code-rules', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const pool = getDb(req);
-        const result = await pool.query('SELECT * FROM purchase_orders WHERE id = $1', [req.params.id]);
+        const result = await pool.query('SELECT * FROM purchase_orders WHERE id = $1', [
+            req.params.id,
+        ]);
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
         }
@@ -532,7 +566,7 @@ router.post('/generate-number', async (req, res) => {
 
         res.json({
             success: true,
-            orderNumber: `PO-${datePrefix}-${String(sequence).padStart(3, '0')}`
+            orderNumber: `PO-${datePrefix}-${String(sequence).padStart(3, '0')}`,
         });
     } catch (error) {
         console.error('[PO API] Generate number error:', error);
@@ -571,16 +605,21 @@ router.post('/', async (req, res) => {
         const orderNumber = `PO-${datePrefix}-${String(sequence).padStart(3, '0')}`;
 
         const items = data.items || [];
-        const totalAmount = items.reduce((sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 1), 0);
+        const totalAmount = items.reduce(
+            (sum, item) => sum + (item.purchasePrice || 0) * (item.quantity || 1),
+            0
+        );
         const finalAmount = totalAmount - (data.discountAmount || 0) + (data.shippingFee || 0);
         const status = data.status || 'DRAFT';
 
-        const statusHistory = [{
-            from: null,
-            to: status,
-            changedAt: new Date().toISOString(),
-            changedBy: user
-        }];
+        const statusHistory = [
+            {
+                from: null,
+                to: status,
+                changedAt: new Date().toISOString(),
+                changedBy: user,
+            },
+        ];
 
         // Prepare items with IDs
         const preparedItems = items.map((item, index) => ({
@@ -590,8 +629,12 @@ router.post('/', async (req, res) => {
             productName: item.productName || '',
             variant: item.variant || '',
             selectedAttributeValueIds: item.selectedAttributeValueIds || [],
-            productImages: (item.productImages || []).filter(u => typeof u === 'string' && !u.startsWith('data:')),
-            priceImages: (item.priceImages || []).filter(u => typeof u === 'string' && !u.startsWith('data:')),
+            productImages: (item.productImages || []).filter(
+                (u) => typeof u === 'string' && !u.startsWith('data:')
+            ),
+            priceImages: (item.priceImages || []).filter(
+                (u) => typeof u === 'string' && !u.startsWith('data:')
+            ),
             purchasePrice: item.purchasePrice || 0,
             sellingPrice: item.sellingPrice || 0,
             quantity: item.quantity || 1,
@@ -600,12 +643,18 @@ router.post('/', async (req, res) => {
             tposSyncStatus: item.tposSyncStatus || null,
             tposProductId: item.tposProductId || null,
             tposProductTmplId: item.tposProductTmplId || null,
-            tposSynced: item.tposSynced || false
+            tposSynced: item.tposSynced || false,
+            tposImageUrl: item.tposImageUrl || null,
+            _fromWarehouse: !!(item._fromWarehouse || item.tposSynced),
+            _isExistingItem: !!(item._isExistingItem || item.tposProductId),
         }));
 
-        const invoiceImages = (data.invoiceImages || []).filter(u => typeof u === 'string' && !u.startsWith('data:'));
+        const invoiceImages = (data.invoiceImages || []).filter(
+            (u) => typeof u === 'string' && !u.startsWith('data:')
+        );
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             INSERT INTO purchase_orders (
                 order_number, order_type, order_date, status,
                 supplier_code, supplier_name,
@@ -624,28 +673,30 @@ router.post('/', async (req, res) => {
                 $18, $19, $20
             )
             RETURNING *
-        `, [
-            orderNumber,
-            data.orderType || 'NJD SHOP',
-            data.orderDate || new Date(),
-            status,
-            data.supplier?.code || null,
-            data.supplier?.name || null,
-            data.invoiceAmount || 0,
-            totalAmount,
-            data.discountAmount || 0,
-            data.shippingFee || 0,
-            finalAmount,
-            invoiceImages,
-            data.notes || '',
-            JSON.stringify(preparedItems),
-            JSON.stringify(statusHistory),
-            preparedItems.length,
-            preparedItems.reduce((sum, item) => sum + (item.quantity || 0), 0),
-            user.uid,
-            user.displayName,
-            user.email
-        ]);
+        `,
+            [
+                orderNumber,
+                data.orderType || 'NJD SHOP',
+                data.orderDate || new Date(),
+                status,
+                data.supplier?.code || null,
+                data.supplier?.name || null,
+                data.invoiceAmount || 0,
+                totalAmount,
+                data.discountAmount || 0,
+                data.shippingFee || 0,
+                finalAmount,
+                invoiceImages,
+                data.notes || '',
+                JSON.stringify(preparedItems),
+                JSON.stringify(statusHistory),
+                preparedItems.length,
+                preparedItems.reduce((sum, item) => sum + (item.quantity || 0), 0),
+                user.uid,
+                user.displayName,
+                user.email,
+            ]
+        );
 
         res.json({ success: true, id: result.rows[0].id, order: toSnakeOrder(result.rows[0]) });
     } catch (error) {
@@ -694,7 +745,12 @@ router.put('/:id', async (req, res) => {
         if (data.shippingFee !== undefined) setField('shipping_fee', data.shippingFee);
         if (data.notes !== undefined) setField('notes', data.notes);
         if (data.invoiceImages !== undefined) {
-            setField('invoice_images', (data.invoiceImages || []).filter(u => typeof u === 'string' && !u.startsWith('data:')));
+            setField(
+                'invoice_images',
+                (data.invoiceImages || []).filter(
+                    (u) => typeof u === 'string' && !u.startsWith('data:')
+                )
+            );
         }
 
         if (data.items !== undefined) {
@@ -706,8 +762,12 @@ router.put('/:id', async (req, res) => {
                 productName: item.productName || '',
                 variant: item.variant || '',
                 selectedAttributeValueIds: item.selectedAttributeValueIds || [],
-                productImages: (item.productImages || []).filter(u => typeof u === 'string' && !u.startsWith('data:')),
-                priceImages: (item.priceImages || []).filter(u => typeof u === 'string' && !u.startsWith('data:')),
+                productImages: (item.productImages || []).filter(
+                    (u) => typeof u === 'string' && !u.startsWith('data:')
+                ),
+                priceImages: (item.priceImages || []).filter(
+                    (u) => typeof u === 'string' && !u.startsWith('data:')
+                ),
                 purchasePrice: item.purchasePrice || 0,
                 sellingPrice: item.sellingPrice || 0,
                 quantity: item.quantity || 1,
@@ -716,7 +776,10 @@ router.put('/:id', async (req, res) => {
                 tposSyncStatus: item.tposSyncStatus || null,
                 tposProductId: item.tposProductId || null,
                 tposProductTmplId: item.tposProductTmplId || null,
-                tposSynced: item.tposSynced || false
+                tposSynced: item.tposSynced || false,
+                tposImageUrl: item.tposImageUrl || null,
+                _fromWarehouse: !!(item._fromWarehouse || item.tposSynced),
+                _isExistingItem: !!(item._isExistingItem || item.tposProductId),
             }));
 
             setField('items', JSON.stringify(preparedItems));
@@ -726,7 +789,10 @@ router.put('/:id', async (req, res) => {
             setField('total_amount', totalAmount);
             setField('final_amount', totalAmount - discountAmount + shippingFee);
             setField('total_items', preparedItems.length);
-            setField('total_quantity', preparedItems.reduce((s, i) => s + (i.quantity || 0), 0));
+            setField(
+                'total_quantity',
+                preparedItems.reduce((s, i) => s + (i.quantity || 0), 0)
+            );
         }
 
         setField('updated_at', new Date());
@@ -755,7 +821,10 @@ router.patch('/:id/status', async (req, res) => {
         const { status: newStatus, reason } = req.body;
         const orderId = req.params.id;
 
-        const existing = await pool.query('SELECT status, status_history FROM purchase_orders WHERE id = $1', [orderId]);
+        const existing = await pool.query(
+            'SELECT status, status_history FROM purchase_orders WHERE id = $1',
+            [orderId]
+        );
         if (existing.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
         }
@@ -768,16 +837,26 @@ router.patch('/:id/status', async (req, res) => {
             to: newStatus,
             changedAt: new Date().toISOString(),
             changedBy: user,
-            reason: reason || null
+            reason: reason || null,
         });
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             UPDATE purchase_orders
             SET status = $1, status_history = $2, updated_at = NOW(),
                 last_modified_by_uid = $3, last_modified_by_name = $4, last_modified_by_email = $5
             WHERE id = $6
             RETURNING *
-        `, [newStatus, JSON.stringify(statusHistory), user.uid, user.displayName, user.email, orderId]);
+        `,
+            [
+                newStatus,
+                JSON.stringify(statusHistory),
+                user.uid,
+                user.displayName,
+                user.email,
+                orderId,
+            ]
+        );
 
         res.json({ success: true, order: toSnakeOrder(result.rows[0]) });
     } catch (error) {
@@ -795,7 +874,10 @@ router.delete('/:id', async (req, res) => {
         const user = getUserFromHeaders(req);
         const orderId = req.params.id;
 
-        const existing = await pool.query('SELECT status, status_history FROM purchase_orders WHERE id = $1', [orderId]);
+        const existing = await pool.query(
+            'SELECT status, status_history FROM purchase_orders WHERE id = $1',
+            [orderId]
+        );
         if (existing.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
         }
@@ -807,16 +889,26 @@ router.delete('/:id', async (req, res) => {
             from: currentStatus,
             to: 'DELETED',
             changedAt: new Date().toISOString(),
-            changedBy: user
+            changedBy: user,
         });
 
-        await pool.query(`
+        await pool.query(
+            `
             UPDATE purchase_orders
             SET status = 'DELETED', deleted_at = NOW(), previous_status = $1,
                 status_history = $2, updated_at = NOW(),
                 last_modified_by_uid = $3, last_modified_by_name = $4, last_modified_by_email = $5
             WHERE id = $6
-        `, [currentStatus, JSON.stringify(statusHistory), user.uid, user.displayName, user.email, orderId]);
+        `,
+            [
+                currentStatus,
+                JSON.stringify(statusHistory),
+                user.uid,
+                user.displayName,
+                user.email,
+                orderId,
+            ]
+        );
 
         res.json({ success: true });
     } catch (error) {
@@ -834,13 +926,18 @@ router.post('/:id/restore', async (req, res) => {
         const user = getUserFromHeaders(req);
         const orderId = req.params.id;
 
-        const existing = await pool.query('SELECT status, previous_status, status_history FROM purchase_orders WHERE id = $1', [orderId]);
+        const existing = await pool.query(
+            'SELECT status, previous_status, status_history FROM purchase_orders WHERE id = $1',
+            [orderId]
+        );
         if (existing.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
         }
 
         if (existing.rows[0].status !== 'DELETED') {
-            return res.status(400).json({ success: false, error: 'Đơn hàng không nằm trong thùng rác' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Đơn hàng không nằm trong thùng rác' });
         }
 
         const restoreStatus = existing.rows[0].previous_status || 'DRAFT';
@@ -851,17 +948,27 @@ router.post('/:id/restore', async (req, res) => {
             to: restoreStatus,
             changedAt: new Date().toISOString(),
             changedBy: user,
-            reason: 'Khôi phục từ thùng rác'
+            reason: 'Khôi phục từ thùng rác',
         });
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             UPDATE purchase_orders
             SET status = $1, deleted_at = NULL, previous_status = NULL,
                 status_history = $2, updated_at = NOW(),
                 last_modified_by_uid = $3, last_modified_by_name = $4, last_modified_by_email = $5
             WHERE id = $6
             RETURNING *
-        `, [restoreStatus, JSON.stringify(statusHistory), user.uid, user.displayName, user.email, orderId]);
+        `,
+            [
+                restoreStatus,
+                JSON.stringify(statusHistory),
+                user.uid,
+                user.displayName,
+                user.email,
+                orderId,
+            ]
+        );
 
         res.json({ success: true, order: toSnakeOrder(result.rows[0]) });
     } catch (error) {
@@ -878,13 +985,20 @@ router.delete('/:id/permanent', async (req, res) => {
         const pool = getDb(req);
         const orderId = req.params.id;
 
-        const existing = await pool.query('SELECT status FROM purchase_orders WHERE id = $1', [orderId]);
+        const existing = await pool.query('SELECT status FROM purchase_orders WHERE id = $1', [
+            orderId,
+        ]);
         if (existing.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
         }
 
         if (existing.rows[0].status !== 'DELETED') {
-            return res.status(400).json({ success: false, error: 'Chỉ có thể xóa vĩnh viễn đơn hàng trong thùng rác' });
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    error: 'Chỉ có thể xóa vĩnh viễn đơn hàng trong thùng rác',
+                });
         }
 
         await pool.query('DELETE FROM purchase_orders WHERE id = $1', [orderId]);
@@ -924,7 +1038,7 @@ router.post('/:id/copy', async (req, res) => {
             tposProductTmplId: null,
             tposSynced: false,
             tposSyncError: null,
-            tposImageUrl: null
+            tposImageUrl: null,
         }));
 
         // Generate new order number
@@ -945,19 +1059,25 @@ router.post('/:id/copy', async (req, res) => {
         }
         const orderNumber = `PO-${datePrefix}-${String(sequence).padStart(3, '0')}`;
 
-        const totalAmount = newItems.reduce((s, i) => s + (i.purchasePrice || 0) * (i.quantity || 1), 0);
+        const totalAmount = newItems.reduce(
+            (s, i) => s + (i.purchasePrice || 0) * (i.quantity || 1),
+            0
+        );
         const notes = source.notes
             ? `[Sao chép từ ${source.order_number}] ${source.notes}`
             : `Sao chép từ ${source.order_number}`;
 
-        const statusHistory = [{
-            from: null,
-            to: 'DRAFT',
-            changedAt: new Date().toISOString(),
-            changedBy: user
-        }];
+        const statusHistory = [
+            {
+                from: null,
+                to: 'DRAFT',
+                changedAt: new Date().toISOString(),
+                changedBy: user,
+            },
+        ];
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             INSERT INTO purchase_orders (
                 order_number, order_type, order_date, status,
                 supplier_code, supplier_name,
@@ -976,19 +1096,23 @@ router.post('/:id/copy', async (req, res) => {
                 $11, $12, $13
             )
             RETURNING *
-        `, [
-            orderNumber,
-            source.order_type,
-            source.supplier_code,
-            source.supplier_name,
-            totalAmount,
-            notes,
-            JSON.stringify(newItems),
-            JSON.stringify(statusHistory),
-            newItems.length,
-            newItems.reduce((s, i) => s + (i.quantity || 0), 0),
-            user.uid, user.displayName, user.email
-        ]);
+        `,
+            [
+                orderNumber,
+                source.order_type,
+                source.supplier_code,
+                source.supplier_name,
+                totalAmount,
+                notes,
+                JSON.stringify(newItems),
+                JSON.stringify(statusHistory),
+                newItems.length,
+                newItems.reduce((s, i) => s + (i.quantity || 0), 0),
+                user.uid,
+                user.displayName,
+                user.email,
+            ]
+        );
 
         res.json({ success: true, id: result.rows[0].id, order: toSnakeOrder(result.rows[0]) });
     } catch (error) {

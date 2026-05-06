@@ -424,6 +424,31 @@ function getAllDotHangAsShipments() {
         }
     });
 
+    // Helper fallback nếu table-renderer chưa load (bootstrap order an toàn).
+    const _qtyOf = (p) => {
+        if (window.getProductEffectiveQty) return window.getProductEffectiveQty(p);
+        const t = parseInt(p.tongSoLuong) || 0;
+        if (t > 0) return t;
+        const mauSum = Array.isArray(p.mauSac)
+            ? p.mauSac.reduce((s, m) => s + (parseInt(m.soLuong) || 0), 0)
+            : 0;
+        if (mauSum > 0) return mauSum;
+        return parseInt(p.soLuong) || 0;
+    };
+    const _amtOf = (p) => _qtyOf(p) * (parseFloat(p.giaDonVi) || 0);
+
+    // Recompute hd-level totals from products để tránh tongTienHD/tongMon stale
+    // (vd biến thể chưa nhập SL → tongSoLuong=0 nhưng soLuong=35 → tổng đúng = soLuong).
+    Object.values(byKey).forEach((ship) => {
+        ship.hoaDon.forEach((hd) => {
+            const products = hd.sanPham || [];
+            if (products.length > 0) {
+                hd.tongTienHD = products.reduce((s, p) => s + _amtOf(p), 0);
+                hd.tongMon = products.reduce((s, p) => s + _qtyOf(p), 0);
+            }
+        });
+    });
+
     const shipments = Object.values(byKey).map((ship) => {
         ship.tongKien = ship.kienHang.length;
         ship.tongKg = ship.kienHang.reduce((sum, k) => sum + (k.soKg || 0), 0);
@@ -470,7 +495,16 @@ function getAllDotsAggregated() {
         const entry = byDot[dotSo];
         const ngay = dot.ngayDiHang;
         if (ngay) entry.ngayDiHangSet.add(ngay);
-        const hd = parseFloat(dot.tongTienHD) || 0;
+        // Recompute từ sanPham nếu có để fix tongTienHD stale.
+        const products = dot.sanPham || [];
+        let hd;
+        if (products.length > 0) {
+            const _qtyOf =
+                window.getProductEffectiveQty || ((p) => p.tongSoLuong || p.soLuong || 0);
+            hd = products.reduce((s, p) => s + _qtyOf(p) * (parseFloat(p.giaDonVi) || 0), 0);
+        } else {
+            hd = parseFloat(dot.tongTienHD) || 0;
+        }
         const cp = parseFloat(dot.tongChiPhi) || 0;
         entry.tongTienHoaDon += hd;
         entry.tongChiPhi += cp;

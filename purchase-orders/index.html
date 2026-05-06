@@ -4,165 +4,190 @@
   Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
   Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
 -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý Đặt hàng - N2STORE</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản lý Đặt hàng - N2STORE</title>
 
-    <!-- Styles - Modular CSS -->
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/base.css">
+        <!-- Styles - Modular CSS -->
+        <link rel="stylesheet" href="css/variables.css" />
+        <link rel="stylesheet" href="css/base.css" />
 
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/buttons.css">
-    <link rel="stylesheet" href="css/cards.css">
-    <link rel="stylesheet" href="css/tabs.css">
-    <link rel="stylesheet" href="css/filters.css">
-    <link rel="stylesheet" href="css/table.css">
-    <link rel="stylesheet" href="css/states.css">
-    <link rel="stylesheet" href="css/pagination.css">
-    <link rel="stylesheet" href="css/toast.css">
-    <link rel="stylesheet" href="css/modal.css?v=20260418b">
-    <link rel="stylesheet" href="css/form.css">
-    <link rel="stylesheet" href="css/responsive.css">
-    <link rel="stylesheet" href="../shared/css/modern.css">
+        <link rel="stylesheet" href="css/layout.css" />
+        <link rel="stylesheet" href="css/buttons.css" />
+        <link rel="stylesheet" href="css/cards.css" />
+        <link rel="stylesheet" href="css/tabs.css" />
+        <link rel="stylesheet" href="css/filters.css" />
+        <link rel="stylesheet" href="css/table.css" />
+        <link rel="stylesheet" href="css/states.css" />
+        <link rel="stylesheet" href="css/pagination.css" />
+        <link rel="stylesheet" href="css/toast.css" />
+        <link rel="stylesheet" href="css/modal.css?v=20260418b" />
+        <link rel="stylesheet" href="css/form.css" />
+        <link rel="stylesheet" href="css/responsive.css" />
+        <link rel="stylesheet" href="../shared/css/modern.css" />
 
-    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager, FIREBASE_CONFIG) -->
-    <script type="module" src="../shared/esm/compat.js"></script>
-<!-- Fallback for file:// protocol -->
-<script>
-    if (window.location.protocol === 'file:') {
-        document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-        document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-    }
-</script>
-
-    <!-- Navigation Manager - loads after compat.js via event listener -->
-    <script defer src="../shared/js/navigation-modern.js"></script>
-
-    <!-- Lucide Icons CDN -->
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-
-    <!-- Firebase Configuration (SHARED) -->
-    <script src="../shared/js/firebase-config.js"></script>
-
-    <!-- XLSX for Export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <!-- JsBarcode for client-side barcode generation -->
-    <script defer src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
-<body>
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Page Header -->
-        <header class="page-header">
-            <div class="page-header__info">
-                <h1 class="page-header__title">Quản lý đặt hàng</h1>
-                <p class="page-header__description">Theo dõi và quản lý đơn đặt hàng từ nhà cung cấp</p>
-            </div>
-            <button class="btn btn-primary" id="btnCreateOrder">
-                <i data-lucide="plus"></i>
-                <span>Tạo đơn đặt hàng</span>
-            </button>
-        </header>
-
-        <!-- Stats Toggle -->
-        <div class="stats-toggle-bar">
-            <button class="stats-toggle-btn" id="btnToggleStats" aria-expanded="false" aria-controls="statsPanel">
-                <i data-lucide="bar-chart-3"></i>
-                <span>Thống kê</span>
-                <i data-lucide="chevron-down" class="stats-toggle-chevron"></i>
-            </button>
-        </div>
-
-        <!-- Collapsible Stats Panel (hidden by default) -->
-        <div class="stats-panel" id="statsPanel" hidden>
-            <!-- Summary Cards -->
-            <section class="summary-cards" id="summaryCards" aria-label="Thống kê đơn hàng">
-                <!-- Cards rendered by JS -->
-            </section>
-
-            <!-- TPOS Live Stats -->
-            <section class="tpos-stats" id="tposStatsContainer" aria-label="Thống kê TPOS">
-                <!-- Rendered by JS -->
-            </section>
-        </div>
-
-        <!-- Tabs -->
-        <nav class="tabs-container" aria-label="Phân loại đơn hàng">
-            <div class="tabs-nav" id="tabsContainer" role="tablist">
-                <!-- Tabs rendered by JS -->
-            </div>
-        </nav>
-
-        <!-- Filter Bar -->
-        <section id="filterBar" aria-label="Bộ lọc">
-            <!-- Filter bar rendered by JS -->
-        </section>
-
-        <!-- Table Container -->
-        <section id="tableContainer" role="region" aria-label="Danh sách đơn hàng" aria-live="polite">
-            <!-- Table rendered by JS -->
-        </section>
-
-        <!-- Pagination -->
-        <nav id="pagination" aria-label="Phân trang">
-            <!-- Pagination rendered by JS -->
-        </nav>
-    </main>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay" aria-hidden="true" role="status">
-        <div class="loading-spinner" aria-label="Đang tải..."></div>
-    </div>
-
-    <!-- Module Scripts (load in order) -->
-    <script src="js/config.js"></script>
-    <script src="js/validation.js"></script>
-    <!-- Utility Libraries -->
-    <script src="js/lib/shop-config.js"></script>
-    <script src="js/lib/variant-utils.js"></script>
-    <script src="js/lib/supplier-detector.js"></script>
-    <script src="js/lib/tpos-search.js"></script>
-    <script src="js/lib/ncc-manager.js"></script>
-    <script src="js/lib/tpos-purchase.js"></script>
-    <script src="js/lib/tpos-product-creator.js"></script>
-    <script src="js/lib/product-code-generator.js"></script>
-    <script src="js/lib/image-utils.js"></script>
-    <script src="js/service.js"></script>
-    <script src="js/data-manager.js"></script>
-    <script src="js/ui-components.js"></script>
-    <script src="js/table-renderer.js"></script>
-    <script src="js/form-modal.js"></script>
-    <script src="js/lib/barcode-label-dialog.js"></script>
-    <script src="js/dialogs.js?v=20260418b"></script>
-    <script src="js/history-tab.js"></script>
-    <script src="js/refund-tab.js"></script>
-    <script src="js/products-tab.js"></script>
-    <script src="js/notes-tab.js"></script>
-    <script src="js/main.js"></script>
-
-    <!-- Initialize Lucide Icons -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
+        <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager, FIREBASE_CONFIG) -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
             }
-        });
-    </script>
-</body>
+        </script>
+
+        <!-- Navigation Manager - loads after compat.js via event listener -->
+        <script defer src="../shared/js/navigation-modern.js"></script>
+
+        <!-- Lucide Icons CDN -->
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
+
+        <!-- XLSX for Export -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+        <!-- JsBarcode for client-side barcode generation -->
+        <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"
+        ></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <!-- typography:shared -->
+    </head>
+    <body>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="page-header__info">
+                    <h1 class="page-header__title">Quản lý đặt hàng</h1>
+                    <p class="page-header__description">
+                        Theo dõi và quản lý đơn đặt hàng từ nhà cung cấp
+                    </p>
+                </div>
+                <button class="btn btn-primary" id="btnCreateOrder">
+                    <i data-lucide="plus"></i>
+                    <span>Tạo đơn đặt hàng</span>
+                </button>
+            </header>
+
+            <!-- Trash expiring warning banner (rendered by JS, hidden by default) -->
+            <div id="trashExpiringBanner" class="trash-warning-banner" hidden></div>
+
+            <!-- Stats Toggle -->
+            <div class="stats-toggle-bar">
+                <button
+                    class="stats-toggle-btn"
+                    id="btnToggleStats"
+                    aria-expanded="false"
+                    aria-controls="statsPanel"
+                >
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>Thống kê</span>
+                    <i data-lucide="chevron-down" class="stats-toggle-chevron"></i>
+                </button>
+            </div>
+
+            <!-- Collapsible Stats Panel (hidden by default) -->
+            <div class="stats-panel" id="statsPanel" hidden>
+                <!-- Summary Cards -->
+                <section class="summary-cards" id="summaryCards" aria-label="Thống kê đơn hàng">
+                    <!-- Cards rendered by JS -->
+                </section>
+
+                <!-- TPOS Live Stats -->
+                <section class="tpos-stats" id="tposStatsContainer" aria-label="Thống kê TPOS">
+                    <!-- Rendered by JS -->
+                </section>
+            </div>
+
+            <!-- Tabs -->
+            <nav class="tabs-container" aria-label="Phân loại đơn hàng">
+                <div class="tabs-nav" id="tabsContainer" role="tablist">
+                    <!-- Tabs rendered by JS -->
+                </div>
+            </nav>
+
+            <!-- Filter Bar -->
+            <section id="filterBar" aria-label="Bộ lọc">
+                <!-- Filter bar rendered by JS -->
+            </section>
+
+            <!-- Table Container -->
+            <section
+                id="tableContainer"
+                role="region"
+                aria-label="Danh sách đơn hàng"
+                aria-live="polite"
+            >
+                <!-- Table rendered by JS -->
+            </section>
+
+            <!-- Pagination -->
+            <nav id="pagination" aria-label="Phân trang">
+                <!-- Pagination rendered by JS -->
+            </nav>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" aria-hidden="true" role="status">
+            <div class="loading-spinner" aria-label="Đang tải..."></div>
+        </div>
+
+        <!-- Module Scripts (load in order) -->
+        <script src="js/config.js"></script>
+        <script src="js/validation.js"></script>
+        <!-- Utility Libraries -->
+        <script src="js/lib/shop-config.js"></script>
+        <script src="js/lib/variant-utils.js"></script>
+        <script src="js/lib/supplier-detector.js"></script>
+        <script src="js/lib/tpos-search.js"></script>
+        <script src="js/lib/ncc-manager.js"></script>
+        <script src="js/lib/tpos-purchase.js"></script>
+        <script src="../shared/js/warehouse-api.js"></script>
+        <script src="js/lib/tpos-product-creator.js"></script>
+        <script src="js/lib/product-code-generator.js"></script>
+        <script src="js/lib/image-utils.js"></script>
+        <script src="js/service.js"></script>
+        <script src="js/data-manager.js"></script>
+        <script src="js/ui-components.js"></script>
+        <script src="js/table-renderer.js"></script>
+        <script src="js/form-modal.js"></script>
+        <script src="js/lib/barcode-label-dialog.js"></script>
+        <script src="js/dialogs.js?v=20260418b"></script>
+        <script src="js/history-tab.js"></script>
+        <script src="js/refund-tab.js"></script>
+        <script src="js/products-tab.js"></script>
+        <script src="js/notes-tab.js"></script>
+        <script src="js/main.js"></script>
+
+        <!-- Initialize Lucide Icons -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
+        </script>
+    </body>
 </html>

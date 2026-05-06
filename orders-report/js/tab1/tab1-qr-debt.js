@@ -302,6 +302,86 @@ window.walletDebtData = new Map();
 // Use direct Render API URL (same as WalletIntegration) - proxy may not handle POST correctly
 const WALLET_BATCH_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
+// =====================================================
+// PERSISTENT CACHE — localStorage SWR pattern
+// Cache walletDebtData để badge render INSTANT lúc page mở thay vì đợi
+// 1s fetch round-trip. SSE realtime + scheduled re-fetch keep data fresh.
+// =====================================================
+const WALLET_CACHE_LS_KEY = 'n2s_wallet_debt_cache_v1';
+const WALLET_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — sau đó revalidate
+const WALLET_FETCH_DEBOUNCE_MS = 300;
+const WALLET_FETCH_COOLDOWN_MS = 15000; // Skip re-fetch trong 15s (burst protection)
+let _walletCacheLoadedAt = 0;
+let _lastFetchAt = 0;
+
+function _loadWalletCacheFromLS() {
+    try {
+        const raw = localStorage.getItem(WALLET_CACHE_LS_KEY);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        const ts = obj?.timestamp || 0;
+        if (Date.now() - ts > WALLET_CACHE_TTL_MS) return; // expired
+        const entries = obj?.entries || {};
+        let count = 0;
+        for (const [phone, data] of Object.entries(entries)) {
+            if ((data?.total || 0) > 0) {
+                window.walletDebtData.set(phone, data);
+                count++;
+            }
+        }
+        _walletCacheLoadedAt = ts;
+        console.log(`[WALLET-DEBT] Loaded ${count} entries from localStorage cache`);
+    } catch (e) {
+        console.warn('[WALLET-DEBT] Cache load failed:', e?.message);
+    }
+}
+
+let _saveCacheTimer = null;
+function _saveWalletCacheToLS() {
+    if (_saveCacheTimer) return; // debounce 1s — burst write coalesce
+    _saveCacheTimer = setTimeout(() => {
+        _saveCacheTimer = null;
+        try {
+            const entries = {};
+            window.walletDebtData.forEach((data, phone) => {
+                entries[phone] = data;
+            });
+            localStorage.setItem(
+                WALLET_CACHE_LS_KEY,
+                JSON.stringify({ timestamp: Date.now(), entries })
+            );
+        } catch (e) {
+            // localStorage quota — silent
+        }
+    }, 1000);
+}
+
+// Load cache ngay khi script execute
+_loadWalletCacheFromLS();
+
+// Sau DOMContentLoaded + table render đầu tiên, apply badges từ cache instant.
+// renderTable() trigger triggerWalletDebtFetch (debounce 300ms + cooldown
+// check) — apply badges ngay trước khi fetch round-trip xong.
+function _scheduleApplyOnFirstRender() {
+    let attempts = 0;
+    const tryApply = () => {
+        attempts++;
+        if (window.walletDebtData.size === 0) return; // no cache
+        const hasRows = document.querySelectorAll('tr[data-order-id]').length > 0;
+        if (hasRows) {
+            updateWalletDebtBadgesInTable();
+            return;
+        }
+        if (attempts < 20) setTimeout(tryApply, 300); // retry 6s max
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(tryApply, 200));
+    } else {
+        setTimeout(tryApply, 200);
+    }
+}
+_scheduleApplyOnFirstRender();
+
 const WALLET_DEBT_BADGE_CONFIG = {
     BANK_TRANSFER: { label: 'CK', bg: '#10b981' },
     RETURN_GOODS: { label: 'Khách gửi', bg: '#8b5cf6' },
@@ -347,13 +427,25 @@ async function fetchWalletDebtBatch(phones) {
 
             const result = await response.json();
             if (result.success && result.data) {
+                let needCleanup = false;
                 for (const [phone, data] of Object.entries(result.data)) {
                     if ((data.total || 0) > 0) {
                         window.walletDebtData.set(phone, data);
                     } else {
+                        if (window.walletDebtData.has(phone)) {
+                            // Wallet vừa bị trừ về 0 → trigger cleanup auto-flag CK/TC
+                            needCleanup = true;
+                        }
                         window.walletDebtData.delete(phone);
+                        // Reset done flags để _applyWalletAutoTags re-process row & auto-remove
+                        _walletAutoTagDone.delete(phone);
+                        _walletAutoTagDone.delete(phone + ':CK');
+                        _walletAutoTagDone.delete(phone + ':TC');
                     }
                 }
+                // Persist to localStorage cache (debounced)
+                _saveWalletCacheToLS();
+                if (needCleanup) _scheduleWalletAutoTag();
             }
         } catch (error) {
             console.error(
@@ -375,41 +467,65 @@ function hasWalletDebt(phone) {
 
 /**
  * Render wallet debt badges for a phone number
- * Returns HTML string with one badge per active source
+ * Returns HTML string with one badge per active source.
+ * - Background dùng đúng config.bg (CK xanh, Thu về vàng, Khách gửi tím, ...)
+ *   thay vì hardcoded #10b981 → fix bug user báo "Thu về 290k màu xanh".
+ * - Inline styles minimal: chỉ giữ background-color (variable per source).
+ *   Common styles move qua CSS class .wallet-debt-badge ở polish-shared.css.
+ * - Pre-format amount số tiền (Intl.NumberFormat) cache tránh tạo lại Intl
+ *   instance per-render (51 rows × 2 badges = 102 calls/render).
  */
+const _vnNumFmt = new Intl.NumberFormat('vi-VN');
 function renderWalletDebtBadges(phone) {
     if (!phone) return '';
     const normalized = normalizePhoneForQR(phone);
-    if (!normalized || !window.walletDebtData.has(normalized)) return '';
-
+    if (!normalized) return '';
     const data = window.walletDebtData.get(normalized);
+    if (!data) return '';
+
     const sources = data.sourceBreakdown || {};
     const total = data.total || 0;
     if (total <= 0) return '';
 
-    // Build badges for each source that has positive amount
-    // Determine effective source amounts based on current balance/virtualBalance
     const badges = [];
     for (const [source, config] of Object.entries(WALLET_DEBT_BADGE_CONFIG)) {
         const sourceAmount = sources[source] || 0;
         if (sourceAmount <= 0) continue;
-
         const shortAmt = formatAmountShort(sourceAmount);
+        const fullAmt = _vnNumFmt.format(sourceAmount);
         badges.push(
-            `<span class="wallet-debt-badge" data-source="${source}" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="${config.label}: ${new Intl.NumberFormat('vi-VN').format(sourceAmount)}đ">${config.label} ${shortAmt}</span>`
+            `<span class="wallet-debt-badge" data-source="${source}" data-phone="${normalized}" style="background:${config.bg}" title="${config.label}: ${fullAmt}đ">${config.label} ${shortAmt}</span>`
         );
     }
 
-    // If no source breakdown available but total > 0, show generic badge
+    // Fallback generic badge khi server không trả sourceBreakdown chi tiết
     if (badges.length === 0 && total > 0) {
         const shortAmt = formatAmountShort(total);
+        const fullAmt = _vnNumFmt.format(total);
         badges.push(
-            `<span class="wallet-debt-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="Số dư ví: ${new Intl.NumberFormat('vi-VN').format(total)}đ">Ví ${shortAmt}</span>`
+            `<span class="wallet-debt-badge" data-phone="${normalized}" style="background:#10b981" title="Số dư ví: ${fullAmt}đ">Ví ${shortAmt}</span>`
         );
     }
 
-    return ' ' + badges.join(' ');
+    return badges.length ? ' ' + badges.join(' ') : '';
 }
+
+// Event delegation cho click — replace 51 onclick attributes per page render
+// (1 listener tbody-level thay vì 51+ inline onclick → giảm parse cost +
+// HTML size ~80 bytes/badge × ~100 badges = ~8KB tbody HTML).
+document.addEventListener(
+    'click',
+    function (e) {
+        const badge = e.target.closest('.wallet-debt-badge');
+        if (!badge) return;
+        const phone = badge.dataset.phone;
+        if (phone && typeof window.openWalletDebtModal === 'function') {
+            e.stopPropagation();
+            window.openWalletDebtModal(phone);
+        }
+    },
+    true
+);
 
 /**
  * Auto-tag CK / Trừ Công Nợ — retry nếu ProcessingTagState chưa loaded.
@@ -434,7 +550,11 @@ function _scheduleWalletAutoTag() {
 function _markWalletAutoTagDirty(phone) {
     // Gọi khi wallet data thay đổi (SSE update) → cho phép re-run auto-tag cho phone này
     const normalized = normalizePhoneForQR(phone);
-    if (normalized) _walletAutoTagDone.delete(normalized);
+    if (normalized) {
+        _walletAutoTagDone.delete(normalized);
+        _walletAutoTagDone.delete(normalized + ':CK');
+        _walletAutoTagDone.delete(normalized + ':TC');
+    }
 }
 
 function _applyWalletAutoTags() {
@@ -452,22 +572,36 @@ function _applyWalletAutoTags() {
     }
 
     _walletAutoTagRetries = 0;
-    if (!window.walletDebtData || walletSize === 0) return;
+    if (!window.walletDebtData) return;
 
-    let taggedCount = 0;
+    // Helper: kiểm tra flag được auto-add (source ≠ user thật) từ history.
+    // Auto markers: 'Tự Động', 'Hệ thống', 'TPOS-SYNC*'. Tránh xóa flag user gắn tay.
+    const _AUTO_USER_MARKERS = new Set(['Tự Động', 'Hệ thống', 'Tự Động (gỡ)']);
+    const _isFlagAutoAdded = (orderCode, flagKey) => {
+        const history = window.ProcessingTagState?.getHistory?.(orderCode) || [];
+        // Scan ngược tìm record ADD_FLAG cuối cùng cho flagKey
+        for (let i = history.length - 1; i >= 0; i--) {
+            const e = history[i];
+            if (e.action === 'ADD_FLAG' && e.value === flagKey) {
+                const user = e.user || '';
+                return _AUTO_USER_MARKERS.has(user) || user.startsWith('TPOS-SYNC');
+            }
+            if (e.action === 'REMOVE_FLAG' && e.value === flagKey) {
+                return false; // đã bị remove rồi → không cần xét
+            }
+        }
+        return false;
+    };
+
+    let addedCount = 0;
+    let removedCount = 0;
     document.querySelectorAll('td[data-column="customer"]').forEach((cell) => {
         const row = cell.closest('tr');
         if (!row) return;
         const phoneCell = row.querySelector('td[data-column="phone"]');
         if (!phoneCell) return;
         const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
-        if (!rowPhone || !window.walletDebtData.has(rowPhone)) return;
-
-        // Skip nếu phone này đã xử lý xong (tránh lặp mỗi polling cycle)
-        if (_walletAutoTagDone.has(rowPhone)) return;
-
-        const data = window.walletDebtData.get(rowPhone);
-        if ((data.total || 0) <= 0) return;
+        if (!rowPhone) return;
 
         const orderId = row.getAttribute('data-order-id');
         const orderCode =
@@ -475,73 +609,111 @@ function _applyWalletAutoTags() {
             (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
         if (!orderCode) return;
 
+        const data = window.walletDebtData.get(rowPhone); // có thể undefined nếu total<=0
+        const balance = data?.balance || 0;
+        const virtualBalance = data?.virtualBalance || data?.virtual_balance || 0;
+
         const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
         const existingFlagIds = existingFlags.map((f) => (typeof f === 'object' ? f.id : f));
+        const hasCK = existingFlagIds.includes('CHUYEN_KHOAN');
+        const hasTC = existingFlagIds.includes('TRU_CONG_NO');
 
-        if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
+        // ADD: balance > 0 → tag CK; virtualBalance > 0 → tag TRU_CONG_NO
+        if (balance > 0 && !hasCK && !_walletAutoTagDone.has(rowPhone + ':CK')) {
             window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động', { batchQueue: true });
-            taggedCount++;
+            addedCount++;
+            _walletAutoTagDone.add(rowPhone + ':CK');
         }
-        if (
-            (data.virtualBalance || data.virtual_balance || 0) > 0 &&
-            !existingFlagIds.includes('TRU_CONG_NO')
-        ) {
+        if (virtualBalance > 0 && !hasTC && !_walletAutoTagDone.has(rowPhone + ':TC')) {
             window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động', { batchQueue: true });
-            taggedCount++;
+            addedCount++;
+            _walletAutoTagDone.add(rowPhone + ':TC');
         }
 
-        // Đánh dấu phone đã xử lý — không chạy lại cho polling tiếp theo
-        _walletAutoTagDone.add(rowPhone);
+        // REMOVE: balance dropped to 0 (đã trừ ví hết) → gỡ CK flag NẾU auto-added.
+        // Phải check history để tránh gỡ flag user gắn tay.
+        if (balance <= 0 && hasCK && _isFlagAutoAdded(orderCode, 'CHUYEN_KHOAN')) {
+            window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động (gỡ)', { batchQueue: true });
+            removedCount++;
+            _walletAutoTagDone.delete(rowPhone + ':CK');
+        }
+        if (virtualBalance <= 0 && hasTC && _isFlagAutoAdded(orderCode, 'TRU_CONG_NO')) {
+            window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động (gỡ)', { batchQueue: true });
+            removedCount++;
+            _walletAutoTagDone.delete(rowPhone + ':TC');
+        }
     });
 
-    if (taggedCount > 0) {
-        console.log(`[WALLET-AUTOTAG] ✅ Auto-tagged ${taggedCount} flags`);
+    if (addedCount > 0 || removedCount > 0) {
+        console.log(
+            `[WALLET-AUTOTAG] ✅ +${addedCount} added, -${removedCount} removed (auto-flags)`
+        );
     }
 }
 
 /**
- * Update wallet debt badges in table for a specific phone (or all phones)
+ * Update wallet debt badges in table for a specific phone (or all phones).
+ * OPTIMIZED: thay vì query mọi td.customer (51 cells), build phone→row index
+ * 1 lần rồi chỉ touch các row có wallet data. Nhanh hơn ~10x cho bảng 51 rows
+ * mà chỉ ~5 phone có wallet data.
  */
 function updateWalletDebtBadgesInTable(targetPhone) {
     const normalized = targetPhone ? normalizePhoneForQR(targetPhone) : null;
-    document.querySelectorAll('td[data-column="customer"]').forEach((cell) => {
-        const row = cell.closest('tr');
-        if (!row) return;
+
+    // Build phone → cells lookup 1 lần (mỗi row có 1 phone cell + 1 customer cell)
+    const phoneCellsMap = new Map(); // phone → [{ row, customerCell, phoneCell }, ...]
+    document.querySelectorAll('tr[data-order-id]').forEach((row) => {
         const phoneCell = row.querySelector('td[data-column="phone"]');
-        if (!phoneCell) return;
+        const customerCell = row.querySelector('td[data-column="customer"]');
+        if (!phoneCell || !customerCell) return;
         const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
-        if (normalized && rowPhone !== normalized) return;
-
-        // Remove existing badges
-        cell.querySelectorAll('.wallet-debt-badge').forEach((b) => b.remove());
-
-        const nameDiv = cell.querySelector('.customer-name');
-        if (!nameDiv) return;
-
-        if (rowPhone && window.walletDebtData.has(rowPhone)) {
-            const data = window.walletDebtData.get(rowPhone);
-            if ((data.total || 0) <= 0) {
-                cell.style.background = '';
-                return;
-            }
-
-            // Insert badges
-            const temp = document.createElement('span');
-            temp.innerHTML = renderWalletDebtBadges(rowPhone);
-            while (temp.firstChild) {
-                nameDiv.appendChild(temp.firstChild);
-            }
-
-            // Watermark background
-            cell.style.background =
-                'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
-
-            // Schedule auto-tag CK / Trừ Công Nợ (tách ra function riêng để retry khi _isLoaded=false)
-            _scheduleWalletAutoTag();
-        } else {
-            cell.style.background = '';
-        }
+        if (!rowPhone) return;
+        if (!phoneCellsMap.has(rowPhone)) phoneCellsMap.set(rowPhone, []);
+        phoneCellsMap.get(rowPhone).push({ row, customerCell });
     });
+
+    // Apply badge per affected phone
+    const phonesToProcess = normalized
+        ? [normalized]
+        : Array.from(new Set([...phoneCellsMap.keys(), ...window.walletDebtData.keys()]));
+
+    let appliedCount = 0;
+    for (const phone of phonesToProcess) {
+        const cells = phoneCellsMap.get(phone);
+        if (!cells || cells.length === 0) continue;
+
+        const data = window.walletDebtData.get(phone);
+        const hasData = data && (data.total || 0) > 0;
+        const badgesHTML = hasData ? renderWalletDebtBadges(phone) : '';
+
+        for (const { customerCell } of cells) {
+            // Remove existing badges
+            const oldBadges = customerCell.querySelectorAll('.wallet-debt-badge');
+            oldBadges.forEach((b) => b.remove());
+
+            if (!hasData) {
+                customerCell.style.background = '';
+                continue;
+            }
+
+            const nameDiv = customerCell.querySelector('.customer-name');
+            if (!nameDiv) continue;
+
+            // Insert new badges
+            const temp = document.createElement('span');
+            temp.innerHTML = badgesHTML;
+            while (temp.firstChild) nameDiv.appendChild(temp.firstChild);
+
+            // Watermark background (gradient xanh nhạt highlight có nợ)
+            customerCell.style.background =
+                'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
+            appliedCount++;
+        }
+    }
+
+    if (appliedCount > 0) {
+        _scheduleWalletAutoTag();
+    }
 }
 
 /**
@@ -550,23 +722,42 @@ function updateWalletDebtBadgesInTable(targetPhone) {
  * Debounced to avoid multiple rapid calls.
  */
 let _walletDebtFetchTimer = null;
-function triggerWalletDebtFetch() {
+function triggerWalletDebtFetch(opts = {}) {
     clearTimeout(_walletDebtFetchTimer);
     _walletDebtFetchTimer = setTimeout(() => {
+        // Cooldown: skip nếu vừa fetch trong 15s (trừ khi force=true). Tránh
+        // burst fetch khi renderTable() chạy nhiều lần liên tiếp (filter, sort,
+        // surgical replace với nhiều WS event). Cache localStorage đã có data
+        // → badge vẫn render instant từ cache.
+        const sinceLast = Date.now() - _lastFetchAt;
+        if (!opts.force && sinceLast < WALLET_FETCH_COOLDOWN_MS && _lastFetchAt > 0) {
+            // Còn fresh — chỉ apply badges từ cache hiện có (không re-fetch)
+            updateWalletDebtBadgesInTable();
+            return;
+        }
+
         const phones = [];
         document.querySelectorAll('td[data-column="phone"]').forEach((cell) => {
             const p = cell.textContent.trim();
             if (p) phones.push(p);
         });
         const unique = [...new Set(phones)];
+
+        // Apply badges từ cache có sẵn TRƯỚC khi fetch — instant render từ
+        // cache localStorage, fresh data đến sẽ patch lại sau (SWR pattern).
+        if (window.walletDebtData.size > 0) {
+            updateWalletDebtBadgesInTable();
+        }
+
         if (unique.length > 0) {
+            _lastFetchAt = Date.now();
             fetchWalletDebtBatch(unique)
                 .then(() => {
                     updateWalletDebtBadgesInTable();
                 })
                 .catch((err) => console.error('[WALLET-DEBT] Fetch error:', err));
         }
-    }, 300);
+    }, WALLET_FETCH_DEBOUNCE_MS);
 }
 
 // =====================================================
@@ -1015,6 +1206,11 @@ async function openSaleButtonModal() {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
 
+    // Populate TPOS account dropdown (active = first option)
+    if (typeof window.populateSaleTposAccountSelect === 'function') {
+        window.populateSaleTposAccountSelect();
+    }
+
     // Reset confirm button state (in case it was disabled from previous session)
     const confirmBtn = document.querySelector('.sale-btn-teal');
     if (confirmBtn) {
@@ -1221,6 +1417,11 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     // Show modal
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
+
+    // Populate TPOS account dropdown
+    if (typeof window.populateSaleTposAccountSelect === 'function') {
+        window.populateSaleTposAccountSelect();
+    }
 
     // Reset confirm button
     const confirmBtn = document.querySelector('.sale-btn-teal');

@@ -37,8 +37,11 @@ const KPICommission = {
         // 'full'   = hiển thị TẤT CẢ đơn gồm cả đơn chưa tick KPI (KPI = 0).
         // Persist localStorage per-user để giữ giữa session.
         displayMode: (() => {
-            try { return localStorage.getItem('kpiDisplayMode') || 'simple'; }
-            catch (e) { return 'simple'; }
+            try {
+                return localStorage.getItem('kpiDisplayMode') || 'simple';
+            } catch (e) {
+                return 'simple';
+            }
         })(),
     },
 
@@ -348,6 +351,9 @@ const KPICommission = {
             // Sync nút toggle mode với state đã khôi phục từ localStorage
             this.updateDisplayModeLabel();
 
+            // Bind filter v2 (date presets, status chips, more menu) — sets default 30d
+            this._bindFilterV2();
+
             await this.applyFilters();
             this.reinitIcons();
         } catch (error) {
@@ -532,7 +538,9 @@ const KPICommission = {
     toggleDisplayMode() {
         const next = this.state.displayMode === 'simple' ? 'full' : 'simple';
         this.state.displayMode = next;
-        try { localStorage.setItem('kpiDisplayMode', next); } catch (e) {}
+        try {
+            localStorage.setItem('kpiDisplayMode', next);
+        } catch (e) {}
         this.updateDisplayModeLabel();
         // Re-apply filter + render với mode mới
         this.applyFilters();
@@ -563,7 +571,7 @@ const KPICommission = {
     },
 
     async applyFilters() {
-        // Read filter values
+        // Read filter values — status từ chip, các value khác từ inputs
         this.state.filters.campaign =
             (document.getElementById('kpiFilterCampaign') || {}).value || '';
         this.state.filters.employee =
@@ -571,7 +579,10 @@ const KPICommission = {
         this.state.filters.dateFrom =
             (document.getElementById('kpiFilterDateFrom') || {}).value || '';
         this.state.filters.dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
-        this.state.filters.status = (document.getElementById('kpiFilterStatus') || {}).value || '';
+        // Status đọc từ active chip (filter v2) thay vì select cũ
+        const activeChip = document.querySelector('.kpi-status-chips .kpi-chip.is-active');
+        this.state.filters.status = activeChip ? activeChip.dataset.status || '' : '';
+        this._renderFiltersSummary();
 
         const { campaign, employee, dateFrom, dateTo, status } = this.state.filters;
 
@@ -878,6 +889,532 @@ const KPICommission = {
     },
 
     // ========================================
+    // INVOICE DETAIL MODAL — click số phiếu xem chi tiết
+    // ========================================
+
+    async showInvoiceDetail(invoiceId, invoiceNumber) {
+        // Tạo modal nếu chưa có
+        let modal = document.getElementById('invoiceDetailModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'invoiceDetailModal';
+            modal.className = 'modal-overlay invoice-detail-modal';
+            modal.innerHTML = `
+                <div class="modal-container invoice-detail-container">
+                    <div class="modal-header">
+                        <h3 class="modal-title">
+                            <i data-lucide="receipt"></i>
+                            Chi tiết phiếu <span id="invDetailNumber">—</span>
+                        </h3>
+                        <div class="invoice-detail-actions">
+                            <a href="#" target="_blank" id="invDetailTposLink" class="kpi-icon-btn" title="Mở trên TPOS">
+                                <i data-lucide="external-link"></i> TPOS
+                            </a>
+                            <button class="modal-close" onclick="document.getElementById('invoiceDetailModal').style.display='none'">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modal-body invoice-detail-body" id="invDetailBody">
+                        <div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            // Click outside to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.style.display = 'none';
+            });
+        }
+        modal.style.display = 'flex';
+        document.getElementById('invDetailNumber').textContent = invoiceNumber || '—';
+        const tposLink = document.getElementById('invDetailTposLink');
+        if (tposLink && invoiceId) {
+            tposLink.href = `https://tomato.tpos.vn/#/app/fastsaleorder/${invoiceId}`;
+        }
+        const body = document.getElementById('invDetailBody');
+        if (body)
+            body.innerHTML =
+                '<div class="loading-state"><div class="spinner"></div><p>Đang tải chi tiết phiếu...</p></div>';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        if (!invoiceId) {
+            if (body)
+                body.innerHTML =
+                    '<div class="empty-state"><p>Phiếu không có ID — không thể tải chi tiết.</p></div>';
+            return;
+        }
+
+        try {
+            const data = await this._fetchInvoiceDetail(invoiceId);
+            if (!data) {
+                if (body)
+                    body.innerHTML =
+                        '<div class="empty-state"><p>Không tải được chi tiết phiếu từ TPOS.</p></div>';
+                return;
+            }
+            this._renderInvoiceDetail(body, data);
+        } catch (e) {
+            console.warn('[KPI Tab] Invoice detail fetch failed:', e?.message);
+            if (body)
+                body.innerHTML = `<div class="empty-state"><p>Lỗi: ${this.escapeHtml(e.message || '')}</p></div>`;
+        }
+    },
+
+    async _fetchInvoiceDetail(invoiceId) {
+        if (!this._invoiceDetailCache) this._invoiceDetailCache = new Map();
+        if (this._invoiceDetailCache.has(invoiceId)) {
+            return this._invoiceDetailCache.get(invoiceId);
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        let authHeader;
+        const tokenManager = window.tokenManager || window.parent?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            authHeader = await tokenManager.getAuthHeader();
+        } else {
+            // Fallback to /api/token
+            const companyId =
+                window.ShopConfig?.getConfig?.()?.CompanyId ||
+                window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
+                1;
+            const creds =
+                companyId === 2
+                    ? {
+                          grant_type: 'password',
+                          username: 'nvktshop1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      }
+                    : {
+                          grant_type: 'password',
+                          username: 'nvktlive1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      };
+            const formData = new URLSearchParams();
+            for (const [k, v] of Object.entries(creds)) formData.append(k, v);
+            const tokenRes = await fetch(`${WORKER}/api/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+            });
+            const tokenData = await tokenRes.json();
+            authHeader = { Authorization: `Bearer ${tokenData.access_token}` };
+        }
+        const res = await fetch(
+            `${WORKER}/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines,Partner,User`,
+            {
+                headers: {
+                    ...authHeader,
+                    accept: 'application/json',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        this._invoiceDetailCache.set(invoiceId, data);
+        return data;
+    },
+
+    _renderInvoiceDetail(container, data) {
+        if (!container) return;
+        const fmt = (n) => (n || 0).toLocaleString('vi-VN') + ' ₫';
+        const date = data.DateInvoice ? new Date(data.DateInvoice).toLocaleString('vi-VN') : '—';
+        const lines = data.OrderLines || [];
+        const totalQty = lines.reduce((s, l) => s + (l.Quantity || 0), 0);
+
+        const linesHtml = lines.length
+            ? `<table class="inv-detail-items">
+                <thead>
+                    <tr>
+                        <th>Sản phẩm</th>
+                        <th>Mã</th>
+                        <th>SL</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${lines
+                        .map(
+                            (l) => `<tr>
+                        <td>${this.escapeHtml(l.ProductName || l.ProductNameGet || l.Name || '—')}</td>
+                        <td><code>${this.escapeHtml(l.ProductCode || '—')}</code></td>
+                        <td class="num">${l.Quantity || 0}</td>
+                        <td class="num">${fmt(l.Price)}</td>
+                        <td class="num"><strong>${fmt(l.PriceSubTotal || (l.Price || 0) * (l.Quantity || 0))}</strong></td>
+                    </tr>`
+                        )
+                        .join('')}
+                </tbody>
+            </table>`
+            : '<div class="empty-state"><p>Phiếu không có dòng sản phẩm.</p></div>';
+
+        container.innerHTML = `
+            <div class="inv-detail-grid">
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Số phiếu</div>
+                    <div class="inv-detail-value"><strong>${this.escapeHtml(data.Number || '')}</strong></div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Ngày lập</div>
+                    <div class="inv-detail-value">${this.escapeHtml(date)}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Trạng thái</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.ShowState || data.State || '—')}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Khách hàng</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.PartnerDisplayName || data.Partner?.Name || '—')}<br><small>${this.escapeHtml(data.Phone || data.Partner?.Phone || '')}</small></div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">SĐT giao hàng</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.Phone || '—')}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">Địa chỉ</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.Address || data.FullAddress || '—')}</div>
+                </div>
+                <div class="inv-detail-card">
+                    <div class="inv-detail-label">NV bán</div>
+                    <div class="inv-detail-value">${this.escapeHtml(data.UserName || data.User?.Name || '—')}</div>
+                </div>
+                <div class="inv-detail-card inv-detail-total">
+                    <div class="inv-detail-label">Tổng tiền</div>
+                    <div class="inv-detail-value"><strong>${fmt(data.AmountTotal)}</strong></div>
+                </div>
+            </div>
+            ${data.Comment || data.Note ? `<div class="inv-detail-note"><strong>Ghi chú:</strong> ${this.escapeHtml(data.Comment || data.Note)}</div>` : ''}
+            <h4 class="inv-detail-section-title"><i data-lucide="package"></i> Sản phẩm (${lines.length} loại, ${totalQty} SP)</h4>
+            ${linesHtml}
+        `;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    },
+
+    // ========================================
+    // FILTER BAR V2 — date presets, status chips, more menu
+    // ========================================
+
+    _formatDateForInput(d) {
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yy}-${mm}-${dd}`;
+    },
+
+    _applyDatePreset(preset) {
+        const fromEl = document.getElementById('kpiFilterDateFrom');
+        const toEl = document.getElementById('kpiFilterDateTo');
+        const customWrap = document.getElementById('kpiDateCustom');
+        if (!fromEl || !toEl) return;
+        const today = new Date();
+        const setRange = (from, to) => {
+            fromEl.value = this._formatDateForInput(from);
+            toEl.value = this._formatDateForInput(to);
+        };
+        if (preset === 'today') {
+            setRange(today, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === '7d') {
+            const from = new Date(today);
+            from.setDate(from.getDate() - 6);
+            setRange(from, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === '30d') {
+            const from = new Date(today);
+            from.setDate(from.getDate() - 29);
+            setRange(from, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === 'thismonth') {
+            const from = new Date(today.getFullYear(), today.getMonth(), 1);
+            setRange(from, today);
+            if (customWrap) customWrap.style.display = 'none';
+        } else if (preset === 'custom') {
+            if (customWrap) customWrap.style.display = '';
+        }
+    },
+
+    _bindFilterV2() {
+        if (this.__filterV2Bound) return;
+        this.__filterV2Bound = true;
+
+        // Date preset buttons
+        document.querySelectorAll('.kpi-preset-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document
+                    .querySelectorAll('.kpi-preset-btn')
+                    .forEach((b) => b.classList.toggle('is-active', b === btn));
+                const preset = btn.dataset.preset;
+                this._applyDatePreset(preset);
+                if (preset !== 'custom') {
+                    this.applyFilters();
+                }
+            });
+        });
+
+        // Status chips
+        document.querySelectorAll('.kpi-status-chips .kpi-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                document
+                    .querySelectorAll('.kpi-status-chips .kpi-chip')
+                    .forEach((c) => c.classList.toggle('is-active', c === chip));
+                this.applyFilters();
+            });
+        });
+
+        // Auto-apply on date inputs change
+        ['kpiFilterDateFrom', 'kpiFilterDateTo'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.applyFilters());
+            }
+        });
+        // Auto-apply on campaign / employee change
+        ['kpiFilterCampaign', 'kpiFilterEmployee'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.applyFilters());
+            }
+        });
+
+        // More actions menu
+        const moreBtn = document.getElementById('btnKpiMoreActions');
+        const moreMenu = document.getElementById('kpiMoreMenu');
+        if (moreBtn && moreMenu) {
+            moreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                moreMenu.classList.toggle('is-open');
+            });
+            document.addEventListener('click', () => {
+                moreMenu.classList.remove('is-open');
+            });
+            moreMenu.addEventListener('click', (e) => e.stopPropagation());
+        }
+
+        // Apply initial preset (30d)
+        this._applyDatePreset('30d');
+    },
+
+    _renderFiltersSummary() {
+        const el = document.getElementById('kpiFiltersSummary');
+        if (!el) return;
+        const parts = [];
+        const f = this.state.filters || {};
+        if (f.dateFrom && f.dateTo) {
+            parts.push(`📅 ${f.dateFrom} → ${f.dateTo}`);
+        }
+        if (f.campaign) parts.push(`🎯 ${f.campaign}`);
+        if (f.employee) {
+            const empSel = document.getElementById('kpiFilterEmployee');
+            const label = empSel?.options[empSel.selectedIndex]?.text || f.employee;
+            parts.push(`👤 ${label}`);
+        }
+        if (f.status) parts.push(f.status === 'ok' ? '✓ OK' : '⚠ Sai lệch');
+        el.textContent = parts.length ? 'Filter: ' + parts.join(' · ') : '';
+    },
+
+    // ========================================
+    // LEADERBOARD + HERO HELPERS (redesign)
+    // ========================================
+
+    _initials(name) {
+        const parts = String(name || '')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+        if (parts.length === 0) return '?';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    },
+
+    _avatarColor(seed) {
+        const palette = [
+            'linear-gradient(135deg, #6366f1, #ec4899)',
+            'linear-gradient(135deg, #06b6d4, #3b82f6)',
+            'linear-gradient(135deg, #f59e0b, #ef4444)',
+            'linear-gradient(135deg, #10b981, #14b8a6)',
+            'linear-gradient(135deg, #8b5cf6, #d946ef)',
+            'linear-gradient(135deg, #ec4899, #f97316)',
+        ];
+        let hash = 0;
+        for (let i = 0; i < (seed || '').length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+        return palette[hash % palette.length];
+    },
+
+    _renderLeaderboard(aggregated) {
+        const wrap = document.getElementById('kpiLeaderboardWrapper');
+        if (!wrap) return;
+        if (!aggregated || aggregated.length === 0) {
+            wrap.innerHTML = '';
+            return;
+        }
+        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
+        const fullMode = this.state.displayMode === 'full';
+        const maxNetKpi = aggregated.reduce((max, e) => {
+            const loss = (this._reconKpiLossByUser?.get(e.userId) || {}).kpiLost || 0;
+            return Math.max(max, e.totalKPI - loss);
+        }, 0);
+        let html = '';
+        aggregated.forEach((emp, idx) => {
+            const rank = idx + 1;
+            let rankCls = '';
+            if (rank === 1) rankCls = 'is-gold';
+            else if (rank === 2) rankCls = 'is-silver';
+            else if (rank === 3) rankCls = 'is-bronze';
+            const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+
+            const orderCount = emp.orders.filter((o) => {
+                if (o._stale) return false;
+                if (fullMode) return true;
+                return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
+            }).length;
+
+            const lossInfo = this._reconKpiLossByUser?.get(emp.userId) || {
+                kpiLost: 0,
+                refundCount: 0,
+            };
+            const kpiNet = emp.totalKPI - lossInfo.kpiLost;
+            const netPct = maxNetKpi > 0 ? Math.max(2, Math.round((kpiNet / maxNetKpi) * 100)) : 2;
+            const lossPct =
+                emp.totalKPI > 0 ? Math.round((lossInfo.kpiLost / emp.totalKPI) * 100) : 0;
+
+            const initials = this._initials(emp.resolvedName);
+            const avatarBg = this._avatarColor(emp.userId || emp.resolvedName);
+
+            const refundBadge =
+                reconRan && lossInfo.refundCount > 0
+                    ? `<span class="lb-emp-refund-badge"><i data-lucide="undo-2"></i>${lossInfo.refundCount} hoàn</span>`
+                    : '';
+
+            html += `<div class="lb-row" onclick="window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')" tabindex="0" role="button">
+                <div class="lb-rank ${rankCls}" title="Hạng ${rank}">${rankIcon}</div>
+                <div class="lb-employee">
+                    <div class="lb-emp-info">
+                        <div class="lb-emp-name">${this.escapeHtml(emp.resolvedName)}</div>
+                        <div class="lb-emp-meta">
+                            <span class="lb-emp-meta-item"><i data-lucide="package"></i>${orderCount} đơn</span>
+                            <span class="lb-emp-meta-item"><i data-lucide="layers"></i>${emp.totalNetProducts} SP NET</span>
+                            ${refundBadge}
+                        </div>
+                    </div>
+                </div>
+                <div class="lb-kpi-bar-wrap">
+                    <div class="lb-kpi-bar-label">
+                        <span>KPI thực</span>
+                        <span class="lb-kpi-bar-pct">${maxNetKpi > 0 ? Math.round((kpiNet / maxNetKpi) * 100) : 0}%</span>
+                    </div>
+                    <div class="lb-kpi-bar">
+                        <div class="lb-kpi-bar-net" style="width:${netPct}%;"></div>
+                        ${lossInfo.kpiLost > 0 ? `<div class="lb-kpi-bar-loss" style="left:${netPct}%;width:${Math.min(lossPct, 100 - netPct)}%;" title="Bị loại do refund: ${this.formatCurrency(lossInfo.kpiLost)}"></div>` : ''}
+                    </div>
+                </div>
+                <div class="lb-kpi-amount">
+                    <div class="lb-kpi-amount-net">${this.formatCurrency(kpiNet)}</div>
+                    <div class="lb-kpi-amount-gross ${lossInfo.kpiLost > 0 ? 'has-loss' : ''}">${lossInfo.kpiLost > 0 ? `gross ${this.formatCurrency(emp.totalKPI)} − ${this.formatCurrency(lossInfo.kpiLost)} hoàn` : 'không có loss'}</div>
+                </div>
+                <div class="lb-action">
+                    <button class="lb-detail-btn" onclick="event.stopPropagation();window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')"><i data-lucide="chevron-right"></i> Chi tiết</button>
+                </div>
+            </div>`;
+        });
+        wrap.innerHTML = html;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    },
+
+    _updateHeroStats(aggregated) {
+        const totalKpiNet = aggregated.reduce((sum, e) => {
+            const loss = (this._reconKpiLossByUser?.get(e.userId) || {}).kpiLost || 0;
+            return sum + (e.totalKPI - loss);
+        }, 0);
+        const totalKpiGross = aggregated.reduce((sum, e) => sum + e.totalKPI, 0);
+        const totalRefunds = [...(this._reconKpiLossByUser?.values() || [])].reduce(
+            (sum, v) => sum + (v.refundCount || 0),
+            0
+        );
+        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
+
+        const set = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        set('kpiHeroTotal', this.formatCurrency(totalKpiNet));
+        set(
+            'kpiHeroSub',
+            reconRan
+                ? `Đã đối soát · gross ${this.formatCurrency(totalKpiGross)}, loại ${this.formatCurrency(totalKpiGross - totalKpiNet)}`
+                : 'Chưa chạy đối soát — hãy chạy để loại đơn hoàn'
+        );
+        set('kpiHeroEmps', aggregated.length.toLocaleString('vi-VN'));
+        set('kpiHeroRefunds', reconRan ? totalRefunds.toLocaleString('vi-VN') : '—');
+    },
+
+    _bindLeaderboardToggle() {
+        const btns = document.querySelectorAll('.lb-toggle-btn');
+        btns.forEach((b) => {
+            if (b.__lbBound) return;
+            b.__lbBound = true;
+            b.addEventListener('click', () => {
+                const view = b.dataset.view;
+                this._kpiViewMode = view;
+                btns.forEach((x) => x.classList.toggle('is-active', x === b));
+                const lbWrap = document.getElementById('kpiLeaderboardWrapper');
+                const tableWrap = document.getElementById('kpiTableWrapper');
+                if (view === 'leaderboard') {
+                    if (lbWrap) lbWrap.style.display = '';
+                    if (tableWrap) tableWrap.style.display = 'none';
+                } else {
+                    if (lbWrap) lbWrap.style.display = 'none';
+                    if (tableWrap) tableWrap.style.display = '';
+                }
+            });
+        });
+    },
+
+    _bindModalL1Tabs() {
+        const tabs = document.querySelectorAll('.modalL1-tab');
+        tabs.forEach((t) => {
+            if (t.__l1Bound) return;
+            t.__l1Bound = true;
+            t.addEventListener('click', () => {
+                const key = t.dataset.l1Tab;
+                tabs.forEach((x) => x.classList.toggle('is-active', x === t));
+                this._applyL1Tab(key);
+            });
+        });
+    },
+
+    _applyL1Tab(key) {
+        this._l1ActiveTab = key;
+        const tbody = document.getElementById('modalL1TableBody');
+        const wrapper = document.getElementById('modalL1TableWrapper');
+        const summary = document.getElementById('modalL1Summary');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr[data-l1-order]');
+        if (key === 'overview') {
+            // Show only summary, hide table
+            if (summary) summary.style.display = '';
+            if (wrapper) wrapper.style.display = 'none';
+            return;
+        }
+        if (wrapper) wrapper.style.display = '';
+        if (summary) summary.style.display = '';
+        rows.forEach((r) => {
+            const isRefunded = r.classList.contains('is-refunded');
+            const show = key === 'orders' || (key === 'refunds' && isRefunded);
+            r.style.display = show ? '' : 'none';
+            const detail = r.nextElementSibling;
+            if (detail && detail.classList.contains('l1-detail-row')) {
+                detail.style.display = show && detail.dataset.open === '1' ? '' : 'none';
+            }
+        });
+    },
+
+    // ========================================
     // RENDER KPI TABLE (12.6)
     // ========================================
     async renderKPITable(filteredData) {
@@ -886,36 +1423,72 @@ const KPICommission = {
         if (!filteredData || filteredData.length === 0) {
             this.showEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
+            const lbWrap = document.getElementById('kpiLeaderboardWrapper');
+            if (lbWrap) lbWrap.style.display = 'none';
             return;
         }
 
         this.hideEl('kpiTableEmpty');
-        this.showEl('kpiTableWrapper');
 
         const aggregated = await this.aggregateByEmployee(filteredData);
+
+        // Render leaderboard cards (default view) + table (alt view)
+        this._renderLeaderboard(aggregated);
+        this._updateHeroStats(aggregated);
+        this._bindLeaderboardToggle();
+
+        // Apply current view
+        const viewMode = this._kpiViewMode || 'leaderboard';
+        const lbWrap = document.getElementById('kpiLeaderboardWrapper');
+        const tableWrap = document.getElementById('kpiTableWrapper');
+        if (viewMode === 'leaderboard') {
+            if (lbWrap) lbWrap.style.display = '';
+            if (tableWrap) tableWrap.style.display = 'none';
+        } else {
+            if (lbWrap) lbWrap.style.display = 'none';
+            if (tableWrap) tableWrap.style.display = '';
+        }
+
         const tbody = document.getElementById('kpiTableBody');
         if (!tbody) return;
 
         const fullMode = this.state.displayMode === 'full';
+        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
         let html = '';
         aggregated.forEach((emp, idx) => {
             const invoiceSummaryHtml = this.renderKPIInvoiceStatusSummary(emp.orders);
 
-            // "SỐ ĐƠN" column:
-            //   Simple mode → chỉ đếm đơn có KPI > 0 (hành vi cũ).
-            //   Full mode   → đếm TẤT CẢ đơn không stale (bao gồm đơn KPI = 0).
             const orderCount = emp.orders.filter((o) => {
                 if (o._stale) return false;
                 if (fullMode) return true;
                 return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
             }).length;
 
+            const lossInfo = this._reconKpiLossByUser?.get(emp.userId) || {
+                kpiLost: 0,
+                refundCount: 0,
+            };
+            const kpiNet = emp.totalKPI - lossInfo.kpiLost;
+            const hasLoss = lossInfo.kpiLost > 0;
+
+            const grossCellHtml = hasLoss
+                ? `<td class="col-kpi-gross" title="Tổng KPI trước khi loại đơn hoàn">${this.formatCurrency(emp.totalKPI)}</td>`
+                : `<td class="col-kpi-gross" style="text-decoration:none;color:inherit;">${this.formatCurrency(emp.totalKPI)}</td>`;
+
+            const refundCellHtml = reconRan
+                ? `<td class="col-refund-count"><span class="refund-badge ${lossInfo.refundCount === 0 ? 'is-zero' : ''}" title="${lossInfo.refundCount} đơn hoàn — bị loại ${this.formatCurrency(lossInfo.kpiLost)}">↩ ${lossInfo.refundCount}</span></td>`
+                : `<td class="col-refund-count" style="color:#9ca3af;font-size:11px;" title="Chưa chạy đối soát">—</td>`;
+
+            const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? 'Bị loại ' + this.formatCurrency(lossInfo.kpiLost) + ' do refund' : 'Không có đơn hoàn'}">${this.formatCurrency(kpiNet)}</td>`;
+
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
                 <td>${orderCount}</td>
                 <td>${emp.totalNetProducts}</td>
-                <td>${this.formatCurrency(emp.totalKPI)}</td>
+                ${grossCellHtml}
+                ${refundCellHtml}
+                ${netCellHtml}
                 <td>${invoiceSummaryHtml}</td>
             </tr>`;
         });
@@ -1039,27 +1612,83 @@ const KPICommission = {
         if (!tbody) return;
 
         const simpleMode = this.state.displayMode === 'simple';
+        const reconRan = !!(this._reconByOrder && this._reconByOrder.size > 0);
         let html = '';
+        let totalOrders = 0;
+        let okOrders = 0;
+        let refundOrders = 0;
+        let kpiGross = 0;
+        let kpiLost = 0;
+
         orders.forEach((order) => {
-            // Luôn ẩn đơn stale.
             if (order._stale) return;
-            // Simple mode: ẩn đơn 0 KPI (không có SP nào được tick trong đơn).
-            // Full mode: hiện đầy đủ, kể cả đơn KPI = 0 để user review.
-            if (simpleMode && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0) return;
+            const recon = this._reconByOrder?.get(order.orderId);
+            const isRefunded = !!recon?.isRefunded;
+            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện đơn refunded để user
+            // thấy lý do "đã hoàn — không tính KPI" dù KPI=0
+            if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
+                return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
+            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isRefunded;
+            const invNumber =
+                recon?.invoiceNumber || this._invoiceCache?.get(order.orderId)?.Number || '';
 
-            html += `<tr>
-                <td>${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
+            totalOrders++;
+            kpiGross += order.kpi || 0;
+            if (isRefunded) {
+                refundOrders++;
+                kpiLost += order.kpi || 0;
+            } else {
+                okOrders++;
+            }
+
+            const rowClass = isRefunded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
+
+            let statusPill;
+            if (isRefunded) {
+                statusPill = '<span class="kpi-status-pill pill-refund">↩ Đã hoàn</span>';
+            } else if (hasDiscrepancy) {
+                statusPill = '<span class="kpi-status-pill pill-discrepancy">⚠ Sai lệch</span>';
+            } else if (reconRan) {
+                statusPill = '<span class="kpi-status-pill pill-ok">✓ OK</span>';
+            } else {
+                statusPill =
+                    '<span class="kpi-status-pill pill-untracked" title="Chưa chạy đối soát">— chưa check</span>';
+            }
+
+            const invId = this._invoiceCache?.get(order.orderId)?.Id;
+            const invHtml = invNumber
+                ? `<a class="recon-invoice-num is-link" href="javascript:void(0)" onclick="event.stopPropagation();window.KPICommission.showInvoiceDetail('${invId || ''}', '${this.escapeHtml(invNumber)}')" title="Xem chi tiết phiếu ${this.escapeHtml(invNumber)}">${this.escapeHtml(invNumber)}</a>`
+                : '<span class="recon-invoice-num is-empty">—</span>';
+
+            const toggleBtn = isRefunded
+                ? `<button class="recon-toggle-btn l1-toggle-btn" onclick="window.KPICommission._toggleL1OrderDetail('${this.escapeHtml(order.orderId)}')" title="Xem món trả + lý do"><i data-lucide="chevron-right"></i></button>`
+                : '';
+
+            html += `<tr class="${rowClass}" data-l1-order="${this.escapeHtml(order.orderId)}">
+                <td>${toggleBtn}${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
                 <td><a class="order-link" onclick="KPICommission.showOrderDetails('${this.escapeHtml(order.orderId)}')">${this.escapeHtml(order.orderCode || order.orderId)}</a></td>
+                <td>${invHtml}</td>
                 <td>${this.escapeHtml(order.campaignName || '---')}</td>
                 <td>${order.netProducts || 0}</td>
                 <td>${this.formatCurrency(order.kpi || 0)}</td>
+                <td>${statusPill}</td>
                 <td>${invoiceHtml}</td>
             </tr>`;
+
+            // Detail row — empty initially, populated lazy on click cho đơn refunded
+            if (isRefunded) {
+                html += `<tr class="recon-detail-row l1-detail-row" data-open="0" style="display:none;">
+                    <td colspan="8">
+                        <div class="recon-detail-content l1-detail-content">
+                            <em>Click để load chi tiết món trả...</em>
+                        </div>
+                    </td>
+                </tr>`;
+            }
         });
 
-        // Nếu sau filter không còn đơn nào
         if (!html) {
             this.showEl('modalL1Empty');
             this.hideEl('modalL1TableWrapper');
@@ -1067,6 +1696,43 @@ const KPICommission = {
         }
 
         tbody.innerHTML = html;
+
+        // Render summary card — luôn populate values cho đúng count.
+        // Show/hide xử lý ở _applyL1Tab (tab Tổng quan luôn show summary kèm
+        // empty-state nếu chưa recon).
+        const summary = document.getElementById('modalL1Summary');
+        if (summary) {
+            const set = (id, v) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = v;
+            };
+            set('l1SumTotalOrders', totalOrders.toLocaleString('vi-VN'));
+            set('l1SumOkOrders', okOrders.toLocaleString('vi-VN'));
+            set('l1SumRefundOrders', refundOrders.toLocaleString('vi-VN'));
+            set('l1SumKpiGross', this.formatCurrency(kpiGross));
+            set('l1SumKpiLost', this.formatCurrency(kpiLost));
+            set('l1SumKpiNet', this.formatCurrency(kpiGross - kpiLost));
+        }
+        this._l1ReconRan = reconRan;
+
+        // Update tab counts
+        const setTab = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        setTab('l1TabCountAll', totalOrders);
+        setTab('l1TabCountRefund', refundOrders);
+
+        // Bind tab clicks (idempotent)
+        this._bindModalL1Tabs();
+        // Apply current tab filter (default = orders)
+        if (!this._l1ActiveTab) this._l1ActiveTab = 'orders';
+        document
+            .querySelectorAll('.modalL1-tab')
+            .forEach((t) => t.classList.toggle('is-active', t.dataset.l1Tab === this._l1ActiveTab));
+        this._applyL1Tab(this._l1ActiveTab);
+
+        if (window.lucide?.createIcons) window.lucide.createIcons();
     },
 
     closeEmployeeOrders() {
@@ -1190,8 +1856,9 @@ const KPICommission = {
 
             const products = Object.entries(kpiResult.details || {})
                 .map(([pid, data]) => {
-                    const isSaleChecked = !!(window.KpiSaleFlagStore
-                        && window.KpiSaleFlagStore.get(orderCode, pid));
+                    const isSaleChecked = !!(
+                        window.KpiSaleFlagStore && window.KpiSaleFlagStore.get(orderCode, pid)
+                    );
                     const excluded = data.excludedBySaleFlag === true;
                     const unitKPI = data.unitKPI || this.KPI_PER_PRODUCT;
                     // KPI = 0 cho SP bị loại (chưa tick); ngược lại = net * unitKPI.
@@ -1597,15 +2264,343 @@ const KPICommission = {
     },
 
     // ========================================
-    // RUN RECONCILIATION (12.14)
+    // FETCH REFUND EXCEL (3 months) — TPOS FastSaleOrder/ExportFileRefund
+    // ========================================
+
+    /**
+     * Fetch + parse refund excel 3 tháng gần nhất, return Set<orderCode> đã hoàn.
+     * Refund excel có cột "Tham chiếu" = mã đơn gốc (vd "NJD/2026/62621").
+     *
+     * Endpoint: POST /api/FastSaleOrder/ExportFileRefund?TagIds=
+     * Body: { data: JSON.stringify({Filter:{...}}), ids: [] }
+     * Response: XLSX binary, sheet "Trả hàng", header row 3 (range:2 in JSON parse).
+     */
+    async fetchRefundedOrderCodes(monthsBack = 3) {
+        if (typeof XLSX === 'undefined') {
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        // KPI iframe không có tokenManager — fetch token qua proxy /api/token (giống trahang.js)
+        let authHeader;
+        const tokenManager = window.tokenManager || window.parent?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            authHeader = await tokenManager.getAuthHeader();
+        } else {
+            const companyId =
+                window.ShopConfig?.getConfig?.()?.CompanyId ||
+                window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
+                1;
+            const creds =
+                companyId === 2
+                    ? {
+                          grant_type: 'password',
+                          username: 'nvktshop1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      }
+                    : {
+                          grant_type: 'password',
+                          username: 'nvktlive1',
+                          password: 'Aa@28612345678',
+                          client_id: 'tmtWebApp',
+                      };
+            const formData = new URLSearchParams();
+            for (const [k, v] of Object.entries(creds)) formData.append(k, v);
+            const tokenRes = await fetch(`${WORKER}/api/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+            });
+            if (!tokenRes.ok) throw new Error(`Token HTTP ${tokenRes.status}`);
+            const tokenData = await tokenRes.json();
+            if (!tokenData.access_token) throw new Error('Invalid token response');
+            authHeader = { Authorization: `Bearer ${tokenData.access_token}` };
+        }
+        const headers = authHeader;
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - monthsBack);
+        const startISO = new Date(
+            startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000
+        ).toISOString();
+        const endISO = new Date(
+            endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000
+        ).toISOString();
+        const filter = {
+            Filter: {
+                logic: 'and',
+                filters: [
+                    { field: 'Type', operator: 'eq', value: 'refund' },
+                    { field: 'DateInvoice', operator: 'gte', value: startISO },
+                    { field: 'DateInvoice', operator: 'lte', value: endISO },
+                    { field: 'IsMergeCancel', operator: 'neq', value: true },
+                ],
+            },
+        };
+        const res = await fetch(`${WORKER}/api/FastSaleOrder/ExportFileRefund?TagIds=`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                Accept: '*/*',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ data: JSON.stringify(filter), ids: [] }),
+        });
+        if (!res.ok) throw new Error(`ExportFileRefund HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        // range:2 = skip 2 title rows, header is row 3 ("STT", "Khách hàng", ..., "Tham chiếu", ...)
+        const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
+        const codes = new Set();
+        for (const row of rows) {
+            const ref = String(row['Tham chiếu'] || '').trim();
+            if (ref) codes.add(ref);
+        }
+        console.log(
+            `[KPI Tab] Refund excel ${monthsBack} tháng: ${rows.length} dòng, ${codes.size} mã đơn unique`
+        );
+        return { codes, totalRows: rows.length, startISO, endISO };
+    },
+
+    // ========================================
+    // RECONCILIATION HELPERS (UI redesign)
+    // ========================================
+
+    _setReconProgress(stage, pct, detail) {
+        const el = document.getElementById('reconProgress');
+        if (!el) return;
+        el.style.display = '';
+        const stageEl = document.getElementById('reconProgressStage');
+        const pctEl = document.getElementById('reconProgressPct');
+        const fillEl = document.getElementById('reconProgressFill');
+        const detailEl = document.getElementById('reconProgressDetail');
+        if (stageEl) stageEl.textContent = stage || '';
+        if (pctEl) pctEl.textContent = `${Math.round(pct || 0)}%`;
+        if (fillEl) fillEl.style.width = `${Math.max(2, Math.min(100, pct || 0))}%`;
+        if (detailEl) detailEl.textContent = detail || '';
+    },
+
+    _hideReconProgress() {
+        const el = document.getElementById('reconProgress');
+        if (el) el.style.display = 'none';
+    },
+
+    _animateCount(el, target, duration = 600) {
+        if (!el) return;
+        const start = parseInt((el.textContent || '0').replace(/\D/g, '')) || 0;
+        const delta = target - start;
+        if (delta === 0) {
+            el.textContent = target.toLocaleString('vi-VN');
+            return;
+        }
+        const t0 = performance.now();
+        const tick = (now) => {
+            const elapsed = now - t0;
+            const t = Math.min(1, elapsed / duration);
+            const eased = 1 - Math.pow(1 - t, 3);
+            const v = Math.round(start + delta * eased);
+            el.textContent = v.toLocaleString('vi-VN');
+            if (t < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    },
+
+    _formatVnd(amount) {
+        if (!amount) return '0 ₫';
+        return amount.toLocaleString('vi-VN') + ' ₫';
+    },
+
+    _bindReconChips() {
+        const chips = document.querySelectorAll('.recon-chip');
+        const cards = document.querySelectorAll('.recon-stat-card');
+        const apply = (key) => {
+            this._reconFilter = key;
+            chips.forEach((c) => c.classList.toggle('is-active', c.dataset.filter === key));
+            cards.forEach((c) => c.classList.toggle('is-active', c.dataset.filter === key));
+            this._applyReconFilter();
+        };
+        chips.forEach((chip) => {
+            if (chip.__reconBound) return;
+            chip.__reconBound = true;
+            chip.addEventListener('click', () => apply(chip.dataset.filter));
+        });
+        cards.forEach((card) => {
+            if (card.__reconBound) return;
+            card.__reconBound = true;
+            card.addEventListener('click', () => apply(card.dataset.filter));
+        });
+    },
+
+    _applyReconFilter() {
+        const filter = this._reconFilter || 'all';
+        const tbody = document.getElementById('reconTableBody');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr[data-recon-row]');
+        let visible = 0;
+        rows.forEach((row) => {
+            const status = row.dataset.reconStatus;
+            const show =
+                filter === 'all' ||
+                (filter === 'ok' && status === 'ok') ||
+                (filter === 'refunded' && status === 'refunded') ||
+                (filter === 'discrepancy' && status === 'discrepancy');
+            row.style.display = show ? '' : 'none';
+            const detail = row.nextElementSibling;
+            if (detail && detail.classList.contains('recon-detail-row')) {
+                detail.style.display = show && detail.dataset.open === '1' ? '' : 'none';
+            }
+            if (show) visible++;
+        });
+        const emptyFilterEl = document.getElementById('reconEmptyFilter');
+        if (emptyFilterEl) emptyFilterEl.style.display = visible === 0 ? '' : 'none';
+    },
+
+    _bindReconSort() {
+        const headers = document.querySelectorAll('#reconResultsWrapper thead th[data-sort]');
+        headers.forEach((th) => {
+            if (th.__reconBound) return;
+            th.__reconBound = true;
+            th.addEventListener('click', () => {
+                const key = th.dataset.sort;
+                const cur = this._reconSort || {};
+                const dir = cur.key === key && cur.dir === 'asc' ? 'desc' : 'asc';
+                this._reconSort = { key, dir };
+                headers.forEach((h) => h.classList.toggle('is-sorted', h === th));
+                this._sortReconResults();
+            });
+        });
+    },
+
+    _sortReconResults() {
+        const sort = this._reconSort;
+        if (!sort) return;
+        const tbody = document.getElementById('reconTableBody');
+        if (!tbody) return;
+        const allRows = Array.from(tbody.children);
+        const pairs = [];
+        for (let i = 0; i < allRows.length; i++) {
+            if (allRows[i].dataset.reconRow != null) {
+                const detail = allRows[i + 1]?.classList.contains('recon-detail-row')
+                    ? allRows[i + 1]
+                    : null;
+                pairs.push({ main: allRows[i], detail });
+            }
+        }
+        pairs.sort((a, b) => {
+            const av = a.main.dataset[`sort_${sort.key}`] || '';
+            const bv = b.main.dataset[`sort_${sort.key}`] || '';
+            const an = parseFloat(av);
+            const bn = parseFloat(bv);
+            const isNum = !isNaN(an) && !isNaN(bn);
+            const cmp = isNum ? an - bn : av.localeCompare(bv);
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+        const frag = document.createDocumentFragment();
+        pairs.forEach(({ main, detail }) => {
+            frag.appendChild(main);
+            if (detail) frag.appendChild(detail);
+        });
+        tbody.appendChild(frag);
+    },
+
+    _toggleReconDetail(orderId) {
+        const tbody = document.getElementById('reconTableBody');
+        if (!tbody) return;
+        const main = tbody.querySelector(`tr[data-order-id="${orderId}"]`);
+        if (!main) return;
+        const detail = main.nextElementSibling;
+        if (!detail || !detail.classList.contains('recon-detail-row')) return;
+        const isOpen = detail.dataset.open === '1';
+        detail.dataset.open = isOpen ? '0' : '1';
+        detail.style.display = isOpen ? 'none' : '';
+        const btn = main.querySelector('.recon-toggle-btn');
+        if (btn) btn.classList.toggle('is-open', !isOpen);
+    },
+
+    async exportReconciliationExcel() {
+        if (!this._reconResults || this._reconResults.length === 0) {
+            alert('Không có dữ liệu đối soát để xuất');
+            return;
+        }
+        if (typeof XLSX === 'undefined') {
+            alert('XLSX chưa load');
+            return;
+        }
+        const rows = [
+            [
+                'Mã ĐH',
+                'Số phiếu (TPOS)',
+                'STT',
+                'Expected',
+                'Actual',
+                'Delta',
+                'Trạng thái',
+                'Ghi chú',
+            ],
+        ];
+        for (const r of this._reconResults) {
+            const status = r.isRefunded
+                ? 'Đã hoàn (loại KPI)'
+                : r.hasDiscrepancy
+                  ? 'Sai lệch'
+                  : 'OK';
+            const note = (r.discrepancies || []).map((d) => `[${d.type}] ${d.message}`).join(' | ');
+            rows.push([
+                r.orderCode,
+                r.invoiceNumber || '',
+                r.stt != null ? r.stt : '',
+                r.expectedNet,
+                typeof r.actualNet === 'number' ? r.actualNet : r.actualNet,
+                typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '',
+                status,
+                note,
+            ]);
+        }
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 14 },
+            { wch: 18 },
+            { wch: 8 },
+            { wch: 12 },
+            { wch: 12 },
+            { wch: 10 },
+            { wch: 22 },
+            { wch: 60 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Đối soát KPI');
+        const fname = `doi-soat-kpi-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fname);
+    },
+
+    // ========================================
+    // RUN RECONCILIATION (12.14) — refresh + check refund excel
     // ========================================
     async runReconciliation() {
         const btn = document.getElementById('btnRunReconciliation');
         if (btn) btn.disabled = true;
 
-        this.showEl('reconLoading');
         this.hideEl('reconEmpty');
         this.hideEl('reconResultsWrapper');
+        const statsEl = document.getElementById('reconStatsCards');
+        const ctrlEl = document.getElementById('reconControlBar');
+        if (statsEl) statsEl.style.display = 'none';
+        if (ctrlEl) ctrlEl.style.display = 'none';
+        this._setReconProgress('Đang khởi tạo...', 2, '');
+
+        const setLoadingMsg = (msg, pct, detail) => {
+            this._setReconProgress(msg, pct, detail || '');
+        };
 
         try {
             const db = this.getDb();
@@ -1630,12 +2625,69 @@ const KPICommission = {
                 return;
             }
 
-            const results = [];
+            // Step 1: Load invoice cache + fetch refund excel SONG SONG
+            // (independent — không phụ thuộc nhau, dùng Promise.all)
+            setLoadingMsg(
+                'Load invoice cache + refund excel song song...',
+                8,
+                'Promise.all 2 tasks độc lập'
+            );
+            const t1 = performance.now();
+            const [, refundResult] = await Promise.all([
+                this.loadInvoiceStatusData().catch((e) => {
+                    console.warn('[KPI Tab] Load invoice cache failed:', e?.message);
+                }),
+                this.fetchRefundedOrderCodes(3).catch((e) => {
+                    console.warn('[KPI Tab] Fetch refund excel failed:', e?.message);
+                    if (window.notificationManager?.warning) {
+                        window.notificationManager.warning(
+                            'Không tải được refund excel — đối soát chỉ check trạng thái đơn',
+                            2500
+                        );
+                    }
+                    return { codes: new Set(), totalRows: 0 };
+                }),
+            ]);
+            const refundInfo = refundResult || { codes: new Set(), totalRows: 0 };
+            const refundedInvoiceNumbers = refundInfo.codes;
+            console.log(
+                `[KPI Tab] Step 1 (parallel) hoàn tất trong ${Math.round(performance.now() - t1)}ms`
+            );
 
-            // Use kpiManager.reconcileKPI if available
+            // Step 1c: Map orderId → invoiceNumber, check refunded
+            const orderIdToRefunded = new Map();
+            const orderIdToInvoice = new Map();
             for (const order of allOrders) {
+                const inv = this._invoiceCache.get(order.orderId);
+                const invNumber = inv?.Number || '';
+                orderIdToInvoice.set(order.orderId, inv || null);
+                orderIdToRefunded.set(
+                    order.orderId,
+                    invNumber && refundedInvoiceNumbers.has(invNumber)
+                );
+            }
+            const refundedKpiCount = [...orderIdToRefunded.values()].filter(Boolean).length;
+
+            // Step 2: Reconcile từng đơn — WORKER POOL CONCURRENCY 8 (song song)
+            // Trước: 134 sequential awaits ~30-60s. Sau: 8 workers parallel ~5-10s.
+            const CONCURRENCY = 8;
+            const total = allOrders.length;
+            setLoadingMsg(
+                `Kiểm tra audit log song song ${CONCURRENCY} workers (0/${total})`,
+                25,
+                `${refundedKpiCount} đơn đã được mark hoàn từ refund excel`
+            );
+            const results = new Array(total); // preserve order via index
+            let processed = 0;
+            let nextIdx = 0;
+            const t2 = performance.now();
+
+            const reconcileOne = async (idx) => {
+                const order = allOrders[idx];
+                const isRefunded = orderIdToRefunded.get(order.orderId) || false;
+                const invoice = orderIdToInvoice.get(order.orderId);
+                let result;
                 try {
-                    let result;
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
                         result = await window.kpiManager.reconcileKPI(
                             order.orderId,
@@ -1643,7 +2695,6 @@ const KPICommission = {
                             order.orderCode
                         );
                     } else {
-                        // Fallback: basic reconciliation
                         result = {
                             orderId: order.orderId,
                             hasDiscrepancy: false,
@@ -1652,52 +2703,388 @@ const KPICommission = {
                             discrepancies: [],
                         };
                     }
-
-                    results.push({
+                    const refundDiscrepancy = isRefunded
+                        ? [
+                              {
+                                  type: 'refunded',
+                                  message: `Đơn đã có trong refund excel — không tính KPI`,
+                              },
+                          ]
+                        : [];
+                    results[idx] = {
                         orderId: order.orderId,
                         orderCode: order.orderCode || '',
+                        invoiceNumber: invoice?.Number || '',
+                        invoiceState: invoice?.ShowState || '',
+                        kpiAmount: order.kpi || 0,
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
                         actualNet:
                             result.actualNet != null ? result.actualNet : order.netProducts || 0,
-                        hasDiscrepancy: result.hasDiscrepancy,
-                        discrepancies: result.discrepancies || [],
-                    });
+                        hasDiscrepancy: isRefunded || result.hasDiscrepancy,
+                        isRefunded,
+                        discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
+                    };
                 } catch (e) {
                     console.error('[KPI Tab] Reconciliation error for order:', order.orderId, e);
-                    results.push({
+                    results[idx] = {
                         orderCode: order.orderCode || '',
                         orderId: order.orderId,
+                        invoiceNumber: invoice?.Number || '',
+                        invoiceState: invoice?.ShowState || '',
+                        kpiAmount: order.kpi || 0,
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
                         actualNet: 'Lỗi',
                         hasDiscrepancy: true,
-                        discrepancies: [{ type: 'error', message: e.message }],
-                    });
+                        isRefunded,
+                        discrepancies: [
+                            ...(isRefunded ? [{ type: 'refunded', message: 'Đơn đã hoàn' }] : []),
+                            { type: 'error', message: e.message },
+                        ],
+                    };
                 }
+            };
+
+            // Throttled progress UI update — chỉ refresh mỗi 200ms để tránh
+            // reflow liên tục khi 8 workers fire callback đồng thời
+            let lastProgressUpdate = 0;
+            const updateProgress = (force) => {
+                const now = performance.now();
+                if (!force && now - lastProgressUpdate < 200) return;
+                lastProgressUpdate = now;
+                const pct = 25 + Math.round((processed / total) * 70);
+                setLoadingMsg(
+                    `Kiểm tra song song ${CONCURRENCY} workers (${processed}/${total})`,
+                    pct,
+                    `${refundedKpiCount} đã hoàn · ${results.filter((r) => r?.hasDiscrepancy && !r?.isRefunded).length} sai lệch khác phát hiện`
+                );
+            };
+
+            // Worker pool: spawn N concurrent workers, each pulls from queue
+            const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, async () => {
+                while (true) {
+                    const myIdx = nextIdx++;
+                    if (myIdx >= total) break;
+                    await reconcileOne(myIdx);
+                    processed++;
+                    updateProgress(false);
+                }
+            });
+            await Promise.all(workers);
+            updateProgress(true);
+            console.log(
+                `[KPI Tab] Step 2 (concurrency ${CONCURRENCY}) hoàn tất ${total} đơn trong ${Math.round(performance.now() - t2)}ms`
+            );
+
+            setLoadingMsg('Render bảng kết quả...', 98, '');
+            await new Promise((r) => setTimeout(r, 100));
+
+            this._reconResults = results;
+            this._indexReconResults(results);
+            this._renderReconciliationUI(results, refundInfo);
+            // Đồng bộ refund vào main KPI table (re-render để show cột Hoàn + KPI thực)
+            try {
+                await this.renderKPITable(this.state.filteredData || []);
+            } catch (e) {
+                console.warn('[KPI Tab] Sync KPI table after recon failed:', e?.message);
             }
-
-            this.hideEl('reconLoading');
-
-            // Filter to show only discrepancies or all
-            const discrepancies = results.filter((r) => r.hasDiscrepancy);
-
-            if (discrepancies.length === 0) {
-                this.showEl('reconEmpty');
-                const emptyEl = document.getElementById('reconEmpty');
-                if (emptyEl)
-                    emptyEl.querySelector('p').textContent =
-                        `✅ Đã kiểm tra ${results.length} đơn hàng. Không phát hiện sai lệch.`;
-            } else {
-                this.showEl('reconResultsWrapper');
-                this.renderReconciliationResults(results);
-            }
+            this._hideReconProgress();
         } catch (error) {
             console.error('[KPI Tab] Reconciliation error:', error);
-            this.hideEl('reconLoading');
+            this._hideReconProgress();
             this.showEl('reconEmpty');
+            const emptyEl = document.getElementById('reconEmpty');
+            if (emptyEl) emptyEl.querySelector('p').textContent = `Lỗi đối soát: ${error.message}`;
         } finally {
             if (btn) btn.disabled = false;
+        }
+    },
+
+    /**
+     * Build maps để các bảng khác (main KPI, modal L1) đọc nhanh:
+     *   - _reconByOrder: orderId → { isRefunded, hasDiscrepancy, invoiceNumber, ... }
+     *   - _reconRefundedRowMap: invoiceNumber → row excel (Khách hàng, Số phiếu, Tổng tiền,...)
+     *   - _reconKpiLossByUser: userId → tổng KPI bị loại do refund
+     */
+    _indexReconResults(results) {
+        this._reconByOrder = new Map();
+        this._reconKpiLossByUser = new Map();
+        for (const r of results) {
+            this._reconByOrder.set(r.orderId, r);
+        }
+        // Aggregate KPI loss per user via this.state.filteredData
+        const refundedSet = new Set(results.filter((r) => r.isRefunded).map((r) => r.orderId));
+        for (const emp of this.state.filteredData || []) {
+            let lossSum = 0;
+            let refundCount = 0;
+            for (const order of emp.orders || []) {
+                if (refundedSet.has(order.orderId)) {
+                    lossSum += order.kpi || 0;
+                    refundCount++;
+                }
+            }
+            this._reconKpiLossByUser.set(emp.userId, {
+                kpiLost: lossSum,
+                refundCount,
+            });
+        }
+    },
+
+    /**
+     * Fetch FastSaleOrder refund detail (món trả + lý do) on-demand cho 1 invoice.
+     * Cache trong _reconRefundDetailCache để tránh fetch lặp.
+     */
+    async _fetchRefundDetailForInvoice(originalInvoiceNumber) {
+        if (!this._reconRefundDetailCache) this._reconRefundDetailCache = new Map();
+        if (this._reconRefundDetailCache.has(originalInvoiceNumber)) {
+            return this._reconRefundDetailCache.get(originalInvoiceNumber);
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        let authHeader;
+        const tokenManager = window.tokenManager || window.parent?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            authHeader = await tokenManager.getAuthHeader();
+        } else if (this._reconAuthHeader) {
+            authHeader = this._reconAuthHeader;
+        } else {
+            // Re-fetch token (shouldn't reach normally)
+            authHeader = { Authorization: '' };
+        }
+
+        try {
+            // Step 1: Find original invoice by Number qua GetView (OData direct trả 500)
+            const findFilter = encodeURIComponent(
+                "(Type eq 'invoice' and Number eq '" +
+                    originalInvoiceNumber.replace(/'/g, "''") +
+                    "')"
+            );
+            const findUrl = `${WORKER}/api/odata/FastSaleOrder/ODataService.GetView?$filter=${findFilter}&$top=1`;
+            const findRes = await fetch(findUrl, {
+                headers: {
+                    ...authHeader,
+                    accept: 'application/json',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            });
+            if (!findRes.ok) throw new Error(`Find HTTP ${findRes.status}`);
+            const findData = await findRes.json();
+            const origInvoice = findData.value?.[0];
+            if (!origInvoice?.Id) {
+                this._reconRefundDetailCache.set(originalInvoiceNumber, null);
+                return null;
+            }
+
+            // Step 2: Find refund by RefundOrderId = origInvoice.Id (qua GetView)
+            const refundFilter = encodeURIComponent(
+                "(Type eq 'refund' and RefundOrderId eq " + origInvoice.Id + ')'
+            );
+            const refundUrl = `${WORKER}/api/odata/FastSaleOrder/ODataService.GetView?$filter=${refundFilter}&$top=5`;
+            const refundRes = await fetch(refundUrl, {
+                headers: {
+                    ...authHeader,
+                    accept: 'application/json',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            });
+            if (!refundRes.ok) throw new Error(`Refund HTTP ${refundRes.status}`);
+            const refundDataList = await refundRes.json();
+            const refundSummaries = refundDataList.value || [];
+
+            // Step 3: GET full FastSaleOrder({id})?$expand=OrderLines cho mỗi refund
+            const refunds = [];
+            for (const summ of refundSummaries) {
+                try {
+                    const fullRes = await fetch(
+                        `${WORKER}/api/odata/FastSaleOrder(${summ.Id})?$expand=OrderLines`,
+                        {
+                            headers: {
+                                ...authHeader,
+                                accept: 'application/json',
+                                'feature-version': '2',
+                                'x-tpos-lang': 'vi',
+                            },
+                        }
+                    );
+                    if (fullRes.ok) {
+                        const full = await fullRes.json();
+                        refunds.push(full);
+                    } else {
+                        refunds.push(summ);
+                    }
+                } catch (_) {
+                    refunds.push(summ);
+                }
+            }
+            const detail = {
+                originalNumber: originalInvoiceNumber,
+                refunds: refunds.map((r) => ({
+                    Number: r.Number,
+                    DateInvoice: r.DateInvoice,
+                    AmountTotal: r.AmountTotal,
+                    Comment: r.Comment || r.Note || '',
+                    State: r.State,
+                    ShowState: r.ShowState,
+                    OrderLines: (r.OrderLines || []).map((l) => ({
+                        ProductName: l.ProductName || l.ProductNameGet || l.Name,
+                        Quantity: l.Quantity,
+                        Price: l.Price,
+                        Note: l.Note || '',
+                    })),
+                })),
+            };
+            this._reconRefundDetailCache.set(originalInvoiceNumber, detail);
+            return detail;
+        } catch (e) {
+            console.warn('[KPI Tab] Fetch refund detail failed:', e?.message);
+            this._reconRefundDetailCache.set(originalInvoiceNumber, null);
+            return null;
+        }
+    },
+
+    /**
+     * Modal L1: expand row để load + hiển thị chi tiết món trả (cho đơn refunded).
+     */
+    async _toggleL1OrderDetail(orderId) {
+        const tbody = document.getElementById('modalL1TableBody');
+        if (!tbody) return;
+        const row = tbody.querySelector(`tr[data-l1-order="${orderId}"]`);
+        if (!row) return;
+        const detail = row.nextElementSibling;
+        if (!detail || !detail.classList.contains('l1-detail-row')) return;
+        const isOpen = detail.dataset.open === '1';
+        detail.dataset.open = isOpen ? '0' : '1';
+        detail.style.display = isOpen ? 'none' : '';
+        const btn = row.querySelector('.l1-toggle-btn');
+        if (btn) btn.classList.toggle('is-open', !isOpen);
+        if (!isOpen && detail.dataset.loaded !== '1') {
+            // Lazy fetch refund detail
+            const recon = this._reconByOrder?.get(orderId);
+            const invNumber = recon?.invoiceNumber;
+            const contentEl = detail.querySelector('.l1-detail-content');
+            if (recon?.isRefunded && invNumber && contentEl) {
+                contentEl.innerHTML =
+                    '<div class="l1-detail-loading"><i class="fas fa-spinner fa-spin"></i> Đang tải chi tiết refund từ TPOS...</div>';
+                const refundDetail = await this._fetchRefundDetailForInvoice(invNumber);
+                if (!refundDetail || refundDetail.refunds.length === 0) {
+                    contentEl.innerHTML =
+                        '<div class="l1-detail-empty">Không tìm thấy chi tiết refund trên TPOS.</div>';
+                } else {
+                    contentEl.innerHTML = refundDetail.refunds
+                        .map((rf) => {
+                            const date = rf.DateInvoice
+                                ? new Date(rf.DateInvoice).toLocaleString('vi-VN')
+                                : '';
+                            const reasonHtml = rf.Comment
+                                ? `<div class="l1-detail-reason"><strong>Lý do:</strong> ${this.escapeHtml(rf.Comment)}</div>`
+                                : '<div class="l1-detail-reason l1-detail-reason-empty">Không có lý do.</div>';
+                            const itemsHtml = rf.OrderLines.length
+                                ? `<table class="l1-detail-items"><thead><tr><th>SP</th><th>SL</th><th>Giá</th><th>Ghi chú</th></tr></thead><tbody>${rf.OrderLines.map(
+                                      (l) =>
+                                          `<tr><td>${this.escapeHtml(l.ProductName || '—')}</td><td>${l.Quantity}</td><td>${(l.Price || 0).toLocaleString('vi-VN')}đ</td><td>${this.escapeHtml(l.Note || '')}</td></tr>`
+                                  ).join('')}</tbody></table>`
+                                : '<div class="l1-detail-empty">Không có dòng sản phẩm trong refund.</div>';
+                            return `<div class="l1-detail-refund">
+                                <div class="l1-detail-header">
+                                    <span class="l1-detail-tag">↩ ${this.escapeHtml(rf.Number)}</span>
+                                    <span class="l1-detail-date">${this.escapeHtml(date)}</span>
+                                    <span class="l1-detail-amount">${(rf.AmountTotal || 0).toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                ${reasonHtml}
+                                <div class="l1-detail-items-title">Món trả:</div>
+                                ${itemsHtml}
+                            </div>`;
+                        })
+                        .join('');
+                }
+            } else if (contentEl) {
+                contentEl.innerHTML =
+                    '<div class="l1-detail-empty">Đơn này không có refund. Click order link để xem chi tiết KPI items.</div>';
+            }
+            detail.dataset.loaded = '1';
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+    },
+
+    _renderReconciliationUI(results, refundInfo) {
+        const refundedCount = results.filter((r) => r.isRefunded).length;
+        const otherDiscrepancies = results.filter((r) => r.hasDiscrepancy && !r.isRefunded).length;
+        const okCount = results.length - refundedCount - otherDiscrepancies;
+
+        const refundedKpiAmount = results
+            .filter((r) => r.isRefunded)
+            .reduce((sum, r) => sum + (r.kpiAmount || 0), 0);
+
+        // Show stats cards + animate count
+        const statsEl = document.getElementById('reconStatsCards');
+        if (statsEl) statsEl.style.display = '';
+        this._animateCount(document.getElementById('reconStatTotal'), results.length);
+        this._animateCount(document.getElementById('reconStatOk'), okCount);
+        this._animateCount(document.getElementById('reconStatRefunded'), refundedCount);
+        this._animateCount(document.getElementById('reconStatDiscrepancy'), otherDiscrepancies);
+        const refundSubEl = document.getElementById('reconStatRefundedSub');
+        if (refundSubEl) {
+            refundSubEl.textContent = refundedKpiAmount
+                ? `Loại bỏ KPI: ${this._formatVnd(refundedKpiAmount)}`
+                : '0 ₫ KPI bị loại';
+        }
+
+        // Show control bar + chip counts
+        const ctrlEl = document.getElementById('reconControlBar');
+        if (ctrlEl) ctrlEl.style.display = '';
+        const setChip = (id, n) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = n.toLocaleString('vi-VN');
+        };
+        setChip('chipCountAll', results.length);
+        setChip('chipCountOk', okCount);
+        setChip('chipCountRefunded', refundedCount);
+        setChip('chipCountDiscrepancy', otherDiscrepancies);
+        const metaEl = document.getElementById('reconMetaInfo');
+        if (metaEl) {
+            metaEl.textContent = `Refund excel: ${refundInfo.totalRows} dòng · ${refundInfo.codes.size} mã đơn unique · check 3 tháng`;
+        }
+
+        // Render table
+        this.showEl('reconResultsWrapper');
+        this.hideEl('reconEmpty');
+        // Remove old summary nếu có
+        const oldSummary = document.getElementById('reconSummary');
+        if (oldSummary) oldSummary.remove();
+        this.renderReconciliationResults(results);
+
+        // Bind chips/sort/cards (idempotent)
+        this._bindReconChips();
+        this._bindReconSort();
+
+        // Default filter: highlight refunded + discrepancy first
+        if (refundedCount > 0 || otherDiscrepancies > 0) {
+            this._reconFilter = 'refunded';
+            if (refundedCount === 0) this._reconFilter = 'discrepancy';
+        } else {
+            this._reconFilter = 'all';
+        }
+        document
+            .querySelectorAll('.recon-chip')
+            .forEach((c) =>
+                c.classList.toggle('is-active', c.dataset.filter === this._reconFilter)
+            );
+        document
+            .querySelectorAll('.recon-stat-card')
+            .forEach((c) =>
+                c.classList.toggle('is-active', c.dataset.filter === this._reconFilter)
+            );
+        this._applyReconFilter();
+
+        // Re-init lucide icons cho elements mới
+        if (window.lucide?.createIcons) {
+            window.lucide.createIcons();
         }
     },
 
@@ -1706,26 +3093,74 @@ const KPICommission = {
         if (!tbody) return;
 
         let html = '';
-        results.forEach((r) => {
-            const delta = typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '---';
+        results.forEach((r, idx) => {
+            const deltaNum = typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : null;
             let deltaClass = 'delta-zero';
-            if (typeof delta === 'number') {
-                if (delta > 0) deltaClass = 'delta-positive';
-                else if (delta < 0) deltaClass = 'delta-negative';
+            if (deltaNum != null) {
+                if (deltaNum > 0) deltaClass = 'delta-positive';
+                else if (deltaNum < 0) deltaClass = 'delta-negative';
             }
 
-            const statusHtml = r.hasDiscrepancy
-                ? '<span class="status-badge status-discrepancy">⚠️ Sai lệch</span>'
-                : '<span class="status-badge status-ok">✅ OK</span>';
+            const status = r.isRefunded ? 'refunded' : r.hasDiscrepancy ? 'discrepancy' : 'ok';
 
-            html += `<tr>
-                <td>${this.escapeHtml(r.orderCode || r.orderId)}</td>
-                <td>${r.stt != null ? r.stt : '---'}</td>
-                <td>${r.expectedNet}</td>
-                <td>${r.actualNet}</td>
-                <td class="${deltaClass}">${typeof delta === 'number' ? (delta >= 0 ? '+' : '') + delta : delta}</td>
+            let statusHtml;
+            if (r.isRefunded) {
+                statusHtml =
+                    '<span class="status-badge status-refunded">↩ Đã hoàn (loại KPI)</span>';
+            } else if (r.hasDiscrepancy) {
+                statusHtml = '<span class="status-badge status-discrepancy">⚠ Sai lệch</span>';
+            } else {
+                statusHtml = '<span class="status-badge status-ok">✅ OK</span>';
+            }
+
+            const invId = this._invoiceCache?.get(r.orderId)?.Id;
+            const invHtml = r.invoiceNumber
+                ? `<a class="recon-invoice-num is-link" href="javascript:void(0)" onclick="event.stopPropagation();window.KPICommission.showInvoiceDetail('${invId || ''}', '${this.escapeHtml(r.invoiceNumber)}')" title="Xem chi tiết phiếu ${this.escapeHtml(r.invoiceNumber)}">${this.escapeHtml(r.invoiceNumber)}</a>${r.invoiceState ? ` <span style="font-size:11px;color:#6b7280;">${this.escapeHtml(r.invoiceState)}</span>` : ''}`
+                : '<span class="recon-invoice-num is-empty">— chưa có invoice</span>';
+
+            const hasDetail = (r.discrepancies || []).length > 0;
+            const toggleBtn = hasDetail
+                ? `<button class="recon-toggle-btn" onclick="window.KPICommission._toggleReconDetail('${this.escapeHtml(r.orderId)}')" title="Xem chi tiết"><i data-lucide="chevron-right"></i></button>`
+                : '';
+
+            const refundedClass = r.isRefunded ? 'is-refunded' : '';
+            const animDelay = Math.min(idx * 12, 600); // stagger fade-in
+
+            html += `<tr class="${refundedClass}" data-recon-row="1" data-recon-status="${status}" data-order-id="${this.escapeHtml(r.orderId)}" data-sort_orderCode="${this.escapeHtml(r.orderCode || '')}" data-sort_stt="${r.stt != null ? r.stt : ''}" data-sort_expectedNet="${r.expectedNet}" data-sort_actualNet="${typeof r.actualNet === 'number' ? r.actualNet : ''}" data-sort_delta="${deltaNum != null ? deltaNum : ''}" style="animation-delay:${animDelay}ms;">
+                <td>${toggleBtn}</td>
+                <td class="recon-cell-code"><strong>${this.escapeHtml(r.orderCode || r.orderId)}</strong></td>
+                <td>${invHtml}</td>
+                <td class="recon-cell-num">${r.stt != null ? r.stt : '—'}</td>
+                <td class="recon-cell-num">${(r.expectedNet || 0).toLocaleString('vi-VN')}</td>
+                <td class="recon-cell-num">${typeof r.actualNet === 'number' ? r.actualNet.toLocaleString('vi-VN') : this.escapeHtml(String(r.actualNet))}</td>
+                <td class="recon-cell-num ${deltaClass}">${deltaNum != null ? (deltaNum >= 0 ? '+' : '') + deltaNum.toLocaleString('vi-VN') : '—'}</td>
                 <td>${statusHtml}</td>
             </tr>`;
+
+            if (hasDetail) {
+                const tagMap = {
+                    refunded: 'tag-refund',
+                    error: 'tag-error',
+                    discrepancy: 'tag-discrepancy',
+                    productMissing: 'tag-discrepancy',
+                    quantityMismatch: 'tag-discrepancy',
+                    statusMismatch: 'tag-discrepancy',
+                };
+                const detailItems = r.discrepancies
+                    .map((d) => {
+                        const tagClass = tagMap[d.type] || 'tag-discrepancy';
+                        return `<li><span class="recon-detail-tag ${tagClass}">${this.escapeHtml(d.type)}</span> ${this.escapeHtml(d.message || '')}</li>`;
+                    })
+                    .join('');
+                html += `<tr class="recon-detail-row" data-open="0" style="display:none;">
+                    <td colspan="8">
+                        <div class="recon-detail-content">
+                            <div style="font-weight:600;color:#374151;margin-bottom:6px;">Chi tiết sai lệch / lý do loại:</div>
+                            <ul>${detailItems}</ul>
+                        </div>
+                    </td>
+                </tr>`;
+            }
         });
 
         tbody.innerHTML = html;
@@ -2053,3 +3488,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 });
+
+// Expose to window — `const KPICommission` không tự attach cho iframe parent / debug
+try {
+    window.KPICommission = KPICommission;
+} catch (e) {}

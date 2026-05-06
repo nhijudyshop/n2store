@@ -503,6 +503,7 @@ class PurchaseOrderTableRenderer {
     renderActionCell(order, rowSpan, isSelected, canEdit, canDelete, isProcessing) {
         const isDraft = order.status === 'DRAFT';
         const isAwaitingDelivery = order.status === 'AWAITING_DELIVERY';
+        const isReceived = order.status === 'RECEIVED';
         const items = order.items || [];
         const canPrintBarcode = items.length > 0 && items.some((item) => !!item.productCode);
 
@@ -543,6 +544,36 @@ class PurchaseOrderTableRenderer {
                             data-order-id="${order.id}"
                             ${isProcessing ? 'disabled' : ''}>
                         <i data-lucide="printer" class="text-teal"></i>
+                    </button>
+                    `
+                            : ''
+                    }
+
+                    <!-- Mark received (chỉ hiện ở Chờ hàng) -->
+                    ${
+                        isAwaitingDelivery
+                            ? `
+                    <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
+                            title="Đánh dấu Đã nhận hàng"
+                            data-action="mark-received"
+                            data-order-id="${order.id}"
+                            ${isProcessing ? 'disabled' : ''}>
+                        <i data-lucide="package-check" class="text-green"></i>
+                    </button>
+                    `
+                            : ''
+                    }
+
+                    <!-- Mark completed (chỉ hiện ở Đã nhận) -->
+                    ${
+                        isReceived
+                            ? `
+                    <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
+                            title="Đánh dấu Hoàn thành"
+                            data-action="mark-completed"
+                            data-order-id="${order.id}"
+                            ${isProcessing ? 'disabled' : ''}>
+                        <i data-lucide="check-circle-2" class="text-green"></i>
                     </button>
                     `
                             : ''
@@ -952,6 +983,12 @@ class PurchaseOrderTableRenderer {
                     break;
                 case 'delete':
                     this.handlers.onDelete?.(orderId);
+                    break;
+                case 'mark-received':
+                    this.handlers.onMarkReceived?.(orderId);
+                    break;
+                case 'mark-completed':
+                    this.handlers.onMarkCompleted?.(orderId);
                     break;
                 case 'view-images':
                     this.handlers.onViewImages?.(itemId);

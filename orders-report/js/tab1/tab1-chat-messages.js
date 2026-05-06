@@ -133,6 +133,10 @@ window.renderChatMessages = function (messages) {
     const container = document.getElementById('chatMessages');
     if (!container) return;
 
+    // Wire infinite-scroll handler 1 lần — kéo lên đầu container thì
+    // tự động gọi loadMoreMessages (Pancake API trả tin nhắn cũ hơn).
+    _wireInfiniteScroll(container);
+
     // Update post info banner & deleted comment banner
     _renderPostInfoBanner();
 
@@ -143,6 +147,11 @@ window.renderChatMessages = function (messages) {
     }
 
     const isCommentConv = window.currentConversationType === 'COMMENT';
+
+    // Pre-compute the "seen" message id — the latest shop-side message that the
+    // customer has read up to (per Pancake read_watermarks). Only INBOX has
+    // watermarks (COMMENT convos don't track per-message read state).
+    const seenMessageId = isCommentConv ? null : _computeSeenMessageId(messages);
 
     let lastDate = '';
     const html = messages
@@ -271,6 +280,13 @@ window.renderChatMessages = function (messages) {
                 ? `<div class="message-avatar" data-sender-id="${msg.fromId || ''}">${_getAvatarContent(msg)}</div>`
                 : '';
 
+            // Seen indicator — small customer avatar appended below the latest
+            // shop message the customer has read. Messenger-style "đã xem" cue.
+            const seenHtml =
+                seenMessageId && String(msg.id) === String(seenMessageId)
+                    ? _renderSeenIndicator()
+                    : '';
+
             return `
                 ${dateSeparator}
                 <div class="${classes}" data-msg-id="${msg.id}">
@@ -291,16 +307,126 @@ window.renderChatMessages = function (messages) {
                     </div>
                     ${actionsHtml}
                 </div>
+                ${seenHtml}
             `;
         })
         .join('');
 
     container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
+    // Auto-scroll xuống cuối — fix bug "phải scroll tay khi mở modal".
+    // Set scrollTop ngay sau innerHTML không đủ vì:
+    //   1) layout chưa flush (browser tính scrollHeight chưa chính xác)
+    //   2) images bên trong messages chưa load → scrollHeight underestimated
+    //      → khi img onload, height tăng → bottom không còn ở scrollTop
+    // Solution: rAF + re-scroll nhiều lần đến khi scrollHeight ổn định.
+    _scrollChatToBottom(container);
 
     // Check if all customer comments are deleted
     _updateDeletedBanner(messages);
 };
+
+/**
+ * Compute the latest shop-side message id the customer has already seen,
+ * based on Pancake `read_watermarks`. Returns null when no shop message
+ * is below the watermark (i.e. customer hasn't read anything new yet).
+ *
+ * Watermark shape: { psid, message_id, watermark } — `watermark` is a unix
+ * timestamp in seconds. Pancake may return one watermark per PSID; we take
+ * the maximum across the customer's PSIDs (excludes the page's own PSID
+ * which represents staff-side reads).
+ */
+function _computeSeenMessageId(messages) {
+    const watermarks = window.currentChatReadWatermarks;
+    if (!Array.isArray(watermarks) || watermarks.length === 0) return null;
+    if (!Array.isArray(messages) || messages.length === 0) return null;
+
+    const pageId = String(window.currentChatChannelId || '');
+    let maxWatermarkMs = 0;
+    for (const w of watermarks) {
+        if (!w || typeof w.watermark !== 'number') continue;
+        // Skip the page's own watermark (staff side). Customer watermarks have
+        // a PSID that differs from the page id.
+        if (pageId && String(w.psid) === pageId) continue;
+        const ms = w.watermark > 1e12 ? w.watermark : w.watermark * 1000;
+        if (ms > maxWatermarkMs) maxWatermarkMs = ms;
+    }
+    if (maxWatermarkMs <= 0) return null;
+
+    // Walk backwards: latest shop message with time <= watermark wins.
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        if (msg.sender !== 'shop') continue;
+        const t = msg.time instanceof Date ? msg.time.getTime() : 0;
+        if (t > 0 && t <= maxWatermarkMs) return msg.id;
+    }
+    return null;
+}
+
+/**
+ * Render Messenger-style "đã xem" indicator: a small customer avatar.
+ * Placed under the latest shop message the customer has read.
+ */
+function _renderSeenIndicator() {
+    const psid = window.currentChatPSID || '';
+    const pageId = window.currentChatChannelId || '';
+    const name = window.currentCustomerName || 'K';
+    const initial = (name.charAt(0) || 'K').toUpperCase();
+    const safeInitial = initial.replace(/['"\\<>&]/g, '');
+    let avatarInner = safeInitial;
+    if (psid) {
+        const imgUrl = window._getChatAvatarUrl
+            ? window._getChatAvatarUrl(psid, pageId)
+            : `https://graph.facebook.com/${psid}/picture?type=small`;
+        avatarInner = `<img src="${imgUrl}" alt="" onerror="this.style.display='none';this.parentElement.textContent='${safeInitial}'">`;
+    }
+    const safeName = (name || '').replace(/"/g, '&quot;');
+    return `<div class="message-seen-indicator" title="${safeName} đã xem"><span class="seen-avatar">${avatarInner}</span></div>`;
+}
+
+/**
+ * Auto-scroll xuống cuối container, robust với image load timing.
+ * - rAF lần 1: layout flushed → scrollHeight chính xác cho text
+ * - rAF lần 2 sau 100ms: catch images đã decode initial paint
+ * - Listen img.onload trong container: re-scroll nếu user vẫn ở gần đáy
+ *   (within 100px) — không stick scroll khi user đã cuộn lên xem tin cũ.
+ */
+function _scrollChatToBottom(container) {
+    if (!container) return;
+    const stickToBottom = () => {
+        container.scrollTop = container.scrollHeight;
+    };
+
+    requestAnimationFrame(() => {
+        stickToBottom();
+        requestAnimationFrame(stickToBottom);
+    });
+
+    // Re-scroll khi images load lần đầu (bounded để tránh chạy mãi)
+    const imgs = container.querySelectorAll('img');
+    let pending = imgs.length;
+    if (pending === 0) return;
+    let cancelled = false;
+    setTimeout(() => (cancelled = true), 4000); // bounded 4s
+
+    imgs.forEach((img) => {
+        if (img.complete) {
+            pending--;
+            return;
+        }
+        const onDone = () => {
+            if (cancelled) return;
+            // Chỉ stick nếu user vẫn gần đáy (within 100px) — tránh ngắt scroll
+            // khi user đã cuộn lên xem tin cũ.
+            const distFromBottom =
+                container.scrollHeight - container.scrollTop - container.clientHeight;
+            if (distFromBottom < 100) {
+                stickToBottom();
+            }
+        };
+        img.addEventListener('load', onDone, { once: true });
+        img.addEventListener('error', onDone, { once: true });
+    });
+}
 
 // =====================================================
 // AVATAR HELPER
@@ -363,13 +489,49 @@ function _renderAttachments(attachments) {
                 const safeUrl = url.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                 return `<div class="message-media"><img class="message-image" src="${safeUrl}" alt="Ảnh" data-full-url="${safeUrl}" onclick="window.showImageZoom ? showImageZoom(this.dataset.fullUrl) : window.open(this.dataset.fullUrl,'_blank')" loading="lazy"></div>`;
             }
-            // Sticker / GIF
+            // Sticker / GIF — Pancake CDN + FB CDN. Image-cache auto-routes qua
+            // CF Worker proxy nếu match NON_CORS_PATTERNS. onerror fallback hiện
+            // emoji 🎨 thay vì broken image icon nếu cả direct + proxy fail.
             if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {
-                return `<div class="message-media"><img class="message-sticker" src="${url}" alt="Sticker" loading="lazy"></div>`;
+                const safeUrl = url.replace(/"/g, '&quot;');
+                return `<div class="message-media"><img class="message-sticker" src="${safeUrl}" alt="Sticker" loading="lazy" onerror="this.outerHTML='<span class=\\'sticker-fallback\\' title=\\'Sticker không tải được\\' style=\\'font-size:32px;display:inline-block;padding:4px;\\'>🎨</span>'"></div>`;
             }
-            // Video
+            // Video.
+            // Pancake API trả attachment shape:
+            //   { type:'video', url:<thumbnail JPG>, video_data:{ url:<real .mp4>, width, height } }
+            // → Dùng `video_data.url` cho <video src>, KHÔNG phải `url` (= thumbnail image).
+            // Trước fix: render `<video src=thumbnailJPG>` → browser không decode được → controls
+            // greyed out, không play. Cũng route qua image-proxy để bypass FB/Pancake hotlink check.
             if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
-                return `<div class="message-media"><video controls src="${url}" preload="metadata" style="max-width:240px;border-radius:8px;"></video></div>`;
+                const videoUrl =
+                    att.video_data?.url ||
+                    att.video_url ||
+                    (att.mime_type?.startsWith('video/') ? url : '');
+                // Nếu có video_data thì `url` là thumbnail; ngược lại không có poster.
+                const posterUrl =
+                    att.thumbnail_url || att.preview_url || (att.video_data?.url ? url : '');
+                if (!videoUrl) return '';
+                const NON_CORS_VIDEO =
+                    /(?:scontent|video)[\w.-]*\.fbcdn\.net|content\.pancake\.vn|firebasestorage\.googleapis\.com/i;
+                const workerUrl =
+                    window.WORKER_URL ||
+                    window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const playUrl = NON_CORS_VIDEO.test(videoUrl)
+                    ? `${workerUrl}/api/image-proxy?url=${encodeURIComponent(videoUrl)}`
+                    : videoUrl;
+                const safePlay = playUrl.replace(/"/g, '&quot;');
+                const safeOrig = videoUrl.replace(/"/g, '&quot;');
+                const safePoster = (posterUrl || '').replace(/"/g, '&quot;');
+                const mime = att.mime_type || 'video/mp4';
+                const posterAttr = safePoster ? ` poster="${safePoster}"` : '';
+                return `<div class="message-media">
+                    <video controls playsinline preload="metadata"${posterAttr} style="max-width:280px;max-height:360px;border-radius:8px;display:block;background:#000;"
+                           onerror="this.outerHTML='<a href=&quot;${safeOrig}&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; style=&quot;display:inline-block;padding:8px 12px;background:#f3f4f6;border-radius:6px;color:#0084ff;text-decoration:none;font-size:13px;&quot;>🎬 Mở video (tab mới)</a>'">
+                        <source src="${safePlay}" type="${mime}">
+                        <source src="${safeOrig}" type="${mime}">
+                    </video>
+                </div>`;
             }
             // Audio
             if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
@@ -399,6 +561,12 @@ function _buildMessageActions(msg, isCommentConv) {
         actions.push(
             `<button class="msg-action-btn" onclick="window.setReplyMessage('${msg.id}')" title="Trả lời"><i class="fas fa-reply"></i></button>`
         );
+
+        // Address detection — nếu text có địa chỉ Việt Nam, render nút "📍 Thêm địa chỉ"
+        if (typeof window.buildAddressActionButton === 'function') {
+            const addrBtn = window.buildAddressActionButton(msg);
+            if (addrBtn) actions.push(addrBtn);
+        }
     }
 
     // Comment-specific actions
@@ -507,11 +675,13 @@ window.sendMessage = async function () {
         const pat = await pdm.getPageAccessToken(pageId);
         if (!pat) throw new Error('Không tìm thấy page_access_token');
 
-        // Upload & send images
+        // Upload & send media (images + videos). Pancake `upload_contents` accepts
+        // both — file.type quyết định attachment_type response trả về.
+        const hasVideo = pendingImages.some((f) => f.type?.startsWith?.('video/'));
         let imagesSentViaExtension = false;
         if (pendingImages.length > 0) {
             try {
-                _showToast('Đang tải ảnh lên...', 'info');
+                _showToast(hasVideo ? 'Đang tải media lên...' : 'Đang tải ảnh lên...', 'info');
                 for (const file of pendingImages) {
                     const uploadResult = await pdm.uploadMedia(pageId, file, pat);
                     if (uploadResult?.id) {
@@ -545,20 +715,33 @@ window.sendMessage = async function () {
                     _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
                     imagesSentViaExtension = true;
 
-                    // Optimistic UI: show sent images immediately
+                    // Optimistic UI: show sent media immediately (image hoặc video).
+                    // Video dùng blob URL (rẻ hơn dataURL cho file 5-20MB), image vẫn dùng
+                    // dataURL để optimistic message tự-contained khi reload page.
                     for (const file of pendingImages) {
-                        const dataUrl = await new Promise((r) => {
-                            const reader = new FileReader();
-                            reader.onload = () => r(reader.result);
-                            reader.readAsDataURL(file);
-                        });
+                        const isVideo = file.type?.startsWith?.('video/');
+                        let attachment;
+                        if (isVideo) {
+                            attachment = {
+                                type: 'video',
+                                url: URL.createObjectURL(file),
+                                mime_type: file.type,
+                            };
+                        } else {
+                            const dataUrl = await new Promise((r) => {
+                                const reader = new FileReader();
+                                reader.onload = () => r(reader.result);
+                                reader.readAsDataURL(file);
+                            });
+                            attachment = { type: 'image', url: dataUrl };
+                        }
                         window.allChatMessages.push({
                             id: 'opt_img_' + Date.now() + Math.random(),
                             text: '',
                             time: new Date(),
                             sender: 'shop',
                             senderName: '',
-                            attachments: [{ type: 'image', url: dataUrl }],
+                            attachments: [attachment],
                         });
                     }
                     window.renderChatMessages(window.allChatMessages);
@@ -619,15 +802,35 @@ window.sendMessage = async function () {
                             }
                         });
                     }
-                    // Preserve optimistic private-reply messages (pr_*) not yet in server data
-                    const optimisticMsgs = window.allChatMessages.filter(
+                    // Preserve optimistic messages (opt_*, opt_img_*, pr_*) chưa có
+                    // bản tin tương ứng từ server. Match qua text + sender (server có
+                    // thể đã include tin vừa gửi → drop optimistic).
+                    const isTempId = (id) => {
+                        const s = String(id || '');
+                        return s.startsWith('pr_') || s.startsWith('opt_');
+                    };
+                    const optimisticMsgs = (window.allChatMessages || []).filter(
                         (m) =>
-                            String(m.id).startsWith('pr_') &&
-                            !messages.some((sm) => sm.text === m.text && sm.sender === 'shop')
+                            isTempId(m.id) &&
+                            !messages.some(
+                                (sm) =>
+                                    sm.sender === 'shop' &&
+                                    (sm.text || '').trim() === (m.text || '').trim() &&
+                                    (sm.text || '').trim() !== ''
+                            )
                     );
-                    window.allChatMessages = [...messages, ...optimisticMsgs];
-                    window.currentChatCursor = messages.length;
-                    window.renderChatMessages(messages);
+                    // Merge: giữ tin cũ đã load qua infinite-scroll mà API page-1 không trả lại.
+                    // CRITICAL: bỏ tất cả tin optimistic ra khỏi olderKept — tránh hiện
+                    // 2 tin trùng (opt_* + bản server) gây giật UI khi gửi xong.
+                    const freshIds = new Set(messages.map((m) => m.id));
+                    const olderKept = (window.allChatMessages || []).filter(
+                        (m) => !isTempId(m.id) && !freshIds.has(m.id)
+                    );
+                    const merged = [...olderKept, ...messages, ...optimisticMsgs];
+                    window.allChatMessages = merged;
+                    // Cursor = tổng số tin đã load (để loadMoreMessages tiếp tục đúng)
+                    window.currentChatCursor = merged.length;
+                    window.renderChatMessages(merged);
                 }
             }
         }, reloadDelay);
@@ -727,14 +930,12 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
                     customers_len: msgData?.customers?.length || 0,
                     customers_with_global_id: (msgData?.customers || []).filter((c) => c.global_id)
                         .length,
-                    customers_sample: (msgData?.customers || [])
-                        .slice(0, 2)
-                        .map((c) => ({
-                            id: c.id,
-                            fb_id: c.fb_id,
-                            global_id: c.global_id,
-                            name: c.name,
-                        })),
+                    customers_sample: (msgData?.customers || []).slice(0, 2).map((c) => ({
+                        id: c.id,
+                        fb_id: c.fb_id,
+                        global_id: c.global_id,
+                        name: c.name,
+                    })),
                 });
                 if (msgData?.conversation) {
                     if (msgData.conversation.thread_id)
@@ -1051,6 +1252,42 @@ window.toggleHideComment = async function (msgId) {
     }
     window.renderChatMessages(window.allChatMessages);
 };
+
+// =====================================================
+// INFINITE SCROLL — pagination khi user kéo lên đầu container
+// =====================================================
+
+const SCROLL_THRESHOLD_PX = 80; // trigger khi scrollTop < threshold
+
+/**
+ * Wire scroll listener 1 lần per container (idempotent qua data-scroll-wired flag).
+ * Khi user kéo lên gần đầu, gọi window.loadMoreMessages() — function này đã có
+ * sẵn ở chat-core, lo phần fetch + prepend + restore scroll position.
+ */
+function _wireInfiniteScroll(container) {
+    if (!container || container.dataset.scrollWired === '1') return;
+    container.dataset.scrollWired = '1';
+
+    let scheduled = false;
+    container.addEventListener(
+        'scroll',
+        () => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                if (container.scrollTop > SCROLL_THRESHOLD_PX) return;
+                if (window.isLoadingMoreMessages) return;
+                if (window._chatNoMoreMessages) return;
+                if (!window.currentChatCursor || !window.currentConversationId) return;
+                if (typeof window.loadMoreMessages === 'function') {
+                    window.loadMoreMessages();
+                }
+            });
+        },
+        { passive: true }
+    );
+}
 
 // =====================================================
 // POST INFO BANNER (COMMENT view)

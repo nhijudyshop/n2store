@@ -120,6 +120,7 @@
                 statusFilter: _getSelectValue('statusFilter'),
                 fulfillmentFilter: _getSelectValue('fulfillmentFilter'),
                 callHistoryFilter: _getSelectValue('callHistoryFilter'),
+                kpiFilter: _getSelectValue('kpiFilter'),
             },
             tags: {
                 selected:
@@ -189,6 +190,13 @@
             _setSelectValue('statusFilter', sel.statusFilter);
             _setSelectValue('fulfillmentFilter', sel.fulfillmentFilter);
             _setSelectValue('callHistoryFilter', sel.callHistoryFilter);
+            // KPI filter: nếu user lưu trạng thái has_kpi/no_kpi, trigger handler để
+            // load bulk-summary trước khi render bảng (filter cần data từ store).
+            if (_setSelectValue('kpiFilter', sel.kpiFilter) && sel.kpiFilter !== 'all') {
+                setTimeout(() => {
+                    window.handleKpiFilterChange?.(sel.kpiFilter);
+                }, 100);
+            }
         } catch (e) {
             console.warn('[FILTER-PERSIST] apply selects err:', e);
         }

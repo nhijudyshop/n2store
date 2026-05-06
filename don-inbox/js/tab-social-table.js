@@ -149,6 +149,14 @@ function _handleTableClick(e) {
         case 'sale':
             if (typeof openRetailSaleFromSocial === 'function') openRetailSaleFromSocial(orderId);
             break;
+        case 'packing-slip':
+            if (typeof openPackingSlipModal === 'function') {
+                // Set selection to chỉ row này rồi mở modal (modal đọc selectedOrders)
+                SocialOrderState.selectedOrders.clear();
+                SocialOrderState.selectedOrders.add(orderId);
+                openPackingSlipModal();
+            }
+            break;
         case 'tag':
             if (typeof openTagModal === 'function') openTagModal(orderId);
             break;
@@ -269,6 +277,9 @@ function renderTableRow(order, index) {
                         </button>
                         <button class="btn-edit-icon" data-action="sale" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
                             <i class="fas fa-receipt"></i>
+                        </button>
+                        <button class="btn-edit-icon" data-action="packing-slip" title="Phiếu Soạn Hàng" style="color: #f59e0b;">
+                            <i class="fas fa-clipboard-list"></i>
                         </button>
                     `
                     }
@@ -1071,6 +1082,7 @@ function updateBulkActionBar() {
     if (!container) return;
     const statusFilter = document.getElementById('statusFilter');
     const currentFilter = statusFilter?.value || 'all';
+    const selectedCount = SocialOrderState.selectedOrders.size;
 
     if (currentFilter === 'cancelled') {
         container.innerHTML = `
@@ -1082,7 +1094,15 @@ function updateBulkActionBar() {
             </button>
         `;
     } else {
+        // "Phiếu Soạn Hàng" chỉ hiện khi chọn đúng 1 đơn (giống tab1 orders-report)
+        const packingSlipBtn =
+            selectedCount === 1
+                ? `<button class="btn-primary" onclick="openPackingSlipModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff;">
+                <i class="fas fa-clipboard-list"></i> Phiếu Soạn Hàng
+            </button>`
+                : '';
         container.innerHTML = `
+            ${packingSlipBtn}
             <button class="btn-primary" onclick="cancelSelectedOrders()" style="background:#f59e0b;">
                 <i class="fas fa-ban"></i> Hủy đơn đã chọn
             </button>

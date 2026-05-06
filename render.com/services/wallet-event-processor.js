@@ -40,7 +40,7 @@ const WALLET_EVENT_TYPES = {
     VIRTUAL_CREDIT_ISSUED: 'VIRTUAL_CREDIT_ISSUED',
     VIRTUAL_CREDIT_USED: 'VIRTUAL_CREDIT_USED',
     VIRTUAL_CREDIT_EXPIRED: 'VIRTUAL_CREDIT_EXPIRED',
-    ADJUSTMENT: 'ADJUSTMENT'
+    ADJUSTMENT: 'ADJUSTMENT',
 };
 
 // Source types - MUST MATCH database constraint in wallet_transactions table
@@ -51,7 +51,7 @@ const WALLET_SOURCES = {
     VIRTUAL_CREDIT_ISSUE: 'VIRTUAL_CREDIT_ISSUE',
     VIRTUAL_CREDIT_USE: 'VIRTUAL_CREDIT_USE',
     VIRTUAL_CREDIT_EXPIRE: 'VIRTUAL_CREDIT_EXPIRE',
-    MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT'
+    MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT',
 };
 
 // =====================================================
@@ -67,20 +67,25 @@ const WALLET_SOURCES = {
  */
 async function getOrCreateWallet(db, phone, customerId = null) {
     // Try to get existing wallet
-    let result = await db.query(`
+    let result = await db.query(
+        `
         SELECT id, phone, customer_id, balance, virtual_balance,
                total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
         FROM customer_wallets
         WHERE phone = $1
-    `, [phone]);
+    `,
+        [phone]
+    );
 
     if (result.rows.length > 0) {
         const wallet = result.rows[0];
 
         // Update customer_id if provided and not set
         if (customerId && !wallet.customer_id) {
-            await db.query('UPDATE customer_wallets SET customer_id = $1, updated_at = NOW() WHERE id = $2',
-                [customerId, wallet.id]);
+            await db.query(
+                'UPDATE customer_wallets SET customer_id = $1, updated_at = NOW() WHERE id = $2',
+                [customerId, wallet.id]
+            );
             wallet.customer_id = customerId;
         }
 
@@ -88,13 +93,16 @@ async function getOrCreateWallet(db, phone, customerId = null) {
     }
 
     // Create new wallet
-    result = await db.query(`
+    result = await db.query(
+        `
         INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
         VALUES ($1, $2, 0, 0)
         ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
         RETURNING id, phone, customer_id, balance, virtual_balance,
                   total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
-    `, [phone, customerId]);
+    `,
+        [phone, customerId]
+    );
 
     console.log(`[WALLET-PROCESSOR] Created wallet for ${phone}`);
     return result.rows[0];
@@ -194,7 +202,7 @@ async function runWalletEvent(client, event) {
         customerId = null,
         createdBy = null,
         sepayId = null,
-        transactionDate = null
+        transactionDate = null,
     } = event;
 
     if (!phone || !type || amount === undefined) {
@@ -209,23 +217,29 @@ async function runWalletEvent(client, event) {
     console.log(`[WALLET-PROCESSOR] Processing ${type}: ${phone} - ${amountNum}`);
 
     // 1. Get or create wallet (row lock held until caller's COMMIT)
-    const walletResult = await client.query(`
+    const walletResult = await client.query(
+        `
         SELECT id, phone, customer_id, balance, virtual_balance,
                total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
         FROM customer_wallets
         WHERE phone = $1
         FOR UPDATE
-    `, [phone]);
+    `,
+        [phone]
+    );
 
     let wallet;
     if (walletResult.rows.length === 0) {
-        const createResult = await client.query(`
+        const createResult = await client.query(
+            `
             INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
             VALUES ($1, $2, 0, 0)
             ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
             RETURNING id, phone, customer_id, balance, virtual_balance,
                       total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
-        `, [phone, customerId]);
+        `,
+            [phone, customerId]
+        );
         wallet = createResult.rows[0];
         console.log(`[WALLET-PROCESSOR] Created wallet for ${phone}`);
     } else {
@@ -266,7 +280,7 @@ async function runWalletEvent(client, event) {
         referenceId?.toString(),
         note,
         createdBy,
-        sepayId
+        sepayId,
     ];
     if (transactionDate) {
         insertParams.push(transactionDate);
@@ -275,21 +289,26 @@ async function runWalletEvent(client, event) {
     // ON CONFLICT DO NOTHING only matters when sepay_id is NOT NULL (partial index
     // from migration 064). For non-bank transactions sepay_id is NULL and the
     // clause is a safe no-op.
-    const txResult = await client.query(`
+    const txResult = await client.query(
+        `
         INSERT INTO wallet_transactions (${insertColumns})
         VALUES (${insertValues})
         ON CONFLICT (sepay_id) WHERE sepay_id IS NOT NULL DO NOTHING
         RETURNING id
-    `, insertParams);
+    `,
+        insertParams
+    );
 
     if (txResult.rowCount === 0) {
         // Duplicate sepay_id — another path already credited this bank transaction.
-        console.log(`[WALLET-PROCESSOR] ⚠️ Duplicate sepay_id=${sepayId} — skipping wallet update for ${phone}`);
+        console.log(
+            `[WALLET-PROCESSOR] ⚠️ Duplicate sepay_id=${sepayId} — skipping wallet update for ${phone}`
+        );
         return {
             success: true,
             skipped: true,
             reason: `Duplicate sepay_id=${sepayId}`,
-            wallet
+            wallet,
         };
     }
 
@@ -300,9 +319,10 @@ async function runWalletEvent(client, event) {
     let updateQuery;
     let updateParams;
     if (isVirtualType) {
-        const totalField = type === WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED
-            ? 'total_virtual_issued'
-            : 'total_virtual_used';
+        const totalField =
+            type === WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED
+                ? 'total_virtual_issued'
+                : 'total_virtual_used';
         updateQuery = `
             UPDATE customer_wallets
             SET virtual_balance = $2,
@@ -313,11 +333,12 @@ async function runWalletEvent(client, event) {
         `;
         updateParams = [wallet.id, newBalance, Math.abs(amountNum)];
     } else {
-        const totalField = type === WALLET_EVENT_TYPES.DEPOSIT
-            ? 'total_deposited'
-            : type === WALLET_EVENT_TYPES.WITHDRAW
-                ? 'total_withdrawn'
-                : null;
+        const totalField =
+            type === WALLET_EVENT_TYPES.DEPOSIT
+                ? 'total_deposited'
+                : type === WALLET_EVENT_TYPES.WITHDRAW
+                  ? 'total_withdrawn'
+                  : null;
         if (totalField) {
             updateQuery = `
                 UPDATE customer_wallets
@@ -342,7 +363,9 @@ async function runWalletEvent(client, event) {
     const updatedWalletResult = await client.query(updateQuery, updateParams);
     const updatedWallet = updatedWalletResult.rows[0];
 
-    console.log(`[WALLET-PROCESSOR] ✅ ${type} completed: ${phone} - ${amountNum} (TX: ${transactionId})`);
+    console.log(
+        `[WALLET-PROCESSOR] ✅ ${type} completed: ${phone} - ${amountNum} (TX: ${transactionId})`
+    );
 
     // 5. Emit SSE event (safe to emit before commit — if this transaction rolls back later
     //    the UI will reconcile on next SSE tick. Previously we emitted inside the old
@@ -357,9 +380,9 @@ async function runWalletEvent(client, event) {
             source,
             referenceType,
             referenceId,
-            note
+            note,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     };
 
     walletEvents.emit('wallet:update', eventData);
@@ -368,7 +391,7 @@ async function runWalletEvent(client, event) {
     return {
         success: true,
         transactionId,
-        wallet: updatedWallet
+        wallet: updatedWallet,
     };
 }
 
@@ -384,7 +407,16 @@ async function runWalletEvent(client, event) {
  *   wallet_transactions.sepay_id — the partial UNIQUE index from migration 064
  *   guarantees at most one wallet deposit per SePay transaction at the DB level.
  */
-async function processDeposit(db, phone, amount, balanceHistoryId, note, customerId = null, transactionDate = null, sepayId = null) {
+async function processDeposit(
+    db,
+    phone,
+    amount,
+    balanceHistoryId,
+    note,
+    customerId = null,
+    transactionDate = null,
+    sepayId = null
+) {
     // IDEMPOTENCY CHECK: Verify balance_history not already processed
     const checkResult = await db.query(
         'SELECT wallet_processed FROM balance_history WHERE id = $1',
@@ -392,7 +424,9 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
     );
 
     if (checkResult.rows.length > 0 && checkResult.rows[0].wallet_processed === true) {
-        console.log(`[WALLET-PROCESSOR] ⚠️ Skipping duplicate deposit for balance_history ${balanceHistoryId} - already processed`);
+        console.log(
+            `[WALLET-PROCESSOR] ⚠️ Skipping duplicate deposit for balance_history ${balanceHistoryId} - already processed`
+        );
         // Return existing transaction info if available
         const existingTx = await db.query(
             'SELECT id, balance_after FROM wallet_transactions WHERE reference_type = $1 AND reference_id = $2 LIMIT 1',
@@ -405,7 +439,7 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
                 transactionId: existingTx.rows[0].id,
                 wallet: wallet,
                 skipped: true,
-                reason: 'Already processed'
+                reason: 'Already processed',
             };
         }
         throw new Error(`Duplicate deposit attempt for balance_history ${balanceHistoryId}`);
@@ -421,15 +455,71 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
         note: note || `Nạp từ CK ngân hàng`,
         customerId,
         transactionDate,
-        sepayId
+        sepayId,
     });
 }
 
 /**
  * Process manual deposit (admin/accounting - no balance_history)
- * Use this for deposits NOT from bank transfers
+ * Use this for deposits NOT from bank transfers.
+ *
+ * Idempotency: bank deposits are deduped by sepay_id (UNIQUE index from migration 064).
+ * Manual deposits have no sepay_id → on client retry (network timeout, double-click)
+ * the same deposit could fire twice and credit balance twice. To prevent this we
+ * scan wallet_transactions for an identical (phone, source, reference_id, amount,
+ * type) within the last 60s and short-circuit if found. Caller can override with
+ * idempotencyWindowSec=0 to disable.
  */
-async function processManualDeposit(db, phone, amount, source, referenceId, note, customerId = null, createdBy = null) {
+async function processManualDeposit(
+    db,
+    phone,
+    amount,
+    source,
+    referenceId,
+    note,
+    customerId = null,
+    createdBy = null,
+    idempotencyWindowSec = 60
+) {
+    if (idempotencyWindowSec > 0) {
+        const effectiveSource = source || WALLET_SOURCES.MANUAL_ADJUSTMENT;
+        const effectiveRef = String(referenceId || 'admin');
+        const dup = await db.query(
+            `SELECT id, balance_after, created_at FROM wallet_transactions
+             WHERE phone = $1
+               AND type = 'DEPOSIT'
+               AND source = $2
+               AND reference_id = $3
+               AND amount = $4
+               AND created_at > NOW() - ($5 || ' seconds')::interval
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [phone, effectiveSource, effectiveRef, amount, String(idempotencyWindowSec)]
+        );
+        if (dup.rows.length > 0) {
+            const prev = dup.rows[0];
+            console.warn(
+                `[WALLET-PROCESSOR] ⚠️ Duplicate manual deposit short-circuited: phone=${phone}, amount=${amount}, source=${effectiveSource}, ref=${effectiveRef}, prevTxId=${prev.id}`
+            );
+            // Return same shape as processWalletEvent success path so callers don't break.
+            const walletRow = await db.query(
+                `SELECT id, phone, customer_id, balance, virtual_balance,
+                        total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
+                 FROM customer_wallets WHERE phone = $1`,
+                [phone]
+            );
+            return {
+                success: true,
+                skipped: true,
+                reason: 'duplicate_within_window',
+                idempotencyWindowSec,
+                previousTransactionId: prev.id,
+                transactionId: prev.id,
+                wallet: walletRow.rows[0] || null,
+            };
+        }
+    }
+
     return processWalletEvent(db, {
         type: WALLET_EVENT_TYPES.DEPOSIT,
         phone,
@@ -439,7 +529,7 @@ async function processManualDeposit(db, phone, amount, source, referenceId, note
         referenceId: referenceId || 'admin',
         note: note || 'Nạp tiền thủ công',
         customerId,
-        createdBy
+        createdBy,
     });
 }
 
@@ -454,7 +544,7 @@ async function processWithdrawal(db, phone, amount, referenceType, referenceId, 
         source: WALLET_SOURCES.ORDER_PAYMENT,
         referenceType,
         referenceId,
-        note
+        note,
     });
 }
 
@@ -463,47 +553,89 @@ async function processWithdrawal(db, phone, amount, referenceType, referenceId, 
  * Note: Does NOT create wallet_transaction due to type constraint
  * Only creates virtual_credits record and updates wallet virtual_balance
  */
-async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresInDays = 30, createdBy = null) {
-    console.log(`[WALLET-PROCESSOR] issueVirtualCredit called: phone=${phone}, amount=${amount}, ticketId=${ticketId}, expiresInDays=${expiresInDays}`);
+async function issueVirtualCredit(
+    db,
+    phone,
+    amount,
+    ticketId,
+    reason,
+    expiresInDays = 30,
+    createdBy = null
+) {
+    console.log(
+        `[WALLET-PROCESSOR] issueVirtualCredit called: phone=${phone}, amount=${amount}, ticketId=${ticketId}, expiresInDays=${expiresInDays}`
+    );
 
     // Same detection fix as processWalletEvent: PoolClient also has `.connect`,
     // so check `.release` (only present on clients) to decide whether to wrap.
     const isClient = !!(db && typeof db.release === 'function');
-    const runner = !isClient && db && typeof db.connect === 'function'
-        ? (fn) => withTransaction(db, fn)
-        : (fn) => fn(db);
+    const runner =
+        !isClient && db && typeof db.connect === 'function'
+            ? (fn) => withTransaction(db, fn)
+            : (fn) => fn(db);
 
     try {
         return await runner(async (client) => {
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-            const wallet = await getOrCreateWallet(client, phone);
-            console.log(`[WALLET-PROCESSOR] Wallet obtained: id=${wallet.id}`);
+            // 1a. Get-or-create wallet (no lock yet — getOrCreateWallet does upsert).
+            await getOrCreateWallet(client, phone);
 
-            const insertResult = await client.query(`
+            // 1b. SELECT FOR UPDATE on the existing wallet row to serialize concurrent
+            //     issueVirtualCredit calls. Without this, two simultaneous calls both
+            //     read same virtual_balance, compute new = old + amount, then UPDATE
+            //     with their own value → second UPDATE overwrites first → lost credit.
+            //     Held until the enclosing transaction COMMITs.
+            const lockResult = await client.query(
+                `
+                SELECT id, phone, customer_id, balance, virtual_balance,
+                       total_deposited, total_withdrawn, total_virtual_issued, total_virtual_used
+                FROM customer_wallets
+                WHERE phone = $1
+                FOR UPDATE
+            `,
+                [phone]
+            );
+            if (lockResult.rows.length === 0) {
+                throw new Error(`Wallet for ${phone} disappeared between create and lock`);
+            }
+            const wallet = lockResult.rows[0];
+            console.log(
+                `[WALLET-PROCESSOR] Wallet locked: id=${wallet.id}, virtual_balance=${wallet.virtual_balance}`
+            );
+
+            const insertResult = await client.query(
+                `
                 INSERT INTO virtual_credits (
                     phone, wallet_id, original_amount, remaining_amount,
                     expires_at, source_type, source_id, note, status
                 )
                 VALUES ($1, $2, $3, $3, $4, 'RETURN_SHIPPER', $5, $6, 'ACTIVE')
                 RETURNING id
-            `, [phone, wallet.id, amount, expiresAt, ticketId, reason]);
+            `,
+                [phone, wallet.id, amount, expiresAt, ticketId, reason]
+            );
             const virtualCreditId = insertResult.rows[0].id;
 
             const newVirtualBalance = parseFloat(wallet.virtual_balance || 0) + parseFloat(amount);
-            const newTotalVirtualIssued = parseFloat(wallet.total_virtual_issued || 0) + parseFloat(amount);
+            const newTotalVirtualIssued =
+                parseFloat(wallet.total_virtual_issued || 0) + parseFloat(amount);
 
-            const updateResult = await client.query(`
+            const updateResult = await client.query(
+                `
                 UPDATE customer_wallets
                 SET virtual_balance = $2,
                     total_virtual_issued = $3,
                     updated_at = NOW()
                 WHERE id = $1
                 RETURNING *
-            `, [wallet.id, newVirtualBalance, newTotalVirtualIssued]);
+            `,
+                [wallet.id, newVirtualBalance, newTotalVirtualIssued]
+            );
 
-            await client.query(`
+            await client.query(
+                `
                 INSERT INTO wallet_transactions (
                     phone, wallet_id, type, amount,
                     balance_before, balance_after,
@@ -511,18 +643,24 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                     source, reference_type, reference_id, note, created_by
                 ) VALUES ($1, $2, 'VIRTUAL_CREDIT', $3, $4, $4, $5, $6,
                     'VIRTUAL_CREDIT_ISSUE', 'virtual_credit', $7, $8, $9)
-            `, [
-                phone, wallet.id, amount,
-                parseFloat(wallet.balance || 0),
-                parseFloat(wallet.virtual_balance || 0),
-                newVirtualBalance,
-                String(virtualCreditId),
-                reason,
-                createdBy
-            ]);
+            `,
+                [
+                    phone,
+                    wallet.id,
+                    amount,
+                    parseFloat(wallet.balance || 0),
+                    parseFloat(wallet.virtual_balance || 0),
+                    newVirtualBalance,
+                    String(virtualCreditId),
+                    reason,
+                    createdBy,
+                ]
+            );
 
             const updatedWallet = updateResult.rows[0];
-            console.log(`[WALLET-PROCESSOR] ✅ Virtual credit issued successfully: ${phone} +${amount}đ (virtual_balance: ${newVirtualBalance})`);
+            console.log(
+                `[WALLET-PROCESSOR] ✅ Virtual credit issued successfully: ${phone} +${amount}đ (virtual_balance: ${newVirtualBalance})`
+            );
 
             const eventData = {
                 phone,
@@ -533,9 +671,9 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                     source: 'VIRTUAL_CREDIT_ISSUE',
                     referenceType: 'virtual_credit',
                     referenceId: String(virtualCreditId),
-                    note: reason
+                    note: reason,
                 },
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
             };
             walletEvents.emit('wallet:update', eventData);
             walletEvents.emit(`wallet:${phone}`, eventData);
@@ -549,8 +687,8 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                     amount,
                     expiresAt,
                     ticketId,
-                    reason
-                }
+                    reason,
+                },
             };
         });
     } catch (error) {
@@ -571,7 +709,7 @@ async function useVirtualCredit(db, phone, amount, referenceType, referenceId, n
         source: WALLET_SOURCES.ORDER_PAYMENT,
         referenceType,
         referenceId,
-        note
+        note,
     });
 }
 
@@ -586,7 +724,7 @@ async function processAdjustment(db, phone, amount, note, adminId = null) {
         source: WALLET_SOURCES.MANUAL_ADJUSTMENT,
         referenceType: 'manual',
         referenceId: adminId || 'system',
-        note
+        note,
     });
 }
 
@@ -598,19 +736,22 @@ async function processAdjustment(db, phone, amount, note, adminId = null) {
  * Get wallet balance for a phone
  */
 async function getWalletBalance(db, phone) {
-    const result = await db.query(`
+    const result = await db.query(
+        `
         SELECT id, phone, balance, virtual_balance,
                total_deposited, total_withdrawn
         FROM customer_wallets
         WHERE phone = $1
-    `, [phone]);
+    `,
+        [phone]
+    );
 
     if (result.rows.length === 0) {
         return {
             balance: 0,
             virtual_balance: 0,
             total_balance: 0,
-            exists: false
+            exists: false,
         };
     }
 
@@ -618,7 +759,7 @@ async function getWalletBalance(db, phone) {
     return {
         ...wallet,
         total_balance: parseFloat(wallet.balance) + parseFloat(wallet.virtual_balance),
-        exists: true
+        exists: true,
     };
 }
 
@@ -626,14 +767,17 @@ async function getWalletBalance(db, phone) {
  * Get recent transactions for a phone
  */
 async function getRecentTransactions(db, phone, limit = 10) {
-    const result = await db.query(`
+    const result = await db.query(
+        `
         SELECT id, type, amount, balance_after, virtual_balance_after,
                source, reference_type, reference_id, note, created_at
         FROM wallet_transactions
         WHERE phone = $1
         ORDER BY created_at DESC
         LIMIT $2
-    `, [phone, limit]);
+    `,
+        [phone, limit]
+    );
 
     return result.rows;
 }
@@ -660,5 +804,5 @@ module.exports = {
     // Utility functions
     getOrCreateWallet,
     getWalletBalance,
-    getRecentTransactions
+    getRecentTransactions,
 };

@@ -685,10 +685,73 @@
     }
 
     // =====================================================
+    // SELECTIVE ADD-ONLY SYNC: XL flag → TPOS tag
+    // syncXLToTPOS toàn cục đã disabled từ 2026-04-24, nhưng theo yêu cầu user:
+    // 1 số flag cần auto-thêm tag tương ứng vào cột TAG TPOS (vd "THẺ KHÁCH LẠ").
+    // Function này chỉ ADD (idempotent), không REMOVE — đơn giản, an toàn, không
+    // động vào reverse sync flow hay forward sync khác.
+    // =====================================================
+    async function syncXLFlagAddToTPOS(orderCode, flagKey) {
+        const tposTagName = FLAG_TO_TPOS[flagKey];
+        if (!tposTagName) return; // Flag không có mapping
+
+        const order = _findOrderByCode(orderCode);
+        if (!order || !order.Id) {
+            console.warn(`${LOG} [XL→TPOS-ADD] Không tìm thấy order ${orderCode}`);
+            return;
+        }
+
+        // Skip nếu đang sync ngược (TPOS → XL) — tránh loop
+        if (_syncingReverse.has(orderCode)) return;
+
+        // Check current TPOS tags — skip nếu đã có
+        const currentTags = _getTPOSTagsFromOrder(order);
+        const upperTarget = _normalizeName(tposTagName);
+        const alreadyHas = currentTags.some((t) => _normalizeName(t.Name) === upperTarget);
+        if (alreadyHas) {
+            console.log(`${LOG} [XL→TPOS-ADD] ${orderCode}: TPOS đã có "${tposTagName}", skip`);
+            return;
+        }
+
+        // Find or create TPOS tag (handle pagination cap + race với 400)
+        const tagObj = await _findOrCreateTPOSTag(tposTagName);
+        if (!tagObj) {
+            console.warn(`${LOG} [XL→TPOS-ADD] Không tạo được tag "${tposTagName}"`);
+            return;
+        }
+
+        // Build new tag list = current + new tag
+        const newTagObjs = [
+            ...currentTags,
+            { Id: tagObj.Id, Name: tagObj.Name, Color: tagObj.Color },
+        ];
+
+        _syncingForward.add(orderCode);
+        try {
+            await _callAssignTag(order.Id, newTagObjs);
+            // Update local order Tags để table render đúng + chặn duplicate add
+            order.Tags = JSON.stringify(newTagObjs);
+            // Cooldown để chặn reverse sync xoá oan từ WS event cũ
+            _recentForwardSyncAt.set(orderCode, Date.now());
+            console.log(`${LOG} [XL→TPOS-ADD] ${orderCode}: thêm "${tposTagName}" thành công`);
+
+            // Trigger surgical row update để cột TAG hiển thị tag mới ngay
+            if (typeof window.updateOrderInTable === 'function') {
+                window.updateOrderInTable(order.Id, { Tags: order.Tags });
+            }
+        } catch (e) {
+            console.warn(`${LOG} [XL→TPOS-ADD] AssignTag failed for ${orderCode}:`, e.message);
+        } finally {
+            _syncingForward.delete(orderCode);
+        }
+    }
+
+    // =====================================================
     // EXPOSE
     // =====================================================
 
     window.syncXLToTPOS = syncXLToTPOS;
+    window.syncXLFlagAddToTPOS = syncXLFlagAddToTPOS;
     window.handleTPOSTagsChanged = handleTPOSTagsChanged;
     // Expose managed-name lookup so other modules (vd Tag XL cell render)
     // có thể detect tag KHÁC = unmanaged TPOS tag.

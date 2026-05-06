@@ -258,7 +258,8 @@ function getTposAccountDisplay() {
 
     if (window.billTokenManager.hasCredentials()) {
         const info = window.billTokenManager.getCredentialsInfo();
-        const accountName = info.type === 'password' ? info.username : 'Bearer Token';
+        const accountName =
+            info.label || (info.type === 'password' ? info.username : 'Bearer Token');
         return `<span style="background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">🔑 TK: ${accountName}</span>`;
     } else {
         return '<span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">🔐 Token mặc định</span>';
@@ -270,12 +271,12 @@ function getTposAccountDisplay() {
  * Throws error if not configured
  */
 async function getBillAuthHeader() {
-    // Ensure credentials are loaded (important for incognito mode)
+    // Force re-sync với Render: active account có thể đã đổi ở tab khác / device khác.
+    // Tránh trường hợp activeLabel stale → bill creates with wrong TPOS account.
     if (window.billTokenManager) {
-        await window.billTokenManager.ensureCredentialsLoaded();
+        await window.billTokenManager.loadFromRender();
     }
 
-    // Check if billTokenManager has credentials
     if (!window.billTokenManager?.hasCredentials()) {
         const errorMsg =
             'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.';
@@ -284,8 +285,9 @@ async function getBillAuthHeader() {
     }
 
     const credInfo = window.billTokenManager.getCredentialsInfo();
-    const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
-    console.log(`[FAST-SALE] ✓ Using billTokenManager (${accountInfo})`);
+    const accountInfo =
+        credInfo.label || (credInfo.type === 'password' ? credInfo.username : 'Bearer Token');
+    console.log(`[FAST-SALE] ✓ Using billTokenManager (active: ${accountInfo})`);
 
     return await window.billTokenManager.getAuthHeader();
 }
@@ -558,6 +560,9 @@ async function showFastSaleModal() {
 
         // Render modal body
         renderFastSaleModalBody();
+        // Auto T status banner — báo user T-tag sẽ tự xoá nếu Auto T ON, để
+        // không bị surprise bởi modal confirm bật ra giữa flow tạo PBH.
+        renderFastSaleAutoTBanner();
     } catch (error) {
         console.error('[FAST-SALE] Error loading data:', error);
         showFastSaleStatus('Lỗi khi tải dữ liệu: ' + error.message, 'error');
@@ -581,6 +586,12 @@ function closeFastSaleModal() {
     fastSaleOrdersData = [];
     window.fastSaleOrdersData = fastSaleOrdersData;
     clearFastSaleStatus(); // Clear status message when closing modal
+    // Reset Auto T banner để session sau hiện lại fresh (nếu user dismiss).
+    const banner = document.getElementById('fastSaleAutoTBanner');
+    if (banner) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+    }
 }
 
 /**
@@ -595,6 +606,10 @@ function saveFastSaleFormState() {
         const noteInput = document.getElementById(`fastSaleNote_${index}`);
         const weightInput = document.getElementById(`fastSaleWeight_${index}`);
         const walletAmountInput = document.getElementById(`fastSaleWalletAmount_${index}`);
+        // Save edited address — bug trước: user gõ địa chỉ chưa bấm Lưu, sau đó remove
+        // 1 đơn khác → re-render → input mới tạo với value gốc → mất edit, tệ hơn nữa
+        // có thể gửi lên TPOS với địa chỉ sai cho đơn đã bị shift index.
+        const addressInput = document.getElementById(`fastSaleAddress_${index}`);
 
         if (carrierSelect && carrierSelect.value) {
             order._userCarrierId = carrierSelect.value;
@@ -610,6 +625,14 @@ function saveFastSaleFormState() {
         }
         if (walletAmountInput && !walletAmountInput.disabled) {
             order._userWalletAmount = walletAmountInput.value;
+        }
+        if (addressInput) {
+            const v = addressInput.value?.trim() || '';
+            // Lưu chỉ khi user đã edit (input value khác data-original).
+            const original = addressInput.dataset.original?.trim() || '';
+            if (v !== original) {
+                order._userAddress = v;
+            }
         }
     });
 }
@@ -648,6 +671,8 @@ function removeOrderFromFastSale(index) {
         showNotification('Đã bỏ tất cả đơn hàng khỏi danh sách', 'info');
     } else {
         renderFastSaleModalBody();
+        // Re-render Auto T banner — count đơn có T-tag thay đổi sau khi remove.
+        renderFastSaleAutoTBanner();
         showNotification(`Đã bỏ đơn ${removedOrder.Reference || ''} khỏi danh sách`, 'info');
     }
 }
@@ -722,7 +747,11 @@ async function fetchFastSaleOrdersData(orderIds) {
                 `[FAST-SALE] Successfully fetched ${allOrders.length} FastSaleOrders total`
             );
 
-            // Enrich with SessionIndex from SaleOnlineOrder (displayedData)
+            // Enrich with SessionIndex from SaleOnlineOrder (displayedData) +
+            // **deep-clone nested Partner/Ship_Receiver/Carrier** để PHÒNG
+            // TPOS OData $ref entity-sharing: 2 đơn cùng customer có thể share
+            // cùng Partner reference → user edit address row A → row B cùng đổi
+            // (đây chính là bug "1 người tính cho mấy người khác").
             const enrichedOrders = allOrders.map((order) => {
                 // Find matching SaleOnlineOrder by SaleOnlineIds
                 const saleOnlineId = order.SaleOnlineIds?.[0];
@@ -736,6 +765,24 @@ async function fetchFastSaleOrdersData(orderIds) {
                         order.SessionIndex = saleOnlineOrder.SessionIndex || '';
                         order.SaleOnlineOrder = saleOnlineOrder; // Store reference for later use
                     }
+                }
+                // Deep-clone địa chỉ-liên-quan để break shared references.
+                // (JSON.parse(JSON.stringify(...)) chỉ áp cho mấy nested objects nhỏ
+                // — toàn bộ order quá lớn nên không clone full.)
+                if (order.Partner) {
+                    try {
+                        order.Partner = JSON.parse(JSON.stringify(order.Partner));
+                    } catch (e) {}
+                }
+                if (order.Ship_Receiver) {
+                    try {
+                        order.Ship_Receiver = JSON.parse(JSON.stringify(order.Ship_Receiver));
+                    } catch (e) {}
+                }
+                if (order.Carrier) {
+                    try {
+                        order.Carrier = JSON.parse(JSON.stringify(order.Carrier));
+                    } catch (e) {}
                 }
                 return order;
             });
@@ -773,6 +820,99 @@ async function fetchFastSaleOrdersData(orderIds) {
             .filter((o) => o !== null);
     }
 }
+
+/**
+ * Render Auto T status banner trong fast-sale modal.
+ * Hiển thị KHI Auto T đang BẬT — báo user là T-tag (chờ hàng) sẽ tự xoá
+ * cho đơn đã có T-tag, ngay sau khi tạo PBH thành công. Banner còn báo
+ * count cụ thể đơn nào sẽ bị ảnh hưởng để user thấy scope.
+ *
+ * Có nút toggle TẮT inline + nút × dismiss (cho session này).
+ */
+function renderFastSaleAutoTBanner() {
+    const banner = document.getElementById('fastSaleAutoTBanner');
+    if (!banner) return;
+
+    const isOn =
+        typeof window.isAutoTClearEnabled === 'function' ? window.isAutoTClearEnabled() : true; // default ON khi chưa load setting
+
+    if (!isOn) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+    }
+
+    // Đếm số đơn có T-tag trong fastSaleOrdersData. Đọc từ window để consumer
+    // ngoài module (test, devtools) có thể inject mảng custom mà vẫn render đúng.
+    const ordersData =
+        Array.isArray(window.fastSaleOrdersData) && window.fastSaleOrdersData.length > 0
+            ? window.fastSaleOrdersData
+            : fastSaleOrdersData;
+    let ordersWithTTag = 0;
+    let totalTTags = 0;
+    const ptag = window.ProcessingTagState;
+    if (ptag) {
+        for (const order of ordersData || []) {
+            const code =
+                order.SaleOnlineNames?.[0] ||
+                (order.SaleOnlineIds?.[0]
+                    ? window.OrderStore?.get(order.SaleOnlineIds[0])?.Code ||
+                      displayedData.find((d) => d.Id === order.SaleOnlineIds[0])?.Code
+                    : null);
+            if (!code) continue;
+            const data = ptag.getOrderData(String(code));
+            if (Array.isArray(data?.tTags) && data.tTags.length > 0) {
+                ordersWithTTag++;
+                totalTTags += data.tTags.length;
+            }
+        }
+    }
+
+    const detailHtml =
+        ordersWithTTag > 0
+            ? `<div style="font-size:12px;color:#92400e;margin-top:4px;">→ <strong>${ordersWithTTag}</strong> đơn có T-tag (tổng ${totalTTags} tag) sẽ bị xoá tự động sau khi ra đơn.</div>`
+            : `<div style="font-size:12px;color:#78350f;margin-top:4px;opacity:0.85;">→ Không đơn nào có T-tag — Auto T sẽ không ảnh hưởng lần này.</div>`;
+
+    banner.style.cssText = [
+        'display: block',
+        'margin: 12px 16px 0 16px',
+        'padding: 10px 14px',
+        'background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)',
+        'border: 1px solid #f59e0b',
+        'border-radius: 8px',
+        'color: #78350f',
+    ].join(';');
+
+    banner.innerHTML = `
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+            <div style="flex-shrink:0; font-size:18px; line-height:1;">⚠️</div>
+            <div style="flex:1;">
+                <div style="font-weight:600; font-size:13px;">
+                    Auto T đang BẬT
+                </div>
+                <div style="font-size:12px; margin-top:2px;">
+                    Sau khi ra đơn thành công, T-tag (chờ hàng) của đơn sẽ <strong>tự xoá</strong>.
+                    ${detailHtml.includes('không đơn') ? '' : 'Để giữ T-tag, tắt Auto T trước khi ra đơn.'}
+                </div>
+                ${detailHtml}
+            </div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+                <button type="button"
+                        onclick="window.toggleAutoTClear?.(); window.renderFastSaleAutoTBanner?.();"
+                        style="background:#fff; border:1px solid #f59e0b; color:#92400e; padding:4px 10px; border-radius:6px; font-size:11px; cursor:pointer; white-space:nowrap;"
+                        title="Tắt Auto T (giữ T-tag sau khi ra đơn)">
+                    Tắt Auto T
+                </button>
+                <button type="button"
+                        onclick="document.getElementById('fastSaleAutoTBanner').style.display='none'"
+                        style="background:transparent; border:none; color:#92400e; font-size:18px; cursor:pointer; padding:0 4px; line-height:1;"
+                        title="Ẩn cảnh báo">×</button>
+            </div>
+        </div>
+    `;
+}
+
+window.renderFastSaleAutoTBanner = renderFastSaleAutoTBanner;
 
 /**
  * Render Fast Sale Modal Body
@@ -967,9 +1107,14 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         }
     }
 
-    // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
+    // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder.
+    // Ưu tiên `_userAddress` (user gõ trong input nhưng chưa bấm Lưu) — saveFastSaleFormState
+    // đã capture trước re-render để không mất edit khi remove order khác.
     const customerAddress =
-        saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
+        order._userAddress ||
+        saleOnlineOrder?.Address ||
+        order.Partner?.PartnerAddress ||
+        '*Chưa có địa chỉ';
 
     // Get partner status from SaleOnlineOrder
     const partnerStatusText = saleOnlineOrder?.PartnerStatusText || '';
@@ -2159,18 +2304,37 @@ function collectFastSaleData() {
                 ReturnTotal: 0,
                 ConversionPrice: null,
             })),
-            Partner: order.Partner || {
-                Id: order.PartnerId || 0,
-                Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                Street: saleOnlineOrder?.Address || order.Partner?.Street || null,
-                Phone: saleOnlineOrder?.Telephone || order.Partner?.Phone || '',
-                Customer: true,
-                Type: 'contact',
-                CompanyType: 'person',
-                DateCreated: new Date().toISOString(),
-                ExtraAddress: order.Partner?.ExtraAddress || null,
-            },
+            Partner: (() => {
+                // Đảm bảo Partner.Street/FullAddress luôn = editedAddress (nếu user edit) →
+                // tránh trường hợp ReceiverAddress đúng nhưng Partner.Street vẫn cũ → TPOS
+                // hiển thị 2 địa chỉ khác nhau, hoặc bill in ra với địa chỉ sai.
+                const finalAddress =
+                    editedAddress || saleOnlineOrder?.Address || order.Partner?.Street || null;
+                if (order.Partner) {
+                    // Spread để KHÔNG mutate `order.Partner` (tránh ảnh hưởng object gốc trong
+                    // fastSaleOrdersData — dù updateLocalAddressData đã làm vậy khi user bấm Lưu).
+                    const p = { ...order.Partner };
+                    p.Street = finalAddress;
+                    p.FullAddress = finalAddress;
+                    if (p.ExtraAddress) {
+                        p.ExtraAddress = { ...p.ExtraAddress, Street: finalAddress };
+                    }
+                    return p;
+                }
+                return {
+                    Id: order.PartnerId || 0,
+                    Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                    DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                    Street: finalAddress,
+                    FullAddress: finalAddress,
+                    Phone: saleOnlineOrder?.Telephone || '',
+                    Customer: true,
+                    Type: 'contact',
+                    CompanyType: 'person',
+                    DateCreated: new Date().toISOString(),
+                    ExtraAddress: null,
+                };
+            })(),
             Carrier: order.Carrier || {
                 Id: carrierId,
                 Name: carrierName,
@@ -2528,6 +2692,16 @@ async function saveFastSaleOrders(isApprove = false) {
                 console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing address`);
                 return true;
             }
+            if (!Array.isArray(m.OrderLines) || m.OrderLines.length === 0) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) missing products`);
+                return true;
+            }
+            // Mọi line phải có ProductId thực — TPOS API cần ProductId > 0
+            const missingPid = m.OrderLines.some((l) => !l.ProductId || l.ProductId === 0);
+            if (missingPid) {
+                console.error(`[FAST-SALE] Order ${index} (${m.Reference}) line without ProductId`);
+                return true;
+            }
             return false;
         });
 
@@ -2537,13 +2711,17 @@ async function saveFastSaleOrders(isApprove = false) {
                 ? 'đối tác ship'
                 : !firstInvalid.Partner?.Phone
                   ? 'số điện thoại'
-                  : 'địa chỉ';
+                  : !firstInvalid.Partner?.Street
+                    ? 'địa chỉ'
+                    : !firstInvalid.OrderLines || firstInvalid.OrderLines.length === 0
+                      ? 'sản phẩm'
+                      : 'mã sản phẩm (ProductId)';
             showFastSaleStatus(
                 `Đơn ${firstInvalid.Reference || 'N/A'} thiếu ${missingField}`,
                 'warning'
             );
             window.notificationManager.error(
-                `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
+                `Có ${invalidOrders.length} đơn hàng thiếu ${missingField} — không thể tạo bill rỗng. Kiểm tra danh sách sản phẩm trước khi ra đơn.`,
                 'Lỗi validation'
             );
             resetFastSaleSubmissionState();
@@ -4459,18 +4637,27 @@ window.saveBillTemplateSettings = async function () {
 /**
  * Open TPOS Account Modal
  */
+// Editor state — track which account label is being edited; null = creating new
+let _tposEditingLabel = null;
+
 async function openTposAccountModal() {
     const modal = document.getElementById('tposAccountModal');
     if (modal) {
         modal.classList.add('show');
 
-        // Try to reload from Render if no credentials in memory
-        if (window.billTokenManager && !window.billTokenManager.hasCredentials()) {
-            console.log('[TPOS-ACCOUNT] No credentials in memory, trying to reload from Render...');
+        if (window.billTokenManager) {
             await window.billTokenManager.loadFromRender();
         }
 
         updateTposAccountStatus();
+        renderTposAccountList();
+        // Default: edit active account; nếu không có thì show empty form
+        const activeLabel = window.billTokenManager?.getActiveLabel?.();
+        if (activeLabel) {
+            editTposAccount(activeLabel);
+        } else {
+            newTposAccountForm();
+        }
     }
 }
 
@@ -4482,10 +4669,14 @@ function closeTposAccountModal() {
     if (modal) {
         modal.classList.remove('show');
     }
-    // Clear test result
     const testResult = document.getElementById('tposTestResult');
     if (testResult) {
         testResult.style.display = 'none';
+    }
+    _tposEditingLabel = null;
+    // Notify outer button to refresh label display
+    if (typeof updateTposAccountButtonLabel === 'function') {
+        updateTposAccountButtonLabel();
     }
 }
 
@@ -4511,6 +4702,60 @@ function switchTposAuthTab(tab) {
     }
 }
 
+function _escapeHtmlForTpos(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * Render danh sách accounts trong modal
+ */
+function renderTposAccountList() {
+    const listEl = document.getElementById('tposAccountList');
+    if (!listEl || !window.billTokenManager) return;
+
+    const accounts = window.billTokenManager.listAccounts();
+    if (accounts.length === 0) {
+        listEl.innerHTML =
+            '<div style="padding: 12px; text-align: center; color: #9ca3af; font-size: 13px">Chưa có tài khoản nào. Thêm mới ở dưới.</div>';
+        return;
+    }
+
+    listEl.innerHTML = accounts
+        .map((acc) => {
+            const isActive = acc.isActive;
+            const safeLabel = _escapeHtmlForTpos(acc.label);
+            const safeUsername = _escapeHtmlForTpos(
+                acc.username || (acc.authType === 'bearer' ? '(Bearer Token)' : '')
+            );
+            const isEditing = _tposEditingLabel === acc.label;
+            return `
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f3f4f6; ${isEditing ? 'background: #eef2ff' : ''}">
+                <div style="flex: 1; min-width: 0">
+                    <div style="font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 6px">
+                        ${isActive ? '<i class="fas fa-check-circle" style="color:#10b981"></i>' : '<i class="far fa-circle" style="color:#9ca3af"></i>'}
+                        <span>${safeLabel}</span>
+                        ${isActive ? '<span style="font-size:10px; padding:1px 6px; background:#d1fae5; color:#047857; border-radius:4px">ĐANG DÙNG</span>' : ''}
+                    </div>
+                    <div style="font-size: 11px; color: #6b7280; margin-left: 18px">
+                        ${acc.authType === 'bearer' ? 'Bearer Token' : 'Username: <strong>' + safeUsername + '</strong>'}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 4px">
+                    ${!isActive ? `<button type="button" title="Đặt làm active" onclick="setActiveTposAccount('${safeLabel.replace(/'/g, "\\'")}')" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px"><i class="fas fa-star"></i></button>` : ''}
+                    <button type="button" title="Sửa" onclick="editTposAccount('${safeLabel.replace(/'/g, "\\'")}')" style="background:#6b7280; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" title="Xóa" onclick="deleteTposAccount('${safeLabel.replace(/'/g, "\\'")}')" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            `;
+        })
+        .join('');
+}
+
 /**
  * Update status display in modal
  */
@@ -4519,55 +4764,129 @@ function updateTposAccountStatus() {
     if (!statusDiv || !window.billTokenManager) return;
 
     const info = window.billTokenManager.getCredentialsInfo();
+    const accounts = window.billTokenManager.listAccounts();
 
     if (!info.configured) {
         statusDiv.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
                 <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
-                <span style="color: #92400e;">Chưa cấu hình tài khoản TPOS cho bill. Đang dùng token mặc định.</span>
+                <span style="color: #92400e;">Chưa có account active. Tạo / chọn 1 account ở dưới.</span>
             </div>
         `;
-    } else if (info.type === 'bearer') {
-        statusDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-check-circle" style="color: #10b981;"></i>
-                <div>
-                    <div style="color: #047857; font-weight: 600;">Đã cấu hình Bearer Token</div>
-                    <div style="font-size: 12px; color: #6b7280; font-family: monospace;">${info.preview}</div>
-                </div>
+        return;
+    }
+
+    const detail = info.type === 'bearer' ? 'Bearer Token' : 'Username: ' + (info.username || '');
+    statusDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-check-circle" style="color: #10b981;"></i>
+            <div style="flex:1; min-width: 0">
+                <div style="color: #047857; font-weight: 600;">Đang dùng: <strong>${_escapeHtmlForTpos(info.label || 'Mặc định')}</strong></div>
+                <div style="font-size: 12px; color: #6b7280;">${_escapeHtmlForTpos(detail)} — Tổng ${accounts.length} account</div>
             </div>
-        `;
-        // Show bearer form with token
+        </div>
+    `;
+}
+
+/**
+ * Bắt đầu edit 1 account: load creds vào form
+ */
+function editTposAccount(label) {
+    _tposEditingLabel = label;
+    const acc = window.billTokenManager?.listAccounts().find((a) => a.label === label);
+    const fullAccs = window.billTokenManager?.accounts || [];
+    const full = fullAccs.find((a) => a.label === label);
+
+    document.getElementById('tposAccountLabel').value = label;
+    if (acc?.authType === 'bearer') {
         switchTposAuthTab('bearer');
-        const bearerInput = document.getElementById('tposBearerToken');
-        if (bearerInput && window.billTokenManager.credentials?.bearerToken) {
-            bearerInput.value = window.billTokenManager.credentials.bearerToken;
-        }
-    } else if (info.type === 'password') {
-        statusDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-check-circle" style="color: #10b981;"></i>
-                <div>
-                    <div style="color: #047857; font-weight: 600;">Đã cấu hình Username/Password</div>
-                    <div style="font-size: 12px; color: #6b7280;">Username: <strong>${info.username}</strong></div>
-                </div>
-            </div>
-        `;
-        // Show password form with username
+        document.getElementById('tposBearerToken').value = full?.bearerToken || '';
+        document.getElementById('tposUsername').value = '';
+        document.getElementById('tposPassword').value = '';
+    } else {
         switchTposAuthTab('password');
-        const usernameInput = document.getElementById('tposUsername');
-        const passwordInput = document.getElementById('tposPassword');
-        if (usernameInput && window.billTokenManager.credentials?.username) {
-            usernameInput.value = window.billTokenManager.credentials.username;
+        document.getElementById('tposUsername').value = full?.username || '';
+        document.getElementById('tposPassword').value = full?.password || '';
+        document.getElementById('tposBearerToken').value = '';
+    }
+
+    const titleEl = document.getElementById('tposAccountFormTitle');
+    if (titleEl) {
+        titleEl.innerHTML =
+            '<i class="fas fa-pencil-alt"></i> Sửa: <strong>' +
+            _escapeHtmlForTpos(label) +
+            '</strong>';
+    }
+    renderTposAccountList();
+    const testResult = document.getElementById('tposTestResult');
+    if (testResult) testResult.style.display = 'none';
+}
+
+/**
+ * Reset form để tạo account mới
+ */
+function newTposAccountForm() {
+    _tposEditingLabel = null;
+    document.getElementById('tposAccountLabel').value = '';
+    document.getElementById('tposUsername').value = '';
+    document.getElementById('tposPassword').value = '';
+    document.getElementById('tposBearerToken').value = '';
+    switchTposAuthTab('password');
+    const titleEl = document.getElementById('tposAccountFormTitle');
+    if (titleEl) {
+        titleEl.innerHTML = '<i class="fas fa-plus"></i> Thêm account mới';
+    }
+    renderTposAccountList();
+    const testResult = document.getElementById('tposTestResult');
+    if (testResult) testResult.style.display = 'none';
+    document.getElementById('tposAccountLabel').focus();
+}
+
+/**
+ * Đặt 1 account làm active
+ */
+async function setActiveTposAccount(label) {
+    if (!window.billTokenManager) return;
+    try {
+        const result = await window.billTokenManager.setActiveAccount(label);
+        if (result?.success) {
+            window.notificationManager?.success(`Đang dùng account: ${label}`, 2000);
+            updateTposAccountStatus();
+            renderTposAccountList();
+            if (typeof updateTposAccountButtonLabel === 'function') updateTposAccountButtonLabel();
+        } else {
+            window.notificationManager?.error(`Lỗi: ${result?.message || 'unknown'}`, 4000);
         }
-        if (passwordInput && window.billTokenManager.credentials?.password) {
-            passwordInput.value = window.billTokenManager.credentials.password;
-        }
+    } catch (error) {
+        window.notificationManager?.error(`Lỗi: ${error.message}`, 4000);
     }
 }
 
 /**
- * Save TPOS account credentials
+ * Xóa 1 account
+ */
+async function deleteTposAccount(label) {
+    if (!window.billTokenManager) return;
+    if (!confirm(`Xóa account "${label}"?`)) return;
+
+    try {
+        const result = await window.billTokenManager.deleteAccount(label);
+        if (result?.success) {
+            window.notificationManager?.success(`Đã xóa: ${label}`, 2000);
+            if (_tposEditingLabel === label) newTposAccountForm();
+            updateTposAccountStatus();
+            renderTposAccountList();
+            if (typeof updateTposAccountButtonLabel === 'function') updateTposAccountButtonLabel();
+        } else {
+            window.notificationManager?.error(`Lỗi: ${result?.message || 'unknown'}`, 4000);
+        }
+    } catch (error) {
+        window.notificationManager?.error(`Lỗi: ${error.message}`, 4000);
+    }
+}
+
+/**
+ * Save TPOS account credentials (multi-account)
  */
 async function saveTposAccount() {
     if (!window.billTokenManager) {
@@ -4575,10 +4894,13 @@ async function saveTposAccount() {
         return;
     }
 
+    const labelInput = document.getElementById('tposAccountLabel')?.value?.trim();
+    const finalLabel = labelInput || _tposEditingLabel || 'Mặc định';
+
     const passwordTab = document.getElementById('tposAuthTabPassword');
     const isPasswordAuth = passwordTab.classList.contains('active');
 
-    let credentials;
+    let creds = { label: finalLabel };
 
     if (isPasswordAuth) {
         const username = document.getElementById('tposUsername')?.value?.trim();
@@ -4588,25 +4910,33 @@ async function saveTposAccount() {
             window.notificationManager?.warning('Vui lòng nhập username và password', 4000);
             return;
         }
-
-        credentials = { username, password };
+        creds.username = username;
+        creds.password = password;
     } else {
         const bearerToken = document.getElementById('tposBearerToken')?.value?.trim();
-
         if (!bearerToken) {
             window.notificationManager?.warning('Vui lòng nhập Bearer Token', 4000);
             return;
         }
-
-        // Clean bearer token (remove "Bearer " prefix if present)
-        const cleanToken = bearerToken.replace(/^Bearer\s+/i, '');
-        credentials = { bearerToken: cleanToken };
+        creds.bearerToken = bearerToken.replace(/^Bearer\s+/i, '');
     }
 
+    // Mặc định: nếu đang edit account đang là active, giữ active. Nếu là account mới
+    // và chưa có account nào → setActive=true. Người dùng có thể bấm "Đặt active" sau.
+    const accounts = window.billTokenManager.listAccounts();
+    const currentActive = window.billTokenManager.getActiveLabel();
+    const isEditingActive = _tposEditingLabel && _tposEditingLabel === currentActive;
+    const isFirstAccount = accounts.length === 0;
+    creds.setActive = isEditingActive || isFirstAccount;
+
     try {
-        await window.billTokenManager.setCredentials(credentials);
-        window.notificationManager?.success('Đã lưu tài khoản TPOS', 3000);
+        const result = await window.billTokenManager.saveAccount(creds);
+        if (!result.success) throw new Error(result.message || 'unknown');
+        window.notificationManager?.success(`Đã lưu account: ${finalLabel}`, 2500);
+        _tposEditingLabel = finalLabel;
         updateTposAccountStatus();
+        renderTposAccountList();
+        if (typeof updateTposAccountButtonLabel === 'function') updateTposAccountButtonLabel();
     } catch (error) {
         console.error('[TPOS-ACCOUNT] Error saving:', error);
         window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
@@ -4667,19 +4997,32 @@ async function testTposAccount() {
     testResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...';
 
     try {
-        // Temporarily set credentials
-        window.billTokenManager.credentials = credentials;
-
-        const result = await window.billTokenManager.testCredentials();
-
-        if (result.success) {
-            testResult.style.background = '#d1fae5';
-            testResult.style.color = '#047857';
-            testResult.innerHTML = '<i class="fas fa-check-circle"></i> ' + result.message;
-        } else {
-            testResult.style.background = '#fef2f2';
-            testResult.style.color = '#dc2626';
-            testResult.innerHTML = '<i class="fas fa-times-circle"></i> ' + result.message;
+        // Test ad-hoc creds without saving
+        const tempLabel = '__test__' + Date.now();
+        const tempAcc = {
+            label: tempLabel,
+            authType: credentials.bearerToken ? 'bearer' : 'password',
+            username: credentials.username,
+            password: credentials.password,
+            bearerToken: credentials.bearerToken,
+        };
+        const mgr = window.billTokenManager;
+        const prevAccounts = mgr.accounts;
+        mgr.accounts = [...prevAccounts, tempAcc];
+        try {
+            const result = await mgr.testCredentials(tempLabel);
+            if (result.success) {
+                testResult.style.background = '#d1fae5';
+                testResult.style.color = '#047857';
+                testResult.innerHTML = '<i class="fas fa-check-circle"></i> ' + result.message;
+            } else {
+                testResult.style.background = '#fef2f2';
+                testResult.style.color = '#dc2626';
+                testResult.innerHTML = '<i class="fas fa-times-circle"></i> ' + result.message;
+            }
+        } finally {
+            mgr.accounts = prevAccounts;
+            mgr._tokenCache.delete(tempLabel);
         }
     } catch (error) {
         testResult.style.background = '#fef2f2';
@@ -4689,37 +5032,24 @@ async function testTposAccount() {
 }
 
 /**
- * Clear TPOS account credentials
+ * Cập nhật label account active hiển thị trên nút "Tài khoản TPOS"
  */
-async function clearTposAccount() {
-    if (!window.billTokenManager) return;
-
-    if (!confirm('Xác nhận xóa tài khoản TPOS? Sẽ sử dụng token mặc định để tạo bill.')) {
-        return;
-    }
-
-    try {
-        // Clear from memory + Render backend
-        await window.billTokenManager.clearCredentials();
-
-        // Clear form inputs
-        document.getElementById('tposUsername').value = '';
-        document.getElementById('tposPassword').value = '';
-        document.getElementById('tposBearerToken').value = '';
-
-        // Hide test result
-        const testResult = document.getElementById('tposTestResult');
-        if (testResult) {
-            testResult.style.display = 'none';
+function updateTposAccountButtonLabel() {
+    const btn = document.getElementById('tposAccountBtn');
+    if (!btn || !window.billTokenManager) return;
+    const label = window.billTokenManager.getActiveLabel();
+    const span = btn.querySelector('.tpos-account-btn-label');
+    if (label) {
+        if (span) {
+            span.textContent = label;
+        } else {
+            btn.innerHTML = btn.innerHTML.replace(
+                /Tài khoản TPOS([\s\S]*)$/,
+                `Tài khoản TPOS<span class="tpos-account-btn-label" style="margin-left:6px; padding:1px 8px; background:rgba(255,255,255,0.25); border-radius:8px; font-size:11px; font-weight:600">${_escapeHtmlForTpos(label)}</span>`
+            );
         }
-
-        // Update status
-        updateTposAccountStatus();
-
-        window.notificationManager?.success('Đã xóa tài khoản TPOS', 3000);
-    } catch (error) {
-        console.error('[TPOS-ACCOUNT] Error clearing:', error);
-        window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
+    } else if (span) {
+        span.remove();
     }
 }
 
@@ -4729,6 +5059,54 @@ window.closeTposAccountModal = closeTposAccountModal;
 window.switchTposAuthTab = switchTposAuthTab;
 window.saveTposAccount = saveTposAccount;
 window.testTposAccount = testTposAccount;
-window.clearTposAccount = clearTposAccount;
+window.editTposAccount = editTposAccount;
+window.newTposAccountForm = newTposAccountForm;
+window.setActiveTposAccount = setActiveTposAccount;
+window.deleteTposAccount = deleteTposAccount;
+window.updateTposAccountButtonLabel = updateTposAccountButtonLabel;
+window.renderTposAccountList = renderTposAccountList;
+
+/**
+ * Populate dropdown chọn TPOS account trong sale modal.
+ * Default option = "(active)" tức là dùng active account hiện tại.
+ */
+window.populateSaleTposAccountSelect = function () {
+    const sel = document.getElementById('saleTposAccountSelect');
+    if (!sel || !window.billTokenManager) return;
+    const accounts = window.billTokenManager.listAccounts();
+    const activeLabel = window.billTokenManager.getActiveLabel();
+    const currentValue = sel.value;
+    sel.innerHTML =
+        `<option value="">(active: ${_escapeHtmlForTpos(activeLabel || '—')})</option>` +
+        accounts
+            .map(
+                (a) =>
+                    `<option value="${_escapeHtmlForTpos(a.label)}">${_escapeHtmlForTpos(a.label)}${a.isActive ? ' ★' : ''}</option>`
+            )
+            .join('');
+    // Preserve selection nếu vẫn còn
+    if (currentValue && accounts.some((a) => a.label === currentValue)) {
+        sel.value = currentValue;
+    }
+};
+
+// Auto-init: cập nhật label trên nút khi billTokenManager sẵn sàng
+(function _initTposAccountBtnLabel() {
+    const tryUpdate = () => {
+        if (window.billTokenManager?.accounts?.length > 0) {
+            updateTposAccountButtonLabel();
+            return true;
+        }
+        return false;
+    };
+    if (!tryUpdate()) {
+        // Retry tới 5 lần, mỗi 1s
+        let n = 0;
+        const id = setInterval(() => {
+            n++;
+            if (tryUpdate() || n >= 5) clearInterval(id);
+        }, 1000);
+    }
+})();
 
 // #endregion TPOS ACCOUNT SETTINGS

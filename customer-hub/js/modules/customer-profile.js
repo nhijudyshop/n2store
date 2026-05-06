@@ -158,6 +158,9 @@ export class CustomerProfileModule {
 
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
+
+                // Wire ImageCache cho thumbnail GD trong tickets card (TTL 7d trong IndexedDB)
+                window.ImageCache?.applyTo?.(this.contentLoaded);
             } else {
                 // V2 API returned no data — try TPOS fallback
                 await this._tryTPOSFallback(phone);
@@ -228,6 +231,9 @@ export class CustomerProfileModule {
 
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
+
+                // Wire ImageCache cho thumbnail GD trong tickets card (TTL 7d trong IndexedDB)
+                window.ImageCache?.applyTo?.(this.contentLoaded);
                 return true;
             } else {
                 this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
@@ -830,8 +836,11 @@ export class CustomerProfileModule {
                                         ? orderMatch[1]
                                         : tx.reference_id || '';
 
+                                    // COD payment có thể là WITHDRAW (trừ ví thật) HOẶC VIRTUAL_DEBIT
+                                    // (trừ công nợ ảo) — cùng note pattern. Trước đây chỉ check WITHDRAW
+                                    // → VIRTUAL_DEBIT bypass branch → math sai không được fix.
                                     const isCodPayment =
-                                        tx.type === 'WITHDRAW' &&
+                                        (tx.type === 'WITHDRAW' || tx.type === 'VIRTUAL_DEBIT') &&
                                         (tx.source === 'SALE_ORDER' ||
                                             /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
                                     const isCancelRefund =
@@ -851,15 +860,45 @@ export class CustomerProfileModule {
                                             ));
 
                                     if (isCodPayment) {
-                                        // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
+                                        // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu.
+                                        // Thêm "Trả từ ví: X" (= |tx.amount|) để user hiểu rõ
+                                        // wallet đóng góp bao nhiêu (vs phần COD shipper thu).
                                         const headRe =
                                             /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                                        const rewritten = headRe.test(note)
-                                            ? note.replace(
-                                                  headRe,
-                                                  `Thanh Toán Đơn Hàng #${orderCode}`
-                                              )
-                                            : `Thanh Toán Đơn Hàng #${orderCode}`;
+                                        const walletPaid = Math.abs(amount);
+                                        const walletPaidStr = `Trả từ ví: ${walletPaid.toLocaleString('vi-VN')}đ`;
+                                        const newHead = `Thanh Toán Đơn Hàng #${orderCode} — ${walletPaidStr}`;
+                                        let rewritten = headRe.test(note)
+                                            ? note.replace(headRe, newHead)
+                                            : newHead;
+                                        // Sửa math nếu breakdown sai (legacy data — vd "Hàng: 1090K +
+                                        // Ship: 20K - Giảm: 60K = 1110K" — sai vì 1090+20-60=1050, không
+                                        // phải 1110). Recompute đúng + chú thích COD nếu khác.
+                                        const breakdownRe =
+                                            /\(Hàng:\s*([\d.,]+)đ(?:\s*\+\s*Ship:\s*([\d.,]+)đ)?(?:\s*-\s*Giảm:\s*([\d.,]+)đ)?\s*=\s*([\d.,]+)đ\)/;
+                                        const m = rewritten.match(breakdownRe);
+                                        if (m) {
+                                            const toInt = (s) =>
+                                                parseInt(
+                                                    String(s || '0').replace(/[.,]/g, ''),
+                                                    10
+                                                ) || 0;
+                                            const goods = toInt(m[1]);
+                                            const ship = toInt(m[2]);
+                                            const discount = toInt(m[3]);
+                                            const displayed = toInt(m[4]);
+                                            const computed = goods + ship - discount;
+                                            if (computed !== displayed) {
+                                                let fixed = `(Hàng: ${goods.toLocaleString('vi-VN')}đ`;
+                                                if (ship > 0)
+                                                    fixed += ` + Ship: ${ship.toLocaleString('vi-VN')}đ`;
+                                                if (discount > 0)
+                                                    fixed += ` - Giảm: ${discount.toLocaleString('vi-VN')}đ`;
+                                                fixed += ` = ${computed.toLocaleString('vi-VN')}đ`;
+                                                fixed += `, COD: ${displayed.toLocaleString('vi-VN')}đ)`;
+                                                rewritten = rewritten.replace(breakdownRe, fixed);
+                                            }
+                                        }
                                         detailParts.push(rewritten);
                                         if (date) detailParts.push(date);
                                         if (createdBy) {
@@ -975,7 +1014,7 @@ export class CustomerProfileModule {
                                 <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
                                     <span style="font-size:17px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
                                     <span style="flex:1; font-size:15px; font-weight:700; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
-                                    ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
+                                    ${imgMatch ? `<img src="${imgMatch[1]}" data-cache-src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:28px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
                                     ${eyeBtn}
                                     <span style="font-size:16px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
                                 </div>

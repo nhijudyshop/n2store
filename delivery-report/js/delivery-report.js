@@ -98,30 +98,113 @@
         HoverPreview.init();
     }
 
+    function toLocalDateStr(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
     function setDefaultDates() {
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const todayStr = toLocalDateStr(new Date());
 
         const fromDateInput = document.getElementById('drFilterFromDate');
-        const fromTimeInput = document.getElementById('drFilterFromTime');
         const toDateInput = document.getElementById('drFilterToDate');
-        const toTimeInput = document.getElementById('drFilterToTime');
 
         if (fromDateInput && !fromDateInput.value) {
             fromDateInput.value = todayStr;
         }
-        if (fromTimeInput && !fromTimeInput.value) {
-            fromTimeInput.value = '00:00';
-        }
         if (toDateInput && !toDateInput.value) {
             toDateInput.value = todayStr;
         }
-        if (toTimeInput && !toTimeInput.value) {
-            toTimeInput.value = '23:59';
+
+        DeliveryReportState.filters.fromDate = `${fromDateInput.value}T00:00`;
+        DeliveryReportState.filters.toDate = `${toDateInput.value}T23:59`;
+
+        updatePresetHint();
+    }
+
+    // =====================================================
+    // PRESET DATE RANGES
+    // =====================================================
+    const PRESET_LABELS = {
+        today: 'Hôm nay',
+        yesterday: 'Hôm qua',
+        last7: '7 ngày qua',
+        thisMonth: 'Tháng này',
+        lastMonth: 'Tháng trước',
+    };
+
+    function applyPreset(preset) {
+        const now = new Date();
+        let from, to;
+
+        switch (preset) {
+            case 'today':
+                from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'yesterday':
+                from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+                to = new Date(from);
+                break;
+            case 'last7':
+                to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+                break;
+            case 'thisMonth':
+                from = new Date(now.getFullYear(), now.getMonth(), 1);
+                to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'lastMonth': {
+                from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                to = new Date(now.getFullYear(), now.getMonth(), 0); // last day of previous month
+                break;
+            }
+            default:
+                return;
         }
 
-        DeliveryReportState.filters.fromDate = `${fromDateInput.value}T${fromTimeInput.value}`;
-        DeliveryReportState.filters.toDate = `${toDateInput.value}T${toTimeInput.value}`;
+        const fromInput = document.getElementById('drFilterFromDate');
+        const toInput = document.getElementById('drFilterToDate');
+        if (fromInput) fromInput.value = toLocalDateStr(from);
+        if (toInput) toInput.value = toLocalDateStr(to);
+
+        // Mark active preset
+        document.querySelectorAll('.dr-preset-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.preset === preset);
+        });
+
+        updatePresetHint();
+        DeliveryReport.search();
+    }
+
+    function updatePresetHint() {
+        const fromInput = document.getElementById('drFilterFromDate');
+        const toInput = document.getElementById('drFilterToDate');
+        const hint = document.getElementById('drPresetHint');
+        if (!fromInput || !toInput || !hint) return;
+
+        const fromStr = formatDDMM(fromInput.value);
+        const toStr = formatDDMM(toInput.value);
+        if (!fromStr || !toStr) {
+            hint.textContent = '';
+            return;
+        }
+        hint.textContent =
+            fromInput.value === toInput.value
+                ? `Đang lọc: ${fromStr}`
+                : `Đang lọc: ${fromStr} → ${toStr}`;
+    }
+
+    function formatDDMM(yyyymmdd) {
+        if (!yyyymmdd) return '';
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyymmdd);
+        if (!m) return '';
+        return `${m[3]}/${m[2]}/${m[1]}`;
+    }
+
+    function clearActivePreset() {
+        document
+            .querySelectorAll('.dr-preset-btn')
+            .forEach((btn) => btn.classList.remove('active'));
     }
 
     // =====================================================
@@ -129,6 +212,21 @@
     // =====================================================
     function bindFilterEvents() {
         // Search button is handled by onclick="DeliveryReport.search()" in HTML
+
+        // Preset buttons
+        document.querySelectorAll('.dr-preset-btn').forEach((btn) => {
+            btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+        });
+
+        // Date inputs: clear preset selection on manual change + update hint
+        ['drFilterFromDate', 'drFilterToDate'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', () => {
+                clearActivePreset();
+                updatePresetHint();
+            });
+        });
 
         // Enter key on keyword
         const keywordInput = document.getElementById('drFilterKeyword');
@@ -145,10 +243,7 @@
                         }
                         return;
                     }
-                    DeliveryReportState.currentPage = 1;
-                    collectFilters();
-                    saveFiltersToStorage();
-                    fetchData();
+                    DeliveryReport.search();
                 }
             });
         }
@@ -157,12 +252,28 @@
     function collectFilters() {
         const f = DeliveryReportState.filters;
         const fromDate = document.getElementById('drFilterFromDate')?.value || '';
-        const fromTime = document.getElementById('drFilterFromTime')?.value || '00:00';
         const toDate = document.getElementById('drFilterToDate')?.value || '';
-        const toTime = document.getElementById('drFilterToTime')?.value || '23:59';
-        f.fromDate = fromDate ? `${fromDate}T${fromTime}` : '';
-        f.toDate = toDate ? `${toDate}T${toTime}` : '';
+
+        // Auto-swap if from > to (common typo)
+        let effFrom = fromDate;
+        let effTo = toDate;
+        if (effFrom && effTo && effFrom > effTo) {
+            const swap = effFrom;
+            effFrom = effTo;
+            effTo = swap;
+            const fromInput = document.getElementById('drFilterFromDate');
+            const toInput = document.getElementById('drFilterToDate');
+            if (fromInput) fromInput.value = effFrom;
+            if (toInput) toInput.value = effTo;
+        }
+
+        // Time always pinned: 00:00 start of fromDate → 23:59 (end-of-minute pad
+        // applied in buildApiUrl) of toDate. No manual time inputs.
+        f.fromDate = effFrom ? `${effFrom}T00:00` : '';
+        f.toDate = effTo ? `${effTo}T23:59` : '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
+
+        updatePresetHint();
     }
 
     function saveFiltersToStorage() {
@@ -286,9 +397,19 @@
     // =====================================================
     // API FETCH - Loads ALL data, client-side pagination
     // =====================================================
+    function setSearchButtonLoading(isLoading) {
+        const btn = document.getElementById('drBtnSearch');
+        const text = document.getElementById('drBtnSearchText');
+        if (!btn) return;
+        btn.disabled = isLoading;
+        btn.dataset.loading = isLoading ? 'true' : 'false';
+        if (text) text.textContent = isLoading ? 'Đang tải...' : 'Tìm kiếm';
+    }
+
     async function fetchData() {
         if (DeliveryReportState.isLoading) return;
         DeliveryReportState.isLoading = true;
+        setSearchButtonLoading(true);
         showLoading();
 
         try {
@@ -352,6 +473,7 @@
             showError('Lỗi khi tải dữ liệu: ' + error.message);
         } finally {
             DeliveryReportState.isLoading = false;
+            setSearchButtonLoading(false);
         }
     }
 
@@ -386,14 +508,29 @@
         const params = new URLSearchParams();
 
         // Date conversion: local datetime → UTC ISO
+        // ToDate uses 23:59:59.999 (end of selected minute) so we don't drop
+        // records whose DateInvoice falls in the last 60 seconds of the range.
         if (f.fromDate) {
-            params.set('FromDate', new Date(f.fromDate).toISOString());
+            const d = new Date(f.fromDate);
+            if (!isNaN(d.getTime())) {
+                params.set('FromDate', d.toISOString());
+            }
         }
         if (f.toDate) {
-            params.set('ToDate', new Date(f.toDate).toISOString());
+            const d = new Date(f.toDate);
+            if (!isNaN(d.getTime())) {
+                d.setSeconds(59, 999);
+                params.set('ToDate', d.toISOString());
+            }
         }
 
-        params.set('Q', f.keyword);
+        // Phone-aware search: nếu keyword match Vietnamese phone pattern (10-11 digit
+        // starting 0/3/5/7/8/9), KHÔNG gửi Q lên TPOS (Q chỉ search Number/TrackingRef,
+        // không match Phone) → fetch full date range, lọc client-side theo Phone.
+        // Loại trừ: barcode dài (>12 chars hoặc chứa ký tự không-digit-không-/-không-_).
+        if (f.keyword && !isPhoneSearchKeyword(f.keyword)) {
+            params.set('Q', f.keyword);
+        }
 
         // Fetch all data (client-side pagination)
         params.set('$top', '10000');
@@ -416,10 +553,50 @@
     }
 
     // =====================================================
-    // CLIENT-SIDE FILTER (carrier + tra soát)
+    // PHONE SEARCH HELPERS
+    // =====================================================
+    /**
+     * Vietnamese phone pattern: chuỗi 9-11 chữ số, bắt đầu 0/3/5/7/8/9.
+     * Loại trừ barcode (chứa ký tự không-digit, hoặc length quá dài/ngắn).
+     */
+    function isPhoneSearchKeyword(kw) {
+        if (!kw) return false;
+        const trimmed = String(kw).trim();
+        // Pure digits, length 9-11
+        if (!/^\d{9,11}$/.test(trimmed)) return false;
+        // Vietnamese phone: bắt đầu 0 (10-11 digit) hoặc 3/5/7/8/9 (9-10 digit không có 0 prefix)
+        return /^0/.test(trimmed) || /^[35789]/.test(trimmed);
+    }
+
+    /**
+     * Normalize phone for comparison: bỏ hết khoảng trắng + leading 0/+84.
+     * VD: "0905550610" / "905550610" / "+84905550610" → "905550610"
+     */
+    function normalizePhone(phone) {
+        if (!phone) return '';
+        let p = String(phone).replace(/[\s\-()+\.]/g, '');
+        if (p.startsWith('84')) p = p.slice(2);
+        if (p.startsWith('0')) p = p.slice(1);
+        return p;
+    }
+
+    function matchesPhoneFilter(item, kw) {
+        const target = normalizePhone(kw);
+        if (!target) return true;
+        const candidates = [item.Phone, item.Ship_Receiver_Phone, item.Telephone];
+        for (const c of candidates) {
+            if (c && normalizePhone(c).includes(target)) return true;
+        }
+        return false;
+    }
+
+    // =====================================================
+    // CLIENT-SIDE FILTER (carrier + tra soát + phone)
     // =====================================================
     function getFilteredData() {
         const state = DeliveryReportState;
+        const kw = state.filters?.keyword || '';
+        const phoneFilter = isPhoneSearchKeyword(kw);
 
         if (state.traSoatMode) {
             // In tra soát mode: use tab filter + scan filter
@@ -429,11 +606,19 @@
             } else {
                 data = data.filter((item) => state.scannedNumbers.has(item.Number));
             }
+            // Phone filter applied trên cả tra soát mode
+            if (phoneFilter) {
+                data = data.filter((item) => matchesPhoneFilter(item, kw));
+            }
             return data;
         }
 
-        // Normal mode: no additional filter
-        return state.allData || [];
+        // Normal mode: phone filter nếu keyword là SĐT
+        const all = state.allData || [];
+        if (phoneFilter) {
+            return all.filter((item) => matchesPhoneFilter(item, kw));
+        }
+        return all;
     }
 
     // =====================================================
@@ -814,6 +999,29 @@
     }
 
     function makeFileName(label) {
+        // Pull the actual filter range so the filename reflects what's exported.
+        // Single day → `LABEL_d_m.xlsx`, range → `LABEL_d1_m1_den_d2_m2.xlsx`.
+        const f = DeliveryReportState.filters;
+        const parseDate = (s) => {
+            if (!s) return null;
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+            if (!m) return null;
+            return { d: Number(m[3]), mo: Number(m[2]), y: Number(m[1]) };
+        };
+        const from = parseDate(f.fromDate);
+        const to = parseDate(f.toDate);
+
+        if (from && to) {
+            const sameYear = from.y === to.y;
+            const sameDay = from.d === to.d && from.mo === to.mo && sameYear;
+            if (sameDay) {
+                return `${label}_${from.d}_${from.mo}.xlsx`;
+            }
+            const fromStr = sameYear ? `${from.d}_${from.mo}` : `${from.d}_${from.mo}_${from.y}`;
+            const toStr = sameYear ? `${to.d}_${to.mo}` : `${to.d}_${to.mo}_${to.y}`;
+            return `${label}_${fromStr}_den_${toStr}.xlsx`;
+        }
+
         const now = new Date();
         return `${label}_${now.getDate()}_${now.getMonth() + 1}.xlsx`;
     }
@@ -2626,6 +2834,36 @@
             return `<button type="button" class="dr-hp-approve-btn" data-pending-id="${escapeHtml(String(pendingId))}" data-pending-amt="${escapeHtml(String(amount || 0))}" title="Duyệt giao dịch"><i class="fas fa-check"></i> Duyệt</button>`;
         }
 
+        // Build "Kiểm tra giao dịch" button cho tx đã duyệt (manager review).
+        // Chỉ hiện cho tx có balance_history reference (sepay) hoặc wallet_transactions
+        // chưa được kiểm tra. Khi đã kiểm tra, hiện badge "ĐÃ KT" thay button.
+        function reviewBtnHtmlForTx(tx) {
+            if (!tx) return '';
+            // Composite uid: ưu tiên bh:N (sepay) khi có balance_history reference
+            let uid = '';
+            let reviewed = false;
+            let reviewedBy = '';
+            let reviewedAt = '';
+            if (tx.reference_type === 'balance_history' && tx.reference_id) {
+                uid = `bh:${tx.reference_id}`;
+                reviewed = !!tx.bh_manager_reviewed;
+                reviewedBy = tx.bh_reviewed_by || '';
+                reviewedAt = tx.bh_reviewed_at || '';
+            } else if (tx.id) {
+                uid = `wt:${tx.id}`;
+                reviewed = !!tx.wt_manager_reviewed;
+                reviewedBy = tx.wt_reviewed_by || '';
+                reviewedAt = tx.wt_reviewed_at || '';
+            }
+            if (!uid) return '';
+            if (reviewed) {
+                const t = reviewedAt ? new Date(reviewedAt).toLocaleString('vi-VN') : '';
+                const tip = `Đã kiểm tra${reviewedBy ? ' bởi ' + reviewedBy : ''}${t ? ' lúc ' + t : ''}`;
+                return `<span class="dr-hp-reviewed-badge" title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;">✓ ĐÃ KT</span>`;
+            }
+            return `<button type="button" class="dr-hp-review-btn" data-uid="${escapeHtml(uid)}" title="Kiểm tra giao dịch" style="background:#fef3c7;color:#a16207;border:1px solid #fde68a;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:2px;"><i class="fas fa-clipboard-check"></i></button>`;
+        }
+
         function renderCustomer(data, phone) {
             const c = data.customer || {};
             const w = data.wallet || { balance: 0, virtual_balance: 0 };
@@ -2673,13 +2911,15 @@
                               const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
                               const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
                               const eye = eyeBtnHtmlForTx(tx);
+                              const review = reviewBtnHtmlForTx(tx);
+                              const actions = [eye, review].filter(Boolean).join('');
                               return `
                           <div class="dr-hp-tx ${cls}">
                               <div class="dr-hp-tx-head">
                                   <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
                                   <span class="dr-hp-tx-label">${escapeHtml(label)}</span>
                                   <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(tx.created_at))}</span>
-                                  ${eye ? `<span class="dr-hp-tx-actions">${eye}</span>` : ''}
+                                  ${actions ? `<span class="dr-hp-tx-actions" style="display:inline-flex;gap:4px;align-items:center;">${actions}</span>` : ''}
                               </div>
                               ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
                           </div>`;
@@ -2714,7 +2954,8 @@
             wirePopoverActions(phone);
         }
 
-        // Open a compressed lightbox for an image URL via render image-proxy
+        // Open a compressed lightbox for an image URL via render image-proxy.
+        // ImageCache (IndexedDB TTL 7d) cache cả URL proxy lẫn URL gốc fallback.
         function openLightbox(imageUrl) {
             const proxied = `${RENDER_URL}/api/image-proxy?url=${encodeURIComponent(imageUrl)}&w=900&q=70`;
             const existing = document.getElementById('dr-hp-lightbox');
@@ -2733,12 +2974,14 @@
                 // Proxy/resize failed → fallback to original URL once
                 if (img.dataset.fallback !== '1') {
                     img.dataset.fallback = '1';
-                    img.src = imageUrl;
+                    if (window.ImageCache?.setImgSrc) window.ImageCache.setImgSrc(img, imageUrl);
+                    else img.src = imageUrl;
                 } else {
                     box.classList.add('error');
                 }
             });
-            img.src = proxied;
+            if (window.ImageCache?.setImgSrc) window.ImageCache.setImgSrc(img, proxied);
+            else img.src = proxied;
             box.addEventListener('click', () => box.remove());
             document.addEventListener('keydown', function onEsc(e) {
                 if (e.key === 'Escape') {
@@ -2854,6 +3097,54 @@
                     );
                 });
             });
+            pop.querySelectorAll('.dr-hp-review-btn:not([data-bound])').forEach((btn) => {
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    reviewTransaction(btn.dataset.uid, btn);
+                });
+            });
+        }
+
+        // Manager review: mark wallet/balance_history transaction as reviewed.
+        // Confirm trước khi gọi API (per balance-history pattern). Sau success
+        // thay button bằng badge "ĐÃ KT".
+        async function reviewTransaction(uid, btn) {
+            if (!uid) return;
+            if (!confirm('Đánh dấu giao dịch này đã được kiểm tra?')) return;
+            const reviewedBy = window.authManager?.getUserInfo?.()?.username || 'admin';
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                const url = `${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(uid)}/manager-review`;
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        manager_review_note: '',
+                        reviewed_by: reviewedBy,
+                    }),
+                });
+                const result = await resp.json();
+                if (!result.success) throw new Error(result.error || 'Review failed');
+                // Replace button with badge
+                const t = new Date().toLocaleString('vi-VN');
+                const tip = `Đã kiểm tra bởi ${reviewedBy} lúc ${t}`;
+                const badge = document.createElement('span');
+                badge.className = 'dr-hp-reviewed-badge';
+                badge.title = tip;
+                badge.style.cssText =
+                    'display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;';
+                badge.textContent = '✓ ĐÃ KT';
+                btn.replaceWith(badge);
+            } catch (err) {
+                console.error('[REVIEW-TX]', uid, err);
+                alert('Lỗi kiểm tra giao dịch: ' + (err.message || err));
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
         }
 
         let currentCell = null;
@@ -2903,6 +3194,9 @@
     window.DeliveryReport = {
         init: initDeliveryReport,
         search: () => {
+            // Spam guard: ignore re-entry while in-flight
+            if (DeliveryReportState.isLoading) return;
+
             const oldFromDate = DeliveryReportState.filters.fromDate;
             const oldToDate = DeliveryReportState.filters.toDate;
             const oldKeyword = DeliveryReportState.filters.keyword;

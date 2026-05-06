@@ -188,6 +188,24 @@ let allData = [];
 let filteredData = [];
 let displayedData = [];
 
+// Expose top-level `let` arrays qua window getter (let không tự attach vào window).
+// Getter dynamic trả về reference hiện tại → các module khác (tab1-customer-info,
+// tab1-search, ...) có thể đọc fresh sau mỗi reassign (vd `allData = []` reset).
+try {
+    Object.defineProperty(window, 'allData', {
+        get: () => allData,
+        configurable: true,
+    });
+    Object.defineProperty(window, 'filteredData', {
+        get: () => filteredData,
+        configurable: true,
+    });
+    Object.defineProperty(window, 'displayedData', {
+        get: () => displayedData,
+        configurable: true,
+    });
+} catch (e) {}
+
 // =====================================================
 // ORDER STORE - O(1) Lookup Data Structure (Phase A Optimization)
 // Replaces O(n) findIndex() calls with O(1) Map.get() lookups
@@ -207,9 +225,9 @@ let displayedData = [];
  * // Dùng:    OrderStore.get(orderId)                   // O(1)
  */
 const OrderStore = {
-    _orders: new Map(),         // Main storage: orderId -> order object
-    _ordersBySTT: new Map(),    // Secondary index: SessionIndex (STT) -> order object (for bulk tagging)
-    _initialized: false,        // Flag to track initialization
+    _orders: new Map(), // Main storage: orderId -> order object
+    _ordersBySTT: new Map(), // Secondary index: SessionIndex (STT) -> order object (for bulk tagging)
+    _initialized: false, // Flag to track initialization
 
     /**
      * Initialize store from API response (replaces allData = orders)
@@ -219,7 +237,7 @@ const OrderStore = {
         this._orders.clear();
         this._ordersBySTT.clear();
         if (orders && orders.length > 0) {
-            orders.forEach(order => {
+            orders.forEach((order) => {
                 if (order && order.Id) {
                     this._orders.set(order.Id, order);
                     // Also index by SessionIndex (STT) for bulk tagging
@@ -238,7 +256,7 @@ const OrderStore = {
      */
     addBatch(orders) {
         if (!orders || orders.length === 0) return;
-        orders.forEach(order => {
+        orders.forEach((order) => {
             if (order && order.Id) {
                 this._orders.set(order.Id, order);
                 // Also index by SessionIndex (STT) for bulk tagging
@@ -333,7 +351,7 @@ const OrderStore = {
     syncFromArray(arr) {
         this._orders.clear();
         this._ordersBySTT.clear();
-        arr.forEach(order => {
+        arr.forEach((order) => {
             if (order && order.Id) {
                 this._orders.set(order.Id, order);
                 // Also index by SessionIndex (STT) for bulk tagging
@@ -343,7 +361,7 @@ const OrderStore = {
             }
         });
         this._initialized = true;
-    }
+    },
 };
 
 // Expose OrderStore globally for other modules
@@ -369,13 +387,12 @@ let currentSortDirection = null; // 'asc', 'desc', null
 window.getAllOrders = () => allData;
 
 // Search State
-let searchQuery = "";
+let searchQuery = '';
 let searchTimeout = null;
 
 // Tag Management State
 let availableTags = [];
 let currentEditingOrderId = null;
-
 
 // Edit Modal State
 let currentEditOrderData = null;
@@ -396,9 +413,6 @@ let currentUserIdentifier = null; // User identifier for quick tag feature
 let currentPastedImage = null; // Track pasted image for chat reply (deprecated - use array below)
 let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
 
-// KPI BASE Status Cache - stores order IDs that have BASE saved
-let ordersWithKPIBase = new Set();
-
 // Order Details Cache - stores fetched order details for chat modal (TTL: 5 minutes)
 const ORDER_DETAILS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in ms
 const orderDetailsCache = new Map(); // Map<orderId, { data, timestamp }>
@@ -410,7 +424,7 @@ const orderDetailsCache = new Map(); // Map<orderId, { data, timestamp }>
  */
 function getOrderDetailsFromCache(orderId) {
     const cached = orderDetailsCache.get(orderId);
-    if (cached && (Date.now() - cached.timestamp) < ORDER_DETAILS_CACHE_TTL) {
+    if (cached && Date.now() - cached.timestamp < ORDER_DETAILS_CACHE_TTL) {
         return cached.data;
     }
     if (cached) {
@@ -451,4 +465,3 @@ window.invalidateOrderDetailsCache = invalidateOrderDetailsCache;
 window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
 window.purchaseFacebookPostId = null; // Store Facebook_PostId
 window.purchaseFacebookASUserId = null; // Store Facebook_ASUserId
-

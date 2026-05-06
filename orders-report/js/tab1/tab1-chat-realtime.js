@@ -65,6 +65,17 @@ window.handleNewMessage = function (payload) {
     // Append to messages
     window.allChatMessages.push(parsed);
 
+    // Patch PDM cache để lần mở chat sau (kể cả sau reload) thấy luôn message
+    // mới nhất từ cache → instant render qua SWR pattern, không cần fetch.
+    if (window.pancakeDataManager?.patchMessageCache) {
+        const rawMsg = msg; // raw Pancake format để cache match shape của fetchMessages
+        window.pancakeDataManager.patchMessageCache(
+            window.currentChatChannelId,
+            window.currentConversationId,
+            rawMsg
+        );
+    }
+
     // Re-render & scroll to bottom
     if (window.renderChatMessages) {
         window.renderChatMessages(window.allChatMessages);

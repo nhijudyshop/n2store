@@ -12,15 +12,7 @@ const router = express.Router();
  * Được gọi từ WebSocket handler trong server.js
  */
 async function saveRealtimeUpdate(db, updateData) {
-    const {
-        conversationId,
-        type,
-        snippet,
-        unreadCount,
-        pageId,
-        psid,
-        customerName
-    } = updateData;
+    const { conversationId, type, snippet, unreadCount, pageId, psid, customerName } = updateData;
 
     try {
         const query = `
@@ -37,7 +29,7 @@ async function saveRealtimeUpdate(db, updateData) {
             unreadCount || 0,
             pageId,
             psid,
-            customerName
+            customerName,
         ]);
 
         console.log(`[REALTIME-DB] Saved update: ${type} from ${customerName || psid}`);
@@ -89,28 +81,27 @@ router.get('/new-messages', async (req, res) => {
         const result = await db.query(query, [sinceDate, limit]);
 
         // Group by type
-        const messages = result.rows.filter(r => r.type === 'INBOX');
-        const comments = result.rows.filter(r => r.type === 'COMMENT');
+        const messages = result.rows.filter((r) => r.type === 'INBOX');
+        const comments = result.rows.filter((r) => r.type === 'COMMENT');
 
         // Get unique customers
-        const uniquePsids = [...new Set(result.rows.map(r => r.psid).filter(Boolean))];
+        const uniquePsids = [...new Set(result.rows.map((r) => r.psid).filter(Boolean))];
 
         res.json({
             success: true,
             total: result.rows.length,
             messages: {
                 count: messages.length,
-                items: messages
+                items: messages,
             },
             comments: {
                 count: comments.length,
-                items: comments
+                items: comments,
             },
             uniqueCustomers: uniquePsids.length,
             since: sinceDate.toISOString(),
-            serverTime: new Date().toISOString()
+            serverTime: new Date().toISOString(),
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error fetching new messages:', error);
         res.status(500).json({ error: 'Failed to fetch new messages' });
@@ -146,10 +137,10 @@ router.get('/summary', async (req, res) => {
         const summary = {
             messages: 0,
             comments: 0,
-            uniqueCustomers: 0
+            uniqueCustomers: 0,
         };
 
-        result.rows.forEach(row => {
+        result.rows.forEach((row) => {
             if (row.type === 'INBOX') {
                 summary.messages = parseInt(row.count);
             } else if (row.type === 'COMMENT') {
@@ -171,9 +162,8 @@ router.get('/summary', async (req, res) => {
             ...summary,
             total: summary.messages + summary.comments,
             since: sinceDate.toISOString(),
-            serverTime: new Date().toISOString()
+            serverTime: new Date().toISOString(),
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error fetching summary:', error);
         res.status(500).json({ error: 'Failed to fetch summary' });
@@ -211,9 +201,8 @@ router.post('/mark-seen', async (req, res) => {
 
         res.json({
             success: true,
-            updated: result.rowCount
+            updated: result.rowCount,
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error marking seen:', error);
         res.status(500).json({ error: 'Failed to mark as seen' });
@@ -245,9 +234,8 @@ router.delete('/cleanup', async (req, res) => {
 
         res.json({
             success: true,
-            deleted: result.rowCount
+            deleted: result.rowCount,
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error cleaning up:', error);
         res.status(500).json({ error: 'Failed to cleanup' });
@@ -269,7 +257,7 @@ router.delete('/clear-all', async (req, res) => {
         if (req.query.confirm !== 'yes') {
             return res.status(400).json({
                 error: 'Missing confirmation',
-                hint: 'Add ?confirm=yes to confirm deletion of all records'
+                hint: 'Add ?confirm=yes to confirm deletion of all records',
             });
         }
 
@@ -280,9 +268,8 @@ router.delete('/clear-all', async (req, res) => {
         res.json({
             success: true,
             deleted: result.rowCount,
-            message: 'All realtime_updates records have been deleted'
+            message: 'All realtime_updates records have been deleted',
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error clearing all:', error);
         res.status(500).json({ error: 'Failed to clear all records' });
@@ -326,9 +313,8 @@ router.get('/pending-customers', async (req, res) => {
         res.json({
             success: true,
             count: result.rows.length,
-            customers: result.rows
+            customers: result.rows,
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error fetching pending customers:', error);
         res.status(500).json({ error: 'Failed to fetch pending customers' });
@@ -364,12 +350,64 @@ router.post('/mark-replied', async (req, res) => {
 
         res.json({
             success: true,
-            removed: result.rowCount
+            removed: result.rowCount,
         });
-
     } catch (error) {
         console.error('[REALTIME-API] Error marking replied:', error);
         res.status(500).json({ error: 'Failed to mark as replied' });
+    }
+});
+
+/**
+ * POST /api/realtime/pending-customers/reset-counts
+ * Legacy tool: reset message_count về 1 (giữ lại record nhưng count = 1).
+ */
+router.post('/pending-customers/reset-counts', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await db.query(
+            `UPDATE pending_customers SET message_count = 1 WHERE message_count > 1 RETURNING psid`
+        );
+        console.log(`[REALTIME-DB] Reset message_count cho ${result.rowCount} rows`);
+        res.json({ success: true, resetRows: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-API] Error resetting counts:', error);
+        res.status(500).json({ error: 'Failed to reset counts' });
+    }
+});
+
+/**
+ * POST /api/realtime/wipe-all
+ * Admin tool: XÓA TOÀN BỘ lịch sử cũ trong:
+ *   - pending_customers (badge tin nhắn / bình luận chưa đọc)
+ *   - realtime_updates (event log của Pancake updates)
+ * Sau wipe, hệ thống tự build lại từ events mới về (đã filter đúng INBOX-only
+ * theo fix server.js:769). Không động đến invoice_status_v2 / processing_tags.
+ * Dùng để clean slate sau bug count COMMENT-as-INBOX.
+ */
+router.post('/wipe-all', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+
+        const pcResult = await db.query(`DELETE FROM pending_customers RETURNING psid`);
+        const ruResult = await db.query(`DELETE FROM realtime_updates RETURNING id`);
+
+        console.log(
+            `[REALTIME-DB] WIPED ALL — pending_customers: ${pcResult.rowCount} rows, realtime_updates: ${ruResult.rowCount} rows`
+        );
+        res.json({
+            success: true,
+            wiped: {
+                pending_customers: pcResult.rowCount,
+                realtime_updates: ruResult.rowCount,
+            },
+        });
+    } catch (error) {
+        console.error('[REALTIME-API] Error wiping all:', error);
+        res.status(500).json({ error: 'Failed to wipe all', detail: error.message });
     }
 });
 
@@ -396,7 +434,7 @@ async function upsertPendingCustomer(db, data) {
             data.pageId,
             data.customerName,
             data.snippet ? data.snippet.substring(0, 200) : null,
-            data.type || 'INBOX'
+            data.type || 'INBOX',
         ]);
 
         console.log(`[REALTIME-DB] Upserted pending customer: ${data.customerName || data.psid}`);
@@ -444,7 +482,7 @@ router.put('/post-type', async (req, res) => {
             pageId || null,
             postId || null,
             postType || null,
-            liveVideoStatus || null
+            liveVideoStatus || null,
         ]);
 
         res.json({ success: true });
@@ -473,7 +511,8 @@ router.get('/post-types', async (req, res) => {
         const pageId = req.query.page_id;
         const limit = Math.min(parseInt(req.query.limit) || 1000, 5000);
 
-        let query = 'SELECT conversation_id, page_id, post_id, post_type, live_video_status, updated_at FROM conversation_post_types';
+        let query =
+            'SELECT conversation_id, page_id, post_id, post_type, live_video_status, updated_at FROM conversation_post_types';
         const conditions = [];
         const params = [];
 
@@ -499,7 +538,7 @@ router.get('/post-types', async (req, res) => {
         res.json({
             success: true,
             count: result.rows.length,
-            postTypes: result.rows
+            postTypes: result.rows,
         });
     } catch (error) {
         console.error('[REALTIME-API] Error fetching post types:', error);

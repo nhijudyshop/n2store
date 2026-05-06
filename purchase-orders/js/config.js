@@ -84,6 +84,18 @@ const TAB_CONFIG = [
         status: OrderStatus.AWAITING_DELIVERY,
         icon: 'truck',
     },
+    {
+        id: 'received',
+        label: 'Đã nhận',
+        status: OrderStatus.RECEIVED,
+        icon: 'package-check',
+    },
+    {
+        id: 'completed',
+        label: 'Hoàn thành',
+        status: OrderStatus.COMPLETED,
+        icon: 'check-circle-2',
+    },
     { id: 'history', label: 'Lịch sử', status: 'HISTORY', icon: 'history', isSpecial: true },
     { id: 'refunds', label: 'Trả hàng NCC', status: 'REFUNDS', icon: 'undo-2', isSpecial: true },
     { id: 'products', label: 'Kho SP', status: 'PRODUCTS', icon: 'package', isSpecial: true },

@@ -12,7 +12,12 @@ const { types } = require('pg');
 
 // Startup env validation — fail fast in dev/mis-configured envs. In production
 // we only warn (Render sometimes injects env via platform after require-time).
-const REQUIRED_ENV = ['DATABASE_URL', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'];
+const REQUIRED_ENV = [
+    'DATABASE_URL',
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_CLIENT_EMAIL',
+    'FIREBASE_PRIVATE_KEY',
+];
 const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missingEnv.length) {
     const msg = `[STARTUP] Missing required env vars: ${missingEnv.join(', ')}`;
@@ -28,14 +33,14 @@ if (missingEnv.length) {
 // We have seen crashes from pg-pool timeouts during DB upgrades. Log + keep alive.
 const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    const stack = reason && reason.stack || String(reason);
+    const stack = (reason && reason.stack) || String(reason);
     console.error('[PROCESS] Unhandled Rejection:', stack);
     sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    const stack = err && err.stack || String(err);
+    const stack = (err && err.stack) || String(err);
     console.error('[PROCESS] Uncaught Exception:', stack);
-    sendAlert('uncaughtException', err && err.message || String(err), stack);
+    sendAlert('uncaughtException', (err && err.message) || String(err), stack);
 });
 
 // Fix timezone: transaction_date is stored as TIMESTAMP WITHOUT TIMEZONE
@@ -74,16 +79,18 @@ app.use((req, res, next) => {
 
 // CORS - Allow requests from GitHub Pages
 // CORS - Allow specific origins
-app.use(cors({
-    origin: [
-        'https://nhijudyshop.github.io', // Primary frontend
-        'http://localhost:5500',         // Local development for frontend
-        'http://localhost:3000'          // Local development for this server itself
-    ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id', 'X-API-Key'],
-    credentials: false // credentials cannot be true when origin is *
-}));
+app.use(
+    cors({
+        origin: [
+            'https://nhijudyshop.github.io', // Primary frontend
+            'http://localhost:5500', // Local development for frontend
+            'http://localhost:3000', // Local development for this server itself
+        ],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id', 'X-API-Key'],
+        credentials: false, // credentials cannot be true when origin is *
+    })
+);
 
 // Body parsing - increased limit for large customer imports (80k+ records)
 app.use(express.json({ limit: '100mb' }));
@@ -114,7 +121,8 @@ app.locals.chatDb = chatDbPool;
 // tposTokenManager is set after require() below — see after route imports
 
 // Test database connection on startup
-chatDbPool.query('SELECT NOW()')
+chatDbPool
+    .query('SELECT NOW()')
     .then(() => {
         console.log('[DATABASE] PostgreSQL connected successfully');
         // Auto-create phone management tables (idempotent)
@@ -122,7 +130,7 @@ chatDbPool.query('SELECT NOW()')
             ensurePhoneManagementTables(chatDbPool).catch(() => {});
         }
     })
-    .catch(err => console.error('[DATABASE] PostgreSQL connection error:', err.message));
+    .catch((err) => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
 // =====================================================
 // REALTIME CREDENTIALS MANAGEMENT
@@ -151,7 +159,7 @@ async function saveRealtimeCredentials(db, clientType, credentials) {
             credentials.userId || null,
             credentials.pageIds ? JSON.stringify(credentials.pageIds) : null,
             credentials.cookie || null,
-            credentials.room || null
+            credentials.room || null,
         ]);
         console.log(`[CREDENTIALS] Saved ${clientType} credentials for auto-reconnect`);
         return true;
@@ -183,16 +191,23 @@ async function autoConnectRealtimeClients(db) {
         for (const row of result.rows) {
             if (row.client_type === 'pancake' && row.token && row.user_id && row.page_ids) {
                 const pageIds = JSON.parse(row.page_ids);
-                console.log(`[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`);
+                console.log(
+                    `[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`
+                );
                 realtimeClient.start(row.token, row.user_id, pageIds, row.cookie);
             } else if (row.client_type === 'tpos' && row.token) {
-                console.log(`[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`);
+                console.log(
+                    `[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`
+                );
                 tposRealtimeClient.start(row.token, row.room || 'tomato.tpos.vn');
             }
         }
     } catch (error) {
         // Table might not exist yet
-        console.log('[AUTO-CONNECT] Could not load credentials (table may not exist yet):', error.message);
+        console.log(
+            '[AUTO-CONNECT] Could not load credentials (table may not exist yet):',
+            error.message
+        );
     }
 }
 
@@ -209,7 +224,7 @@ app.get('/health', async (req, res) => {
             message: 'N2Store API Fallback Server is running',
             database: 'connected',
             timestamp: new Date().toISOString(),
-            uptime: process.uptime()
+            uptime: process.uptime(),
         });
     } catch (dbError) {
         console.error('[HEALTH] Database check failed:', dbError.message);
@@ -219,7 +234,7 @@ app.get('/health', async (req, res) => {
             database: 'disconnected',
             error: dbError.message,
             timestamp: new Date().toISOString(),
-            uptime: process.uptime()
+            uptime: process.uptime(),
         });
     }
 });
@@ -227,12 +242,15 @@ app.get('/health', async (req, res) => {
 // Detailed health: pool stats + memory + deps (for dashboards/ops)
 app.get('/health/detailed', async (req, res) => {
     const mem = process.memoryUsage();
-    const poolStats = chatDbPool ? {
-        total: chatDbPool.totalCount,
-        idle: chatDbPool.idleCount,
-        waiting: chatDbPool.waitingCount
-    } : null;
-    let dbOk = false, dbLatencyMs = null;
+    const poolStats = chatDbPool
+        ? {
+              total: chatDbPool.totalCount,
+              idle: chatDbPool.idleCount,
+              waiting: chatDbPool.waitingCount,
+          }
+        : null;
+    let dbOk = false,
+        dbLatencyMs = null;
     try {
         const t0 = Date.now();
         await chatDbPool.query('SELECT 1');
@@ -246,12 +264,12 @@ app.get('/health/detailed', async (req, res) => {
         memory_mb: {
             rss: Math.round(mem.rss / 1024 / 1024),
             heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
         },
         db: { ok: dbOk, latency_ms: dbLatencyMs, pool: poolStats },
         node_version: process.version,
         pid: process.pid,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
@@ -265,8 +283,8 @@ app.get('/api/debug/time', (req, res) => {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         timezone_offset_minutes: now.getTimezoneOffset(),
         server_time_string: now.toString(),
-        vietnam_time: new Date(now.getTime() + (7 * 60 * 60 * 1000)).toISOString(), // UTC+7
-        note: 'Compare this with your local time to check for clock drift'
+        vietnam_time: new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString(), // UTC+7
+        note: 'Compare this with your local time to check for clock drift',
     });
 });
 
@@ -302,7 +320,7 @@ const orderNotesRoutes = require('./routes/order-notes');
 const socialOrdersRoutes = require('./routes/social-orders');
 const nativeOrdersRoutes = require('./routes/native-orders');
 const web2ProductsRoutes = require('./routes/web2-products');
-const web2GenericRoutes  = require('./routes/web2-generic');
+const web2GenericRoutes = require('./routes/web2-generic');
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
@@ -317,17 +335,21 @@ const attributeRoutes = require('./routes/attribute.routes');
 const facebookRoutes = require('./routes/facebook.routes');
 const dynamicHeadersRoutes = require('./routes/dynamic-headers.routes');
 const customer360Routes = require('./routes/customer-360');
-const v2Router = require('./routes/v2');  // Unified API v2
+const v2Router = require('./routes/v2'); // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
-const { attachSipProxy, createRouter: createOncallRouter, ensurePhoneManagementTables } = require('./routes/oncall-sip-proxy');
+const {
+    attachSipProxy,
+    createRouter: createOncallRouter,
+    ensurePhoneManagementTables,
+} = require('./routes/oncall-sip-proxy');
 const { SipRegistrarController } = require('./services/sip-registrar-controller');
 const sipRegController = new SipRegistrarController(chatDbPool);
 app.locals.sipRegController = sipRegController;
 // Auto-start server-side SIP registrar (handoff logic: hold exts không có browser active)
 setTimeout(() => {
-    sipRegController.start().catch(err => console.error('[SIP-CTRL] start failed:', err.message));
+    sipRegController.start().catch((err) => console.error('[SIP-CTRL] start failed:', err.message));
 }, 8000); // delay 8s để DB + migration sẵn sàng
 const tposTokenManager = require('./services/tpos-token-manager');
 const { createAuthTokenStore } = require('./services/auth-token-store');
@@ -350,7 +372,10 @@ app.get('/api/auth/token/:provider', requireApiKey, async (req, res) => {
         res.json({ token: t.token, expires_at: t.expires_at, metadata: t.metadata });
     } catch (e) {
         if (e.message && e.message.startsWith('pancake:not_found')) {
-            return res.status(404).json({ error: 'no_pancake_token', message: 'Browser must push token via /api/realtime/start first' });
+            return res.status(404).json({
+                error: 'no_pancake_token',
+                message: 'Browser must push token via /api/realtime/start first',
+            });
         }
         console.error('[AUTH-API] getToken error:', e.message);
         res.status(500).json({ error: e.message });
@@ -375,8 +400,8 @@ app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/tpos-saved', tposSavedRoutes);
 app.use('/api/tpos-credentials', tposCredentialsRoutes);
-app.use('/api', customer360Routes);  // Customer 360° routes: /api/customer, /api/wallet, /api/ticket
-app.use('/api/v2', v2Router);  // Unified API v2: /api/v2/customers, /api/v2/wallets, /api/v2/tickets, /api/v2/analytics
+app.use('/api', customer360Routes); // Customer 360° routes: /api/customer, /api/wallet, /api/ticket
+app.use('/api/v2', v2Router); // Unified API v2: /api/v2/customers, /api/v2/wallets, /api/v2/tickets, /api/v2/analytics
 app.use('/api/return-orders', returnOrdersRoutes);
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
@@ -406,7 +431,14 @@ app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2', web2GenericRoutes);
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
-app.use('/iclock', (req, res, next) => { req.pool = chatDbPool; next(); }, admsRoutes);
+app.use(
+    '/iclock',
+    (req, res, next) => {
+        req.pool = chatDbPool;
+        next();
+    },
+    admsRoutes
+);
 app.use('/api/users', usersRoutes);
 app.use('/api/quick-replies', quickRepliesRoutes);
 app.use('/api/campaigns', campaignsRoutes);
@@ -438,10 +470,7 @@ app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
-initializeNotifiers(
-    realtimeSseRoutes.notifyClients,
-    realtimeSseRoutes.notifyClientsWildcard
-);
+initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyClientsWildcard);
 
 // Initialize SSE notifiers in order-notes routes
 if (orderNotesRoutes.initializeNotifiers) {
@@ -498,10 +527,10 @@ setTimeout(async () => {
 app.use('/api', cloudflareBackupRoutes);
 
 // === ROUTES MERGED FROM /api ===
-app.use(uploadRoutes);       // /upload, /upload-batch
-app.use(productsRoutes);     // /products
-app.use(attributeRoutes);    // /attributes
-app.use(facebookRoutes);     // /facebook/*
+app.use(uploadRoutes); // /upload, /upload-batch
+app.use(productsRoutes); // /products
+app.use(attributeRoutes); // /attributes
+app.use(facebookRoutes); // /facebook/*
 app.use(dynamicHeadersRoutes); // /dynamic-headers/*
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
@@ -510,7 +539,7 @@ app.use(dynamicHeadersRoutes); // /dynamic-headers/*
 class RealtimeClient {
     constructor(db = null) {
         this.ws = null;
-        this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
+        this.url = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
         this.isConnected = false;
         this.refCounter = 1;
         this.heartbeatInterval = null;
@@ -547,7 +576,7 @@ class RealtimeClient {
         this.token = token;
         this.userId = userId;
         // Ensure pageIds are strings
-        this.pageIds = pageIds.map(id => String(id));
+        this.pageIds = pageIds.map((id) => String(id));
         this.cookie = cookie;
         this.connect();
     }
@@ -555,13 +584,18 @@ class RealtimeClient {
     connect() {
         if (this.isConnected || !this.token) return;
 
-        console.log('[SERVER-WS] Connecting to Pancake... (attempt', this.reconnectAttempts + 1, ')');
+        console.log(
+            '[SERVER-WS] Connecting to Pancake... (attempt',
+            this.reconnectAttempts + 1,
+            ')'
+        );
         const headers = {
-            'Origin': 'https://pancake.vn',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Origin: 'https://pancake.vn',
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            Pragma: 'no-cache',
         };
 
         // Add cookie if available (critical for Cloudflare/Auth)
@@ -570,7 +604,7 @@ class RealtimeClient {
         }
 
         this.ws = new WebSocket(this.url, {
-            headers: headers
+            headers: headers,
         });
 
         this.ws.on('open', () => {
@@ -590,11 +624,15 @@ class RealtimeClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000); // 2s, 4s, 8s, ... max 60s
                 this.reconnectAttempts++;
-                console.log(`[SERVER-WS] Reconnecting in ${delay/1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                console.log(
+                    `[SERVER-WS] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+                );
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[SERVER-WS] ❌ Max reconnect attempts reached. Stopping reconnection.');
+                console.error(
+                    '[SERVER-WS] ❌ Max reconnect attempts reached. Stopping reconnection.'
+                );
             }
         });
 
@@ -617,7 +655,7 @@ class RealtimeClient {
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const ref = this.makeRef();
-                this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
+                this.ws.send(JSON.stringify([null, ref, 'phoenix', 'heartbeat', {}]));
             }
         }, 30000);
     }
@@ -635,22 +673,28 @@ class RealtimeClient {
         // 1. Join User Channel
         const userRef = this.makeRef();
         const userJoinMsg = [
-            userRef, userRef, `users:${this.userId}`, "phx_join",
-            { accessToken: this.token, userId: this.userId, platform: "web" }
+            userRef,
+            userRef,
+            `users:${this.userId}`,
+            'phx_join',
+            { accessToken: this.token, userId: this.userId, platform: 'web' },
         ];
         this.ws.send(JSON.stringify(userJoinMsg));
 
         // 2. Join Multiple Pages Channel
         const pagesRef = this.makeRef();
         const pagesJoinMsg = [
-            pagesRef, pagesRef, `multiple_pages:${this.userId}`, "phx_join",
+            pagesRef,
+            pagesRef,
+            `multiple_pages:${this.userId}`,
+            'phx_join',
             {
                 accessToken: this.token,
                 userId: this.userId,
                 clientSession: this.generateClientSession(),
                 pageIds: this.pageIds,
-                platform: "web"
-            }
+                platform: 'web',
+            },
         ];
         this.ws.send(JSON.stringify(pagesJoinMsg));
 
@@ -659,7 +703,11 @@ class RealtimeClient {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
-                pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
+                pagesRef,
+                statusRef,
+                `multiple_pages:${this.userId}`,
+                'get_online_status',
+                {},
             ];
             this.ws.send(JSON.stringify(statusMsg));
         }, 1000);
@@ -670,45 +718,79 @@ class RealtimeClient {
 
         // Debug: log all events (not just update_conversation)
         if (event !== 'phx_reply' && event !== 'heartbeat') {
-            console.log(`[SERVER-WS][DEBUG] Event: ${event} | topic: ${topic} | payload keys: ${Object.keys(payload || {}).join(',')}`);
+            console.log(
+                `[SERVER-WS][DEBUG] Event: ${event} | topic: ${topic} | payload keys: ${Object.keys(payload || {}).join(',')}`
+            );
         }
 
         if (event === 'phx_reply') {
             if (payload.status !== 'ok') {
-                console.error(`[SERVER-WS][DEBUG] Channel reply ERROR: topic=${topic}, status=${payload.status}, response=`, JSON.stringify(payload.response || {}).substring(0, 200));
+                console.error(
+                    `[SERVER-WS][DEBUG] Channel reply ERROR: topic=${topic}, status=${payload.status}, response=`,
+                    JSON.stringify(payload.response || {}).substring(0, 200)
+                );
             }
         }
 
         if (event === 'pages:update_conversation') {
             const conversation = payload.conversation;
             const clientCount = wss?.clients?.size || 0;
-            console.log(`[SERVER-WS] New Message/Comment: conv=${conversation.id}, page=${conversation.page_id}, type=${conversation.type}, from="${conversation.from?.name}", snippet="${(conversation.snippet || '').substring(0, 50)}", broadcasting to ${clientCount} clients`);
+            console.log(
+                `[SERVER-WS] New Message/Comment: conv=${conversation.id}, page=${conversation.page_id}, type=${conversation.type}, from="${conversation.from?.name}", snippet="${(conversation.snippet || '').substring(0, 50)}", broadcasting to ${clientCount} clients`
+            );
 
             // Broadcast to connected frontend clients
             broadcastToClients({
                 type: 'pages:update_conversation',
-                payload: payload
+                payload: payload,
             });
 
             // Save to PostgreSQL for later retrieval
             if (this.db && conversation) {
+                const convType = conversation.type || 'INBOX';
                 const updateData = {
                     conversationId: conversation.id,
-                    type: conversation.type || 'INBOX',
+                    type: convType,
                     snippet: conversation.snippet || conversation.last_message?.message,
                     unreadCount: conversation.unread_count || 0,
-                    pageId: conversation.page_id || (conversation.id ? conversation.id.split('_')[0] : null),
+                    pageId:
+                        conversation.page_id ||
+                        (conversation.id ? conversation.id.split('_')[0] : null),
                     psid: conversation.from_psid || conversation.customers?.[0]?.fb_id,
-                    customerName: conversation.from?.name || conversation.customers?.[0]?.name
+                    customerName: conversation.from?.name || conversation.customers?.[0]?.name,
                 };
 
                 saveRealtimeUpdate(this.db, updateData)
                     .then(() => console.log('[SERVER-WS] Update saved to DB'))
-                    .catch(err => console.error('[SERVER-WS] Failed to save update:', err.message));
+                    .catch((err) =>
+                        console.error('[SERVER-WS] Failed to save update:', err.message)
+                    );
 
-                // Also upsert to pending_customers for tracking unread
-                upsertPendingCustomer(this.db, updateData)
-                    .catch(err => console.error('[SERVER-WS] Failed to upsert pending:', err.message));
+                // Upsert pending_customers CHỈ cho INBOX với unread_count > 0.
+                // COMMENT events không count (badge "tin nhắn" chỉ track inbox unread).
+                // unread_count = 0 nghĩa là shop đã đọc → KHÔNG bump count, ngược lại
+                // DELETE row để clear badge cho mọi user (multi-staff sync).
+                if (convType === 'INBOX') {
+                    const unread = conversation.unread_count || 0;
+                    if (unread > 0) {
+                        upsertPendingCustomer(this.db, updateData).catch((err) =>
+                            console.error('[SERVER-WS] Failed to upsert pending:', err.message)
+                        );
+                    } else if (updateData.psid && updateData.pageId) {
+                        // unread = 0 → shop bất kỳ vừa đọc → clear pending cho mọi user
+                        this.db
+                            .query(
+                                `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2`,
+                                [updateData.psid, updateData.pageId]
+                            )
+                            .catch((err) =>
+                                console.error(
+                                    '[SERVER-WS] Failed to clear pending on read:',
+                                    err.message
+                                )
+                            );
+                    }
+                }
             }
         }
 
@@ -716,10 +798,12 @@ class RealtimeClient {
         if (event === 'pages:new_message') {
             const msg = payload?.message || payload;
             const clientCount = wss?.clients?.size || 0;
-            console.log(`[SERVER-WS] pages:new_message → conv=${msg?.conversation_id}, msg="${(msg?.message || '').substring(0, 50)}", broadcasting to ${clientCount} clients`);
+            console.log(
+                `[SERVER-WS] pages:new_message → conv=${msg?.conversation_id}, msg="${(msg?.message || '').substring(0, 50)}", broadcasting to ${clientCount} clients`
+            );
             broadcastToClients({
                 type: 'pages:new_message',
-                payload: payload
+                payload: payload,
             });
 
             // Also save to pending_customers (only if message is FROM customer, not from page)
@@ -733,10 +817,11 @@ class RealtimeClient {
                         snippet: msg.message || msg.original_message || '',
                         pageId: pageId,
                         psid: fromPsid,
-                        customerName: msg.from?.name
+                        customerName: msg.from?.name,
                     };
-                    upsertPendingCustomer(this.db, updateData)
-                        .catch(err => console.error('[SERVER-WS] Failed to upsert from new_message:', err.message));
+                    upsertPendingCustomer(this.db, updateData).catch((err) =>
+                        console.error('[SERVER-WS] Failed to upsert from new_message:', err.message)
+                    );
                 }
             }
         }
@@ -751,7 +836,7 @@ class TposRealtimeClient {
     constructor() {
         this.ws = null;
         // Use rt-2.tpos.app with room parameter (from browser DevTools analysis)
-        this.baseUrl = "wss://rt-2.tpos.app/socket.io/";
+        this.baseUrl = 'wss://rt-2.tpos.app/socket.io/';
         this.isConnected = false;
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
@@ -759,8 +844,8 @@ class TposRealtimeClient {
         this.maxReconnectAttempts = 10;
 
         // Server-provided timing (will be updated from transport info)
-        this.pingInterval = 25000;  // Default 25s
-        this.pingTimeout = 20000;   // Default 20s
+        this.pingInterval = 25000; // Default 25s
+        this.pingTimeout = 20000; // Default 20s
 
         // Last activity tracking
         this.lastPingTime = null;
@@ -792,16 +877,17 @@ class TposRealtimeClient {
         console.log('[TPOS-WS] Connection URL:', wsUrl.replace(/token=[^&]+/, 'token=***'));
 
         const headers = {
-            'Origin': 'https://tomato.tpos.vn',
-            'Authorization': `Bearer ${this.token}`,
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+            Origin: 'https://tomato.tpos.vn',
+            Authorization: `Bearer ${this.token}`,
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            Pragma: 'no-cache',
         };
 
         this.ws = new WebSocket(wsUrl, {
-            headers: headers
+            headers: headers,
         });
 
         this.ws.on('open', () => {
@@ -832,7 +918,7 @@ class TposRealtimeClient {
                 1009: 'Message Too Big',
                 1010: 'Mandatory Extension Missing',
                 1011: 'Internal Server Error',
-                1015: 'TLS Handshake Failed'
+                1015: 'TLS Handshake Failed',
             };
             console.log(`[TPOS-WS] Close reason: ${closeReasons[code] || 'Unknown'}`);
 
@@ -843,11 +929,15 @@ class TposRealtimeClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
                 this.reconnectAttempts++;
-                console.log(`[TPOS-WS] Reconnecting in ${delay/1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                console.log(
+                    `[TPOS-WS] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+                );
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[TPOS-WS] ❌ Max reconnect attempts reached. Stopping reconnection.');
+                console.error(
+                    '[TPOS-WS] ❌ Max reconnect attempts reached. Stopping reconnection.'
+                );
             }
         });
 
@@ -899,7 +989,9 @@ class TposRealtimeClient {
                 if (info.pingTimeout) {
                     this.pingTimeout = info.pingTimeout;
                 }
-                console.log(`[TPOS-WS] Server timing: pingInterval=${this.pingInterval}ms, pingTimeout=${this.pingTimeout}ms`);
+                console.log(
+                    `[TPOS-WS] Server timing: pingInterval=${this.pingInterval}ms, pingTimeout=${this.pingTimeout}ms`
+                );
             } catch (e) {
                 console.log('[TPOS-WS] Received transport info (parse failed)');
             }
@@ -949,17 +1041,28 @@ class TposRealtimeClient {
             try {
                 const eventData = typeof payload === 'string' ? JSON.parse(payload) : payload;
                 const data = eventData.d || eventData.data || eventData;
-                const eventType = data.t || data.Type || data.EventName || eventData.EventName || eventData.type || eventData.Type;
+                const eventType =
+                    data.t ||
+                    data.Type ||
+                    data.EventName ||
+                    eventData.EventName ||
+                    eventData.type ||
+                    eventData.Type;
 
-                const eventAction = data.EventName || eventData.EventName || data.action || eventData.action;
+                const eventAction =
+                    data.EventName || eventData.EventName || data.action || eventData.action;
                 const msgPreview = (data.Message || data.message || '').substring(0, 80);
 
                 // Handle SaleOnline_Order — order created/updated
                 if (eventType === 'SaleOnline_Order') {
-                    console.log('[TPOS-WS] 🔥 ORDER', (eventAction || '').toUpperCase() + ':', msgPreview);
+                    console.log(
+                        '[TPOS-WS] 🔥 ORDER',
+                        (eventAction || '').toUpperCase() + ':',
+                        msgPreview
+                    );
                     broadcastToClients({
                         type: eventAction === 'updated' ? 'tpos:order-update' : 'tpos:new-order',
-                        data: data
+                        data: data,
                     });
                     // Save to buffer for catch-up polling (fire-and-forget)
                     saveOrderToBuffer(chatDbPool, data).catch(() => {});
@@ -971,11 +1074,15 @@ class TposRealtimeClient {
                 // hủy phiếu (action `cancelled`/`canceled`/`deleted`) bị nuốt → web không update.
                 // Client tab1-tpos-realtime.js tự fetch lại OData để lấy ShowState mới.
                 if (eventType === 'FastSaleOrder') {
-                    console.log('[TPOS-WS] 📄 INVOICE', (eventAction || 'unknown').toUpperCase() + ':', msgPreview);
+                    console.log(
+                        '[TPOS-WS] 📄 INVOICE',
+                        (eventAction || 'unknown').toUpperCase() + ':',
+                        msgPreview
+                    );
                     broadcastToClients({
                         type: 'tpos:invoice-update',
                         action: eventAction || 'unknown',
-                        data: data
+                        data: data,
                     });
                     return;
                 }
@@ -1007,13 +1114,17 @@ class TposRealtimeClient {
         // If no ping received within (pingInterval + pingTimeout), connection is dead.
         const checkMs = this.pingInterval + this.pingTimeout;
 
-        console.log(`[TPOS-WS] ❤️ Starting heartbeat monitor (expect ping every ${this.pingInterval}ms, timeout ${checkMs}ms)`);
+        console.log(
+            `[TPOS-WS] ❤️ Starting heartbeat monitor (expect ping every ${this.pingInterval}ms, timeout ${checkMs}ms)`
+        );
 
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const timeSinceLastPing = Date.now() - (this.lastPingTime || Date.now());
                 if (this.lastPingTime && timeSinceLastPing > checkMs) {
-                    console.error(`[TPOS-WS] ⚠️ No ping from TPOS for ${timeSinceLastPing}ms (timeout: ${checkMs}ms)`);
+                    console.error(
+                        `[TPOS-WS] ⚠️ No ping from TPOS for ${timeSinceLastPing}ms (timeout: ${checkMs}ms)`
+                    );
                     console.log('[TPOS-WS] Connection appears dead, forcing reconnect...');
                     this.ws.close();
                     return;
@@ -1049,7 +1160,7 @@ class TposRealtimeClient {
             reconnectAttempts: this.reconnectAttempts,
             pingInterval: this.pingInterval,
             pingTimeout: this.pingTimeout,
-            lastPingFromTPOS: this.lastPingTime
+            lastPingFromTPOS: this.lastPingTime,
         };
     }
 }
@@ -1078,8 +1189,7 @@ setInterval(async () => {
     if (!status.hasToken) return;
 
     const isDead =
-        !status.connected ||
-        (status.lastPingFromTPOS && sinceLastPing > TPOS_DEAD_THRESHOLD_MS);
+        !status.connected || (status.lastPingFromTPOS && sinceLastPing > TPOS_DEAD_THRESHOLD_MS);
 
     if (!isDead) return;
 
@@ -1225,16 +1335,13 @@ setInterval(async () => {
             }
             for (const id of candidatesDeleted) {
                 try {
-                    const verifyResp = await fetch(
-                        `${TPOS_ODATA_BASE_POLL}/FastSaleOrder(${id})`,
-                        {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                accept: 'application/json',
-                            },
-                            agent: tposPollHttpsAgent,
-                        }
-                    );
+                    const verifyResp = await fetch(`${TPOS_ODATA_BASE_POLL}/FastSaleOrder(${id})`, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            accept: 'application/json',
+                        },
+                        agent: tposPollHttpsAgent,
+                    });
                     if (verifyResp.status === 404) {
                         console.log('[INVOICE-POLL] DELETE detected: Id', id);
                         broadcastToClients({
@@ -1271,6 +1378,156 @@ console.log(
     `[INVOICE-POLL] Active — every ${INVOICE_POLL_INTERVAL_MS / 1000}s, lookback ${INVOICE_POLL_LOOKBACK_MIN}min, top ${INVOICE_POLL_TOP}`
 );
 
+// =====================================================
+// INVOICE STATE — STALE CHECK (long-tail)
+// =====================================================
+// Vấn đề: 60-min lookback poll ở trên KHÔNG cover invoice cũ hơn (vd user
+// hủy phiếu 4 ngày tuổi → state changed → poll không thấy → InvoiceStatusStore
+// các client stale "Đã xác nhận" trong khi TPOS đã "Huỷ bỏ").
+//
+// Fix: chu kỳ 5 phút quét DB invoice_status entries gần đây (≤ 7 ngày, state
+// còn-mutable), batch fetch TPOS by Reference (chunk 20), diff State/ShowState
+// với DB → broadcast `tpos:invoice-update` action='polled-stale-change'.
+const INVOICE_STALE_CHECK_INTERVAL_MS = 5 * 60_000;
+const INVOICE_STALE_LOOKBACK_DAYS = 7;
+const INVOICE_STALE_BATCH = 20; // TPOS OData GetView limit ~20 OR clauses
+const INVOICE_STALE_MAX_PER_CYCLE = 200; // cap để không quá tải
+let invoiceStaleRunning = false;
+
+setInterval(async () => {
+    if (invoiceStaleRunning) return;
+    invoiceStaleRunning = true;
+    try {
+        if (!chatDbPool) return;
+        // Chỉ check entries chưa final — paid/cancel/done tránh waste API.
+        // Sort updated_at ASC NULLS FIRST: rotate cũ nhất trước, mỗi cycle pick
+        // 200 entry chưa check lâu nhất → đảm bảo phủ toàn bộ pool sau N cycles.
+        // Trước đây DESC by entry_timestamp → luôn lặp 200 entry mới nhất,
+        // entry cũ rank > 200 không bao giờ được check (vd 63983 day 3 ranked > 200).
+        const sinceMs = Date.now() - INVOICE_STALE_LOOKBACK_DAYS * 86400_000;
+        const { rows: entries } = await chatDbPool.query(
+            `SELECT compound_key, sale_online_id, tpos_id, reference, state, show_state
+               FROM invoice_status
+              WHERE tpos_id IS NOT NULL
+                AND reference IS NOT NULL
+                AND entry_timestamp >= $1
+                AND (state IS NULL OR state NOT IN ('cancel','paid','done'))
+              ORDER BY updated_at ASC NULLS FIRST
+              LIMIT $2`,
+            [sinceMs, INVOICE_STALE_MAX_PER_CYCLE]
+        );
+        if (entries.length === 0) {
+            invoiceStaleRunning = false;
+            return;
+        }
+
+        const token = await tposTokenManager.getToken().catch(() => null);
+        if (!token) {
+            invoiceStaleRunning = false;
+            return;
+        }
+
+        // Group by Reference (Order.Code) — TPOS OData chỉ accept Reference filter.
+        // 1 reference có thể có N invoices → match lại theo tpos_id.
+        const tposIdMap = new Map(); // tpos_id → entry
+        const referenceSet = new Set();
+        for (const e of entries) {
+            tposIdMap.set(e.tpos_id, e);
+            if (e.reference) referenceSet.add(e.reference);
+        }
+        const references = Array.from(referenceSet);
+
+        let broadcasted = 0;
+        let checked = 0;
+        for (let i = 0; i < references.length; i += INVOICE_STALE_BATCH) {
+            const chunk = references.slice(i, i + INVOICE_STALE_BATCH);
+            const orFilter = chunk
+                .map((r) => `Reference eq '${String(r).replace(/'/g, "''")}'`)
+                .join(' or ');
+            const filter = `(Type eq 'invoice' and (${orFilter}))`;
+            const url =
+                `${TPOS_ODATA_BASE_POLL}/FastSaleOrder/ODataService.GetView` +
+                `?$top=500&$filter=${encodeURIComponent(filter)}`;
+            try {
+                const resp = await fetch(url, {
+                    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+                    agent: tposPollHttpsAgent,
+                });
+                if (!resp.ok) continue;
+                const result = await resp.json();
+                const invoices = Array.isArray(result?.value) ? result.value : [];
+                for (const inv of invoices) {
+                    const cached = tposIdMap.get(inv.Id);
+                    if (!cached) continue;
+                    checked++;
+                    const newKey = `${inv.State || ''}|${inv.ShowState || ''}`;
+                    const oldKey = `${cached.state || ''}|${cached.show_state || ''}`;
+                    if (newKey === oldKey) continue;
+                    // State changed — broadcast giống event TPOS thật.
+                    broadcastToClients({
+                        type: 'tpos:invoice-update',
+                        action: 'polled-stale-change',
+                        data: {
+                            Id: inv.Id,
+                            Number: inv.Number,
+                            Reference: inv.Reference,
+                            State: inv.State,
+                            ShowState: inv.ShowState,
+                            Order: { Id: inv.Id, Code: inv.Number },
+                        },
+                    });
+                    // Cập nhật seed cache để 60s poll cũng nhận state mới.
+                    recentInvoiceState.set(inv.Id, {
+                        stateKey: newKey,
+                        ts: Date.now(),
+                        lastSeenInPoll: Date.now(),
+                    });
+                    // Cập nhật DB ngay để chu kỳ stale-check tiếp theo không re-broadcast.
+                    try {
+                        await chatDbPool.query(
+                            `UPDATE invoice_status
+                                SET state = $1, show_state = $2, state_code = $3,
+                                    is_merge_cancel = $4, updated_at = CURRENT_TIMESTAMP
+                              WHERE tpos_id = $5`,
+                            [
+                                inv.State || null,
+                                inv.ShowState || null,
+                                inv.StateCode || null,
+                                inv.IsMergeCancel === true,
+                                inv.Id,
+                            ]
+                        );
+                    } catch (dbErr) {
+                        console.warn('[INVOICE-STALE] DB update failed:', inv.Id, dbErr.message);
+                    }
+                    broadcasted++;
+                    console.log(
+                        '[INVOICE-STALE] State change:',
+                        inv.Number || `Id=${inv.Id}`,
+                        oldKey,
+                        '→',
+                        newKey
+                    );
+                }
+            } catch (e) {
+                // network error — skip, retry next cycle
+            }
+        }
+        if (broadcasted > 0 || checked > 0) {
+            console.log(
+                `[INVOICE-STALE] Cycle done — checked ${checked}/${entries.length}, broadcasted ${broadcasted}`
+            );
+        }
+    } catch (e) {
+        console.warn('[INVOICE-STALE] error:', e.message);
+    } finally {
+        invoiceStaleRunning = false;
+    }
+}, INVOICE_STALE_CHECK_INTERVAL_MS);
+console.log(
+    `[INVOICE-STALE] Active — every ${INVOICE_STALE_CHECK_INTERVAL_MS / 1000}s, lookback ${INVOICE_STALE_LOOKBACK_DAYS}d, max ${INVOICE_STALE_MAX_PER_CYCLE}/cycle`
+);
+
 // Initialize Global Client with DB connection
 const realtimeClient = new RealtimeClient();
 realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates
@@ -1291,11 +1548,16 @@ app.post('/api/realtime/start', async (req, res) => {
     try {
         let expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000); // default 7 days
         try {
-            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+            const payload = JSON.parse(
+                Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
+            );
             if (payload.exp) expiresAt = new Date(payload.exp * 1000);
-        } catch (_) { /* use default */ }
+        } catch (_) {
+            /* use default */
+        }
 
-        await chatDbPool.query(`
+        await chatDbPool.query(
+            `
             INSERT INTO auth_token_cache (provider, token, refresh_token, expires_at, metadata, updated_at)
             VALUES ('pancake', $1, NULL, $2, $3, NOW())
             ON CONFLICT (provider) DO UPDATE SET
@@ -1303,13 +1565,20 @@ app.post('/api/realtime/start', async (req, res) => {
                 expires_at = EXCLUDED.expires_at,
                 metadata = EXCLUDED.metadata,
                 updated_at = NOW()
-        `, [token, expiresAt, JSON.stringify({ userId, provider: 'pancake' })]);
-        console.log(`[AUTH-STORE] ✅ Pancake token cached in auth_token_cache (expires ${expiresAt.toISOString()})`);
+        `,
+            [token, expiresAt, JSON.stringify({ userId, provider: 'pancake' })]
+        );
+        console.log(
+            `[AUTH-STORE] ✅ Pancake token cached in auth_token_cache (expires ${expiresAt.toISOString()})`
+        );
     } catch (e) {
         console.warn('[AUTH-STORE] Failed to cache pancake token:', e.message);
     }
 
-    res.json({ success: true, message: 'Realtime client started on server (credentials saved for auto-reconnect)' });
+    res.json({
+        success: true,
+        message: 'Realtime client started on server (credentials saved for auto-reconnect)',
+    });
 });
 
 // API to start the TPOS client from the browser
@@ -1324,7 +1593,10 @@ app.post('/api/realtime/tpos/start', async (req, res) => {
     // Save credentials for auto-reconnect on server restart
     await saveRealtimeCredentials(chatDbPool, 'tpos', { token, room: room || 'tomato.tpos.vn' });
 
-    res.json({ success: true, message: 'TPOS Realtime client started on server (credentials saved for auto-reconnect)' });
+    res.json({
+        success: true,
+        message: 'TPOS Realtime client started on server (credentials saved for auto-reconnect)',
+    });
 });
 
 // API to get saved Pancake credentials from DB (for frontends to load token)
@@ -1337,7 +1609,9 @@ app.get('/api/realtime/credentials/pancake', async (req, res) => {
         if (r.rows.length === 0) return res.json({ found: false });
         const row = r.rows[0];
         let pageIds = [];
-        try { pageIds = row.page_ids ? JSON.parse(row.page_ids) : []; } catch (_) {}
+        try {
+            pageIds = row.page_ids ? JSON.parse(row.page_ids) : [];
+        } catch (_) {}
         res.json({
             found: true,
             token: row.token,
@@ -1372,8 +1646,12 @@ app.get('/api/realtime/status', (req, res) => {
 app.post('/api/realtime/stop', async (req, res) => {
     // Disable auto-connect in database
     try {
-        await chatDbPool.query(`UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'pancake'`);
-    } catch (e) { /* ignore */ }
+        await chatDbPool.query(
+            `UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'pancake'`
+        );
+    } catch (e) {
+        /* ignore */
+    }
 
     // Close WebSocket if connected
     if (realtimeClient.ws) {
@@ -1390,8 +1668,12 @@ app.post('/api/realtime/stop', async (req, res) => {
 app.post('/api/realtime/tpos/stop', async (req, res) => {
     // Disable auto-connect in database
     try {
-        await chatDbPool.query(`UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'tpos'`);
-    } catch (e) { /* ignore */ }
+        await chatDbPool.query(
+            `UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'tpos'`
+        );
+    } catch (e) {
+        /* ignore */
+    }
 
     tposRealtimeClient.stop();
     res.json({ success: true, message: 'TPOS Realtime client stopped (auto-connect disabled)' });
@@ -1402,7 +1684,9 @@ app.get('/api/realtime/tpos/status', (req, res) => {
     res.json({
         ...tposRealtimeClient.getStatus(),
         wsReadyState: tposRealtimeClient.ws ? tposRealtimeClient.ws.readyState : null,
-        wsReadyStateLabel: tposRealtimeClient.ws ? ['CONNECTING','OPEN','CLOSING','CLOSED'][tposRealtimeClient.ws.readyState] : 'NO_WS'
+        wsReadyStateLabel: tposRealtimeClient.ws
+            ? ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][tposRealtimeClient.ws.readyState]
+            : 'NO_WS',
     });
 });
 
@@ -1416,25 +1700,23 @@ app.get('/', (req, res) => {
             core: [
                 'POST /api/token - TPOS Token with caching',
                 'GET /api/odata/* - TPOS OData proxy',
-                'GET /api/rest/* - TPOS REST API v2.0'
+                'GET /api/rest/* - TPOS REST API v2.0',
             ],
             pancake: [
                 'GET /api/pancake/* - Pancake API proxy',
                 'ALL /api/pancake-direct/* - Pancake 24h bypass',
-                'ALL /api/pancake-official/* - pages.fm Public API'
+                'ALL /api/pancake-official/* - pages.fm Public API',
             ],
             facebook: [
                 'POST /api/facebook-send - Send message with tag',
                 'GET /api/fb-avatar - Facebook/Pancake avatar',
-                'GET /api/pancake-avatar - Pancake content avatar'
+                'GET /api/pancake-avatar - Pancake content avatar',
             ],
-            media: [
-                'GET /api/image-proxy - Image proxy bypass CORS'
-            ],
+            media: ['GET /api/image-proxy - Image proxy bypass CORS'],
             utility: [
                 'GET /api/proxy - Generic proxy',
                 'GET /api/customers/* - Customers API (PostgreSQL)',
-                'POST /api/sepay/* - SePay webhook & balance'
+                'POST /api/sepay/* - SePay webhook & balance',
             ],
             realtime: [
                 'POST /api/realtime/start - Start Pancake WebSocket (saves credentials for auto-reconnect)',
@@ -1446,25 +1728,25 @@ app.get('/', (req, res) => {
                 'DELETE /api/realtime/cleanup?days={n} - Cleanup old records',
                 'POST /api/realtime/tpos/start - Start TPOS WebSocket (saves credentials for auto-reconnect)',
                 'POST /api/realtime/tpos/stop - Stop TPOS WebSocket (disables auto-reconnect)',
-                'GET /api/realtime/tpos/status - Get TPOS client status'
+                'GET /api/realtime/tpos/status - Get TPOS client status',
             ],
             telegram: [
                 'GET /api/telegram - Telegram bot status',
                 'POST /api/telegram/webhook - Telegram webhook (Gemini AI)',
                 'POST /api/telegram/setWebhook - Set webhook URL',
                 'GET /api/telegram/webhookInfo - Get webhook info',
-                'POST /api/telegram/deleteWebhook - Delete webhook'
+                'POST /api/telegram/deleteWebhook - Delete webhook',
             ],
             upload: [
                 'POST /api/upload/image - Upload image to Firebase Storage',
                 'DELETE /api/upload/image - Delete image from Firebase Storage',
-                'GET /api/upload/health - Upload service health check'
+                'GET /api/upload/health - Upload service health check',
             ],
             health: [
                 'GET /health - Server health check',
-                'GET /api/debug/time - Server time diagnostic'
-            ]
-        }
+                'GET /api/debug/time - Server time diagnostic',
+            ],
+        },
     });
 });
 
@@ -1472,7 +1754,11 @@ app.get('/', (req, res) => {
 app.post('/api/tpos-log/start', (req, res) => {
     const minutes = req.body?.minutes || 10;
     tposEventLog.start(minutes);
-    res.json({ success: true, message: `Logging started for ${minutes} minutes`, willStopAt: new Date(Date.now() + minutes * 60 * 1000).toISOString() });
+    res.json({
+        success: true,
+        message: `Logging started for ${minutes} minutes`,
+        willStopAt: new Date(Date.now() + minutes * 60 * 1000).toISOString(),
+    });
 });
 
 app.post('/api/tpos-log/stop', (req, res) => {
@@ -1487,8 +1773,8 @@ app.get('/api/tpos-log/summary', (req, res) => {
 app.get('/api/tpos-log/events', (req, res) => {
     const { type, eventType, limit } = req.query;
     let events = tposEventLog.events;
-    if (type) events = events.filter(e => e.type === type);
-    if (eventType) events = events.filter(e => e.eventType === eventType);
+    if (type) events = events.filter((e) => e.type === type);
+    if (eventType) events = events.filter((e) => e.eventType === eventType);
     if (limit) events = events.slice(-parseInt(limit));
     res.json({ total: events.length, events });
 });
@@ -1516,7 +1802,7 @@ app.post('/api/tpos-events/broadcast', (req, res) => {
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not Found',
-        path: req.url
+        path: req.url,
     });
 });
 
@@ -1530,7 +1816,7 @@ app.use((err, req, res, next) => {
         success: false,
         error: err.name || 'ServerError',
         message: message,
-        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
 });
 
@@ -1584,7 +1870,9 @@ const tposEventLog = {
         this.isLogging = false;
         clearTimeout(this.stopTimer);
         const elapsed = this.startTime ? Math.round((Date.now() - this.startTime) / 1000) : 0;
-        console.log(`[TPOS-LOG] ⏹ Stopped after ${elapsed}s, captured ${this.events.length} events`);
+        console.log(
+            `[TPOS-LOG] ⏹ Stopped after ${elapsed}s, captured ${this.events.length} events`
+        );
     },
 
     log(data) {
@@ -1592,7 +1880,7 @@ const tposEventLog = {
         this.events.push({
             timestamp: new Date().toISOString(),
             elapsed: Math.round((Date.now() - this.startTime) / 1000),
-            ...data
+            ...data,
         });
     },
 
@@ -1601,7 +1889,7 @@ const tposEventLog = {
         const eventTypes = {};
         const samples = {};
 
-        this.events.forEach(e => {
+        this.events.forEach((e) => {
             // Count by broadcast type
             const t = e.type || 'unknown';
             typeCounts[t] = (typeCounts[t] || 0) + 1;
@@ -1630,16 +1918,16 @@ const tposEventLog = {
             totalEvents: this.events.length,
             byBroadcastType: typeCounts,
             byEventType: eventTypes,
-            samples
+            samples,
         };
     },
 
     getAll() {
         return {
             ...this.getSummary(),
-            events: this.events
+            events: this.events,
         };
-    }
+    },
 };
 
 // (Log endpoints registered before 404 handler)
@@ -1657,7 +1945,9 @@ const broadcastToClients = (data) => {
             sentCount++;
         }
     });
-    console.log(`[SERVER-WS][DEBUG] Broadcast: type=${data.type}, sent to ${sentCount}/${totalClients} clients`);
+    console.log(
+        `[SERVER-WS][DEBUG] Broadcast: type=${data.type}, sent to ${sentCount}/${totalClients} clients`
+    );
 };
 
 // Heartbeat for Frontend Clients (Keep-Alive)
@@ -1672,17 +1962,19 @@ const interval = setInterval(function ping() {
 
 wss.on('connection', function connection(ws, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    console.log(`[SERVER-WS][DEBUG] Frontend client CONNECTED from ${ip}. Total clients: ${wss.clients.size}`);
+    console.log(
+        `[SERVER-WS][DEBUG] Frontend client CONNECTED from ${ip}. Total clients: ${wss.clients.size}`
+    );
     ws.on('close', () => {
-        console.log(`[SERVER-WS][DEBUG] Frontend client DISCONNECTED from ${ip}. Total clients: ${wss.clients.size}`);
+        console.log(
+            `[SERVER-WS][DEBUG] Frontend client DISCONNECTED from ${ip}. Total clients: ${wss.clients.size}`
+        );
     });
 });
 
 wss.on('close', function close() {
     clearInterval(interval);
 });
-
-
 
 // =====================================================
 // START SERVER
@@ -1698,7 +1990,7 @@ server.listen(PORT, () => {
     console.log('='.repeat(50));
 
     // Pre-seed auth token cache (fire-and-forget)
-    authTokenStore.preSeed().catch(e => console.warn('[AUTH-STORE] Pre-seed error:', e.message));
+    authTokenStore.preSeed().catch((e) => console.warn('[AUTH-STORE] Pre-seed error:', e.message));
 
     // Auto-connect realtime clients after server starts (with delay to ensure DB is ready)
     setTimeout(() => {
@@ -1729,7 +2021,9 @@ async function gracefulShutdown(signal) {
     try {
         if (typeof wss !== 'undefined' && wss.clients) {
             for (const client of wss.clients) {
-                try { client.close(1001, 'server shutdown'); } catch (_) {}
+                try {
+                    client.close(1001, 'server shutdown');
+                } catch (_) {}
             }
         }
     } catch (_) {}
@@ -1738,7 +2032,7 @@ async function gracefulShutdown(signal) {
         if (chatDbPool && typeof chatDbPool.end === 'function') {
             await Promise.race([
                 chatDbPool.end(),
-                new Promise((r) => setTimeout(r, Math.max(1000, deadline - Date.now())))
+                new Promise((r) => setTimeout(r, Math.max(1000, deadline - Date.now()))),
             ]);
             console.log('[SHUTDOWN] DB pool closed');
         }

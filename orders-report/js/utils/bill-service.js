@@ -51,14 +51,32 @@ const BillService = (function () {
                 .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
             if (sttList.length > 1) return sttList.join(' + ');
         }
-        // 3) TAG XL custom flag
+        // 3) TAG XL custom flag.
+        // ProcessingTagState keys by SaleOnline Code; index theo SaleOnline orderId.
+        // EnrichedOrder từ bill flow (sendBillFromMainTable / bulk-send) chỉ có:
+        //   - Reference = SaleOnline Code (NJD code)
+        //   - SaleOnlineIds[0] = SaleOnline UUID
+        //   - Id = FastSaleOrder Id (KHÔNG khớp ProcessingTagState index)
+        // → Phải thử thêm Reference + SaleOnlineIds[0] để match được state khi đơn
+        // gộp đã có flag GOP_<a>_<b> nhưng enrichedOrder không có .Code/.Id "đúng".
         if (window.ProcessingTagState) {
-            const code = src.Code || fallback.Code;
-            const id = src.Id || fallback.Id;
-            const xlData =
-                (code && window.ProcessingTagState.getOrderData(String(code))) ||
-                (id && window.ProcessingTagState.getOrderDataByIdFallback(String(id))) ||
-                null;
+            const code = src.Code || fallback.Code || src.Reference || fallback.Reference;
+            const candidateIds = [
+                src.SaleOnlineIds?.[0],
+                fallback.SaleOnlineIds?.[0],
+                src.Id,
+                fallback.Id,
+            ].filter(Boolean);
+            let xlData = code ? window.ProcessingTagState.getOrderData(String(code)) : null;
+            if (!xlData) {
+                for (const id of candidateIds) {
+                    const d = window.ProcessingTagState.getOrderDataByIdFallback(String(id));
+                    if (d) {
+                        xlData = d;
+                        break;
+                    }
+                }
+            }
             const xlFlags = xlData?.flags || [];
             const xlMergeFlag = xlFlags.find((f) => {
                 const fId = typeof f === 'string' ? f : f?.id;
@@ -67,6 +85,20 @@ const BillService = (function () {
             if (xlMergeFlag) {
                 const fId = typeof xlMergeFlag === 'string' ? xlMergeFlag : xlMergeFlag.id;
                 const nums = fId.match(/\d+/g);
+                if (nums && nums.length > 1) return nums.sort((a, b) => +a - +b).join(' + ');
+            }
+            // Fallback within TAG XL: parse "Gộp X Y" / "GỘP X Y" từ flag.name nếu id
+            // không match regex (vd: legacy custom flag id khác convention).
+            const xlNamedMerge = xlFlags.find((f) => {
+                const name = typeof f === 'string' ? '' : f?.name || f?.label || '';
+                return /^G[ỘO]P\s+\d+/i.test(String(name).trim());
+            });
+            if (xlNamedMerge) {
+                const name =
+                    typeof xlNamedMerge === 'string'
+                        ? ''
+                        : xlNamedMerge.name || xlNamedMerge.label || '';
+                const nums = String(name).match(/\d+/g);
                 if (nums && nums.length > 1) return nums.sort((a, b) => +a - +b).join(' + ');
             }
         }
@@ -1265,7 +1297,8 @@ ${
             // Get actual content height (add small padding)
             const contentHeight = iframeBody.scrollHeight + 20;
 
-            // Check if html2canvas is available
+            // Check if html2canvas is available (lazy-loaded)
+            if (typeof window.loadHtml2Canvas === 'function') await window.loadHtml2Canvas();
             if (typeof html2canvas === 'undefined') {
                 throw new Error('html2canvas library not loaded');
             }

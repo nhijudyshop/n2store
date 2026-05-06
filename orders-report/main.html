@@ -15,7 +15,10 @@
         <!-- Match inbox typography: Inter (body) + Manrope (headline) -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
 
         <!-- 🧹 Auto cleanup localStorage to prevent QuotaExceededError -->
         <script>
@@ -64,9 +67,11 @@
                                     keysToRemove.push(k);
                                 }
                                 // Remove any item > 500KB (except tab3 assignment data)
-                                if (localStorage[k].length > 500000 &&
+                                if (
+                                    localStorage[k].length > 500000 &&
                                     k !== 'orders_productAssignments' &&
-                                    k !== 'orders_productRemovals') {
+                                    k !== 'orders_productRemovals'
+                                ) {
                                     keysToRemove.push(k);
                                 }
                             }
@@ -140,7 +145,10 @@
         <script src="https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js"></script>
 
         <!-- Render API key for token cache endpoints (/api/auth/token/*) -->
-        <script>window.N2STORE_CLIENT_API_KEY='8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';</script>
+        <script>
+            window.N2STORE_CLIENT_API_KEY =
+                '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
+        </script>
 
         <!-- N2Store Optimization: ES Module Loader (auto-inits authManager) -->
         <script type="module" src="../shared/esm/compat.js"></script>
@@ -220,8 +228,8 @@
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-        <!-- XLSX.js for Excel parsing -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <!-- XLSX.js — moved to lazy-load inside iframes that need it (saves ~950KB on shell page) -->
+        <script src="../shared/js/cdn-libs.js"></script>
 
         <style>
             /* Tab Navigation */
@@ -263,7 +271,9 @@
                 height: 2px;
                 background: var(--ds-primary, #3b82f6);
                 border-radius: 2px 2px 0 0;
-                transition: left 0.25s ease, right 0.25s ease;
+                transition:
+                    left 0.25s ease,
+                    right 0.25s ease;
             }
 
             .tab-button:hover {
@@ -331,7 +341,9 @@
                 -webkit-backdrop-filter: blur(12px);
                 padding: 12px 20px;
                 border-radius: 12px;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+                box-shadow:
+                    0 4px 16px rgba(0, 0, 0, 0.12),
+                    0 0 0 1px rgba(0, 0, 0, 0.04);
                 display: none;
                 align-items: center;
                 gap: 8px;
@@ -491,9 +503,10 @@
                 position: relative;
             }
         </style>
-    <link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-    <link rel="stylesheet" href="css/design-system.css" />
-</head>
+        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <!-- typography:shared -->
+        <link rel="stylesheet" href="css/design-system.css" />
+    </head>
 
     <body>
         <!-- Mobile Tab Header (Dropdown Style) -->
@@ -647,24 +660,39 @@
             </div>
 
             <!-- Tab Content -->
+            <!-- ordersFrame eager-loaded (tab default active). Các tab khác lazy-load
+                 qua data-src + switchTab() — tránh load song song 5 iframe nặng (mỗi
+                 iframe tự fetch ~250 resources). Bật src lần đầu user click tab. -->
             <div id="ordersTab" class="tab-content active">
                 <iframe id="ordersFrame" src="tab1-orders.html" allow="microphone"></iframe>
             </div>
 
             <div id="productAssignmentTab" class="tab-content">
-                <iframe id="productAssignmentFrame" src="tab3-product-assignment.html"></iframe>
+                <iframe
+                    id="productAssignmentFrame"
+                    data-src="tab3-product-assignment.html"
+                    src="about:blank"
+                ></iframe>
             </div>
 
             <div id="overviewTab" class="tab-content">
-                <iframe id="overviewFrame" src="tab-overview.html"></iframe>
+                <iframe id="overviewFrame" data-src="tab-overview.html" src="about:blank"></iframe>
             </div>
 
             <div id="pendingDeleteTab" class="tab-content">
-                <iframe id="pendingDeleteFrame" src="tab-pending-delete.html"></iframe>
+                <iframe
+                    id="pendingDeleteFrame"
+                    data-src="tab-pending-delete.html"
+                    src="about:blank"
+                ></iframe>
             </div>
 
             <div id="kpiCommissionTab" class="tab-content">
-                <iframe id="kpiCommissionFrame" src="tab-kpi-commission.html"></iframe>
+                <iframe
+                    id="kpiCommissionFrame"
+                    data-src="tab-kpi-commission.html"
+                    src="about:blank"
+                ></iframe>
             </div>
 
             <div id="reportOnlineTab" class="tab-content">
@@ -699,104 +727,102 @@
              This relay catches extension events and forwards them to ordersFrame (tab1).
              Also relays iframe→extension messages (REPLY_INBOX_PHOTO, etc.) back up. -->
         <script>
-        (function() {
-            // Track extension connection at top frame level
-            window._extensionConnected = false;
+            (function () {
+                // Track extension connection at top frame level
+                window._extensionConnected = false;
 
-            // Trusted origins for postMessage relay (self + GitHub Pages)
-            var _trustedOrigins = [
-                window.location.origin,
-                'https://nhijudyshop.github.io'
-            ];
-            function _isTrustedOrigin(origin) {
-                return !origin || _trustedOrigins.indexOf(origin) !== -1;
-            }
-
-            // 1. EXTENSION → TOP FRAME → IFRAME (relay extension events down to iframe)
-            window.addEventListener('message', function(e) {
-                if (e.source !== window) return;
-                var type = e.data && e.data.type;
-                if (!type) return;
-
-                // Extension events to relay down to iframe
-                var isExtResponse = (
-                    type === 'EXTENSION_LOADED' ||
-                    type === 'EXTENSION_VERSION' ||
-                    type === 'REPORT_EXTENSION_STATUS' ||
-                    type === 'REPLY_INBOX_PHOTO_SUCCESS' ||
-                    type === 'REPLY_INBOX_PHOTO_FAILURE' ||
-                    type === 'UPLOAD_INBOX_PHOTO_SUCCESS' ||
-                    type === 'UPLOAD_INBOX_PHOTO_FAILURE' ||
-                    type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' ||
-                    type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' ||
-                    type === 'GET_BUSINESS_CONTEXT_SUCCESS' ||
-                    type === 'GET_BUSINESS_CONTEXT_FAILURE' ||
-                    type === 'BATCH_GET_GLOBAL_ID_SUCCESS' ||
-                    type === 'BATCH_GET_GLOBAL_ID_FAILURE' ||
-                    type === 'SEND_COMMENT_SUCCESS' ||
-                    type === 'SEND_COMMENT_FAILURE' ||
-                    type === 'SEND_PRIVATE_REPLY_SUCCESS' ||
-                    type === 'SEND_PRIVATE_REPLY_FAILURE' ||
-                    type === 'ADD_CALL_LOG_SUCCESS' ||
-                    type === 'ADD_CALL_LOG_FAILURE'
-                );
-
-                if (isExtResponse) {
-                    if (type === 'EXTENSION_LOADED') {
-                        window._extensionConnected = true;
-                        console.log('[MAIN-EXT] Extension connected, relaying to iframe');
-                    }
-                    // Forward to ordersFrame (tab1 iframe) — use specific origin
-                    var ordersFrame = document.getElementById('ordersFrame');
-                    if (ordersFrame && ordersFrame.contentWindow) {
-                        ordersFrame.contentWindow.postMessage(e.data, window.location.origin);
-                    }
+                // Trusted origins for postMessage relay (self + GitHub Pages)
+                var _trustedOrigins = [window.location.origin, 'https://nhijudyshop.github.io'];
+                function _isTrustedOrigin(origin) {
+                    return !origin || _trustedOrigins.indexOf(origin) !== -1;
                 }
-            });
 
-            // 2. IFRAME → TOP FRAME → EXTENSION (relay extension commands from iframe up)
-            window.addEventListener('message', function(e) {
-                // Only accept messages from our iframes (not from window itself)
-                if (e.source === window) return;
-                // Validate origin — only accept from trusted sources
-                if (!_isTrustedOrigin(e.origin)) return;
-                var type = e.data && e.data.type;
-                if (!type) return;
+                // 1. EXTENSION → TOP FRAME → IFRAME (relay extension events down to iframe)
+                window.addEventListener('message', function (e) {
+                    if (e.source !== window) return;
+                    var type = e.data && e.data.type;
+                    if (!type) return;
 
-                // Extension commands that iframe sends up
-                var isExtCommand = (
-                    type === 'PREINITIALIZE_PAGES' ||
-                    type === 'CHECK_EXTENSION_VERSION' ||
-                    type === 'REPLY_INBOX_PHOTO' ||
-                    type === 'UPLOAD_INBOX_PHOTO' ||
-                    type === 'GET_GLOBAL_ID_FOR_CONV' ||
-                    type === 'GET_BUSINESS_CONTEXT' ||
-                    type === 'BATCH_GET_GLOBAL_ID' ||
-                    type === 'SEND_COMMENT' ||
-                    type === 'SEND_PRIVATE_REPLY' ||
-                    type === 'ADD_CALL_LOG' ||
-                    type === 'OPEN_PHONE' ||
-                    type === 'CHECK_EXTENSION' ||
-                    type === 'EXT_BRIDGE_PROBE'
-                );
+                    // Extension events to relay down to iframe
+                    var isExtResponse =
+                        type === 'EXTENSION_LOADED' ||
+                        type === 'EXTENSION_VERSION' ||
+                        type === 'REPORT_EXTENSION_STATUS' ||
+                        type === 'REPLY_INBOX_PHOTO_SUCCESS' ||
+                        type === 'REPLY_INBOX_PHOTO_FAILURE' ||
+                        type === 'UPLOAD_INBOX_PHOTO_SUCCESS' ||
+                        type === 'UPLOAD_INBOX_PHOTO_FAILURE' ||
+                        type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' ||
+                        type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' ||
+                        type === 'GET_BUSINESS_CONTEXT_SUCCESS' ||
+                        type === 'GET_BUSINESS_CONTEXT_FAILURE' ||
+                        type === 'BATCH_GET_GLOBAL_ID_SUCCESS' ||
+                        type === 'BATCH_GET_GLOBAL_ID_FAILURE' ||
+                        type === 'SEND_COMMENT_SUCCESS' ||
+                        type === 'SEND_COMMENT_FAILURE' ||
+                        type === 'SEND_PRIVATE_REPLY_SUCCESS' ||
+                        type === 'SEND_PRIVATE_REPLY_FAILURE' ||
+                        type === 'ADD_CALL_LOG_SUCCESS' ||
+                        type === 'ADD_CALL_LOG_FAILURE';
 
-                if (isExtCommand) {
-                    if (type === 'EXT_BRIDGE_PROBE') {
-                        // Respond to probe from iframe with connection status
-                        e.source.postMessage({
-                            type: 'EXT_BRIDGE_PROBE_RESPONSE',
-                            connected: window._extensionConnected
-                        }, e.origin || window.location.origin);
-                        return;
+                    if (isExtResponse) {
+                        if (type === 'EXTENSION_LOADED') {
+                            window._extensionConnected = true;
+                            console.log('[MAIN-EXT] Extension connected, relaying to iframe');
+                        }
+                        // Forward to ordersFrame (tab1 iframe) — use specific origin
+                        var ordersFrame = document.getElementById('ordersFrame');
+                        if (ordersFrame && ordersFrame.contentWindow) {
+                            ordersFrame.contentWindow.postMessage(e.data, window.location.origin);
+                        }
                     }
-                    // Forward to extension (top frame window.postMessage → contentscript)
-                    console.log('[MAIN-EXT] Relaying to extension:', type);
-                    window.postMessage(e.data, window.location.origin);
-                }
-            });
+                });
 
-            console.log('[MAIN-EXT] Extension relay bridge active');
-        })();
+                // 2. IFRAME → TOP FRAME → EXTENSION (relay extension commands from iframe up)
+                window.addEventListener('message', function (e) {
+                    // Only accept messages from our iframes (not from window itself)
+                    if (e.source === window) return;
+                    // Validate origin — only accept from trusted sources
+                    if (!_isTrustedOrigin(e.origin)) return;
+                    var type = e.data && e.data.type;
+                    if (!type) return;
+
+                    // Extension commands that iframe sends up
+                    var isExtCommand =
+                        type === 'PREINITIALIZE_PAGES' ||
+                        type === 'CHECK_EXTENSION_VERSION' ||
+                        type === 'REPLY_INBOX_PHOTO' ||
+                        type === 'UPLOAD_INBOX_PHOTO' ||
+                        type === 'GET_GLOBAL_ID_FOR_CONV' ||
+                        type === 'GET_BUSINESS_CONTEXT' ||
+                        type === 'BATCH_GET_GLOBAL_ID' ||
+                        type === 'SEND_COMMENT' ||
+                        type === 'SEND_PRIVATE_REPLY' ||
+                        type === 'ADD_CALL_LOG' ||
+                        type === 'OPEN_PHONE' ||
+                        type === 'CHECK_EXTENSION' ||
+                        type === 'EXT_BRIDGE_PROBE';
+
+                    if (isExtCommand) {
+                        if (type === 'EXT_BRIDGE_PROBE') {
+                            // Respond to probe from iframe with connection status
+                            e.source.postMessage(
+                                {
+                                    type: 'EXT_BRIDGE_PROBE_RESPONSE',
+                                    connected: window._extensionConnected,
+                                },
+                                e.origin || window.location.origin
+                            );
+                            return;
+                        }
+                        // Forward to extension (top frame window.postMessage → contentscript)
+                        console.log('[MAIN-EXT] Relaying to extension:', type);
+                        window.postMessage(e.data, window.location.origin);
+                    }
+                });
+
+                console.log('[MAIN-EXT] Extension relay bridge active');
+            })();
         </script>
 
         <script>
@@ -829,46 +855,96 @@
                     content.classList.remove('active');
                 });
 
+                // Helper: hydrate data-src → src lần đầu user click tab
+                // (lazy iframe load — tránh load song song 5 iframe khi page mở)
+                function _hydrateLazyIframe(frameId) {
+                    var f = document.getElementById(frameId);
+                    if (f && f.dataset.src && f.src.endsWith('about:blank')) {
+                        f.src = f.dataset.src;
+                        return true; // newly hydrated → caller chờ load event nếu cần postMessage
+                    }
+                    return false;
+                }
+
+                // Helper: postMessage tới iframe sau khi nó load xong (one-shot listener)
+                function _afterFrameLoad(frameId, fn) {
+                    var f = document.getElementById(frameId);
+                    if (!f) return;
+                    if (f.contentWindow && !f.src.endsWith('about:blank')) {
+                        // Đã loaded — gọi luôn (nhưng chờ tick để contentWindow ready)
+                        setTimeout(fn, 0);
+                        return;
+                    }
+                    f.addEventListener('load', fn, { once: true });
+                }
+
                 if (tabName === 'orders') {
                     document.getElementById('ordersTab').classList.add('active');
                 } else if (tabName === 'product-assignment') {
                     document.getElementById('productAssignmentTab').classList.add('active');
-                    // Send orders data to product assignment tab
-                    const ordersFrame = document.getElementById('ordersFrame');
-                    if (ordersFrame && ordersFrame.contentWindow) {
-                        // Request orders data from tab1
-                        ordersFrame.contentWindow.postMessage({ type: 'REQUEST_ORDERS_DATA' }, '*');
+                    var freshlyLoaded = _hydrateLazyIframe('productAssignmentFrame');
+                    var sendToTab3 = function () {
+                        var ordersFrame = document.getElementById('ordersFrame');
+                        if (ordersFrame && ordersFrame.contentWindow) {
+                            ordersFrame.contentWindow.postMessage(
+                                { type: 'REQUEST_ORDERS_DATA' },
+                                '*'
+                            );
+                        }
+                    };
+                    if (freshlyLoaded) {
+                        _afterFrameLoad('productAssignmentFrame', sendToTab3);
+                    } else {
+                        sendToTab3();
                     }
                 } else if (tabName === 'overview') {
                     document.getElementById('overviewTab').classList.add('active');
-                    // Request fresh orders data from Tab1 for overview
-                    const ordersFrameForOverview = document.getElementById('ordersFrame');
-                    if (ordersFrameForOverview && ordersFrameForOverview.contentWindow) {
-                        ordersFrameForOverview.contentWindow.postMessage(
-                            { type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW' }, '*'
-                        );
+                    var freshlyLoadedOv = _hydrateLazyIframe('overviewFrame');
+                    var sendToOverview = function () {
+                        var ordersFrame = document.getElementById('ordersFrame');
+                        if (ordersFrame && ordersFrame.contentWindow) {
+                            ordersFrame.contentWindow.postMessage(
+                                { type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW' },
+                                '*'
+                            );
+                        }
+                    };
+                    if (freshlyLoadedOv) {
+                        _afterFrameLoad('overviewFrame', sendToOverview);
+                    } else {
+                        sendToOverview();
                     }
                 } else if (tabName === 'pending-delete') {
                     document.getElementById('pendingDeleteTab').classList.add('active');
-                    // Refresh deleted bills data
-                    const pendingDeleteFrame = document.getElementById('pendingDeleteFrame');
-                    if (pendingDeleteFrame && pendingDeleteFrame.contentWindow && pendingDeleteFrame.contentWindow.loadData) {
-                        pendingDeleteFrame.contentWindow.loadData();
+                    var freshlyLoadedPd = _hydrateLazyIframe('pendingDeleteFrame');
+                    var refreshPending = function () {
+                        var pdf = document.getElementById('pendingDeleteFrame');
+                        if (pdf && pdf.contentWindow && pdf.contentWindow.loadData) {
+                            pdf.contentWindow.loadData();
+                        }
+                    };
+                    if (freshlyLoadedPd) {
+                        _afterFrameLoad('pendingDeleteFrame', refreshPending);
+                    } else {
+                        refreshPending();
                     }
                 } else if (tabName === 'kpi-commission') {
                     document.getElementById('kpiCommissionTab').classList.add('active');
-                    // Refresh KPI data
-                    const kpiFrame = document.getElementById('kpiCommissionFrame');
-                    if (kpiFrame && kpiFrame.contentWindow && kpiFrame.contentWindow.KPICommission) {
-                        kpiFrame.contentWindow.KPICommission.init();
+                    var freshlyLoadedKpi = _hydrateLazyIframe('kpiCommissionFrame');
+                    var refreshKpi = function () {
+                        var kf = document.getElementById('kpiCommissionFrame');
+                        if (kf && kf.contentWindow && kf.contentWindow.KPICommission) {
+                            kf.contentWindow.KPICommission.init();
+                        }
+                    };
+                    if (freshlyLoadedKpi) {
+                        _afterFrameLoad('kpiCommissionFrame', refreshKpi);
+                    } else {
+                        refreshKpi();
                     }
                 } else if (tabName === 'report-online') {
                     document.getElementById('reportOnlineTab').classList.add('active');
-                    // Lazy-load on first click — prevent recursive iframe load
-                    var rf = document.getElementById('reportOnlineFrame');
-                    if (rf && rf.dataset.src && rf.src === 'about:blank') {
-                        rf.src = rf.dataset.src;
-                    }
+                    _hydrateLazyIframe('reportOnlineFrame');
                 }
 
                 // Reinitialize icons after DOM change
@@ -1102,7 +1178,8 @@
                     }
                 } else if (e.data.type === 'CAMPAIGN_CHANGED_FOR_TAB3') {
                     // Forward campaign change from Tab1 to Tab3
-                    const productAssignmentFrame = document.getElementById('productAssignmentFrame');
+                    const productAssignmentFrame =
+                        document.getElementById('productAssignmentFrame');
                     if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
                         productAssignmentFrame.contentWindow.postMessage(e.data, '*');
                     }
@@ -1209,7 +1286,7 @@
         <!-- 🎉 Admin settings gear (bottom-left) -->
         <div id="adminSettingsWidget" class="admin-settings-widget">
             <button class="admin-settings-gear" id="adminSettingsGear" title="Cài đặt Admin">
-                <i data-lucide="settings" style="width:18px;height:18px"></i>
+                <i data-lucide="settings" style="width: 18px; height: 18px"></i>
             </button>
             <div class="admin-settings-panel" id="adminSettingsPanel">
                 <div class="admin-settings-title">Cài đặt Admin</div>
@@ -1218,13 +1295,53 @@
                     <input type="checkbox" id="toggleCelebrationBtn" />
                     <span class="admin-toggle-slider"></span>
                 </label>
-                <div id="celebrationTestBtnWrap" style="display:none;margin-top:8px">
+                <div id="celebrationTestBtnWrap" style="display: none; margin-top: 8px">
                     <button id="celebrationTestBtn" class="celebration-fire-btn">
                         🎆 Bắn Pháo Hoa
                     </button>
                 </div>
+                <button
+                    id="openPendingBadgeAdminBtn"
+                    class="admin-action-btn"
+                    style="
+                        margin-top: 12px;
+                        width: 100%;
+                        padding: 8px 12px;
+                        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                        color: #fff;
+                        border: 0;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        transition: opacity 0.15s;
+                    "
+                >
+                    🔔 Quản lý badge tin nhắn
+                </button>
             </div>
         </div>
+        <script>
+            // Wire button: postMessage tới iframe orders để mở modal quản lý
+            (function () {
+                const btn = document.getElementById('openPendingBadgeAdminBtn');
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    const f = document.getElementById('ordersFrame');
+                    if (f && f.contentWindow) {
+                        f.contentWindow.postMessage({ type: 'OPEN_PENDING_BADGE_ADMIN' }, '*');
+                    }
+                    // Đóng panel admin sau khi click
+                    document.getElementById('adminSettingsPanel')?.classList.remove('show');
+                });
+                btn.addEventListener('mouseenter', () => (btn.style.opacity = '0.9'));
+                btn.addEventListener('mouseleave', () => (btn.style.opacity = '1'));
+            })();
+        </script>
         <script src="js/celebration.js"></script>
     </body>
 </html>

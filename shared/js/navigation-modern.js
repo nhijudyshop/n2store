@@ -6052,7 +6052,7 @@ Liên hệ Administrator nếu cần thêm quyền truy cập.
 // INITIALIZATION
 // =====================================================
 
-function waitForDependencies(callback, maxRetries = 15, delay = 300) {
+function waitForDependencies(callback, maxRetries = 30, delay = 300) {
     let retries = 0;
     let resolved = false;
 
@@ -6073,6 +6073,28 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
         { once: true }
     );
 
+    // Storage-direct auth check — fallback khi authManager không kịp init.
+    // Tránh vòng lặp bouncing: navigation-modern → ../index.html → login.js thấy session valid → quy-trinh → bounce lại.
+    const hasValidStoredAuth = () => {
+        try {
+            const authStr =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth');
+            if (!authStr) return false;
+            const auth = JSON.parse(authStr);
+            if (!auth || !(auth.isLoggedIn === 'true' || auth.isLoggedIn === true)) return false;
+            const now = Date.now();
+            if (auth.expiresAt && now > auth.expiresAt) return false;
+            if (!auth.expiresAt && auth.timestamp) {
+                const maxAge = auth.isRemembered ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
+                if (now - auth.timestamp > maxAge) return false;
+            }
+            return true;
+        } catch (_) {
+            return false;
+        }
+    };
+
     const check = () => {
         if (resolved) return;
 
@@ -6081,10 +6103,20 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
             resolve();
         } else if (retries < maxRetries) {
             retries++;
-            // Debug: show what's available on first retry
             setTimeout(check, delay);
         } else {
-            console.error('[Unified Nav] Dependencies failed, redirecting...');
+            // Timeout: authManager chưa init nhưng có thể session vẫn valid trong storage.
+            // KHÔNG redirect nếu có valid auth — page sẽ load không có sidebar nav, vẫn work.
+            if (hasValidStoredAuth()) {
+                console.warn(
+                    '[Unified Nav] authManager not ready after',
+                    maxRetries * delay,
+                    'ms — valid session in storage, skipping redirect (page loads without nav).'
+                );
+                resolved = true;
+                return;
+            }
+            console.error('[Unified Nav] Dependencies failed, redirecting to login...');
             console.error(
                 '[Unified Nav] Final state - _esmLoaded:',
                 window._esmLoaded,

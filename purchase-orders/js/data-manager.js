@@ -129,6 +129,24 @@ class PurchaseOrderDataManager {
         const service = window.purchaseOrderService;
         const config = window.PurchaseOrderConfig;
 
+        // Cache key cho list: status + filter signature + pagination cursor.
+        // Chỉ cache cho trang đầu (reset=true, không có lastDoc) — trang sau dùng cursor động.
+        const filterKey = `${this.filters.startDate || ''}|${this.filters.endDate || ''}|${this.filters.searchTerm || ''}`;
+        const cacheKey = `list_${status}_${filterKey}`;
+        if (reset) {
+            const cached = this.cache.get(cacheKey);
+            if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+                // Hit cache → instant render, không gọi API.
+                this.currentStatus = status;
+                this.orders = cached.data.orders;
+                this.lastDoc = cached.data.lastDoc;
+                this.hasMore = cached.data.hasMore;
+                this.currentPage = 1;
+                this.emit('ordersChange', this.orders);
+                return;
+            }
+        }
+
         try {
             this.setLoading(true);
             this.setError(null);
@@ -155,6 +173,15 @@ class PurchaseOrderDataManager {
 
             if (reset) {
                 this.orders = result.orders;
+                // Lưu cache trang đầu — invalidate khi mutation (create/update/delete/status).
+                this.cache.set(cacheKey, {
+                    data: {
+                        orders: result.orders,
+                        lastDoc: result.lastDoc,
+                        hasMore: result.hasMore,
+                    },
+                    timestamp: Date.now(),
+                });
             } else {
                 this.orders = [...this.orders, ...result.orders];
             }
@@ -168,6 +195,13 @@ class PurchaseOrderDataManager {
             this.setError(error);
         } finally {
             this.setLoading(false);
+        }
+    }
+
+    /** Invalidate list + stats cache — gọi sau mọi mutation để tránh stale data ở các tab. */
+    invalidateListCache() {
+        for (const key of [...this.cache.keys()]) {
+            if (key.startsWith('list_') || key.startsWith('stats_')) this.cache.delete(key);
         }
     }
 
@@ -194,11 +228,23 @@ class PurchaseOrderDataManager {
      */
     async loadStatsAndCounts() {
         const service = window.purchaseOrderService;
+        // Cache stats 30s — gọi rất thường xuyên (init + mọi mutation refresh).
+        // Invalidate qua invalidateListCache() (đã xoá toàn bộ list_* + stats_*).
+        const cacheKey = 'stats_counts';
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+            this.stats = cached.data.stats;
+            this.statusCounts = cached.data.counts;
+            this.emit('statsChange', this.stats);
+            this.emit('statusCountsChange', this.statusCounts);
+            return;
+        }
 
         try {
             const { stats, counts } = await service.getStatsAndCounts();
             this.stats = stats;
             this.statusCounts = counts;
+            this.cache.set(cacheKey, { data: { stats, counts }, timestamp: Date.now() });
             this.emit('statsChange', this.stats);
             this.emit('statusCountsChange', this.statusCounts);
         } catch (error) {
@@ -349,10 +395,10 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             const orderId = await service.createOrder(orderData);
 
+            // Mutation → invalidate list cache trước khi refresh để fetch fresh.
+            this.invalidateListCache();
             // Invalidate cached product codes so next modal sees the just-created codes
             window.ProductCodeGenerator?.invalidateCodesCache?.();
-
-            // Refresh data
             await this.refresh();
 
             this.emit('orderCreated', orderId);
@@ -378,10 +424,11 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             await service.updateOrder(orderId, updateData);
 
+            // Invalidate cả list cache + cache theo orderId.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Invalidate cached product codes so next modal sees the updated codes
             window.ProductCodeGenerator?.invalidateCodesCache?.();
-
-            // Refresh data
             await this.refresh();
 
             this.emit('orderUpdated', orderId);
@@ -407,7 +454,9 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             await service.updateOrderStatus(orderId, newStatus, reason);
 
-            // Refresh data
+            // Status change → đơn nhảy giữa tabs → invalidate toàn bộ list cache.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             await this.refresh();
 
             this.emit('orderStatusUpdated', { orderId, newStatus });
@@ -435,16 +484,36 @@ class PurchaseOrderDataManager {
             this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
+            // Mutation → invalidate caches list + order.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Refresh counts
             await this.loadStatsAndCounts();
 
             this.emit('orderDeleted', orderId);
         } catch (error) {
+            // 404/đơn không tồn tại = đã xoá thành công ở lần trước (race) → không setError
+            // (setError → errorChange → overlay "Không thể tải dữ liệu" che cả bảng).
+            if (this._isAlreadyGoneError(error)) {
+                this.orders = this.orders.filter((o) => o.id !== orderId);
+                this.emit('ordersChange', this.orders);
+                this.invalidateListCache();
+                this.cache.delete(`order_${orderId}`);
+                this.emit('orderDeleted', orderId);
+                return;
+            }
             this.setError(error);
             throw error;
         } finally {
             this.setLoading(false);
         }
+    }
+
+    /** Detect "đơn không tồn tại" error (404 race) — không phải lỗi nghiêm trọng. */
+    _isAlreadyGoneError(error) {
+        if (!error) return false;
+        const msg = error.userMessage || error.message || '';
+        return /không tồn tại|not found|404/i.test(msg);
     }
 
     /**
@@ -463,11 +532,23 @@ class PurchaseOrderDataManager {
             this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
+            // Restore → đơn về tab cũ → invalidate cache.
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Refresh counts
             await this.loadStatsAndCounts();
 
             this.emit('orderRestored', orderId);
         } catch (error) {
+            // Race condition: đã restore lần trước → 404. Coi như thành công.
+            if (this._isAlreadyGoneError(error)) {
+                this.orders = this.orders.filter((o) => o.id !== orderId);
+                this.emit('ordersChange', this.orders);
+                this.invalidateListCache();
+                this.cache.delete(`order_${orderId}`);
+                this.emit('orderRestored', orderId);
+                return;
+            }
             this.setError(error);
             throw error;
         } finally {
@@ -491,11 +572,22 @@ class PurchaseOrderDataManager {
             this.orders = this.orders.filter((o) => o.id !== orderId);
             this.emit('ordersChange', this.orders);
 
+            this.invalidateListCache();
+            this.cache.delete(`order_${orderId}`);
             // Refresh counts
             await this.loadStatsAndCounts();
 
             this.emit('orderPermanentDeleted', orderId);
         } catch (error) {
+            // Race condition: đã xoá vĩnh viễn lần trước → 404. Coi như thành công.
+            if (this._isAlreadyGoneError(error)) {
+                this.orders = this.orders.filter((o) => o.id !== orderId);
+                this.emit('ordersChange', this.orders);
+                this.invalidateListCache();
+                this.cache.delete(`order_${orderId}`);
+                this.emit('orderPermanentDeleted', orderId);
+                return;
+            }
             this.setError(error);
             throw error;
         } finally {

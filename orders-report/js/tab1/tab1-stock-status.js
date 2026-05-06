@@ -21,15 +21,14 @@
     // =====================================================
 
     const StockStatusEngine = {
-        _stockMap: new Map(),        // ProductCode → { qty, name, id }
-        _orderProducts: new Map(),   // OrderId → [{ code, name, qty }]
-        _orderStatus: new Map(),     // OrderId → { status, blocking[], stockTags[] }
+        _stockMap: new Map(), // ProductCode → { qty, name, id }
+        _orderProducts: new Map(), // OrderId → [{ code, name, qty }]
+        _orderStatus: new Map(), // OrderId → { status, blocking[], stockTags[] }
         _checked: false,
         _loading: false,
         _summaryStats: { sufficient: 0, insufficient: 0, noProducts: 0, total: 0 },
-        _activeFilter: null,         // null | 'sufficient' | 'insufficient'
+        _activeFilter: null, // null | 'sufficient' | 'insufficient'
     };
-
 
     // =====================================================
     // [B] DATA LOADING (Firebase)
@@ -40,7 +39,7 @@
      */
     function extractProductCode(nameGet) {
         if (!nameGet) return null;
-        const str = typeof nameGet === 'string' ? nameGet : (nameGet.NameGet || nameGet.Name || '');
+        const str = typeof nameGet === 'string' ? nameGet : nameGet.NameGet || nameGet.Name || '';
         const match = str.match(/\[([^\]]+)\]/);
         return match ? match[1].trim() : null;
     }
@@ -75,9 +74,7 @@
     async function fetchStockFromTPOSExcel() {
         console.log('[STOCK] Fetching fresh stock from TPOS Excel export...');
 
-        const headers = window.tokenManager
-            ? await window.tokenManager.getAuthHeader()
-            : {};
+        const headers = window.tokenManager ? await window.tokenManager.getAuthHeader() : {};
 
         const response = await fetch(`${PROXY_URL}/api/Product/ExportProductV2?Active=true`, {
             method: 'POST',
@@ -104,7 +101,8 @@
         const blob = await response.blob();
         console.log(`[STOCK] Excel downloaded: ${(blob.size / 1024).toFixed(1)} KB`);
 
-        // Parse Excel (requires XLSX library)
+        // Parse Excel (XLSX is lazy-loaded)
+        if (typeof window.loadXLSX === 'function') await window.loadXLSX();
         if (typeof XLSX === 'undefined') {
             throw new Error('XLSX library not loaded');
         }
@@ -123,14 +121,22 @@
 
         // Find stock column
         const stockColumnCandidates = [
-            'SL Tồn kho', 'Tồn kho', 'SL tồn kho',
-            'Số lượng tồn', 'Số lượng thực tế', 'SL thực tế',
-            'QtyAvailable', 'Qty Available', 'Quantity Available',
-            'SL Tồn', 'Tồn', 'Stock',
+            'SL Tồn kho',
+            'Tồn kho',
+            'SL tồn kho',
+            'Số lượng tồn',
+            'Số lượng thực tế',
+            'SL thực tế',
+            'QtyAvailable',
+            'Qty Available',
+            'Quantity Available',
+            'SL Tồn',
+            'Tồn',
+            'Stock',
         ];
-        let stockColumn = stockColumnCandidates.find(c => columnNames.includes(c));
+        let stockColumn = stockColumnCandidates.find((c) => columnNames.includes(c));
         if (!stockColumn) {
-            stockColumn = columnNames.find(col => {
+            stockColumn = columnNames.find((col) => {
                 const lower = col.toLowerCase();
                 return lower.includes('tồn') || lower.includes('qty') || lower.includes('stock');
             });
@@ -138,11 +144,16 @@
 
         // Find product code column
         const codeColumnCandidates = [
-            'Mã sản phẩm', 'Mã SP', 'Mã', 'DefaultCode', 'Code', 'Mã sản phẩm (*)',
+            'Mã sản phẩm',
+            'Mã SP',
+            'Mã',
+            'DefaultCode',
+            'Code',
+            'Mã sản phẩm (*)',
         ];
-        let codeColumn = codeColumnCandidates.find(c => columnNames.includes(c));
+        let codeColumn = codeColumnCandidates.find((c) => columnNames.includes(c));
         if (!codeColumn) {
-            codeColumn = columnNames.find(col => {
+            codeColumn = columnNames.find((col) => {
                 const lower = col.toLowerCase();
                 return lower.includes('mã') && !lower.includes('nhóm');
             });
@@ -150,11 +161,15 @@
 
         // Find product name column (0A.2)
         const nameColumnCandidates = [
-            'Tên sản phẩm', 'Tên SP', 'Tên sản phẩm (*)', 'Name', 'ProductName',
+            'Tên sản phẩm',
+            'Tên SP',
+            'Tên sản phẩm (*)',
+            'Name',
+            'ProductName',
         ];
-        let nameColumn = nameColumnCandidates.find(c => columnNames.includes(c));
+        let nameColumn = nameColumnCandidates.find((c) => columnNames.includes(c));
         if (!nameColumn) {
-            nameColumn = columnNames.find(col => {
+            nameColumn = columnNames.find((col) => {
                 const lower = col.toLowerCase();
                 return (lower.includes('tên') && lower.includes('phẩm')) || lower.includes('name');
             });
@@ -162,9 +177,18 @@
 
         // Find ID column
         const idColumnCandidates = ['Id sản phẩm (*)', 'Id sản phẩm', 'Id', 'ID'];
-        const idColumn = idColumnCandidates.find(c => columnNames.includes(c));
+        const idColumn = idColumnCandidates.find((c) => columnNames.includes(c));
 
-        console.log('[STOCK] Detected columns — code:', codeColumn, '| stock:', stockColumn, '| name:', nameColumn, '| id:', idColumn);
+        console.log(
+            '[STOCK] Detected columns — code:',
+            codeColumn,
+            '| stock:',
+            stockColumn,
+            '| name:',
+            nameColumn,
+            '| id:',
+            idColumn
+        );
 
         if (!stockColumn) {
             throw new Error('Could not find stock column in Excel');
@@ -172,8 +196,12 @@
 
         // Build stock map directly from Excel (no orderProducts dependency)
         const stockMap = new Map();
-        jsonData.forEach(row => {
-            const code = codeColumn ? String(row[codeColumn] || '').toUpperCase().trim() : '';
+        jsonData.forEach((row) => {
+            const code = codeColumn
+                ? String(row[codeColumn] || '')
+                      .toUpperCase()
+                      .trim()
+                : '';
             if (!code) return;
 
             const id = idColumn ? String(row[idColumn] || '') : '';
@@ -212,7 +240,9 @@
             });
         });
 
-        console.log(`[STOCK] Loaded stock for ${stockMap.size} products from orderProducts/${tposCampaignId} (fallback)`);
+        console.log(
+            `[STOCK] Loaded stock for ${stockMap.size} products from orderProducts/${tposCampaignId} (fallback)`
+        );
         return stockMap;
     }
 
@@ -233,10 +263,14 @@
         if (!doc.exists) {
             console.log(`[STOCK] Doc "${sanitizedName}" not found, scanning collection...`);
             const allDocs = await collectionRef.get();
-            const matchingDoc = allDocs.docs.find(d => {
+            const matchingDoc = allDocs.docs.find((d) => {
                 const docName = d.id.toLowerCase();
                 const searchName = sanitizedName.toLowerCase();
-                return docName === searchName || docName.includes(searchName) || searchName.includes(docName);
+                return (
+                    docName === searchName ||
+                    docName.includes(searchName) ||
+                    searchName.includes(docName)
+                );
             });
             if (matchingDoc) {
                 doc = matchingDoc;
@@ -246,10 +280,15 @@
 
         const orderProductsMap = new Map();
         if (!doc.exists) {
-            console.warn('[STOCK] No order details found in report_order_details for: ' + sanitizedName);
+            console.warn(
+                '[STOCK] No order details found in report_order_details for: ' + sanitizedName
+            );
             // List available docs for debugging
             const allDocs = await collectionRef.get();
-            console.log('[STOCK] Available docs:', allDocs.docs.map(d => d.id));
+            console.log(
+                '[STOCK] Available docs:',
+                allDocs.docs.map((d) => d.id)
+            );
             return orderProductsMap;
         }
         const docRef = doc.ref;
@@ -260,11 +299,12 @@
         // Handle chunked data (large datasets > 100 orders)
         if (docData.isChunked) {
             console.log(`[STOCK] Loading chunked order details (${docData.chunkCount} chunks)...`);
-            const chunksSnapshot = await docRef.collection('order_chunks')
+            const chunksSnapshot = await docRef
+                .collection('order_chunks')
                 .orderBy('chunkIndex')
                 .get();
             orders = [];
-            chunksSnapshot.docs.forEach(chunkDoc => {
+            chunksSnapshot.docs.forEach((chunkDoc) => {
                 const chunkData = chunkDoc.data();
                 if (chunkData.orders) {
                     orders.push(...chunkData.orders);
@@ -278,7 +318,7 @@
 
         // Build a map of Firestore orders by SessionIndex (STT) for cross-referencing
         const firestoreBySTT = new Map();
-        orders.forEach(item => {
+        orders.forEach((item) => {
             const order = item.order || item;
             const stt = String(order.SessionIndex || '');
             if (stt && (order.Details || []).length > 0) {
@@ -291,14 +331,17 @@
         const allOrders = window.getAllOrders ? window.getAllOrders() : [];
         let matchCount = 0;
 
-        allOrders.forEach(tableOrder => {
+        allOrders.forEach((tableOrder) => {
             const stt = String(tableOrder.SessionIndex || '');
             const firestoreOrder = firestoreBySTT.get(stt);
             if (!firestoreOrder) return;
 
             const products = [];
-            (firestoreOrder.Details || []).forEach(detail => {
-                const rawCode = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
+            (firestoreOrder.Details || []).forEach((detail) => {
+                const rawCode =
+                    detail.ProductCode ||
+                    detail.DefaultCode ||
+                    extractProductCode(detail.ProductNameGet || detail.ProductName);
                 if (!rawCode) return;
                 products.push({
                     code: rawCode.toUpperCase().trim(),
@@ -313,12 +356,14 @@
             }
         });
 
-        console.log(`[STOCK] Matched ${matchCount} orders by STT cross-reference (Firestore STTs: ${firestoreBySTT.size}, Tab1 orders: ${allOrders.length})`);
+        console.log(
+            `[STOCK] Matched ${matchCount} orders by STT cross-reference (Firestore STTs: ${firestoreBySTT.size}, Tab1 orders: ${allOrders.length})`
+        );
 
         // Diagnostic: log sample IDs for debugging
         if (orderProductsMap.size > 0) {
             const sampleKeys = [...orderProductsMap.keys()].slice(0, 3);
-            const sampleTableIds = allOrders.slice(0, 3).map(o => String(o.Id));
+            const sampleTableIds = allOrders.slice(0, 3).map((o) => String(o.Id));
             console.log(`[STOCK] Sample _orderProducts keys: ${sampleKeys.join(', ')}`);
             console.log(`[STOCK] Sample tab1 order.Id: ${sampleTableIds.join(', ')}`);
         }
@@ -342,7 +387,7 @@
         // Get all orders sorted by STT for allocation priority
         const allOrders = window.getAllOrders ? window.getAllOrders() : [];
         const orderSttMap = new Map();
-        allOrders.forEach(o => orderSttMap.set(String(o.Id), o.SessionIndex || 9999));
+        allOrders.forEach((o) => orderSttMap.set(String(o.Id), o.SessionIndex || 9999));
 
         // Phase 1 — Classify: tentatively ready vs waiting
         const tentativeReady = [];
@@ -350,7 +395,7 @@
 
         orderProducts.forEach((products, orderId) => {
             const blocking = [];
-            products.forEach(p => {
+            products.forEach((p) => {
                 const codeUpper = (p.code || '').toUpperCase();
                 const stock = stockMap.get(codeUpper);
                 const available = stock ? stock.qty : 0;
@@ -376,11 +421,11 @@
         const confirmedReady = [];
         const overflowWaiting = [];
 
-        tentativeReady.forEach(orderId => {
+        tentativeReady.forEach((orderId) => {
             const products = orderProducts.get(orderId);
             // Check if we can allocate all products
             let canAllocate = true;
-            products.forEach(p => {
+            products.forEach((p) => {
                 const codeUpper = (p.code || '').toUpperCase();
                 const remaining = remainingStock.get(codeUpper) || 0;
                 if (remaining < p.qty) canAllocate = false;
@@ -388,7 +433,7 @@
 
             if (canAllocate) {
                 // Deduct stock
-                products.forEach(p => {
+                products.forEach((p) => {
                     const codeUpper = (p.code || '').toUpperCase();
                     remainingStock.set(codeUpper, (remainingStock.get(codeUpper) || 0) - p.qty);
                 });
@@ -396,7 +441,7 @@
             } else {
                 // Moved to waiting due to insufficient remaining stock
                 const blocking = [];
-                products.forEach(p => {
+                products.forEach((p) => {
                     const codeUpper = (p.code || '').toUpperCase();
                     const remaining = remainingStock.get(codeUpper) || 0;
                     if (remaining < p.qty) {
@@ -409,9 +454,10 @@
 
         // Phase 3 — Re-evaluate ALL insufficient orders against remainingStock
         // (initialWaiting was classified against total stock, need to re-check with remaining)
-        let sufficientCount = 0, insufficientCount = 0;
+        let sufficientCount = 0,
+            insufficientCount = 0;
 
-        confirmedReady.forEach(orderId => {
+        confirmedReady.forEach((orderId) => {
             statusMap.set(orderId, { status: 'sufficient', blocking: [], stockTags: [] });
             sufficientCount++;
         });
@@ -420,7 +466,7 @@
             const products = orderProducts.get(orderId);
             // Re-evaluate blocking against REMAINING stock (after allocation)
             const blocking = [];
-            products.forEach(p => {
+            products.forEach((p) => {
                 const codeUpper = (p.code || '').toUpperCase();
                 const remaining = remainingStock.get(codeUpper) ?? 0;
                 if (remaining < p.qty) {
@@ -434,13 +480,14 @@
         StockStatusEngine._summaryStats = {
             sufficient: sufficientCount,
             insufficient: insufficientCount,
-            noProducts: (allOrders.length - orderProducts.size),
+            noProducts: allOrders.length - orderProducts.size,
             total: allOrders.length,
         };
 
-        console.log(`[STOCK] Computed: ${sufficientCount} sufficient, ${insufficientCount} insufficient, ${allOrders.length - orderProducts.size} no products`);
+        console.log(
+            `[STOCK] Computed: ${sufficientCount} sufficient, ${insufficientCount} insufficient, ${allOrders.length - orderProducts.size} no products`
+        );
     }
-
 
     // =====================================================
     // [E] UI RENDERING (Badges, Tooltips, Filter)
@@ -461,9 +508,11 @@
         // Build tooltip: "Thiếu hàng:\n• B378V  Tồn: 0 / Cần: 1"
         let tooltipContent = label;
         if (status.blocking && status.blocking.length > 0) {
-            tooltipContent += ':\n' + status.blocking.map(b =>
-                `• ${b.code}  Tồn: ${b.have} / Cần: ${b.need}`
-            ).join('\n');
+            tooltipContent +=
+                ':\n' +
+                status.blocking
+                    .map((b) => `• ${b.code}  Tồn: ${b.have} / Cần: ${b.need}`)
+                    .join('\n');
         }
 
         return `<div class="stock-badge ${pulseClass}"
@@ -481,8 +530,12 @@
 
     function renderStockColumnCell(detail) {
         if (!StockStatusEngine._checked) return '';
-        const rawCode = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
-        if (!rawCode) return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af;">-</td>';
+        const rawCode =
+            detail.ProductCode ||
+            detail.DefaultCode ||
+            extractProductCode(detail.ProductNameGet || detail.ProductName);
+        if (!rawCode)
+            return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af;">-</td>';
 
         const stock = StockStatusEngine._stockMap.get(rawCode.toUpperCase().trim());
         const qty = stock ? stock.qty : 0;
@@ -530,15 +583,27 @@
             <span class="stock-summary-item stock-summary-insufficient" onclick="window.StockStatusEngine.filterByStatus('insufficient')" title="Đơn thiếu hàng">
                 <i class="fas fa-times-circle"></i> ${s.insufficient} thiếu hàng
             </span>
-            ${s.noProducts > 0 ? `<span class="stock-summary-item stock-summary-noproducts" title="Đơn không có chi tiết SP">
+            ${
+                s.noProducts > 0
+                    ? `<span class="stock-summary-item stock-summary-noproducts" title="Đơn không có chi tiết SP">
                 <i class="fas fa-circle"></i> ${s.noProducts} không có SP
-            </span>` : ''}
-            ${StockStatusEngine._activeFilter === 'zero-stock' ? `<span class="stock-summary-item" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">
+            </span>`
+                    : ''
+            }
+            ${
+                StockStatusEngine._activeFilter === 'zero-stock'
+                    ? `<span class="stock-summary-item" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">
                 <i class="fas fa-box-open"></i> Lọc tồn kho = 0
-            </span>` : ''}
-            ${StockStatusEngine._activeFilter ? `<span class="stock-summary-item stock-summary-clear" onclick="window.StockStatusEngine.filterByStatus(null)" title="Xóa bộ lọc">
+            </span>`
+                    : ''
+            }
+            ${
+                StockStatusEngine._activeFilter
+                    ? `<span class="stock-summary-item stock-summary-clear" onclick="window.StockStatusEngine.filterByStatus(null)" title="Xóa bộ lọc">
                 <i class="fas fa-times"></i> Xóa lọc
-            </span>` : ''}
+            </span>`
+                    : ''
+            }
         `;
 
         // Also update filter tabs if they exist
@@ -549,20 +614,29 @@
      * Filter table by stock status
      */
     function filterByStatus(status) {
-        StockStatusEngine._activeFilter = StockStatusEngine._activeFilter === status ? null : status;
+        StockStatusEngine._activeFilter =
+            StockStatusEngine._activeFilter === status ? null : status;
 
         // Debug: log filter state and ID matching
         if (StockStatusEngine._activeFilter) {
             const statusMap = StockStatusEngine._orderStatus;
             const allOrders = window.getAllOrders ? window.getAllOrders() : [];
-            const sampleOrderIds = allOrders.slice(0, 5).map(o => ({ raw: o.Id, type: typeof o.Id, str: String(o.Id) }));
+            const sampleOrderIds = allOrders
+                .slice(0, 5)
+                .map((o) => ({ raw: o.Id, type: typeof o.Id, str: String(o.Id) }));
             const sampleStatusKeys = [...statusMap.keys()].slice(0, 5);
-            const matchCount = allOrders.filter(o => statusMap.has(String(o.Id))).length;
-            const sufficientCount = [...statusMap.values()].filter(s => s.status === 'sufficient').length;
-            const insufficientCount = [...statusMap.values()].filter(s => s.status === 'insufficient').length;
+            const matchCount = allOrders.filter((o) => statusMap.has(String(o.Id))).length;
+            const sufficientCount = [...statusMap.values()].filter(
+                (s) => s.status === 'sufficient'
+            ).length;
+            const insufficientCount = [...statusMap.values()].filter(
+                (s) => s.status === 'insufficient'
+            ).length;
 
             console.log(`[STOCK-FILTER] Filter: ${StockStatusEngine._activeFilter}`);
-            console.log(`[STOCK-FILTER] _orderStatus size: ${statusMap.size} (${sufficientCount} sufficient, ${insufficientCount} insufficient)`);
+            console.log(
+                `[STOCK-FILTER] _orderStatus size: ${statusMap.size} (${sufficientCount} sufficient, ${insufficientCount} insufficient)`
+            );
             console.log(`[STOCK-FILTER] allData size: ${allOrders.length}`);
             console.log(`[STOCK-FILTER] ID match count: ${matchCount}/${allOrders.length}`);
             console.log(`[STOCK-FILTER] Sample allData IDs:`, sampleOrderIds);
@@ -637,14 +711,19 @@
         // Aggregate: code → { name, totalOrdered, orderIds }
         const agg = new Map();
         orderProducts.forEach((products, orderId) => {
-            products.forEach(p => {
+            products.forEach((p) => {
                 const codeUpper = (p.code || '').toUpperCase();
                 if (!codeUpper) return;
                 if (!agg.has(codeUpper)) {
-                    agg.set(codeUpper, { code: p.code, name: p.name, totalOrdered: 0, orderIds: new Set() });
+                    agg.set(codeUpper, {
+                        code: p.code,
+                        name: p.name,
+                        totalOrdered: 0,
+                        orderIds: new Set(),
+                    });
                 }
                 const entry = agg.get(codeUpper);
-                entry.totalOrdered += (p.qty || 0);
+                entry.totalOrdered += p.qty || 0;
                 entry.orderIds.add(orderId);
             });
         });
@@ -680,10 +759,15 @@
 
         const overlay = document.createElement('div');
         overlay.id = 'zeroStockModal';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.style.cssText =
+            'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
 
-        const rows = products.map((p, i) => `
+        const rows = products
+            .map(
+                (p, i) => `
             <tr style="border-bottom:1px solid #f0f0f0;">
                 <td style="padding:8px 12px;text-align:center;color:#888;">${i + 1}</td>
                 <td style="padding:8px 12px;font-weight:600;color:#1e40af;">${p.code}</td>
@@ -692,7 +776,9 @@
                 <td style="padding:8px 12px;text-align:center;font-weight:600;">${p.totalOrdered}</td>
                 <td style="padding:8px 12px;text-align:center;">${p.orderCount}</td>
             </tr>
-        `).join('');
+        `
+            )
+            .join('');
 
         overlay.innerHTML = `
             <div style="background:#fff;border-radius:12px;width:90%;max-width:800px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -750,12 +836,13 @@
 
         // Count matching orders
         const allOrders = window.getAllOrders ? window.getAllOrders() : [];
-        const matchCount = allOrders.filter(o => passesZeroStockFilter(String(o.Id))).length;
+        const matchCount = allOrders.filter((o) => passesZeroStockFilter(String(o.Id))).length;
 
         if (window.notificationManager) {
             window.notificationManager.info(
                 `Đang lọc ${matchCount} đơn chứa sản phẩm tồn kho = 0`,
-                4000, 'Tồn kho'
+                4000,
+                'Tồn kho'
             );
         }
     }
@@ -766,7 +853,7 @@
     function passesZeroStockFilter(orderId) {
         const products = StockStatusEngine._orderProducts.get(String(orderId));
         if (!products) return false;
-        return products.some(p => {
+        return products.some((p) => {
             const codeUpper = (p.code || '').toUpperCase();
             const stock = StockStatusEngine._stockMap.get(codeUpper);
             return !stock || stock.qty === 0;
@@ -787,7 +874,10 @@
         const products = getZeroStockProducts();
         if (products.length === 0) {
             if (window.notificationManager) {
-                window.notificationManager.success('Không có sản phẩm tồn kho = 0 trong chiến dịch', 4000);
+                window.notificationManager.success(
+                    'Không có sản phẩm tồn kho = 0 trong chiến dịch',
+                    4000
+                );
             }
             return;
         }
@@ -836,20 +926,26 @@
                 throw new Error('Không tìm thấy tên chiến dịch');
             }
 
-            console.log(`[STOCK] Starting stock check - Campaign: ${campaignName}, TPOS ID: ${tposCampaignId}`);
+            console.log(
+                `[STOCK] Starting stock check - Campaign: ${campaignName}, TPOS ID: ${tposCampaignId}`
+            );
 
             // 1. Load stock data from orderProducts
             StockStatusEngine._stockMap = await loadStockData(tposCampaignId);
 
             if (StockStatusEngine._stockMap.size === 0) {
-                throw new Error('Không có dữ liệu tồn kho. Hãy đảm bảo đã thêm sản phẩm vào chiến dịch.');
+                throw new Error(
+                    'Không có dữ liệu tồn kho. Hãy đảm bảo đã thêm sản phẩm vào chiến dịch.'
+                );
             }
 
             // 2. Load order product details
             StockStatusEngine._orderProducts = await loadOrderProductDetails(campaignName);
 
             if (StockStatusEngine._orderProducts.size === 0) {
-                throw new Error('Không có chi tiết đơn hàng. Hãy bấm "Lấy chi tiết đơn hàng" trước.');
+                throw new Error(
+                    'Không có chi tiết đơn hàng. Hãy bấm "Lấy chi tiết đơn hàng" trước.'
+                );
             }
 
             // 3. Compute stock status
@@ -865,7 +961,6 @@
                 performTableSearch();
             }
 
-
             const s = StockStatusEngine._summaryStats;
             if (window.notificationManager) {
                 window.notificationManager.success(
@@ -874,7 +969,6 @@
                     'Tồn kho'
                 );
             }
-
         } catch (err) {
             console.error('[STOCK] Error:', err);
             if (window.notificationManager) {
@@ -904,5 +998,4 @@
 
     // Expose globally
     window.StockStatusEngine = StockStatusEngine;
-
 })();

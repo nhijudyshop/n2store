@@ -645,6 +645,7 @@
             }
 
             const blob = await resp.blob();
+            if (typeof window.loadXLSX === 'function') await window.loadXLSX();
             const arrayBuffer = await blob.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];

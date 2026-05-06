@@ -3,6 +3,31 @@
 // RENDERING & UI UPDATES
 // =====================================================
 
+// Debounced reapply badges + stats — coalesce burst của surgical row replace
+// (WS push 15 updates trong 100ms → 1 lần reapply thay vì 15 lần scan tbody).
+let _badgeReapplyTimer = null;
+let _statsUpdateTimer = null;
+function _scheduleBadgeReapply() {
+    if (!window.newMessagesNotifier?.reapply) return;
+    if (_badgeReapplyTimer) return;
+    _badgeReapplyTimer = setTimeout(() => {
+        _badgeReapplyTimer = null;
+        try {
+            window.newMessagesNotifier.reapply();
+        } catch (e) {}
+    }, 80);
+}
+function _scheduleStatsUpdate() {
+    if (typeof updateStats !== 'function') return;
+    if (_statsUpdateTimer) return;
+    _statsUpdateTimer = setTimeout(() => {
+        _statsUpdateTimer = null;
+        try {
+            updateStats();
+        } catch (e) {}
+    }, 80);
+}
+
 // 🔄 CẬP NHẬT ORDER TRONG BẢNG SAU KHI SAVE
 // OPTIMIZED: Sử dụng OrderStore O(1) thay vì findIndex O(n)
 function updateOrderInTable(orderId, updatedOrderData) {
@@ -65,9 +90,40 @@ function updateOrderInTable(orderId, updatedOrderData) {
             console.log('[UPDATE] ✓ Tags updated inline (no scroll reset)');
         }
     } else {
-        // Re-apply all filters and re-render table for non-tag updates.
-        // Dùng debounced wrapper để coalesce burst WS updates (TPOS realtime) —
-        // tránh re-render liên tục gây giật ngang bảng khi nhiều đơn cùng update.
+        // Surgical row replace: build new HTML cho 1 row và swap trong tbody —
+        // tránh schedulePerformTableSearch full re-render 50 rows mỗi WS update.
+        // Chỉ fallback full re-render khi: (a) row không có trong DOM (filter ẩn),
+        // (b) employee view bật (nhiều bảng), (c) sort active (vị trí có thể đổi).
+        const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
+        const existingRow = order && document.querySelector(`tr[data-order-id="${orderId}"]`);
+        const canSurgicalReplace =
+            !!existingRow &&
+            !window.employeeViewMode &&
+            !window.currentSortColumn &&
+            typeof createRowHTML === 'function';
+
+        if (canSurgicalReplace) {
+            try {
+                const html = createRowHTML(order);
+                if (html) {
+                    const tmp = document.createElement('tbody');
+                    tmp.innerHTML = html;
+                    const newRow = tmp.firstElementChild;
+                    if (newRow) {
+                        existingRow.replaceWith(newRow);
+                        // Debounced badge re-apply: WS burst 15 updates trong 100ms
+                        // → 1 lần reapply duy nhất thay vì 15 lần scan toàn tbody.
+                        _scheduleBadgeReapply();
+                        _scheduleStatsUpdate();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('[UPDATE] Surgical replace failed, fallback full render:', e.message);
+            }
+        }
+
+        // Fallback: full re-render (debounce coalesce WS bursts)
         if (typeof window.schedulePerformTableSearch === 'function') {
             window.schedulePerformTableSearch(150);
         } else {
@@ -447,6 +503,17 @@ window.applyOrderMembershipFlip = function (orderCode, orderId, passesNow) {
         (orderId && (window.OrderStore?.get?.(orderId) || allData.find((o) => o.Id === orderId))) ||
         (orderCode && allData.find((o) => o.Code === orderCode));
     if (!order) return false;
+
+    // Enforce non-admin user's STT range — caller's `passesNow` reflects only the
+    // processing-tag filter (or is hardcoded `true` for new TPOS-realtime orders),
+    // so without this guard, orders outside the assigned range leak into the view.
+    if (
+        passesNow &&
+        typeof window.orderPassesEmployeeRangeFilter === 'function' &&
+        !window.orderPassesEmployeeRangeFilter(order)
+    ) {
+        passesNow = false;
+    }
 
     const existingRow = orderId ? tbody.querySelector(`tr[data-order-id="${orderId}"]`) : null;
     const isInDom = !!existingRow;
@@ -1290,11 +1357,11 @@ function createRowHTML(order) {
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
             <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
                     ${window.StockStatusEngine?.renderBadge?.(order.Id) || ''}
                     <span>${order.SessionIndex || ''}</span>
                     ${mergedIcon}
-                    ${ordersWithKPIBase.has(order.Id) ? '<span class="kpi-base-indicator" title="Đã lưu BASE tính KPI"><i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i></span>' : ''}
+                    ${typeof renderKpiBadge === 'function' ? renderKpiBadge(order.Code) : ''}
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
@@ -1323,7 +1390,18 @@ function createRowHTML(order) {
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>
-            <td data-column="customer" ${typeof hasWalletDebt === 'function' && hasWalletDebt(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name" onclick="if(window.openCustomerInfoPopup)openCustomerInfoPopup('${order.Telephone || ''}','${(order.Name || '').replace(/'/g, "\\'")}',this);event.stopPropagation();" style="cursor:pointer;display:flex;align-items:center;gap:6px;" title="Xem thông tin khách hàng">${order.Facebook_ASUserId ? `<img src="https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${order.Facebook_ASUserId}${pageId ? '&page=' + pageId : ''}" class="customer-avatar" loading="lazy" onerror="this.style.display='none'">` : ''}<span>${highlight(order.Name)}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
+            <td data-column="customer" ${typeof hasWalletDebt === 'function' && hasWalletDebt(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name" onclick="if(window.openCustomerInfoPopup)openCustomerInfoPopup('${order.Telephone || ''}','${(order.Name || '').replace(/'/g, "\\'")}',this);event.stopPropagation();" style="cursor:pointer;display:flex;align-items:center;gap:6px;" title="Xem thông tin khách hàng">${(() => {
+                if (!order.Facebook_ASUserId) return '';
+                const avatarUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${order.Facebook_ASUserId}${pageId ? '&page=' + pageId : ''}`;
+                // Pre-resolve blob URL từ mem cache nếu đã wire trước đó →
+                // tránh fetch URL gốc (và flicker tạm thời) khi surgical row replace.
+                // Nếu chưa wire (lần đầu), trả về URL gốc + auto-observer của
+                // image-cache sẽ wire sau DOM insert.
+                const cached = window.ImageCache?.getUrlSync?.(avatarUrl);
+                const finalSrc = cached || avatarUrl;
+                const wired = cached ? ' data-cache-wired="1"' : '';
+                return `<img src="${finalSrc}"${wired} class="customer-avatar" loading="lazy" onerror="this.style.display='none'">`;
+            })()}<span>${highlight(order.Name || '')}${typeof renderWalletDebtBadges === 'function' ? renderWalletDebtBadges(order.Telephone) : ''}</span></div>${partnerStatusHTML}${_pageName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📄 ${_pageName}</div>` : ''}</td>
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     ${order.Telephone ? `<i class="fas fa-phone call-phone-btn" onclick="initiateCall('${order.Telephone}', '${(order.Name || '').replace(/'/g, "\\'")}', '${order.Code || ''}'); event.stopPropagation();" title="Gọi điện" style="cursor: pointer; color: #10b981; font-size: 11px;"></i>` : ''}
@@ -2469,6 +2547,7 @@ async function _ensureDetailStockLoaded() {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const blob = await response.blob();
+            if (typeof window.loadXLSX === 'function') await window.loadXLSX();
             if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
 
             const arrayBuffer = await blob.arrayBuffer();

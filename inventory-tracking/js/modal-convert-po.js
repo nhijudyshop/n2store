@@ -322,12 +322,17 @@ function _toggleNccImgSelection(url) {
 
 function _renderItemRow(it, idx) {
     const subtotal = (parseInt(it.quantity) || 0) * (_parseVND(it.purchasePrice) || 0);
+    const fromWarehouse = !!(it._fromWarehouse || it.tposProductId);
+    const lockTitle = fromWarehouse ? 'Sản phẩm chọn từ kho TPOS — không sửa được mã/biến thể' : '';
+    const lockBadge = fromWarehouse
+        ? `<span class="po-tpos-badge" title="${lockTitle}"><i data-lucide="check-circle-2"></i> TPOS</span>`
+        : '';
     const variantCell = it.variant
-        ? `<button type="button" class="po-variant-chip" data-key="${it._key}" title="Sửa biến thể">${_esc(it.variant)}</button>`
-        : `<button type="button" class="po-variant-btn" data-key="${it._key}"><i data-lucide="package"></i> Nhấn để tạo biến thể</button>`;
+        ? `<button type="button" class="po-variant-chip ${fromWarehouse ? 'po-locked' : ''}" data-key="${it._key}" ${fromWarehouse ? 'disabled' : ''} title="${fromWarehouse ? lockTitle : 'Sửa biến thể'}">${_esc(it.variant)}</button>`
+        : `<button type="button" class="po-variant-btn ${fromWarehouse ? 'po-locked' : ''}" data-key="${it._key}" ${fromWarehouse ? 'disabled' : ''} title="${fromWarehouse ? lockTitle : ''}"><i data-lucide="package"></i> ${fromWarehouse ? 'Không có biến thể' : 'Nhấn để tạo biến thể'}</button>`;
     return `
-        <tr data-key="${it._key}">
-            <td class="po-col-stt">${idx + 1}</td>
+        <tr data-key="${it._key}" ${fromWarehouse ? 'data-from-warehouse="1"' : ''}>
+            <td class="po-col-stt">${idx + 1}${lockBadge}</td>
             <td class="po-col-name">
                 <div class="po-name-wrap">
                     <input type="text" class="po-it-input po-it-name" data-field="productName" data-key="${it._key}" value="${_esc(it.productName)}" placeholder="Gõ tên/mã SP để chọn từ kho..." autocomplete="off">
@@ -337,10 +342,14 @@ function _renderItemRow(it, idx) {
             <td class="po-col-variant">${variantCell}</td>
             <td class="po-col-code">
                 <div class="po-code-wrap">
-                    <input type="text" class="po-it-input" data-field="productCode" value="${_esc(it.productCode)}" placeholder="Mã SP">
-                    <button type="button" class="po-btn-gen-code" data-key="${it._key}" title="Tự tạo mã SP theo tên">
+                    <input type="text" class="po-it-input ${fromWarehouse ? 'po-locked' : ''}" data-field="productCode" value="${_esc(it.productCode)}" placeholder="Mã SP" ${fromWarehouse ? 'readonly' : ''} title="${fromWarehouse ? lockTitle : ''}">
+                    ${
+                        fromWarehouse
+                            ? ''
+                            : `<button type="button" class="po-btn-gen-code" data-key="${it._key}" title="Tự tạo mã SP theo tên">
                         <i data-lucide="refresh-cw"></i>
-                    </button>
+                    </button>`
+                    }
                 </div>
             </td>
             <td class="po-col-qty">
@@ -462,7 +471,24 @@ function _onItemInput(e) {
     } else {
         item[field] = input.value;
         if (field === 'productName') _scheduleSuggest(key, input);
+        // Khi user gõ thủ công productCode → propagate sang siblings cùng productName.
+        // Debounce 400ms để tránh propagate sau mỗi ký tự khi gõ dở.
+        if (field === 'productCode') _scheduleCodePropagation(key);
     }
+}
+
+const _codePropagationTimers = new Map();
+function _scheduleCodePropagation(itemKey) {
+    const old = _codePropagationTimers.get(itemKey);
+    if (old) clearTimeout(old);
+    const timer = setTimeout(() => {
+        const item = _convertItems.find((i) => i._key === itemKey);
+        if (!item) return;
+        const code = (item.productCode || '').trim();
+        if (!code) return;
+        _propagateCodeToSiblings(itemKey, code);
+    }, 400);
+    _codePropagationTimers.set(itemKey, timer);
 }
 
 // =====================================================
@@ -497,14 +523,18 @@ async function _runSuggest(key, q, drop) {
         drop.innerHTML = rows
             .map((r) => {
                 const code = r.product_code || '';
-                const name = r.name_get || r.product_name || '';
+                // r.name_get format: "[CODE] real product name" → strip leading [...] khỏi tên
+                const rawName = r.name_get || r.product_name || '';
+                const name = rawName.replace(/^\s*\[[^\]]*\]\s*/, '').trim() || rawName;
                 const price = parseFloat(r.selling_price) || 0;
                 const qty = parseFloat(r.tpos_qty_available) || 0;
+                const tposId = r.tpos_product_id || '';
+                const tposTmplId = r.tpos_template_id || '';
                 const img = window.WarehouseAPI.proxyImageUrl(r);
                 const imgHtml = img
                     ? `<img class="po-suggest-img" src="${_esc(img)}" alt="" loading="lazy">`
                     : `<span class="po-suggest-img po-suggest-img--empty"></span>`;
-                return `<div class="po-suggest-item" data-code="${_esc(code)}" data-name="${_esc(name)}" data-price="${price}">
+                return `<div class="po-suggest-item" data-code="${_esc(code)}" data-name="${_esc(name)}" data-price="${price}" data-tpos-id="${tposId}" data-tpos-tmpl-id="${tposTmplId}" data-img="${_esc(img || '')}">
                     ${imgHtml}
                     <div class="po-suggest-info">
                         <div class="po-suggest-line1"><strong>${_esc(code)}</strong> — ${_esc(name)}</div>
@@ -517,18 +547,52 @@ async function _runSuggest(key, q, drop) {
             })
             .join('');
         drop.hidden = false;
+        _positionSuggestDropdown(drop);
     } catch (err) {
         console.warn('[CONVERT-PO] suggest error:', err.message);
         drop.hidden = true;
     }
 }
 
-function _applySuggestPick(key, code, name, price) {
+// Position dropdown bằng `position: fixed` để không bị overflow:auto của modal cắt.
+function _positionSuggestDropdown(drop) {
+    const wrap = drop.closest('.po-name-wrap');
+    const input = wrap?.querySelector('.po-it-name');
+    if (!input) return;
+    const rect = input.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const spaceBelow = vh - rect.bottom;
+    const spaceAbove = rect.top;
+    const desiredHeight = Math.min(320, drop.scrollHeight || 320);
+    drop.style.position = 'fixed';
+    drop.style.left = rect.left + 'px';
+    drop.style.width = rect.width + 'px';
+    if (spaceBelow >= desiredHeight + 8 || spaceBelow >= spaceAbove) {
+        drop.style.top = rect.bottom + 4 + 'px';
+        drop.style.bottom = '';
+        drop.style.maxHeight = Math.max(160, spaceBelow - 12) + 'px';
+    } else {
+        drop.style.top = '';
+        drop.style.bottom = vh - rect.top + 4 + 'px';
+        drop.style.maxHeight = Math.max(160, spaceAbove - 12) + 'px';
+    }
+    drop.style.zIndex = '10050';
+}
+
+function _applySuggestPick(key, code, name, price, extra = {}) {
     const item = _convertItems.find((i) => i._key === key);
     if (!item) return;
     item.productName = name || item.productName;
     item.productCode = code || item.productCode;
     if (price > 0) item.sellingPrice = price;
+    // Mark TPOS-synced — cấm sửa biến thể/mã, truyền tposProductId qua PO để tránh re-create
+    if (extra.tposId) item.tposProductId = extra.tposId;
+    if (extra.tposTmplId) item.tposProductTmplId = extra.tposTmplId;
+    if (extra.img) item.tposImageUrl = extra.img;
+    item._fromWarehouse = true;
+    item.tposSynced = true;
+    // Không cho có biến thể nếu pick từ kho — biến thể đã tồn ở TPOS
+    item.variant = '';
     // Cập nhật DOM input không re-render toàn bảng (giữ focus + giá mua user nhập)
     const tr = document.querySelector(`#poItemsBody tr[data-key="${key}"]`);
     if (tr) {
@@ -544,6 +608,25 @@ function _applySuggestPick(key, code, name, price) {
         drop.hidden = true;
         drop.innerHTML = '';
     }
+    // Logic TPOS: variants cùng productName share parent code → propagate sang
+    // các row cùng tên (cũng update giá bán nếu pick có giá).
+    if (code) {
+        const propagated = _propagateCodeToSiblings(key, code);
+        if (propagated > 0 && price > 0) {
+            for (const it of _convertItems) {
+                if (it._key === key) continue;
+                if (
+                    (it.productName || '').trim().toLowerCase() !==
+                    (item.productName || '').trim().toLowerCase()
+                )
+                    continue;
+                it.sellingPrice = price;
+                const row = document.querySelector(`#poItemsBody tr[data-key="${it._key}"]`);
+                const sellInp = row?.querySelector('.po-it-input[data-field="sellingPrice"]');
+                if (sellInp) sellInp.value = _fmtVND(price);
+            }
+        }
+    }
 }
 
 function _onItemClick(e) {
@@ -556,8 +639,16 @@ function _onItemClick(e) {
                 key,
                 suggestItem.dataset.code || '',
                 suggestItem.dataset.name || '',
-                parseFloat(suggestItem.dataset.price) || 0
+                parseFloat(suggestItem.dataset.price) || 0,
+                {
+                    tposId: suggestItem.dataset.tposId || '',
+                    tposTmplId: suggestItem.dataset.tposTmplId || '',
+                    img: suggestItem.dataset.img || '',
+                }
             );
+            // Re-render row để áp khoá variant + mã + badge TPOS
+            _rerenderItemsTable();
+            _recalcAll();
         }
         return;
     }
@@ -726,7 +817,15 @@ async function _generateCodeForItem(itemKey, btn) {
         const row = document.querySelector(`tr[data-key="${itemKey}"]`);
         const input = row?.querySelector('input[data-field="productCode"]');
         if (input) input.value = code;
-        window.notificationManager?.success(`Đã tạo mã: ${code}`);
+        // Propagate cùng productCode cho mọi biến thể cùng productName (logic TPOS:
+        // mọi variant của 1 template share parent code; suffix biến thể do TPOS
+        // tự sinh khi upload, không cần derive client-side).
+        const propagated = _propagateCodeToSiblings(itemKey, code);
+        const msg =
+            propagated > 0
+                ? `Đã tạo mã: ${code} (áp dụng cho ${propagated + 1} biến thể)`
+                : `Đã tạo mã: ${code}`;
+        window.notificationManager?.success(msg);
     } catch (err) {
         console.error('[CONVERT-PO] Generate code failed:', err);
         window.notificationManager?.error('Lỗi tạo mã: ' + (err.message || ''));
@@ -737,6 +836,30 @@ async function _generateCodeForItem(itemKey, btn) {
             if (window.lucide) lucide.createIcons();
         }
     }
+}
+
+/**
+ * Áp productCode cho mọi item cùng productName với sourceItemKey (trừ chính nó).
+ * Bắt chước TPOS: mọi variant của cùng template share cùng parent DefaultCode.
+ * Trả về số lượng item được áp.
+ */
+function _propagateCodeToSiblings(sourceItemKey, code) {
+    const src = _convertItems.find((i) => i._key === sourceItemKey);
+    if (!src) return 0;
+    const srcName = (src.productName || '').trim().toLowerCase();
+    if (!srcName || !code) return 0;
+    let count = 0;
+    for (const it of _convertItems) {
+        if (it._key === sourceItemKey) continue;
+        if ((it.productName || '').trim().toLowerCase() !== srcName) continue;
+        if ((it.productCode || '').trim() === code) continue;
+        it.productCode = code;
+        const row = document.querySelector(`#poItemsBody tr[data-key="${it._key}"]`);
+        const input = row?.querySelector('input[data-field="productCode"]');
+        if (input) input.value = code;
+        count++;
+    }
+    return count;
 }
 
 function _addBlankItem() {
@@ -1003,17 +1126,13 @@ function _validateSameNameSameCode(validItems) {
     const conflictItems = [];
     for (const items of groups.values()) {
         if (items.length < 2) continue;
-        const codes = new Set(
-            items.map((i) => (i.productCode || '').trim()).filter(Boolean)
-        );
+        const codes = new Set(items.map((i) => (i.productCode || '').trim()).filter(Boolean));
         if (codes.size > 1) conflictItems.push(...items);
     }
 
     if (conflictItems.length === 0) return true;
 
-    const stts = conflictItems
-        .map((it) => _convertItems.indexOf(it) + 1)
-        .sort((a, b) => a - b);
+    const stts = conflictItems.map((it) => _convertItems.indexOf(it) + 1).sort((a, b) => a - b);
     conflictItems.forEach((it) => {
         const row = document.querySelector(`tr[data-key="${it._key}"]`);
         if (!row) return;
@@ -1144,6 +1263,7 @@ async function _confirmConvertToPO() {
         items: validItems.map((it, idx) => {
             const qty = parseInt(it.quantity) || 1;
             const price = _parseVND(it.purchasePrice);
+            const fromWh = !!(it._fromWarehouse || it.tposProductId);
             return {
                 id: `item_${Date.now()}_${idx}`,
                 productName: (it.productName || it.productCode || '').trim(),
@@ -1153,13 +1273,16 @@ async function _confirmConvertToPO() {
                 purchasePrice: price,
                 sellingPrice: it.sellingPrice === '' ? '' : _parseVND(it.sellingPrice),
                 subtotal: price * qty,
-                productImages: [],
+                productImages: it.tposImageUrl ? [it.tposImageUrl] : [],
                 priceImages: [],
                 selectedAttributeValueIds: [],
-                tposProductId: '',
-                tposProductTmplId: '',
-                tposSynced: false,
-                tposImageUrl: '',
+                // Truyền TPOS marks cho purchase-orders để khoá biến thể + mã + skip re-sync
+                tposProductId: it.tposProductId || '',
+                tposProductTmplId: it.tposProductTmplId || '',
+                tposSynced: fromWh,
+                tposImageUrl: it.tposImageUrl || '',
+                _fromWarehouse: fromWh,
+                _isExistingItem: fromWh, // PO form lock toggle
             };
         }),
     };

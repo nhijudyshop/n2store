@@ -63,14 +63,16 @@ body {
     border: 1px solid var(--ds-border, #e5e7eb);
     border-radius: var(--ds-radius-sm, 6px);
     font-size: var(--ds-text-sm, 13px);
-    transition: border-color 150ms, box-shadow 150ms;
+    transition:
+        border-color 150ms,
+        box-shadow 150ms;
 }
 
 .filter-section input:focus,
 .filter-section select:focus {
     outline: none;
     border-color: var(--ds-primary, #3b82f6);
-    box-shadow: 0 0 0 3px var(--ds-primary-ring, rgba(59,130,246,0.15));
+    box-shadow: 0 0 0 3px var(--ds-primary-ring, rgba(59, 130, 246, 0.15));
 }
 
 .btn-primary {
@@ -175,6 +177,16 @@ body {
 
 .table tbody tr {
     transition: background-color 120ms ease;
+    /* content-visibility: auto cho phép Chrome skip render hàng off-screen
+       (chỉ paint hàng visible trong viewport). Combined với contain-intrinsic-size,
+       browser reserve đúng 52px placeholder cho mỗi row → scrollbar chính xác,
+       paint cost giảm ~40-60% khi scroll bảng dài. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 52px;
+    /* contain layout cho mỗi row độc lập — layout change của 1 row không
+       propagate ra ngoài. Quan trọng khi surgical row replace để 1 row reflow
+       không trigger reflow toàn bộ tbody. */
+    contain: layout style;
 }
 
 .table tbody tr:hover {
@@ -779,7 +791,7 @@ body {
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--ds-shadow-modal, 0 24px 64px rgba(0,0,0,0.18));
+    box-shadow: var(--ds-shadow-modal, 0 24px 64px rgba(0, 0, 0, 0.18));
     animation: ds-slideUp 0.3s ease-out;
     overflow: hidden;
 }
@@ -1349,7 +1361,7 @@ body {
 .search-input:focus {
     outline: none;
     border-color: var(--ds-primary, #3b82f6);
-    box-shadow: 0 0 0 3px var(--ds-primary-ring, rgba(59,130,246,0.15));
+    box-shadow: 0 0 0 3px var(--ds-primary-ring, rgba(59, 130, 246, 0.15));
     background: var(--ds-surface, white);
 }
 
@@ -6649,9 +6661,19 @@ td[data-column].hidden {
     font-weight: 600;
     line-height: 1.4;
 }
-.invoice-order-status-draft  { background:#dbeafe; color:#1e40af; }
-.invoice-order-status-cancel { background:#fee2e2; color:#991b1b; text-decoration:line-through; }
-.invoice-order-status-order  { background:#d1fae5; color:#065f46; }
+.invoice-order-status-draft {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.invoice-order-status-cancel {
+    background: #fee2e2;
+    color: #991b1b;
+    text-decoration: line-through;
+}
+.invoice-order-status-order {
+    background: #d1fae5;
+    color: #065f46;
+}
 
 /* Row cảnh báo: có ≥2 phiếu "Đã xác nhận" cùng đơn → trùng PBH */
 tr.row-multi-confirmed > td {
@@ -6848,7 +6870,9 @@ body.action-bar-visible {
     max-height: 420px;
     background: white;
     border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.18),
+        0 2px 8px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -6856,8 +6880,14 @@ body.action-bar-visible {
 }
 
 @keyframes cipFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .cip-header {
@@ -6885,7 +6915,9 @@ body.action-bar-visible {
     padding: 0 4px;
 }
 
-.cip-close:hover { color: #334155; }
+.cip-close:hover {
+    color: #334155;
+}
 
 .cip-body {
     flex: 1;
@@ -6908,7 +6940,12 @@ body.action-bar-visible {
     gap: 8px;
 }
 
-.cip-row-danger { background: #fef2f2; margin: 2px -8px; padding: 5px 8px; border-radius: 4px; }
+.cip-row-danger {
+    background: #fef2f2;
+    margin: 2px -8px;
+    padding: 5px 8px;
+    border-radius: 4px;
+}
 
 .cip-label {
     color: #64748b;
@@ -6919,7 +6956,11 @@ body.action-bar-visible {
     font-size: 12px;
 }
 
-.cip-label i { width: 14px; text-align: center; font-size: 11px; }
+.cip-label i {
+    width: 14px;
+    text-align: center;
+    font-size: 11px;
+}
 
 .cip-value {
     color: #1e293b;
@@ -6927,8 +6968,14 @@ body.action-bar-visible {
     word-break: break-all;
 }
 
-.cip-mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; }
-.cip-text-danger { color: #dc2626; font-weight: 600; }
+.cip-mono {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+}
+.cip-text-danger {
+    color: #dc2626;
+    font-weight: 600;
+}
 
 .cip-badge {
     display: inline-block;
@@ -6938,9 +6985,18 @@ body.action-bar-visible {
     font-weight: 600;
 }
 
-.cip-badge-ok { background: #dcfce7; color: #16a34a; }
-.cip-badge-fail { background: #fee2e2; color: #dc2626; }
-.cip-badge-warn { background: #fef3c7; color: #d97706; }
+.cip-badge-ok {
+    background: #dcfce7;
+    color: #16a34a;
+}
+.cip-badge-fail {
+    background: #fee2e2;
+    color: #dc2626;
+}
+.cip-badge-warn {
+    background: #fef3c7;
+    color: #d97706;
+}
 
 .cip-notes-section {
     margin-top: 10px;
@@ -6966,11 +7022,25 @@ body.action-bar-visible {
     border-left: 3px solid #6366f1;
 }
 
-.cip-note-pancake { border-left-color: #e65100; }
+.cip-note-pancake {
+    border-left-color: #e65100;
+}
 
-.cip-note-text { font-size: 12px; line-height: 1.4; color: #334155; }
-.cip-note-meta { font-size: 10px; color: #94a3b8; margin-top: 2px; }
-.cip-note-more { font-size: 11px; color: #6366f1; padding: 4px 0; }
+.cip-note-text {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #334155;
+}
+.cip-note-meta {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+.cip-note-more {
+    font-size: 11px;
+    color: #6366f1;
+    padding: 4px 0;
+}
 
 .cip-add-note {
     display: flex;
@@ -6989,7 +7059,9 @@ body.action-bar-visible {
     outline: none;
 }
 
-.cip-add-note input:focus { border-color: #6366f1; }
+.cip-add-note input:focus {
+    border-color: #6366f1;
+}
 
 .cip-add-note button {
     background: #6366f1;
@@ -7001,13 +7073,15 @@ body.action-bar-visible {
     font-size: 12px;
 }
 
-.cip-add-note button:hover { opacity: 0.9; }
+.cip-add-note button:hover {
+    opacity: 0.9;
+}
 
 /* =====================================================
    ORDER NOTES CELL — CSKH notes history column
    data-column="cs-notes"
 ===================================================== */
-td[data-column="cs-notes"] {
+td[data-column='cs-notes'] {
     min-width: 220px;
     max-width: 320px;
     vertical-align: top;
@@ -7073,8 +7147,12 @@ td[data-column="cs-notes"] {
     font-size: 11px;
     line-height: 1;
 }
-.note-item .note-actions .edit-btn:hover { color: #1677ff; }
-.note-item .note-actions .del-btn:hover  { color: #cf1322; }
+.note-item .note-actions .edit-btn:hover {
+    color: #1677ff;
+}
+.note-item .note-actions .del-btn:hover {
+    color: #cf1322;
+}
 .add-note-btn {
     background: none;
     border: 1px dashed #bfbfbf;
@@ -7129,7 +7207,10 @@ td[data-column="cs-notes"] {
     cursor: pointer;
     color: #262626;
 }
-.cs-notes-wrap .note-form button:hover { border-color: #1677ff; color: #1677ff; }
+.cs-notes-wrap .note-form button:hover {
+    border-color: #1677ff;
+    color: #1677ff;
+}
 .cs-notes-wrap .note-form button.save-btn {
     background: #1677ff;
     color: #fff;
@@ -7147,18 +7228,58 @@ td[data-column="cs-notes"] {
 /* ====== Gộp SP Chờ Live Modal ====== */
 /* Layout chính tái dùng .merge-cluster-card / .merge-cluster-table / .merge-product-item
    từ modal "Gộp sản phẩm đơn trùng SĐT". Chỉ giữ các class bổ sung riêng của tab này. */
-.mlw-muted { color: #6b7280; font-size: 12px; }
-.mlw-live-header { padding: 10px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
-.mlw-live-info { display: flex; flex-direction: column; gap: 4px; }
-.mlw-live-row { padding-left: 8px; }
-.mlw-mode-toggle { display: flex; gap: 10px; align-items: center; font-size: 13px; margin-right: 10px; }
-.mlw-mode-toggle label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-.mlw-loading, .mlw-empty { text-align: center; padding: 40px 20px; color: #6b7280; }
-.mlw-loading i, .mlw-empty i { font-size: 32px; margin-bottom: 8px; display: block; }
+.mlw-muted {
+    color: #6b7280;
+    font-size: 12px;
+}
+.mlw-live-header {
+    padding: 10px 16px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13px;
+}
+.mlw-live-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mlw-live-row {
+    padding-left: 8px;
+}
+.mlw-mode-toggle {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+    margin-right: 10px;
+}
+.mlw-mode-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+.mlw-loading,
+.mlw-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+}
+.mlw-loading i,
+.mlw-empty i {
+    font-size: 32px;
+    margin-bottom: 8px;
+    display: block;
+}
 .mlw-transfer-badge {
-    display: inline-block; margin-top: 4px; padding: 1px 6px;
-    background: #fef3c7; color: #92400e; border-radius: 4px;
-    font-size: 10px; font-weight: 600;
+    display: inline-block;
+    margin-top: 4px;
+    padding: 1px 6px;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
 }
 
 /* ====== Select-All Dropdown Menu (table header) ====== */
@@ -7183,10 +7304,21 @@ td[data-column="cs-notes"] {
     cursor: pointer;
     font-size: 10px;
     line-height: 1;
-    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+    transition:
+        background 120ms ease,
+        color 120ms ease,
+        border-color 120ms ease;
 }
-.select-all-menu-btn:hover { background: #eef2ff; color: #4f46e5; border-color: #a5b4fc; }
-.select-all-menu-btn[aria-expanded="true"] { background: #e0e7ff; color: #4f46e5; border-color: #818cf8; }
+.select-all-menu-btn:hover {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-color: #a5b4fc;
+}
+.select-all-menu-btn[aria-expanded='true'] {
+    background: #e0e7ff;
+    color: #4f46e5;
+    border-color: #818cf8;
+}
 .select-all-menu {
     position: fixed;
     top: 0;
@@ -7197,15 +7329,23 @@ td[data-column="cs-notes"] {
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+    box-shadow:
+        0 10px 24px rgba(15, 23, 42, 0.12),
+        0 2px 6px rgba(15, 23, 42, 0.06);
     font-size: 13px;
     color: #111827;
     font-weight: 400;
     text-transform: none;
     letter-spacing: normal;
 }
-.select-all-menu[hidden] { display: none; }
-.select-all-menu-section { display: flex; flex-direction: column; gap: 2px; }
+.select-all-menu[hidden] {
+    display: none;
+}
+.select-all-menu-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
 .select-all-menu-label {
     font-size: 11px;
     font-weight: 600;
@@ -7229,10 +7369,22 @@ td[data-column="cs-notes"] {
     font-size: 13px;
     transition: background 100ms ease;
 }
-.select-all-menu-item:hover { background: #eef2ff; color: #4338ca; }
-.select-all-menu-item-danger { color: #b91c1c; }
-.select-all-menu-item-danger:hover { background: #fef2f2; color: #991b1b; }
-.select-all-menu-divider { height: 1px; background: #e5e7eb; margin: 4px 0; }
+.select-all-menu-item:hover {
+    background: #eef2ff;
+    color: #4338ca;
+}
+.select-all-menu-item-danger {
+    color: #b91c1c;
+}
+.select-all-menu-item-danger:hover {
+    background: #fef2f2;
+    color: #991b1b;
+}
+.select-all-menu-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 4px 0;
+}
 .select-all-menu-range {
     display: flex;
     align-items: center;
@@ -7251,7 +7403,11 @@ td[data-column="cs-notes"] {
     font-weight: 400;
     text-transform: none;
 }
-.select-all-range-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); }
+.select-all-range-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
 .select-all-range-apply {
     padding: 4px 10px;
     background: #6366f1;
@@ -7263,4 +7419,144 @@ td[data-column="cs-notes"] {
     font-weight: 500;
     transition: background 120ms ease;
 }
-.select-all-range-apply:hover { background: #4f46e5; }
+.select-all-range-apply:hover {
+    background: #4f46e5;
+}
+
+/* =====================================================
+   WALLET DEBT BADGES (cột Khách hàng)
+   Badge "CK", "Thu về", "Khách gửi", "Nạp Tay", "Ví" với background-color
+   variable per source (set inline qua style="background:..."). Tách common
+   styles ra CSS class để giảm inline bloat (~80 bytes/badge × 100 badges
+   = ~8KB tbody HTML giảm).
+   ===================================================== */
+.wallet-debt-badge {
+    display: inline-block;
+    color: white;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 600;
+    vertical-align: middle;
+    margin-left: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.4;
+    transition: filter 100ms ease;
+}
+.wallet-debt-badge:hover {
+    filter: brightness(1.1);
+}
+
+/* =====================================================
+   CUSTOMER PREFS section trong popup info (.cip-prefs-section)
+   Nickname + Do-not-call toggle
+   ===================================================== */
+.cip-prefs-section {
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 14px;
+    background: #fafafa;
+}
+.cip-pref-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+.cip-pref-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    flex: 0 0 110px;
+}
+.cip-pref-control {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+}
+.cip-pref-control input[type='text'] {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.cip-pref-control input[type='text']:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+.cip-pref-save {
+    padding: 5px 10px;
+    background: #10b981;
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.cip-pref-save:hover {
+    background: #059669;
+}
+.cip-pref-toggle-row.cip-pref-active-danger {
+    background: #fee2e2;
+    border-radius: 6px;
+    padding-left: 8px;
+}
+.cip-pref-toggle {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    cursor: pointer;
+}
+.cip-pref-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.cip-pref-slider {
+    position: absolute;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 22px;
+    transition: 0.2s;
+}
+.cip-pref-slider::before {
+    position: absolute;
+    content: '';
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    top: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+.cip-pref-toggle input:checked + .cip-pref-slider {
+    background: #ef4444;
+}
+.cip-pref-toggle input:checked + .cip-pref-slider::before {
+    transform: translateX(18px);
+}
+.cip-pref-hint {
+    font-size: 11px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    background: #fee2e2;
+    border-radius: 6px;
+}
+.cip-pref-hint.cip-text-danger {
+    color: #991b1b;
+}
+
+/* Disable visual cho nút gọi khi phone in do-not-call list */
+.call-phone-btn.do-not-call {
+    color: #9ca3af !important;
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+.call-phone-btn.do-not-call:hover {
+    color: #ef4444 !important;
+    opacity: 1;
+}

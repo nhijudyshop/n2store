@@ -5,7 +5,7 @@
    localStorage persistence + server merge + realtime updates
    ===================================================== */
 
-(function() {
+(function () {
     'use strict';
 
     // Module guard — chống IIFE chạy 2 lần
@@ -15,9 +15,14 @@
     window.__newMessagesNotifierLoaded = true;
 
     const LS_KEY = 'n2s_pending_customers';
+    const LS_REPLIED_KEY = 'n2s_recently_replied_v1';
+    const REPLIED_TTL_MS = 24 * 60 * 60 * 1000; // 24h — đủ dài để chặn server stale data
 
     // Cached pending customers data (persisted to localStorage)
     let _pendingCustomers = [];
+    // psid → repliedAt timestamp (ms). Mọi event/server data có message_time <=
+    // repliedAt sẽ bị bỏ qua → ngăn badge "tin mới" quay lại sau khi reply.
+    let _recentlyRepliedAt = {};
     let _isApplying = false;
     let _reapplyTimer = null;
 
@@ -28,19 +33,51 @@
     function _saveToLocalStorage() {
         try {
             localStorage.setItem(LS_KEY, JSON.stringify(_pendingCustomers));
-        } catch(e) {}
+        } catch (e) {}
     }
 
     function _loadFromLocalStorage() {
         try {
             const saved = localStorage.getItem(LS_KEY);
             if (saved) return JSON.parse(saved);
-        } catch(e) {}
+        } catch (e) {}
         return [];
+    }
+
+    function _saveRepliedMap() {
+        try {
+            localStorage.setItem(LS_REPLIED_KEY, JSON.stringify(_recentlyRepliedAt));
+        } catch (e) {}
+    }
+
+    function _loadRepliedMap() {
+        try {
+            const saved = localStorage.getItem(LS_REPLIED_KEY);
+            const obj = saved ? JSON.parse(saved) : {};
+            // Cleanup expired (> 24h)
+            const cutoff = Date.now() - REPLIED_TTL_MS;
+            const cleaned = {};
+            for (const [psid, ts] of Object.entries(obj)) {
+                if (typeof ts === 'number' && ts > cutoff) cleaned[psid] = ts;
+            }
+            return cleaned;
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function _wasRecentlyReplied(psid, eventTimeMs) {
+        const repliedAt = _recentlyRepliedAt[String(psid)];
+        if (!repliedAt) return false;
+        // Nếu event timestamp <= thời điểm reply → là tin cũ trước reply, bỏ qua.
+        // Nếu không rõ event time, fallback về Date.now() để cho phép "tin mới sau reply".
+        const evTs = typeof eventTimeMs === 'number' ? eventTimeMs : Date.now();
+        return evTs <= repliedAt;
     }
 
     // Load immediately from localStorage (before server fetch completes)
     _pendingCustomers = _loadFromLocalStorage();
+    _recentlyRepliedAt = _loadRepliedMap();
     console.log(`[NOTIFIER] Init: loaded ${_pendingCustomers.length} from localStorage`);
 
     // Schedule initial reapply after DOM ready
@@ -82,12 +119,12 @@
     function _applyBadgesToRows() {
         // Build lookup map: psid → pending data
         const pendingMap = new Map();
-        _pendingCustomers.forEach(pc => {
+        _pendingCustomers.forEach((pc) => {
             const key = String(pc.psid || pc.from_psid || pc.fbId || '');
             if (key) {
                 const existing = pendingMap.get(key);
                 if (existing) {
-                    existing.inboxCount += (pc.inboxCount || pc.unread_count || 0);
+                    existing.inboxCount += pc.inboxCount || pc.unread_count || 0;
                 } else {
                     pendingMap.set(key, {
                         psid: key,
@@ -103,27 +140,41 @@
         // Find all table rows with psid
         const rows = document.querySelectorAll('tr[data-psid], tr[data-fb-id]');
         let matched = 0;
-        rows.forEach(row => {
+        rows.forEach((row) => {
             const psid = row.dataset.psid || row.dataset.fbId || '';
             if (!psid) return;
 
             const pending = pendingMap.get(String(psid));
+            const shouldHaveClass = !!pending;
+            const hasClass = row.classList.contains('pending-customer-row');
+
+            // CHỈ toggle class khi state thực sự đổi — tránh 51 rows × invalidate style
+            // mỗi lần có tin mới (gây "nháy bảng" do browser repaint composite full table).
+            // Trước: class.remove() chạy trên cả 51 rows kể cả không có pending.
+            if (shouldHaveClass !== hasClass) {
+                if (shouldHaveClass) {
+                    row.classList.add('pending-customer-row');
+                } else {
+                    row.classList.remove('pending-customer-row');
+                }
+            }
+
             if (!pending) {
-                // Remove highlights and badges if no longer pending
-                row.classList.remove('pending-customer-row');
-                row.querySelectorAll('.new-msg-badge').forEach(el => el.remove());
+                // Remove badges only if exists (skip pure row scan when no badge)
+                const existing = row.querySelector('.new-msg-badge');
+                if (existing) existing.remove();
                 return;
             }
 
             matched++;
-            // Add row highlight
-            row.classList.add('pending-customer-row');
-
-            // Update messages column badge (create or update existing)
+            // Update messages column badge (create or update existing — _upsertBadge
+            // already idempotent — chỉ thay textContent nếu count đổi).
             _upsertBadge(row, 'td[data-column="messages"]', 'new-msg-badge', pending.inboxCount);
         });
 
-        console.log(`[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`);
+        console.log(
+            `[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`
+        );
     }
 
     /**
@@ -138,14 +189,16 @@
         let badge = cell.querySelector(`.${badgeClass}`);
 
         if (count > 0) {
+            const newText = `${count} MỚI`;
             if (badge) {
-                // Update existing badge text
-                badge.textContent = `${count} MỚI`;
+                // Update existing badge text — chỉ ghi nếu thật sự đổi
+                // (tránh layout invalidate cho hàng có badge giống count cũ).
+                if (badge.textContent !== newText) badge.textContent = newText;
             } else {
                 // Create new badge
                 badge = document.createElement('span');
                 badge.className = badgeClass;
-                badge.textContent = `${count} MỚI`;
+                badge.textContent = newText;
                 cell.prepend(badge);
             }
         } else if (badge) {
@@ -167,22 +220,59 @@
         const psid = String(event.from_psid || event.psid || event.from?.id || '');
         if (!psid) return;
 
+        const type = event.type || event.conversation_type || 'INBOX';
+        if (type === 'COMMENT') return; // Skip comments — no badge tracking for comment column
+
+        // Suppress stale broadcast: nếu user vừa reply thì các event có message_time
+        // <= repliedAt là echo cũ (broadcast lan từ chính reply hoặc Pancake chậm clear
+        // unread_count). Date.now() fallback chỉ áp khi event không kèm timestamp.
+        const eventTimeMs =
+            (typeof event.eventTimeMs === 'number' && event.eventTimeMs) ||
+            (event.timestamp ? new Date(event.timestamp).getTime() : null) ||
+            (event.updated_at ? new Date(event.updated_at).getTime() : null);
+        if (_wasRecentlyReplied(psid, eventTimeMs)) {
+            return;
+        }
+
         // Find or create entry
-        let existing = _pendingCustomers.find(pc =>
-            String(pc.psid || pc.from_psid || '') === psid
+        let existing = _pendingCustomers.find(
+            (pc) => String(pc.psid || pc.from_psid || '') === psid
         );
 
         if (!existing) {
-            existing = { psid, pageId: event.page_id || event.pageId || '', inboxCount: 0 };
+            existing = {
+                psid,
+                pageId: event.page_id || event.pageId || '',
+                customerName: event.customerName || event.customer_name || event.from?.name || '',
+                inboxCount: 0,
+            };
             _pendingCustomers.push(existing);
         }
 
-        const type = event.type || event.conversation_type || 'INBOX';
-        if (type === 'COMMENT') return; // Skip comments — no badge tracking for comment column
-        existing.inboxCount = (existing.inboxCount || 0) + 1;
+        // Pancake's unread_count là authoritative source. Khi event có unread_count
+        // hợp lệ → SET inboxCount đúng giá trị Pancake (không tích lũy local).
+        // Trước đây luôn +=1 → tích lũy sai khi shop trả lời (Nv.My snippet với
+        // count 285, trong khi Pancake unread=0 hoặc nhỏ).
+        // Fallback +=1 chỉ áp khi event KHÔNG có unread_count (vd pages:new_message
+        // single message event); pages:update_conversation luôn có unread_count.
+        const eventUnread =
+            typeof event.unread_count === 'number'
+                ? event.unread_count
+                : typeof event.unreadCount === 'number'
+                  ? event.unreadCount
+                  : null;
+        if (eventUnread !== null && eventUnread >= 0) {
+            existing.inboxCount = eventUnread;
+        } else {
+            existing.inboxCount = (existing.inboxCount || 0) + 1;
+        }
+
+        // Update customerName nếu event có (server WS push có from.name)
+        const evName = event.customerName || event.customer_name || event.from?.name;
+        if (evName && !existing.customerName) existing.customerName = evName;
 
         existing.snippet = event.snippet || event.message || existing.snippet;
-        existing.timestamp = Date.now();
+        existing.timestamp = eventTimeMs || Date.now();
 
         // Persist to localStorage
         _saveToLocalStorage();
@@ -199,7 +289,17 @@
      */
     function setPendingCustomers(customers) {
         if (!customers || !customers.length) {
-            // Server returned empty — keep existing data (from localStorage/realtime)
+            // Server returned empty → server là authoritative source. Clear local
+            // localStorage để đồng bộ với server (sau wipe / reset toàn bộ DB).
+            // Trước đây "keep existing" gây stale: server đã wipe nhưng client vẫn
+            // hiện badge cũ từ localStorage cho tới khi nhận event mới.
+            // Lưu ý: chỉ ảnh hưởng khi client gọi _fetchOfflinePendingCustomers
+            // và server return success+empty — trường hợp lỗi network không gọi
+            // setPendingCustomers (đã catch trong _fetchOfflinePendingCustomers).
+            if (_pendingCustomers.length > 0) {
+                _pendingCustomers = [];
+                _saveToLocalStorage();
+            }
             reapply();
             return;
         }
@@ -208,15 +308,21 @@
         const merged = new Map();
 
         // Load existing first (from localStorage/realtime)
-        _pendingCustomers.forEach(pc => {
+        _pendingCustomers.forEach((pc) => {
             const key = String(pc.psid || '');
             if (key) merged.set(key, { ...pc });
         });
 
-        // Merge server data (take higher count — server accumulates while browser offline)
-        customers.forEach(pc => {
+        // Merge server data — bỏ qua entry server nào đã được user reply rồi
+        // (server có thể lag chưa cập nhật DELETE từ /api/realtime/mark-replied,
+        // hoặc có entry với last_message_time <= repliedAt là tin cũ trước reply).
+        customers.forEach((pc) => {
             const key = String(pc.psid || '');
             if (!key) return;
+
+            // Skip nếu user đã reply sau khi nhận tin này
+            if (_wasRecentlyReplied(key, pc.timestamp)) return;
+
             const existing = merged.get(key);
             if (existing) {
                 existing.inboxCount = Math.max(existing.inboxCount || 0, pc.inboxCount || 0);
@@ -225,6 +331,10 @@
                     existing.timestamp = pc.timestamp;
                 }
                 existing.pageId = pc.pageId || existing.pageId;
+                // Preserve customerName: ưu tiên server data (mới hơn local cache).
+                if (pc.customerName || pc.customer_name) {
+                    existing.customerName = pc.customerName || pc.customer_name;
+                }
             } else {
                 merged.set(key, { ...pc });
             }
@@ -240,10 +350,14 @@
      */
     function clearPendingForCustomer(psid) {
         if (!psid) return;
-        _pendingCustomers = _pendingCustomers.filter(pc =>
-            String(pc.psid || pc.from_psid || '') !== String(psid)
+        _pendingCustomers = _pendingCustomers.filter(
+            (pc) => String(pc.psid || pc.from_psid || '') !== String(psid)
         );
+        // Đánh dấu thời điểm reply để chặn server stale data + WS echo broadcast
+        // re-add cùng psid trong vòng 24h tới (xem _wasRecentlyReplied).
+        _recentlyRepliedAt[String(psid)] = Date.now();
         _saveToLocalStorage();
+        _saveRepliedMap();
         reapply();
     }
 
@@ -254,10 +368,10 @@
         _pendingCustomers = [];
         _saveToLocalStorage();
         // Remove all highlights
-        document.querySelectorAll('.pending-customer-row').forEach(row => {
+        document.querySelectorAll('.pending-customer-row').forEach((row) => {
             row.classList.remove('pending-customer-row');
         });
-        document.querySelectorAll('.new-msg-badge').forEach(el => el.remove());
+        document.querySelectorAll('.new-msg-badge').forEach((el) => el.remove());
     }
 
     // =====================================================
@@ -268,14 +382,17 @@
         if (!window.realtimeManager) return;
 
         window.realtimeManager.on('pages:new_message', (payload) => {
-            // Pancake raw format: { message: { from: { id } }, page_id, conversation_id }
+            // Pancake raw format: { message: { from: { id, name } }, page_id, conversation_id }
             const msg = payload?.message || payload;
+            const ts = msg?.inserted_at || msg?.created_at || payload?.inserted_at;
             const normalized = {
                 psid: String(msg?.from?.id || payload?.from_psid || payload?.from?.id || ''),
                 pageId: String(payload?.page_id || msg?.page_id || ''),
+                customerName: msg?.from?.name || payload?.from?.name || '',
                 snippet: msg?.message || msg?.original_message || '',
                 type: 'INBOX',
                 inboxCount: 1,
+                eventTimeMs: ts ? new Date(ts).getTime() : Date.now(),
             };
             if (normalized.psid) onNewConversationEvent(normalized);
         });
@@ -285,22 +402,61 @@
             const conv = payload?.conversation || payload;
             const unread = conv?.unread_count || payload?.unread_count || 0;
             const snippet = conv?.snippet || '';
-            const fromId = String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || '');
+            const convType = conv?.type || 'INBOX';
+            const fromId = String(
+                conv?.from_psid ||
+                    conv?.from?.id ||
+                    conv?.customers?.[0]?.fb_id ||
+                    payload?.from_psid ||
+                    ''
+            );
             const pageId = String(conv?.page_id || payload?.page_id || '');
+            const ts = conv?.updated_at || conv?.last_sent_at || payload?.updated_at;
+
+            // Shop là người gửi cuối → conversation đã được shop xử lý/reply.
+            // Pancake không phải lúc nào cũng auto-clear unread_count khi shop reply
+            // qua direct API → ta tự detect và force clear.
+            // User báo bug: snippet "...Nv.My" (Nv signature = shop reply) nhưng
+            // count vẫn 285. Detection dùng last_sent_by.id === pageId.
+            const lastSentById = String(
+                conv?.last_sent_by?.id ||
+                    conv?.last_message?.from?.id ||
+                    payload?.last_sent_by?.id ||
+                    ''
+            );
+            const shopSentLast = !!lastSentById && lastSentById === pageId;
 
             // Reactions: unread_count=0, seen=true, but snippet starts with [emoji Name]
-            // e.g. "[❤ Huỳnh Thành Đạt] ...\nNv. Administrator"
-            const isReaction = unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
+            const isReaction =
+                unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
 
-            if (unread > 0 || isReaction) {
+            // Force unread=0 khi shop sent last (override Pancake's value).
+            const effectiveUnread = shopSentLast ? 0 : unread;
+
+            if (effectiveUnread > 0 || (isReaction && !shopSentLast)) {
+                const customerName =
+                    conv?.from?.name || conv?.customers?.[0]?.name || payload?.from?.name || '';
                 const normalized = {
                     psid: fromId,
                     pageId: pageId,
+                    customerName,
                     snippet: snippet,
-                    type: conv?.type || 'INBOX',
-                    unread_count: unread || 1,
+                    type: convType,
+                    unread_count: effectiveUnread || 1,
+                    eventTimeMs: ts ? new Date(ts).getTime() : Date.now(),
                 };
                 if (normalized.psid) onNewConversationEvent(normalized);
+                return;
+            }
+
+            // unread = 0 (hoặc shop-sent-last) cho INBOX = shop staff đọc/reply.
+            // Clear local badge → multi-user sync. Skip COMMENT events.
+            if (convType === 'INBOX' && fromId && fromId !== pageId) {
+                if (
+                    _pendingCustomers.some((pc) => String(pc.psid || pc.from_psid || '') === fromId)
+                ) {
+                    clearPendingForCustomer(fromId);
+                }
             }
         });
     }
@@ -355,5 +511,4 @@
         clearAll,
         getPendingCustomers: () => [..._pendingCustomers],
     };
-
 })();

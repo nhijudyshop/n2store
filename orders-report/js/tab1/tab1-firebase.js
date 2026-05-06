@@ -104,7 +104,7 @@ async function emitTagUpdateToFirebase(orderId, tags) {
 
     try {
         // Get current order data - O(1) via OrderStore with fallback
-        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+        const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
         if (!order) {
             console.warn('[TAG-REALTIME] Order not found in allData:', orderId);
             return;
@@ -127,13 +127,12 @@ async function emitTagUpdateToFirebase(orderId, tags) {
             STT: order.SessionIndex || 0,
             tags: normalizedTags, // Array of tag objects (can be empty array)
             updatedBy: userName,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
         };
 
         // Write to Firebase path: /tag_updates/{orderId}
         const refPath = `tag_updates/${orderId}`;
         await database.ref(refPath).set(updateData);
-
     } catch (error) {
         console.error('[TAG-REALTIME] ❌ Error emitting tag update:', error);
         console.error('[TAG-REALTIME] Error stack:', error.stack);
@@ -216,7 +215,7 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     // ✅ FIX SCROLL ISSUE: Check if order is in DISPLAYED data (after employee filter)
     // This prevents unnecessary re-renders for orders not in current user's view
-    const orderInDisplayed = displayedData.find(o => o.Id === orderId);
+    const orderInDisplayed = displayedData.find((o) => o.Id === orderId);
     if (!orderInDisplayed) {
         // Still update OrderStore and allData silently for data consistency
 
@@ -225,7 +224,7 @@ function handleRealtimeTagUpdate(updateData, source) {
             window.OrderStore.update(orderId, { Tags: JSON.stringify(normalizedTags) });
         } else {
             // Fallback to findIndex if OrderStore not ready
-            const indexInAll = allData.findIndex(o => o.Id === orderId);
+            const indexInAll = allData.findIndex((o) => o.Id === orderId);
             if (indexInAll !== -1) {
                 allData[indexInAll].Tags = JSON.stringify(normalizedTags);
             }
@@ -272,27 +271,33 @@ function updateTagCellOnly(orderId, orderCode, tags) {
 
     // Vẫn cập nhật filteredData và displayedData vì chúng là các arrays riêng
     // (không share reference với OrderStore trong trường hợp filter đã tạo copies mới)
-    const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
+    const indexInFiltered = filteredData.findIndex((order) => order.Id === orderId);
     if (indexInFiltered !== -1) {
         filteredData[indexInFiltered].Tags = tagsJson;
     }
 
-    const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
+    const indexInDisplayed = displayedData.findIndex((order) => order.Id === orderId);
     if (indexInDisplayed !== -1) {
         displayedData[indexInDisplayed].Tags = tagsJson;
     }
 
     // 2. Find the row in DOM by checkbox value
-    const checkbox = document.querySelector(`#tableBody input[type="checkbox"][value="${orderId}"]`);
+    const checkbox = document.querySelector(
+        `#tableBody input[type="checkbox"][value="${orderId}"]`
+    );
     if (!checkbox) {
         // Order might be in employee section tables
-        const allCheckboxes = document.querySelectorAll(`input[type="checkbox"][value="${orderId}"]`);
+        const allCheckboxes = document.querySelectorAll(
+            `input[type="checkbox"][value="${orderId}"]`
+        );
         if (allCheckboxes.length === 0) {
             return;
         }
     }
 
-    const row = checkbox ? checkbox.closest('tr') : document.querySelector(`input[type="checkbox"][value="${orderId}"]`)?.closest('tr');
+    const row = checkbox
+        ? checkbox.closest('tr')
+        : document.querySelector(`input[type="checkbox"][value="${orderId}"]`)?.closest('tr');
     if (!row) {
         return;
     }
@@ -351,13 +356,11 @@ window.testTagListeners = function () {
     const currentUser = auth && auth.displayName ? auth.displayName : 'Unknown';
     if (database) {
         // Add a one-time listener to test
-        database.ref('tag_updates').once('value', (snapshot) => {
-        });
+        database.ref('tag_updates').once('value', (snapshot) => {});
 
         // Listen for any changes
         const testRef = database.ref('tag_updates');
-        const testListener = (snapshot) => {
-        };
+        const testListener = (snapshot) => {};
 
         testRef.on('child_changed', testListener);
         // Cleanup after 30 seconds
@@ -365,121 +368,17 @@ window.testTagListeners = function () {
             testRef.off('child_changed', testListener);
         }, 30000);
     }
-
 };
 
 // =====================================================
-// KPI BASE STATUS PRELOAD #FIREBASE
+// KPI BASE STATUS — REMOVED (badge 🔒 không còn hiển thị)
+// Trước đây track ordersWithKPIBase + render <span.kpi-base-indicator> ổ khóa
+// xanh ở cột STT để admin biết đơn nào đã snapshot baseline. Loại bỏ theo yêu
+// cầu user. KPI snapshot vẫn lưu Firebase path 'kpi_base' qua kpi-manager.js,
+// chỉ không vẽ badge nữa.
 // =====================================================
-
-/**
- * Preload KPI BASE status for all orders
- * This allows synchronous checking in createRowHTML
- */
-async function preloadKPIBaseStatus() {
-    if (!database) {
-        console.warn('[KPI-BASE] Firebase database not available');
-        return;
-    }
-
-    try {
-        const snapshot = await database.ref('kpi_base').once('value');
-        const allBases = snapshot.val() || {};
-
-        // Clear and rebuild the cache
-        ordersWithKPIBase.clear();
-        for (const orderId in allBases) {
-            ordersWithKPIBase.add(orderId);
-        }
-
-        // Re-render table if data is already loaded
-        if (allData && allData.length > 0) {
-            performTableSearch();
-        }
-    } catch (error) {
-        console.error('[KPI-BASE] Error preloading BASE status:', error);
-    }
-}
-
-/**
- * Setup realtime listener for KPI BASE changes
- */
-function setupKPIBaseRealtimeListener() {
-    if (!database) return;
-
-    // Cleanup existing listener before setting up new one
-    cleanupKPIBaseRealtimeListener();
-
-    // Store reference for cleanup
-    kpiBaseRef = database.ref('kpi_base');
-
-    kpiBaseRef.on('child_added', (snapshot) => {
-        const orderId = snapshot.key;
-        ordersWithKPIBase.add(orderId);
-        // Update the specific row if visible
-        updateKPIBaseIndicator(orderId, true);
-    });
-
-    kpiBaseRef.on('child_removed', (snapshot) => {
-        const orderId = snapshot.key;
-        ordersWithKPIBase.delete(orderId);
-        // Update the specific row if visible
-        updateKPIBaseIndicator(orderId, false);
-    });
-
-}
-
-/**
- * Update KPI BASE indicator for a specific order row
- */
-function updateKPIBaseIndicator(orderId, hasBase) {
-    // Find the row by order ID
-    const checkbox = document.querySelector(`input[type="checkbox"][value="${orderId}"]`);
-    if (!checkbox) return;
-
-    const row = checkbox.closest('tr');
-    if (!row) return;
-
-    const sttCell = row.querySelector('td[data-column="stt"]');
-    if (!sttCell) return;
-
-    // Check if indicator already exists
-    let indicator = sttCell.querySelector('.kpi-base-indicator');
-
-    if (hasBase && !indicator) {
-        // Add indicator
-        const div = sttCell.querySelector('div') || sttCell;
-        const indicatorEl = document.createElement('span');
-        indicatorEl.className = 'kpi-base-indicator';
-        indicatorEl.title = 'Đã lưu BASE tính KPI';
-        indicatorEl.innerHTML = '<i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i>';
-        indicatorEl.style.marginLeft = '4px';
-        div.appendChild(indicatorEl);
-    } else if (!hasBase && indicator) {
-        // Remove indicator
-        indicator.remove();
-    }
-}
-
-// Store KPI Base reference for cleanup
-let kpiBaseRef = null;
-
-/**
- * Cleanup KPI Base realtime listeners to prevent memory leaks
- */
-function cleanupKPIBaseRealtimeListener() {
-    if (kpiBaseRef) {
-        kpiBaseRef.off();
-        kpiBaseRef = null;
-    }
-}
 
 // Cleanup all Firebase listeners on page unload
 window.addEventListener('beforeunload', () => {
     cleanupTagRealtimeListeners();
-    cleanupKPIBaseRealtimeListener();
 });
-
-// Export cleanup function for external use
-window.cleanupKPIBaseRealtimeListener = cleanupKPIBaseRealtimeListener;
-

@@ -134,6 +134,35 @@ window.TPOSProductCreator = (function () {
     }
 
     /**
+     * Resolve free-text variant string ("Trắng, S" or "Trắng") to UUIDs từ attrValueMap.
+     * Match: case-insensitive + remove diacritics. Trả về [] nếu không match được.
+     * Dùng khi item có variant text nhưng selectedAttributeValueIds rỗng (vd nhập tay).
+     */
+    function resolveVariantTextToIds(variantText) {
+        if (!variantText || !attrValueMap) return [];
+        const tokens = String(variantText)
+            .split(/[\/,|]/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        if (tokens.length === 0) return [];
+        const norm = (s) => removeDiacritics(String(s).trim().toUpperCase());
+        const ids = [];
+        for (const token of tokens) {
+            const tokenN = norm(token);
+            let matched = null;
+            for (const [uuid, val] of attrValueMap) {
+                if (norm(val.value) === tokenN || norm(val.code) === tokenN) {
+                    matched = uuid;
+                    break;
+                }
+            }
+            if (matched) ids.push(matched);
+            else console.warn(`[TPOSCreator] Variant text "${token}" không match attribute value`);
+        }
+        return ids;
+    }
+
+    /**
      * Group resolved attribute values by attribute_id
      * Returns Map<attribute_id, value[]> sorted by display_order
      */
@@ -595,6 +624,18 @@ window.TPOSProductCreator = (function () {
      *   variants: [{ Id, DefaultCode, ProductTmplId, Barcode, NameGet, AttributeValues }]
      */
     async function checkProductExists(productCode) {
+        // Step 1: Check qua warehouse cache (Render DB) trước — nhanh hơn TPOS OData,
+        // ít rate-limit. Chỉ khi server warehouse lỗi (5xx/network) mới fallback TPOS.
+        const warehouseResult = await _checkProductInWarehouse(productCode);
+        if (warehouseResult.ok) {
+            // Warehouse trả lời thành công → tin vào kết quả (kể cả empty)
+            return { exists: warehouseResult.exists, variants: warehouseResult.variants };
+        }
+
+        // Step 2: Warehouse server lỗi → fallback TPOS OData (nguồn truth gốc)
+        console.warn(
+            `[TPOSCreator] Warehouse lỗi cho ${productCode} (${warehouseResult.error}) → fallback TPOS OData`
+        );
         try {
             // startswith bao hàm cả exact match và biến thể (Q130 → Q130, Q130T, Q130D…)
             const url = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode,'${encodeURIComponent(productCode)}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet,AttributeValues`;
@@ -617,6 +658,48 @@ window.TPOSProductCreator = (function () {
         } catch (err) {
             console.warn(`[TPOSCreator] checkProductExists ${productCode} error:`, err);
             return { exists: false, variants: [] };
+        }
+    }
+
+    /**
+     * Check sản phẩm trong warehouse cache (Render DB qua /search).
+     * @param {string} productCode
+     * @returns {Promise<{ok: boolean, exists?: boolean, variants?: Array, error?: string}>}
+     *   - ok=true: warehouse trả lời thành công (dùng exists/variants)
+     *   - ok=false: server lỗi/timeout → caller fallback TPOS
+     */
+    async function _checkProductInWarehouse(productCode) {
+        if (!window.WarehouseAPI || typeof window.WarehouseAPI.search !== 'function') {
+            return { ok: false, error: 'WarehouseAPI not loaded' };
+        }
+        const BASE_URL = window.WarehouseAPI.BASE_URL;
+        // Direct fetch để biết HTTP status — WarehouseAPI.search nuốt error trả [].
+        try {
+            const url = `${BASE_URL}/search?q=${encodeURIComponent(productCode)}&limit=50`;
+            const resp = await fetch(url);
+            if (!resp.ok) {
+                // 5xx server error → fallback TPOS; 4xx vẫn coi là lỗi để fallback an toàn.
+                return { ok: false, error: `HTTP ${resp.status}` };
+            }
+            const result = await resp.json();
+            const rows = result.data || [];
+            const re = new RegExp(
+                `^${productCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Z0-9]{0,4}$`,
+                'i'
+            );
+            const matches = rows.filter((r) => re.test(r.product_code || ''));
+            // Map sang shape giống TPOS variants để downstream code dùng được.
+            const variants = matches.map((r) => ({
+                Id: r.tpos_product_id,
+                DefaultCode: r.product_code,
+                Barcode: r.product_code,
+                NameGet: r.name_get || r.product_name,
+                ProductTmplId: r.tpos_template_id,
+                AttributeValues: null,
+            }));
+            return { ok: true, exists: variants.length > 0, variants };
+        } catch (err) {
+            return { ok: false, error: err.message || 'network' };
         }
     }
 
@@ -891,7 +974,10 @@ window.TPOSProductCreator = (function () {
      */
     async function processGroup(orderId, groupItems) {
         // Skip if all items already synced to TPOS
-        if (groupItems.every((i) => i.tposSynced)) {
+        // Skip nếu mọi item trong group đã sync thành công lần trước (tposSyncStatus=success
+        // ở Firestore/PG → tposSynced=true). Items có tposProductId/_fromWarehouse từ kho
+        // KHÔNG skip ở đây — cần verify thực tế qua checkProductExists (TPOS có thể đã xoá).
+        if (groupItems.every((i) => i.tposSynced && !i._fromWarehouse)) {
             console.log(`[TPOSCreator] Skipping ${groupItems[0].productCode} — already synced`);
             return { success: true, productCode: groupItems[0].productCode, skipped: true };
         }
@@ -1144,6 +1230,29 @@ window.TPOSProductCreator = (function () {
             // Step 1: Load attribute CSV data
             await loadAttributeData();
 
+            // Step 1b: Auto-resolve free-text variants → selectedAttributeValueIds.
+            // User có thể chỉ điền text "Trắng"/"Đen" mà không qua nested variant picker
+            // → selectedAttributeValueIds rỗng. Match text với attrValueMap để build UUIDs,
+            // nhờ đó processGroup phát hiện CASE 2 (có variants) → upload AttributeLines +
+            // ProductVariants → sau khi TPOS gán DefaultCode (vd N4107T/N4107D) thì
+            // matchVariantBarcodes sẽ cập nhật item.productCode về.
+            for (const item of items) {
+                if (
+                    item &&
+                    item.variant &&
+                    (!Array.isArray(item.selectedAttributeValueIds) ||
+                        item.selectedAttributeValueIds.length === 0)
+                ) {
+                    const ids = resolveVariantTextToIds(item.variant);
+                    if (ids.length > 0) {
+                        item.selectedAttributeValueIds = ids;
+                        console.log(
+                            `[TPOSCreator] Auto-resolved variant "${item.variant}" → ${ids.length} attribute value(s)`
+                        );
+                    }
+                }
+            }
+
             // Step 2: Group items
             const groups = groupOrderItems(items);
             if (groups.size === 0) {
@@ -1151,10 +1260,39 @@ window.TPOSProductCreator = (function () {
                 return;
             }
 
-            console.log(`[TPOSCreator] ${groups.size} product groups to sync`);
+            // Pre-filter chỉ skip groups đã thực sự sync xong lần trước (tposSyncStatus=success
+            // → tposSynced=true ở mọi item, không có _fromWarehouse). Items có mark TPOS từ kho
+            // (tposProductId/_fromWarehouse) PHẢI vào processGroup để verify thật trên TPOS qua
+            // checkProductExists (mã có thể đã bị xoá khỏi TPOS).
+            const skippedGroups = [];
+            const pendingGroups = new Map();
+            for (const [k, gItems] of groups) {
+                const allFinishedBefore = gItems.every(
+                    (i) => i.tposSynced && !i._fromWarehouse && !i.tposSyncError
+                );
+                if (allFinishedBefore) {
+                    skippedGroups.push(k);
+                } else {
+                    pendingGroups.set(k, gItems);
+                }
+            }
+            if (skippedGroups.length > 0) {
+                console.log(
+                    `[TPOSCreator] Skip ${skippedGroups.length} groups đã sync xong lần trước: ${skippedGroups.join(', ')}`
+                );
+            }
 
-            // Step 3: Process groups in parallel batches
-            const groupEntries = [...groups.entries()];
+            if (pendingGroups.size === 0) {
+                console.log('[TPOSCreator] No pending groups — đã sync hết');
+                return;
+            }
+
+            console.log(
+                `[TPOSCreator] ${pendingGroups.size} groups cần verify/sync (${skippedGroups.length} đã sync trước)`
+            );
+
+            // Step 3: Process groups in parallel batches (chỉ groups chưa sync)
+            const groupEntries = [...pendingGroups.entries()];
             console.log(
                 `[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of ${TPOS_SYNC_CONCURRENCY}`
             );
@@ -1379,6 +1517,7 @@ window.TPOSProductCreator = (function () {
         loadAttributeData,
         groupOrderItems,
         resolveAttributeValues,
+        resolveVariantTextToIds,
         buildBasePayload,
         buildAttributeLines,
         buildProductVariants,

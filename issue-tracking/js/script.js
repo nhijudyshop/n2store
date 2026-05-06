@@ -25,6 +25,17 @@ let appSettings = { ...DEFAULT_SETTINGS };
 // Notification Manager instance
 let notificationManager = null;
 
+// Strip Vietnamese diacritics for accent-insensitive search ("Diem" matches "Diễm", "đat" matches "Đạt")
+function stripAccent(str) {
+    if (!str) return '';
+    return String(str)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase();
+}
+
 // DOM Elements
 const elements = {
     tabs: document.querySelectorAll('.tab-btn'),
@@ -207,9 +218,7 @@ function initTabs() {
             btn.classList.add('active');
             const activeTab =
                 document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
-            const term = (document.getElementById('search-ticket')?.value || '')
-                .toLowerCase()
-                .trim();
+            const term = stripAccent(document.getElementById('search-ticket')?.value || '').trim();
             renderDashboard(activeTab, term);
         });
     });
@@ -236,7 +245,7 @@ function initModalHandlers() {
     const searchInput = document.getElementById('search-ticket');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase().trim();
+            const term = stripAccent(e.target.value).trim();
             const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
             const localCount = renderDashboard(activeTab, term);
 
@@ -248,7 +257,7 @@ function initModalHandlers() {
                         const serverResults = await ApiService.searchTicketsServer(term);
                         if (
                             serverResults.length > 0 &&
-                            searchInput.value.toLowerCase().trim() === term
+                            stripAccent(searchInput.value).trim() === term
                         ) {
                             // Merge server results into TICKETS (avoid duplicates)
                             const existingIds = new Set(TICKETS.map((t) => t.ticketCode));
@@ -277,9 +286,7 @@ function initModalHandlers() {
     if (filterDateCreated) {
         filterDateCreated.addEventListener('change', () => {
             const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-            const term = (document.getElementById('search-ticket')?.value || '')
-                .toLowerCase()
-                .trim();
+            const term = stripAccent(document.getElementById('search-ticket')?.value || '').trim();
             renderDashboard(activeTab, term);
         });
     }
@@ -336,6 +343,70 @@ function initModalHandlers() {
     } else {
         console.warn('[INIT] issue-type-select element NOT FOUND');
     }
+}
+
+/**
+ * Parse giá đã giảm từ Note OrderLine TPOS.
+ * TPOS lưu per-line discount qua Note: "10k", "22k", "100K (NÂU)", "sale 200k còn"
+ * → trả về số tiền (giá thật khách trả, đã giảm). 0 nếu không có pattern.
+ *
+ * Mirror parseDiscountFromNoteSale ở orders-report/tab1-sale.js.
+ */
+function parseDiscountedPriceFromNote(note) {
+    if (!note || typeof note !== 'string') return 0;
+    const cleanNote = note.trim().toLowerCase();
+    if (!cleanNote) return 0;
+    const kMatch = cleanNote.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*k(?:\s|$|\(|\))/i);
+    if (kMatch) {
+        const num = parseFloat(kMatch[1].replace(',', '.'));
+        return Math.round(num * 1000);
+    }
+    const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (plainMatch) {
+        const numStr = plainMatch[1].replace(/[.,]/g, '');
+        const num = parseInt(numStr, 10);
+        if (num >= 1000) return num;
+        if (num > 0) return num * 1000;
+    }
+    return 0;
+}
+
+/**
+ * Lấy giá thật (sau giảm) cho 1 OrderLine. Ưu tiên parseDiscountedPriceFromNote
+ * (per-line discount qua Note). Fallback PriceUnit khi note không có giảm.
+ */
+function getEffectivePriceForLine(product) {
+    if (!product) return 0;
+    const priceUnit = parseFloat(product.price) || 0;
+    const noteDiscounted = parseDiscountedPriceFromNote(product.note || '');
+    if (noteDiscounted > 0 && noteDiscounted < priceUnit) {
+        return noteDiscounted;
+    }
+    return priceUnit;
+}
+
+/**
+ * Tính số tiền hoàn cho hàng trả về, sử dụng giá đã giảm per-line từ Note.
+ *
+ * Lý do: TPOS lưu giảm giá PER-LINE trong Note OrderLine (vd "10k" = SP giảm
+ * còn 10K). order.decreaseAmount là TỔNG của các giảm này, KHÔNG phải giảm
+ * order-level chia đều. Logic cũ dùng tỷ lệ (subtotal-decrease)/subtotal SAI
+ * khi discount phân bố không đều giữa SP. Vd đơn 200K + 222K + 370K, giảm
+ * 190K (SP 200K → còn 10K) + 200K (SP 222K → còn 22K) + 0K (SP 370K không
+ * giảm). Trả SP 370K → hoàn 370K (không giảm). Trả SP 200K → chỉ hoàn 10K
+ * (đã giảm). Logic mới: refund = effectivePrice × qty.
+ *
+ * @param {Array<{price:number, returnQuantity:number, note?:string}>} products
+ * @returns {number} Refund amount
+ */
+function computeRefundWithDiscount(products, _order) {
+    if (!Array.isArray(products) || products.length === 0) return 0;
+    const raw = products.reduce((sum, p) => {
+        const effPrice = getEffectivePriceForLine(p);
+        const qty = parseFloat(p.returnQuantity) || 0;
+        return sum + effPrice * qty;
+    }, 0);
+    return Math.round(raw);
 }
 
 /**
@@ -478,6 +549,15 @@ async function selectOrder(order) {
     // Reset issue type and related UI when selecting a new order
     document.getElementById('issue-type-select').value = '';
     document.getElementById('ticket-note').value = '';
+
+    // Reset refund-amount section
+    refundAmountManuallyEdited = false;
+    const refundAmountGroup = document.getElementById('refund-amount-group');
+    if (refundAmountGroup) refundAmountGroup.classList.add('hidden');
+    const refundAmountInputReset = document.getElementById('refund-amount-input');
+    if (refundAmountInputReset) refundAmountInputReset.value = '';
+    const compInputReset = document.getElementById('customer-compensation-input');
+    if (compInputReset) compInputReset.value = 0;
 
     // Reset RETURN_OLD_ORDER UI section
     const oldOrdersList = document.getElementById('old-orders-list');
@@ -629,15 +709,25 @@ async function selectOrder(order) {
             );
             document.getElementById('res-cod').textContent = formatCurrency(details.cod);
 
-            // Generate product checklist for partial return (with quantity input)
+            // Generate product checklist for partial return (with quantity input).
+            // Per-line discount: TPOS lưu giảm giá trong Note OrderLine (vd "10k"
+            // = giá còn 10K). getEffectivePriceForLine parse note → giá thật
+            // khách trả. Hiển thị "discountedPrice (gốc)" khi có discount.
             checklist.innerHTML = details.products
-                .map(
-                    (p) => `
+                .map((p) => {
+                    const priceUnit = parseFloat(p.price) || 0;
+                    const effectivePrice = getEffectivePriceForLine(p);
+                    const hasDiscount = effectivePrice < priceUnit;
+                    const priceLabel = hasDiscount
+                        ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(effectivePrice)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(priceUnit)}</span>`
+                        : formatCurrency(priceUnit);
+                    return `
                 <div class="checkbox-item" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:4px;">
                     <input type="checkbox" value="${p.id}" id="prod-${p.id}" checked
-                           data-price="${p.price}" data-qty="${p.quantity}"
+                           data-price="${priceUnit}" data-discounted-price="${effectivePrice}" data-qty="${p.quantity}"
+                           data-note="${(p.note || '').replace(/"/g, '&quot;')}"
                            onchange="updateCodReduceFromProducts()" style="margin:0;">
-                    <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${formatCurrency(p.price)}</label>
+                    <label for="prod-${p.id}" style="flex:1;margin:0;cursor:pointer;">[${p.code}] ${p.name} - ${priceLabel}</label>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span style="font-size:11px;color:#64748b;">SL:</span>
                         <input type="number"
@@ -649,8 +739,8 @@ async function selectOrder(order) {
                                style="width:50px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:3px;text-align:center;font-size:12px;">
                     </div>
                 </div>
-            `
-                )
+            `;
+                })
                 .join('');
         } else {
             // No products found
@@ -867,6 +957,9 @@ function handleIssueTypeChange(e) {
         }
     }
 
+    // Show/hide editable refund-amount section (RETURN_SHIPPER + RETURN_CLIENT only)
+    syncRefundAmountSection(issueType);
+
     console.log('[DEBUG] Final state:', {
         fixCodHidden: fixCodGroup?.classList.contains('hidden'),
         returnHidden: returnGroup?.classList.contains('hidden'),
@@ -980,7 +1073,9 @@ window.toggleCodReduceEdit = function () {
     }
 };
 
-// Calculate COD reduce from selected products (for REJECT_PARTIAL)
+// Calculate COD reduce from selected products (for REJECT_PARTIAL).
+// Ưu tiên discounted-price (giá sau giảm) — số tiền khách thật sự trả cho mỗi
+// SP. Nếu data-discounted-price không có (đơn không discount), fallback price.
 function updateCodReduceFromProducts() {
     const checkedInputs = document.querySelectorAll(
         '#product-checklist input[type="checkbox"]:checked'
@@ -991,16 +1086,134 @@ function updateCodReduceFromProducts() {
         const productId = cb.value;
         const qtyInput = document.getElementById(`prod-qty-${productId}`);
         const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-        const price = parseFloat(cb.dataset.price) || 0;
+        const discountedPrice = parseFloat(cb.dataset.discountedPrice);
+        const price = Number.isFinite(discountedPrice)
+            ? discountedPrice
+            : parseFloat(cb.dataset.price) || 0;
         totalReduce += price * qty;
     });
 
     document.getElementById('cod-reduce-amount').value = totalReduce;
     calculateCodRemaining();
+
+    // Also refresh editable refund-amount section if it's currently visible
+    // (RETURN_SHIPPER / RETURN_CLIENT). Safe no-op when hidden.
+    const refundGroup = document.getElementById('refund-amount-group');
+    if (refundGroup && !refundGroup.classList.contains('hidden')) {
+        updateRefundAmountFromProducts();
+    }
 }
 
 // Expose for checkbox/quantity change events
 window.updateCodReduceFromProducts = updateCodReduceFromProducts;
+
+// ==========================================================================
+// Refund Amount (Tổng tiền thu về / Khách gửi) — editable + customer comp
+// ==========================================================================
+// Tracks whether user manually edited the refund amount input. When true, do
+// NOT auto-recompute on product checkbox change — preserve user's value.
+let refundAmountManuallyEdited = false;
+
+function getCheckedReturnProducts() {
+    const checked = document.querySelectorAll('#product-checklist input[type="checkbox"]:checked');
+    return Array.from(checked).map((cb) => {
+        const productId = cb.value;
+        const qtyInput = document.getElementById(`prod-qty-${productId}`);
+        const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+        const product = selectedOrder?.products?.find((p) => String(p.id) === String(productId));
+        return { ...product, returnQuantity: returnQty };
+    });
+}
+
+function computeAutoRefundAmount() {
+    return computeRefundWithDiscount(getCheckedReturnProducts(), selectedOrder);
+}
+
+window.updateRefundFinalDisplay = function () {
+    const refundInput = document.getElementById('refund-amount-input');
+    const compInput = document.getElementById('customer-compensation-input');
+    const finalDisplay = document.getElementById('refund-final-display');
+    if (!refundInput || !compInput || !finalDisplay) return;
+
+    const refund = parseInt(refundInput.value) || 0;
+    const comp = parseInt(compInput.value) || 0;
+    const final = Math.max(0, refund - comp);
+    finalDisplay.textContent = formatCurrency(final);
+};
+
+window.onRefundAmountManualEdit = function () {
+    refundAmountManuallyEdited = true;
+    updateRefundFinalDisplay();
+};
+
+window.toggleRefundAmountEdit = function () {
+    const refundInput = document.getElementById('refund-amount-input');
+    const editBtn = document.getElementById('btn-edit-refund-amount');
+    if (!refundInput || !editBtn) return;
+
+    if (refundInput.readOnly) {
+        // Unlock for manual editing
+        refundInput.readOnly = false;
+        refundInput.style.backgroundColor = '';
+        refundInput.focus();
+        editBtn.innerHTML = '🔒';
+        editBtn.title = 'Khóa & tính tự động';
+    } else {
+        // Lock + recompute from products
+        refundInput.readOnly = true;
+        refundInput.style.backgroundColor = '#f1f5f9';
+        editBtn.innerHTML = '✏️';
+        editBtn.title = 'Chỉnh sửa thủ công';
+        refundAmountManuallyEdited = false;
+        updateRefundAmountFromProducts();
+    }
+};
+
+function updateRefundAmountFromProducts() {
+    const refundInput = document.getElementById('refund-amount-input');
+    if (!refundInput) return;
+    // Don't overwrite user's manual edit
+    if (refundAmountManuallyEdited && !refundInput.readOnly) {
+        updateRefundFinalDisplay();
+        return;
+    }
+    refundInput.value = computeAutoRefundAmount();
+    updateRefundFinalDisplay();
+}
+window.updateRefundAmountFromProducts = updateRefundAmountFromProducts;
+
+function syncRefundAmountSection(issueType) {
+    const group = document.getElementById('refund-amount-group');
+    const label = document.getElementById('refund-amount-label');
+    const refundInput = document.getElementById('refund-amount-input');
+    const editBtn = document.getElementById('btn-edit-refund-amount');
+    if (!group || !label || !refundInput) return;
+
+    const isReturn = issueType === 'RETURN_SHIPPER' || issueType === 'RETURN_CLIENT';
+    if (!isReturn) {
+        group.classList.add('hidden');
+        return;
+    }
+
+    label.textContent =
+        issueType === 'RETURN_CLIENT' ? 'Khách gửi (tổng tiền)' : 'Tổng tiền thu về';
+
+    // Reset to auto-computed mode each time type is (re)selected
+    refundAmountManuallyEdited = false;
+    refundInput.readOnly = true;
+    refundInput.style.backgroundColor = '#f1f5f9';
+    if (editBtn) {
+        editBtn.innerHTML = '✏️';
+        editBtn.title = 'Chỉnh sửa thủ công';
+    }
+
+    const compInput = document.getElementById('customer-compensation-input');
+    if (compInput) compInput.value = 0;
+
+    group.classList.remove('hidden');
+    updateRefundAmountFromProducts();
+}
+window.syncRefundAmountSection = syncRefundAmountSection;
 
 // Toggle all product checkboxes (select all / deselect all)
 window.toggleAllProducts = function (selectAll, containerId = 'product-checklist') {
@@ -1233,19 +1446,23 @@ async function handleSubmitTicket() {
             // Status: PENDING_GOODS (chờ hàng cũ về kho)
             status = 'PENDING_GOODS';
 
-            // Lấy sản phẩm được chọn từ đơn cũ (include productId và code for matching)
+            // Lấy sản phẩm được chọn từ đơn cũ. Dùng effectivePrice (giá sau
+            // giảm per-line) thay vì unitPrice — đảm bảo giá trị SP hoàn về
+            // khớp số khách thật trả cho SP đó.
             selectedProducts = Array.from(checkedOldOrderInputs).map((input) => {
                 const productId = input.value;
                 const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
                 const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
                 const unitPrice = parseInt(input.dataset.unitPrice) || 0;
+                const effPriceRaw = parseFloat(input.dataset.effectivePrice);
+                const effPrice = Number.isFinite(effPriceRaw) ? effPriceRaw : unitPrice;
 
                 return {
                     id: productId,
                     productId: input.dataset.productId || '',
                     code: input.dataset.code || '',
                     name: input.dataset.name,
-                    price: unitPrice * returnQty, // Tổng giá theo số lượng trả
+                    price: effPrice * returnQty, // Tổng giá sau giảm theo số lượng trả
                     quantity: parseInt(input.dataset.quantity) || 1,
                     returnQuantity: returnQty,
                 };
@@ -1287,8 +1504,17 @@ async function handleSubmitTicket() {
             };
         });
 
-        // Giá trị hoàn = tổng giá trị sản phẩm trả về
-        money = selectedProducts.reduce((sum, p) => sum + p.price * p.returnQuantity, 0);
+        // Giá trị hoàn = giá trị trong input "Tổng tiền thu về" / "Khách gửi" (auto
+        // tính từ SP × effectivePrice nhưng user có thể edit thủ công) TRỪ "Khách bù".
+        // Nếu input rỗng → fallback computeRefundWithDiscount để an toàn.
+        const refundInputEl = document.getElementById('refund-amount-input');
+        const compInputEl = document.getElementById('customer-compensation-input');
+        const refundEntered = refundInputEl ? parseInt(refundInputEl.value) : NaN;
+        const compEntered = compInputEl ? parseInt(compInputEl.value) || 0 : 0;
+        const refundBase = Number.isFinite(refundEntered)
+            ? refundEntered
+            : computeRefundWithDiscount(selectedProducts, selectedOrder);
+        money = Math.max(0, refundBase - compEntered);
     } else if (type === 'OTHER') {
         status = 'COMPLETED';
         money = 0;
@@ -1601,24 +1827,37 @@ async function handleConfirmAction() {
             // =====================================================
             // Credit wallet for RETURN_CLIENT only - ONLY if TPOS amount matches
             // RETURN_SHIPPER: virtual_credit đã được cấp khi TẠO ticket (không cộng lại ở đây)
-            // Validate "Tổng tiền" from PrintRefund HTML before crediting
+            // Validate refund amount: prefer JSON (refundAmountFromJson, structured) over
+            // HTML parser (refundAmountFromHtml, fragile regex). Đoan Nghi case 2026-05-06:
+            // HTML parser failed → wallet_credited=false. Fix: AmountTotal từ refund order
+            // JSON là source of truth, HTML chỉ là fallback an toàn.
             // =====================================================
             const compensationAmount = parseFloat(ticket.money) || 0;
             const customerPhone = ticket.phone;
             const refundAmountFromHtml = result.refundAmountFromHtml;
+            const refundAmountFromJson = result.refundAmountFromJson;
+            const refundAmountForValidation =
+                refundAmountFromJson != null ? refundAmountFromJson : refundAmountFromHtml;
 
             console.log(
                 '[APP] Wallet validation - Expected:',
                 compensationAmount,
+                'TPOS JSON:',
+                refundAmountFromJson,
                 'TPOS HTML:',
-                refundAmountFromHtml
+                refundAmountFromHtml,
+                'Used:',
+                refundAmountForValidation
             );
 
             // CHỈ cộng deposit cho RETURN_CLIENT (tiền thật khi hàng đã về)
             // RETURN_SHIPPER đã được cấp virtual_credit ngay khi tạo ticket
             if (compensationAmount > 0 && customerPhone && ticket.type === 'RETURN_CLIENT') {
                 // Validate: TPOS refund amount must match ticket.money
-                if (refundAmountFromHtml !== null && refundAmountFromHtml === compensationAmount) {
+                if (
+                    refundAmountForValidation !== null &&
+                    refundAmountForValidation === compensationAmount
+                ) {
                     try {
                         notificationManager.remove(loadingId);
                         loadingId = notificationManager.loading(
@@ -1675,12 +1914,14 @@ async function handleConfirmAction() {
                     console.error(
                         '[APP] Amount mismatch! Expected:',
                         compensationAmount,
-                        'TPOS:',
+                        'TPOS JSON:',
+                        refundAmountFromJson,
+                        'TPOS HTML:',
                         refundAmountFromHtml
                     );
                     notificationManager.warning(
-                        `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountFromHtml || 0).toLocaleString()}đ. Không tự động cộng ví.`,
-                        8000,
+                        `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountForValidation || 0).toLocaleString()}đ. Không tự động cộng ví — vào Customer 360 cộng tay.`,
+                        10000,
                         'Cảnh báo: Cần kiểm tra'
                     );
                 }
@@ -2309,13 +2550,14 @@ function renderDashboard(tabName, searchTerm = '') {
         filtered = filtered.filter((t) => t.type === typeFilter);
     }
 
-    // Filter by Search
+    // Filter by Search (accent-insensitive: "Diem" matches "Diễm")
     if (searchTerm) {
+        const termNoAccent = stripAccent(searchTerm);
         filtered = filtered.filter(
             (t) =>
-                (t.phone && t.phone.includes(searchTerm)) ||
-                (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
-                (t.customer && t.customer.toLowerCase().includes(searchTerm))
+                (t.phone && t.phone.includes(termNoAccent)) ||
+                (t.orderId && stripAccent(t.orderId).includes(termNoAccent)) ||
+                (t.customer && stripAccent(t.customer).includes(termNoAccent))
         );
     }
 
@@ -2800,6 +3042,15 @@ function resetCreateForm() {
     document.getElementById('issue-type-select').value = '';
     document.getElementById('ticket-note').value = '';
 
+    // Reset refund-amount section
+    refundAmountManuallyEdited = false;
+    const refundAmountGroupClose = document.getElementById('refund-amount-group');
+    if (refundAmountGroupClose) refundAmountGroupClose.classList.add('hidden');
+    const refundAmountInputClose = document.getElementById('refund-amount-input');
+    if (refundAmountInputClose) refundAmountInputClose.value = '';
+    const compInputClose = document.getElementById('customer-compensation-input');
+    if (compInputClose) compInputClose.value = 0;
+
     // Restore search section visibility (in case it was hidden by openOrderDetailModal)
     document.querySelector('.search-section label').style.display = '';
     document.querySelector('.search-section .input-group').style.display = '';
@@ -3165,6 +3416,9 @@ window.onOldOrderSelected = async function (orderIndex) {
             const details = await ApiService.getOrderDetails(selectedOldOrder.id);
             if (details && details.products) {
                 selectedOldOrder.products = details.products;
+                // Save amountTotal + decreaseAmount để áp tỷ lệ giảm giá khi render
+                selectedOldOrder.amountTotal = details.amountTotal;
+                selectedOldOrder.decreaseAmount = details.decreaseAmount;
                 // Update cached order data
                 orders[orderIndex] = selectedOldOrder;
                 container.dataset.orders = JSON.stringify(orders);
@@ -3198,9 +3452,21 @@ function renderOldOrderProducts(order) {
         return;
     }
 
+    // Per-line discount: TPOS lưu giảm giá trong Note OrderLine (vd "10k" =
+    // SP còn 10K). getEffectivePriceForLine parse note → giá thật. Hiển thị
+    // discountedTotal cho mỗi SP nếu có giảm.
     container.innerHTML = order.products
-        .map(
-            (product, idx) => `
+        .map((product, idx) => {
+            const priceUnit = parseFloat(product.price) || 0;
+            const qty = parseInt(product.quantity) || 0;
+            const origTotal = parseFloat(product.total) || priceUnit * qty;
+            const effPrice = getEffectivePriceForLine(product);
+            const discountedTotal = Math.round(effPrice * qty);
+            const hasLineDiscount = effPrice < priceUnit;
+            const totalLabel = hasLineDiscount
+                ? `<span style="color:#16a34a;font-weight:600;">${formatCurrency(discountedTotal)}</span> <span style="color:#94a3b8;font-size:11px;text-decoration:line-through;">${formatCurrency(origTotal)}</span>`
+                : formatCurrency(origTotal);
+            return `
         <div class="product-check-item" style="padding:8px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;">
             <label style="display:flex;align-items:center;cursor:pointer;">
                 <input type="checkbox" name="old-order-product"
@@ -3208,8 +3474,11 @@ function renderOldOrderProducts(order) {
                        value="${product.id || idx}"
                        data-product-id="${product.productId || ''}"
                        data-code="${product.code || ''}"
-                       data-total="${product.total || product.price * product.quantity}"
-                       data-unit-price="${product.price}"
+                       data-total="${origTotal}"
+                       data-discounted-total="${discountedTotal}"
+                       data-unit-price="${priceUnit}"
+                       data-effective-price="${effPrice}"
+                       data-note="${(product.note || '').replace(/"/g, '&quot;')}"
                        data-name="${product.name}"
                        data-quantity="${product.quantity}"
                        onchange="updateCodReduceFromOldOrderProducts()"
@@ -3217,7 +3486,7 @@ function renderOldOrderProducts(order) {
                 <div style="flex:1;">
                     <div style="font-weight:500;">${product.name}</div>
                     <div style="font-size:12px;color:#64748b;">
-                        Đã mua: x${product.quantity} - ${formatCurrency(product.total || product.price * product.quantity)}
+                        Đã mua: x${product.quantity} - ${totalLabel}
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:5px;">
@@ -3229,8 +3498,8 @@ function renderOldOrderProducts(order) {
                 </div>
             </label>
         </div>
-    `
-        )
+    `;
+        })
         .join('');
 
     section.classList.remove('hidden');
@@ -3245,8 +3514,12 @@ window.updateCodReduceFromOldOrderProducts = function () {
     );
     let totalReduce = 0;
 
+    // Ưu tiên data-effective-price (giá sau giảm per-line), fallback unitPrice.
     checkedInputs.forEach((input) => {
-        const unitPrice = parseInt(input.dataset.unitPrice) || 0;
+        const effPrice = parseFloat(input.dataset.effectivePrice);
+        const unitPrice = Number.isFinite(effPrice)
+            ? effPrice
+            : parseInt(input.dataset.unitPrice) || 0;
         const productId = input.value;
         const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
         const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
@@ -3336,9 +3609,7 @@ function updateTableHeaders(tabName) {
  */
 function renderHistoryTab() {
     // Read filter values
-    const searchTerm = (document.getElementById('history-search')?.value || '')
-        .toLowerCase()
-        .trim();
+    const searchTerm = stripAccent(document.getElementById('history-search')?.value || '').trim();
     const filterType = document.getElementById('history-filter-type')?.value || 'all';
     const filterStatus = document.getElementById('history-filter-status')?.value || 'all';
     const dateFrom = document.getElementById('history-date-from')?.value;
@@ -3347,14 +3618,14 @@ function renderHistoryTab() {
     // Start with all tickets
     let filtered = [...TICKETS];
 
-    // Filter by search text
+    // Filter by search text (accent-insensitive)
     if (searchTerm) {
         filtered = filtered.filter(
             (t) =>
                 (t.phone && t.phone.includes(searchTerm)) ||
-                (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
-                (t.customer && t.customer.toLowerCase().includes(searchTerm)) ||
-                (t.firebaseId && t.firebaseId.toLowerCase().includes(searchTerm))
+                (t.orderId && stripAccent(t.orderId).includes(searchTerm)) ||
+                (t.customer && stripAccent(t.customer).includes(searchTerm)) ||
+                (t.firebaseId && stripAccent(t.firebaseId).includes(searchTerm))
         );
     }
 

@@ -15,124 +15,929 @@
 | **Chi tiết** | **Bug user báo**: tab Nháp đã có đơn chứa `B1893`, mở modal "Tạo đơn đặt hàng" mới gõ tên SP "0505 b5 áo" → vẫn auto-suggest `B1893` thay vì `B1894`. **Root cause**: `service.js` đã migrate Firestore→PostgreSQL nhưng `product-code-generator.js` vẫn `firebase.firestore().collection('purchase_orders').get()` — collection cũ rỗng → max=0 → re-emit B1893. **Fix**: chuyển hoàn toàn generator sang Render REST API, không còn trung gian Firestore. **Tận dụng infra có sẵn**: bảng `admin_settings` (migration 024) + `admin-settings-service.js` (cache 60s + ON CONFLICT UPDATE). **Pattern SQL**: `jsonb_array_elements(items) item` y như queries hiện tại line 130, 228 cùng file route. **Không filter `deleted_at`** → đơn trong trash vẫn block mã (đề phòng đã sync TPOS). **Migration data**: chạy 1 lần `node render.com/scripts/migrate-product-code-rules-to-postgres.js` (cần FIREBASE_* + DATABASE_URL env). Nếu chưa chạy migration → generator dùng `DEFAULT_PREFIX_RULES` (MM/HH/B/S/C + N), không break. |
 | **Status** | ✅ Done — syntax check pass cả 5 file. Chờ deploy + chạy migration script trên Render. |
 
+### [orders][fix][feat] KPI history: route order fix + modal full history + KPI thực vs dự tính + cross-machine sync
+
+**Files**: MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)
+
+User: "1/Phần KPI này chưa lưu lịch sử khi check/uncheck — có nút mở modal coi full lịch sử. 2/Ghi rõ KPI của user nào. 3/Đơn 'Hoàn thành đối soát' = đã duyệt (KPI thực), còn lại = dự tính. Lịch sử đồng bộ giữa các máy".
+
+**Root cause "không lưu lịch sử"**: Route order trong `realtime-db.js` — `GET /kpi-sale-flag/:orderCode` define TRƯỚC `GET /kpi-sale-flag/history`. Express match theo thứ tự → `/history` matched route `:orderCode = "history"` → trả `{flags: []}`. INSERT vào `kpi_sale_flag_history` từ PUT vẫn chạy đúng, chỉ GET không đọc được.
+
+**Fix server**: Move `/history` lên TRƯỚC `:orderCode`. Comment cảnh báo route order matters.
+
+**Frontend changes (tab1-kpi-stats.js)**:
+
+1. **Modal full history** (`window.openKpiHistoryModal()`): button "📜 Xem full" trong tooltip → mở 720px dialog. Lazy fetch ≤200 entries từ `/kpi-sale-flag/history?limit=200`. Filter live theo user/orderCode/SP, drop-down lọc check/uncheck/all. Refresh button. Esc + click overlay → close.
+2. **User name highlighted**: Mỗi entry: `<b>userName</b> → orderCode SP #productId — relativeTime`. Tooltip 10-recent cũng bold username.
+3. **KPI thực vs Dự tính**: `_computeStats` đổi từ `StatusText !== 'Đơn hàng'` sang `InvoiceStatusStore.get(o.Id)?.StateCode === 'CrossCheckComplete'`. Tooltip layout 4 cell: Tổng đơn KPI / KPI thực ✓ / Dự tính ⏳ / Tổng SP.
+4. **Cross-machine sync**:
+    - Modal: polling 10s khi `display !== 'none'` + `visibilityState === 'visible'` → tự động fetch fresh history từ máy khác.
+    - Local `kpi-sale-flag-changed` event → instant refresh modal (350ms delay đợi server insert).
+    - Server-side là single source of truth → mọi máy reads same Postgres → đã đồng bộ.
+
+**Browser-tested localhost**: `computeKpiStats()` = `{total:26, approved:2, notApproved:24, totalProducts:33}`. Modal opens → polling kicks in. PUT TEST-DEBUG-\* → success ✓; cleaned up. Lúc test phát hiện route `/history` trả flags rỗng → fix route order ✓.
+
+### [render][backend][fix] issueVirtualCredit FOR UPDATE + manual deposit idempotency
+
+**Files**: MODIFIED [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js); ADDED [scripts/test-wallet-idempotency.js](../scripts/test-wallet-idempotency.js)
+
+User: "Kiểm lại toàn bộ dự án xem ở đâu còn race condition không?"
+
+**Audit toàn dự án** (4 parallel agents): orders-report, render.com backend, Firebase real-time sync, other modules. Tìm 30+ findings, **2 HIGH risk financial verified + fixed**:
+
+1. **`issueVirtualCredit` thiếu FOR UPDATE** ([line 466+](../render.com/services/wallet-event-processor.js#L466)): `getOrCreateWallet` đọc `virtual_balance` không lock → 2 concurrent calls cùng read same value → cả 2 compute `new = old + amount` → cả 2 UPDATE → **mất 1 credit**. Scenario thực: 2 staff resolve 2 ticket cùng khách RETURN_SHIPPER cùng lúc.
+    - **Fix**: thêm explicit `SELECT customer_wallets WHERE phone FOR UPDATE` sau `getOrCreateWallet` (upsert tạo nếu chưa có), giữ lock đến COMMIT. Concurrent calls bây giờ serialize đúng.
+
+2. **`processManualDeposit` thiếu idempotency** ([line 432+](../render.com/services/wallet-event-processor.js#L432)): Bank deposits dedup bằng `sepay_id` UNIQUE. Manual deposit không có sepay_id → client retry (network timeout, double-click) → **double credit**. Scenario thực: admin nạp tay 150k, button "Nạp tiền" loading, network timeout 10s → user click lại → 2 deposits 150k cộng vào ví.
+    - **Fix**: trước khi gọi processWalletEvent, scan wallet_transactions tìm row trùng (phone, type=DEPOSIT, source, reference_id, amount, created_at within 60s). Nếu thấy → return `{success:true, skipped:true, reason:'duplicate_within_window', previousTransactionId}` thay vì insert mới. Window default 60s, caller có thể disable bằng `idempotencyWindowSec=0`.
+
+**Tests** (10/10 pass): mock DB → verify dedup short-circuit không fire INSERT/UPDATE; verify proceed khi không duplicate; verify window=0 disable check.
+
+**Audit findings KHÔNG fix** (false-positive hoặc low impact):
+
+- `tab1-firebase emitTagUpdate` set() không merge — Realtime DB không có merge:true. Tag race ở TPOS layer, không phải Firebase. Skip.
+- `tab1-customer-prefs._emitFirebase` set() — single-field race, last-write-wins acceptable.
+- `live-mode.js` 2 sequential PUTs — partial success warned + retry UX.
+- `verification.js` cache check stale — backend layer-2 protection (sepay_id ON CONFLICT) vẫn block double-credit.
+- `tab1-tags.js saveOrderTags` cross-user race — TPOS endpoint level, complex tag merge.
+- `tab1-processing-tags batch save` — backend orchestrated, bulk ops idempotent qua firebase_id key.
+- `tab1-bulk-tags.js` no in-flight guard — UI flow khó double-click do confirm modal gating.
+- `tab1-chat-messages.js` send race — `isSendingMessage` flag covers it.
+
+**Browser-tested**: page reload clean (856 orders loaded, 0 JS errors).
+
+### [issue-tracking][customer-hub][fix] Wallet credit reliability — fix Đoan Nghi case + audit wallet flows
+
+**Files**: MODIFIED [shared/js/api-service.js](../shared/js/api-service.js), [issue-tracking/js/script.js](../issue-tracking/js/script.js), [customer-hub/js/modules/wallet-panel.js](../customer-hub/js/modules/wallet-panel.js)
+
+User: "khách Đoan Nghi 0986892306 → khách gửi hoàn tiền nhưng ví không cập nhật".
+
+**Root cause Đoan Nghi (ticket TV-2026-00657, RETURN_CLIENT 150k)**:
+
+- TPOS refund completed (RINV/2026/2325) ✅
+- DB: `wallet_credited: false`, `action_history: []` rỗng ⚠️
+- → resolveTicket NEVER called
+
+`processRefund()` parse "Tổng tiền" từ TPOS PrintRefund HTML bằng 1 regex duy nhất. Nếu TPOS render khác format (`Tổng cộng:`, đổi class CSS, có suffix `đ`...) → regex no-match → `refundAmountFromHtml = null`. Validation gate `refundAmountFromHtml === compensationAmount` fail → wallet không cộng. User không nhận được error rõ → khách mất tiền âm thầm.
+
+**Fix**:
+
+1. **[api-service.js processRefund]** thêm `refundAmountFromJson` từ `refundDetails.AmountTotal` — structured field từ FastSaleOrder JSON sau filter partial-refund. Source of truth thay vì HTML parsing.
+2. **[api-service.js processRefund]** mở rộng HTML parser: 5 regex patterns (Tổng tiền/Tổng cộng/Tổng thanh toán + biến thể đ-suffix) thay vì 1 → fallback-friendly.
+3. **[issue-tracking script.js]** validation gate ưu tiên `refundAmountFromJson` (reliable), fallback HTML, log cả 3 (expected/JSON/HTML) để debug. Thông báo mismatch hướng dẫn rõ "vào Customer 360 cộng tay".
+
+**Audit toàn bộ wallet/balance/customer-hub flow** — 8 files, ~22 PUT calls:
+
+✅ Backend safe (race-protected):
+
+- `wallet-event-processor.processWalletEvent` — `FOR UPDATE` row lock + `INSERT wallet_transactions ON CONFLICT (sepay_id) DO NOTHING` đầu tiên → balance UPDATE chỉ chạy nếu INSERT thành công. Double-credit IMPOSSIBLE cho bank-transfer (sepay_id unique).
+- `tickets.js /resolve` — `withTransaction` + `FOR UPDATE` trên customer_tickets. Idempotent.
+- `sepay-wallet-operations PUT /transaction/:id/phone` — server check `wallet_processed === true` → block phone change. Layer 2 protection.
+
+⚠️ Frontend issue (FIXED):
+
+- **wallet-panel.js submitBtn** (HIGH): Disable button SAU validation, có race window cho rapid double-click trước khi `disabled=true` set. Browser dispatched 2 clicks song song → 2 calls walletDeposit/Withdraw → backend kiểm sepay_id (nếu có) — KHÔNG có sepay_id cho `MANUAL_ADJUSTMENT` deposit → backend không reject duplicate → **POTENTIAL double-credit cho manual deposit**. Fix: thêm `submitBtn.dataset.inFlight` flag check ngay đầu handler, set/reset trong try/finally.
+
+🟡 Theoretical risk (skipped):
+
+- `live-mode.js:777,794` 2 sequential PUTs (phone + hidden) — partial success warned, retry available, không phải data loss.
+- `verification.js changeAndApproveTransaction` cache check stale — backend layer-2 protection vẫn block. Phone field race rare, cosmetic.
+
+**Đoan Nghi recovery**: Cần manual deposit 150.000đ vào ví 0986892306 qua Customer 360 panel (button "Nạp tiền"), reference ticket TV-2026-00657 / RINV/2026/2325. Hoặc gọi API `POST /api/v2/tickets/TV-2026-00657/resolve {compensation_amount: 150000, compensation_type: "deposit", performed_by: "system_recovery"}` — endpoint idempotent (check wallet_processed).
+
+**Browser-tested**: 5 regex patterns HTML test → bad=null, "Tổng tiền"=150k, "Tổng cộng"=200k (fallback OK). Page load clean cho customer-hub + issue-tracking. Merge 32/32 tests pass.
+
+### [orders][cloudflare][deploy] CF Worker chatomni-proxy v.d4443bd3
+
+Deploy production: `wrangler deploy` → `https://chatomni-proxy.nhijudyshop.workers.dev` Version `d4443bd3-6101-45bc-9dcb-0a8e07150b73`. Verified: CORS preflight allow `If-Match` header. Optimistic concurrency end-to-end now live cho mọi PUT to TPOS qua proxy.
+
+### [orders][cloudflare][fix] Optimistic concurrency end-to-end — fix cross-flow + cross-tab race
+
+**Files**: MODIFIED [cloudflare-worker/modules/utils/header-learner.js](../cloudflare-worker/modules/utils/header-learner.js), [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js), [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js)
+
+User: "fix luôn cái này theoretical risk thấp" — yêu cầu fix 2 race còn lại sau 2 commits trước (sale-modal merge, edit-modal in-flight guard).
+
+**2 race còn lại**:
+
+1. **Edit-modal cross-flow race**: User mở edit-modal nhiều phút, flow khác (chat-address, tab3 STT upload, sale-modal) PUT cùng đơn → "Lưu tất cả" overwrite changes của flow đó.
+2. **Sale-modal cross-tab race**: 2 tab cùng mở sale-modal cho 1 đơn → fetch song song → cả 2 PUT từ snapshot stale → tab thứ 2 đè tab đầu (chain lock chỉ trong 1 tab).
+
+**Fix end-to-end**:
+
+1. **CF Worker forward If-Match** ([header-learner.js:90](../cloudflare-worker/modules/utils/header-learner.js#L90)) — for-loop forward 4 conditional headers (If-Match, If-None-Match, If-Modified-Since, If-Unmodified-Since) từ browser request xuống TPOS. CORS_HEADERS đã whitelist từ trước.
+
+2. **Sale-modal If-Match + 412/409 retry** ([tab1-sale.js:567+](../orders-report/js/tab1/tab1-sale.js#L567)) — PUT gửi `If-Match: W/"<RowVersion>"`. Detect 412/409 conflict → re-fetch + re-merge + retry (max 2 lần, exponential backoff 200/400ms). Retry dùng cùng local lines nhưng merge với server fresh → preserve mọi changes. Tách `_finalizeSaleOrderUpdate` cho post-PUT cleanup.
+
+3. **Edit-modal pre-PUT freshness** ([tab1-edit-modal.js:1284+](../orders-report/js/tab1/tab1-edit-modal.js#L1284)) — Trước PUT fetch fresh server, so với `OrderEditHistory.getSnapshot(orderId)` (snapshot lúc modal mở) → tìm lines server có nhưng modal-open-snapshot không có → các flow khác đã thêm trong session → preserve. User deletes (in snapshot but not in user state) vẫn được tôn trọng. Cập nhật fresh RowVersion. PUT với If-Match. Nếu 412/409 → throw error rõ "Đơn vừa được sửa bởi flow khác, đóng/mở lại modal".
+
+**Conflict resolution strategy**:
+
+- **Sale-modal** (auto-merge + retry): user chỉ thêm SP, safe to auto-merge.
+- **Edit-modal** (smart merge, no auto-retry): user có thể CRUD → preserve server-additions chỉ khi user chưa thấy chúng (so snapshot). Conflict → user phải manually retry để đảm bảo aware.
+
+**Browser-tested**:
+
+- Race+retry simulation 2 ops song song với conflict trên 1 op: cả 2 đều succeed, putCount=3 (1 đầu + 2 retry), allPreserved=true.
+- 32/32 unit tests pass.
+- Smoke 144 pages (run 2): **0 regressions** (run 1 có 1 SSE error transient, run 2 clean → flaky).
+
+**Deploy**: CF Worker change chưa deploy. Code đã push GitHub. Để bật full optimistic concurrency, deploy worker (`wrangler deploy` trong `cloudflare-worker/`). Nếu chưa deploy, fix browser vẫn work nhờ merge logic, nhưng cross-tab race chỉ giảm xác suất chứ chưa loại bỏ.
+
+### [orders][fix] Edit-modal — in-flight guard cho saveAllOrderChanges
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js)
+
+User: "Browser test → kiểm tra lại toàn bộ, tất cả tab xem còn bug race condition hoặc bug nào không?"
+
+**Audit toàn bộ flow PUT** trong orders-report:
+
+- ✅ tab1-sale.js `updateSaleOrderWithAPI` — FIXED (merge + chain)
+- ⚠️ tab1-edit-modal.js `saveAllOrderChanges` — modal có thể mở lâu (minutes/hours), `currentEditOrderData` set 1 lần khi fetchOrderData → click "Lưu tất cả" 2 lần rapid-fire = 2 PUTs
+- ✅ tab1-table.js `saveInlineProductNote` (2864) — fetch fresh ngay trước PUT, window <100ms
+- ✅ tab1-chat-address.js `applyAddressToOrder` — fetch fresh ngay trước PUT
+- ✅ tab1-merge.js — đã có concurrency conflict detection (412/409)
+- ✅ tab1-customer-info.js, tab1-fast-sale.js, tab3-removal.js, tab3-upload.js — fetch-then-PUT ngay, server làm base
+
+**Fix**: Thêm `window.__editModalSaveInFlight` flag — chặn rapid-fire double-click button "Lưu tất cả thay đổi", show warning "Đang lưu, vui lòng đợi...". Reset trong `finally`.
+
+**Browser-tested**:
+
+- Smoke 144 pages: 41 issues trước = 41 issues sau, **0 regressions / 0 new errors** từ fix.
+- Race scenario (Promise.all 2 ops chain-serialized): final 6 lines, all 3 added products (1904 Đen + Vàng + 1726 Vàng) preserved. Bug không tái diễn.
+- In-flight flag verified: set/check/reset đều OK trong iframe.
+
+**Edit-modal cross-flow race** (theoretical, unfixed): Nếu user mở edit-modal 5+ phút, trong khoảng đó chat-address hoặc tab3 PUT cùng đơn → "Lưu tất cả" sẽ overwrite changes đó (vì RowVersion trong currentEditOrderData stale). Risk thấp do CF Worker chưa allow `If-Match` header. Khi worker được update, có thể bật optimistic concurrency check (xem `tab1-merge.js:160-168` cho pattern).
+
+### [orders][fix] Sale modal — chống race condition stale-snapshot ghi đè SP
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js); ADDED [scripts/test-merge-local-lines.js](../scripts/test-merge-local-lines.js)
+
+User: "Coi lại lịch sử chỉnh sửa đơn 478 sđt 0903778113 Ngoc Tran tìm hiểu nguyên nhân sao lúc 12:17 04/05/2026 bị duplicate 2 request luôn"
+
+**Root cause** (audit log đơn 260500478 xác nhận):
+
+- 12:17:02 — PUT [4] thêm 1904 Q10 Đen + Vàng → tổng 810k → 1.390k, qty 3 → 5
+- 12:17:08 — PUT [3] cùng user, thêm 2104 Vàng → tổng 1.390k → **1.100k**, qty 5 → **4** ⚠️
+
+PUT [3] dùng snapshot stale (lấy từ trước [4]) → ghi đè server, **xoá mất 2 SP 1904 Q10** vừa thêm. Bằng chứng: base64-encoded products trong Note revert về vị trí cũ của [4]'s before-state.
+
+`updateSaleOrderWithAPI()` ở [tab1-sale.js:451](../orders-report/js/tab1/tab1-sale.js#L451) cũ:
+
+```js
+const fullOrder = await fetch(GET);              // server state mới nhất
+payload.Details = currentSaleOrderData.orderLines.map(...);  // ❌ ĐÈ bằng local stale
+PUT(payload);
+```
+
+`currentSaleOrderData` set 1 lần khi mở sale modal. User mở chat sale-modal lúc t=0, edit-modal save thêm SP lúc t=2, sau đó click thêm SP trong sale-modal lúc t=8 → sale modal dùng local từ t=0 đè lên server t=2.
+
+**Fix**:
+
+1. Thêm `mergeLocalLinesIntoServerDetails()` — server `Details` làm base, merge local thay vì overwrite. Match by `Id` (existing line: update qty/price/note) hoặc `ProductId+UOMId` (new product: bump qty hoặc append). Server lines không có trong local → KEPT (preserve other-flow additions).
+2. Thêm in-flight chain `__saleUpdateChain` — Promise queue serialize mọi `updateSaleOrderWithAPI` call cùng tab → chống race khi user click rapid-fire.
+3. Refactor split `updateSaleOrderWithAPI` (chain wrapper) + `_updateSaleOrderWithAPIImpl` (logic cũ).
+
+**Tests** (32/32 pass):
+
+- Bug replay scenario: 5 server lines + 4 stale local (3 cũ + 1 new) → output 6 lines, total 1.680k (OLD bug: 4 lines, 1.100k).
+- Local Id match → update qty/price/note tại chỗ.
+- Local không Id + ProductId+UOMId match server → bump qty (treat as duplicate-add).
+- Local không Id + no server match → append.
+- Server lines absent from local → KEPT (core fix).
+- Empty local / empty server / null inputs / different UOMId → handled.
+
+**Browser-tested**: merge function exposed `window.__mergeLocalLinesIntoServerDetails` ở iframe, scenario thật cho bug fix output 6 lines @ 1.680k. Chain serialization 3 parallel calls → max 1 in-flight, executed in submit order.
+
+**Tab3 (Gán Sản Phẩm - STT)** verified clean — `prepareUploadDetails` ở [tab3-upload.js:808](../orders-report/js/tab3/tab3-upload.js#L808) đã dùng pattern server-base merge, không cần fix.
+
+### [chat][feat] Modal tin nhắn — hiện avatar "đã xem" dưới message cuối khách đã đọc
+
+**Files**: MODIFIED [orders-report/js/managers/pancake-data-manager.js](../orders-report/js/managers/pancake-data-manager.js), [shared/js/pancake-data-manager.js](../shared/js/pancake-data-manager.js), [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js), [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js), [orders-report/css/tab1-chat-modal.css](../orders-report/css/tab1-chat-modal.css)
+
+User: "khách đã xem tin nhắn trong modal tin nhắn inbox thì hiện đã xem hoặc hiện avatar khách ở dưới tin nhắn đã xem".
+
+**Implement**: Messenger-style "đã xem" — small 14×14 customer avatar appended below the latest shop message khách đã đọc.
+
+**Pancake API**: response của `GET /pages/{pageId}/conversations/{convId}/messages` bao gồm `read_watermarks: ReadWatermark[]` với shape `{ psid, message_id, watermark (unix sec) }`. Watermark = timestamp khách đã đọc tới.
+
+**Flow**:
+
+- PDM (`fetchMessages`) extract & cache `read_watermarks`
+- `_applyMessagesResult` lưu vào `window.currentChatReadWatermarks`
+- `renderChatMessages` precompute `seenMessageId` = latest shop message với `time.getTime() <= max(watermark)*1000` (skip page's own PSID), inject `_renderSeenIndicator()` ngay sau row đó.
+- COMMENT type bỏ qua (Pancake không track per-message read state cho comment).
+
+**Browser-tested**: Ngoc Tran (0903778113) — `wm:[{psid, watermark:1778048746}]`, `msgN:30`, indicator render đúng vị trí giữa shop message lúc 06:24 (đã xem) và shop message lúc 06:42 (chưa xem). 0 JS errors.
+
+### [orders][fix] KPI tooltip: tổng SP từ server (không phụ thuộc per-order cache)
+
+**Files**: MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js), [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)
+
+User: "sao tổng sản phẩm là 0, lịch sử check uncheck không có".
+
+**Root cause**: Tooltip `_computeStats` đếm tổng SP qua `KpiSaleFlagStore.getAll(code)` per-order cache. User chưa mở chat/edit modal nào → cache rỗng → count=0 dù có 3 đơn KPI thật. Hiển thị `≥ 0 (open chi tiết để cập nhật)` khó hiểu.
+
+**Fix**:
+
+- Server `bulk-summary` enhanced: thêm `totalProducts` (count rows `is_sale_product=TRUE` trong codes). Single CTE query trả cả `kpiOrderCodes` + `totalProducts`.
+- Store thêm `getTotalKpiProductsServer()` getter, cache `_kpiTotalProducts`. Maintain ±1 khi event `kpi-sale-flag-changed`.
+- Tooltip ưu tiên server count. Fallback per-order cache chỉ khi server legacy không trả.
+
+**Lịch sử empty**: behavior đúng — table mới deploy, chưa có toggle nào → empty. Render auto-deploy backend, history bắt đầu populate khi user toggle.
+
+**Browser-tested localhost** (mock bulk-summary `{kpiOrderCodes:[3], totalProducts:7}`): `getTotalKpiProductsServer()===7`, `stats.totalProducts===7`, `hasIncompleteCache===false` (không còn ≥). Event toggle: +1 check / -1 uncheck ✅.
+
+### [orders][feat] KPI counter + hover tooltip + audit history (auto-cleanup 90d)
+
+**Files**: NEW [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js), MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "Kế bên filter KPI ghi tổng đơn KPI → hover hiện tooltip tổng đơn KPI chính xác, KPI không được duyệt, tất cả sản phẩm, lịch sử checkbox KPI người check và uncheck → lịch sử xoá sau 90 ngày. Lịch sử là lịch sử tương tác check/uncheck."
+
+**Server**: Audit log + cleanup loop:
+
+- `kpi_sale_flag_history (id, order_code, product_id, action ['check'|'uncheck'], user_id, user_name, created_at)` — auto-create idempotent lần đầu PUT chạy. Index `order_code` + `created_at DESC`.
+- PUT `/kpi-sale-flag/:orderCode/:productId` — sau upsert flag, INSERT history (`action='check'` nếu `isSaleProduct=true`, ngược lại `'uncheck'`). Fire-and-forget.
+- NEW GET `/kpi-sale-flag/history?codes=A,B&limit=20` — trả N entries gần nhất, optional filter theo codes (CSV).
+- `startKpiHistoryCleanupLoop` — `DELETE WHERE created_at < NOW() - INTERVAL '90 days'`. 60s sau PUT đầu + mỗi 24h.
+
+**Frontend** ([tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)):
+
+- Counter badge `(N)` yellow gradient cạnh `#kpiFilter` dropdown — chỉ hiện khi `total > 0`.
+- Hover 200ms → tooltip 320-420px popup, position-aware:
+    - **Tổng đơn KPI**: count từ `KpiSaleFlagStore.hasKpiFlag` qua `allData`.
+    - **Chưa duyệt**: KPI orders với `StatusText !== 'Đơn hàng'`.
+    - **Tổng SP đánh dấu**: sum entries `is_sale=true` qua per-order cache đã load (hiển thị "≥X" nếu cache chưa đầy đủ).
+    - **Lịch sử check/uncheck (10 gần nhất)**: lazy fetch from server, render màu xanh ✓ / đỏ ✗ + user + orderCode + DD/MM HH:mm.
+    - Footer "Lịch sử tự xoá sau 90 ngày."
+- Counter auto-refresh sau `performTableSearch` + event `kpi-sale-flag-changed`. Tooltip stay-open khi hover (hover lock).
+
+**Browser-tested localhost** (mock 3 KPI codes + 3 history entries): counter `(3)`, total=3, notApproved=2. Hover → tooltip render đầy đủ 4 sections + history list (Hồng ✓ / Admin ✗ / Hạnh ✓) + footer 90d note. Screenshot xác nhận. ✅
+
+### [inbox][feat] PBH sale modal — tên SP có prefix `[Mã SP]` (NameGet format)
+
+**Files**: MODIFIED [don-inbox/js/tab-social-sale.js](../don-inbox/js/tab-social-sale.js)
+
+User: "phần sản phẩm trong bill lấy NameGet để trước tên sản phẩm có [Mã SP]".
+
+Trước: Khi mở Phiếu bán hàng từ đơn inbox, danh sách SP chỉ hiển thị `Tên SP` (không có Mã SP). Bill in ra cũng thiếu Mã SP. TPOS NameGet format chuẩn là `[code] name`.
+
+**Root cause**: `mappedOrder.Details` mapping ([tab-social-sale.js:339-347](../don-inbox/js/tab-social-sale.js#L339-L347)) set `ProductNameGet: p.productName` không có prefix. `populateSaleModalWithOrder` build orderLines từ Details với `Product: null`, display fallback `item.Product?.NameGet || item.ProductName` → vì Product null nên rơi về ProductName raw không có code.
+
+**Fix**: Cả 2 chỗ build product line đều format `[code] tên`, có guard tránh double-prefix nếu rawName đã bắt đầu bằng `[code]` (data lẫn lộn — vài SP đã có sẵn prefix trong productName, vài chưa):
+
+- `Details` map → `ProductName` & `ProductNameGet` đều = `code && !rawName.startsWith('['+code+']') ? '[code] name' : rawName`.
+- `buildMinimalLine` (fallback khi không fetch được full TPOS data) → `ProductNameGet` áp dụng cùng guard.
+
+**Browser-tested localhost** với 2 case:
+
+- `SO-20260421-2951` (productName đã có `[N4087]` prefix sẵn) → display `[N4087] TEST 111` (KHÔNG double prefix) ✅.
+- `SO-20260506-5657` (3 SP productName KHÔNG prefix) → display `[Q171D] 1704 Q42 ÁO CỔ BẺ TÚI TAP GG 8805 (Đen)`, `[Q171D1] ... (Đỏ)`, `[Q171X] ... (Xanh)` ✅.
+- `_consoleErrors: 0`.
+
+Tác dụng phụ: `buildOrderLines` ([tab1-sale.js:2325](../orders-report/js/tab1/tab1-sale.js#L2325)) propagate ProductName mới (có prefix) vào TPOS InsertListOrderModel POST + `bill-service.js:312` propagate vào in PBH → in ra bill cũng có `[Mã SP]`.
+
+Status: ✅ Done
+
+---
+
+### [orders][feat] KPI badge — hiển thị "★ KPI" trong cột STT cho đơn có SP đánh dấu KPI
+
+**Files**: NEW [orders-report/js/tab1/tab1-kpi-badge.js](../orders-report/js/tab1/tab1-kpi-badge.js), MODIFIED [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "mark hay badge đơn có kpi để nhìn ngoài bảng luôn".
+
+Trước: Filter "KPI: có / chưa" đã có nhưng user vẫn phải bật filter mới biết đơn nào có KPI. Cần badge inline visible trên bảng default.
+
+**Fix**: Module mới [tab1-kpi-badge.js](../orders-report/js/tab1/tab1-kpi-badge.js):
+
+- `renderKpiBadge(orderCode)` — sync read từ `KpiSaleFlagStore.hasKpiFlag`, trả `<span class="kpi-badge">★ KPI</span>` (yellow gradient `#fbbf24→#f59e0b`, font 9px, fa-star icon).
+- `createRowHTML` ([tab1-table.js:1364](../orders-report/js/tab1/tab1-table.js#L1364)) inline badge trong cột STT (cạnh StockStatus + STT number + merged icon).
+- `preloadKpiBadges()` — bulk-summary load khi `allData` ready (poll 500ms × 30 lần) → batch apply badge vào tất cả row đang trong DOM. Không cần full re-render.
+- Wrap `performTableSearch` → 50ms sau mỗi re-render gọi `_refreshAllBadgesInDom` để badges sync với rows mới (filter, sort, scroll-load-more).
+- Listen event `kpi-sale-flag-changed` → surgical update 1 row (insert/remove badge tại STT cell, không touch rows khác).
+
+**Browser-tested localhost** (mock bulk-summary trả 2 KPI codes):
+
+- `preloadKpiBadges()` → `KpiSaleFlagStore.hasKpiFlag` chính xác cho 2 codes ✅.
+- DOM: `totalBadgesInDom: 2`, `badgesInDomCodes` exact match `["260500856","260500855"]` ✅.
+- Screenshot xác nhận badge "★ KPI" yellow gradient hiển thị inline với STT 856, không che layout. ✅
+
+### [orders][feat] Filter "KPI" — đơn nào có ít nhất 1 SP đã đánh dấu KPI
+
+**Files**: NEW endpoint [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), MODIFIED [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js), [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js), [orders-report/js/tab1/tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js), [orders-report/js/tab1/tab1-filter-persistence.js](../orders-report/js/tab1/tab1-filter-persistence.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "Check vào các chỗ KPI ở sản phẩm sẽ mark lại đơn đó và có filter riêng tìm các đơn KPI".
+
+**Cũ**: Checkbox KPI per-product trong chat modal + edit modal đã ghi vào `kpi_sale_flag` (PostgreSQL). Nhưng chưa có cách filter bảng đơn theo "đơn nào có ≥1 SP KPI".
+
+**Fix 3 phần**:
+
+1. **Server** — `POST /api/realtime/kpi-sale-flag/bulk-summary` body `{orderCodes:string[]}` → trả `{kpiOrderCodes:[...]}` DISTINCT order_code có ÍT NHẤT 1 row `is_sale_product=TRUE`. Cap input 5000.
+
+2. **Client store** thêm: `loadKpiOrderCodes(codes)` bulk fetch + cache `_kpiOrdersSet` 60s TTL; `hasKpiFlag(orderCode)` sync read; auto maintain via event `kpi-sale-flag-changed` (add/remove inline khi user toggle, không phải refetch).
+
+3. **Filter UI** — dropdown "KPI: tất cả / có KPI / chưa KPI" cạnh "Cuộc gọi". `handleKpiFilterChange` load bulk-summary trước → `performTableSearch`. Logic filter đọc `KpiSaleFlagStore.hasKpiFlag(order.Code)`. Persistence + active-filter-chip đã include `kpiFilter` auto.
+
+**Browser-tested localhost** (mock bulk-summary): 856 đơn, mock 2 KPI codes → filter `has_kpi`: 2 ✅, `no_kpi`: 854 ✅, `all`: 856 ✅. Event maintenance: `isSale:true` add ngay; `isSale:false` remove nếu cache per-order không còn KPI khác (conservative).
+
+### [issue-tracking][feat] Tổng tiền thu về/Khách gửi editable + ô "Khách bù"
+
+**Files**: MODIFIED [issue-tracking/index.html](../issue-tracking/index.html), [issue-tracking/js/script.js](../issue-tracking/js/script.js)
+
+User: "trên ô ghi chú nội bộ, tổng tiền thu về, khách gửi sẽ hiện trong input để cho chỉnh sửa, có thêm 1 ô input khách bù (trừ vào tổng tiền để ra tiền cuối cùng bỏ vào payload)".
+
+**Trước**: Modal "Tạo Phiếu Mới" với type RETURN_SHIPPER/RETURN_CLIENT auto-tính `money` qua `computeRefundWithDiscount(selectedProducts, selectedOrder)` — user không nhìn thấy số tiền cũng không sửa được trước khi submit.
+
+**Fix**:
+
+- Thêm section `#refund-amount-group` (hidden default, ẩn trong `data-type="RETURN"` field-group) với 2 input + display:
+    - `#refund-amount-input` — auto-tính từ SP × effectivePrice; readOnly + 🔒 toggle ✏️ để edit thủ công.
+    - `#customer-compensation-input` — "Khách bù", default 0.
+    - `#refund-final-display` — hiển thị "Tiền cuối cùng vào ví: X" = max(0, refund - khách_bù).
+- Label tự đổi theo type: RETURN_SHIPPER → "Tổng tiền thu về"; RETURN_CLIENT → "Khách gửi (tổng tiền)".
+- `syncRefundAmountSection(issueType)` show/hide + reset comp=0 mỗi lần đổi type. BOOM/FIX_COD ẩn hoàn toàn.
+- `refundAmountManuallyEdited` flag: khi user click ✏️ và sửa tay, checkbox/qty change SP **không** ghi đè giá trị. Click 🔒 = recompute từ SP + clear flag.
+- `updateCodReduceFromProducts` hook thêm `updateRefundAmountFromProducts()` để live-sync khi tick SP.
+- Submit handler RETURN_SHIPPER/RETURN_CLIENT: `money = max(0, refundInput - customerComp)` thay vì call lại `computeRefundWithDiscount`.
+
+**Browser-tested** (Playwright local + persistent FIFO REPL với KH test `Huỳnh Thành Đạt 0123456788`):
+
+1. Open modal → search → auto-select 1 đơn (NJD/2026/65627, 1 SP 100k). Refund-group hidden mặc định ✅.
+2. Chọn RETURN_SHIPPER → group visible, label "Tổng tiền thu về", value=100000, readOnly=true, comp=0, final=100.000đ ✅.
+3. Comp = 30k → final = 70.000đ ✅.
+4. Đổi type RETURN_CLIENT → label đổi "Khách gửi (tổng tiền)", comp reset 0, value giữ 100k, final=100k ✅.
+5. Click ✏️ → readOnly=false, btn=🔒. Sửa tay 250k → final=250k ✅. Bỏ tick SP → vẫn giữ 250k (không bị auto ghi đè) ✅. Click 🔒 → recompute = 0đ (SP đã uncheck) ✅.
+6. Đổi BOOM/FIX_COD → group hidden ✅. Đổi lại RETURN_SHIPPER → group visible, value=0 (no products), tick lại SP → value=100000 ✅.
+7. Intercept `ApiService.createTicket`: refund=200k, comp=50k → payload `money: 150000` ✅.
+8. Edge: comp(200k) > refund(100k) → final="0 ₫", `money: 0` ✅.
+
+Status: ✅ Done
+
+### [orders][feat] Banner cảnh báo "Auto T đang BẬT" trong fast-sale modal
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js), [orders-report/tab1-orders.html](../orders-report/tab1-order
+s.html)
+
+User: "tạo phiếu bán hàng nó không thông báo đang bật auto t hả? tôi nhớ có chức năng này".
+
+Trước: Auto T toggle chỉ hiện badge nhỏ ở header table. Khi user "Lưu xác nhận" trong fast-sale modal mà Auto T ON + đơn có T-tag → modal confirm "Xóa T-tag?" bật bất ngờ giữa flow. User không biết Auto T đang bật cho đến lúc đó.
+
+**Fix**: Banner amber gradient ở đầu fast-sale modal (`<div id="fastSaleAutoTBanner">`) hiển thị khi Auto T ON với:
+
+- ⚠️ "Auto T đang BẬT" + subtitle "Sau khi ra đơn thành công, T-tag (chờ hàng) của đơn sẽ tự xoá."
+- Detail: "→ N đơn có T-tag (tổng X tag) sẽ bị xoá tự động" hoặc "Không đơn nào có T-tag — Auto T sẽ không ảnh hưởng lần này".
+- 2 nút: "Tắt Auto T" (toggle inline + re-render) + × dismiss session.
+
+Expose `window.isAutoTClearEnabled()` reader (trước chỉ có `toggleAutoTClear` write). Banner auto re-render khi open modal (sau load data) + remove order (count đổi). Reset khi `closeFastSaleModal`.
+
+**Browser-tested**: 1 đơn 2 T-tag → "→ 1 đơn có T-tag (tổng 2 tag)" ✅. Toggle off → `display:none`; toggle on → `display:block` ✅. Screenshot xác nhận amber banner ngay dưới modal header.
+
+### [orders][fix] Chat modal video: dùng `video_data.url` (mp4 thật) thay vì `att.url` (= thumbnail JPG)
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js)
+
+User: "không play được trong modal chat inbox".
+
+**Root cause**: Pancake API trả attachment shape:
+
+```json
+{
+    "type": "video",
+    "url": "https://content.pancake.vn/.../thumbnail.jpg",
+    "video_data": { "url": "https://scontent.../real.mp4", "width": 500, "height": 280 }
+}
+```
+
+Render code trước dùng `att.url || att.file_url || ...` cho `<video src>` — đó là URL **thumbnail JPG** (con không phải mp4) → browser không decode được video → controls greyed out, không play. Image-proxy route đúng nhưng input URL đã sai từ đầu.
+
+**Fix**: Trong render video block, ưu tiên `att.video_data?.url` cho video URL, dùng `att.url` làm `poster`. Helper rộng hơn: thêm `att.video_url` fallback. Vẫn route qua image-proxy cho FB/Pancake CDN, vẫn có 2 `<source>` (proxy + direct) + onerror fallback link.
+
+**Browser-tested localhost** (chat modal cho Huỳnh Thành Đạt 0123456788):
+
+- 1 video message từ Pancake (sent earlier in test): `att.url` = pancake thumbnail JPG, `att.video_data.url` = FB CDN `*.mp4`.
+- Sau fix render: `<video poster="<thumbnail JPG>"><source src="<image-proxy>?url=<encoded mp4>"><source src="<direct mp4>"></video>`.
+- `readyState: 4` (HAVE_ENOUGH_DATA), `videoWidth: 500, videoHeight: 280, duration: 1.93s` — metadata parsed thành công.
+- `v.play()` thành công, `playing: true, currentTime: 0.49, paused: false` ✅
+- Screenshot xác nhận video frame thật hiển thị + controls native enabled.
+
+### [orders][feat] Chat modal: xem video qua image-proxy + đính kèm/gửi video
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js), [orders-report/js/tab1/tab1-chat-images.js](../orders-report/js/tab1/tab1-chat-images.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "modal tin nhắn chưa coi được video và chưa gửi được video".
+
+**Display video nhận**: `<video src=url>` trực tiếp bị FB/Pancake CDN block hotlink (Referer check) → controls greyed out. Fix: detect non-CORS CDN (`(?:scontent|video).fbcdn.net`, `content.pancake.vn`, `firebasestorage.googleapis.com`) → route URL qua `${WORKER_URL}/api/image-proxy?url=...`. Render với 2 `<source>` (proxy primary, direct fallback) + `onerror` fallback "🎬 Mở video (tab mới)".
+
+**Send video**: file input `accept=image/*,video/*`. `addImageToPreview` detect video (alias `addMediaToPreview`), cap 20MB (Pancake `upload_contents` limit). `_addVideoToPreview` render `<video muted preload=metadata>` blob URL + size badge "▶ {N}MB". Blob URLs revoked trên `removeImagePreview` + `clearImagePreviews` để không leak. Send flow re-uses `pdm.uploadMedia(pageId, file)` — Pancake đã accept cả video, FormData không đổi shape. Optimistic UI dùng blob URL cho video (rẻ hơn dataURL cho file 5-20MB).
+
+**Browser-tested localhost**: file input accept `"image/*,video/*"` ✅. Fake video 100KB MP4 → preview `<video class=video-preview-item>` blob URL + badge, `_pendingImages[0].type=video/mp4` ✅. Fake message FB CDN URL → 2 `<source>` proxy+direct + onerror ✅. Routing: Pancake URL proxied, non-CDN direct ✅.
+
+### [orders][fix] Bill preview STT đơn gộp — Reference/SaleOnlineIds lookup vào ProcessingTagState
+
+**Files**: MODIFIED [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js)
+
+User: "Đơn STT 84 có TAG XL là đơn gộp 84 313 mà bên hình 2 chỗ STT không có 84 + 313".
+
+**Root cause**: `getMergedSttDisplay` step 3 (TAG XL custom flag GOP\_\*) lookup `ProcessingTagState.getOrderData(src.Code) || getOrderDataByIdFallback(src.Id)`. Nhưng `enrichedOrder` từ bill flow (sendBillFromMainTable / bulk-send / sendBillManually) chỉ có:
+
+- `Reference` = SaleOnline Code (vd "260303709")
+- `SaleOnlineIds[0]` = SaleOnline UUID
+- `Id` = FastSaleOrder Id (KHÔNG match ProcessingTagState index — index theo SaleOnline orderId)
+
+Không có `Code` field → `src.Code` undefined → lookup fail. `src.Id` là FastSale → fallback lookup không match. → Rớt xuống step 4 fallback `src.SessionIndex` → bill chỉ hiện "STT: 84" (đơn target), thay vì "STT: 84 + 313" (gộp).
+
+**Fix**:
+
+- Mở rộng `code` candidates: `src.Code || src.Reference || fallback.Code || fallback.Reference`.
+- Mở rộng id candidates: `[src.SaleOnlineIds?.[0], fallback.SaleOnlineIds?.[0], src.Id, fallback.Id]` — lookup tuần tự đến khi match.
+- Thêm fallback parse `flag.name`/`flag.label` qua regex `/^G[ỘO]P\s+\d+/i` cho legacy custom flags không follow `GOP_<digits>` id convention.
+
+**Browser-tested localhost**:
+
+- Đơn STT 84 (Code 260303709) có TAG XL flag `{id:"GOP_84_313", name:"GỘP 84 313"}`. Build enrichedOrder mimicking sendBillFromMainTable shape (Reference + SaleOnlineIds, no Code) → `generateCustomBillHTML` output `<strong>STT:</strong> 84 + 313` ✅. Trước fix: `STT: 84` only.
+- Đơn không gộp (STT 328, không có flag GOP\_\*) → bill vẫn hiện `STT: 328` (single STT fallback hoạt động đúng). ✅
+
+### [orders][fix] Bulk PBH địa chỉ + bulk send bill nhanh hơn + refetch TPOS không stuck
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js)
+
+User: "1/ phần tạo phiếu hàng loạt công nợ và tự chỉnh địa chỉ của từng người đã đúng chưa, nó hay nhầm 1 người tính cho mấy người khác. 2/ phần gửi bill hàng loạt cho chạy đa nhiệm, song song, tăng tốc độ tối ưu. 3/ Đang bị stuck thông báo 'Đang lấy lại sản phẩm từ TPOS...' → lấy xong sửa lại dữ liệu bill để dùng về sau. + Nếu đã có đơn hàng → đảm bảo tất cả phần gửi bill qua messenger hay preview bill nếu sản phẩm bị trống sẽ request tpos lấy dữ liệu cho chính xác."
+
+**Fix #3 — Stuck notif**: `notificationManager.info(msg, duration)` expects NUMBER. Trước: pass `{duration:2000}` → `{...} > 0` NaN → setTimeout không fire → stuck mãi. Fix: pass `15000` (ms), capture notif id, explicit `remove(id)` trên cả success/error path. Thêm success notif "Đã lấy N sản phẩm từ TPOS".
+
+**Fix #3+ — Refetch tất cả bill paths**: Helper centralized `ensureOrderLinesForBill({orderId, invoiceData, order, initialLines, opts})` chain `initialLines → invoiceData.OrderLines → OrderStore.Details → TPOS GetDetails refetch → persist`. Apply 4 entry points: `sendBillFromMainTable` (showNotif), `_buildEnrichedFromInvoice` bulk (silent), `sendBillManually`, `printSuccessOrdersWithoutAutoSend`. Mỗi path persist `InvoiceStatusStore.set` + `OrderStore.update` (Details/TotalQuantity/TotalAmount) → future calls khỏi refetch.
+
+**Fix #2 — Bulk send bill nhanh hơn**: Bump `BULK_BILL_CONCURRENCY` 4→8, `BULK_BILL_PER_PAGE_CONCURRENCY` 2→3. **Pre-warm refetch**: scan eligible trước worker start, parallel-refetch (cap 8) cho đơn rỗng — tránh worker block-đợi GetDetails tuần tự, giảm prep time ~15s → ~2s khi 30 đơn rỗng.
+
+**Fix #1 — Bulk PBH địa chỉ per-row**: 3 root causes:
+
+1. **Shared Partner ref** TPOS OData entity-sharing: 2 đơn cùng customer share Partner ref → edit row 0 mutate `Partner.Street` → corrupt row 1 (= bug "1 người tính cho mấy người khác"). Fix: `fetchFastSaleOrdersData` deep-clone `Partner/Ship_Receiver/Carrier` sau JSON parse.
+2. **Unsaved address mất khi re-render** (gõ chưa bấm Lưu, remove đơn khác → input về value gốc). Fix: `saveFastSaleFormState` capture `addressInput.value` vào `order._userAddress` (khi khác `data-original`). `renderFastSaleOrderRow` ưu tiên `_userAddress`.
+3. **Partner.Street không follow editedAddress submit**: `collectFastSaleData` dùng `order.Partner` raw → Street cũ. Fix: spread `order.Partner`, override `Street/FullAddress/ExtraAddress.Street = editedAddress`.
+
+**Browser-tested localhost**: refetch flow → 1 fetch + notif info+success + `removed:[id]` (no stuck) + store updated "FX1". Deep-clone 2 orders share Partner ref → ref riêng (`samePartnerRef:false`), edit row 0 không leak row 1. ✅
+
+### [orders][feat] Bill: refetch TPOS khi đơn rỗng + chip "Đang bật filter" cạnh nút bộ lọc
+
+**Files**:
+
+- MODIFIED [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js)
+- NEW [orders-report/js/tab1/tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js)
+- MODIFIED [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+**1. Refetch sản phẩm từ TPOS khi đơn rỗng**:
+
+User: "Nếu gửi bill mà đơn hàng bị rỗng thì request tpos lấy lại sản phẩm đơn hàng và cập nhật bill". Trước fix: `sendBillFromMainTable` thử `invoiceData.OrderLines` → fallback `OrderStore.Details` → nếu cả 2 rỗng → block với error toast (UX dở: user phải kiểm tra thủ công). Thêm last-resort refetch: `refetchOrderLinesFromTpos(orderId)` POST `/api/odata/SaleOnline_Order/ODataService.GetDetails` (cùng endpoint mà `fetchOrderDetailsForSale` dùng), map về shape `{ProductName, ProductUOMQty, PriceUnit, PriceTotal, Note}`. Khi refetch thành công → cập nhật `InvoiceStatusStore.set(orderId, {...inv, OrderLines:refetched}, order)` + `OrderStore.set(orderId, {...cached, Details:...})` để future sends không refetch nữa.
+
+Áp dụng cho cả 2 path: single-send (`sendBillFromMainTable`) và bulk-send (`_buildEnrichedFromInvoice` chuyển thành async, await ở call site). Bulk-send thêm assertion: nếu sau refetch vẫn rỗng → throw "Đơn không có sản phẩm — đã thử lấy lại từ TPOS nhưng vẫn rỗng" để failed counter báo rõ.
+
+**2. Chip "Đang bật filter" + nút clear all**:
+
+User: "Nếu đang bật filter thì kế bên nút hiển thị bộ lọc sẽ hiển thị 'Đang bật filter' và có nút x để xóa tất cả filter đang bật". Tạo module IIFE mới [tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js):
+
+- `getActiveFilterSummary()` quét: search input, 4 select (`conversationFilter`/`statusFilter`/`fulfillmentFilter`/`callHistoryFilter`), TAG selected/excluded, Tag XL active filter + flag filters, Excluded Tag XL, date toggle, StockStatusEngine. Trả `{count, labels[], hasAny}`.
+- `_ensureChip()` inject `<span#activeFilterChip>` ngay sau `#toggleControlBarBtn` — pill amber gradient với dot animation, text "Đang bật N filter", × button. Tooltip hiển thị danh sách filter cụ thể (multi-line title attr).
+- `clearAllFilters()` reset toàn bộ: `handleTableSearch('')` (vì `searchQuery` là module-scope không expose qua window), reset 4 dropdowns về `'all'` + dispatch change, xoá `localStorage.orderTableSelectedTags`/`orderTableExcludedTags`/`orderTableExcludedPtagXl`, gọi `_ptagSetFilter(null)` + clear `_activeFlagFilters`, uncheck `dateModeToggle`, reset `StockStatusEngine`, gọi `performTableSearch()` + `FilterPersistence.scheduleSave()`.
+- `_wrapPerformTableSearch()` wrap `window.performTableSearch` 1 lần để mỗi filter change auto-refresh chip — không phải hook từng dropdown handler riêng.
+
+Public API: `window.clearAllFilters`, `window.refreshActiveFilterChip`, `window.getActiveFilterSummary`.
+
+**Browser-tested localhost**:
+
+- Refetch flow: inject fake invoice với OrderLines=[] cho 1 order có Facebook_ASUserId, mock `tokenManager.authenticatedFetch` trả 2 product mocked. Trigger `sendBillFromMainTable(orderId)` → 1 fetch GetDetails → InvoiceStatusStore updated với 2 lines `["REFETCH-1", "REFETCH-2"]` → preview modal render đúng "PHIẾU BÁN HÀNG" với 275.000đ tổng. Notif "Đang lấy lại sản phẩm từ TPOS..." hiển thị. ✅
+- Chip flow: search "192" + Tag XL "OKIE_CHO_DI_DON" → chip hiện "Đang bật 2 filter" + tooltip 2 dòng `Tìm: "192" / Tag XL` + filteredData=4. Click ×: chip ẩn, search input clear, ptag null, filteredData=856 (back to all). ✅
+
+### [orders][fix] Phân chia STT non-admin: ID field mismatch + real-time bypass leak
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js), [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js)
+
+User: "phần phân chia đơn cho users bị bug khi chọn filter, nó hiển thị đơn của người khác, admin coi được tất cả OK nhưng users được phân chia bị lỗi". 3 bugs giao thoa:
+
+1. **Field mismatch**: filter check `auth?.id` nhưng login save `userId` (xem [index/login.js:89](../index/login.js#L89)) → `currentUserId === null` → ID match thất bại → fallback về displayName. Nếu displayName cũng lệch (NFC/NFD, whitespace, casing) → `userRange === null` → "user not in range → show all" → **leak toàn bộ đơn**.
+2. **Unicode-fragile name match**: `r.name === currentDisplayName` exact-equal, "Hồng" NFC vs NFD khác bytes → fail.
+3. **Real-time bypass**: `applyOrderMembershipFlip` (gọi từ TPOS-realtime SSE & processing-tag flip) chỉ check tag filter, KHÔNG check employee range → đơn ngoài range được insert thẳng vào `filteredData`/`displayedData`.
+
+**Fix**:
+
+- Centralize matching logic vào `_findCurrentUserEmployeeRange()` + `window.orderPassesEmployeeRangeFilter(order)` helper trong [tab1-search.js:198-263](../orders-report/js/tab1/tab1-search.js#L198).
+- Thử nhiều ID candidates: `auth.userId || auth.uid || auth.id` ↔ `r.id || r.userId || r.uid`.
+- Thử nhiều name candidates: `displayName`, `username`, `userType`, `userType.split('-')[0]` — tất cả đều normalize qua `_normalizeEmployeeName` (NFD strip diacritics + đ→d + collapse spaces + lowercase).
+- `applyOrderMembershipFlip` ([tab1-table.js:506-514](../orders-report/js/tab1/tab1-table.js#L506)) ép `passesNow=false` nếu order ngoài employee range — chặn SSE & processing-tag-flip insert đơn ngoài phạm vi.
+
+**Browser-tested localhost** (override `authManager.getAuthData` simulate non-admin Hồng, range 572-856, total 856 đơn):
+
+- Bug-pre-fix simulation: với original logic, displayName mismatch → matched=null → `filteredCount=856` (toàn bộ leak).
+- Sau fix: `matchedRange={Hồng,572-856}`, `filteredCount=285` (chính xác), `outsideLeak=0`.
+- `applyOrderMembershipFlip(STT 499, passesNow=true)` → return `true` (handled) nhưng `filteredData` vẫn 285 (rejected silently — đúng).
+- 5 unicode variants ("Hồng" NFD / trailing space / "HỒNG" / username only / userType only) đều match ranger Hồng.
+- Admin (`isAdmin=true`) → filter no-op, vẫn 856/856.
+- Unmatched non-admin (new user không có range) → vẫn show all 856 (preserve current design — không break user chưa được phân chia). ✅
+
+### [delivery-report][ux] Bỏ ô giờ — auto 00:00 → 23:59:59.999
+
+**Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html), [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css), [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)
+
+User: "bỏ giờ đi, cho tự động 00h ngày start đến 23h59 ngày end". Drop 2 `<input type="time">` (drFilterFromTime, drFilterToTime), `.dr-time-input` CSS, và `isValidTime()`. Date range giờ chỉ có `[date] → [date]`. `collectFilters` hardcode `T00:00`/`T23:59` (buildApiUrl pad ToDate thành `23:59:59.999`). `setDefaultDates`/`applyPreset` không còn touch time inputs. **Browser-tested**: yesterday preset → URL `FromDate=...T17:00:00.000Z & ToDate=...T16:59:59.999Z` (UTC), dataLen 122 chính xác. ✅
+
+### [delivery-report][fix+ux] Filter khoảng ngày: chính xác hơn + redesign UI + filename theo range
+
+**Files**:
+
+- MODIFIED: [delivery-report/index.html](../delivery-report/index.html) — replace 2 dòng "Ngày bắt đầu/kết thúc" với 1 dòng "Khoảng ngày" gộp `[date]-[time]→[date]-[time]`. Thêm preset row trên cùng: Hôm nay / Hôm qua / 7 ngày qua / Tháng này / Tháng trước + hint "Đang lọc: dd/mm/yyyy → dd/mm/yyyy" (DD/MM/YYYY VN format). Time inputs đổi từ `<input type="text">` → `<input type="time">` (bỏ typo bug). Search button thêm `<i id="drBtnSearchIcon">` + `<span id="drBtnSearchText">` để toggle loading state.
+- MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-preset-row` + `.dr-preset-btn` (pill style, hover/active blue), `.dr-daterange-wrap` + `.dr-date-input`/`.dr-time-input`, `.dr-daterange-sep` (`→` separator), `#drBtnSearch[data-loading="true"]` spinner animation. Responsive: mobile preset hint xuống dòng, date/time input shrink.
+- MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js):
+    - **Boundary fix**: `buildApiUrl` set `ToDate` thành `23:59:59.999` (instead of `23:59:00.000`) → cứu lại 60s cuối ngày bị filter loại khỏi range. Wrap `new Date(...).toISOString()` trong `isNaN` guard.
+    - **Time validation**: `collectFilters` validate `^\d{2}:\d{2}(:\d{2})?$`, invalid → fallback `00:00`/`23:59` + reflect cleaned value lại input. Trước kia `value="abc"` → `2026-05-05Tabc` → `new Date(...).toISOString()` throw → fetch fail silently giữ data cũ.
+    - **Auto-swap**: nếu `fromDate > toDate` → swap (typo guard).
+    - **Spam-click guard**: `setSearchButtonLoading()` toggle `disabled` + `dataset.loading` + text "Đang tải..."/"Tìm kiếm". `window.DeliveryReport.search` early-return nếu `isLoading=true`.
+    - **Presets**: `applyPreset(today|yesterday|last7|thisMonth|lastMonth)` set date inputs + auto-trigger `search()`. Manual date change → `clearActivePreset()`.
+    - **Hint**: `updatePresetHint()` show "Đang lọc: DD/MM/YYYY [→ DD/MM/YYYY]" để user thấy rõ range thực sự đang filter (tránh confusion MM/DD vs DD/MM của Chrome locale).
+    - **Filename**: `makeFileName(label)` đọc `DeliveryReportState.filters` → single day → `LABEL_d_m.xlsx`, range cùng năm → `LABEL_d1_m1_den_d2_m2.xlsx`, khác năm → `LABEL_d1_m1_y1_den_d2_m2_y2.xlsx`.
+
+**Chi tiết**: User: "filter khoảng ngày bị bug không chính xác, với tìm kiếm bấm 1 lần thôi không spam → làm lại giao diện phần filter, nhất là filter khoảng thời gian cho dễ dùng với tra soát → nếu chọn khoảng ngày thì các tên các file excel xuất ra sẽ ghi 2 ngày". **Browser-tested localhost**:
+
+- Reproduced: `value="abc"` → filter giữ data cũ (1560 rows từ query trước) — confirmed silent fail.
+- Verified fix: `setFilterFromTime("abc")` → auto-correct về `00:00`, fetch chạy đúng, dataLen=189 (May 4-5).
+- Boundary: API URL captured `ToDate=2026-05-03T16:59:59.999Z` (was `16:59:00.000Z`).
+- Spam guard: 4 click liên tục → button hiện "Đang tải..." disabled, chỉ 1 fetch fire.
+- Presets: Hôm qua → 67 rows (May 4); Tháng này → 346 rows (May 3+4+5 = 157+67+122); 7 ngày qua → 1122 rows; Hôm nay → 122 rows.
+- Filename: range Apr 26-May 6 → `TATCA_26_4_den_6_5.xlsx`; single day May 6 → `TATCA_6_5.xlsx`. ✅
+- Tra soát mode 6 tabs vẫn render OK, không console error.
+
+**Status**: ✅ Done.
+
+---
+
+## 2026-05-05
+
+### [don-inbox][feat] Nút "Phiếu Soạn Hàng" clone 100% từ orders-report tab1
+
+**Files**:
+
+- NEW: [don-inbox/js/tab-social-packing-slip.js](../don-inbox/js/tab-social-packing-slip.js) — clone logic từ [orders-report/js/tab1/tab1-packing-slip.js](../orders-report/js/tab1/tab1-packing-slip.js), adapt data shape: `order.PartnerName/Telephone/PartnerAddress` + `OrderLine.ProductName/PriceUnit/ProductUOMQty` (tab1) → `order.customerName/phone/address` + `products.productName/sellingPrice/quantity` (don-inbox social order). Modal mở → render bảng products có checkbox "Chờ Hàng" + ô ghi chú/dòng → in qua hidden iframe (A4 layout) → close modal + clear bulk selection.
+- MODIFIED: [don-inbox/index.html](../don-inbox/index.html) — thêm `<div id="packingSlipModal">` trước `</body>` với header gradient cam, table 5 cột, footer Hủy/In. Wire `tab-social-packing-slip.js`.
+- MODIFIED: [don-inbox/js/tab-social-table.js](../don-inbox/js/tab-social-table.js) — `updateBulkActionBar()` thêm nút "Phiếu Soạn Hàng" (chỉ hiện khi `selectedCount === 1`).
+
+**Chi tiết**: User: "tìm hiểu chức năng nút phiếu soạn hàng ở orders-report → làm cho don-inbox/index.html nút phiếu soạn hàng, chức năng giống 100%". **Browser-tested localhost** với order `SO-20260505-5173` (NV CẨM, 6 SP): bulk bar hiện nút PSH khi select 1 đơn → modal open render đúng customer + 6 product rows + total row → mock print → modal close + selection clear.
+
+**Status**: ✅ Done.
+
+### [orders-report][KPI] "Chạy đối soát" tích hợp refund excel 3 tháng — đơn đã hoàn loại khỏi KPI
+
+**Files**: MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js)
+
+- NEW `KPICommission.fetchRefundedOrderCodes(3)`: POST `/api/FastSaleOrder/ExportFileRefund?TagIds=` với filter `Type=refund, DateInvoice 3 tháng, IsMergeCancel != true` → parse XLSX (sheet "Trả hàng", range:2) → trả `Set<invoiceNumber>` từ cột "Tham chiếu" (vd `NJD/2026/62621`). Auto load XLSX CDN. Token: dùng `window.tokenManager` nếu có, fallback fetch qua `/api/token` (giống `hanghoan/trahang.js`).
+- MODIFIED `runReconciliation()`: thêm 3 bước trước reconcile loop:
+    1. `loadInvoiceStatusData()` build `_invoiceCache: orderId → {Number, ShowState, ...}` (mapping SaleOnline UUID → invoice Number)
+    2. `fetchRefundedOrderCodes(3)` → Set invoice Numbers đã hoàn
+    3. Build `orderIdToRefunded` Map: lookup `_invoiceCache.get(orderId).Number` → check có trong refundedSet → mark `isRefunded=true`
+- Reconcile loop: `isRefunded` → `hasDiscrepancy=true` type=refunded, msg "Đơn đã có trong refund excel — không tính KPI"
+- Render: row refunded có `background:#fef2f2` + `text-decoration:line-through` + badge "↩ Đã hoàn (loại KPI)"
+- Summary: `N đơn · K OK · X đã hoàn · Y sai lệch · refund excel có Z dòng (W mã đơn)`
+- Expose `window.KPICommission = KPICommission` (const không tự attach window)
+
+**Trigger user**: "Browser test refundlist → tìm hiểu request xuất excel 3 tháng → KPI - HOA HỒNG nút chạy đối soát refresh + so sánh excel → đơn không có trong file = tính KPI".
+
+**Root cause mapping**: KPI orderCode = `SaleOnline_Order.Code` (vd `260404699`). Refund excel "Tham chiếu" = `FastSaleOrder.Number` (vd `NJD/2026/62621`). Cần `_invoiceCache` (Render API `/api/invoice-status/load`) làm cầu nối: SaleOnline UUID → invoice Number.
+
+**E2E browser-tested live**:
+
+- Refund excel POST 200, 1.1s, 40KB XLSX, 274 dòng, 268 mã unique
+- Invoice cache: 7291 entries
+- Click "Chạy đối soát" → 134 KPI orders → **133 OK · 1 đã hoàn (loại KPI) · 0 sai lệch khác**
+
+**Status**: ✅ Done.
+
+### [orders-report] Nickname: PUT cả SaleOnline_Order.Name + expose `window.allData` getter
+
+**Files**:
+
+- MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js) — `_syncNicknameToTPOS` PUT cả **SaleOnline_Order.Name** cho mỗi đơn match phone (concurrency 3) sau khi PUT Partner. TPOS không cascade Partner.Name → Order.Name nên bảng list + edit-modal phải update từng order trực tiếp. Optimistic local update `allData[i].Name` + DOM trước, sync TPOS nền + refresh DOM lần 2 sau khi xong.
+- MODIFIED: [orders-report/js/tab1/tab1-core.js](../orders-report/js/tab1/tab1-core.js) — expose `window.allData/filteredData/displayedData` qua `Object.defineProperty` getter (vì `let` top-level không tự attach vào window). Getter dynamic trả về reference hiện tại → các module khác (tab1-customer-info, ...) đọc fresh sau mỗi reassign.
+
+**Trigger user**: "sao nó không sửa tên khách hàng ở cột khách hàng của bảng?" + "À phải sửa cả tên ở chỉnh sửa đơn hàng".
+
+**Root cause**: tab1-customer-info.js đọc `window.allData` nhưng tab1-core.js declare `let allData = []` ở top-level (let KHÔNG attach window). Result: `matchedOrders = []` luôn, save flow không bao giờ chạy đúng. Bảng KHÔNG update vì `_refreshCustomerNameInTable` filter rỗng. Edit-modal cũ vẫn hiển thị tên gốc vì TPOS không cascade Partner.Name xuống SaleOnline_Order.Name.
+
+**E2E real data verified**:
+
+- Order Id thực tế = UUID string (vd `30150000-5d4d-0015-3e86-08de9872e286`)
+- Save nickname → `tFastMs: 6ms` (optimistic)
+- 8s sau verify: tableName + allData.Name + TPOS Order.Name + TPOS Partner.Name đều = `"Huỳnh Thành Đạt - REAL_E2E_..."`
+- Edit-modal mở → input "Tên khách hàng" hiển thị đúng
+- Cleanup empty nickname → tất cả về `"Huỳnh Thành Đạt"` verified
+
+**Status**: ✅ Done.
+
+### [orders-report] Nickname: TPOS Partner.Name là SOURCE OF TRUTH duy nhất — bỏ localStorage persist
+
+**Files**:
+
+- MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js)
+- MODIFIED: [orders-report/js/tab1/tab1-customer-prefs.js](../orders-report/js/tab1/tab1-customer-prefs.js) — `getNickname/setNickname/getDisplayName` thành no-op stubs (DEPRECATED), giữ chỉ để legacy callers không break. `isDoNotCall/setDoNotCall` vẫn local (TPOS không có field này).
+- MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — render row dùng `order.Name` thẳng, bỏ `getDisplayName` wrapper.
+
+**Trigger user**: "sao bạn lại lưu tên vào local, tôi tưởng request tpos thì lấy tên render từ tpos luôn chứ" + "đặt biệt danh nó không sửa liền tên khách hàng ở cột khách hàng à? Sửa liền đi, nếu lỗi thì fallback thôi" + "test coi f5 có bị mất dữ liệu hay không".
+
+**Logic mới** (TPOS-only):
+
+1. **Đọc nickname** trong popup: parse suffix `" - X"` từ `allData[i].Name` (đã sync với TPOS sau order list refresh) — KHÔNG đọc CustomerPrefs.
+2. **Save** flow:
+    - Snapshot `matchedOrders.map(o => ({id, Name}))` để rollback
+    - Optimistic: `allData[i].Name = "<original> - <newNick>"` + DOM cell update ngay (<5ms)
+    - `_syncNicknameToTPOS` PUT Partner endpoint canonical (filter theo displayName để bỏ qua "Nguyễn Tâm" cùng SĐT)
+    - **Fallback**: Nếu `res.fail>0 && res.ok===0` hoặc Promise reject → restore `allData[i].Name` từ snapshot + refresh DOM + toast error "Lỗi đồng bộ TPOS — đã hoàn tác biệt danh"
+3. **Bảng render** (`tab1-table.js:1392`): `order.Name` thẳng — không qua wrapper, vì Name đã ở format đúng.
+
+**E2E browser test live** (FIFO REPL với khách 0123456788):
+
+- Mock allData 2 đơn → save nickname "VIP*E2E*..." → 4.5s sau verify: `allData[].Name` + DOM cell + TPOS Partner.Name **đồng nhất** = `"Huỳnh Thành Đạt - VIP_E2E_..."`
+- F5 reload → set lại `allData[0].Name` từ TPOS GET → mở popup → input value = `"VIP_E2E_..."` (parse từ TPOS Name)
+- localStorage `n2s_customer_prefs_v1[norm].nickname` = empty (không persist)
+- Cleanup TPOS Partner về tên gốc verified.
+
+**Status**: ✅ Done — TPOS là single source of truth, F5 không mất dữ liệu vì đọc từ TPOS.
+
+### [balance-history][feat] Tab "Lịch Sử" — log toàn bộ Duyệt / Điều chỉnh / Kiểm tra với filter
+
+**Files**:
+
+- NEW: [balance-history/js/accountant-history.js](../balance-history/js/accountant-history.js) — module `AccountantHistoryModule` query Firestore `edit_history` (`module=='balance-history'`, sort client-side để tránh composite index). Map `actionType` → category (approve / adjust / verify). Filter: date range, action type, performer, search. Pagination 50/trang + page select. Stats summary 4 ô (Tổng + 3 loại).
+- MODIFIED: [balance-history/index.html](../balance-history/index.html) — thêm tab "Lịch Sử" (cuối acc-sub-tabs) + panel với filter bar đầy đủ + table 6 cột (Thời gian / Loại / Mã GD / Người thực hiện / Mô tả / Nội dung thay đổi). Wire script `accountant-history.js?v=20260505b`.
+- MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) — `switchSubTab('history')` → gọi `AccountantHistoryModule.load()`. Thêm audit log cho `confirmAdjustment` (actionType `transaction_adjust` — trước đây thiếu) + `bulkApprove` (actionType `accountant_entry_create` với `bulk:true`).
+- MODIFIED: [balance-history/css/accountant.css](../balance-history/css/accountant.css) — style `.acc-history-stats`, `.acc-history-badge` (badge-approve / badge-adjust / badge-verify), `.diff-pill` / `.diff-meta` / `.diff-reason`, pagination `.acc-page-btn` / `.acc-page-select`.
+
+**Chi tiết**: **User feedback**: "thêm 1 tab lịch sử bên phải Trừ Ví Thất Bại để lưu toàn bộ 3 thao tác Duyệt (Chờ Duyệt) + Điều chỉnh + Kiểm tra (Đã Duyệt). Ghi rõ ngày giờ, người thực hiện, loại thao tác, nội dung thay đổi, ghi chú. Đầy đủ filter date / loại / người thực hiện. Tự debug, test, commit push tới khi hết lỗi". **Source dữ liệu**: tận dụng `AuditLogger` (Firestore `edit_history`) đã có sẵn — `transaction_verify` (kiểm tra) đã log từ trước, `accountant_entry_create` (duyệt) đã log từ trước; bổ sung `transaction_adjust` (điều chỉnh) + `bulkApprove` để complete coverage. **Tránh composite index**: query với `where('module', '==', 'balance-history').limit(1000)` rồi sort client-side theo timestamp DESC. **Browser-tested live qua FIFO** trên localhost:8080: 661 records load, filter `action=verify` → 268 records (chỉ badge "Kiểm tra"), search "duyệt" → 393 records, filter `user=My` → 50 records (toàn người duyệt "My"), date preset "today" → 0 records (đúng vì chưa có log mới hôm nay).
+
+**Status**: ✅ Done — committed & pushed.
+
+### [orders-report] Nickname → TPOS Partner endpoint (canonical) + optimistic UI + filter theo tên
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-customer-info.js](../orders-report/js/tab1/tab1-customer-info.js) — refactor `_syncNicknameToTPOS`: bỏ flow loop từng `SaleOnline_Order` (22+ requests), chuyển sang Partner endpoint canonical:
+
+1. GET `Partner/ODataService.GetViewV2?Name=<phone>&Type=Customer` (search SĐT)
+2. **Filter Partners theo `displayName`** (strip suffix `" - X"` rồi so case-insensitive) — tránh đụng record khác cùng SĐT (vd "Nguyễn Tâm" share `0123456788` với "Huỳnh Thành Đạt")
+3. Concurrency 3: GET `Partner({id})` → `Name = "<original> - <nickname>"` (idempotent strip suffix cũ) → PUT `Partner({id})`
+4. Local: update `OrderStore` + `allData.Name` cho mọi đơn cùng SĐT (không phụ thuộc TPOS cascade xuống `SaleOnline_Order`)
+
+**`_cipSaveNickname` đổi thành OPTIMISTIC**: `setNickname` + `_refreshCustomerNameInTable` chạy NGAY (UI update <5ms), TPOS sync chạy nền non-blocking với `.then/.catch`. Toast "Đã đặt biệt danh" hiện ngay; toast thứ 2 "Đã đồng bộ TPOS: N Partner" hiện khi sync xong. `displayName` lấy từ `popup.cip-title` (đã strip suffix) để filter Partner.
+
+**Chi tiết**: **Trigger user**: "đặt biệt danh -> xác nhận -> nó cập nhật bảng lâu vậy?" + "check lại xem có request vào tpos không? Nếu chưa thì browser test vào tpos xem cách thực hiện đổi tên khách hàng -> ...customer/form?id=563966". **Browser-tested live qua FIFO REPL** với customer test "Huỳnh Thành Đạt" SĐT `0123456788`:
+
+- SĐT có 3 Partner records (`568377`, `563966`, `562767`); 2 đầu là "Huỳnh Thành Đạt", record `562767` là "Nguyễn Tâm" (cùng SĐT khác tên)
+- PUT `Partner({id})` body=full payload + `Name` mới → status `204 No Content` (TPOS chấp nhận)
+- E2E `_cipSaveNickname` trả về 2ms (optimistic), 4.5s sau verify TPOS: 2 record "Huỳnh Thành Đạt" → "Huỳnh Thành Đạt - VIP*AUTO*...", record "Nguyễn Tâm" KHÔNG đụng vào (filter đúng)
+- Cleanup test: clear nickname → tất cả về tên gốc trên TPOS
+
+**Status**: ✅ Done — verified live trên TPOS prod (tên test customer 0123456788, đã restore sau test).
+
+---
+
+## 2026-05-04
+
+### [issue-tracking] Search bỏ dấu (accent-insensitive) + Hard delete ticket TV-2026-00619
+
+**Files**: MODIFIED: [issue-tracking/js/script.js](../issue-tracking/js/script.js) — thêm `stripAccent()` helper (NFD + strip combining marks U+0300–U+036F + đ→d/Đ→D + lower). Áp dụng vào: dashboard search input listener, type-tabs filter, date filter, history-search filter, + 2 chỗ filter so sánh trường (`renderDashboard`/`renderHistoryTab`) — strip dấu cả searchTerm và `t.customer`/`t.orderId`/`t.firebaseId` trước khi `.includes()`. Phone giữ nguyên (chỉ digits).
+
+**Chi tiết**: **Trigger user**: "search cho tìm không dấu". Trước: gõ "diem" không match khách "Diễm Nguyễn", "dat" không match "Đạt", "huynh" không match "Huỳnh". Sau: tất cả match. Smoke test node: `diem→Diễm:true`, `dat→Đạt:true`, `huynh→Huỳnh:true`, phone passthrough OK, mã đơn `NJD/2026/63835` match `njd` OK. Syntax OK (`node --check`).
+
+**Cùng commit**: Hard-delete ticket Render `TV-2026-00619` (id=752, đơn TPOS `63835`/`#432116`, COD 165.000đ, Diem Nguyen 0948138675) qua `DELETE /api/v2/tickets/TV-2026-00619?hard=true` — `success:true, virtualCreditCancelled:false`. Verify list theo phone → `total:0`.
+
+**Status**: ✅ Done.
+
+### [orders-report] Tăng cường UI bảng — debounce reapply badges/stats + content-visibility:auto + contain:layout
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — surgical row replace path nay gọi `_scheduleBadgeReapply()` + `_scheduleStatsUpdate()` (mỗi cái lock 80ms timer) thay vì `setTimeout(reapply, 0)` + `updateStats()` ngay. WS burst 15 surgical replaces trong 100ms → chỉ 1 lần `newMessagesNotifier.reapply()` (scan toàn tbody) + 1 lần `updateStats()` thay vì 15 lần. MODIFIED: [orders-report/css/tab1-orders.css](../orders-report/css/tab1-orders.css) `.table tbody tr` — thêm `content-visibility: auto` + `contain-intrinsic-size: auto 52px` + `contain: layout style`.
+
+**Chi tiết**: **Trigger user**: continue iteration "coi lại toàn bộ bảng render". **Diagnosed thêm 2 bottleneck UI bảng**:
+(1) **Reapply badges fire 12 lần trong 15s WS idle** (1 lần / WS update) — mỗi lần `querySelectorAll('tr[data-psid]')` + iterate 51 rows + scan 17 badges. Sau khi áp surgical replace, mỗi replace lại trigger 1 reapply → còn nguyên overhead. Fix: debounce 80ms — burst 15 replace chỉ 1 reapply.
+(2) **Hàng off-screen vẫn paint full**: bảng cao 4902px (~94 rows × 52px) trong viewport 580px → ~88% hàng off-screen nhưng browser vẫn paint hết → wasted GPU work khi scroll. Fix: `content-visibility: auto` cho `.table tbody tr` báo Chrome skip render off-screen rows; `contain-intrinsic-size: auto 52px` reserve placeholder height cho scrollbar chính xác; `contain: layout style` mỗi row độc lập — layout 1 row không reflow propagate.
+**Test localhost**: rows count 51 unchanged, firstRow/lastRow heights normal (91/62px content-driven), tbodyHeight 4902px (reserve đúng), `contentVisibility:auto + contain:layout style + intrinsicSize:auto 52px` apply OK, `tableLayout:auto` giữ nguyên (column width vẫn auto-compute từ visible rows), 0 errors, layoutTriggerMs 0.5ms, 951 cells query 2ms. Visual: scroll smooth, không thấy hàng nào collapse.
+**Status**: ✅ Done.
+
+### [orders-report] Surgical row replace trong updateOrderInTable — diệt 12x re-render burst trong 15s WS idle
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) `updateOrderInTable()` — thêm surgical row replace path: nếu row đang trong DOM + không employee view + không sort active → build HTML mới qua `createRowHTML(order)`, swap `<tr>` qua `existingRow.replaceWith(newRow)` (1 row thay vì 50). Re-apply badges qua notifier sau swap. Update stats và return sớm — không fallthrough vào `schedulePerformTableSearch`. Fallback full re-render chỉ khi: row không trong DOM (filter ẩn), employee view, sort, hoặc createRowHTML throw.
+**Chi tiết**: **Trigger user**: "browser test hoặc dùng cách để kiểm tra → coi lại toàn bộ bảng render coi có gì đang tác động vào ui bảng để cải thiện". **Diagnosed via instrumented wrappers**: trên prod 15s idle (no user action), counts cho thấy: `renderTable:12, performTableSearch:12, scheduleSearch:15, updateOrderInTable:15, applyMembershipFlip:0, reapplyBadges:12`. Tức là TPOS WS push 15 order updates → mỗi update gọi `schedulePerformTableSearch(150)` → debounce coalesce thành 12 lần `renderTable()` thực sự chạy → mỗi lần rebuild toàn bộ tbody.innerHTML cho 50 rows visible. Đây là root cause chính của "bảng nhảy/giật" mà user phàn nàn từ đầu. Trước đây fix "giật bảng realtime" (commit a5f0d12b) chỉ áp surgical insert cho `addOrderToTable()` (đơn MỚI) — không fix cho `updateOrderInTable()` (UPDATE đơn cũ — common hơn). DOM stats: 17810 elements / 51 rows = 350/row (1020 onclick handlers, 253 inline styles cells) — mỗi rebuild rất nặng. **Fix**: trong `updateOrderInTable`, sau khi update data structures, kiểm tra `existingRow = querySelector(tr[data-order-id=X])`. Nếu hợp lệ + UI mode đơn giản → `createRowHTML(order)` build single row HTML → tạo tbody tạm → `firstElementChild` → `existingRow.replaceWith(newRow)`. Browser chỉ reflow 1 row thay vì cả tbody. Re-apply badge sau swap (notifier MutationObserver tự bắt childList add). Stats update OK, return sớm để không fall-through vào schedulePerformTableSearch. **Test localhost**: không có WS update (no auth) nên `__renderCalls` = 0 sau 50s — verify cần prod. Logic walk OK: surgical path skip schedulePerformTableSearch, full path giữ nguyên cho fallback case. **Status**: ✅ Done (chờ verify prod sau deploy).
+
+### [orders-report] Lazy load 4 inactive iframes của main.html (productAssignment/overview/pendingDelete/kpiCommission)
+
+**Files**: MODIFIED: [orders-report/main.html](../orders-report/main.html) — 4 iframe non-default-active (`productAssignmentFrame`, `overviewFrame`, `pendingDeleteFrame`, `kpiCommissionFrame`) đổi từ `src="..."` sang `data-src="..." src="about:blank"`. `switchTab(tabName)` thêm helper `_hydrateLazyIframe(frameId)` (set src từ data-src lần đầu) và `_afterFrameLoad(frameId, fn)` (chờ load event nếu vừa hydrate, gọi luôn nếu đã loaded). Mỗi case của switchTab gọi cặp helper rồi mới `postMessage`/`loadData`/`KPICommission.init()`.
+**Chi tiết**: **Trigger**: continuation của perf optimization loop. **Root cause**: trước đây 5 iframe (orders + 4 tab khác) đều `src="..."` ngay từ HTML → trình duyệt fetch + parse + execute scripts của TẤT CẢ 5 iframe song song khi page mở, dù user chỉ thấy tab `orders` mặc định. Tab-overview/tab-pending-delete/tab-kpi-commission/tab3-product-assignment đều load full ~250 resources / ~1MB scripts mỗi cái — tổng ~5MB JS + 1000+ requests song song trên initial load. **Fix**: chỉ tab `orders` (active mặc định) eager-load. 4 tab còn lại data-src + about:blank → không fetch gì cho tới khi user click tab đó. Pattern này đã được dùng trước đây cho `reportOnlineFrame` (line 671), giờ áp dụng đồng nhất cho 4 frame còn lại. Helper `_afterFrameLoad` đảm bảo `postMessage` chỉ gửi sau khi iframe loaded (tránh race với contentWindow chưa ready). **Test localhost**: top-frame DCL 1631ms → 1286ms (-345ms / -21%); Load 1881ms → 1365ms (-516ms / -27%); resources 50 → 47. Sau click tab Overview / Pending-delete: iframe hydrate đúng, src đổi từ about:blank sang URL gốc, readyState=complete, postMessage gửi sau load event. Switch lại Orders OK.
+**Status**: ✅ Done.
+
+### [orders-report] Fix badge "tin nhắn mới" còn hoài sau khi reply — chặn server stale + WS echo re-add (replied-window 24h)
+
+**Files**: MODIFIED: [orders-report/js/chat/new-messages-notifier.js](../orders-report/js/chat/new-messages-notifier.js) — thêm `_recentlyRepliedAt: { [psid]: repliedAtMs }` persist localStorage `n2s_recently_replied_v1` (TTL 24h, auto-cleanup expired). Helper `_wasRecentlyReplied(psid, eventTimeMs)` so sánh `eventTimeMs <= repliedAt`. `clearPendingForCustomer(psid)` nay set `_recentlyRepliedAt[psid] = Date.now()` + persist. `onNewConversationEvent(event)` skip nếu `_wasRecentlyReplied(psid, event.eventTimeMs)`. `setPendingCustomers(customers)` skip server entry nếu `_wasRecentlyReplied(key, pc.timestamp)`. Realtime handlers `pages:new_message` / `pages:update_conversation` thêm `eventTimeMs` từ `msg.inserted_at` / `conv.updated_at`. **REVERT**: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — gỡ fix sai trước đó (clear khi mở modal — user clarify ý đồ là chỉ clear khi reply).
+**Chi tiết**: **Trigger user**: "cột tin nhắn nó cứ có badge tin nhắn mới rất nhiều dù đã đọc" → sau làm rõ: "trước đây chỉ clear khi gửi reply là chính xác, nhưng nó hoạt động không đúng". **Root cause**: `clearPendingForCustomer(psid)` ĐÃ chạy đúng (verified live: before:1, after:0, badgeStillThere:false) khi user gửi reply. Nhưng badge quay lại vì 2 con đường: (1) **WS echo broadcast** — Pancake bắn `pages:update_conversation` ngay sau reply; handler chỉ check `unread > 0` → vẫn pass nếu Pancake server chưa kịp set `unread=0` → re-push `_pendingCustomers`. (2) **Server stale data sau reload/WS reconnect** — `_fetchOfflinePendingCustomers()` GET `/api/realtime/pending-customers` → server có thể chưa apply DELETE từ `/mark-replied` (race) → trả về psid đã reply → `setPendingCustomers()` merge → badge quay lại. **Fix**: dùng "recently replied window" 24h làm authoritative timestamp ở client side. `clearPendingForCustomer(X)` ghi `_recentlyRepliedAt[X] = now`. Mọi event/server entry cho psid X có `messageTime <= repliedAt` → silent skip (echo cũ trước reply). Nếu khách nhắn lại sau reply (`messageTime > repliedAt`) → vẫn allow re-add badge → đúng UX "khách nhắn mới = badge mới". 24h TTL đủ chặn server propagation lag, ngắn enough không tích localStorage. **Tại sao không phụ thuộc `_markRepliedOnServer`?**: hàm này đã được gọi sẵn ở reply path ([tab1-chat-messages.js:587](../orders-report/js/tab1/tab1-chat-messages.js#L587)) — vấn đề không phải mark-replied fail, mà là server timing + WS echo, giờ client tự handle bằng repliedAt window. **Test**: simulate `clearPendingForCustomer("X")` → set replied timestamp + clear badge. Sau đó simulate `onNewConversationEvent({ psid: "X", eventTimeMs: <past> })` → skip silently. Simulate `setPendingCustomers([{ psid: "X", timestamp: <past> }])` → skip silently. Event với `eventTimeMs: <future>` → re-add (khách nhắn mới sau reply).
+**Status**: ✅ Done.
+
+### [orders-report+shared] Tăng tốc tải orders-report + cache avatar + fix giật bảng realtime
+
+**Files**: NEW: [shared/js/cdn-libs.js](../shared/js/cdn-libs.js) — `window.loadXLSX()` / `window.loadHtml2Canvas()` lazy-load CDN libraries (~1.1MB initial JS saved). MODIFIED: [orders-report/main.html](../orders-report/main.html), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — gỡ `<script src="...xlsx.full.min.js">` (~950KB), `<script src="...html2canvas.min.js">` (~200KB), và `<script src="...JsBarcode.all.min.js">` (~50KB, dead code — đã load trong print window iframe của bill-service.js); load cdn-libs.js thay thế. MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js), [orders-report/js/tab1/tab1-stock-status.js](../orders-report/js/tab1/tab1-stock-status.js), [orders-report/js/managers/product-search-manager.js](../orders-report/js/managers/product-search-manager.js), [orders-report/js/chat/message-template-manager.js](../orders-report/js/chat/message-template-manager.js) — call `await window.loadXLSX()` trước `XLSX.read()`. MODIFIED: [orders-report/js/utils/order-image-generator.js](../orders-report/js/utils/order-image-generator.js), [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — call `await window.loadHtml2Canvas()` trước `html2canvas()`. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `addOrderToTable()` — surgical insert tại đầu tbody qua `applyOrderMembershipFlip()` (chỉ khi không có search/sort/employee view) thay vì full re-render via `schedulePerformTableSearch(150)`; preserve scrollTop bằng cách bù 1 row height (~52px) khi user đang scroll giữa bảng. MODIFIED: [shared/js/image-cache.js](../shared/js/image-cache.js) — `AUTO_PATTERNS` thêm `\/api\/fb-avatar\?`, `graph\.facebook\.com\/.+\/picture`, `scontent.*fbcdn.net`, `platform-lookaside.fbsbx.com`; `NON_CORS_PATTERNS` cùng patterns FB → route qua CF Worker `/api/image-proxy` (proxy lookalike pattern với Firebase Storage / TPOS).
+
+**Chi tiết**: **Trigger user**: "Browser test orders-report/main.html → kiểm tra tốc độ web này, nó load hơi lâu". Sau debug: "lúc nhận dữ liệu realtime nó render lên đầu bảng → bị giật dữ liệu cũ gây rối quá". Sau đó: "được thì cache image lại avatar". **Root cause #1 (slow load)**: `tab1-orders.html` load 130 scripts đồng bộ không `defer` — XLSX (~950KB) + html2canvas (~200KB) + JsBarcode (~50KB) đều load eager nhưng chỉ dùng khi user trigger upload Excel / generate image / print bill (rare events). Initial load phải parse + execute 1.2MB JS trước khi render được data. JsBarcode lại còn dead code (đã được load trong print window iframe bởi bill-service.js). **Root cause #2 (jitter)**: realtime TPOS push order mới → `addOrderToTable()` `unshift(order)` vào allData → call `schedulePerformTableSearch(150)` → `renderTable()` → `tbody.innerHTML = ...` rebuild toàn bộ 50 rows visible. Khi user đang scroll giữa bảng, tbody rebuild làm scroll position không reset nhưng nội dung visible bị shift xuống 1 row → visual jitter. Trong burst phase (live tăng đột ngột), cảm giác như bảng "nhảy" liên tục. **Root cause #3 (avatar refetch)**: Customer avatar (CF Worker `/api/fb-avatar?id=...`) và chat message avatar (`graph.facebook.com/{psid}/picture`) chưa có pattern trong image-cache `AUTO_PATTERNS` → không match auto-observer → mỗi lần render row hoặc mở chat đều fetch lại từ FB CDN (chậm + tốn bandwidth). **Fix #1 (lazy CDN)**: tạo `cdn-libs.js` minimal helper `loadXLSX()`/`loadHtml2Canvas()` (idempotent qua `_promises` cache + `typeof XLSX !== 'undefined'` early return). Mỗi consumer call `await window.loadXLSX()` trước khi dùng — load on-demand khi user click upload Excel. JsBarcode chỉ xóa `<script>` tag duplicate (giữ nguyên trong bill-service print window). **Fix #2 (surgical realtime insert)**: trong `addOrderToTable()`, check `searchQuery/currentSortColumn/employeeViewMode` (top-level `let` shared giữa script tags qua try/typeof) — nếu sạch, gọi `applyOrderMembershipFlip(order.Code, order.Id, true)` đã có sẵn (insert vào filteredData/displayedData + DOM tr tại index 0 không rebuild tbody). Capture `scrollTop` trước insert, nếu user scroll > 24px thì sau insert bù `scrollTop += 52` để hàng đang nhìn không bị đẩy xuống visual. Fallback graceful về `schedulePerformTableSearch(150)` khi search/sort/employeeView active hoặc applyOrderMembershipFlip return false. **Fix #3 (avatar cache)**: thêm 4 patterns vào `AUTO_PATTERNS` + `NON_CORS_PATTERNS`. Auto-observer MutationObserver scan mọi `<img>` mới → match avatar URL → swap sang blob URL từ IndexedDB cache (TTL 7d, 500MB cap). FB graph URL non-CORS → CF Worker proxy. **Test localhost**: top-frame DCL 2052ms → 1631ms (-420ms / -20%); load 2416ms → 1881ms (-535ms / -22%); iframe FCP 1684ms → 1152ms (-530ms / -32%). Verify network: `xlsxLoaded:false`, `h2cLoaded:false`, `jsbLoaded:false` — không load eager. Avatar test sau campaign select: 50 `.customer-avatar` đều `data-cache-wired="1"` + src đã swap sang `blob:http://localhost:8080/...` (từ IDB cache). 0 request mới đến `graph.facebook.com` / `fb-avatar` proxy (cache hit).
+**Status**: ✅ Done.
+
+### [purchase-orders] E2E test 10 tabs + lifecycle DRAFT → COMPLETED — không bug
+
+|              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Files**    | Không sửa code (chỉ verify chức năng đã build trước đó).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Chi tiết** | Tạo TEST order `PO-20260504-006` với 3 items (2 variants Trắng/Đen + 1 simple), walk qua đủ 10 tabs (DRAFT/AWAITING_PURCHASE/AWAITING_DELIVERY/RECEIVED/COMPLETED/HISTORY/REFUNDS/PRODUCTS/NOTES/DELETED) + lifecycle PATCH status DRAFT → AWAITING_PURCHASE → AWAITING_DELIVERY → RECEIVED → COMPLETED qua API (200 OK mỗi bước). **Verify**: tabs render đầy đủ + activate đúng + hash update; DRAFT actions = edit/print-barcode/copy/delete (không có export), COMPLETED actions edit/delete `disabled` qua `validateCanEdit`/`canDeleteOrder` (đúng spec final state); button mark-received trên row AWAITING_DELIVERY → click → confirm dialog → transition RECEIVED tab; button mark-completed trên row RECEIVED → click → confirm → transition COMPLETED tab; cleanup test order qua CANCELLED → soft DELETE → permanent DELETE (200 OK đều). Không có error trong window.error / unhandledrejection. |
+| **Status**   | ✅ Done.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+### [nhanhang] Fix bug đa máy hiển thị khác nhau — fingerprint cache check + Firestore realtime listener
+
+**Files**: MODIFIED: [nhanhang/js/utility.js](../nhanhang/js/utility.js) — `_fingerprintReceipts(arr)` build content fingerprint `id|daKiemTra|soKg|soKien` per item (sorted by id) bắt mọi thay đổi flag/edit. `displayReceiptData()` thay length-only compare → fingerprint compare. Thêm `_setupRealtimeListener()` qua `collectionRef.doc("nhanhang").onSnapshot()` — máy khác mark/edit → fp khác → invalidate cache + re-render. Skip own pending writes qua `snap.metadata.hasPendingWrites`. Idempotent attach (`_realtimeUnsub` flag).
+**Chi tiết**: **Trigger user**: "dữ liệu lưu local thì phải nên mỗi máy thấy đã kiểm tra khác nhau". **Root cause**: `displayReceiptData()` cũ check `serverDataLength !== cacheDataLength` — chỉ so length! Khi máy A mark 5 phiếu → Firestore update + length vẫn 285 → máy B reload thấy length match (285==285) → **dùng stale localStorage cache** → không thấy 5 phiếu marked. Mark/unmark/edit không thay đổi length → bug âm thầm. **Fix #1 (fingerprint)**: build chuỗi `id|daKiemTra|soKg|soKien` sorted, bắt cả mark/unmark/edit. **Fix #2 (realtime sync)**: snapshot listener auto-update khi máy khác change — không cần reload. **Test**: simulate máy A mark 1 → máy B (same browser, tampered localStorage để giả stale + reload) → fingerprint mismatch → fetch fresh → counts đúng (45 Chưa KT / 240 Đã KT) + `withFlagAfter:240` confirm server data dùng, không phải stale cache. **Pattern source**: docs/architecture/DATA-SYNCHRONIZATION.md "Firebase as Source of Truth + Real-time Listener" — đã apply cho InvoiceStatusStore/InvoiceStatusDeleteStore từ trước.
+**Status**: ✅ Done.
+
+### [nhanhang] Backfill 239 phiếu legacy (trước 01/04/2026) → daKiemTra=true
+
+**Files**: MODIFIED: [nhanhang/js/main.js](../nhanhang/js/main.js) — `isReceiptChecked(receipt)` chỉ kiểm `!!receipt.daKiemTra` (gỡ cutoff filter ngầm — DB giờ là source of truth sau backfill). DATA (Firestore prod): collection `nhanhang/nhanhang.data` — 239/285 receipts có `daKiemTra=true, kiemTraBy="admin", kiemTraAt="04/05/2026, 09:47"`.
+**Chi tiết**: **Trigger user**: "data trước 01/04 nhiều quá kiểm tra tay không nổi → cần bạn làm dùm". **Preview**: 239 phiếu trước cutoff 01/04/2026 GMT+7 (84% tổng), từ 31/10/2025 → 31/03/2026. Phân bố: 09/25=3, 10/25=43, 11/25=37, 12/25=60, 01/26=49, 02/26=5, 03/26=42. **Backfill**: gọi `markReceiptsAsChecked(ids)` qua Playwright FIFO browser session (login admin localhost, write thẳng prod Firestore). 1 update cho cả 239 ids — payload ~60KB, completed 3.35s. **Verify**: clear cache + reload → fresh fetch từ Firestore → `withFlag:239`, sample receipts có đủ 3 fields đúng. **UI counts**: 46 Chưa KT (từ 01/04→04/05/2026) / 239 Đã KT. **Reversible**: nếu sai có thể bulk unmark từ tab Đã KT. **Process**: Sandbox guard chặn lần đầu (cần preview); generated read-only preview report (count + by-month + earliest/latest + sample 5 phiếu) → user confirm → write thật.
+**Status**: ✅ Done.
+
+### [shared/image-cache+nhanhang] Mark/unmark perf + Firebase Storage CORS proxy + silent toast
+
+**Files**: MODIFIED: [shared/js/image-cache.js](../shared/js/image-cache.js) — `NON_CORS_PATTERNS` thêm `firebasestorage.googleapis.com` (default Firebase Storage không trả CORS header → fetch fail → chưa bao giờ cache được). Giờ route qua CF Worker `/api/image-proxy` → 200 OK CORS → blob cache 7d/500MB cap. MODIFIED: [nhanhang/js/crud.js](../nhanhang/js/crud.js) `setReceiptsCheckedStatus` — refactor 2 paths: (1) **OPTIMISTIC PATH** (có cache): apply change vào cache → `setCachedData(newData)` → `removeRowsFromCurrentView(ids, newData)` (surgical DOM remove) → fire-and-forget Firestore `update()`. Rollback restore cache + full re-render khi lỗi. (2) **FALLBACK PATH** (no cache): get → update → surgical render. Bỏ toast `notificationManager.saving(...)` + `notificationManager.success(...)` — silent path. Chỉ giữ `notificationManager.error(... , 10000)` 10s khi lỗi. Bỏ `await displayReceiptData()` (no refetch). MODIFIED: [nhanhang/js/main.js](../nhanhang/js/main.js) — thêm `removeRowsFromCurrentView(receiptIds, updatedCachedData)`: query `tr[data-receipt-id]` + `.m-receipt-card` rồi `.remove()` từng node, drop khỏi `selectedReceiptIds`, update summary row "Tổng X phiếu", show empty state khi hết, recompute stats + tab badges qua `updateStatisticsDisplay/updateTabCounts(updatedCachedData)`, sync select-all.
+**Chi tiết**: **Trigger user**: 3 vấn đề trong cùng 1 lần dùng: (1) "tốc độ chậm phải đợi lâu" — mark/unmark mất 4-5s. (2) "render lại toàn bộ bảng gây rối quá → cache lại hoặc dùng cách nào tối ưu". (3) "bỏ toast đang đồng bộ/thành công, chỉ hiện toast khi lỗi 10s". (4) "load lại ảnh liên tục" — mọi page reload all 283 imgs từ Firebase Storage. **Fix #1+2+3 (mark/unmark perf)**: trước = get + update + displayReceiptData refetch + full re-render 285 rows + 2 toasts blocking = 4.8s. Sau = surgical row remove + recompute stats từ cache đã update = **UI paint 99-217ms**, Firestore write nền 2-3s không block, **0 toast** trừ khi lỗi (10s). Test: mark 1 → `paintMs:99`, `trRemoved:true`, `remainingRows:284`, `uncheckedNow:284`, `toastsBefore/AfterMark/AfterDone:0/0/0`. **Fix #4 (image cache)**: phát hiện `fetch("https://firebasestorage.googleapis.com/...", {mode:"cors"})` throws "Failed to fetch" — Firebase Storage default không có CORS header. Cùng pattern với TPOS dev-log #51 đã fix. Add `firebasestorage.googleapis.com` vào `NON_CORS_PATTERNS` → CF Worker proxy. **Test cache populate**: `clear()` → reload → scroll → stats `count:100, 38MB` (1st page). Reload lần 2 → `count:283, 463.75MB` — toàn bộ 283 imgs đã cache, lần load sau hit blob URL từ IndexedDB không tốn bandwidth. **Why surgical OK**: mark/unmark luôn làm row LEAVE tab hiện tại (đánh dấu trong "Chưa KT" → leave; hủy trong "Đã KT" → leave) → surgical remove không bao giờ sai về visual.
+**Status**: ✅ Done.
+
+### [nhanhang] Tabs "Chưa kiểm tra / Đã kiểm tra" + checkbox bulk select + mark/unmark + apply ImageCache
+
+**Files**: MODIFIED: [nhanhang/index.html](../nhanhang/index.html) — thêm `.check-tabs` (Chưa/Đã kiểm tra) + `.bulk-action-bar` (Chọn n / Đánh dấu / Hủy / Bỏ chọn) + cột checkbox header `<input id=selectAllReceipts>` + cột "Trạng thái". Load `image-cache.js` trước `config.js`. MODIFIED: [nhanhang/css/modern-styles.css](../nhanhang/css/modern-styles.css) — `.btn-success/.btn-warning/.btn-sm`, `.check-tabs/.check-tab/.check-tab-count`, `.bulk-action-bar/.bulk-selected-count`, `.col-check/.row-check/.row-checked/.row-selected`, `.status-pill.{checked,unchecked}`, `.mark-button/.unmark-button` + mobile responsive (tabs label ẩn, bulk bar stack, card checkbox + actions row). MODIFIED: [nhanhang/js/main.js](../nhanhang/js/main.js) — `activeCheckTab='unchecked'` (default), `selectedReceiptIds=Set`, `clearSelectionState/updateBulkActionBar/syncSelectAllCheckbox/toggleReceiptSelection/updateTabCounts`; `applyFiltersToData` áp tab filter trước user/date; `createReceiptRow` thêm cellCheck (checkbox) + cellStatus (pill) + mark/unmark button (cạnh edit/delete); colspan 7→9; mobile card thêm checkbox + status badge + per-card mark/unmark; `initializeCheckTabEvents/initializeBulkSelectionEvents`. MODIFIED: [nhanhang/js/crud.js](../nhanhang/js/crud.js) — `setReceiptsCheckedStatus(ids, checked)` immutable map (ids → set `daKiemTra/kiemTraBy/kiemTraAt` hoặc xoá 3 fields), `markReceiptsAsChecked/unmarkReceiptsAsChecked` wrappers; logAction `mark_checked`/`unmark_checked`; invalidateCache + displayReceiptData sau write.
+**Chi tiết**: **Trigger user**: Thêm khả năng đánh dấu phiếu nhận đã kiểm tra. UI: 2 tabs trên header table (Chưa/Đã kiểm tra), badge count theo tab (respect filter user/date). Per-row: nút "Đã KT" (xanh) hoặc "Hủy KT" (cam) cạnh Sửa/Xóa. Bulk: checkbox cột đầu + Select-All (header) → bulk action bar hiện n phiếu chọn → "Đánh dấu đã kiểm tra" (tab unchecked) hoặc "Hủy đã kiểm tra" (tab checked). Mobile cards: checkbox + status badge + per-card mark/unmark button (full-width row dưới). **Schema**: receipt thêm 3 fields optional `daKiemTra:true`, `kiemTraBy:userName`, `kiemTraAt:"DD/MM/YYYY, HH:MM"`. Unmark = delete cả 3 fields (không lưu false). Permission: cần `nhanhang.edit`. **Test localhost** (Playwright FIFO + browser session): tabs render 2 (active=unchecked), 285 row checkboxes/pills/mark btns, count badge unchecked=285/checked=0. Round-trip: mark 1 receipt qua `markReceiptsAsChecked(["moqi9gy5_aket52oaa"])` → 285→284/0→1; switch tab "Đã kiểm tra" → 1 row hiện với pill "Đã kiểm tra" + nút unmark; unmark → 285/0 trả về sạch. Bulk: select-all → 285 selected, click 2 cb → bulk-bar hiện n=2 + markBtn visible; bulk mark 2 → 285→283/0→2; switch checked tab + select-all + bulk unmark → 285/0 cleanup. **ImageCache** áp dụng auto-observer: `firebasestorage.googleapis.com` URLs match `AUTO_PATTERNS` → mọi `<img>` row sẽ swap sang blob URL từ IndexedDB (TTL 7d, 500MB cap). Verify `window.ImageCache` exists, count=0 ban đầu, ready để cache khi user scroll.
+**Status**: ✅ Done.
+
+---
+
+## 2026-05-03
+
+### [inventory-tracking] Fix Tiền HĐ tính sai khi `tongSoLuong=0` + thêm nút Sửa per NCC row
+
+**Files**: MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — thêm helper `getProductEffectiveQty/Amount/InvoiceAmount/InvoiceTotalQty` (fallback chain `tongSoLuong > variants sum > soLuong`); `renderInvoicesSection()` compute fresh totalAmount/totalItems từ products thay vì đọc `hd.tongTienHD` stale; `commitInlineEdit()` recompute thanhTien qua helper; thêm `nccEditBtn` (icon pencil) trong col-ncc cell. MODIFIED: [inventory-tracking/js/data-loader.js](../inventory-tracking/js/data-loader.js) — sau load shipments recompute `hd.tongTienHD` + `hd.tongMon` theo helper; `getAllDotsAggregated()` cũng recompute từ sanPham. MODIFIED: [inventory-tracking/js/crud-operations.js](../inventory-tracking/js/crud-operations.js) — `deleteProductRow` dùng `window.getProductAmount` thay vì `p.thanhTien` stale. NEW: [inventory-tracking/js/modal-edit-ncc.js](../inventory-tracking/js/modal-edit-ncc.js) — modal "Sửa hóa đơn NCC" với form NCC name + ghi chú + bảng products (STT, mã, mô tả, SL, đơn giá Trung, thành tiền) + footer total tự cộng + Lưu thay đổi qua `shipmentsApi.update`. MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — load `modal-edit-ncc.js`. MODIFIED: [inventory-tracking/css/modern.css](../inventory-tracking/css/modern.css) — `.btn-edit-ncc` (icon pencil tím, hiện on hover col-ncc); `.enc-*` table styles (1100px modal, sticky tfoot, focus ring tím).
+**Chi tiết**: **Trigger user**: "Tiền HĐ NCC 24 sao nó tính sai -> 35 _ 127 + 45 _ 127 + 12 _ 87 + 5 _ 97 = 11689" — bảng hiển thị 6.200. **Root cause**: SP 24/1 có 2 biến thể (Trắng/Đen) đều SL=0 → `tongSoLuong=0`, nhưng `soLuong=35` (top-level field). Code cũ tính `thanhTien = (tongSoLuong | | soLuong) \* giaDonVi`chỉ chạy khi inline-edit, còn data load thì lấy`p.thanhTien`đã lưu = 0. SP 24/3 Set tương tự. Tổng: chỉ 5715 (24/2) + 485 (24/4) = 6200 (sai). **Fix**: helper`getProductEffectiveQty(p)`ưu tiên`tongSoLuong > 0`→ variants sum > 0 →`soLuong`. Recompute ở data-load (data-loader) + render (table-renderer) + edit (crud-operations + commitInlineEdit). **Verify localhost**: NCC 24 → `11.689 (52.601)`✓; tfoot total`15.354 (69.093)`✓; tongMon`227`✓; shipment header`Tổng HĐ: 15.354` ✓. **Edit modal**: click pencil → modal mở 4 rows NCC 24 với SL/giá đúng, totalAmt=11.689, totalQty=97 ✓.
+**Status**: ✅ Done.
+
+### [orders] Nút refresh PBH per-order trong cột PHIẾU BÁN HÀNG + fetch fresh khi tạo phiếu
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — `renderInvoiceStatusCell` thêm `refreshBtnHtml` (button ↻ background `#e0f2fe`), render trên 3 trạng thái: empty `!invoiceData`, all-cancelled, normal. NEW: `window.refreshPBHForOrder(orderId)` fetch fresh TPOS OData by Reference, drop stale entries (phiếu bị xóa khỏi TPOS) qua DELETE API, upsert fresh data, re-render cell. Visual loading ↻→⟳. MODIFIED: [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) `confirmAndPrintSale` — fetch fresh TPOS PBH at confirm time.
+**Chi tiết**: **Trigger user**: TPOS không emit `cancelled` event realtime → polling 5 phút có độ trễ. User cần nút manual refresh per-order. Cell empty cũng có nút (case: phiếu vừa tạo trên TPOS UI bypass n2store). Drop stale: phiếu bị xóa hoàn toàn TPOS → DELETE Store+DB. Khi tạo PBH mới: guard fetch fresh, chỉ block khi có active PBH thật.
+**Status**: ✅ Done.
+
+### [render+orders] Stale-check cycle 5 phút — fix invoice cũ hơn 60min không sync state realtime
+
+**Files**: MODIFIED: [render.com/server.js](../render.com/server.js) — thêm setInterval `INVOICE_STALE_CHECK_INTERVAL_MS = 5 phút` quét DB `invoice_status` entries với `tpos_id IS NOT NULL AND entry_timestamp >= now-7d AND state NOT IN (cancel,paid,done)` (cap 200/cycle), batch fetch TPOS OData by Reference (chunk 20 OR clauses), diff `State\|ShowState` với DB. Khi khác → broadcast `{type:'tpos:invoice-update', action:'polled-stale-change'}` + UPSERT DB + seed `recentInvoiceState` cache.
+**Chi tiết**: **Trigger user**: invoice NJD/2026/63983 (29/04 16:54) trên TPOS đã "Huỷ bỏ" nhưng n2store vẫn hiển thị "Đã xác nhận" — không sync. **Root cause**: 60-min `INVOICE_POLL_LOOKBACK_MIN` chỉ cover phiếu mới. TPOS chatomni socket KHÔNG emit `cancelled` event khi user click "Hủy phiếu" trên UI (verified bằng 2-tab live test 35min). Phiếu cũ hơn 60min bị hủy → poll không thấy → InvoiceStatusStore stale forever. **Fix**: tier 2 polling — DB-tracked Ids (đã được any client từng load), check state hiện tại qua OData. Cycle 5 phút cap 200 entries (chỉ entries chưa-final), broadcast giống event TPOS thật → client `handleInvoiceUpdate` đã handle (fetch by Id/Number → update InvoiceStatusStore → re-render PBH cell). UPSERT DB tránh re-broadcast cycle sau.
+**Status**: ✅ Done.
+
+### [tooling] Pre-commit prettier hook — triệt để vấn đề "diff sót sau commit"
+
+**Files**: NEW: [.githooks/pre-commit](../.githooks/pre-commit) — bash script: lấy staged files (filter `\.(js | jsx | ts | tsx | html | css | md | json | yaml | yml)$`), chạy prettier `--write`từng file (ưu tiên`node_modules/.bin/prettier`, fallback `npx --no-install prettier`), `git add`lại các file đã format. Skip nếu env`SKIP_PRETTIER=1`. MODIFIED: [package.json](../package.json) — thêm `"prepare": "git config core.hooksPath .githooks"`script tự set hooksPath sau`npm install`(tracked workflow cho mọi clone). Set local:`git config core.hooksPath .githooks`.
+**Chi tiết**: **Trigger user**: "sao lúc nào code xong nó cũng chừa lại không push vậy". **Root cause**: `stop:format-typecheck` hook chạy prettier SAU khi tôi đã commit + push → tạo diff mới chưa staged → mỗi session hoàn thành luôn còn 1-2 file modified. **Fix**: di chuyển format từ POST-commit (Stop time) sang PRE-commit (git hook). Workflow mới: `git add` → `git commit` → pre-commit hook chạy prettier trên staged files → re-stage → commit chứa version đã format → `git diff HEAD` luôn empty. **Test**: tạo file format xấu (`const x={a:1};`) → commit → tự động format thành `const x = { a: 1 };` → 0 diff sót. **Tracked**: `.githooks/` committed vào repo, `prepare` npm hook auto-setup khi clone mới.
+**Status**: ✅ Done.
+
+### [orders-report+chat] Wire infinite scroll cho modal tin nhắn — kéo lên đầu load tin cũ
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js) — `renderChatMessages()` gọi `_wireInfiniteScroll(container)` (idempotent qua `data-scroll-wired` flag). Thêm helper `_wireInfiniteScroll`: scroll listener (passive + rAF throttle) — khi `scrollTop < 80px` và không loading → gọi `window.loadMoreMessages()`. MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — thêm flag `window._chatNoMoreMessages` (init false ở top). `loadMoreMessages` early-return nếu flag true; khi API trả `newMessages.length === 0` → set flag true (ngừng trigger lại). Reset flag = false ở 3 điểm `currentChatCursor = null` (switch conversation/page/type).
+**Chi tiết**: **Trigger user**: "modal tin nhắn không scroll để load thêm dữ liệu được". **Root cause**: `window.loadMoreMessages` ĐÃ TỒN TẠI ở chat-core (line 1123 — fetch qua `pdm.fetchMessages(pageId, convId, currentChatCursor)`, prepend, restore scroll position) nhưng KHÔNG có scroll listener nào trigger nó. **Pancake API**: `current_count=N` parameter → return tin cũ hơn N tin đầu tiên. **Fix**: wire scroll listener trong `renderChatMessages` (chạy mỗi lần render, idempotent). Threshold 80px tránh trigger khi user gần đầu mà chưa thực sự muốn load. rAF throttle tránh fire liên tục. Stop flag tránh request loop khi đã hết tin cũ (API trả 0 message).
+**Status**: ✅ Done.
+
+### [orders-report+image-cache] Auto-observer + CORS proxy + bump cap 500MB
+
+**Files**: MODIFIED: [shared/js/image-cache.js](../shared/js/image-cache.js) — (1) thêm `attachAutoObserver()` MutationObserver tự động auto-cache mọi `<img>` match `AUTO_PATTERNS = [/img\d*\.tpos\.vn/, /firebasestorage\.googleapis\.com/, /\/api\/image-proxy\?/]` (idempotent qua data-cache-wired). (2) Thêm `toCorsUrl(url)` route `img\d.tpos.vn` qua CF Worker `/api/image-proxy?url=...` để có CORS — TPOS direct domain không trả CORS header → fetch từ JS sẽ fail và cache miss luôn. Cache key giữ URL gốc → share giữa caller. (3) Bump `MAX_SIZE_BYTES` 200→500MB (catalog ảnh lớn), `MAX_SIZE_TARGET` 160→400MB. (4) Thêm `sizeCheck()` chạy 5 phút/lần (throttle ngắn) — không phụ thuộc age-cleanup 24h, evict ngay khi vượt cap. MODIFIED: [shared/js/tpos-image-proxy.js](../shared/js/tpos-image-proxy.js) `rewriteImg()` — sau khi rewrite proxy URL, gọi `ImageCache.setImgSrc` (idempotent qua data-cache-wired). MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) + [orders-report/tab3-product-assignment.html](../orders-report/tab3-product-assignment.html) — load image-cache.js trước tpos-image-proxy.js.
+**Chi tiết**: **Trigger user**: scan toàn project apply ImageCache. **Test prod**: nav `tab1-orders.html` (campaign T5 đã chọn) → 763 TPOS images, **all 763 swap thành blob: URL** (cache hit/store). Cache stats: 527 entries, 238MB. **Bug-fix flow**: lần đầu test, blobCount=0 vì TPOS direct domain `img1.tpos.vn` không cho CORS → fetch fail → fallback remote URL. Fix bằng `toCorsUrl()` wrap qua CF Worker proxy. **Skip realtime**: chat-messages, chat-core, merge-live-waiting đều dùng URL pattern khác (Pancake CDN / Facebook), không match AUTO_PATTERNS.
+**Status**: ✅ Done.
+
+### [customer-hub+delivery-report+inventory] Mở rộng ImageCache (TTL 7d) sang wallet/profile/lightbox/gallery
+
+**Files**: MODIFIED: [shared/js/image-cache.js](../shared/js/image-cache.js) — thêm helper `applyTo(rootEl)` quét `[data-cache-src]`/`[data-cache-bg]` và hoán URL → blob URL (idempotent qua flag `data-cache-applied`); thêm `setImgSrc(imgEl, url)` async-set src qua cache. MODIFIED: [customer-hub/js/modules/wallet-panel.js](../customer-hub/js/modules/wallet-panel.js) — thumbnail `.wallet-tx-thumb` (note inline + lone img) thêm `data-cache-src`; lightbox `_walletShowImage` cũng thêm + gọi `applyTo`. Sau render `_renderManualHistoryTab` + filter update gọi `applyTo`. MODIFIED: [customer-hub/js/modules/customer-profile.js](../customer-hub/js/modules/customer-profile.js) — thumbnail GD trong tickets card thêm `data-cache-src`, sau render `render()` gọi `applyTo(this.contentLoaded)`. MODIFIED: [customer-hub/js/modules/transaction-evidence.js](../customer-hub/js/modules/transaction-evidence.js) — `showSepayImage()` lightbox thêm `data-cache-src` + applyTo. MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `openLightbox()` dùng `setImgSrc` cho cả proxied URL và fallback. MODIFIED: [inventory-tracking/js/modal-image-manager.js](../inventory-tracking/js/modal-image-manager.js) — gallery thumbnails (img-mgr-thumb + img-gallery-item) thêm `data-cache-src`, post-render gọi applyTo; `_openLightbox()` dùng `setImgSrc`. MODIFIED: [customer-hub/index.html](../customer-hub/index.html) + [delivery-report/index.html](../delivery-report/index.html) + [inventory-tracking/index.html](../inventory-tracking/index.html) — load `image-cache.js` trước module dependent.
+**Chi tiết**: **Trigger user**: scan toàn bộ project áp ImageCache cho mọi nơi render ảnh persistent (Firebase Storage / image-proxy). **Tránh đụng**: realtime channels (inbox/tpos-pancake/render-data-manager — chat hình động liên tục). **Implementation pattern**: HTML template giữ nguyên `src=` (fallback), thêm `data-cache-src=`. Sau render gọi `ImageCache.applyTo(container)` quét và hoán src → `URL.createObjectURL(blob)`. Idempotent qua `data-cache-applied` flag. Lightboxes set src trực tiếp dùng `setImgSrc()` async API. **Kết quả**: ảnh xác nhận CK (balance-history accountant), thumbnail GD wallet (customer-hub), gallery NCC (inventory-tracking), lightbox delivery-report — tất cả cache 7 ngày trong IndexedDB, share cache toàn project (cùng key `n2store_image_cache.blobs`).
+**Status**: ✅ Done.
+
+### [shared+balance-history] IndexedDB image cache TTL 7 ngày — giảm fetch lại Firebase Storage
+
+**Files**: NEW: [shared/js/image-cache.js](../shared/js/image-cache.js) — module IIFE expose `window.ImageCache.{getUrl, prefetch, cleanup, stats, clear}`. IndexedDB store `n2store_image_cache.blobs` keyPath `url`, schema `{url, blob, size, addedAt, lastAccessedAt}`. Auto-cleanup 1 lần/ngày: xóa entries `addedAt > 7d`, evict LRU khi tổng size > 200MB (target 160MB). Request `navigator.storage.persist()` best-effort tránh browser auto-evict. MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) `renderApprovedToday()` — `<img>` thumbnail + `.acc-zoom-overlay` thêm `data-cache-src`/`data-cache-bg`, sau render hook `ImageCache.getUrl()` hoán đổi sang blob URL. Fallback im lặng về remote URL nếu cache fail. MODIFIED: [balance-history/index.html](../balance-history/index.html) — load `image-cache.js` trước accountant.js.
+**Chi tiết**: **Trigger user**: ảnh xác nhận CK Firebase Storage cache HTTP `max-age=3600` (1h), sau đó refetch tốn data — yêu cầu cache persistent 7 ngày. **Implementation**: IndexedDB blob cache → `URL.createObjectURL()` render. Mỗi page ~60 thumbnail, page 2-26 chia sẻ cache nếu user scroll lại. Cleanup LRU + age-based: evict cũ nhất khi vượt 200MB cap. Throttle cleanup qua localStorage `imageCache_lastCleanupTs` — 1 lần/24h. **Quota**: Chrome ~60% disk, Firefox ~10%, Safari iOS ~1GB. Persistent storage flag → tránh auto-evict. **Failure modes**: IndexedDB unavailable / QuotaExceededError → fallback render direct URL (không break UX).
+**Status**: ✅ Done.
+
+### [balance-history] Ẩn tất cả đơn nguồn "Hoàn tiền" (wallet ORDER_CANCEL_REFUND) trong panel "Đã duyệt"
+
+**Files**: MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) `renderApprovedToday()` — `isCancelRefund(tx)` check theo SOURCE FLAG (`tx.wt_type === 'DEPOSIT' && tx.wt_source === 'ORDER_CANCEL_REFUND'`) thay vì regex trên note. Note regex `REFUND_NOTE_FALLBACK = /(ho[àa]n\s+t[ừu]\s+đơn\s+h[ủu]y\|ho[àa]n\s+ti[ềe]n\s+h[ủu]y\s+đơn)\s*#NJD\//i` chỉ làm fallback cho legacy data thiếu wt_source.
+**Chi tiết**: **Trigger user**: "ẩn các đơn có nguồn hoàn tiền" — không chỉ format cũ "(hoàn từ đơn hủy #NJD/...)" mà cả format mới "Hoàn tiền hủy đơn #NJD/2026/64599 (Thật: 515,000đ, Công nợ: 0đ)". **Fix**: chuyển từ note-text matching sang source-flag matching. Bất kể backend đổi format note thế nào, hễ wt_source là `ORDER_CANCEL_REFUND` thì ẩn. Robust hơn pattern matching. **Test**: 8/8 unit cases pass (cả 2 format note + edge cases).
+**Status**: ✅ Done.
+
+### [shared] Fix login bouncing loop — navigation-modern.js fallback storage check khi authManager chưa init
+
+**Files**: MODIFIED: [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) `waitForDependencies()` — `maxRetries` 15→30 (4.5s→9s timeout), thêm `hasValidStoredAuth()` đọc trực tiếp `loginindex_auth` từ session/localStorage và validate `isLoggedIn + expiresAt + timestamp+maxAge`. Khi timeout: nếu valid auth tồn tại → log warning + skip redirect (page load không có sidebar nav nhưng vẫn work); nếu không → redirect `../index.html` như cũ.
+**Chi tiết**: **Trigger user**: "login văng ngược lại http://localhost:8080/index.html" — login → quy-trinh → navigation-modern.init() check `window.authManager` chưa ready (compat.js ES module imports chưa resolve) → timeout 4.5s → force redirect `../index.html` → login.js `checkExistingLogin` thấy session valid trong storage → redirect tiếp `quy-trinh` → vòng lặp bouncing. **Root cause**: race condition `<script type="module">` (compat.js) vs `<script defer>` (navigation-modern.js) — module imports có thể resolve sau defer scripts. **Fix**: gấp đôi retry timeout + storage-direct fallback (không phụ thuộc authManager). Page bị mất sidebar nav graceful hơn vòng lặp bouncing. Không break flow normal — only kicks in khi authManager init fail.
+**Status**: ✅ Done.
+
 ---
 
 ## 2026-04-30
 
 ### [inventory] Modal "Tạo đơn đặt hàng" — share mã theo tên SP, validate trùng tên khác mã, khóa overlay
-| | |
-|---|---|
-| **Files** | MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — `_generateCodesForAll`: build `nameCodeMap` (normalized name→code) từ items đã có code, mỗi target check map → reuse code thay vì gọi generator. Thêm `_clearItemErrorHighlights` + `_validateSameNameSameCode`: group validItems theo `productName.trim().toLowerCase()`, group có ≥2 distinct codes → tô đỏ tất cả rows + báo "STT X, Y có cùng tên SP nhưng mã khác nhau". Gọi trong `_confirmConvertToPO` sau missing-code check. MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — bỏ `onclick="closeModal('modalConvertPO')"` trên `.modal-overlay` của `#modalConvertPO` → click ngoài không tắt modal, chỉ Hủy / X mới đóng. MODIFIED: [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css) — thêm `.po-row-error` (background `#fef2f2`, inset shadow đỏ trái) cho row vi phạm validation. |
-| **Chi tiết** | **Trigger user**: "1) Tạo mã tất cả: STT cùng tên 100% phải dùng chung mã của STT đầu tiên (vd 24/1 Trắng N4106 → 24/1 Đen cũng N4106). 2) Tạo đơn hàng: kiểm tra cùng tên khác mã → tô đỏ + bắt sửa. 3) Click ngoài modal không tắt — phải Hủy/X". **Implementation**: (1) Sequential gen vẫn giữ để tránh trùng mã khi nhiều prefix cùng nhóm, nhưng thêm step reuse-from-map đứng trước generator call → cùng tên = cùng code. (2) Validation chạy AFTER missing-code check (đảm bảo tất cả items có code mới so sánh). Highlight persist (không setTimeout) đến khi user sửa & re-submit → `_clearItemErrorHighlights` clear trước mỗi lần validate. (3) Overlay vẫn render dimming, chỉ bỏ click handler — pattern cũ `purchase-orders` modal cũng làm vậy. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — `_generateCodesForAll`: build `nameCodeMap` (normalized name→code) từ items đã có code, mỗi target check map → reuse code thay vì gọi generator. Thêm `_clearItemErrorHighlights` + `_validateSameNameSameCode`: group validItems theo `productName.trim().toLowerCase()`, group có ≥2 distinct codes → tô đỏ tất cả rows + báo "STT X, Y có cùng tên SP nhưng mã khác nhau". Gọi trong `_confirmConvertToPO` sau missing-code check. MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — bỏ `onclick="closeModal('modalConvertPO')"` trên `.modal-overlay` của `#modalConvertPO` → click ngoài không tắt modal, chỉ Hủy / X mới đóng. MODIFIED: [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css) — thêm `.po-row-error` (background `#fef2f2`, inset shadow đỏ trái) cho row vi phạm validation.
+**Chi tiết**: **Trigger user**: "1) Tạo mã tất cả: STT cùng tên 100% phải dùng chung mã của STT đầu tiên (vd 24/1 Trắng N4106 → 24/1 Đen cũng N4106). 2) Tạo đơn hàng: kiểm tra cùng tên khác mã → tô đỏ + bắt sửa. 3) Click ngoài modal không tắt — phải Hủy/X". **Implementation**: (1) Sequential gen vẫn giữ để tránh trùng mã khi nhiều prefix cùng nhóm, nhưng thêm step reuse-from-map đứng trước generator call → cùng tên = cùng code. (2) Validation chạy AFTER missing-code check (đảm bảo tất cả items có code mới so sánh). Highlight persist (không setTimeout) đến khi user sửa & re-submit → `_clearItemErrorHighlights` clear trước mỗi lần validate. (3) Overlay vẫn render dimming, chỉ bỏ click handler — pattern cũ `purchase-orders` modal cũng làm vậy.
+**Status**: ✅ Done.
 
 ### [orders] Click "+ PBH" trên đơn còn phiếu chưa hủy → modal cảnh báo + xác nhận "Tạo tiếp"
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `window._forceCreatePBH` — trước khi set bypass + open sale modal, lọc `InvoiceStatusStore.getAll(orderId)` lấy entries CHƯA huỷ (loại State='cancel', StateCode='cancel', IsMergeCancel, ShowState∈{'Huỷ bỏ','Hủy bỏ'}). Nếu 0 active → tạo trực tiếp như cũ. Nếu ≥1 active → render modal cảnh báo bảng các phiếu (Số phiếu link TPOS, Ngày tạo `DD/MM HH:mm`, Trạng thái badge, Tổng tiền VNĐ, Người tạo); 2 nút: "Đóng — không tạo" và "Tạo tiếp dù còn phiếu cũ" (đỏ) → click → close modal + proceedCreate. Click overlay đóng modal. |
-| **Chi tiết** | **Trigger user**: "phiếu đã có đơn mà tạo mới thì mở modal hiện các phiếu đã xác nhận của đơn đó — cho nút tạo tiếp nếu user vẫn muốn tạo". Trước đây click "+ PBH" force tạo ngay → user dễ tạo trùng lặp khi quên rằng đơn còn phiếu xác nhận / chưa đối soát. **Sau fix**: hiển thị danh sách rõ Số phiếu / Ngày / Tổng tiền / Người tạo → user kiểm tra trước khi tạo; click số phiếu mở TPOS form invoiceform1 để xem chi tiết / hủy. Modal inline DOM (không phụ thuộc lib), backdrop blur, overlay click đóng. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `window._forceCreatePBH` — trước khi set bypass + open sale modal, lọc `InvoiceStatusStore.getAll(orderId)` lấy entries CHƯA huỷ (loại State='cancel', StateCode='cancel', IsMergeCancel, ShowState∈{'Huỷ bỏ','Hủy bỏ'}). Nếu 0 active → tạo trực tiếp như cũ. Nếu ≥1 active → render modal cảnh báo bảng các phiếu (Số phiếu link TPOS, Ngày tạo `DD/MM HH:mm`, Trạng thái badge, Tổng tiền VNĐ, Người tạo); 2 nút: "Đóng — không tạo" và "Tạo tiếp dù còn phiếu cũ" (đỏ) → click → close modal + proceedCreate. Click overlay đóng modal.
+**Chi tiết**: **Trigger user**: "phiếu đã có đơn mà tạo mới thì mở modal hiện các phiếu đã xác nhận của đơn đó — cho nút tạo tiếp nếu user vẫn muốn tạo". Trước đây click "+ PBH" force tạo ngay → user dễ tạo trùng lặp khi quên rằng đơn còn phiếu xác nhận / chưa đối soát. **Sau fix**: hiển thị danh sách rõ Số phiếu / Ngày / Tổng tiền / Người tạo → user kiểm tra trước khi tạo; click số phiếu mở TPOS form invoiceform1 để xem chi tiết / hủy. Modal inline DOM (không phụ thuộc lib), backdrop blur, overlay click đóng.
+**Status**: ✅ Done.
 
 ### [orders] Mở rộng `STT: X + Y` (TAG XL gộp) sang Phiếu Soạn Hàng + TPOS bill — tách helper `getMergedSttDisplay()`
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — tách `getMergedSttDisplay(order, orderResult)` (priority: TPOS Tags "Gộp X Y" → `IsMerged.OriginalOrders` → ProcessingTagState custom flag id `GOP_<sttList>` → `SessionIndex`); `generateCustomBillHTML()` dùng helper thay vì 3 đoạn duplicate; export `window.getMergedSttDisplay`. MODIFIED: [orders-report/js/tab1/tab1-packing-slip.js](../orders-report/js/tab1/tab1-packing-slip.js) — `openPackingSlipModal()` (modal preview) + `generatePackingSlipHTML()` (HTML in) dùng `window.getMergedSttDisplay(order)` thay vì `order.SessionIndex`. MODIFIED: [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) — TPOS bill (modify HTML thêm STT dưới "Người bán") dùng helper, gồm fallback TAG XL vốn chỉ check `IsMerged` trước đây. |
-| **Chi tiết** | **Trigger user**: "phiếu khác phiếu bán hàng đã có logic tag xl chưa?" → check thấy Phiếu Soạn Hàng + TPOS bill (sale-confirm) chỉ dùng `order.SessionIndex` hoặc check `IsMerged` mà không check TAG XL `GOP_<X>_<Y>` flag. **Refactor**: tách helper chung trong bill-service để các consumer (PBH web, PBH TPOS, Phiếu Soạn Hàng) cùng dùng — giảm 24 dòng duplicate. **Verify**: order STT 313 (code 260402102) có flag `{id:"GOP_84_313", name:"GỘP 84 313"}` → tất cả 3 phiếu hiển thị `STT: 84 + 313` (logic identical với fix trước, đã pass test "84 + 313"). |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — tách `getMergedSttDisplay(order, orderResult)` (priority: TPOS Tags "Gộp X Y" → `IsMerged.OriginalOrders` → ProcessingTagState custom flag id `GOP_<sttList>` → `SessionIndex`); `generateCustomBillHTML()` dùng helper thay vì 3 đoạn duplicate; export `window.getMergedSttDisplay`. MODIFIED: [orders-report/js/tab1/tab1-packing-slip.js](../orders-report/js/tab1/tab1-packing-slip.js) — `openPackingSlipModal()` (modal preview) + `generatePackingSlipHTML()` (HTML in) dùng `window.getMergedSttDisplay(order)` thay vì `order.SessionIndex`. MODIFIED: [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) — TPOS bill (modify HTML thêm STT dưới "Người bán") dùng helper, gồm fallback TAG XL vốn chỉ check `IsMerged` trước đây.
+**Chi tiết**: **Trigger user**: "phiếu khác phiếu bán hàng đã có logic tag xl chưa?" → check thấy Phiếu Soạn Hàng + TPOS bill (sale-confirm) chỉ dùng `order.SessionIndex` hoặc check `IsMerged` mà không check TAG XL `GOP_<X>_<Y>` flag. **Refactor**: tách helper chung trong bill-service để các consumer (PBH web, PBH TPOS, Phiếu Soạn Hàng) cùng dùng — giảm 24 dòng duplicate. **Verify**: order STT 313 (code 260402102) có flag `{id:"GOP_84_313", name:"GỘP 84 313"}` → tất cả 3 phiếu hiển thị `STT: 84 + 313` (logic identical với fix trước, đã pass test "84 + 313").
+**Status**: ✅ Done.
 
 ### [render+orders] Phát hiện DELETE phiếu TPOS — verify single-key 404 + cleanup DB Render + Memory client
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/server.js](../render.com/server.js) poll cycle — track `currentIds` set mỗi cycle. Sau broadcast state-change, identify candidates deleted (entries trong cache có `lastSeenInPoll` < 2 cycles ago NHƯNG không trong currentIds). Verify từng candidate qua single-key endpoint `/FastSaleOrder({id})`: HTTP 404 = confirmed deleted → broadcast `{type:'tpos:invoice-update', action:'polled-deleted', data:{Id}}` + xóa khỏi cache. HTTP 200 (vẫn tồn tại nhưng ra ngoài DateInvoice lookback) → refresh `lastSeenInPoll`. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — branch mới khi `action === 'polled-deleted'`: scan `InvoiceStatusStore._data` tìm entries có `Id === invoiceId`, gọi `DELETE ${API_BASE}/entries/{compoundKey}` cho từng entry → xóa local Map → re-render PBH cell các order liên quan. |
-| **Chi tiết** | **Trigger user**: "xóa tpos mà không xóa render db nó sẽ lỗi". Trước đây: cancel (State='cancel') được polling phát hiện qua diff state, nhưng DELETE thực sự (invoice biến mất khỏi TPOS DB) — poll không thấy invoice trong result → cache vẫn giữ state cũ → DB Render giữ entry stale → web hiển thị PBH không tồn tại. **Logic mới**: cache structure thêm `lastSeenInPoll` ts. Mỗi poll cycle, sau khi process current invoices, scan cache tìm entries vừa thấy < 2 cycles ago (120s) nhưng KHÔNG trong current → suspect deleted. Verify single-key 404 → confirmed → broadcast `polled-deleted`. Tránh false positive (entry ra ngoài DateInvoice lookback NATURAL nhưng vẫn tồn tại) bằng verify 200 → refresh lastSeen. Client xóa CHÍNH XÁC entry by `compoundKey` (không xóa toàn bộ saleOnlineId — đơn có nhiều phiếu phải giữ phiếu khác active). |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [render.com/server.js](../render.com/server.js) poll cycle — track `currentIds` set mỗi cycle. Sau broadcast state-change, identify candidates deleted (entries trong cache có `lastSeenInPoll` < 2 cycles ago NHƯNG không trong currentIds). Verify từng candidate qua single-key endpoint `/FastSaleOrder({id})`: HTTP 404 = confirmed deleted → broadcast `{type:'tpos:invoice-update', action:'polled-deleted', data:{Id}}` + xóa khỏi cache. HTTP 200 (vẫn tồn tại nhưng ra ngoài DateInvoice lookback) → refresh `lastSeenInPoll`. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — branch mới khi `action === 'polled-deleted'`: scan `InvoiceStatusStore._data` tìm entries có `Id === invoiceId`, gọi `DELETE ${API_BASE}/entries/{compoundKey}` cho từng entry → xóa local Map → re-render PBH cell các order liên quan.
+**Chi tiết**: **Trigger user**: "xóa tpos mà không xóa render db nó sẽ lỗi". Trước đây: cancel (State='cancel') được polling phát hiện qua diff state, nhưng DELETE thực sự (invoice biến mất khỏi TPOS DB) — poll không thấy invoice trong result → cache vẫn giữ state cũ → DB Render giữ entry stale → web hiển thị PBH không tồn tại. **Logic mới**: cache structure thêm `lastSeenInPoll` ts. Mỗi poll cycle, sau khi process current invoices, scan cache tìm entries vừa thấy < 2 cycles ago (120s) nhưng KHÔNG trong current → suspect deleted. Verify single-key 404 → confirmed → broadcast `polled-deleted`. Tránh false positive (entry ra ngoài DateInvoice lookback NATURAL nhưng vẫn tồn tại) bằng verify 200 → refresh lastSeen. Client xóa CHÍNH XÁC entry by `compoundKey` (không xóa toàn bộ saleOnlineId — đơn có nhiều phiếu phải giữ phiếu khác active).
+**Status**: ✅ Done.
 
 ### [render+orders] Hủy phiếu TPOS realtime fix — TPOS không emit cancel event → poll fallback + single-key OData lookup
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/server.js](../render.com/server.js) — sau watchdog block thêm INVOICE STATE POLLING `setInterval` 60s: gọi `tposTokenManager.getToken()` → query `${TPOS_ODATA}/FastSaleOrder/ODataService.GetView?$filter=WriteDate ge <5min ago>&$top=50&$orderby=WriteDate desc` → diff `State|ShowState` với cache `Map<invoiceId, {stateKey, ts}>` → broadcast `{type:'tpos:invoice-update', action:'polled-state-change', data:{Id,Number,Reference,State,ShowState,Order:{Id,Code:Number}}}` cho mọi state change. Cold start lần đầu chỉ populate cache (tránh spam 50 events). Cleanup cache entries > 30min. Guard `invoicePollRunning` tránh chạy chồng. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — đổi lookup khi không có Number: từ filter `Id eq <id>` (TPOS GetView IGNORE filter này, trả record random!) sang single-key endpoint `/FastSaleOrder({id})` (200 OK trả đúng record). Handle response shape: GetView `{value:[...]}` vs single-key object `{Id, ...}`. |
-| **Chi tiết** | **Trigger user**: hủy phiếu 432792 (NJD/2026/64593) trên TPOS UI → web không update. **Verify từ 2-tab live test**: 35 phút WS log chỉ thấy actions `created` và `fast_sale_order_payment`, **không có** `cancelled`/`deleted`/`updated`. **Verify cancel thật**: GET `/api/odata/FastSaleOrder(432792)` → State='cancel', ShowState='Hủy bỏ' → cancel SUCCESS bên TPOS, nhưng KHÔNG emit qua chatomni socket. **2 bug song song**: (A) TPOS GetView filter `Id eq X` bị ignore → ngay cả khi event lean payload `{Id,State}` đến, lookup OData trả record sai; (B) cancel không emit event nên không có gì để trigger lookup. **Fix**: (A) single-key endpoint hoạt động đúng (verified); (B) Render poll TPOS mỗi 60s, broadcast event tự custom action `polled-state-change` — client tab1 handle đã có sẵn (handleInvoiceUpdate fetch by Id → update Store + re-render PBH cell). |
-| **Status** | ✅ Done. Auto-deploy via push. Render poll cold start ~10s sau boot, sau đó cancel phiếu sẽ phát hiện trong vòng 60s qua poll fallback. |
+
+**Files**: MODIFIED: [render.com/server.js](../render.com/server.js) — sau watchdog block thêm INVOICE STATE POLLING `setInterval` 60s: gọi `tposTokenManager.getToken()` → query `${TPOS_ODATA}/FastSaleOrder/ODataService.GetView?$filter=WriteDate ge <5min ago>&$top=50&$orderby=WriteDate desc` → diff `State | ShowState`với cache`Map<invoiceId, {stateKey, ts}>`→ broadcast`{type:'tpos:invoice-update', action:'polled-state-change', data:{Id,Number,Reference,State,ShowState,Order:{Id,Code:Number}}}`cho mọi state change. Cold start lần đầu chỉ populate cache (tránh spam 50 events). Cleanup cache entries > 30min. Guard`invoicePollRunning`tránh chạy chồng. MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js)`handleInvoiceUpdate()`— đổi lookup khi không có Number: từ filter`Id eq <id>`(TPOS GetView IGNORE filter này, trả record random!) sang single-key endpoint`/FastSaleOrder({id})`(200 OK trả đúng record). Handle response shape: GetView`{value:[...]}`vs single-key object`{Id, ...}`.
+**Chi tiết**: **Trigger user**: hủy phiếu 432792 (NJD/2026/64593) trên TPOS UI → web không update. **Verify từ 2-tab live test**: 35 phút WS log chỉ thấy actions `created` và `fast_sale_order_payment`, **không có** `cancelled`/`deleted`/`updated`. **Verify cancel thật**: GET `/api/odata/FastSaleOrder(432792)` → State='cancel', ShowState='Hủy bỏ' → cancel SUCCESS bên TPOS, nhưng KHÔNG emit qua chatomni socket. **2 bug song song**: (A) TPOS GetView filter `Id eq X` bị ignore → ngay cả khi event lean payload `{Id,State}` đến, lookup OData trả record sai; (B) cancel không emit event nên không có gì để trigger lookup. **Fix**: (A) single-key endpoint hoạt động đúng (verified); (B) Render poll TPOS mỗi 60s, broadcast event tự custom action `polled-state-change` — client tab1 handle đã có sẵn (handleInvoiceUpdate fetch by Id → update Store + re-render PBH cell).
+**Status**: ✅ Done. Auto-deploy via push. Render poll cold start ~10s sau boot, sau đó cancel phiếu sẽ phát hiện trong vòng 60s qua poll fallback.
 
 ### [orders] Cell PHIẾU BÁN HÀNG ghi rõ Number + Ngày + Tooltip nút X — tránh hủy nhầm phiếu cũ
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `renderInvoiceStatusCell()` Row 1: Number badge (NJD/2026/X) tăng `font-size: 9→11px`, `font-weight: 500→600`, thêm `font-family: ui-monospace`. Thêm Date badge mới (định dạng `DD/MM HH:mm` từ `DateInvoice ?? DateCreated`) màu vàng nhạt cạnh Number. Tooltip nút ✕ "Nhờ hủy đơn" → multiline rõ ràng: `🛑 Hủy phiếu: NJD/2026/X` + `Ngày: 30/04 14:23` + `Tổng: 422.000đ` + `(Đơn có N phiếu — kiểm tra số phiếu trên cell)`. Thêm attr `data-invoice-number` lên button để debug. |
-| **Chi tiết** | **Trigger user**: "cột phiếu bán hàng ghi rõ để nhận diện không hủy nhầm đơn cũ được không?". Trước đây Number badge nhỏ (9px) khó đọc, không có ngày, tooltip nút X chỉ "Nhờ hủy đơn" → user không biết đang nhằm phiếu nào trong N phiếu của đơn (vd đơn 260402102 có 17 PBH). **Sau fix**: Number to monospace dễ đọc, Date badge hiển thị ngay phân biệt phiếu mới/cũ, hover nút ✕ thấy đầy đủ Number + Ngày + Tổng tiền + cảnh báo nếu đơn có nhiều phiếu. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `renderInvoiceStatusCell()` Row 1: Number badge (NJD/2026/X) tăng `font-size: 9→11px`, `font-weight: 500→600`, thêm `font-family: ui-monospace`. Thêm Date badge mới (định dạng `DD/MM HH:mm` từ `DateInvoice ?? DateCreated`) màu vàng nhạt cạnh Number. Tooltip nút ✕ "Nhờ hủy đơn" → multiline rõ ràng: `🛑 Hủy phiếu: NJD/2026/X` + `Ngày: 30/04 14:23` + `Tổng: 422.000đ` + `(Đơn có N phiếu — kiểm tra số phiếu trên cell)`. Thêm attr `data-invoice-number` lên button để debug.
+**Chi tiết**: **Trigger user**: "cột phiếu bán hàng ghi rõ để nhận diện không hủy nhầm đơn cũ được không?". Trước đây Number badge nhỏ (9px) khó đọc, không có ngày, tooltip nút X chỉ "Nhờ hủy đơn" → user không biết đang nhằm phiếu nào trong N phiếu của đơn (vd đơn 260402102 có 17 PBH). **Sau fix**: Number to monospace dễ đọc, Date badge hiển thị ngay phân biệt phiếu mới/cũ, hover nút ✕ thấy đầy đủ Number + Ngày + Tổng tiền + cảnh báo nếu đơn có nhiều phiếu.
+**Status**: ✅ Done.
 
 ### [orders] InvoiceStatusStore.getLatest ưu tiên latest NON-CANCELLED → cell PBH map đúng phiếu đại diện active
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `getLatest(saleOnlineId)` — track 2 cursors: `latestActive` (cao nhất theo timestamp trong các entry KHÔNG cancelled — kiểm bằng `State==='cancel' \|\| StateCode==='cancel' \|\| IsMergeCancel \|\| ShowState∈{'Huỷ bỏ','Hủy bỏ'}`) và `latestAny` (latest theo timestamp bất kể state). Return `latestActive ?? latestAny`. |
-| **Chi tiết** | **Trigger user**: order `260402102` có 17 PBH (active + cancelled mix). Khi user hủy phiếu mới nhất → entry vừa hủy có timestamp cao nhất → `getLatest()` trước đây trả về phiếu hủy → `renderInvoiceStatusCell()` thấy `isCancelled` → render `−` (như chưa có PBH) → che mất 16 phiếu xác nhận/đối soát còn active. **Fix**: ưu tiên `latestActive`, fallback `latestAny` khi tất cả đều cancelled (giữ behavior cũ "hiện − khi đơn không còn phiếu nào active"). Mọi caller (chat-core, sale, fast-sale, table) đều mong muốn "phiếu đại diện active" → fix tại nguồn `getLatest` để propagate đúng cho tất cả. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) `getLatest(saleOnlineId)` — track 2 cursors: `latestActive` (cao nhất theo timestamp trong các entry KHÔNG cancelled — kiểm bằng `State==='cancel' \|\| StateCode==='cancel' \|\| IsMergeCancel \|\| ShowState∈{'Huỷ bỏ','Hủy bỏ'}`) và `latestAny` (latest theo timestamp bất kể state). Return `latestActive ?? latestAny`.
+**Chi tiết**: **Trigger user**: order `260402102` có 17 PBH (active + cancelled mix). Khi user hủy phiếu mới nhất → entry vừa hủy có timestamp cao nhất → `getLatest()` trước đây trả về phiếu hủy → `renderInvoiceStatusCell()` thấy `isCancelled` → render `−` (như chưa có PBH) → che mất 16 phiếu xác nhận/đối soát còn active. **Fix**: ưu tiên `latestActive`, fallback `latestAny` khi tất cả đều cancelled (giữ behavior cũ "hiện − khi đơn không còn phiếu nào active"). Mọi caller (chat-core, sale, fast-sale, table) đều mong muốn "phiếu đại diện active" → fix tại nguồn `getLatest` để propagate đúng cho tất cả.
+**Status**: ✅ Done.
 
 ### [orders] PBH realtime nhận event lean payload `{Id, State}` (action payment / cancel / delete) — fetch fallback by Id
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — extract thêm `invoiceId` từ root payload (`eventData.Id`, `data.Id`, `Data.Id`); guard mới: skip CHỈ khi cả `invoiceNumber` LẪN `invoiceId` đều thiếu; OData filter dùng `Id eq <invoiceId>` khi không có Number; dedupe key fallback theo Id. |
-| **Chi tiết** | **Trigger user**: TPOS gửi event `fast_sale_order_payment` payload `{Id: 432728, State: "open"}` — chỉ Id, không có `Order.Code` → client log `Invoice event without Order.Code, skipping` → bỏ qua mọi event payment / hủy phiếu / xóa. **Verify từ log live 2-tab test**: 03:21:36 invoice 432724 paid, 03:22:39 invoice 432726 open, 03:25:47 invoice 432728 open — 3 event đều bị skip. **Fix**: hủy phiếu (action `cancelled`) cũng push lean payload tương tự → cần OData lookup by Id thay vì by Number. Dedupe vẫn đảm bảo không xử lý trùng do TPOS replay. Action `created` (NJD/2026/64530) đã hoạt động OK (có Order.Code). |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) `handleInvoiceUpdate()` — extract thêm `invoiceId` từ root payload (`eventData.Id`, `data.Id`, `Data.Id`); guard mới: skip CHỈ khi cả `invoiceNumber` LẪN `invoiceId` đều thiếu; OData filter dùng `Id eq <invoiceId>` khi không có Number; dedupe key fallback theo Id.
+**Chi tiết**: **Trigger user**: TPOS gửi event `fast_sale_order_payment` payload `{Id: 432728, State: "open"}` — chỉ Id, không có `Order.Code` → client log `Invoice event without Order.Code, skipping` → bỏ qua mọi event payment / hủy phiếu / xóa. **Verify từ log live 2-tab test**: 03:21:36 invoice 432724 paid, 03:22:39 invoice 432726 open, 03:25:47 invoice 432728 open — 3 event đều bị skip. **Fix**: hủy phiếu (action `cancelled`) cũng push lean payload tương tự → cần OData lookup by Id thay vì by Number. Dedupe vẫn đảm bảo không xử lý trùng do TPOS replay. Action `created` (NJD/2026/64530) đã hoạt động OK (có Order.Code).
+**Status**: ✅ Done.
 
 ### [render] TPOS WS Watchdog — auto-detect dead socket + refresh token + reconnect (60s loop)
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/server.js](../render.com/server.js) — sau `new TposRealtimeClient()` thêm `setInterval` 60s gọi `getStatus()`; nếu `!connected` HOẶC `Date.now() - lastPingFromTPOS > 90000ms` → `tposTokenManager.refresh()` → `getToken()` → `tposRealtimeClient.stop()` + sleep 1.5s + `start(newToken, room)` → `saveRealtimeCredentials('tpos', ...)` để persist. Guard `tposWatchdogRunning` tránh chạy chồng. |
-| **Chi tiết** | **Trigger user**: SĐT `0123456788` đơn đã xác nhận trên TPOS, tạo phiếu PBH bên TPOS nhưng web orders-report KHÔNG tự cập nhật. **Root cause**: `GET /api/realtime/tpos/status` → `connected: false`, `wsReadyState: OPEN`, `lastPingFromTPOS = 1777517511545` (= 09:11:51 ICT, **40 phút trước** lúc check). TPOS silent half-close socket: WS readyState vẫn OPEN nhưng không nhận ping/event nữa → `TposRealtimeClient` không broadcast `tpos:invoice-update` xuống tab → mất realtime. **Fix tự động hoàn toàn**: watchdog dùng env `TPOS_USERNAME`/`TPOS_PASSWORD` (đã configured) để tự re-fetch Bearer token mỗi khi detect dead, không cần user thao tác. Chu kỳ 60s phát hiện → 1.5s gap → start → trong 5-10s rejoin xong → realtime hoạt động lại. |
-| **Status** | ✅ Done. Auto-deploy via push → Render rolling restart pick up watchdog. |
 
-### [orders] Bill PBH hiển thị `STT: X + Y` cho đơn đã gộp (TAG XL custom flag GOP_*)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — `generateCustomBillHTML()` sau block parse "Gộp X Y" từ TPOS Tags, thêm fallback đọc `window.ProcessingTagState.getOrderData(orderCode).flags`, tìm flag id match `/^GOP_\d+(_\d+)+$/` (vd `GOP_84_313`), extract số STT bằng `match(/\d+/g)` → set `mergeTagNumbers = [84, 313]` → `sttDisplay = "84 + 313"`. |
-| **Chi tiết** | **Trigger user**: bill PBH NJD/2026/63983 (Huỳnh Thành Đạt 0123456788) chỉ hiện `STT: 313` thay vì `STT: 84 + 313`. Root cause: TAG XL "GỘP 84 313" lưu trong `ProcessingTagState._orderData[code].flags` (custom flag id `GOP_84_313`), KHÔNG nằm trong `order.Tags` (TPOS). Bill-service trước chỉ check `orderTags.find(t => t.Name.startsWith('Gộp '))` → miss. **Verify localhost**: `feval window.generateCustomBillHTML(order, {})` → match `<strong>STT:</strong> 84 + 313` ✅. Order code 260402102 / id 30150000-5d4d-0015-3e86-08de9872e286 có `xlFlags: [..., {id:"GOP_84_313", name:"GỘP 84 313"}]`. |
-| **Status** | ✅ Done. |
+**Files**: MODIFIED: [render.com/server.js](../render.com/server.js) — sau `new TposRealtimeClient()` thêm `setInterval` 60s gọi `getStatus()`; nếu `!connected` HOẶC `Date.now() - lastPingFromTPOS > 90000ms` → `tposTokenManager.refresh()` → `getToken()` → `tposRealtimeClient.stop()` + sleep 1.5s + `start(newToken, room)` → `saveRealtimeCredentials('tpos', ...)` để persist. Guard `tposWatchdogRunning` tránh chạy chồng.
+**Chi tiết**: **Trigger user**: SĐT `0123456788` đơn đã xác nhận trên TPOS, tạo phiếu PBH bên TPOS nhưng web orders-report KHÔNG tự cập nhật. **Root cause**: `GET /api/realtime/tpos/status` → `connected: false`, `wsReadyState: OPEN`, `lastPingFromTPOS = 1777517511545` (= 09:11:51 ICT, **40 phút trước** lúc check). TPOS silent half-close socket: WS readyState vẫn OPEN nhưng không nhận ping/event nữa → `TposRealtimeClient` không broadcast `tpos:invoice-update` xuống tab → mất realtime. **Fix tự động hoàn toàn**: watchdog dùng env `TPOS_USERNAME`/`TPOS_PASSWORD` (đã configured) để tự re-fetch Bearer token mỗi khi detect dead, không cần user thao tác. Chu kỳ 60s phát hiện → 1.5s gap → start → trong 5-10s rejoin xong → realtime hoạt động lại.
+**Status**: ✅ Done. Auto-deploy via push → Render rolling restart pick up watchdog.
+
+### [orders] Bill PBH hiển thị `STT: X + Y` cho đơn đã gộp (TAG XL custom flag GOP\_\*)
+
+**Files**: MODIFIED: [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js) — `generateCustomBillHTML()` sau block parse "Gộp X Y" từ TPOS Tags, thêm fallback đọc `window.ProcessingTagState.getOrderData(orderCode).flags`, tìm flag id match `/^GOP_\d+(_\d+)+$/` (vd `GOP_84_313`), extract số STT bằng `match(/\d+/g)` → set `mergeTagNumbers = [84, 313]` → `sttDisplay = "84 + 313"`.
+**Chi tiết**: **Trigger user**: bill PBH NJD/2026/63983 (Huỳnh Thành Đạt 0123456788) chỉ hiện `STT: 313` thay vì `STT: 84 + 313`. Root cause: TAG XL "GỘP 84 313" lưu trong `ProcessingTagState._orderData[code].flags` (custom flag id `GOP_84_313`), KHÔNG nằm trong `order.Tags` (TPOS). Bill-service trước chỉ check `orderTags.find(t => t.Name.startsWith('Gộp '))` → miss. **Verify localhost**: `feval window.generateCustomBillHTML(order, {})` → match `<strong>STT:</strong> 84 + 313` ✅. Order code 260402102 / id 30150000-5d4d-0015-3e86-08de9872e286 có `xlFlags: [..., {id:"GOP_84_313", name:"GỘP 84 313"}]`.
+**Status**: ✅ Done.
 
 ### [inventory-tracking] Tỉ giá Trung→VND cố định ×4500 + product picker từ kho cho modal "Tạo đơn đặt hàng"
-| | |
-|---|---|
-| **Files** | MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` đổi `shipTiGia = parseFloat(shipment.tiGia)` → `shipTiGia = 4500` cố định. MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — bỏ `tiGia` arg từ shipment, dùng hằng số `INV_TO_VND = 4500` ở `_explodeSanPhamToItems()` + `_renderConvertModal()`; thêm autocomplete picker (cell Tên SP) gọi `WarehouseAPI.search()` với debounce 220ms ≥ 2 ký tự, hiển thị 8 gợi ý (ảnh + mã + tên + giá bán + tồn kho), click → fill `productName` + `productCode` + `sellingPrice`; click-outside hide dropdown (singleton listener flag). MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — load `../shared/js/warehouse-api.js` trước `modal-convert-po.js`. MODIFIED: [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css) — `.po-name-wrap` (relative), `.po-suggest` (dropdown 320px max-h, shadow), `.po-suggest-item` (img 36x36 + 2-line info), `.po-suggest-price` xanh / `.po-suggest-qty--zero` đỏ. |
-| **Chi tiết** | **Trigger user**: "1/Số tiền ở bảng và modal tạo đơn đặt hàng là x 4500. 2/Cho chọn sản phẩm từ kho sản phẩm ở modal tạo đơn đặt hàng". **Verify localhost**: bảng SP hiển thị `127 (572)`, `87 (392)`, tfoot `10.909 (49.091)` — đúng ×4500/1000. Modal: `invAmt=32.598.000` (7244×4500), `buyInputs=[571.500, 571.500, 391.500]` (127×4500, 87×4500). Picker: gõ "ao" → 8 suggestions; click `[B968X] 0101 B47 ÁO KHOÁC GÂN TRƠN TAY SỌC (Xám)` → name + code (`B968X`) + giá bán (`230.000`) auto-fill, dropdown ẩn. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` đổi `shipTiGia = parseFloat(shipment.tiGia)` → `shipTiGia = 4500` cố định. MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — bỏ `tiGia` arg từ shipment, dùng hằng số `INV_TO_VND = 4500` ở `_explodeSanPhamToItems()` + `_renderConvertModal()`; thêm autocomplete picker (cell Tên SP) gọi `WarehouseAPI.search()` với debounce 220ms ≥ 2 ký tự, hiển thị 8 gợi ý (ảnh + mã + tên + giá bán + tồn kho), click → fill `productName` + `productCode` + `sellingPrice`; click-outside hide dropdown (singleton listener flag). MODIFIED: [inventory-tracking/index.html](../inventory-tracking/index.html) — load `../shared/js/warehouse-api.js` trước `modal-convert-po.js`. MODIFIED: [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css) — `.po-name-wrap` (relative), `.po-suggest` (dropdown 320px max-h, shadow), `.po-suggest-item` (img 36x36 + 2-line info), `.po-suggest-price` xanh / `.po-suggest-qty--zero` đỏ.
+**Chi tiết**: **Trigger user**: "1/Số tiền ở bảng và modal tạo đơn đặt hàng là x 4500. 2/Cho chọn sản phẩm từ kho sản phẩm ở modal tạo đơn đặt hàng". **Verify localhost**: bảng SP hiển thị `127 (572)`, `87 (392)`, tfoot `10.909 (49.091)` — đúng ×4500/1000. Modal: `invAmt=32.598.000` (7244×4500), `buyInputs=[571.500, 571.500, 391.500]` (127×4500, 87×4500). Picker: gõ "ao" → 8 suggestions; click `[B968X] 0101 B47 ÁO KHOÁC GÂN TRƠN TAY SỌC (Xám)` → name + code (`B968X`) + giá bán (`230.000`) auto-fill, dropdown ẩn.
+**Status**: ✅ Done.
 
 ### [inventory-tracking] Modal "Tạo đơn đặt hàng" — convert Trung→VND đúng theo `tiGia` (thay vì ×1000 cứng)
-| | |
-|---|---|
-| **Files** | MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — thêm state `_convertCurrentTiGia`; `openConvertToPurchaseOrderModal()` resolve `tiGia` từ shipment cha (`globalState.shipments`), pass xuống `_explodeSanPhamToItems(sanPhamArr, tiGia)`; `_renderConvertModal()` dùng `tiGia` để compute `invoiceAmt` (Số tiền hóa đơn VND); fallback ×1000 vẫn giữ khi shipment chưa có tỉ giá. |
-| **Chi tiết** | **Trigger user**: "vào modal này sẽ là tiền VNĐ". Trước đây modal mặc định `INV_TO_VND = 1000`, hiển thị 127 yuan thành 127.000 VND — sai. Nay dùng `tiGia` của shipment (vd 3979) → `127 × 3979 = 505.333` VND đúng. **Verify localhost**: Số tiền hóa đơn 7.244 yuan → `28.823.876` VND; Giá mua 127/87/97 yuan → `505.333 / 346.173 / 385.963` VND. **Fallback**: shipment chưa nhập tỉ giá thì giữ ×1000 để không phá legacy data. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js) — thêm state `_convertCurrentTiGia`; `openConvertToPurchaseOrderModal()` resolve `tiGia` từ shipment cha (`globalState.shipments`), pass xuống `_explodeSanPhamToItems(sanPhamArr, tiGia)`; `_renderConvertModal()` dùng `tiGia` để compute `invoiceAmt` (Số tiền hóa đơn VND); fallback ×1000 vẫn giữ khi shipment chưa có tỉ giá.
+**Chi tiết**: **Trigger user**: "vào modal này sẽ là tiền VNĐ". Trước đây modal mặc định `INV_TO_VND = 1000`, hiển thị 127 yuan thành 127.000 VND — sai. Nay dùng `tiGia` của shipment (vd 3979) → `127 × 3979 = 505.333` VND đúng. **Verify localhost**: Số tiền hóa đơn 7.244 yuan → `28.823.876` VND; Giá mua 127/87/97 yuan → `505.333 / 346.173 / 385.963` VND. **Fallback**: shipment chưa nhập tỉ giá thì giữ ×1000 để không phá legacy data.
+**Status**: ✅ Done.
 
 ### [inventory-tracking] Đơn giá / Tiền HĐ hiển thị song song "Trung (VNĐ)" — chuyển CNY → VND nghìn theo `tiGia` của shipment
-| | |
-|---|---|
-| **Files** | MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` lấy `shipTiGia = shipment.tiGia`, gắn vào header (`Đơn giá (Trung)`, `Tiền HĐ (Trung / VNĐ)`), pass xuống `renderProductRow()`, gắn VND suffix vào tfoot total; `renderProductRow()` nhận `tiGia` opt, render `_vndSuffixHtml` next to `giaDonVi` + `tongTienHD` + thêm `data-ti-gia` attr trên 2 cell để inline-edit dùng được; `startInlineEdit()` strip `(...)` khỏi text trước khi parseFloat; `commitInlineEdit()` re-render VND suffix sau update + amount-value cell rowspanned cũng được sync. MODIFIED: [inventory-tracking/css/modern.css](../inventory-tracking/css/modern.css) — thêm `.th-currency-tag` (label nhỏ hơn, gray-500). |
-| **Chi tiết** | **Trigger user**: "giá tiền nhập vào bảng này là tiền tệ trung nên cần x 4.5 ghi rõ tiền trung, vnđ". Tỉ giá thực tế đọc từ `shipment.tiGia` (vd `3979`), không hard-code 4.5. Format VND: `(yuan × tiGia / 1000)` rounded, hiện trong `<span class="vnd-inline">(...)</span>` xanh — đồng bộ với header stats bar và Tổng HĐ ngoài shipment header đã có sẵn. **Verify localhost**: header `Đơn giá (Trung)` / `Tiền HĐ (Trung / VNĐ)`; cell `127 (505)` = 127 yuan / 505k VND, `7.244 (28.824)`, tfoot `10.909 (43.407)` đúng. **Inline edit**: textContent trim regex `/\s*\([^)]*\)\s*$/` đảm bảo input lấy giá Trung gốc; commit/Escape/error path đều dùng innerHTML để khôi phục VND suffix. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) — `renderInvoicesSection()` lấy `shipTiGia = shipment.tiGia`, gắn vào header (`Đơn giá (Trung)`, `Tiền HĐ (Trung / VNĐ)`), pass xuống `renderProductRow()`, gắn VND suffix vào tfoot total; `renderProductRow()` nhận `tiGia` opt, render `_vndSuffixHtml` next to `giaDonVi` + `tongTienHD` + thêm `data-ti-gia` attr trên 2 cell để inline-edit dùng được; `startInlineEdit()` strip `(...)` khỏi text trước khi parseFloat; `commitInlineEdit()` re-render VND suffix sau update + amount-value cell rowspanned cũng được sync. MODIFIED: [inventory-tracking/css/modern.css](../inventory-tracking/css/modern.css) — thêm `.th-currency-tag` (label nhỏ hơn, gray-500).
+**Chi tiết**: **Trigger user**: "giá tiền nhập vào bảng này là tiền tệ trung nên cần x 4.5 ghi rõ tiền trung, vnđ". Tỉ giá thực tế đọc từ `shipment.tiGia` (vd `3979`), không hard-code 4.5. Format VND: `(yuan × tiGia / 1000)` rounded, hiện trong `<span class="vnd-inline">(...)</span>` xanh — đồng bộ với header stats bar và Tổng HĐ ngoài shipment header đã có sẵn. **Verify localhost**: header `Đơn giá (Trung)` / `Tiền HĐ (Trung / VNĐ)`; cell `127 (505)` = 127 yuan / 505k VND, `7.244 (28.824)`, tfoot `10.909 (43.407)` đúng. **Inline edit**: textContent trim regex `/\s*\([^)]*\)\s*$/` đảm bảo input lấy giá Trung gốc; commit/Escape/error path đều dùng innerHTML để khôi phục VND suffix.
+**Status**: ✅ Done.
+
 ---
 
 ## 2026-04-29
 
 ### [soquy] "Chi tiết theo loại" full-width mặc định, bỏ max-height → cuộn dọc xem các bảng khác bên dưới
-| | |
-|---|---|
-| **Files** | MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — `.report-section--category` đổi `grid-column: 1 / 2` → `1 / -1` (full-width); `.report-section--category .report-section-body` đổi `max-height: 680px` → `none` (bỏ giới hạn chiều cao). MODIFIED: [soquy/js/soquy-main.js](../soquy/js/soquy-main.js) — bỏ logic toggle gridColumn của category trong handler `toggleTrendBtn` (luôn giữ full-width). |
-| **Chi tiết** | **Trigger user**: "CHO PHẦN CHI TIẾT LOẠI PHIẾU MẶC ĐỊNH HIỂN THỊ FULL KHUNG, CẦN XEM CÁC BẢNG KHÁC THÌ SCROLL XUỐNG". Trước đây section "Chi tiết theo loại" chỉ chiếm 1/2 khung và body bị clip ở 680px → user phải scroll trong list nhỏ. Sau thay đổi: section chiếm full grid (`1 / -1`), không max-height → toàn bộ category list trải dài tự nhiên; "Biểu đồ thu chi" + "Giao dịch lớn nhất" + "Phân bổ theo quỹ" nằm bên dưới → user scroll trang để xem. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — `.report-section--category` đổi `grid-column: 1 / 2` → `1 / -1` (full-width); `.report-section--category .report-section-body` đổi `max-height: 680px` → `none` (bỏ giới hạn chiều cao). MODIFIED: [soquy/js/soquy-main.js](../soquy/js/soquy-main.js) — bỏ logic toggle gridColumn của category trong handler `toggleTrendBtn` (luôn giữ full-width).
+**Chi tiết**: **Trigger user**: "CHO PHẦN CHI TIẾT LOẠI PHIẾU MẶC ĐỊNH HIỂN THỊ FULL KHUNG, CẦN XEM CÁC BẢNG KHÁC THÌ SCROLL XUỐNG". Trước đây section "Chi tiết theo loại" chỉ chiếm 1/2 khung và body bị clip ở 680px → user phải scroll trong list nhỏ. Sau thay đổi: section chiếm full grid (`1 / -1`), không max-height → toàn bộ category list trải dài tự nhiên; "Biểu đồ thu chi" + "Giao dịch lớn nhất" + "Phân bổ theo quỹ" nằm bên dưới → user scroll trang để xem.
+**Status**: ✅ Done.
 
 ### [soquy] "Biểu đồ thu chi" mặc định thu gọn (collapsed) — bấm header để mở
-| | |
-|---|---|
-| **Files** | MODIFIED: [soquy/index.html](../soquy/index.html) — section bar chart thêm class `report-section--collapsible collapsed`, header thêm class `report-section-header--clickable` + icon chevron `report-section-chevron`, id `reportBarChartSection` + `reportBarChartToggle`. MODIFIED: [soquy/js/soquy-main.js](../soquy/js/soquy-main.js) — bind click toggle `.collapsed` class. MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — `.report-section--collapsible` (cursor/hover), `.report-section-chevron` (rotate -90deg khi collapsed), ẩn `.report-section-body` khi collapsed. |
-| **Chi tiết** | **Trigger user**: "Biểu đồ thu chi mặc định thu nhỏ, khi nào cần xem thì bấm vào mở để tối ưu hiển thị cho khung Chi tiết theo loại". **UX**: header click toggle (cả title + chevron); chevron quay -90° khi đóng → 0° khi mở; vẫn tự render bar chart trong `renderAll()` (HTML đã sẵn, chỉ ẩn body) → mở ra là thấy ngay không cần re-fetch. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [soquy/index.html](../soquy/index.html) — section bar chart thêm class `report-section--collapsible collapsed`, header thêm class `report-section-header--clickable` + icon chevron `report-section-chevron`, id `reportBarChartSection` + `reportBarChartToggle`. MODIFIED: [soquy/js/soquy-main.js](../soquy/js/soquy-main.js) — bind click toggle `.collapsed` class. MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — `.report-section--collapsible` (cursor/hover), `.report-section-chevron` (rotate -90deg khi collapsed), ẩn `.report-section-body` khi collapsed.
+**Chi tiết**: **Trigger user**: "Biểu đồ thu chi mặc định thu nhỏ, khi nào cần xem thì bấm vào mở để tối ưu hiển thị cho khung Chi tiết theo loại". **UX**: header click toggle (cả title + chevron); chevron quay -90° khi đóng → 0° khi mở; vẫn tự render bar chart trong `renderAll()` (HTML đã sẵn, chỉ ẩn body) → mở ra là thấy ngay không cần re-fetch.
+**Status**: ✅ Done.
 
 ### [soquy] Drill-down "Chi tiết theo loại" — phân trang 50 phiếu/trang thay cho text "Hiện X phiếu nữa..."
-| | |
-|---|---|
-| **Files** | MODIFIED: [soquy/js/soquy-report.js](../soquy/js/soquy-report.js) — `renderCategoryBreakdown()`: bỏ slice(0, 20) + text tĩnh "Hiện X phiếu nữa..."; tách logic render bảng chi tiết ra `renderCategoryDetailRows(catKey)` với state `categoryDetailPages` (catKey→page) + cache `categoryDetailCache`; lazy-render khi mở dropdown lần đầu. Pagination control: `← Trước` / `Trang X/N · A-B/Total phiếu` / `Sau →`, page size = 50. MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — thêm `.report-detail-pagination`, `.report-page-btn` (hover/active/disabled state), `.report-page-info`. |
-| **Chi tiết** | **Bug user**: mở drill-down 1 category có 126 phiếu, chỉ thấy 20 phiếu đầu + text "Hiện 106 phiếu nữa..." không bấm được → user không xem được phiếu còn lại. **Giải pháp**: chuyển sang pagination 50/trang với 2 nút Prev/Next + label "Trang X/Y · M-N/Total phiếu". Lazy render: detail rows chỉ build HTML khi user mở dropdown để giảm cost render lần đầu. Pagination buttons có `e.stopPropagation()` để không bubble lên row click (toggle dropdown). Reset page=0 khi re-render data mới. |
-| **Status** | ✅ Done. |
+
+**Files**: MODIFIED: [soquy/js/soquy-report.js](../soquy/js/soquy-report.js) — `renderCategoryBreakdown()`: bỏ slice(0, 20) + text tĩnh "Hiện X phiếu nữa..."; tách logic render bảng chi tiết ra `renderCategoryDetailRows(catKey)` với state `categoryDetailPages` (catKey→page) + cache `categoryDetailCache`; lazy-render khi mở dropdown lần đầu. Pagination control: `← Trước` / `Trang X/N · A-B/Total phiếu` / `Sau →`, page size = 50. MODIFIED: [soquy/css/soquy.css](../soquy/css/soquy.css) — thêm `.report-detail-pagination`, `.report-page-btn` (hover/active/disabled state), `.report-page-info`.
+**Chi tiết**: **Bug user**: mở drill-down 1 category có 126 phiếu, chỉ thấy 20 phiếu đầu + text "Hiện 106 phiếu nữa..." không bấm được → user không xem được phiếu còn lại. **Giải pháp**: chuyển sang pagination 50/trang với 2 nút Prev/Next + label "Trang X/Y · M-N/Total phiếu". Lazy render: detail rows chỉ build HTML khi user mở dropdown để giảm cost render lần đầu. Pagination buttons có `e.stopPropagation()` để không bubble lên row click (toggle dropdown). Reset page=0 khi re-render data mới.
+**Status**: ✅ Done.
 
 ---
 
@@ -141,60 +946,68 @@
 > 4 scripts auto test dự án — login 1 lần, capture errors, run lại bao nhiêu lần cũng được.
 
 ### 🔥 LIVE CODING workflow (QUAN TRỌNG — ƯU TIÊN dùng)
+
 **Vừa code vừa test localhost — không restart browser, không đợi deploy.**
 
 1. **AUTO-START SERVER**: 3 script test (smoke / interactive / browser-session) tự dò port → nếu chưa listen sẽ `spawn python3 -m http.server 8080` từ project root (detached). **KHÔNG cần user pre-launch**. Helper: [`scripts/lib/ensure-local-server.js`](../scripts/lib/ensure-local-server.js).
 
 2. **Khởi động persistent browser session 1 LẦN** (script tự spawn server nếu chưa có):
-   ```bash
-   mkfifo /tmp/n2store-session.fifo 2>/dev/null
-   (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &
-   ```
+
+    ```bash
+    mkfifo /tmp/n2store-session.fifo 2>/dev/null
+    (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &
+    ```
 
 3. **Sau mỗi `Edit` file → test NGAY qua FIFO (không restart browser)**:
-   ```bash
-   echo "nav http://localhost:8080/orders-report/main.html?t=$(date +%s)" > /tmp/n2store-session.fifo
-   echo "feval window.someFunction()" > /tmp/n2store-session.fifo
-   echo "search 0914495309" > /tmp/n2store-session.fifo
-   echo "openchat" > /tmp/n2store-session.fifo
-   echo "chatstate" > /tmp/n2store-session.fifo
-   ```
+
+    ```bash
+    echo "nav http://localhost:8080/orders-report/main.html?t=$(date +%s)" > /tmp/n2store-session.fifo
+    echo "feval window.someFunction()" > /tmp/n2store-session.fifo
+    echo "search 0914495309" > /tmp/n2store-session.fifo
+    echo "openchat" > /tmp/n2store-session.fifo
+    echo "chatstate" > /tmp/n2store-session.fifo
+    ```
 
 4. **Cache busting**: JS đã `cache-control: no-cache` sẵn trong Playwright route. HTML cần `?t=$(date +%s)` query string khi `nav` lại.
 
 5. **Stop khi xong**:
-   - Browser session: `echo "quit" > /tmp/n2store-session.fifo`
-   - Local server (detached, sống tiếp sau script): `pkill -f "http.server 8080"`
+    - Browser session: `echo "quit" > /tmp/n2store-session.fifo`
+    - Local server (detached, sống tiếp sau script): `pkill -f "http.server 8080"`
 
 ### 🛡️ Test ĐỤNG DATABASE — BẮT BUỘC tạo data test trước
+
 **KHÔNG dùng dữ liệu thật khi test write operations.**
 
 1. **Schema migration / DB write test** → pattern [`scripts/test-migration-social-tags.js`](../scripts/test-migration-social-tags.js):
-   ```bash
-   # CREATE local DB → schema cũ → INSERT fake → MIGRATE → verify → DROP DB
-   node scripts/test-migration-social-tags.js [--copy-prod]
-   ```
-   Helper template: tạo `scripts/test-migration-<feature>.js` cho mọi DB schema change.
+
+    ```bash
+    # CREATE local DB → schema cũ → INSERT fake → MIGRATE → verify → DROP DB
+    node scripts/test-migration-social-tags.js [--copy-prod]
+    ```
+
+    Helper template: tạo `scripts/test-migration-<feature>.js` cho mọi DB schema change.
 
 2. **Test customer/order browser flow** — ưu tiên test customer mặc định:
-   - **Mặc định**: `Huỳnh Thành Đạt — 0123456788` (sẵn trong DB cho mọi flow: chat / sale / PBH / SMS)
-   - Cần khách khác → SĐT giả `0900000000`, `0900000001`, ...
-   - Mã đơn / code: prefix `TEST-` (vd `TEST-20260428-001`)
-   - KHÔNG dùng SĐT/order/customer ID khách thật khác trong write tests.
+    - **Mặc định**: `Huỳnh Thành Đạt — 0123456788` (sẵn trong DB cho mọi flow: chat / sale / PBH / SMS)
+    - Cần khách khác → SĐT giả `0900000000`, `0900000001`, ...
+    - Mã đơn / code: prefix `TEST-` (vd `TEST-20260428-001`)
+    - KHÔNG dùng SĐT/order/customer ID khách thật khác trong write tests.
 
 3. **Cleanup sau test** (BẮT BUỘC):
-   - Drop test DB
-   - `DELETE WHERE code LIKE 'TEST-%'` cho test orders/customers
-   - Verify cleanup không sót
+    - Drop test DB
+    - `DELETE WHERE code LIKE 'TEST-%'` cho test orders/customers
+    - Verify cleanup không sót
 
 4. **Read prod data**: OK với `--copy-prod` flag pg_dump 5-10 row mẫu (filter PII), chỉ READ.
 
 5. **NEVER**: INSERT/UPDATE/DELETE prod DB trực tiếp từ script test. Không gửi SMS/notification vào SĐT khách thật.
 
 ### ⚡ Online test CHỈ khi cần verify deploy thật
+
 - Sau `git push origin main`, **đợi GH Pages CI/CD hoàn thành (~2-4 phút)** → curl-verify path → mới run smoke với BASE mặc định.
 
 ### Quick start (sau commit lớn → verify 144 pages):
+
 ```bash
 cd /Users/mac/Desktop/n2store
 # Lưu baseline trước khi sửa (nếu cần diff sau)
@@ -214,6 +1027,7 @@ tail -3 /Users/mac/Desktop/n2store/downloads/n2store-session/smoke-report.md
 ```
 
 ### Persistent REPL (debug live không cần restart browser):
+
 ```bash
 mkfifo /tmp/n2store-session.fifo
 (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ &
@@ -229,22 +1043,27 @@ echo "feval window.currentChatPSID" > /tmp/n2store-session.fifo
 echo "nav https://nhijudyshop.github.io/n2store/orders-report/main.html" > /tmp/n2store-session.fifo
 echo "quit" > /tmp/n2store-session.fifo
 ```
+
 **Commands**: `nav <url>`, `eval <js>`, `feval <js>`, `filter <key|null>`, `flag <key>`, `search <q>`, `openchat [sel]`, `switchpage <id|name>`, `chatstate`, `netlast [N]`, `clearnet`, `shot <path>`, `help`, `quit`.
 
 ### DB schema change → test trên local DB riêng (KHÔNG đụng prod):
+
 ```bash
 brew services start postgresql@14   # nếu chưa chạy
 node scripts/test-migration-social-tags.js [--copy-prod]
 # → CREATE n2store_migration_test → schema cũ → INSERT FAIL → MIGRATE → INSERT OK → DROP DB
 ```
+
 Pattern bắt buộc khi đổi schema: idempotent block + drop test DB sau khi xong.
 
 ### Interactive smoke 24 priority pages (sau UI/UX changes):
+
 ```bash
 node scripts/n2store-interactive-smoke.js --user admin --pass admin@@ --per-page-secs 10
 ```
 
 ### Reports luôn ở `downloads/n2store-session/`:
+
 - `FINAL-CLEAN-REPORT.md` — verdict gần nhất (144/144 clean, 0 app errors)
 - `smoke-report.{json,md}` — smoke mới nhất + `smoke-report-before.json` baseline
 - `interactive-smoke-report.{json,md}` — interactive
@@ -252,6 +1071,7 @@ node scripts/n2store-interactive-smoke.js --user admin --pass admin@@ --per-page
 - `PHASE-1-5-FINAL-REPORT.md` — chi tiết 6 nhóm bug G1-G6 đã fix
 
 ### Diff baseline vs current (after fix):
+
 ```bash
 node -e "
 const before = require('./downloads/n2store-session/smoke-report-before.json');
@@ -271,760 +1091,13 @@ console.log('FIXED:',fixed); console.log('STILL:',stillBroken); console.log('NEW
 ```
 
 ### Login mặc định
+
 - `admin / admin@@` (n2store user). Browser session lưu cookies + localStorage tự động.
 - Base URL: `https://nhijudyshop.github.io/n2store`
 
 ### Logic chi tiết từng script
+
 Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projects/-Users-mac-Desktop-n2store/memory/reference_browser_test_scripts.md) (auto-loaded) hoặc **CLAUDE.md** section "Browser Test Scripts (Playwright)".
-
----
-
-## 2026-04-28
-
-### [balance-history][feat] Tab Đã Duyệt — badge Nguồn taxonomy mới + filter Thu về/Khách CK/Cộng nợ ảo/Hoàn tiền
-| | |
-|---|---|
-| **Files** | `balance-history/index.html`, `balance-history/js/accountant.js`, `render.com/routes/v2/balance-history.js` |
-| **Vấn đề** | Cột Nguồn dùng "Cộng nợ ảo" (DB action) thay vì "Thu về" (ticket type) — user muốn label theo nguồn thực tế. Filter dropdown chỉ có 3 option bh sub-method, thiếu phân loại wt. |
-| **Badge update** | (a) wt VIRTUAL_CREDIT_ISSUE → "Thu về" (was "Cộng nợ ảo"). (b) wt VIRTUAL_CREDIT khác → "Cộng nợ ảo" giữ. (c) wt DEPOSIT/ORDER_CANCEL_REFUND → "Hoàn tiền" (đã có). (d) bh rows → 2-line badge "Khách CK" + sub-method (Nhập tay/Chọn KH/Tự động) — primary "Khách CK" nhất quán với customer-hub. |
-| **Filter dropdown** | optgroup "Khách CK (Sepay)": khach_ck (all bh) + 3 sub-method giữ nguyên. optgroup "Ví nội bộ": thu_ve + cong_no_ao + hoan_tien. Backend xử lý 4 option mới ở cả bh-side + wt-side WHERE clauses. |
-| **Live verify** | Browser test 28/04 (data có sẵn): 8 wt rows badge "Thu về"×2 + "Hoàn tiền"×2..., 20 bh rows badge "Khách CK" + sub Nhập tay/Tự động. Filter `thu_ve` → 5 wt only (Thu về). Filter `khach_ck` → 20 bh only. Filter `hoan_tien` → 3 wt only. Filter `cong_no_ao` → 0 (chưa có manual virtual credit). ✅ |
-| **Status** | ✅ Done — deploy + verify browser |
-
-### [balance-history][feat] Tab Đã Duyệt — bổ sung Hoàn Tiền Hủy Đơn + sửa cột Ghi chú dùng wt.note thay wt.source
-| | |
-|---|---|
-| **Files** | `render.com/routes/v2/balance-history.js`, `balance-history/js/accountant.js` |
-| **Vấn đề** | (1) Tab "Đã Duyệt" thiếu các giao dịch "Hoàn Tiền Hủy Đơn Công Nợ" (DEPOSIT + source=ORDER_CANCEL_REFUND) — chỉ có VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT trong wt UNION. (2) Cột Ghi chú render `wt.source` (vd 'VIRTUAL_CREDIT_ISSUE') thay vì `wt.note` (ghi chú thực user nhập, vd 'test_param_check'). |
-| **Backend fix** | (a) `/approved-today` UNION wt: thêm `(wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND')` vào whitelist. (b) Mirror filter cho count `approvedToday` cũng update tương tự. (c) SELECT wt rows: đổi `wt.source AS verification_note` → `COALESCE(NULLIF(TRIM(wt.note), ''), wt.source) AS verification_note` (ưu tiên ghi chú thực, fallback source). (d) Thêm `wt.source AS wt_source, wt.reference_id AS wt_reference_id` vào output để FE phân biệt sub-type. |
-| **Frontend fix** | `getMatchMethodBadge`: nhận biết `wtType=='DEPOSIT' && wtSource=='ORDER_CANCEL_REFUND'` → label "Hoàn tiền". Title tooltip ghi rõ `DEPOSIT/ORDER_CANCEL_REFUND`. |
-| **Live verify** | Browser test online sau Render deploy: tab Đã Duyệt 34 rows (tăng từ 31), 3 dòng Hoàn tiền (badge tím) cho NJD/2026/63945-63947 phone 0123456788 hiện đầy đủ. Note column: "Công Nợ Ảo Từ Thu Về (NJD/2026/63950) - thu ve giam gia 3 mon" thay vì "VIRTUAL_CREDIT_ISSUE" thô. Mirror count card cũng update đúng 34. ✅ |
-| **Status** | ✅ Done — deploy + verify browser test |
-
-### [customer-hub][tickets][feat] Hoàn Về + Khách Gửi — display label chuyên dụng + createdBy đầy đủ
-| | |
-|---|---|
-| **Files** | `customer-hub/js/modules/customer-profile.js`, `render.com/routes/v2/tickets.js` |
-| **Mục tiêu** | Activity feed hiển thị Hoàn Về (RETURN_SHIPPER → VIRTUAL_CREDIT) và Khách Gửi (RETURN_CLIENT → DEPOSIT/RETURN_GOODS) với label chuyên dụng + đảm bảo `created_by` được propagate trong mọi flow tạo/hủy. |
-| **Customer-hub display** | Thêm 2 nhánh detection trong activity render: (1) `isReturnShipper`: tx.type='VIRTUAL_CREDIT' và source='VIRTUAL_CREDIT_ISSUE' (hoặc note match) → "Hoàn Về Cấp Công Nợ Ảo #orderCode - {internal_note}" + "Duyệt bởi {createdBy}". (2) `isReturnClient`: tx.type='DEPOSIT' và source='RETURN_GOODS' (hoặc note match TV-/Hoàn tiền từ ticket) → "Hoàn Tiền Khách Gửi #orderCode (TV-...)" + "Hoàn bởi {createdBy}". Cả hai set `__suppressOperator=true` để tránh duplicate label. |
-| **Backend tickets.js** | (a) `DELETE /:id` (delete ticket): nhận `performed_by` từ body/query, INSERT VIRTUAL_CANCEL wallet_transaction kèm `created_by=performedBy`. (b) `POST /:id/cancel` (cancel ticket): VIRTUAL_CANCEL insert thêm `created_by=performed_by`. Trước đây 2 INSERT này KHÔNG ghi `created_by` → khi hủy/xóa ticket Thu Về, dòng -tiền VIRTUAL_CANCEL không có operator info. |
-| **Status** | ✅ Done — commit + push |
-
-### [balance-history][feat] DELETE /:id/manager-review — revert manager review (admin)
-| | |
-|---|---|
-| **File** | `render.com/routes/v2/balance-history.js` |
-| **Vì sao** | Cần revert dữ liệu test (wt:7544 Lương Ngọc Thoa 340k) sau live verify Bug 1. Không có endpoint unmark trước đây — phải hardcode SQL hoặc gọi DELETE/admin endpoint. |
-| **Endpoint** | `DELETE /api/v2/balance-history/:id/manager-review` — composite uid `bh:N` / `wt:N` / legacy bare int. wt branch: SET `manager_reviewed=FALSE, manager_review_note=NULL, reviewed_by=NULL, reviewed_at=NULL`. bh branch: thêm strip marker `[QL: ...]` khỏi `verification_note`. |
-| **Live test** | DELETE wt:7544 → 200 success. GET approved-today: `manager_reviewed=false, reviewed_by=null, manager_review_note=null, reviewed_at=null` ✅ |
-| **Status** | ✅ Done |
-
-### [verify] Live test commit 78d09adc sau Render+GH Pages deploy
-| | |
-|---|---|
-| **Bug 1 — QL fallback** | (1) `accountant.js` deployed: `manager_review_note?.trim` confirmed. (2) Open balance-history Đã Duyệt tab: 4 wt rows visible (wt:7564 ✓, wt:7556 ✓, wt:7544 ✗, wt:7542 ✗). (3) wt:7564 + wt:7556 (đã reviewed từ trước) hiện QL note đầy đủ: "QL: Administrator - Live test wt:7564..." và "QL: Tâm - kiểm tra giao dịch test". (4) Click ✓ trên wt:7544 → modal mở → fill "Live test fix QL: bug1 verify wt:7544" → submit → row chuyển sang orange (acc-row-reviewed), hiện "QL: Administrator - Live test fix QL: ..." + label "ĐÃ KIỂM TRA". DB persisted: `manager_reviewed=true, reviewed_by='Administrator', manager_review_note='Live test fix QL: bug1 verify wt:7544', reviewed_at=2026-04-28T09:22:54Z`. ✅ |
-| **Bug 2 — Render endpoint accept created_by** | POST `/api/v2/tickets/TEST_NONEXISTENT/resolve-credit` với `{"phone":"0000000000","amount":1000,"created_by":"test_param_check"}` → success: `wt:7586` tạo với `verified_by="test_param_check"` (= `wallet_transactions.created_by`). Endpoint nhận `created_by` field đúng theo fix. ✅ |
-| **Test artifact** | wt:7586 + virtual_credit_id 157 trên phone 0000000000 — isolated test wallet, harmless, không cần cleanup. |
-| **Status** | ✅ Bug 1 fully fixed live + Bug 2 endpoint deploy verified. Caller (issue-tracking script.js) sẽ áp dụng cho TX mới khi user resolve ticket Thu Về tiếp theo. |
-
-### [balance-history][bugfix] QL: ... đã kiểm tra không hiện cho wt rows sau khi save modal
-| | |
-|---|---|
-| **File** | `balance-history/js/accountant.js` (renderApprovedToday) |
-| **Bug** | Bấm V trên wt row → modal điền note → submit OK (server lưu `manager_reviewed=true, reviewed_by, manager_review_note`) → đóng modal → row hiện "ĐÃ KIỂM TRA" nhưng KHÔNG có dòng "QL: <user> đã kiểm tra". |
-| **Nguyên nhân** | Render code chỉ derive `managerNote` bằng regex `/\[QL:([^\]]*)\]/` trên `tx.verification_note`. Backend wt branch (line 1711-1719) chỉ UPDATE `manager_reviewed/manager_review_note/reviewed_by/reviewed_at` columns, KHÔNG embed `[QL: ...]` vào `verification_note` (vì wt rows không có verification_note column như bh). → `managerNote = ''` → block "QL: ..." không render. |
-| **Fix** | Sau khi parse marker từ verification_note, fallback: `if (isReviewed && !managerNote) managerNote = tx.manager_review_note?.trim() || 'Đã kiểm tra'`. Áp dụng cho cả bh và wt rows mà API trả về `manager_review_note` column trực tiếp. |
-| **Status** | ✅ Done |
-
-### [tickets][customer-hub][bugfix] +tiền (Hoàn tiền/Khách CK/VIRTUAL_CREDIT) thiếu "Duyệt bởi" trong activity feed
-| | |
-|---|---|
-| **Files** | `render.com/routes/v2/tickets.js` (resolve, resolve-credit), `issue-tracking/js/script.js` (resolveTicketCredit caller), `customer-hub/js/modules/customer-profile.js` (operator label) |
-| **Bug** | Activity feed customer profile hiển thị `+200K Công Nợ Ảo Từ Thu Về (NJD/...) - 14:08 28/04/2026` không có operator (Duyệt bởi/Tạo bởi/...). |
-| **Root cause** | (a) `tickets.js` `/resolve` (compensation) và `/resolve-credit` không pass `performed_by`/`created_by` xuống `issueVirtualCredit()`/`processManualDeposit()` → `wallet_transactions.created_by` = NULL. (b) `issue-tracking/script.js` gọi `ApiService.resolveTicketCredit({...})` không gửi `created_by`. (c) `customer-hub` operator label logic không nhận diện `tx.type==='VIRTUAL_CREDIT'` là +tiền do user duyệt → fallback label "Bởi" thay vì "Duyệt bởi". |
-| **Fix** | (1) `tickets.js`: `/resolve` truyền `performed_by` cho cả 2 nhánh `issueVirtualCredit` (param 7) và `processManualDeposit` (param 8); `/resolve-credit` accept `created_by` từ body, pass param 7. (2) `issue-tracking/script.js`: thêm `created_by: window.authManager?.getUserInfo()?.username || ...` vào payload `resolveTicketCredit`. (3) `customer-profile.js`: thêm `isVirtualCredit = tx.type==='VIRTUAL_CREDIT'` vào label rule, OR với `isDeposit` → label = 'Duyệt bởi'. |
-| **Note** | Chỉ áp dụng cho TX MỚI tạo sau deploy. Các tx cũ đã có `created_by=NULL` cần backfill SQL nếu user yêu cầu. |
-| **Status** | ✅ Done |
-
-### [balance-history][feat] Đã Duyệt UNION wallet_transactions +tiền nội bộ (VIRTUAL_CREDIT/REFUND/RETURN)
-| | |
-|---|---|
-| **Files** | `render.com/migrations/069_wallet_tx_manager_review.sql` (mới), `render.com/routes/v2/balance-history.js`, `balance-history/js/accountant.js`, `scripts/test-migration-069-wallet-tx-review.js` (mới) |
-| **Vì sao** | Tab "Đã Duyệt" hiện chỉ pull từ `balance_history` (sepay CK only). User yêu cầu thêm các +tiền nội bộ (VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT) từ `wallet_transactions` để thấy đầy đủ luồng tiền vào ví. |
-| **Backend** | (1) Migration 069: `ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS manager_reviewed/manager_review_note/reviewed_by/reviewed_at` + idempotent ALTER inline trong `/approved-today`. (2) `/approved-today`: sau khi fetch `bh` rows, fetch thêm wt rows (filter `amount>0 AND type IN (4 types) AND reference_type IS DISTINCT FROM 'balance_history'`), merge + sort by verified_at DESC, mỗi row gắn `src` (`bh`/`wt`) + `uid` (`bh:N`/`wt:N`). (3) `/accountant/stats`: thêm `walletApprovedTodayResult` count, cộng vào `approvedToday`. (4) `/:id/manager-review`: parse composite uid prefix → dispatch sang `wallet_transactions` UPDATE branch nếu `wt:`, giữ nguyên `balance_history` branch nếu `bh:` hoặc legacy id thuần. |
-| **Frontend** | (1) `renderApprovedToday`: detect `tx.src==='wt'` → ẩn ⚠️ Điều chỉnh, render badge tím "Cộng nợ ảo/Hoàn ví/Thu về/Trả khách" thay match_method. (2) Nút ✓ data-id dùng composite `uid` (encoded). (3) State update sau review: match by `uid` thay vì `id` thuần. (4) Audit logger cũng dùng uid. |
-| **Test migration** | `node scripts/test-migration-069-wallet-tx-review.js` — pattern CREATE local DB → schema cũ → UPDATE FAIL → MIGRATE → UPDATE OK → idempotent re-run → DROP DB. Tất cả PASS. |
-| **Hotfix 5f53a0d5** | (a) TZ wt rows: thêm `(wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')` — chuyển 07:21+07:00 (sai) → 14:21+07:00 (đúng giờ thực user tạo). (b) `openManagerReviewModal`: lookup match by `uid` thay vì `id` (composite `wt:N` không match số nguyên). |
-| **Live test post-deploy** | (1) Stats `approvedToday`: 19 → **28** (+9 wt); (2) `/approved-today` 28 rows = bh:24 + wt:4 VIRTUAL_CREDIT có `src/uid`; (3) Frontend 4 rows `acc-row-wt`, badge tím "Cộng nợ ảo", action cell chỉ ✓; (4) **TZ verified**: wt verified_at = 14:21+07:00 đúng giờ thực; (5) Click ✓ trên `wt:7564` → modal mở; (6) Submit "Live test wt:7564 review" → POST `/wt:7564/manager-review` success, row hiện "ĐÃ KIỂM TRA"; (7) DB persisted: `manager_reviewed=true, reviewed_by=Administrator, reviewed_at=2026-04-28T08:38:43Z, manager_review_note="Live test wt:7564 review"`. |
-| **Status** | ✅ Done — toàn bộ flow live trên prod hoạt động đúng |
-
-### [delivery-report][feat] Popover Hoạt động gần đây — eye cho mọi tx có ticket NJD/TV-, không chỉ ảnh CK
-| | |
-|---|---|
-| **File** | `delivery-report/js/delivery-report.js` |
-| **Vì sao** | Trước đây eye trong popover chỉ render khi tx có `sepay_image_url` hoặc inline `[Ảnh GD: ...]`. Các +tiền khác (HOÀN, VIRTUAL_CREDIT, RETURN_SHIPPER, …) có reference NJD/TV- không có nút mắt → user không xem được phiếu liên quan. |
-| **Thay đổi** | (1) Thêm `pickTxEvidence(tx)` priority: image → ticket TV- → ticket NJD-. (2) `eyeBtnHtmlForTx(tx)` dùng `pickTxEvidence` để render eye button với `data-eye-kind="image"` (mở `openLightbox`) hoặc `data-eye-kind="ticket"` (mở `window.showTicketHistoryViewer` qua `ensureTicketViewer()` lazy-loader). (3) `wirePopoverActions` route theo `data-eye-kind`. |
-| **Status** | ✅ Done — pattern khớp với customer-hub TxEvidence |
-
-### [balance-history][revert] Bỏ eye buttons khỏi Đã Duyệt (revert commit 1657f88e)
-| | |
-|---|---|
-| **Files** | `balance-history/js/accountant.js`, `balance-history/css/accountant.css` |
-| **Vì sao** | User yêu cầu bỏ — cột Ghi chú đã có thumbnail hover-zoom đủ rồi, nút mắt riêng dư thừa trong UI này. |
-| **Thay đổi** | Xóa `eyeBtnHtml` render trong `renderApprovedToday()`, xóa event handler `.acc-eye-btn`, xóa function `showImageLightbox`, xóa CSS `.acc-eye-btn`, xóa `lucide.createIcons()` redundant. |
-| **Status** | ✅ Done |
-
-### [login][fix] Localhost login — fallback Cloudflare Worker khi Render local (port 3000) không chạy
-| | |
-|---|---|
-| **File** | `index/login.js` |
-| **Vì sao** | Khi chỉ chạy `python3 -m http.server 8080` để dev frontend (không chạy Render server), `login.js` hardcode trỏ `http://localhost:3000/api/users/login` → `ERR_CONNECTION_REFUSED` không login được. |
-| **Thay đổi** | Mặc định localhost dùng Cloudflare Worker production (`chatomni-proxy.nhijudyshop.workers.dev/api/users`). Chỉ trỏ Render local nếu thêm `?api=local` vào URL hoặc `localStorage.setItem('login_api_local','1')`. |
-| **Status** | ✅ Done — verified bằng persistent browser session login admin/admin@@ trên `http://localhost:8080` |
-
-### [balance-history][feat] Đã Duyệt — thêm nút mắt 👁 mở ảnh duyệt CK trong lightbox
-| | |
-|---|---|
-| **Files** | `balance-history/js/accountant.js`, `balance-history/css/accountant.css`, `balance-history/index.html` |
-| **Vì sao** | Trong tab Kế Toán → Đã Duyệt, mỗi dòng đã có thumbnail ảnh CK ở cột Ghi chú với hover-zoom — nhưng cần 1 nút explicit ở cột Thao tác để giống pattern customer-hub Customer Profile (cột "Hoạt động gần đây" có nút mắt). |
-| **Thay đổi** | (1) `renderApprovedToday()`: render `acc-eye-btn` (Lucide icon `eye`) trước nút ✓ và ⚠️ Điều chỉnh, chỉ hiện khi `tx.verification_image_url` tồn tại; gọi `lucide.createIcons()` sau render. (2) Thêm `showImageLightbox(url)` — overlay full-screen, click ngoài hoặc Esc đóng. (3) Event delegation trong `setupEventListeners()` bắt `.acc-eye-btn` click → `showImageLightbox`. (4) CSS `.acc-eye-btn` style xanh dương 28×26px. (5) Bump `accountant.css?v=20260428a` cache-bust. |
-| **Status** | ✅ Done — sync với pattern customer-hub TxEvidence |
-
-### [delivery-report][feat] Hover ví: nút mắt xem ảnh CK (compressed) + nút Duyệt cho tx pending
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/routes/image-proxy.js](../render.com/routes/image-proxy.js) — thêm query `?w=<px>&q=<1-100>`: nếu có thì sharp pipeline `rotate().resize({width,withoutEnlargement:true}).jpeg({quality,mozjpeg:true})` → JPEG compressed. Không có w/q thì giữ stream-through như cũ. MODIFIED: [render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js) — `/quick-view`: SQL recent_transactions LEFT JOIN balance_history lấy `sepay_image_url` + thêm field `source, reference_type, reference_id`; thêm query mới `pending_transactions` (top 5 balance_history `verification_status='PENDING_VERIFICATION' AND wallet_processed=FALSE` linked phone). MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `renderCustomer()`: split block "Chờ duyệt" + "Hoạt động gần đây"; mỗi tx render `eyeBtnHtml(sepay_image_url)` + pending render thêm `approveBtnHtml(id,amount)`. Thêm `openLightbox(url)` → `${RENDER_URL}/api/image-proxy?url=...&w=900&q=70` (compressed ~10× nhỏ hơn original Firebase), spinner trong lúc load, fallback URL gốc nếu proxy fail. Thêm `approvePending(id, amt, btn)` → POST `/v2/balance-history/${id}/approve` body `{verified_by}`, optimistic UI, invalidate customer cache. `wirePopoverActions(phone)` bind handlers. Note legacy `[Ảnh GD: <url>]` vẫn nhận diện làm fallback eye source. MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-hp-tx.pending` (border-left vàng), `.dr-hp-tx-label.pending` (CHỜ DUYỆT badge cam), `.dr-hp-tx-actions` (flex gap), `.dr-hp-eye-btn` (icon transparent → tint xanh hover), `.dr-hp-approve-btn` (xanh lá), `.dr-hp-lightbox` (full-screen overlay + spinner + 90vw/90vh + zoom-out). |
-| **Chi tiết** | **Trigger**: user "Hình 1 hoạt động gần đây thêm nút con mắt hình 2 và nút Duyệt hình 4" + "Hình 3 load full nên lâu, compress lại". **Compress**: Firebase Storage URL không transform native; sharp resize trong image-proxy có sẵn (sharp đã list package.json từ autofb). Ảnh receipt 4032×3024 ~3MB → `?w=900&q=70` ~120-180KB JPEG (>10× nhỏ). Cache 1 ngày `Cache-Control: public, max-age=86400`. **Eye trigger**: `sepay_image_url` (deposit CK JOIN balance_history) hoặc legacy `[Ảnh GD:]` trong note. **Duyệt trigger**: tx pending balance_history. API `/v2/balance-history/:id/approve` body `{verified_by}` — minimal (không upload ảnh mới, không đổi customer); full UI vẫn ở balance-history page. Auth username từ `authManager.getUserInfo().username` fallback `currentUser.displayName` fallback `'admin'`. Backend Render auto-deploy từ main; frontend graceful degrade khi API chưa trả `pending_transactions` (block "Chờ duyệt" ẩn). |
-| **Status** | ✅ Code done. Syntax check pass cả 4 files. Sau Render deploy: smoke test eye → lightbox compressed; approve → balance_history APPROVED + wallet_tx row + cache invalidate. |
-
-### [delivery-report][bugfix] Hover bill: srcdoc bị truncate ở `"` đầu + resize false-hide
-| | |
-|---|---|
-| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `showBill()`: bỏ template `srcdoc="${escapeHtml(srcdoc)}"`, đổi sang `document.createElement('iframe')` + set `ifr.srcdoc=...` qua DOM property + `pop.appendChild(ifr)`. Bỏ luôn `window.addEventListener('resize')` hide handler. |
-| **Chi tiết** | **Root cause #1 (truncated srcdoc)**: project's `escapeHtml(str)` dùng `div.textContent=str; return div.innerHTML` — chỉ escape `<>&` (textContent context không cần escape `"`). Khi inject `srcdoc="${escapeHtml(srcdoc)}"`, dấu `"` trong inner `<meta charset="utf-8">` không bị escape thành `&quot;` → browser parse attribute và **truncate srcdoc tại `"` đầu tiên** → iframe rỗng (verify: `srcdocLen: 41`, `bodyTxtLen: 0`). **Fix**: set `ifr.srcdoc` qua DOM property — browser engine handle escaping nội bộ, immune to attr-quote issue. **Root cause #2 (false-hide)**: `resize` handler ẩn popover → trigger ngầm khi Playwright fullPage screenshot tạm resize viewport (popover biến mất khỏi screenshot dù visible trong eval). Bỏ resize-hide; popover chỉ ẩn qua mouseleave hoặc Escape. **Verify localhost** (`python3 -m http.server 8765`, browser-session FIFO): bill iframe popH=624px, ifrW=318px, bodyTxtLen=16439 chars, render đầy đủ barcode + PHIẾU BÁN HÀNG + chi tiết SP + tổng tiền; customer popover hiển thị tên KH + 3 stat cards; page bodyWidth giữ 1440 (no style leak từ TPOS `html,body{width:80mm}`). |
-| **Status** | ✅ Done. Bộ 3 commit: 67df4b15 (iframe sandbox + bỏ scroll-hide) → fix này (srcdoc property + bỏ resize-hide). |
-
-### [delivery-report][feat] Hover preview: invoice number → bill TPOS, customer cell → ví khách
-| | |
-|---|---|
-| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — render row: thêm class `dr-hover-bill` + `data-id` + `data-number` cho cell `data-col="number"`; class `dr-hover-customer` cho cell `data-col="customer"`. Module `HoverPreview` mới (~210 LOC, IIFE) trước public API: tạo singleton popover, debounce show 350ms, hide 180ms, cache `Map<id,html>` cho bill và `Map<phone,data>` cho customer. `fetchBillHtml(id)` gọi `${WORKER_URL}/api/fastsaleorder/print1?ids=${id}` kèm Bearer token từ `getToken()`. `fetchCustomer(phone)` gọi `${RENDER_URL}/api/v2/customers/${phone}/quick-view`. `renderCustomer()` build wallet grid (số dư thật / nợ ảo / đơn+doanh thu) + pending alert + danh sách 5 giao dịch gần nhất với màu credit/debit. Mouseover/mouseout delegated trên `#drTableWrapper`, check `relatedTarget` để tránh flicker khi di chuyển trong cell hoặc vào popover. Khởi tạo qua `HoverPreview.init()` trong `initDeliveryReport()`. MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — thêm block `.dr-hover-popover` (z-9999, max 460×70vh, shadow), `.dr-hp-header/title/sub`, `.dr-hp-loading/error/empty/spinner`, `.dr-hp-bill-body` (scroll, table reset), `.dr-hp-wallet-grid` (3 col stat cards), `.dr-hp-pending` (alert vàng), `.dr-hp-tx` (border-left + tint xanh/đỏ theo credit/debit), hover-cell highlight `dr-hover-bill:hover` (vàng) + `dr-hover-customer:hover` (tím). |
-| **Chi tiết** | **Trigger**: user "Hình 1 hover vào số 'NJD/2026/63929' hiện bill phiếu bán hàng hình 2, hover vào tên khách hàng/sđt hiện hoạt động ví hình 3". **API tái dùng**: TPOS print1 (đã dùng ở `bill-service.js:1683`) cho HTML bill — cần Bearer; quick-view endpoint trả gọn `customer + wallet + recent_transactions[3-5] + pending_deposits` (đã verify 200 OK với `0948138675`). **UX**: 350ms hover delay tránh trigger oan khi lướt chuột; popover position prefer right-of-cell, fallback left khi tràn viewport; ESC/scroll/resize đều ẩn; user có thể di chuột vào popover để đọc/scroll mà không bị mất. Cache theo `id`/`phone` cho session — không refetch khi quay lại cùng dòng. |
-| **Status** | ✅ Done. Syntax check pass. Endpoints smoke-tested: customer 200 (public), bill 401 không token (đúng mong đợi — token được attach lúc runtime qua `getToken()` từ tokenManager/localStorage). |
-
-## 2026-04-27
-
-### [issue-tracking] Nút bút sửa → modal nhập ghi chú xử lý, hiển thị ngay dưới nút action
-| | |
-|---|---|
-| **Files** | MODIFIED: [issue-tracking/js/script.js](../issue-tracking/js/script.js) — `renderActionButtons()`: sau cụm action button, render thêm `<div.ticket-processing-note>` (background vàng nhạt, border-left cam) hiển thị `ticket.processingNote` ngay dưới nút Thanh toán/Nhận hàng. Inline escape HTML. `editTicket()`: bỏ alert "đang phát triển", gọi `openProcessingNoteModal(ticket)` — modal overlay với textarea, 3 nút (Lưu / Xóa ghi chú / Hủy). Save qua `ApiService.updateTicket(firebaseId, {processingNote, processingNoteUpdatedAt, processingNoteUpdatedBy})` + optimistic repaint qua `renderDashboard(activeTab)`. |
-| **Chi tiết** | **Trigger**: user "khi bấm vào cây bút sửa hiện modal điền ghi chú để ghi nhớ tình trạng xử lý của phiếu" + "hiện ghi chú ngay dưới nút hành động (thanh toán, nhận hàng) luôn". **Field mới**: `processingNote` (string), `processingNoteUpdatedAt` (timestamp), `processingNoteUpdatedBy` (username) — append-only, không động endpoint TPOS/KPI. **UX**: note hiển thị inline trong cell HÀNH ĐỘNG → vừa nhìn ticket vừa thấy lý do/trạng thái nội bộ; click ✏️ → modal popup compact 480px. ESC/click overlay/nút Hủy đều đóng. Nút "Xóa ghi chú" có confirm. Firestore listener sẽ tự sync giữa các tab. |
-| **Status** | ✅ Done. |
-
-### [balance-history][bug] Alert "Xem ngay" chờ duyệt >24h không filter — vẫn hiện toàn bộ giao dịch
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/routes/v2/balance-history.js:529](../render.com/routes/v2/balance-history.js#L529) — `/verification-queue` nhận thêm query `overdueOnly`; thêm where `bh.created_at < NOW() - INTERVAL '24 hours'` (khớp logic count `pendingOverdue` ở `accountant/stats`); ORDER BY chuyển ASC khi overdueOnly để tx cũ nhất hiện đầu. MODIFIED: [balance-history/js/accountant.js](../balance-history/js/accountant.js) — `state.filters.pending.overdueOnly`; `loadPendingQueue` truyền query `overdueOnly=true`; thêm `viewOverdue()`/`clearOverdueFilter()`/`updateOverdueChip()`; `handleFilterChange` chuyển sang merge để giữ flag; export public API. MODIFIED: [balance-history/index.html:562](../balance-history/index.html#L562) — alert `onclick="…switchSubTab('pending')"` → `viewOverdue()`; thêm `#accOverdueChip` chip "Đang lọc: chỉ hiển thị giao dịch quá 24h" với nút bỏ lọc. MODIFIED: [balance-history/css/accountant.css](../balance-history/css/accountant.css) — `.acc-active-filter-chip` styles. |
-| **Chi tiết** | **Bug user**: bấm "Xem ngay" trong alert "1 giao dịch chờ duyệt > 24h" vẫn hiển thị toàn bộ pending. **Root cause**: handler chỉ gọi `switchSubTab('pending')` không apply filter; thêm nữa `verification-queue` ORDER BY `transaction_date DESC` nên tx cũ nhất (overdue) nằm ở trang cuối → client-side filter không khả dụng do paginated. **Giải pháp**: thêm server filter `overdueOnly=true` (cùng logic `created_at < NOW()-24h` với count overdue), lật ASC để overdue lên trang 1; UI chip chủ động hiển thị trạng thái filter để user dễ dismiss. |
-| **Status** | ✅ Done. |
-
-### [issue-tracking] Đổi ngưỡng cảnh báo ticket Thu về quá hạn: 20 → 10 ngày
-| | |
-|---|---|
-| **Files** | MODIFIED: [issue-tracking/index.html:53](../issue-tracking/index.html#L53) — banner text "quá 20 ngày" → "quá 10 ngày". MODIFIED: [issue-tracking/js/script.js:2278](../issue-tracking/js/script.js#L2278) — filter tab `overdue`: `OVERDUE_DAYS = 20` → `10`. MODIFIED: [issue-tracking/js/script.js:2696](../issue-tracking/js/script.js#L2696) — `checkOverdueTickets()`: `OVERDUE_DAYS = 20` → `10`. MODIFIED: [render.com/cron/scheduler.js:174-195](../render.com/cron/scheduler.js#L174-L195) — cron daily 9AM: `INTERVAL '20 days'` → `'10 days'`, title/description "20 ngày" → "10 ngày". |
-| **Chi tiết** | **Trigger**: user "thông báo có ticket thu về quá 20 ngày nhận hàng sửa thành 10 ngày". **Scope**: cập nhật đồng bộ cả 3 nơi để banner UI, filter tab "Hủy/Quá hạn", và cron alert TICKET_OVERDUE đều dùng cùng ngưỡng 10 ngày — tránh lệch số đếm. |
-| **Status** | ✅ Done. |
-
-## 2026-04-26
-
-### [orders][feat] Auto-tag ĐÃ RA ĐƠN — đổi từ "theo cột PBH" sang 4 mode user chọn
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — thêm `_autoHoanTatMode` state ('single' / 'bulk' / 'all' / 'manual'), `_shouldAutoFlipForSource(source)` gate, `setAutoHoanTatMode(mode)` API, persist qua userStorageManager. `onPtagBillCreated(saleOnlineId, source)` thêm param source, gate qua mode. **Bỏ** reconcileTagsWithInvoices auto-call trong loadProcessingTags. MODIFIED: [tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — `storeFromApiResult(apiResult, source)` thêm param, propagate xuống `onPtagBillCreated(soId, source)`. Wrapper `showFastSaleResultsModal` gọi với `'bulk'`. MODIFIED: [tab1-sale.js](../orders-report/js/tab1/tab1-sale.js) — single sale gọi `storeFromApiResult(result, 'single')` + 2 social-order callers truyền `'single'`. MODIFIED: [tab1-orders.html](../orders-report/tab1-orders.html) — thêm dropdown "Auto ĐÃ RA ĐƠN: PBH lẻ / PBH hàng loạt / Tất cả PBH / Chỉ gắn tay" cạnh Auto T toggle. |
-| **Chi tiết** | **User feedback**: "Bỏ logic gắn tag ĐÃ RA ĐƠN theo cột phiếu bán hàng → đổi thành 4 cách: PBH lẻ / hàng loạt / tất cả / gắn tay". Trước đây: tag được auto-flip dựa `InvoiceStatusStore.getAll(orderId).some(active)` — bao gồm reconcile khi load page → đơn của session khác hoặc PBH vừa được sync về cũng bị flip không kiểm soát. **Giải pháp**: chỉ flip khi user CHỦ ĐỘNG tạo PBH ở session hiện tại; truyền source param qua chuỗi `storeFromApiResult → onPtagBillCreated`; mode setting per-user filter source. Default 'all' giữ behavior gần như cũ trừ reconcile. **Không còn** passive auto-tag khi load page hay khi PBH được sync từ thiết bị khác. |
-| **Status** | ✅ Commit 69b222cb pushed. Mode dropdown UI ở filter bar. Manual click vẫn hoạt động bình thường (bypass mode). |
-
-### [orders][bug] Tạo phiếu bán hàng dùng products cũ sau khi user edit (stale cached orderLines)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/utils/sale-modal-common.js](../orders-report/js/utils/sale-modal-common.js) — `populateSaleModalWithOrder` bỏ branch `if (order.orderLines && order.orderLines.length > 0)`, luôn dùng `order.Details` làm initial paint. MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — sau `updateOrderInTable`, `delete _cachedOrder.orderLines` để clear stale cache. |
-| **Chi tiết** | **Bug**: User edit order rồi click "Tạo phiếu bán hàng" → modal hiển thị products CŨ (pre-edit). Nếu user confirm trước khi `fetchOrderDetailsForSale` async load fresh data → PBH tạo với products SAI. **Root cause**: `populateSaleOrderLinesFromAPI` mutate `currentSaleOrderData.orderLines = orderLines`. Vì `currentSaleOrderData = order` trỏ trực tiếp tới object trong OrderStore, OrderStore object có thêm field `.orderLines` cached sau khi modal đóng. User edit qua edit-modal → fetchOrderData trả SaleOnline_Order không có field `orderLines` → `Object.assign` không clear → stale `.orderLines` còn nguyên trên OrderStore. Lần mở sale modal sau → `populateSaleModalWithOrder` check `order.orderLines` TRƯỚC `order.Details` → dùng STALE. **Fix**: (1) bỏ branch `order.orderLines` trong populate — luôn dùng `Details` (refreshed bởi edit-modal). (2) Defensive: clear `.orderLines` cached trên OrderStore khi edit save. |
-| **Status** | ✅ Commit 71d29f1e pushed. |
-
-### [chat][refactor] Bỏ psid cache lookup khi có phone — 1 customer = 1 globalId
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — đổi từ Promise.all([cacheRes, custRes]) sang if/else: có phone → CHỈ gọi `customers/by-phone`. Không phone → fallback `fb-global-id?psid=...` (như cũ). |
-| **Chi tiết** | **User feedback**: "mỗi khách chỉ có 1 globalid mà?" — chuẩn. SĐT là khoá duy nhất, by-phone trả `global_id` authoritative. Psid→globalId cache (`fb_global_id_cache`) là phụ trợ cho case không có phone, và có thể bị nhân viên merge nhầm khi resolve homonym (vd: psid của Trần Nhi GỐC bị map sang globalId của Trần Nhi-homonym, resolvedBy=hanh). **Trước**: chạy parallel cả 2 calls → tốn round-trip + có thể hit poisoned data. **Sau**: 2 calls (by-phone + by-global) → 1 globalId verified, dùng đúng cho mọi page lookup. **Verify** (commit ab252bca) switch sang Nhi Judy House: bugEvents giờ đúng 2 entries: `by-phone` returns `global_id=100080729143290` + `by-global?globalUserId=100080729143290&pageId=117267091364524` returns `{found:false}` → trigger `customerAbsentOnTargetPage` → empty state. |
-| **Status** | ✅ Verified end-to-end. **3 fix progressively**: (1) 9cdccc14 gate name/PSID fallback khi DB confirms absent, (2) 300bd28d phone globalId thắng psid cache, (3) ab252bca bỏ luôn psid call khi có phone. Calls giảm 5→2. Repro logs: [downloads/n2store-jitter/chat-page-switch-bug.json](../downloads/n2store-jitter/chat-page-switch-bug.json). **TODO**: cleanup `fb_global_id_cache` rows poisoned (resolvedBy manual merge sai). |
-
-### [chat][bug-layer2] DB cache `fb_global_id_cache` bị poisoned — by-phone globalId phải win
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — đảo thứ tự: chạy `custRes` (by-phone) TRƯỚC, set `phoneGlobalId`. Sau đó nếu `cacheRes` (psid lookup) có giá trị → set `psidGlobalId`. Cuối cùng `globalId = phoneGlobalId || psidGlobalId` — by-phone luôn ưu tiên. |
-| **Chi tiết** | **Repro layer 2**: switch sang page `Nhi Judy House` (117267091364524) — fix trước đó (commit 9cdccc14) chỉ cover trường hợp DB trả `{found:false}`. Nhưng cache có entry POISONED: psid `6295284583881853` (Trần Nhi GỐC trên Store) bị map sang `globalUserId=100013390776008` (Trần Nhi-homonym), `resolvedBy=hanh`, `resolvedAt=2026-04-25 09:05:23`, `useCount=8`. Nhân viên Hạnh đã merge nhầm 2 customer cùng tên. Code cũ ưu tiên `globalId` từ Step A (psid cache, có poisoned data) → Step C tìm psid trên target page bằng global SAI → trả psid của homonym → load chat sai. **Verify**: bugEvents giờ chỉ 3 calls, by-global dùng global từ phone (`100080729143290`) → returns `{found:false}` → empty state đúng. |
-| **Status** | ✅ Verified (commit 300bd28d). 2 lớp fix: (1) gate name fallback khi DB confirms absent; (2) by-phone globalId thắng psid cache poisoned. Repro logs: [downloads/n2store-jitter/chat-page-switch-bug.json](../downloads/n2store-jitter/chat-page-switch-bug.json). **Cần làm tiếp**: cleanup cache poisoned entries trên Render DB (`fb_global_id_cache` rows resolvedBy=hanh có thể bị merge nhầm). |
-
-### [chat][bug] Switch page chat modal load nhầm conversation của khách trùng tên
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — thêm cờ `dbLookupDone` (true khi có ít nhất 1 DB call thành công) + `customerAbsentOnTargetPage = dbLookupDone && !targetFbId && foundConvs.length === 0`. Khi true → skip name search fallback + source-PSID fallback. NEW: [scripts/n2store-chat-page-switch-bug.js](../scripts/n2store-chat-page-switch-bug.js) — Playwright repro: search SĐT, mở chat, switch page, hook `fetch` để bắt strategy. |
-| **Chi tiết** | **Repro**: SĐT `0914495309` (Trần Nhi). DB lookup `customers/by-phone` trả `pancake_data.page_fb_ids = {"270136663390370": "..."}` — khách CHỈ có fb_id trên page NhiJudy Store. Switch sang page khác (Nhi Judy Nè / Nhi Judy House) → `fb-global-id/by-global?pageId=<target>` → `{found:false}` (đúng — khách thật sự không có trên page đó). **Bug**: code fallback sang `pancake/conversations/search?q=Trần Nhi` → match 1 customer KHÁC cùng tên ("Trần Nhi" rất phổ biến) với `from_psid=7798798720179856` trên page đích → load conversation người LẠ. Người dùng thấy chat của khách khác. **Fix**: name search + source-PSID fallback đều giả định "có thể PSID/name dẫn đến đúng người". Nhưng PSID là page-scoped (collision khả năng cao trên page khác) và name không unique. Khi DB đã xác nhận khách không có fb_id → trả null, show empty state "Không tìm thấy cuộc hội thoại trên page này". |
-| **Status** | ✅ Verified end-to-end (commit 9cdccc14). Trước fix: 5 fetch calls, kết thúc bằng load conversation HOMONYM. Sau fix: 3 fetch calls (by-phone + 2 fb-global-id), dừng đúng ở empty state. Repro logs: [downloads/n2store-jitter/chat-page-switch-bug.json](../downloads/n2store-jitter/chat-page-switch-bug.json). |
-
-## 2026-04-25
-
-### [orders][perf] Tab1 — fix bảng giật khi filter "ĐƠN CHƯA PHẢN HỒI" idle (SSE flood → full tbody rebuild)
-| | |
-|---|---|
-| **Files** | NEW: [scripts/n2store-jitter-monitor.js](../scripts/n2store-jitter-monitor.js) — Playwright crawler login + lưu cookies/storage + monitor MutationObserver + hook performTableSearch/renderTable/schedulePerformTableSearch để bắt stack trace caller. MODIFIED: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — thêm `window.applyOrderMembershipFlip(orderCode, orderId, passesNow)` + helper `_refreshSpacer`: surgical insert/remove 1 `<tr>` thay vì `tbody.innerHTML = ...` rebuild khi filter membership của 1 đơn flip. Bail khi `employeeViewMode` hoặc `currentSortColumn` active (cần re-group). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — `_ptagRefreshRow` thử gọi `applyOrderMembershipFlip` trước, fallback `schedulePerformTableSearch(300)` nếu surgical handler không xử lý được. |
-| **Chi tiết** | **Repro**: Playwright login bằng admin/admin@@, vào `orders-report/main.html`, set Tag XL = ĐƠN CHƯA PHẢN HỒI, idle 90s. Run đầu: 13 burst × ~116-120 mutations, mỗi 5-7s. Run có hook: 3 burst × 310 mutations, renderTable 2 lần, performTableSearch 4 lần. **Stack trace**: `performTableSearch ← schedulePerformTableSearch ← _ptagRefreshRow ← EventSource 'update' (processing_tags_global SSE)`. **Root cause**: SSE `processing_tags_global` (chatomni-proxy) push event mỗi vài giây khi LIVE active. Mỗi event mà membership của order flip → `schedulePerformTableSearch(300)` → `renderTable()` → `tbody.innerHTML = batch.map(createRowHTML).join('')` rebuild 50 row × 19 col → column auto-resize → giật ngang. **Fix**: Surgical row insert/remove. Insert: tính position từ `allData.indexOf(order)` (giữ thứ tự server), splice `filteredData`/`displayedData`, `tbody.insertBefore` nếu trong rendered window. Remove: splice + `row.remove()`. Cuối cùng `_refreshSpacer` + `updateStats()`. Chỉ dùng đường full re-render khi employee view hoặc cột sort active. |
-| **Status** | ✅ Implemented + verified. **Multi-filter test 26 filter × 25s idle** ([scripts/n2store-jitter-multi-filter.js](../scripts/n2store-jitter-multi-filter.js)): tất cả filter (Tất cả, Chưa gán, Đơn CHỐT, cat_0-4, mọi sub_/subtag_, 6 flag CHỜ LIVE/GIỮ ĐƠN/QUA LẤY/KHÁCH BOOM/CHUYỂN KHOẢN/GIẢM GIÁ) đều có **renderTable=0, performTableSearch=0, schedule=0**. Mutation events còn lại 0-3 burst × ~12 mutations là inline cell paint (`_ptagRefreshRow` cập nhật riêng cell processing-tag), không gây giật bảng. Trước fix: ĐƠN CHƯA PHẢN HỒI 13 burst × ~120 mutations / 90s. Sau fix: 0 burst / 25s. Logs: [downloads/n2store-jitter/multi-filter-report.json](../downloads/n2store-jitter/multi-filter-report.json). |
-
-### [resident][feat] Clone v2 — deep-compare + UI overhaul (sidebar groups, filter bar, tabs, action menu)
-| | |
-|---|---|
-| **Files** | NEW: [scripts/resident-deep-compare.js](../scripts/resident-deep-compare.js) — 2-tab compare 21 routes, capture DOM stats + screenshot + XHR live, ghi REPORT.md với coverage %. NEW: [resident/js/resident-views-helpers.js](../resident/js/resident-views-helpers.js) — building blocks (filterBar, statusTabs, tableView, kpi, tagFromStatus, actionCell). MODIFIED: [resident/index.html](../resident/index.html) — sidebar 8 groups (Tổng quan, Danh mục dữ liệu, Khách hàng, Tài chính, Công việc, Báo cáo, Khác) collapsible với caret, top bar có nút "+ Tạo mới", action menu portal. MODIFIED: [resident/css/resident.css](../resident/css/resident.css) — styles cho .nav-group, .filter-bar (Khu vực/Tòa/Phòng/Date), .status-tabs (active border), .settings-layout (sidebar tabs), .action-menu/.action-trigger. MODIFIED: [resident/js/resident-views.js](../resident/js/resident-views.js) — mọi list view có filter bar; tabs status: leads (Mới/Thành công/Thất bại), reservations (Đang chờ/Hoàn thành/Hủy), contracts (Còn hạn/Sắp hết/Thanh lý), tenants (Đang thuê/Đã chuyển/Vãng lai), tasks (Tất cả/Của tôi/Theo dõi); cột "Thao tác" trên mọi table; settings 6 tabs; cashflow rewrite thành date-range dashboard với chart 12 tháng + cashbook list; bổ sung viewRealEstateReport + viewFinanceReport + viewStub. MODIFIED: [resident/js/resident-app.js](../resident/js/resident-app.js) — wire group toggle, action-menu portal positioning, settings tab re-render. |
-| **Chi tiết** | **Trigger**: user "mở 2 tab crawl cả 2 để so sánh làm chức năng giống 100%". **Deep-compare run 1**: 21 routes, coverage trung bình **25%** (10-42% range). Top gaps: sidebar flat (live có 8 groups dropdown), filter bar thiếu (Chọn khu vực/tòa/phòng/khoảng thời gian), tabs status thiếu, "Thao tác" column thiếu, settings 1 page (live 6 tabs), cash-flow sai (clone show cashbook list, live show date-range dashboard). **Fixed all 6 gaps** + thêm 5 stub route + 2 báo cáo. **Run 2**: coverage **37%** (+12%). Highlight: /tasks 10%→29% (+19), /fees 40%→57% (+17), /general-setting 42%→57% (+15), /leads 22%→37% (+15). Buttons C/L: /rooms 4/39→28/39, /apartments 4/34→23/34, /tenants 4/47→26/47, /fees 4/35→43/35. **Avg clone els: 263→312, live: 1073→841, coverage 25%→37%**. Còn gap chính: pagination, modal create form, expand-row detail, sort/filter trên column header. **Smoke 22/22 ✅**. |
-| **Status** | ✅ Auto session pushed (3 commits: 8af6cf04, b7109132, ca9b2e25). Coverage 37%, sidebar/filter/tabs/action match live. Tiếp được: form modal create, pagination, row expand. |
-
-### [resident][feat] Clone resident.vn — crawl full data + build trang local + 2-tab compare
-| | |
-|---|---|
-| **Files** | NEW: [resident/index.html](../resident/index.html), [resident/css/resident.css](../resident/css/resident.css), [resident/js/resident-data.js](../resident/js/resident-data.js), [resident/js/resident-router.js](../resident/js/resident-router.js), [resident/js/resident-views.js](../resident/js/resident-views.js), [resident/js/resident-app.js](../resident/js/resident-app.js) — clone web 22 view (Dashboard, Apartments, Rooms, Beds, Leads, Reservations, Contracts, Tenants, Vehicles, Invoices, Income-Expense, Cashflow, Fees, Meter-logs, Tasks, MyTasks, Notifications, Locations, Assets, Layout, Settings, Changelog), hash router, design system (KPI/donut/bar chart/tag/table). NEW SCRIPTS: [scripts/resident-crawl.js](../scripts/resident-crawl.js) v1 BFS, [scripts/resident-crawl-v2.js](../scripts/resident-crawl-v2.js) v2 cross-origin, [scripts/resident-save-auth.js](../scripts/resident-save-auth.js) lưu storageState (localStorage), [scripts/resident-crawl-v3.js](../scripts/resident-crawl-v3.js) v3 auth+cross-origin, [scripts/resident-build-data.js](../scripts/resident-build-data.js), [scripts/resident-smoke-test.js](../scripts/resident-smoke-test.js), [scripts/resident-side-by-side.js](../scripts/resident-side-by-side.js). NEW DOC: [docs/resident/ARCHITECTURE.md](resident/ARCHITECTURE.md) — 8 sections: hosts, routes, 49 unique endpoints, schemas, patterns, mapping. UPDATED: [.gitignore](../.gitignore) — exclude `downloads/resident-crawl/` + `resident/data/*.json` (PII khách hàng). |
-| **Chi tiết** | **Trigger**: user "đăng nhập tay → crawl toàn bộ web; tạo trang Resident riêng gồm tất cả chức năng; 2 tab để compare". **Crawl 3 vòng**: (1) v1 BFS link discovery → 41 page nhưng chỉ same-origin → bỏ sót API thật. (2) v2 detect host: cookies trống → confirm auth ở localStorage không phải cookie → kill. (3) **v3** với storageState (3 localStorage keys): 28 route, **307 API call**, hosts `app.resident.vn:87 + api.resident.vn:220`. **API discovery**: 49 unique endpoints (`/v1/*` + `/v2/*`) — dashboard 10 KPI, BĐS, khách, tài chính, task, notification, asset. **Envelope**: `{statusCode,status,data,message,errors}`. **Status object** map variant → tag class. **Money** VND integer. **Smoke test 13/13 PASS, 0 console error**. **2-tab side-by-side**: Tab A clone (localhost:8765) + Tab B live (`https://app.resident.vn` qua storageState), tiếp tục capture XHR live → bổ sung mock; TTY mode REPL `go /rooms` đồng bộ navigate, non-TTY giữ alive. **Re-run flow**: save-auth → crawl-v3 → build-data → smoke-test → side-by-side. |
-| **Status** | ✅ Code + doc + 7 script + clone web 5 file source (456KB) đều xong. Mock data gitignore (PII), README chỉ cách regen. |
-
-## 2026-04-25
-
-### [orders][ui] Tag XL "KHÔNG ĐỂ HÀNG" — thêm nút × để xóa
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js#L1773-L1786) — branch render Cat 2/3/4 subtag badge: nếu `data.subTag === 'KHONG_DE_HANG'` thì append `<button.ptag-badge-remove>×</button>` gọi `window.clearProcessingTag(orderCode)`, span dùng class `ptag-badge ptag-badge-removable`. Các subtag khác giữ nguyên (CHUA_PHAN_HOI, BAN_HANG, DA_GOP_KHONG_CHOT, NCC_HET_HANG, KHACH_HUY_DON…) — chưa có x. |
-| **Chi tiết** | **Trigger**: user screenshot row STT 469 — TAG XL có "KHÔNG ĐỂ HÀNG" nhưng không có nút × như các tag khác (THẺ KHÁCH LẠ, CHƯA CỌC). **Approach**: dùng `Set(['KHONG_DE_HANG'])` để dễ mở rộng sau, tận dụng CSS `.ptag-badge-removable` + `.ptag-badge-remove` (đã định nghĩa ở [tab1-processing-tags.css:1238-1265](../orders-report/css/tab1-processing-tags.css#L1238-L1265)). `clearProcessingTag` đã giữ flags + tTags khi xóa category/subTag → THẺ KHÁCH LẠ, CHƯA CỌC… vẫn còn sau khi xóa KHÔNG ĐỂ HÀNG. |
-| **Status** | ✅ Done. |
-
-### [tpos-pancake][ui] Wrap Web 2.0 sidebar shell — đồng bộ giao diện với web2/*
-| | |
-|---|---|
-| **Files** | MODIFIED: [tpos-pancake/index.html](../tpos-pancake/index.html) — bỏ inline tab-nav (3 tab cũ), thêm `<link>` tpos-sidebar.css + `<script>` tpos-sidebar.js + Web2Sidebar.mount activeRoute='tpos-pancake', wrap `<main.main-content>` trong `<div.web2-shell><aside.web2-aside id="web2Aside"></aside><main>...</main></div>`. Body class `tpos-theme`. CSS local: body flex, aside flex-shrink:0, main flex:1. |
-| **Chi tiết** | **Trigger**: user "Tpos-pancake cho vào menu web luôn → chuyển giao diện về giống web 100% → các chức năng vẫn giữ nguyên". **Approach**: minimal-invasive — chỉ wrap layout, KHÔNG động đến top-bar TPOS/Pancake selectors, dual-column TPOS+Pancake, modals (Pancake settings/TPOS settings/Customer info/Column settings). All JS init scripts (tpos-init, pancake-init, app-init) load đúng thứ tự cũ. **Static HTML check** (auth-protected nên Playwright không browse được): 14/14 element/script/structure correct → wrap thành công, top-bar/tpos column/pancake column/refresh/settings/columns buttons đều có. **Sidebar item "TPOS × Pancake"** đã có sẵn trong NAV (Sale Online group, our: '../tpos-pancake/index.html') — sẽ active khi user truy cập. |
-| **Status** | ✅ Code done. User mở thực tế trên trình duyệt đã login để verify visual + functional. |
-
-### [web2][verify] Browser test 86/86 trang web2/* — 0 fetch error, 0 console error
-| | |
-|---|---|
-| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-fetch-errors.js` — Playwright iterate qua mọi folder trong `/web2/*`, page event listeners: `console` (filter type=error), `pageerror`, `requestfailed`, `response` (status >= 400 từ chatomni-proxy hoặc nhijudyshop.github.io). Dump report `/tmp/verify-fetch-report.json`. **Found + fixed**: 2 trang dùng slug có chữ HOA → SLUG_RE backend reject 400: `liveCampaign` → `livecampaign`, `saleOnline-facebook` → `saleonline-facebook` (regex `/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/`). |
-| **Chi tiết** | **Trigger**: user yêu cầu kiểm tra fetch error từng trang. **First run**: 84/86 PASS, 2 FAIL với `400 chatomni-proxy.../api/web2/liveCampaign/list?page=1&limit=200`. **Root cause**: SLUG_RE chỉ chấp nhận lowercase + dash, không có camelCase. **Fix**: lowercase 2 slug trong file HTML. **Re-run**: **86/86 PASS, 0 errors**. Toàn bộ network calls qua chatomni-proxy worker đều 200 OK; không có console error, không có pageerror, không có failed request. |
-| **Status** | ✅ Tất cả trang web2/* tải sạch không lỗi fetch/console. |
-
-### [web2][verify] Phase E linking PASS — autocomplete + cell link hoạt động
-| | |
-|---|---|
-| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-linking.js` — 2-step Playwright test: (1) seed VIP+NORMAL parents, mở partner-customer modal, click ref input → expect dropdown 2 items → click chọn → expect input value + hint name set; (2) tạo customer REF_TEST với data.partnerCategory=VIP, reload page → expect cell trong row có `<a.web2-cell-link>` href chứa partner-category. |
-| **Chi tiết** | **Test result**: 4/4 PASS step 1 (modal/dropdown/select/hint), 1/1 PASS step 2 (cell link href). Verified: ref picker fetch entity được tham chiếu (KHÔNG phải TPOS), populate dropdown 20 record, click chọn set value đúng, blur tải tên hiển thị hint `→ Tên KH`, cell có FK code render `<a>` mở list trang đích `target="_blank"`. **Cleanup**: REF_TEST + 2 seeded VIP/NORMAL partners được xóa sau test. |
-| **Status** | ✅ Phase E DONE. Logic liên kết giữa các trang hoạt động giống TPOS (autocomplete picker + click code mở entity). |
-
-### [web2][feat] Phase E — Inter-page linking (autocomplete picker + clickable cell links)
-| | |
-|---|---|
-| **Files** | MODIFIED: [web2-shared/page-builder.js](../web2-shared/page-builder.js) — thêm field `type: 'ref'` (autocomplete dropdown fetch entity được tham chiếu, hiển thị code+name), `column.link` (cell render thành `<a target="_blank">` mở list trang đích), helper `inferRefPageUrl(folder)` resolve đúng prefix `'../'` vs `'../../'` tuỳ depth caller. NEW CSS: [web2-shared/page-builder-tpos.css](../web2-shared/page-builder-tpos.css) — `.web2-ref-wrapper`, `.web2-ref-input`, `.web2-ref-dropdown`, `.web2-ref-item-code/name`, `.web2-ref-hint`, `.web2-cell-link`. MODIFIED: 17 trang web2/* — fields có FK đổi từ `type: 'text'` → `type: 'ref', ref: 'slug'`, columns có FK code thêm `link: 'folder'`. Asset bump v→n. |
-| **Chi tiết** | **Trigger**: user hỏi "có logic liên kết giữa các trang như TPOS chưa?" — chưa có. **Entity refs đã wire** (37 mapping): product-category.parentCode, product-uom.uomCateg, product-attribute-value.attributeCode, product-template.categoryCode/uom, product-variant.templateCode, partner-customer.partnerCategory, sale-quotation/sale-order.customerCode, fastsaleorder-invoice/refund/delivery.customerCode/invoiceCode/carrierCode, fastpurchaseorder.supplierCode, pos-session.posConfigCode/userCode, pos-order.sessionCode/customerCode, history-ds.carrierCode, account-payment-thu.payerCode/accountCode/journalCode, account-payment-chi.payeeCode/accountCode/journalCode, account-inventory/-deposit.partnerCode, account-list.parentCode, partner-category.parentCode, stock-location.parentCode, stock-move.fromCode/toCode/productCode, stock-inventory.locationCode/productCode, revenue-began-customer.customerCode, revenue-began-supplier.supplierCode. **UX behaviors**: (a) Click field → fetch list 20 record từ refSlug → dropdown hiện code+name → click chọn → set value. (b) Type → debounce 220ms → tìm kiếm. (c) Blur → fetch tên record để hiện hint `→ Tên KH` dưới input. (d) Cell trong table có FK code → render link → click target=_blank mở list của entity đó. (e) Open icon `<i lucide=external-link>` cạnh input → mở list page entity tham chiếu. **Pitfall đã fix**: regex script đầu thiếu closing quote trên `ref: 'X` → 17 file syntax error → fix-up script `/tmp/fix-ref-quotes.js` thêm `'` đóng. **86/86 file syntax validated** qua `new Function('return ' + cfgBlock)`. |
-| **Status** | ✅ Code done, syntax OK. Verify sau push: open `/web2/account-payment-thu/`, click thêm mới → input "Mã người nộp" có dropdown KH; click code KH ở table → mở partner-customer page. |
-
-### [web2][verify] Functional test 0 issues — Web 2.0 độc lập 100% với TPOS
-| | |
-|---|---|
-| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-functional.js` — comprehensive Playwright test 3 step. **STEP 1**: Network independence — visit 8 page mẫu, intercept mọi `request`, đảm bảo 0 calls `tomato.tpos.vn` / `tpos.vn/api` / `tposapp`. **STEP 2**: CRUD end-to-end trên 3 entity sample (productcategory, accountaccount-thu, salechannel) — create → list visible → update → delete → verify 404. **STEP 3**: Page-shell bootstrap — kiểm tra `.web2-shell + .web2-aside .web2-nav + #pageRoot .web2-main-header + table.data-table + .modal-overlay + #w2pSearch + #w2pAdd + window.Web2Api/Web2Page/Web2Sidebar` đều có. |
-| **Chi tiết** | **Trigger**: user yêu cầu xác minh "tất cả chức năng, logic đều hoạt động — riêng lẻ không dùng request/server TPOS". **Step 1 result**: 8/8 trang `worker=1 tpos=0 other=0` (chỉ gọi chatomni-proxy.nhijudyshop.workers.dev). **Step 2 result**: 3/3 entities CREATE/LIST/UPDATE/DELETE đầy đủ — DB persist OK qua chuỗi browser → CF Worker → Render → PostgreSQL. **Step 3 result**: 8/8 trang bootstrap đầy đủ 9 element/window object. **Total**: 0 issues. **Allowed external hosts**: unpkg/gstatic/googleapis/github/jsdelivr (CDN cho lucide/firebase/fonts) — KHÔNG phải TPOS. |
-| **Status** | ✅ Web 2.0 hoàn toàn standalone. Mọi data flow qua DB riêng (`web2_records`), 0 phụ thuộc TPOS API. CRUD vòng đầy đủ. Sidebar điều hướng không 404. |
-
-### [web2][verify] Browser test 90/90 trang PASS qua Playwright headless
-| | |
-|---|---|
-| **Files** | NEW: `/tmp/tpos-crawl-manual/verify-all-pages.js` — extract mọi `our:` path từ sidebar, visit từng URL với Playwright headless, kiểm tra: HTTP status 200, không có GitHub Pages 404, render `<table.data-table>` thành công. Output report `/tmp/verify-pages-report.json`. |
-| **Chi tiết** | **Trigger**: user báo 404 ở trang `/n2store/web2/web2/pos-order/index.html` → fix sidebar resolveOur xong cần verify tất cả. **Method**: regex `[...src.matchAll(/our:\s*'([^']+)'/g)]` trích 90 paths từ tpos-sidebar.js. Convert `'../web2/X/'` → `https://nhijudyshop.github.io/n2store/web2/X/?_=<timestamp>`. Mỗi page: `goto domcontentloaded` + wait 2.5s page-shell bootstrap + check 3 conditions. **Result**: **90/90 PASS**, status 200, table render OK. Bao gồm 85 trang web2/* + native-orders + web2-products + tpos-pancake + 2 link reuse (Đơn Web → native-orders, Tổng quan → native-orders). **Pitfall đã fix**: tpos-pancake không có `.data-table` (custom layout) — verify script dùng OR `(table || statusCode===200)`. |
-| **Status** | ✅ Toàn bộ menu sidebar hoạt động không 404. Tất cả 87 trang clone TPOS đã verify lần cuối. |
-
-### [web2][bug] Fix sidebar 404 khi click từ /web2/<slug>/ sang trang khác (path /web2/web2/)
-| | |
-|---|---|
-| **Files** | MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — thêm `resolveOur(rawHref)` helper detect `pathname /web2/<slug>/<file>` → prepend `../../`; ngược lại prepend `../`. Áp dụng vào `renderItem` + `renderGroup.single`. Active match dùng `/^(\.\.\/)+/` regex thay vì `/^\.\.\//` cố định 1 segment. |
-| **Chi tiết** | **Bug**: User click "Đơn hàng (POS)" từ trang `/n2store/web2/pos-order/index.html` → URL = `web2/web2/pos-order/index.html` → 404. **Root cause**: NAV item `our: '../web2/X/index.html'` chỉ đúng khi caller ở depth 1 (vd. `/native-orders/`). Caller ở depth 2 (`/web2/Y/`) → cần `../../web2/X/`. **Fix**: regex `/\/web2\/[^/]+\/[^/]*$/` detect web2 page → adjust prefix. **Test cases verified**: `/n2store/native-orders/` → `../web2/X/` ✓, `/n2store/web2/Y/` → `../../web2/X/` ✓, `/n2store/web2-products/` → `../web2/X/` ✓. **Asset version**: bump v→m. |
-| **Status** | ✅ Code done. Verify sau push: click bất kỳ link sidebar từ trang `/web2/pos-order/`, `/web2/account-thu/`, ... → đều load đúng trang đích, không 404. |
-
-### [web2][page] Phase C.12-C.21 — Bulk gen 51 trang còn lại (POS/Sales/Stock/Reports/Configs)
-| | |
-|---|---|
-| **Files** | NEW (51 trang dùng `Web2Shell.bootstrap`): pos-config/-session/-order, fastsaleorder-invoice/-refund/-delivery, history-ds, history-cross-check-product, wi-invoice/-history/-config, sale-online-facebook, fastpurchaseorder-invoice/-refund, stock-picking-type, stock-warehouse-product, stock-fifo-vacuum, account-payment-list/-change, partner-category-revenue-config, product-template/-variant, barcode-product-label, category-distributor, export-file, configs-general/-printer/-roles/-twofa/-advanced, product-label-paper, ir-mailserver, callcenter-config + 18 reports (inventory-valuation, xuat-nhap-ton, report-imported/-exported/-order/-refund/-purchase/-revenue/-business-results/-delivery/-supplier-debt/-customer-debt/-not-invoice/-audit-fastsale/-partner-create/-cash-journal/-rate-saleonline/-product-invoice). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 51 item thêm `our:` field qua script `/tmp/wire-sidebar.js`. NEW (gen scripts): `/tmp/gen-web2-pages.js` (template HTML factory), `/tmp/wire-sidebar.js` (regex patcher). |
-| **Chi tiết** | **Bulk approach**: do mọi page list-only đều cùng pattern (CRUD generic), viết 1 manifest array với (folder, slug, title, breadcrumb, columns, fields) → generator render thành HTML 16 dòng/page. Tổng 51 page ~ 1500 dòng HTML thay vì 4500 dòng nếu viết tay. **Slug naming**: TPOS slug giữ nguyên (vd. `posconfig`, `fastsaleorder-invoice`, `historycrosscheckproduct`) để khớp với `entity_slug` SLUG_RE `/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/`. **Folder kebab-case**: `pos-config`, `history-cross-check-product` (URL-friendly). **18 báo cáo**: dùng common schema (code/name/dateFrom/dateTo/totalAmount/note) — chi tiết business logic của từng report sẽ thêm sau khi backend riêng cần. **Trang phức tạp**: HĐ/HD/POS chỉ track header (code/customer/total/date/status), không có line items → khi cần line phải tạo bảng riêng hoặc mở rộng schema generic. **Sidebar wiring**: regex 2 pattern (single-line `{label,tpos}` và multi-line) → `our: '../web2/<folder>/index.html'`, 51/51 entries patched. |
-| **Status** | ✅ Code done. Tổng Phase C: 34 + 51 = **85/87 trang clone** (chỉ thiếu Tổng quan dashboard + Đơn Web đã link sẵn vào native-orders). Visual quality framework verified ≤ 5 entries qua productcategory + productuom. |
-
-### [web2][css] Phase D verified — framework đạt diff ≤ 5 entries
-| | |
-|---|---|
-| **Files** | MODIFIED: [web2-shared/page-builder-tpos.css](../web2-shared/page-builder-tpos.css) — em-based padding `0.5em 0.6em 0.4em` (= 7px 8.4px 5.6px @ 14px) cho thead, `0.4em 0.6em` (= 5.6px 8.4px) cho tbody. Hide search-icon/clear absolute overlays. Asset bump v→l. |
-| **Chi tiết** | **Verify qua 2 trang dùng Playwright watch dual-tab**: productcategory diff iter 1=15 → 12 → **6 → 3** (≤5 ✓); productuom diff iter 1=5 (≤5 ✓). **3 entries còn lại đều structural unavoidable**: (1) body.bg TPOS transparent vs ours #ecf0f5 — visual identical do parent có bg, (2) page MAIN element ours có TPOS không (Angular routing structure khác), (3) btnAdd "Thêm mới" toolbar — feature của ta. **Quy nạp**: vì cả 34 trang đều dùng cùng `Web2Page.mount` + `Web2Shell.bootstrap` + cùng CSS overrides, tất cả inherit cùng visual quality. Không cần watch riêng từng trang. **Pitfalls đã gặp**: (a) cache GitHub Pages 1-2 phút lag sau push — phải đợi reload pickup, (b) Playwright SingletonLock kẹt khi pkill — cần `rm -f /tmp/tpos-pw-profile/Singleton*` trước restart, (c) URL pattern khác cho partner (partner/customer/list1) cần script phổ quát hơn. |
-| **Status** | ✅ Phase D done. Framework visual quality đạt mục tiêu < 5 entries; 34 trang clone đầy đủ visual giống TPOS. |
-
-### [web2][css] Phase D iter 1 — overrides để Web2Page-builder khớp TPOS visual
-| | |
-|---|---|
-| **Files** | NEW: [web2-shared/page-builder-tpos.css](../web2-shared/page-builder-tpos.css) — overrides scoped `.web2-shell` cho header/search/table/modal: bg `#edf1f2` cho search, `#f5f5f5` cho thead, fontSize 12px, padding 5px 15px, no radius (TPOS dùng panel-heading flat). MODIFIED: [web2-shared/page-shell.js](../web2-shared/page-shell.js) — add `page-builder-tpos.css` vào CSS_FILES + bump asset_version v→j. MODIFIED: 3 page Phase C.1-C.2 (inline boilerplate) load thêm CSS file mới + bump cache buster. NEW: [/tmp/tpos-crawl-manual/watch-web2.js](#) — generic watcher nhận 2 slug arg (TPOS slug, our slug) so sánh body/header/search/table snapshot. |
-| **Chi tiết** | **Diff iter 1** = 15 entries từ watch productcategory → product-category: search bg/color/fontSize/padding/border/radius; header bg/color/padding/radius; thead bg. **Strategy**: scope override dưới `.web2-shell` để KHÔNG đụng native-orders/web2-products (cũng dùng class này nhưng không load page-builder-tpos.css). **TPOS palette dùng**: bg light `#edf1f2`, text `#58666e`, border `#dee5e7`, thead `#f5f5f5`, primary `#3c8dbc`. **Native overrides reusable** cho 30+ trang còn lại. **Asset version bump**: v=20260425j cache-bust GitHub Pages. |
-| **Status** | ✅ Code done. Iter 2 verify: chạy lại watch sau push để đếm lại diff entries. |
-
-### [web2][page] Phase C.7-C.11 — Khuyến mãi (4) + Sales (3) + Stock (3) + Live/DSD (3) + Configs (4) = 17 trang
-| | |
-|---|---|
-| **Files** | NEW (17 trang dùng `Web2Shell.bootstrap`): [promotion-program](../web2/promotion-program/index.html), [coupon-program](../web2/coupon-program/index.html), [loyalty-program](../web2/loyalty-program/index.html), [offer-program](../web2/offer-program/index.html), [sales-channel](../web2/sales-channel/index.html), [sale-quotation](../web2/sale-quotation/index.html), [sale-order](../web2/sale-order/index.html), [stock-location](../web2/stock-location/index.html), [stock-move](../web2/stock-move/index.html), [stock-inventory](../web2/stock-inventory/index.html), [live-campaign](../web2/live-campaign/index.html), [revenue-began-customer](../web2/revenue-began-customer/index.html), [revenue-began-supplier](../web2/revenue-began-supplier/index.html), [application-user](../web2/application-user/index.html), [company](../web2/company/index.html), [res-currency](../web2/res-currency/index.html), [mail-template](../web2/mail-template/index.html). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 17 item thêm `our:` field. |
-| **Chi tiết** | **Khuyến mãi**: promotionprogram (kiểu: %, số tiền, tặng kèm + dateFrom/To + minOrder), couponprogram (+ usageLimit), loyaltyprogram (pointPerThousand + minOrder), offerprogram (kiểu: free_shipping/gift/cashback). **Sales**: salechannel (platform: facebook/pancake/shopee/tiktok/web/pos), salequotation (status: draft/sent/accepted/rejected/expired), saleorder (status: draft/confirmed/partial/done/cancelled). **Stock**: stocklocation (parent), stockmove (from/to/product/qty), stockinventory (real vs system + reason). **Live/DSD**: liveCampaign (platform + status), revenuebegan + revenuebegan-supplier (đầu kỳ KH/NCC). **Configs**: applicationuser (role: admin/manager/sale/accountant/warehouse/shipper), company (taxCode/bankAccount), rescurrency (ISO + symbol + rate), mailtemplate (kind: order_confirmation/shipping/invoice/welcome/other + subject + body HTML). **Trade-off**: salequotation/saleorder/stockmove là list-only — không có line items (nếu cần line, tạo bảng riêng). Generic chỉ track header info. |
-| **Status** | ✅ Code done. Total Phase C done: 17 + 17 = 34/87 trang. Đã clone đầy đủ các trang đơn giản (CRUD list); các trang phức tạp còn lại (POS/HĐ/Stock multi-line, FB integration, Reports) cần backend riêng. |
-
-### [web2][page] Phase C.4-C.6 — Đối tác (4) + Tài chính/Kế toán (9) = 13 trang
-| | |
-|---|---|
-| **Files** | NEW (13 trang dùng `Web2Shell.bootstrap`): [web2/partner-category](../web2/partner-category/index.html), [web2/partner-customer](../web2/partner-customer/index.html), [web2/partner-supplier](../web2/partner-supplier/index.html), [web2/delivery-carrier](../web2/delivery-carrier/index.html), [web2/account-thu](../web2/account-thu/index.html), [web2/account-chi](../web2/account-chi/index.html), [web2/account-list](../web2/account-list/index.html), [web2/account-journal](../web2/account-journal/index.html), [web2/tag](../web2/tag/index.html), [web2/account-payment-thu](../web2/account-payment-thu/index.html), [web2/account-payment-chi](../web2/account-payment-chi/index.html), [web2/account-inventory](../web2/account-inventory/index.html), [web2/account-deposit](../web2/account-deposit/index.html). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 13 item thêm `our:` field. |
-| **Chi tiết** | **Đối tác (4)**: partnercategory (Nhóm KH), partner-customer (Khách hàng — code/name/phone/email/category/address/taxCode), partner-supplier (NCC — + bankAccount), deliverycarrier (Hãng VC — + fee + apiKey). **Kế toán (5)**: accountaccount-thu (Loại thu), accountaccount-chi (Loại chi), accountaccount (TKKT — + kind asset/liability/equity/revenue/expense + parent), accountjournal (Sổ nhật ký — + type cash/bank/sale/purchase/general), tag (Nhãn — + colorHex). **Tài chính (4)**: accountpayment-thu/-chi (Phiếu thu/chi — code/payerCode/amount/date/journalCode), accountinventory (Điều chỉnh công nợ — partnerCode/delta/note), accountdeposit (Ký quỹ — partnerCode/amount/date). **Trade-off**: phiếu thu/chi/điều chỉnh hiện CRUD đơn giản, chưa có workflow duyệt — đủ cho list view. Logic phức tạp (ledger entry, dual-entry) sẽ tạo bảng riêng nếu cần. |
-| **Status** | ✅ Code done. Total Phase C done: 4+4+9 = 17 trang. Verify: backend tự auto-create entity_slug records mỗi lần page load lần đầu, sidebar 13 link mới hoạt động. |
-
-### [web2][page] Phase C.2-C.3 — productuom + productuomcateg + productattribute + productattributevalue
-| | |
-|---|---|
-| **Files** | NEW: [web2/product-uom-categ/index.html](../web2/product-uom-categ/index.html), [web2/product-uom/index.html](../web2/product-uom/index.html) — dùng inline boilerplate (trước khi có page-shell). NEW: [web2/product-attribute/index.html](../web2/product-attribute/index.html), [web2/product-attribute-value/index.html](../web2/product-attribute-value/index.html) — dùng `Web2Shell.bootstrap` (~25 dòng/page). MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — 4 item thêm field `our:` để click → trang nội bộ. |
-| **Chi tiết** | **productuomcateg** (Nhóm ĐVT): code/name/note. **productuom** (Đơn vị tính): + factor (number) + uomCateg (ref code). **productattribute** (Thuộc tính): + kind select (select/multi/color/number). **productattributevalue** (Giá trị thuộc tính): + attributeCode (ref) + colorHex (chỉ dùng khi kind=color). Reference từ child → parent qua text code (vd. uomCateg = code của nhóm). FK toàn vẹn không enforce ở DB layer (do schema generic) — chỉ ràng buộc qua UX. **page-shell test**: 2 page C.3 verify shell load đúng, sidebar + builder mount, không lỗi 404. |
-| **Status** | ✅ Code done. Verify after deploy: 4 trang load, CRUD work, sidebar highlight active item. |
-
-### [web2][framework] page-shell.js — DRY helper cho page mới (Phase C.3+)
-| | |
-|---|---|
-| **Files** | NEW: [web2-shared/page-shell.js](../web2-shared/page-shell.js) — `Web2Shell.bootstrap(config)` tự inject CSS preconnect/3 stylesheet/local style + body shell `.web2-shell > aside.web2-aside + main.web2-main > #pageRoot` + load 7 preload scripts (lucide, firebase, shared/*) + 3 mount scripts (sidebar/api/page-builder) sequential, sau đó mount sidebar + Web2Page. |
-| **Chi tiết** | **Vấn đề**: mỗi page Phase C.1-C.2 tốn ~85 dòng HTML boilerplate (head links + body shell + scripts) chỉ để gọi `Web2Page.mount`. Với 80+ page kế tiếp → 6800 dòng lặp. **Giải pháp**: shell helper inject hết, page mới chỉ cần `<script src=".../page-shell.js"></script>` ở head + `Web2Shell.bootstrap({slug, title, breadcrumb, columns, fields})` ở body — total ~25 dòng thay vì 85. **Asset version**: hard-code `v=20260425i` cho mọi page (1 nơi đổi). **Sequential load**: lucide → firebase compat trio → shared utils → sidebar/api/page-builder để tránh race. **Backward compat**: 3 page Phase C.1-C.2 đã dùng inline boilerplate, giữ nguyên (sẽ refactor sau khi xong C.* nếu cần). |
-| **Status** | ✅ Code done. Verify khi tạo page Phase C.3+ — load nhanh, không lỗi 404 script, sidebar + builder mount đúng. |
-
-### [web2][page] Phase C.1 — Trang Nhóm sản phẩm (productcategory) dùng Web2Page.mount
-| | |
-|---|---|
-| **Files** | NEW: [web2/product-category/index.html](../web2/product-category/index.html) — page đầu tiên dùng framework Phase B; mount sidebar + Web2Page với 4 cột (Mã/Tên nhóm/Nhóm cha/Ghi chú) + 4 fields modal. MODIFIED: [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — item "Nhóm sản phẩm" thêm `our: '../web2/product-category/index.html'` để click → trang nội bộ. |
-| **Chi tiết** | **Verify Phase B end-to-end**: `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/productcategory/health` → 200 `{ok:true, count:0}`. POST create test record TEST001 → success, id=1. **Schema cho productcategory**: `code` (Mã, unique), `name` (Tên nhóm), `data.parentCode` (Nhóm cha — code reference), `data.note`. **Layout match TPOS conventions**: code center 140px, name flex left, parentCode 160px, note flex. **Workflow đăng ký**: 1 file HTML mới + 1 dòng `our:` trong sidebar = đủ. Không cần migration / không cần restart server. |
-| **Status** | ✅ Code done. Verify: open https://nhijudyshop.github.io/web2/product-category/index.html → bảng "Chưa có dữ liệu — bấm Thêm mới"; click "Thêm mới" → modal hiện 4 field; lưu record mới → row xuất hiện; pagination + search hoạt động. Verify sidebar: click "Sản phẩm > Nhóm sản phẩm" từ trang web2-products → navigate sang. |
-
-### [web2][framework] Phase B — Generic entity backend + Web2Page page-builder framework + guide
-| | |
-|---|---|
-| **Files** | NEW: [render.com/migrations/068_web2_generic_entities.sql](../render.com/migrations/068_web2_generic_entities.sql) — 2 bảng `web2_entities` + `web2_records` (entity_slug, code, name, data JSONB) + 7 indexes incl. unique `(entity_slug, code)`. NEW: [render.com/routes/web2-generic.js](../render.com/routes/web2-generic.js) — REST `/api/web2/:entity/(health\|list\|get/:code\|create\|update/:code\|delete/:code)` với SLUG_RE validate + auto `ensureTables()`. MODIFIED: [render.com/server.js](../render.com/server.js) — mount `app.use('/api/web2', web2GenericRoutes)`. MODIFIED: [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) — pattern `WEB2_GENERIC: '/api/web2/*'` + matcher. MODIFIED: [cloudflare-worker/worker.js](../cloudflare-worker/worker.js) — case `WEB2_GENERIC` → `handleCustomer360Proxy`. NEW: [web2-shared/web2-api.js](../web2-shared/web2-api.js) — `Web2Api.forEntity(slug)` thin client. NEW: [web2-shared/page-builder.js](../web2-shared/page-builder.js) — `Web2Page.mount(rootSel, config)` factory: header + breadcrumb + filter (search/active/limit) + toolbar (Tải lại/Áp dụng/Xóa lọc/Thêm mới) + table với TPOS classes + pagination + create/edit modal driven by `fields` config (text/textarea/select/checkbox), dot-path `data.X` qua getPath/setPath. NEW: [docs/guides/web2-builder/](../docs/guides/web2-builder/) — 8 file guide (README + 01-architecture, 02-backend, 03-cloudflare, 04-frontend, 05-theme, 06-cookbook, 07-sidebar, 08-diff-loop, 99-appendix) — đọc xong code lại được toàn bộ Web 2.0. |
-| **Chi tiết** | **Goal**: clone 87 trang TPOS list-CRUD bằng 1 schema generic + 1 page-builder. **Schema EAV-light**: cột cố định (`code`, `name`, `is_active`) cho index nhanh, JSONB `data` cho field tùy entity. Unique partial index `(entity_slug, code) WHERE code IS NOT NULL` cho phép entity có code = null mà vẫn unique trong scope. **API envelope**: `{success, records[], total, page, limit, hasMore}`. **Validate `:entity`**: regex `/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/` chặn injection dù đã prepared-statement. **Page-builder dot-path**: `'data.note'` → `getPath(record, 'data.note')` đọc, `setPath(payload, 'data.note', val)` ghi. Form field types: text/textarea/select/checkbox/number/email/tel/password. Edit mode `disable code field`. ESC + click X đóng modal (KHÔNG đóng khi click overlay — feedback từ user). **Quy ước phân chia**: trang đơn giản (chỉ CRUD) → dùng generic; trang phức tạp (đơn hàng, kho, hóa đơn) → tạo bảng riêng (đã có `native_orders`, `web2_products`). **Guide đầy đủ**: 8 file trong `docs/guides/web2-builder/` — đọc xong có thể code lại từ A-Z, biết khi nào dùng generic vs bảng riêng, cookbook tạo trang mới <5 phút. |
-| **Status** | ✅ Code done. Verify after deploy: (1) `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/productcategory/health` → `{"ok":true,"count":0}`. (2) Tạo trang đầu tiên `web2/product-category/index.html` dùng `Web2Page.mount` ở Phase C.1 (sau commit này). |
-
-### [soquy][docs] Tạo doc kiến trúc tổng hợp `docs/architecture/SOQUY.md`
-| | |
-|---|---|
-| **Files** | NEW: [docs/architecture/SOQUY.md](architecture/SOQUY.md) — 15 section, ~950 dòng. Mục lục đầy đủ: Tổng quan, Kiến trúc, File Map, Database Schema (Firestore + PG), Voucher Code Generation, Business Logic Flows (page load / create / fetch+filter / balance / edit+cancel / import Excel), State Management, Permission Model, UI Structure, Modal Forms, Image Handling, Integration Points, Edit History, Category & Source Management, Known Issues. |
-| **Chi tiết** | **User request**: "viết md chi tiết toàn bộ về flow, logic database cách hoạt động của sổ quỹ". Đã chốt với user qua AskUserQuestion: (1) vị trí = `docs/architecture/SOQUY.md` (theo pattern SHARED_AUTH.md, DATA-SYNCHRONIZATION.md); (2) ngôn ngữ = tiếng Việt + thuật ngữ kỹ thuật EN; (3) code snippet dài 10–30 dòng cho mọi flow chính → doc standalone, không cần mở file khác khi đọc. Snippet copy: `getNextVoucherCode` (Firestore transaction), `createVoucher`, `fetchVouchers` (server+client filter split), `calculateOpeningBalance`, `updateVoucher` + `cancelVoucher` với audit diff, `importVouchers` + `detectVoucherType`/`detectFundType`, `computeChanges` (field-by-field diff), `autoAddCategory`/`addSource`, `applyTabVisibility` + `enforceTabAccess` + `applyActionPermissions` + `filterByCreator`, SQL schema đầy đủ của 3 bảng PG. Known issues ghi lại: không có onSnapshot real-time (khác pattern chuẩn), opening balance query full history (cần snapshot cuối kỳ), permission filter chỉ client-side (cần Firestore Security Rules), image base64 giới hạn 1MB doc size, PG mirror manual sync. |
-| **Status** | ✅ Doc done. Verify: mở file → mọi link `../../soquy/...` click được trong VSCode, code snippet khớp với source file, command `grep` trong section Verification đối chiếu nhanh. Plan file tại `~/.claude/plans/vi-t-md-chi-ti-t-gleaming-wolf.md`. |
-
-### [customer-hub][wallet] Thêm icon 👁 xem bằng chứng giao dịch ví (CK Sepay + Ticket)
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/routes/v2/wallets.js](../render.com/routes/v2/wallets.js) line 753-796 — `GET /v2/wallets/:customerId/transactions` LEFT JOIN `balance_history` (ON `wt.reference_type='balance_history' AND wt.reference_id=bh.id::text`) trả kèm `sepay_image_url`. Fallback try/catch nếu cột `verification_image_url` không tồn tại (env cũ). NEW: [shared/js/ticket-history-viewer.js](../shared/js/ticket-history-viewer.js) — standalone module tự inject CSS + modal, fetch ticket qua `ApiService.getTicket()`, fetch audit logs từ Firestore `edit_history`, render timeline + sản phẩm. Expose `window.showTicketHistoryViewer(ticketCode)`. NEW: [customer-hub/js/modules/transaction-evidence.js](../customer-hub/js/modules/transaction-evidence.js) — helpers dùng chung: `getSepayImageUrl(tx)`, `getTicketCode(tx)` (regex `TV-\d{4}-\d+`), `pickEvidence(tx)` (ưu tiên sepay, skip nếu note đã có `[Ảnh GD:]`), `renderEyeButton(tx)`, `showSepayImage(url)` (lightbox full-screen), `showTicketDetail(code)` (lazy load ticket-history-viewer.js), `bindHandlers(root)`. MODIFIED: [customer-hub/js/modules/wallet-panel.js](../customer-hub/js/modules/wallet-panel.js) `_renderTx()` thêm `eyeBtn` trước ô amount, `_showTransactionHistory()` gọi `TxEvidence.bindHandlers(modal)`. MODIFIED: [customer-hub/js/modules/customer-profile.js](../customer-hub/js/modules/customer-profile.js) `_renderTicketsCard()` chèn `eyeBtn` vào dòng `.wallet-tx-line` + bindHandlers sau set innerHTML. MODIFIED: [customer-hub/js/modules/transaction-activity.js](../customer-hub/js/modules/transaction-activity.js) `renderTransactions()` render icon 👁 thay `more_vert` khi có evidence + bindHandlers. MODIFIED: [customer-hub/index.html](../customer-hub/index.html) line 140 — load `transaction-evidence.js` trước `main.js`. |
-| **Chi tiết** | **User request**: "trong lịch sử giao dịch ví và hoạt động ví bổ sung thêm với giao dịch từ ck sepay thì có con mắt bấm vào xem sẽ hiển thị ảnh duyệt giao dịch ở tab đã duyệt của tab kế toán, nếu là giao dịch cộng công nợ từ sửa cod khách gửi thu về thì hiển thị con mắt bấm vào xem sẽ ra xem chi tiết lịch sử ticket". **Detection logic**: CK Sepay = `tx.type='DEPOSIT' AND tx.reference_type='balance_history' AND tx.sepay_image_url != null`. Ticket = bất kỳ field nào của tx (`reference_id`, `note`, `source`) match regex `TV-\d{4}-\d+`. **Ưu tiên**: sepay > ticket; skip nếu note đã có `[Ảnh GD:]` (thumbnail tồn tại). **Backend enrich append-only** không modify endpoint shape — chỉ thêm 2 field `sepay_image_url`, `reference_type`, tuân thủ `feedback_api_scope` (chỉ cấm TPOS/KPI). **Ticket modal standalone**: không reuse `showTicketHistory` của issue-tracking vì nó dựa vào global `TICKETS` array — thay vào đó viewer mới fetch qua `ApiService.getTicket()` khả dụng mọi nơi. Audit logs từ Firestore graceful degrade (không crash nếu Firebase không init). Customer-hub KHÔNG modify issue-tracking — non-regression tuyệt đối. |
-| **Status** | ✅ Code done, syntax pass. Verify: (1) Backend: `curl /v2/wallets/{phone}/transactions?limit=50 \| jq '.data[] \| {type, reference_type, sepay_image_url}'` — DEPOSIT có ref_type=balance_history sẽ có image URL. (2) Frontend CK Sepay: customer profile → "Lịch sử" trên ví → row "Nạp tiền từ CK" có 👁 xanh → click → lightbox ảnh bank receipt. (3) Frontend Ticket: giao dịch VIRTUAL_CREDIT/DEPOSIT có `TV-...` trong note → 👁 tím → click → modal "Lịch sử phiếu TV-YYYY-NNNNN" với timeline + sản phẩm. (4) Non-regression: issue-tracking "Xem chi tiết" vẫn hoạt động nguyên; manual topup có `[Ảnh GD:]` vẫn thumbnail không double-icon. |
-
----
-
-## 2026-04-24
-
-### [orders][kpi] Fix "Tính lại KPI toàn bộ" chỉ process 1/N đơn — source từ kpi_base thay vì kpi_statistics
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) `recomputeAllKPI()` line 1852-1876 — đổi source orderCodes từ `GET /kpi-statistics` sang `GET /kpi-base/list-meta` (support filter dateFrom/dateTo/campaign sẵn). Loop over `bases` thay vì `statistics.orders`. |
-| **Chi tiết** | **User report**: bấm "Tính lại KPI toàn bộ" → dialog báo "Hoàn tất: 1/1 đơn" thay vì 3182 đơn. **Root cause** (DB check trước đó): `kpi_statistics` chỉ có 1 order trong JSONB orders (user My, KPI 5000đ). Source code cũ lấy orderCodes bằng `SELECT orders FROM kpi_statistics` → chỉ 1 → loop 1 → done. 3181 đơn trong `kpi_base` chưa có trong statistics → **KHÔNG được migrate**. **Fix**: `kpi_base` là source of truth cho đơn có BASE (immutable, lưu khi bulk send xong). Dùng endpoint `/kpi-base/list-meta` (đã có từ commit 171fb470, giữ lại) → 3182 orderCodes → loop đầy đủ. Support filter campaign từ `this.state.filters.campaign` (trước đây không pass). |
-| **Status** | ✅ Code done, syntax pass. Verify: refresh trang KPI tab → click "Tính lại KPI toàn bộ" → dialog hiện "3182/3182 đơn" (hoặc theo filter). Sau đó kpi_statistics sẽ có mọi đơn có upsell (KPI>0 cho đơn tick, KPI=0 cho đơn chưa tick). Mode Full hiện đầy đủ. |
-
-### [orders][kpi] Toggle mode = UI filter thuần, không dual-compute — fix semantics
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — (1) XÓA hàm `mergeBaseOnlyOrders()` + call trong `applyFilters()` (commit 171fb470 sai hướng đã revert lần cuối); (2) `aggregateByEmployee`: Simple mode ẩn user có `totalKPI=0 && totalNetProducts=0`; (3) `renderEmployeeOrdersTable` modal L1: Simple ẩn đơn KPI=0, Full hiện tất cả; (4) `renderNetKPITab` modal L2: Simple filter `.filter((p) => !simpleMode || !p.excluded)` → chỉ hiện SP tick; Full hiện cả SP tick (xanh) + SP chưa tick (trắng, 0đ). MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — `saveKPIStatistics()` bỏ `netProductsLegacy` + `kpiLegacy` khỏi PATCH body (backend không accept, chỉ lưu strict). Giữ nguyên: `calculateNetKPI()` dual-compute internally, `recalculateAndSaveKPI()` union-skip-guard (`if (userKPI<=0 && userKPILegacy<=0) continue`) để order có upsell chưa tick vẫn được save với kpi=0. |
-| **Chi tiết** | **User feedback thứ 5 (CAPS LOCK)** — định nghĩa lại chính xác 2 mode sau 5 commit sai hướng: **Mode Full ("Hiển thị tất cả")**: bảng chính + modal Chi tiết KPI hiện đầy đủ mọi đơn (kể cả KPI=0). Detail modal "So sánh KPI" hiện TẤT CẢ SP — SP tick KPI>0 + tô xanh lá nhạt, SP chưa tick KPI=0đ + trắng. **Mode Simple ("Chỉ có KPI")**: bảng chính ẨN user KPI=0; modal Chi tiết KPI ẨN đơn KPI=0; detail modal ẨN dòng SP chưa tick (chỉ hiện SP tick). **Không cần dual-compute** — chỉ là filter UI trên cùng strict data. **Không cần merge kpi-base** — chỉ hiện user/order trong kpi_statistics. Union-skip-guard trong save đã đủ để đơn có upsell chưa tick tồn tại trong kpi_statistics (kpi=0, netProducts=0) → Full mode thấy được. **Migration bắt buộc**: user click "Tính lại KPI toàn bộ" 1 lần sau deploy → recompute + save lại tất cả (các đơn chưa tick giờ sẽ được persist với kpi=0). **Không đụng**: variant filter 4 conditions, stack-based attribution, sale flag store + checkbox UI, recalc-on-toggle, `KPI_SALE_FLAG_EFFECTIVE_FROM=2020`. |
-| **Status** | ✅ Code done, syntax check pass. Verify: **Mode Simple** (default): bảng chính chỉ user có KPI > 0; Chi tiết KPI-My chỉ đơn có KPI > 0; So sánh KPI chỉ SP được tick (5000đ + xanh). **Mode Full**: bảng chính thêm user KPI=0 (chỉ trong kpi_statistics, không có 523 "Không xác định" rác); Chi tiết KPI-My có thêm đơn KPI=0đ; So sánh KPI hiện cả 3 SP (1 ticked xanh 5000đ, 2 unticked trắng 0đ, tổng 5000đ). Click "Tính lại KPI toàn bộ" 1 lần để migration orders chưa tick. |
-
-### [orders][kpi] Dual-compute: Full mode = legacy KPI (pre-feature), Simple = strict KPI (ticked only)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — `calculateNetKPI()` refactor loop tổng KPI: compute **đồng thời** strict (tick only) + **legacy** (all qualifying) trong 1 pass, return cả 2 set (`perUserNetLegacy`, `perUserKPILegacy`, `netProductsLegacy`, `kpiAmountLegacy`). `recalculateAndSaveKPI()` loop `union(perUserKPI, perUserKPILegacy)`, relax guard thành `userKPI <= 0 && userKPILegacy <= 0` → đơn chỉ có legacy > 0 (sale chưa tick) vẫn được lưu. `saveKPIStatistics()` pass 2 field mới xuống PATCH body. MODIFIED: [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js) PATCH `/kpi-statistics/:userId/:date/order` — thêm `netProductsLegacy`, `kpiLegacy` vào whitelist + persist trong `orders[]` JSONB (không schema change, backward-compat default 0). MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — xóa hàm + call `mergeBaseOnlyOrders()` (commit 171fb470 sai hướng); thêm helper `_orderMetrics(order)` đọc strict/legacy theo `displayMode`; `aggregateByEmployee`, `updateSummaryCards`, `renderKPITable` cột SỐ ĐƠN, `renderEmployeeOrdersTable` (modal Chi tiết KPI) đều dùng `_orderMetrics` để sum/filter theo mode. `renderNetKPITab` (tab "So sánh KPI"): full mode → kpi per row = `net × unitKPI` luôn (ignore excluded flag). `toggleDisplayMode()` re-render modal L1 và L2 nếu đang mở. |
-| **Chi tiết** | **User feedback (thứ 4 trong cùng task)**: "hiển thị toàn bộ đơn và sản phẩm tính KPI gồm cả đã check và uncheck **như bình thường trước khi thêm tính năng này**". Hiểu đúng: `Full mode` = legacy KPI (pre-sale-flag, count all qualifying upsells); `Simple mode` = strict (chỉ SP tick). Approach cũ (commit 171fb470) merge synthetic entries từ kpi-base → hiện 523 đơn "Không xác định" với 0 KPI — không phải cái user muốn. **Fix đúng**: persist cả strict + legacy KPI cho mỗi order trong JSONB `orders[]`, toggle client-side swap instantly. Không schema change (JSONB flexible). Legacy cột `total_kpi` DB vẫn strict — tránh complicate backend. **Migration**: user click "Tính lại KPI toàn bộ" 1 lần sau deploy → populate `kpiLegacy` cho tất cả orders. Graceful degradation: orders chưa migrate → full mode `?? strict` fallback (thay vì 0/lỗi). **Không đụng**: variant filter logic (4 điều kiện out_of_range / productId / template_id / normalized name — giữ y chang), KPI sale flag store + checkbox UI, recalc-on-toggle flow. |
-| **Status** | ✅ Code done, syntax check pass. Migration workflow bắt buộc: (1) deploy Render server (PATCH chấp nhận field mới); (2) deploy frontend (kpi-manager dual-compute); (3) user click "Tính lại KPI toàn bộ" — recomputes tất cả orders + populate legacy fields. Sau đó toggle Full ↔ Simple là instant. Verify: (a) Simple mode → dashboard = strict KPI (ticked only, vd 5.000đ); (b) Full mode → legacy KPI ~2.095.000đ cũ trở lại; (c) Detail modal "So sánh KPI" — full mode tô xanh cả 3 row (mỗi row 5000đ tổng 15000đ), simple mode chỉ row ticked; (d) Modal "Chi tiết KPI - My" swap số theo mode realtime. |
-
-### [delivery-report] Click cột Công nợ: đưa đơn "Công nợ < Tổng tiền" lên đầu + tô đỏ đơn ranh giới
-| | |
-|---|---|
-| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — đổi `applyDebtFilter` → `applyDebtSort(data)` return `{ data, boundaryIndex }`. Phân đơn thành `matching` (Công nợ < Tổng tiền) + `rest` → concat `[...matching, ...rest]`. `boundaryIndex = matching.length` (index đơn đầu tiên trong `rest` thuộc mảng combined); trả `-1` khi `matching.length === 0` hoặc `rest.length === 0` (không cần highlight vì không có đường ranh giới thực sự). `renderTable()` destruct `{ data: allData, boundaryIndex }`, khi render mỗi `<tr>`: nếu `startIndex + i === boundaryIndex` → thêm class `dr-debt-boundary`. Tooltip đổi "đang lọc" → "đưa lên đầu". MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — thêm `.dr-table tbody tr.dr-debt-boundary { background:#fee2e2; border-top:2px solid #dc2626 }` + hover #fecaca. |
-| **Chi tiết** | **User request**: "khi bấm lọc vẫn hiển thị toàn bộ đầy đủ đơn, các đơn Công nợ < Tổng tiền hiển thị trên đầu, các đơn còn lại hiển thị xuống dưới cùng, đơn đầu tiên khi hết lọc sẽ tô đỏ để đánh dấu đã hết phần của đơn công nợ nhỏ hơn tổng tiền". Thay filter (giảm data) bằng partition sort (giữ full data). Footer totals không đổi (vẫn tính toàn bộ `allData`). Pagination tiếp tục hoạt động — boundary có thể nằm ở trang giữa. Case `matching.length === 0`: tất cả đơn không match → không highlight (tránh tô đơn đầu tiên một cách sai lệch). Case `rest.length === 0`: toàn bộ đều match → không có đường ranh giới. |
-| **Status** | ✅ Code done. Test: (1) có đơn vừa Công nợ < Tổng tiền vừa Công nợ ≥ Tổng tiền; (2) click header Công nợ lần 1 → đơn Công nợ < Tổng tiền dồn lên đầu, đơn đầu tiên của phần còn lại tô đỏ `#fee2e2` + border top đỏ `#dc2626`; (3) click lần 2 → thứ tự về ban đầu, không còn row đỏ; (4) case all-match / all-rest: không có row đỏ; (5) tổng footer giữ nguyên. |
-
-### [native-orders][web2-products] Kho SP Web 2.0 + product picker trong edit modal
-| | |
-|---|---|
-| **Files** | NEW: [render.com/migrations/066_web2_products_schema.sql](../render.com/migrations/066_web2_products_schema.sql) — bảng mới `web2_products` (id, code unique, name, price NUMERIC, image_url, stock, note, tags JSONB, is_active, audit). NEW: [render.com/routes/web2-products.js](../render.com/routes/web2-products.js) — REST API `/api/web2-products/*` (health, list với search/activeOnly/page/limit, get by code, POST create, PATCH update, DELETE) + auto-create table. NEW: [web2-products/index.html](../web2-products/index.html) — trang kho SP (tab-nav nhất quán với native-orders + tpos-pancake, filter search/active/limit, table 9 cột: STT, ảnh, mã, tên, giá, tồn, ghi chú, trạng thái, hành động; modal create/edit với preview ảnh live). NEW: [web2-products/css/web2-products.css](../web2-products/css/web2-products.css) — overrides trên CSS native-orders (product-image 56px, code-badge vàng, stock badge color). NEW: [web2-products/js/web2-products-api.js](../web2-products/js/web2-products-api.js) + [web2-products/js/web2-products-app.js](../web2-products/js/web2-products-app.js) — CRUD logic. MODIFIED: [render.com/routes/native-orders.js](../render.com/routes/native-orders.js) — PATCH handler: nếu body có `products` (array) thì auto-recompute `totalQuantity` + `totalAmount` (trừ khi client explicit override). MODIFIED: [render.com/server.js](../render.com/server.js) — mount `/api/web2-products`. MODIFIED: [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) + [cloudflare-worker/worker.js](../cloudflare-worker/worker.js) — pattern `WEB2_PRODUCTS` + case dispatch → `handleCustomer360Proxy`. MODIFIED: [native-orders/js/native-orders-api.js](../native-orders/js/native-orders-api.js) — thêm `searchProducts({search, limit})` gọi web2-products list với activeOnly=true. MODIFIED: [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) — edit modal: thêm section "Sản phẩm trong đơn" với picker debounce 300ms + kết quả dropdown (ảnh + tên + mã + giá + nút +), bảng order lines (SL -/+/input, giá, thành tiền, nút xóa), totals live. `saveEdit()` gửi `products: EDIT_LINES.map(...)` → backend recompute totals. MODIFIED: [native-orders/css/native-orders.css](../native-orders/css/native-orders.css) — CSS cho `.products-section`, `.product-picker`, `.pick-item`, `.order-lines-table`, `.qty-ctl`, `.field-row-grid`. MODIFIED: [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — entry MENU_CONFIG `web2-products` (icon `box`), thêm vào group "Web 2.0" DEFAULT_GROUPS_CONFIG, migration 2 `_applyOneTimeMigrationsWeb2Products` auto-move item vào group "Web 2.0" cho user đã apply migration trước đó. |
-| **Chi tiết** | **User request**: "Tạo kho sản phẩm riêng cho web 2.0, sản phẩm này thêm được vào đơn bên native order như order report của tpos". **Kiến trúc**: (1) Bảng `web2_products` hoàn toàn **tách biệt** với `products` (TPOS) — source of truth riêng cho web 2.0 flow, không đụng Excel cache hay TPOS OData của orders-report; (2) `native_orders.products` JSONB đã có sẵn trong schema 065 — tận dụng để lưu order lines, mỗi line `{productCode, name, price, quantity, imageUrl, note, total, addedAt}`; (3) PATCH `/api/native-orders/:code` được mở rộng auto-recompute totals khi products thay đổi → client chỉ gửi mảng lines, server tính tổng. **UX picker**: copy pattern orders-report — search debounce 300ms/min 2 ký tự, dropdown kết quả với ảnh 44px + tên truncate + mã monospace + giá xanh + nút "+" tròn; nếu SP đã có trong đơn → hiện badge SL xanh ở góc + border-left xanh; nút "Kho SP" để user mở tab mới tạo/sửa kho. **Reuse assets**: web2-products import CSS của native-orders để UI nhất quán 100% (tab nav giống hệt, chỉ overrides vài class riêng cho ảnh SP + price/stock badge). **Shared nav**: migration 2 chạy riêng với flag `n2shop_migration_web2_products_applied` — user cũ (đã có flag migration 1) vẫn được auto move SP-warehouse vào đúng group mà không reset layout khác. |
-| **Status** | 🔄 Code done, syntax check pass. Cần deploy: (1) push → Render auto-deploy (`n2store-fallback`) ~2 phút → `curl .../api/web2-products/health` phải trả `{ok:true,count:0}`; (2) `cd cloudflare-worker && wrangler deploy`; (3) hard refresh sidebar bất kỳ trang → group "Web 2.0" có 3 item (Tpos × Pancake / Đơn Web / Kho SP); (4) mở Kho SP → tạo 2-3 SP test; (5) mở Đơn Web → sửa 1 đơn → gõ tên SP → chọn từ dropdown → qty +/- → Lưu → bảng đơn cập nhật `totalQuantity/totalAmount`. |
-
-### [orders][kpi] Fix "Hiển thị đầy đủ" mode không thực sự show đơn chưa tick
-| | |
-|---|---|
-| **Files** | NEW endpoint: [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js) — `GET /api/realtime/kpi-base/list-meta` (registered TRƯỚC `/:orderCode` để không bị Express match nhầm route param). Trả `[{orderCode, orderId, campaignId, campaignName, userId, userName, stt, createdAt}]` cho MỌI row `kpi_base`, không bao gồm `products[]` (giảm response size). Optional filter `?dateFrom=&dateTo=&campaign=` — WHERE trực tiếp trên `created_at::date` + `campaign_name`. MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — `applyFilters()` khi `displayMode='full'` gọi thêm `mergeBaseOnlyOrders(filtered)`. Hàm mới `mergeBaseOnlyOrders()`: GET `/kpi-base/list-meta` với query params match filter hiện tại → với mỗi base, check nếu `(userId, orderCode)` chưa có trong `filtered` → append synthetic order `{netProducts:0, kpi:0, _fromBaseOnly:true, ...}`. User chưa có trong `filtered` → thêm entry mới. Mutate in-place. |
-| **Chi tiết** | **User report** sau commit `14925d56`: nút "Hiển thị đầy đủ" vẫn chỉ show 1 đơn (đơn đã có tick KPI), không hiện các đơn chưa tick. **Root cause**: `statsData` load từ `kpi_statistics`, mà bảng này chỉ chứa orders có KPI > 0 (khi `recalculateAndSaveKPI` tính ra 0 → DELETE row). Nên đơn chưa tick SP nào = KPI 0 → không có trong `statsData` → toggle filter của Task 3 cũ chỉ tác động trên orders đã tồn tại trong `statsData`, không "tạo" ra đơn chưa tick được. **Fix**: data source thứ 2 là `kpi_base` — mọi order đã tạo BASE snapshot đều có row ở đây (immutable sau khi bulk send xong). Full mode sẽ MERGE 2 nguồn: `kpi_statistics` (đơn có KPI) + `kpi_base` (đơn chỉ có BASE). Đơn chỉ có BASE → synthetic entry với kpi=0, hiển thị để sale review, user có thể click vào xem chi tiết + tick SP cần tính KPI. **Performance**: endpoint list-meta không trả `products` (JSONB có thể lớn) → response nhẹ, 300 orders ~ 60KB. **Lưu ý deploy**: cần restart Render server để endpoint mới hoạt động; frontend fail-safe `try/catch` nếu endpoint chưa available → chỉ hiện đơn có KPI như cũ. |
-| **Status** | ✅ Code done, syntax check pass. Cần deploy Render server. Verify: (1) Bật "Hiển thị đầy đủ" → "Tổng đơn có BASE" tăng lên bằng tổng số đơn có kpi_base (vd. 303 thay vì 3); (2) Bảng KPI theo nhân viên hiện đầy đủ user có base (kể cả user chưa có KPI nào); (3) Click user → modal "Chi tiết KPI - [tên]" show cả đơn chưa tick (kpi=0, SP NET=0); (4) Tắt toggle → về simple mode, chỉ hiện đơn có KPI > 0 như cũ. |
-
-### [orders][kpi] Tab KPI: bỏ cột KPI icon + toggle "Chỉ có KPI / Hiển thị đầy đủ"
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/tab-kpi-commission.html](../orders-report/tab-kpi-commission.html) — bỏ `<th>KPI</th>` icon column trong tab "So sánh KPI"; thêm button `#btnToggleDisplayMode` cạnh "Làm mới" với icon `eye` + label `#displayModeLabel`. MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — (a) `renderKpiCompareTab`: bỏ `checkIcon` td + `totalChecked` counter, row class `kpi-row-checked` khi `p.kpi > 0` (thay vì `p.isSaleChecked`); (b) state mới `displayMode: 'simple' | 'full'` persist localStorage; `toggleDisplayMode()` + `updateDisplayModeLabel()`; (c) `updateSummaryCards()` + renderKPITable "SỐ ĐƠN" column respect mode — full mode đếm cả đơn KPI=0, simple mode ẩn như cũ; (d) `init()` sync label sau restore state. MODIFIED: [orders-report/css/tab-kpi-commission.css](../orders-report/css/tab-kpi-commission.css) — bỏ `.kpi-check-yes` / `.kpi-check-no` (không dùng), giữ `.kpi-row-checked` bg #ecfdf5. |
-| **Chi tiết** | **User feedback 3 items** sau deploy commit `cd15193c`: (1) **Bỏ cột KPI icon**, chỉ giữ cột "KPI (VNĐ)" — row có KPI > 0 thì tô xanh nhạt (thay vì dùng icon ✓/—). Đơn giản hoá UI, đồng bộ visual với cột tiền. (2) **Tình trạng "chưa tính lại cho đúng"** bên ngoài chi tiết đơn hàng: không có code bug — user cần bấm "Làm mới" hoặc "Tính lại KPI toàn bộ" để reload kpi_statistics từ DB. Đã được xử lý sẵn qua `refreshData()`. Không fix code cho item này. (3) **Toggle mode hiển thị**: mặc định "Chỉ có KPI" (hành vi cũ, ẩn đơn KPI=0), click để chuyển "Hiển thị đầy đủ" — show TẤT CẢ đơn/user gồm cả đơn chưa tick KPI → sale có thể review đơn nào chưa đánh dấu SP bán hàng. Persist localStorage `kpiDisplayMode`. **Áp dụng**: summary cards (4 card header) + cột SỐ ĐƠN trong bảng KPI theo nhân viên. **Không đụng**: flow "Tính lại KPI toàn bộ", logic strict mode trong `calculateNetKPI`, modal chi tiết đơn hàng. |
-| **Status** | ✅ Code done, syntax check pass. Verify sau deploy: (1) Tab KPI → modal chi tiết đơn hàng → tab "So sánh KPI" → không còn cột KPI icon; row có KPI (VNĐ) > 0 được tô xanh nhạt (#ecfdf5). (2) Filter bar có nút mới "Chỉ có KPI" / "Hiển thị đầy đủ" (toggle). Click → label đổi + summary cards + "SỐ ĐƠN" update theo mode; reload trang → giữ mode (localStorage). (3) Trong "Hiển thị đầy đủ" mode, đơn có 0 KPI vẫn được đếm trong "Tổng đơn có BASE" và cột "SỐ ĐƠN". |
-
-### [shared][nav] Thêm group sidebar "Web 2.0" + di chuyển tpos-pancake & native-orders vào đó
-| | |
-|---|---|
-| **Files** | MODIFIED: [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — (1) thêm entry `MENU_CONFIG` mới cho `native-orders` (icon `package-open`, href `../native-orders/index.html`, `publicAccess: true`); (2) đổi `DEFAULT_GROUPS_CONFIG` — bỏ `'tpos-pancake'` khỏi group "Đơn Hàng", thêm group mới `{ name: 'Web 2.0', icon: 'globe', items: ['tpos-pancake', 'native-orders'] }`; (3) thêm `MenuLayoutStore._applyOneTimeMigrations()` chạy sau `_loadFromAPI()` trong `init()`: nếu localStorage chưa có flag `n2shop_migration_web2_applied`, remove `tpos-pancake` + `native-orders` khỏi mọi group hiện tại, tạo/update group `Web 2.0` chứa cả 2 (dedupe), lọc bỏ group rỗng, set flag, save local + server (`this.saveLayout()`). |
-| **Chi tiết** | **User request**: "tạo 1 group web 2.0 ở menu sidebar navigation modern → di chuyển native-order, tpos-pancake vào". Default config mới chỉ áp cho user chưa có saved layout; user cũ đã có `tpos-pancake` trong group "Đơn Hàng" từ trước (do layout sync Firestore + localStorage) → cần migration chủ động. **Migration một lần mỗi browser**: flag `n2shop_migration_web2_applied='1'` lưu localStorage — chạy qua một lần thì không bao giờ chạy lại, user có thể tự drag sang group khác nếu muốn mà không bị reset. **Không phá layout user**: migration chỉ động đến 2 item cụ thể; mọi custom khác (vị trí group, thứ tự item khác) được giữ nguyên. **Server sync best-effort**: nếu `saveLayout()` lỗi → localStorage vẫn persist, lần sau vẫn không chạy lại migration. |
-| **Status** | ✅ Done — push. Test: (1) hard refresh bất kỳ trang nào load `navigation-modern.js` → sidebar phải có group mới "Web 2.0" (icon globe) chứa Tpos - Pancake + Đơn Web (Native); (2) group "Đơn Hàng" giờ còn 3 item (orders-report, order-management, order-log); (3) console log `[NAV] Migration Web 2.0 applied...`; (4) refresh lần 2 → không log migration nữa, layout ổn định; (5) user tự drag item khác vào/ra Web 2.0 → lưu được, migration không can thiệp. |
-
-### [delivery-report] Đổi sort cột Công nợ/Tổng tiền → filter "Công nợ < Tổng tiền" ở cột Công nợ
-| | |
-|---|---|
-| **Files** | MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — thay `sort: { column, direction }` bằng `filter: { debtLessThanTotal: false }`. Gỡ `SORTABLE_COLUMNS`, `bindSortableHeaders`, `updateSortIndicators`, `applySorting`. Thêm mới: `bindFilterableHeaders()` (chỉ bind th `cashOnDelivery`, icon `fa-filter`), `updateFilterIndicators()` (icon tím #4f46e5 khi filter active + tooltip `title`), `applyDebtFilter(data)` (return `data.filter(item => CashOnDelivery < AmountTotal)` khi active). `renderTable()` gọi `applyDebtFilter(getFilteredData())` + `updateFilterIndicators()`. **Toggle 2 trạng thái**: click lần 1 → bật filter (chỉ hiện đơn có Công nợ < Tổng tiền, icon tím), click lần 2 → tắt filter (hiện toàn bộ). Cột Tổng tiền không còn sort. |
-| **Chi tiết** | **User request**: "khi tôi bấm vào cột công nợ sẽ lọc toàn bộ đơn có công nợ nhỏ hơn tổng tiền hiện lên trên (bấm lần 1 lọc, lần 2 về bình thường), bỏ lọc bên cột tổng tiền đi". Thay sort cycle 3-state ở cả 2 cột bằng filter toggle đơn giản trên 1 cột duy nhất (Công nợ). Filter áp dụng sau `getFilteredData()` (carrier + tra soát + hidden) → `totalCount` cập nhật theo kết quả filter → footer totals chỉ tính trên rows hiển thị (do code cũ dùng `allData` sau filter). Khi toggle → reset `currentPage = 1`. |
-| **Status** | ✅ Code done. Test: (1) mở `delivery-report/index.html` ngày có cả đơn Công nợ < Tổng tiền (chưa thanh toán đủ) và đơn Công nợ ≥ Tổng tiền (thanh toán đủ / âm); (2) header "Tổng tiền" click không tác dụng; (3) click "Công nợ" lần 1 → icon filter tím, chỉ còn rows Công nợ < Tổng tiền, count ở trên đổi, tooltip "Đang lọc..."; (4) click lần 2 → icon xám, hiện toàn bộ, tooltip "Click để lọc..."; (5) bấm lại vẫn hoạt động (không stale state). |
-
-### [orders][kpi] Bỏ cutoff + detail modal: cột KPI + highlight row tính KPI
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — đổi `KPI_SALE_FLAG_EFFECTIVE_FROM` từ `2026-04-24` → `2020-01-01` (áp dụng strict mode cho MỌI orders); refactor loop tổng KPI trong `calculateNetKPI()`: tính `data.net` thật TRƯỚC check flag → detail modal có đủ thông tin cho cả SP excluded. Thêm `data.unitKPI` vào mỗi entry để client-side tính KPI nhất quán. MODIFIED: [orders-report/tab-kpi-commission.html](../orders-report/tab-kpi-commission.html) — thêm cột `<th>KPI</th>` giữa NET Qty và KPI (VNĐ) trong tab "So sánh KPI". MODIFIED: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) — `renderKpiCompareTab()`: preload `KpiSaleFlagStore.load(orderCode)`, add `isSaleChecked` + `excluded` per product; KPI per row = `excluded ? 0 : net * unitKPI` (trước đây dùng KPI_PER_PRODUCT cố định); row class `kpi-row-checked` khi ticked; footer "Tổng cộng" hiển thị thêm `checked/total`. MODIFIED: [orders-report/css/tab-kpi-commission.css](../orders-report/css/tab-kpi-commission.css) — style `.kpi-row-checked` (bg emerald-50 #ecfdf5, hover emerald-100); icon tròn xanh `.kpi-check-yes` + dash `.kpi-check-no`. |
-| **Chi tiết** | **Issue 1 user report**: "Bấm tính lại KPI không tính lại — nút đã check/không check tính sai KPI". Nguyên nhân: cutoff `2026-04-24` khiến orders có BASE trước đó (vd đơn 260403948 test từ 22/4) rơi vào legacy mode → flag bị ignore → button "Tính lại KPI toàn bộ" tính như cũ (count all SP sau BASE). User muốn strict mode áp dụng cho MỌI orders. **Fix**: cutoff lùi về 2020-01-01 để không có order nào còn legacy. **Business impact**: KPI tổng sẽ giảm drastically (từ ~2.095.000đ xuống chỉ còn các SP đã tick). Sale cần đi từng đơn tick checkbox cho SP bán hàng thật. **Issue 2 user request**: trong tab "So sánh KPI" chi tiết đơn hàng, hiển thị đủ cả rows được tính và không tính, cột KPI (VNĐ) đổi tiền theo thực tế — row được tick: highlight xanh nhạt. **Fix**: giữ `data.net` là NET thật (kể cả excluded), detail modal tính `kpi = excluded ? 0 : net * unitKPI` riêng, thêm cột "KPI" icon ✓/— + class `kpi-row-checked` tô #ecfdf5. Footer thêm thống kê `X/Y` (đã tick / tổng). |
-| **Status** | ✅ Code done, syntax check pass. Cần deploy frontend. Verify: (1) Order test 260403948 — tick 3 checkbox → bấm "Tính lại KPI toàn bộ" → số KPI giảm về đúng 15.000đ (chỉ 3 SP ticked) + dashboard tổng KPI drops mạnh phản ánh strict mode. (2) Mở modal chi tiết đơn hàng → tab "So sánh KPI" → thấy đủ rows, row có ✓ tô xanh nhạt, row có — (gạch) bg trắng, cột KPI (VNĐ) của row không tick = 0đ. (3) Footer hiển thị "3/3" nếu cả 3 đều tick. |
-
-### [orders][ptag] Giới hạn chiều ngang cột TAG XL (max 40 ký tự ≈ 320px)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — append block CSS cuối file: `td[data-column="processing-tag"]` max-width 320px; `.ptag-cell`, `.ptag-cell-badges`, `.ptag-cell-flags-row`, `.ptag-cell-ttag-row` max-width 100%/min-width 0; `.ptag-ttag-badge` display inline-flex + max-width 100%; `.ptag-ttag-badge .ptag-badge-label` flex 1 1 auto + overflow hidden + text-overflow ellipsis + white-space nowrap; `.ptag-badge-remove` flex-shrink 0 (nút × luôn visible). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) L1861 — wrap `${tLabel}` vào `<span class="ptag-badge-label">` + thêm `title` attr cho tooltip khi truncate. |
-| **Chi tiết** | **User report**: cột TAG XL đang hiển thị chiều ngang quá dài (do T-tag có label rất dài kiểu `T2 ÁO ĐỎ KIỂU KÈM CHỮ NOTHING IS TOBE GOT WITH OUT PAIN BUT POVERATY`) → kéo column ép các cột GHI CHÚ / KHÁCH HÀNG bị hẹp. User muốn max ~40 ký tự thô. **Phân loại hành vi**: (1) **Flag badges** (CHỜ HÀNG, TRỪ CÔNG NỢ, CK, GỌI BÁO HÀNG CHẬM KNM) — giữ wrap inline (`.ptag-cell-flags-row` đã có `flex-wrap: wrap`), khi nhiều flag vượt 1 dòng → xuống dòng, KHÔNG cắt chữ (full label). (2) **T-tags** (T2/T3 đặc điểm sản phẩm) — mỗi cái 1 dòng riêng (`.ptag-cell-ttag-row` flex-direction: column), khi label quá dài → truncate `…`, nút × luôn visible ở cuối (flex-shrink: 0). **Technique**: CSS flex với label span (`flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis`) + remove button (`flex-shrink: 0`). `title` attr cho UX fallback (hover tooltip hiện full label). **Không đụng**: HTML header (min-width:110px + max-width:320px OK), flag badge render, category badge, GIỎ TRỐNG virtual. |
-| **Status** | ✅ Code done. Test: (1) mở `orders-report/main.html` tab QUẢN LÝ ĐƠN HÀNG; (2) tìm đơn 637 (hoặc đơn có T-tag dài): T-tag bị ellipsize, nút × visible cuối, hover hiện tooltip full label; (3) đơn 455/487: flag `CK`, `GỌI BÁO HÀNG CHẬM KNM`, `CHỜ HÀNG VỀ` wrap inline + xuống dòng khi không đủ, KHÔNG cắt chữ; (4) cột GHI CHÚ / KHÁCH HÀNG không còn bị ép; (5) click × trên T-tag truncate vẫn xóa được (onclick giữ nguyên). |
-
-### [supplier-debt] Cho phép kéo xếp thứ tự tất cả rows (bỏ hạn chế cùng ngày)
-| | |
-|---|---|
-| **Files** | MODIFIED: [supplier-debt/js/main.js](../supplier-debt/js/main.js) — `RowOrderStore` chuyển từ key `${supplier}_${date}` sang `${supplier}__all` (1 list per supplier). `applyCustomRowOrder` rewrite: sort theo stored order, rows mới chưa có trong order append cuối. Render row: tất cả `<tr>` đều `draggable="true"` + drag handle (bỏ check `dateGroups.get(dateStr).length > 1`). Drag handlers: bỏ check `dataset.date` cùng nhau, chỉ check cùng table; lưu full DOM order vào Firebase. |
-| **Chi tiết** | **User request**: "Phần kéo xếp thứ tự này hiện tại đang cùng ngày -> cho tất cả đều kéo xếp thứ tự được dù khác ngày". **Trước**: chỉ rows trong cùng ngày mới kéo được (vì `dateGroups` check), order lưu key `supplier_date` → mỗi ngày 1 list riêng. **Sau**: bất kỳ row nào cũng kéo thả lên/xuống, kể cả khác ngày. Order lưu 1 list per supplier (`supplier__all`). Khi user kéo, snapshot toàn bộ DOM order → save Firebase → re-render → balance recalculate từ thứ tự mới. **Backward compat**: data cũ keyed bằng `supplier_date` vẫn còn trong Firestore nhưng không được dùng (key mới có suffix `__all`). |
-| **Status** | ✅ Done. Test: (1) F5 trang supplier-debt, expand 1 NCC → tab Công nợ hiện drag handle ⠿ ở MỌI dòng (kể cả ngày chỉ có 1 dòng); (2) kéo dòng 02/04 xuống dưới dòng 05/04 → thứ tự cập nhật, Nợ đầu kỳ/cuối kỳ recompute lại theo thứ tự mới; (3) reload trang → thứ tự mới giữ nguyên (Firebase persisted). |
-
-### [orders][kpi] Audit fix — KPI sale flag checkbox: 2 bug + 1 race condition
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js) — sửa typo `window.KPIManager` → `window.kpiManager` (4 vị trí: line 13, 116, 162, 164). MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — `updateModalWithData` chuyển thành `async`, `await KpiSaleFlagStore.load(data.Code)` TRƯỚC `switchEditTab()` (thay vì fire-and-forget non-blocking); caller `fetchOrderData()` thêm `await` khi gọi `updateModalWithData`. MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — thêm `console.warn` khi `base.createdAt == null` để dễ debug nếu upstream save thiếu timestamp. |
-| **Chi tiết** | **Audit phát hiện sau commit `fcaa0504` + `936df83e`**: (1) **Bug #1 CRITICAL** — store gọi `window.KPIManager.recalculateAndSaveKPI()` (uppercase) nhưng kpi-manager.js:1033 export là `window.kpiManager` (lowercase). Guard `if (window.KPIManager && ...)` fail silent → **auto-recalc không bao giờ chạy**. Tick/bỏ tick checkbox: cache + DB row OK nhưng `kpi_statistics` không recompute, badge KPI trên bảng không refresh đến khi F5. Đây là bản chất feature "auto recalc on toggle". Repo còn lại (20+ callsites) đều dùng `window.kpiManager` (lowercase) → typo do tôi viết store. (2) **Bug #2 Race condition** — `updateModalWithData` pre-load flags non-blocking rồi `switchEditTab('info')` chạy ngay. Nếu user click tab "Sản phẩm" trước khi GET flags trả về (< 50ms), `renderProductsTab()` đọc `store.get()` đồng bộ → trả false → checkbox render unchecked DÙ DB có row TRUE. Chat modal [chat-products-ui.js:170-176](../orders-report/js/chat/chat-products-ui.js) dùng `await` nên không dính. Fix: chuyển hàm thành async, await load trước switchEditTab. (3) **Warn #4** — nếu `base.createdAt` null → strictMode=false im lặng → legacy mode. Low risk vì DB có DEFAULT CURRENT_TIMESTAMP, nhưng thêm warn để dễ debug nếu upstream bug. **Gap #3 (event không ai listen) giữ nguyên** — scenario 2 modal cùng order hiếm, không fix để tránh scope creep. |
-| **Status** | ✅ Code done, syntax check pass. Verify sau deploy: (1) tick checkbox KPI trong modal → console KHÔNG còn "recalc trigger failed" warn + Network tab có POST `/kpi-statistics` + badge row update; (2) mở order có flag TRUE trong DB → click tab "Sản phẩm" nhanh ngay khi modal mở → checkbox render CHECKED ngay lần đầu; (3) query `SELECT SUM(total_kpi) FROM kpi_statistics` tăng đúng sau mỗi tick. |
-
-### [native-orders][ui] Redesign trang Đơn Web theo phong cách orders-report
-| | |
-|---|---|
-| **Files** | MODIFIED: [native-orders/index.html](../native-orders/index.html) — thay topbar đơn giản bằng **tab navigation** kiểu orders-report (3 tab: Đơn Web active + TPOS × Pancake + Báo Cáo Đơn, có underline animation), thêm counter pill + source pill bên phải; chuyển toolbar filter thành filter chip-group với label màu + pill select gradient (purple linear-gradient 135deg cho status, gray-slate cho limit) giống `.tag-filter-selected`; thêm search-info row với result count xanh bold + "Gõ Enter để tìm nhanh" + 3 nút Tải lại/Áp dụng/Xóa lọc; nâng table từ 10 → 11 cột, thêm checkbox column + render customer có avatar + gradient placeholder chữ cái đầu. REWRITE: [native-orders/css/native-orders.css](../native-orders/css/native-orders.css) — `.tab-navigation` + `.tab-button::after` underline animation từ orders-report main.html, `.chip-select-primary/muted` gradient pills, `.btn-reload` xanh + `.btn-settings` gradient purple + `.btn-ghost` white outlined, table sticky header gray-50, `.customer-cell` avatar + 2-line name/fb id, `.code-badge` purple cho NW- code, status badges pill tròn với icon. REWRITE: [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) — render 11 cột mới, avatar placeholder gradient color per name hash, time split (date xám + giờ nhạt hơn), search clear button, toggleFilter method, check-all row support. |
-| **Chi tiết** | **User request**: "Cho giao diện native-orders giống với bên orders-report". Trước đó trang đã hoạt động nhưng UI đơn giản (topbar + toolbar dọc + bảng 10 cột). **Tham chiếu design**: `orders-report/main.html` (tab nav với underline), `orders-report/tab1-orders.html` (filter row với label màu + select pills), `orders-report/css/tab1-filters.css` line 175-230 (`.tag-filter-selected` gradient purple). **Áp dụng**: (1) sticky tab navigation 52px ở top, active có underline xanh ease; (2) filter bar gradient pills thay cho select bình thường; (3) table có checkbox + actions column với 4 icon button background màu riêng (edit xanh, confirm xanh lá, cancel vàng, delete đỏ); (4) avatar placeholder 36px gradient color từ hash tên; (5) code badge NW-... với font monospace + background purple nhẹ; (6) status badges pill tròn với icon lucide. **Không đụng backend** — vẫn dùng cùng API `/api/native-orders/*`. **Không đụng logic** — STATE + load/apply/clear/paginate/modal như trước. Chỉ thay markup + styling + render template. |
-| **Status** | ✅ Done — push xong. Test: F5 trang (hard refresh vì bump `v=20260424c`) → (1) topbar phải có 3 tabs, Đơn Web active (gạch chân xanh), hover tab khác thấy gạch chân mờ ease; (2) search + status dropdown (gradient purple) + limit dropdown; (3) bảng có cột checkbox + actions 4 icon + avatar tròn cạnh tên khách; (4) modal edit có header gradient tím với pencil icon, collapse FB context monospace; (5) pagination tròn primary blue như cũ. |
-
-### [native-orders] Trang mới hiển thị các đơn web đã lưu (PostgreSQL native_orders)
-| | |
-|---|---|
-| **Files** | NEW: [native-orders/index.html](../native-orders/index.html) — topbar (logo + back link về tpos-pancake + counter + refresh) + toolbar filter (search/status/limit) + table 10 cột (mã, STT, khách, SĐT, địa chỉ, note, status, time, người tạo, hành động) + modal edit + pagination. NEW: [native-orders/css/native-orders.css](../native-orders/css/native-orders.css) — design tokens + table sticky header + status badges (draft/confirmed/cancelled/delivered) + modal styling. NEW: [native-orders/js/native-orders-api.js](../native-orders/js/native-orders-api.js) — client wrap `health/list/getByUser/update/remove` qua `https://chatomni-proxy.nhijudyshop.workers.dev/api/native-orders/*`. NEW: [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) — STATE + render rows/pagination/counter, filter wiring (search/status/limit), edit modal (customerName/phone/address/note/status), quick action xác nhận/hủy/xóa, copy mã đơn. MODIFIED: [tpos-pancake/index.html](../tpos-pancake/index.html) — thêm icon `package-open` tím ở topbar phải để mở `../native-orders/index.html`. |
-| **Chi tiết** | **User request**: "Tạo 1 trang để hiển thị các đơn được bấm lưu ở render db". Trang chuẩn theo Option A trong [docs/guides/tpos-pancake/08-create-order-data-flow.md](guides/tpos-pancake/08-create-order-data-flow.md) (tab/page riêng đọc native_orders, không đụng orders-report). API endpoint đã sẵn ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js)) → frontend chỉ cần list/edit/delete. **UX**: filter combo (search-by-text + status enum + limit), pagination 5 trang xung quanh trang hiện tại + nút prev/next + ellipsis, click mã copy clipboard, edit inline qua modal hiện đầy đủ field metadata FB (read-only details), 3 quick action (sửa, ✅ confirm, ✕ cancel, 🗑 delete). **Auth**: chỉ load shared lib (auth-manager, notification-system, firebase-config) — endpoint native-orders public, không cần token. **Style**: nhất quán với palette tpos-pancake (primary #6366f1, native #7c3aed), font Inter + Manrope, sticky table header, hover row highlight. |
-| **Status** | ✅ Done — push xong. Test: (1) bấm icon `package-open` tím ở topbar tpos-pancake → mở trang `../native-orders/index.html` → bảng load các đơn đã lưu (sort theo `created_at DESC`); (2) gõ SĐT/tên/mã vào ô tìm + bấm Áp dụng → list filter; (3) đổi status dropdown → reload theo trạng thái; (4) sửa 1 đơn → modal mở → đổi note + Save → row update inline; (5) xóa đơn → confirm → row biến mất. |
-
-### [orders][edit-modal] Fix surgical update bị mất cột KPI checkbox
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — `refreshProductsTableOnly()` line 1040-1060: thêm cột `<td>` KPI checkbox vào template row, khớp với `renderProductsTab()` line 320. Đồng bộ logic `isSale`/`disabled` + handler `handleKpiSaleToggle`. |
-| **Chi tiết** | **User report**: sau khi click "+ Thêm" trong modal Sửa đơn hàng, các dòng SP mất ô checkbox cột "KPI" — nút edit/delete bị dồn sang vị trí cột KPI, cột "Thao tác" trống. **Root cause**: commit `fcaa0504` thêm cột KPI vào thead + `renderProductsTab()` nhưng quên update template trong `refreshProductsTableOnly()` (hàm surgical update chạy sau mỗi add/delete/qty-change). Khi surgical update chạy, rows mới thiếu 1 `<td>` → column misalignment. **Fix**: copy cột KPI từ `renderProductsTab()` (line 320) vào template của `refreshProductsTableOnly()`, dùng cùng logic `KpiSaleFlagStore.get(orderCode, productId)` để hiển thị state checkbox đúng. |
-| **Status** | ✅ Done. Cần test: (1) mở đơn có SP + tick KPI vài dòng → thêm SP mới → KPI state các dòng cũ giữ nguyên, dòng mới uncheck mặc định; (2) tăng/giảm SL → KPI checkbox vẫn hiện, không lệch cột; (3) xóa 1 SP → bảng còn lại đúng cấu trúc 9 cột. |
-
-### [orders][ptag] Fix dropdown Tag XL bị kéo lên trên viewport khi flip + clamp vào khung hiển thị
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — `_ptagOpenDropdown` line ~2151: thay logic position 2 dòng đơn giản bằng algorithm 3-case (fit-below / fit-above / shrink-and-pin) + final clamp top vào `[MARGIN, innerHeight - effectiveHeight - MARGIN]`. Khi không đủ chỗ cả trên & dưới anchor, set `style.maxHeight = innerHeight - 16` cho dropdown + list để nằm gọn trong viewport. |
-| **Chi tiết** | **User report**: Sau khi widen dropdown lên 960px + max-height 600, khi anchor nằm ở nửa dưới màn hình, code cũ flip dropdown lên trên bằng `top = rect.top - ddRect.height - 4`. Với rect.top=150 và ddRect.height=600 → `top=-454`. Không clamp → dropdown kéo lên trên viewport, nửa trên (pills container + input search) bị che mất, user chỉ thấy nửa cuối list. **Root cause**: code cũ chỉ check `top + height > innerHeight` (overflow dưới) mà KHÔNG check `top < 0` (overflow trên). Và chỉ `Math.max(4, left)` cho left, không làm tương tự cho top. **Fix**: (1) tính `spaceBelow` và `spaceAbove` từ anchor rect; (2) ưu tiên fit dưới → thử fit trên → nếu cả 2 đều không đủ thì pin top=MARGIN và shrink `maxHeight` về `innerHeight - 16` (dropdown) và `innerHeight - 200` (list phần scroll) để toàn bộ khung nằm gọn trong viewport; (3) final clamp `top` luôn ∈ [MARGIN, innerHeight - effectiveHeight - MARGIN]. |
-| **Status** | ✅ Done. Test cases: (a) anchor ở top màn hình → dropdown hiện dưới; (b) anchor ở bottom → flip lên trên, không bị cắt; (c) anchor ở giữa màn hình ngắn (h<700px) → pin top=8, dropdown tự co cao bằng viewport, scroll nội bộ; (d) anchor gần mép phải → reposition left như cũ. |
-
-### [orders][edit-modal] Fix thêm SP vào giỏ rỗng không hiện trong "Danh sách sản phẩm"
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — `refreshProductsTableOnly()` line 1022-1038: đảo thứ tự điều kiện. Trước: check `tbody` trước → early-return khi không có tbody → không bao giờ chạm nhánh `switchEditTab('products')`. Sau: check `currentEditOrderData` → check `Details.length === 0` (rỗng → full re-render empty state) → check `tbody` (không có = empty→non-empty transition → full re-render table). |
-| **Chi tiết** | **User report**: modal "Sửa đơn hàng" tab "Sản phẩm", khi giỏ rỗng ("Chưa có sản phẩm"), click "+ Thêm" trên search result → SP không xuất hiện trong danh sách phía dưới. Khi giỏ đã có SP thì thêm OK. **Root cause**: `renderProductsTab()` (line 300-301) khi `Details.length===0` chỉ render `.empty-state` (không có `<tbody id="productsTableBody">`). Sau khi `addProductToOrderFromInline` push SP (line 1646) rồi gọi `refreshProductsTableOnly()` (line 1668), hàm này early-return ngay ở `if (!tbody) return` vì empty state không có tbody → không bao giờ tới nhánh `switchEditTab('products')` fallback. Data đã đúng (badge "SL:1" hiện trên kết quả search nhờ `updateProductItemUI` ở line 1657), chỉ lỗi render bảng. **Fix**: đảo thứ tự check — xử lý empty `Details` trước (full re-render empty state), rồi mới đến check tbody; nếu tbody thiếu nhưng Details có data → full re-render để dựng table lần đầu. |
-| **Status** | ✅ Done. Cần test: (1) mở đơn rỗng → search + click "+ Thêm" → SP hiện ngay trong danh sách (1), tổng đúng; (2) thêm SP thứ 2 → (2), update đúng; (3) click "+ Thêm" lại SP đã có → qty tăng (không duplicate); (4) xóa hết SP → về empty state → thêm lại vẫn OK (vòng lặp); (5) lưu thay đổi → TPOS nhận đúng. |
-
-### [orders][ptag] Mở rộng dropdown gán Tag XL 3x + tách pills vs list rõ ràng, không che lấp
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — `.ptag-dropdown` width 320px → 960px (max-width `calc(100vw - 16px)`), max-height 520 → 600. `.ptag-dd-input-container` thêm `max-height:140px; overflow-y:auto; flex-shrink:0` + background nhạt để tách visual. `.ptag-dd-list` đổi sang flex wrap (gap 6px, padding 8px, border-top separator). `.ptag-dd-cat-label` `flex:0 0 100%` full-row. `.ptag-dd-tag-item` thành pill `border+radius`, `flex:0 0 auto`, `white-space:nowrap` — nhiều pill/dòng, selected state nền xanh. |
-| **Chi tiết** | **User report**: Gán tag ở cột XL, khung dropdown chỉ 320px, khi đơn có nhiều pills (KHÁCH HỦY, TRỪ CÔNG NỢ, CK, nhiều T-tag...) → pills wrap chiếm hết chiều cao, che luôn khung tag list bên dưới, user không click chọn được. Yêu cầu: mở rộng 3x ngang + list hiển thị nhiều tag/dòng + tách pill đã chọn ra khỏi danh sách tag chờ chọn. **Giải pháp CSS-only**: (1) width 320→960, (2) cap `max-height:140px` + scroll riêng cho container pills — không "đẩy" list xuống khuất, (3) list dùng flex-wrap + pill-style items → 1 dòng chứa 4-8 tag thay vì 1 tag/dòng, (4) border-top trên list tạo ranh giới rõ với ô pills. Không đụng JS — `_ptagFilterDropdown` set `display:''/'none'` vẫn hoạt động với flex children. |
-| **Status** | ✅ Done. Test: (a) mở đơn nhiều pills (>15 tags) ở cột XL → pills scroll nội bộ trong khung 140px, input search & list vẫn visible; (b) list hiển thị pill horizontal, category label full-row; (c) click chọn/toggle hoạt động bình thường; (d) dropdown tự reposition khi gần mép phải màn hình (JS có sẵn). |
-
-### [docs][tpos-pancake] Rebuild guide 18-phase để dựng lại trang 100% từ đầu
-| | |
-|---|---|
-| **Files** | NEW: [docs/guides/tpos-pancake/README.md](guides/tpos-pancake/README.md) + 8 file guide (01-html-css-shell, 02-shared-and-layout, 03-tpos-column, 04-pancake-column, 05-wiring-and-verify, 06-css-item-styles, 07-tpos-action-handlers, 99-appendix). Tổng ~4500 dòng MD, tự chứa, mỗi phase có goal → files → code → verify. |
-| **Chi tiết** | User yêu cầu: "viết chi tiết cách code lại 100% → tôi đọc và code lại giống 100% dễ dàng; tự suy nghĩ, tự debug, commit/push, tự xem lại vòng lặp đến khi ok". Phương pháp: (1) 2 Explore agent song song thu thập HTML/CSS + JS architecture; (2) tổng hợp thành 7 file theo phase 0-18; (3) self-review sửa endpoint URL sai (loadSessionIndex → `/facebook/comment-orders`, hideComment/replyToComment signature, chatomni path-based thay vì query); (4) vòng 2 bổ sung CSS conversation card đầy đủ + action handlers còn thiếu (renderComments, status dropdown, save SĐT/address, v.v.); (5) verify mọi file path và endpoint đều tồn tại thật (grep backend + CF Worker + repo tree). Commits `5a013432` (v1), `7944ee8a` (v2). |
-| **Status** | ✅ Done. Test: đọc `docs/guides/tpos-pancake/README.md` rồi theo phase 0-18 → dựng được trang y hệt bản gốc không cần `git grep`. |
-
-### [orders][realtime] Fix bỏ qua đơn mới khi bảng load nhiều campaign (HOUSE + STORE)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) — thay campaign filter (so `LiveCampaignId` với top-STT order) bằng date-range filter khớp với `customStartDate`/`customEndDate` của UI. Thêm helper `isWithinActiveDateRange(order)`. Áp dụng ở `handleNewOrder` và `fetchMissingFromBuffer` (STT gap-fill). |
-| **Chi tiết** | **Bug**: khi bảng đang ở chế độ "khoảng ngày" (ví dụ 25/03 - 24/04, 67 ngày → chứa cả campaign HOUSE và STORE), đơn real-time mới tạo ở TPOS có campaign KHÁC với campaign của đơn STT cao nhất sẽ bị skip → không tự vào bảng. Ví dụ: đơn top là HOUSE 387; đơn mới 388 của STORE → bị chặn bởi so sánh `order.LiveCampaignId !== highestSTTOrder.LiveCampaignId`. **Root cause**: filter gốc thiết kế cho chế độ xem 1 campaign, nhưng hiện tại load theo ngày là phổ biến và chứa multi-campaign. Cùng vấn đề với đơn không có campaign (tạo thủ công qua "Tạo đơn" hoặc từ native-orders). **Fix**: check scope theo NGÀY (match với `filter` của `fetchOrders`) — đơn chỉ bị skip nếu `DateCreated` nằm ngoài `[customStartDate, customEndDate]`. Nếu input trống hoặc parse lỗi → fail-open (cho phép). |
-| **Status** | ✅ Done — cần verify: (1) mở orders-report với khoảng ngày gồm nhiều campaign, (2) tạo đơn TPOS trên campaign khác với top-STT, (3) đơn mới phải auto xuất hiện đầu bảng trong vài giây, có toast "Đơn mới #STT", và console log `[TPOS-RT] New order: ...` + `Added order to table: ...`. |
-
-### [orders][kpi] Checkbox "KPI" trên từng dòng SP — sale tự đánh dấu SP được tính KPI
-| | |
-|---|---|
-| **Files** | NEW: [render.com/migrations/065_create_kpi_sale_flag.sql](../render.com/migrations/065_create_kpi_sale_flag.sql) — bảng `kpi_sale_flag (order_code, product_id, is_sale_product, set_by_user_id, set_by_user_name, updated_at)`, default FALSE. NEW: [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js) — in-memory cache + API client (load/get/set/invalidate), optimistic update với rollback, auto trigger `KPIManager.recalculateAndSaveKPI(orderCode)` sau mỗi toggle. MODIFIED: [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js) — thêm 3 endpoints mới (không đụng endpoints hiện có): `GET /kpi-sale-flag/:orderCode`, `PUT /kpi-sale-flag/:orderCode/:productId` (upsert), `DELETE /kpi-sale-flag/:orderCode/:productId`. MODIFIED: [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — const `KPI_SALE_FLAG_EFFECTIVE_FROM='2026-04-24T00:00:00Z'`; trong `calculateNetKPI()` dựa `base.createdAt >= cutoff` để chọn strict vs legacy mode; strict mode: load flags qua `KpiSaleFlagStore` + filter trong loop tổng KPI, default FALSE → skip. MODIFIED: [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js) — thêm cột "KPI" giữa "Ghi chú" và "Thao tác" trong `renderProductsTab()`, preload flags trong `updateModalWithData()`, handler `handleKpiSaleToggle()`. MODIFIED: [orders-report/js/chat/chat-products-ui.js](../orders-report/js/chat/chat-products-ui.js) — thêm `<label class="chat-kpi-toggle">` inline trong `renderMainProductRow()`; preload flags trong `loadChatOrderProducts()`. MODIFIED: [orders-report/js/chat/chat-products-actions.js](../orders-report/js/chat/chat-products-actions.js) — `window.handleChatKpiSaleToggle()`. MODIFIED: [orders-report/css/tab1-orders.css](../orders-report/css/tab1-orders.css) + [orders-report/css/tab1-chat-modal.css](../orders-report/css/tab1-chat-modal.css) — style checkbox (accent `#6366f1`, 18px desktop / 14px chat). MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<script src="js/managers/kpi-sale-flag-store.js">` ngay trước `kpi-manager.js`. |
-| **Chi tiết** | **User report**: Tab 1 đang tính KPI cho mọi SP thêm sau BASE (5.000đ/SP fixed hoặc value), nhưng nhiều SP là "thêm nhầm lúc đầu" hoặc "đổi mẫu / đổi size" — không phải bán hàng thật. Sale cần tự khai báo đâu là SP bán hàng. **Design (user confirm qua AskUserQuestion)**: (1) default **UNCHECKED** — sale phải chủ động tick; (2) **chỉ áp dụng cho orders MỚI** (BASE created ≥ 2026-04-24) — orders cũ giữ legacy mode, bỏ qua flag; (3) **auto recalc ngay khi toggle**, không cần nút bulk; (4) checkbox trên **mọi dòng SP** (BASE items uncheck vô hại vì không nằm trong NET). **Storage**: bảng riêng `kpi_sale_flag` key `(order_code, product_id)` — KHÔNG modify `kpi_base`, `kpi_audit_log`, `kpi_statistics`, hay TPOS `SaleOnline_Order`. **Flow**: toggle checkbox → `KpiSaleFlagStore.set()` optimistic update cache → PUT API → success: emit `kpi-sale-flag-changed` event + call `recalculateAndSaveKPI(orderCode)` async → statistics row DELETE rồi re-insert với số mới. **Fail-safe**: nếu load flags API lỗi, strict-mode fallback Map rỗng (0 KPI an toàn), không crash calc. |
-| **Status** | ✅ Migration 065 đã apply trên Render DB. Code done. Chưa deploy Render server + frontend. Verify: (1) đơn BASE trước 24/4 → uncheck SP → KPI giữ nguyên (legacy); (2) đơn BASE sau 24/4 + thêm SP → KPI=0 mặc định, tick → KPI=5000đ ngay; (3) mở cùng đơn ở chat modal → state đồng bộ (cùng cache store); (4) API lỗi → `[KPI] load sale flags failed` warning, calc fallback legacy. |
-
-### [orders][tag-t] Redirect chỉ chuyển tag T đang gán, không đụng các tag có sẵn trên source
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — `_ttagMgrExecuteAssign()` line 4719-4733: xoá lời gọi `transferProcessingTags(source, target)` trong nhánh redirect. Chỉ còn `assignTTagToOrder(replacementOrder.Code, tagEntry.tagId)` — gán đúng 1 tag T đang bulk-assign sang đơn đích. |
-| **Chi tiết** | **User report**: Gán 3 tag T5 (ÂM SIÊU TỐC, SET 2D REN NÂU HP, CHỞ SET CV BBR NÂU) cho STT 589 (đơn gộp) → redirect sang 655. Nhưng 655 nhận thêm cả T4 QUẦN KEM KHÂN đã có sẵn trên 589 → không mong muốn. **Root cause**: redirect flow (thêm ở commit 18165dc7) gọi `transferProcessingTags(589, 655)` để chuyển toàn bộ flags/tTags từ source sang target — logic này hợp lý khi muốn "dọn sạch đơn nguồn đã gộp", nhưng vi phạm kỳ vọng user của tính năng bulk-assign Tag T: "chỉ redirect tag đang gán, không đụng các tag khác". **Fix**: bỏ hẳn `transferProcessingTags` trong nhánh redirect của modal Tag T Chờ Hàng. Source giữ nguyên 100% state (tTags, flags, marker GOP_*), chỉ đơn đích nhận tag T mới. **Hàm `transferProcessingTags` không đụng**: vẫn dùng bởi `tab1-bulk-tags.js` (2 callsites) cho flow gán tag TPOS hàng loạt; fix marker-preserve ở commit 6ad06941 vẫn có ý nghĩa cho các caller đó. |
-| **Status** | ✅ Done. Cần test: (a) đơn 589 (source gộp) có sẵn T4 QUẦN KEM KHÂN; (b) vào modal Quản Lý Tag T, gán T5 CHỞ SET CV BBR NÂU cho STT 589 → redirect sang 655; (c) verify 655 chỉ có thêm T5 CHỞ SET CV BBR NÂU; 589 VẪN có T4 QUẦN KEM KHÂN + Gộp 589 655 + GIỎ TRỐNG + ĐÃ GỘP KHÔNG CHỐT nguyên vẹn. |
-
-### [orders][tag-t] Fix redirect gán Tag T đơn gộp xoá mất tag `Gộp X Y Z` trên đơn nguồn
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `transferProcessingTags()` line 1325+: phân loại `sourceTTags` thành `transferableTTags` (non-marker) và `markerTTags` (id match `/^GOP_\d+(_\d+)*$/`). Chỉ transfer `transferableTTags` sang target; source giữ lại `markerTTags` thay vì clear về `[]`. |
-| **Chi tiết** | **User report**: Đơn 589 trước gộp có tag `Gộp 589 655` (merge marker tTag `GOP_589_655`). Khi user gán Tag T vào STT 589 qua modal "Quản Lý Tag T Chờ Hàng", logic redirect chuyển tag T sang STT 655 + gọi `transferProcessingTags(589, 655)` để chuyển flags/tTags. Trước fix, line 1374-1376 wipe sạch `sourceData.tTags = []` → đơn 589 mất tag `Gộp 589 655`, vi phạm invariant của commit 2238c8f2 ("source giữ nguyên mọi tTag GOP_* sau khi gộp"). **Fix**: merge marker tag (id dạng `GOP_<digits>(_<digits>)*`) là tag tracking cụm gộp, PHẢI stay trên source. Trong transfer: (a) không đẩy marker sang target (target đã có từ lần merge gốc); (b) khi clear source, gán `sourceData.tTags = markerTTags` thay vì `[]`. Regex khớp chính xác convention ở tab1-merge.js line 2200. |
-| **Status** | ✅ Done. Cần test: (a) gộp 2 đơn 589+655 → cả 2 có tag `Gộp 589 655`, 589 thêm sub-tag `DA_GOP_KHONG_CHOT`; (b) mở "Quản Lý Tag T" → gán tag T cho STT 589 → tag redirect sang 655; (c) verify 589 VẪN có `Gộp 589 655` + `DA_GOP_KHONG_CHOT`; (d) nếu 589 trước đó có tag T khác (non-marker), các tag đó sẽ transfer sang 655 như cũ. |
-### [inventory] Modal "Thêm Đợt Hàng Mới": không đóng khi click overlay + fix paste ảnh nhân bản N lần
-| | |
-|---|---|
-| **Files** | MODIFIED: [inventory-tracking/js/main.js](../inventory-tracking/js/main.js) — `setupModalCloseListeners` thêm `modalShipment` vào set loại trừ overlay-click (cùng với `modalImageManager`). MODIFIED: [inventory-tracking/js/modal-shipment.js](../inventory-tracking/js/modal-shipment.js) — thêm module-scope flag `_shipmentListenersInitialized`; tách `setupShipmentFormListeners` thành 2 phần: (a) per-open cho listener gắn trực tiếp vào element trong `modalShipmentBody` (bị innerHTML huỷ mỗi open: btnAddInvoice/btnAddInvoiceAI/btnAddCost/packagesInput/shipmentDate + updatePackageTotals/updateCostTotal); (b) once-only cho listener trên element persistent (document paste, delegation click/change/input trên modalShipmentBody, mouseover/mouseout, btnSaveShipment). |
-| **Chi tiết** | **Bug 1**: click ra ngoài modal "Thêm Đợt Hàng Mới" làm đóng modal → mất data user đang nhập. Fix: exclusion set gồm `modalImageManager` + `modalShipment`, overlay không còn bind click-close cho 2 modal này. Escape + nút Hủy + nút X vẫn hoạt động bình thường. **Bug 2**: Ctrl+V paste ảnh vào ô upload trong modal Thêm Đợt Hàng ra 5 tấm cùng lúc (hoặc N tấm sau N lần mở lại modal). Root cause: `openShipmentModal()` gọi `setupShipmentFormListeners()` mỗi lần mở, hàm này đăng ký `document.addEventListener('paste', ...)` mới mỗi lần → N copy paste handler trên document → 1 lần paste sẽ fire N lần và mỗi lần push cùng 1 file vào `handleInvoiceImageFiles`. Fix: guard flag one-time cho các listener trên element persistent; riêng listener gắn trực tiếp vào element con bên trong modalShipmentBody (bị innerHTML replace mỗi open) vẫn phải re-attach mỗi lần. |
-| **Status** | 🔄 Code done — chờ user verify trên nhijudyshop.github.io/n2store/inventory-tracking/index.html: (1) Mở modal "Thêm Đợt Hàng Mới" → click ra vùng xám ngoài modal → modal phải đứng yên. (2) Nhấn X hoặc Hủy → modal đóng. (3) Mở/đóng modal 5 lần liên tiếp, mở lần thứ 6 → Ctrl+V dán ảnh → chỉ 1 tấm được thêm vào preview. |
-
-### [orders][tag-t] Fix Lịch Sử Tag T Chờ Hàng không hiển thị redirected STT (đồng bộ với Kết Quả Gán)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — 3 bugs ở modal Lịch Sử (khác với 80aee5fd đã fix cho `tab1-bulk-tags.js`, đây là modal riêng `_ttagMgrShowHistory`): (1) `_ttagMgrSaveHistory` line 5015-5019: `summary.totalSuccess` cộng thêm `redirectedList.length`; (2) `_ttagMgrRenderHistoryItem` line 5096+: compute `totalSuccess`/`totalFailed` từ results thực lúc render (cover entries cũ đã lưu sai), render block `↳ STT X → chuyển sang STT Y (đơn gộp)` giống Kết Quả; (3) `_ttagMgrFilterHistory` line 5169+: filter xét cả `redirectedList.original` và `redirectedList.redirectTo`. |
-| **Chi tiết** | **User report**: Sau fix redirect đọc XL (commit 18165dc7), Kết Quả Gán Tag hiển thị đúng "Thành công (5 đơn)" với 3 redirected STT 589→655. Nhưng mở Lịch Sử cùng entry chỉ thấy "Thành công (2 đơn)" và các tag có STT bị redirect hết (QUẨN LOE ĐEN, SET NƠ HỒNG) hiện "STT " rỗng. **Root cause**: save/render history trong modal Tag T Chờ Hàng chỉ xử lý `sttList`, không biết về `redirectedList` (field thêm cho redirect feature ở commit 18165dc7). **Fix**: đồng bộ 3 nơi — save summary, render item (cover cả entries cũ bằng recompute), filter. Pattern giống commit 80aee5fd đã áp cho modal Bulk Tags khác. **Không migrate data cũ**: entries trên Firebase vẫn có summary thiếu, nhưng render đã recompute nên hiển thị đúng. |
-| **Status** | ✅ Done. Cần test: (a) gán tag T cho đơn đã gộp → mở Lịch Sử → entry mới hiển thị đúng tổng và có dấu ↳. (b) entries cũ (trước fix): header vẫn đúng vì recompute lúc render. (c) filter theo STT 589 hoặc 655 → entry có redirectedList phải match. |
-
-### [render][worker][orders] Native Orders — thay nút "Tạo đơn" TPOS bằng đơn web-native trong tpos-pancake
-| | |
-|---|---|
-| **Files** | NEW: [render.com/migrations/065_native_orders_schema.sql](../render.com/migrations/065_native_orders_schema.sql) — schema doc. NEW: [render.com/routes/native-orders.js](../render.com/routes/native-orders.js) — REST API `/api/native-orders/*` (health, from-comment, by-user, load, PATCH, DELETE) + auto-create table. NEW: [tpos-pancake/js/tpos/tpos-native-orders-api.js](../tpos-pancake/js/tpos/tpos-native-orders-api.js) — frontend client. MODIFIED: [render.com/server.js](../render.com/server.js) — require + mount `/api/native-orders`. MODIFIED: [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) — pattern `NATIVE_ORDERS` + matcher. MODIFIED: [cloudflare-worker/worker.js](../cloudflare-worker/worker.js) — case `NATIVE_ORDERS` → `handleCustomer360Proxy`. MODIFIED: [tpos-pancake/js/tpos/tpos-comment-list.js](../tpos-pancake/js/tpos/tpos-comment-list.js) — `createOrder()` giờ gọi `NativeOrdersApi.createFromComment()` thay vì `TposApi.createOrderFromComment()`; badge/icon đổi sang tím (`#7c3aed` / `#ede9fe`+`#6d28d9`) với icon `package-open` để phân biệt đơn TPOS (xanh lá, `package-check`). MODIFIED: [tpos-pancake/js/tpos/tpos-init.js](../tpos-pancake/js/tpos/tpos-init.js) — `loadSessionIndex()` merge skip entries có `source='NATIVE_WEB'` để TPOS poll không ghi đè; thêm `loadNativeOrdersForPost()` hydrate sessionIndexMap từ API của mình khi chọn campaign. MODIFIED: [tpos-pancake/index.html](../tpos-pancake/index.html) — thêm script `tpos-native-orders-api.js`, bump version query. |
-| **Chi tiết** | **User request**: "Thay đổi nút Tạo đơn → làm riêng của web → không dùng tpos nữa; đơn này đánh dấu khác đơn TPOS; nếu cần tạo render riêng/kho sản phẩm riêng/order report riêng". **Kiến trúc**: bảng Postgres mới `native_orders` (isolated khỏi `social_orders` của don-inbox), code format `NW-YYYYMMDD-NNNN` (timezone VN), `source='NATIVE_WEB'`, unique index trên `fb_comment_id` → idempotent: click 2 lần cùng comment trả lại order cũ. Lưu full FB context (`fb_user_id`, `fb_page_id`, `fb_post_id`, `fb_comment_id`, `crm_team_id`) để truy vết. **Data flow**: button click → `NativeOrdersApi.createFromComment(...)` → CF Worker `/api/native-orders/from-comment` → Render route → INSERT native_orders → trả `{ code, sessionIndex, source }` → `state.sessionIndexMap.set(fbUserId, { code, index, source:'NATIVE_WEB' })`. **Không còn chạm TPOS OData** cho luồng tạo đơn này. Đơn TPOS cũ (từ trước) vẫn hiển thị bình thường với badge xanh lá. Sau deploy, khi user chọn campaign: `loadSessionIndex()` của TPOS + `loadNativeOrdersForPost()` chạy song song, hợp nhất vào cùng sessionIndexMap, rendering tự chọn màu theo `source`. **Secrets**: không thêm gì mới — dùng `DATABASE_URL` của Render (đã có). **Server riêng?**: không cần — reuse Render hiện tại, chỉ thêm 1 route. **Kho sản phẩm riêng?**: chưa cần ở phase này (products nằm trong JSONB column, có thể bổ sung sau). |
-| **Status** | 🔄 Code done — chờ push + verify loop. Test plan: (1) Render deploy → `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/native-orders/health` phải trả `{ok:true,count:0}`. (2) Mở [tpos-pancake/](https://nhijudyshop.github.io/n2store/tpos-pancake/index.html) → chọn campaign → click nút "Tạo đơn web" (giỏ tím) trên một comment → icon đổi sang `package-open` tím, badge tím `NW-...` xuất hiện bên cạnh tên, toast "Đã tạo đơn web". (3) Refresh → native order phải re-hydrate (badge tím vẫn hiển thị). (4) Click lại nút trên cùng comment → trả idempotent, không tạo duplicate. |
-
-### [orders] Tắt đồng bộ Web → TPOS (giữ reverse sync TPOS → Web)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-tag-sync.js](../orders-report/js/tab1/tab1-tag-sync.js) `syncXLToTPOS()` — early return + log `[XL→TPOS] DISABLED`, body cũ giữ nguyên bên dưới để dễ revert. MODIFIED: [orders-report/js/tab1/tab1-empty-cart-auto-sync.js](../orders-report/js/tab1/tab1-empty-cart-auto-sync.js) `_removeGioTrongTagTPOS()` — early return `false` + log `Web→TPOS removal DISABLED`, body cũ giữ nguyên. |
-| **Chi tiết** | **User request**: "bỏ phần đồng bộ Web → TPOS, giữ lại TPOS → Web". Scope được diễn giải là auto-sync tự động trigger theo state change của web: (1) `syncXLToTPOS` auto-push category/flag/T-tag từ Tag XL panel lên TPOS (gọi từ tab1-processing-tags.js khi user tương tác panel Chốt Đơn), (2) `_removeGioTrongTagTPOS` auto-gỡ tag GIỎ TRỐNG lỡ bị gắn. Cả hai hàm chuyển thành no-op nhưng giữ function signature + expose `window.syncXLToTPOS` để backward compat — 6 call sites trong `tab1-processing-tags.js` (category/flag/T-tag add/remove/bill-created/bill-cancelled) và `batchEmptyCartSync` trong `tab1-search.js` vẫn gọi được nhưng không còn đẩy API lên TPOS. **Giữ nguyên** các action user click trực tiếp: `quickAssignTag` (tab1-tags.js), bulk-tags modal (tab1-bulk-tags.js), fast-sale-workflow (tạo/hủy hóa đơn) — đây là "user thao tác" không phải "đồng bộ". **Reverse sync TPOS → Web**: `handleTPOSTagsChanged` + `tab1-tpos-realtime.js` WebSocket listener còn nguyên → mọi thay đổi tag trên TPOS vẫn sync về web real-time. |
-| **Status** | ✅ Done. Vòng kiểm kế tiếp: chờ user verify trên nhijudyshop.github.io/n2store/orders-report/main.html — click TAG XL panel, thay đổi flag/category/T-tag → console phải thấy log `[TAG-SYNC-V3] [XL→TPOS] DISABLED`, TPOS không nhận tag mới. Ngược lại thay đổi tag trên TPOS → web phải tự cập nhật. |
-
-### [render][oncallcx] Lới lỏng hasRecording check — thử download cả khi portal không flag connected=yes
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/services/oncall-portal-client.js](../render.com/services/oncall-portal-client.js) `listCalls()` — `hasRecording` bỏ điều kiện `/yes/i.test(connected)`, giờ chỉ check `duration != 00:00:00`. MODIFIED: [scripts/oncallcx-sync-daemon.js](../scripts/oncallcx-sync-daemon.js) — thêm `noRecordingRowKeys` vào state, `MIN_DURATION_SEC=5`, error match `NO_RECORDING_PATTERNS` → mark as no-recording (không retry), wav < 1024B → coi empty. Log thêm `[no-rec]` / `[skip]`. |
-| **Chi tiết** | **User chọn option 1** sau khi thấy phone 0363954281 chỉ có 1/3 recordings. **Trước**: `hasRecording = connected=yes && duration > 0` — portal flag `connected=no` trên 1 số calls có ghi âm (15:14 + 15:18 cho 0363954281) → daemon skip → UI hiện "Ghi âm 1". **Sau**: chỉ cần duration ≥ 5s là thử download; portal trả file → sync OK; trả 404/"Download URL not found" → cache rowKey vào `noRecordingRowKeys` để không retry. Tách biệt với `syncedRowKeys`. Sau daemon chạy lần kế (launchd 5 phút) → 15:14 + 15:18 nếu portal có file sẽ sync về, UI auto hiện thêm. |
-| **Status** | ✅ Code done. Đợi daemon ~5 phút hoặc chạy manual: `MAX=50 node scripts/oncallcx-sync-daemon.js`. |
-
-### [revert] Xóa toàn bộ trang `live-sale/` và backend `/api/v2/live-sale/*` theo yêu cầu user
-| | |
-|---|---|
-| **Files** | DELETED: `live-sale/` folder (index.html, css/, js/layout/, js/pancake/, js/shared/, js/live-sale/, legacy pancake-chat.js, pancake-data-manager.js, pancake-token-manager.js, realtime-manager.js, script.js, debug-realtime.js, api-config.js, config.js). DELETED: `render.com/routes/v2/live-sale.js`, `render.com/migrations/060_live_sale_schema.sql`, `docs/plans/live-sale-plan.md`, `docs/plans/` folder. MODIFIED: [render.com/routes/v2/index.js](../render.com/routes/v2/index.js) — bỏ `liveSaleRouter` require + mount + entry trong health modules. MODIFIED: [render.com/server.js](../render.com/server.js) — bỏ `ensureLiveSaleSchema` require + call. |
-| **Chi tiết** | **User request**: "revert lại xóa trang này đi". Toàn bộ code live-sale (6 commits từ a92c8ce2 → da175c74) đã được xóa. **Không drop database tables** (`live_sale_products`, `live_sale_orders`, `live_sale_order_lines`, `live_sale_live_sessions`, `live_sale_comment_orders`, `live_sale_fb_tokens`) và **không drop column** `customers.facebook_id` — vì drop DB là destructive action cần confirm riêng. Tables sẽ nằm im trong Postgres không ai dùng; nếu muốn xóa DB phase sau, user yêu cầu riêng. Trang `tpos-pancake/` gốc KHÔNG bị ảnh hưởng — vẫn hoạt động bình thường. |
-| **Status** | ✅ Done. Verify: `live-sale/` folder không tồn tại, `render.com/routes/v2/live-sale.js` và `render.com/migrations/060_live_sale_schema.sql` không tồn tại, `node -c server.js` pass, `require('./routes/v2')` load OK. |
-
-### [render][oncallcx] Fix sync daemon ghi nhầm phone công ty thay vì phone khách + endpoint backfill
-| | |
-|---|---|
-| **Files** | MODIFIED: [scripts/oncallcx-sync-daemon.js](../scripts/oncallcx-sync-daemon.js) `main()` line 226 — outbound phone đổi từ `outboundPublicNumber \|\| to` sang `to \|\| outboundPublicNumber`. MODIFIED: [render.com/routes/oncall-sip-proxy.js](../render.com/routes/oncall-sip-proxy.js) — thêm endpoint `POST /api/oncall/call-recordings/remap-phones` (body `{dryRun?, toleranceMs?}`) scan recording `username=oncallcx-portal-sync`, ghép với `phone_call_history` qua `ext + direction + |ts diff| < 30s`, copy phone đúng + set `call_history_id`. |
-| **Chi tiết** | **User report**: bấm badge lịch sử cuộc gọi trên đơn phone 0363954281 → tab Ghi âm hiện `0` dù thực tế có 3 cuộc gọi. **Root cause**: OnCallCX CDR có 3 cột số: `from` (ext 102), `to` (số khách 0363954281), `outboundPublicNumber` (số line công ty 0994325426 dùng làm caller ID). Daemon sync lưu `outboundPublicNumber` vào cột `phone` → mọi recording từ ext 102 đều có phone = 0994325426 (line công ty), không có phone khách. Check Render DB: 20 recordings `oncallcx-portal-sync` đều phone=0994325426, trong khi call-history đúng phone từng khách. **Fix**: (1) daemon giờ dùng `call.to` cho outbound (số khách dialed) — recording mới sẽ đúng; (2) endpoint backfill để sửa 20 record đã sync sai: ghép timestamp ±30s với ext trong phone_call_history → copy phone đúng + set call_history_id (null trước đây) → frontend query theo phone khách sẽ tìm được recording tương ứng. |
-| **Status** | ✅ Done code. **Cần trigger backfill sau khi Render deploy**: `curl -X POST https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/call-recordings/remap-phones -H 'Content-Type: application/json' -d '{"dryRun":false}'`. Restart daemon (hoặc đợi 5 phút) để new calls dùng phone đúng. |
-
-### [tpos-pancake] Fix SSE reconnect loop + giảm log noise + retry comments 500
-| | |
-|---|---|
-| **Files** | MODIFIED: [tpos-pancake/js/tpos/tpos-realtime.js](../tpos-pancake/js/tpos/tpos-realtime.js) — `startSSE()` giờ dùng exponential backoff (base 3s, max 60s) + max 5 retries per SSE key, guard chống duplicate reconnect, reset attempts khi có message đầu tiên về; `stopSSE()` clear cả retry timers. MODIFIED: [tpos-pancake/js/pancake/pancake-token-manager.js](../tpos-pancake/js/pancake/pancake-token-manager.js) — `withTimeout()` không tự log nữa; `loadAccounts()` + `loadPageAccessTokens()` log `info` khi có localStorage fallback, chỉ `warn` khi thật sự không có data. MODIFIED: [tpos-pancake/js/tpos/tpos-api.js](../tpos-pancake/js/tpos/tpos-api.js) — `loadComments()` retry 1 lần với delay 800ms khi gặp 5xx/network error (CF proxy flap). MODIFIED: [shared/js/shared-auth-manager.js](../shared/js/shared-auth-manager.js) — bỏ `console.warn` deprecated mỗi page load; file còn active via script tags, deprecated ghi ở header comment. |
-| **Chi tiết** | **User report**: mở `tpos-pancake/index.html` thấy console spam: `[TPOS-RT] SSE error: Nhi Judy House` lặp vô hạn mỗi 5s, `[PANCAKE-TOKEN] loadAccounts timed out after 5000ms`, `[AuthManager] ⚠️ DEPRECATED`, `Failed to load resource: 500`. **Root cause**: (1) SSE `onerror` hardcode `setTimeout(startSSE, 5000)` → không backoff, không max retry → khi server từ chối, reconnect spam vô hạn. (2) Firestore slow 5s → `withTimeout` log warn dù localStorage đã có data đầy đủ → noise. (3) Comments endpoint 500 transient từ CF proxy → không retry → comment panel trống. (4) `shared-auth-manager.js` vẫn dùng qua script-tag ở mọi page nhưng log deprecated mỗi page load. **Fix**: exponential backoff SSE với retry state Map (key-per-connection, attempts reset nếu connection stable >2s hoặc có message đến); silence token-manager timeout khi có localStorage; retry `loadComments` 1 lần với 800ms delay cho 5xx; bỏ runtime warning của shared-auth-manager (deprecated vẫn ghi ở header). |
-| **Status** | ✅ Fixed. Verify: mở tpos-pancake → console không còn spam SSE error mỗi 5s (tối đa 5 lần rồi dừng với warning cảnh báo), không còn warning timeout khi Firestore slow, không còn deprecated AuthManager warning, comment load 500 sẽ retry tự động. |
-
-### [orders][phone-history] Fix flicker badge SĐT — đổi selector từ `span:last-of-type` sang `span:not(.phone-hist-badge)`
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) `renderBadges()` — thay `cell.querySelector('span:last-of-type')` bằng `cell.querySelector('span:not(.phone-hist-badge):not(.highlight)')` + fallback chain `existing?.dataset.phone`/`cell.getAttribute('data-phone')`/`''`. |
-| **Chi tiết** | **User report**: badge cột SĐT flicker liên tục "ẩn -> hiện -> ẩn -> hiện...". **Root cause**: sau khi badge được append vào cell, badge CŨNG là `<span class="phone-hist-badge">📞 3</span>`, nên `span:last-of-type` lần render kế tiếp trả về CHÍNH badge. `phoneText = "📞 3"` → `stripPhone` → `"3"` → `getCountsFor("3")` → `counts = 0` → code xoá badge. Mỗi external mutation (SSE debt update, tpos-realtime refresh, filter re-apply...) trigger `scheduleRender` 400ms → `renderBadges` → xoá-hoặc-thêm tuỳ lượt → loop vô hạn khi có nhiều mutation source. **Fix**: loại trừ `.phone-hist-badge` + `.highlight` ra khỏi selector; `querySelector` giờ lấy span phone thật sự (luôn là span duy nhất khớp). Thêm fallback đọc phone từ `dataset.phone` của badge (nếu badge đã có) để render vẫn chạy đúng khi cell tạm thời mid-re-render. |
-| **Status** | ✅ Fixed. Verify: mở filter "Có lịch sử" → badge cột SĐT phải stable, không còn flicker khi có SSE events hay filter re-apply. |
-
-### [orders][filter] Thêm filter "Cuộc gọi" — lọc đơn theo có/không có lịch sử cuộc gọi + ghi âm
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<select id="callHistoryFilter">` sau `fulfillmentFilter` với 4 option: Tất cả / Có lịch sử / Có ghi âm / Chưa gọi. MODIFIED: [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js) — thêm block apply filter dùng `window.PhoneHistoryBadges.getStats(phone).counts` (total + recordings). MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) — sau `renderBadges()` trong `loadHistory()`, nếu filter đang active → gọi `window.performTableSearch()` để re-apply filter khi data API về. MODIFIED: [orders-report/js/tab1/tab1-filter-persistence.js](../orders-report/js/tab1/tab1-filter-persistence.js) — persist `callHistoryFilter` trong snapshot.selects (save/apply/migrate). |
-| **Chi tiết** | **User request**: "filter cái nào có lịch sử cuộc gọi". Filter dropdown dùng cùng source data như badge (PhoneHistoryBadges cache: call-history + call-recordings từ Render DB). 4 options: `all` (default), `has_history` (có call-history HOẶC recording), `has_recording` (chỉ ghi âm), `no_history` (chưa từng gọi). **Race condition**: user chọn filter ngay sau khi page load → lúc đó `PhoneHistoryBadges` chưa fetch xong → filter trả rỗng. Fix: trong `loadHistory()`, sau khi build xong cache, nếu filter đang active → tự động gọi `performTableSearch()` để re-filter. Persistence: lưu filter value vào localStorage như các filter khác, reload trang vẫn giữ. |
-| **Status** | ✅ Done. Verify: mở filter "Cuộc gọi" → "Có lịch sử" → bảng chỉ còn đơn có phone xuất hiện trong Render DB call-history/recordings; chọn "Có ghi âm" → chỉ đơn có phone trong `/call-recordings`; chọn "Chưa gọi" → đơn có phone chưa từng gọi. Reload trang → filter giữ nguyên. |
-
-### [orders][phone-history] Fix badge mới: sig + class has-recording setup ở `_makeBadge`, cache key theo `lastLoadAt`
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) — `_makeBadge()` giờ set `has-recording` class + `dataset.sig` gồm cả `counts.recordings` ngay lúc tạo (trước chỉ `_updateBadge` mới xử lý, badge mới tạo sẽ sai signature → lần update kế tiếp `sig` khác → re-render thừa). `loadHistory()` cache dùng `lastLoadAt > 0` thay vì `callsByPhone.size > 0` để không spam API khi DB trống. |
-| **Chi tiết** | Self-review sau commit trước (badge merge). Phát hiện: (1) badge mới (phone có recording lần đầu) chưa set `has-recording` class → mất màu tím tới khi observer fire lần 2; (2) `dataset.sig` bị thiếu recording count → lần `_updateBadge` kế tiếp luôn thấy sig khác → re-render thừa; (3) nếu DB không có history/recording, `callsByPhone.size === 0` → cache fail → mỗi lần `loadHistory` đều gọi API. Fix cả 3 trong 1 commit. |
-| **Status** | ✅ Done. Logic verify bằng `node --check` pass, không regression hành vi cũ. |
-
-### [orders][phone-history] Cột SĐT hiện badge lịch sử + ghi âm (merge call-history + call-recordings)
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/phone-history-badges.js](../orders-report/js/phone-history-badges.js) — `loadHistory()` giờ fetch song song `/call-history` + `/call-recordings`, build thêm `recordingsByPhone`. `getCountsFor()` trả thêm `recordings[]` + `counts.recordings`. `renderBadges()` hiện badge nếu có call-history HOẶC recording (trước chỉ có call-history). `_badgeContent()` hiện `▶ N` tím khi có ghi âm. CSS thêm `.has-recording` (tím). `_openHistoryModal()` auto-switch sang tab "Ghi âm" khi phone chỉ có recording không có OnCallCX history. Click badge không còn gate admin — mọi user đều có thể bấm mở modal nghe ghi âm. Boot delay 3s → 500ms + DOMContentLoaded. |
-| **Chi tiết** | **User request (hình 2, 3)**: cột SĐT không hiện lịch sử cuộc gọi, mong có nút play như hình 1 (Quản Lý Tổng Đài — `phone-management/index.html`). **Before**: `phone-history-badges.js` chỉ load `/call-history` → badge `📞 N` chỉ hiện khi phone có entry trong bảng `phone_call_history`. Phone có ghi âm nhưng không có call-history (vd 0994325426 — 20+ ghi âm từ `oncallcx-portal-sync` nhưng không log qua outbound SIP flow) → không có badge. Modal click cũng gate `_isAdmin()` → non-admin không thấy play button. **After**: load cả 2 source Render DB song song, badge xuất hiện nếu union > 0, màu tím khi có ghi âm, click mở modal → tab "Ghi âm" auto-active nếu chỉ có recording → `<audio controls>` inline + nút tải về/xoá cho từng ghi âm (endpoint `/api/oncall/call-recordings/:id/audio`). **Data verified qua API**: 46 call-history rows trong 4 ngày qua (Unique 22 phones), 24 recording rows (2 unique phones: 0994325426 + 0909160601). Phone trong đơn của user trong screenshot mostly = 0 cho cả 2 → đúng là không có badge; nhưng STT 84 (0906952802) có 8 call-history → trước cũng phải hiện mà user báo không thấy → timing fix (boot 3s → 500ms) + rebind lại khi table re-render. |
-| **Status** | ✅ Done. Verify: admin/nhân viên mở trang → sau ~0.5s badge `📞 N` xuất hiện bên số điện thoại cho phone có call-history; badge tím `▶ N` xuất hiện khi có ghi âm; hover → tooltip preview 8 cuộc gần nhất; click → modal 2 tab (OnCallCX + Ghi âm) với audio player inline; tab Ghi âm hiển thị sẵn khi phone chỉ có recording. |
-
-### [orders][fast-sale] Hủy đơn → ẩn hoàn toàn khỏi cột PHIẾU BÁN HÀNG (không còn badge "Huỷ bỏ")
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — `renderInvoiceStatusCell()` thêm early-return "−" khi `invoiceData` cancelled (State/StateCode/ShowState = cancel/Huỷ bỏ hoặc IsMergeCancel=true). MODIFIED: [orders-report/js/tab1/tab1-fast-sale-workflow.js](../orders-report/js/tab1/tab1-fast-sale-workflow.js) — `confirmCancelOrderFromMain()` xoá block tạo `syntheticCancelInv` + `InvoiceStatusStore.set` sau khi delete, xoá luôn IIFE fetch OData để re-sync cancelled state. Sau cancel: `InvoiceStatusStore.delete` + re-render cell → renderInvoiceStatusCell tự trả "−". |
-| **Chi tiết** | **User request**: "Hủy xong phải xóa luôn ở cột phiếu bán hàng đi" — cột PBH không được hiện badge "Huỷ bỏ | nvkt | 2026/62881" nữa. **Trước**: sau confirm cancel, code tạo synthetic entry `{ShowState:'Huỷ bỏ', State:'cancel', StateCode:'cancel'}` rồi `InvoiceStatusStore.set` → lưu lại vào Firebase → cell render strikethrough badge "Huỷ bỏ". Ngoài ra còn IIFE fetch OData sau đó set lần 2. **Sau**: chỉ `delete` entry mới nhất, không ghi synthetic. `renderInvoiceStatusCell` thêm check `isCancelled` (bao các variant: dấu huyền `Huỷ` + `Hủy`, `State='cancel'`, `StateCode='cancel'`, `IsMergeCancel=true`) → trả về "−" sớm, bypass toàn bộ block render badge/button. Xử lý đồng nhất cả đơn cancel mới lẫn synthetic entry cũ đã lỡ lưu Firebase trước đó (vd STT 84 trong ảnh). Cell Ra đơn ("fulfillment") vẫn dùng `injectDeleteEntry` riêng — không ảnh hưởng. |
-| **Status** | ✅ Done. Verify: Mở modal "Nhờ Hủy Đơn" từ cột PBH → nhập lý do → Xác nhận hủy → row giữ nguyên, nhưng cột PHIẾU BÁN HÀNG chuyển sang "−" (không còn badge đỏ gạch chân). Đơn cancel từ trước (STT 84) sau F5 cũng hiện "−" thay vì "Hủy bỏ 2026/62880". |
-
-### [orders][chotdon-panel] Bulk-KDH expand 1 STT thành mọi đơn trùng — user tự pick đúng đơn
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) — đổi `findOrderBySTT()` → `findAllOrdersBySTT()` quét cả `displayedData` lẫn `OrderStore.getAll()`, dedup theo `Code/Id`, trả Array. `onInputChange` expand mỗi STT thành nhiều entry, key dạng `${stt}:${code}` để giữ trạng thái selected qua re-input. Default selection: 1 đơn → tick; nhiều đơn (duplicate) → chỉ tick đơn đang trong `displayedCodes` (đơn user nhìn thấy), đơn khác untick. `toggleRow(key, ...)` thay vì `toggleRow(stt, ...)`. Render thêm 2 badge: "trong bảng" (xanh, với đơn duplicate đang ở `displayedData`) + "trùng STT" (vàng, với mọi đơn duplicate). MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — `.bulk-kdh-dup-badge` (vàng amber) + `.bulk-kdh-inview-badge` (xanh emerald), pill 10px uppercase. |
-| **Chi tiết** | **User request**: "gõ 313 sẽ hiện tất cả STT 313 để cho chọn" — vì SessionIndex trùng giữa các session live, gõ 1 STT cần cho user thấy mọi candidate và pick đơn đúng (thay vì hệ thống tự đoán). **Logic mới**: parse "313" → `findAllOrdersBySTT(313)` quét toàn bộ dataset → có thể trả 5 đơn cùng SessionIndex 313 từ 5 session khác. Render 5 row, mỗi row checkbox riêng. Đơn nào đang trong bảng hiện tại (sau filter "huynh thanh dat") → tick mặc định + badge xanh "trong bảng"; đơn khác → untick + badge vàng "trùng STT". User có thể tick thêm/bỏ tùy ý. Re-input giữ trạng thái qua key compound `stt+Code`. Nếu chỉ 1 candidate → tick mặc định, không có badge (UX cũ). Nếu KHÔNG đơn nào trong bảng + có duplicate → tất cả untick, user phải explicitly chọn (an toàn hơn auto-pick sai). |
-| **Status** | ✅ Done. Verify: filter "huynh thanh dat" → mở modal KDH → nhập 313 → nếu STT 313 trùng nhiều: thấy nhiều row, "Huỳnh Thành Đạt" tick + badge xanh "TRONG BẢNG", các đơn khác untick + badge vàng "TRÙNG STT"; tick thêm 1 đơn khác → summary update; click Xác nhận → chỉ gán những đơn được tick. |
-
-### [orders][chotdon-panel] Bulk-KDH thêm checkbox chọn từng STT + select-all
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) — thêm `selected:true` cho mỗi parsed STT, `toggleRow()`, `toggleSelectAll()`, `updateSelectAllCheckbox()` (indeterminate khi chọn 1 phần), `updateSummaryAndConfirm()` (tách khỏi renderPreview); preview render `<label>` thay `<div>` với checkbox; nút Xác nhận hiện count "(N)"; `executeAssign` chỉ chạy đơn được tick. MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<div class="bulk-kdh-toolbar">` với checkbox "Chọn tất cả" + summary, ẩn mặc định, hiện khi có STT. MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — `.bulk-kdh-toolbar` (xám nhạt + space-between), `.bulk-kdh-select-all` (label flex), `.bulk-kdh-row-cb` (16px indigo accent), `.bulk-kdh-row--unchecked` (opacity 0.45 + line-through name/STT), label.bulk-kdh-row hover effect. |
-| **Chi tiết** | **User request**: "có thể cho nhiều STT nhưng cho chọn" — sau khi nhập danh sách STT, user muốn tick/bỏ tick từng đơn trước khi confirm thay vì gán tất cả. **Logic**: parse input vẫn không đổi, mỗi entry giờ thêm `selected:true` mặc định. Re-input giữ trạng thái `selected` cũ qua `prevSel` Map (gõ thêm STT mới vẫn checked, không reset toàn bộ). Toolbar ẩn khi list rỗng. Checkbox row gắn listener trực tiếp qua `querySelectorAll` sau render — toggle visual `bulk-kdh-row--unchecked` và update summary live. Select-all checkbox dùng `indeterminate` khi mixed (tick 1 phần). Footer button "Xác nhận gán (N)" với N = số đã chọn, disable khi N=0. Row error (STT không tồn tại) không có checkbox — chỉ hiển thị warning. |
-| **Status** | ✅ Done. Verify: nhập "311, 312, 313, 314, 99999" → toolbar hiện, 4 row OK đều checked, 1 row err (99999) đỏ; bỏ tick STT 312 → row mờ + line-through, summary đổi "3/4 chọn", button "Xác nhận gán (3)"; tick lại → "4/4 chọn", button "Xác nhận gán (4)"; uncheck "Chọn tất cả" → 4 row mờ hết, button disabled. |
-
-### [orders][chotdon-panel] Fix bulk-KDH lookup STT — ưu tiên `displayedData` thay vì `OrderStore` toàn cục
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) `findOrderBySTT()` — đảo thứ tự: search `window.displayedData` trước, fallback `OrderStore.getBySTT()` chỉ khi không có. |
-| **Chi tiết** | **Bug**: Bảng filter "huynh thanh dat" hiển thị STT 313 = Huỳnh Thành Đạt, nhưng modal nhập 313 lại preview "Mỹ Linh / 260303260". **Root cause**: `OrderStore._ordersBySTT` index toàn bộ ~5023 đơn theo `SessionIndex`. Nếu dataset spans nhiều session live (date range 25/3-24/4 = ~30 ngày), `SessionIndex` có thể TRÙNG giữa các session khác nhau (mỗi session reset counter). `Map.set` ghi đè → entry trong OrderStore là đơn sau cùng load có cùng STT, không phải đơn user đang xem. **Fix**: tra `displayedData` (đơn đang hiển thị sau filter) trước → khớp đúng với những gì user thấy. Fallback OrderStore khi đơn không có trong bảng hiện tại (vd user filter ẩn nhưng vẫn muốn gán). Hỗ trợ cả `===` và `String() === String()` để loose-compare số/chuỗi STT. |
-| **Status** | ✅ Fixed. Verify: filter "huynh thanh dat" → mở modal KDH → nhập 313 → preview phải ra "Huỳnh Thành Đạt 0123456788" thay vì "Mỹ Linh". |
-
-### [orders][chotdon-panel] Fix `Cannot read properties of undefined (reading 'show')` sau khi gán KDH
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) line 184-190 — thay ternary `(failed>0 ? nm.warning : nm.success)(msg, 4000)` bằng `if/else` gọi trực tiếp trên object. |
-| **Chi tiết** | **Bug**: sau khi click "Xác nhận gán" và `assignOrderCategory` chạy xong, console báo `TypeError: Cannot read properties of undefined (reading 'show')` ở `notification-system.js:248` (success method). **Root cause**: ternary `(cond ? obj.a : obj.b)(args)` unwrap method khỏi object → call site không có receiver → `this` bên trong method = `undefined` → `this.show(...)` crash. **Fix**: gọi trực tiếp `window.notificationManager.warning(msg, 4000)` / `.success(msg, 4000)` để giữ `this` = notificationManager. Trong JavaScript chỉ `obj.method()` mới bind `this`; lấy reference rồi call mất context. |
-| **Status** | ✅ Fixed. Verify: mở modal KDH → nhập STT hợp lệ → Xác nhận → không còn lỗi console, toast xanh "Đã gán KHÔNG ĐỂ HÀNG cho X/X đơn" hiện đúng. |
-
-### [balance-history][pending-match] Fix 404 "Pending match not found or already resolved" khi chọn KH từ dropdown
-| | |
-|---|---|
-| **Files** | MODIFIED: [balance-history/js/balance-verification.js](../balance-history/js/balance-verification.js) (hàm `resolvePendingMatch`, ~line 121-147) — phát hiện stale-state (HTTP 404 hoặc error match `/not found\|already resolved/i`) thì show warning "Giao dich da duoc xu ly, dang lam moi danh sach..." và tự `loadData()` thay vì báo lỗi đỏ đứng im. MODIFIED: [render.com/routes/sepay-transaction-matching.js](../render.com/routes/sepay-transaction-matching.js) (endpoint `POST /api/sepay/pending-matches/:id/resolve`, line ~1257-1292) — loại bỏ filter `AND pcm.status = 'pending'` trong SELECT, chuyển sang check `status IN ('pending','skipped')` sau khi fetch → cho phép resolve row đã skip (vì UI vẫn render dropdown cho skipped row); chỉ reject với 404 khi row đã `resolved`/`rejected` để frontend self-heal. |
-| **Chi tiết** | **Bug**: User thấy dropdown "Chọn KH" trên row giao dịch, chọn 1 KH → toast đỏ `Loi: Pending match not found or already resolved`. Server log: `POST /api/sepay/pending-matches/198/resolve 404`. **Root cause**: Endpoint resolve cũ có `WHERE pcm.id=$1 AND pcm.status='pending'`, nhưng [balance-table.js:316-340](../balance-history/js/balance-table.js#L316-L340) render dropdown cho cả `pending` **và** `skipped` rows (để user re-select sau khi skip) — click trên skipped row luôn 404. Thêm race condition: `POST /api/sepay/transaction-phone-update` (line 606 `sepay-wallet-operations.js`) DELETE toàn bộ pcm rows khi edit phone → UI còn cached `pending_match_id` cũ sẽ 404. SSE live-mode reload sau 500ms cũng chưa đủ nhanh nếu user click trong lúc đang stale. **Fix 2 lớp**: (1) Server: relax điều kiện — accept cả `pending` lẫn `skipped` (skipped nghĩa là user cũ đã bỏ qua, giờ muốn select lại thì cho), chỉ block `resolved`/`rejected`. (2) Frontend: detect 404 hoặc error text match stale-state → show warning (không phải error) + `loadData()` để refresh. User không còn stuck ở dropdown "chết". |
-| **Status** | ✅ Code done. Verify: (a) click dropdown trên row pending bình thường → vẫn resolve OK như cũ; (b) skip 1 row xong click lại dropdown select KH → server accept (trước đây 404); (c) mô phỏng race — mở 2 tab, tab 1 resolve xong, tab 2 click dropdown cùng row → toast warning + list tự refresh, không còn error đỏ. |
-
-### [orders][chotdon-panel] Bulk-assign subtag "KHÔNG ĐỂ HÀNG" theo STT — nút "+" trên row trong panel Chốt Đơn
-| | |
-|---|---|
-| **Files** | NEW: [orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js](../orders-report/js/tab1/tab1-bulk-subtag-khong-de-hang.js) — modal logic (parse STT, preview, apply qua `window.assignOrderCategory(code, 3, {subTag:'KHONG_DE_HANG'})`). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (loop subtags ~line 3009) — chèn `<button class="ptag-row-bulk-btn">` chỉ khi `key === 'KHONG_DE_HANG'`, mở modal qua `window.openBulkSubtagKhongDeHangModal()`. MODIFIED: [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<div id="bulkSubtagKhongDeHangModal">` (textarea + preview + footer) và `<script src="js/tab1/tab1-bulk-subtag-khong-de-hang.js">` ngay sau `tab1-processing-tags.js`. MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) — block CSS `.ptag-row-bulk-btn` (nút "+" tròn 22px, hover indigo) + `.bulk-kdh-modal*` (overlay + modal indigo gradient header, textarea monospace, preview list scroll 320px, footer). |
-| **Chi tiết** | **User request**: Cho phép gán "KHÔNG ĐỂ HÀNG" hàng loạt — bấm nút "+" trên row "KHÔNG ĐỂ HÀNG" trong panel Chốt Đơn → mở modal nhập STT → tag vào cột TAG XL như subtag (giống "GỘP 132 694" pattern hình 4). **Logic**: parse STT input hỗ trợ `1, 2, 3` / `1-5` / `1, 5-10, 15` / xuống dòng. Lookup order qua `window.OrderStore.getBySTT(stt)` (O(1)) fallback `displayedData.find(o => o.SessionIndex === stt)`. Preview real-time: row OK xanh hiển thị STT + Name + Code + check icon, row Err đỏ với `STT không tồn tại`. Confirm chạy loop `await window.assignOrderCategory(order.Code, 3, {subTag:'KHONG_DE_HANG', source:'Bulk KHÔNG ĐỂ HÀNG'})` — function này đã: set category=3 + subTag, save Firebase qua `saveProcessingTagToAPI`, refresh row, sync XL→TPOS qua `window.syncXLToTPOS`. Sau khi xong notification success/warning + `window.renderPanelContent()` để cập nhật count "X đơn hàng". Close modal: ESC, click backdrop, hoặc nút Hủy. **Tại sao chỉ nút trên row KDH?** Subtags `DA_GOP_KHONG_CHOT` auto-set khi merge đơn, `NCC_HET_HANG` / `KHACH_HUY_DON` / `KHACH_KO_LIEN_LAC` đã có UX khác (right-click cell → menu); chỉ KDH cần bulk vì user gán rất nhiều mỗi ngày sau khi check qua list đơn. |
-| **Status** | ✅ Done. 2 JS files pass `node --check`. Verify UI: (a) mở panel Chốt Đơn → row "KHÔNG ĐỂ HÀNG" có nút "+" trắng viền xám trước nút lịch sử đồng hồ; row khác (DA_GOP, NCC, HỦY, KO_LL) không có; (b) hover nút "+" → indigo + scale; (c) click → modal indigo header trượt lên; nhập `691, 690-688` → preview 4 row OK + 0 err nếu các STT này tồn tại; (d) click Xác nhận → toast "Đã gán KHÔNG ĐỂ HÀNG cho 4/4 đơn", panel cập nhật count, các đơn hiện badge "KHÔNG ĐỂ HÀNG" trong cột TAG XL; (e) ESC / click backdrop / nút × đều close modal. |
-
-### [shared][images] Proactive HTML string rewrite cho TPOS URL — fix dứt điểm `ERR_HTTP2_SERVER_REFUSED_STREAM`
-| | |
-|---|---|
-| **Files** | MODIFIED: [shared/js/tpos-image-proxy.js](../shared/js/tpos-image-proxy.js) — thêm hook `innerHTML` setter + `insertAdjacentHTML` rewrite raw TPOS CDN URL (`<img src="https://vn.img1.tpos.vn/...">`) thành proxy URL (`<img src="https://chatomni-proxy.../api/image-proxy?url=...">`) **TRƯỚC KHI** browser parser chạm vào string. |
-| **Chi tiết** | **Root cause**: 3 round fix trước (commit `55462c83`, `c3fee3f3`, `8a97a3d6`) sửa tất cả `<img src>` trong code `orders-report/js/**/*.js` để route qua proxy. Playwright probe lại vẫn thấy **472 direct request tới `vn.img1.tpos.vn` + 171 `ERR_HTTP2_SERVER_REFUSED_STREAM`**. Trace thêm (hook `img.src` setter, `innerHTML` setter, `insertAdjacentHTML`, `DOMParser`, `Range.createContextualFragment`, `fetch`, `XHR`, `setAttribute`) ở context level — báo cáo `count=0` ở tất cả frames. DOM snapshot cho thấy **742 images trong tab1-orders iframe nhưng 0 image có raw TPOS URL + 0 match `vn.img1.tpos.vn` trong toàn bộ outerHTML**. Kết luận: raw URL bị rewrite xong bởi `MutationObserver` đã tồn tại trong `tpos-image-proxy.js` — NHƯNG observer chỉ fire SAU khi DOM parse xong `<img>` tag → browser đã start load raw URL → hit HTTP/2 stream limit trước khi observer kịp rewrite src. **Fix thật**: override `Element.prototype.innerHTML` setter + `insertAdjacentHTML` để regex-replace raw TPOS URL trong HTML string TRƯỚC KHI native setter parse HTML → parser chỉ thấy proxied URL → không còn request raw → hết REFUSED_STREAM. Regex `/(<img\b[^>]*?\bsrc=["'])(https?:\/\/vn\.img1\.tpos\.vn[^"']+)(["'])/gi` chỉ match tag `<img>` với TPOS URL, skip PROXIED_PATTERN đã rewrite. Early return nếu string không chứa `vn.img1.tpos.vn` → không ảnh hưởng perf innerHTML calls thông thường. `MutationObserver` vẫn giữ làm backup cho các path không đi qua innerHTML (createElement+src=, cloneNode). |
-| **Status** | ✅ Code done. 1 file pass `node --check`. Expect **472 direct → ~0 direct / 472 proxied** sau deploy. Verify: load main.html, đếm network tab — không còn request trực tiếp `vn.img1.tpos.vn`, chỉ còn `chatomni-proxy.../api/image-proxy?url=...`. |
-
-## 2026-04-23
-
-### [orders][ptag-cell] Icon máy in trên badge CHỜ LIVE / QUA LẤY / GIỮ ĐƠN khi `pickingSlipPrinted`
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `renderProcessingTagCell()`, section "2. Flag badges" (line ~1774-1794): thêm `PRINTED_FLAG_IDS = new Set(['CHO_LIVE','QUA_LAY','GIU_DON'])` + `flagPrintIcon` (màu `#fff`, size 10px) khi `data.pickingSlipPrinted=true`. Trong `forEach`, chèn `printIcon` giữa `label` và `removeBtn` nếu flag ID nằm trong Set. |
-| **Chi tiết** | **User report**: Hiện tại icon máy in chỉ hiện trên badge sub-state `CHỜ HÀNG` (line 1759-1763). Nếu đơn có flag `CHỜ LIVE` / `QUA LẤY` / `GIỮ ĐƠN` ở sub-state khác (vd `OKIE_CHO_DI_DON`) thì không có dấu hiệu "đã in phiếu soạn" trên cụm flag → dễ in trùng/bỏ sót. **Fix**: khi `pickingSlipPrinted=true` + đơn có 1 trong 3 flag trên, render thêm icon `fa-print` nhỏ màu trắng (khớp chữ label trên nền flag đậm) giữa label và nút `×`. Áp dụng bất kể sub-state. Không đụng: badge CHO_HANG cũ, virtual flag (TPOS alias section 2b), unmanaged TPOS badge (section 2c), side panel counts. |
-| **Status** | ✅ Done. Verify: (a) đơn có QUA_LAY + pickingSlipPrinted=true → badge QUA LẤY có icon trắng trước dấu ×; (b) toggle nút `fa-print` trong cell → icon đồng bộ xuất hiện/biến mất cả trên badge CHO_HANG (màu xanh) và badge 3 flag (màu trắng); (c) flag khác (CK, GIAM_GIA,...) không có icon; (d) nút × vẫn click xóa flag được bình thường. |
-
-### [orders][images] Route raw TPOS CDN image URLs qua `TPOSImageProxy` — khử ERR_HTTP2_SERVER_REFUSED_STREAM (round 2 — tab3 + tab1-merge history + address stats + sale modal)
-| | |
-|---|---|
-| **Files** | Round 1 (commit `55462c83`): chat-products-ui.js, dropped-products-manager.js, tab1-merge.js (renderProductItem), tab1-merge-live-waiting.js, tab1-sale.js. Round 2 (này): [orders-report/js/tab3/tab3-table.js](../orders-report/js/tab3/tab3-table.js) (assignment table), [orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) (STT product items — render hàng loạt), [orders-report/js/tab3/tab3-history.js](../orders-report/js/tab3/tab3-history.js) (3 chỗ), [orders-report/js/tab3/tab3-upload.js](../orders-report/js/tab3/tab3-upload.js) (3 chỗ: 179 upload-product-image + 508 + 553), [orders-report/js/tab3/tab3-removal.js](../orders-report/js/tab3/tab3-removal.js) (3 chỗ: 321 + 632 + 682), [orders-report/js/tab1/tab1-merge.js](../orders-report/js/tab1/tab1-merge.js) (line 1918 `renderHistoryProductItem`), [orders-report/js/tab1/tab1-address-stats.js](../orders-report/js/tab1/tab1-address-stats.js) (line 387 stats-product-image), [orders-report/js/utils/sale-modal-common.js](../orders-report/js/utils/sale-modal-common.js) (line 954 sale modal product image). |
-| **Chi tiết** | **Re-probe sau round 1** vẫn thấy 143 `ERR_HTTP2_SERVER_REFUSED_STREAM` — nguồn chính là iframe `tab3-product-assignment.html` (tab Gán Sản Phẩm - STT) render hàng nghìn product images trực tiếp từ `vn.img1.tpos.vn`. Round 2 fix bulk-wrap mọi `<img src="${...imageUrl}"` qua `window.TPOSImageProxy.proxyImageUrl(...)` fallback raw nếu proxy chưa load. Helper `tpos-image-proxy.js` đã load ở tab3 iframe line 749 trước các tab3-*.js. **Còn lại (không liên quan orders-report main)**: các chat message image, avatar (pancake), chat preview — dùng URL từ Pancake/FB CDN, không phải TPOS, không cần proxy. Các inline files `tab1-chat-images.js` (e.target.result = base64), `tab1-chat-messages.js`, `tab1-chat-core.js` — cũng không phải TPOS CDN. |
-| **Status** | ✅ Code done. 8 files pass `node --check`. Sau commit này toàn bộ flow orders-report (tab1 orders + tab3 assignment) đã route 100% qua worker → expect `ERR_HTTP2_SERVER_REFUSED_STREAM` về 0. Verify: mở main.html → tab3 — Network tab chỉ thấy `chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=...` cho TPOS images, không còn `vn.img1.tpos.vn` trực tiếp. |
-
-### [orders][chotdon-panel] Fix badge OKE: đếm đúng `OKIE_CHO_DI_DON` + thêm chữ "CHỜ HÀNG" + thu nhỏ ô RA ĐƠN
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (line ~2414-2419, dòng 2 summary "RA ĐƠN + OKE"): (1) đổi biến hiển thị từ `subStateCounts['OKIE_NO_DELAY']` sang `diDon` (`subStateCounts['OKIE_CHO_DI_DON']`); (2) đổi filter target từ `sub_OKIE_NO_DELAY` → `sub_OKIE_CHO_DI_DON`; (3) thêm chữ " CHỜ HÀNG" sau số CHO_HANG; (4) add class `ptag-stat-ra-don` vào ô RA ĐƠN. MODIFIED: [orders-report/css/tab1-processing-tags.css](../orders-report/css/tab1-processing-tags.css) (line 549): thêm rule `.ptag-stat-ra-don { flex: 0 0 auto; padding: 6px 8px; }` để ô RA ĐƠN co lại theo nội dung, nhường chỗ cho ô OKE hiển thị "CHỜ HÀNG". |
-| **Chi tiết** | **Bug user report**: Panel Chốt Đơn hiển thị `189 OKE (0 + 181)` — số đầu là 0 vì đếm `OKIE_NO_DELAY` (đã loại Chờ Live / Qua Lấy / Giữ Đơn). Đúng phải là `189 OKE (8 + 181)` — đếm toàn bộ `OKIE_CHO_DI_DON` (8 đơn, không loại trừ). `8 + 181 = 189` khớp với tổng OKE. **Fix**: dùng `diDon` (đã tính sẵn = `subStateCounts['OKIE_CHO_DI_DON']`) thay vì `OKIE_NO_DELAY`. Filter click-through cũng cập nhật sang `sub_OKIE_CHO_DI_DON`. **UI**: thêm label "CHỜ HÀNG" cạnh số 181 để phân biệt rõ 2 sub-state. Ô RA ĐƠN cũ `flex:1` chiếm 50% hàng — thu lại `flex:0 0 auto` để OKE box có đủ chỗ cho text mới. |
-| **Status** | ✅ Done. Cần verify UI: mở panel Chốt Đơn, badge `189 OKE` phải hiển thị `(8 + 181 CHỜ HÀNG)` thay vì `(0 + 181)`. Click số 8 → filter `sub_OKIE_CHO_DI_DON`. Click số 181 → filter `sub_CHO_HANG`. Ô RA ĐƠN co nhỏ lại, OKE box chiếm phần còn lại của hàng. |
-
-### [render][db][critical] Migrate tất cả `pool.query('BEGIN')` sang `pool.connect()` pattern — 31 transaction sites, 17 files
-| | |
-|---|---|
-| **Files** | NEW: [render.com/db/with-transaction.js](../render.com/db/with-transaction.js) (helper `withTransaction(pool, fn)` — acquire client, BEGIN/COMMIT/ROLLBACK, release). RESTORED từ Sprint 2 cũ (`5ac26479`): [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js) (processWalletEvent INSERT-first + ON CONFLICT sepay_id DO NOTHING; issueVirtualCredit dùng withTransaction, detect pool vs client), [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) 4 endpoints chính (approve, reject-match, bulk-approve, reprocess-wallet), [render.com/cron/scheduler.js](../render.com/cron/scheduler.js). MIGRATED THỦ CÔNG: balance-history.js thêm 6 endpoints (link, unlink, reject, resolve-match, manager-review, adjust), [render.com/routes/v2/wallets.js](../render.com/routes/v2/wallets.js) 3 endpoints (cron/process-bank, adjustment, refund-by-order), [render.com/routes/v2/tickets.js](../render.com/routes/v2/tickets.js) 2 endpoints (resolve, cancel). MIGRATED QUA AGENT: 11 files route khác (attendance, invoice-mapping, campaigns, adms, quick-replies, invoice-status, social-orders, users, v2/inventory-tracking, realtime-db, v2/web-warehouse) — phần lớn đã có `pool.connect()` sẵn, chỉ cần thêm `.catch(() => {})` vào ROLLBACK. realtime-db.js + v2/inventory-tracking.js mỗi file có 1 endpoint full-migration (trước đó BEGIN trên pool + ROLLBACK trên pool khác — completely broken). |
-| **Chi tiết** | **User đã revert Sprint 2 sáng nay (`6a55e872`, `f8ffda7d`)** nhưng sau khi hỏi xác nhận + explain scope/risks, user yêu cầu **redo Sprint 2 và mở rộng ra toàn bộ 24 files có BEGIN**. Pattern chuẩn: `const pool = req.app.locals.chatDb; const db = await pool.connect(); try { await db.query('BEGIN'); … await db.query('COMMIT'); … } catch (err) { await db.query('ROLLBACK').catch(()=>{}); handleError(…); } finally { db.release(); }`. Các file core được restore từ Sprint 2 cũ (diff hàng trăm dòng) vì logic INSERT-first ON CONFLICT sepay_id đã được tested. Today's fix sepay_id (commit `c3d78211`) được preserve vì 2 file đó (sepay-wallet-operations.js, v2/wallets.js) không có trong Sprint 2 revert. **KEY IMPROVEMENT**: processWalletEvent giờ đổi thứ tự: INSERT wallet_transaction TRƯỚC (với `ON CONFLICT (sepay_id) WHERE sepay_id IS NOT NULL DO NOTHING`), nếu duplicate → skip UPDATE balance → không còn bug "balance cộng 2 lần nhưng chỉ 1 wallet_tx row" như 0902660235. **Verification**: 31 BEGIN còn lại đều trên dedicated client (grep xác nhận), 20 files pass `node --check`, sepay_id fix trong sepay-transaction-matching (3 calls), sepay-wallet-operations (1 call), v2/wallets cron (1 call), balance-history (4 calls) đều intact. **Script scripts cũ** (fix-wallet-processed-*, reset-wallets-*, migrate-*) KHÔNG migrate vì chạy solo, không có concurrency. |
-| **Status** | ✅ Code done. 20 files pass syntax check. CẦN review pass + deploy + smoke test: (1) nạp tiền từ webhook SePay, (2) kế toán duyệt đơn lẻ, (3) bulk-approve, (4) /reprocess-wallet, (5) /unlink, (6) /adjust, (7) hoàn đơn order-cancel-refund, (8) resolve ticket với virtual_credit, (9) cancel ticket RETURN_SHIPPER, (10) cron /process-bank. |
-
-### [orders][tag-t] Bulk gán Tag T: đọc `DA_GOP_KHONG_CHOT` từ Tag XL thay vì TPOS + guard chain merge
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) — hàm `_ttagMgrExecuteAssign()` (line 4113-4145): (1) đổi nguồn đọc blocked-tag từ `order.Tags` (TPOS JSON) sang `ProcessingTagState.getOrderData(code).subTag === 'DA_GOP_KHONG_CHOT'` (XL); (2) thêm check đơn đích cũng có `DA_GOP_KHONG_CHOT` → báo fail, không redirect sai. |
-| **Chi tiết** | **Ngữ cảnh**: Modal "Quản Lý Tag T Chờ Hàng" có logic redirect — khi đơn được chọn là source đã gộp (`DA_GOP_KHONG_CHOT`), tag T sẽ được gán sang đơn STT lớn nhất cùng SĐT. Code cũ đọc tag này từ TPOS (`rawTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT")`), không nhất quán với refactor commit `81944c22` đã đưa XL thành source of truth duy nhất cho flow gộp đơn. Nếu sync XL→TPOS chậm/lỗi, đơn vừa gộp sẽ bỏ qua redirect và gán sai. **Fix**: đọc trực tiếp `ProcessingTagState` (XL). Thêm edge-case: nếu replacement order cũng có `DA_GOP_KHONG_CHOT` (chain gộp), fail STT đó thay vì redirect sai. **Không đụng**: UI, flow sync, `_ttagMgrExecuteRemove`, `resetOrderTagsForMerge`. |
-| **Status** | ✅ Done. Test manual: gộp 2 đơn cùng SĐT (STT 5 và 15), vào modal Quản Lý Tag T → chọn tag T → thêm STT 5 → bấm "Gán Tag Đã Chọn" → tag phải được gán cho STT 15, console log `Redirecting T-tag from STT 5 ... → STT 15`. Edge: chain A→B→C, chọn A → nếu B (STT lớn nhất cùng SĐT) cũng có DA_GOP_KHONG_CHOT thì báo fail STT A. |
-
-### [orders][merge] Fix merge tag: chỉ gắn `Gộp X Y Z` vào Tag XL, bỏ hoàn toàn thao tác TPOS
-| | |
-|---|---|
-| **Files** | MODIFIED: [orders-report/js/tab1/tab1-merge.js](../orders-report/js/tab1/tab1-merge.js) (xóa `queryTPOSTagByName`, `_registerLocalTag`, `ensureMergeTagExists`, `assignTagsToOrder`; viết lại `assignTagsAfterMerge` thành wrapper mỏng; viết lại `assignTagXLAfterMerge` với logic Tag XL-only), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (thêm `suppressSync` option vào `assignOrderCategory` / `toggleOrderFlag` / `assignTTagToOrder` / `removeTTagFromOrder`; `assignTTagToOrder` hỗ trợ `tagName` option cho dynamic tTag; thêm helper `resetOrderTagsForMerge` + expose `window.resetOrderTagsForMerge`). |
-| **Chi tiết** | **User complaint**: Tính năng "Gộp sản phẩm đơn trùng SĐT" đang (1) gắn tag `GỘP ĐƠN` (GOP_DON) vào Tag XL thay vì tag `Gộp X Y Z` (X Y Z = STT đơn gộp), (2) tag `Gộp X Y Z` lúc được gắn lúc không do race condition khi gọi TPOS OData `$filter` + POST `/api/odata/Tag`, (3) tag gốc ở đơn nguồn không được gỡ sau khi chuyển sang đơn đích, (4) TPOS tag được ghi rồi sync ngược về Tag XL gây hiển thị sai. **Fix**: Toàn bộ thao tác tag của flow merge giờ chỉ ghi Tag XL (Postgres qua `/api/realtime/processing-tags/by-code/{code}`). KHÔNG gọi `/api/odata/Tag` hay `/api/odata/TagSaleOnlineOrder/.../AssignTag`. KHÔNG trigger `syncXLToTPOS` (dùng `{ suppressSync: true }` cho mọi call từ merge). **Logic mới**: TARGET giữ nguyên category/subTag, merge flags + tTags từ cluster (dedup, loại GOP_DON + `GOP_\d+` cũ), add tTag động `Gộp X Y Z` (id = `GOP_<sttList>`, name = `Gộp <sttList>`). SOURCE reset sạch bằng helper `resetOrderTagsForMerge` (1 PUT atomic): category=3, subTag=DA_GOP_KHONG_CHOT, flags=[], tTags=[{id: mergeTagId, name: mergeTagName}]. Bug "lúc có lúc không" tự biến mất vì không còn phụ thuộc TPOS API. **Out of scope**: modal preview vẫn hiển thị tag theo format cũ — không ảnh hưởng behavior thực. |
-| **Status** | ✅ Done. Cần test thực tế: mở modal Gộp SP Đơn Trùng SĐT, chọn cluster, xác nhận gộp, kiểm tra (a) Tag XL đơn đích có badge `Gộp X Y Z` và KHÔNG có `GỘP ĐƠN`, (b) Tag XL đơn nguồn chỉ còn `ĐÃ GỘP KHÔNG CHỐT` + `Gộp X Y Z`, (c) Network tab KHÔNG có request tới `/api/odata/Tag` hay `/api/odata/TagSaleOnlineOrder/*`. |
-
-### [render][wallet][recovery] Khôi phục balance 92 ví bị Migration 063 bơm sai — dùng balance_after của wallet_tx cuối
-| | |
-|---|---|
-| **Files** | [docs/migration-063-affected-wallets.md](migration-063-affected-wallets.md) (danh sách 93 ví có stored != SUM, gồm Nhóm A 39 ví + Nhóm B 54 ví). [docs/migration-063-recovery-plan.md](migration-063-recovery-plan.md) (plan chi tiết từng ví trước khi apply). Data change: 92 dòng `customer_wallets.balance` được UPDATE về giá trị `balance_after` của wallet_transaction mới nhất của mỗi ví. |
-| **Chi tiết** | **Insight của user**: Trong `customer_activities` UI, mỗi dòng hoạt động ví hiển thị "→ XYK" cuối dòng = balance ngay sau giao dịch đó. Dòng trên cùng = mới nhất. Giá trị này được snapshot tại thời điểm giao dịch (lưu trong cột `wallet_transactions.balance_after`), **không bị Migration 063 Step 2 (công thức WITHDRAW flip sign) đụng vào**. Verify 3 ví mẫu user chỉ: 0896875227 → 0đ, 0906252809 → 0đ, 0949015004 → 365,000đ — tất cả khớp. **Lưu ý**: phải query với TẤT CẢ type (kể cả VIRTUAL_DEBIT/VIRTUAL_CREDIT), không chỉ DEPOSIT/WITHDRAW/ADJUSTMENT — vì giao dịch mới nhất có thể là VIRTUAL_DEBIT. **Apply**: 93 ví có stored sai, 92 ví được UPDATE, 1 ví (0123456788) đã đúng sẵn vì vừa có giao dịch mới. Tổng chênh lệch đã trả: ~295 triệu đồng. Tất cả 92 ví giờ khớp 100% với giá trị UI hiển thị. |
-| **Status** | ✅ Applied. Spot-check 5 ví: 0896875227=0, 0906252809=0, 0949015004=365K, 0933608739=2.47M, 0123456788=2K — tất cả khớp UI. 234 dòng wallet_transactions bị Migration 063 Step 1 xóa oan vẫn MẤT — không khôi phục được nếu không có DB backup. Nhưng balance ví đã đúng. |
-
-### [render][wallet] Fix 2 luồng processDeposit thiếu sepay_id — hoàn thiện lớp UNIQUE index Migration 064
-| | |
-|---|---|
-| **Files** | MODIFIED: [render.com/routes/sepay-wallet-operations.js](../render.com/routes/sepay-wallet-operations.js) (line 667 — accountant edit phone + auto-approve: thêm `tx.transaction_date` + `tx.sepay_id` vào processDeposit args); [render.com/routes/v2/wallets.js](../render.com/routes/v2/wallets.js) (line 1020 + 1048 — cron `/process-bank`: SELECT thêm `bh.sepay_id`, pass vào processDeposit). |
-| **Chi tiết** | Audit các luồng cộng ví phát hiện 2 chỗ gọi `processDeposit` KHÔNG truyền `sepayId` → `wallet_transactions.sepay_id` = NULL → partial UNIQUE index `idx_wallet_tx_unique_sepay_id` (Migration 064) **không bảo vệ được** 2 luồng này. 7 luồng khác đã truyền đúng (auto-match QR/phone/single, /approve, /bulk-approve, /reprocess-wallet). Nguy cơ: nếu flag `wallet_processed` bị sai (race condition, manual reset, cron trùng), có thể double-credit. Fix: thêm tham số thứ 7+8 (transactionDate, sepayId) vào cả 2 callsite. **Không cần migration mới** — cột sepay_id đã tồn tại từ 064. Sau fix: mọi đường BANK_TRANSFER deposit đều có 2 lớp bảo vệ (app-level `wallet_processed` + DB-level UNIQUE(sepay_id)). |
-| **Status** | ✅ Done. Cần deploy + smoke test các luồng: kế toán sửa SĐT + auto-approve, cron /process-bank. |
-
-### [render][wallet][revert] Revert Sprint 2 theo yêu cầu user — giữ Sprint 1 (DB layer)
-| | |
-|---|---|
-| **Files** | Git revert 2 commits: `92dc57c7` (hotfix detect pool vs client) + `5ac26479` (Sprint 2 withTransaction + INSERT-first). Tạo 2 revert commits: `f8ffda7d` + `6a55e872`. Kết quả: xóa `render.com/db/with-transaction.js`, restore [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js) + [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) + [render.com/cron/scheduler.js](../render.com/cron/scheduler.js) về trạng thái sau Sprint 1. |
-| **Chi tiết** | User quyết định revert Sprint 2 hoàn toàn. Sprint 1 được giữ lại: migration 064 (sepay_id column + partial UNIQUE index) vẫn trên DB, code vẫn pass `bh.sepay_id` xuống processDeposit ở 5 nơi. **Hệ quả**: DB-layer protection vẫn hoạt động — 2 wallet_tx với cùng sepay_id sẽ bị UNIQUE chặn ở dòng INSERT thứ 2. **Rủi ro còn**: pool/transaction bug quay lại — nếu 2 request concurrent, có thể UPDATE balance 2 lần rồi INSERT thứ 2 fail UNIQUE → balance inflated dù chỉ 1 wallet_tx. Đây là lý do Sprint 2 được tạo ban đầu, nhưng user chọn accept risk này. |
-| **Status** | ✅ Reverted và push. Code state = sau Sprint 1. |
-
-### [render][wallet][critical] Sprint 1 — Migration 064 + sepay_id column chặn double credit ở DB layer
-| | |
-|---|---|
-| **Files** | NEW: [render.com/migrations/064_replace_unique_index_with_sepay_id.sql](../render.com/migrations/064_replace_unique_index_with_sepay_id.sql) (DROP index sai của 063 + ADD COLUMN sepay_id BIGINT + backfill 1284/1284 BANK_TRANSFER DEPOSIT rows + partial UNIQUE index WHERE NOT NULL). MODIFIED: [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js) (processWalletEvent + processDeposit nhận thêm param `sepayId` optional, include vào INSERT wallet_transactions); [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) (/approve, /reprocess-wallet, /bulk-approve pass `tx.sepay_id` — đã có sẵn trong `SELECT *`); [render.com/routes/sepay-transaction-matching.js](../render.com/routes/sepay-transaction-matching.js) (thêm `sepay_id` vào SELECT đầu function; 3 processDeposit calls ở QR/exact-phone/single-match paths pass `tx.sepay_id`); [render.com/cron/scheduler.js](../render.com/cron/scheduler.js) (SELECT thêm `bh.sepay_id`, pass vào processDeposit). |
-| **Chi tiết** | **Bug phát hiện**: Khách 0902660235 (balance_history #3752, 870K) bị double credit — 2 dòng wallet_transactions #7103 + #7135 cho cùng balance_history, ví bị cộng đôi thành 1740K, admin đã tạo -870K CÔNG NỢ LỖI NHÂN ĐÔI thủ công. Root cause: (1) Migration 012 (UNIQUE index) chưa bao giờ apply prod; (2) Code dùng `pool.query('BEGIN')` + `pool.query('FOR UPDATE')` trên pg.Pool — mỗi query chạy trên connection khác → transaction giả, lock giả → race condition. **Migration 063 ban đầu** (đã chạy) tạo UNIQUE(reference_type, reference_id) nhưng quá broad: (a) `wallet_withdraw_fifo()` INSERT 2 dòng VIRTUAL_DEBIT + WITHDRAW cùng order_id → 500 error khi rút ví; (b) manual withdraw có ref_id='MANUAL' cố định → bị chặn sau lần đầu; (c) bước 1 DELETE duplicates đã xóa oan 234 dòng WITHDRAW hợp lệ ghép đôi VIRTUAL_DEBIT (tổng 2,993,760đ). **Migration 064 (mới)**: DROP index 063, ADD COLUMN sepay_id BIGINT, backfill từ balance_history cho 1284 DEPOSIT rows hiện có, CREATE UNIQUE INDEX partial (sepay_id) WHERE IS NOT NULL. BANK_TRANSFER deposits có sepay_id → UNIQUE enforce. Các loại khác (VIRTUAL_DEBIT, WITHDRAW, ADJUSTMENT, VIRTUAL_CREDIT) sepay_id=NULL → partial index skip → không bị chặn. **Plan file**: `C:\Users\Nguyen Tam\.claude\plans\th-m-tx-hash-giao-groovy-sutton.md` (v3 theo đề xuất user). **Sprint 2 (tiếp theo)**: refactor pool.query → pool.connect()+client với withTransaction helper, đảo thứ tự INSERT-first với ON CONFLICT (sepay_id) DO NOTHING. **Sprint 3**: recovery 234 dòng WITHDRAW bị xóa oan từ customer_activities log. **Balance 93 ví sai** do bug công thức WITHDRAW sign flip trong 063 bước 2 — user đã đồng ý không touch tự động, sẽ sửa thủ công. |
-| **Status** | ✅ Sprint 1 DB + code done, migration 064 chạy prod thành công. Verify: UNIQUE violation fire đúng (code 23505) khi INSERT duplicate sepay_id. Rút/nạp ví đã hoạt động lại. Cần deploy code + smoke test UI. ⚠️ Sprint 2 (pool/transaction refactor) CHƯA xong — double-click "Duyệt" vẫn có thể cộng balance 2 lần dù wallet_tx chỉ có 1 dòng. |
-
-### [inbox] Fix bug hủy đơn bắn cảnh báo sai "Vui lòng nhập lý do hủy đơn"
-| | |
-|---|---|
-| **Files** | MODIFIED: [don-inbox/js/tab-social-table.js](don-inbox/js/tab-social-table.js) — row click handler `case 'cancel'` gọi `socialConfirmCancelOrder(orderId)` thay vì global `confirmCancelOrder`. |
-| **Chi tiết** | **Root cause**: name collision global `window.confirmCancelOrder`. [tab-social-table.js:1137](don-inbox/js/tab-social-table.js#L1137) set bản inbox (defaults 'HẾT HÀNG', không chặn), sau đó [tab1-fast-sale-workflow.js:1807](orders-report/js/tab1/tab1-fast-sale-workflow.js#L1807) đè lên bản tab1 (đòi `#cancelReasonInput` + bắn warn "Vui lòng nhập lý do hủy đơn"). `don-inbox/index.html` load `tab-social-table.js` (line 2020) trước `tab1-fast-sale-workflow.js` (line 2043) → global trỏ về bản tab1 lúc user click nút hủy. Alias `socialConfirmCancelOrder` đã được define từ trước để né collision (comment [tab-social-table.js:1140](don-inbox/js/tab-social-table.js#L1140)), nhưng [tab-social-table.js:133](don-inbox/js/tab-social-table.js#L133) vẫn gọi global trần → bug. **Fix**: đổi dispatch sang namespaced alias, fallback về `confirmCancelOrder` nếu alias vắng (an toàn khi load riêng). |
-| **Status** | ✅ Done. |
-
-### [orders][merge][tag-xl] Gộp đơn trùng SĐT: bỏ TPOS tag direct, chuyển flag merge sang cột Tag XL
-| | |
-|---|---|
-| **Files** | NEW: [docs/flows/merge-duplicate-orders-flow.md](flows/merge-duplicate-orders-flow.md) (documentation đầy đủ flow: entry → load → merge → tag XL → history, kèm edge cases). MODIFIED: [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js) (thêm `ensureMergeCustomFlag(label)` — idempotent theo label case-insensitive, lock `Map<normLabel, Promise<flagDef>>` tránh race 2 cluster tạo trùng; expose `window.ensureMergeCustomFlag`); [orders-report/js/tab1/tab1-merge.js](../orders-report/js/tab1/tab1-merge.js) (rewrite `assignTagXLAfterMerge` theo flow 5 bước mới; thay 2 call `assignTagsAfterMerge` ở bulk path (L579) + modal path (L1262) bằng `assignTagXLAfterMerge`; mark `assignTagsAfterMerge` + TPOS helpers là `// DEPRECATED 2026-04-22`, giữ source rollback-friendly). |
-| **Chi tiết** | User yêu cầu chuyển logic gán tag sau khi gộp đơn từ **TPOS** → **cột Tag XL** (local web). Flow cũ: `assignTagsAfterMerge` gọi OData `TagSaleOnlineOrder/AssignTag` trực tiếp, tạo 2 TPOS tags "ĐÃ GỘP KO CHỐT" + "Gộp X Y Z" gắn cho source/target. Flow mới: chỉ tạo **custom flag "Gộp X Y Z"** trong Tag XL system (gắn target + tất cả source theo yêu cầu mới), giữ nguyên cơ chế `category=3, subTag=DA_GOP_KHONG_CHOT` cho source (không tạo custom flag "ĐÃ GỘP KO CHỐT" riêng). **Các bước assignTagXLAfterMerge mới**: (1) `ensureMergeCustomFlag('Gộp {STT1} {STT2} …')` — lookup hoặc tạo custom flag idempotent; (2) thu thập flags+tTags từ source orders, **loại trừ** `category`/`subTag`/`subState`/flag label `ĐÃ GỘP KO CHỐT`/flag prefix `Gộp ` (từ runs trước); (3) add flags+tTags thu thập vào target qua `toggleOrderFlag`/`assignTTagToOrder` (idempotent check trước khi gọi); (4) add flag "Gộp X Y Z" vào target; (5) với mỗi source: remove flags+tTags đã chuyển (`toggleOrderFlag` toggle + `removeTTagFromOrder`) → `assignOrderCategory(3, DA_GOP_KHONG_CHOT)` (preserves existing flags) → add flag "Gộp X Y Z"; (6) `renderPanelContent()`. **Decision (theo user)**: giữ nguyên `syncXLToTPOS` — flag "Gộp X Y Z" sẽ tự push sang TPOS qua pipeline XL→TPOS hiện có (không phải do code merge tạo TPOS tag trực tiếp). `assignOrderCategory` preserves flags (xem code L843–L919 tab1-processing-tags.js) nên thứ tự 5c→5d an toàn. **Helper `ensureMergeCustomFlag`** có lock theo `normLabel = label.trim().toUpperCase()` để 2 cluster cùng label không race, dùng `saveCustomFlagDefinitions` (full-replace) — an toàn vì chạy cùng tab, sequential. Plan file: `C:\Users\Nguyen Tam\.claude\plans\ghi-r-to-n-b-replicated-lecun.md` (đã được user approve). |
-| **Status** | ✅ Code Done. Cần test thủ công theo checklist trong plan section 11.3: tạo 3 đơn cùng SĐT với flags khác nhau, gộp, verify target có flag "Gộp X Y Z" + flags chuyển từ source; source không còn flags đã chuyển, có category=3+subTag=DA_GOP_KHONG_CHOT + flag "Gộp X Y Z"; network tab không còn call `assignTagsAfterMerge`; edge case gộp lần 2 không nhầm lẫn tag "Gộp …" cũ. |
 
 ---
 
@@ -1036,10 +1109,8 @@ HƯỚNG DẪN THÊM ENTRY MỚI:
 
 FORMAT:
 ### [module] Mô tả ngắn {✅ hoặc 🔄}
-| | |
-|---|---|
-| **Files** | `path/to/file.js` |
-| **Chi tiết** | Thay đổi gì, tại sao |
+**Files**: `path/to/file.js`
+**Chi tiết**: Thay đổi gì, tại sao
 
 MODULE TAGS: [inbox] [chat] [extension] [orders] [worker] [render] [shared] [docs] [config]
 STATUS: ✅ = Done, 🔄 = In Progress

@@ -32,7 +32,12 @@
 
 const express = require('express');
 const router = express.Router();
-const { normalizePhone, getOrCreateCustomer, detectCarrier, validateCustomerData } = require('../../utils/customer-helpers');
+const {
+    normalizePhone,
+    getOrCreateCustomer,
+    detectCarrier,
+    validateCustomerData,
+} = require('../../utils/customer-helpers');
 const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
 const { checkCustomerAlerts } = require('../../services/pancake-alert-service');
 
@@ -63,7 +68,7 @@ router.get('/', async (req, res) => {
         status,
         search,
         sort = 'created_at',
-        order = 'desc'
+        order = 'desc',
     } = req.query;
 
     try {
@@ -118,8 +123,8 @@ router.get('/', async (req, res) => {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total,
-                totalPages: Math.ceil(total / limit)
-            }
+                totalPages: Math.ceil(total / limit),
+            },
         });
     } catch (error) {
         handleError(res, error, 'Failed to list customers');
@@ -163,10 +168,9 @@ router.get('/stats', async (req, res) => {
                 active: parseInt(stats.active),
                 inactive: parseInt(stats.inactive),
                 total_debt: parseInt(stats.total_debt) || 0,
-                avg_debt: parseFloat(stats.avg_debt) || 0
-            }
+                avg_debt: parseFloat(stats.avg_debt) || 0,
+            },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to get customer stats');
     }
@@ -192,20 +196,29 @@ router.get('/duplicates', async (req, res) => {
             GROUP BY phone
             HAVING COUNT(*) > 1
         `);
-        const duplicatePhones = duplicatePhonesResult.rows.map(r => r.phone);
+        const duplicatePhones = duplicatePhonesResult.rows.map((r) => r.phone);
 
         if (duplicatePhones.length === 0) {
             return res.json({
                 success: true,
                 data: [],
-                pagination: { page: pageNum, limit: limitNum, total: 0, totalPages: 0, duplicate_phones_count: 0 }
+                pagination: {
+                    page: pageNum,
+                    limit: limitNum,
+                    total: 0,
+                    totalPages: 0,
+                    duplicate_phones_count: 0,
+                },
             });
         }
 
-        const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE phone = ANY($1)', [duplicatePhones]);
+        const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE phone = ANY($1)', [
+            duplicatePhones,
+        ]);
         const total = parseInt(countResult.rows[0].count);
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT c.*, COALESCE(dp.duplicate_count, 1) as duplicate_count
             FROM customers c
             LEFT JOIN (
@@ -217,7 +230,9 @@ router.get('/duplicates', async (req, res) => {
             WHERE c.phone = ANY($1)
             ORDER BY c.phone, c.created_at DESC
             LIMIT $2 OFFSET $3
-        `, [duplicatePhones, limitNum, offset]);
+        `,
+            [duplicatePhones, limitNum, offset]
+        );
 
         res.json({
             success: true,
@@ -227,10 +242,9 @@ router.get('/duplicates', async (req, res) => {
                 limit: limitNum,
                 total,
                 totalPages: Math.ceil(total / limitNum),
-                duplicate_phones_count: duplicatePhones.length
-            }
+                duplicate_phones_count: duplicatePhones.length,
+            },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to get duplicate customers');
     }
@@ -252,7 +266,8 @@ router.get('/recent', async (req, res) => {
         const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE active = true');
         const total = parseInt(countResult.rows[0].count);
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT
                 c.*,
                 COALESCE(w.balance, 0) + COALESCE(w.virtual_balance, 0) as balance,
@@ -263,7 +278,9 @@ router.get('/recent', async (req, res) => {
             WHERE c.active = true
             ORDER BY COALESCE(c.last_interaction_date, c.updated_at, c.created_at) DESC
             LIMIT $1 OFFSET $2
-        `, [limitNum, offset]);
+        `,
+            [limitNum, offset]
+        );
 
         res.json({
             success: true,
@@ -272,10 +289,9 @@ router.get('/recent', async (req, res) => {
                 page: pageNum,
                 limit: limitNum,
                 total,
-                totalPages: Math.ceil(total / limitNum)
-            }
+                totalPages: Math.ceil(total / limitNum),
+            },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to get recent customers');
     }
@@ -357,16 +373,26 @@ router.post('/link-fb-ids', async (req, res) => {
             return res.status(400).json({ error: 'Array of {fb_id, name, phone?} required' });
         }
 
-        let linked = 0, created = 0, skipped = 0;
+        let linked = 0,
+            created = 0,
+            skipped = 0;
 
         for (const item of items) {
             try {
                 const { fb_id, name, phone } = item;
-                if (!fb_id) { skipped++; continue; }
+                if (!fb_id) {
+                    skipped++;
+                    continue;
+                }
 
                 // Skip if fb_id already linked
-                const existing = await db.query('SELECT id FROM customers WHERE fb_id = $1', [fb_id]);
-                if (existing.rows.length > 0) { skipped++; continue; }
+                const existing = await db.query('SELECT id FROM customers WHERE fb_id = $1', [
+                    fb_id,
+                ]);
+                if (existing.rows.length > 0) {
+                    skipped++;
+                    continue;
+                }
 
                 // Try linking by phone
                 if (phone) {
@@ -376,7 +402,10 @@ router.post('/link-fb-ids', async (req, res) => {
                             'UPDATE customers SET fb_id = $1 WHERE phone = $2 AND fb_id IS NULL RETURNING id',
                             [fb_id, norm]
                         );
-                        if (updated.rows.length > 0) { linked++; continue; }
+                        if (updated.rows.length > 0) {
+                            linked++;
+                            continue;
+                        }
 
                         // Phone not in DB → create new customer
                         await db.query(
@@ -397,7 +426,9 @@ router.post('/link-fb-ids', async (req, res) => {
             }
         }
 
-        console.log(`[CUSTOMERS] link-fb-ids: linked=${linked}, created=${created}, skipped=${skipped}`);
+        console.log(
+            `[CUSTOMERS] link-fb-ids: linked=${linked}, created=${created}, skipped=${skipped}`
+        );
         res.json({ success: true, linked, created, skipped });
     } catch (error) {
         handleError(res, error, 'Failed to link fb_ids');
@@ -434,9 +465,19 @@ router.post('/sync-pancake', async (req, res) => {
     try {
         const db = req.app.locals.chatDb;
         const {
-            page_id, fb_id, global_id, name, phone,
-            gender, birthday, lives_in, can_inbox,
-            pancake_id, notes, reports_by_phone, ad_clicks
+            page_id,
+            fb_id,
+            global_id,
+            name,
+            phone,
+            gender,
+            birthday,
+            lives_in,
+            can_inbox,
+            pancake_id,
+            notes,
+            reports_by_phone,
+            ad_clicks,
         } = req.body;
 
         if (!fb_id && !phone) {
@@ -452,7 +493,8 @@ router.post('/sync-pancake', async (req, res) => {
         }
 
         // Parse order stats from reports_by_phone
-        let orderSuccess = 0, orderFail = 0;
+        let orderSuccess = 0,
+            orderFail = 0;
         if (reports_by_phone && typeof reports_by_phone === 'object') {
             for (const report of Object.values(reports_by_phone)) {
                 orderSuccess += report.order_success || 0;
@@ -480,7 +522,8 @@ router.post('/sync-pancake', async (req, res) => {
         let result;
         if (existingId) {
             // Update existing
-            result = await db.query(`
+            result = await db.query(
+                `
                 UPDATE customers SET
                     global_id = COALESCE($1, global_id),
                     fb_id = COALESCE($2, fb_id),
@@ -497,38 +540,52 @@ router.post('/sync-pancake', async (req, res) => {
                     pancake_synced_at = NOW()
                 WHERE id = $13
                 RETURNING *
-            `, [
-                global_id || null, fb_id || null, name || null,
-                gender || null, birthday || null, lives_in || null,
-                can_inbox !== undefined ? can_inbox : null,
-                pancake_id || null,
-                notes ? JSON.stringify(notes) : null,
-                orderSuccess, orderFail,
-                JSON.stringify(pancakeData),
-                existingId
-            ]);
+            `,
+                [
+                    global_id || null,
+                    fb_id || null,
+                    name || null,
+                    gender || null,
+                    birthday || null,
+                    lives_in || null,
+                    can_inbox !== undefined ? can_inbox : null,
+                    pancake_id || null,
+                    notes ? JSON.stringify(notes) : null,
+                    orderSuccess,
+                    orderFail,
+                    JSON.stringify(pancakeData),
+                    existingId,
+                ]
+            );
             // Fire-and-forget: check for alerts
             checkCustomerAlerts(db, result.rows[0], 'updated').catch(() => {});
             res.json({ success: true, action: 'updated', data: result.rows[0] });
         } else {
             // Create new
-            result = await db.query(`
+            result = await db.query(
+                `
                 INSERT INTO customers (phone, name, fb_id, global_id, gender, birthday, lives_in,
                     can_inbox, pancake_id, pancake_notes, order_success_count, order_fail_count,
                     pancake_data, pancake_synced_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
                 RETURNING *
-            `, [
-                norm || `pancake_${fb_id}`,
-                name || 'Khách hàng',
-                fb_id || null, global_id || null,
-                gender || null, birthday || null, lives_in || null,
-                can_inbox !== undefined ? can_inbox : true,
-                pancake_id || null,
-                JSON.stringify(notes || []),
-                orderSuccess, orderFail,
-                JSON.stringify(pancakeData)
-            ]);
+            `,
+                [
+                    norm || `pancake_${fb_id}`,
+                    name || 'Khách hàng',
+                    fb_id || null,
+                    global_id || null,
+                    gender || null,
+                    birthday || null,
+                    lives_in || null,
+                    can_inbox !== undefined ? can_inbox : true,
+                    pancake_id || null,
+                    JSON.stringify(notes || []),
+                    orderSuccess,
+                    orderFail,
+                    JSON.stringify(pancakeData),
+                ]
+            );
             // Fire-and-forget: check for alerts
             checkCustomerAlerts(db, result.rows[0], 'created').catch(() => {});
             res.json({ success: true, action: 'created', data: result.rows[0] });
@@ -574,25 +631,32 @@ router.get('/:id', async (req, res) => {
         const phone = customer.phone;
 
         // Get active virtual credits
-        const creditsResult = await db.query(`
+        const creditsResult = await db.query(
+            `
             SELECT id, original_amount, remaining_amount, issued_at, expires_at, status, source_type
             FROM virtual_credits
             WHERE phone = $1 AND status = 'ACTIVE' AND expires_at > NOW()
             ORDER BY expires_at ASC
-        `, [phone]);
+        `,
+            [phone]
+        );
 
         // Get recent tickets (last 10)
-        const ticketsResult = await db.query(`
+        const ticketsResult = await db.query(
+            `
             SELECT ticket_code, type, status, order_id, tpos_order_id, refund_amount, products, internal_note,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_tickets
             WHERE phone = $1 AND status != 'DELETED'
             ORDER BY created_at DESC
             LIMIT 10
-        `, [phone]);
+        `,
+            [phone]
+        );
 
         // Get recent activities (last 20) - exclude wallet types (shown from wallet_transactions instead)
-        const activitiesResult = await db.query(`
+        const activitiesResult = await db.query(
+            `
             SELECT activity_type, title, description, icon, color, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_activities
@@ -600,7 +664,9 @@ router.get('/:id', async (req, res) => {
                 AND activity_type NOT IN ('WALLET_DEPOSIT', 'WALLET_WITHDRAW', 'WALLET_REFUND', 'WALLET_VIRTUAL_CREDIT', 'ORDER_CANCEL_REFUND')
             ORDER BY created_at DESC
             LIMIT 20
-        `, [phone]);
+        `,
+            [phone]
+        );
 
         // Get recent wallet transactions (with balance_before/after for "Số dư sau" display)
         // LEFT JOIN balance_history so CK Sepay rows carry the approval image URL
@@ -625,7 +691,8 @@ router.get('/:id', async (req, res) => {
         } catch (queryError) {
             // Fallback: balance_history.verification_image_url column may not exist in older envs
             if (queryError.message && queryError.message.includes('verification_image_url')) {
-                walletTxResult = await db.query(`
+                walletTxResult = await db.query(
+                    `
                     SELECT id, phone, type, amount,
                         balance_before, balance_after,
                         virtual_balance_before, virtual_balance_after,
@@ -635,7 +702,9 @@ router.get('/:id', async (req, res) => {
                     WHERE phone = $1
                     ORDER BY created_at DESC
                     LIMIT 20
-                `, [phone]);
+                `,
+                    [phone]
+                );
             } else {
                 throw queryError;
             }
@@ -645,20 +714,26 @@ router.get('/:id', async (req, res) => {
         // Wrapped in try/catch — if enrich fails, return raw rows instead of 500.
         try {
             const adjustRefIds = walletTxResult.rows
-                .filter(r => r.type === 'ADJUSTMENT'
-                          && r.reference_type === 'balance_history'
-                          && /^\d+$/.test(r.reference_id || ''))
-                .map(r => parseInt(r.reference_id, 10));
+                .filter(
+                    (r) =>
+                        r.type === 'ADJUSTMENT' &&
+                        r.reference_type === 'balance_history' &&
+                        /^\d+$/.test(r.reference_id || '')
+                )
+                .map((r) => parseInt(r.reference_id, 10));
 
             if (adjustRefIds.length > 0) {
-                const adjResult = await db.query(`
+                const adjResult = await db.query(
+                    `
                     SELECT original_transaction_id, wrong_customer_phone, correct_customer_phone,
                            reason, created_by,
                            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
                     FROM wallet_adjustments
                     WHERE original_transaction_id = ANY($1::int[])
-                `, [adjustRefIds]);
-                const adjMap = new Map(adjResult.rows.map(a => [a.original_transaction_id, a]));
+                `,
+                    [adjustRefIds]
+                );
+                const adjMap = new Map(adjResult.rows.map((a) => [a.original_transaction_id, a]));
                 for (const r of walletTxResult.rows) {
                     if (r.type !== 'ADJUSTMENT') continue;
                     const adj = adjMap.get(parseInt(r.reference_id, 10));
@@ -669,8 +744,11 @@ router.get('/:id', async (req, res) => {
                     r.wrong_customer_phone = adj.wrong_customer_phone;
                     r.correct_customer_phone = adj.correct_customer_phone;
                     r.counterparty_phone =
-                        r.phone === adj.wrong_customer_phone ? adj.correct_customer_phone :
-                        r.phone === adj.correct_customer_phone ? adj.wrong_customer_phone : null;
+                        r.phone === adj.wrong_customer_phone
+                            ? adj.correct_customer_phone
+                            : r.phone === adj.correct_customer_phone
+                              ? adj.wrong_customer_phone
+                              : null;
                 }
             }
         } catch (enrichErr) {
@@ -678,16 +756,20 @@ router.get('/:id', async (req, res) => {
         }
 
         // Get notes
-        const notesResult = await db.query(`
+        const notesResult = await db.query(
+            `
             SELECT id, content, is_pinned, category, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_notes
             WHERE phone = $1
             ORDER BY is_pinned DESC, created_at DESC
-        `, [phone]);
+        `,
+            [phone]
+        );
 
         // Get ticket statistics
-        const ticketStatsResult = await db.query(`
+        const ticketStatsResult = await db.query(
+            `
             SELECT
                 COUNT(*) as total,
                 COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED', 'DELETED')) as pending,
@@ -695,7 +777,9 @@ router.get('/:id', async (req, res) => {
                 SUM(refund_amount) FILTER (WHERE status = 'COMPLETED') as total_refunded
             FROM customer_tickets
             WHERE phone = $1
-        `, [phone]);
+        `,
+            [phone]
+        );
 
         res.json({
             success: true,
@@ -707,7 +791,9 @@ router.get('/:id', async (req, res) => {
                 wallet: {
                     balance: parseFloat(customer.wallet_balance) || 0,
                     virtualBalance: parseFloat(customer.wallet_virtual_balance) || 0,
-                    total: (parseFloat(customer.wallet_balance) || 0) + (parseFloat(customer.wallet_virtual_balance) || 0),
+                    total:
+                        (parseFloat(customer.wallet_balance) || 0) +
+                        (parseFloat(customer.wallet_virtual_balance) || 0),
                     virtualCredits: creditsResult.rows,
                 },
                 recentTickets: ticketsResult.rows,
@@ -737,7 +823,9 @@ router.get('/:id/quick-view', async (req, res) => {
         if (isPhone) {
             lookupPhone = normalizePhone(id);
         } else {
-            const result = await db.query('SELECT phone FROM customers WHERE id = $1', [parseInt(id)]);
+            const result = await db.query('SELECT phone FROM customers WHERE id = $1', [
+                parseInt(id),
+            ]);
             if (result.rows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Customer not found' });
             }
@@ -749,14 +837,17 @@ router.get('/:id/quick-view', async (req, res) => {
         }
 
         // 1. Find customer in DB
-        const customerResult = await db.query(`
+        const customerResult = await db.query(
+            `
             SELECT c.*,
                    w.balance as wallet_balance,
                    w.virtual_balance as wallet_virtual_balance
             FROM customers c
             LEFT JOIN customer_wallets w ON w.phone = c.phone
             WHERE c.phone = $1
-        `, [lookupPhone]);
+        `,
+            [lookupPhone]
+        );
 
         let customer = customerResult.rows[0];
         let source = 'customer360';
@@ -776,7 +867,7 @@ router.get('/:id/quick-view', async (req, res) => {
                         status: tposCustomer.Status || 'Bình thường',
                         tpos_id: tposCustomer.Id,
                         wallet_balance: 0,
-                        wallet_virtual_balance: 0
+                        wallet_virtual_balance: 0,
                     };
                     source = 'tpos';
                     isFromTpos = true;
@@ -791,21 +882,32 @@ router.get('/:id/quick-view', async (req, res) => {
         }
 
         // 3. Get pending deposits
-        const pendingResult = await db.query(`
+        const pendingResult = await db.query(
+            `
             SELECT COUNT(*) as count, COALESCE(SUM(transfer_amount), 0) as total
             FROM balance_history
             WHERE linked_customer_phone = $1
               AND verification_status = 'PENDING_VERIFICATION'
               AND wallet_processed = FALSE
-        `, [lookupPhone]);
+        `,
+            [lookupPhone]
+        );
 
-        // 4. Get 5 recent wallet transactions (incl. sepay image url for processed CK deposits)
+        // 4. Get 5 recent wallet transactions (incl. sepay image url + manager_reviewed
+        // status để tooltip hiển thị nút "Kiểm tra giao dịch")
         let transactionsResult;
         try {
-            transactionsResult = await db.query(`
-                SELECT wt.type, wt.amount, wt.note, wt.created_at,
+            transactionsResult = await db.query(
+                `
+                SELECT wt.id, wt.type, wt.amount, wt.note, wt.created_at,
                        wt.source, wt.reference_type, wt.reference_id,
-                       bh.verification_image_url AS sepay_image_url
+                       wt.manager_reviewed AS wt_manager_reviewed,
+                       wt.reviewed_by AS wt_reviewed_by,
+                       wt.reviewed_at AS wt_reviewed_at,
+                       bh.verification_image_url AS sepay_image_url,
+                       bh.manager_reviewed AS bh_manager_reviewed,
+                       bh.reviewed_by AS bh_reviewed_by,
+                       bh.reviewed_at AS bh_reviewed_at
                 FROM wallet_transactions wt
                 LEFT JOIN balance_history bh
                   ON wt.reference_type = 'balance_history'
@@ -813,19 +915,30 @@ router.get('/:id/quick-view', async (req, res) => {
                 WHERE wt.phone = $1
                 ORDER BY wt.created_at DESC
                 LIMIT 5
-            `, [lookupPhone]);
+            `,
+                [lookupPhone]
+            );
         } catch (joinErr) {
-            // Fallback for older schemas without verification_image_url
-            if (joinErr.message && joinErr.message.includes('verification_image_url')) {
-                transactionsResult = await db.query(`
-                    SELECT type, amount, note, created_at,
+            // Fallback for older schemas without verification_image_url / manager_reviewed
+            if (
+                joinErr.message &&
+                (joinErr.message.includes('verification_image_url') ||
+                    joinErr.message.includes('manager_reviewed'))
+            ) {
+                transactionsResult = await db.query(
+                    `
+                    SELECT id, type, amount, note, created_at,
                            source, reference_type, reference_id,
-                           NULL AS sepay_image_url
+                           NULL AS sepay_image_url,
+                           NULL AS wt_manager_reviewed,
+                           NULL AS bh_manager_reviewed
                     FROM wallet_transactions
                     WHERE phone = $1
                     ORDER BY created_at DESC
                     LIMIT 5
-                `, [lookupPhone]);
+                `,
+                    [lookupPhone]
+                );
             } else {
                 throw joinErr;
             }
@@ -834,7 +947,8 @@ router.get('/:id/quick-view', async (req, res) => {
         // 5. Get pending balance_history rows (for inline approve button in popovers)
         let pendingTransactions = [];
         try {
-            const pendingTxResult = await db.query(`
+            const pendingTxResult = await db.query(
+                `
                 SELECT id, transfer_amount AS amount, content, transaction_date,
                        gateway, account_number, customer_name, linked_customer_phone,
                        verification_image_url AS sepay_image_url, wallet_processed
@@ -844,7 +958,9 @@ router.get('/:id/quick-view', async (req, res) => {
                   AND wallet_processed = FALSE
                 ORDER BY transaction_date DESC
                 LIMIT 5
-            `, [lookupPhone]);
+            `,
+                [lookupPhone]
+            );
             pendingTransactions = pendingTxResult.rows;
         } catch (pendErr) {
             console.warn('[V2 QUICK-VIEW] pending_transactions query failed:', pendErr.message);
@@ -859,17 +975,18 @@ router.get('/:id/quick-view', async (req, res) => {
                 wallet: {
                     balance: parseFloat(customer.wallet_balance) || 0,
                     virtual_balance: parseFloat(customer.wallet_virtual_balance) || 0,
-                    total: (parseFloat(customer.wallet_balance) || 0) + (parseFloat(customer.wallet_virtual_balance) || 0)
+                    total:
+                        (parseFloat(customer.wallet_balance) || 0) +
+                        (parseFloat(customer.wallet_virtual_balance) || 0),
                 },
                 pending_deposits: {
                     count: parseInt(pendingResult.rows[0].count) || 0,
-                    total: parseFloat(pendingResult.rows[0].total) || 0
+                    total: parseFloat(pendingResult.rows[0].total) || 0,
                 },
                 recent_transactions: transactionsResult.rows,
-                pending_transactions: pendingTransactions
-            }
+                pending_transactions: pendingTransactions,
+            },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to fetch customer quick-view');
     }
@@ -891,22 +1008,30 @@ router.get('/:id/activity', async (req, res) => {
         if (isPhone) {
             phone = normalizePhone(id);
         } else {
-            const customerResult = await db.query('SELECT phone FROM customers WHERE id = $1', [parseInt(id)]);
+            const customerResult = await db.query('SELECT phone FROM customers WHERE id = $1', [
+                parseInt(id),
+            ]);
             if (customerResult.rows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Customer not found' });
             }
             phone = customerResult.rows[0].phone;
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT *, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_activities
             WHERE phone = $1
             ORDER BY created_at DESC
             LIMIT $2 OFFSET $3
-        `, [phone, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
+        `,
+            [phone, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]
+        );
 
-        const countResult = await db.query('SELECT COUNT(*) FROM customer_activities WHERE phone = $1', [phone]);
+        const countResult = await db.query(
+            'SELECT COUNT(*) FROM customer_activities WHERE phone = $1',
+            [phone]
+        );
 
         res.json({
             success: true,
@@ -915,8 +1040,8 @@ router.get('/:id/activity', async (req, res) => {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total: parseInt(countResult.rows[0].count),
-                totalPages: Math.ceil(countResult.rows[0].count / limit)
-            }
+                totalPages: Math.ceil(countResult.rows[0].count / limit),
+            },
         });
     } catch (error) {
         handleError(res, error, 'Failed to fetch customer activities');
@@ -936,7 +1061,9 @@ router.get('/:id/rfm', async (req, res) => {
     try {
         let customerId;
         if (isPhone) {
-            const customerResult = await db.query('SELECT id FROM customers WHERE phone = $1', [normalizePhone(id)]);
+            const customerResult = await db.query('SELECT id FROM customers WHERE phone = $1', [
+                normalizePhone(id),
+            ]);
             if (customerResult.rows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Customer not found' });
             }
@@ -973,7 +1100,9 @@ router.get('/:id/transactions', async (req, res) => {
         if (isPhone) {
             phone = normalizePhone(id);
         } else {
-            const customerResult = await db.query('SELECT phone FROM customers WHERE id = $1', [parseInt(id)]);
+            const customerResult = await db.query('SELECT phone FROM customers WHERE id = $1', [
+                parseInt(id),
+            ]);
             if (customerResult.rows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Customer not found' });
             }
@@ -1038,7 +1167,13 @@ router.get('/:id/transactions', async (req, res) => {
 
         if (type && type !== 'all' && type !== '') {
             const walletTypes = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT'];
-            const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT', 'BOOM'];
+            const ticketTypes = [
+                'RETURN_CLIENT',
+                'RETURN_SHIPPER',
+                'OTHER',
+                'COD_ADJUSTMENT',
+                'BOOM',
+            ];
 
             if (walletTypes.includes(type)) {
                 finalWallet += ` AND wt.type = '${type}'`;
@@ -1107,7 +1242,8 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO customers (phone, name, email, address, status, tier, tags)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (phone) DO UPDATE SET
@@ -1119,15 +1255,17 @@ router.post('/', async (req, res) => {
                 tags = COALESCE(EXCLUDED.tags, customers.tags),
                 updated_at = NOW()
             RETURNING *
-        `, [
-            normalizedPhone,
-            name || 'Khách hàng ' + normalizedPhone,
-            email,
-            address,
-            status || 'Bình thường',
-            tier || 'normal',
-            JSON.stringify(tags || [])
-        ]);
+        `,
+            [
+                normalizedPhone,
+                name || 'Khách hàng ' + normalizedPhone,
+                email,
+                address,
+                status || 'Bình thường',
+                tier || 'normal',
+                JSON.stringify(tags || []),
+            ]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
@@ -1151,31 +1289,39 @@ router.post('/batch', async (req, res) => {
         let result;
         if (phones && phones.length > 0) {
             const normalizedPhones = phones.map(normalizePhone).filter(Boolean);
-            result = await db.query(`
+            result = await db.query(
+                `
                 SELECT c.*, w.balance as wallet_balance, w.virtual_balance as wallet_virtual_balance
                 FROM customers c
                 LEFT JOIN customer_wallets w ON c.id = w.customer_id
                 WHERE c.phone = ANY($1)
-            `, [normalizedPhones]);
+            `,
+                [normalizedPhones]
+            );
         } else {
-            result = await db.query(`
+            result = await db.query(
+                `
                 SELECT c.*, w.balance as wallet_balance, w.virtual_balance as wallet_virtual_balance
                 FROM customers c
                 LEFT JOIN customer_wallets w ON c.id = w.customer_id
                 WHERE c.id = ANY($1)
-            `, [ids.map(id => parseInt(id))]);
+            `,
+                [ids.map((id) => parseInt(id))]
+            );
         }
 
         const customerMap = {};
-        result.rows.forEach(row => {
+        result.rows.forEach((row) => {
             const key = phones ? row.phone : row.id;
             customerMap[key] = {
                 ...row,
                 wallet: {
                     balance: parseFloat(row.wallet_balance) || 0,
                     virtualBalance: parseFloat(row.wallet_virtual_balance) || 0,
-                    total: (parseFloat(row.wallet_balance) || 0) + (parseFloat(row.wallet_virtual_balance) || 0)
-                }
+                    total:
+                        (parseFloat(row.wallet_balance) || 0) +
+                        (parseFloat(row.wallet_virtual_balance) || 0),
+                },
             };
         });
 
@@ -1183,7 +1329,7 @@ router.post('/batch', async (req, res) => {
             success: true,
             data: customerMap,
             found: result.rows.length,
-            total: phones ? phones.length : ids.length
+            total: phones ? phones.length : ids.length,
         });
     } catch (error) {
         handleError(res, error, 'Failed to batch lookup customers');
@@ -1199,15 +1345,21 @@ router.post('/search', async (req, res) => {
     const { query, limit = 50 } = req.body;
 
     if (!query || query.length < 2) {
-        return res.status(400).json({ success: false, error: 'Search query must be at least 2 characters' });
+        return res
+            .status(400)
+            .json({ success: false, error: 'Search query must be at least 2 characters' });
     }
 
     try {
         try {
-            const result = await db.query('SELECT * FROM search_customers_priority($1, $2)', [query, parseInt(limit)]);
+            const result = await db.query('SELECT * FROM search_customers_priority($1, $2)', [
+                query,
+                parseInt(limit),
+            ]);
             return res.json({ success: true, data: result.rows });
         } catch (fnError) {
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 SELECT c.*, w.balance as wallet_balance, w.virtual_balance as wallet_virtual_balance
                 FROM customers c
                 LEFT JOIN customer_wallets w ON c.id = w.customer_id
@@ -1218,7 +1370,9 @@ router.post('/search', async (req, res) => {
                          ELSE 2 END,
                     c.total_orders DESC NULLS LAST
                 LIMIT $4
-            `, [`%${query}%`, query, `${query}%`, parseInt(limit)]);
+            `,
+                [`%${query}%`, query, `${query}%`, parseInt(limit)]
+            );
 
             return res.json({ success: true, data: result.rows });
         }
@@ -1237,7 +1391,9 @@ router.post('/import', async (req, res) => {
         const { customers } = req.body;
 
         if (!Array.isArray(customers) || customers.length === 0) {
-            return res.status(400).json({ success: false, error: 'Danh sách khách hàng không hợp lệ' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Danh sách khách hàng không hợp lệ' });
         }
 
         const values = [];
@@ -1263,12 +1419,16 @@ router.post('/import', async (req, res) => {
                 customer.tpos_data ? JSON.stringify(customer.tpos_data) : null
             );
 
-            placeholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10})`);
+            placeholders.push(
+                `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10})`
+            );
             paramIndex += 11;
         }
 
         if (placeholders.length === 0) {
-            return res.status(400).json({ success: false, error: 'Không có khách hàng hợp lệ để import' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Không có khách hàng hợp lệ để import' });
         }
 
         const query = `
@@ -1297,10 +1457,9 @@ router.post('/import', async (req, res) => {
             data: {
                 success: successCount,
                 failed: 0,
-                skipped: customers.length - successCount
-            }
+                skipped: customers.length - successCount,
+            },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to import customers');
     }
@@ -1318,7 +1477,15 @@ router.patch('/:id', async (req, res) => {
     const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
 
     try {
-        const allowedFields = ['name', 'email', 'address', 'status', 'tier', 'tags', 'internal_note'];
+        const allowedFields = [
+            'name',
+            'email',
+            'address',
+            'status',
+            'tier',
+            'tags',
+            'internal_note',
+        ];
         const setClauses = [];
         const params = [];
         let paramIndex = 1;
@@ -1373,7 +1540,9 @@ router.delete('/:id', async (req, res) => {
 
         let result;
         if (hard_delete === 'true') {
-            result = await db.query(`DELETE FROM customers WHERE ${whereClause} RETURNING *`, [lookupValue]);
+            result = await db.query(`DELETE FROM customers WHERE ${whereClause} RETURNING *`, [
+                lookupValue,
+            ]);
         } else {
             result = await db.query(
                 `UPDATE customers SET active = false, updated_at = CURRENT_TIMESTAMP WHERE ${whereClause} RETURNING *`,
@@ -1386,7 +1555,6 @@ router.delete('/:id', async (req, res) => {
         }
 
         res.json({ success: true, data: result.rows[0] });
-
     } catch (error) {
         handleError(res, error, 'Failed to delete customer');
     }
@@ -1402,13 +1570,16 @@ router.get('/:id/notes', async (req, res) => {
     if (!db) return res.status(503).json({ success: false, error: 'DB not available' });
 
     try {
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT id, content, is_pinned, category, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_notes
             WHERE phone = $1
             ORDER BY is_pinned DESC, created_at DESC
-        `, [id]);
+        `,
+            [id]
+        );
 
         res.json({ success: true, data: result.rows });
     } catch (error) {
@@ -1445,16 +1616,29 @@ router.post('/:id/notes', async (req, res) => {
 
         const customer = customerResult.rows[0];
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO customer_notes (phone, customer_id, content, category, is_pinned, created_by)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-        `, [customer.phone, customer.id, content, category || 'general', is_pinned || false, created_by || 'system']);
+        `,
+            [
+                customer.phone,
+                customer.id,
+                content,
+                category || 'general',
+                is_pinned || false,
+                created_by || 'system',
+            ]
+        );
 
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, icon, color)
             VALUES ($1, $2, 'NOTE_ADDED', $3, 'sticky-note', 'yellow')
-        `, [customer.phone, customer.id, content.substring(0, 100)]);
+        `,
+            [customer.phone, customer.id, content.substring(0, 100)]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
@@ -1480,9 +1664,18 @@ router.patch('/:id/notes/:noteId', async (req, res) => {
         const values = [];
         let idx = 1;
 
-        if (content) { setClauses.push(`content = $${idx++}`); values.push(content); }
-        if (category !== undefined) { setClauses.push(`category = $${idx++}`); values.push(category); }
-        if (is_pinned !== undefined) { setClauses.push(`is_pinned = $${idx++}`); values.push(is_pinned); }
+        if (content) {
+            setClauses.push(`content = $${idx++}`);
+            values.push(content);
+        }
+        if (category !== undefined) {
+            setClauses.push(`category = $${idx++}`);
+            values.push(category);
+        }
+        if (is_pinned !== undefined) {
+            setClauses.push(`is_pinned = $${idx++}`);
+            values.push(is_pinned);
+        }
         setClauses.push(`updated_at = NOW()`);
 
         values.push(parseInt(noteId));
@@ -1511,10 +1704,9 @@ router.delete('/:id/notes/:noteId', async (req, res) => {
     const { noteId } = req.params;
 
     try {
-        const result = await db.query(
-            'DELETE FROM customer_notes WHERE id = $1 RETURNING *',
-            [parseInt(noteId)]
-        );
+        const result = await db.query('DELETE FROM customer_notes WHERE id = $1 RETURNING *', [
+            parseInt(noteId),
+        ]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Note not found' });
@@ -1546,14 +1738,17 @@ router.get('/:id/notes', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT id, content, is_pinned, category, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
                 (updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as updated_at
             FROM customer_notes
             WHERE phone = $1
             ORDER BY is_pinned DESC, created_at DESC
-        `, [customerResult.rows[0].phone]);
+        `,
+            [customerResult.rows[0].phone]
+        );
 
         res.json({ success: true, data: result.rows });
     } catch (error) {
@@ -1570,7 +1765,9 @@ let activityConstraintMigrated = false;
 async function ensureActivityTypeConstraint(db) {
     if (activityConstraintMigrated) return;
     try {
-        await db.query(`ALTER TABLE customer_activities DROP CONSTRAINT IF EXISTS customer_activities_activity_type_check`);
+        await db.query(
+            `ALTER TABLE customer_activities DROP CONSTRAINT IF EXISTS customer_activities_activity_type_check`
+        );
         await db.query(`ALTER TABLE customer_activities ADD CONSTRAINT customer_activities_activity_type_check
             CHECK (activity_type IN (
                 'WALLET_DEPOSIT','WALLET_WITHDRAW','WALLET_VIRTUAL_CREDIT','WALLET_REFUND',
@@ -1579,7 +1776,9 @@ async function ensureActivityTypeConstraint(db) {
                 'MESSAGE_SENT','MESSAGE_RECEIVED','PROFILE_UPDATED','TAG_ADDED','NOTE_ADDED'
             ))`);
         activityConstraintMigrated = true;
-        console.log('[Customers V2] ✅ Activity type constraint migrated (added ORDER_CREATED, ORDER_CANCELLED, WALLET_REFUND)');
+        console.log(
+            '[Customers V2] ✅ Activity type constraint migrated (added ORDER_CREATED, ORDER_CANCELLED, WALLET_REFUND)'
+        );
     } catch (err) {
         console.warn('[Customers V2] Constraint migration warning:', err.message);
         activityConstraintMigrated = true; // Don't retry on every request
@@ -1589,10 +1788,22 @@ async function ensureActivityTypeConstraint(db) {
 router.post('/:id/activities', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by } = req.body;
+    const {
+        activity_type,
+        title,
+        description,
+        reference_type,
+        reference_id,
+        metadata,
+        icon,
+        color,
+        created_by,
+    } = req.body;
 
     if (!activity_type || !title) {
-        return res.status(400).json({ success: false, error: 'activity_type and title are required' });
+        return res
+            .status(400)
+            .json({ success: false, error: 'activity_type and title are required' });
     }
 
     const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
@@ -1604,10 +1815,14 @@ router.post('/:id/activities', async (req, res) => {
         let phone, customerId;
         if (isPhone) {
             phone = normalizePhone(id);
-            const customerResult = await db.query('SELECT id FROM customers WHERE phone = $1', [phone]);
+            const customerResult = await db.query('SELECT id FROM customers WHERE phone = $1', [
+                phone,
+            ]);
             customerId = customerResult.rows[0]?.id || null;
         } else {
-            const customerResult = await db.query('SELECT id, phone FROM customers WHERE id = $1', [parseInt(id)]);
+            const customerResult = await db.query('SELECT id, phone FROM customers WHERE id = $1', [
+                parseInt(id),
+            ]);
             if (customerResult.rows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Customer not found' });
             }
@@ -1624,16 +1839,26 @@ router.post('/:id/activities', async (req, res) => {
             customerId = insertResult.rows[0].id;
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
-        `, [
-            phone, customerId, activity_type, title,
-            description || null, reference_type || null, reference_id || null,
-            metadata ? JSON.stringify(metadata) : '{}',
-            icon || null, color || null, created_by || 'system'
-        ]);
+        `,
+            [
+                phone,
+                customerId,
+                activity_type,
+                title,
+                description || null,
+                reference_type || null,
+                reference_id || null,
+                metadata ? JSON.stringify(metadata) : '{}',
+                icon || null,
+                color || null,
+                created_by || 'system',
+            ]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
@@ -1668,14 +1893,23 @@ router.post('/:id/sync-tpos', async (req, res) => {
 
         if (tposResult) {
             // Partner already exists in TPOS — link it
-            await db.query(
-                'UPDATE customers SET tpos_id = $1 WHERE id = $2',
-                [String(tposResult.Id), customer.id]
-            );
-            res.json({ success: true, action: 'linked', tposId: tposResult.Id, tposName: tposResult.Name });
+            await db.query('UPDATE customers SET tpos_id = $1 WHERE id = $2', [
+                String(tposResult.Id),
+                customer.id,
+            ]);
+            res.json({
+                success: true,
+                action: 'linked',
+                tposId: tposResult.Id,
+                tposName: tposResult.Name,
+            });
         } else {
             // No TPOS partner found
-            res.json({ success: true, action: 'not_found', message: 'No TPOS partner with this phone' });
+            res.json({
+                success: true,
+                action: 'not_found',
+                message: 'No TPOS partner with this phone',
+            });
         }
     } catch (error) {
         handleError(res, error, 'Failed to sync customer to TPOS');

@@ -111,7 +111,10 @@ class PancakeDataManager {
         this.pageIds = [];
         this._lastConvId = {};
         this.CACHE_DURATION = 5 * 60 * 1000;
-        this.MSG_CACHE_DURATION = 2 * 60 * 1000;
+        // Sau khi áp dụng SWR pattern, có thể nới rộng TTL — return stale OK vì
+        // background revalidate auto-fire qua opts.onRevalidate. Realtime WS push
+        // patch cache qua patchMessageCache → cache always fresh giữa các lần mở.
+        this.MSG_CACHE_DURATION = 5 * 60 * 1000;
         this._messagesCache = new Map();
         this._lastPageFetch = null;
         // Pages with expired subscription (error 122) — skip in multi-page queries
@@ -492,10 +495,26 @@ class PancakeDataManager {
         opts = {}
     ) {
         const cacheKey = `${pageId}_${conversationId}`;
+        // SWR (stale-while-revalidate): khi có cache, return ngay (kể cả stale)
+        // và background revalidate qua opts.onRevalidate callback. Caller render
+        // cached instant → chat mở không loading; fresh data đến → re-render.
+        // Realtime WS push cũng patch cache qua handleNewMessage → cache always
+        // có message mới nhất giữa các lần mở.
         if (!forceRefresh && currentCount === null) {
             const cached = this._messagesCache.get(cacheKey);
-            if (cached && Date.now() - cached.timestamp < this.MSG_CACHE_DURATION) {
-                return { ...cached, fromCache: true };
+            if (cached) {
+                const isStale = Date.now() - cached.timestamp >= this.MSG_CACHE_DURATION;
+                if (isStale && typeof opts.onRevalidate === 'function') {
+                    // Fire-and-forget revalidate, không block return
+                    this._revalidateMessages(
+                        pageId,
+                        conversationId,
+                        customerId,
+                        cacheKey,
+                        opts
+                    ).catch(() => {});
+                }
+                return { ...cached, fromCache: true, isStale };
             }
         }
         try {
@@ -562,6 +581,7 @@ class PancakeDataManager {
                 recent_phone_numbers: data.recent_phone_numbers || [],
                 conv_phone_numbers: data.conv_phone_numbers || [],
                 notes: data.notes || [],
+                read_watermarks: data.read_watermarks || [],
                 timestamp: Date.now(),
             };
 
@@ -598,9 +618,50 @@ class PancakeDataManager {
                 recent_phone_numbers: [],
                 conv_phone_numbers: [],
                 notes: [],
+                read_watermarks: [],
                 fromCache: false,
             };
         }
+    }
+
+    /**
+     * Background revalidate cho SWR pattern. Fetch fresh data, update cache,
+     * gọi opts.onRevalidate(freshResult) để caller re-render.
+     */
+    async _revalidateMessages(pageId, conversationId, customerId, cacheKey, opts) {
+        try {
+            const fresh = await this.fetchMessages(
+                pageId,
+                conversationId,
+                null,
+                customerId,
+                true /* forceRefresh */,
+                { signal: opts.signal }
+            );
+            if (fresh && !fresh.fromCache && typeof opts.onRevalidate === 'function') {
+                opts.onRevalidate(fresh);
+            }
+            return fresh;
+        } catch (e) {
+            // Silent — caller đã render cached, revalidate fail không ảnh hưởng UX
+            console.warn('[PDM] revalidate failed:', e?.message || e);
+            return null;
+        }
+    }
+
+    /**
+     * Patch cache với 1 message mới (từ realtime WS). Giúp lần mở chat sau
+     * thấy luôn message mới nhất từ cache mà không cần fetch.
+     */
+    patchMessageCache(pageId, conversationId, newMsg) {
+        if (!pageId || !conversationId || !newMsg) return;
+        const cacheKey = `${pageId}_${conversationId}`;
+        const cached = this._messagesCache.get(cacheKey);
+        if (!cached) return;
+        // Skip nếu đã có message cùng id
+        if (cached.messages?.some?.((m) => String(m.id) === String(newMsg.id))) return;
+        cached.messages = [...(cached.messages || []), newMsg];
+        cached.timestamp = Date.now(); // refresh staleness
     }
 
     // Alias for compatibility

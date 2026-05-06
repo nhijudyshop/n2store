@@ -1117,27 +1117,55 @@ const ApiService = {
         console.log('[API] Print HTML received, length:', printHtml.length);
 
         // ========== Extract "Tổng tiền" from HTML for validation ==========
+        // Multiple regex patterns — TPOS may render slightly differently
+        // (Tổng tiền / Tổng cộng / Tổng thanh toán) and cell may have đ suffix.
         let refundAmountFromHtml = null;
+        const HTML_AMOUNT_PATTERNS = [
+            /Tổng tiền:?.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)/is,
+            /Tổng cộng:?.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)/is,
+            /Tổng thanh toán:?.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)/is,
+            /Tổng tiền[^<]*<\/td>\s*<td[^>]*>([0-9.,]+)/is,
+            />Tổng tiền[^<]*<.*?>([0-9.,]+)\s*đ/is,
+        ];
         try {
-            const totalMatch = printHtml.match(
-                /Tổng tiền:.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)<\/td>/is
-            );
-            if (totalMatch && totalMatch[1]) {
-                const amountStr = totalMatch[1].replace(/\./g, '').replace(/,/g, '');
-                refundAmountFromHtml = parseInt(amountStr, 10);
-                console.log('[API] Extracted refund amount from HTML:', refundAmountFromHtml);
-            } else {
-                console.warn('[API] Could not extract Tổng tiền from HTML');
+            for (const re of HTML_AMOUNT_PATTERNS) {
+                const m = printHtml.match(re);
+                if (m && m[1]) {
+                    const amountStr = m[1].replace(/[.,\s]/g, '');
+                    const parsed = parseInt(amountStr, 10);
+                    if (Number.isFinite(parsed) && parsed > 0) {
+                        refundAmountFromHtml = parsed;
+                        console.log(
+                            '[API] Extracted refund amount from HTML:',
+                            refundAmountFromHtml,
+                            'via pattern',
+                            HTML_AMOUNT_PATTERNS.indexOf(re)
+                        );
+                        break;
+                    }
+                }
+            }
+            if (refundAmountFromHtml === null) {
+                console.warn(
+                    '[API] Could not extract Tổng tiền from HTML — caller should fall back to refundAmountFromJson'
+                );
             }
         } catch (parseError) {
             console.error('[API] Error parsing refund amount from HTML:', parseError);
         }
+
+        // Authoritative: AmountTotal from refund order JSON (after partial-refund filter
+        // adjusted refundDetails.AmountTotal). Server is single source of truth.
+        // HTML parser ⇒ fragile; JSON ⇒ structured + reliable. Caller should prefer JSON.
+        const refundAmountFromJson =
+            typeof refundDetails?.AmountTotal === 'number' ? refundDetails.AmountTotal : null;
 
         return {
             refundOrderId: refundOrderId,
             printHtml: printHtml,
             confirmResult: confirmResult,
             refundAmountFromHtml: refundAmountFromHtml,
+            refundAmountFromJson: refundAmountFromJson,
         };
     },
 
