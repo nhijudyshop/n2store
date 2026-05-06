@@ -564,100 +564,135 @@ async function updateSaleOrderWithAPI() {
     }
 }
 
+/**
+ * Format RowVersion for OData If-Match header.
+ * RowVersion is base64-encoded byte array — wrap in weak ETag W/"...".
+ */
+function _formatRowVersionETag(rowVersion) {
+    if (rowVersion == null || rowVersion === '') return null;
+    return `W/"${String(rowVersion).replace(/"/g, '\\"')}"`;
+}
+
 async function _updateSaleOrderWithAPIImpl() {
-    try {
-        console.log('[SALE-API] Preparing to update order:', currentSaleOrderData.Id);
+    const MAX_RETRIES = 2;
+    let lastError = null;
 
-        // Get auth headers
-        const headers = await window.tokenManager.getAuthHeader();
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            if (attempt > 0) {
+                console.warn(
+                    `[SALE-API] Retry ${attempt}/${MAX_RETRIES} after concurrency conflict — re-fetching + re-merging...`
+                );
+            } else {
+                console.log('[SALE-API] Preparing to update order:', currentSaleOrderData.Id);
+            }
 
-        // 🔥 STEP 1: Fetch FULL order object from API first (critical!)
-        // This ensures we have all required fields like RowVersion, Partner, User, CRMTeam, etc.
-        const getUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})?$expand=Details,Partner,User,CRMTeam`;
-        console.log('[SALE-API] Fetching full order from API...');
+            const headers = await window.tokenManager.getAuthHeader();
 
-        const getResponse = await fetch(getUrl, {
-            method: 'GET',
-            headers: {
-                ...headers,
-                Accept: 'application/json',
-            },
-        });
-
-        if (!getResponse.ok) {
-            throw new Error(`Failed to fetch order: HTTP ${getResponse.status}`);
-        }
-
-        const fullOrder = await getResponse.json();
-        console.log('[SALE-API] Got full order from API:', fullOrder);
-
-        // 🔥 STEP 2: Merge local changes (orderLines) on top of SERVER Details.
-        // Server is source of truth — preserves lines added by other flows / tabs.
-        const payload = JSON.parse(JSON.stringify(fullOrder));
-
-        // Add @odata.context (CRITICAL for PUT request)
-        if (!payload['@odata.context']) {
-            payload['@odata.context'] =
-                'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
-        }
-
-        // Get CreatedById from order or auth
-        const createdById = fullOrder.CreatedById || fullOrder.UserId;
-
-        if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
-            payload.Details = mergeLocalLinesIntoServerDetails(
-                fullOrder.Details || [],
-                currentSaleOrderData.orderLines,
-                currentSaleOrderData.Id,
-                createdById
-            );
-        }
-
-        // Calculate totals from local orderLines
-        let totalQuantity = 0;
-        let totalAmount = 0;
-        if (payload.Details) {
-            payload.Details.forEach((detail) => {
-                const qty = detail.Quantity || 1;
-                const price = detail.Price || 0;
-                totalQuantity += qty;
-                totalAmount += qty * price;
+            // 🔥 STEP 1: Fetch FULL order object from API (always fresh, even on retry)
+            const getUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})?$expand=Details,Partner,User,CRMTeam`;
+            const getResponse = await fetch(getUrl, {
+                method: 'GET',
+                headers: { ...headers, Accept: 'application/json' },
             });
-        }
+            if (!getResponse.ok) {
+                throw new Error(`Failed to fetch order: HTTP ${getResponse.status}`);
+            }
+            const fullOrder = await getResponse.json();
 
-        payload.TotalAmount = totalAmount;
-        payload.TotalQuantity = totalQuantity;
+            // 🔥 STEP 2: Merge local changes on top of SERVER Details.
+            const payload = JSON.parse(JSON.stringify(fullOrder));
+            if (!payload['@odata.context']) {
+                payload['@odata.context'] =
+                    'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+            }
+            const createdById = fullOrder.CreatedById || fullOrder.UserId;
+            if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
+                payload.Details = mergeLocalLinesIntoServerDetails(
+                    fullOrder.Details || [],
+                    currentSaleOrderData.orderLines,
+                    currentSaleOrderData.Id,
+                    createdById
+                );
+            }
 
-        console.log('[SALE-API] PUT payload:', {
-            orderId: currentSaleOrderData.Id,
-            detailsCount: payload.Details?.length || 0,
-            totalAmount: payload.TotalAmount,
-            totalQuantity: payload.TotalQuantity,
-            hasContext: !!payload['@odata.context'],
-            hasRowVersion: !!payload.RowVersion,
-            hasPartner: !!payload.Partner,
-            hasUser: !!payload.User,
-            hasCRMTeam: !!payload.CRMTeam,
-        });
+            // Recalculate totals from merged Details.
+            let totalQuantity = 0;
+            let totalAmount = 0;
+            (payload.Details || []).forEach((d) => {
+                totalQuantity += d.Quantity || 1;
+                totalAmount += (d.Quantity || 1) * (d.Price || 0);
+            });
+            payload.TotalAmount = totalAmount;
+            payload.TotalQuantity = totalQuantity;
 
-        // 🔥 STEP 3: PUT updated order back to API
-        const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
-        const response = await fetch(putUrl, {
-            method: 'PUT',
-            headers: {
+            console.log('[SALE-API] PUT payload:', {
+                attempt,
+                orderId: currentSaleOrderData.Id,
+                detailsCount: payload.Details?.length || 0,
+                totalAmount: payload.TotalAmount,
+                totalQuantity: payload.TotalQuantity,
+                hasRowVersion: !!payload.RowVersion,
+            });
+
+            // 🔥 STEP 3: PUT with If-Match header for optimistic concurrency.
+            // CF Worker forwards If-Match → TPOS rejects with 412 if RowVersion mismatched.
+            const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
+            const putHeaders = {
                 ...headers,
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
+            };
+            const etag = _formatRowVersionETag(payload.RowVersion);
+            if (etag) putHeaders['If-Match'] = etag;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[SALE-API] PUT failed:', errorText);
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+            const response = await fetch(putUrl, {
+                method: 'PUT',
+                headers: putHeaders,
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                // Concurrency conflict — re-fetch + re-merge + retry.
+                if (
+                    (response.status === 412 ||
+                        (response.status === 409 &&
+                            /rowversion|etag|concurren|conflict/i.test(errorText))) &&
+                    attempt < MAX_RETRIES
+                ) {
+                    console.warn(
+                        `[SALE-API] 🔀 Concurrency conflict (HTTP ${response.status}), will retry...`
+                    );
+                    lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+                    await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+                    continue;
+                }
+                console.error('[SALE-API] PUT failed:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            // Success — break out of retry loop.
+            return await _finalizeSaleOrderUpdate(response, payload, getUrl, headers);
+        } catch (err) {
+            lastError = err;
+            // Network/transient errors — retry up to MAX_RETRIES.
+            if (attempt < MAX_RETRIES && /HTTP 50\d|NetworkError|fetch/i.test(err.message)) {
+                console.warn(
+                    `[SALE-API] Transient error, retry ${attempt + 1}/${MAX_RETRIES}:`,
+                    err.message
+                );
+                await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+                continue;
+            }
+            throw err;
         }
+    }
+    throw lastError || new Error('Sale order update failed after retries');
+}
 
+async function _finalizeSaleOrderUpdate(response, payload, getUrl, headers) {
+    try {
         // Handle empty response body (PUT often returns 200 OK with no content)
         let data = null;
         const responseText = await response.text();
@@ -681,8 +716,8 @@ async function _updateSaleOrderWithAPIImpl() {
         // Update the order table row (quantity column & total)
         if (typeof updateOrderInTable === 'function') {
             updateOrderInTable(currentSaleOrderData.Id, {
-                TotalQuantity: totalQuantity,
-                TotalAmount: totalAmount,
+                TotalQuantity: payload.TotalQuantity,
+                TotalAmount: payload.TotalAmount,
             });
         }
 

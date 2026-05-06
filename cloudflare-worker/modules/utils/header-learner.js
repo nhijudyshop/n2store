@@ -12,14 +12,14 @@
 const dynamicHeaders = {
     tposappversion: null,
     lastUpdated: null,
-    updateCooldown: 60 * 60 * 1000 // 1 hour cooldown between updates
+    updateCooldown: 60 * 60 * 1000, // 1 hour cooldown between updates
 };
 
 /**
  * Default header values (fallback when not learned yet)
  */
 export const DEFAULT_HEADERS = {
-    tposappversion: '5.12.29.1'
+    tposappversion: '5.12.29.1',
 };
 
 /**
@@ -58,7 +58,9 @@ export function learnFromResponse(response) {
             // Only update if cooldown has passed
             if (now - lastUpdate > dynamicHeaders.updateCooldown) {
                 if (dynamicHeaders.tposappversion !== tposVersion) {
-                    console.log(`[HEADER-LEARNER] Updated tposappversion: ${dynamicHeaders.tposappversion || '(none)'} → ${tposVersion}`);
+                    console.log(
+                        `[HEADER-LEARNER] Updated tposappversion: ${dynamicHeaders.tposappversion || '(none)'} → ${tposVersion}`
+                    );
                     dynamicHeaders.tposappversion = tposVersion;
                     dynamicHeaders.lastUpdated = now;
                 }
@@ -78,7 +80,7 @@ export function getAllDynamicHeaders() {
         tposappversion: getDynamicHeader('tposappversion'),
         lastUpdated: dynamicHeaders.lastUpdated
             ? new Date(dynamicHeaders.lastUpdated).toISOString()
-            : null
+            : null,
     };
 }
 
@@ -94,6 +96,14 @@ export function buildTposHeaders(request) {
     const authHeader = request.headers.get('Authorization');
     if (authHeader) {
         headers.set('Authorization', authHeader);
+    }
+
+    // Forward optimistic-concurrency conditional headers.
+    // OData uses If-Match: W/"<RowVersion>" — TPOS returns 412/409 on stale.
+    // CORS preflight already whitelists these in shared/universal/cors-headers.js.
+    for (const cond of ['If-Match', 'If-None-Match', 'If-Modified-Since', 'If-Unmodified-Since']) {
+        const v = request.headers.get(cond);
+        if (v) headers.set(cond, v);
     }
 
     // Set standard TPOS headers
@@ -126,7 +136,10 @@ export function buildTposHeaders(request) {
  * @param {string} jwtToken - JWT token for Cookie (optional)
  * @returns {Headers}
  */
-export function buildPancakeHeaders(refererUrl = 'https://pancake.vn/multi_pages', jwtToken = null) {
+export function buildPancakeHeaders(
+    refererUrl = 'https://pancake.vn/multi_pages',
+    jwtToken = null
+) {
     const headers = new Headers();
 
     headers.set('Accept', 'application/json, text/plain, */*');

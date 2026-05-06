@@ -1287,7 +1287,52 @@ async function saveAllOrderChanges() {
             notifId = window.notificationManager.saving('Đang lưu đơn hàng...');
         }
 
-        // Prepare payload
+        // Get auth headers
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // 🔥 Pre-PUT freshness check: re-fetch server right before PUT to detect
+        // and preserve cross-flow Details additions (chat-address, sale-modal, tab3, etc.)
+        // that landed during the modal-open session. Also refreshes RowVersion for If-Match.
+        const freshUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})?$expand=Details,Partner,User,CRMTeam`;
+        let freshServer = null;
+        try {
+            const freshRes = await fetch(freshUrl, {
+                method: 'GET',
+                headers: { ...headers, Accept: 'application/json' },
+            });
+            if (freshRes.ok) freshServer = await freshRes.json();
+        } catch (fetchErr) {
+            console.warn('[SAVE] Pre-PUT freshness fetch failed (non-blocking):', fetchErr.message);
+        }
+
+        if (freshServer) {
+            const snapshot = window.OrderEditHistory?.getSnapshot?.(currentEditOrderId) || [];
+            const snapshotIds = new Set(snapshot.map((d) => d?.Id).filter(Boolean));
+            const userIds = new Set(
+                (currentEditOrderData.Details || []).map((d) => d?.Id).filter(Boolean)
+            );
+            // Lines on server NOW that are NOT in modal-open snapshot AND NOT in user's
+            // current state → added by other flow during modal session. Preserve them.
+            const otherFlowAdditions = (freshServer.Details || []).filter(
+                (d) => d?.Id && !snapshotIds.has(d.Id) && !userIds.has(d.Id)
+            );
+            if (otherFlowAdditions.length > 0) {
+                console.warn(
+                    `[SAVE] Detected ${otherFlowAdditions.length} server-side line(s) added by other flow during edit session — preserving:`,
+                    otherFlowAdditions.map((d) => `${d.ProductCode || d.ProductId}×${d.Quantity}`)
+                );
+                currentEditOrderData.Details = [
+                    ...(currentEditOrderData.Details || []),
+                    ...otherFlowAdditions,
+                ];
+            }
+            // Always use server's fresh RowVersion to satisfy If-Match.
+            if (freshServer.RowVersion) {
+                currentEditOrderData.RowVersion = freshServer.RowVersion;
+            }
+        }
+
+        // Prepare payload (after freshness merge)
         const payload = prepareOrderPayload(currentEditOrderData);
 
         // Validate payload (optional but recommended)
@@ -1299,19 +1344,22 @@ async function saveAllOrderChanges() {
         console.log('[SAVE] Payload to send:', payload);
         console.log('[SAVE] Payload size:', JSON.stringify(payload).length, 'bytes');
 
-        // Get auth headers
-        const headers = await window.tokenManager.getAuthHeader();
+        // PUT with If-Match (optimistic concurrency).
+        // CF Worker forwards If-Match → TPOS rejects with 412 if RowVersion mismatched.
+        const putHeaders = {
+            ...headers,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+        };
+        if (payload.RowVersion != null && payload.RowVersion !== '') {
+            putHeaders['If-Match'] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
+        }
 
-        // PUT request
         const response = await API_CONFIG.smartFetch(
             `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
             {
                 method: 'PUT',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
+                headers: putHeaders,
                 body: JSON.stringify(payload),
             }
         );
@@ -1319,6 +1367,15 @@ async function saveAllOrderChanges() {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[SAVE] Error response:', errorText);
+            // Concurrency conflict — surface clear message.
+            if (
+                response.status === 412 ||
+                (response.status === 409 && /rowversion|etag|concurren|conflict/i.test(errorText))
+            ) {
+                throw new Error(
+                    'Đơn vừa được sửa bởi flow khác (RowVersion conflict). Vui lòng đóng/mở lại modal để load state mới rồi save lại.'
+                );
+            }
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 

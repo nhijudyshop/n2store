@@ -8,6 +8,38 @@
 
 ## 2026-05-06
 
+### [orders][cloudflare][fix] Optimistic concurrency end-to-end — fix cross-flow + cross-tab race
+
+**Files**: MODIFIED [cloudflare-worker/modules/utils/header-learner.js](../cloudflare-worker/modules/utils/header-learner.js), [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js), [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js)
+
+User: "fix luôn cái này theoretical risk thấp" — yêu cầu fix 2 race còn lại sau 2 commits trước (sale-modal merge, edit-modal in-flight guard).
+
+**2 race còn lại**:
+
+1. **Edit-modal cross-flow race**: User mở edit-modal nhiều phút, flow khác (chat-address, tab3 STT upload, sale-modal) PUT cùng đơn → "Lưu tất cả" overwrite changes của flow đó.
+2. **Sale-modal cross-tab race**: 2 tab cùng mở sale-modal cho 1 đơn → fetch song song → cả 2 PUT từ snapshot stale → tab thứ 2 đè tab đầu (chain lock chỉ trong 1 tab).
+
+**Fix end-to-end**:
+
+1. **CF Worker forward If-Match** ([header-learner.js:90](../cloudflare-worker/modules/utils/header-learner.js#L90)) — for-loop forward 4 conditional headers (If-Match, If-None-Match, If-Modified-Since, If-Unmodified-Since) từ browser request xuống TPOS. CORS_HEADERS đã whitelist từ trước.
+
+2. **Sale-modal If-Match + 412/409 retry** ([tab1-sale.js:567+](../orders-report/js/tab1/tab1-sale.js#L567)) — PUT gửi `If-Match: W/"<RowVersion>"`. Detect 412/409 conflict → re-fetch + re-merge + retry (max 2 lần, exponential backoff 200/400ms). Retry dùng cùng local lines nhưng merge với server fresh → preserve mọi changes. Tách `_finalizeSaleOrderUpdate` cho post-PUT cleanup.
+
+3. **Edit-modal pre-PUT freshness** ([tab1-edit-modal.js:1284+](../orders-report/js/tab1/tab1-edit-modal.js#L1284)) — Trước PUT fetch fresh server, so với `OrderEditHistory.getSnapshot(orderId)` (snapshot lúc modal mở) → tìm lines server có nhưng modal-open-snapshot không có → các flow khác đã thêm trong session → preserve. User deletes (in snapshot but not in user state) vẫn được tôn trọng. Cập nhật fresh RowVersion. PUT với If-Match. Nếu 412/409 → throw error rõ "Đơn vừa được sửa bởi flow khác, đóng/mở lại modal".
+
+**Conflict resolution strategy**:
+
+- **Sale-modal** (auto-merge + retry): user chỉ thêm SP, safe to auto-merge.
+- **Edit-modal** (smart merge, no auto-retry): user có thể CRUD → preserve server-additions chỉ khi user chưa thấy chúng (so snapshot). Conflict → user phải manually retry để đảm bảo aware.
+
+**Browser-tested**:
+
+- Race+retry simulation 2 ops song song với conflict trên 1 op: cả 2 đều succeed, putCount=3 (1 đầu + 2 retry), allPreserved=true.
+- 32/32 unit tests pass.
+- Smoke 144 pages (run 2): **0 regressions** (run 1 có 1 SSE error transient, run 2 clean → flaky).
+
+**Deploy**: CF Worker change chưa deploy. Code đã push GitHub. Để bật full optimistic concurrency, deploy worker (`wrangler deploy` trong `cloudflare-worker/`). Nếu chưa deploy, fix browser vẫn work nhờ merge logic, nhưng cross-tab race chỉ giảm xác suất chứ chưa loại bỏ.
+
 ### [orders][fix] Edit-modal — in-flight guard cho saveAllOrderChanges
 
 **Files**: MODIFIED [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js)
