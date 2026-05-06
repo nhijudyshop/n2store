@@ -3142,7 +3142,7 @@
 
         // Lazy-create the manager-review modal (giống balance-history).
         let reviewModalEl = null;
-        const reviewState = { uid: null, btn: null, phone: '', imageFile: null, imageUrl: null, isUploading: false };
+        const reviewState = { uid: null, btn: null, phone: '', customerName: '', imageFile: null, imageUrl: null, isUploading: false };
 
         function ensureReviewModal() {
             if (reviewModalEl) return reviewModalEl;
@@ -3255,6 +3255,7 @@
             reviewState.uid = uid;
             reviewState.btn = btn;
             reviewState.phone = customerCtx?.phone || '';
+            reviewState.customerName = customerCtx?.customerName || '';
             clearReviewImage();
             modal.querySelector('#dr-rev-note').value = '';
 
@@ -3435,6 +3436,32 @@
                     badge.textContent = '✓ ĐÃ KT';
                     btn.replaceWith(badge);
                 }
+                // Audit log — đảm bảo verify từ delivery-report cũng xuất hiện ở balance-history "Lịch Sử"
+                try {
+                    if (window.AuditLogger) {
+                        const phone = reviewState.phone;
+                        const customerName = reviewState.customerName;
+                        window.AuditLogger.logAction('transaction_verify', {
+                            module: 'balance-history',
+                            description:
+                                'Kiểm tra giao dịch #' +
+                                uid +
+                                (phone ? ' (KH: ' + (customerName || '') + ' - ' + phone + ')' : ''),
+                            oldData: { manager_reviewed: false },
+                            newData: {
+                                manager_reviewed: true,
+                                review_note: note,
+                                reviewed_by: reviewedBy,
+                                review_image_url: reviewImageUrl || null,
+                                txId: String(uid),
+                            },
+                            approverUserId: reviewedBy,
+                            approverUserName: reviewedBy,
+                            entityId: String(uid),
+                            entityType: 'balance_history',
+                        });
+                    }
+                } catch (_) { /* ignore audit log errors */ }
                 // Invalidate cache so next open refetches reviewed status
                 if (reviewState.phone) customerCache.delete(reviewState.phone);
                 closeReviewModal();

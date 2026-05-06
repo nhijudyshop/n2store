@@ -8,6 +8,18 @@
 
 ## 2026-05-06
 
+### [delivery-report][fix] Modal "Kiểm tra giao dịch" không ghi audit log → tab "Lịch Sử" (balance-history) thiếu entry hôm nay
+
+**Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html) — thêm `<script src="../shared/js/audit-logger.js">` sau firebase-config. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `reviewState` thêm `customerName`; `openReviewModal()` lưu `customerCtx?.customerName` vào state; `confirmReview()` sau success gọi `window.AuditLogger.logAction('transaction_verify', { module: 'balance-history', ... })` với cùng schema như `accountant.js#confirmManagerReview` (oldData/newData/entityId/approverUser*).
+
+**User báo**: "lịch sử bị lỗi không lưu kiểm tra lại" — tab "Lịch Sử" balance-history (filter Loại thao tác = Kiểm tra) chỉ hiện entries 05/05, không thấy entries 06/05 dù transactions đã có badge "DÃ KIỂM TRA" hôm nay.
+
+**Root cause**: Commit `25c1f179` thêm modal "Kiểm tra giao dịch" cho delivery-report popover — copy logic từ balance-history nhưng quên 2 thứ: (1) load `audit-logger.js` trong `delivery-report/index.html`, (2) gọi `AuditLogger.logAction('transaction_verify', ...)` sau khi `POST /manager-review` thành công. Backend chỉ flip `manager_reviewed=true` ở Postgres → UI thấy badge ngay, nhưng không có Firestore `edit_history` doc → `accountant-history.js` (đọc collection `edit_history` để render tab Lịch Sử) bỏ sót.
+
+**Fix**: Mirror schema `transaction_verify` của balance-history (description format, oldData/newData fields, approverUser*). Wrap try/catch để audit log fail không ảnh hưởng UX. Verify khác (qua nút ✓ trên balance-history) đã đúng từ trước; bug chỉ ở path delivery-report popover.
+
+**Status**: ✅ Done — `node --check` pass. Verify sau khi user kiểm tra GD mới từ delivery-report → check balance-history "Lịch Sử" tab có entry "Kiểm tra" với mã GD đúng.
+
 ### [delivery-report] Đổi UX: bỏ hover popover, click ô số HĐ/khách hàng → mở modal 2 cột (bill + hoạt động)
 
 **Files**: MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `HoverPreview` module: thay `mouseover`/`mouseout` bằng `click` trên `.dr-hover-bill, .dr-hover-customer`; thêm `ensureRowModal()`, `openRowModal(cell)`, `closeRowModal()`, `onCellClick(e)`. `renderCustomer(data, phone, targetEl)` + `wirePopoverActions(phone, targetEl)` thêm tham số target. `reviewTransaction()` walk `parentElement` tìm host có `__reviewCtx` (popover hoặc modal column). `reviewState` thêm `phone`; `confirmReview()` invalidate cache theo `reviewState.phone` thay vì `popoverEl`. `showBill`/`showCustomer` (path popover cũ) thành dead code, để lại không xóa. MODIFIED [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-hover-bill, .dr-hover-customer` đổi `cursor: help` → `cursor: pointer`.
