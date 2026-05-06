@@ -581,11 +581,18 @@ copyInlineQRBtn?.addEventListener('click', async () => {
     const alreadyCopied = hasCopiedCurrentQR;
 
     try {
-        // Fetch image via proxy to bypass CORS
-        const WORKER_URL =
-            window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
-        const response = await fetch(proxyUrl);
+        // Data URLs (QR rendered client-side) fetch directly. http(s) URLs go
+        // through Worker proxy to avoid CORS taint on the canvas.
+        const isDataUrl = currentInlineQRUrl.startsWith('data:');
+        let response;
+        if (isDataUrl) {
+            response = await fetch(currentInlineQRUrl);
+        } else {
+            const WORKER_URL =
+                window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const proxyUrl = `${WORKER_URL}/api/proxy?url=${encodeURIComponent(currentInlineQRUrl)}`;
+            response = await fetch(proxyUrl);
+        }
 
         if (!response.ok) throw new Error('Fetch failed');
 

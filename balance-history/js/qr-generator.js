@@ -1,12 +1,10 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
-// QR CODE GENERATOR FOR BANK TRANSFERS
+// QR CODE GENERATOR FOR BANK TRANSFERS — VietQR EMVCo
 // =====================================================
-
-/**
- * QR Generator for VietQR bank transfers
- * Supports generating QR codes for ACB bank transfers with unique transaction codes
- */
+// Builds the EMVCo TLV payload locally with Point of Initiation Method = "11"
+// (static QR) so banking apps allow the user to EDIT amount + addInfo after
+// scanning. Renders the QR client-side via qrcode-generator (no vietqr.io).
 
 const QRGenerator = {
     // Bank configuration
@@ -15,65 +13,145 @@ const QRGenerator = {
             bin: '970416',
             name: 'ACB',
             accountNo: '75918',
-            accountName: 'LAI THUY YEN NHI'
-        }
+            accountName: 'LAI THUY YEN NHI',
+        },
     },
 
     /**
-     * Generate a unique transaction code
-     * Format: N2 + 16 characters (total 18 chars) - Base36 encoded for uniqueness
-     * Example: "N2ABCD1234EFGH5678" (18 characters fixed length)
+     * Build a single EMVCo Tag-Length-Value chunk.
+     * Length is 2-digit decimal byte length. VietQR keeps everything ASCII so
+     * char length == byte length.
+     */
+    _tlv(id, value) {
+        const v = String(value);
+        const len = v.length.toString().padStart(2, '0');
+        return `${id}${len}${v}`;
+    },
+
+    /**
+     * CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF, no XOR-out, no reflect).
+     * EMVCo / VietQR specifies this exact variant for ID 63.
+     */
+    _crc16ccitt(str) {
+        let crc = 0xffff;
+        for (let i = 0; i < str.length; i++) {
+            crc ^= str.charCodeAt(i) << 8;
+            for (let j = 0; j < 8; j++) {
+                crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+                crc &= 0xffff;
+            }
+        }
+        return crc.toString(16).toUpperCase().padStart(4, '0');
+    },
+
+    /**
+     * Build VietQR EMVCo payload string.
      *
-     * @param {string} prefix - Optional prefix for the code (default: "N2")
-     * @returns {string} Unique transaction code (always 18 characters)
+     * @param {Object} opts
+     * @param {string} opts.bin            BIN/Acquirer ID (vd "970416" cho ACB)
+     * @param {string} opts.accountNo      Số tài khoản
+     * @param {number} [opts.amount=0]     Số tiền (0 = không gắn — khách tự nhập)
+     * @param {string} [opts.addInfo=""]   Mã giao dịch / nội dung CK
+     * @param {boolean} [opts.isStatic=true]  true => PIM "11" (cho phép sửa trong app bank);
+     *                                        false => PIM "12" (khoá field)
+     * @returns {string} Chuỗi EMVCo (đã có CRC)
+     */
+    buildVietQRPayload(opts) {
+        const { bin, accountNo, amount = 0, addInfo = '', isStatic = true } = opts;
+
+        const pim = isStatic ? '11' : '12';
+
+        // ID 38 — Merchant Account Information (NAPAS GUID + acquirer + service)
+        const merchantAccountInfo =
+            this._tlv('00', 'A000000727') +
+            this._tlv('01', this._tlv('00', bin) + this._tlv('01', accountNo)) +
+            this._tlv('02', 'QRIBFTTA'); // chuyển khoản tới tài khoản
+
+        let payload =
+            this._tlv('00', '01') + // Payload Format Indicator
+            this._tlv('01', pim) + // Point of Initiation Method
+            this._tlv('38', merchantAccountInfo) +
+            this._tlv('53', '704'); // Currency = VND
+
+        if (amount > 0) {
+            payload += this._tlv('54', String(amount));
+        }
+
+        payload += this._tlv('58', 'VN'); // Country
+
+        if (addInfo) {
+            // ID 62 → 08 = Bill Number / Reference (nội dung CK auto-match)
+            payload += this._tlv('62', this._tlv('08', addInfo));
+        }
+
+        // CRC field: append id+len ("6304") then compute CRC over everything
+        const beforeCrc = payload + '6304';
+        return beforeCrc + this._crc16ccitt(beforeCrc);
+    },
+
+    /**
+     * Render an EMVCo string to a QR image data URL via qrcode-generator.
+     *
+     * @param {string} text   EMVCo payload
+     * @param {Object} [opts]
+     * @param {number} [opts.cellSize=8]   Pixel size of each QR module
+     * @param {number} [opts.margin=4]     Quiet-zone modules
+     * @param {string} [opts.ecLevel='M']  Error correction: L | M | Q | H
+     * @returns {string} GIF data URL (browser-compatible, works in <img src>)
+     */
+    renderQRDataURL(text, opts = {}) {
+        const { cellSize = 8, margin = 4, ecLevel = 'M' } = opts;
+
+        if (typeof window === 'undefined' || typeof window.qrcode !== 'function') {
+            throw new Error('qrcode-generator library not loaded');
+        }
+
+        const qr = window.qrcode(0, ecLevel); // type 0 = auto-detect version
+        qr.addData(text);
+        qr.make();
+        return qr.createDataURL(cellSize, margin);
+    },
+
+    /**
+     * Generate a unique transaction code.
+     * Format: N2 + 16 chars base36 → tổng 18 ký tự. Trùng với regex auto-match
+     * /N2[A-Z0-9]{16}/ ở processDebtUpdate.
      */
     generateUniqueCode(prefix = 'N2') {
-        // Get timestamp and limit to last 8 characters for consistency
-        const timestamp = Date.now().toString(36).toUpperCase().slice(-8); // 8 chars
-        const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 chars
-        const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0'); // 2 chars (36^2 = 1296)
-
-        return `${prefix}${timestamp}${random}${sequence}`; // N2 (2) + 8 + 6 + 2 = 18 chars
+        const timestamp = Date.now().toString(36).toUpperCase().slice(-8);
+        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const sequence = Math.floor(Math.random() * 1296)
+            .toString(36)
+            .toUpperCase()
+            .padStart(2, '0');
+        return `${prefix}${timestamp}${random}${sequence}`;
     },
 
     /**
-     * Generate VietQR URL for bank transfer
+     * Build a VietQR data URL the page can drop into <img src="...">.
      *
-     * @param {Object} options - QR code options
-     * @param {string} options.uniqueCode - Unique transaction code
-     * @param {number} options.amount - Transfer amount (optional, 0 = user fills in)
-     * @param {string} options.template - QR template (compact, compact2, print, qr_only)
-     * @returns {string} VietQR image URL
+     * @param {Object} options
+     * @param {string} options.uniqueCode
+     * @param {number} [options.amount=0]
+     * @returns {string} data:image/gif;base64,...
      */
     generateVietQRUrl(options = {}) {
-        const {
-            uniqueCode,
-            amount = 0,
-            template = 'qr_only' // Changed from compact2 to hide account number
-        } = options;
-
+        const { uniqueCode, amount = 0 } = options;
         const bank = this.BANK_CONFIG.ACB;
-        const baseUrl = 'https://img.vietqr.io/image';
 
-        // Build URL: {BANK_BIN}-{ACCOUNT_NO}-{TEMPLATE}.png
-        let url = `${baseUrl}/${bank.bin}-${bank.accountNo}-${template}.png`;
+        const payload = this.buildVietQRPayload({
+            bin: bank.bin,
+            accountNo: bank.accountNo,
+            amount,
+            addInfo: uniqueCode,
+            isStatic: true, // PIM "11" → bank app cho phép user sửa amount + addInfo
+        });
 
-        // Add query parameters
-        const params = new URLSearchParams();
-        if (amount > 0) {
-            params.append('amount', amount);
-        }
-        params.append('addInfo', uniqueCode);
-        params.append('accountName', bank.accountName);
-
-        return `${url}?${params.toString()}`;
+        return this.renderQRDataURL(payload);
     },
 
     /**
-     * Generate QR code data for a new deposit
-     *
-     * @param {number} amount - Transfer amount (optional)
-     * @returns {Object} QR code data with unique code and URL
+     * Generate QR code data for a new deposit.
      */
     generateDepositQR(amount = 0) {
         const uniqueCode = this.generateUniqueCode();
@@ -85,19 +163,15 @@ const QRGenerator = {
             bankInfo: {
                 bank: this.BANK_CONFIG.ACB.name,
                 accountNo: this.BANK_CONFIG.ACB.accountNo,
-                accountName: this.BANK_CONFIG.ACB.accountName
+                accountName: this.BANK_CONFIG.ACB.accountName,
             },
             amount,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
         };
     },
 
     /**
-     * Generate QR code from existing unique code
-     *
-     * @param {string} uniqueCode - Existing unique transaction code
-     * @param {number} amount - Transfer amount (optional)
-     * @returns {Object} QR code data
+     * Re-build QR for an existing unique code.
      */
     regenerateQR(uniqueCode, amount = 0) {
         const qrUrl = this.generateVietQRUrl({ uniqueCode, amount });
@@ -108,17 +182,15 @@ const QRGenerator = {
             bankInfo: {
                 bank: this.BANK_CONFIG.ACB.name,
                 accountNo: this.BANK_CONFIG.ACB.accountNo,
-                accountName: this.BANK_CONFIG.ACB.accountName
+                accountName: this.BANK_CONFIG.ACB.accountName,
             },
-            amount
+            amount,
         };
     },
 
     /**
-     * Copy QR code URL to clipboard
-     *
-     * @param {string} qrUrl - QR code URL to copy
-     * @returns {Promise<boolean>} Success status
+     * Copy QR URL to clipboard. With static QR generated locally this is a
+     * data URL — still copies fine, just pastes a long base64 string.
      */
     async copyQRUrl(qrUrl) {
         try {
@@ -126,7 +198,6 @@ const QRGenerator = {
             return true;
         } catch (error) {
             console.error('Failed to copy QR URL:', error);
-            // Fallback method
             try {
                 const textarea = document.createElement('textarea');
                 textarea.value = qrUrl;
@@ -144,12 +215,6 @@ const QRGenerator = {
         }
     },
 
-    /**
-     * Copy unique code to clipboard
-     *
-     * @param {string} uniqueCode - Unique code to copy
-     * @returns {Promise<boolean>} Success status
-     */
     async copyUniqueCode(uniqueCode) {
         try {
             await navigator.clipboard.writeText(uniqueCode);
@@ -161,10 +226,7 @@ const QRGenerator = {
     },
 
     /**
-     * Download QR code image
-     *
-     * @param {string} qrUrl - QR code URL
-     * @param {string} filename - Download filename
+     * Download QR code image. Works for both http(s) URLs and data: URLs.
      */
     async downloadQRImage(qrUrl, filename = 'qr-code.png') {
         try {
@@ -186,38 +248,37 @@ const QRGenerator = {
     },
 
     /**
-     * Create QR code HTML element
-     *
-     * @param {string} qrUrl - QR code URL
-     * @param {Object} options - Display options
-     * @returns {string} HTML string
+     * Inline QR display HTML (used by some callers).
      */
     createQRHtml(qrUrl, options = {}) {
-        const {
-            width = '200px',
-            showCopyButton = true,
-            uniqueCode = ''
-        } = options;
+        const { width = '200px', showCopyButton = true, uniqueCode = '' } = options;
 
         return `
             <div class="qr-code-container" style="text-align: center;">
                 <img src="${qrUrl}" alt="QR Code" style="width: ${width}; max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                ${showCopyButton ? `
+                ${
+                    showCopyButton
+                        ? `
                     <div style="margin-top: 10px; display: flex; gap: 8px; justify-content: center;">
                         <button class="btn btn-sm btn-secondary copy-qr-btn" data-qr-url="${qrUrl}">
                             <i data-lucide="copy"></i> Copy URL
                         </button>
-                        ${uniqueCode ? `
+                        ${
+                            uniqueCode
+                                ? `
                             <button class="btn btn-sm btn-secondary copy-code-btn" data-code="${uniqueCode}">
                                 <i data-lucide="hash"></i> Copy Mã
                             </button>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
         `;
-    }
+    },
 };
 
-// Make QRGenerator globally available
 window.QRGenerator = QRGenerator;
