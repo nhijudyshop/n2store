@@ -8,6 +8,20 @@
 
 ## 2026-05-06
 
+### [delivery-report][render] Bill modal cột phải "Hoạt động khách hàng" chỉ hiện 5 dòng — bump quick-view limit qua `?limit=`
+
+**Files**: MODIFIED [render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js) — `GET /:id/quick-view` accept `?limit=` query (default 5, cap 100); `recent_transactions` query (cả 2 nhánh primary + fallback) thay `LIMIT 5` cứng → `LIMIT $2` lấy từ param. Pending_transactions vẫn giữ 5 cứng. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `fetchCustomer(phone)` append `?limit=50` vào URL; `renderCustomer()` bỏ `slice(0, 5)` cho `recent_transactions`, dùng full array (server đã giới hạn). `pending_transactions` slice ở client giữ nguyên.
+
+**User báo**: trong bill modal (delivery-report — mở từ click ô số HĐ / khách hàng) cột phải "HOẠT ĐỘNG KHÁCH HÀNG" chỉ hiện 5 dòng, trong khi panel "Ví Khách Hàng" ở customer-hub hiện 16 hoạt động đầy đủ. User muốn modal hiển thị toàn bộ.
+
+**Root cause**: cả backend và frontend đều cap 5:
+- Server `quick-view` SQL `LIMIT 5` cứng cho `wallet_transactions` → endpoint name "quick-view" gợi ý ý đồ tooltip ngắn.
+- Client `delivery-report.js#renderCustomer` slice thêm `(data.recent_transactions || []).slice(0, 5)`.
+
+**Tradeoff đã chọn (option 1 "tối thiểu")**: thay vì refactor modal sang gọi endpoint `/activities` paging (option 2 "triệt để") — chỉ thêm `?limit=` cho `quick-view`. Các caller khác (`balance-verification.js`, `pancake-customer-validator.js`, popover trong cùng delivery-report) không pass `limit` nên giữ default 5, không ảnh hưởng. Cap 100 chống abuse.
+
+**Status**: ✅ Done — `node --check` pass cả 2 file. Chờ deploy Render + GH Pages, user verify modal hiện đủ activity.
+
 ### [balance-history][fix] Tab "Lịch Sử" thiếu entries hôm nay — Firestore query không có orderBy → trả 300 docs random trải dài 2 tháng
 
 **Files**: MODIFIED [balance-history/js/accountant-history.js](../balance-history/js/accountant-history.js) — `fetchRecords()` đổi query strategy: bỏ `where('module','==','balance-history')`, dùng `.orderBy('timestamp','desc').limit(1000)` + filter `module === 'balance-history'` client-side. Bump `MAX_FETCH` 300→1000, `CACHE_KEY` v1→v2 (invalidate cache cũ). MODIFIED [balance-history/index.html](../balance-history/index.html) — bump cache `accountant-history.js?v=20260506a`.

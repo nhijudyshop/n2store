@@ -2657,8 +2657,9 @@
 
         async function fetchCustomer(phone) {
             if (customerCache.has(phone)) return customerCache.get(phone);
+            // limit=50: bill modal cột phải hiển thị đủ hoạt động (popover scroll OK).
             const resp = await fetch(
-                `${RENDER_URL}/api/v2/customers/${encodeURIComponent(phone)}/quick-view`
+                `${RENDER_URL}/api/v2/customers/${encodeURIComponent(phone)}/quick-view?limit=50`
             );
             if (!resp.ok) {
                 if (resp.status === 404) {
@@ -2892,7 +2893,9 @@
         function renderCustomer(data, phone, targetEl) {
             const c = data.customer || {};
             const w = data.wallet || { balance: 0, virtual_balance: 0 };
-            const txs = (data.recent_transactions || []).slice(0, 5);
+            // recent_transactions: server đã giới hạn theo ?limit (50 cho modal,
+            // 5 cho popover-mặc định). Không slice thêm ở client.
+            const txs = data.recent_transactions || [];
             const pendingTxs = (data.pending_transactions || []).slice(0, 5);
             const pend = data.pending_deposits || { count: 0, total: 0 };
             const status = c.status || '';

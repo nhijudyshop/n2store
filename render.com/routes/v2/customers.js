@@ -815,6 +815,15 @@ router.get('/:id/quick-view', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
 
+    // Optional ?limit= cho recent_transactions (default 5, cap 100).
+    // Modal lớn (delivery-report bill modal) truyền limit=50 để load đủ hoạt động;
+    // các nơi gọi nhanh (popover, balance-verification, pancake-validator) giữ default 5.
+    const txLimit = (() => {
+        const raw = parseInt(req.query.limit, 10);
+        if (!Number.isFinite(raw) || raw <= 0) return 5;
+        return Math.min(raw, 100);
+    })();
+
     const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
 
     try {
@@ -916,9 +925,9 @@ router.get('/:id/quick-view', async (req, res) => {
                  AND wt.reference_id = bh.id::text
                 WHERE wt.phone = $1
                 ORDER BY wt.created_at DESC
-                LIMIT 5
+                LIMIT $2
             `,
-                [lookupPhone]
+                [lookupPhone, txLimit]
             );
         } catch (joinErr) {
             // Fallback for older schemas without verification_image_url / manager_reviewed
@@ -939,9 +948,9 @@ router.get('/:id/quick-view', async (req, res) => {
                     FROM wallet_transactions
                     WHERE phone = $1
                     ORDER BY created_at DESC
-                    LIMIT 5
+                    LIMIT $2
                 `,
-                    [lookupPhone]
+                    [lookupPhone, txLimit]
                 );
             } else {
                 throw joinErr;
