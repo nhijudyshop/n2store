@@ -2594,7 +2594,13 @@
 
         function position(targetEl) {
             const pop = ensurePopover();
-            const rect = targetEl.getBoundingClientRect();
+            // For customer cells, anchor to the phone line specifically so the
+            // popover appears right next to the phone number — not at the far
+            // right edge of the wide customer column.
+            const anchorEl = targetEl.classList.contains('dr-hover-customer')
+                ? (targetEl.querySelector('.dr-customer-phone') || targetEl)
+                : targetEl;
+            const rect = anchorEl.getBoundingClientRect();
             const margin = 8;
             // Show first to measure
             pop.style.visibility = 'hidden';
@@ -2603,10 +2609,12 @@
             const ph = pop.offsetHeight;
             const vw = window.innerWidth;
             const vh = window.innerHeight;
-            // Prefer right of cell; fallback to left
+            // Prefer right of anchor; fallback to left
             let left = rect.right + margin;
             if (left + pw > vw - 4) left = Math.max(4, rect.left - pw - margin);
-            let top = rect.top;
+            // Vertically center against the anchor line, then clamp to viewport
+            let top = rect.top + rect.height / 2 - ph / 2;
+            if (top < 4) top = 4;
             if (top + ph > vh - 4) top = Math.max(4, vh - ph - 4);
             pop.style.left = left + window.scrollX + 'px';
             pop.style.top = top + window.scrollY + 'px';
