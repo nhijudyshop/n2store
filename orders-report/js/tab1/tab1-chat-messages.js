@@ -148,6 +148,11 @@ window.renderChatMessages = function (messages) {
 
     const isCommentConv = window.currentConversationType === 'COMMENT';
 
+    // Pre-compute the "seen" message id — the latest shop-side message that the
+    // customer has read up to (per Pancake read_watermarks). Only INBOX has
+    // watermarks (COMMENT convos don't track per-message read state).
+    const seenMessageId = isCommentConv ? null : _computeSeenMessageId(messages);
+
     let lastDate = '';
     const html = messages
         .filter((msg) => {
@@ -275,6 +280,13 @@ window.renderChatMessages = function (messages) {
                 ? `<div class="message-avatar" data-sender-id="${msg.fromId || ''}">${_getAvatarContent(msg)}</div>`
                 : '';
 
+            // Seen indicator — small customer avatar appended below the latest
+            // shop message the customer has read. Messenger-style "đã xem" cue.
+            const seenHtml =
+                seenMessageId && String(msg.id) === String(seenMessageId)
+                    ? _renderSeenIndicator()
+                    : '';
+
             return `
                 ${dateSeparator}
                 <div class="${classes}" data-msg-id="${msg.id}">
@@ -295,6 +307,7 @@ window.renderChatMessages = function (messages) {
                     </div>
                     ${actionsHtml}
                 </div>
+                ${seenHtml}
             `;
         })
         .join('');
@@ -311,6 +324,64 @@ window.renderChatMessages = function (messages) {
     // Check if all customer comments are deleted
     _updateDeletedBanner(messages);
 };
+
+/**
+ * Compute the latest shop-side message id the customer has already seen,
+ * based on Pancake `read_watermarks`. Returns null when no shop message
+ * is below the watermark (i.e. customer hasn't read anything new yet).
+ *
+ * Watermark shape: { psid, message_id, watermark } — `watermark` is a unix
+ * timestamp in seconds. Pancake may return one watermark per PSID; we take
+ * the maximum across the customer's PSIDs (excludes the page's own PSID
+ * which represents staff-side reads).
+ */
+function _computeSeenMessageId(messages) {
+    const watermarks = window.currentChatReadWatermarks;
+    if (!Array.isArray(watermarks) || watermarks.length === 0) return null;
+    if (!Array.isArray(messages) || messages.length === 0) return null;
+
+    const pageId = String(window.currentChatChannelId || '');
+    let maxWatermarkMs = 0;
+    for (const w of watermarks) {
+        if (!w || typeof w.watermark !== 'number') continue;
+        // Skip the page's own watermark (staff side). Customer watermarks have
+        // a PSID that differs from the page id.
+        if (pageId && String(w.psid) === pageId) continue;
+        const ms = w.watermark > 1e12 ? w.watermark : w.watermark * 1000;
+        if (ms > maxWatermarkMs) maxWatermarkMs = ms;
+    }
+    if (maxWatermarkMs <= 0) return null;
+
+    // Walk backwards: latest shop message with time <= watermark wins.
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        if (msg.sender !== 'shop') continue;
+        const t = msg.time instanceof Date ? msg.time.getTime() : 0;
+        if (t > 0 && t <= maxWatermarkMs) return msg.id;
+    }
+    return null;
+}
+
+/**
+ * Render Messenger-style "đã xem" indicator: a small customer avatar.
+ * Placed under the latest shop message the customer has read.
+ */
+function _renderSeenIndicator() {
+    const psid = window.currentChatPSID || '';
+    const pageId = window.currentChatChannelId || '';
+    const name = window.currentCustomerName || 'K';
+    const initial = (name.charAt(0) || 'K').toUpperCase();
+    const safeInitial = initial.replace(/['"\\<>&]/g, '');
+    let avatarInner = safeInitial;
+    if (psid) {
+        const imgUrl = window._getChatAvatarUrl
+            ? window._getChatAvatarUrl(psid, pageId)
+            : `https://graph.facebook.com/${psid}/picture?type=small`;
+        avatarInner = `<img src="${imgUrl}" alt="" onerror="this.style.display='none';this.parentElement.textContent='${safeInitial}'">`;
+    }
+    const safeName = (name || '').replace(/"/g, '&quot;');
+    return `<div class="message-seen-indicator" title="${safeName} đã xem"><span class="seen-avatar">${avatarInner}</span></div>`;
+}
 
 /**
  * Auto-scroll xuống cuối container, robust với image load timing.

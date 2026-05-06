@@ -1217,6 +1217,41 @@
     color: var(--ap-on-surface-variant);
 }
 
+/* ===== Seen indicator ===== */
+/* Messenger-style: small customer avatar appears under the latest shop
+   message the customer has read. Lives outside the message-row stack so it
+   right-aligns beneath the outgoing bubble. */
+.message-seen-indicator {
+    display: flex;
+    justify-content: flex-end;
+    align-self: flex-end;
+    margin-top: -4px;
+    margin-bottom: 4px;
+    padding-right: 2px;
+}
+
+.message-seen-indicator .seen-avatar {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--ap-primary, #6366f1);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.message-seen-indicator .seen-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
 /* Type badge inside bubble */
 .msg-type-icon {
     display: inline-flex;

@@ -15,6 +15,7 @@ window.currentChatPSID = null;
 window.currentCustomerName = null;
 window.currentConversationData = null; // full Pancake conversation object
 window.allChatMessages = [];
+window.currentChatReadWatermarks = []; // ReadWatermark[] from Pancake — { psid, message_id, watermark (unix sec) }
 window.currentChatCursor = null; // pagination cursor (current_count)
 window._chatNoMoreMessages = false; // true khi loadMoreMessages trả 0 → stop infinite scroll
 window.isLoadingMoreMessages = false;
@@ -293,6 +294,7 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     window.currentConversationId = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
+    window.currentChatReadWatermarks = [];
     window.currentChatCursor = null;
     window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
@@ -591,6 +593,7 @@ window.closeChatModal = function () {
     window.currentConversationType = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
+    window.currentChatReadWatermarks = [];
     window.currentChatCursor = null;
     window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;
@@ -1092,6 +1095,13 @@ function _applyMessagesResult(result, pageId, conversationId) {
     window.allChatMessages = messages;
     window.currentChatCursor = result.current_count || messages.length;
 
+    // Read watermarks (per-PSID timestamp showing how far the customer has read).
+    // Used by renderChatMessages to display a "đã xem" avatar under the latest
+    // shop message the customer has read up to.
+    if (Array.isArray(result.read_watermarks)) {
+        window.currentChatReadWatermarks = result.read_watermarks;
+    }
+
     if (window.renderChatMessages) {
         window.renderChatMessages(messages);
     }
@@ -1224,6 +1234,7 @@ function _resetTransientChatState() {
     window.currentConversationId = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
+    window.currentChatReadWatermarks = [];
     window.currentChatCursor = null;
     window._chatNoMoreMessages = false;
     window.currentReplyMessage = null;

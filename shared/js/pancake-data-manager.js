@@ -7,8 +7,8 @@ class PancakeDataManager {
     constructor() {
         this.conversations = [];
         // Separate maps for INBOX and COMMENT based on type field
-        this.inboxMapByPSID = new Map();   // INBOX conversations by PSID
-        this.inboxMapByFBID = new Map();   // INBOX conversations by Facebook ID
+        this.inboxMapByPSID = new Map(); // INBOX conversations by PSID
+        this.inboxMapByFBID = new Map(); // INBOX conversations by Facebook ID
         this.commentMapByPSID = new Map(); // COMMENT conversations by PSID
         this.commentMapByFBID = new Map(); // COMMENT conversations by Facebook ID
         this.conversationsByCustomerFbId = new Map(); // All conversations by customers[].fb_id
@@ -47,19 +47,21 @@ class PancakeDataManager {
      */
     getHeaders(token) {
         if (!token) {
-            throw new Error('JWT token not found. Please login to Pancake.vn or set token in settings.');
+            throw new Error(
+                'JWT token not found. Please login to Pancake.vn or set token in settings.'
+            );
         }
 
         return {
-            'accept': 'application/json',
+            accept: 'application/json',
             'accept-language': 'vi,en-US;q=0.9,en;q=0.8',
-            'referer': 'https://pancake.vn/multi_pages',
+            referer: 'https://pancake.vn/multi_pages',
             'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin'
+            'sec-fetch-site': 'same-origin',
         };
     }
 
@@ -137,8 +139,8 @@ class PancakeDataManager {
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
 
             console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
@@ -157,11 +159,13 @@ class PancakeDataManager {
                 const allPages = data.categorized.activated;
                 const allPageIds = data.categorized.activated_page_ids || [];
 
-                this.pages = allPages.filter(page => !page.id.startsWith('igo_'));
-                this.pageIds = allPageIds.filter(pageId => !pageId.startsWith('igo_'));
+                this.pages = allPages.filter((page) => !page.id.startsWith('igo_'));
+                this.pageIds = allPageIds.filter((pageId) => !pageId.startsWith('igo_'));
 
                 this.lastPageFetchTime = Date.now();
-                console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages (filtered out ${allPages.length - this.pages.length} Instagram pages)`);
+                console.log(
+                    `[PANCAKE] ✅ Fetched ${this.pages.length} pages (filtered out ${allPages.length - this.pages.length} Instagram pages)`
+                );
                 console.log('[PANCAKE] Page IDs:', this.pageIds);
 
                 // Extract and cache page_access_tokens from settings (only for filtered pages)
@@ -172,7 +176,6 @@ class PancakeDataManager {
                 console.warn('[PANCAKE] Unexpected response format:', data);
                 return [];
             }
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching pages:', error);
             return [];
@@ -208,7 +211,7 @@ class PancakeDataManager {
                         token: pageAccessToken,
                         pageId: pageId,
                         pageName: pageName,
-                        savedAt: Date.now()
+                        savedAt: Date.now(),
                     };
                     extractedCount++;
                 }
@@ -219,18 +222,22 @@ class PancakeDataManager {
                 const existingTokens = window.pancakeTokenManager.pageAccessTokens || {};
                 window.pancakeTokenManager.pageAccessTokens = {
                     ...existingTokens,
-                    ...tokensToSave
+                    ...tokensToSave,
                 };
                 window.pancakeTokenManager.savePageAccessTokensToLocalStorage();
 
                 // Also sync to Firestore for cross-device access
                 if (window.pancakeTokenManager.pageTokensRef) {
-                    window.pancakeTokenManager.pageTokensRef.set(
-                        tokensToSave, { merge: true }
-                    ).catch(err => console.warn('[PANCAKE] Error syncing page tokens to Firestore:', err));
+                    window.pancakeTokenManager.pageTokensRef
+                        .set(tokensToSave, { merge: true })
+                        .catch((err) =>
+                            console.warn('[PANCAKE] Error syncing page tokens to Firestore:', err)
+                        );
                 }
 
-                console.log(`[PANCAKE] ✅ Extracted and cached ${extractedCount} page_access_tokens from /pages response`);
+                console.log(
+                    `[PANCAKE] ✅ Extracted and cached ${extractedCount} page_access_tokens from /pages response`
+                );
             }
         } catch (error) {
             console.error('[PANCAKE] Error extracting page_access_tokens:', error);
@@ -252,14 +259,17 @@ class PancakeDataManager {
             }
 
             // Use Cloudflare Worker proxy to bypass CORS
-            const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
+            const url = window.API_CONFIG.buildUrl.pancake(
+                'pages/unread_conv_pages_count',
+                `access_token=${token}`
+            );
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
+                    Accept: 'application/json',
+                },
             });
 
             console.log('[PANCAKE] Unread pages response status:', response.status);
@@ -275,17 +285,18 @@ class PancakeDataManager {
 
             if (data.success && data.data) {
                 // Merge with existing pages data to get page names
-                const pagesWithUnread = data.data.map(item => {
+                const pagesWithUnread = data.data.map((item) => {
                     // Find matching page from cached pages to get the name
-                    const cachedPage = this.pages.find(p =>
-                        p.page_id === item.page_id ||
-                        p.fb_page_id === item.page_id ||
-                        p.id === item.page_id
+                    const cachedPage = this.pages.find(
+                        (p) =>
+                            p.page_id === item.page_id ||
+                            p.fb_page_id === item.page_id ||
+                            p.id === item.page_id
                     );
                     return {
                         page_id: item.page_id,
                         unread_conv_count: item.unread_conv_count || 0,
-                        page_name: cachedPage?.page_name || cachedPage?.name || item.page_id
+                        page_name: cachedPage?.page_name || cachedPage?.name || item.page_id,
                     };
                 });
 
@@ -295,7 +306,6 @@ class PancakeDataManager {
                 console.warn('[PANCAKE] Unexpected response format:', data);
                 return [];
             }
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching pages with unread count:', error);
             return [];
@@ -325,7 +335,7 @@ class PancakeDataManager {
 
             // Filter out Instagram pages
             let searchPageIds = pageIds || this.pageIds;
-            searchPageIds = searchPageIds.filter(id => !id.startsWith('igo_'));
+            searchPageIds = searchPageIds.filter((id) => !id.startsWith('igo_'));
 
             if (searchPageIds.length === 0) {
                 await this.fetchPages();
@@ -333,7 +343,7 @@ class PancakeDataManager {
                     console.warn('[PANCAKE] No pages found for search');
                     return { conversations: [], customerId: null };
                 }
-                searchPageIds = this.pageIds.filter(id => !id.startsWith('igo_'));
+                searchPageIds = this.pageIds.filter((id) => !id.startsWith('igo_'));
             }
 
             // Use cached searchable pages if we've already detected which ones work
@@ -355,11 +365,14 @@ class PancakeDataManager {
             if (result.errorCode === 122 && searchPageIds.length > 1 && !this._searchablePageIds) {
                 console.log('[PANCAKE] Error 122 - detecting which pages support search...');
                 const workingPages = [];
-                const delay = ms => new Promise(r => setTimeout(r, ms));
+                const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
                 for (const pid of searchPageIds) {
                     const testResult = await this._doSearch(token, encodedQuery, [pid]);
-                    if (testResult.success || (testResult.errorCode !== 122 && testResult.errorCode !== 429)) {
+                    if (
+                        testResult.success ||
+                        (testResult.errorCode !== 122 && testResult.errorCode !== 429)
+                    ) {
                         workingPages.push(pid);
                         console.log(`[PANCAKE]   ✅ Page ${pid} OK`);
                     } else if (testResult.errorCode === 122) {
@@ -367,7 +380,9 @@ class PancakeDataManager {
                     } else {
                         // 429 or other transient error - assume page is OK
                         workingPages.push(pid);
-                        console.log(`[PANCAKE]   ⚠️ Page ${pid} got ${testResult.errorCode}, assuming OK`);
+                        console.log(
+                            `[PANCAKE]   ⚠️ Page ${pid} got ${testResult.errorCode}, assuming OK`
+                        );
                     }
                     await delay(500); // Rate limit protection
                 }
@@ -399,7 +414,6 @@ class PancakeDataManager {
 
             console.error('[PANCAKE] ❌ Search failed:', result.message);
             return { conversations: [], customerId: null };
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error searching conversations:', error);
             return { conversations: [], customerId: null };
@@ -424,13 +438,21 @@ class PancakeDataManager {
             const response = await fetch(url, { method: 'POST', body: formData });
 
             if (!response.ok) {
-                return { success: false, errorCode: response.status, message: `HTTP ${response.status}` };
+                return {
+                    success: false,
+                    errorCode: response.status,
+                    message: `HTTP ${response.status}`,
+                };
             }
 
             const data = await response.json();
 
             if (data.error_code || !data.success) {
-                return { success: false, errorCode: data.error_code, message: data.message || 'Search failed' };
+                return {
+                    success: false,
+                    errorCode: data.error_code,
+                    message: data.message || 'Search failed',
+                };
             }
 
             const conversations = data.conversations || [];
@@ -482,12 +504,17 @@ class PancakeDataManager {
 
             console.log('[PANCAKE] Fetch conversations URL:', url);
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }, 3, true); // skipFallback = true
+            const response = await API_CONFIG.smartFetch(
+                url,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                },
+                3,
+                true
+            ); // skipFallback = true
 
             console.log('[PANCAKE] Conversations response status:', response.status);
 
@@ -504,7 +531,11 @@ class PancakeDataManager {
 
             // Extract customer UUID from first conversation
             let customerUuid = null;
-            if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
+            if (
+                conversations.length > 0 &&
+                conversations[0].customers &&
+                conversations[0].customers.length > 0
+            ) {
                 customerUuid = conversations[0].customers[0].id;
                 console.log(`[PANCAKE] ✅ Found customer UUID: ${customerUuid}`);
             }
@@ -512,9 +543,8 @@ class PancakeDataManager {
             return {
                 conversations,
                 customerUuid,
-                success: true
+                success: true,
             };
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching conversations by fb_id:', error);
             return { conversations: [], customerUuid: null, success: false };
@@ -531,7 +561,9 @@ class PancakeDataManager {
      */
     async searchConversationsByCommentIds(facebookUserName, commentIds, fbId, pageIds = null) {
         try {
-            console.log(`[PANCAKE] Searching by comment IDs for user: ${facebookUserName}, fb_id: ${fbId}`);
+            console.log(
+                `[PANCAKE] Searching by comment IDs for user: ${facebookUserName}, fb_id: ${fbId}`
+            );
 
             // Step 1: Search conversations by name
             const searchResult = await this.searchConversations(facebookUserName, pageIds);
@@ -542,7 +574,7 @@ class PancakeDataManager {
             }
 
             // Step 2: Split comment IDs
-            const commentIdArray = commentIds.split(',').map(id => id.trim());
+            const commentIdArray = commentIds.split(',').map((id) => id.trim());
             console.log('[PANCAKE] Looking for comment IDs:', commentIdArray);
 
             // Step 3: Find conversation matching comment ID
@@ -551,17 +583,22 @@ class PancakeDataManager {
                 // Match by conversation.id with any comment ID
                 if (commentIdArray.includes(conv.id)) {
                     // Verify fb_id matches
-                    const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === fbId);
+                    const hasMatchingCustomer = conv.customers?.some((c) => c.fb_id === fbId);
                     if (hasMatchingCustomer) {
                         matchedConversation = conv;
-                        console.log('[PANCAKE] ✅ Found COMMENT conversation matching comment ID:', conv.id);
+                        console.log(
+                            '[PANCAKE] ✅ Found COMMENT conversation matching comment ID:',
+                            conv.id
+                        );
                         break;
                     }
                 }
             }
 
             if (!matchedConversation) {
-                console.warn('[PANCAKE] No COMMENT conversation found matching comment IDs and fb_id');
+                console.warn(
+                    '[PANCAKE] No COMMENT conversation found matching comment IDs and fb_id'
+                );
                 return { customerUuid: null, threadId: null, threadKey: null };
             }
 
@@ -576,9 +613,9 @@ class PancakeDataManager {
             console.log('[PANCAKE] ✅ Found customer UUID:', customerUuid);
 
             // Step 5: Find INBOX conversation with same customer UUID to get thread_id and thread_key
-            const inboxConversation = searchResult.conversations.find(conv =>
-                conv.type === 'INBOX' &&
-                conv.customers?.some(c => c.id === customerUuid)
+            const inboxConversation = searchResult.conversations.find(
+                (conv) =>
+                    conv.type === 'INBOX' && conv.customers?.some((c) => c.id === customerUuid)
             );
 
             const threadId = inboxConversation?.thread_id || null;
@@ -587,15 +624,16 @@ class PancakeDataManager {
             if (threadId && threadKey) {
                 console.log('[PANCAKE] ✅ Found thread_id and thread_key from INBOX conversation');
             } else {
-                console.log('[PANCAKE] ℹ️ No thread_id/thread_key found in search, will use inbox_preview');
+                console.log(
+                    '[PANCAKE] ℹ️ No thread_id/thread_key found in search, will use inbox_preview'
+                );
             }
 
             return {
                 customerUuid,
                 threadId,
-                threadKey
+                threadKey,
             };
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error in searchConversationsByCommentIds:', error);
             return { customerUuid: null, threadId: null, threadKey: null };
@@ -613,7 +651,10 @@ class PancakeDataManager {
             if (!forceRefresh && this.conversations.length > 0 && this.lastFetchTime) {
                 const cacheAge = Date.now() - this.lastFetchTime;
                 if (cacheAge < this.CACHE_DURATION) {
-                    console.log('[PANCAKE] Using cached conversations, count:', this.conversations.length);
+                    console.log(
+                        '[PANCAKE] Using cached conversations, count:',
+                        this.conversations.length
+                    );
                     return this.conversations;
                 }
             }
@@ -641,7 +682,7 @@ class PancakeDataManager {
             // Build query params - format: pages[pageId]=offset
             // Use cached searchable pages if available (excludes expired subscription pages)
             const activePageIds = this._searchablePageIds || this.pageIds;
-            const pagesParams = activePageIds.map(pageId => `pages[${pageId}]=0`).join('&');
+            const pagesParams = activePageIds.map((pageId) => `pages[${pageId}]=0`).join('&');
             const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
 
             // Use Cloudflare Worker proxy
@@ -652,11 +693,15 @@ class PancakeDataManager {
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
 
-            console.log('[PANCAKE] Conversations response status:', response.status, response.statusText);
+            console.log(
+                '[PANCAKE] Conversations response status:',
+                response.status,
+                response.statusText
+            );
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -677,7 +722,6 @@ class PancakeDataManager {
             console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
 
             return this.conversations;
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching conversations:', error);
             console.error('[PANCAKE] Error stack:', error.stack);
@@ -706,13 +750,20 @@ class PancakeDataManager {
             const pageCounts = this.pagesWithCurrentCount || {};
             const totalCount = Object.values(pageCounts).reduce((sum, c) => sum + c, 0);
 
-            console.log('[PANCAKE] Fetching more conversations, current_count:', totalCount, 'per-page:', pageCounts);
+            console.log(
+                '[PANCAKE] Fetching more conversations, current_count:',
+                totalCount,
+                'per-page:',
+                pageCounts
+            );
 
             const token = await this.getToken();
 
             // Build query: pages[pageId]=count_already_loaded (from pages_with_current_count)
             const activePageIds = this._searchablePageIds || this.pageIds;
-            const pagesParams = activePageIds.map(pageId => `pages[${pageId}]=${pageCounts[pageId] || 0}`).join('&');
+            const pagesParams = activePageIds
+                .map((pageId) => `pages[${pageId}]=${pageCounts[pageId] || 0}`)
+                .join('&');
             const queryString = `unread_first=true&tags="ALL"&except_tags=[]&access_token=${token}&current_count=${totalCount}&cursor_mode=true&${pagesParams}&mode=OR&from_platform=web`;
 
             const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
@@ -720,8 +771,8 @@ class PancakeDataManager {
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -745,7 +796,6 @@ class PancakeDataManager {
             }
 
             return moreConversations;
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching more conversations:', error);
             return [];
@@ -765,7 +815,7 @@ class PancakeDataManager {
         this.commentMapByFBID.clear();
         this.conversationsByCustomerFbId.clear();
 
-        this.conversations.forEach(conv => {
+        this.conversations.forEach((conv) => {
             const convType = conv.type; // "INBOX" or "COMMENT"
 
             if (convType === 'INBOX') {
@@ -789,7 +839,7 @@ class PancakeDataManager {
             // Map by customers[].fb_id for both INBOX and COMMENT
             // This is critical for COMMENT conversations where from_psid is null
             if (conv.customers && conv.customers.length > 0) {
-                conv.customers.forEach(customer => {
+                conv.customers.forEach((customer) => {
                     if (customer.fb_id) {
                         this.conversationsByCustomerFbId.set(customer.fb_id, conv);
                     }
@@ -841,7 +891,7 @@ class PancakeDataManager {
                     userId,
                     convId: conversation.id,
                     convType: conversation.type,
-                    customerName: conversation.customers?.[0]?.name
+                    customerName: conversation.customers?.[0]?.name,
                 });
             }
         }
@@ -860,7 +910,7 @@ class PancakeDataManager {
         if (!userId) {
             return {
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
             };
         }
 
@@ -869,7 +919,7 @@ class PancakeDataManager {
         if (!conversation) {
             return {
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
             };
         }
 
@@ -881,7 +931,7 @@ class PancakeDataManager {
 
         return {
             hasUnread,
-            unreadCount
+            unreadCount,
         };
     }
 
@@ -896,7 +946,7 @@ class PancakeDataManager {
         if (!userId) {
             return {
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
             };
         }
 
@@ -931,7 +981,7 @@ class PancakeDataManager {
         if (!conversation) {
             return {
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
             };
         }
 
@@ -940,7 +990,7 @@ class PancakeDataManager {
 
         return {
             hasUnread,
-            unreadCount
+            unreadCount,
         };
     }
 
@@ -955,7 +1005,7 @@ class PancakeDataManager {
         if (!userId) {
             return {
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
             };
         }
 
@@ -968,7 +1018,7 @@ class PancakeDataManager {
         if (!conversation) {
             return {
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
             };
         }
 
@@ -977,7 +1027,7 @@ class PancakeDataManager {
 
         return {
             hasUnread,
-            unreadCount
+            unreadCount,
         };
     }
 
@@ -991,23 +1041,39 @@ class PancakeDataManager {
      * @param {boolean} forceRefresh - Force refresh from API (skip cache)
      * @returns {Promise<Object>} { messages: Array, conversation: Object, fromCache: boolean }
      */
-    async fetchMessagesForConversation(pageId, conversationId, currentCount = null, customerId = null, forceRefresh = false) {
+    async fetchMessagesForConversation(
+        pageId,
+        conversationId,
+        currentCount = null,
+        customerId = null,
+        forceRefresh = false
+    ) {
         const cacheKey = `${pageId}_${conversationId}`;
 
         try {
             // Skip Instagram pages to avoid subscription errors
             if (pageId.startsWith('igo_')) {
                 console.warn(`[PANCAKE] Skipping Instagram page: ${pageId}`);
-                return { messages: [], conversation: null, customers: [], customerId: null, fromCache: false };
+                return {
+                    messages: [],
+                    conversation: null,
+                    customers: [],
+                    customerId: null,
+                    fromCache: false,
+                };
             }
 
-            console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
+            console.log(
+                `[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`
+            );
 
             // Check cache first (only if not pagination and not force refresh)
             if (!forceRefresh && currentCount === null) {
                 const cached = this.messagesCache.get(cacheKey);
-                if (cached && (Date.now() - cached.timestamp) < this.MESSAGES_CACHE_DURATION) {
-                    console.log(`[PANCAKE] ✅ Using cached messages (${cached.messages.length} messages)`);
+                if (cached && Date.now() - cached.timestamp < this.MESSAGES_CACHE_DURATION) {
+                    console.log(
+                        `[PANCAKE] ✅ Using cached messages (${cached.messages.length} messages)`
+                    );
                     return {
                         messages: cached.messages,
                         conversation: cached.conversation,
@@ -1020,7 +1086,8 @@ class PancakeDataManager {
                         recent_phone_numbers: cached.recent_phone_numbers || [],
                         conv_phone_numbers: cached.conv_phone_numbers || [],
                         notes: cached.notes || [],
-                        fromCache: true
+                        read_watermarks: cached.read_watermarks || [],
+                        fromCache: true,
                     };
                 }
             }
@@ -1034,16 +1101,22 @@ class PancakeDataManager {
             // Build URL: GET /pages/{pageId}/conversations/{conversationId}/messages (Pancake Direct)
             // Reference: pancake.vn/api/v1/pages/{pageId}/conversations/{convId}/messages?customer_id={id}&access_token={JWT}
             const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
-            const url = window.API_CONFIG.buildUrl.pancakeDirect(endpoint, pageId, jwtToken, jwtToken)
-                + (customerId ? `&customer_id=${customerId}` : '')
-                + (currentCount !== null ? `&current_count=${currentCount}` : '');
+            const url =
+                window.API_CONFIG.buildUrl.pancakeDirect(endpoint, pageId, jwtToken, jwtToken) +
+                (customerId ? `&customer_id=${customerId}` : '') +
+                (currentCount !== null ? `&current_count=${currentCount}` : '');
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }, 3, true); // skipFallback = true for messages
+            const response = await API_CONFIG.smartFetch(
+                url,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                },
+                3,
+                true
+            ); // skipFallback = true for messages
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1056,7 +1129,9 @@ class PancakeDataManager {
             const customers = data.customers || data.conv_customers || [];
             const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
             if (extractedCustomerId) {
-                console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
+                console.log(
+                    `[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`
+                );
             }
 
             const result = {
@@ -1068,10 +1143,12 @@ class PancakeDataManager {
                 activities: data.activities || [],
                 reports_by_phone: data.reports_by_phone || {},
                 comment_count: data.comment_count || 0,
-                recent_phone_numbers: data.recent_phone_numbers || data.conv_recent_phone_numbers || [],
+                recent_phone_numbers:
+                    data.recent_phone_numbers || data.conv_recent_phone_numbers || [],
                 conv_phone_numbers: data.conv_phone_numbers || [],
-                notes: (data.notes || []).filter(n => !n.removed_at),
-                fromCache: false
+                notes: (data.notes || []).filter((n) => !n.removed_at),
+                read_watermarks: data.read_watermarks || [],
+                fromCache: false,
             };
 
             // Cache the result (only if not pagination)
@@ -1088,13 +1165,13 @@ class PancakeDataManager {
                     recent_phone_numbers: result.recent_phone_numbers,
                     conv_phone_numbers: result.conv_phone_numbers,
                     notes: result.notes,
-                    timestamp: Date.now()
+                    read_watermarks: result.read_watermarks,
+                    timestamp: Date.now(),
                 });
                 console.log(`[PANCAKE] Messages cached for ${cacheKey}`);
             }
 
             return result;
-
         } catch (error) {
             console.error('[PANCAKE] Error fetching messages:', error);
 
@@ -1113,8 +1190,9 @@ class PancakeDataManager {
                     comment_count: cached.comment_count || 0,
                     recent_phone_numbers: cached.recent_phone_numbers || [],
                     conv_phone_numbers: cached.conv_phone_numbers || [],
+                    read_watermarks: cached.read_watermarks || [],
                     fromCache: true,
-                    error: error.message
+                    error: error.message,
                 };
             }
 
@@ -1122,7 +1200,7 @@ class PancakeDataManager {
                 messages: [],
                 conversation: null,
                 fromCache: false,
-                error: error.message
+                error: error.message,
             };
         }
     }
@@ -1157,7 +1235,9 @@ class PancakeDataManager {
                 return { conversationId: null, messages: [], success: false };
             }
 
-            console.log(`[PANCAKE] Fetching inbox preview for pageId=${pageId}, customerId=${customerId}`);
+            console.log(
+                `[PANCAKE] Fetching inbox preview for pageId=${pageId}, customerId=${customerId}`
+            );
 
             const token = await this.getToken();
             if (!token) {
@@ -1171,12 +1251,17 @@ class PancakeDataManager {
                 queryString
             );
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }, 3, true); // skipFallback = true for inbox_preview
+            const response = await API_CONFIG.smartFetch(
+                url,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                },
+                3,
+                true
+            ); // skipFallback = true for inbox_preview
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1186,20 +1271,23 @@ class PancakeDataManager {
             console.log(`[PANCAKE] Inbox preview response:`, data);
 
             if (!data.success) {
-                console.warn('[PANCAKE] ⚠️ Inbox preview API returned success=false:', data.message || 'No message');
+                console.warn(
+                    '[PANCAKE] ⚠️ Inbox preview API returned success=false:',
+                    data.message || 'No message'
+                );
                 return {
                     conversationId: null,
                     messages: [],
                     success: false,
-                    error: data.message || 'Inbox preview API returned success=false'
+                    error: data.message || 'Inbox preview API returned success=false',
                 };
             }
 
             // Extract from_id from data array (first message from customer)
             let fromId = null;
             if (data.data && data.data.length > 0) {
-                const customerMessage = data.data.find(msg =>
-                    msg.from && msg.from.id && msg.from.id !== pageId
+                const customerMessage = data.data.find(
+                    (msg) => msg.from && msg.from.id && msg.from.id !== pageId
                 );
                 if (customerMessage) {
                     fromId = customerMessage.from.id;
@@ -1224,8 +1312,8 @@ class PancakeDataManager {
             console.log(`  - comment_conv_id: ${commentConversationId}`);
 
             return {
-                conversationId: conversationId,          // Default (inbox) - backwards compatible
-                inboxConversationId: inboxConversationId,   // Explicit inbox conversation ID
+                conversationId: conversationId, // Default (inbox) - backwards compatible
+                inboxConversationId: inboxConversationId, // Explicit inbox conversation ID
                 commentConversationId: commentConversationId, // Explicit comment conversation ID
                 messages: data.data || [],
                 threadId: data.thread_id_preview || data.thread_id,
@@ -1233,16 +1321,15 @@ class PancakeDataManager {
                 fromId: fromId,
                 canInbox: data.can_inbox,
                 updatedAt: data.updated_at,
-                success: true
+                success: true,
             };
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching inbox preview:', error);
             return {
                 conversationId: null,
                 messages: [],
                 success: false,
-                error: error.message
+                error: error.message,
             };
         }
     }
@@ -1270,13 +1357,15 @@ class PancakeDataManager {
                     from: msg.from,
                     created_time: msg.created_time,
                     inserted_at: msg.inserted_at,
-                    message: msg.message?.substring(0, 50)
+                    message: msg.message?.substring(0, 50),
                 });
                 return msg;
             }
         }
 
-        console.warn(`[DEBUG-24H] No customer messages found in conversation - all messages are from page!`);
+        console.warn(
+            `[DEBUG-24H] No customer messages found in conversation - all messages are from page!`
+        );
         return null;
     }
 
@@ -1296,7 +1385,7 @@ class PancakeDataManager {
                 hasUnread: false,
                 unreadCount: 0,
                 attachments: null,
-                type: null
+                type: null,
             };
         }
 
@@ -1334,32 +1423,39 @@ class PancakeDataManager {
                 hasUnread: false,
                 unreadCount: 0,
                 attachments: null,
-                type: null
+                type: null,
             };
         }
 
         // Verify it's actually INBOX type (should always be true due to separate maps)
         if (conversation.type !== 'INBOX') {
-            console.warn(`[PANCAKE] Found conversation but type is ${conversation.type}, expected INBOX`);
+            console.warn(
+                `[PANCAKE] Found conversation but type is ${conversation.type}, expected INBOX`
+            );
             return {
                 message: null,
                 messageType: null,
                 hasUnread: false,
                 unreadCount: 0,
                 attachments: null,
-                type: null
+                type: null,
             };
         }
 
         // Extract last message from Pancake conversation
         // Use last_message.text from Pancake API (not snippet!)
-        const lastMessage = conversation.last_message?.text ||
+        const lastMessage =
+            conversation.last_message?.text ||
             conversation.last_message?.message ||
             conversation.snippet ||
             null;
 
-        console.log(`[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`);
-        console.log(`[DEBUG-DATA] Last message text: "${lastMessage}", Unread: ${conversation.unread_count}`);
+        console.log(
+            `[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`
+        );
+        console.log(
+            `[DEBUG-DATA] Last message text: "${lastMessage}", Unread: ${conversation.unread_count}`
+        );
 
         // DEBUG: Log full conversation structure to understand available fields
         console.log(`[DEBUG-CONVERSATION] Full conversation object:`, conversation);
@@ -1371,17 +1467,28 @@ class PancakeDataManager {
 
         if (conversation.last_message) {
             console.log(`[DEBUG-TIMESTAMP] Last message object:`, conversation.last_message);
-            console.log(`[DEBUG-TIMESTAMP] Last message created_time: ${conversation.last_message.created_time}`);
-            console.log(`[DEBUG-TIMESTAMP] Last message inserted_at: ${conversation.last_message.inserted_at}`);
-            console.log(`[DEBUG-TIMESTAMP] Last message from.id: ${conversation.last_message.from?.id}`);
-            console.log(`[DEBUG-TIMESTAMP] Last message from.name: ${conversation.last_message.from?.name}`);
+            console.log(
+                `[DEBUG-TIMESTAMP] Last message created_time: ${conversation.last_message.created_time}`
+            );
+            console.log(
+                `[DEBUG-TIMESTAMP] Last message inserted_at: ${conversation.last_message.inserted_at}`
+            );
+            console.log(
+                `[DEBUG-TIMESTAMP] Last message from.id: ${conversation.last_message.from?.id}`
+            );
+            console.log(
+                `[DEBUG-TIMESTAMP] Last message from.name: ${conversation.last_message.from?.name}`
+            );
         } else {
-            console.warn(`[DEBUG-TIMESTAMP] ⚠️ conversation.last_message is NULL/UNDEFINED - Cannot determine who sent last message!`);
+            console.warn(
+                `[DEBUG-TIMESTAMP] ⚠️ conversation.last_message is NULL/UNDEFINED - Cannot determine who sent last message!`
+            );
             console.warn(`[DEBUG-TIMESTAMP] ⚠️ This is why 24-hour check might be failing!`);
         }
 
         // Calculate time since last message for 24-hour policy check
-        const lastMessageTime = conversation.last_message?.created_time ||
+        const lastMessageTime =
+            conversation.last_message?.created_time ||
             conversation.last_message?.inserted_at ||
             conversation.updated_at;
 
@@ -1389,7 +1496,9 @@ class PancakeDataManager {
             const lastMsgDate = new Date(lastMessageTime);
             const now = new Date();
             const hoursSinceLastMessage = (now - lastMsgDate) / (1000 * 60 * 60);
-            console.log(`[DEBUG-TIMESTAMP] Hours since last message: ${hoursSinceLastMessage.toFixed(2)}`);
+            console.log(
+                `[DEBUG-TIMESTAMP] Hours since last message: ${hoursSinceLastMessage.toFixed(2)}`
+            );
             console.log(`[DEBUG-TIMESTAMP] Can send (within 24h): ${hoursSinceLastMessage < 24}`);
             console.log(`[DEBUG-TIMESTAMP] Current time: ${now.toISOString()}`);
             console.log(`[DEBUG-TIMESTAMP] Last message time: ${lastMsgDate.toISOString()}`);
@@ -1400,7 +1509,10 @@ class PancakeDataManager {
         let attachments = null;
 
         if (conversation.last_message) {
-            if (conversation.last_message.attachments && conversation.last_message.attachments.length > 0) {
+            if (
+                conversation.last_message.attachments &&
+                conversation.last_message.attachments.length > 0
+            ) {
                 attachments = conversation.last_message.attachments;
                 messageType = 'attachment';
             }
@@ -1412,9 +1524,10 @@ class PancakeDataManager {
 
         // Return pageId and customerId for caller to fetch conversationId from inbox_preview if needed
         const pageId = conversation.page_id;
-        const customerId = conversation.customers && conversation.customers.length > 0
-            ? conversation.customers[0].id
-            : null;
+        const customerId =
+            conversation.customers && conversation.customers.length > 0
+                ? conversation.customers[0].id
+                : null;
 
         return {
             message: lastMessage,
@@ -1422,12 +1535,14 @@ class PancakeDataManager {
             hasUnread,
             unreadCount,
             attachments,
-            type: 'message',  // Return 'message' for consistency with UI
+            type: 'message', // Return 'message' for consistency with UI
             pageId: pageId,
-            customerId: customerId,  // Return customerId to fetch conversationId from inbox_preview
-            lastMessageTime: lastMessageTime,  // Add timestamp for 24-hour policy check
+            customerId: customerId, // Return customerId to fetch conversationId from inbox_preview
+            lastMessageTime: lastMessageTime, // Add timestamp for 24-hour policy check
             updatedAt: conversation.updated_at,
-            canSendMessage: lastMessageTime ? ((new Date() - new Date(lastMessageTime)) / (1000 * 60 * 60) < 24) : false
+            canSendMessage: lastMessageTime
+                ? (new Date() - new Date(lastMessageTime)) / (1000 * 60 * 60) < 24
+                : false,
         };
     }
 
@@ -1446,7 +1561,7 @@ class PancakeDataManager {
                 messageType: null,
                 hasUnread: false,
                 unreadCount: 0,
-                type: 'comment'
+                type: 'comment',
             };
         }
 
@@ -1484,19 +1599,21 @@ class PancakeDataManager {
                 messageType: null,
                 hasUnread: false,
                 unreadCount: 0,
-                type: 'comment'
+                type: 'comment',
             };
         }
 
         // Verify it's actually COMMENT type (should always be true due to separate maps)
         if (conversation.type !== 'COMMENT') {
-            console.warn(`[PANCAKE] Found conversation but type is ${conversation.type}, expected COMMENT`);
+            console.warn(
+                `[PANCAKE] Found conversation but type is ${conversation.type}, expected COMMENT`
+            );
             return {
                 message: null,
                 messageType: null,
                 hasUnread: false,
                 unreadCount: 0,
-                type: 'comment'
+                type: 'comment',
             };
         }
 
@@ -1519,7 +1636,7 @@ class PancakeDataManager {
             unreadCount,
             type: 'comment',
             conversationId: conversationId,
-            pageId: conversation.page_id
+            pageId: conversation.page_id,
         };
     }
 
@@ -1533,20 +1650,27 @@ class PancakeDataManager {
      */
     async check24HourWindow(pageId, conversationId, customerId = null) {
         try {
-            console.log(`[DEBUG-24H] Checking 24-hour window for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
+            console.log(
+                `[DEBUG-24H] Checking 24-hour window for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`
+            );
 
             // Fetch messages for this conversation
-            const { messages } = await this.fetchMessagesForConversation(pageId, conversationId, null, customerId);
+            const { messages } = await this.fetchMessagesForConversation(
+                pageId,
+                conversationId,
+                null,
+                customerId
+            );
 
             if (!messages || messages.length === 0) {
                 console.warn(`[DEBUG-24H] Cannot fetch messages - skipping 24h check (allow send)`);
                 // FIX: Don't block user if API fails - let Facebook API handle 24h validation
                 // Return canSend: true to avoid blocking user experience
                 return {
-                    canSend: true,  // Changed from false to true
+                    canSend: true, // Changed from false to true
                     hoursSinceLastMessage: null,
                     lastCustomerMessage: null,
-                    reason: 'Cannot verify 24-hour window - API unavailable (proceeding anyway)'
+                    reason: 'Cannot verify 24-hour window - API unavailable (proceeding anyway)',
                 };
             }
 
@@ -1554,13 +1678,15 @@ class PancakeDataManager {
             const lastCustomerMsg = this.findLastCustomerMessage(messages, pageId);
 
             if (!lastCustomerMsg) {
-                console.warn(`[DEBUG-24H] No customer messages found - all messages are from page (allow send)`);
+                console.warn(
+                    `[DEBUG-24H] No customer messages found - all messages are from page (allow send)`
+                );
                 // FIX: Don't block user - let Facebook API handle validation
                 return {
-                    canSend: true,  // Changed from false to true
+                    canSend: true, // Changed from false to true
                     hoursSinceLastMessage: null,
                     lastCustomerMessage: null,
-                    reason: 'No customer messages found - cannot verify 24-hour window (proceeding anyway)'
+                    reason: 'No customer messages found - cannot verify 24-hour window (proceeding anyway)',
                 };
             }
 
@@ -1570,10 +1696,10 @@ class PancakeDataManager {
                 console.warn(`[DEBUG-24H] Last customer message has no timestamp (allow send)`);
                 // FIX: Don't block user - let Facebook API handle validation
                 return {
-                    canSend: true,  // Changed from false to true
+                    canSend: true, // Changed from false to true
                     hoursSinceLastMessage: null,
                     lastCustomerMessage: lastCustomerMsg,
-                    reason: 'Cannot determine message timestamp (proceeding anyway)'
+                    reason: 'Cannot determine message timestamp (proceeding anyway)',
                 };
             }
 
@@ -1587,7 +1713,7 @@ class PancakeDataManager {
                 currentTime: now.toISOString(),
                 hoursSinceLastMessage: hoursSinceLastMessage.toFixed(2),
                 canSend,
-                customerName: lastCustomerMsg.from?.name
+                customerName: lastCustomerMsg.from?.name,
             });
 
             return {
@@ -1595,17 +1721,18 @@ class PancakeDataManager {
                 hoursSinceLastMessage: parseFloat(hoursSinceLastMessage.toFixed(2)),
                 lastCustomerMessage: lastCustomerMsg,
                 lastMessageTime: lastMsgDate.toISOString(),
-                reason: canSend ? 'Within 24-hour window' : `24-hour window expired (${hoursSinceLastMessage.toFixed(1)} hours ago)`
+                reason: canSend
+                    ? 'Within 24-hour window'
+                    : `24-hour window expired (${hoursSinceLastMessage.toFixed(1)} hours ago)`,
             };
-
         } catch (error) {
             console.error(`[DEBUG-24H] Error checking 24-hour window:`, error);
             // FIX: Don't block user on error - let Facebook API handle validation
             return {
-                canSend: true,  // Changed from false to true
+                canSend: true, // Changed from false to true
                 hoursSinceLastMessage: null,
                 lastCustomerMessage: null,
-                reason: `Error checking 24h window (proceeding anyway): ${error.message}`
+                reason: `Error checking 24h window (proceeding anyway): ${error.message}`,
             };
         }
     }
@@ -1640,7 +1767,7 @@ class PancakeDataManager {
         return {
             channelId,
             psid,
-            hasChat
+            hasChat,
         };
     }
 
@@ -1655,7 +1782,7 @@ class PancakeDataManager {
                 message: '',
                 hasUnread: false,
                 unreadCount: 0,
-                attachments: []
+                attachments: [],
             };
         }
 
@@ -1671,13 +1798,14 @@ class PancakeDataManager {
                 message: '',
                 hasUnread: false,
                 unreadCount: 0,
-                attachments: []
+                attachments: [],
             };
         }
 
         // Extract last message info from conversation
         // Use last_message.text from Pancake API (not snippet!)
-        const lastMessage = conversation.last_message?.text ||
+        const lastMessage =
+            conversation.last_message?.text ||
             conversation.last_message?.message ||
             conversation.snippet ||
             '';
@@ -1694,7 +1822,7 @@ class PancakeDataManager {
             message: lastMessage,
             hasUnread,
             unreadCount,
-            attachments
+            attachments,
         };
     }
 
@@ -1711,7 +1839,7 @@ class PancakeDataManager {
                 message: '',
                 hasUnread: false,
                 unreadCount: 0,
-                attachments: []
+                attachments: [],
             };
         }
 
@@ -1735,13 +1863,14 @@ class PancakeDataManager {
                 message: '',
                 hasUnread: false,
                 unreadCount: 0,
-                attachments: []
+                attachments: [],
             };
         }
 
         // Extract last comment info
         // Use last_message.text from Pancake API (not snippet!)
-        const lastMessage = conversation.last_message?.text ||
+        const lastMessage =
+            conversation.last_message?.text ||
             conversation.last_message?.message ||
             conversation.snippet ||
             '';
@@ -1752,7 +1881,7 @@ class PancakeDataManager {
             message: lastMessage,
             hasUnread,
             unreadCount,
-            attachments: []
+            attachments: [],
         };
     }
 
@@ -1772,7 +1901,9 @@ class PancakeDataManager {
                 return { messages: [], conversation: null, conversationId: null, customerId: null };
             }
 
-            console.log(`[PANCAKE] fetchMessages called: pageId=${pageId}, psid=${psid}, cursorOrCount=${cursorOrCount}, customerId=${customerId}`);
+            console.log(
+                `[PANCAKE] fetchMessages called: pageId=${pageId}, psid=${psid}, cursorOrCount=${cursorOrCount}, customerId=${customerId}`
+            );
 
             // Determine if cursorOrCount is a number (currentCount) or null/conversationId (old behavior)
             let currentCount = null;
@@ -1797,7 +1928,12 @@ class PancakeDataManager {
             if (cachedConv) {
                 if (!convId) convId = cachedConv.id;
                 if (!custId) custId = cachedConv.customers?.[0]?.id || null;
-                console.log('[PANCAKE] Found conversation in cache:', convId, 'customerId:', custId);
+                console.log(
+                    '[PANCAKE] Found conversation in cache:',
+                    convId,
+                    'customerId:',
+                    custId
+                );
             }
 
             // CRITICAL: Nếu không có customer_id, cần tìm conversation để lấy
@@ -1806,16 +1942,22 @@ class PancakeDataManager {
                 console.log('[PANCAKE] No customer_id in cache, searching for conversation...');
 
                 // Tìm trong tất cả conversations đã load
-                const matchingConv = this.conversations.find(conv =>
-                    conv.type === 'INBOX' &&
-                    conv.page_id === pageId &&
-                    (conv.from_psid === psid || conv.from?.id === psid)
+                const matchingConv = this.conversations.find(
+                    (conv) =>
+                        conv.type === 'INBOX' &&
+                        conv.page_id === pageId &&
+                        (conv.from_psid === psid || conv.from?.id === psid)
                 );
 
                 if (matchingConv) {
                     if (!convId) convId = matchingConv.id;
                     custId = matchingConv.customers?.[0]?.id || null;
-                    console.log('[PANCAKE] ✅ Found in conversations array:', convId, 'customerId:', custId);
+                    console.log(
+                        '[PANCAKE] ✅ Found in conversations array:',
+                        convId,
+                        'customerId:',
+                        custId
+                    );
                 }
             }
 
@@ -1827,17 +1969,24 @@ class PancakeDataManager {
 
             // Fallback: Nếu vẫn không có customer_id, fetch conversation info từ API
             if (!custId) {
-                console.log('[PANCAKE] Still no customer_id, fetching conversation info from API...');
+                console.log(
+                    '[PANCAKE] Still no customer_id, fetching conversation info from API...'
+                );
                 try {
                     const token = await this.getToken();
                     const convInfoUrl = window.API_CONFIG.buildUrl.pancake(
                         `pages/${pageId}/conversations/${convId}`,
                         `access_token=${token}`
                     );
-                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' });
+                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, {
+                        method: 'GET',
+                    });
                     if (convResponse.ok) {
                         const convData = await convResponse.json();
-                        custId = convData.customers?.[0]?.id || convData.conversation?.customers?.[0]?.id || null;
+                        custId =
+                            convData.customers?.[0]?.id ||
+                            convData.conversation?.customers?.[0]?.id ||
+                            null;
                         if (custId) {
                             console.log('[PANCAKE] ✅ Got customer_id from API:', custId);
                         }
@@ -1847,12 +1996,17 @@ class PancakeDataManager {
                 }
             }
 
-            const result = await this.fetchMessagesForConversation(pageId, convId, currentCount, custId);
+            const result = await this.fetchMessagesForConversation(
+                pageId,
+                convId,
+                currentCount,
+                custId
+            );
             // Trả về thêm conversationId và customerId để caller có thể update state
             return {
                 ...result,
                 conversationId: convId,
-                customerId: result.customerId || custId
+                customerId: result.customerId || custId,
             };
         } catch (error) {
             console.error('[PANCAKE] Error in fetchMessages:', error);
@@ -1877,7 +2031,9 @@ class PancakeDataManager {
                 return { messages: [], conversation: null };
             }
 
-            console.log(`[PANCAKE] fetchComments called: pageId=${pageId}, psid=${psid}, convId=${conversationId}, postId=${postId}`);
+            console.log(
+                `[PANCAKE] fetchComments called: pageId=${pageId}, psid=${psid}, convId=${conversationId}, postId=${postId}`
+            );
 
             // For comments, find conversation in COMMENT map
             let convId = conversationId;
@@ -1889,61 +2045,93 @@ class PancakeDataManager {
                 console.log('[PANCAKE] Looking for conversation matching BOTH psid AND postId');
 
                 // Bước 1: Tìm trong conversations đã load (memory)
-                const matchingConvInMemory = this.conversations.find(conv =>
-                    conv.type === 'COMMENT' &&
-                    conv.post_id === postId &&
-                    (conv.from?.id === psid ||
-                        conv.from_psid === psid ||
-                        conv.customers?.some(c => c.fb_id === psid))
+                const matchingConvInMemory = this.conversations.find(
+                    (conv) =>
+                        conv.type === 'COMMENT' &&
+                        conv.post_id === postId &&
+                        (conv.from?.id === psid ||
+                            conv.from_psid === psid ||
+                            conv.customers?.some((c) => c.fb_id === psid))
                 );
 
                 if (matchingConvInMemory) {
                     convId = matchingConvInMemory.id;
                     customerId = matchingConvInMemory.customers?.[0]?.id || null;
-                    console.log('[PANCAKE] ✅ Found in memory - conversation matching psid AND postId:', convId);
+                    console.log(
+                        '[PANCAKE] ✅ Found in memory - conversation matching psid AND postId:',
+                        convId
+                    );
                 }
 
                 // Bước 2: Nếu không tìm thấy trong memory, fetch trực tiếp theo fb_id
                 if (!convId && psid) {
-                    console.log('[PANCAKE] Not found in memory, fetching conversations by fb_id:', psid);
+                    console.log(
+                        '[PANCAKE] Not found in memory, fetching conversations by fb_id:',
+                        psid
+                    );
                     try {
                         const result = await this.fetchConversationsByFbId(pageId, psid);
-                        if (result.success && result.conversations && result.conversations.length > 0) {
-                            console.log('[PANCAKE] Direct fetch returned', result.conversations.length, 'conversations');
+                        if (
+                            result.success &&
+                            result.conversations &&
+                            result.conversations.length > 0
+                        ) {
+                            console.log(
+                                '[PANCAKE] Direct fetch returned',
+                                result.conversations.length,
+                                'conversations'
+                            );
 
                             // Debug: log all COMMENT conversations with their post_ids
-                            const commentConvs = result.conversations.filter(c => c.type === 'COMMENT');
-                            console.log('[PANCAKE] COMMENT conversations from direct fetch:', commentConvs.map(c => ({
-                                id: c.id,
-                                post_id: c.post_id,
-                                from_id: c.from?.id,
-                                customer_fb_id: c.customers?.[0]?.fb_id
-                            })));
+                            const commentConvs = result.conversations.filter(
+                                (c) => c.type === 'COMMENT'
+                            );
+                            console.log(
+                                '[PANCAKE] COMMENT conversations from direct fetch:',
+                                commentConvs.map((c) => ({
+                                    id: c.id,
+                                    post_id: c.post_id,
+                                    from_id: c.from?.id,
+                                    customer_fb_id: c.customers?.[0]?.fb_id,
+                                }))
+                            );
 
                             // Find conversation matching BOTH post_id AND fb_id/psid
-                            const matchingConv = result.conversations.find(c =>
-                                c.type === 'COMMENT' &&
-                                c.post_id === postId &&
-                                (c.from?.id === psid ||
-                                    c.from_psid === psid ||
-                                    c.customers?.some(cust => cust.fb_id === psid))
+                            const matchingConv = result.conversations.find(
+                                (c) =>
+                                    c.type === 'COMMENT' &&
+                                    c.post_id === postId &&
+                                    (c.from?.id === psid ||
+                                        c.from_psid === psid ||
+                                        c.customers?.some((cust) => cust.fb_id === psid))
                             );
 
                             if (matchingConv) {
                                 convId = matchingConv.id;
                                 customerId = matchingConv.customers?.[0]?.id || null;
-                                console.log('[PANCAKE] ✅ Found via direct fetch - conversation matching psid AND postId:', convId, 'customerId:', customerId);
+                                console.log(
+                                    '[PANCAKE] ✅ Found via direct fetch - conversation matching psid AND postId:',
+                                    convId,
+                                    'customerId:',
+                                    customerId
+                                );
                             } else {
                                 // Fallback: chỉ match post_id nếu không tìm thấy exact match
-                                const postOnlyMatch = result.conversations.find(c =>
-                                    c.type === 'COMMENT' && c.post_id === postId
+                                const postOnlyMatch = result.conversations.find(
+                                    (c) => c.type === 'COMMENT' && c.post_id === postId
                                 );
                                 if (postOnlyMatch) {
                                     convId = postOnlyMatch.id;
                                     customerId = postOnlyMatch.customers?.[0]?.id || null;
-                                    console.log('[PANCAKE] ⚠️ Fallback: Found conversation by postId only:', convId);
+                                    console.log(
+                                        '[PANCAKE] ⚠️ Fallback: Found conversation by postId only:',
+                                        convId
+                                    );
                                 } else {
-                                    console.log('[PANCAKE] ⚠️ No conversation matched postId:', postId);
+                                    console.log(
+                                        '[PANCAKE] ⚠️ No conversation matched postId:',
+                                        postId
+                                    );
                                 }
                             }
                         }
@@ -1972,14 +2160,24 @@ class PancakeDataManager {
             }
 
             if (!convId) {
-                console.log('[PANCAKE] No comment conversation found for PSID:', psid, 'postId:', postId);
+                console.log(
+                    '[PANCAKE] No comment conversation found for PSID:',
+                    psid,
+                    'postId:',
+                    postId
+                );
                 return { comments: [], messages: [], conversation: null };
             }
 
-            const result = await this.fetchMessagesForConversation(pageId, convId, null, customerId);
+            const result = await this.fetchMessagesForConversation(
+                pageId,
+                convId,
+                null,
+                customerId
+            );
 
             // Map messages to comments format for comment-modal.js compatibility
-            const comments = (result.messages || []).map(msg => ({
+            const comments = (result.messages || []).map((msg) => ({
                 Id: msg.id,
                 Message: msg.original_message || msg.message?.replace(/<[^>]*>/g, '') || '', // Strip HTML tags
                 CreatedTime: msg.inserted_at,
@@ -1989,7 +2187,7 @@ class PancakeDataManager {
                 FacebookId: msg.id,
                 Attachments: msg.attachments || [],
                 Status: msg.seen ? 10 : 30, // 30 = New, 10 = Seen
-                from: msg.from
+                from: msg.from,
             }));
 
             console.log('[PANCAKE] Mapped', comments.length, 'comments from messages');
@@ -2000,7 +2198,7 @@ class PancakeDataManager {
                 conversation: result.conversation,
                 customers: result.customers,
                 customerId: result.customerId, // Return customer_id for caller to use
-                after: null // Pagination cursor if needed
+                after: null, // Pagination cursor if needed
             };
         } catch (error) {
             console.error('[PANCAKE] Error in fetchComments:', error);
@@ -2022,21 +2220,25 @@ class PancakeDataManager {
 
             // Debug: log all pages to see structure
             console.log('[PANCAKE] Looking for pageId:', pageId);
-            console.log('[PANCAKE] Available pages:', this.pages.map(p => ({
-                id: p.id,
-                fb_page_id: p.fb_page_id,
-                page_id: p.page_id,
-                name: p.name,
-                hasToken: !!p.access_token
-            })));
+            console.log(
+                '[PANCAKE] Available pages:',
+                this.pages.map((p) => ({
+                    id: p.id,
+                    fb_page_id: p.fb_page_id,
+                    page_id: p.page_id,
+                    name: p.name,
+                    hasToken: !!p.access_token,
+                }))
+            );
 
             // Find page in cache - try multiple field names
-            const page = this.pages.find(p =>
-                p.fb_page_id === pageId ||
-                p.id === pageId ||
-                p.page_id === pageId ||
-                String(p.fb_page_id) === String(pageId) ||
-                String(p.id) === String(pageId)
+            const page = this.pages.find(
+                (p) =>
+                    p.fb_page_id === pageId ||
+                    p.id === pageId ||
+                    p.page_id === pageId ||
+                    String(p.fb_page_id) === String(pageId) ||
+                    String(p.id) === String(pageId)
             );
 
             if (page) {
@@ -2066,7 +2268,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Marking conversation as read: ${conversationId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2078,7 +2281,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2105,7 +2308,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Marking conversation as unread: ${conversationId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2117,7 +2321,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2142,7 +2346,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching tags for page: ${pageId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2154,7 +2359,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2182,7 +2387,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] ${action} tag ${tagId} for conversation: ${conversationId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2197,8 +2403,8 @@ class PancakeDataManager {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: action,
-                    tag_id: tagId
-                })
+                    tag_id: tagId,
+                }),
             });
 
             if (!response.ok) {
@@ -2224,7 +2430,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Uploading media for page: ${pageId}`, file.name);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2240,7 +2447,7 @@ class PancakeDataManager {
 
             const response = await fetch(url, {
                 method: 'POST',
-                body: formData
+                body: formData,
                 // Don't set Content-Type header - browser will set it with boundary
             });
 
@@ -2254,7 +2461,7 @@ class PancakeDataManager {
             return {
                 id: data.id,
                 attachment_type: data.attachment_type || 'PHOTO',
-                success: data.success !== false
+                success: data.success !== false,
             };
         } catch (error) {
             console.error('[PANCAKE] ❌ Upload failed:', error);
@@ -2273,7 +2480,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Adding note for customer: ${customerId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2286,7 +2494,7 @@ class PancakeDataManager {
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({ message }),
             });
 
             if (!response.ok) {
@@ -2323,22 +2531,29 @@ class PancakeDataManager {
             return false;
         }
 
-        console.log(`[PANCAKE] Updating local conversation status: ${conversationId} → ${isRead ? 'READ' : 'UNREAD'}`);
+        console.log(
+            `[PANCAKE] Updating local conversation status: ${conversationId} → ${isRead ? 'READ' : 'UNREAD'}`
+        );
 
         // Find conversation in conversations array (NOT allConversations!)
-        const conversation = this.conversations.find(c => c.id === conversationId);
+        const conversation = this.conversations.find((c) => c.id === conversationId);
 
         if (conversation) {
             conversation.seen = isRead;
-            conversation.unread_count = isRead ? 0 : (conversation.unread_count || 1);
+            conversation.unread_count = isRead ? 0 : conversation.unread_count || 1;
 
             // Update in maps as well
             // Check all maps to ensure consistency
-            [this.inboxMapByPSID, this.inboxMapByFBID, this.commentMapByPSID, this.commentMapByFBID].forEach(map => {
+            [
+                this.inboxMapByPSID,
+                this.inboxMapByFBID,
+                this.commentMapByPSID,
+                this.commentMapByFBID,
+            ].forEach((map) => {
                 for (const [key, conv] of map) {
                     if (conv.id === conversationId) {
                         conv.seen = isRead;
-                        conv.unread_count = isRead ? 0 : (conv.unread_count || 1);
+                        conv.unread_count = isRead ? 0 : conv.unread_count || 1;
                         console.log(`[PANCAKE] ✅ Updated conversation in map:`, key);
                     }
                 }
@@ -2372,7 +2587,6 @@ class PancakeDataManager {
 
             console.log('[PANCAKE] ✅ Initialized successfully');
             return true;
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error initializing:', error);
             return false;
@@ -2380,14 +2594,14 @@ class PancakeDataManager {
     }
     /**
      * Calculate SHA-1 hash of a file
-     * @param {File} file 
+     * @param {File} file
      * @returns {Promise<string>}
      */
     async calculateSHA1(file) {
         const buffer = await file.arrayBuffer();
         const hashBuffer = await crypto.subtle.digest('SHA-1', buffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
         return hashHex;
     }
 
@@ -2403,7 +2617,9 @@ class PancakeDataManager {
         try {
             const fileName = file.name || 'compressed-image.jpg';
             const fileType = file.type || 'image/jpeg';
-            console.log(`[PANCAKE] Uploading image: ${fileName}, size: ${file.size}, type: ${fileType}`);
+            console.log(
+                `[PANCAKE] Uploading image: ${fileName}, size: ${file.size}, type: ${fileType}`
+            );
 
             // Get JWT access_token for Internal API (pancake.vn)
             const accessToken = await this.getToken();
@@ -2424,11 +2640,19 @@ class PancakeDataManager {
             const filename = file.name || 'image.jpg';
             formData.append('file', file, filename);
 
-            console.log('[PANCAKE] Uploading to Internal API:', url.replace(/access_token=[^&]+/, 'access_token=***'));
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'POST',
-                body: formData
-            }, 3, true); // skipFallback = true for image upload
+            console.log(
+                '[PANCAKE] Uploading to Internal API:',
+                url.replace(/access_token=[^&]+/, 'access_token=***')
+            );
+            const response = await API_CONFIG.smartFetch(
+                url,
+                {
+                    method: 'POST',
+                    body: formData,
+                },
+                3,
+                true
+            ); // skipFallback = true for image upload
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -2453,11 +2677,11 @@ class PancakeDataManager {
             const result = {
                 content_url: data.content_url || null,
                 content_id: data.content_id || data.id || null,
-                id: data.content_id || data.id || null,  // Alias for compatibility
+                id: data.content_id || data.id || null, // Alias for compatibility
                 content_preview_url: data.content_preview_url || null,
                 fb_id: data.fb_id || null,
                 width: data.image_data?.width || null,
-                height: data.image_data?.height || null
+                height: data.image_data?.height || null,
             };
 
             // Validate response
@@ -2468,14 +2692,20 @@ class PancakeDataManager {
 
             // ⚠️ Warning if content_url is missing
             if (!result.content_url) {
-                console.warn('[PANCAKE] ⚠️ Upload successful but content_url is NULL - Facebook may not display this image!');
+                console.warn(
+                    '[PANCAKE] ⚠️ Upload successful but content_url is NULL - Facebook may not display this image!'
+                );
                 console.warn('[PANCAKE] Response data:', JSON.stringify(data));
             } else {
-                console.log('[PANCAKE] ✅ Upload success - content_id:', result.content_id, 'content_url:', result.content_url);
+                console.log(
+                    '[PANCAKE] ✅ Upload success - content_id:',
+                    result.content_id,
+                    'content_url:',
+                    result.content_url
+                );
             }
 
             return result;
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error uploading image:', error);
             throw error;
@@ -2506,17 +2736,25 @@ class PancakeDataManager {
                 `ids=${contentId}&access_token=${token}`
             );
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            }, 3, true); // skipFallback = true for image delete
+            const response = await API_CONFIG.smartFetch(
+                url,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                },
+                3,
+                true
+            ); // skipFallback = true for image delete
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`[PANCAKE] Delete failed: ${response.status} ${response.statusText}`, errorText);
+                console.error(
+                    `[PANCAKE] Delete failed: ${response.status} ${response.statusText}`,
+                    errorText
+                );
                 return false;
             }
 
@@ -2524,7 +2762,6 @@ class PancakeDataManager {
             console.log('[PANCAKE] Delete response:', data);
 
             return data.success || false;
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error deleting image:', error);
             return false;
@@ -2549,7 +2786,8 @@ class PancakeDataManager {
             }
 
             // Get page_access_token for Public API
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2565,12 +2803,14 @@ class PancakeDataManager {
             const payload = {
                 action: action, // 'reply_inbox', 'reply_comment', or 'private_replies'
                 message: text || '',
-                conversation_id: conversationId
+                conversation_id: conversationId,
             };
 
             // Add attachments if present
             if (attachments.length > 0) {
-                payload.content_ids = attachments.map(att => att.content_id || att.id).filter(Boolean);
+                payload.content_ids = attachments
+                    .map((att) => att.content_id || att.id)
+                    .filter(Boolean);
             }
 
             // Add customer_id if available (required by some endpoints)
@@ -2589,9 +2829,9 @@ class PancakeDataManager {
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -2605,7 +2845,6 @@ class PancakeDataManager {
 
             // Return sent message
             return data.message || data;
-
         } catch (error) {
             console.error('[PANCAKE] ❌ Error sending message:', error);
             throw error;
@@ -2629,7 +2868,7 @@ class PancakeDataManager {
         return this.sendMessage(pageId, conversationId, {
             text: text,
             action: 'private_replies',
-            customerId: customerId
+            customerId: customerId,
         });
     }
 
@@ -2644,7 +2883,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Hiding comment: ${commentId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2656,7 +2896,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2683,7 +2923,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Unhiding comment: ${commentId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2695,7 +2936,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2722,7 +2963,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Liking comment: ${commentId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2734,7 +2976,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2761,7 +3003,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Unliking comment: ${commentId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2773,7 +3016,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2800,7 +3043,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Deleting comment: ${commentId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2812,7 +3056,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2839,7 +3083,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching customer info: ${customerId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2851,7 +3096,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2879,7 +3124,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Updating customer info: ${customerId}`, customerData);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2892,7 +3138,7 @@ class PancakeDataManager {
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(customerData)
+                body: JSON.stringify(customerData),
             });
 
             if (!response.ok) {
@@ -2918,7 +3164,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching employees for page: ${pageId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2930,7 +3177,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -2956,9 +3203,12 @@ class PancakeDataManager {
      */
     async assignEmployeeToConversation(pageId, conversationId, employeeId) {
         try {
-            console.log(`[PANCAKE] Assigning employee ${employeeId} to conversation: ${conversationId}`);
+            console.log(
+                `[PANCAKE] Assigning employee ${employeeId} to conversation: ${conversationId}`
+            );
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -2971,7 +3221,7 @@ class PancakeDataManager {
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ employee_id: employeeId })
+                body: JSON.stringify({ employee_id: employeeId }),
             });
 
             if (!response.ok) {
@@ -2998,7 +3248,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Unassigning employee from conversation: ${conversationId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -3010,7 +3261,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -3057,7 +3308,7 @@ class PancakeDataManager {
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ typing: isTyping })
+                body: JSON.stringify({ typing: isTyping }),
             });
 
             return response.ok;
@@ -3077,7 +3328,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching quick replies for page: ${pageId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -3089,7 +3341,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -3116,7 +3368,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching notes for customer: ${customerId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -3128,7 +3381,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -3156,7 +3409,8 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Deleting note: ${noteId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
@@ -3168,7 +3422,7 @@ class PancakeDataManager {
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -3195,19 +3449,21 @@ class PancakeDataManager {
         try {
             console.log(`[PANCAKE] Fetching posts for page: ${pageId}`);
 
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
                 throw new Error('No page_access_token available');
             }
 
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/posts`,
-                pageAccessToken
-            ) + `&limit=${limit}`;
+            const url =
+                window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${pageId}/posts`,
+                    pageAccessToken
+                ) + `&limit=${limit}`;
 
             const response = await window.API_CONFIG.smartFetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
 
             if (!response.ok) {
@@ -3318,12 +3574,9 @@ class PancakeDataManager {
 
             console.log('[N2STORE] Fetching conversations for page:', pageId);
 
-            const response = await fetch(
-                `${n2storeUrl}/api/pages/${pageId}/conversations`,
-                {
-                    headers: tposToken ? { 'Authorization': `Bearer ${tposToken}` } : {}
-                }
-            );
+            const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/conversations`, {
+                headers: tposToken ? { Authorization: `Bearer ${tposToken}` } : {},
+            });
             const data = await response.json();
 
             if (!data.success) {
@@ -3389,7 +3642,7 @@ class PancakeDataManager {
             const response = await fetch(
                 `${n2storeUrl}/api/conversations/${conversationId}/messages?page_id=${pageId}`,
                 {
-                    headers: tposToken ? { 'Authorization': `Bearer ${tposToken}` } : {}
+                    headers: tposToken ? { Authorization: `Bearer ${tposToken}` } : {},
                 }
             );
             const data = await response.json();
@@ -3404,8 +3657,8 @@ class PancakeDataManager {
             return {
                 messages: messages,
                 pageMessages: messages,
-                from_page_messages: messages.filter(m => m.from?.id === pageId),
-                totalMessages: messages.length
+                from_page_messages: messages.filter((m) => m.from?.id === pageId),
+                totalMessages: messages.length,
             };
         } catch (error) {
             console.error('[N2STORE] ❌ Error fetching messages:', error);
@@ -3423,7 +3676,14 @@ class PancakeDataManager {
      * @param {string} attachmentType - Attachment type (PHOTO, VIDEO, etc.)
      * @returns {Promise<Object>}
      */
-    async sendMessageN2Store(pageId, conversationId, message, action = 'reply_inbox', attachmentId = null, attachmentType = null) {
+    async sendMessageN2Store(
+        pageId,
+        conversationId,
+        message,
+        action = 'reply_inbox',
+        attachmentId = null,
+        attachmentType = null
+    ) {
         try {
             const n2storeUrl = this.getN2StoreUrl();
             const tposToken = await this.getTPOSToken();
@@ -3433,7 +3693,7 @@ class PancakeDataManager {
             // Facebook API format - server gets token from TPOS CRM
             const body = {
                 conversation_id: conversationId,
-                message: message
+                message: message,
             };
 
             // Add attachment if present (Facebook format uses attachment_id)
@@ -3450,7 +3710,7 @@ class PancakeDataManager {
             const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
 
             const data = await response.json();
@@ -3479,7 +3739,12 @@ class PancakeDataManager {
             const n2storeUrl = this.getN2StoreUrl();
             const tposToken = await this.getTPOSToken();
 
-            console.log(`[N2STORE] Uploading media for page: ${pageId}`, file.name, file.type, file.size);
+            console.log(
+                `[N2STORE] Uploading media for page: ${pageId}`,
+                file.name,
+                file.type,
+                file.size
+            );
 
             // Create FormData
             const formData = new FormData();
@@ -3491,14 +3756,11 @@ class PancakeDataManager {
                 headers['Authorization'] = `Bearer ${tposToken}`;
             }
 
-            const response = await fetch(
-                `${n2storeUrl}/api/pages/${pageId}/upload`,
-                {
-                    method: 'POST',
-                    headers: headers,
-                    body: formData
-                }
-            );
+            const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/upload`, {
+                method: 'POST',
+                headers: headers,
+                body: formData,
+            });
 
             const data = await response.json();
 
@@ -3512,7 +3774,7 @@ class PancakeDataManager {
                 id: data.attachment_id || data.id,
                 attachment_id: data.attachment_id || data.id,
                 attachment_type: data.attachment_type || 'IMAGE',
-                success: true
+                success: true,
             };
         } catch (error) {
             console.error('[N2STORE] ❌ Upload failed:', error);
@@ -3545,7 +3807,7 @@ class PancakeDataManager {
                 {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({ message }),
                 }
             );
 
@@ -3564,7 +3826,7 @@ class PancakeDataManager {
                 success: true,
                 recipient_id: data.recipient_id,
                 message_id: data.message_id,
-                message: message
+                message: message,
             };
         } catch (error) {
             console.error('[N2STORE] ❌ Private Reply failed:', error);
@@ -3605,7 +3867,7 @@ class PancakeDataManager {
             console.log('[N2STORE] ✅ Found conversation:', data.conversation.id);
             return {
                 success: true,
-                conversation: data.conversation
+                conversation: data.conversation,
             };
         } catch (error) {
             console.error('[N2STORE] ❌ Error finding conversation:', error);
@@ -3624,7 +3886,7 @@ class PancakeDataManager {
             const stored = JSON.parse(localStorage.getItem(key) || '{}');
             stored[commentId] = {
                 recipient_id: recipientId,
-                replied_at: new Date().toISOString()
+                replied_at: new Date().toISOString(),
             };
             localStorage.setItem(key, JSON.stringify(stored));
             console.log('[N2STORE] Marked comment as private replied:', commentId);

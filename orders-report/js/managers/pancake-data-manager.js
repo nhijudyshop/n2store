@@ -581,6 +581,7 @@ class PancakeDataManager {
                 recent_phone_numbers: data.recent_phone_numbers || [],
                 conv_phone_numbers: data.conv_phone_numbers || [],
                 notes: data.notes || [],
+                read_watermarks: data.read_watermarks || [],
                 timestamp: Date.now(),
             };
 
@@ -617,6 +618,7 @@ class PancakeDataManager {
                 recent_phone_numbers: [],
                 conv_phone_numbers: [],
                 notes: [],
+                read_watermarks: [],
                 fromCache: false,
             };
         }
