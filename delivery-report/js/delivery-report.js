@@ -98,9 +98,12 @@
         HoverPreview.init();
     }
 
+    function toLocalDateStr(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
     function setDefaultDates() {
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const todayStr = toLocalDateStr(new Date());
 
         const fromDateInput = document.getElementById('drFilterFromDate');
         const fromTimeInput = document.getElementById('drFilterFromTime');
@@ -122,6 +125,102 @@
 
         DeliveryReportState.filters.fromDate = `${fromDateInput.value}T${fromTimeInput.value}`;
         DeliveryReportState.filters.toDate = `${toDateInput.value}T${toTimeInput.value}`;
+
+        updatePresetHint();
+    }
+
+    // =====================================================
+    // PRESET DATE RANGES
+    // =====================================================
+    const PRESET_LABELS = {
+        today: 'Hôm nay',
+        yesterday: 'Hôm qua',
+        last7: '7 ngày qua',
+        thisMonth: 'Tháng này',
+        lastMonth: 'Tháng trước',
+    };
+
+    function applyPreset(preset) {
+        const now = new Date();
+        let from, to;
+
+        switch (preset) {
+            case 'today':
+                from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'yesterday':
+                from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+                to = new Date(from);
+                break;
+            case 'last7':
+                to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+                break;
+            case 'thisMonth':
+                from = new Date(now.getFullYear(), now.getMonth(), 1);
+                to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'lastMonth': {
+                from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                to = new Date(now.getFullYear(), now.getMonth(), 0); // last day of previous month
+                break;
+            }
+            default:
+                return;
+        }
+
+        const fromInput = document.getElementById('drFilterFromDate');
+        const toInput = document.getElementById('drFilterToDate');
+        const fromTimeInput = document.getElementById('drFilterFromTime');
+        const toTimeInput = document.getElementById('drFilterToTime');
+        if (fromInput) fromInput.value = toLocalDateStr(from);
+        if (toInput) toInput.value = toLocalDateStr(to);
+        if (fromTimeInput) fromTimeInput.value = '00:00';
+        if (toTimeInput) toTimeInput.value = '23:59';
+
+        // Mark active preset
+        document.querySelectorAll('.dr-preset-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.preset === preset);
+        });
+
+        updatePresetHint();
+        DeliveryReport.search();
+    }
+
+    function updatePresetHint() {
+        const fromInput = document.getElementById('drFilterFromDate');
+        const toInput = document.getElementById('drFilterToDate');
+        const hint = document.getElementById('drPresetHint');
+        if (!fromInput || !toInput || !hint) return;
+
+        const fromStr = formatDDMM(fromInput.value);
+        const toStr = formatDDMM(toInput.value);
+        if (!fromStr || !toStr) {
+            hint.textContent = '';
+            return;
+        }
+        hint.textContent =
+            fromInput.value === toInput.value
+                ? `Đang lọc: ${fromStr}`
+                : `Đang lọc: ${fromStr} → ${toStr}`;
+    }
+
+    function formatDDMM(yyyymmdd) {
+        if (!yyyymmdd) return '';
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyymmdd);
+        if (!m) return '';
+        return `${m[3]}/${m[2]}/${m[1]}`;
+    }
+
+    function clearActivePreset() {
+        document
+            .querySelectorAll('.dr-preset-btn')
+            .forEach((btn) => btn.classList.remove('active'));
+    }
+
+    function isValidTime(t) {
+        return /^\d{2}:\d{2}(:\d{2})?$/.test(t || '');
     }
 
     // =====================================================
@@ -129,6 +228,21 @@
     // =====================================================
     function bindFilterEvents() {
         // Search button is handled by onclick="DeliveryReport.search()" in HTML
+
+        // Preset buttons
+        document.querySelectorAll('.dr-preset-btn').forEach((btn) => {
+            btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+        });
+
+        // Date inputs: clear preset selection on manual change + update hint
+        ['drFilterFromDate', 'drFilterToDate'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', () => {
+                clearActivePreset();
+                updatePresetHint();
+            });
+        });
 
         // Enter key on keyword
         const keywordInput = document.getElementById('drFilterKeyword');
@@ -145,10 +259,7 @@
                         }
                         return;
                     }
-                    DeliveryReportState.currentPage = 1;
-                    collectFilters();
-                    saveFiltersToStorage();
-                    fetchData();
+                    DeliveryReport.search();
                 }
             });
         }
@@ -157,12 +268,38 @@
     function collectFilters() {
         const f = DeliveryReportState.filters;
         const fromDate = document.getElementById('drFilterFromDate')?.value || '';
-        const fromTime = document.getElementById('drFilterFromTime')?.value || '00:00';
+        const fromTimeRaw = document.getElementById('drFilterFromTime')?.value || '';
         const toDate = document.getElementById('drFilterToDate')?.value || '';
-        const toTime = document.getElementById('drFilterToTime')?.value || '23:59';
-        f.fromDate = fromDate ? `${fromDate}T${fromTime}` : '';
-        f.toDate = toDate ? `${toDate}T${toTime}` : '';
+        const toTimeRaw = document.getElementById('drFilterToTime')?.value || '';
+
+        // Validate times — invalid → fallback to safe defaults instead of corrupting filter
+        const fromTime = isValidTime(fromTimeRaw) ? fromTimeRaw.slice(0, 5) : '00:00';
+        const toTime = isValidTime(toTimeRaw) ? toTimeRaw.slice(0, 5) : '23:59';
+
+        // Reflect cleaned values back so user sees what's actually applied
+        const fromTimeInput = document.getElementById('drFilterFromTime');
+        const toTimeInput = document.getElementById('drFilterToTime');
+        if (fromTimeInput && fromTimeInput.value !== fromTime) fromTimeInput.value = fromTime;
+        if (toTimeInput && toTimeInput.value !== toTime) toTimeInput.value = toTime;
+
+        // Auto-swap if from > to (common typo)
+        let effFrom = fromDate;
+        let effTo = toDate;
+        if (effFrom && effTo && effFrom > effTo) {
+            const swap = effFrom;
+            effFrom = effTo;
+            effTo = swap;
+            const fromInput = document.getElementById('drFilterFromDate');
+            const toInput = document.getElementById('drFilterToDate');
+            if (fromInput) fromInput.value = effFrom;
+            if (toInput) toInput.value = effTo;
+        }
+
+        f.fromDate = effFrom ? `${effFrom}T${fromTime}` : '';
+        f.toDate = effTo ? `${effTo}T${toTime}` : '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
+
+        updatePresetHint();
     }
 
     function saveFiltersToStorage() {
@@ -286,9 +423,19 @@
     // =====================================================
     // API FETCH - Loads ALL data, client-side pagination
     // =====================================================
+    function setSearchButtonLoading(isLoading) {
+        const btn = document.getElementById('drBtnSearch');
+        const text = document.getElementById('drBtnSearchText');
+        if (!btn) return;
+        btn.disabled = isLoading;
+        btn.dataset.loading = isLoading ? 'true' : 'false';
+        if (text) text.textContent = isLoading ? 'Đang tải...' : 'Tìm kiếm';
+    }
+
     async function fetchData() {
         if (DeliveryReportState.isLoading) return;
         DeliveryReportState.isLoading = true;
+        setSearchButtonLoading(true);
         showLoading();
 
         try {
@@ -352,6 +499,7 @@
             showError('Lỗi khi tải dữ liệu: ' + error.message);
         } finally {
             DeliveryReportState.isLoading = false;
+            setSearchButtonLoading(false);
         }
     }
 
@@ -386,11 +534,20 @@
         const params = new URLSearchParams();
 
         // Date conversion: local datetime → UTC ISO
+        // ToDate uses 23:59:59.999 (end of selected minute) so we don't drop
+        // records whose DateInvoice falls in the last 60 seconds of the range.
         if (f.fromDate) {
-            params.set('FromDate', new Date(f.fromDate).toISOString());
+            const d = new Date(f.fromDate);
+            if (!isNaN(d.getTime())) {
+                params.set('FromDate', d.toISOString());
+            }
         }
         if (f.toDate) {
-            params.set('ToDate', new Date(f.toDate).toISOString());
+            const d = new Date(f.toDate);
+            if (!isNaN(d.getTime())) {
+                d.setSeconds(59, 999);
+                params.set('ToDate', d.toISOString());
+            }
         }
 
         // Phone-aware search: nếu keyword match Vietnamese phone pattern (10-11 digit
@@ -868,6 +1025,29 @@
     }
 
     function makeFileName(label) {
+        // Pull the actual filter range so the filename reflects what's exported.
+        // Single day → `LABEL_d_m.xlsx`, range → `LABEL_d1_m1_den_d2_m2.xlsx`.
+        const f = DeliveryReportState.filters;
+        const parseDate = (s) => {
+            if (!s) return null;
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+            if (!m) return null;
+            return { d: Number(m[3]), mo: Number(m[2]), y: Number(m[1]) };
+        };
+        const from = parseDate(f.fromDate);
+        const to = parseDate(f.toDate);
+
+        if (from && to) {
+            const sameYear = from.y === to.y;
+            const sameDay = from.d === to.d && from.mo === to.mo && sameYear;
+            if (sameDay) {
+                return `${label}_${from.d}_${from.mo}.xlsx`;
+            }
+            const fromStr = sameYear ? `${from.d}_${from.mo}` : `${from.d}_${from.mo}_${from.y}`;
+            const toStr = sameYear ? `${to.d}_${to.mo}` : `${to.d}_${to.mo}_${to.y}`;
+            return `${label}_${fromStr}_den_${toStr}.xlsx`;
+        }
+
         const now = new Date();
         return `${label}_${now.getDate()}_${now.getMonth() + 1}.xlsx`;
     }
@@ -3040,6 +3220,9 @@
     window.DeliveryReport = {
         init: initDeliveryReport,
         search: () => {
+            // Spam guard: ignore re-entry while in-flight
+            if (DeliveryReportState.isLoading) return;
+
             const oldFromDate = DeliveryReportState.filters.fromDate;
             const oldToDate = DeliveryReportState.filters.toDate;
             const oldKeyword = DeliveryReportState.filters.keyword;

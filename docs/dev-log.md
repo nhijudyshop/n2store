@@ -6,6 +6,37 @@
 
 ---
 
+## 2026-05-06
+
+### [delivery-report][fix+ux] Filter khoảng ngày: chính xác hơn + redesign UI + filename theo range
+
+**Files**:
+
+- MODIFIED: [delivery-report/index.html](../delivery-report/index.html) — replace 2 dòng "Ngày bắt đầu/kết thúc" với 1 dòng "Khoảng ngày" gộp `[date]-[time]→[date]-[time]`. Thêm preset row trên cùng: Hôm nay / Hôm qua / 7 ngày qua / Tháng này / Tháng trước + hint "Đang lọc: dd/mm/yyyy → dd/mm/yyyy" (DD/MM/YYYY VN format). Time inputs đổi từ `<input type="text">` → `<input type="time">` (bỏ typo bug). Search button thêm `<i id="drBtnSearchIcon">` + `<span id="drBtnSearchText">` để toggle loading state.
+- MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-preset-row` + `.dr-preset-btn` (pill style, hover/active blue), `.dr-daterange-wrap` + `.dr-date-input`/`.dr-time-input`, `.dr-daterange-sep` (`→` separator), `#drBtnSearch[data-loading="true"]` spinner animation. Responsive: mobile preset hint xuống dòng, date/time input shrink.
+- MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js):
+    - **Boundary fix**: `buildApiUrl` set `ToDate` thành `23:59:59.999` (instead of `23:59:00.000`) → cứu lại 60s cuối ngày bị filter loại khỏi range. Wrap `new Date(...).toISOString()` trong `isNaN` guard.
+    - **Time validation**: `collectFilters` validate `^\d{2}:\d{2}(:\d{2})?$`, invalid → fallback `00:00`/`23:59` + reflect cleaned value lại input. Trước kia `value="abc"` → `2026-05-05Tabc` → `new Date(...).toISOString()` throw → fetch fail silently giữ data cũ.
+    - **Auto-swap**: nếu `fromDate > toDate` → swap (typo guard).
+    - **Spam-click guard**: `setSearchButtonLoading()` toggle `disabled` + `dataset.loading` + text "Đang tải..."/"Tìm kiếm". `window.DeliveryReport.search` early-return nếu `isLoading=true`.
+    - **Presets**: `applyPreset(today|yesterday|last7|thisMonth|lastMonth)` set date inputs + auto-trigger `search()`. Manual date change → `clearActivePreset()`.
+    - **Hint**: `updatePresetHint()` show "Đang lọc: DD/MM/YYYY [→ DD/MM/YYYY]" để user thấy rõ range thực sự đang filter (tránh confusion MM/DD vs DD/MM của Chrome locale).
+    - **Filename**: `makeFileName(label)` đọc `DeliveryReportState.filters` → single day → `LABEL_d_m.xlsx`, range cùng năm → `LABEL_d1_m1_den_d2_m2.xlsx`, khác năm → `LABEL_d1_m1_y1_den_d2_m2_y2.xlsx`.
+
+**Chi tiết**: User: "filter khoảng ngày bị bug không chính xác, với tìm kiếm bấm 1 lần thôi không spam → làm lại giao diện phần filter, nhất là filter khoảng thời gian cho dễ dùng với tra soát → nếu chọn khoảng ngày thì các tên các file excel xuất ra sẽ ghi 2 ngày". **Browser-tested localhost**:
+
+- Reproduced: `value="abc"` → filter giữ data cũ (1560 rows từ query trước) — confirmed silent fail.
+- Verified fix: `setFilterFromTime("abc")` → auto-correct về `00:00`, fetch chạy đúng, dataLen=189 (May 4-5).
+- Boundary: API URL captured `ToDate=2026-05-03T16:59:59.999Z` (was `16:59:00.000Z`).
+- Spam guard: 4 click liên tục → button hiện "Đang tải..." disabled, chỉ 1 fetch fire.
+- Presets: Hôm qua → 67 rows (May 4); Tháng này → 346 rows (May 3+4+5 = 157+67+122); 7 ngày qua → 1122 rows; Hôm nay → 122 rows.
+- Filename: range Apr 26-May 6 → `TATCA_26_4_den_6_5.xlsx`; single day May 6 → `TATCA_6_5.xlsx`. ✅
+- Tra soát mode 6 tabs vẫn render OK, không console error.
+
+**Status**: ✅ Done.
+
+---
+
 ## 2026-05-05
 
 ### [don-inbox][feat] Nút "Phiếu Soạn Hàng" clone 100% từ orders-report tab1

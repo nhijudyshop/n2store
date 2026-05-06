@@ -104,38 +104,61 @@
 
             <!-- Filter Section (hidden by default) -->
             <div class="dr-filter-section" id="drFilterSection" style="display: none">
+                <!-- Preset range buttons -->
+                <div class="dr-preset-row">
+                    <span class="dr-preset-label">Khoảng:</span>
+                    <button type="button" class="dr-preset-btn" data-preset="today">Hôm nay</button>
+                    <button type="button" class="dr-preset-btn" data-preset="yesterday">
+                        Hôm qua
+                    </button>
+                    <button type="button" class="dr-preset-btn" data-preset="last7">
+                        7 ngày qua
+                    </button>
+                    <button type="button" class="dr-preset-btn" data-preset="thisMonth">
+                        Tháng này
+                    </button>
+                    <button type="button" class="dr-preset-btn" data-preset="lastMonth">
+                        Tháng trước
+                    </button>
+                    <span class="dr-preset-hint" id="drPresetHint" aria-live="polite"></span>
+                </div>
+
                 <div class="dr-filter-grid">
-                    <!-- Row 1 -->
-                    <div class="dr-filter-row">
-                        <label>Ngày bắt đầu</label>
-                        <div style="display: flex; gap: 6px">
-                            <input type="date" id="drFilterFromDate" style="flex: 1" />
+                    <!-- Date range -->
+                    <div class="dr-filter-row dr-filter-daterange">
+                        <label>Khoảng ngày</label>
+                        <div class="dr-daterange-wrap">
                             <input
-                                type="text"
-                                id="drFilterFromTime"
-                                value="00:00"
-                                placeholder="HH:MM"
-                                maxlength="5"
-                                style="width: 70px; text-align: center"
+                                type="date"
+                                id="drFilterFromDate"
+                                class="dr-date-input"
+                                aria-label="Ngày bắt đầu"
                             />
-                        </div>
-                    </div>
-                    <div class="dr-filter-row">
-                        <label>Ngày kết thúc</label>
-                        <div style="display: flex; gap: 6px">
-                            <input type="date" id="drFilterToDate" style="flex: 1" />
                             <input
-                                type="text"
+                                type="time"
+                                id="drFilterFromTime"
+                                class="dr-time-input"
+                                value="00:00"
+                                aria-label="Giờ bắt đầu"
+                            />
+                            <span class="dr-daterange-sep">→</span>
+                            <input
+                                type="date"
+                                id="drFilterToDate"
+                                class="dr-date-input"
+                                aria-label="Ngày kết thúc"
+                            />
+                            <input
+                                type="time"
                                 id="drFilterToTime"
+                                class="dr-time-input"
                                 value="23:59"
-                                placeholder="HH:MM"
-                                maxlength="5"
-                                style="width: 70px; text-align: center"
+                                aria-label="Giờ kết thúc"
                             />
                         </div>
                     </div>
 
-                    <!-- Row 2 -->
+                    <!-- Keyword -->
                     <div class="dr-filter-row">
                         <label for="drFilterKeyword">Từ khóa</label>
                         <input
@@ -162,7 +185,8 @@
                             id="drBtnSearch"
                             onclick="DeliveryReport.search()"
                         >
-                            <i class="fas fa-search"></i> Tìm kiếm
+                            <i class="fas fa-search" id="drBtnSearchIcon"></i>
+                            <span id="drBtnSearchText">Tìm kiếm</span>
                         </button>
                         <button
                             class="dr-btn dr-btn-success"
