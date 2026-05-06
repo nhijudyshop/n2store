@@ -8,6 +8,14 @@
 
 ## 2026-05-06
 
+### [delivery-report][render] Modal "Kiểm tra giao dịch" lấy đúng nội dung CK + ngày GD từ balance_history
+
+**Files**: MODIFIED [render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js) — `GET /:id/quick-view` SQL `recent_transactions` thêm `bh.content AS bh_content`, `bh.transaction_date AS bh_transaction_date` trong join `balance_history`; fallback query (schema cũ thiếu cột) cũng thêm `NULL AS bh_content, NULL AS bh_transaction_date` để frontend shape consistent. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `openReviewModal()` đổi: "Nội dung CK" `tx.bh_content || tx.note`, "Ngày GD" `tx.bh_transaction_date || tx.created_at`. Thêm helper `fmtShortDateTime()` format `HH:MM dd/MM` (giống balance-history `formatDateTime()`).
+
+**User báo**: modal "Kiểm tra giao dịch" trong delivery-report lấy SAI fields — hiển thị `wt.note` (vd "Nạp từ CK (Duyệt bởi My)") và `wt.created_at` (giờ duyệt), thay vì `bh.content` (nội dung bank gốc, vd "Lam linh 650211, ma GD 100000125780512 GD 6125IBT1fJQ8R3X7 050526-20:08:30") và `bh.transaction_date` (giờ giao dịch ngân hàng thực, vd "20:08 05/05") như modal balance-history.
+
+**Status**: ✅ Done — commit `6b2fe929`, đã push. Chờ deploy Render rồi user verify.
+
 ### [delivery-report][fix] Modal "Kiểm tra giao dịch" không ghi audit log → tab "Lịch Sử" (balance-history) thiếu entry hôm nay
 
 **Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html) — thêm `<script src="../shared/js/audit-logger.js">` sau firebase-config. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `reviewState` thêm `customerName`; `openReviewModal()` lưu `customerCtx?.customerName` vào state; `confirmReview()` sau success gọi `window.AuditLogger.logAction('transaction_verify', { module: 'balance-history', ... })` với cùng schema như `accountant.js#confirmManagerReview` (oldData/newData/entityId/approverUser*).
