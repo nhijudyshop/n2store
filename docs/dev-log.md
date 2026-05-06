@@ -8,6 +8,16 @@
 
 ## 2026-05-06
 
+### [delivery-report][css] Bill modal cột phải — list hoạt động dùng hết chiều dọc cột
+
+**Files**: MODIFIED [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-hp-tx-list { max-height: 280px }` chuyển vào scope `.dr-hover-popover .dr-hp-tx-list`. List trong modal `#dr-row-activity` không bị cap nữa, mở rộng theo nội dung; wrapper `#dr-row-activity` (`flex:1; overflow:auto`) lo phần scroll cho cả cột.
+
+**User báo**: sau khi bump `?limit=50`, modal load đủ 50 hoạt động nhưng list co lại ~280px ở giữa cột phải, dưới list có khoảng trắng lớn → "cho hiển thị tối đa chiều dọc của cột đi".
+
+**Root cause**: `.dr-hp-tx-list` được sized cho popover (max 280px để popover nổi không tràn màn). Cùng class dùng trong modal nên modal cũng bị cap.
+
+**Status**: ✅ Done — chỉ đụng CSS, không ảnh hưởng popover hover (vẫn cap 280px). Chờ GH Pages deploy.
+
 ### [delivery-report][render] Bill modal cột phải "Hoạt động khách hàng" chỉ hiện 5 dòng — bump quick-view limit qua `?limit=`
 
 **Files**: MODIFIED [render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js) — `GET /:id/quick-view` accept `?limit=` query (default 5, cap 100); `recent_transactions` query (cả 2 nhánh primary + fallback) thay `LIMIT 5` cứng → `LIMIT $2` lấy từ param. Pending_transactions vẫn giữ 5 cứng. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `fetchCustomer(phone)` append `?limit=50` vào URL; `renderCustomer()` bỏ `slice(0, 5)` cho `recent_transactions`, dùng full array (server đã giới hạn). `pending_transactions` slice ở client giữ nguyên.

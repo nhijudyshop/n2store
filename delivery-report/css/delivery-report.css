@@ -1818,6 +1818,10 @@
     flex-direction: column;
     gap: 6px;
     overflow: auto;
+}
+/* Cap chiều cao list trong popover (compact); modal có wrapper #dr-row-activity
+   tự scroll nên list mở rộng tự nhiên để dùng hết chiều dọc. */
+.dr-hover-popover .dr-hp-tx-list {
     max-height: 280px;
 }
 .dr-hp-tx {
