@@ -905,6 +905,8 @@ router.get('/:id/quick-view', async (req, res) => {
                        wt.reviewed_by AS wt_reviewed_by,
                        wt.reviewed_at AS wt_reviewed_at,
                        bh.verification_image_url AS sepay_image_url,
+                       bh.content AS bh_content,
+                       bh.transaction_date AS bh_transaction_date,
                        bh.manager_reviewed AS bh_manager_reviewed,
                        bh.reviewed_by AS bh_reviewed_by,
                        bh.reviewed_at AS bh_reviewed_at
@@ -930,6 +932,8 @@ router.get('/:id/quick-view', async (req, res) => {
                     SELECT id, type, amount, note, created_at,
                            source, reference_type, reference_id,
                            NULL AS sepay_image_url,
+                           NULL AS bh_content,
+                           NULL AS bh_transaction_date,
                            NULL AS wt_manager_reviewed,
                            NULL AS bh_manager_reviewed
                     FROM wallet_transactions

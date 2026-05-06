@@ -2749,6 +2749,18 @@
             });
         }
 
+        // Short HH:MM dd/MM (no year) — match balance-history's review modal.
+        function fmtShortDateTime(iso) {
+            if (!iso) return 'N/A';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return 'N/A';
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            return `${hh}:${mm} ${dd}/${mo}`;
+        }
+
         function txConfig(tx) {
             const t = tx.type;
             const note = tx.note || '';
@@ -3262,8 +3274,11 @@
             const amount = parseFloat(tx?.amount) || 0;
             const sign = amount >= 0 ? '+' : '−';
             const amtColor = amount >= 0 ? '#16a34a' : '#dc2626';
-            const dateStr = fmtDateTime(tx?.transaction_date || tx?.created_at);
-            const noteRaw = (tx?.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+            // "Nội dung CK" + "Ngày GD" prefer raw bank fields (bh_content, bh_transaction_date)
+            // — match balance-history's "Kiểm tra giao dịch" modal. Fallback to wallet_transactions
+            // fields chỉ khi tx không liên kết balance_history.
+            const noteRaw = (tx?.bh_content || tx?.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+            const dateStr = fmtShortDateTime(tx?.bh_transaction_date || tx?.created_at);
             const customerLabel = [customerCtx?.customerName, customerCtx?.phone].filter(Boolean).join(' - ') || '—';
 
             modal.querySelector('#dr-rev-summary').innerHTML = `
