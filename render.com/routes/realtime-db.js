@@ -963,6 +963,61 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
 // Per-product-line: sale tự đánh dấu SP là "bán hàng thật" để tính KPI
 // =====================================================
 
+// ─── HISTORY (audit log) ───
+// Mỗi lần user check / uncheck KPI checkbox → ghi 1 row vào history.
+// Auto-cleanup rows > 90 ngày để table không phình mãi (cron daily).
+let _kpiHistoryTableEnsured = false;
+async function ensureKpiHistoryTable(pool) {
+    if (_kpiHistoryTableEnsured) return;
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS kpi_sale_flag_history (
+                id            BIGSERIAL PRIMARY KEY,
+                order_code    VARCHAR(50)  NOT NULL,
+                product_id    BIGINT       NOT NULL,
+                action        VARCHAR(16)  NOT NULL,
+                user_id       VARCHAR(255),
+                user_name     VARCHAR(255),
+                created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        await pool.query(
+            `CREATE INDEX IF NOT EXISTS idx_kpi_history_order ON kpi_sale_flag_history(order_code)`
+        );
+        await pool.query(
+            `CREATE INDEX IF NOT EXISTS idx_kpi_history_created ON kpi_sale_flag_history(created_at DESC)`
+        );
+        _kpiHistoryTableEnsured = true;
+        console.log('[REALTIME-DB] kpi_sale_flag_history table ensured');
+    } catch (e) {
+        console.warn('[REALTIME-DB] ensureKpiHistoryTable failed:', e?.message);
+    }
+}
+
+async function cleanupKpiHistory(pool) {
+    try {
+        const r = await pool.query(
+            `DELETE FROM kpi_sale_flag_history WHERE created_at < NOW() - INTERVAL '90 days'`
+        );
+        if (r.rowCount > 0) {
+            console.log(
+                `[REALTIME-DB] kpi_sale_flag_history cleanup: deleted ${r.rowCount} rows >90d`
+            );
+        }
+    } catch (e) {
+        console.warn('[REALTIME-DB] cleanupKpiHistory failed:', e?.message);
+    }
+}
+
+let _kpiCleanupStarted = false;
+function startKpiHistoryCleanupLoop(pool) {
+    if (_kpiCleanupStarted) return;
+    _kpiCleanupStarted = true;
+    // Lần đầu sau 60s (đợi DB ready), sau đó 24h/lần.
+    setTimeout(() => cleanupKpiHistory(pool), 60 * 1000);
+    setInterval(() => cleanupKpiHistory(pool), 24 * 60 * 60 * 1000);
+}
+
 /**
  * POST /api/realtime/kpi-sale-flag/bulk-summary
  * Body: { orderCodes: string[] }
@@ -1062,6 +1117,18 @@ router.put('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
             [orderCode, pid, isSaleProduct, userId || null, userName || null]
         );
 
+        // Audit log: ghi history (check / uncheck) — non-blocking, fire-and-forget.
+        // Lần đầu sau deploy → ensure table; cleanup loop khởi động luôn.
+        ensureKpiHistoryTable(pool).then(() => {
+            startKpiHistoryCleanupLoop(pool);
+            const action = isSaleProduct ? 'check' : 'uncheck';
+            pool.query(
+                `INSERT INTO kpi_sale_flag_history (order_code, product_id, action, user_id, user_name)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [orderCode, pid, action, userId || null, userName || null]
+            ).catch((e) => console.warn('[REALTIME-DB] kpi history insert failed:', e?.message));
+        });
+
         const row = result.rows[0];
         res.json({
             success: true,
@@ -1076,6 +1143,61 @@ router.put('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
         });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-sale-flag error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/realtime/kpi-sale-flag/history?codes=NJD/A,NJD/B&limit=20
+ * Trả về N entry gần nhất (default 20, max 200) trong history table.
+ * Nếu codes không truyền → tất cả; truyền → filter theo codes (CSV).
+ */
+router.get('/kpi-sale-flag/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureKpiHistoryTable(pool);
+
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 200);
+        const codesRaw = (req.query.codes || '').toString().trim();
+        const codes = codesRaw
+            ? codesRaw
+                  .split(',')
+                  .map((c) => c.trim())
+                  .filter(Boolean)
+            : [];
+
+        let q;
+        let params;
+        if (codes.length > 0) {
+            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
+                 FROM kpi_sale_flag_history
+                 WHERE order_code = ANY($1::text[])
+                 ORDER BY created_at DESC
+                 LIMIT $2`;
+            params = [codes, limit];
+        } else {
+            q = `SELECT id, order_code, product_id, action, user_id, user_name, created_at
+                 FROM kpi_sale_flag_history
+                 ORDER BY created_at DESC
+                 LIMIT $1`;
+            params = [limit];
+        }
+        const result = await pool.query(q, params);
+
+        res.json({
+            history: result.rows.map((r) => ({
+                id: Number(r.id),
+                orderCode: r.order_code,
+                productId: Number(r.product_id),
+                action: r.action,
+                userId: r.user_id,
+                userName: r.user_name,
+                createdAt: r.created_at,
+            })),
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-sale-flag/history error:', error);
         res.status(500).json({ error: error.message });
     }
 });

@@ -8,6 +8,32 @@
 
 ## 2026-05-06
 
+### [orders][feat] KPI counter + hover tooltip + audit history (auto-cleanup 90d)
+
+**Files**: NEW [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js), MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "Kế bên filter KPI ghi tổng đơn KPI → hover hiện tooltip tổng đơn KPI chính xác, KPI không được duyệt, tất cả sản phẩm, lịch sử checkbox KPI người check và uncheck → lịch sử xoá sau 90 ngày. Lịch sử là lịch sử tương tác check/uncheck."
+
+**Server**: Audit log + cleanup loop:
+
+- `kpi_sale_flag_history (id, order_code, product_id, action ['check'|'uncheck'], user_id, user_name, created_at)` — auto-create idempotent lần đầu PUT chạy. Index `order_code` + `created_at DESC`.
+- PUT `/kpi-sale-flag/:orderCode/:productId` — sau upsert flag, INSERT history (`action='check'` nếu `isSaleProduct=true`, ngược lại `'uncheck'`). Fire-and-forget.
+- NEW GET `/kpi-sale-flag/history?codes=A,B&limit=20` — trả N entries gần nhất, optional filter theo codes (CSV).
+- `startKpiHistoryCleanupLoop` — `DELETE WHERE created_at < NOW() - INTERVAL '90 days'`. 60s sau PUT đầu + mỗi 24h.
+
+**Frontend** ([tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)):
+
+- Counter badge `(N)` yellow gradient cạnh `#kpiFilter` dropdown — chỉ hiện khi `total > 0`.
+- Hover 200ms → tooltip 320-420px popup, position-aware:
+    - **Tổng đơn KPI**: count từ `KpiSaleFlagStore.hasKpiFlag` qua `allData`.
+    - **Chưa duyệt**: KPI orders với `StatusText !== 'Đơn hàng'`.
+    - **Tổng SP đánh dấu**: sum entries `is_sale=true` qua per-order cache đã load (hiển thị "≥X" nếu cache chưa đầy đủ).
+    - **Lịch sử check/uncheck (10 gần nhất)**: lazy fetch from server, render màu xanh ✓ / đỏ ✗ + user + orderCode + DD/MM HH:mm.
+    - Footer "Lịch sử tự xoá sau 90 ngày."
+- Counter auto-refresh sau `performTableSearch` + event `kpi-sale-flag-changed`. Tooltip stay-open khi hover (hover lock).
+
+**Browser-tested localhost** (mock 3 KPI codes + 3 history entries): counter `(3)`, total=3, notApproved=2. Hover → tooltip render đầy đủ 4 sections + history list (Hồng ✓ / Admin ✗ / Hạnh ✓) + footer 90d note. Screenshot xác nhận. ✅
+
 ### [inbox][feat] PBH sale modal — tên SP có prefix `[Mã SP]` (NameGet format)
 
 **Files**: MODIFIED [don-inbox/js/tab-social-sale.js](../don-inbox/js/tab-social-sale.js)
