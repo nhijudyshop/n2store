@@ -426,8 +426,30 @@ function _renderAttachments(attachments) {
                 return `<div class="message-media"><img class="message-sticker" src="${safeUrl}" alt="Sticker" loading="lazy" onerror="this.outerHTML='<span class=\\'sticker-fallback\\' title=\\'Sticker không tải được\\' style=\\'font-size:32px;display:inline-block;padding:4px;\\'>🎨</span>'"></div>`;
             }
             // Video
+            // Pancake / FB CDN block hotlink request từ origin khác (Referer check) →
+            // browser load video URL trực tiếp bị 403 → controls greyed out, không play được.
+            // Fix: route URL qua image-proxy (streams binary, content-type pass-through).
+            // Fallback link cho phép user mở tab mới nếu video lỗi.
             if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
-                return `<div class="message-media"><video controls src="${url}" preload="metadata" style="max-width:240px;border-radius:8px;"></video></div>`;
+                const NON_CORS_VIDEO =
+                    /(?:scontent|video)[\w.-]*\.fbcdn\.net|content\.pancake\.vn|firebasestorage\.googleapis\.com/i;
+                const workerUrl =
+                    window.WORKER_URL ||
+                    window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const playUrl = NON_CORS_VIDEO.test(url)
+                    ? `${workerUrl}/api/image-proxy?url=${encodeURIComponent(url)}`
+                    : url;
+                const safePlay = playUrl.replace(/"/g, '&quot;');
+                const safeOrig = url.replace(/"/g, '&quot;');
+                const mime = att.mime_type || 'video/mp4';
+                return `<div class="message-media">
+                    <video controls playsinline preload="metadata" style="max-width:240px;border-radius:8px;display:block;background:#000;"
+                           onerror="this.outerHTML='<a href=&quot;${safeOrig}&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; style=&quot;display:inline-block;padding:8px 12px;background:#f3f4f6;border-radius:6px;color:#0084ff;text-decoration:none;font-size:13px;&quot;>🎬 Mở video (tab mới)</a>'">
+                        <source src="${safePlay}" type="${mime}">
+                        <source src="${safeOrig}" type="${mime}">
+                    </video>
+                </div>`;
             }
             // Audio
             if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
@@ -571,11 +593,13 @@ window.sendMessage = async function () {
         const pat = await pdm.getPageAccessToken(pageId);
         if (!pat) throw new Error('Không tìm thấy page_access_token');
 
-        // Upload & send images
+        // Upload & send media (images + videos). Pancake `upload_contents` accepts
+        // both — file.type quyết định attachment_type response trả về.
+        const hasVideo = pendingImages.some((f) => f.type?.startsWith?.('video/'));
         let imagesSentViaExtension = false;
         if (pendingImages.length > 0) {
             try {
-                _showToast('Đang tải ảnh lên...', 'info');
+                _showToast(hasVideo ? 'Đang tải media lên...' : 'Đang tải ảnh lên...', 'info');
                 for (const file of pendingImages) {
                     const uploadResult = await pdm.uploadMedia(pageId, file, pat);
                     if (uploadResult?.id) {
@@ -609,20 +633,33 @@ window.sendMessage = async function () {
                     _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
                     imagesSentViaExtension = true;
 
-                    // Optimistic UI: show sent images immediately
+                    // Optimistic UI: show sent media immediately (image hoặc video).
+                    // Video dùng blob URL (rẻ hơn dataURL cho file 5-20MB), image vẫn dùng
+                    // dataURL để optimistic message tự-contained khi reload page.
                     for (const file of pendingImages) {
-                        const dataUrl = await new Promise((r) => {
-                            const reader = new FileReader();
-                            reader.onload = () => r(reader.result);
-                            reader.readAsDataURL(file);
-                        });
+                        const isVideo = file.type?.startsWith?.('video/');
+                        let attachment;
+                        if (isVideo) {
+                            attachment = {
+                                type: 'video',
+                                url: URL.createObjectURL(file),
+                                mime_type: file.type,
+                            };
+                        } else {
+                            const dataUrl = await new Promise((r) => {
+                                const reader = new FileReader();
+                                reader.onload = () => r(reader.result);
+                                reader.readAsDataURL(file);
+                            });
+                            attachment = { type: 'image', url: dataUrl };
+                        }
                         window.allChatMessages.push({
                             id: 'opt_img_' + Date.now() + Math.random(),
                             text: '',
                             time: new Date(),
                             sender: 'shop',
                             senderName: '',
-                            attachments: [{ type: 'image', url: dataUrl }],
+                            attachments: [attachment],
                         });
                     }
                     window.renderChatMessages(window.allChatMessages);

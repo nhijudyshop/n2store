@@ -1,39 +1,72 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /* =====================================================
-   TAB1 CHAT IMAGES - Image upload & preview
+   TAB1 CHAT IMAGES - Image / Video upload & preview
    ===================================================== */
 
-// Pending images for upload
+// Pending media (image & video) for upload — same queue, gửi qua cùng pdm.uploadMedia.
 let _pendingImages = [];
+
+// Cap kích thước video Pancake chấp nhận. Pancake upload_contents giới hạn ~25MB,
+// để an toàn cap ở 20MB và báo user nếu vượt.
+const VIDEO_MAX_BYTES = 20 * 1024 * 1024;
 
 /**
  * Get pending images for upload
  */
-window.getPendingImages = function() {
+window.getPendingImages = function () {
     return [..._pendingImages];
 };
 
 /**
- * Clear all image previews
+ * Clear all image previews.
+ * Revoke blob URLs của video previews để tránh giữ memory sau khi gửi xong.
  */
-window.clearImagePreviews = function() {
+window.clearImagePreviews = function () {
     _pendingImages = [];
     const container = document.getElementById('imagePreviewContainer');
-    if (container) container.innerHTML = '';
+    if (!container) return;
+    container.querySelectorAll('.video-preview-item').forEach((el) => {
+        const u = el.dataset.blobUrl;
+        if (u) {
+            try {
+                URL.revokeObjectURL(u);
+            } catch (e) {}
+        }
+    });
+    container.innerHTML = '';
 };
 
 /**
- * Add image to preview (from file input)
+ * Add image hoặc video to preview (from file input)
+ * @param {File} file
  */
-window.addImageToPreview = function(file) {
-    if (!file || !file.type.startsWith('image/')) return;
+window.addImageToPreview = function (file) {
+    if (!file) return;
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    if (!isImage && !isVideo) return;
 
-    // Compress if needed (max 500KB for Pancake)
+    if (isVideo) {
+        if (file.size > VIDEO_MAX_BYTES) {
+            const mb = (file.size / 1024 / 1024).toFixed(1);
+            const cap = (VIDEO_MAX_BYTES / 1024 / 1024).toFixed(0);
+            window.notificationManager?.warning?.(
+                `Video quá lớn (${mb}MB) — Pancake giới hạn ${cap}MB. Giảm chất lượng/độ dài rồi gửi lại.`,
+                5000
+            );
+            return;
+        }
+        _addVideoToPreview(file);
+        return;
+    }
+
+    // Image: Compress if needed (max 500KB for Pancake)
     const maxSize = 500 * 1024;
     if (file.size > maxSize && window.compressImage) {
-        window.compressImage(file, maxSize)
-            .then(result => _addToPreview(result.blob))
-            .catch(err => {
+        window
+            .compressImage(file, maxSize)
+            .then((result) => _addToPreview(result.blob))
+            .catch((err) => {
                 console.warn('[Chat] Compress failed, sending original:', err);
                 _addToPreview(file);
             });
@@ -41,6 +74,9 @@ window.addImageToPreview = function(file) {
         _addToPreview(file);
     }
 };
+
+// Backward-compat alias — clearer name khi user gọi manually.
+window.addMediaToPreview = window.addImageToPreview;
 
 function _addToPreview(file) {
     _pendingImages.push(file);
@@ -63,6 +99,26 @@ function _addToPreview(file) {
     reader.readAsDataURL(file);
 }
 
+function _addVideoToPreview(file) {
+    _pendingImages.push(file);
+    const container = document.getElementById('imagePreviewContainer');
+    if (!container) return;
+    const idx = _pendingImages.length - 1;
+    const blobUrl = URL.createObjectURL(file);
+    const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+    const div = document.createElement('div');
+    div.className = 'image-preview-item video-preview-item';
+    div.dataset.index = idx;
+    div.innerHTML = `
+        <video src="${blobUrl}" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;border-radius:6px;background:#000;"></video>
+        <span style="position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:1px 4px;border-radius:3px;pointer-events:none;">▶ ${sizeMb}MB</span>
+        <button class="remove-preview" onclick="window.removeImagePreview(${idx})">×</button>
+    `;
+    container.appendChild(div);
+    // Revoke blob URL khi user remove preview hoặc clear all.
+    div.dataset.blobUrl = blobUrl;
+}
+
 /**
  * Fetch image URL as blob, with CF Worker proxy fallback for CORS
  */
@@ -80,7 +136,9 @@ async function _fetchImageAsBlob(imgUrl) {
         const res = await fetch(imgUrl, { mode: 'cors' });
         const blob = await res.blob();
         if (blob.type.startsWith('image/')) return blob;
-    } catch (_) { /* CORS blocked, try proxy */ }
+    } catch (_) {
+        /* CORS blocked, try proxy */
+    }
 
     // Fallback: CF Worker image proxy
     try {
@@ -97,17 +155,45 @@ async function _fetchImageAsBlob(imgUrl) {
 }
 
 /**
- * Remove image from preview
+ * Remove image / video from preview.
+ * Revoke blob URLs của video preview cũ để tránh memory leak khi remove giữa chừng.
  */
-window.removeImagePreview = function(index) {
+window.removeImagePreview = function (index) {
     _pendingImages.splice(index, 1);
 
-    // Re-render all previews
     const container = document.getElementById('imagePreviewContainer');
     if (!container) return;
+
+    // Revoke any existing blob URLs trước khi xoá DOM cũ.
+    container.querySelectorAll('.video-preview-item').forEach((el) => {
+        const u = el.dataset.blobUrl;
+        if (u) {
+            try {
+                URL.revokeObjectURL(u);
+            } catch (e) {}
+        }
+    });
     container.innerHTML = '';
 
+    // Re-render với cùng helper functions để giữ logic single-source.
     _pendingImages.forEach((file, i) => {
+        if (file.type?.startsWith?.('video/')) {
+            // Tạm thời tăng index của file rồi revert — _addVideoToPreview push vào array.
+            // Đơn giản hơn: render inline không gọi helper.
+            const blobUrl = URL.createObjectURL(file);
+            const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+            const div = document.createElement('div');
+            div.className = 'image-preview-item video-preview-item';
+            div.dataset.index = i;
+            div.dataset.blobUrl = blobUrl;
+            div.innerHTML = `
+                <video src="${blobUrl}" muted preload="metadata" style="width:100%;height:100%;object-fit:cover;border-radius:6px;background:#000;"></video>
+                <span style="position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:1px 4px;border-radius:3px;pointer-events:none;">▶ ${sizeMb}MB</span>
+                <button class="remove-preview" onclick="window.removeImagePreview(${i})">×</button>
+            `;
+            container.appendChild(div);
+            return;
+        }
         const reader = new FileReader();
         reader.onload = (e) => {
             const div = document.createElement('div');
@@ -124,9 +210,9 @@ window.removeImagePreview = function(index) {
 };
 
 // File input change handler
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Bind file input (may be created later by HTML)
-    document.addEventListener('change', function(e) {
+    document.addEventListener('change', function (e) {
         if (e.target.id === 'chatImageInput') {
             const files = e.target.files;
             for (let i = 0; i < files.length; i++) {
@@ -137,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Paste image handler on chat input
-    document.addEventListener('paste', function(e) {
+    document.addEventListener('paste', function (e) {
         // Only handle paste when chat modal is open
         const chatModal = document.getElementById('chatModal');
         if (!chatModal || chatModal.style.display === 'none') return;
@@ -176,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 const imgUrl = imgMatch[1];
                 // Try direct fetch first, fallback to CF Worker proxy on CORS error
-                _fetchImageAsBlob(imgUrl).then(blob => {
+                _fetchImageAsBlob(imgUrl).then((blob) => {
                     if (blob) {
                         const file = new File([blob], 'pasted-image.jpg', { type: blob.type });
                         window.addImageToPreview(file);
@@ -189,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fallback: Cmd/Ctrl+V anywhere inside chat modal → read clipboard via async API
     // (paste event only fires when an editable element is focused)
-    document.addEventListener('keydown', async function(e) {
+    document.addEventListener('keydown', async function (e) {
         if (!((e.metaKey || e.ctrlKey) && (e.key === 'v' || e.key === 'V'))) return;
         const chatModal = document.getElementById('chatModal');
         if (!chatModal || chatModal.style.display === 'none') return;
@@ -201,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const items = await navigator.clipboard.read();
             for (const item of items) {
-                const imgType = item.types.find(t => t.startsWith('image/'));
+                const imgType = item.types.find((t) => t.startsWith('image/'));
                 if (imgType) {
                     const blob = await item.getType(imgType);
                     const file = new File([blob], 'pasted-image.png', { type: blob.type });
@@ -216,4 +302,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-

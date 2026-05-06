@@ -8,6 +8,18 @@
 
 ## 2026-05-06
 
+### [orders][feat] Chat modal: xem video qua image-proxy + đính kèm/gửi video
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js), [orders-report/js/tab1/tab1-chat-images.js](../orders-report/js/tab1/tab1-chat-images.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "modal tin nhắn chưa coi được video và chưa gửi được video".
+
+**Display video nhận**: `<video src=url>` trực tiếp bị FB/Pancake CDN block hotlink (Referer check) → controls greyed out. Fix: detect non-CORS CDN (`(?:scontent|video).fbcdn.net`, `content.pancake.vn`, `firebasestorage.googleapis.com`) → route URL qua `${WORKER_URL}/api/image-proxy?url=...`. Render với 2 `<source>` (proxy primary, direct fallback) + `onerror` fallback "🎬 Mở video (tab mới)".
+
+**Send video**: file input `accept=image/*,video/*`. `addImageToPreview` detect video (alias `addMediaToPreview`), cap 20MB (Pancake `upload_contents` limit). `_addVideoToPreview` render `<video muted preload=metadata>` blob URL + size badge "▶ {N}MB". Blob URLs revoked trên `removeImagePreview` + `clearImagePreviews` để không leak. Send flow re-uses `pdm.uploadMedia(pageId, file)` — Pancake đã accept cả video, FormData không đổi shape. Optimistic UI dùng blob URL cho video (rẻ hơn dataURL cho file 5-20MB).
+
+**Browser-tested localhost**: file input accept `"image/*,video/*"` ✅. Fake video 100KB MP4 → preview `<video class=video-preview-item>` blob URL + badge, `_pendingImages[0].type=video/mp4` ✅. Fake message FB CDN URL → 2 `<source>` proxy+direct + onerror ✅. Routing: Pancake URL proxied, non-CDN direct ✅.
+
 ### [orders][fix] Bill preview STT đơn gộp — Reference/SaleOnlineIds lookup vào ProcessingTagState
 
 **Files**: MODIFIED [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js)
