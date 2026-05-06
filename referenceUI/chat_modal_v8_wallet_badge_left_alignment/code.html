@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Intelligent Curator - Chat Interface</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#777585",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-on-surface": "#edf1f5",
+                    "tertiary-fixed": "#eaddff",
+                    "inverse-surface": "#2c3134",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#f6fafe",
+                    "surface-container": "#eaeef2",
+                    "surface-container-low": "#f0f4f8",
+                    "primary-fixed": "#e2dfff",
+                    "on-tertiary": "#ffffff",
+                    "background": "#f6fafe",
+                    "surface-container-highest": "#dfe3e7",
+                    "primary": "#4441c4",
+                    "on-surface-variant": "#464554",
+                    "surface-variant": "#dfe3e7",
+                    "on-tertiary-fixed": "#25005a",
+                    "on-primary-container": "#f1eeff",
+                    "inverse-primary": "#c2c1ff",
+                    "primary-fixed-dim": "#c2c1ff",
+                    "surface-container-high": "#e4e9ed",
+                    "on-secondary-container": "#54647a",
+                    "on-primary-fixed": "#0b006b",
+                    "secondary-container": "#d0e1fb",
+                    "tertiary": "#691dda",
+                    "on-error": "#ffffff",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-tertiary-fixed-variant": "#5a00c6",
+                    "surface-tint": "#4e4cce",
+                    "on-secondary-fixed": "#0b1c30",
+                    "secondary": "#505f76",
+                    "on-tertiary-container": "#f6ecff",
+                    "surface-dim": "#d6dade",
+                    "tertiary-fixed-dim": "#d2bbff",
+                    "tertiary-container": "#8342f4",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface": "#f6fafe",
+                    "primary-container": "#5d5cde",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c7c4d6",
+                    "on-background": "#171c1f",
+                    "on-surface": "#171c1f",
+                    "on-primary-fixed-variant": "#3530b6",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed": "#d3e4fe",
+                    "on-secondary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dfe3e7; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c7c4d6; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex h-screen overflow-hidden">
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col relative bg-surface">
+<!-- Shared TopAppBar -->
+<header class="bg-white/80 backdrop-blur-xl flex justify-between items-center w-full px-6 py-3 sticky top-0 z-30 shadow-sm border-b border-slate-100">
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="User Avatar" class="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjcBz5DeEdpJYkiq2RdOboPm8h-RJhkX7mU4mB6AwmCV1pN7-DR0EuTYT0HSpxJyp-FNu8725kFZmOMLF57iiPIe5PMfJyqsxHdJrzUW4MkDts-BrtF5A6o9y7AszvTh1Oh4cycsdbUC3Kw_LaOTyK6sbkB2MpS4ZKzmcj1fLosaBsSHCBpvIOaRArhLnrfugwg25wrSzKGdacgrMdLJu6_z6Rf5-yeVW_AnkH4BaOt0JWwwFVLvI55gedAhtx7PP0MKegX52_mhM"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h1 class="text-indigo-900 font-bold text-lg leading-tight">Quyen Nguyen</h1>
+</div>
+<div class="flex items-center gap-1.5 group cursor-pointer">
+<p class="text-slate-500 text-xs font-medium">0939406991</p>
+<button class="text-slate-400 hover:text-indigo-600 transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="copy_all">copy_all</span>
+</button>
+</div>
+</div><div class="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+<span class="material-symbols-outlined text-emerald-600 text-[18px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="text-[12px] font-bold text-emerald-700 whitespace-nowrap">Ví: 1.500.000đ</span>
+</div>
+</div>
+<!-- Header Tabs -->
+<div class="hidden md:flex items-center gap-1 bg-slate-100/50 p-1 rounded-full">
+<button class="px-5 py-1.5 rounded-full text-sm font-semibold transition-all bg-white text-indigo-700 shadow-sm">Tin nhắn</button>
+<button class="px-5 py-1.5 rounded-full text-sm font-medium transition-all text-slate-500 hover:bg-slate-200/50">Bình luận</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-200/50 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="dock_to_left">dock_to_left</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+</header>
+<!-- Two Column Layout Area -->
+<section class="flex flex-1 overflow-hidden">
+<!-- Column 1: Chat Area -->
+<div class="flex-1 flex flex-col bg-[#F8FAFC]">
+<!-- Message History -->
+<div class="flex-1 overflow-y-auto p-6 space-y-8 flex flex-col">
+<!-- Recipient Message -->
+<div class="flex items-start gap-3 max-w-[80%] self-start">
+<img alt="Customer Avatar" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgwKpZ-PgK2MirNoN2Dind_7sflj1SrsRnrWDoksaWtIiaQbYeqhyy68MISIqS0-6MHLgzv7UpaPasogVFnldt6HwBq1iyEwwx-ZBm0r6GqAyYKAUoApB94RoSyM4Zp3Ua0mLJ9Ove0Er7FsjMMaHmaQrA-AoneWqqXDe4QFlPaxbfZBKW1DAosOcHsPWzS4dQRabp8M7r9dRdSu9uAPbyySmfPLU52jJ77PxekwwvHlt1VsleZrDI9so4SvFjEGv6u48tRoca7p4"/>
+<div class="space-y-1">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="text-xs font-bold text-on-surface">Quyen Nguyen</span>
+<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">10:42 AM</span>
+</div>
+<div class="bg-white border border-slate-100 text-on-surface p-4 rounded-xl rounded-tl-none shadow-sm text-sm leading-relaxed">
+                                Chào shop, mình muốn hỏi về đơn hàng mã #ORD-2024-X9. Mình đã đặt từ hôm qua nhưng chưa thấy cập nhật trạng thái.
+                            </div>
+</div>
+</div>
+<!-- Shop Message (Sender) -->
+<div class="flex flex-col items-end gap-1 max-w-[80%] self-end">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">10:45 AM</span>
+<span class="text-xs font-bold text-indigo-700">Intelligent Curator Shop</span>
+</div>
+<div class="bg-[#f3f0ff] text-[#3c3a64] p-4 rounded-xl rounded-tr-none shadow-sm border border-[#e2dfff] text-sm leading-relaxed">
+<p class="mb-2">Chào bạn Quyen! Shop đã kiểm tra hệ thống. Đơn hàng của bạn đang được xử lý đóng gói. Đây là thông tin chi tiết:</p>
+<div class="space-y-2 bg-white/50 p-3 rounded-lg text-[13px] border border-white/60">
+<div class="flex justify-between">
+<span class="opacity-80">Mã đơn:</span>
+<span class="font-semibold">#ORD-2024-X9</span>
+</div>
+<div class="flex justify-between">
+<span class="opacity-80">Sản phẩm:</span>
+<span class="font-semibold">Váy lụa cao cấp x2</span>
+</div>
+<div class="flex flex-col mt-1 border-t border-indigo-200/40 pt-2">
+<span class="opacity-80">Địa chỉ giao hàng:</span>
+<span class="font-medium">123 Đường Lê Lợi, Phường Bến Thành, Quận 1, TP.HCM</span>
+</div>
+</div>
+<p class="mt-2 italic opacity-90 text-[12px]">Dự kiến sẽ giao cho đơn vị vận chuyển vào chiều nay ạ.</p>
+</div>
+</div>
+<!-- Timestamp Divider -->
+<div class="flex items-center justify-center my-4">
+<span class="text-[10px] font-bold text-slate-400 px-4 py-1 bg-white/80 border border-slate-100 rounded-full uppercase tracking-widest">Hôm nay</span>
+</div>
+<!-- Recipient Long Message -->
+<div class="flex items-start gap-3 max-w-[80%] self-start">
+<img alt="Customer Avatar" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDB2RwxJCmnv_B2CUnWg6ovte10p475Qc1RUhEtNJGuIeokjiGVezXeHz4t0fkv_7qXIIlSqzC6nAj1GoSnE5kBvvdreWZt3u5xQBAeEJgN-Ij4M_a6UNTzmDB_uDPzg1xkbuxXJe6VqT-ZE7aK8F1r89d4oVSShj29TkQSgH__zmIVql9Ae7u4k26OiVjPXkj4i6ONAAXfvHATYimlBzJZrIQC0gqpaUmXSerQvzsnSyUAhABwCbHj-W4ImJhVwjF9Lb8I-LFiFd8"/>
+<div class="space-y-1">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="text-xs font-bold text-on-surface">Quyen Nguyen</span>
+<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">11:05 AM</span>
+</div>
+<div class="bg-white border border-slate-100 text-on-surface p-4 rounded-xl rounded-tl-none shadow-sm text-sm leading-relaxed">
+                                Vâng cảm ơn shop. Cho mình hỏi thêm là mình có thể đổi địa chỉ sang văn phòng được không? Địa chỉ mới là:
+                                <br/><br/>
+                                • Tòa nhà Landmark 81, Quận Bình Thạnh<br/>
+                                • Tầng 24, Phòng 24.05<br/>
+                                • SĐT người nhận: 0939406991
+                            </div>
+</div>
+</div>
+</div>
+<!-- Input Bar -->
+<div class="p-6 bg-white border-t border-slate-100">
+<div class="bg-slate-50/80 rounded-xl p-3 flex flex-col gap-3 border border-slate-100 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-sm resize-none placeholder-slate-400 text-on-surface" placeholder="Nhập tin nhắn..." rows="2"></textarea>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<button class="p-2 text-on-surface-variant hover:bg-white hover:shadow-sm rounded-lg transition-all" title="Composer">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit_note">edit_note</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-white hover:shadow-sm rounded-lg transition-all" title="Copy template">
+<span class="material-symbols-outlined text-[20px]" data-icon="content_copy">content_copy</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-white hover:shadow-sm rounded-lg transition-all" title="Attachment">
+<span class="material-symbols-outlined text-[20px]" data-icon="attach_file">attach_file</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-white hover:shadow-sm rounded-lg transition-all" title="Quick Reply">
+<span class="material-symbols-outlined text-[20px]" data-icon="flash_on">flash_on</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-white hover:shadow-sm rounded-lg transition-all" title="Settings">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+</button>
+</div>
+<div class="text-[11px] text-slate-400 font-medium italic pr-2">Nhấn Enter để gửi</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 2: Customer Info Panel -->
+<div class="w-[520px] bg-white flex flex-col border-l border-slate-100 overflow-hidden">
+<!-- Scrollable Tab Bar -->
+<div class="p-4 bg-slate-50/50 border-b border-slate-100">
+<div class="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+<button class="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white rounded-full text-[13px] font-bold text-indigo-700 shadow-sm ring-1 ring-slate-100">
+                            Đơn hàng
+                            <span class="bg-primary text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">4</span>
+</button>
+<button class="flex-shrink-0 flex items-center gap-2 px-4 py-2 hover:bg-white rounded-full text-[13px] font-semibold text-slate-500 transition-all">
+                            Hàng rớt - xả
+                            <span class="bg-error text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">31</span>
+</button>
+<button class="flex-shrink-0 px-5 py-2 hover:bg-white rounded-full text-[13px] font-semibold text-slate-500 transition-all">
+                            Lịch sử
+                        </button>
+<button class="flex-shrink-0 px-5 py-2 hover:bg-white rounded-full text-[13px] font-semibold text-slate-500 transition-all">
+                            Hóa đơn
+                        </button>
+</div>
+</div>
+<!-- Panel Content -->
+<div class="flex-1 flex flex-col overflow-hidden bg-white">
+<!-- Search Bar -->
+<div class="p-4 sticky top-0 z-10 border-b border-slate-50 bg-white">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-slate-400 text-[20px]" data-icon="search">search</span>
+<input class="w-full bg-slate-50 border border-slate-100 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/10 placeholder-slate-400" placeholder="Tìm sản phẩm theo tên hoặc mã..." type="text"/>
+</div>
+</div>
+<!-- Order Status Banner -->
+<div class="bg-amber-50/50 px-4 py-2 border-b border-amber-100/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-amber-600 text-[18px]" data-icon="info" style="font-variation-settings: 'FILL' 1;">info</span>
+<span class="text-[11px] font-bold text-amber-800 uppercase tracking-tight">Sản phẩm đang giữ (chưa xác nhận)</span>
+</div>
+<!-- Product List -->
+<div class="flex-1 overflow-y-auto">
+<!-- Item 1 -->
+<div class="p-4 bg-amber-50/30 flex gap-4 border-b border-slate-100 hover:bg-amber-50/50 transition-colors">
+<div class="relative group">
+<img alt="Product" class="w-20 h-20 rounded-lg object-cover ring-1 ring-slate-100 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2x9F_nBqN1X8J9C_S-3A4B5_R5j-6I7N8L9M0O1P2Q3R4S5T6U7V8W9X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4M5N6O7P8Q9R0S1T2U3V4W5X6Y7Z8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6W7X8Y9Z0"/>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between gap-2">
+<h4 class="text-[13px] font-bold text-slate-800 line-clamp-2 leading-snug">[B76] B2 0703 KHĂN LỤA CH XÍCH CHX TRÁI ĐÀO</h4>
+<span class="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap uppercase tracking-tighter">Tạm giữ</span>
+</div>
+<p class="text-[11px] text-slate-400 mt-1">Mã: B76 • Kho: 24</p>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<span class="text-black font-bold text-[15px]">190.000đ</span>
+<div class="flex items-center gap-2">
+<div class="flex items-center bg-white border border-slate-200 rounded-lg shadow-sm">
+<button class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[16px]" data-icon="remove">remove</span></button>
+<span class="w-6 text-center text-xs font-bold text-slate-700">1</span>
+<button class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[16px]" data-icon="add">add</span></button>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-green-500 text-white shadow-md shadow-green-100 hover:bg-green-600 transition-all">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 border border-slate-100 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Item Divider -->
+<div class="bg-slate-50/80 px-4 py-2 flex items-center gap-2 border-b border-slate-100">
+<span class="material-symbols-outlined text-indigo-500 text-[18px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Sản phẩm chính thức</span>
+</div>
+<!-- Item 2 -->
+<div class="p-4 flex gap-4 border-b border-slate-100 hover:bg-slate-50/30 transition-colors">
+<img alt="Product" class="w-20 h-20 rounded-lg object-cover ring-1 ring-slate-100 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4M5N6O7P8Q9R0S1T2U3V4W5X6Y7Z8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6W7X8Y9Z0"/>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between gap-2">
+<h4 class="text-[13px] font-bold text-slate-800 line-clamp-2 leading-snug">[B998D] 0204 B48 ÁO KHOÁC NỈ HỌA TIẾT THỜI TRANG</h4>
+<span class="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap uppercase tracking-tighter">Chính</span>
+</div>
+<p class="text-[11px] text-slate-400 mt-1">Mã: B998D • Kho: 12</p>
+</div>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-black font-bold text-[15px]">240.000đ</span>
+<div class="flex items-center gap-2">
+<div class="flex items-center bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 gap-3">
+<span class="text-[10px] font-medium text-slate-400 uppercase">SL:</span>
+<span class="text-xs font-bold text-slate-700">1</span>
+</div>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="p-4 flex gap-4 border-b border-slate-100 hover:bg-slate-50/30 transition-colors">
+<img alt="Product" class="w-20 h-20 rounded-lg object-cover ring-1 ring-slate-100 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-X0Y1Z2A3B4C5D6E7F8G9H0I1J2K3L4M5N6O7P8Q9R0S1T2U3V4W5X6Y7Z8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6W7X8Y9Z0"/>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between gap-2">
+<h4 class="text-[13px] font-bold text-slate-800 line-clamp-2 leading-snug">[B470A37] B18 1908 DÉP BẢNG LÊ CAO CẤP MÀU KEM</h4>
+<span class="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap uppercase tracking-tighter">Chính</span>
+</div>
+<p class="text-[11px] text-slate-400 mt-1">Mã: B470A37 • Kho: 8</p>
+</div>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-black font-bold text-[15px]">230.000đ</span>
+<div class="flex items-center gap-2">
+<div class="flex items-center bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 gap-3">
+<span class="text-[10px] font-medium text-slate-400 uppercase">SL:</span>
+<span class="text-xs font-bold text-slate-700">1</span>
+</div>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Summary Footer -->
+<div class="p-6 bg-slate-50 border-t border-slate-100 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+<div class="flex items-center justify-between">
+<span class="text-sm font-semibold text-slate-500">TỔNG GIÁ TRỊ ĐƠN HÀNG</span>
+<span class="text-2xl font-black text-green-600/90 tracking-tight">8.409.000đ</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+</body></html>
