@@ -8,6 +8,16 @@
 
 ## 2026-05-06
 
+### [delivery-report] Hover popover khách hàng bám sát số điện thoại
+
+**Files**: MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `HoverPreview.position()`.
+
+**User báo**: popover hover khách hàng hiển thị xa khỏi SĐT (cạnh phải toàn bộ ô khách hàng — cột rộng), khó đối chiếu mắt.
+
+**Fix**: Khi target là `.dr-hover-customer`, anchor `getBoundingClientRect()` vào `.dr-customer-phone` con thay vì cả TD; căn dọc giữa dòng SĐT (`top + height/2 - ph/2`) thay vì `rect.top` — popover hiện ngang tầm SĐT. Hover ô số HĐ giữ nguyên.
+
+**Status**: ✅ Done — commit `1d6ca16b`, đã push main.
+
 ### [balance-history] Đổi sang vietqr.io template `compact2` để có logo VietQR + thông tin ngân hàng đầy đủ
 
 |              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
