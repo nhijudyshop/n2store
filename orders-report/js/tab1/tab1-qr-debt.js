@@ -558,22 +558,34 @@ function _applyWalletAutoTags() {
     }
 
     _walletAutoTagRetries = 0;
-    if (!window.walletDebtData || walletSize === 0) return;
+    if (!window.walletDebtData) return;
 
-    let taggedCount = 0;
+    // Helper: kiểm tra flag được auto-add (source 'Tự Động') từ history.
+    // Tránh xóa flag user CHỦ Ý gắn tay.
+    const _isFlagAutoAdded = (orderCode, flagKey) => {
+        const history = window.ProcessingTagState?.getHistory?.(orderCode) || [];
+        // Scan ngược tìm record ADD_FLAG cuối cùng cho flagKey
+        for (let i = history.length - 1; i >= 0; i--) {
+            const e = history[i];
+            if (e.action === 'ADD_FLAG' && e.value === flagKey) {
+                return e.user === 'Tự Động';
+            }
+            if (e.action === 'REMOVE_FLAG' && e.value === flagKey) {
+                return false; // đã bị remove rồi → không cần xét
+            }
+        }
+        return false;
+    };
+
+    let addedCount = 0;
+    let removedCount = 0;
     document.querySelectorAll('td[data-column="customer"]').forEach((cell) => {
         const row = cell.closest('tr');
         if (!row) return;
         const phoneCell = row.querySelector('td[data-column="phone"]');
         if (!phoneCell) return;
         const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
-        if (!rowPhone || !window.walletDebtData.has(rowPhone)) return;
-
-        // Skip nếu phone này đã xử lý xong (tránh lặp mỗi polling cycle)
-        if (_walletAutoTagDone.has(rowPhone)) return;
-
-        const data = window.walletDebtData.get(rowPhone);
-        if ((data.total || 0) <= 0) return;
+        if (!rowPhone) return;
 
         const orderId = row.getAttribute('data-order-id');
         const orderCode =
@@ -581,27 +593,45 @@ function _applyWalletAutoTags() {
             (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
         if (!orderCode) return;
 
+        const data = window.walletDebtData.get(rowPhone); // có thể undefined nếu total<=0
+        const balance = data?.balance || 0;
+        const virtualBalance = data?.virtualBalance || data?.virtual_balance || 0;
+
         const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
         const existingFlagIds = existingFlags.map((f) => (typeof f === 'object' ? f.id : f));
+        const hasCK = existingFlagIds.includes('CHUYEN_KHOAN');
+        const hasTC = existingFlagIds.includes('TRU_CONG_NO');
 
-        if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
+        // ADD: balance > 0 → tag CK; virtualBalance > 0 → tag TRU_CONG_NO
+        if (balance > 0 && !hasCK && !_walletAutoTagDone.has(rowPhone + ':CK')) {
             window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động', { batchQueue: true });
-            taggedCount++;
+            addedCount++;
+            _walletAutoTagDone.add(rowPhone + ':CK');
         }
-        if (
-            (data.virtualBalance || data.virtual_balance || 0) > 0 &&
-            !existingFlagIds.includes('TRU_CONG_NO')
-        ) {
+        if (virtualBalance > 0 && !hasTC && !_walletAutoTagDone.has(rowPhone + ':TC')) {
             window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động', { batchQueue: true });
-            taggedCount++;
+            addedCount++;
+            _walletAutoTagDone.add(rowPhone + ':TC');
         }
 
-        // Đánh dấu phone đã xử lý — không chạy lại cho polling tiếp theo
-        _walletAutoTagDone.add(rowPhone);
+        // REMOVE: balance dropped to 0 (đã trừ ví hết) → gỡ CK flag NẾU auto-added.
+        // Phải check history để tránh gỡ flag user gắn tay.
+        if (balance <= 0 && hasCK && _isFlagAutoAdded(orderCode, 'CHUYEN_KHOAN')) {
+            window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động (gỡ)', { batchQueue: true });
+            removedCount++;
+            _walletAutoTagDone.delete(rowPhone + ':CK');
+        }
+        if (virtualBalance <= 0 && hasTC && _isFlagAutoAdded(orderCode, 'TRU_CONG_NO')) {
+            window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động (gỡ)', { batchQueue: true });
+            removedCount++;
+            _walletAutoTagDone.delete(rowPhone + ':TC');
+        }
     });
 
-    if (taggedCount > 0) {
-        console.log(`[WALLET-AUTOTAG] ✅ Auto-tagged ${taggedCount} flags`);
+    if (addedCount > 0 || removedCount > 0) {
+        console.log(
+            `[WALLET-AUTOTAG] ✅ +${addedCount} added, -${removedCount} removed (auto-flags)`
+        );
     }
 }
 
