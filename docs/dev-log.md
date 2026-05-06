@@ -8,6 +8,12 @@
 
 ## 2026-05-06
 
+### [delivery-report][ux] Bỏ ô giờ — auto 00:00 → 23:59:59.999
+
+**Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html), [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css), [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)
+
+User: "bỏ giờ đi, cho tự động 00h ngày start đến 23h59 ngày end". Drop 2 `<input type="time">` (drFilterFromTime, drFilterToTime), `.dr-time-input` CSS, và `isValidTime()`. Date range giờ chỉ có `[date] → [date]`. `collectFilters` hardcode `T00:00`/`T23:59` (buildApiUrl pad ToDate thành `23:59:59.999`). `setDefaultDates`/`applyPreset` không còn touch time inputs. **Browser-tested**: yesterday preset → URL `FromDate=...T17:00:00.000Z & ToDate=...T16:59:59.999Z` (UTC), dataLen 122 chính xác. ✅
+
 ### [delivery-report][fix+ux] Filter khoảng ngày: chính xác hơn + redesign UI + filename theo range
 
 **Files**:

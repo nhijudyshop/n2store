@@ -106,25 +106,17 @@
         const todayStr = toLocalDateStr(new Date());
 
         const fromDateInput = document.getElementById('drFilterFromDate');
-        const fromTimeInput = document.getElementById('drFilterFromTime');
         const toDateInput = document.getElementById('drFilterToDate');
-        const toTimeInput = document.getElementById('drFilterToTime');
 
         if (fromDateInput && !fromDateInput.value) {
             fromDateInput.value = todayStr;
         }
-        if (fromTimeInput && !fromTimeInput.value) {
-            fromTimeInput.value = '00:00';
-        }
         if (toDateInput && !toDateInput.value) {
             toDateInput.value = todayStr;
         }
-        if (toTimeInput && !toTimeInput.value) {
-            toTimeInput.value = '23:59';
-        }
 
-        DeliveryReportState.filters.fromDate = `${fromDateInput.value}T${fromTimeInput.value}`;
-        DeliveryReportState.filters.toDate = `${toDateInput.value}T${toTimeInput.value}`;
+        DeliveryReportState.filters.fromDate = `${fromDateInput.value}T00:00`;
+        DeliveryReportState.filters.toDate = `${toDateInput.value}T23:59`;
 
         updatePresetHint();
     }
@@ -172,12 +164,8 @@
 
         const fromInput = document.getElementById('drFilterFromDate');
         const toInput = document.getElementById('drFilterToDate');
-        const fromTimeInput = document.getElementById('drFilterFromTime');
-        const toTimeInput = document.getElementById('drFilterToTime');
         if (fromInput) fromInput.value = toLocalDateStr(from);
         if (toInput) toInput.value = toLocalDateStr(to);
-        if (fromTimeInput) fromTimeInput.value = '00:00';
-        if (toTimeInput) toTimeInput.value = '23:59';
 
         // Mark active preset
         document.querySelectorAll('.dr-preset-btn').forEach((btn) => {
@@ -217,10 +205,6 @@
         document
             .querySelectorAll('.dr-preset-btn')
             .forEach((btn) => btn.classList.remove('active'));
-    }
-
-    function isValidTime(t) {
-        return /^\d{2}:\d{2}(:\d{2})?$/.test(t || '');
     }
 
     // =====================================================
@@ -268,19 +252,7 @@
     function collectFilters() {
         const f = DeliveryReportState.filters;
         const fromDate = document.getElementById('drFilterFromDate')?.value || '';
-        const fromTimeRaw = document.getElementById('drFilterFromTime')?.value || '';
         const toDate = document.getElementById('drFilterToDate')?.value || '';
-        const toTimeRaw = document.getElementById('drFilterToTime')?.value || '';
-
-        // Validate times — invalid → fallback to safe defaults instead of corrupting filter
-        const fromTime = isValidTime(fromTimeRaw) ? fromTimeRaw.slice(0, 5) : '00:00';
-        const toTime = isValidTime(toTimeRaw) ? toTimeRaw.slice(0, 5) : '23:59';
-
-        // Reflect cleaned values back so user sees what's actually applied
-        const fromTimeInput = document.getElementById('drFilterFromTime');
-        const toTimeInput = document.getElementById('drFilterToTime');
-        if (fromTimeInput && fromTimeInput.value !== fromTime) fromTimeInput.value = fromTime;
-        if (toTimeInput && toTimeInput.value !== toTime) toTimeInput.value = toTime;
 
         // Auto-swap if from > to (common typo)
         let effFrom = fromDate;
@@ -295,8 +267,10 @@
             if (toInput) toInput.value = effTo;
         }
 
-        f.fromDate = effFrom ? `${effFrom}T${fromTime}` : '';
-        f.toDate = effTo ? `${effTo}T${toTime}` : '';
+        // Time always pinned: 00:00 start of fromDate → 23:59 (end-of-minute pad
+        // applied in buildApiUrl) of toDate. No manual time inputs.
+        f.fromDate = effFrom ? `${effFrom}T00:00` : '';
+        f.toDate = effTo ? `${effTo}T23:59` : '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
 
         updatePresetHint();

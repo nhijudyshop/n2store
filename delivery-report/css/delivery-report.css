@@ -129,9 +129,9 @@
     flex-wrap: wrap;
 }
 .dr-date-input {
-    flex: 1 1 130px;
-    min-width: 130px;
-    max-width: 170px;
+    flex: 1 1 160px;
+    min-width: 140px;
+    max-width: 200px;
     padding: 7px 10px;
     border: 1px solid #d1d5db;
     border-radius: 4px;
@@ -140,20 +140,7 @@
     background: white;
     font-variant-numeric: tabular-nums;
 }
-.dr-time-input {
-    flex: 0 0 88px;
-    width: 88px;
-    padding: 7px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    font-size: 13px;
-    color: #374151;
-    background: white;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-.dr-date-input:focus,
-.dr-time-input:focus {
+.dr-date-input:focus {
     outline: none;
     border-color: #4f87e8;
     box-shadow: 0 0 0 2px rgba(79, 135, 232, 0.15);
@@ -811,13 +798,8 @@
     }
 
     .dr-date-input {
-        flex: 1 1 110px;
-        min-width: 110px;
-    }
-
-    .dr-time-input {
-        flex: 0 0 76px;
-        width: 76px;
+        flex: 1 1 130px;
+        min-width: 120px;
     }
 
     .dr-preset-btn {
