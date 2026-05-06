@@ -2810,6 +2810,31 @@
         const noteEl = document.getElementById('accReviewNote');
         if (noteEl) noteEl.value = '';
 
+        // Show existing note image (verification_image_url) if available — read-only preview
+        const existingGroup = document.getElementById('accReviewExistingImageGroup');
+        const existingImg = document.getElementById('accReviewExistingImage');
+        const existingOverlay = document.getElementById('accReviewExistingImageOverlay');
+        if (existingGroup && existingImg) {
+            const noteImgUrl = tx.verification_image_url || '';
+            if (noteImgUrl) {
+                existingImg.src = noteImgUrl;
+                existingImg.setAttribute('data-cache-src', noteImgUrl);
+                if (existingOverlay) {
+                    existingOverlay.setAttribute('data-cache-bg', noteImgUrl);
+                    existingOverlay.style.backgroundImage = `url('${noteImgUrl}')`;
+                }
+                existingGroup.style.display = '';
+            } else {
+                existingImg.removeAttribute('src');
+                existingImg.removeAttribute('data-cache-src');
+                if (existingOverlay) {
+                    existingOverlay.removeAttribute('data-cache-bg');
+                    existingOverlay.style.backgroundImage = '';
+                }
+                existingGroup.style.display = 'none';
+            }
+        }
+
         // Reset image state
         clearReviewImage();
 
