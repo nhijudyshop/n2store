@@ -8,6 +8,32 @@
 
 ## 2026-05-06
 
+### [orders][fix] Phân chia STT non-admin: ID field mismatch + real-time bypass leak
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js), [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js)
+
+User: "phần phân chia đơn cho users bị bug khi chọn filter, nó hiển thị đơn của người khác, admin coi được tất cả OK nhưng users được phân chia bị lỗi". 3 bugs giao thoa:
+
+1. **Field mismatch**: filter check `auth?.id` nhưng login save `userId` (xem [index/login.js:89](../index/login.js#L89)) → `currentUserId === null` → ID match thất bại → fallback về displayName. Nếu displayName cũng lệch (NFC/NFD, whitespace, casing) → `userRange === null` → "user not in range → show all" → **leak toàn bộ đơn**.
+2. **Unicode-fragile name match**: `r.name === currentDisplayName` exact-equal, "Hồng" NFC vs NFD khác bytes → fail.
+3. **Real-time bypass**: `applyOrderMembershipFlip` (gọi từ TPOS-realtime SSE & processing-tag flip) chỉ check tag filter, KHÔNG check employee range → đơn ngoài range được insert thẳng vào `filteredData`/`displayedData`.
+
+**Fix**:
+
+- Centralize matching logic vào `_findCurrentUserEmployeeRange()` + `window.orderPassesEmployeeRangeFilter(order)` helper trong [tab1-search.js:198-263](../orders-report/js/tab1/tab1-search.js#L198).
+- Thử nhiều ID candidates: `auth.userId || auth.uid || auth.id` ↔ `r.id || r.userId || r.uid`.
+- Thử nhiều name candidates: `displayName`, `username`, `userType`, `userType.split('-')[0]` — tất cả đều normalize qua `_normalizeEmployeeName` (NFD strip diacritics + đ→d + collapse spaces + lowercase).
+- `applyOrderMembershipFlip` ([tab1-table.js:506-514](../orders-report/js/tab1/tab1-table.js#L506)) ép `passesNow=false` nếu order ngoài employee range — chặn SSE & processing-tag-flip insert đơn ngoài phạm vi.
+
+**Browser-tested localhost** (override `authManager.getAuthData` simulate non-admin Hồng, range 572-856, total 856 đơn):
+
+- Bug-pre-fix simulation: với original logic, displayName mismatch → matched=null → `filteredCount=856` (toàn bộ leak).
+- Sau fix: `matchedRange={Hồng,572-856}`, `filteredCount=285` (chính xác), `outsideLeak=0`.
+- `applyOrderMembershipFlip(STT 499, passesNow=true)` → return `true` (handled) nhưng `filteredData` vẫn 285 (rejected silently — đúng).
+- 5 unicode variants ("Hồng" NFD / trailing space / "HỒNG" / username only / userType only) đều match ranger Hồng.
+- Admin (`isAdmin=true`) → filter no-op, vẫn 856/856.
+- Unmatched non-admin (new user không có range) → vẫn show all 856 (preserve current design — không break user chưa được phân chia). ✅
+
 ### [delivery-report][ux] Bỏ ô giờ — auto 00:00 → 23:59:59.999
 
 **Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html), [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css), [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)
@@ -575,123 +601,6 @@ console.log('FIXED:',fixed); console.log('STILL:',stillBroken); console.log('NEW
 Xem **memory entry** [reference_browser_test_scripts.md](../../../.claude/projects/-Users-mac-Desktop-n2store/memory/reference_browser_test_scripts.md) (auto-loaded) hoặc **CLAUDE.md** section "Browser Test Scripts (Playwright)".
 
 ---
-
-## 2026-04-28
-
-### [balance-history][feat] Tab Đã Duyệt — badge Nguồn taxonomy mới + filter Thu về/Khách CK/Cộng nợ ảo/Hoàn tiền
-
-**Files**: `balance-history/index.html`, `balance-history/js/accountant.js`, `render.com/routes/v2/balance-history.js`
-**Vấn đề**: Cột Nguồn dùng "Cộng nợ ảo" (DB action) thay vì "Thu về" (ticket type) — user muốn label theo nguồn thực tế. Filter dropdown chỉ có 3 option bh sub-method, thiếu phân loại wt.
-**Badge update**: (a) wt VIRTUAL_CREDIT_ISSUE → "Thu về" (was "Cộng nợ ảo"). (b) wt VIRTUAL_CREDIT khác → "Cộng nợ ảo" giữ. (c) wt DEPOSIT/ORDER_CANCEL_REFUND → "Hoàn tiền" (đã có). (d) bh rows → 2-line badge "Khách CK" + sub-method (Nhập tay/Chọn KH/Tự động) — primary "Khách CK" nhất quán với customer-hub.
-**Filter dropdown**: optgroup "Khách CK (Sepay)": khach_ck (all bh) + 3 sub-method giữ nguyên. optgroup "Ví nội bộ": thu_ve + cong_no_ao + hoan_tien. Backend xử lý 4 option mới ở cả bh-side + wt-side WHERE clauses.
-**Live verify**: Browser test 28/04 (data có sẵn): 8 wt rows badge "Thu về"×2 + "Hoàn tiền"×2..., 20 bh rows badge "Khách CK" + sub Nhập tay/Tự động. Filter `thu_ve` → 5 wt only (Thu về). Filter `khach_ck` → 20 bh only. Filter `hoan_tien` → 3 wt only. Filter `cong_no_ao` → 0 (chưa có manual virtual credit). ✅
-**Status**: ✅ Done — deploy + verify browser
-
-### [balance-history][feat] Tab Đã Duyệt — bổ sung Hoàn Tiền Hủy Đơn + sửa cột Ghi chú dùng wt.note thay wt.source
-
-**Files**: `render.com/routes/v2/balance-history.js`, `balance-history/js/accountant.js`
-**Vấn đề**: (1) Tab "Đã Duyệt" thiếu các giao dịch "Hoàn Tiền Hủy Đơn Công Nợ" (DEPOSIT + source=ORDER_CANCEL_REFUND) — chỉ có VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT trong wt UNION. (2) Cột Ghi chú render `wt.source` (vd 'VIRTUAL_CREDIT_ISSUE') thay vì `wt.note` (ghi chú thực user nhập, vd 'test_param_check').
-**Backend fix**: (a) `/approved-today` UNION wt: thêm `(wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND')` vào whitelist. (b) Mirror filter cho count `approvedToday` cũng update tương tự. (c) SELECT wt rows: đổi `wt.source AS verification_note` → `COALESCE(NULLIF(TRIM(wt.note), ''), wt.source) AS verification_note` (ưu tiên ghi chú thực, fallback source). (d) Thêm `wt.source AS wt_source, wt.reference_id AS wt_reference_id` vào output để FE phân biệt sub-type.
-**Frontend fix**: `getMatchMethodBadge`: nhận biết `wtType=='DEPOSIT' && wtSource=='ORDER_CANCEL_REFUND'` → label "Hoàn tiền". Title tooltip ghi rõ `DEPOSIT/ORDER_CANCEL_REFUND`.
-**Live verify**: Browser test online sau Render deploy: tab Đã Duyệt 34 rows (tăng từ 31), 3 dòng Hoàn tiền (badge tím) cho NJD/2026/63945-63947 phone 0123456788 hiện đầy đủ. Note column: "Công Nợ Ảo Từ Thu Về (NJD/2026/63950) - thu ve giam gia 3 mon" thay vì "VIRTUAL_CREDIT_ISSUE" thô. Mirror count card cũng update đúng 34. ✅
-**Status**: ✅ Done — deploy + verify browser test
-
-### [customer-hub][tickets][feat] Hoàn Về + Khách Gửi — display label chuyên dụng + createdBy đầy đủ
-
-**Files**: `customer-hub/js/modules/customer-profile.js`, `render.com/routes/v2/tickets.js`
-**Mục tiêu**: Activity feed hiển thị Hoàn Về (RETURN_SHIPPER → VIRTUAL_CREDIT) và Khách Gửi (RETURN_CLIENT → DEPOSIT/RETURN_GOODS) với label chuyên dụng + đảm bảo `created_by` được propagate trong mọi flow tạo/hủy.
-**Customer-hub display**: Thêm 2 nhánh detection trong activity render: (1) `isReturnShipper`: tx.type='VIRTUAL_CREDIT' và source='VIRTUAL_CREDIT_ISSUE' (hoặc note match) → "Hoàn Về Cấp Công Nợ Ảo #orderCode - {internal_note}" + "Duyệt bởi {createdBy}". (2) `isReturnClient`: tx.type='DEPOSIT' và source='RETURN_GOODS' (hoặc note match TV-/Hoàn tiền từ ticket) → "Hoàn Tiền Khách Gửi #orderCode (TV-...)" + "Hoàn bởi {createdBy}". Cả hai set `__suppressOperator=true` để tránh duplicate label.
-**Backend tickets.js**: (a) `DELETE /:id` (delete ticket): nhận `performed_by` từ body/query, INSERT VIRTUAL_CANCEL wallet_transaction kèm `created_by=performedBy`. (b) `POST /:id/cancel` (cancel ticket): VIRTUAL_CANCEL insert thêm `created_by=performed_by`. Trước đây 2 INSERT này KHÔNG ghi `created_by` → khi hủy/xóa ticket Thu Về, dòng -tiền VIRTUAL_CANCEL không có operator info.
-**Status**: ✅ Done — commit + push
-
-### [balance-history][feat] DELETE /:id/manager-review — revert manager review (admin)
-
-**File**: `render.com/routes/v2/balance-history.js`
-**Vì sao**: Cần revert dữ liệu test (wt:7544 Lương Ngọc Thoa 340k) sau live verify Bug 1. Không có endpoint unmark trước đây — phải hardcode SQL hoặc gọi DELETE/admin endpoint.
-**Endpoint**: `DELETE /api/v2/balance-history/:id/manager-review` — composite uid `bh:N` / `wt:N` / legacy bare int. wt branch: SET `manager_reviewed=FALSE, manager_review_note=NULL, reviewed_by=NULL, reviewed_at=NULL`. bh branch: thêm strip marker `[QL: ...]` khỏi `verification_note`.
-**Live test**: DELETE wt:7544 → 200 success. GET approved-today: `manager_reviewed=false, reviewed_by=null, manager_review_note=null, reviewed_at=null` ✅
-**Status**: ✅ Done
-
-### [verify] Live test commit 78d09adc sau Render+GH Pages deploy
-
-**Bug 1 — QL fallback**: (1) `accountant.js` deployed: `manager_review_note?.trim` confirmed. (2) Open balance-history Đã Duyệt tab: 4 wt rows visible (wt:7564 ✓, wt:7556 ✓, wt:7544 ✗, wt:7542 ✗). (3) wt:7564 + wt:7556 (đã reviewed từ trước) hiện QL note đầy đủ: "QL: Administrator - Live test wt:7564..." và "QL: Tâm - kiểm tra giao dịch test". (4) Click ✓ trên wt:7544 → modal mở → fill "Live test fix QL: bug1 verify wt:7544" → submit → row chuyển sang orange (acc-row-reviewed), hiện "QL: Administrator - Live test fix QL: ..." + label "ĐÃ KIỂM TRA". DB persisted: `manager_reviewed=true, reviewed_by='Administrator', manager_review_note='Live test fix QL: bug1 verify wt:7544', reviewed_at=2026-04-28T09:22:54Z`. ✅
-**Bug 2 — Render endpoint accept created_by**: POST `/api/v2/tickets/TEST_NONEXISTENT/resolve-credit` với `{"phone":"0000000000","amount":1000,"created_by":"test_param_check"}` → success: `wt:7586` tạo với `verified_by="test_param_check"` (= `wallet_transactions.created_by`). Endpoint nhận `created_by` field đúng theo fix. ✅
-**Test artifact**: wt:7586 + virtual_credit_id 157 trên phone 0000000000 — isolated test wallet, harmless, không cần cleanup.
-**Status**: ✅ Bug 1 fully fixed live + Bug 2 endpoint deploy verified. Caller (issue-tracking script.js) sẽ áp dụng cho TX mới khi user resolve ticket Thu Về tiếp theo.
-
-### [balance-history][bugfix] QL: ... đã kiểm tra không hiện cho wt rows sau khi save modal
-
-**File**: `balance-history/js/accountant.js` (renderApprovedToday)
-**Bug**: Bấm V trên wt row → modal điền note → submit OK (server lưu `manager_reviewed=true, reviewed_by, manager_review_note`) → đóng modal → row hiện "ĐÃ KIỂM TRA" nhưng KHÔNG có dòng "QL: <user> đã kiểm tra".
-**Nguyên nhân**: Render code chỉ derive `managerNote` bằng regex `/\[QL:([^\]]*)\]/` trên `tx.verification_note`. Backend wt branch (line 1711-1719) chỉ UPDATE `manager_reviewed/manager_review_note/reviewed_by/reviewed_at` columns, KHÔNG embed `[QL: ...]` vào `verification_note` (vì wt rows không có verification_note column như bh). → `managerNote = ''` → block "QL: ..." không render.
-**Fix**: Sau khi parse marker từ verification_note, fallback: `if (isReviewed && !managerNote) managerNote = tx.manager_review_note?.trim() | | 'Đã kiểm tra'`. Áp dụng cho cả bh và wt rows mà API trả về `manager_review_note` column trực tiếp.
-**Status**: ✅ Done
-
-### [tickets][customer-hub][bugfix] +tiền (Hoàn tiền/Khách CK/VIRTUAL_CREDIT) thiếu "Duyệt bởi" trong activity feed
-
-**Files**: `render.com/routes/v2/tickets.js` (resolve, resolve-credit), `issue-tracking/js/script.js` (resolveTicketCredit caller), `customer-hub/js/modules/customer-profile.js` (operator label)
-**Bug**: Activity feed customer profile hiển thị `+200K Công Nợ Ảo Từ Thu Về (NJD/...) - 14:08 28/04/2026` không có operator (Duyệt bởi/Tạo bởi/...).
-**Root cause**: (a) `tickets.js` `/resolve` (compensation) và `/resolve-credit` không pass `performed_by`/`created_by` xuống `issueVirtualCredit()`/`processManualDeposit()` → `wallet_transactions.created_by` = NULL. (b) `issue-tracking/script.js` gọi `ApiService.resolveTicketCredit({...})` không gửi `created_by`. (c) `customer-hub` operator label logic không nhận diện `tx.type==='VIRTUAL_CREDIT'` là +tiền do user duyệt → fallback label "Bởi" thay vì "Duyệt bởi".
-**Fix**: (1) `tickets.js`: `/resolve` truyền `performed_by` cho cả 2 nhánh `issueVirtualCredit` (param 7) và `processManualDeposit` (param 8); `/resolve-credit` accept `created_by` từ body, pass param 7. (2) `issue-tracking/script.js`: thêm `created_by: window.authManager?.getUserInfo()?.username | | ...`vào payload`resolveTicketCredit`. (3) `customer-profile.js`: thêm `isVirtualCredit = tx.type==='VIRTUAL_CREDIT'`vào label rule, OR với`isDeposit` → label = 'Duyệt bởi'.
-**Note**: Chỉ áp dụng cho TX MỚI tạo sau deploy. Các tx cũ đã có `created_by=NULL` cần backfill SQL nếu user yêu cầu.
-**Status**: ✅ Done
-
-### [balance-history][feat] Đã Duyệt UNION wallet_transactions +tiền nội bộ (VIRTUAL_CREDIT/REFUND/RETURN)
-
-**Files**: `render.com/migrations/069_wallet_tx_manager_review.sql` (mới), `render.com/routes/v2/balance-history.js`, `balance-history/js/accountant.js`, `scripts/test-migration-069-wallet-tx-review.js` (mới)
-**Vì sao**: Tab "Đã Duyệt" hiện chỉ pull từ `balance_history` (sepay CK only). User yêu cầu thêm các +tiền nội bộ (VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT) từ `wallet_transactions` để thấy đầy đủ luồng tiền vào ví.
-**Backend**: (1) Migration 069: `ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS manager_reviewed/manager_review_note/reviewed_by/reviewed_at` + idempotent ALTER inline trong `/approved-today`. (2) `/approved-today`: sau khi fetch `bh` rows, fetch thêm wt rows (filter `amount>0 AND type IN (4 types) AND reference_type IS DISTINCT FROM 'balance_history'`), merge + sort by verified_at DESC, mỗi row gắn `src` (`bh`/`wt`) + `uid` (`bh:N`/`wt:N`). (3) `/accountant/stats`: thêm `walletApprovedTodayResult` count, cộng vào `approvedToday`. (4) `/:id/manager-review`: parse composite uid prefix → dispatch sang `wallet_transactions` UPDATE branch nếu `wt:`, giữ nguyên `balance_history` branch nếu `bh:` hoặc legacy id thuần.
-**Frontend**: (1) `renderApprovedToday`: detect `tx.src==='wt'` → ẩn ⚠️ Điều chỉnh, render badge tím "Cộng nợ ảo/Hoàn ví/Thu về/Trả khách" thay match_method. (2) Nút ✓ data-id dùng composite `uid` (encoded). (3) State update sau review: match by `uid` thay vì `id` thuần. (4) Audit logger cũng dùng uid.
-**Test migration**: `node scripts/test-migration-069-wallet-tx-review.js` — pattern CREATE local DB → schema cũ → UPDATE FAIL → MIGRATE → UPDATE OK → idempotent re-run → DROP DB. Tất cả PASS.
-**Hotfix 5f53a0d5**: (a) TZ wt rows: thêm `(wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')` — chuyển 07:21+07:00 (sai) → 14:21+07:00 (đúng giờ thực user tạo). (b) `openManagerReviewModal`: lookup match by `uid` thay vì `id` (composite `wt:N` không match số nguyên).
-**Live test post-deploy**: (1) Stats `approvedToday`: 19 → **28** (+9 wt); (2) `/approved-today` 28 rows = bh:24 + wt:4 VIRTUAL_CREDIT có `src/uid`; (3) Frontend 4 rows `acc-row-wt`, badge tím "Cộng nợ ảo", action cell chỉ ✓; (4) **TZ verified**: wt verified_at = 14:21+07:00 đúng giờ thực; (5) Click ✓ trên `wt:7564` → modal mở; (6) Submit "Live test wt:7564 review" → POST `/wt:7564/manager-review` success, row hiện "ĐÃ KIỂM TRA"; (7) DB persisted: `manager_reviewed=true, reviewed_by=Administrator, reviewed_at=2026-04-28T08:38:43Z, manager_review_note="Live test wt:7564 review"`.
-**Status**: ✅ Done — toàn bộ flow live trên prod hoạt động đúng
-
-### [delivery-report][feat] Popover Hoạt động gần đây — eye cho mọi tx có ticket NJD/TV-, không chỉ ảnh CK
-
-**File**: `delivery-report/js/delivery-report.js`
-**Vì sao**: Trước đây eye trong popover chỉ render khi tx có `sepay_image_url` hoặc inline `[Ảnh GD: ...]`. Các +tiền khác (HOÀN, VIRTUAL_CREDIT, RETURN_SHIPPER, …) có reference NJD/TV- không có nút mắt → user không xem được phiếu liên quan.
-**Thay đổi**: (1) Thêm `pickTxEvidence(tx)` priority: image → ticket TV- → ticket NJD-. (2) `eyeBtnHtmlForTx(tx)` dùng `pickTxEvidence` để render eye button với `data-eye-kind="image"` (mở `openLightbox`) hoặc `data-eye-kind="ticket"` (mở `window.showTicketHistoryViewer` qua `ensureTicketViewer()` lazy-loader). (3) `wirePopoverActions` route theo `data-eye-kind`.
-**Status**: ✅ Done — pattern khớp với customer-hub TxEvidence
-
-### [balance-history][revert] Bỏ eye buttons khỏi Đã Duyệt (revert commit 1657f88e)
-
-**Files**: `balance-history/js/accountant.js`, `balance-history/css/accountant.css`
-**Vì sao**: User yêu cầu bỏ — cột Ghi chú đã có thumbnail hover-zoom đủ rồi, nút mắt riêng dư thừa trong UI này.
-**Thay đổi**: Xóa `eyeBtnHtml` render trong `renderApprovedToday()`, xóa event handler `.acc-eye-btn`, xóa function `showImageLightbox`, xóa CSS `.acc-eye-btn`, xóa `lucide.createIcons()` redundant.
-**Status**: ✅ Done
-
-### [login][fix] Localhost login — fallback Cloudflare Worker khi Render local (port 3000) không chạy
-
-**File**: `index/login.js`
-**Vì sao**: Khi chỉ chạy `python3 -m http.server 8080` để dev frontend (không chạy Render server), `login.js` hardcode trỏ `http://localhost:3000/api/users/login` → `ERR_CONNECTION_REFUSED` không login được.
-**Thay đổi**: Mặc định localhost dùng Cloudflare Worker production (`chatomni-proxy.nhijudyshop.workers.dev/api/users`). Chỉ trỏ Render local nếu thêm `?api=local` vào URL hoặc `localStorage.setItem('login_api_local','1')`.
-**Status**: ✅ Done — verified bằng persistent browser session login admin/admin@@ trên `http://localhost:8080`
-
-### [balance-history][feat] Đã Duyệt — thêm nút mắt 👁 mở ảnh duyệt CK trong lightbox
-
-**Files**: `balance-history/js/accountant.js`, `balance-history/css/accountant.css`, `balance-history/index.html`
-**Vì sao**: Trong tab Kế Toán → Đã Duyệt, mỗi dòng đã có thumbnail ảnh CK ở cột Ghi chú với hover-zoom — nhưng cần 1 nút explicit ở cột Thao tác để giống pattern customer-hub Customer Profile (cột "Hoạt động gần đây" có nút mắt).
-**Thay đổi**: (1) `renderApprovedToday()`: render `acc-eye-btn` (Lucide icon `eye`) trước nút ✓ và ⚠️ Điều chỉnh, chỉ hiện khi `tx.verification_image_url` tồn tại; gọi `lucide.createIcons()` sau render. (2) Thêm `showImageLightbox(url)` — overlay full-screen, click ngoài hoặc Esc đóng. (3) Event delegation trong `setupEventListeners()` bắt `.acc-eye-btn` click → `showImageLightbox`. (4) CSS `.acc-eye-btn` style xanh dương 28×26px. (5) Bump `accountant.css?v=20260428a` cache-bust.
-**Status**: ✅ Done — sync với pattern customer-hub TxEvidence
-
-### [delivery-report][feat] Hover ví: nút mắt xem ảnh CK (compressed) + nút Duyệt cho tx pending
-
-**Files**: MODIFIED: [render.com/routes/image-proxy.js](../render.com/routes/image-proxy.js) — thêm query `?w=<px>&q=<1-100>`: nếu có thì sharp pipeline `rotate().resize({width,withoutEnlargement:true}).jpeg({quality,mozjpeg:true})` → JPEG compressed. Không có w/q thì giữ stream-through như cũ. MODIFIED: [render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js) — `/quick-view`: SQL recent_transactions LEFT JOIN balance_history lấy `sepay_image_url` + thêm field `source, reference_type, reference_id`; thêm query mới `pending_transactions` (top 5 balance_history `verification_status='PENDING_VERIFICATION' AND wallet_processed=FALSE` linked phone). MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `renderCustomer()`: split block "Chờ duyệt" + "Hoạt động gần đây"; mỗi tx render `eyeBtnHtml(sepay_image_url)` + pending render thêm `approveBtnHtml(id,amount)`. Thêm `openLightbox(url)` → `${RENDER_URL}/api/image-proxy?url=...&w=900&q=70` (compressed ~10× nhỏ hơn original Firebase), spinner trong lúc load, fallback URL gốc nếu proxy fail. Thêm `approvePending(id, amt, btn)` → POST `/v2/balance-history/${id}/approve` body `{verified_by}`, optimistic UI, invalidate customer cache. `wirePopoverActions(phone)` bind handlers. Note legacy `[Ảnh GD: <url>]` vẫn nhận diện làm fallback eye source. MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-hp-tx.pending` (border-left vàng), `.dr-hp-tx-label.pending` (CHỜ DUYỆT badge cam), `.dr-hp-tx-actions` (flex gap), `.dr-hp-eye-btn` (icon transparent → tint xanh hover), `.dr-hp-approve-btn` (xanh lá), `.dr-hp-lightbox` (full-screen overlay + spinner + 90vw/90vh + zoom-out).
-**Chi tiết**: **Trigger**: user "Hình 1 hoạt động gần đây thêm nút con mắt hình 2 và nút Duyệt hình 4" + "Hình 3 load full nên lâu, compress lại". **Compress**: Firebase Storage URL không transform native; sharp resize trong image-proxy có sẵn (sharp đã list package.json từ autofb). Ảnh receipt 4032×3024 ~3MB → `?w=900&q=70` ~120-180KB JPEG (>10× nhỏ). Cache 1 ngày `Cache-Control: public, max-age=86400`. **Eye trigger**: `sepay_image_url` (deposit CK JOIN balance_history) hoặc legacy `[Ảnh GD:]` trong note. **Duyệt trigger**: tx pending balance_history. API `/v2/balance-history/:id/approve` body `{verified_by}` — minimal (không upload ảnh mới, không đổi customer); full UI vẫn ở balance-history page. Auth username từ `authManager.getUserInfo().username` fallback `currentUser.displayName` fallback `'admin'`. Backend Render auto-deploy từ main; frontend graceful degrade khi API chưa trả `pending_transactions` (block "Chờ duyệt" ẩn).
-**Status**: ✅ Code done. Syntax check pass cả 4 files. Sau Render deploy: smoke test eye → lightbox compressed; approve → balance_history APPROVED + wallet_tx row + cache invalidate.
-
-### [delivery-report][bugfix] Hover bill: srcdoc bị truncate ở `"` đầu + resize false-hide
-
-**Files**: MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `showBill()`: bỏ template `srcdoc="${escapeHtml(srcdoc)}"`, đổi sang `document.createElement('iframe')` + set `ifr.srcdoc=...` qua DOM property + `pop.appendChild(ifr)`. Bỏ luôn `window.addEventListener('resize')` hide handler.
-**Chi tiết**: **Root cause #1 (truncated srcdoc)**: project's `escapeHtml(str)` dùng `div.textContent=str; return div.innerHTML` — chỉ escape `<>&` (textContent context không cần escape `"`). Khi inject `srcdoc="${escapeHtml(srcdoc)}"`, dấu `"` trong inner `<meta charset="utf-8">` không bị escape thành `&quot;` → browser parse attribute và **truncate srcdoc tại `"` đầu tiên** → iframe rỗng (verify: `srcdocLen: 41`, `bodyTxtLen: 0`). **Fix**: set `ifr.srcdoc` qua DOM property — browser engine handle escaping nội bộ, immune to attr-quote issue. **Root cause #2 (false-hide)**: `resize` handler ẩn popover → trigger ngầm khi Playwright fullPage screenshot tạm resize viewport (popover biến mất khỏi screenshot dù visible trong eval). Bỏ resize-hide; popover chỉ ẩn qua mouseleave hoặc Escape. **Verify localhost** (`python3 -m http.server 8765`, browser-session FIFO): bill iframe popH=624px, ifrW=318px, bodyTxtLen=16439 chars, render đầy đủ barcode + PHIẾU BÁN HÀNG + chi tiết SP + tổng tiền; customer popover hiển thị tên KH + 3 stat cards; page bodyWidth giữ 1440 (no style leak từ TPOS `html,body{width:80mm}`).
-**Status**: ✅ Done. Bộ 3 commit: 67df4b15 (iframe sandbox + bỏ scroll-hide) → fix này (srcdoc property + bỏ resize-hide).
-
-### [delivery-report][feat] Hover preview: invoice number → bill TPOS, customer cell → ví khách
-
-**Files**: MODIFIED: [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — render row: thêm class `dr-hover-bill` + `data-id` + `data-number` cho cell `data-col="number"`; class `dr-hover-customer` cho cell `data-col="customer"`. Module `HoverPreview` mới (~210 LOC, IIFE) trước public API: tạo singleton popover, debounce show 350ms, hide 180ms, cache `Map<id,html>` cho bill và `Map<phone,data>` cho customer. `fetchBillHtml(id)` gọi `${WORKER_URL}/api/fastsaleorder/print1?ids=${id}` kèm Bearer token từ `getToken()`. `fetchCustomer(phone)` gọi `${RENDER_URL}/api/v2/customers/${phone}/quick-view`. `renderCustomer()` build wallet grid (số dư thật / nợ ảo / đơn+doanh thu) + pending alert + danh sách 5 giao dịch gần nhất với màu credit/debit. Mouseover/mouseout delegated trên `#drTableWrapper`, check `relatedTarget` để tránh flicker khi di chuyển trong cell hoặc vào popover. Khởi tạo qua `HoverPreview.init()` trong `initDeliveryReport()`. MODIFIED: [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — thêm block `.dr-hover-popover` (z-9999, max 460×70vh, shadow), `.dr-hp-header/title/sub`, `.dr-hp-loading/error/empty/spinner`, `.dr-hp-bill-body` (scroll, table reset), `.dr-hp-wallet-grid` (3 col stat cards), `.dr-hp-pending` (alert vàng), `.dr-hp-tx` (border-left + tint xanh/đỏ theo credit/debit), hover-cell highlight `dr-hover-bill:hover` (vàng) + `dr-hover-customer:hover` (tím).
-**Chi tiết**: **Trigger**: user "Hình 1 hover vào số 'NJD/2026/63929' hiện bill phiếu bán hàng hình 2, hover vào tên khách hàng/sđt hiện hoạt động ví hình 3". **API tái dùng**: TPOS print1 (đã dùng ở `bill-service.js:1683`) cho HTML bill — cần Bearer; quick-view endpoint trả gọn `customer + wallet + recent_transactions[3-5] + pending_deposits` (đã verify 200 OK với `0948138675`). **UX**: 350ms hover delay tránh trigger oan khi lướt chuột; popover position prefer right-of-cell, fallback left khi tràn viewport; ESC/scroll/resize đều ẩn; user có thể di chuột vào popover để đọc/scroll mà không bị mất. Cache theo `id`/`phone` cho session — không refetch khi quay lại cùng dòng.
-**Status**: ✅ Done. Syntax check pass. Endpoints smoke-tested: customer 200 (public), bill 401 không token (đúng mong đợi — token được attach lúc runtime qua `getToken()` từ tokenManager/localStorage).
 
 <!--
 HƯỚNG DẪN THÊM ENTRY MỚI:

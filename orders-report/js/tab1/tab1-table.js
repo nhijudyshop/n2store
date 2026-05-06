@@ -504,6 +504,17 @@ window.applyOrderMembershipFlip = function (orderCode, orderId, passesNow) {
         (orderCode && allData.find((o) => o.Code === orderCode));
     if (!order) return false;
 
+    // Enforce non-admin user's STT range — caller's `passesNow` reflects only the
+    // processing-tag filter (or is hardcoded `true` for new TPOS-realtime orders),
+    // so without this guard, orders outside the assigned range leak into the view.
+    if (
+        passesNow &&
+        typeof window.orderPassesEmployeeRangeFilter === 'function' &&
+        !window.orderPassesEmployeeRangeFilter(order)
+    ) {
+        passesNow = false;
+    }
+
     const existingRow = orderId ? tbody.querySelector(`tr[data-order-id="${orderId}"]`) : null;
     const isInDom = !!existingRow;
     if (passesNow === isInDom) return true; // nothing to do; treat as handled

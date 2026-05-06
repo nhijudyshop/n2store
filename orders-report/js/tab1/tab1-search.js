@@ -197,6 +197,101 @@ function mergeOrdersByPhone(orders) {
 // Expose to window for access from other modules (e.g., tab1-tags.js)
 window.performTableSearch = performTableSearch;
 
+// Normalize a user/range name for tolerant comparison: NFC, strip diacritics, lowercase, collapse spaces.
+// Why: "Hồng" stored in Firestore vs auth.displayName can differ in NFC/NFD normalization or whitespace.
+function _normalizeEmployeeName(s) {
+    if (!s) return '';
+    return String(s)
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/gi, 'd')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+// Resolve current user's employee range from window.employeeRanges.
+// Returns the matched range object, or null if no match (or admin / no ranges configured).
+// Why centralized: previously duplicated in _applyFiltersExceptProcessingTag and getEmployeeFilteredOrders;
+// real-time insertion paths (TPOS realtime, processing-tag flips) bypassed the filter, leaking other
+// staff's orders into a non-admin user's view.
+function _findCurrentUserEmployeeRange() {
+    const ranges = window.employeeRanges || [];
+    if (!ranges.length) return null;
+
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    if (isAdmin) return null;
+
+    const auth = window.authManager ? window.authManager.getAuthState() : null;
+    if (!auth) return null;
+
+    // Login saves `userId` (see index/login.js); legacy code may also expose `id` or `uid`.
+    const candidateIds = [auth.userId, auth.uid, auth.id].filter(Boolean).map(String);
+    const username = auth.username || null;
+    const displayName = auth.displayName || null;
+    const userType = auth.userType || null;
+
+    // 1. Match by ID (most reliable when admin saved ranges with Firestore doc.id).
+    if (candidateIds.length) {
+        for (const r of ranges) {
+            const rangeIds = [r.id, r.userId, r.uid].filter(Boolean).map(String);
+            if (rangeIds.some((rid) => candidateIds.includes(rid))) return r;
+        }
+    }
+
+    // 2. Match by displayName (unicode-tolerant).
+    if (displayName) {
+        const nDisplay = _normalizeEmployeeName(displayName);
+        const hit = ranges.find(
+            (r) => _normalizeEmployeeName(r.name || r.userName || '') === nDisplay
+        );
+        if (hit) return hit;
+    }
+
+    // 3. Match by username (login uses `${username}-authenticated` for userType).
+    if (username) {
+        const nUser = _normalizeEmployeeName(username);
+        const hit = ranges.find(
+            (r) => _normalizeEmployeeName(r.name || r.userName || '') === nUser
+        );
+        if (hit) return hit;
+    }
+
+    // 4. Match by userType / shortName (legacy fallback).
+    if (userType) {
+        const nType = _normalizeEmployeeName(userType);
+        const hit = ranges.find(
+            (r) => _normalizeEmployeeName(r.name || r.userName || '') === nType
+        );
+        if (hit) return hit;
+        const shortName = userType.split('-')[0];
+        const nShort = _normalizeEmployeeName(shortName);
+        if (nShort) {
+            const hit2 = ranges.find(
+                (r) => _normalizeEmployeeName(r.name || r.userName || '') === nShort
+            );
+            if (hit2) return hit2;
+        }
+    }
+
+    return null;
+}
+
+// True if `order` falls within the current non-admin user's assigned STT range.
+// Admins / users with no matched range / no ranges configured → returns true (no restriction).
+window.orderPassesEmployeeRangeFilter = function (order) {
+    if (!order) return true;
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    if (isAdmin) return true;
+    const ranges = window.employeeRanges || [];
+    if (!ranges.length) return true;
+    const userRange = _findCurrentUserEmployeeRange();
+    if (!userRange) return true; // user not assigned → show all (current behavior)
+    const stt = parseInt(order.SessionIndex);
+    return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
+};
+window._findCurrentUserEmployeeRange = _findCurrentUserEmployeeRange;
+
 // Returns the dataset filtered by everything EXCEPT the ProcessingTag (Chốt Đơn) filter.
 // Used by both performTableSearch and _ptagComputeCounts so panel counts respect active filters.
 function _applyFiltersExceptProcessingTag() {
@@ -208,21 +303,7 @@ function _applyFiltersExceptProcessingTag() {
     // Apply Employee STT Range Filter for assigned users (non-admin only)
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
     if (!isAdmin && employeeRanges.length > 0) {
-        const auth = window.authManager ? window.authManager.getAuthState() : null;
-        const currentUserId = auth?.id || null;
-        const currentDisplayName = auth?.displayName || null;
-        const currentUserType = auth?.userType || null;
-
-        let userRange = null;
-        if (currentUserId) userRange = employeeRanges.find((r) => r.id === currentUserId);
-        if (!userRange && currentDisplayName)
-            userRange = employeeRanges.find((r) => r.name === currentDisplayName);
-        if (!userRange && currentUserType)
-            userRange = employeeRanges.find((r) => r.name === currentUserType);
-        if (!userRange && currentUserType) {
-            const shortName = currentUserType.split('-')[0].trim();
-            userRange = employeeRanges.find((r) => r.name === shortName);
-        }
+        const userRange = _findCurrentUserEmployeeRange();
 
         if (userRange) {
             tempData = tempData.filter((order) => {
@@ -529,21 +610,7 @@ window.getEmployeeFilteredOrders = function () {
     const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
     if (!isAdmin && employeeRanges.length > 0) {
-        const auth = window.authManager ? window.authManager.getAuthState() : null;
-        const currentUserId = auth?.id || null;
-        const currentDisplayName = auth?.displayName || null;
-        const currentUserType = auth?.userType || null;
-
-        let userRange = null;
-        if (currentUserId) userRange = employeeRanges.find((r) => r.id === currentUserId);
-        if (!userRange && currentDisplayName)
-            userRange = employeeRanges.find((r) => r.name === currentDisplayName);
-        if (!userRange && currentUserType)
-            userRange = employeeRanges.find((r) => r.name === currentUserType);
-        if (!userRange && currentUserType) {
-            const shortName = currentUserType.split('-')[0].trim();
-            userRange = employeeRanges.find((r) => r.name === shortName);
-        }
+        const userRange = _findCurrentUserEmployeeRange();
 
         if (userRange) {
             return allOrders.filter((order) => {
