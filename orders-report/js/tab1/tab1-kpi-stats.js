@@ -602,22 +602,14 @@
                 const actionColor = isCheck ? '#10b981' : '#ef4444';
                 const userName = _escapeHtml(h.userName || h.userId || '?');
                 const stt = _getSttByOrderCode(h.orderCode);
-                const productName = _getProductNameSync(h.productId);
                 const pid = _escapeHtml(h.productId);
-                // Tooltip text trên STT — hiển thị đầy đủ tên SP + ID + order code.
-                // SP # ẩn mặc định ở UI; user hover STT để xem chi tiết.
-                const sttTooltip = _escapeHtml(
-                    [
-                        productName || `SP #${pid} (đang tải tên…)`,
-                        `Mã đơn: ${h.orderCode}`,
-                        `Product ID: ${pid}`,
-                    ].join('\n')
-                );
                 // Hiển thị STT (SessionIndex) thay cho mã đơn hàng — dễ đọc hơn cho user.
-                // Fallback orderCode nếu STT không tìm được (đơn ngoài view hiện tại).
+                // SP # ẩn mặc định; hover STT → custom tooltip floating hiện tên SP đầy đủ
+                // (không dùng native title vì delay 1-2s + style xấu).
+                const dataAttrs = `data-product-id="${pid}" data-order-code="${_escapeHtml(h.orderCode)}"`;
                 const orderLabel = stt
-                    ? `<span class="kpi-history-stt" title="${sttTooltip}" style="cursor:help; border-bottom:1px dotted #9ca3af;">STT <b>${_escapeHtml(stt)}</b></span>`
-                    : `<span class="kpi-history-stt" title="${sttTooltip}" style="cursor:help; font-family:monospace;">${_escapeHtml(h.orderCode)}</span>`;
+                    ? `<span class="kpi-history-stt" ${dataAttrs} style="cursor:help; border-bottom:1px dotted #9ca3af;">STT <b>${_escapeHtml(stt)}</b></span>`
+                    : `<span class="kpi-history-stt" ${dataAttrs} style="cursor:help; font-family:monospace;">${_escapeHtml(h.orderCode)}</span>`;
                 return `
                     <div style="display:grid; grid-template-columns: 70px 1fr 90px 60px; gap:10px; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:12px; align-items:center;">
                         <span style="color:${actionColor}; font-weight:700;">${actionLabel}</span>
@@ -641,6 +633,108 @@
         if (opts.preserveScroll && prevScrollTop > 0) {
             body.scrollTop = prevScrollTop;
         }
+        _wireSttHoverTooltip(body);
+    }
+
+    // ─── Custom floating tooltip cho STT hover ───
+    // Native `title` chậm (1-2s delay) + style xấu. Tự build floating tooltip
+    // hiện ngay khi hover, styled, kèm tên SP đầy đủ + Mã đơn + Product ID.
+    const STT_TOOLTIP_ID = 'kpiSttHoverTooltip';
+
+    function _ensureSttTooltip() {
+        let tip = document.getElementById(STT_TOOLTIP_ID);
+        if (tip) return tip;
+        tip = document.createElement('div');
+        tip.id = STT_TOOLTIP_ID;
+        tip.style.cssText = [
+            'position: fixed',
+            'display: none',
+            'z-index: 10100', // above modal (10001)
+            'max-width: 360px',
+            'padding: 8px 10px',
+            'background: #1f2937',
+            'color: #f3f4f6',
+            'border-radius: 6px',
+            'font-size: 12px',
+            'line-height: 1.4',
+            'box-shadow: 0 4px 12px rgba(0,0,0,0.25)',
+            'pointer-events: none',
+        ].join(';');
+        document.body.appendChild(tip);
+        return tip;
+    }
+
+    function _showSttTooltip(anchor) {
+        const tip = _ensureSttTooltip();
+        const pid = anchor.dataset.productId;
+        const orderCode = anchor.dataset.orderCode;
+        const productName = _getProductNameSync(pid);
+        // Build tooltip HTML
+        const nameLine = productName
+            ? `<div style="font-weight:600; color:#fbbf24; margin-bottom:4px;">${_escapeHtml(productName)}</div>`
+            : `<div style="color:#fbbf24; margin-bottom:4px; font-style:italic;"><i class="fas fa-spinner fa-spin"></i> Đang tải tên SP…</div>`;
+        tip.innerHTML = `
+            ${nameLine}
+            <div style="font-size:11px; color:#d1d5db;">📋 Mã đơn: <span style="font-family:monospace;">${_escapeHtml(orderCode)}</span></div>
+            <div style="font-size:11px; color:#9ca3af;">🏷️ Product ID: ${_escapeHtml(pid)}</div>
+        `;
+        // Position above anchor; flip below if not enough room.
+        const r = anchor.getBoundingClientRect();
+        tip.style.display = 'block';
+        const tipRect = tip.getBoundingClientRect();
+        let top = r.top - tipRect.height - 8;
+        if (top < 8) top = r.bottom + 8;
+        let left = r.left + r.width / 2 - tipRect.width / 2;
+        const maxLeft = window.innerWidth - tipRect.width - 8;
+        if (left < 8) left = 8;
+        else if (left > maxLeft) left = maxLeft;
+        tip.style.top = `${top}px`;
+        tip.style.left = `${left}px`;
+
+        // Kick lazy fetch nếu chưa có name; update tooltip khi xong.
+        if (!productName) {
+            _ensureProductNamesAsync([pid]);
+            // Re-poll a few times to update tooltip text once name arrives.
+            const startedAt = Date.now();
+            const timer = setInterval(() => {
+                if (tip.style.display === 'none' || Date.now() - startedAt > 6000) {
+                    clearInterval(timer);
+                    return;
+                }
+                const fresh = _getProductNameSync(pid);
+                if (fresh) {
+                    tip.querySelector('div').outerHTML =
+                        `<div style="font-weight:600; color:#fbbf24; margin-bottom:4px;">${_escapeHtml(fresh)}</div>`;
+                    clearInterval(timer);
+                }
+            }, 400);
+        }
+    }
+
+    function _hideSttTooltip() {
+        const tip = document.getElementById(STT_TOOLTIP_ID);
+        if (tip) tip.style.display = 'none';
+    }
+
+    function _wireSttHoverTooltip(container) {
+        // Idempotent — gắn 1 lần per container instance.
+        if (!container || container._sttHoverWired) return;
+        container._sttHoverWired = true;
+        container.addEventListener('mouseover', (ev) => {
+            const stt = ev.target.closest('.kpi-history-stt');
+            if (!stt || !container.contains(stt)) return;
+            _showSttTooltip(stt);
+        });
+        container.addEventListener('mouseout', (ev) => {
+            const stt = ev.target.closest('.kpi-history-stt');
+            if (!stt) return;
+            // Chỉ hide nếu không di chuyển sang STT khác trong cùng row.
+            const next = ev.relatedTarget?.closest?.('.kpi-history-stt');
+            if (next && container.contains(next)) return;
+            _hideSttTooltip();
+        });
+        // Hide khi modal scroll để tooltip không "lơ lửng" sai vị trí.
+        container.addEventListener('scroll', _hideSttTooltip, { passive: true });
     }
 
     function _relativeTime(iso) {
