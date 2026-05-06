@@ -19,12 +19,16 @@
  *   POST   /images            - Upload image (multipart/form-data)
  *   GET    /images/:id        - Serve image binary
  *   DELETE /images/:id        - Delete image
+ *   GET    /product-codes     - Distinct product codes from all orders (auto-suggest)
+ *   GET    /code-rules        - Product code prefix rules (from admin_settings)
+ *   PUT    /code-rules        - Save product code prefix rules (admin only)
  */
 
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
+const adminSettings = require('../../services/admin-settings-service');
 
 // Use shared DB pool from app.locals (same as all other v2 routes)
 function getDb(req) {
@@ -406,6 +410,80 @@ router.delete('/images/:id', async (req, res) => {
     } catch (error) {
         console.error('[PO API] Image delete error:', error);
         res.status(500).json({ success: false, error: 'Không thể xóa ảnh' });
+    }
+});
+
+// ========================================
+// GET /product-codes — Distinct product codes from all orders (for auto-suggest)
+// MUST be defined BEFORE /:id route to avoid being captured as an order id.
+// ========================================
+router.get('/product-codes', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        const result = await pool.query(`
+            SELECT DISTINCT UPPER(item->>'productCode') AS code
+            FROM purchase_orders, jsonb_array_elements(items) item
+            WHERE item->>'productCode' IS NOT NULL
+              AND item->>'productCode' != ''
+        `);
+        res.json({ success: true, codes: result.rows.map((r) => r.code) });
+    } catch (error) {
+        console.error('[PO API] /product-codes error:', error);
+        res.status(500).json({ success: false, error: 'Không thể tải danh sách mã sản phẩm' });
+    }
+});
+
+// ========================================
+// GET /code-rules — Read product code prefix rules from admin_settings
+// ========================================
+router.get('/code-rules', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        const raw = await adminSettings.getSetting(pool, 'product_code_rules');
+        let parsed = null;
+        if (raw) {
+            try {
+                parsed = JSON.parse(raw);
+            } catch (_) {
+                parsed = null;
+            }
+        }
+        res.json({
+            success: true,
+            rules: Array.isArray(parsed?.rules) ? parsed.rules : null,
+            defaultPrefix: typeof parsed?.defaultPrefix === 'string' ? parsed.defaultPrefix : null,
+        });
+    } catch (error) {
+        console.error('[PO API] /code-rules GET error:', error);
+        res.status(500).json({ success: false, error: 'Không thể tải quy tắc mã sản phẩm' });
+    }
+});
+
+// ========================================
+// PUT /code-rules — Save product code prefix rules to admin_settings
+// ========================================
+router.put('/code-rules', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        const { rules, defaultPrefix } = req.body || {};
+        if (!Array.isArray(rules) || typeof defaultPrefix !== 'string') {
+            return res.status(400).json({ success: false, error: 'Payload không hợp lệ' });
+        }
+        const validRules = rules
+            .filter((r) => r && typeof r.match === 'string' && typeof r.codePrefix === 'string')
+            .map((r) => ({ match: r.match.trim(), codePrefix: r.codePrefix.trim() }))
+            .filter((r) => r.match && r.codePrefix);
+        const user = getUserFromHeaders(req);
+        const updatedBy = user.email || user.displayName || user.uid || 'unknown';
+        const value = JSON.stringify({
+            rules: validRules,
+            defaultPrefix: defaultPrefix.trim().toUpperCase() || 'N',
+        });
+        await adminSettings.setSetting(pool, 'product_code_rules', value, updatedBy);
+        res.json({ success: true, rules: validRules, defaultPrefix: defaultPrefix.trim().toUpperCase() || 'N' });
+    } catch (error) {
+        console.error('[PO API] /code-rules PUT error:', error);
+        res.status(500).json({ success: false, error: 'Không thể lưu quy tắc mã sản phẩm' });
     }
 });
 

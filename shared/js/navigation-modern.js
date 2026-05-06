@@ -4712,21 +4712,17 @@ class UnifiedNavigationManager {
         const saveBtn = modal.querySelector('#saveSettings');
         if (!tbody) return;
 
-        // Load current rules from Firestore
+        // Load current rules from Render API (admin_settings table)
         let rules = [];
         let defaultPrefix = 'N';
         try {
-            if (window.firebase && window.firebase.firestore) {
-                const doc = await firebase
-                    .firestore()
-                    .collection('settings')
-                    .doc('product_code_rules')
-                    .get();
-                if (doc.exists) {
-                    const data = doc.data();
-                    rules = data.rules || [];
-                    defaultPrefix = data.defaultPrefix || 'N';
-                }
+            const res = await fetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/purchase-orders/code-rules'
+            );
+            const data = await res.json();
+            if (res.ok && data && data.success) {
+                if (Array.isArray(data.rules)) rules = data.rules;
+                if (data.defaultPrefix) defaultPrefix = data.defaultPrefix;
             }
         } catch (e) {
             console.warn('[Settings] Failed to load prefix rules:', e.message);
@@ -4799,21 +4795,25 @@ class UnifiedNavigationManager {
         if (saveBtn && isAdmin) {
             const originalSave = saveBtn.onclick;
             saveBtn.addEventListener('click', async () => {
-                // Save prefix rules to Firestore
+                // Save prefix rules via Render API (admin_settings table)
                 try {
                     const validRules = rules.filter((r) => r.match && r.codePrefix);
                     const newDefaultPrefix = (defaultInput?.value || 'N').trim().toUpperCase();
 
-                    if (window.firebase && window.firebase.firestore) {
-                        await firebase
-                            .firestore()
-                            .collection('settings')
-                            .doc('product_code_rules')
-                            .set({
+                    const res = await fetch(
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/purchase-orders/code-rules',
+                        {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
                                 rules: validRules,
                                 defaultPrefix: newDefaultPrefix,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            });
+                            }),
+                        }
+                    );
+                    const data = await res.json();
+                    if (!res.ok || !data || !data.success) {
+                        throw new Error(data?.error || `API error: ${res.status}`);
                     }
 
                     // Clear ProductCodeGenerator cache

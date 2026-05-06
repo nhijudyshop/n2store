@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-05-06
+
+### [purchase-orders][render] Fix mã SP trùng B1893 + xóa hoàn toàn Firestore khỏi product code generator
+| | |
+|---|---|
+| **Files** | MODIFIED: [render.com/routes/v2/purchase-orders.js](../render.com/routes/v2/purchase-orders.js) — thêm 3 endpoints `GET /product-codes` (distinct uppercase productCode từ jsonb_array_elements(items)), `GET /code-rules` + `PUT /code-rules` (đọc/ghi `admin_settings` qua service hiện có); chèn TRƯỚC `router.get('/:id'` để route matcher không nuốt path; require `../../services/admin-settings-service` ở top. NEW: [render.com/scripts/migrate-product-code-rules-to-postgres.js](../render.com/scripts/migrate-product-code-rules-to-postgres.js) — one-time script đọc `settings/product_code_rules` Firestore + ghi vào `admin_settings`, idempotent. REWRITE: [purchase-orders/js/lib/product-code-generator.js](../purchase-orders/js/lib/product-code-generator.js) — xóa toàn bộ `firebase.firestore` (cả `loadPrefixConfig` config rules + `loadFirestoreCodes` codes lookup); rename `loadFirestoreCodes`→`loadDbCodes`, `getMaxNumberFromFirestore`→`getMaxNumberFromDb`, `codeExistsInFirestore`→`codeExistsInDb`; thêm `invalidateCodesCache()` exposed; cấu hình & data đều fetch qua REST API duy nhất `https://chatomni-proxy.../api/v2/purchase-orders/{code-rules,product-codes}`. MODIFIED: [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — `_initPrefixRulesUI` load từ `GET /code-rules` + save qua `PUT /code-rules`, không chạm Firestore nữa. MODIFIED: [purchase-orders/js/data-manager.js](../purchase-orders/js/data-manager.js) — gọi `ProductCodeGenerator.invalidateCodesCache()` sau `createOrder` + `updateOrder` thành công, đảm bảo modal kế tiếp không đọc Set 60s lỗi thời. |
+| **Chi tiết** | **Bug user báo**: tab Nháp đã có đơn chứa `B1893`, mở modal "Tạo đơn đặt hàng" mới gõ tên SP "0505 b5 áo" → vẫn auto-suggest `B1893` thay vì `B1894`. **Root cause**: `service.js` đã migrate Firestore→PostgreSQL nhưng `product-code-generator.js` vẫn `firebase.firestore().collection('purchase_orders').get()` — collection cũ rỗng → max=0 → re-emit B1893. **Fix**: chuyển hoàn toàn generator sang Render REST API, không còn trung gian Firestore. **Tận dụng infra có sẵn**: bảng `admin_settings` (migration 024) + `admin-settings-service.js` (cache 60s + ON CONFLICT UPDATE). **Pattern SQL**: `jsonb_array_elements(items) item` y như queries hiện tại line 130, 228 cùng file route. **Không filter `deleted_at`** → đơn trong trash vẫn block mã (đề phòng đã sync TPOS). **Migration data**: chạy 1 lần `node render.com/scripts/migrate-product-code-rules-to-postgres.js` (cần FIREBASE_* + DATABASE_URL env). Nếu chưa chạy migration → generator dùng `DEFAULT_PREFIX_RULES` (MM/HH/B/S/C + N), không break. |
+| **Status** | ✅ Done — syntax check pass cả 5 file. Chờ deploy + chạy migration script trên Render. |
+
+---
+
 ## 2026-04-30
 
 ### [inventory] Modal "Tạo đơn đặt hàng" — share mã theo tên SP, validate trùng tên khác mã, khóa overlay

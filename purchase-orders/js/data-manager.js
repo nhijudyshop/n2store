@@ -349,6 +349,9 @@ class PurchaseOrderDataManager {
             this.setLoading(true);
             const orderId = await service.createOrder(orderData);
 
+            // Invalidate cached product codes so next modal sees the just-created codes
+            window.ProductCodeGenerator?.invalidateCodesCache?.();
+
             // Refresh data
             await this.refresh();
 
@@ -374,6 +377,9 @@ class PurchaseOrderDataManager {
         try {
             this.setLoading(true);
             await service.updateOrder(orderId, updateData);
+
+            // Invalidate cached product codes so next modal sees the updated codes
+            window.ProductCodeGenerator?.invalidateCodesCache?.();
 
             // Refresh data
             await this.refresh();
