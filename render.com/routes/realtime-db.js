@@ -1032,19 +1032,29 @@ router.post('/kpi-sale-flag/bulk-summary', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
         if (!Array.isArray(orderCodes) || orderCodes.length === 0) {
-            return res.json({ kpiOrderCodes: [] });
+            return res.json({ kpiOrderCodes: [], totalProducts: 0 });
         }
         // Cap input ở 5000 để tránh huge IN-list — table view tối đa ~2000 đơn.
         const codes = orderCodes.slice(0, 5000).map((c) => String(c));
 
+        // Single query trả cả 2 thông tin: distinct orderCodes + total product flags.
+        // Dùng aggregate trong CTE để chỉ scan 1 lần.
         const result = await pool.query(
-            `SELECT DISTINCT order_code
-             FROM kpi_sale_flag
-             WHERE order_code = ANY($1::text[]) AND is_sale_product = TRUE`,
+            `WITH flagged AS (
+                SELECT order_code, product_id
+                FROM kpi_sale_flag
+                WHERE order_code = ANY($1::text[]) AND is_sale_product = TRUE
+            )
+            SELECT
+                COALESCE(ARRAY_AGG(DISTINCT order_code) FILTER (WHERE order_code IS NOT NULL), '{}') AS codes,
+                COUNT(*) AS total_products
+            FROM flagged`,
             [codes]
         );
+        const row = result.rows[0] || { codes: [], total_products: 0 };
         res.json({
-            kpiOrderCodes: result.rows.map((r) => r.order_code),
+            kpiOrderCodes: row.codes || [],
+            totalProducts: Number(row.total_products) || 0,
         });
     } catch (error) {
         console.error('[REALTIME-DB] POST /kpi-sale-flag/bulk-summary error:', error);

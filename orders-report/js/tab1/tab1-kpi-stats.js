@@ -102,19 +102,33 @@
             }
         }
 
-        // Tổng SP đánh dấu = đếm tất cả entries is_sale=true qua per-order cache đã load.
-        // Nếu user chưa mở chi tiết order nào, totalProducts có thể nhỏ hơn thực tế —
-        // hiển thị "≥X" để user biết là minimum count.
+        // Tổng SP đánh dấu — ưu tiên server count (chính xác, không phụ thuộc cache).
+        // Fallback per-order cache nếu store chưa expose getter (legacy).
         let totalProducts = 0;
         let hasIncompleteCache = false;
-        for (const o of kpiOrders) {
-            const map = store.getAll ? store.getAll(o.Code) : null;
-            if (!map || map.size === 0) {
+        if (typeof store.getTotalKpiProductsServer === 'function') {
+            totalProducts = store.getTotalKpiProductsServer();
+            // Nếu server count = 0 nhưng có order trong KPI set → có thể bulk-summary chưa
+            // đầy đủ (legacy server không trả totalProducts). Fallback sum cache.
+            if (totalProducts === 0 && total > 0) {
                 hasIncompleteCache = true;
-                continue;
+                for (const o of kpiOrders) {
+                    const map = store.getAll ? store.getAll(o.Code) : null;
+                    if (!map || map.size === 0) continue;
+                    for (const v of map.values()) {
+                        if (v === true) totalProducts++;
+                    }
+                }
             }
-            for (const v of map.values()) {
-                if (v === true) totalProducts++;
+        } else {
+            // Legacy fallback
+            hasIncompleteCache = true;
+            for (const o of kpiOrders) {
+                const map = store.getAll ? store.getAll(o.Code) : null;
+                if (!map || map.size === 0) continue;
+                for (const v of map.values()) {
+                    if (v === true) totalProducts++;
+                }
             }
         }
         return { total, notApproved, totalProducts, kpiOrders, hasIncompleteCache };
@@ -213,9 +227,16 @@
     }
 
     function _renderTooltipHtml(stats, history, loading) {
+        // Server count chính xác → hiển thị số. Fallback cache → "≥X".
         const totalProductsLabel = stats.hasIncompleteCache
             ? `≥ ${stats.totalProducts}`
             : `${stats.totalProducts}`;
+        const totalProductsHint =
+            stats.hasIncompleteCache && stats.totalProducts === 0
+                ? ' <span style="font-size:10px; color:#9ca3af; font-weight:400;" title="Chưa load — backend đang deploy hoặc chưa có data">(đang chờ data)</span>'
+                : stats.hasIncompleteCache
+                  ? ' <span style="font-size:10px; color:#9ca3af; font-weight:400;" title="Một số đơn chưa load chi tiết — số đếm có thể chưa đầy đủ">(open chi tiết để cập nhật)</span>'
+                  : '';
 
         const historyHtml = loading
             ? `<div style="color:#9ca3af; padding: 6px 0;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử...</div>`
@@ -253,7 +274,7 @@
                 </div>
                 <div style="grid-column: 1 / -1;">
                     <div style="font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px;">Tổng SP đã đánh dấu KPI</div>
-                    <div style="font-size:14px; font-weight:600; color:#111827;">${totalProductsLabel}${stats.hasIncompleteCache ? ' <span style="font-size:10px; color:#9ca3af; font-weight:400;" title="Một số đơn chưa load chi tiết — số đếm có thể chưa đầy đủ">(open chi tiết để cập nhật)</span>' : ''}</div>
+                    <div style="font-size:14px; font-weight:600; color:#111827;">${totalProductsLabel}${totalProductsHint}</div>
                 </div>
             </div>
 

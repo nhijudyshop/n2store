@@ -8,6 +8,24 @@
 
 ## 2026-05-06
 
+### [orders][fix] KPI tooltip: tổng SP từ server (không phụ thuộc per-order cache)
+
+**Files**: MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js), [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)
+
+User: "sao tổng sản phẩm là 0, lịch sử check uncheck không có".
+
+**Root cause**: Tooltip `_computeStats` đếm tổng SP qua `KpiSaleFlagStore.getAll(code)` per-order cache. User chưa mở chat/edit modal nào → cache rỗng → count=0 dù có 3 đơn KPI thật. Hiển thị `≥ 0 (open chi tiết để cập nhật)` khó hiểu.
+
+**Fix**:
+
+- Server `bulk-summary` enhanced: thêm `totalProducts` (count rows `is_sale_product=TRUE` trong codes). Single CTE query trả cả `kpiOrderCodes` + `totalProducts`.
+- Store thêm `getTotalKpiProductsServer()` getter, cache `_kpiTotalProducts`. Maintain ±1 khi event `kpi-sale-flag-changed`.
+- Tooltip ưu tiên server count. Fallback per-order cache chỉ khi server legacy không trả.
+
+**Lịch sử empty**: behavior đúng — table mới deploy, chưa có toggle nào → empty. Render auto-deploy backend, history bắt đầu populate khi user toggle.
+
+**Browser-tested localhost** (mock bulk-summary `{kpiOrderCodes:[3], totalProducts:7}`): `getTotalKpiProductsServer()===7`, `stats.totalProducts===7`, `hasIncompleteCache===false` (không còn ≥). Event toggle: +1 check / -1 uncheck ✅.
+
 ### [orders][feat] KPI counter + hover tooltip + audit history (auto-cleanup 90d)
 
 **Files**: NEW [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js), MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)

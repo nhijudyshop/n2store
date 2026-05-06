@@ -199,6 +199,7 @@
         _loading.clear();
         _kpiOrdersSet = null;
         _kpiOrdersSetAt = 0;
+        _kpiTotalProducts = 0;
     }
 
     // ───────────────────────────────────────────────────────────────────
@@ -210,6 +211,7 @@
     let _kpiOrdersSet = null; // Set<orderCode>
     let _kpiOrdersSetAt = 0;
     let _kpiOrdersSetLoading = null;
+    let _kpiTotalProducts = 0; // Total count of (orderCode, productId) với is_sale=true (server-side)
     const KPI_ORDERS_TTL_MS = 60 * 1000;
 
     /**
@@ -239,6 +241,7 @@
                     orderCodes: codes,
                 });
                 _kpiOrdersSet = new Set(resp.kpiOrderCodes || []);
+                _kpiTotalProducts = Number(resp.totalProducts) || 0;
                 _kpiOrdersSetAt = Date.now();
             } catch (e) {
                 console.warn('[KPI-SaleFlag] bulk-summary failed:', e?.message);
@@ -249,6 +252,16 @@
             return _kpiOrdersSet;
         })();
         return _kpiOrdersSetLoading;
+    }
+
+    /**
+     * Tổng số (orderCode, productId) pairs có is_sale_product=TRUE — chính xác từ server.
+     * Caller (tooltip stats) dùng giá trị này thay vì sum local cache (cache có thể chưa
+     * load đủ hết per-order details).
+     * @returns {number}
+     */
+    function getTotalKpiProductsServer() {
+        return _kpiTotalProducts;
     }
 
     /**
@@ -270,17 +283,21 @@
     }
 
     /**
-     * Auto-update bulk set khi `set()` toggle 1 product. Không phải refetch full.
-     * Add orderCode vào set nếu vừa bật KPI; remove nếu vừa tắt VÀ không còn
-     * product KPI=TRUE nào khác trong cache per-order.
+     * Auto-update bulk set + total products khi `set()` toggle 1 product.
+     * Không phải refetch full. Add orderCode vào set nếu vừa bật KPI; remove
+     * nếu vừa tắt VÀ không còn product KPI=TRUE nào khác trong cache per-order.
+     * Maintain `_kpiTotalProducts` ±1 cho mỗi event.
      */
     function _maintainKpiOrdersSetOnToggle(orderCode, isSale) {
         if (!_kpiOrdersSet) return;
         const code = String(orderCode);
         if (isSale) {
             _kpiOrdersSet.add(code);
+            _kpiTotalProducts += 1;
             return;
         }
+        // Tắt: giảm count product (server-side đếm theo (order, product) pair).
+        _kpiTotalProducts = Math.max(0, _kpiTotalProducts - 1);
         // Vừa tắt: kiểm tra cache per-order — nếu còn product nào KPI=TRUE thì giữ;
         // không còn → remove. (Nếu cache chưa load full → giữ luôn cho an toàn.)
         const map = _cache.get(code);
@@ -306,5 +323,6 @@
         invalidateAll,
         loadKpiOrderCodes,
         hasKpiFlag,
+        getTotalKpiProductsServer,
     };
 })();
