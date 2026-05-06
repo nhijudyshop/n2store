@@ -16,6 +16,7 @@
         { id: 'statusFilter', label: 'Trạng thái' },
         { id: 'fulfillmentFilter', label: 'Ra đơn' },
         { id: 'callHistoryFilter', label: 'Cuộc gọi' },
+        { id: 'kpiFilter', label: 'KPI' },
     ];
 
     function _getSelectActiveLabel(id, fallbackLabel) {

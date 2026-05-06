@@ -197,6 +197,40 @@ function mergeOrdersByPhone(orders) {
 // Expose to window for access from other modules (e.g., tab1-tags.js)
 window.performTableSearch = performTableSearch;
 
+/**
+ * Handler cho KPI filter dropdown. Load bulk summary trước rồi re-render
+ * (sync filter trong _applyFiltersExceptProcessingTag dùng cache đã populate).
+ * @param {'all'|'has_kpi'|'no_kpi'} value
+ */
+window.handleKpiFilterChange = async function (value) {
+    if (value === 'all') {
+        performTableSearch();
+        window.FilterPersistence?.scheduleSave?.();
+        return;
+    }
+    // Cần load bulk-summary cho tất cả orderCodes hiện đang trong allData để
+    // filter chính xác. Load 1 lần (TTL 60s); subsequent toggle filter sẽ dùng cache.
+    if (window.KpiSaleFlagStore?.loadKpiOrderCodes && Array.isArray(allData)) {
+        const codes = allData.map((o) => o.Code).filter(Boolean);
+        try {
+            await window.KpiSaleFlagStore.loadKpiOrderCodes(codes);
+        } catch (e) {
+            console.warn('[KPI-Filter] loadKpiOrderCodes failed:', e?.message);
+        }
+    }
+    performTableSearch();
+    window.FilterPersistence?.scheduleSave?.();
+};
+
+// Khi toggle KPI flag (chat hoặc edit modal) → re-render bảng để filter
+// "có KPI / chưa KPI" phản ứng ngay (bulk set đã được maintained tự động).
+window.addEventListener('kpi-sale-flag-changed', () => {
+    const kpiFilter = document.getElementById('kpiFilter')?.value || 'all';
+    if (kpiFilter !== 'all' && typeof window.performTableSearch === 'function') {
+        window.performTableSearch();
+    }
+});
+
 // Normalize a user/range name for tolerant comparison: NFC, strip diacritics, lowercase, collapse spaces.
 // Why: "Hồng" stored in Firestore vs auth.displayName can differ in NFC/NFD normalization or whitespace.
 function _normalizeEmployeeName(s) {
@@ -382,6 +416,19 @@ function _applyFiltersExceptProcessingTag() {
             if (callHistoryFilter === 'has_recording') return hasRecording;
             if (callHistoryFilter === 'no_history') return !hasHistory && !hasRecording;
             return true;
+        });
+    }
+
+    // Apply KPI filter — đơn có ít nhất 1 SP đã đánh dấu KPI (qua KpiSaleFlagStore).
+    // Cần load bulk summary trước (handleKpiFilterChange gọi loadKpiOrderCodes →
+    // performTableSearch). Sau khi cache populate, hasKpiFlag() là sync read.
+    const kpiFilter = document.getElementById('kpiFilter')?.value || 'all';
+    if (kpiFilter !== 'all' && window.KpiSaleFlagStore?.hasKpiFlag) {
+        tempData = tempData.filter((order) => {
+            const code = order.Code;
+            if (!code) return kpiFilter === 'no_kpi';
+            const has = window.KpiSaleFlagStore.hasKpiFlag(code);
+            return kpiFilter === 'has_kpi' ? has : !has;
         });
     }
 

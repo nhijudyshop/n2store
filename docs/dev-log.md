@@ -8,6 +8,24 @@
 
 ## 2026-05-06
 
+### [orders][feat] Filter "KPI" — đơn nào có ít nhất 1 SP đã đánh dấu KPI
+
+**Files**: NEW endpoint [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), MODIFIED [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js), [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js), [orders-report/js/tab1/tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js), [orders-report/js/tab1/tab1-filter-persistence.js](../orders-report/js/tab1/tab1-filter-persistence.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "Check vào các chỗ KPI ở sản phẩm sẽ mark lại đơn đó và có filter riêng tìm các đơn KPI".
+
+**Cũ**: Checkbox KPI per-product trong chat modal + edit modal đã ghi vào `kpi_sale_flag` (PostgreSQL). Nhưng chưa có cách filter bảng đơn theo "đơn nào có ≥1 SP KPI".
+
+**Fix 3 phần**:
+
+1. **Server** — `POST /api/realtime/kpi-sale-flag/bulk-summary` body `{orderCodes:string[]}` → trả `{kpiOrderCodes:[...]}` DISTINCT order_code có ÍT NHẤT 1 row `is_sale_product=TRUE`. Cap input 5000.
+
+2. **Client store** thêm: `loadKpiOrderCodes(codes)` bulk fetch + cache `_kpiOrdersSet` 60s TTL; `hasKpiFlag(orderCode)` sync read; auto maintain via event `kpi-sale-flag-changed` (add/remove inline khi user toggle, không phải refetch).
+
+3. **Filter UI** — dropdown "KPI: tất cả / có KPI / chưa KPI" cạnh "Cuộc gọi". `handleKpiFilterChange` load bulk-summary trước → `performTableSearch`. Logic filter đọc `KpiSaleFlagStore.hasKpiFlag(order.Code)`. Persistence + active-filter-chip đã include `kpiFilter` auto.
+
+**Browser-tested localhost** (mock bulk-summary): 856 đơn, mock 2 KPI codes → filter `has_kpi`: 2 ✅, `no_kpi`: 854 ✅, `all`: 856 ✅. Event maintenance: `isSale:true` add ngay; `isSale:false` remove nếu cache per-order không còn KPI khác (conservative).
+
 ### [issue-tracking][feat] Tổng tiền thu về/Khách gửi editable + ô "Khách bù"
 
 **Files**: MODIFIED [issue-tracking/index.html](../issue-tracking/index.html), [issue-tracking/js/script.js](../issue-tracking/js/script.js)

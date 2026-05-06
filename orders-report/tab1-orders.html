@@ -984,6 +984,26 @@
                             <option value="no_history">Chưa gọi</option>
                         </select>
                     </div>
+
+                    <!-- KPI Filter — đơn nào có ít nhất 1 SP đã đánh dấu KPI -->
+                    <div
+                        class="search-filter-dropdown"
+                        style="display: flex; align-items: center; gap: 6px"
+                    >
+                        <label style="font-size: 12px; font-weight: 500; color: #6b7280"
+                            >KPI:</label
+                        >
+                        <select
+                            id="kpiFilter"
+                            onchange="window.handleKpiFilterChange?.(this.value)"
+                            class="search-filter-select"
+                            title="Lọc theo đơn đã đánh dấu KPI (tick checkbox KPI ở SP trong chat / sửa đơn)"
+                        >
+                            <option value="all" selected>Tất cả</option>
+                            <option value="has_kpi">Có KPI</option>
+                            <option value="no_kpi">Chưa KPI</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="search-info">
                     <div style="display: flex; align-items: center; gap: 8px">

@@ -49,7 +49,7 @@ router.get('/kv/:key', async (req, res) => {
         if (result.rows.length === 0) {
             return res.json({
                 exists: false,
-                value: null
+                value: null,
             });
         }
 
@@ -57,7 +57,7 @@ router.get('/kv/:key', async (req, res) => {
             exists: true,
             value: result.rows[0].value,
             createdAt: result.rows[0].created_at,
-            updatedAt: result.rows[0].updated_at
+            updatedAt: result.rows[0].updated_at,
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kv error:', error);
@@ -85,13 +85,16 @@ router.put('/kv/:key', async (req, res) => {
             return res.status(400).json({ error: 'Missing value in request body' });
         }
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO realtime_kv (key, value, created_at, updated_at)
             VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT (key) DO UPDATE SET
                 value = $2,
                 updated_at = CURRENT_TIMESTAMP
-        `, [key, JSON.stringify(value)]);
+        `,
+            [key, JSON.stringify(value)]
+        );
 
         // Notify SSE clients
         if (notifyClients) {
@@ -103,7 +106,7 @@ router.put('/kv/:key', async (req, res) => {
         res.json({
             success: true,
             key,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kv error:', error);
@@ -124,10 +127,9 @@ router.delete('/kv/:key', async (req, res) => {
             return res.status(500).json({ error: 'Database not available' });
         }
 
-        const result = await pool.query(
-            'DELETE FROM realtime_kv WHERE key = $1 RETURNING key',
-            [key]
-        );
+        const result = await pool.query('DELETE FROM realtime_kv WHERE key = $1 RETURNING key', [
+            key,
+        ]);
 
         // Notify SSE clients
         if (notifyClients) {
@@ -139,7 +141,7 @@ router.delete('/kv/:key', async (req, res) => {
         res.json({
             success: true,
             deleted: result.rowCount > 0,
-            key
+            key,
         });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /kv error:', error);
@@ -181,7 +183,7 @@ router.get('/held-products/:orderId', async (req, res) => {
         // Convert to Firebase-like structure
         const heldProducts = {};
 
-        result.rows.forEach(row => {
+        result.rows.forEach((row) => {
             if (!heldProducts[row.product_id]) {
                 heldProducts[row.product_id] = {};
             }
@@ -190,7 +192,7 @@ router.get('/held-products/:orderId', async (req, res) => {
                 ...row.data,
                 isDraft: row.is_draft,
                 _createdAt: row.created_at,
-                _updatedAt: row.updated_at
+                _updatedAt: row.updated_at,
             };
         });
 
@@ -229,22 +231,29 @@ router.put('/held-products/:orderId/:productId/:userId', async (req, res) => {
         delete dataToStore._createdAt;
         delete dataToStore._updatedAt;
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO held_products (order_id, product_id, user_id, data, is_draft, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT (order_id, product_id, user_id) DO UPDATE SET
                 data = $4,
                 is_draft = $5,
                 updated_at = CURRENT_TIMESTAMP
-        `, [orderId, productId, userId, JSON.stringify(dataToStore), isDraft]);
+        `,
+            [orderId, productId, userId, JSON.stringify(dataToStore), isDraft]
+        );
 
         // Notify SSE clients watching this order
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId,
-                userId,
-                data: { ...dataToStore, isDraft }
-            }, 'update');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId,
+                    userId,
+                    data: { ...dataToStore, isDraft },
+                },
+                'update'
+            );
         }
 
         console.log(`[REALTIME-DB] Updated held product: ${orderId}/${productId}/${userId}`);
@@ -254,7 +263,7 @@ router.put('/held-products/:orderId/:productId/:userId', async (req, res) => {
             orderId,
             productId,
             userId,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /held-products error:', error);
@@ -282,11 +291,15 @@ router.delete('/held-products/:orderId/:productId/:userId', async (req, res) => 
 
         // Notify SSE clients
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId,
-                userId,
-                deleted: true
-            }, 'deleted');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId,
+                    userId,
+                    deleted: true,
+                },
+                'deleted'
+            );
         }
 
         console.log(`[REALTIME-DB] Deleted held product: ${orderId}/${productId}/${userId}`);
@@ -296,7 +309,7 @@ router.delete('/held-products/:orderId/:productId/:userId', async (req, res) => 
             deleted: result.rowCount > 0,
             orderId,
             productId,
-            userId
+            userId,
         });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /held-products error:', error);
@@ -324,10 +337,14 @@ router.delete('/held-products/:orderId', async (req, res) => {
 
         // Notify SSE clients
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                cleared: true,
-                count: result.rowCount
-            }, 'deleted');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    cleared: true,
+                    count: result.rowCount,
+                },
+                'deleted'
+            );
         }
 
         console.log(`[REALTIME-DB] Cleared ${result.rowCount} held products for order: ${orderId}`);
@@ -335,7 +352,7 @@ router.delete('/held-products/:orderId', async (req, res) => {
         res.json({
             success: true,
             deletedCount: result.rowCount,
-            orderId
+            orderId,
         });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /held-products/:orderId error:', error);
@@ -361,7 +378,7 @@ router.get('/held-products/by-product/:productId', async (req, res) => {
             [String(productId)]
         );
 
-        const holders = result.rows.map(row => ({
+        const holders = result.rows.map((row) => ({
             name: row.data?.displayName || row.user_id,
             campaign: row.data?.campaignName || '',
             stt: row.data?.stt || '',
@@ -398,9 +415,15 @@ router.patch('/held-products/:orderId/:productId/:userId/draft', async (req, res
         if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
 
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId, userId, isDraft: isDraft !== false
-            }, 'update');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId,
+                    userId,
+                    isDraft: isDraft !== false,
+                },
+                'update'
+            );
         }
 
         res.json({ success: true });
@@ -429,9 +452,15 @@ router.patch('/held-products/:orderId/:productId/:userId/quantity', async (req, 
             );
 
             if (notifyClientsWildcard) {
-                notifyClientsWildcard(`held_products/${orderId}`, {
-                    productId, userId, deleted: true
-                }, 'deleted');
+                notifyClientsWildcard(
+                    `held_products/${orderId}`,
+                    {
+                        productId,
+                        userId,
+                        deleted: true,
+                    },
+                    'deleted'
+                );
             }
 
             return res.json({ success: true, deleted: true });
@@ -448,9 +477,15 @@ router.patch('/held-products/:orderId/:productId/:userId/quantity', async (req, 
         if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
 
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId, userId, quantity
-            }, 'update');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId,
+                    userId,
+                    quantity,
+                },
+                'update'
+            );
         }
 
         res.json({ success: true, quantity });
@@ -481,17 +516,32 @@ router.post('/kpi-base/batch', async (req, res) => {
         }
 
         const client = await pool.connect();
-        let saved = 0, skipped = 0;
+        let saved = 0,
+            skipped = 0;
         try {
             await client.query('BEGIN');
             for (const b of bases) {
-                if (!b.orderCode || !b.products) { skipped++; continue; }
-                const result = await client.query(`
+                if (!b.orderCode || !b.products) {
+                    skipped++;
+                    continue;
+                }
+                const result = await client.query(
+                    `
                     INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (order_code) DO NOTHING
-                `, [b.orderCode, b.orderId || null, b.campaignId || null, b.campaignName || null,
-                    b.userId || null, b.userName || null, b.stt || 0, JSON.stringify(b.products)]);
+                `,
+                    [
+                        b.orderCode,
+                        b.orderId || null,
+                        b.campaignId || null,
+                        b.campaignName || null,
+                        b.userId || null,
+                        b.userName || null,
+                        b.stt || 0,
+                        JSON.stringify(b.products),
+                    ]
+                );
                 if (result.rowCount > 0) saved++;
                 else skipped++;
             }
@@ -530,7 +580,7 @@ router.post('/kpi-base/check-exists', async (req, res) => {
             [orderCodes]
         );
 
-        res.json({ existing: result.rows.map(r => r.order_code) });
+        res.json({ existing: result.rows.map((r) => r.order_code) });
     } catch (error) {
         console.error('[REALTIME-DB] POST /kpi-base/check-exists error:', error);
         res.status(500).json({ error: error.message });
@@ -562,9 +612,9 @@ router.get('/kpi-base/list-codes', async (req, res) => {
         const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM kpi_base');
 
         res.json({
-            orderCodes: result.rows.map(r => r.order_code),
+            orderCodes: result.rows.map((r) => r.order_code),
             total: totalResult.rows[0].total,
-            returned: result.rows.length
+            returned: result.rows.length,
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-base/list-codes error:', error);
@@ -612,7 +662,7 @@ router.get('/kpi-base/list-meta', async (req, res) => {
         const result = await pool.query(query, params);
 
         res.json({
-            bases: result.rows.map(r => ({
+            bases: result.rows.map((r) => ({
                 orderCode: r.order_code,
                 orderId: r.order_id,
                 campaignId: r.campaign_id,
@@ -620,9 +670,9 @@ router.get('/kpi-base/list-meta', async (req, res) => {
                 userId: r.user_id,
                 userName: r.user_name,
                 stt: r.stt,
-                createdAt: r.created_at
+                createdAt: r.created_at,
             })),
-            count: result.rows.length
+            count: result.rows.length,
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-base/list-meta error:', error);
@@ -640,7 +690,9 @@ router.get('/kpi-base/:orderCode', async (req, res) => {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        const result = await pool.query('SELECT * FROM kpi_base WHERE order_code = $1', [orderCode]);
+        const result = await pool.query('SELECT * FROM kpi_base WHERE order_code = $1', [
+            orderCode,
+        ]);
 
         if (result.rows.length === 0) {
             return res.json({ exists: false, data: null });
@@ -658,8 +710,8 @@ router.get('/kpi-base/:orderCode', async (req, res) => {
                 userName: row.user_name,
                 stt: row.stt,
                 products: row.products,
-                createdAt: row.created_at
-            }
+                createdAt: row.created_at,
+            },
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-base error:', error);
@@ -682,12 +734,24 @@ router.put('/kpi-base/:orderCode', async (req, res) => {
             return res.status(400).json({ error: 'products must be an array' });
         }
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (order_code) DO UPDATE SET
                 stt = EXCLUDED.stt
-        `, [orderCode, orderId, campaignId, campaignName, userId, userName, stt || 0, JSON.stringify(products)]);
+        `,
+            [
+                orderCode,
+                orderId,
+                campaignId,
+                campaignName,
+                userId,
+                userName,
+                stt || 0,
+                JSON.stringify(products),
+            ]
+        );
 
         res.json({ success: true, orderCode });
     } catch (error) {
@@ -723,8 +787,21 @@ router.delete('/kpi-base/:orderCode', async (req, res) => {
  */
 router.post('/kpi-audit-log', async (req, res) => {
     try {
-        const { orderCode, orderId, action, productId, productCode, productName,
-                quantity, source, userId, userName, campaignId, campaignName, outOfRange } = req.body;
+        const {
+            orderCode,
+            orderId,
+            action,
+            productId,
+            productCode,
+            productName,
+            quantity,
+            source,
+            userId,
+            userName,
+            campaignId,
+            campaignName,
+            outOfRange,
+        } = req.body;
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
@@ -733,24 +810,43 @@ router.post('/kpi-audit-log', async (req, res) => {
         }
 
         // Dedup: skip if identical log exists within last 5 seconds
-        const dedup = await pool.query(`
+        const dedup = await pool.query(
+            `
             SELECT id FROM kpi_audit_log
             WHERE order_code = $1 AND product_id = $2 AND action = $3 AND source = $4 AND quantity = $5
               AND created_at > NOW() - INTERVAL '5 seconds'
             LIMIT 1
-        `, [orderCode, productId, action, source, quantity || 1]);
+        `,
+            [orderCode, productId, action, source, quantity || 1]
+        );
 
         if (dedup.rows.length > 0) {
             return res.json({ success: true, id: dedup.rows[0].id, deduplicated: true });
         }
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
                 quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id
-        `, [orderCode, orderId, action, productId, productCode, productName || '',
-            quantity || 1, source, userId, userName, campaignId, campaignName, outOfRange || false]);
+        `,
+            [
+                orderCode,
+                orderId,
+                action,
+                productId,
+                productCode,
+                productName || '',
+                quantity || 1,
+                source,
+                userId,
+                userName,
+                campaignId,
+                campaignName,
+                outOfRange || false,
+            ]
+        );
 
         res.json({ success: true, id: result.rows[0].id });
     } catch (error) {
@@ -783,12 +879,28 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
             await client.query('BEGIN');
             for (const e of entries) {
                 if (!e.orderCode || !e.action || !e.productCode) continue;
-                await client.query(`
+                await client.query(
+                    `
                     INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
                         quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                `, [e.orderCode, e.orderId, e.action, e.productId, e.productCode, e.productName || '',
-                    e.quantity || 1, e.source, e.userId, e.userName, e.campaignId, e.campaignName, e.outOfRange || false]);
+                `,
+                    [
+                        e.orderCode,
+                        e.orderId,
+                        e.action,
+                        e.productId,
+                        e.productCode,
+                        e.productName || '',
+                        e.quantity || 1,
+                        e.source,
+                        e.userId,
+                        e.userName,
+                        e.campaignId,
+                        e.campaignName,
+                        e.outOfRange || false,
+                    ]
+                );
                 count++;
             }
             await client.query('COMMIT');
@@ -822,7 +934,7 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
         );
 
         res.json({
-            logs: result.rows.map(r => ({
+            logs: result.rows.map((r) => ({
                 id: r.id,
                 orderCode: r.order_code,
                 orderId: r.order_id,
@@ -837,8 +949,8 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
                 campaignId: r.campaign_id,
                 campaignName: r.campaign_name,
                 outOfRange: r.out_of_range,
-                createdAt: r.created_at
-            }))
+                createdAt: r.created_at,
+            })),
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-audit-log error:', error);
@@ -850,6 +962,40 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
 // KPI SALE FLAG API
 // Per-product-line: sale tự đánh dấu SP là "bán hàng thật" để tính KPI
 // =====================================================
+
+/**
+ * POST /api/realtime/kpi-sale-flag/bulk-summary
+ * Body: { orderCodes: string[] }
+ * Trả về danh sách orderCodes có ÍT NHẤT 1 product với is_sale_product=TRUE.
+ * Dùng cho filter "KPI: có / chưa" trên bảng đơn hàng — tránh phải load
+ * flags từng order khi user chỉ muốn lọc.
+ */
+router.post('/kpi-sale-flag/bulk-summary', async (req, res) => {
+    try {
+        const { orderCodes } = req.body || {};
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!Array.isArray(orderCodes) || orderCodes.length === 0) {
+            return res.json({ kpiOrderCodes: [] });
+        }
+        // Cap input ở 5000 để tránh huge IN-list — table view tối đa ~2000 đơn.
+        const codes = orderCodes.slice(0, 5000).map((c) => String(c));
+
+        const result = await pool.query(
+            `SELECT DISTINCT order_code
+             FROM kpi_sale_flag
+             WHERE order_code = ANY($1::text[]) AND is_sale_product = TRUE`,
+            [codes]
+        );
+        res.json({
+            kpiOrderCodes: result.rows.map((r) => r.order_code),
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-sale-flag/bulk-summary error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 /**
  * GET /api/realtime/kpi-sale-flag/:orderCode
@@ -869,14 +1015,14 @@ router.get('/kpi-sale-flag/:orderCode', async (req, res) => {
         );
 
         res.json({
-            flags: result.rows.map(r => ({
+            flags: result.rows.map((r) => ({
                 orderCode: r.order_code,
                 productId: Number(r.product_id),
                 isSaleProduct: r.is_sale_product,
                 setByUserId: r.set_by_user_id,
                 setByUserName: r.set_by_user_name,
-                updatedAt: r.updated_at
-            }))
+                updatedAt: r.updated_at,
+            })),
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-sale-flag error:', error);
@@ -925,8 +1071,8 @@ router.put('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
                 isSaleProduct: row.is_sale_product,
                 setByUserId: row.set_by_user_id,
                 setByUserName: row.set_by_user_name,
-                updatedAt: row.updated_at
-            }
+                updatedAt: row.updated_at,
+            },
         });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-sale-flag error:', error);
@@ -1007,8 +1153,14 @@ router.get('/kpi-statistics', async (req, res) => {
         const { dateFrom, dateTo } = req.query;
         const params = [];
         const conditions = [];
-        if (dateFrom) { params.push(dateFrom); conditions.push(`stat_date >= $${params.length}`); }
-        if (dateTo) { params.push(dateTo); conditions.push(`stat_date <= $${params.length}`); }
+        if (dateFrom) {
+            params.push(dateFrom);
+            conditions.push(`stat_date >= $${params.length}`);
+        }
+        if (dateTo) {
+            params.push(dateTo);
+            conditions.push(`stat_date <= $${params.length}`);
+        }
         const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
         const result = await pool.query(
@@ -1017,15 +1169,15 @@ router.get('/kpi-statistics', async (req, res) => {
         );
 
         res.json({
-            statistics: result.rows.map(r => ({
+            statistics: result.rows.map((r) => ({
                 userId: r.user_id,
                 userName: r.user_name,
                 date: r.stat_date,
                 totalNetProducts: r.total_net_products,
                 totalKPI: parseFloat(r.total_kpi),
                 orders: r.orders || [],
-                updatedAt: r.updated_at
-            }))
+                updatedAt: r.updated_at,
+            })),
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-statistics error:', error);
@@ -1061,8 +1213,8 @@ router.get('/kpi-statistics/:userId/:date', async (req, res) => {
                 date: r.stat_date,
                 totalNetProducts: r.total_net_products,
                 totalKPI: parseFloat(r.total_kpi),
-                orders: r.orders || []
-            }
+                orders: r.orders || [],
+            },
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-statistics/:userId/:date error:', error);
@@ -1081,7 +1233,8 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
             ON CONFLICT (user_id, stat_date) DO UPDATE SET
@@ -1090,7 +1243,16 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
                 total_kpi = $5,
                 orders = $6,
                 updated_at = CURRENT_TIMESTAMP
-        `, [userId, userName || null, date, totalNetProducts || 0, totalKPI || 0, JSON.stringify(orders || [])]);
+        `,
+            [
+                userId,
+                userName || null,
+                date,
+                totalNetProducts || 0,
+                totalKPI || 0,
+                JSON.stringify(orders || []),
+            ]
+        );
 
         res.json({ success: true, userId, date });
     } catch (error) {
@@ -1109,40 +1271,57 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'Database not available' });
 
     const { userId, date } = req.params;
-    const { orderCode, orderId, stt, campaignName, netProducts, kpi,
-            netProductsLegacy, kpiLegacy,
-            hasDiscrepancy, details, userName } = req.body;
+    const {
+        orderCode,
+        orderId,
+        stt,
+        campaignName,
+        netProducts,
+        kpi,
+        netProductsLegacy,
+        kpiLegacy,
+        hasDiscrepancy,
+        details,
+        userName,
+    } = req.body;
 
     if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
 
     const client = await pool.connect();
     try {
         const orderObj = JSON.stringify({
-            orderCode, orderId: orderId || null, stt: stt || 0,
+            orderCode,
+            orderId: orderId || null,
+            stt: stt || 0,
             campaignName: campaignName || null,
-            netProducts: netProducts || 0, kpi: kpi || 0,
+            netProducts: netProducts || 0,
+            kpi: kpi || 0,
             // Legacy (pre-sale-flag) numbers — dashboard "Hiển thị đầy đủ" mode
             // sum 2 field này ở client-side. Lưu 0 nếu client không pass để backward-compat.
             netProductsLegacy: netProductsLegacy || 0,
             kpiLegacy: kpiLegacy || 0,
             hasDiscrepancy: hasDiscrepancy || false,
             details: details || {},
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
         });
 
         // Atomic: upsert row, then upsert order within JSONB array, recalc totals
         await client.query('BEGIN');
 
         // Ensure row exists
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
             VALUES ($1, $2, $3, 0, 0, '[]')
             ON CONFLICT (user_id, stat_date) DO UPDATE SET
                 user_name = COALESCE($2, kpi_statistics.user_name)
-        `, [userId, userName || null, date]);
+        `,
+            [userId, userName || null, date]
+        );
 
         // Remove old entry for this orderCode (if exists), then append new one
-        await client.query(`
+        await client.query(
+            `
             UPDATE kpi_statistics
             SET orders = (
                 SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
@@ -1150,10 +1329,13 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
                 WHERE elem->>'orderCode' != $2
             ) || $3::jsonb
             WHERE user_id = $1 AND stat_date = $4
-        `, [userId, orderCode, `[${orderObj}]`, date]);
+        `,
+            [userId, orderCode, `[${orderObj}]`, date]
+        );
 
         // Recalculate totals from the orders array
-        await client.query(`
+        await client.query(
+            `
             UPDATE kpi_statistics
             SET total_net_products = COALESCE((
                     SELECT SUM((elem->>'netProducts')::int)
@@ -1165,7 +1347,9 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
                 ), 0),
                 updated_at = CURRENT_TIMESTAMP
             WHERE user_id = $1 AND stat_date = $2
-        `, [userId, date]);
+        `,
+            [userId, date]
+        );
 
         await client.query('COMMIT');
         res.json({ success: true, userId, date, orderCode });
@@ -1196,7 +1380,8 @@ router.delete('/kpi-statistics/order/:orderCode', async (req, res) => {
 
         // Single atomic UPDATE: strip orderCode từ orders[] + recompute totals
         // từ mảng CÒN LẠI (không dùng updated_at hack, không race condition).
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             WITH filtered AS (
                 SELECT id,
                        COALESCE((
@@ -1220,7 +1405,9 @@ router.delete('/kpi-statistics/order/:orderCode', async (req, res) => {
                 updated_at = CURRENT_TIMESTAMP
             FROM filtered f
             WHERE k.id = f.id
-        `, [orderCode, JSON.stringify([{ orderCode }])]);
+        `,
+            [orderCode, JSON.stringify([{ orderCode }])]
+        );
 
         res.json({ success: true, orderCode, rowsAffected: result.rowCount });
     } catch (error) {
@@ -1263,7 +1450,9 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
         // 1. Load employee ranges for all campaigns
         let rangeRows;
         try {
-            const r = await pool.query('SELECT campaign_name, employee_ranges FROM campaign_employee_ranges');
+            const r = await pool.query(
+                'SELECT campaign_name, employee_ranges FROM campaign_employee_ranges'
+            );
             rangeRows = r.rows;
         } catch (e) {
             rangeRows = [];
@@ -1310,7 +1499,9 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
         }
 
         // 3. Load all kpi_statistics
-        const statsResult = await pool.query('SELECT id, user_id, user_name, stat_date, orders FROM kpi_statistics');
+        const statsResult = await pool.query(
+            'SELECT id, user_id, user_name, stat_date, orders FROM kpi_statistics'
+        );
 
         // 4. Find misassigned orders — use row ID to avoid timezone issues
         const moves = []; // { order, fromRowId, fromUserId, fromDate, toUserId, toUserName }
@@ -1320,7 +1511,10 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
                 const base = baseMap[order.orderCode];
                 if (!base || !base.stt) continue;
 
-                const correctEmployee = findEmployee(base.stt, base.campaignName || order.campaignName);
+                const correctEmployee = findEmployee(
+                    base.stt,
+                    base.campaignName || order.campaignName
+                );
                 if (!correctEmployee) continue;
                 if (correctEmployee.userId === row.user_id) continue; // Already correct
 
@@ -1330,7 +1524,7 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
                     fromUserId: row.user_id,
                     fromDate: row.stat_date,
                     toUserId: correctEmployee.userId,
-                    toUserName: correctEmployee.userName
+                    toUserName: correctEmployee.userName,
                 });
             }
         }
@@ -1342,38 +1536,51 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
             await client.query('BEGIN');
 
             for (const m of moves) {
-                const orderObj = JSON.stringify({ ...m.order, updatedAt: new Date().toISOString() });
+                const orderObj = JSON.stringify({
+                    ...m.order,
+                    updatedAt: new Date().toISOString(),
+                });
 
                 // Remove from old row using row ID (avoids timezone date mismatch)
-                await client.query(`
+                await client.query(
+                    `
                     UPDATE kpi_statistics
                     SET orders = COALESCE((
                         SELECT jsonb_agg(elem) FROM jsonb_array_elements(orders) elem
                         WHERE elem->>'orderCode' != $2
                     ), '[]'::jsonb)
                     WHERE id = $1
-                `, [m.fromRowId, m.order.orderCode]);
+                `,
+                    [m.fromRowId, m.order.orderCode]
+                );
 
                 // Get the actual stat_date from the source row for the target
                 const dateResult = await client.query(
-                    'SELECT stat_date FROM kpi_statistics WHERE id = $1', [m.fromRowId]
+                    'SELECT stat_date FROM kpi_statistics WHERE id = $1',
+                    [m.fromRowId]
                 );
                 const statDate = dateResult.rows[0]?.stat_date;
                 if (!statDate) continue;
 
                 // Add to correct userId (ensure row exists)
-                await client.query(`
+                await client.query(
+                    `
                     INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
                     VALUES ($1, $2, $3, 0, 0, '[]')
                     ON CONFLICT (user_id, stat_date) DO UPDATE SET
                         user_name = COALESCE($2, kpi_statistics.user_name)
-                `, [m.toUserId, m.toUserName, statDate]);
+                `,
+                    [m.toUserId, m.toUserName, statDate]
+                );
 
-                await client.query(`
+                await client.query(
+                    `
                     UPDATE kpi_statistics
                     SET orders = orders || $2::jsonb
                     WHERE user_id = $1 AND stat_date = $3
-                `, [m.toUserId, `[${orderObj}]`, statDate]);
+                `,
+                    [m.toUserId, `[${orderObj}]`, statDate]
+                );
 
                 moved++;
             }
@@ -1445,12 +1652,12 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
             moved,
             totalRanges: rangeRows.length,
             totalBases: baseResult.rows.length,
-            details: moves.map(m => ({
+            details: moves.map((m) => ({
                 orderCode: m.order.orderCode,
                 stt: m.order.stt,
                 from: m.fromUserId,
-                to: m.toUserId
-            }))
+                to: m.toUserId,
+            })),
         });
     } catch (error) {
         console.error('[REALTIME-DB] POST /kpi-statistics/recalculate-assignments error:', error);
@@ -1493,8 +1700,8 @@ router.get('/tag-updates/:orderId', async (req, res) => {
                 stt: row.stt,
                 tags: row.tags,
                 updatedBy: row.updated_by,
-                timestamp: row.updated_at
-            }
+                timestamp: row.updated_at,
+            },
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /tag-updates error:', error);
@@ -1520,21 +1727,28 @@ router.put('/tag-updates/:orderId', async (req, res) => {
             return res.status(400).json({ error: 'tags must be an array' });
         }
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO tag_updates (order_id, order_code, stt, tags, updated_by, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `, [orderId, orderCode, stt, JSON.stringify(tags), updatedBy]);
+        `,
+            [orderId, orderCode, stt, JSON.stringify(tags), updatedBy]
+        );
 
         // Notify SSE clients
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`tag_updates/${orderId}`, {
-                orderId,
-                orderCode,
-                stt,
-                tags,
-                updatedBy,
-                timestamp: Date.now()
-            }, 'update');
+            notifyClientsWildcard(
+                `tag_updates/${orderId}`,
+                {
+                    orderId,
+                    orderCode,
+                    stt,
+                    tags,
+                    updatedBy,
+                    timestamp: Date.now(),
+                },
+                'update'
+            );
         }
 
         console.log(`[REALTIME-DB] Tag update for order: ${orderId} by ${updatedBy}`);
@@ -1567,14 +1781,14 @@ router.get('/tag-updates/since/:timestamp', async (req, res) => {
 
         res.json({
             success: true,
-            updates: result.rows.map(row => ({
+            updates: result.rows.map((row) => ({
                 orderId: row.order_id,
                 orderCode: row.order_code,
                 stt: row.stt,
                 tags: row.tags,
                 updatedBy: row.updated_by,
-                timestamp: row.updated_at
-            }))
+                timestamp: row.updated_at,
+            })),
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /tag-updates/since error:', error);
@@ -1629,7 +1843,7 @@ router.get('/dropped-products', async (req, res) => {
             'SELECT id, name FROM campaigns ORDER BY created_at DESC LIMIT 2'
         );
         const latestCampaigns = campaignResult.rows;
-        const latestIds = latestCampaigns.map(c => c.id);
+        const latestIds = latestCampaigns.map((c) => c.id);
 
         let result;
         if (req.query.all === '1') {
@@ -1638,25 +1852,28 @@ router.get('/dropped-products', async (req, res) => {
             );
         } else {
             // Only return products from the 2 most recent campaigns
-            result = await pool.query(`
+            result = await pool.query(
+                `
                 SELECT * FROM dropped_products
                 WHERE campaign_id IS NULL
                    OR campaign_id = ''
                    OR campaign_id = ANY($1)
                 ORDER BY created_at DESC
                 LIMIT 500
-            `, [latestIds]);
+            `,
+                [latestIds]
+            );
         }
 
         // Return Firebase-like structure: { [id]: { ...data } }
         const products = {};
-        result.rows.forEach(row => {
+        result.rows.forEach((row) => {
             products[row.id] = droppedRowToObj(row);
         });
 
         res.json({
             products,
-            latestCampaigns: latestCampaigns.map(c => ({ id: c.id, name: c.name }))
+            latestCampaigns: latestCampaigns.map((c) => ({ id: c.id, name: c.name })),
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /dropped-products error:', error);
@@ -1675,7 +1892,8 @@ router.put('/dropped-products/:id', async (req, res) => {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO dropped_products (
                 id, product_id, product_code, product_name, product_name_get,
                 image_url, price, quantity, uom_name, reason,
@@ -1708,26 +1926,28 @@ router.put('/dropped-products/:id', async (req, res) => {
                 added_date = COALESCE($17, dropped_products.added_date),
                 order_context = COALESCE($18, dropped_products.order_context),
                 updated_at = CURRENT_TIMESTAMP
-        `, [
-            id,
-            b.ProductId || b.productId || null,
-            b.ProductCode || b.productCode || null,
-            b.ProductName || b.productName || null,
-            b.ProductNameGet || b.productNameGet || null,
-            b.ImageUrl || b.imageUrl || null,
-            b.Price || b.price || 0,
-            b.Quantity != null ? b.Quantity : (b.quantity != null ? b.quantity : 1),
-            b.UOMName || b.uomName || 'Cái',
-            b.reason || null,
-            b.campaignId || null,
-            b.campaignName || null,
-            b.removedBy || null,
-            b.removedFromOrderSTT || null,
-            b.removedFromCustomer || null,
-            b.removedAt || b.removedAt === 0 ? b.removedAt : null,
-            b.addedDate || new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
-            b.orderContext ? JSON.stringify(b.orderContext) : null,
-        ]);
+        `,
+            [
+                id,
+                b.ProductId || b.productId || null,
+                b.ProductCode || b.productCode || null,
+                b.ProductName || b.productName || null,
+                b.ProductNameGet || b.productNameGet || null,
+                b.ImageUrl || b.imageUrl || null,
+                b.Price || b.price || 0,
+                b.Quantity != null ? b.Quantity : b.quantity != null ? b.quantity : 1,
+                b.UOMName || b.uomName || 'Cái',
+                b.reason || null,
+                b.campaignId || null,
+                b.campaignName || null,
+                b.removedBy || null,
+                b.removedFromOrderSTT || null,
+                b.removedFromCustomer || null,
+                b.removedAt || b.removedAt === 0 ? b.removedAt : null,
+                b.addedDate || new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                b.orderContext ? JSON.stringify(b.orderContext) : null,
+            ]
+        );
 
         const sseData = { id, ...b };
         if (notifyClients) notifyClients('dropped_products', sseData, 'update');
@@ -1747,7 +1967,15 @@ router.put('/dropped-products/:id', async (req, res) => {
 router.patch('/dropped-products/:id/quantity', async (req, res) => {
     try {
         const { id } = req.params;
-        const { change, value, reason, removedBy, removedFromOrderSTT, removedFromCustomer, removedAt } = req.body;
+        const {
+            change,
+            value,
+            reason,
+            removedBy,
+            removedFromOrderSTT,
+            removedFromCustomer,
+            removedAt,
+        } = req.body;
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
@@ -1756,11 +1984,26 @@ router.patch('/dropped-products/:id/quantity', async (req, res) => {
         const extraParams = [];
         let paramIdx = 2; // $1 = id
 
-        if (reason) { extraSets.push(`reason = $${++paramIdx}`); extraParams.push(reason); }
-        if (removedBy) { extraSets.push(`removed_by = $${++paramIdx}`); extraParams.push(removedBy); }
-        if (removedFromOrderSTT) { extraSets.push(`removed_from_order_stt = $${++paramIdx}`); extraParams.push(removedFromOrderSTT); }
-        if (removedFromCustomer) { extraSets.push(`removed_from_customer = $${++paramIdx}`); extraParams.push(removedFromCustomer); }
-        if (removedAt != null) { extraSets.push(`removed_at = $${++paramIdx}`); extraParams.push(removedAt); }
+        if (reason) {
+            extraSets.push(`reason = $${++paramIdx}`);
+            extraParams.push(reason);
+        }
+        if (removedBy) {
+            extraSets.push(`removed_by = $${++paramIdx}`);
+            extraParams.push(removedBy);
+        }
+        if (removedFromOrderSTT) {
+            extraSets.push(`removed_from_order_stt = $${++paramIdx}`);
+            extraParams.push(removedFromOrderSTT);
+        }
+        if (removedFromCustomer) {
+            extraSets.push(`removed_from_customer = $${++paramIdx}`);
+            extraParams.push(removedFromCustomer);
+        }
+        if (removedAt != null) {
+            extraSets.push(`removed_at = $${++paramIdx}`);
+            extraParams.push(removedAt);
+        }
 
         const extraSetStr = extraSets.length > 0 ? ', ' + extraSets.join(', ') : '';
 
@@ -1813,11 +2056,14 @@ router.patch('/dropped-products/:id', async (req, res) => {
         let idx = 1;
 
         const fieldMap = {
-            campaignId: 'campaign_id', campaignName: 'campaign_name',
-            reason: 'reason', removedBy: 'removed_by',
+            campaignId: 'campaign_id',
+            campaignName: 'campaign_name',
+            reason: 'reason',
+            removedBy: 'removed_by',
             removedFromOrderSTT: 'removed_from_order_stt',
             removedFromCustomer: 'removed_from_customer',
-            removedAt: 'removed_at', addedDate: 'added_date',
+            removedAt: 'removed_at',
+            addedDate: 'added_date',
         };
 
         for (const [jsKey, pgCol] of Object.entries(fieldMap)) {
@@ -1837,7 +2083,8 @@ router.patch('/dropped-products/:id', async (req, res) => {
         if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
 
         const row = result.rows[0];
-        if (notifyClients) notifyClients('dropped_products', { id, ...droppedRowToObj(row) }, 'update');
+        if (notifyClients)
+            notifyClients('dropped_products', { id, ...droppedRowToObj(row) }, 'update');
 
         res.json({ success: true, id });
     } catch (error) {
@@ -1858,7 +2105,8 @@ router.delete('/dropped-products/all', async (req, res) => {
 
         const result = await pool.query('DELETE FROM dropped_products RETURNING id');
 
-        if (notifyClients) notifyClients('dropped_products', { cleared: true, count: result.rowCount }, 'deleted');
+        if (notifyClients)
+            notifyClients('dropped_products', { cleared: true, count: result.rowCount }, 'deleted');
 
         console.log(`[REALTIME-DB] Cleared all ${result.rowCount} dropped products`);
         res.json({ success: true, deletedCount: result.rowCount });
@@ -1878,10 +2126,9 @@ router.delete('/dropped-products/:id', async (req, res) => {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        const result = await pool.query(
-            'DELETE FROM dropped_products WHERE id = $1 RETURNING *',
-            [id]
-        );
+        const result = await pool.query('DELETE FROM dropped_products WHERE id = $1 RETURNING *', [
+            id,
+        ]);
 
         if (notifyClients) {
             notifyClients('dropped_products', { id, deleted: true }, 'deleted');
@@ -1931,8 +2178,8 @@ router.get('/note-snapshots/:orderId', async (req, res) => {
                 snapshotHash: row.snapshot_hash,
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
-                expiresAt: row.expires_at
-            }
+                expiresAt: row.expires_at,
+            },
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /note-snapshots error:', error);
@@ -1958,7 +2205,8 @@ router.put('/note-snapshots/:orderId', async (req, res) => {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO note_snapshots (order_id, note_text, encoded_products, snapshot_hash, created_at, updated_at, expires_at)
             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $5)
             ON CONFLICT (order_id) DO UPDATE SET
@@ -1967,7 +2215,9 @@ router.put('/note-snapshots/:orderId', async (req, res) => {
                 snapshot_hash = $4,
                 updated_at = CURRENT_TIMESTAMP,
                 expires_at = $5
-        `, [orderId, noteText, encodedProducts, snapshotHash, expiresAt]);
+        `,
+            [orderId, noteText, encodedProducts, snapshotHash, expiresAt]
+        );
 
         console.log(`[REALTIME-DB] Note snapshot saved for order: ${orderId}`);
 
@@ -1998,14 +2248,13 @@ router.delete('/note-snapshots/cleanup', async (req, res) => {
 
         res.json({
             success: true,
-            deletedCount: result.rowCount
+            deletedCount: result.rowCount,
         });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /note-snapshots/cleanup error:', error);
         res.status(500).json({ error: error.message });
     }
 });
-
 
 // =====================================================
 // PROCESSING TAGS API
@@ -2031,15 +2280,15 @@ router.get('/processing-tags/debug-config', async (req, res) => {
              ORDER BY order_code, updated_at DESC`
         );
 
-        const records = configResult.rows.map(r => ({
+        const records = configResult.rows.map((r) => ({
             id: r.id,
             order_code: r.order_code,
             tTagDefinitions_count: r.data?.tTagDefinitions?.length || 0,
-            tTagDefinitions_ids: (r.data?.tTagDefinitions || []).map(d => `${d.id}:${d.name}`),
+            tTagDefinitions_ids: (r.data?.tTagDefinitions || []).map((d) => `${d.id}:${d.name}`),
             customFlagDefs_count: r.data?.customFlagDefs?.length || 0,
-            customFlagDefs_ids: (r.data?.customFlagDefs || []).map(d => `${d.id}:${d.label}`),
+            customFlagDefs_ids: (r.data?.customFlagDefs || []).map((d) => `${d.id}:${d.label}`),
             updated_by: r.updated_by,
-            updated_at: r.updated_at
+            updated_at: r.updated_at,
         }));
 
         // --- Orphaned T-tags ---
@@ -2049,10 +2298,10 @@ router.get('/processing-tags/debug-config', async (req, res) => {
              WHERE data ? 'tTags' AND jsonb_array_length(data->'tTags') > 0
              AND order_code NOT LIKE '\\_%' ESCAPE '\\'`
         );
-        const usedTagIds = ttagResult.rows.map(r => r.tag_id);
-        const configRow = configResult.rows.find(r => r.order_code === '__ttag_config__');
-        const definedTTagIds = new Set((configRow?.data?.tTagDefinitions || []).map(d => d.id));
-        const orphanedTTags = usedTagIds.filter(id => !definedTTagIds.has(id));
+        const usedTagIds = ttagResult.rows.map((r) => r.tag_id);
+        const configRow = configResult.rows.find((r) => r.order_code === '__ttag_config__');
+        const definedTTagIds = new Set((configRow?.data?.tTagDefinitions || []).map((d) => d.id));
+        const orphanedTTags = usedTagIds.filter((id) => !definedTTagIds.has(id));
 
         // --- Orphaned Custom Flags ---
         const flagResult = await pool.query(
@@ -2061,10 +2310,12 @@ router.get('/processing-tags/debug-config', async (req, res) => {
              WHERE data ? 'flags' AND jsonb_array_length(data->'flags') > 0
              AND order_code NOT LIKE '\\_%' ESCAPE '\\'`
         );
-        const usedFlagIds = flagResult.rows.map(r => r.flag_id).filter(f => f.startsWith('CUSTOM_'));
-        const flagRow = configResult.rows.find(r => r.order_code === '__ptag_custom_flags__');
-        const definedFlagIds = new Set((flagRow?.data?.customFlagDefs || []).map(d => d.id));
-        const orphanedFlags = usedFlagIds.filter(id => !definedFlagIds.has(id));
+        const usedFlagIds = flagResult.rows
+            .map((r) => r.flag_id)
+            .filter((f) => f.startsWith('CUSTOM_'));
+        const flagRow = configResult.rows.find((r) => r.order_code === '__ptag_custom_flags__');
+        const definedFlagIds = new Set((flagRow?.data?.customFlagDefs || []).map((d) => d.id));
+        const orphanedFlags = usedFlagIds.filter((id) => !definedFlagIds.has(id));
 
         // Count orders per orphan
         const orphanTTagDetails = {};
@@ -2074,21 +2325,32 @@ router.get('/processing-tags/debug-config', async (req, res) => {
                 `SELECT tag_id, count(*) as cnt FROM (
                     SELECT jsonb_array_elements_text(data->'tTags') as tag_id
                     FROM processing_tags WHERE data ? 'tTags' AND order_code NOT LIKE '\\_%' ESCAPE '\\'
-                ) sub WHERE tag_id = ANY($1::text[]) GROUP BY tag_id`, [orphanedTTags]);
-            r.rows.forEach(row => orphanTTagDetails[row.tag_id] = +row.cnt);
+                ) sub WHERE tag_id = ANY($1::text[]) GROUP BY tag_id`,
+                [orphanedTTags]
+            );
+            r.rows.forEach((row) => (orphanTTagDetails[row.tag_id] = +row.cnt));
         }
         if (orphanedFlags.length > 0) {
             const r = await pool.query(
                 `SELECT flag_id, count(*) as cnt FROM (
                     SELECT jsonb_array_elements_text(data->'flags') as flag_id
                     FROM processing_tags WHERE data ? 'flags' AND order_code NOT LIKE '\\_%' ESCAPE '\\'
-                ) sub WHERE flag_id = ANY($1::text[]) GROUP BY flag_id`, [orphanedFlags]);
-            r.rows.forEach(row => orphanFlagDetails[row.flag_id] = +row.cnt);
+                ) sub WHERE flag_id = ANY($1::text[]) GROUP BY flag_id`,
+                [orphanedFlags]
+            );
+            r.rows.forEach((row) => (orphanFlagDetails[row.flag_id] = +row.cnt));
         }
 
         let repairResult = null;
         if (autoRepair && (orphanedTTags.length > 0 || orphanedFlags.length > 0)) {
-            repairResult = await _repairOrphans(pool, orphanedTTags, orphanedFlags, configRow, flagRow, notifyClients);
+            repairResult = await _repairOrphans(
+                pool,
+                orphanedTTags,
+                orphanedFlags,
+                configRow,
+                flagRow,
+                notifyClients
+            );
         }
 
         res.json({
@@ -2098,7 +2360,7 @@ router.get('/processing-tags/debug-config', async (req, res) => {
             orphanedFlags: orphanFlagDetails,
             orphanedTTagCount: orphanedTTags.length,
             orphanedFlagCount: orphanedFlags.length,
-            repairResult
+            repairResult,
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -2125,8 +2387,10 @@ router.post('/processing-tags/repair-orphaned-ttags', async (req, res) => {
             `SELECT data FROM processing_tags WHERE order_code = '__ttag_config__' LIMIT 1`
         );
         const configRow = configResult.rows[0] || null;
-        const definedTTagIds = new Set((configRow?.data?.tTagDefinitions || []).map(d => d.id));
-        const orphanedTTags = ttagResult.rows.map(r => r.tag_id).filter(id => !definedTTagIds.has(id));
+        const definedTTagIds = new Set((configRow?.data?.tTagDefinitions || []).map((d) => d.id));
+        const orphanedTTags = ttagResult.rows
+            .map((r) => r.tag_id)
+            .filter((id) => !definedTTagIds.has(id));
 
         // Find orphaned custom flags
         const flagResult = await pool.query(
@@ -2139,14 +2403,23 @@ router.post('/processing-tags/repair-orphaned-ttags', async (req, res) => {
             `SELECT data FROM processing_tags WHERE order_code = '__ptag_custom_flags__' LIMIT 1`
         );
         const flagRow = flagConfigResult.rows[0] || null;
-        const definedFlagIds = new Set((flagRow?.data?.customFlagDefs || []).map(d => d.id));
-        const orphanedFlags = flagResult.rows.map(r => r.flag_id).filter(f => f.startsWith('CUSTOM_') && !definedFlagIds.has(f));
+        const definedFlagIds = new Set((flagRow?.data?.customFlagDefs || []).map((d) => d.id));
+        const orphanedFlags = flagResult.rows
+            .map((r) => r.flag_id)
+            .filter((f) => f.startsWith('CUSTOM_') && !definedFlagIds.has(f));
 
         if (orphanedTTags.length === 0 && orphanedFlags.length === 0) {
             return res.json({ success: true, message: 'No orphans found' });
         }
 
-        const result = await _repairOrphans(pool, orphanedTTags, orphanedFlags, configRow, flagRow, notifyClients);
+        const result = await _repairOrphans(
+            pool,
+            orphanedTTags,
+            orphanedFlags,
+            configRow,
+            flagRow,
+            notifyClients
+        );
         res.json({ success: true, ...result });
     } catch (error) {
         console.error('[REALTIME-DB] repair-orphaned-ttags error:', error);
@@ -2179,20 +2452,21 @@ router.patch('/processing-tags/config-merge', async (req, res) => {
 
             // Read current config
             const current = await client.query(
-                `SELECT data FROM processing_tags WHERE order_code = $1 LIMIT 1`, [configKey]
+                `SELECT data FROM processing_tags WHERE order_code = $1 LIMIT 1`,
+                [configKey]
             );
             let defs = current.rows[0]?.data?.[arrayField] || [];
 
             // Remove defs by ID
             const removeSet = new Set(removeDefs || []);
             if (removeSet.size > 0) {
-                defs = defs.filter(d => !removeSet.has(d.id));
+                defs = defs.filter((d) => !removeSet.has(d.id));
             }
 
             // Add new defs (skip if ID already exists)
             if (Array.isArray(addDefs)) {
                 for (const newDef of addDefs) {
-                    if (!defs.some(d => d.id === newDef.id)) {
+                    if (!defs.some((d) => d.id === newDef.id)) {
                         defs.push(newDef);
                     }
                 }
@@ -2237,7 +2511,14 @@ router.patch('/processing-tags/config-merge', async (req, res) => {
 /**
  * Helper: repair orphaned T-tags and custom flags
  */
-async function _repairOrphans(pool, orphanedTTags, orphanedFlags, ttagConfigRow, flagConfigRow, notifyClients) {
+async function _repairOrphans(
+    pool,
+    orphanedTTags,
+    orphanedFlags,
+    ttagConfigRow,
+    flagConfigRow,
+    notifyClients
+) {
     const ttagDefs = [...(ttagConfigRow?.data?.tTagDefinitions || [])];
     const flagDefs = [...(flagConfigRow?.data?.customFlagDefs || [])];
 
@@ -2248,19 +2529,30 @@ async function _repairOrphans(pool, orphanedTTags, orphanedFlags, ttagConfigRow,
             name: `[RECOVERED] ${tagId}`,
             productCode: '',
             createdAt: Date.now(),
-            isRecovered: true
+            isRecovered: true,
         });
     }
 
     // Create placeholder custom flag definitions
-    const palette = ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#06b6d4'];
+    const palette = [
+        '#ef4444',
+        '#f97316',
+        '#f59e0b',
+        '#22c55e',
+        '#14b8a6',
+        '#3b82f6',
+        '#6366f1',
+        '#8b5cf6',
+        '#ec4899',
+        '#06b6d4',
+    ];
     for (const flagId of orphanedFlags) {
         flagDefs.push({
             id: flagId,
             label: `[RECOVERED] ${flagId.slice(-8)}`,
             color: palette[Math.floor(Math.random() * palette.length)],
             createdAt: Date.now(),
-            isRecovered: true
+            isRecovered: true,
         });
     }
 
@@ -2277,19 +2569,33 @@ async function _repairOrphans(pool, orphanedTTags, orphanedFlags, ttagConfigRow,
                  VALUES ($1, 'repair-script', '__ttag_config__', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                 [JSON.stringify(data)]
             );
-            if (notifyClients) notifyClients('processing_tags_global', { orderCode: '__ttag_config__', data }, 'update');
+            if (notifyClients)
+                notifyClients(
+                    'processing_tags_global',
+                    { orderCode: '__ttag_config__', data },
+                    'update'
+                );
         }
 
         if (orphanedFlags.length > 0) {
-            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['__ptag_custom_flags__']);
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                '__ptag_custom_flags__',
+            ]);
             const data = { customFlagDefs: flagDefs };
-            await client.query(`DELETE FROM processing_tags WHERE order_code = '__ptag_custom_flags__'`);
+            await client.query(
+                `DELETE FROM processing_tags WHERE order_code = '__ptag_custom_flags__'`
+            );
             await client.query(
                 `INSERT INTO processing_tags (data, updated_by, order_code, created_at, updated_at)
                  VALUES ($1, 'repair-script', '__ptag_custom_flags__', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                 [JSON.stringify(data)]
             );
-            if (notifyClients) notifyClients('processing_tags_global', { orderCode: '__ptag_custom_flags__', data }, 'update');
+            if (notifyClients)
+                notifyClients(
+                    'processing_tags_global',
+                    { orderCode: '__ptag_custom_flags__', data },
+                    'update'
+                );
         }
 
         await client.query('COMMIT');
@@ -2305,7 +2611,7 @@ async function _repairOrphans(pool, orphanedTTags, orphanedFlags, ttagConfigRow,
         repairedFlags: orphanedFlags,
         totalTTagDefs: ttagDefs.length,
         totalFlagDefs: flagDefs.length,
-        message: `Repaired ${orphanedTTags.length} T-tags + ${orphanedFlags.length} custom flags`
+        message: `Repaired ${orphanedTTags.length} T-tags + ${orphanedFlags.length} custom flags`,
     };
 }
 
@@ -2344,7 +2650,7 @@ router.post('/processing-tags/batch', async (req, res) => {
                 orderId: row.order_id,
                 campaignId: row.campaign_id,
                 updatedBy: row.updated_by,
-                updatedAt: row.updated_at
+                updatedAt: row.updated_at,
             };
         }
 
@@ -2388,10 +2694,9 @@ router.put('/processing-tags/batch-save', async (req, res) => {
 
                 const dataJson = JSON.stringify(data);
                 await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
-                await client.query(
-                    `DELETE FROM processing_tags WHERE order_code = $1`,
-                    [orderCode]
-                );
+                await client.query(`DELETE FROM processing_tags WHERE order_code = $1`, [
+                    orderCode,
+                ]);
                 await client.query(
                     `INSERT INTO processing_tags (data, updated_by, order_code, campaign_id, created_at, updated_at)
                      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
@@ -2405,8 +2710,8 @@ router.put('/processing-tags/batch-save', async (req, res) => {
             // Notify SSE clients (single bulk event instead of N events)
             if (!silent && notifyClients && saved > 0) {
                 const summary = limitedItems
-                    .filter(i => i.orderCode && i.data)
-                    .map(i => ({ orderCode: i.orderCode, data: i.data, updatedBy: i.updatedBy }));
+                    .filter((i) => i.orderCode && i.data)
+                    .map((i) => ({ orderCode: i.orderCode, data: i.data, updatedBy: i.updatedBy }));
                 // Send individual events so SSE listeners can handle each order
                 for (const s of summary) {
                     notifyClients('processing_tags_global', s, 'update');
@@ -2451,7 +2756,7 @@ router.get('/processing-tags/config', async (req, res) => {
                 if (row.data.tTagDefinitions) {
                     if (!existing.tTagDefinitions) existing.tTagDefinitions = [];
                     for (const def of row.data.tTagDefinitions) {
-                        if (!existing.tTagDefinitions.some(d => d.id === def.id)) {
+                        if (!existing.tTagDefinitions.some((d) => d.id === def.id)) {
                             existing.tTagDefinitions.push(def);
                         }
                     }
@@ -2459,7 +2764,7 @@ router.get('/processing-tags/config', async (req, res) => {
                 if (row.data.customFlagDefs) {
                     if (!existing.customFlagDefs) existing.customFlagDefs = [];
                     for (const def of row.data.customFlagDefs) {
-                        if (!existing.customFlagDefs.some(d => d.id === def.id)) {
+                        if (!existing.customFlagDefs.some((d) => d.id === def.id)) {
                             existing.customFlagDefs.push(def);
                         }
                     }
@@ -2506,7 +2811,7 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
                 if (row.data.tTagDefinitions) {
                     if (!existing.tTagDefinitions) existing.tTagDefinitions = [];
                     for (const def of row.data.tTagDefinitions) {
-                        if (!existing.tTagDefinitions.some(d => d.id === def.id)) {
+                        if (!existing.tTagDefinitions.some((d) => d.id === def.id)) {
                             existing.tTagDefinitions.push(def);
                         }
                     }
@@ -2514,7 +2819,7 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
                 if (row.data.customFlagDefs) {
                     if (!existing.customFlagDefs) existing.customFlagDefs = [];
                     for (const def of row.data.customFlagDefs) {
-                        if (!existing.customFlagDefs.some(d => d.id === def.id)) {
+                        if (!existing.customFlagDefs.some((d) => d.id === def.id)) {
                             existing.customFlagDefs.push(def);
                         }
                     }
@@ -2526,7 +2831,7 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
                     campaignId: row.campaign_id,
                     orderCode: row.order_code,
                     updatedBy: row.updated_by,
-                    updatedAt: row.updated_at
+                    updatedAt: row.updated_at,
                 };
             }
         }
@@ -2566,10 +2871,7 @@ router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
             await client.query('BEGIN');
             await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
             // Delete existing record by order_code (config hoặc order đều cùng logic)
-            await client.query(
-                `DELETE FROM processing_tags WHERE order_code = $1`,
-                [orderCode]
-            );
+            await client.query(`DELETE FROM processing_tags WHERE order_code = $1`, [orderCode]);
             await client.query(
                 `INSERT INTO processing_tags (data, updated_by, order_code, campaign_id, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
@@ -2624,8 +2926,6 @@ router.delete('/processing-tags/by-code/:orderCode', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-
 
 // =====================================================
 // EXPORTS

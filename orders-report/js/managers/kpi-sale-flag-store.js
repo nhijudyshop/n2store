@@ -26,11 +26,12 @@
     function getCurrentUserInfo() {
         try {
             if (window.authManager) {
-                const auth = window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
+                const auth =
+                    window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
                 if (auth) {
                     return {
                         userId: auth.id || auth.Id || auth.uid || auth.username || 'unknown',
-                        userName: auth.displayName || auth.name || auth.username || 'Unknown'
+                        userName: auth.displayName || auth.name || auth.username || 'Unknown',
                     };
                 }
             }
@@ -64,7 +65,10 @@
 
         const p = (async () => {
             try {
-                const resp = await apiFetch('GET', `/kpi-sale-flag/${encodeURIComponent(orderCode)}`);
+                const resp = await apiFetch(
+                    'GET',
+                    `/kpi-sale-flag/${encodeURIComponent(orderCode)}`
+                );
                 const map = new Map();
                 for (const f of resp.flags || []) {
                     map.set(String(f.productId), f.isSaleProduct === true);
@@ -137,11 +141,11 @@
 
         const user = getCurrentUserInfo();
         try {
-            await apiFetch(
-                'PUT',
-                `/kpi-sale-flag/${encodeURIComponent(orderCode)}/${pid}`,
-                { isSaleProduct: bool, userId: user.userId, userName: user.userName }
-            );
+            await apiFetch('PUT', `/kpi-sale-flag/${encodeURIComponent(orderCode)}/${pid}`, {
+                isSaleProduct: bool,
+                userId: user.userId,
+                userName: user.userName,
+            });
         } catch (e) {
             // Rollback cache
             if (prev === undefined) map.delete(String(pid));
@@ -152,14 +156,19 @@
 
         // Notify UI listeners (table row, badge, etc.)
         try {
-            window.dispatchEvent(new CustomEvent('kpi-sale-flag-changed', {
-                detail: { orderCode, productId: pid, isSale: bool }
-            }));
+            window.dispatchEvent(
+                new CustomEvent('kpi-sale-flag-changed', {
+                    detail: { orderCode, productId: pid, isSale: bool },
+                })
+            );
         } catch (e) {}
 
         // Auto recalc KPI cho order này
         try {
-            if (window.kpiManager && typeof window.kpiManager.recalculateAndSaveKPI === 'function') {
+            if (
+                window.kpiManager &&
+                typeof window.kpiManager.recalculateAndSaveKPI === 'function'
+            ) {
                 // Không await — UI không phải chờ recalc. Recalc sẽ update statistics + badge async.
                 window.kpiManager.recalculateAndSaveKPI(orderCode).catch((err) => {
                     console.warn('[KPI-SaleFlag] recalc after toggle failed:', err?.message);
@@ -188,7 +197,105 @@
     function invalidateAll() {
         _cache.clear();
         _loading.clear();
+        _kpiOrdersSet = null;
+        _kpiOrdersSetAt = 0;
     }
+
+    // ───────────────────────────────────────────────────────────────────
+    // BULK SUMMARY: Set<orderCode> có ít nhất 1 KPI flag = TRUE.
+    // Dùng cho filter bảng đơn hàng "KPI: có / chưa". Stale-while-revalidate:
+    // cache 60s, set() upsert tự cập nhật set inline (add/remove orderCode)
+    // để filter phản ứng ngay khi user check/uncheck — không phải refetch.
+    // ───────────────────────────────────────────────────────────────────
+    let _kpiOrdersSet = null; // Set<orderCode>
+    let _kpiOrdersSetAt = 0;
+    let _kpiOrdersSetLoading = null;
+    const KPI_ORDERS_TTL_MS = 60 * 1000;
+
+    /**
+     * Bulk load: trả về Set<orderCode> trong `orderCodes` mà có ÍT NHẤT
+     * 1 product KPI=TRUE.
+     * @param {string[]} orderCodes — full list of orders đang hiển thị
+     * @param {{force?: boolean}} [opts]
+     * @returns {Promise<Set<string>>}
+     */
+    async function loadKpiOrderCodes(orderCodes, opts = {}) {
+        const now = Date.now();
+        if (!opts.force && _kpiOrdersSet && now - _kpiOrdersSetAt < KPI_ORDERS_TTL_MS) {
+            return _kpiOrdersSet;
+        }
+        if (_kpiOrdersSetLoading) return _kpiOrdersSetLoading;
+
+        const codes = Array.from(new Set((orderCodes || []).map((c) => String(c)).filter(Boolean)));
+        if (codes.length === 0) {
+            _kpiOrdersSet = new Set();
+            _kpiOrdersSetAt = now;
+            return _kpiOrdersSet;
+        }
+
+        _kpiOrdersSetLoading = (async () => {
+            try {
+                const resp = await apiFetch('POST', '/kpi-sale-flag/bulk-summary', {
+                    orderCodes: codes,
+                });
+                _kpiOrdersSet = new Set(resp.kpiOrderCodes || []);
+                _kpiOrdersSetAt = Date.now();
+            } catch (e) {
+                console.warn('[KPI-SaleFlag] bulk-summary failed:', e?.message);
+                if (!_kpiOrdersSet) _kpiOrdersSet = new Set(); // fallback empty
+            } finally {
+                _kpiOrdersSetLoading = null;
+            }
+            return _kpiOrdersSet;
+        })();
+        return _kpiOrdersSetLoading;
+    }
+
+    /**
+     * Đọc nhanh (sync): order này đã có KPI flag chưa.
+     * Caller nên gọi loadKpiOrderCodes() trước, hoặc fallback dùng cache per-order.
+     * @param {string} orderCode
+     * @returns {boolean}
+     */
+    function hasKpiFlag(orderCode) {
+        if (!orderCode) return false;
+        // 1) Bulk set (fastest)
+        if (_kpiOrdersSet && _kpiOrdersSet.has(String(orderCode))) return true;
+        // 2) Per-order cache (nếu đã load chi tiết — ví dụ user đã mở edit modal)
+        const map = _cache.get(String(orderCode));
+        if (map) {
+            for (const v of map.values()) if (v === true) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Auto-update bulk set khi `set()` toggle 1 product. Không phải refetch full.
+     * Add orderCode vào set nếu vừa bật KPI; remove nếu vừa tắt VÀ không còn
+     * product KPI=TRUE nào khác trong cache per-order.
+     */
+    function _maintainKpiOrdersSetOnToggle(orderCode, isSale) {
+        if (!_kpiOrdersSet) return;
+        const code = String(orderCode);
+        if (isSale) {
+            _kpiOrdersSet.add(code);
+            return;
+        }
+        // Vừa tắt: kiểm tra cache per-order — nếu còn product nào KPI=TRUE thì giữ;
+        // không còn → remove. (Nếu cache chưa load full → giữ luôn cho an toàn.)
+        const map = _cache.get(code);
+        if (!map) return;
+        for (const v of map.values()) {
+            if (v === true) return; // còn KPI khác → giữ
+        }
+        _kpiOrdersSet.delete(code);
+    }
+
+    // Lắng nghe event của chính store để maintain bulk set.
+    window.addEventListener('kpi-sale-flag-changed', (ev) => {
+        const { orderCode, isSale } = ev.detail || {};
+        if (orderCode) _maintainKpiOrdersSetOnToggle(orderCode, isSale);
+    });
 
     window.KpiSaleFlagStore = {
         load,
@@ -197,5 +304,7 @@
         set,
         invalidate,
         invalidateAll,
+        loadKpiOrderCodes,
+        hasKpiFlag,
     };
 })();
