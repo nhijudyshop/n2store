@@ -8,6 +8,35 @@
 
 ## 2026-05-06
 
+### [render][backend][fix] issueVirtualCredit FOR UPDATE + manual deposit idempotency
+
+**Files**: MODIFIED [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js); ADDED [scripts/test-wallet-idempotency.js](../scripts/test-wallet-idempotency.js)
+
+User: "Kiểm lại toàn bộ dự án xem ở đâu còn race condition không?"
+
+**Audit toàn dự án** (4 parallel agents): orders-report, render.com backend, Firebase real-time sync, other modules. Tìm 30+ findings, **2 HIGH risk financial verified + fixed**:
+
+1. **`issueVirtualCredit` thiếu FOR UPDATE** ([line 466+](../render.com/services/wallet-event-processor.js#L466)): `getOrCreateWallet` đọc `virtual_balance` không lock → 2 concurrent calls cùng read same value → cả 2 compute `new = old + amount` → cả 2 UPDATE → **mất 1 credit**. Scenario thực: 2 staff resolve 2 ticket cùng khách RETURN_SHIPPER cùng lúc.
+    - **Fix**: thêm explicit `SELECT customer_wallets WHERE phone FOR UPDATE` sau `getOrCreateWallet` (upsert tạo nếu chưa có), giữ lock đến COMMIT. Concurrent calls bây giờ serialize đúng.
+
+2. **`processManualDeposit` thiếu idempotency** ([line 432+](../render.com/services/wallet-event-processor.js#L432)): Bank deposits dedup bằng `sepay_id` UNIQUE. Manual deposit không có sepay_id → client retry (network timeout, double-click) → **double credit**. Scenario thực: admin nạp tay 150k, button "Nạp tiền" loading, network timeout 10s → user click lại → 2 deposits 150k cộng vào ví.
+    - **Fix**: trước khi gọi processWalletEvent, scan wallet_transactions tìm row trùng (phone, type=DEPOSIT, source, reference_id, amount, created_at within 60s). Nếu thấy → return `{success:true, skipped:true, reason:'duplicate_within_window', previousTransactionId}` thay vì insert mới. Window default 60s, caller có thể disable bằng `idempotencyWindowSec=0`.
+
+**Tests** (10/10 pass): mock DB → verify dedup short-circuit không fire INSERT/UPDATE; verify proceed khi không duplicate; verify window=0 disable check.
+
+**Audit findings KHÔNG fix** (false-positive hoặc low impact):
+
+- `tab1-firebase emitTagUpdate` set() không merge — Realtime DB không có merge:true. Tag race ở TPOS layer, không phải Firebase. Skip.
+- `tab1-customer-prefs._emitFirebase` set() — single-field race, last-write-wins acceptable.
+- `live-mode.js` 2 sequential PUTs — partial success warned + retry UX.
+- `verification.js` cache check stale — backend layer-2 protection (sepay_id ON CONFLICT) vẫn block double-credit.
+- `tab1-tags.js saveOrderTags` cross-user race — TPOS endpoint level, complex tag merge.
+- `tab1-processing-tags batch save` — backend orchestrated, bulk ops idempotent qua firebase_id key.
+- `tab1-bulk-tags.js` no in-flight guard — UI flow khó double-click do confirm modal gating.
+- `tab1-chat-messages.js` send race — `isSendingMessage` flag covers it.
+
+**Browser-tested**: page reload clean (856 orders loaded, 0 JS errors).
+
 ### [issue-tracking][customer-hub][fix] Wallet credit reliability — fix Đoan Nghi case + audit wallet flows
 
 **Files**: MODIFIED [shared/js/api-service.js](../shared/js/api-service.js), [issue-tracking/js/script.js](../issue-tracking/js/script.js), [customer-hub/js/modules/wallet-panel.js](../customer-hub/js/modules/wallet-panel.js)
