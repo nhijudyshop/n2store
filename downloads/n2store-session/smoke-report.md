@@ -1,6 +1,6 @@
 # Smoke Test Report — 144 pages
 
-Generated: 2026-05-06T08:19:50.800Z
+Generated: 2026-05-06T09:34:06.027Z
 
 - ✅ Clean: **103**
 - ❌ Issues: **41**
@@ -69,15 +69,15 @@ Generated: 2026-05-06T08:19:50.800Z
 
 ### `/balance-history/index.html`
 
-- err: [ACCOUNTANT] Stats error: TypeError: Failed to fetch
-  at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:623:36)
-  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:207:9)
 - err: [ACCOUNTANT] Load queue error: TypeError: Failed to fetch
   at loadPendingQueue (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:709:36)
   at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:208:9)
 - err: [ACCOUNTANT] Load auto-approve setting error: TypeError: Failed to fetch
   at loadAutoApproveSetting (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:2259:36)
   at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:209:9)
+- err: [ACCOUNTANT] Stats error: TypeError: Failed to fetch
+  at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:623:36)
+  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:207:9)
 
 ### `/bangkiemhang/index.html`
 
