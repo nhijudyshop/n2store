@@ -2681,6 +2681,43 @@
     }
 
     /**
+     * Refetch fresh OrderLines từ TPOS GetDetails endpoint cho `orderId`.
+     * Dùng khi cache stale + OrderStore Details rỗng — đảm bảo không gửi bill rỗng.
+     * @param {string} orderId — SaleOnline_Order Id (UUID).
+     * @returns {Promise<Array<{ProductName,ProductUOMQty,PriceUnit,PriceTotal,Note}>>}
+     */
+    async function refetchOrderLinesFromTpos(orderId) {
+        if (!orderId || !window.tokenManager) return [];
+        const url =
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse';
+        const res = await window.tokenManager.authenticatedFetch(url, {
+            method: 'POST',
+            headers: {
+                accept: 'application/json, text/plain, */*',
+                'content-type': 'application/json;charset=UTF-8',
+            },
+            body: JSON.stringify({ ids: [orderId] }),
+        });
+        if (!res.ok) {
+            throw new Error(`TPOS GetDetails HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const lines = data?.orderLines || data?.OrderLines || [];
+        if (!Array.isArray(lines) || lines.length === 0) return [];
+        return lines.map((l) => {
+            const qty = l.ProductUOMQty || l.Quantity || 1;
+            const price = l.PriceUnit || l.Price || 0;
+            return {
+                ProductName: l.ProductName || l.ProductNameGet || l.Product?.Name || '',
+                ProductUOMQty: qty,
+                PriceUnit: price,
+                PriceTotal: l.PriceTotal || qty * price,
+                Note: l.Note || '',
+            };
+        });
+    }
+
+    /**
      * Send bill from main table
      * @param {string} orderId - SaleOnlineOrder ID
      */
@@ -2755,6 +2792,52 @@
                 console.warn(
                     `[INVOICE-STATUS] OrderLines empty in invoiceData for ${orderId}, fell back to OrderStore Details (${orderLinesForBill.length} lines)`
                 );
+            }
+        }
+
+        // Last resort: refetch fresh OrderLines từ TPOS (GetDetails endpoint).
+        // Cần thiết khi cache stale + OrderStore Details rỗng (vd đơn cũ load từ Pending DB).
+        // Đồng bộ lại OrderStore + InvoiceStatusStore để lần sau khỏi refetch.
+        if (orderLinesForBill.length === 0) {
+            try {
+                window.notificationManager?.info?.('Đang lấy lại sản phẩm từ TPOS...', {
+                    duration: 2000,
+                });
+                const refetched = await refetchOrderLinesFromTpos(orderId);
+                if (refetched && refetched.length > 0) {
+                    orderLinesForBill = refetched;
+                    // Cập nhật InvoiceStatusStore với OrderLines mới để future sends không refetch.
+                    try {
+                        InvoiceStatusStore.set(
+                            orderId,
+                            { ...invoiceData, OrderLines: refetched },
+                            order
+                        );
+                    } catch (e) {
+                        console.warn('[INVOICE-STATUS] Update store after refetch failed:', e);
+                    }
+                    // Cập nhật OrderStore Details để các flow khác (modal, edit) cũng có data.
+                    try {
+                        const cached = window.OrderStore?.get?.(orderId);
+                        if (cached) {
+                            cached.Details = refetched.map((l) => ({
+                                ProductName: l.ProductName,
+                                Quantity: l.ProductUOMQty,
+                                Price: l.PriceUnit,
+                                PriceTotal: l.PriceTotal,
+                                Note: l.Note,
+                            }));
+                            window.OrderStore.set?.(orderId, cached);
+                        }
+                    } catch (e) {
+                        console.warn('[INVOICE-STATUS] Update OrderStore after refetch failed:', e);
+                    }
+                    console.log(
+                        `[INVOICE-STATUS] Refetched ${refetched.length} OrderLines from TPOS for ${orderId}`
+                    );
+                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Refetch OrderLines from TPOS failed:', e);
             }
         }
 
@@ -2856,7 +2939,7 @@
     /**
      * Build enrichedOrder payload from an invoice entry (same shape as sendBillFromMainTable)
      */
-    function _buildEnrichedFromInvoice(invoiceData, orderId) {
+    async function _buildEnrichedFromInvoice(invoiceData, orderId) {
         let carrierName = invoiceData.CarrierName;
         if (
             !carrierName &&
@@ -2887,6 +2970,30 @@
                         (d.Quantity || d.ProductUOMQty || 1) * (d.PriceUnit || d.Price || 0),
                     Note: d.Note || '',
                 }));
+            }
+        }
+
+        // Cuối cùng: refetch từ TPOS nếu vẫn rỗng (đảm bảo bulk-send không skip đơn).
+        if (orderLinesForBill.length === 0) {
+            try {
+                const refetched = await refetchOrderLinesFromTpos(orderId);
+                if (refetched && refetched.length > 0) {
+                    orderLinesForBill = refetched;
+                    try {
+                        const order =
+                            window.OrderStore?.get(orderId) ||
+                            displayedData?.find((o) => String(o.Id) === String(orderId));
+                        InvoiceStatusStore.set(
+                            orderId,
+                            { ...invoiceData, OrderLines: refetched },
+                            order
+                        );
+                    } catch (e) {
+                        /* non-fatal */
+                    }
+                }
+            } catch (e) {
+                console.warn('[BULK-SEND-BILL] Refetch failed for', orderId, e);
             }
         }
 
@@ -3064,7 +3171,13 @@
                 pageInFlight.set(channelId, (pageInFlight.get(channelId) || 0) + 1);
 
                 try {
-                    const enrichedOrder = _buildEnrichedFromInvoice(invoiceData, orderId);
+                    const enrichedOrder = await _buildEnrichedFromInvoice(invoiceData, orderId);
+                    // Đảm bảo không gửi bill rỗng sau khi đã thử OrderStore + TPOS refetch
+                    if (!enrichedOrder.OrderLines || enrichedOrder.OrderLines.length === 0) {
+                        throw new Error(
+                            'Đơn không có sản phẩm — đã thử lấy lại từ TPOS nhưng vẫn rỗng'
+                        );
+                    }
                     await performActualSend(
                         enrichedOrder,
                         channelId,

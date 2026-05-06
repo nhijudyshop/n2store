@@ -8,6 +8,36 @@
 
 ## 2026-05-06
 
+### [orders][feat] Bill: refetch TPOS khi đơn rỗng + chip "Đang bật filter" cạnh nút bộ lọc
+
+**Files**:
+
+- MODIFIED [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js)
+- NEW [orders-report/js/tab1/tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js)
+- MODIFIED [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+**1. Refetch sản phẩm từ TPOS khi đơn rỗng**:
+
+User: "Nếu gửi bill mà đơn hàng bị rỗng thì request tpos lấy lại sản phẩm đơn hàng và cập nhật bill". Trước fix: `sendBillFromMainTable` thử `invoiceData.OrderLines` → fallback `OrderStore.Details` → nếu cả 2 rỗng → block với error toast (UX dở: user phải kiểm tra thủ công). Thêm last-resort refetch: `refetchOrderLinesFromTpos(orderId)` POST `/api/odata/SaleOnline_Order/ODataService.GetDetails` (cùng endpoint mà `fetchOrderDetailsForSale` dùng), map về shape `{ProductName, ProductUOMQty, PriceUnit, PriceTotal, Note}`. Khi refetch thành công → cập nhật `InvoiceStatusStore.set(orderId, {...inv, OrderLines:refetched}, order)` + `OrderStore.set(orderId, {...cached, Details:...})` để future sends không refetch nữa.
+
+Áp dụng cho cả 2 path: single-send (`sendBillFromMainTable`) và bulk-send (`_buildEnrichedFromInvoice` chuyển thành async, await ở call site). Bulk-send thêm assertion: nếu sau refetch vẫn rỗng → throw "Đơn không có sản phẩm — đã thử lấy lại từ TPOS nhưng vẫn rỗng" để failed counter báo rõ.
+
+**2. Chip "Đang bật filter" + nút clear all**:
+
+User: "Nếu đang bật filter thì kế bên nút hiển thị bộ lọc sẽ hiển thị 'Đang bật filter' và có nút x để xóa tất cả filter đang bật". Tạo module IIFE mới [tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js):
+
+- `getActiveFilterSummary()` quét: search input, 4 select (`conversationFilter`/`statusFilter`/`fulfillmentFilter`/`callHistoryFilter`), TAG selected/excluded, Tag XL active filter + flag filters, Excluded Tag XL, date toggle, StockStatusEngine. Trả `{count, labels[], hasAny}`.
+- `_ensureChip()` inject `<span#activeFilterChip>` ngay sau `#toggleControlBarBtn` — pill amber gradient với dot animation, text "Đang bật N filter", × button. Tooltip hiển thị danh sách filter cụ thể (multi-line title attr).
+- `clearAllFilters()` reset toàn bộ: `handleTableSearch('')` (vì `searchQuery` là module-scope không expose qua window), reset 4 dropdowns về `'all'` + dispatch change, xoá `localStorage.orderTableSelectedTags`/`orderTableExcludedTags`/`orderTableExcludedPtagXl`, gọi `_ptagSetFilter(null)` + clear `_activeFlagFilters`, uncheck `dateModeToggle`, reset `StockStatusEngine`, gọi `performTableSearch()` + `FilterPersistence.scheduleSave()`.
+- `_wrapPerformTableSearch()` wrap `window.performTableSearch` 1 lần để mỗi filter change auto-refresh chip — không phải hook từng dropdown handler riêng.
+
+Public API: `window.clearAllFilters`, `window.refreshActiveFilterChip`, `window.getActiveFilterSummary`.
+
+**Browser-tested localhost**:
+
+- Refetch flow: inject fake invoice với OrderLines=[] cho 1 order có Facebook_ASUserId, mock `tokenManager.authenticatedFetch` trả 2 product mocked. Trigger `sendBillFromMainTable(orderId)` → 1 fetch GetDetails → InvoiceStatusStore updated với 2 lines `["REFETCH-1", "REFETCH-2"]` → preview modal render đúng "PHIẾU BÁN HÀNG" với 275.000đ tổng. Notif "Đang lấy lại sản phẩm từ TPOS..." hiển thị. ✅
+- Chip flow: search "192" + Tag XL "OKIE_CHO_DI_DON" → chip hiện "Đang bật 2 filter" + tooltip 2 dòng `Tìm: "192" / Tag XL` + filteredData=4. Click ×: chip ẩn, search input clear, ptag null, filteredData=856 (back to all). ✅
+
 ### [orders][fix] Phân chia STT non-admin: ID field mismatch + real-time bypass leak
 
 **Files**: MODIFIED [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js), [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js)
