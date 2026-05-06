@@ -444,9 +444,107 @@ function recalculateSaleTotals() {
 }
 
 /**
+ * Merge local sale orderLines into server Details (server = base of truth).
+ * Prevents stale-snapshot overwrite where local lacks lines another flow added.
+ *
+ * Rules:
+ *   - Server lines absent locally → KEPT (don't drop other-flow additions).
+ *   - Local line with Id → matched to server by Id, qty/price/note overridden.
+ *   - Local line without Id → matched to server by ProductId+UOMId; if found,
+ *     treat as duplicate-add and bump qty by local qty (not replace). Otherwise
+ *     append as new line.
+ */
+function mergeLocalLinesIntoServerDetails(serverDetails, localLines, orderId, createdById) {
+    const serverArr = Array.isArray(serverDetails) ? serverDetails : [];
+    const localArr = Array.isArray(localLines) ? localLines : [];
+
+    const result = serverArr.map((d) => ({ ...d }));
+    const byId = new Map();
+    const byProductKey = new Map();
+    result.forEach((d, idx) => {
+        if (d.Id) byId.set(d.Id, idx);
+        const key = `${d.ProductId}_${d.UOMId || 1}`;
+        if (!byProductKey.has(key)) byProductKey.set(key, idx);
+    });
+
+    const localIdsSeen = new Set();
+
+    for (const line of localArr) {
+        const lineId = line.Id;
+        const productId = line.ProductId || line.Product?.Id;
+        const uomId = line.ProductUOMId || line.ProductUOM?.Id || 1;
+        const qty = line.ProductUOMQty || line.Quantity || 1;
+        const price = line.PriceUnit || line.Price || 0;
+        const note = line.Note ?? null;
+
+        if (lineId && byId.has(lineId)) {
+            const idx = byId.get(lineId);
+            result[idx] = {
+                ...result[idx],
+                Quantity: qty,
+                Price: price,
+                Note: note,
+            };
+            localIdsSeen.add(lineId);
+            continue;
+        }
+
+        const key = `${productId}_${uomId}`;
+        if (!lineId && byProductKey.has(key)) {
+            const idx = byProductKey.get(key);
+            const serverLine = result[idx];
+            if (!localIdsSeen.has(serverLine.Id)) {
+                result[idx] = {
+                    ...serverLine,
+                    Quantity: (serverLine.Quantity || 0) + qty,
+                    Price: price > 0 ? price : serverLine.Price,
+                    Note: note ?? serverLine.Note,
+                };
+                if (serverLine.Id) localIdsSeen.add(serverLine.Id);
+                continue;
+            }
+        }
+
+        result.push({
+            ProductId: productId,
+            Quantity: qty,
+            Price: price,
+            Note: note,
+            UOMId: uomId,
+            Factor: 1,
+            Priority: 0,
+            OrderId: orderId,
+            LiveCampaign_DetailId: null,
+            ProductWeight: line.Weight || 0,
+            ProductName: line.Product?.Name || line.ProductName || '',
+            ProductNameGet: line.Product?.NameGet || line.ProductNameGet || '',
+            ProductCode: line.Product?.DefaultCode || line.ProductCode || '',
+            UOMName: line.ProductUOMName || line.ProductUOM?.Name || 'Cái',
+            ImageUrl: line.Product?.ImageUrl || '',
+            IsOrderPriority: null,
+            QuantityRegex: null,
+            IsDisabledLiveCampaignDetail: false,
+            CreatedById: createdById,
+        });
+    }
+
+    return result;
+}
+
+if (typeof window !== 'undefined') {
+    window.__mergeLocalLinesIntoServerDetails = mergeLocalLinesIntoServerDetails;
+}
+
+/**
  * Update Sale Order via PUT API
  * Similar to updateOrderWithFullPayload() from Edit Modal (~15687)
- * Fetches FULL order object from API, merges local changes, then PUTs back
+ * Fetches FULL order object from API, merges local changes, then PUTs back.
+ *
+ * Race-safety:
+ *   - In-flight lock: parallel calls serialize via __saleUpdateChain.
+ *   - Server merge: server.Details is base, local lines merged on top
+ *     (preserves additions from other flows / other tabs).
+ *   - On 412 (RowVersion mismatch from optimistic concurrency), refetch and retry once.
  */
 async function updateSaleOrderWithAPI() {
     if (!currentSaleOrderData || !currentSaleOrderData.Id) {
@@ -454,6 +552,19 @@ async function updateSaleOrderWithAPI() {
         return null;
     }
 
+    const previous = window.__saleUpdateChain || Promise.resolve();
+    const next = previous.catch(() => {}).then(() => _updateSaleOrderWithAPIImpl());
+    window.__saleUpdateChain = next;
+    try {
+        return await next;
+    } finally {
+        if (window.__saleUpdateChain === next) {
+            window.__saleUpdateChain = null;
+        }
+    }
+}
+
+async function _updateSaleOrderWithAPIImpl() {
     try {
         console.log('[SALE-API] Preparing to update order:', currentSaleOrderData.Id);
 
@@ -480,8 +591,8 @@ async function updateSaleOrderWithAPI() {
         const fullOrder = await getResponse.json();
         console.log('[SALE-API] Got full order from API:', fullOrder);
 
-        // 🔥 STEP 2: Merge local changes (orderLines) into full order object
-        // Clone to avoid mutation
+        // 🔥 STEP 2: Merge local changes (orderLines) on top of SERVER Details.
+        // Server is source of truth — preserves lines added by other flows / tabs.
         const payload = JSON.parse(JSON.stringify(fullOrder));
 
         // Add @odata.context (CRITICAL for PUT request)
@@ -493,38 +604,13 @@ async function updateSaleOrderWithAPI() {
         // Get CreatedById from order or auth
         const createdById = fullOrder.CreatedById || fullOrder.UserId;
 
-        // Convert local orderLines to Details format (API expects Details, not orderLines)
         if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
-            payload.Details = currentSaleOrderData.orderLines.map((line) => {
-                const cleaned = {
-                    ProductId: line.ProductId || line.Product?.Id,
-                    Quantity: line.ProductUOMQty || line.Quantity || 1,
-                    Price: line.PriceUnit || line.Price || 0,
-                    Note: line.Note || null,
-                    UOMId: line.ProductUOMId || line.ProductUOM?.Id || 1,
-                    Factor: 1,
-                    Priority: 0,
-                    OrderId: currentSaleOrderData.Id,
-                    LiveCampaign_DetailId: null,
-                    ProductWeight: line.Weight || 0,
-                    ProductName: line.Product?.Name || line.ProductName || '',
-                    ProductNameGet: line.Product?.NameGet || line.ProductNameGet || '',
-                    ProductCode: line.Product?.DefaultCode || line.ProductCode || '',
-                    UOMName: line.ProductUOMName || line.ProductUOM?.Name || 'Cái',
-                    ImageUrl: line.Product?.ImageUrl || '',
-                    IsOrderPriority: null,
-                    QuantityRegex: null,
-                    IsDisabledLiveCampaignDetail: false,
-                    CreatedById: createdById,
-                };
-
-                // Keep Id if it exists (for existing details)
-                if (line.Id) {
-                    cleaned.Id = line.Id;
-                }
-
-                return cleaned;
-            });
+            payload.Details = mergeLocalLinesIntoServerDetails(
+                fullOrder.Details || [],
+                currentSaleOrderData.orderLines,
+                currentSaleOrderData.Id,
+                createdById
+            );
         }
 
         // Calculate totals from local orderLines

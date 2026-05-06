@@ -8,6 +8,48 @@
 
 ## 2026-05-06
 
+### [orders][fix] Sale modal — chống race condition stale-snapshot ghi đè SP
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js); ADDED [scripts/test-merge-local-lines.js](../scripts/test-merge-local-lines.js)
+
+User: "Coi lại lịch sử chỉnh sửa đơn 478 sđt 0903778113 Ngoc Tran tìm hiểu nguyên nhân sao lúc 12:17 04/05/2026 bị duplicate 2 request luôn"
+
+**Root cause** (audit log đơn 260500478 xác nhận):
+
+- 12:17:02 — PUT [4] thêm 1904 Q10 Đen + Vàng → tổng 810k → 1.390k, qty 3 → 5
+- 12:17:08 — PUT [3] cùng user, thêm 2104 Vàng → tổng 1.390k → **1.100k**, qty 5 → **4** ⚠️
+
+PUT [3] dùng snapshot stale (lấy từ trước [4]) → ghi đè server, **xoá mất 2 SP 1904 Q10** vừa thêm. Bằng chứng: base64-encoded products trong Note revert về vị trí cũ của [4]'s before-state.
+
+`updateSaleOrderWithAPI()` ở [tab1-sale.js:451](../orders-report/js/tab1/tab1-sale.js#L451) cũ:
+
+```js
+const fullOrder = await fetch(GET);              // server state mới nhất
+payload.Details = currentSaleOrderData.orderLines.map(...);  // ❌ ĐÈ bằng local stale
+PUT(payload);
+```
+
+`currentSaleOrderData` set 1 lần khi mở sale modal. User mở chat sale-modal lúc t=0, edit-modal save thêm SP lúc t=2, sau đó click thêm SP trong sale-modal lúc t=8 → sale modal dùng local từ t=0 đè lên server t=2.
+
+**Fix**:
+
+1. Thêm `mergeLocalLinesIntoServerDetails()` — server `Details` làm base, merge local thay vì overwrite. Match by `Id` (existing line: update qty/price/note) hoặc `ProductId+UOMId` (new product: bump qty hoặc append). Server lines không có trong local → KEPT (preserve other-flow additions).
+2. Thêm in-flight chain `__saleUpdateChain` — Promise queue serialize mọi `updateSaleOrderWithAPI` call cùng tab → chống race khi user click rapid-fire.
+3. Refactor split `updateSaleOrderWithAPI` (chain wrapper) + `_updateSaleOrderWithAPIImpl` (logic cũ).
+
+**Tests** (32/32 pass):
+
+- Bug replay scenario: 5 server lines + 4 stale local (3 cũ + 1 new) → output 6 lines, total 1.680k (OLD bug: 4 lines, 1.100k).
+- Local Id match → update qty/price/note tại chỗ.
+- Local không Id + ProductId+UOMId match server → bump qty (treat as duplicate-add).
+- Local không Id + no server match → append.
+- Server lines absent from local → KEPT (core fix).
+- Empty local / empty server / null inputs / different UOMId → handled.
+
+**Browser-tested**: merge function exposed `window.__mergeLocalLinesIntoServerDetails` ở iframe, scenario thật cho bug fix output 6 lines @ 1.680k. Chain serialization 3 parallel calls → max 1 in-flight, executed in submit order.
+
+**Tab3 (Gán Sản Phẩm - STT)** verified clean — `prepareUploadDetails` ở [tab3-upload.js:808](../orders-report/js/tab3/tab3-upload.js#L808) đã dùng pattern server-base merge, không cần fix.
+
 ### [chat][feat] Modal tin nhắn — hiện avatar "đã xem" dưới message cuối khách đã đọc
 
 **Files**: MODIFIED [orders-report/js/managers/pancake-data-manager.js](../orders-report/js/managers/pancake-data-manager.js), [shared/js/pancake-data-manager.js](../shared/js/pancake-data-manager.js), [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js), [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js), [orders-report/css/tab1-chat-modal.css](../orders-report/css/tab1-chat-modal.css)
