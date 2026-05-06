@@ -963,6 +963,30 @@ router.get('/kpi-audit-log/:orderCode', async (req, res) => {
 // Per-product-line: sale tự đánh dấu SP là "bán hàng thật" để tính KPI
 // =====================================================
 
+/**
+ * Chuẩn hoá timestamp từ Postgres (column TIMESTAMP without TZ) thành ISO UTC
+ * (`...Z`) để client parse đúng giờ local (VN GMT+7).
+ *
+ * Bug bối cảnh: Postgres column lưu CURRENT_TIMESTAMP (UTC khi server Render
+ * UTC) nhưng pg-driver có thể trả string với suffix '+07:00' (do session TZ
+ * khác UTC) — VALUE bên trong là UTC nhưng SUFFIX nói là +07:00. JS Date parse
+ * theo suffix → lệch 7 giờ.
+ *
+ * Fix: strip TZ suffix bogus → treat value là UTC → toISOString() trả về
+ * format chuẩn `2026-05-06T11:04:36.285Z`.
+ */
+function _normalizePgTimestampUtc(v) {
+    if (v == null) return null;
+    if (v instanceof Date) return v.toISOString();
+    const s = String(v);
+    // Strip trailing TZ suffix (`+07:00`, `-05:00`, `Z`) — value bên trong là UTC.
+    const stripped = s.replace(/([+-]\d{2}:?\d{2}|Z)$/, '').trim();
+    // Replace space separator → 'T', append Z, parse as UTC, normalize.
+    const isoLike = stripped.includes('T') ? stripped : stripped.replace(' ', 'T');
+    const d = new Date(isoLike + 'Z');
+    return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 // ─── HISTORY (audit log) ───
 // Mỗi lần user check / uncheck KPI checkbox → ghi 1 row vào history.
 // Auto-cleanup rows > 90 ngày để table không phình mãi (cron daily).
@@ -1111,14 +1135,7 @@ router.get('/kpi-sale-flag/history', async (req, res) => {
                 action: r.action,
                 userId: r.user_id,
                 userName: r.user_name,
-                // Trả về ISO UTC chuẩn (kết thúc 'Z') để client parse đúng timezone.
-                // Mặc định pg driver có thể trả string với '+07:00' suffix sai
-                // (Postgres tag timezone từ connection nhưng giá trị lại là UTC) —
-                // dẫn đến lệch 7h khi `new Date()` ở browser.
-                createdAt:
-                    r.created_at instanceof Date
-                        ? r.created_at.toISOString()
-                        : new Date(r.created_at).toISOString(),
+                createdAt: _normalizePgTimestampUtc(r.created_at),
             })),
         });
     } catch (error) {
