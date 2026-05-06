@@ -19,8 +19,11 @@
 
     const COLLECTION = 'edit_history';
     const PAGE_SIZE = 50;
-    const MAX_FETCH = 300;
-    const CACHE_KEY = 'acc_history_cache_v1';
+    const MAX_FETCH = 1000;
+    // Cache key bumped to v2 — fetch strategy đổi từ where(module).limit(300) (random docs)
+    // sang orderBy(timestamp desc).limit(1000) + filter module client-side để đảm bảo
+    // entries mới nhất luôn nằm trong kết quả.
+    const CACHE_KEY = 'acc_history_cache_v2';
     const CACHE_TTL_MS = 60 * 1000; // 60s — stale-while-revalidate
 
     // Map raw actionType → category trong tab
@@ -476,24 +479,23 @@
             console.error('[AccountantHistory] Firestore unavailable');
             return [];
         }
-        // Filter `module=='balance-history'` only; sort client-side để tránh
-        // yêu cầu composite index Firestore (module asc + timestamp desc).
+        // QUAN TRỌNG: orderBy('timestamp', 'desc') + limit, KHÔNG dùng where('module', ...)
+        // Lý do: where('module',==,X)+limit(N) KHÔNG có orderBy → Firestore order by __name__
+        // (random cho auto-IDs) → trả N docs ngẫu nhiên trải dài nhiều tháng, miss entries mới.
+        // Composite index (module asc + timestamp desc) sẽ giải quyết, nhưng để tránh phụ thuộc
+        // index deploy: dùng single-field index timestamp (auto-created), filter module client-side.
         try {
             const snap = await db
                 .collection(COLLECTION)
-                .where('module', '==', 'balance-history')
+                .orderBy('timestamp', 'desc')
                 .limit(MAX_FETCH)
                 .get();
             const records = [];
             snap.forEach((doc) => {
-                records.push({ _id: doc.id, ...doc.data() });
-            });
-            records.sort((a, b) => {
-                const ta = getRecordTimestamp(a);
-                const tb = getRecordTimestamp(b);
-                const ma = ta ? ta.getTime() : 0;
-                const mb = tb ? tb.getTime() : 0;
-                return mb - ma;
+                const data = doc.data();
+                if (data && data.module === 'balance-history') {
+                    records.push({ _id: doc.id, ...data });
+                }
             });
             return records;
         } catch (e) {

@@ -8,6 +8,23 @@
 
 ## 2026-05-06
 
+### [balance-history][fix] Tab "Lịch Sử" thiếu entries hôm nay — Firestore query không có orderBy → trả 300 docs random trải dài 2 tháng
+
+**Files**: MODIFIED [balance-history/js/accountant-history.js](../balance-history/js/accountant-history.js) — `fetchRecords()` đổi query strategy: bỏ `where('module','==','balance-history')`, dùng `.orderBy('timestamp','desc').limit(1000)` + filter `module === 'balance-history'` client-side. Bump `MAX_FETCH` 300→1000, `CACHE_KEY` v1→v2 (invalidate cache cũ). MODIFIED [balance-history/index.html](../balance-history/index.html) — bump cache `accountant-history.js?v=20260506a`.
+
+**User báo**: "tôi vừa làm thao tác kiểm tra cũng không thấy" — sau fix delivery-report (commit `dc6a9253`) verify vẫn không xuất hiện trong tab Lịch Sử balance-history.
+
+**Root cause** (verified live trên prod Firestore qua Playwright eval):
+- Query cũ `db.collection('edit_history').where('module','==','balance-history').limit(300).get()` KHÔNG có `orderBy` → Firestore default order theo `__name__` (random cho auto-IDs).
+- Test trên prod: query trả 300 docs nhưng newest = 08:21 06/05, oldest = 18:53 10/03 → trải dài 2 tháng, **chỉ 1 trong 26 records hôm nay** lọt qua.
+- 26 records balance-history hôm nay (đã được AuditLogger ghi đúng) bị bỏ sót, user nhìn thấy "lịch sử thiếu".
+
+**Tại sao không dùng composite index**: query `where(module,==,X)+orderBy(timestamp,desc)` cần composite index `module asc + timestamp desc` — Firestore error có URL tạo index nhưng deploy cần `firebase deploy --only firestore:indexes` → fragile. Single-field index trên `timestamp` auto-created → dùng `orderBy(timestamp,desc).limit(1000)` rồi filter client-side ổn định hơn.
+
+**Verify live (Playwright eval prod sau fix)**: 793 records balance-history trả về (vs 300 random trước), **18 verify records hôm nay (vs 1 trước)**, newest 22:46:12 06/05, oldest 09:44:15 29/04 → cover 1 tuần gần nhất đầy đủ.
+
+**Status**: ✅ Done — `node --check` pass, query verified trên prod Firestore. Chờ deploy GH Pages.
+
 ### [delivery-report][render] Modal "Kiểm tra giao dịch" lấy đúng nội dung CK + ngày GD từ balance_history
 
 **Files**: MODIFIED [render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js) — `GET /:id/quick-view` SQL `recent_transactions` thêm `bh.content AS bh_content`, `bh.transaction_date AS bh_transaction_date` trong join `balance_history`; fallback query (schema cũ thiếu cột) cũng thêm `NULL AS bh_content, NULL AS bh_transaction_date` để frontend shape consistent. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `openReviewModal()` đổi: "Nội dung CK" `tx.bh_content || tx.note`, "Ngày GD" `tx.bh_transaction_date || tx.created_at`. Thêm helper `fmtShortDateTime()` format `HH:MM dd/MM` (giống balance-history `formatDateTime()`).
