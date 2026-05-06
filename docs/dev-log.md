@@ -8,6 +8,33 @@
 
 ## 2026-05-06
 
+### [inbox][feat] PBH sale modal — tên SP có prefix `[Mã SP]` (NameGet format)
+
+**Files**: MODIFIED [don-inbox/js/tab-social-sale.js](../don-inbox/js/tab-social-sale.js)
+
+User: "phần sản phẩm trong bill lấy NameGet để trước tên sản phẩm có [Mã SP]".
+
+Trước: Khi mở Phiếu bán hàng từ đơn inbox, danh sách SP chỉ hiển thị `Tên SP` (không có Mã SP). Bill in ra cũng thiếu Mã SP. TPOS NameGet format chuẩn là `[code] name`.
+
+**Root cause**: `mappedOrder.Details` mapping ([tab-social-sale.js:339-347](../don-inbox/js/tab-social-sale.js#L339-L347)) set `ProductNameGet: p.productName` không có prefix. `populateSaleModalWithOrder` build orderLines từ Details với `Product: null`, display fallback `item.Product?.NameGet || item.ProductName` → vì Product null nên rơi về ProductName raw không có code.
+
+**Fix**: Cả 2 chỗ build product line đều format `[code] tên`, có guard tránh double-prefix nếu rawName đã bắt đầu bằng `[code]` (data lẫn lộn — vài SP đã có sẵn prefix trong productName, vài chưa):
+
+- `Details` map → `ProductName` & `ProductNameGet` đều = `code && !rawName.startsWith('['+code+']') ? '[code] name' : rawName`.
+- `buildMinimalLine` (fallback khi không fetch được full TPOS data) → `ProductNameGet` áp dụng cùng guard.
+
+**Browser-tested localhost** với 2 case:
+
+- `SO-20260421-2951` (productName đã có `[N4087]` prefix sẵn) → display `[N4087] TEST 111` (KHÔNG double prefix) ✅.
+- `SO-20260506-5657` (3 SP productName KHÔNG prefix) → display `[Q171D] 1704 Q42 ÁO CỔ BẺ TÚI TAP GG 8805 (Đen)`, `[Q171D1] ... (Đỏ)`, `[Q171X] ... (Xanh)` ✅.
+- `_consoleErrors: 0`.
+
+Tác dụng phụ: `buildOrderLines` ([tab1-sale.js:2325](../orders-report/js/tab1/tab1-sale.js#L2325)) propagate ProductName mới (có prefix) vào TPOS InsertListOrderModel POST + `bill-service.js:312` propagate vào in PBH → in ra bill cũng có `[Mã SP]`.
+
+Status: ✅ Done
+
+---
+
 ### [orders][feat] KPI badge — hiển thị "★ KPI" trong cột STT cho đơn có SP đánh dấu KPI
 
 **Files**: NEW [orders-report/js/tab1/tab1-kpi-badge.js](../orders-report/js/tab1/tab1-kpi-badge.js), MODIFIED [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)

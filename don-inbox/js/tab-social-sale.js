@@ -335,16 +335,23 @@ async function openSaleModalInSocialTab(orderId) {
                 const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
                 return name || code || variant || price > 0 || purchase > 0;
             })
-            .map((p) => ({
-                ProductId: p.tposProductId || 0,
-                ProductCode: p.productCode || '',
-                ProductNameGet: p.productName || p.name || '',
-                ProductName: p.productName || p.name || '',
-                Quantity: p.quantity || 1,
-                PriceUnit: p.sellingPrice || p.price || 0,
-                Price: p.sellingPrice || p.price || 0,
-                Note: p.variant || '',
-            })),
+            .map((p) => {
+                const code = (p.productCode || '').trim();
+                const rawName = (p.productName || p.name || '').trim();
+                // NameGet format: "[Mã SP] Tên SP". Tránh double-prefix nếu rawName đã bắt đầu bằng [code].
+                const nameGet =
+                    code && !rawName.startsWith(`[${code}]`) ? `[${code}] ${rawName}` : rawName;
+                return {
+                    ProductId: p.tposProductId || 0,
+                    ProductCode: code,
+                    ProductNameGet: nameGet,
+                    ProductName: nameGet,
+                    Quantity: p.quantity || 1,
+                    PriceUnit: p.sellingPrice || p.price || 0,
+                    Price: p.sellingPrice || p.price || 0,
+                    Note: p.variant || '',
+                };
+            }),
         Tags: order.tags ? JSON.stringify(order.tags) : '[]',
         _isSocialOrder: true,
     };
@@ -364,6 +371,8 @@ async function openSaleModalInSocialTab(orderId) {
         if (!(name || code || variant || price > 0 || purchase > 0)) continue;
 
         const tposId = parseInt(p.tposProductId) || 0;
+        // NameGet format: "[Mã SP] Tên SP" — tránh double-prefix nếu name đã bắt đầu bằng [code].
+        const nameGet = code && !name.startsWith(`[${code}]`) ? `[${code}] ${name}` : name;
         const buildMinimalLine = (idForLine, priceForLine, broken = false) => ({
             ProductId: idForLine,
             Product: null,
@@ -374,7 +383,7 @@ async function openSaleModalInSocialTab(orderId) {
             PriceUnit: priceForLine,
             Price: priceForLine,
             ProductName: name,
-            ProductNameGet: code ? `[${code}] ${name}` : name,
+            ProductNameGet: nameGet,
             ProductUOMName: 'Cái',
             Note: variant || null,
             SaleOnlineDetailId: null,
