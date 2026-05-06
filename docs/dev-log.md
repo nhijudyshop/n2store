@@ -8,6 +8,28 @@
 
 ## 2026-05-06
 
+### [orders][fix][feat] KPI history: route order fix + modal full history + KPI thực vs dự tính + cross-machine sync
+
+**Files**: MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)
+
+User: "1/Phần KPI này chưa lưu lịch sử khi check/uncheck — có nút mở modal coi full lịch sử. 2/Ghi rõ KPI của user nào. 3/Đơn 'Hoàn thành đối soát' = đã duyệt (KPI thực), còn lại = dự tính. Lịch sử đồng bộ giữa các máy".
+
+**Root cause "không lưu lịch sử"**: Route order trong `realtime-db.js` — `GET /kpi-sale-flag/:orderCode` define TRƯỚC `GET /kpi-sale-flag/history`. Express match theo thứ tự → `/history` matched route `:orderCode = "history"` → trả `{flags: []}`. INSERT vào `kpi_sale_flag_history` từ PUT vẫn chạy đúng, chỉ GET không đọc được.
+
+**Fix server**: Move `/history` lên TRƯỚC `:orderCode`. Comment cảnh báo route order matters.
+
+**Frontend changes (tab1-kpi-stats.js)**:
+
+1. **Modal full history** (`window.openKpiHistoryModal()`): button "📜 Xem full" trong tooltip → mở 720px dialog. Lazy fetch ≤200 entries từ `/kpi-sale-flag/history?limit=200`. Filter live theo user/orderCode/SP, drop-down lọc check/uncheck/all. Refresh button. Esc + click overlay → close.
+2. **User name highlighted**: Mỗi entry: `<b>userName</b> → orderCode SP #productId — relativeTime`. Tooltip 10-recent cũng bold username.
+3. **KPI thực vs Dự tính**: `_computeStats` đổi từ `StatusText !== 'Đơn hàng'` sang `InvoiceStatusStore.get(o.Id)?.StateCode === 'CrossCheckComplete'`. Tooltip layout 4 cell: Tổng đơn KPI / KPI thực ✓ / Dự tính ⏳ / Tổng SP.
+4. **Cross-machine sync**:
+    - Modal: polling 10s khi `display !== 'none'` + `visibilityState === 'visible'` → tự động fetch fresh history từ máy khác.
+    - Local `kpi-sale-flag-changed` event → instant refresh modal (350ms delay đợi server insert).
+    - Server-side là single source of truth → mọi máy reads same Postgres → đã đồng bộ.
+
+**Browser-tested localhost**: `computeKpiStats()` = `{total:26, approved:2, notApproved:24, totalProducts:33}`. Modal opens → polling kicks in. PUT TEST-DEBUG-\* → success ✓; cleaned up. Lúc test phát hiện route `/history` trả flags rỗng → fix route order ✓.
+
 ### [render][backend][fix] issueVirtualCredit FOR UPDATE + manual deposit idempotency
 
 **Files**: MODIFIED [render.com/services/wallet-event-processor.js](../render.com/services/wallet-event-processor.js); ADDED [scripts/test-wallet-idempotency.js](../scripts/test-wallet-idempotency.js)

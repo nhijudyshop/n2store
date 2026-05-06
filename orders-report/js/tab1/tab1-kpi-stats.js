@@ -397,16 +397,45 @@
     }
 
     let _fullHistoryRows = [];
+    let _modalPollTimer = null;
+    const MODAL_POLL_MS = 10000; // 10s while modal open — đồng bộ với check/uncheck từ máy khác
+
+    function _isModalOpen() {
+        const modal = document.getElementById(MODAL_ID);
+        return !!modal && modal.style.display !== 'none';
+    }
 
     async function _openFullHistoryModal() {
         const modal = _ensureFullHistoryModal();
         modal.style.display = 'flex';
         await _loadFullHistory();
+        _startModalPolling();
     }
 
     function _closeFullHistoryModal() {
         const modal = document.getElementById(MODAL_ID);
         if (modal) modal.style.display = 'none';
+        _stopModalPolling();
+    }
+
+    function _startModalPolling() {
+        _stopModalPolling();
+        _modalPollTimer = setInterval(() => {
+            if (!_isModalOpen()) {
+                _stopModalPolling();
+                return;
+            }
+            // Skip if user document is hidden — tiết kiệm request khi tab nền.
+            if (document.visibilityState === 'hidden') return;
+            _loadFullHistory(); // silent refresh — keeps filter input/value intact
+        }, MODAL_POLL_MS);
+    }
+
+    function _stopModalPolling() {
+        if (_modalPollTimer) {
+            clearInterval(_modalPollTimer);
+            _modalPollTimer = null;
+        }
     }
 
     async function _loadFullHistory() {
@@ -508,8 +537,14 @@
     }
 
     // Toggle KPI flag → counter có thể đổi (add/remove order khỏi KPI set).
+    // Đồng thời refresh modal full history nếu đang mở — instant feedback cho local
+    // toggle. Cross-machine: polling 10s trong modal lo phần đồng bộ từ máy khác.
     window.addEventListener('kpi-sale-flag-changed', () => {
         setTimeout(_refreshCounter, 50);
+        if (_isModalOpen()) {
+            // Delay nhỏ để server kịp insert vào history table.
+            setTimeout(_loadFullHistory, 350);
+        }
     });
 
     // Init: chờ DOM + KpiSaleFlagStore + allData ready.
