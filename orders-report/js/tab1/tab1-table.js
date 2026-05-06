@@ -1357,10 +1357,11 @@ function createRowHTML(order) {
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
             <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
                     ${window.StockStatusEngine?.renderBadge?.(order.Id) || ''}
                     <span>${order.SessionIndex || ''}</span>
                     ${mergedIcon}
+                    ${typeof renderKpiBadge === 'function' ? renderKpiBadge(order.Code) : ''}
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>

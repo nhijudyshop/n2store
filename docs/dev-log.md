@@ -8,6 +8,28 @@
 
 ## 2026-05-06
 
+### [orders][feat] KPI badge — hiển thị "★ KPI" trong cột STT cho đơn có SP đánh dấu KPI
+
+**Files**: NEW [orders-report/js/tab1/tab1-kpi-badge.js](../orders-report/js/tab1/tab1-kpi-badge.js), MODIFIED [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
+
+User: "mark hay badge đơn có kpi để nhìn ngoài bảng luôn".
+
+Trước: Filter "KPI: có / chưa" đã có nhưng user vẫn phải bật filter mới biết đơn nào có KPI. Cần badge inline visible trên bảng default.
+
+**Fix**: Module mới [tab1-kpi-badge.js](../orders-report/js/tab1/tab1-kpi-badge.js):
+
+- `renderKpiBadge(orderCode)` — sync read từ `KpiSaleFlagStore.hasKpiFlag`, trả `<span class="kpi-badge">★ KPI</span>` (yellow gradient `#fbbf24→#f59e0b`, font 9px, fa-star icon).
+- `createRowHTML` ([tab1-table.js:1364](../orders-report/js/tab1/tab1-table.js#L1364)) inline badge trong cột STT (cạnh StockStatus + STT number + merged icon).
+- `preloadKpiBadges()` — bulk-summary load khi `allData` ready (poll 500ms × 30 lần) → batch apply badge vào tất cả row đang trong DOM. Không cần full re-render.
+- Wrap `performTableSearch` → 50ms sau mỗi re-render gọi `_refreshAllBadgesInDom` để badges sync với rows mới (filter, sort, scroll-load-more).
+- Listen event `kpi-sale-flag-changed` → surgical update 1 row (insert/remove badge tại STT cell, không touch rows khác).
+
+**Browser-tested localhost** (mock bulk-summary trả 2 KPI codes):
+
+- `preloadKpiBadges()` → `KpiSaleFlagStore.hasKpiFlag` chính xác cho 2 codes ✅.
+- DOM: `totalBadgesInDom: 2`, `badgesInDomCodes` exact match `["260500856","260500855"]` ✅.
+- Screenshot xác nhận badge "★ KPI" yellow gradient hiển thị inline với STT 856, không che layout. ✅
+
 ### [orders][feat] Filter "KPI" — đơn nào có ít nhất 1 SP đã đánh dấu KPI
 
 **Files**: NEW endpoint [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), MODIFIED [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js), [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js), [orders-report/js/tab1/tab1-active-filter-chip.js](../orders-report/js/tab1/tab1-active-filter-chip.js), [orders-report/js/tab1/tab1-filter-persistence.js](../orders-report/js/tab1/tab1-filter-persistence.js), [orders-report/tab1-orders.html](../orders-report/tab1-orders.html)
