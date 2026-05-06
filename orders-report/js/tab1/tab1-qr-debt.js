@@ -427,15 +427,25 @@ async function fetchWalletDebtBatch(phones) {
 
             const result = await response.json();
             if (result.success && result.data) {
+                let needCleanup = false;
                 for (const [phone, data] of Object.entries(result.data)) {
                     if ((data.total || 0) > 0) {
                         window.walletDebtData.set(phone, data);
                     } else {
+                        if (window.walletDebtData.has(phone)) {
+                            // Wallet vừa bị trừ về 0 → trigger cleanup auto-flag CK/TC
+                            needCleanup = true;
+                        }
                         window.walletDebtData.delete(phone);
+                        // Reset done flags để _applyWalletAutoTags re-process row & auto-remove
+                        _walletAutoTagDone.delete(phone);
+                        _walletAutoTagDone.delete(phone + ':CK');
+                        _walletAutoTagDone.delete(phone + ':TC');
                     }
                 }
                 // Persist to localStorage cache (debounced)
                 _saveWalletCacheToLS();
+                if (needCleanup) _scheduleWalletAutoTag();
             }
         } catch (error) {
             console.error(
@@ -540,7 +550,11 @@ function _scheduleWalletAutoTag() {
 function _markWalletAutoTagDirty(phone) {
     // Gọi khi wallet data thay đổi (SSE update) → cho phép re-run auto-tag cho phone này
     const normalized = normalizePhoneForQR(phone);
-    if (normalized) _walletAutoTagDone.delete(normalized);
+    if (normalized) {
+        _walletAutoTagDone.delete(normalized);
+        _walletAutoTagDone.delete(normalized + ':CK');
+        _walletAutoTagDone.delete(normalized + ':TC');
+    }
 }
 
 function _applyWalletAutoTags() {
@@ -560,15 +574,17 @@ function _applyWalletAutoTags() {
     _walletAutoTagRetries = 0;
     if (!window.walletDebtData) return;
 
-    // Helper: kiểm tra flag được auto-add (source 'Tự Động') từ history.
-    // Tránh xóa flag user CHỦ Ý gắn tay.
+    // Helper: kiểm tra flag được auto-add (source ≠ user thật) từ history.
+    // Auto markers: 'Tự Động', 'Hệ thống', 'TPOS-SYNC*'. Tránh xóa flag user gắn tay.
+    const _AUTO_USER_MARKERS = new Set(['Tự Động', 'Hệ thống', 'Tự Động (gỡ)']);
     const _isFlagAutoAdded = (orderCode, flagKey) => {
         const history = window.ProcessingTagState?.getHistory?.(orderCode) || [];
         // Scan ngược tìm record ADD_FLAG cuối cùng cho flagKey
         for (let i = history.length - 1; i >= 0; i--) {
             const e = history[i];
             if (e.action === 'ADD_FLAG' && e.value === flagKey) {
-                return e.user === 'Tự Động';
+                const user = e.user || '';
+                return _AUTO_USER_MARKERS.has(user) || user.startsWith('TPOS-SYNC');
             }
             if (e.action === 'REMOVE_FLAG' && e.value === flagKey) {
                 return false; // đã bị remove rồi → không cần xét
