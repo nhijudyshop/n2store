@@ -1658,7 +1658,7 @@
    ===================================================== */
 .dr-hover-bill,
 .dr-hover-customer {
-    cursor: help;
+    cursor: pointer;
 }
 .dr-hover-bill:hover {
     background: #fef3c7;

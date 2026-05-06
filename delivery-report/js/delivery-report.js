@@ -2877,7 +2877,7 @@
             return `<button type="button" class="dr-hp-review-btn" data-uid="${escapeHtml(uid)}" title="Kiểm tra giao dịch" style="background:#fef3c7;color:#a16207;border:1px solid #fde68a;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:2px;"><i class="fas fa-clipboard-check"></i></button>`;
         }
 
-        function renderCustomer(data, phone) {
+        function renderCustomer(data, phone, targetEl) {
             const c = data.customer || {};
             const w = data.wallet || { balance: 0, virtual_balance: 0 };
             const txs = (data.recent_transactions || []).slice(0, 5);
@@ -2939,14 +2939,14 @@
                           })
                           .join('');
 
-            const pop = ensurePopover();
+            const target = targetEl || ensurePopover();
             // Stash tx data so the review modal can look up details by uid.
-            pop.__reviewCtx = {
+            target.__reviewCtx = {
                 customerName: c.name || '',
                 phone,
                 txByUid: new Map(txs.map((tx) => [getTxUid(tx), tx]).filter(([k]) => k)),
             };
-            pop.innerHTML = `
+            target.innerHTML = `
                 <div class="dr-hp-header">
                     <span class="dr-hp-title"><i class="fas fa-user"></i> ${escapeHtml(c.name || phone)}</span>
                     <span class="dr-hp-sub">${escapeHtml(phone)}${status ? ' · ' + escapeHtml(status) : ''}${tier && tier !== 'normal' ? ' · ' + escapeHtml(tier) : ''}</span>
@@ -2970,7 +2970,7 @@
                 <div class="dr-hp-section-title">Hoạt động gần đây</div>
                 <div class="dr-hp-tx-list">${txHtml}</div>
             `;
-            wirePopoverActions(phone);
+            wirePopoverActions(phone, target);
         }
 
         // Open a compressed lightbox for an image URL via render image-proxy.
@@ -3086,10 +3086,10 @@
             }
         }
 
-        function wirePopoverActions(phone) {
-            const pop = ensurePopover();
-            pop.dataset.phone = phone;
-            pop.querySelectorAll('.dr-hp-eye-btn:not([data-bound])').forEach((btn) => {
+        function wirePopoverActions(phone, targetEl) {
+            const target = targetEl || ensurePopover();
+            target.dataset.phone = phone;
+            target.querySelectorAll('.dr-hp-eye-btn:not([data-bound])').forEach((btn) => {
                 btn.dataset.bound = '1';
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -3104,7 +3104,7 @@
                     }
                 });
             });
-            pop.querySelectorAll('.dr-hp-approve-btn:not([data-bound])').forEach((btn) => {
+            target.querySelectorAll('.dr-hp-approve-btn:not([data-bound])').forEach((btn) => {
                 btn.dataset.bound = '1';
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -3116,7 +3116,7 @@
                     );
                 });
             });
-            pop.querySelectorAll('.dr-hp-review-btn:not([data-bound])').forEach((btn) => {
+            target.querySelectorAll('.dr-hp-review-btn:not([data-bound])').forEach((btn) => {
                 btn.dataset.bound = '1';
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -3130,7 +3130,10 @@
         // ghi chú + đính kèm ảnh (Ctrl+V hoặc kéo thả) trước khi xác nhận.
         function reviewTransaction(uid, btn) {
             if (!uid) return;
-            const ctx = popoverEl?.__reviewCtx;
+            // Walk up to find the host element with __reviewCtx (popover or modal column).
+            let host = btn;
+            while (host && !host.__reviewCtx) host = host.parentElement;
+            const ctx = host?.__reviewCtx;
             const tx = ctx?.txByUid?.get(uid) || null;
             const customerName = ctx?.customerName || '';
             const phone = ctx?.phone || '';
@@ -3139,7 +3142,7 @@
 
         // Lazy-create the manager-review modal (giống balance-history).
         let reviewModalEl = null;
-        const reviewState = { uid: null, btn: null, imageFile: null, imageUrl: null, isUploading: false };
+        const reviewState = { uid: null, btn: null, phone: '', imageFile: null, imageUrl: null, isUploading: false };
 
         function ensureReviewModal() {
             if (reviewModalEl) return reviewModalEl;
@@ -3251,6 +3254,7 @@
             const modal = ensureReviewModal();
             reviewState.uid = uid;
             reviewState.btn = btn;
+            reviewState.phone = customerCtx?.phone || '';
             clearReviewImage();
             modal.querySelector('#dr-rev-note').value = '';
 
@@ -3431,9 +3435,8 @@
                     badge.textContent = '✓ ĐÃ KT';
                     btn.replaceWith(badge);
                 }
-                // Invalidate cache so next hover refetches reviewed status
-                const phone = popoverEl?.__reviewCtx?.phone;
-                if (phone) customerCache.delete(phone);
+                // Invalidate cache so next open refetches reviewed status
+                if (reviewState.phone) customerCache.delete(reviewState.phone);
                 closeReviewModal();
             } catch (err) {
                 console.error('[DR REVIEW]', uid, err);
@@ -3443,41 +3446,131 @@
             }
         }
 
-        let currentCell = null;
+        // =====================================================
+        // ROW MODAL — bill (left) + customer activity (right)
+        // Click vào ô số HĐ hoặc ô khách hàng để mở.
+        // =====================================================
+        let rowModalEl = null;
 
-        function onMouseEnter(e) {
-            const cell = e.target.closest('.dr-hover-bill, .dr-hover-customer');
-            if (!cell || cell === currentCell) return;
-            currentCell = cell;
-            clearTimeout(showTimer);
-            clearTimeout(hideTimer);
-            showTimer = setTimeout(() => {
-                if (cell.classList.contains('dr-hover-bill')) showBill(cell);
-                else showCustomer(cell);
-            }, HOVER_DELAY_MS);
+        function ensureRowModal() {
+            if (rowModalEl) return rowModalEl;
+            rowModalEl = document.createElement('div');
+            rowModalEl.id = 'dr-row-modal';
+            rowModalEl.style.cssText =
+                'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;padding:20px;';
+            rowModalEl.innerHTML = `
+                <div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%;max-width:1200px;height:90vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
+                        <h3 id="dr-row-title" style="margin:0;font-size:15px;font-weight:600;color:#111827;">Chi tiết đơn hàng</h3>
+                        <button type="button" id="dr-row-close" style="background:none;border:none;font-size:24px;color:#6b7280;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;min-height:0;">
+                        <div style="display:flex;flex-direction:column;border-right:1px solid #e5e7eb;background:#fafafa;min-height:0;">
+                            <div style="padding:8px 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #e5e7eb;background:white;flex-shrink:0;">Bill</div>
+                            <div id="dr-row-bill" style="flex:1;overflow:auto;min-height:0;"></div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;min-height:0;">
+                            <div style="padding:8px 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #e5e7eb;background:white;flex-shrink:0;">Hoạt động khách hàng</div>
+                            <div id="dr-row-activity" style="flex:1;overflow:auto;min-height:0;padding:14px;font-size:13px;color:#1f2937;"></div>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(rowModalEl);
+            rowModalEl.querySelector('#dr-row-close').addEventListener('click', closeRowModal);
+            rowModalEl.addEventListener('click', (e) => {
+                if (e.target === rowModalEl) closeRowModal();
+            });
+            return rowModalEl;
         }
 
-        function onMouseLeave(e) {
+        function closeRowModal() {
+            if (rowModalEl) rowModalEl.style.display = 'none';
+        }
+
+        async function openRowModal(cell) {
+            const tr = cell.closest('tr');
+            if (!tr) return;
+            const billCell = tr.querySelector('.dr-hover-bill');
+            const custCell = tr.querySelector('.dr-hover-customer');
+            const id = billCell?.dataset.id || '';
+            const number = billCell?.dataset.number || '';
+            const phone = custCell?.dataset.phone || '';
+            const customerName = custCell?.querySelector('.dr-customer-name')?.textContent?.trim() || '';
+
+            const modal = ensureRowModal();
+            modal.style.display = 'flex';
+            modal.querySelector('#dr-row-title').textContent =
+                `${number || 'Đơn hàng'}${customerName ? ' · ' + customerName : ''}${phone ? ' · ' + phone : ''}`;
+
+            const billCol = modal.querySelector('#dr-row-bill');
+            const actCol = modal.querySelector('#dr-row-activity');
+
+            // Bill (left) — async load
+            if (id) {
+                billCol.innerHTML =
+                    '<div class="dr-hp-loading" style="padding:24px;display:flex;align-items:center;justify-content:center;gap:8px;color:#6b7280;"><div class="dr-hp-spinner"></div><span>Đang tải bill ' +
+                    escapeHtml(number) +
+                    '…</span></div>';
+                fetchBillHtml(id)
+                    .then((html) => {
+                        if (modal.style.display === 'none') return;
+                        billCol.innerHTML = '';
+                        const ifr = document.createElement('iframe');
+                        ifr.style.cssText = 'width:100%;height:100%;border:0;background:white;display:block;';
+                        ifr.sandbox = 'allow-same-origin';
+                        ifr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
+                        billCol.appendChild(ifr);
+                    })
+                    .catch((e) => {
+                        if (modal.style.display === 'none') return;
+                        billCol.innerHTML = `<div class="dr-hp-error" style="padding:20px;color:#dc2626;">Không tải được bill: ${escapeHtml(e.message)}</div>`;
+                    });
+            } else {
+                billCol.innerHTML =
+                    '<div style="padding:20px;color:#6b7280;">Không có ID hóa đơn</div>';
+            }
+
+            // Activity (right) — async load
+            if (phone) {
+                actCol.innerHTML =
+                    '<div class="dr-hp-loading" style="display:flex;align-items:center;justify-content:center;gap:8px;color:#6b7280;padding:24px;"><div class="dr-hp-spinner"></div><span>Đang tải khách hàng ' +
+                    escapeHtml(phone) +
+                    '…</span></div>';
+                fetchCustomer(phone)
+                    .then((data) => {
+                        if (modal.style.display === 'none') return;
+                        if (!data) {
+                            actCol.innerHTML =
+                                '<div class="dr-hp-error" style="padding:20px;color:#6b7280;">Khách chưa có trong hệ thống</div>';
+                            return;
+                        }
+                        renderCustomer(data, phone, actCol);
+                    })
+                    .catch((e) => {
+                        if (modal.style.display === 'none') return;
+                        actCol.innerHTML = `<div class="dr-hp-error" style="padding:20px;color:#dc2626;">Không tải được ví: ${escapeHtml(e.message)}</div>`;
+                    });
+            } else {
+                actCol.innerHTML = '<div style="padding:20px;color:#6b7280;">Không có SĐT</div>';
+            }
+        }
+
+        function onCellClick(e) {
+            // Skip clicks on actionable controls inside the row (e.g., unscan buttons, links).
+            if (e.target.closest('button, a')) return;
             const cell = e.target.closest('.dr-hover-bill, .dr-hover-customer');
-            if (!cell || cell !== currentCell) return;
-            // Still inside same cell or moving into popover → don't hide
-            const rt = e.relatedTarget;
-            if (rt && (cell.contains(rt) || (popoverEl && popoverEl.contains(rt)))) return;
-            currentCell = null;
-            clearTimeout(showTimer);
-            scheduleHide();
+            if (!cell) return;
+            e.preventDefault();
+            openRowModal(cell);
         }
 
         function init() {
             const root = document.getElementById('drTableWrapper') || document.body;
-            root.addEventListener('mouseover', onMouseEnter);
-            root.addEventListener('mouseout', onMouseLeave);
-            // Hide on Escape only. Scroll/resize-hide removed:
-            // - Scroll: popover uses page coords so it stays anchored.
-            // - Resize: caused false dismissal when window briefly resized
-            //   (e.g. Playwright fullPage screenshot, devtools toggle).
+            root.addEventListener('click', onCellClick);
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && popoverEl) popoverEl.style.display = 'none';
+                if (e.key !== 'Escape') return;
+                if (rowModalEl && rowModalEl.style.display !== 'none') closeRowModal();
+                else if (popoverEl) popoverEl.style.display = 'none';
             });
         }
 

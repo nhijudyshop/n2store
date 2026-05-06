@@ -8,6 +8,16 @@
 
 ## 2026-05-06
 
+### [delivery-report] Đổi UX: bỏ hover popover, click ô số HĐ/khách hàng → mở modal 2 cột (bill + hoạt động)
+
+**Files**: MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `HoverPreview` module: thay `mouseover`/`mouseout` bằng `click` trên `.dr-hover-bill, .dr-hover-customer`; thêm `ensureRowModal()`, `openRowModal(cell)`, `closeRowModal()`, `onCellClick(e)`. `renderCustomer(data, phone, targetEl)` + `wirePopoverActions(phone, targetEl)` thêm tham số target. `reviewTransaction()` walk `parentElement` tìm host có `__reviewCtx` (popover hoặc modal column). `reviewState` thêm `phone`; `confirmReview()` invalidate cache theo `reviewState.phone` thay vì `popoverEl`. `showBill`/`showCustomer` (path popover cũ) thành dead code, để lại không xóa. MODIFIED [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-hover-bill, .dr-hover-customer` đổi `cursor: help` → `cursor: pointer`.
+
+**User báo**: hover hiện hoạt động gần đây hơi spam, muốn phải bấm mới hiện. Hiện modal lớn 2 cột: bên trái bill TPOS, bên phải hoạt động khách (như popup hover cũ).
+
+**Implement**: Modal lazy-create (1200px × 90vh), header `{Number} · {Name} · {Phone}` + nút ×. Body grid `1fr 1fr`: cột trái bill iframe (sandbox + base target=_blank, srcdoc style giống popover bill cũ), cột phải reuse `renderCustomer()` qua tham số target — vẫn dùng class `dr-hp-*` cho stat/tx items, không apply `.dr-hover-popover` để tránh `max-width:460px / max-height:70vh` của popover override grid cell. Click overlay/× / Esc → close (Esc ưu tiên đóng modal trước popover). Click ô có button/link bên trong (vd nút unscan) → `closest('button, a')` short-circuit, không mở modal. Cache bill/customer share với code hover cũ → click 2 lần không refetch.
+
+**Status**: ✅ Done — `node --check` pass. Local server (python3) không có trên Windows env này, bỏ qua live test; chờ user verify.
+
 ### [delivery-report] Modal "Kiểm tra giao dịch" trên hover popover (port từ balance-history)
 
 **Files**: MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `HoverPreview` module: thêm `getTxUid()`, `ensureReviewModal()`, `openReviewModal()`, `confirmReview()`, `handleReviewImageSelect()`, `uploadReviewImage()`, `clearReviewImage()`, `closeReviewModal()`. `reviewTransaction()` viết lại: thay `confirm()` flow bằng mở rich modal. `renderCustomer()` stash `__reviewCtx = { customerName, phone, txByUid }` lên popover để modal lookup tx data.
