@@ -274,6 +274,61 @@
         return null;
     }
 
+    /**
+     * Lookup tên SP đầy đủ từ excelProducts cache (sync, không hit network).
+     * Trả null nếu cache chưa có — caller sẽ lazy-fetch hoặc fallback.
+     */
+    function _getProductNameSync(productId) {
+        if (productId == null) return null;
+        const psm = window.productSearchManager;
+        if (!psm) return null;
+        const pid = String(productId);
+        // Excel suggestions cache (synchronous)
+        const fromExcel = (psm.excelProducts || []).find((p) => String(p.Id) === pid);
+        if (fromExcel?.Name) return fromExcel.Name;
+        // Full product cache (synchronous)
+        const fromFull = psm.fullProductCache?.get?.(Number(productId));
+        if (fromFull) return fromFull.NameGet || fromFull.Name || null;
+        return null;
+    }
+
+    /**
+     * Lazy-fetch tên SP cho danh sách productIds chưa có cache. Fire-and-forget;
+     * khi xong → re-render rows trong modal nếu vẫn open.
+     */
+    const _productNameLoading = new Set();
+    function _ensureProductNamesAsync(productIds) {
+        const psm = window.productSearchManager;
+        if (!psm?.getFullProductDetails) return;
+        const missing = [];
+        for (const pid of productIds) {
+            if (pid == null) continue;
+            if (_productNameLoading.has(pid)) continue;
+            if (_getProductNameSync(pid)) continue;
+            missing.push(Number(pid));
+        }
+        if (missing.length === 0) return;
+        // Limit concurrent fetches để tránh hammer API.
+        const BATCH = 5;
+        const fetchOne = async (pid) => {
+            _productNameLoading.add(pid);
+            try {
+                await psm.getFullProductDetails(pid);
+            } catch (e) {
+                /* silent — keep showing pid only */
+            } finally {
+                _productNameLoading.delete(pid);
+            }
+        };
+        (async () => {
+            for (let i = 0; i < missing.length; i += BATCH) {
+                await Promise.all(missing.slice(i, i + BATCH).map(fetchOne));
+            }
+            // Re-render modal nếu còn open để hiển thị tên SP vừa load.
+            if (_isModalOpen()) _renderFullHistoryRows({ preserveScroll: true });
+        })();
+    }
+
     function _renderTooltipHtml(stats, history, loading) {
         // Server count chính xác → hiển thị số. Fallback cache → "≥X".
         const totalProductsLabel = stats.hasIncompleteCache
@@ -456,9 +511,13 @@
                 _stopModalPolling();
                 return;
             }
-            // Skip if user document is hidden — tiết kiệm request khi tab nền.
+            // Skip nếu tab ẩn — tiết kiệm request.
             if (document.visibilityState === 'hidden') return;
-            _loadFullHistory(); // silent refresh — keeps filter input/value intact
+            // Skip nếu user đang gõ trong filter input — tránh re-render làm mất focus.
+            const inp = document.getElementById('kpiHistoryFilterInput');
+            if (inp && document.activeElement === inp) return;
+            // Silent refresh — không show loading skeleton, không re-render nếu data identical.
+            _loadFullHistory(true);
         }, MODAL_POLL_MS);
     }
 
@@ -469,30 +528,56 @@
         }
     }
 
-    async function _loadFullHistory() {
+    /**
+     * @param {boolean} silent — true = polling/auto refresh: skip loading skeleton,
+     *   compare data identity bằng id-set, chỉ re-render khi thay đổi, preserve scrollTop.
+     */
+    async function _loadFullHistory(silent = false) {
         const body = document.getElementById('kpiHistoryModalBody');
         if (!body) return;
-        body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>`;
+        if (!silent) {
+            body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>`;
+        }
+        let fresh;
         try {
             const res = await fetch(`${API_BASE}/kpi-sale-flag/history?limit=200`);
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
-            _fullHistoryRows = data.history || [];
+            fresh = data.history || [];
         } catch (e) {
             console.warn('[KPI-STATS] full history fetch failed:', e?.message);
-            body.innerHTML = `<div style="color:#dc2626; padding:24px 0; text-align:center;">⚠ Không tải được lịch sử: ${_escapeHtml(e?.message || e)}</div>`;
+            if (!silent) {
+                body.innerHTML = `<div style="color:#dc2626; padding:24px 0; text-align:center;">⚠ Không tải được lịch sử: ${_escapeHtml(e?.message || e)}</div>`;
+            }
             return;
         }
-        _renderFullHistoryRows();
+
+        // Identity check: nếu silent và set id giống y hệt → không re-render (tránh giật).
+        if (silent && _isHistoryIdentical(_fullHistoryRows, fresh)) return;
+
+        _fullHistoryRows = fresh;
+        _renderFullHistoryRows({ preserveScroll: silent });
     }
 
-    function _renderFullHistoryRows() {
+    function _isHistoryIdentical(a, b) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i].id !== b[i].id || a[i].action !== b[i].action) return false;
+        }
+        return true;
+    }
+
+    function _renderFullHistoryRows(opts = {}) {
         const body = document.getElementById('kpiHistoryModalBody');
         if (!body) return;
         const inp = document.getElementById('kpiHistoryFilterInput');
         const actionFilter = document.getElementById('kpiHistoryActionFilter');
         const q = (inp?.value || '').trim().toLowerCase();
         const actionMode = actionFilter?.value || 'all';
+
+        // Preserve scroll position trước khi re-render (silent refresh giữ chỗ scroll user đang xem).
+        const prevScrollTop = opts.preserveScroll ? body.scrollTop : 0;
 
         const filtered = _fullHistoryRows.filter((h) => {
             if (actionMode !== 'all' && h.action !== actionMode) return false;
@@ -507,6 +592,9 @@
             return;
         }
 
+        // Trigger lazy load product names cho missing pids (để hover hiển thị tên đầy đủ).
+        _ensureProductNamesAsync(filtered.map((h) => h.productId));
+
         const rows = filtered
             .map((h) => {
                 const isCheck = h.action === 'check';
@@ -514,12 +602,22 @@
                 const actionColor = isCheck ? '#10b981' : '#ef4444';
                 const userName = _escapeHtml(h.userName || h.userId || '?');
                 const stt = _getSttByOrderCode(h.orderCode);
+                const productName = _getProductNameSync(h.productId);
+                const pid = _escapeHtml(h.productId);
+                // Tooltip text trên STT — hiển thị đầy đủ tên SP + ID + order code.
+                // SP # ẩn mặc định ở UI; user hover STT để xem chi tiết.
+                const sttTooltip = _escapeHtml(
+                    [
+                        productName || `SP #${pid} (đang tải tên…)`,
+                        `Mã đơn: ${h.orderCode}`,
+                        `Product ID: ${pid}`,
+                    ].join('\n')
+                );
                 // Hiển thị STT (SessionIndex) thay cho mã đơn hàng — dễ đọc hơn cho user.
                 // Fallback orderCode nếu STT không tìm được (đơn ngoài view hiện tại).
                 const orderLabel = stt
-                    ? `STT <b>${_escapeHtml(stt)}</b>`
-                    : `<span title="${_escapeHtml(h.orderCode)} (STT không có trong view)" style="font-family:monospace;">${_escapeHtml(h.orderCode)}</span>`;
-                const pid = _escapeHtml(h.productId);
+                    ? `<span class="kpi-history-stt" title="${sttTooltip}" style="cursor:help; border-bottom:1px dotted #9ca3af;">STT <b>${_escapeHtml(stt)}</b></span>`
+                    : `<span class="kpi-history-stt" title="${sttTooltip}" style="cursor:help; font-family:monospace;">${_escapeHtml(h.orderCode)}</span>`;
                 return `
                     <div style="display:grid; grid-template-columns: 70px 1fr 90px 60px; gap:10px; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:12px; align-items:center;">
                         <span style="color:${actionColor}; font-weight:700;">${actionLabel}</span>
@@ -527,7 +625,6 @@
                             <b style="color:#111827;">${userName}</b>
                             <span style="color:#9ca3af; margin:0 4px;">→</span>
                             <span style="color:#374151;">${orderLabel}</span>
-                            <span style="color:#9ca3af; margin-left:6px; font-size:11px;">SP #${pid}</span>
                         </div>
                         <span style="color:#6b7280; font-size:11px;" title="Giờ Vietnam (GMT+7)">${_formatTime(h.createdAt)}</span>
                         <span style="color:#9ca3af; font-size:10px; text-align:right;">${_relativeTime(h.createdAt)}</span>
@@ -540,6 +637,10 @@
             <span>${filtered.length} entries${filtered.length !== _fullHistoryRows.length ? ` / ${_fullHistoryRows.length} tổng` : ''}</span>
         </div>`;
         body.innerHTML = summary + rows;
+        // Restore scroll position cho silent refresh — tránh giật khi polling.
+        if (opts.preserveScroll && prevScrollTop > 0) {
+            body.scrollTop = prevScrollTop;
+        }
     }
 
     function _relativeTime(iso) {
@@ -577,8 +678,8 @@
     window.addEventListener('kpi-sale-flag-changed', () => {
         setTimeout(_refreshCounter, 50);
         if (_isModalOpen()) {
-            // Delay nhỏ để server kịp insert vào history table.
-            setTimeout(_loadFullHistory, 350);
+            // Delay nhỏ để server kịp insert vào history. silent=true để tránh giật.
+            setTimeout(() => _loadFullHistory(true), 350);
         }
     });
 
