@@ -2681,6 +2681,132 @@
     }
 
     /**
+     * Đảm bảo OrderLines cho bill — thử cache (invoiceData/OrderStore Details/saleOnlineOrder Details)
+     * trước khi rơi xuống TPOS GetDetails refetch. Nếu refetch thành công, persist vào
+     * InvoiceStatusStore + OrderStore để future sends khỏi gọi lại.
+     *
+     * @param {object} args
+     * @param {string} args.orderId — SaleOnline_Order Id (UUID).
+     * @param {object} [args.invoiceData] — Entry từ InvoiceStatusStore (nếu có).
+     * @param {object} [args.order] — SaleOnline order shim (cho persist).
+     * @param {Array}  [args.initialLines] — OrderLines caller đã có sẵn (vd order.OrderLines).
+     * @param {object} [args.opts] — { showNotif: bool, label: 'BILL'|'BULK-SEND'|'PRINT' }
+     * @returns {Promise<Array>} Mapped OrderLine array (có thể rỗng nếu refetch fail).
+     */
+    async function ensureOrderLinesForBill({
+        orderId,
+        invoiceData = null,
+        order = null,
+        initialLines = null,
+        opts = {},
+    }) {
+        const { showNotif = false, label = 'BILL' } = opts;
+
+        const mapToBillShape = (lines) =>
+            (lines || []).map((d) => ({
+                ProductName: d.ProductName || d.ProductNameGet || '',
+                ProductUOMQty: d.ProductUOMQty || d.Quantity || 1,
+                PriceUnit: d.PriceUnit || d.Price || 0,
+                PriceTotal:
+                    d.PriceTotal ||
+                    (d.ProductUOMQty || d.Quantity || 1) * (d.PriceUnit || d.Price || 0),
+                Note: d.Note || '',
+            }));
+
+        // 1. Caller's initial lines
+        let lines = mapToBillShape(initialLines);
+        if (lines.length > 0) return lines;
+
+        // 2. invoiceData.OrderLines
+        if (invoiceData?.OrderLines?.length > 0) {
+            return mapToBillShape(invoiceData.OrderLines);
+        }
+
+        // 3. OrderStore Details / OrderLines
+        const cachedOrder =
+            order ||
+            window.OrderStore?.get?.(orderId) ||
+            (window.displayedData || []).find((o) => String(o.Id) === String(orderId));
+        const cachedDetails = cachedOrder?.Details || cachedOrder?.OrderLines || [];
+        if (cachedDetails.length > 0) return mapToBillShape(cachedDetails);
+
+        // 4. Last resort: TPOS GetDetails refetch + persist.
+        let loadingNotifId = null;
+        if (showNotif) {
+            loadingNotifId = window.notificationManager?.info?.(
+                'Đang lấy lại sản phẩm từ TPOS...',
+                15000
+            );
+        }
+        try {
+            const refetched = await refetchOrderLinesFromTpos(orderId);
+            if (loadingNotifId != null && window.notificationManager?.remove) {
+                window.notificationManager.remove(loadingNotifId);
+            }
+            if (refetched && refetched.length > 0) {
+                if (invoiceData) {
+                    persistRefetchedOrderLines(orderId, invoiceData, cachedOrder, refetched);
+                }
+                if (showNotif) {
+                    window.notificationManager?.success?.(
+                        `Đã lấy ${refetched.length} sản phẩm từ TPOS`,
+                        2500
+                    );
+                }
+                console.log(
+                    `[${label}] Refetched ${refetched.length} OrderLines from TPOS for ${orderId}`
+                );
+                return refetched;
+            }
+        } catch (e) {
+            if (loadingNotifId != null && window.notificationManager?.remove) {
+                window.notificationManager.remove(loadingNotifId);
+            }
+            console.error(`[${label}] Refetch OrderLines from TPOS failed for ${orderId}:`, e);
+            if (showNotif) {
+                window.notificationManager?.warning?.(
+                    'Không thể lấy sản phẩm từ TPOS — kiểm tra mạng/đăng nhập',
+                    4000
+                );
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Persist các OrderLines vừa refetch vào InvoiceStatusStore + OrderStore
+     * để bill preview & future sends không cần refetch lại nữa.
+     */
+    function persistRefetchedOrderLines(orderId, invoiceData, order, refetched) {
+        try {
+            InvoiceStatusStore.set(orderId, { ...invoiceData, OrderLines: refetched }, order);
+        } catch (e) {
+            console.warn('[INVOICE-STATUS] Update store after refetch failed:', e);
+        }
+        try {
+            const cached = window.OrderStore?.get?.(orderId);
+            if (cached) {
+                cached.Details = refetched.map((l) => ({
+                    ProductName: l.ProductName,
+                    Quantity: l.ProductUOMQty,
+                    Price: l.PriceUnit,
+                    PriceTotal: l.PriceTotal,
+                    Note: l.Note,
+                }));
+                cached.TotalQuantity = refetched.reduce(
+                    (s, l) => s + (Number(l.ProductUOMQty) || 0),
+                    0
+                );
+                cached.TotalAmount = refetched.reduce((s, l) => s + (Number(l.PriceTotal) || 0), 0);
+                window.OrderStore.update?.(orderId, cached) ||
+                    window.OrderStore.set?.(orderId, cached);
+            }
+        } catch (e) {
+            console.warn('[INVOICE-STATUS] Update OrderStore after refetch failed:', e);
+        }
+    }
+
+    /**
      * Refetch fresh OrderLines từ TPOS GetDetails endpoint cho `orderId`.
      * Dùng khi cache stale + OrderStore Details rỗng — đảm bảo không gửi bill rỗng.
      * @param {string} orderId — SaleOnline_Order Id (UUID).
@@ -2771,75 +2897,15 @@
             }
         }
 
-        // Fallback OrderLines: nếu invoiceData.OrderLines rỗng (legacy entries / cache stale),
-        // thử lấy từ OrderStore Details. Tránh gửi bill rỗng cho khách.
-        let orderLinesForBill = invoiceData.OrderLines || [];
-        if (orderLinesForBill.length === 0) {
-            const fallbackOrder =
-                window.OrderStore?.get(orderId) ||
-                displayedData?.find((o) => String(o.Id) === String(orderId));
-            const fallbackDetails = fallbackOrder?.Details || fallbackOrder?.OrderLines || [];
-            if (fallbackDetails.length > 0) {
-                orderLinesForBill = fallbackDetails.map((d) => ({
-                    ProductName: d.ProductName || d.ProductNameGet || '',
-                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                    PriceUnit: d.PriceUnit || d.Price || 0,
-                    PriceTotal:
-                        d.PriceTotal ||
-                        (d.Quantity || d.ProductUOMQty || 1) * (d.PriceUnit || d.Price || 0),
-                    Note: d.Note || '',
-                }));
-                console.warn(
-                    `[INVOICE-STATUS] OrderLines empty in invoiceData for ${orderId}, fell back to OrderStore Details (${orderLinesForBill.length} lines)`
-                );
-            }
-        }
-
-        // Last resort: refetch fresh OrderLines từ TPOS (GetDetails endpoint).
-        // Cần thiết khi cache stale + OrderStore Details rỗng (vd đơn cũ load từ Pending DB).
-        // Đồng bộ lại OrderStore + InvoiceStatusStore để lần sau khỏi refetch.
-        if (orderLinesForBill.length === 0) {
-            try {
-                window.notificationManager?.info?.('Đang lấy lại sản phẩm từ TPOS...', {
-                    duration: 2000,
-                });
-                const refetched = await refetchOrderLinesFromTpos(orderId);
-                if (refetched && refetched.length > 0) {
-                    orderLinesForBill = refetched;
-                    // Cập nhật InvoiceStatusStore với OrderLines mới để future sends không refetch.
-                    try {
-                        InvoiceStatusStore.set(
-                            orderId,
-                            { ...invoiceData, OrderLines: refetched },
-                            order
-                        );
-                    } catch (e) {
-                        console.warn('[INVOICE-STATUS] Update store after refetch failed:', e);
-                    }
-                    // Cập nhật OrderStore Details để các flow khác (modal, edit) cũng có data.
-                    try {
-                        const cached = window.OrderStore?.get?.(orderId);
-                        if (cached) {
-                            cached.Details = refetched.map((l) => ({
-                                ProductName: l.ProductName,
-                                Quantity: l.ProductUOMQty,
-                                Price: l.PriceUnit,
-                                PriceTotal: l.PriceTotal,
-                                Note: l.Note,
-                            }));
-                            window.OrderStore.set?.(orderId, cached);
-                        }
-                    } catch (e) {
-                        console.warn('[INVOICE-STATUS] Update OrderStore after refetch failed:', e);
-                    }
-                    console.log(
-                        `[INVOICE-STATUS] Refetched ${refetched.length} OrderLines from TPOS for ${orderId}`
-                    );
-                }
-            } catch (e) {
-                console.error('[INVOICE-STATUS] Refetch OrderLines from TPOS failed:', e);
-            }
-        }
+        // Resolve OrderLines: invoiceData → OrderStore.Details → TPOS refetch.
+        // Helper centralized — apply consistently across all bill paths.
+        let orderLinesForBill = await ensureOrderLinesForBill({
+            orderId,
+            invoiceData,
+            order,
+            initialLines: invoiceData.OrderLines,
+            opts: { showNotif: true, label: 'INVOICE-STATUS' },
+        });
 
         // Block gửi bill nếu vẫn không có sản phẩm — bill rỗng vô nghĩa cho khách
         if (orderLinesForBill.length === 0) {
@@ -2953,49 +3019,17 @@
             if (districtInfo) carrierName = getCarrierNameFromDistrict(districtInfo);
         }
 
-        // Fallback OrderLines từ OrderStore Details nếu invoiceData rỗng
-        let orderLinesForBill = invoiceData.OrderLines || [];
-        if (orderLinesForBill.length === 0) {
-            const fallbackOrder =
-                window.OrderStore?.get(orderId) ||
-                displayedData?.find((o) => String(o.Id) === String(orderId));
-            const fallbackDetails = fallbackOrder?.Details || fallbackOrder?.OrderLines || [];
-            if (fallbackDetails.length > 0) {
-                orderLinesForBill = fallbackDetails.map((d) => ({
-                    ProductName: d.ProductName || d.ProductNameGet || '',
-                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                    PriceUnit: d.PriceUnit || d.Price || 0,
-                    PriceTotal:
-                        d.PriceTotal ||
-                        (d.Quantity || d.ProductUOMQty || 1) * (d.PriceUnit || d.Price || 0),
-                    Note: d.Note || '',
-                }));
-            }
-        }
-
-        // Cuối cùng: refetch từ TPOS nếu vẫn rỗng (đảm bảo bulk-send không skip đơn).
-        if (orderLinesForBill.length === 0) {
-            try {
-                const refetched = await refetchOrderLinesFromTpos(orderId);
-                if (refetched && refetched.length > 0) {
-                    orderLinesForBill = refetched;
-                    try {
-                        const order =
-                            window.OrderStore?.get(orderId) ||
-                            displayedData?.find((o) => String(o.Id) === String(orderId));
-                        InvoiceStatusStore.set(
-                            orderId,
-                            { ...invoiceData, OrderLines: refetched },
-                            order
-                        );
-                    } catch (e) {
-                        /* non-fatal */
-                    }
-                }
-            } catch (e) {
-                console.warn('[BULK-SEND-BILL] Refetch failed for', orderId, e);
-            }
-        }
+        // Resolve OrderLines via shared helper (silent — bulk run không spam toast).
+        const orderForCtx =
+            window.OrderStore?.get(orderId) ||
+            (window.displayedData || []).find((o) => String(o.Id) === String(orderId));
+        let orderLinesForBill = await ensureOrderLinesForBill({
+            orderId,
+            invoiceData,
+            order: orderForCtx,
+            initialLines: invoiceData.OrderLines,
+            opts: { showNotif: false, label: 'BULK-SEND-BILL' },
+        });
 
         return {
             Id: invoiceData.Id,
@@ -3105,11 +3139,13 @@
             return;
         }
 
-        // Tunable concurrency (override via window.BULK_BILL_CONCURRENCY / _PER_PAGE)
-        const GLOBAL_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_CONCURRENCY) || 4);
+        // Tunable concurrency (override via window.BULK_BILL_CONCURRENCY / _PER_PAGE).
+        // Bumped: 4→8 global, 2→3 per-page (PAT rotation ổn với 3, 8 worker chia đều
+        // qua nhiều page giảm thời gian gửi 100 đơn từ ~50s xuống ~25s).
+        const GLOBAL_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_CONCURRENCY) || 8);
         const PER_PAGE_CONCURRENCY = Math.max(
             1,
-            Number(window.BULK_BILL_PER_PAGE_CONCURRENCY) || 2
+            Number(window.BULK_BILL_PER_PAGE_CONCURRENCY) || 3
         );
 
         // Confirm with summary
@@ -3144,6 +3180,56 @@
             }
         };
         updateBtn();
+
+        // ─── Pre-warm refetch: scan eligible, parallel-refetch OrderLines cho đơn rỗng
+        // TRƯỚC khi worker pool start. Tránh từng worker block-đợi GetDetails tuần tự.
+        // Khi 30 đơn rỗng cần refetch, parallel-fetch cap 8 song song giảm thời gian
+        // chuẩn bị từ ~30×500ms = 15s xuống ~30/8×500ms ≈ 2s.
+        const PREWARM_CONCURRENCY = Math.max(1, Number(window.BULK_BILL_PREWARM_CONCURRENCY) || 8);
+        const needsRefetch = eligible.filter((it) => {
+            const lines = it.invoiceData?.OrderLines || [];
+            const cachedDetails = it.order?.Details?.length > 0 ? it.order.Details : null;
+            return lines.length === 0 && !cachedDetails;
+        });
+        if (needsRefetch.length > 0) {
+            console.log(
+                `[BULK-SEND-BILL] Pre-warming refetch for ${needsRefetch.length} orders (concurrency: ${PREWARM_CONCURRENCY})`
+            );
+            const prewarmNotif = window.notificationManager?.info?.(
+                `Đang lấy lại SP từ TPOS cho ${needsRefetch.length} đơn rỗng...`,
+                10000
+            );
+            const refetchQueue = needsRefetch.slice();
+            const prewarmWorker = async () => {
+                while (refetchQueue.length > 0) {
+                    const it = refetchQueue.shift();
+                    if (!it) continue;
+                    try {
+                        const refetched = await refetchOrderLinesFromTpos(it.orderId);
+                        if (refetched && refetched.length > 0) {
+                            persistRefetchedOrderLines(
+                                it.orderId,
+                                it.invoiceData,
+                                it.order,
+                                refetched
+                            );
+                            // Refresh local invoiceData reference cho worker dùng sau.
+                            it.invoiceData = InvoiceStatusStore.get(it.orderId) || it.invoiceData;
+                        }
+                    } catch (e) {
+                        console.warn('[BULK-SEND-BILL] Pre-warm refetch failed for', it.orderId, e);
+                    }
+                }
+            };
+            await Promise.all(
+                Array.from({ length: Math.min(PREWARM_CONCURRENCY, needsRefetch.length) }, () =>
+                    prewarmWorker()
+                )
+            );
+            if (prewarmNotif != null && window.notificationManager?.remove) {
+                window.notificationManager.remove(prewarmNotif);
+            }
+        }
 
         // Shared queue — workers pull from front. Skip items whose page is at cap,
         // push them back if so (fair-ish scheduling with small retry).
@@ -3451,16 +3537,25 @@
                       ) || 0
                     : order.DeliveryPrice || 0;
 
-            let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
-            if ((!orderLines || orderLines.length === 0) && saleOnlineOrder?.Details) {
-                orderLines = saleOnlineOrder.Details.map((d) => ({
-                    ProductName: d.ProductName || d.ProductNameGet || '',
-                    ProductNameGet: d.ProductNameGet || d.ProductName || '',
-                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                    PriceUnit: d.Price || d.PriceUnit || 0,
-                    Note: d.Note || '',
-                }));
-            }
+            // Resolve OrderLines via shared helper (cache → OrderStore → TPOS refetch).
+            // Caller có saleOnlineId nên sẽ refetch nếu cache rỗng — đảm bảo bill không rỗng.
+            const initLines =
+                originalOrder?.OrderLines && originalOrder.OrderLines.length > 0
+                    ? originalOrder.OrderLines
+                    : order.OrderLines && order.OrderLines.length > 0
+                      ? order.OrderLines
+                      : null;
+            const invoiceForCtx =
+                saleOnlineId && InvoiceStatusStore.get(saleOnlineId)
+                    ? InvoiceStatusStore.get(saleOnlineId)
+                    : null;
+            const orderLines = await ensureOrderLinesForBill({
+                orderId: saleOnlineId,
+                invoiceData: invoiceForCtx,
+                order: saleOnlineOrder,
+                initialLines: initLines,
+                opts: { showNotif: !skipPreview, label: 'SEND-BILL-MANUAL' },
+            });
 
             // Get wallet balance (PaymentAmount) for bill calculation
             const walletBalance = order.PaymentAmount || originalOrder?.PaymentAmount || 0;
@@ -3670,14 +3765,23 @@
                           ) || 0
                         : order.DeliveryPrice || 0;
 
-                let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
-                if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
-                    orderLines = saleOnlineOrderForData.Details.map((d) => ({
-                        ProductName: d.ProductName || d.ProductNameGet || '',
-                        ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                        PriceUnit: d.Price || d.PriceUnit || 0,
-                    }));
-                }
+                const initLines =
+                    originalOrder?.OrderLines && originalOrder.OrderLines.length > 0
+                        ? originalOrder.OrderLines
+                        : order.OrderLines && order.OrderLines.length > 0
+                          ? order.OrderLines
+                          : null;
+                const saleOnlineIdForCtx = order.SaleOnlineIds?.[0];
+                const invoiceForCtx = saleOnlineIdForCtx
+                    ? InvoiceStatusStore.get(saleOnlineIdForCtx)
+                    : null;
+                const orderLines = await ensureOrderLinesForBill({
+                    orderId: saleOnlineIdForCtx,
+                    invoiceData: invoiceForCtx,
+                    order: saleOnlineOrderForData,
+                    initialLines: initLines,
+                    opts: { showNotif: false, label: 'PRINT-BILL' },
+                });
 
                 enrichedOrders.push({
                     ...order,

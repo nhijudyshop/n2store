@@ -8,6 +8,26 @@
 
 ## 2026-05-06
 
+### [orders][fix] Bulk PBH địa chỉ + bulk send bill nhanh hơn + refetch TPOS không stuck
+
+**Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js)
+
+User: "1/ phần tạo phiếu hàng loạt công nợ và tự chỉnh địa chỉ của từng người đã đúng chưa, nó hay nhầm 1 người tính cho mấy người khác. 2/ phần gửi bill hàng loạt cho chạy đa nhiệm, song song, tăng tốc độ tối ưu. 3/ Đang bị stuck thông báo 'Đang lấy lại sản phẩm từ TPOS...' → lấy xong sửa lại dữ liệu bill để dùng về sau. + Nếu đã có đơn hàng → đảm bảo tất cả phần gửi bill qua messenger hay preview bill nếu sản phẩm bị trống sẽ request tpos lấy dữ liệu cho chính xác."
+
+**Fix #3 — Stuck notif**: `notificationManager.info(msg, duration)` expects NUMBER. Trước: pass `{duration:2000}` → `{...} > 0` NaN → setTimeout không fire → stuck mãi. Fix: pass `15000` (ms), capture notif id, explicit `remove(id)` trên cả success/error path. Thêm success notif "Đã lấy N sản phẩm từ TPOS".
+
+**Fix #3+ — Refetch tất cả bill paths**: Helper centralized `ensureOrderLinesForBill({orderId, invoiceData, order, initialLines, opts})` chain `initialLines → invoiceData.OrderLines → OrderStore.Details → TPOS GetDetails refetch → persist`. Apply 4 entry points: `sendBillFromMainTable` (showNotif), `_buildEnrichedFromInvoice` bulk (silent), `sendBillManually`, `printSuccessOrdersWithoutAutoSend`. Mỗi path persist `InvoiceStatusStore.set` + `OrderStore.update` (Details/TotalQuantity/TotalAmount) → future calls khỏi refetch.
+
+**Fix #2 — Bulk send bill nhanh hơn**: Bump `BULK_BILL_CONCURRENCY` 4→8, `BULK_BILL_PER_PAGE_CONCURRENCY` 2→3. **Pre-warm refetch**: scan eligible trước worker start, parallel-refetch (cap 8) cho đơn rỗng — tránh worker block-đợi GetDetails tuần tự, giảm prep time ~15s → ~2s khi 30 đơn rỗng.
+
+**Fix #1 — Bulk PBH địa chỉ per-row**: 3 root causes:
+
+1. **Shared Partner ref** TPOS OData entity-sharing: 2 đơn cùng customer share Partner ref → edit row 0 mutate `Partner.Street` → corrupt row 1 (= bug "1 người tính cho mấy người khác"). Fix: `fetchFastSaleOrdersData` deep-clone `Partner/Ship_Receiver/Carrier` sau JSON parse.
+2. **Unsaved address mất khi re-render** (gõ chưa bấm Lưu, remove đơn khác → input về value gốc). Fix: `saveFastSaleFormState` capture `addressInput.value` vào `order._userAddress` (khi khác `data-original`). `renderFastSaleOrderRow` ưu tiên `_userAddress`.
+3. **Partner.Street không follow editedAddress submit**: `collectFastSaleData` dùng `order.Partner` raw → Street cũ. Fix: spread `order.Partner`, override `Street/FullAddress/ExtraAddress.Street = editedAddress`.
+
+**Browser-tested localhost**: refetch flow → 1 fetch + notif info+success + `removed:[id]` (no stuck) + store updated "FX1". Deep-clone 2 orders share Partner ref → ref riêng (`samePartnerRef:false`), edit row 0 không leak row 1. ✅
+
 ### [orders][feat] Bill: refetch TPOS khi đơn rỗng + chip "Đang bật filter" cạnh nút bộ lọc
 
 **Files**:

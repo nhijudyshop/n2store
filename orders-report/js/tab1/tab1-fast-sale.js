@@ -597,6 +597,10 @@ function saveFastSaleFormState() {
         const noteInput = document.getElementById(`fastSaleNote_${index}`);
         const weightInput = document.getElementById(`fastSaleWeight_${index}`);
         const walletAmountInput = document.getElementById(`fastSaleWalletAmount_${index}`);
+        // Save edited address — bug trước: user gõ địa chỉ chưa bấm Lưu, sau đó remove
+        // 1 đơn khác → re-render → input mới tạo với value gốc → mất edit, tệ hơn nữa
+        // có thể gửi lên TPOS với địa chỉ sai cho đơn đã bị shift index.
+        const addressInput = document.getElementById(`fastSaleAddress_${index}`);
 
         if (carrierSelect && carrierSelect.value) {
             order._userCarrierId = carrierSelect.value;
@@ -612,6 +616,14 @@ function saveFastSaleFormState() {
         }
         if (walletAmountInput && !walletAmountInput.disabled) {
             order._userWalletAmount = walletAmountInput.value;
+        }
+        if (addressInput) {
+            const v = addressInput.value?.trim() || '';
+            // Lưu chỉ khi user đã edit (input value khác data-original).
+            const original = addressInput.dataset.original?.trim() || '';
+            if (v !== original) {
+                order._userAddress = v;
+            }
         }
     });
 }
@@ -724,7 +736,11 @@ async function fetchFastSaleOrdersData(orderIds) {
                 `[FAST-SALE] Successfully fetched ${allOrders.length} FastSaleOrders total`
             );
 
-            // Enrich with SessionIndex from SaleOnlineOrder (displayedData)
+            // Enrich with SessionIndex from SaleOnlineOrder (displayedData) +
+            // **deep-clone nested Partner/Ship_Receiver/Carrier** để PHÒNG
+            // TPOS OData $ref entity-sharing: 2 đơn cùng customer có thể share
+            // cùng Partner reference → user edit address row A → row B cùng đổi
+            // (đây chính là bug "1 người tính cho mấy người khác").
             const enrichedOrders = allOrders.map((order) => {
                 // Find matching SaleOnlineOrder by SaleOnlineIds
                 const saleOnlineId = order.SaleOnlineIds?.[0];
@@ -738,6 +754,24 @@ async function fetchFastSaleOrdersData(orderIds) {
                         order.SessionIndex = saleOnlineOrder.SessionIndex || '';
                         order.SaleOnlineOrder = saleOnlineOrder; // Store reference for later use
                     }
+                }
+                // Deep-clone địa chỉ-liên-quan để break shared references.
+                // (JSON.parse(JSON.stringify(...)) chỉ áp cho mấy nested objects nhỏ
+                // — toàn bộ order quá lớn nên không clone full.)
+                if (order.Partner) {
+                    try {
+                        order.Partner = JSON.parse(JSON.stringify(order.Partner));
+                    } catch (e) {}
+                }
+                if (order.Ship_Receiver) {
+                    try {
+                        order.Ship_Receiver = JSON.parse(JSON.stringify(order.Ship_Receiver));
+                    } catch (e) {}
+                }
+                if (order.Carrier) {
+                    try {
+                        order.Carrier = JSON.parse(JSON.stringify(order.Carrier));
+                    } catch (e) {}
                 }
                 return order;
             });
@@ -969,9 +1003,14 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         }
     }
 
-    // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
+    // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder.
+    // Ưu tiên `_userAddress` (user gõ trong input nhưng chưa bấm Lưu) — saveFastSaleFormState
+    // đã capture trước re-render để không mất edit khi remove order khác.
     const customerAddress =
-        saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
+        order._userAddress ||
+        saleOnlineOrder?.Address ||
+        order.Partner?.PartnerAddress ||
+        '*Chưa có địa chỉ';
 
     // Get partner status from SaleOnlineOrder
     const partnerStatusText = saleOnlineOrder?.PartnerStatusText || '';
@@ -2161,18 +2200,37 @@ function collectFastSaleData() {
                 ReturnTotal: 0,
                 ConversionPrice: null,
             })),
-            Partner: order.Partner || {
-                Id: order.PartnerId || 0,
-                Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                Street: saleOnlineOrder?.Address || order.Partner?.Street || null,
-                Phone: saleOnlineOrder?.Telephone || order.Partner?.Phone || '',
-                Customer: true,
-                Type: 'contact',
-                CompanyType: 'person',
-                DateCreated: new Date().toISOString(),
-                ExtraAddress: order.Partner?.ExtraAddress || null,
-            },
+            Partner: (() => {
+                // Đảm bảo Partner.Street/FullAddress luôn = editedAddress (nếu user edit) →
+                // tránh trường hợp ReceiverAddress đúng nhưng Partner.Street vẫn cũ → TPOS
+                // hiển thị 2 địa chỉ khác nhau, hoặc bill in ra với địa chỉ sai.
+                const finalAddress =
+                    editedAddress || saleOnlineOrder?.Address || order.Partner?.Street || null;
+                if (order.Partner) {
+                    // Spread để KHÔNG mutate `order.Partner` (tránh ảnh hưởng object gốc trong
+                    // fastSaleOrdersData — dù updateLocalAddressData đã làm vậy khi user bấm Lưu).
+                    const p = { ...order.Partner };
+                    p.Street = finalAddress;
+                    p.FullAddress = finalAddress;
+                    if (p.ExtraAddress) {
+                        p.ExtraAddress = { ...p.ExtraAddress, Street: finalAddress };
+                    }
+                    return p;
+                }
+                return {
+                    Id: order.PartnerId || 0,
+                    Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                    DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                    Street: finalAddress,
+                    FullAddress: finalAddress,
+                    Phone: saleOnlineOrder?.Telephone || '',
+                    Customer: true,
+                    Type: 'contact',
+                    CompanyType: 'person',
+                    DateCreated: new Date().toISOString(),
+                    ExtraAddress: null,
+                };
+            })(),
             Carrier: order.Carrier || {
                 Id: carrierId,
                 Name: carrierName,
