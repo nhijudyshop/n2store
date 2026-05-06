@@ -235,15 +235,43 @@
             .replace(/"/g, '&quot;');
     }
 
-    function _formatTime(iso) {
-        if (!iso) return '';
-        try {
-            const d = new Date(iso);
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        } catch (e) {
-            return '';
+    /**
+     * Parse Postgres TIMESTAMP (without TZ) → JS Date.
+     * Server stores `CURRENT_TIMESTAMP` in UTC nhưng serialize không có 'Z'/TZ
+     * suffix → `new Date(iso)` mặc định coi là local → lệch 7h ở Vietnam.
+     * Fix: append 'Z' nếu thiếu TZ → parse là UTC → toString() show đúng local.
+     */
+    function _parseServerTime(iso) {
+        if (!iso) return null;
+        if (iso instanceof Date) return iso;
+        let s = String(iso);
+        if (!s.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(s)) {
+            s = s.replace(' ', 'T') + 'Z';
         }
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function _formatTime(iso) {
+        const d = _parseServerTime(iso);
+        if (!d) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        // toLocaleString implicit dùng timezone của browser → user GMT+7 → đúng giờ VN.
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    /**
+     * Map orderCode → STT (SessionIndex). Lookup từ window.allData.
+     * Build cache lazy mỗi lần render — allData có thể đổi giữa các renders.
+     */
+    function _getSttByOrderCode(orderCode) {
+        if (!orderCode) return null;
+        const all = window.allData || [];
+        // Fast path: small linear scan; allData ~vài nghìn rows, vẫn nhanh.
+        for (const o of all) {
+            if (o?.Code === orderCode) return o.SessionIndex || null;
+        }
+        return null;
     }
 
     function _renderTooltipHtml(stats, history, loading) {
@@ -266,12 +294,15 @@
                         const action = h.action === 'check' ? '✓ Check' : '✗ Uncheck';
                         const color = h.action === 'check' ? '#10b981' : '#ef4444';
                         const userName = _escapeHtml(h.userName || h.userId || '?');
-                        const code = _escapeHtml(h.orderCode);
+                        const stt = _getSttByOrderCode(h.orderCode);
+                        const orderLabel = stt
+                            ? `STT <b>${_escapeHtml(stt)}</b>`
+                            : _escapeHtml(h.orderCode);
                         return `
                             <div style="display:flex; gap:8px; padding:4px 0; border-top:1px dashed #f3f4f6; font-size:11px; align-items:center;">
                                 <span style="color:${color}; font-weight:600; min-width:60px;">${action}</span>
-                                <span style="color:#6b7280; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><b style="color:#374151;">${userName}</b> → ${code}</span>
-                                <span style="color:#9ca3af; font-size:10px;">${_formatTime(h.createdAt)}</span>
+                                <span style="color:#6b7280; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><b style="color:#374151;">${userName}</b> → ${orderLabel}</span>
+                                <span style="color:#9ca3af; font-size:10px;" title="Giờ Vietnam (GMT+7)">${_formatTime(h.createdAt)}</span>
                             </div>`;
                     })
                     .join('')
@@ -482,18 +513,23 @@
                 const actionLabel = isCheck ? '✓ Check' : '✗ Uncheck';
                 const actionColor = isCheck ? '#10b981' : '#ef4444';
                 const userName = _escapeHtml(h.userName || h.userId || '?');
-                const code = _escapeHtml(h.orderCode);
+                const stt = _getSttByOrderCode(h.orderCode);
+                // Hiển thị STT (SessionIndex) thay cho mã đơn hàng — dễ đọc hơn cho user.
+                // Fallback orderCode nếu STT không tìm được (đơn ngoài view hiện tại).
+                const orderLabel = stt
+                    ? `STT <b>${_escapeHtml(stt)}</b>`
+                    : `<span title="${_escapeHtml(h.orderCode)} (STT không có trong view)" style="font-family:monospace;">${_escapeHtml(h.orderCode)}</span>`;
                 const pid = _escapeHtml(h.productId);
                 return `
-                    <div style="display:grid; grid-template-columns: 70px 1fr 90px 110px; gap:10px; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:12px; align-items:center;">
+                    <div style="display:grid; grid-template-columns: 70px 1fr 90px 60px; gap:10px; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:12px; align-items:center;">
                         <span style="color:${actionColor}; font-weight:700;">${actionLabel}</span>
                         <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                             <b style="color:#111827;">${userName}</b>
                             <span style="color:#9ca3af; margin:0 4px;">→</span>
-                            <span style="color:#374151; font-family:monospace;">${code}</span>
+                            <span style="color:#374151;">${orderLabel}</span>
                             <span style="color:#9ca3af; margin-left:6px; font-size:11px;">SP #${pid}</span>
                         </div>
-                        <span style="color:#6b7280; font-size:11px;">${_formatTime(h.createdAt)}</span>
+                        <span style="color:#6b7280; font-size:11px;" title="Giờ Vietnam (GMT+7)">${_formatTime(h.createdAt)}</span>
                         <span style="color:#9ca3af; font-size:10px; text-align:right;">${_relativeTime(h.createdAt)}</span>
                     </div>
                 `;
@@ -507,10 +543,9 @@
     }
 
     function _relativeTime(iso) {
-        if (!iso) return '';
-        const t = new Date(iso).getTime();
-        if (!t) return '';
-        const diff = Date.now() - t;
+        const dt = _parseServerTime(iso);
+        if (!dt) return '';
+        const diff = Date.now() - dt.getTime();
         const s = Math.floor(diff / 1000);
         if (s < 60) return s + 's';
         const m = Math.floor(s / 60);

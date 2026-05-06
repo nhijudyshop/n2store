@@ -1111,7 +1111,14 @@ router.get('/kpi-sale-flag/history', async (req, res) => {
                 action: r.action,
                 userId: r.user_id,
                 userName: r.user_name,
-                createdAt: r.created_at,
+                // Trả về ISO UTC chuẩn (kết thúc 'Z') để client parse đúng timezone.
+                // Mặc định pg driver có thể trả string với '+07:00' suffix sai
+                // (Postgres tag timezone từ connection nhưng giá trị lại là UTC) —
+                // dẫn đến lệch 7h khi `new Date()` ở browser.
+                createdAt:
+                    r.created_at instanceof Date
+                        ? r.created_at.toISOString()
+                        : new Date(r.created_at).toISOString(),
             })),
         });
     } catch (error) {
