@@ -1827,24 +1827,37 @@ async function handleConfirmAction() {
             // =====================================================
             // Credit wallet for RETURN_CLIENT only - ONLY if TPOS amount matches
             // RETURN_SHIPPER: virtual_credit đã được cấp khi TẠO ticket (không cộng lại ở đây)
-            // Validate "Tổng tiền" from PrintRefund HTML before crediting
+            // Validate refund amount: prefer JSON (refundAmountFromJson, structured) over
+            // HTML parser (refundAmountFromHtml, fragile regex). Đoan Nghi case 2026-05-06:
+            // HTML parser failed → wallet_credited=false. Fix: AmountTotal từ refund order
+            // JSON là source of truth, HTML chỉ là fallback an toàn.
             // =====================================================
             const compensationAmount = parseFloat(ticket.money) || 0;
             const customerPhone = ticket.phone;
             const refundAmountFromHtml = result.refundAmountFromHtml;
+            const refundAmountFromJson = result.refundAmountFromJson;
+            const refundAmountForValidation =
+                refundAmountFromJson != null ? refundAmountFromJson : refundAmountFromHtml;
 
             console.log(
                 '[APP] Wallet validation - Expected:',
                 compensationAmount,
+                'TPOS JSON:',
+                refundAmountFromJson,
                 'TPOS HTML:',
-                refundAmountFromHtml
+                refundAmountFromHtml,
+                'Used:',
+                refundAmountForValidation
             );
 
             // CHỈ cộng deposit cho RETURN_CLIENT (tiền thật khi hàng đã về)
             // RETURN_SHIPPER đã được cấp virtual_credit ngay khi tạo ticket
             if (compensationAmount > 0 && customerPhone && ticket.type === 'RETURN_CLIENT') {
                 // Validate: TPOS refund amount must match ticket.money
-                if (refundAmountFromHtml !== null && refundAmountFromHtml === compensationAmount) {
+                if (
+                    refundAmountForValidation !== null &&
+                    refundAmountForValidation === compensationAmount
+                ) {
                     try {
                         notificationManager.remove(loadingId);
                         loadingId = notificationManager.loading(
@@ -1901,12 +1914,14 @@ async function handleConfirmAction() {
                     console.error(
                         '[APP] Amount mismatch! Expected:',
                         compensationAmount,
-                        'TPOS:',
+                        'TPOS JSON:',
+                        refundAmountFromJson,
+                        'TPOS HTML:',
                         refundAmountFromHtml
                     );
                     notificationManager.warning(
-                        `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountFromHtml || 0).toLocaleString()}đ. Không tự động cộng ví.`,
-                        8000,
+                        `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountForValidation || 0).toLocaleString()}đ. Không tự động cộng ví — vào Customer 360 cộng tay.`,
+                        10000,
                         'Cảnh báo: Cần kiểm tra'
                     );
                 }

@@ -698,6 +698,15 @@ export class WalletPanelModule {
         const errorDiv = modal.querySelector('.error-msg');
 
         submitBtn.onclick = async () => {
+            // In-flight guard — chống double-click trong khi network đang chạy.
+            // Nếu chỉ dựa vào submitBtn.disabled, click 2 có thể fire trước khi
+            // handler 1 đến line set disabled (browser dispatches multiple clicks
+            // before first handler hits its first await).
+            if (submitBtn.dataset.inFlight === '1') {
+                console.warn('[WALLET-PANEL] Submit already in-flight, ignoring duplicate click');
+                return;
+            }
+
             const amount = parseFloat(modal.querySelector('[name="amount"]').value);
             let note = modal.querySelector('[name="note"]').value.trim();
             const expiry = parseInt(modal.querySelector('[name="expiry"]')?.value) || 15;
@@ -708,6 +717,7 @@ export class WalletPanelModule {
                 return;
             }
 
+            submitBtn.dataset.inFlight = '1';
             submitBtn.disabled = true;
             submitBtn.innerHTML =
                 '<span class="animate-spin material-symbols-outlined">sync</span> Đang xử lý...';
@@ -785,6 +795,8 @@ export class WalletPanelModule {
                 errorDiv.classList.remove('hidden');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = `<span class="material-symbols-outlined">${cfg.icon}</span> Thử lại`;
+            } finally {
+                submitBtn.dataset.inFlight = '';
             }
         };
 

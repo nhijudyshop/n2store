@@ -8,6 +8,51 @@
 
 ## 2026-05-06
 
+### [issue-tracking][customer-hub][fix] Wallet credit reliability — fix Đoan Nghi case + audit wallet flows
+
+**Files**: MODIFIED [shared/js/api-service.js](../shared/js/api-service.js), [issue-tracking/js/script.js](../issue-tracking/js/script.js), [customer-hub/js/modules/wallet-panel.js](../customer-hub/js/modules/wallet-panel.js)
+
+User: "khách Đoan Nghi 0986892306 → khách gửi hoàn tiền nhưng ví không cập nhật".
+
+**Root cause Đoan Nghi (ticket TV-2026-00657, RETURN_CLIENT 150k)**:
+
+- TPOS refund completed (RINV/2026/2325) ✅
+- DB: `wallet_credited: false`, `action_history: []` rỗng ⚠️
+- → resolveTicket NEVER called
+
+`processRefund()` parse "Tổng tiền" từ TPOS PrintRefund HTML bằng 1 regex duy nhất. Nếu TPOS render khác format (`Tổng cộng:`, đổi class CSS, có suffix `đ`...) → regex no-match → `refundAmountFromHtml = null`. Validation gate `refundAmountFromHtml === compensationAmount` fail → wallet không cộng. User không nhận được error rõ → khách mất tiền âm thầm.
+
+**Fix**:
+
+1. **[api-service.js processRefund]** thêm `refundAmountFromJson` từ `refundDetails.AmountTotal` — structured field từ FastSaleOrder JSON sau filter partial-refund. Source of truth thay vì HTML parsing.
+2. **[api-service.js processRefund]** mở rộng HTML parser: 5 regex patterns (Tổng tiền/Tổng cộng/Tổng thanh toán + biến thể đ-suffix) thay vì 1 → fallback-friendly.
+3. **[issue-tracking script.js]** validation gate ưu tiên `refundAmountFromJson` (reliable), fallback HTML, log cả 3 (expected/JSON/HTML) để debug. Thông báo mismatch hướng dẫn rõ "vào Customer 360 cộng tay".
+
+**Audit toàn bộ wallet/balance/customer-hub flow** — 8 files, ~22 PUT calls:
+
+✅ Backend safe (race-protected):
+
+- `wallet-event-processor.processWalletEvent` — `FOR UPDATE` row lock + `INSERT wallet_transactions ON CONFLICT (sepay_id) DO NOTHING` đầu tiên → balance UPDATE chỉ chạy nếu INSERT thành công. Double-credit IMPOSSIBLE cho bank-transfer (sepay_id unique).
+- `tickets.js /resolve` — `withTransaction` + `FOR UPDATE` trên customer_tickets. Idempotent.
+- `sepay-wallet-operations PUT /transaction/:id/phone` — server check `wallet_processed === true` → block phone change. Layer 2 protection.
+
+⚠️ Frontend issue (FIXED):
+
+- **wallet-panel.js submitBtn** (HIGH): Disable button SAU validation, có race window cho rapid double-click trước khi `disabled=true` set. Browser dispatched 2 clicks song song → 2 calls walletDeposit/Withdraw → backend kiểm sepay_id (nếu có) — KHÔNG có sepay_id cho `MANUAL_ADJUSTMENT` deposit → backend không reject duplicate → **POTENTIAL double-credit cho manual deposit**. Fix: thêm `submitBtn.dataset.inFlight` flag check ngay đầu handler, set/reset trong try/finally.
+
+🟡 Theoretical risk (skipped):
+
+- `live-mode.js:777,794` 2 sequential PUTs (phone + hidden) — partial success warned, retry available, không phải data loss.
+- `verification.js changeAndApproveTransaction` cache check stale — backend layer-2 protection vẫn block. Phone field race rare, cosmetic.
+
+**Đoan Nghi recovery**: Cần manual deposit 150.000đ vào ví 0986892306 qua Customer 360 panel (button "Nạp tiền"), reference ticket TV-2026-00657 / RINV/2026/2325. Hoặc gọi API `POST /api/v2/tickets/TV-2026-00657/resolve {compensation_amount: 150000, compensation_type: "deposit", performed_by: "system_recovery"}` — endpoint idempotent (check wallet_processed).
+
+**Browser-tested**: 5 regex patterns HTML test → bad=null, "Tổng tiền"=150k, "Tổng cộng"=200k (fallback OK). Page load clean cho customer-hub + issue-tracking. Merge 32/32 tests pass.
+
+### [orders][cloudflare][deploy] CF Worker chatomni-proxy v.d4443bd3
+
+Deploy production: `wrangler deploy` → `https://chatomni-proxy.nhijudyshop.workers.dev` Version `d4443bd3-6101-45bc-9dcb-0a8e07150b73`. Verified: CORS preflight allow `If-Match` header. Optimistic concurrency end-to-end now live cho mọi PUT to TPOS qua proxy.
+
 ### [orders][cloudflare][fix] Optimistic concurrency end-to-end — fix cross-flow + cross-tab race
 
 **Files**: MODIFIED [cloudflare-worker/modules/utils/header-learner.js](../cloudflare-worker/modules/utils/header-learner.js), [orders-report/js/tab1/tab1-sale.js](../orders-report/js/tab1/tab1-sale.js), [orders-report/js/tab1/tab1-edit-modal.js](../orders-report/js/tab1/tab1-edit-modal.js)
