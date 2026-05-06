@@ -8,6 +8,25 @@
 
 ## 2026-05-06
 
+### [chat][feat] Modal tin nhắn — hiện avatar "đã xem" dưới message cuối khách đã đọc
+
+**Files**: MODIFIED [orders-report/js/managers/pancake-data-manager.js](../orders-report/js/managers/pancake-data-manager.js), [shared/js/pancake-data-manager.js](../shared/js/pancake-data-manager.js), [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js), [orders-report/js/tab1/tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js), [orders-report/css/tab1-chat-modal.css](../orders-report/css/tab1-chat-modal.css)
+
+User: "khách đã xem tin nhắn trong modal tin nhắn inbox thì hiện đã xem hoặc hiện avatar khách ở dưới tin nhắn đã xem".
+
+**Implement**: Messenger-style "đã xem" — small 14×14 customer avatar appended below the latest shop message khách đã đọc.
+
+**Pancake API**: response của `GET /pages/{pageId}/conversations/{convId}/messages` bao gồm `read_watermarks: ReadWatermark[]` với shape `{ psid, message_id, watermark (unix sec) }`. Watermark = timestamp khách đã đọc tới.
+
+**Flow**:
+
+- PDM (`fetchMessages`) extract & cache `read_watermarks`
+- `_applyMessagesResult` lưu vào `window.currentChatReadWatermarks`
+- `renderChatMessages` precompute `seenMessageId` = latest shop message với `time.getTime() <= max(watermark)*1000` (skip page's own PSID), inject `_renderSeenIndicator()` ngay sau row đó.
+- COMMENT type bỏ qua (Pancake không track per-message read state cho comment).
+
+**Browser-tested**: Ngoc Tran (0903778113) — `wm:[{psid, watermark:1778048746}]`, `msgN:30`, indicator render đúng vị trí giữa shop message lúc 06:24 (đã xem) và shop message lúc 06:42 (chưa xem). 0 JS errors.
+
 ### [orders][fix] KPI tooltip: tổng SP từ server (không phụ thuộc per-order cache)
 
 **Files**: MODIFIED [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js), [orders-report/js/managers/kpi-sale-flag-store.js](../orders-report/js/managers/kpi-sale-flag-store.js), [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)
