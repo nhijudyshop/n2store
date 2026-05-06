@@ -8,6 +8,31 @@
 
 ## 2026-05-06
 
+### [orders][fix] Bill preview STT đơn gộp — Reference/SaleOnlineIds lookup vào ProcessingTagState
+
+**Files**: MODIFIED [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js)
+
+User: "Đơn STT 84 có TAG XL là đơn gộp 84 313 mà bên hình 2 chỗ STT không có 84 + 313".
+
+**Root cause**: `getMergedSttDisplay` step 3 (TAG XL custom flag GOP\_\*) lookup `ProcessingTagState.getOrderData(src.Code) || getOrderDataByIdFallback(src.Id)`. Nhưng `enrichedOrder` từ bill flow (sendBillFromMainTable / bulk-send / sendBillManually) chỉ có:
+
+- `Reference` = SaleOnline Code (vd "260303709")
+- `SaleOnlineIds[0]` = SaleOnline UUID
+- `Id` = FastSaleOrder Id (KHÔNG match ProcessingTagState index — index theo SaleOnline orderId)
+
+Không có `Code` field → `src.Code` undefined → lookup fail. `src.Id` là FastSale → fallback lookup không match. → Rớt xuống step 4 fallback `src.SessionIndex` → bill chỉ hiện "STT: 84" (đơn target), thay vì "STT: 84 + 313" (gộp).
+
+**Fix**:
+
+- Mở rộng `code` candidates: `src.Code || src.Reference || fallback.Code || fallback.Reference`.
+- Mở rộng id candidates: `[src.SaleOnlineIds?.[0], fallback.SaleOnlineIds?.[0], src.Id, fallback.Id]` — lookup tuần tự đến khi match.
+- Thêm fallback parse `flag.name`/`flag.label` qua regex `/^G[ỘO]P\s+\d+/i` cho legacy custom flags không follow `GOP_<digits>` id convention.
+
+**Browser-tested localhost**:
+
+- Đơn STT 84 (Code 260303709) có TAG XL flag `{id:"GOP_84_313", name:"GỘP 84 313"}`. Build enrichedOrder mimicking sendBillFromMainTable shape (Reference + SaleOnlineIds, no Code) → `generateCustomBillHTML` output `<strong>STT:</strong> 84 + 313` ✅. Trước fix: `STT: 84` only.
+- Đơn không gộp (STT 328, không có flag GOP\_\*) → bill vẫn hiện `STT: 328` (single STT fallback hoạt động đúng). ✅
+
 ### [orders][fix] Bulk PBH địa chỉ + bulk send bill nhanh hơn + refetch TPOS không stuck
 
 **Files**: MODIFIED [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js), [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js)
