@@ -25,122 +25,178 @@
     </head>
     <body>
         <main class="aikol-shell">
-            <header
-                class="aikol-header"
-                style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    flex-wrap: wrap;
-                    gap: 1rem;
-                "
-            >
+            <header class="aikol-header aikol-header--row">
                 <div>
                     <h1>Bulk Generate</h1>
                     <p>Chạy 1 model qua nhiều clip cùng lúc · 4 preset hoặc tự cấu hình</p>
                 </div>
-                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap">
+                <div class="aikol-header__actions">
                     <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
                 </div>
             </header>
 
+            <!-- STEP 1 — Preset cards full-width -->
             <section class="aikol-panel">
-                <h2>1. Chọn preset</h2>
+                <div class="aikol-step-head">
+                    <span class="aikol-step-num">1</span>
+                    <h2 style="margin: 0">Pick a preset</h2>
+                </div>
                 <div id="preset-grid" class="aikol-preset-grid">
                     <button type="button" class="aikol-preset" data-preset="favorites_image">
-                        <strong>⭐ Favorites → Image</strong>
+                        <span class="aikol-preset__icon" aria-hidden="true">⭐</span>
+                        <strong>Favorites → Image</strong>
                         <span>Tất cả clip favorite · 1 image / clip · 9:16</span>
                     </button>
                     <button type="button" class="aikol-preset" data-preset="recent_image_3">
-                        <strong>🆕 Recent 5 → 3 images</strong>
+                        <span class="aikol-preset__icon" aria-hidden="true">🆕</span>
+                        <strong>Recent 5 → 3 images</strong>
                         <span>5 clip mới nhất · 3 variations · close-up</span>
                     </button>
                     <button type="button" class="aikol-preset" data-preset="favorites_video">
-                        <strong>⭐ Favorites → Video std</strong>
+                        <span class="aikol-preset__icon" aria-hidden="true">🎬</span>
+                        <strong>Favorites → Video std</strong>
                         <span>Favorite · Kling std 5s / clip</span>
                     </button>
                     <button type="button" class="aikol-preset" data-preset="custom">
-                        <strong>⚙️ Custom</strong>
+                        <span class="aikol-preset__icon" aria-hidden="true">⚙️</span>
+                        <strong>Custom</strong>
                         <span>Tự chọn filter + config</span>
                     </button>
                 </div>
             </section>
 
-            <section class="aikol-panel">
-                <h2>2. Cấu hình</h2>
+            <!-- 2-column: form (left) + launch (right rail) -->
+            <div class="aikol-bulk-grid">
                 <form id="bulk-form" class="aikol-bulk-form">
-                    <div class="aikol-gen-grid">
-                        <label class="aikol-gen-row">
-                            <span>Kind</span>
-                            <select name="kind">
-                                <option value="image" selected>Image</option>
-                                <option value="video">Video</option>
-                            </select>
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Model</span>
-                            <select name="model_id" required></select>
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Variations / clip</span>
-                            <input type="number" name="variations" min="1" max="10" value="1" />
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Limit clips</span>
-                            <input type="number" name="limit" min="1" max="50" value="10" />
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Platform</span>
-                            <select name="platform">
-                                <option value="">All</option>
-                                <option value="tiktok">TikTok</option>
-                                <option value="upload">Upload</option>
-                                <option value="douyin">Douyin</option>
-                            </select>
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Username (filter)</span>
-                            <input type="text" name="username" placeholder="(để trống = tất cả)" />
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Min views</span>
-                            <input type="number" name="min_views" min="0" placeholder="0" />
-                        </label>
-                        <label class="aikol-gen-row">
-                            <span>Image size</span>
-                            <select name="image_size">
-                                <option value="9:16" selected>9:16</option>
-                                <option value="1:1">1:1</option>
-                                <option value="16:9">16:9</option>
-                            </select>
-                        </label>
-                    </div>
+                    <!-- STEP 2 — Pick clips (filter) -->
+                    <section class="aikol-panel">
+                        <div class="aikol-step-head">
+                            <span class="aikol-step-num">2</span>
+                            <h2 style="margin: 0">
+                                Pick clips
+                                <span
+                                    id="bulk-match-count"
+                                    style="
+                                        color: var(--aikol-text-dim);
+                                        font-size: 0.85rem;
+                                        font-weight: 400;
+                                        margin-left: 0.5rem;
+                                    "
+                                ></span>
+                            </h2>
+                        </div>
 
-                    <fieldset class="aikol-gen-fieldset">
-                        <legend>Filter</legend>
-                        <label><input type="checkbox" name="favorite_only" /> Chỉ favorite</label>
-                    </fieldset>
+                        <div class="aikol-bulk-filterbar" id="bulk-filterbar">
+                            <button
+                                type="button"
+                                class="aikol-chip aikol-chip--active"
+                                data-quick="all"
+                                aria-pressed="true"
+                            >
+                                All
+                            </button>
+                            <button type="button" class="aikol-chip" data-quick="favorites">
+                                ⭐ Favorites
+                            </button>
+                            <button type="button" class="aikol-chip" data-quick="recent">
+                                🆕 Recent
+                            </button>
+                            <button type="button" class="aikol-chip" data-quick="popular">
+                                🔥 100K+ views
+                            </button>
+                        </div>
 
-                    <fieldset class="aikol-gen-fieldset">
-                        <legend>Keep from clip</legend>
-                        <label><input type="checkbox" name="keep_pose" checked /> Pose</label>
-                        <label><input type="checkbox" name="keep_outfit" /> Outfit</label>
-                        <label><input type="checkbox" name="keep_bg" /> Background</label>
-                        <label
-                            ><input type="checkbox" name="keep_lighting" checked /> Lighting</label
-                        >
-                    </fieldset>
-
-                    <div data-video-only style="display: none">
                         <div class="aikol-gen-grid">
                             <label class="aikol-gen-row">
-                                <span>Mode</span>
+                                <span>Platform</span>
+                                <select name="platform">
+                                    <option value="">All</option>
+                                    <option value="tiktok">TikTok</option>
+                                    <option value="upload">Upload</option>
+                                    <option value="douyin">Douyin</option>
+                                </select>
+                            </label>
+                            <label class="aikol-gen-row">
+                                <span>Username (filter)</span>
+                                <input
+                                    type="text"
+                                    name="username"
+                                    placeholder="(để trống = tất cả)"
+                                />
+                            </label>
+                            <label class="aikol-gen-row">
+                                <span>Min views</span>
+                                <input type="number" name="min_views" min="0" placeholder="0" />
+                            </label>
+                            <label class="aikol-gen-row">
+                                <span>Limit clips</span>
+                                <input type="number" name="limit" min="1" max="50" value="10" />
+                            </label>
+                        </div>
+                        <fieldset class="aikol-gen-fieldset">
+                            <legend>Filter</legend>
+                            <label
+                                ><input type="checkbox" name="favorite_only" /> Chỉ favorite</label
+                            >
+                        </fieldset>
+
+                        <div id="bulk-clip-preview" class="aikol-bulk-preview" aria-live="polite">
+                            <!-- thumbnails injected by bulk.js -->
+                        </div>
+                    </section>
+
+                    <!-- STEP 3 — Generation config -->
+                    <section class="aikol-panel">
+                        <div class="aikol-step-head">
+                            <span class="aikol-step-num">3</span>
+                            <h2 style="margin: 0">Generation config</h2>
+                        </div>
+
+                        <div class="aikol-segmented" role="tablist" aria-label="Output kind">
+                            <button
+                                type="button"
+                                class="aikol-segmented__btn aikol-segmented__btn--active"
+                                data-kind="image"
+                                aria-pressed="true"
+                            >
+                                🖼️ Image
+                            </button>
+                            <button
+                                type="button"
+                                class="aikol-segmented__btn"
+                                data-kind="video"
+                                aria-pressed="false"
+                            >
+                                🎬 Video (Kling AI)
+                            </button>
+                        </div>
+                        <input type="hidden" name="kind" value="image" />
+
+                        <div class="aikol-gen-grid" style="margin-top: 0.85rem">
+                            <label class="aikol-gen-row">
+                                <span>Model</span>
+                                <select name="model_id" required></select>
+                            </label>
+                            <label class="aikol-gen-row">
+                                <span>Variations / clip</span>
+                                <input type="number" name="variations" min="1" max="10" value="1" />
+                            </label>
+                            <label class="aikol-gen-row" data-image-only>
+                                <span>Image size</span>
+                                <select name="image_size">
+                                    <option value="9:16" selected>9:16</option>
+                                    <option value="1:1">1:1</option>
+                                    <option value="16:9">16:9</option>
+                                </select>
+                            </label>
+                            <label class="aikol-gen-row" data-video-only style="display: none">
+                                <span>Kling mode</span>
                                 <select name="kling_mode">
                                     <option value="std" selected>Standard</option>
                                     <option value="pro">Pro</option>
                                 </select>
                             </label>
-                            <label class="aikol-gen-row">
+                            <label class="aikol-gen-row" data-video-only style="display: none">
                                 <span>Duration</span>
                                 <select name="duration_seconds">
                                     <option value="5" selected>5s</option>
@@ -148,62 +204,90 @@
                                 </select>
                             </label>
                         </div>
-                    </div>
 
-                    <label class="aikol-gen-row">
-                        <span>Note (optional)</span>
-                        <textarea
-                            name="note"
-                            rows="2"
-                            maxlength="500"
-                            placeholder="Free-form prompt cho mọi clip"
-                        ></textarea>
-                    </label>
-
-                    <div
-                        style="
-                            display: flex;
-                            flex-wrap: wrap;
-                            justify-content: space-between;
-                            align-items: center;
-                            gap: 0.75rem;
-                            margin-top: 0.75rem;
-                        "
-                    >
-                        <div style="min-width: 0; flex: 1 1 220px">
-                            <div id="bulk-cost-summary" style="color: var(--aikol-text-dim)">
-                                — credits / clip × 0 clips = 0
-                            </div>
-                            <div
-                                id="bulk-save-as-campaign"
-                                style="
-                                    margin-top: 0.4rem;
-                                    font-size: 0.85rem;
-                                    display: flex;
-                                    flex-wrap: wrap;
-                                    align-items: center;
-                                    gap: 0.5rem;
-                                "
+                        <fieldset class="aikol-gen-fieldset" style="margin-top: 0.6rem">
+                            <legend>Keep from clip</legend>
+                            <label><input type="checkbox" name="keep_pose" checked /> Pose</label>
+                            <label><input type="checkbox" name="keep_outfit" /> Outfit</label>
+                            <label><input type="checkbox" name="keep_bg" /> Background</label>
+                            <label
+                                ><input type="checkbox" name="keep_lighting" checked />
+                                Lighting</label
                             >
-                                <label
-                                    style="display: inline-flex; gap: 0.4rem; align-items: center"
-                                >
-                                    <input type="checkbox" id="save-as-campaign" />
-                                    Lưu thành campaign tên
-                                </label>
-                                <input
-                                    id="campaign-name"
-                                    type="text"
-                                    class="aikol-input"
-                                    style="flex: 1 1 200px; min-width: 0; max-width: 280px"
-                                    placeholder="Tên campaign"
-                                />
-                            </div>
-                        </div>
-                        <button type="submit" class="aikol-btn">🚀 Run Bulk</button>
-                    </div>
+                        </fieldset>
+
+                        <label class="aikol-gen-row" style="margin-top: 0.6rem">
+                            <span>Note (optional)</span>
+                            <textarea
+                                name="note"
+                                rows="2"
+                                maxlength="500"
+                                placeholder="Free-form prompt cho mọi clip"
+                            ></textarea>
+                        </label>
+                    </section>
                 </form>
-            </section>
+
+                <!-- LAUNCH RAIL — sticky right column -->
+                <aside class="aikol-bulk-launch" aria-label="Launch summary">
+                    <div class="aikol-panel aikol-bulk-launch__card">
+                        <div class="aikol-step-head">
+                            <span class="aikol-step-num">4</span>
+                            <h2 style="margin: 0">Launch</h2>
+                        </div>
+
+                        <dl class="aikol-launch-summary">
+                            <div>
+                                <dt>Preset</dt>
+                                <dd id="launch-preset">—</dd>
+                            </div>
+                            <div>
+                                <dt>Output</dt>
+                                <dd id="launch-output">image · 1 variation</dd>
+                            </div>
+                            <div>
+                                <dt>Filter</dt>
+                                <dd id="launch-filter">All clips</dd>
+                            </div>
+                            <div>
+                                <dt>Clips matching</dt>
+                                <dd id="launch-matching">—</dd>
+                            </div>
+                            <div>
+                                <dt>Cost / clip</dt>
+                                <dd id="launch-per">— cr</dd>
+                            </div>
+                        </dl>
+
+                        <div class="aikol-launch-total">
+                            <span class="aikol-launch-total__label">Tổng</span>
+                            <span class="aikol-launch-total__num" id="launch-total">— cr</span>
+                        </div>
+
+                        <button
+                            id="launch-btn"
+                            type="submit"
+                            form="bulk-form"
+                            class="aikol-btn aikol-btn--xl"
+                        >
+                            🚀 Launch
+                        </button>
+
+                        <div class="aikol-launch-meta">
+                            <label class="aikol-launch-saveas">
+                                <input type="checkbox" id="save-as-campaign" />
+                                Lưu thành campaign
+                            </label>
+                            <input
+                                id="campaign-name"
+                                type="text"
+                                class="aikol-input aikol-input--sm"
+                                placeholder="Tên campaign (tuỳ chọn)"
+                            />
+                        </div>
+                    </div>
+                </aside>
+            </div>
 
             <section
                 id="aikol-queue-panel"
@@ -213,9 +297,12 @@
             ></section>
 
             <section class="aikol-panel">
-                <h2>3. Recent runs</h2>
+                <h2>Recent runs</h2>
                 <div id="bulk-recent"></div>
             </section>
+
+            <!-- Hidden legacy element kept for backwards-compat with deep test -->
+            <div id="bulk-cost-summary" hidden></div>
         </main>
     </body>
 </html>

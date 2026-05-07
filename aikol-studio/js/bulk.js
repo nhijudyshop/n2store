@@ -1,9 +1,10 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
-// AI KOL Studio Sprint 4 — Bulk Generate page.
+// AI KOL Studio — Sprint 5 Bulk Generate page (3-step horizontal layout).
 
 (function () {
     'use strict';
     const $ = (s, r) => (r || document).querySelector(s);
+    const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 
     const COSTS = {
         image: 4,
@@ -14,39 +15,41 @@
 
     const PRESETS = {
         favorites_image: {
+            label: 'Favorites → Image',
             kind: 'image',
             variations: 1,
             limit: 20,
             favorite_only: true,
             image_size: '9:16',
-            shot_type: 'match_clip',
-            scene_mode: 'match',
             keep_pose: true,
             keep_lighting: true,
         },
         recent_image_3: {
+            label: 'Recent 5 → 3 images',
             kind: 'image',
             variations: 3,
             limit: 5,
             favorite_only: false,
             image_size: '9:16',
-            shot_type: 'close_up',
-            scene_mode: 'match',
             keep_pose: false,
             keep_lighting: true,
         },
         favorites_video: {
+            label: 'Favorites → Video std',
             kind: 'video',
             variations: 1,
             limit: 5,
             favorite_only: true,
             kling_mode: 'std',
             duration_seconds: 5,
-            scene_mode: 'match',
             keep_pose: true,
         },
-        custom: null,
+        custom: { label: 'Custom', kind: 'image' },
     };
+
+    let activePreset = null;
+    let allClips = [];
+    let lastClipsFetchAt = 0;
 
     function showToast(msg, kind) {
         const el = document.createElement('div');
@@ -55,7 +58,6 @@
         document.body.appendChild(el);
         setTimeout(() => el.remove(), 4000);
     }
-
     function escapeHtml(s) {
         return String(s || '').replace(
             /[&<>"']/g,
@@ -66,7 +68,8 @@
     async function refreshCredits() {
         try {
             const { balance, plan } = await window.AikolAPI.getCredits();
-            $('#aikol-credits').textContent = `${balance} credits · ${plan}`;
+            const chip = $('#aikol-credits');
+            if (chip) chip.textContent = `${balance} credits · ${plan}`;
         } catch (_) {}
     }
 
@@ -88,13 +91,26 @@
         }
     }
 
+    async function fetchClips() {
+        // Cache for 30s — bulk page filtering doesn't need fresher data than that.
+        if (allClips.length && Date.now() - lastClipsFetchAt < 30000) return allClips;
+        try {
+            const { clips } = await window.AikolAPI.listClips(200, 0);
+            allClips = (clips || []).filter((c) => c.download_status === 'done' && c.file_path);
+            lastClipsFetchAt = Date.now();
+        } catch (e) {
+            console.warn('[bulk] listClips', e.message);
+        }
+        return allClips;
+    }
+
     function readForm() {
         const form = $('#bulk-form');
         const fd = new FormData(form);
         const o = {};
         fd.forEach((v, k) => (o[k] = v));
         ['favorite_only', 'keep_pose', 'keep_outfit', 'keep_bg', 'keep_lighting'].forEach(
-            (k) => (o[k] = form.elements[k].checked)
+            (k) => (o[k] = form.elements[k]?.checked || false)
         );
         o.variations = parseInt(o.variations, 10) || 1;
         o.limit = parseInt(o.limit, 10) || 10;
@@ -103,42 +119,182 @@
         return o;
     }
 
-    function refreshCostSummary() {
+    function matchClip(clip, filter) {
+        if (filter.platform && clip.platform !== filter.platform) return false;
+        if (filter.username && (clip.username || '') !== filter.username) return false;
+        if (filter.favorite_only && !clip.favorite) return false;
+        if (filter.min_views != null && (clip.view_count || 0) < filter.min_views) return false;
+        return true;
+    }
+
+    function filterClips() {
         const o = readForm();
+        const matched = allClips.filter((c) =>
+            matchClip(c, {
+                platform: o.platform || null,
+                username: o.username || null,
+                favorite_only: o.favorite_only,
+                min_views: o.min_views,
+            })
+        );
+        return matched.slice(0, o.limit);
+    }
+
+    function renderClipPreview(clips) {
+        const root = $('#bulk-clip-preview');
+        if (!root) return;
+        if (allClips.length === 0) {
+            root.innerHTML = `<div class="aikol-empty" style="padding:1.25rem 0.5rem;font-size:0.85rem">
+                Chưa có clip nào. <a href="library.html" style="color:var(--aikol-accent-light)">Import clip từ Library →</a>
+            </div>`;
+            return;
+        }
+        if (clips.length === 0) {
+            root.innerHTML = `<div class="aikol-empty" style="padding:1.25rem 0.5rem;font-size:0.85rem">Không có clip nào khớp filter.</div>`;
+            return;
+        }
+        root.innerHTML = clips
+            .slice(0, 12)
+            .map((c) => {
+                const cover = c.cover_url || '';
+                const fav = c.favorite ? '⭐' : '';
+                return `<div class="aikol-bulk-thumb" title="${escapeHtml(c.title || c.video_id || '')}">
+                    ${cover ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy">` : ''}
+                    <span class="aikol-bulk-thumb__badge">${fav}</span>
+                </div>`;
+            })
+            .join('');
+    }
+
+    function buildFilterLabel(o) {
+        const bits = [];
+        if (o.favorite_only) bits.push('★ favorite');
+        if (o.platform) bits.push(o.platform);
+        if (o.username) bits.push('@' + o.username);
+        if (o.min_views != null && o.min_views > 0) bits.push(`views ≥ ${o.min_views}`);
+        return bits.length ? bits.join(' · ') : 'All clips';
+    }
+
+    function refreshLaunch() {
+        const o = readForm();
+        const matched = filterClips();
         const perClip =
             o.kind === 'image'
                 ? COSTS.image * (o.variations || 1)
                 : (o.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec) *
                   Math.max(COSTS.video_min_seconds, o.duration_seconds);
-        const total = perClip * o.limit;
-        $('#bulk-cost-summary').textContent =
-            `~${perClip} cr / clip × ${o.limit} clips = ${total} cr (max)`;
+        const total = perClip * matched.length;
+
+        $('#launch-preset').textContent = activePreset
+            ? PRESETS[activePreset]?.label || activePreset
+            : 'Custom';
+        $('#launch-output').textContent =
+            o.kind === 'image'
+                ? `image · ${o.variations} variation${o.variations > 1 ? 's' : ''} · ${o.image_size || ''}`
+                : `video · ${o.kling_mode || 'std'} · ${o.duration_seconds}s`;
+        $('#launch-filter').textContent = buildFilterLabel(o);
+        $('#launch-matching').textContent =
+            `${matched.length} clip${matched.length !== 1 ? 's' : ''}`;
+        $('#launch-per').textContent = `${perClip} cr`;
+        $('#launch-total').textContent = `${total} cr`;
+
+        const matchCountEl = $('#bulk-match-count');
+        if (matchCountEl) {
+            matchCountEl.textContent = matched.length
+                ? `(${matched.length} match${matched.length !== 1 ? 'es' : ''})`
+                : '(0 matches)';
+        }
+        // Hidden legacy slot — keeps older deep test compatible.
+        const legacy = $('#bulk-cost-summary');
+        if (legacy)
+            legacy.textContent = `~${perClip} cr / clip × ${matched.length} clips = ${total} cr (max)`;
+
+        renderClipPreview(matched);
+
+        // Disable launch button when no clips match
+        const btn = $('#launch-btn');
+        if (btn) {
+            btn.disabled = matched.length === 0;
+            btn.title = matched.length === 0 ? 'Không có clip khớp filter' : '';
+        }
     }
 
     function applyPreset(presetId) {
+        activePreset = presetId;
         const p = PRESETS[presetId];
-        if (!p) return;
+        // Visual highlight
+        $$('[data-preset]').forEach((b) => {
+            b.classList.toggle('aikol-preset--active', b.dataset.preset === presetId);
+        });
+        if (!p || presetId === 'custom') {
+            refreshLaunch();
+            return;
+        }
         const form = $('#bulk-form');
         Object.entries(p).forEach(([k, v]) => {
+            if (k === 'label') return;
             const el = form.elements[k];
-            if (!el) return;
+            if (!el) {
+                if (k === 'kind') {
+                    setKind(v);
+                }
+                return;
+            }
             if (el.type === 'checkbox') el.checked = !!v;
             else el.value = v;
         });
-        refreshCostSummary();
-        toggleVideoBlock();
+        if (p.kind) setKind(p.kind);
+        refreshLaunch();
     }
 
-    function toggleVideoBlock() {
+    function setKind(kind) {
         const form = $('#bulk-form');
-        const kind = form.elements.kind.value;
-        $('#bulk-form [data-video-only]').style.display = kind === 'video' ? 'block' : 'none';
+        form.elements.kind.value = kind;
+        $$('.aikol-segmented__btn').forEach((b) => {
+            const active = b.dataset.kind === kind;
+            b.classList.toggle('aikol-segmented__btn--active', active);
+            b.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        $$('[data-image-only]').forEach((el) => {
+            el.style.display = kind === 'image' ? '' : 'none';
+        });
+        $$('[data-video-only]').forEach((el) => {
+            el.style.display = kind === 'video' ? '' : 'none';
+        });
+    }
+
+    function setQuickFilter(quick) {
+        $$('[data-quick]').forEach((b) => {
+            const active = b.dataset.quick === quick;
+            b.classList.toggle('aikol-chip--active', active);
+            b.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        const form = $('#bulk-form');
+        switch (quick) {
+            case 'all':
+                form.elements.favorite_only.checked = false;
+                form.elements.min_views.value = '';
+                break;
+            case 'favorites':
+                form.elements.favorite_only.checked = true;
+                break;
+            case 'recent':
+                form.elements.favorite_only.checked = false;
+                form.elements.min_views.value = '';
+                form.elements.limit.value = 5;
+                break;
+            case 'popular':
+                form.elements.favorite_only.checked = false;
+                form.elements.min_views.value = 100000;
+                break;
+        }
+        refreshLaunch();
     }
 
     async function onSubmit(ev) {
         ev.preventDefault();
         const form = $('#bulk-form');
-        const submitBtn = form.querySelector('button[type="submit"]');
+        const submitBtn = $('#launch-btn');
         const o = readForm();
         if (!o.model_id) {
             showToast('Chọn model', 'error');
@@ -175,7 +331,6 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'Đang gửi…';
         try {
-            // Save as campaign first?
             if ($('#save-as-campaign').checked) {
                 const name =
                     $('#campaign-name').value.trim() ||
@@ -200,7 +355,7 @@
             showToast('Lỗi: ' + detail, 'error');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = '🚀 Run Bulk';
+            submitBtn.textContent = '🚀 Launch';
         }
     }
 
@@ -218,7 +373,8 @@
                     (g) => `
                 <div class="aikol-credit-row">
                     <span class="aikol-credit-row__kind aikol-credit-row__kind--${escapeHtml(g.state)}">${escapeHtml(g.state)}</span>
-                    <span style="flex:1;min-width:0">${escapeHtml(g.kind)} · model #${g.model_id}${g.clip_id ? ' · clip #' + g.clip_id : ''} · ${g.cost_credits} cr · ${g.output_count} output</span>
+                    <span class="aikol-credit-row__delta">${g.cost_credits} cr</span>
+                    <span style="flex:1;min-width:0">${escapeHtml(g.kind)} · model #${g.model_id}${g.clip_id ? ' · clip #' + g.clip_id : ''} · ${g.output_count} output</span>
                     <span style="color:var(--aikol-text-dim);font-size:0.78rem">${new Date(g.created_at * 1000).toLocaleString('vi-VN')}</span>
                 </div>`
                 )
@@ -229,25 +385,32 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         const form = $('#bulk-form');
         loadModelsInto(form.elements.model_id);
         refreshCredits();
         loadRecent();
 
-        $('#preset-grid')
-            .querySelectorAll('[data-preset]')
-            .forEach((b) => {
-                b.addEventListener('click', () => applyPreset(b.dataset.preset));
-            });
-        form.addEventListener('change', () => {
-            toggleVideoBlock();
-            refreshCostSummary();
+        // Segmented kind toggle
+        $$('.aikol-segmented__btn').forEach((b) => {
+            b.addEventListener('click', () => setKind(b.dataset.kind));
         });
-        form.addEventListener('input', refreshCostSummary);
+        // Quick filter chips
+        $$('[data-quick]').forEach((b) => {
+            b.addEventListener('click', () => setQuickFilter(b.dataset.quick));
+        });
+        // Preset cards
+        $$('[data-preset]').forEach((b) => {
+            b.addEventListener('click', () => applyPreset(b.dataset.preset));
+        });
+        // Live update on every form change
+        form.addEventListener('change', refreshLaunch);
+        form.addEventListener('input', refreshLaunch);
         form.addEventListener('submit', onSubmit);
-        toggleVideoBlock();
-        refreshCostSummary();
+
+        await fetchClips();
+        setKind('image');
+        refreshLaunch();
 
         const queuePanel = document.getElementById('aikol-queue-panel');
         if (window.AikolGenerate && queuePanel) {

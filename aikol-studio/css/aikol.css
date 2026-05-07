@@ -1078,3 +1078,244 @@
     object-fit: cover;
     display: block;
 }
+
+/* ===== Sprint 5 — Bulk page redesign (clone tikreel 3-step horizontal) ===== */
+.aikol-header--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.aikol-header__actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Numbered step heading "[1] Pick a preset" */
+.aikol-step-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+}
+.aikol-step-num {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex: 0 0 auto;
+}
+
+/* Preset cards — refined hover + active states */
+.aikol-preset {
+    text-align: left;
+    padding: 1rem;
+    border: 1px solid var(--aikol-border);
+    border-radius: 12px;
+    background: var(--aikol-surface-2);
+    color: var(--aikol-text);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    transition:
+        border-color var(--aikol-dur) var(--aikol-ease),
+        background-color var(--aikol-dur) var(--aikol-ease),
+        transform var(--aikol-dur) var(--aikol-ease);
+    position: relative;
+}
+.aikol-preset__icon {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+.aikol-preset:hover {
+    border-color: var(--aikol-accent-light);
+    transform: translateY(-1px);
+}
+.aikol-preset--active {
+    border-color: var(--aikol-accent);
+    background: linear-gradient(135deg, rgba(124, 92, 255, 0.15), rgba(164, 124, 255, 0.05));
+    box-shadow: 0 0 0 1px var(--aikol-accent) inset;
+}
+
+/* 2-column grid: form (left) + sticky launch panel (right) */
+.aikol-bulk-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1rem;
+    margin-block: 1rem;
+    align-items: start;
+}
+@media (max-width: 1024px) {
+    .aikol-bulk-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.aikol-bulk-form {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+}
+.aikol-bulk-launch {
+    position: sticky;
+    top: calc(var(--topbar-height, 0px) + 1rem);
+    align-self: start;
+}
+.aikol-bulk-launch__card {
+    margin: 0;
+    display: grid;
+    gap: 0.85rem;
+}
+
+/* Segmented control — Image / Video toggle (tikreel-style) */
+.aikol-segmented {
+    display: inline-flex;
+    background: var(--aikol-surface-2);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+.aikol-segmented__btn {
+    border: none;
+    background: transparent;
+    color: var(--aikol-text-dim);
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    transition:
+        background-color var(--aikol-dur) var(--aikol-ease),
+        color var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-segmented__btn:hover {
+    color: var(--aikol-text);
+}
+.aikol-segmented__btn--active {
+    background: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
+}
+
+/* Filter chip strip */
+.aikol-bulk-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.85rem;
+}
+
+/* Clip thumb preview grid */
+.aikol-bulk-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 0.4rem;
+    margin-top: 0.85rem;
+}
+.aikol-bulk-thumb {
+    aspect-ratio: 9 / 16;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--aikol-surface-2);
+    position: relative;
+    border: 1px solid var(--aikol-border);
+}
+.aikol-bulk-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.aikol-bulk-thumb__badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+/* Launch panel summary */
+.aikol-launch-summary {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.55rem;
+}
+.aikol-launch-summary > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    border-bottom: 1px dashed rgba(124, 92, 255, 0.12);
+    padding-bottom: 0.4rem;
+}
+.aikol-launch-summary > div:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.aikol-launch-summary dt {
+    color: var(--aikol-text-dim);
+    font-weight: 500;
+}
+.aikol-launch-summary dd {
+    margin: 0;
+    color: var(--aikol-text);
+    font-weight: 600;
+    text-align: right;
+    word-break: break-word;
+}
+
+.aikol-launch-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.85rem 1rem;
+    background: var(--aikol-accent-soft);
+    border-radius: 12px;
+}
+.aikol-launch-total__label {
+    color: var(--aikol-text-dim);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.aikol-launch-total__num {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--aikol-accent-light);
+    letter-spacing: -0.01em;
+}
+
+/* Big launch button */
+.aikol-btn--xl {
+    padding: 0.85rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    width: 100%;
+    border-radius: 12px;
+}
+
+.aikol-launch-meta {
+    display: grid;
+    gap: 0.5rem;
+}
+.aikol-launch-saveas {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--aikol-text-dim);
+}
+.aikol-input--sm {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85rem;
+    border-radius: 8px;
+}
