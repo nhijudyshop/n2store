@@ -3529,6 +3529,9 @@
             const originalConfirmHtml = confirmBtn.innerHTML;
             confirmBtn.disabled = true;
             confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+            // 30s abort — surface hung fetch as a real error instead of perpetual spinner.
+            const ctrl = new AbortController();
+            const abortTimer = setTimeout(() => ctrl.abort(), 30000);
             try {
                 const url = `${RENDER_URL}/api/v2/balance-history/${encodeURIComponent(uid)}/manager-review`;
                 const resp = await fetch(url, {
@@ -3539,20 +3542,34 @@
                         reviewed_by: reviewedBy,
                         review_image_url: reviewImageUrl,
                     }),
+                    signal: ctrl.signal,
                 });
-                const result = await resp.json();
-                if (!result.success) throw new Error(result.error || 'Review failed');
-                // Replace trigger button with badge
-                if (btn && btn.parentNode) {
-                    const t = new Date().toLocaleString('vi-VN');
-                    const tip = `Đã kiểm tra bởi ${reviewedBy} lúc ${t}`;
-                    const badge = document.createElement('span');
-                    badge.className = 'dr-hp-reviewed-badge';
-                    badge.title = tip;
-                    badge.style.cssText =
-                        'display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;';
-                    badge.textContent = '✓ ĐÃ KT';
-                    btn.replaceWith(badge);
+                clearTimeout(abortTimer);
+                const text = await resp.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (_) {
+                    throw new Error(`Server trả response không phải JSON (HTTP ${resp.status}): ${text.slice(0, 120)}`);
+                }
+                if (!resp.ok || !result.success) {
+                    throw new Error(result.error || `HTTP ${resp.status}`);
+                }
+                // Server confirmed — guarantee modal closes even if post-effects throw.
+                try {
+                    if (btn && btn.parentNode) {
+                        const t = new Date().toLocaleString('vi-VN');
+                        const tip = `Đã kiểm tra bởi ${reviewedBy} lúc ${t}`;
+                        const badge = document.createElement('span');
+                        badge.className = 'dr-hp-reviewed-badge';
+                        badge.title = tip;
+                        badge.style.cssText =
+                            'display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:11px;font-weight:600;';
+                        badge.textContent = '✓ ĐÃ KT';
+                        btn.replaceWith(badge);
+                    }
+                } catch (postErr) {
+                    console.warn('[DR REVIEW] badge replace failed:', postErr);
                 }
                 // Audit log — đảm bảo verify từ delivery-report cũng xuất hiện ở balance-history "Lịch Sử"
                 try {
@@ -3581,15 +3598,18 @@
                             entityType: 'balance_history',
                         });
                     }
-                } catch (_) {
-                    /* ignore audit log errors */
-                }
-                // Invalidate cache so next open refetches reviewed status
-                if (reviewState.phone) customerCache.delete(reviewState.phone);
+                } catch (_) { /* ignore audit log errors */ }
+                try {
+                    if (reviewState.phone) customerCache.delete(reviewState.phone);
+                } catch (_) { /* ignore cache invalidation errors */ }
                 closeReviewModal();
             } catch (err) {
+                clearTimeout(abortTimer);
                 console.error('[DR REVIEW]', uid, err);
-                alert('Lỗi kiểm tra giao dịch: ' + (err.message || err));
+                const msg = err.name === 'AbortError'
+                    ? 'Quá thời gian chờ (30s). Kiểm tra mạng hoặc thử lại.'
+                    : (err.message || String(err));
+                alert('Lỗi kiểm tra giao dịch: ' + msg);
                 confirmBtn.disabled = false;
                 confirmBtn.innerHTML = originalConfirmHtml;
             }
