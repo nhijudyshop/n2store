@@ -970,3 +970,111 @@
         padding-top: 3.6rem; /* avoid burger overlap */
     }
 }
+
+/* ===== Sprint 5 — Dashboard KPI hero + queue/completed row ===== */
+.aikol-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-block: 1rem;
+}
+.aikol-kpi {
+    background: var(--aikol-surface);
+    border: 1px solid var(--aikol-border);
+    border-radius: var(--aikol-radius-card);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    transition: border-color var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-kpi:hover {
+    border-color: rgba(124, 92, 255, 0.5);
+}
+.aikol-kpi__num {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--aikol-text);
+}
+.aikol-kpi__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--aikol-text);
+    margin-top: 0.2rem;
+}
+.aikol-kpi__sub {
+    font-size: 0.75rem;
+    color: var(--aikol-text-dim);
+}
+
+.aikol-dash-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 1rem;
+    margin-block: 1rem;
+}
+@media (max-width: 880px) {
+    .aikol-dash-row {
+        grid-template-columns: 1fr;
+    }
+}
+.aikol-dash-col {
+    margin: 0; /* override .aikol-panel margin */
+}
+.aikol-dash-col__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+.aikol-dash-col__head h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.aikol-link {
+    color: var(--aikol-accent-light);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: color var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-link:hover {
+    color: #fff;
+}
+
+.aikol-dash-thumbs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.4rem;
+}
+@media (max-width: 540px) {
+    .aikol-dash-thumbs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+.aikol-dash-thumb {
+    aspect-ratio: 9 / 16;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--aikol-surface-2);
+    display: block;
+    transition:
+        transform var(--aikol-dur) var(--aikol-ease),
+        box-shadow var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-dash-thumb:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+.aikol-dash-thumb img,
+.aikol-dash-thumb video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}

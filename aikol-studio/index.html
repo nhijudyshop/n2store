@@ -47,49 +47,60 @@
                 </div>
             </header>
 
-            <section class="aikol-panel">
-                <h2>Bắt đầu — 4 bước tạo nội dung đầu tiên</h2>
-                <div class="aikol-steps">
-                    <div class="aikol-step">
-                        <span class="aikol-step__num">1</span>
-                        <h3>Upload model</h3>
-                        <p>
-                            1 ảnh chân dung — gương mặt + thân hình. AI sẽ clone vào mọi kết quả.
-                            Chọn ảnh rõ mặt, ánh sáng tốt.
-                        </p>
-                        <a href="models.html">Upload model →</a>
-                    </div>
-                    <div class="aikol-step">
-                        <span class="aikol-step__num">2</span>
-                        <h3>Import clip</h3>
-                        <p>
-                            3 cách: nhập cả kênh TikTok/Douyin · paste 1 video URL · upload MP4 từ
-                            máy.
-                        </p>
-                        <a href="library.html">Mở Library →</a>
-                    </div>
-                    <div class="aikol-step">
-                        <span class="aikol-step__num">3</span>
-                        <h3>(Tuỳ chọn) Sản phẩm</h3>
-                        <p>
-                            Ảnh quần áo / phụ kiện để "mặc" cho model. Khỏi tự generate outfit từ
-                            TikTok frame.
-                        </p>
-                        <a href="products.html">Upload product →</a>
-                    </div>
-                    <div class="aikol-step">
-                        <span class="aikol-step__num">4</span>
-                        <h3>Generate</h3>
-                        <p>
-                            Library → chọn clip → ⚡ Generate. Image (Fal.ai) hoặc Video (Kling).
-                            Outputs ở
-                            <a href="history.html">/history</a>.
-                        </p>
-                        <a href="library.html">Generate →</a>
-                    </div>
+            <!-- Sprint 5 — KPI hero (clone tikreel /app dashboard) -->
+            <section class="aikol-kpi-grid" aria-label="Workspace stats">
+                <div class="aikol-kpi">
+                    <div class="aikol-kpi__num" id="kpi-clips">—</div>
+                    <div class="aikol-kpi__label">Clips imported</div>
+                    <div class="aikol-kpi__sub">Cross-channel library</div>
+                </div>
+                <div class="aikol-kpi">
+                    <div class="aikol-kpi__num" id="kpi-models">—</div>
+                    <div class="aikol-kpi__label">Models saved</div>
+                    <div class="aikol-kpi__sub">Subject portraits</div>
+                </div>
+                <div class="aikol-kpi">
+                    <div class="aikol-kpi__num" id="kpi-outputs">—</div>
+                    <div class="aikol-kpi__label">Outputs generated</div>
+                    <div class="aikol-kpi__sub">Images + videos</div>
                 </div>
             </section>
 
+            <!-- Sprint 5 — Generation Queue + Completed (2-col) -->
+            <section class="aikol-dash-row">
+                <article class="aikol-panel aikol-dash-col">
+                    <header class="aikol-dash-col__head">
+                        <h2 style="margin: 0">
+                            Generation Queue (<span id="dash-queue-count">0</span>)
+                        </h2>
+                        <a class="aikol-link" href="library.html">+ New Job</a>
+                    </header>
+                    <div id="dash-queue-list">
+                        <div
+                            class="aikol-empty"
+                            style="padding: 1.25rem 0.5rem; font-size: 0.85rem"
+                        >
+                            Chưa có job nào đang chạy.
+                        </div>
+                    </div>
+                </article>
+                <article class="aikol-panel aikol-dash-col">
+                    <header class="aikol-dash-col__head">
+                        <h2 style="margin: 0">Completed (<span id="dash-done-count">0</span>)</h2>
+                        <a class="aikol-link" href="history.html">View all</a>
+                    </header>
+                    <div id="dash-done-thumbs" class="aikol-dash-thumbs">
+                        <div
+                            class="aikol-empty"
+                            style="padding: 1.25rem 0.5rem; font-size: 0.85rem"
+                        >
+                            Outputs sẽ hiện ở đây.
+                        </div>
+                    </div>
+                </article>
+            </section>
+
+            <!-- Tips section retained -->
             <section class="aikol-panel">
                 <h2>Mẹo dùng Kling video</h2>
                 <ul
@@ -129,6 +140,7 @@
             </section>
         </main>
 
+        <script defer src="js/dashboard.js"></script>
         <script>
             // Cosmetic: load credits + lucide icons after DOM ready
             document.addEventListener('DOMContentLoaded', async () => {

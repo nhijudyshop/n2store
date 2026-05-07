@@ -143,6 +143,25 @@
         });
     }
 
+    function renderIcons() {
+        if (global.lucide?.createIcons) {
+            try {
+                global.lucide.createIcons();
+            } catch (_) {}
+        }
+    }
+
+    function waitForLucide(maxMs = 4000) {
+        const start = Date.now();
+        return new Promise((resolve) => {
+            (function check() {
+                if (global.lucide?.createIcons) return resolve(true);
+                if (Date.now() - start > maxMs) return resolve(false);
+                setTimeout(check, 60);
+            })();
+        });
+    }
+
     function inject() {
         if (document.getElementById('aikol-sidebar')) return;
         const wrap = document.createElement('div');
@@ -153,8 +172,9 @@
         for (const el of Array.from(wrap.children)) {
             document.body.appendChild(el);
         }
-        // Lucide icons (loaded by every aikol page).
-        if (global.lucide?.createIcons) global.lucide.createIcons();
+        // Lucide is loaded with defer — wait for it before rendering icons.
+        renderIcons();
+        waitForLucide().then(renderIcons);
         bindBurger();
         bindLogout();
         fillDock();
