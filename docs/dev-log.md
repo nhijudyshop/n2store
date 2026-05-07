@@ -8,6 +8,30 @@
 
 ## 2026-05-07
 
+### [orders][feat][security] RT + Auto T switches — chỉ admin/lai-authenticated được toggle
+
+**Files**: MODIFIED [orders-report/tab1-orders.html](../orders-report/tab1-orders.html), [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js)
+
+User: "userType: lai-authenticated, admin-authenticated → mới cho bật tắt RT, Auto T (mặc định mở 2 cái này cho các user khác)".
+
+**Permission gate**: `window._canTogglePowerSwitches()` (HTML inline early script trong `<head>`) check `loginindex_auth.userType` ∈ {`admin-authenticated`, `lai-authenticated`}.
+
+**RT switch — convert sang iOS-style** (matching Auto T):
+
+- Pill+dot → 36×20 switch + knob 16×16 trượt L↔R.
+- Label `RT: BẬT` (xanh, ON+connected) / `RT: TẮT` (xám) / `RT: kết nối lại…` (cam khi reconnecting).
+- `aria-checked`, `role="switch"`.
+
+**Enforcement**:
+
+- Auto T: `_loadAutoTClearSetting` check non-priv → `_hideAutoTUI()` ẩn switch+label, force `_autoTClearEnabled=true`. `toggleAutoTClear()` no-op + warn.
+- RT: `_hideRtUIIfNotAllowed()` chạy DOMContentLoaded ẩn nếu non-priv + force `tableUpdateEnabled=true`. `toggle()` guard.
+
+**Browser-tested**:
+
+- Admin (`admin-authenticated`): cả 2 switches visible, `canToggle:true`, click RT đổi ON↔OFF.
+- Non-priv (`sale-authenticated` simulated): `rt/at Display:none, label Display:none, autoTState:true (forced), canToggle:false`.
+
 ### [orders][feat] Auto T toggle — iOS-style switch + bỏ banner/confirm modal
 
 **Files**: MODIFIED [orders-report/tab1-orders.html](../orders-report/tab1-orders.html), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js), [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js)
