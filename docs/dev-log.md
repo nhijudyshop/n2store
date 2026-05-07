@@ -13,8 +13,8 @@
 - **Why**: Card "TAG KHÔNG CÓ ĐƠN" có nút "Xóa toàn bộ" — đôi khi user muốn giữ một số tag dù chưa có đơn (tag chuẩn bị live, tag template). Cần cách flag tag để skip khỏi xóa hàng loạt.
 - **What**: Thêm icon ghim (📌 `fa-thumbtack`) trên mỗi row trong sub-list zero-order. Click toggle `tag.pinned` boolean → persist qua `saveSocialTagsToStorage()` + `saveSocialTagsToFirebase()`. `deleteAllZeroOrderTags()` filter `!t.pinned` trước khi xóa, hiển thị "(Bỏ qua N tag đã ghim)" trong confirm + notification. Header sub-list show `(N đã ghim)` nếu có. Row pinned có border vàng + icon thumbtack vàng luôn hiển thị (không cần hover).
 - **Edge cases**:
-  - Tất cả tag không có đơn đều ghim → button "Xóa toàn bộ" notify "Tất cả N tag đã được ghim. Bỏ ghim trước khi xóa.", không xóa gì.
-  - Pin state preserve khi tag chuyển sang có đơn / không có đơn (property nằm trên tag, không phụ thuộc trạng thái).
+    - Tất cả tag không có đơn đều ghim → button "Xóa toàn bộ" notify "Tất cả N tag đã được ghim. Bỏ ghim trước khi xóa.", không xóa gì.
+    - Pin state preserve khi tag chuyển sang có đơn / không có đơn (property nằm trên tag, không phụ thuộc trạng thái).
 
 **Files MODIFIED (2)**:
 
@@ -151,7 +151,17 @@ Status: ✅ Done
 
 **Final test (commit ec766a95 → live)**: 23/23 deep test pass. 0 console errors. Settings + history pages match tikreel pricing/library aesthetic.
 
-**Status**: ✅ Done — Sprint 5 COMPLETE (S5.1 → S5.7). UI matches tikreel design language (gradient CTAs + sidebar + KPI dashboard + 3-step bulk + soft-chip filters + premium plan cards). 23/23 deep-test pass on every iteration. Mobile responsive verified at 375×812.
+**S5 polish loop — full visual audit pass on `nhijudyshop.github.io/n2store/aikol-studio/`**
+
+Ran 14-capture audit (7 aikol pages × desktop + mobile). 0 console errors, 0 horizontal overflow on any page. Three visual issues found + fixed:
+
+1. **Outputs sidebar item missing icon** — `data-lucide="images"` not in lucide 0.294 → use `image` (singular). All 8 nav items now render lucide SVG (`lucide lucide-{name}` confirmed via DOM inspect).
+2. **Dashboard h1 "AI KOL Studio" duplicated the sidebar brand** → renamed h1 to "Dashboard"; tagline reorganised to "AI KOL Studio · clone TikTok/Douyin → tạo nội dung không giới hạn".
+3. **"Outputs sẽ hiện ở đây." empty state wrapping awkwardly** inside the 4-col `.aikol-dash-thumbs` grid → `> .aikol-empty { grid-column: 1 / -1; }` so empty state spans all columns.
+
+Final test on commit `fff590ed`: **23/23 deep test pass** + **6/6 real-login pages clean** + **0 console errors**.
+
+**Status**: ✅ Done — Sprint 5 COMPLETE (S5.1 → S5.7 + polish loop). UI matches tikreel design language (gradient CTAs + sidebar with all 8 icons + KPI dashboard + 3-step bulk + soft-chip filters + premium plan cards). 23/23 deep-test pass on every iteration. Mobile responsive verified at 375×812. Visual audit clean.
 
 ---
 
