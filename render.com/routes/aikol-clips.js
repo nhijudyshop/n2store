@@ -198,6 +198,81 @@ router.post('/import/single', requireUser, express.json(), async (req, res) => {
     }
 });
 
+// ---------- POST /import/channel — list user's TikTok videos for batch import ----------
+// Returns video metadata only — does NOT charge credits or persist clips. The
+// frontend then calls /import/single per video (parallel, 1 credit each) so
+// users can preview + cancel before paying. Already-imported videos are flagged
+// with `already_imported: true` in the response so the UI can hide their button.
+router.post('/import/channel', requireUser, express.json(), async (req, res) => {
+    const { url, count, cookie } = req.body || {};
+    if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'invalid', detail: 'url required' });
+    }
+    const limit = Math.max(1, Math.min(parseInt(count, 10) || 20, 35));
+
+    // Step 1: resolve URL → secUid
+    const resolved = await scraper.resolveTiktokSecUid(url);
+    if (!resolved) {
+        return res.status(400).json({
+            error: 'cannot_resolve',
+            detail:
+                'Không lấy được secUid từ URL (TikTok có thể đã chặn IP server). ' +
+                'Bạn có thể paste secUid trực tiếp (chuỗi bắt đầu MS4wLjAB...) thay vì link.',
+        });
+    }
+
+    // Step 2: fetch account videos via self-hosted scraper.
+    // Use admin-provided cookie env if user didn't pass one.
+    const effectiveCookie = cookie || process.env.AIKOL_TIKTOK_COOKIE || '';
+    let result;
+    try {
+        result = await scraper.fetchTiktokAccountVideos({
+            secUid: resolved.secUid,
+            cookie: effectiveCookie,
+            count: limit,
+            cursor: 0,
+        });
+    } catch (e) {
+        console.error('[aikol] /import/channel scraper failed', e);
+        return res.status(502).json({
+            error: 'scraper_failed',
+            detail: e.message,
+            hint: effectiveCookie
+                ? 'Cookie có thể đã hết hạn — admin cần update AIKOL_TIKTOK_COOKIE env.'
+                : 'Channel scrape cần TikTok cookie. Admin cần set env AIKOL_TIKTOK_COOKIE trên scraper service.',
+        });
+    }
+
+    if (!result.videos.length) {
+        return res.status(200).json({
+            sec_user_id: resolved.secUid,
+            unique_id: resolved.uniqueId,
+            videos: [],
+            already_imported_ids: [],
+            hint: 'Scraper trả 0 video. Có thể kênh private, không có video, hoặc cookie đã hết hạn.',
+        });
+    }
+
+    // Step 3: flag which video_ids the user already has in their library
+    const ids = result.videos.map((v) => v.videoId);
+    const dupes = await pool.query(
+        `SELECT video_id FROM aikol_clips
+         WHERE user_id = $1 AND platform = 'tiktok' AND video_id = ANY($2)`,
+        [req.userId, ids]
+    );
+    const dupeSet = new Set(dupes.rows.map((r) => r.video_id));
+
+    res.json({
+        sec_user_id: resolved.secUid,
+        unique_id: resolved.uniqueId,
+        videos: result.videos.map((v) => ({ ...v, already_imported: dupeSet.has(v.videoId) })),
+        already_imported_ids: Array.from(dupeSet),
+        has_more: result.hasMore,
+        cursor: result.cursor,
+        cost_per_video: SINGLE_VIDEO_COST,
+    });
+});
+
 // ---------- POST /import/upload — local MP4 (FREE) ----------
 const upload = multer({
     storage: multer.memoryStorage(),

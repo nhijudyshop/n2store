@@ -8,6 +8,41 @@
 
 ## 2026-05-07
 
+### [aikol][clips] Import cả kênh TikTok: backend `/clips/import-channel` + orchestrator song song
+
+**Yêu cầu**: Lấy danh sách video của 1 kênh TikTok rồi batch import song song. JoeanAmier/TikTokDownloader đã có `/tiktok/account` (deployed sẵn ở `n2store-aikol-scraper.onrender.com`).
+
+**Architecture**:
+
+- Backend KHÔNG batch import — chỉ trả metadata list. Frontend orchestrate concurrency=3 calls vào `/clips/import/single` (đã có sẵn). Lý do: charge credits từng video, tận dụng dedup `aikol_clips`, tránh long-running request trên Render free tier.
+- Resolve `secUid`: parse @handle từ URL → fetch HTML profile TikTok → regex `"secUid":"MS4wLjAB..."`. Fallback: user paste secUid trực tiếp.
+- Cookie: ưu tiên user-supplied > env `AIKOL_TIKTOK_COOKIE` (admin set trên Render). Anonymous account scrape có thể fail tuỳ TikTok.
+
+**Files**:
+
+- [render.com/services/aikol-scraper-service.js](../render.com/services/aikol-scraper-service.js) — thêm `resolveTiktokSecUid(input)` (parse HTML, regex secUid hoặc accept secUid trực tiếp) + `fetchTiktokAccountVideos({secUid, cookie, count, cursor})` (call `/tiktok/account` self-hosted scraper).
+- [render.com/routes/aikol-clips.js](../render.com/routes/aikol-clips.js) — `POST /import/channel`: resolve URL → list videos qua scraper → flag `already_imported` cho mỗi video (so với `aikol_clips` của user). Không charge credits ở bước này. Trả `{videos: [{videoId, title, duration, cover, url, already_imported}], cost_per_video: 1, has_more, cursor}`.
+- [aikol-studio/library.html](../aikol-studio/library.html) — Section 1 "Import cả kênh TikTok" thay khung disabled bằng form thật: input URL/secUid, select 10/20/35 video, button "Lấy danh sách".
+- [aikol-studio/js/aikol-api.js](../aikol-studio/js/aikol-api.js) — `importChannel(url, count, cookie?)` → `POST /import/channel`.
+- [aikol-studio/js/library.js](../aikol-studio/js/library.js) — `onChannelFetch()` gọi API → render list 56×72px thumbnails với meta + status; `runChannelBatch(videos, concurrency=3)` worker pool gọi `importSingle(url)` cho từng video, update inline status (chờ → đang tải → ✓ xong / ✗ lỗi). Có nút Huỷ giữa chừng (cờ `channelCancelled` dừng thêm task mới).
+- [aikol-studio/css/aikol.css](../aikol-studio/css/aikol.css) — `.aikol-channel-list` + `.aikol-channel-item` (3-cột grid: cover · title/meta · status, opacity 0.55 cho `[data-already="1"]`).
+
+**Trade-offs**:
+
+- Self-host scraper required (đã có).
+- Cookie có thể hết hạn → admin update env `AIKOL_TIKTOK_COOKIE`.
+- Resolve secUid từ Render IP có thể bị TikTok 403 → fallback paste secUid trực tiếp.
+- Concurrency 3 = compromise giữa rate-limit TikTok và speed.
+
+**Smoke test (Playwright local)**:
+
+- `library.html` reload → form render đầy đủ (input enabled, button enabled, select 3 options) ✓
+- Heading "1. Import cả kênh TikTok" ✓
+
+**Còn cần verify**: sau khi Render redeploy (~3min), thử URL kênh thật. Nếu 503/blocked, set `AIKOL_TIKTOK_COOKIE` env trên scraper service.
+
+**Status**: ✅ Done (code). Online verification pending Render redeploy.
+
 ### [orders][render] Hàng rớt xả: double-click → mark as ordered + race fixes
 
 **Yêu cầu (owner)**:

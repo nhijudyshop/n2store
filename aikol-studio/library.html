@@ -50,28 +50,37 @@
                     margin-block: 1rem;
                 "
             >
-                <!-- 1. Channel scrape (deferred — needs cookie) -->
-                <section class="aikol-panel" style="opacity: 0.6">
+                <!-- 1. Channel batch import (uses self-hosted scraper /tiktok/account) -->
+                <section class="aikol-panel">
                     <h2>1. Import cả kênh TikTok</h2>
                     <p style="color: var(--aikol-text-dim); font-size: 0.85rem; margin-top: 0">
-                        Đang phát triển — cần TikTok cookie. Trong khi chờ, dùng "Single video URL"
-                        hoặc "Upload MP4" bên cạnh.
+                        Lấy danh sách video gần nhất rồi import song song. Dán URL kênh
+                        (<code>tiktok.com/@user</code>) hoặc paste <code>secUid</code> nếu có.
                     </p>
-                    <input
-                        class="aikol-input"
-                        type="text"
-                        placeholder="tiktok.com/@user (sắp có)"
-                        disabled
-                        aria-disabled="true"
-                    />
-                    <div style="display: flex; gap: 0.5rem; margin-top: 0.6rem">
-                        <select class="aikol-input" disabled style="flex: 1">
-                            <option>20 clips</option>
-                            <option>50 clips</option>
-                            <option>100 clips</option>
-                        </select>
-                        <button type="button" class="aikol-btn" disabled>Import</button>
-                    </div>
+                    <form id="channel-form" style="display: grid; gap: 0.6rem">
+                        <input
+                            id="channel-input"
+                            class="aikol-input"
+                            type="text"
+                            placeholder="tiktok.com/@user hoặc MS4wLjAB..."
+                            required
+                        />
+                        <div style="display: flex; gap: 0.5rem">
+                            <select id="channel-count" class="aikol-input" style="flex: 1">
+                                <option value="10">10 video gần nhất</option>
+                                <option value="20" selected>20 video gần nhất</option>
+                                <option value="35">35 video (tối đa/lần)</option>
+                            </select>
+                            <button id="channel-fetch-btn" type="submit" class="aikol-btn">
+                                Lấy danh sách
+                            </button>
+                        </div>
+                    </form>
+                    <div
+                        id="channel-progress"
+                        style="display: none; margin-top: 0.85rem; font-size: 0.85rem"
+                    ></div>
+                    <div id="channel-list" style="display: none; margin-top: 0.85rem"></div>
                 </section>
 
                 <!-- 2. Single video URL -->

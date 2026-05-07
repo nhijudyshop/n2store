@@ -207,9 +207,172 @@
         }
     }
 
+    // ===== Channel batch import =====
+    let channelCancelled = false;
+
+    function escapeHtml(s) {
+        return String(s || '').replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
+    }
+
+    async function onChannelFetch(ev) {
+        ev.preventDefault();
+        const input = $('#channel-input');
+        const countSel = $('#channel-count');
+        const btn = $('#channel-fetch-btn');
+        const progress = $('#channel-progress');
+        const list = $('#channel-list');
+        const url = (input.value || '').trim();
+        if (!url) return showToast('Vui lòng dán URL kênh hoặc secUid', 'error');
+
+        btn.disabled = true;
+        btn.textContent = 'Đang lấy…';
+        progress.style.display = 'block';
+        progress.textContent = 'Đang resolve secUid + gọi scraper…';
+        list.style.display = 'none';
+        list.innerHTML = '';
+
+        try {
+            const r = await window.AikolAPI.importChannel(url, parseInt(countSel.value, 10));
+            const fresh = r.videos.filter((v) => !v.already_imported);
+            if (!r.videos.length) {
+                progress.innerHTML =
+                    '<span style="color:var(--aikol-warn)">' +
+                    escapeHtml(r.hint || 'Scraper trả 0 video.') +
+                    '</span>';
+                btn.disabled = false;
+                btn.textContent = 'Lấy danh sách';
+                return;
+            }
+            progress.innerHTML = `Tìm thấy <strong>${r.videos.length}</strong> video — đã có sẵn ${r.videos.length - fresh.length}, mới <strong>${fresh.length}</strong>. Mỗi video tốn ${r.cost_per_video} credit.`;
+            renderChannelList(r.videos, fresh.length, r.cost_per_video);
+        } catch (e) {
+            const detail = e.data?.detail || e.message;
+            const hint = e.data?.hint;
+            progress.innerHTML =
+                '<span style="color:var(--aikol-error)">Lỗi: ' +
+                escapeHtml(detail) +
+                (hint ? '<br><small>' + escapeHtml(hint) + '</small>' : '') +
+                '</span>';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Lấy danh sách';
+        }
+    }
+
+    function renderChannelList(videos, freshCount, costPerVideo) {
+        const list = $('#channel-list');
+        list.style.display = 'block';
+        list.innerHTML = `
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem">
+                <button type="button" class="aikol-btn" id="channel-import-all" ${freshCount === 0 ? 'disabled' : ''}>
+                    Import ${freshCount} video mới (${freshCount * costPerVideo} credits)
+                </button>
+                <button type="button" class="aikol-btn aikol-btn--secondary" id="channel-cancel" style="display:none">
+                    Huỷ
+                </button>
+                <span style="color:var(--aikol-text-dim); font-size:0.82rem">3 song song · refund tự động nếu fail</span>
+            </div>
+            <div class="aikol-channel-list">
+                ${videos
+                    .map(
+                        (v) => `
+                    <div class="aikol-channel-item" data-video-id="${escapeHtml(v.videoId)}" data-already="${v.already_imported ? '1' : '0'}">
+                        ${v.cover ? `<img src="${escapeHtml(v.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<div class="aikol-channel-item__cover-placeholder">—</div>'}
+                        <div class="aikol-channel-item__body">
+                            <div class="aikol-channel-item__title" title="${escapeHtml(v.title)}">${escapeHtml(v.title || v.videoId)}</div>
+                            <div class="aikol-channel-item__meta">
+                                ${v.duration ? `${v.duration}s · ` : ''}${escapeHtml(v.videoId)}
+                            </div>
+                        </div>
+                        <div class="aikol-channel-item__status" data-status="pending">
+                            ${v.already_imported ? '<span style="color:var(--aikol-text-dim)">đã có</span>' : 'chờ'}
+                        </div>
+                    </div>`
+                    )
+                    .join('')}
+            </div>`;
+        const btnAll = $('#channel-import-all');
+        const btnCancel = $('#channel-cancel');
+        btnAll?.addEventListener('click', async () => {
+            const fresh = videos.filter((v) => !v.already_imported);
+            if (!fresh.length) return;
+            btnAll.disabled = true;
+            btnCancel.style.display = '';
+            channelCancelled = false;
+            btnCancel.onclick = () => {
+                channelCancelled = true;
+                btnCancel.disabled = true;
+                btnCancel.textContent = 'Đang dừng…';
+            };
+            await runChannelBatch(fresh, 3);
+            btnCancel.style.display = 'none';
+            btnAll.textContent = 'Đã xong';
+            await Promise.all([refreshCredits(), refreshClips()]);
+        });
+    }
+
+    async function runChannelBatch(videos, concurrency) {
+        let idx = 0;
+        let done = 0;
+        let failed = 0;
+        const total = videos.length;
+        const updateRowStatus = (videoId, html, statusKey) => {
+            const row = document.querySelector(
+                `.aikol-channel-item[data-video-id="${videoId}"] .aikol-channel-item__status`
+            );
+            if (row) {
+                row.innerHTML = html;
+                row.dataset.status = statusKey;
+            }
+        };
+        const progress = $('#channel-progress');
+        const updateProgress = () => {
+            progress.innerHTML = `Đã import <strong>${done}/${total}</strong>${failed ? ` · lỗi ${failed}` : ''}${channelCancelled ? ' · đã huỷ' : ''}`;
+        };
+        updateProgress();
+
+        async function worker() {
+            while (!channelCancelled) {
+                const i = idx++;
+                if (i >= total) return;
+                const v = videos[i];
+                updateRowStatus(
+                    v.videoId,
+                    '<span style="color:var(--aikol-accent)">đang tải…</span>',
+                    'running'
+                );
+                try {
+                    await window.AikolAPI.importSingle(v.url);
+                    done++;
+                    updateRowStatus(
+                        v.videoId,
+                        '<span style="color:var(--aikol-success)">✓ xong</span>',
+                        'done'
+                    );
+                } catch (e) {
+                    failed++;
+                    const detail = e.data?.detail || e.message || 'lỗi';
+                    updateRowStatus(
+                        v.videoId,
+                        `<span style="color:var(--aikol-error)" title="${escapeHtml(detail)}">✗ lỗi</span>`,
+                        'error'
+                    );
+                }
+                updateProgress();
+            }
+        }
+
+        await Promise.all(Array.from({ length: Math.min(concurrency, total) }, worker));
+        updateProgress();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         $('#single-form').addEventListener('submit', onSingleImport);
         $('#upload-form').addEventListener('submit', onUpload);
+        $('#channel-form')?.addEventListener('submit', onChannelFetch);
         refreshCredits();
         refreshClips();
 

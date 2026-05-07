@@ -1587,6 +1587,61 @@ body {
     max-height: 180px;
     overflow: auto;
 }
+
+/* ===== Channel batch import ===== */
+.aikol-channel-list {
+    display: grid;
+    gap: 0.5rem;
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+.aikol-channel-item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 0.7rem;
+    align-items: center;
+    padding: 0.5rem 0.6rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+}
+.aikol-channel-item[data-already='1'] {
+    opacity: 0.55;
+}
+.aikol-channel-item img,
+.aikol-channel-item__cover-placeholder {
+    width: 56px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--aikol-text-dim);
+    font-size: 0.75rem;
+}
+.aikol-channel-item__body {
+    min-width: 0;
+}
+.aikol-channel-item__title {
+    color: var(--aikol-text);
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.aikol-channel-item__meta {
+    color: var(--aikol-text-dim);
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+}
+.aikol-channel-item__status {
+    font-size: 0.82rem;
+    min-width: 80px;
+    text-align: right;
+}
 .aikol-confirm__foot {
     padding: 0.85rem 1.25rem 1rem;
     display: flex;

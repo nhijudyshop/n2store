@@ -142,6 +142,8 @@
         deleteModel: (id) => jsonRequest('DELETE', `/models/${id}`),
 
         importSingle: (url) => jsonRequest('POST', '/import/single', { url }),
+        importChannel: (url, count, cookie) =>
+            jsonRequest('POST', '/import/channel', { url, count, cookie }),
         uploadClip,
         listClips: (limit = 50, offset = 0) =>
             jsonRequest('GET', `/clips?limit=${limit}&offset=${offset}`),
