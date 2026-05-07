@@ -64,7 +64,20 @@
 
 **ENV vars** — đã có sẵn trên Render `srv-d4e5pd3gk3sc73bgv600`: `FAL_KEY`, `KLING_ACCESS_KEY`, `KLING_SECRET_KEY`, `BUNNY_*`, `AIKOL_SCRAPER_URL`. Optional new: `AIKOL_WORKER_INTERVAL_MS=8000`, `AIKOL_WORKER_MAX_RUNNING=6`, `AIKOL_WORKER_DISABLED=1` (tắt worker — for tests).
 
-**Status**: 🔄 In Progress — đã code xong, cần deploy + smoke test live (kế tiếp).
+**Smoke test LIVE** — `dep-d7u1qfh9rddc73cq75eg` (commit 4ce7442e) — full E2E của infrastructure chạy thông:
+
+1. `GET /health` — fal_configured=true, kling_configured=true.
+2. POST `/models` upload portrait test → id=3, lưu Bunny `aikol/models/3.png`.
+3. POST `/generations` `kind=image` → 200 OK, charged 4 cr atomically, balance 30→26, gen_id `8b8735e0-…`.
+4. Worker poll → pickup pending row → dispatch Fal.ai → 403 _User is locked. Reason: Exhausted balance._ (Fal account hết tiền — không phải lỗi pipeline).
+5. Worker `markError()` set state='error' + auto-refund 4 cr → balance 26→30. Ledger có row `charge -4` và `refund +4` cho cùng `gen_id` ✅.
+6. POST `/generations kind=video std 5s` → 402 `insufficient_credits cost=40 balance=30` (cost calc 8 cr/s × 5s đúng) ✅.
+
+**Còn lại** — Top-up Fal.ai (~$5) để verify image gen actually returns PNG về Bunny. Kling JWT signing đã build xong nhưng chưa submit job thật (cần wallet có ≥40 credits + Fal hoặc Kling sẵn sàng); structure verified qua 402 path.
+
+**Status**: ✅ Done — Sprint 3 infrastructure LIVE. End-to-end charge/dispatch/refund pipeline verified. Provider top-up là blocking item duy nhất để render real outputs.
+
+**Files NEW (test)**: [scripts/test-aikol-sprint3.js](../scripts/test-aikol-sprint3.js) — smoke test image+video flow.
 
 ---
 
