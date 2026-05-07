@@ -339,6 +339,57 @@ Status: ✅ Done
 
 **Status**: ✅ Done.
 
+### [web2] Seed TPOS reference data → Postgres `web2_records` (1055 records, 5 entities)
+
+**Goal**: Đưa data thật từ TPOS production xuống kho local để page web2/\* không còn rỗng.
+
+**Pipeline**:
+
+```
+TPOS /odata/<entity>  → Node script (paged GET) → POST /api/web2/<slug>/create
+                                                  → web2_records table (Postgres on Render)
+                                                  → /api/web2/<slug>/list  →  Web2Page render
+```
+
+**Script** [scripts/web2-seed-from-tpos.js](../scripts/web2-seed-from-tpos.js) (~250 LOC):
+
+- POST `/token` để lấy bearer (creds từ tpos-client.js, NOT hardcoded)
+- Cho mỗi entity config: fetch TPOS với pagination $top+$skip → map → POST tới Render
+- Idempotent: trùng `code` → skip (HTTP 409 hoặc message "duplicate")
+- Flag `--only`, `--dry-run`, `--base` để test/scope linh hoạt
+
+**Iter 1 — 5 entities seed live (production Render)**:
+| Slug | TPOS endpoint | Fetched | Created | Skipped |
+|---|---|---|---|---|
+| `tag` | /odata/Tag | 1000 | **1000** | 0 |
+| `productuom` | /odata/ProductUOM | 44 | **44** | 0 |
+| `deliverycarrier` | /odata/DeliveryCarrier | 7 | **7** | 0 |
+| `rescurrency` | /odata/ResCurrency | 95 | 1 | 94 (dup names) |
+| `productattribute` | /odata/ProductAttribute | 3 | **3** | 0 |
+| **Total** | | 1149 | **1055** | 94 |
+
+**Browser verify (Playwright local)**:
+
+- `web2/tag/index.html` → **200 rows visible**: "OK SALE TEST", "GIỮ ĐƠN QUA TẾT GIAO", "TÌM MÃ SET ĐI ĐƠN"... ✅
+- `web2/product-uom/index.html` → **44 rows**: "CÂY", "SET", "TUÝP", "BỘ", "ĐÔI"... ✅
+- Pagination + search hoạt động ✅
+
+**Iter sau** (cần direct DB hoặc bulk endpoint):
+
+- Partner (~91k Customers + 186 Suppliers)
+- ProductTemplate (~3k templates) + Product variants (~5.5k)
+- FastSaleOrder (~11k orders) + lines
+- FastPurchaseOrder (~1.2k POs)
+- AccountJournal, AccountTax (small ref data, có thể seed REST tiếp)
+
+**Files changed**:
+
+- New: `scripts/web2-seed-from-tpos.js`
+
+**Status**: ✅ Done. Page tag, productuom, deliverycarrier, rescurrency, productattribute giờ có nội dung thật từ TPOS.
+
+---
+
 ### [web2] Gộp 86 page + 4 originals vào group "Web 2.0" duy nhất (bỏ 12 sub-group)
 
 **Theo dõi từ commit `c8e59c73`** (split thành 12 sub-group). User feedback: muốn gộp tất cả vào 1 group "Web 2.0" duy nhất, không chia nhỏ.
