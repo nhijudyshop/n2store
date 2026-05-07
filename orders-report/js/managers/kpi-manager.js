@@ -770,33 +770,79 @@
                 console.warn('[KPI] DELETE kpi-statistics/order failed (non-fatal):', e.message);
             }
 
-            // STT-based attribution: KPI của đơn được tính cho NHÂN VIÊN sở hữu khoảng
-            // STT chứa đơn này (theo cấu hình "phân chia nhân viên"), KHÔNG phải user
-            // nào click add/remove SP trên TPOS. Đây là rule do owner xác nhận:
-            // "tính KPI là trong STT phân chia nhân viên của nhân viên đó thì được tính KPI".
+            // Attribution rule (owner-confirmed 2026-05-07):
+            //  • Default: KPI của đơn được tính cho NHÂN VIÊN sở hữu khoảng STT chứa
+            //    đơn (theo "phân chia nhân viên" của campaign), KHÔNG phải log.userId.
+            //  • Exception (added 2026-05-07): user "my" (userType `my-authenticated`,
+            //    userId pattern `user_my_*`) được tính KPI RIÊNG cho chính mình, không
+            //    rơi vào STT-range owner. Lý do: My làm cross-campaign / cross-range —
+            //    chốt từ luồng riêng, KPI nên gom về My thay vì pad vào range owner.
             //
-            // Sum tất cả perUserKPI (đến từ log.userId trong audit) thành 1 tổng,
-            // rồi attribute cho NV đảm nhiệm STT. Nếu STT không thuộc range nào →
-            // assigned.userId = 'unassigned' → vẫn ghi row 'unassigned' (báo cáo có
-            // thể filter ra) nhưng không cộng vào KPI của ai cả.
-            const totalKPI = Object.values(result.perUserKPI || {}).reduce(
-                (s, v) => s + (Number(v) || 0),
-                0
-            );
-            const totalNet = Object.values(result.perUserNet || {}).reduce(
-                (s, v) => s + (Number(v) || 0),
-                0
-            );
-            const totalKPILegacy = Object.values(result.perUserKPILegacy || {}).reduce(
-                (s, v) => s + (Number(v) || 0),
-                0
-            );
-            const totalNetLegacy = Object.values(result.perUserNetLegacy || {}).reduce(
-                (s, v) => s + (Number(v) || 0),
-                0
-            );
+            // Split per-user KPI: bucket "my" entries (attributed to my directly) vs
+            // "others" entries (summed + attributed to STT-range owner).
+            const myEntries = []; // [{userId, userName}]
+            let myKPI = 0,
+                myNet = 0,
+                myKPILegacy = 0,
+                myNetLegacy = 0;
+            let othersKPI = 0,
+                othersNet = 0,
+                othersKPILegacy = 0,
+                othersNetLegacy = 0;
 
-            if (totalKPI > 0 || totalKPILegacy > 0) {
+            const allUserIds = new Set([
+                ...Object.keys(result.perUserKPI || {}),
+                ...Object.keys(result.perUserKPILegacy || {}),
+            ]);
+            for (const uid of allUserIds) {
+                const k = Number(result.perUserKPI?.[uid] || 0);
+                const n = Number(result.perUserNet?.[uid] || 0);
+                const kL = Number(result.perUserKPILegacy?.[uid] || 0);
+                const nL = Number(result.perUserNetLegacy?.[uid] || 0);
+                if (_isMyUser(uid, result.perUserNames?.[uid])) {
+                    myKPI += k;
+                    myNet += n;
+                    myKPILegacy += kL;
+                    myNetLegacy += nL;
+                    myEntries.push({
+                        userId: uid,
+                        userName: result.perUserNames?.[uid] || 'My',
+                    });
+                } else {
+                    othersKPI += k;
+                    othersNet += n;
+                    othersKPILegacy += kL;
+                    othersNetLegacy += nL;
+                }
+            }
+
+            // (1) "My" portion → save under my's actual userId (one row per distinct my
+            //     user — usually just 1; supports multi-my edge case).
+            for (const entry of myEntries) {
+                const ek = Number(result.perUserKPI?.[entry.userId] || 0);
+                const en = Number(result.perUserNet?.[entry.userId] || 0);
+                const ekL = Number(result.perUserKPILegacy?.[entry.userId] || 0);
+                const enL = Number(result.perUserNetLegacy?.[entry.userId] || 0);
+                if (ek <= 0 && ekL <= 0) continue;
+                await saveKPIStatistics(entry.userId, baseDate, {
+                    orderCode: orderCode,
+                    orderId: base.orderId || null,
+                    stt: stt,
+                    campaignName: base.campaignName || null,
+                    campaignId: base.campaignId || null,
+                    netProducts: en,
+                    kpi: ek,
+                    netProductsLegacy: enL,
+                    kpiLegacy: ekL,
+                    hasDiscrepancy: false,
+                    details: result.details,
+                    userName: entry.userName,
+                });
+            }
+
+            // (2) Non-"my" portion → attribute to STT-range owner (per main rule).
+            //     Sum across all non-my audit users, save 1 row.
+            if (othersKPI > 0 || othersKPILegacy > 0) {
                 let assignedUserId = 'unassigned';
                 let assignedUserName = 'Chưa phân';
                 try {
@@ -813,20 +859,25 @@
                     /* unassigned fallback */
                 }
 
-                await saveKPIStatistics(assignedUserId, baseDate, {
-                    orderCode: orderCode,
-                    orderId: base.orderId || null,
-                    stt: stt,
-                    campaignName: base.campaignName || null,
-                    campaignId: base.campaignId || null,
-                    netProducts: totalNet,
-                    kpi: totalKPI,
-                    netProductsLegacy: totalNetLegacy,
-                    kpiLegacy: totalKPILegacy,
-                    hasDiscrepancy: false,
-                    details: result.details,
-                    userName: assignedUserName,
-                });
+                // Edge case: STT-range owner is also "my" → row already saved in (1)
+                // for the same orderCode+date with the my entries, but here would
+                // duplicate. Skip to avoid double-write under same key.
+                if (!_isMyUser(assignedUserId, assignedUserName)) {
+                    await saveKPIStatistics(assignedUserId, baseDate, {
+                        orderCode: orderCode,
+                        orderId: base.orderId || null,
+                        stt: stt,
+                        campaignName: base.campaignName || null,
+                        campaignId: base.campaignId || null,
+                        netProducts: othersNet,
+                        kpi: othersKPI,
+                        netProductsLegacy: othersNetLegacy,
+                        kpiLegacy: othersKPILegacy,
+                        hasDiscrepancy: false,
+                        details: result.details,
+                        userName: assignedUserName,
+                    });
+                }
             }
 
             // UI badge + toast (non-blocking) — vẫn hiển thị tổng KPI của đơn
@@ -851,6 +902,29 @@
     // Employee Range Lookup (Render PostgreSQL)
     // ========================================
     const CAMPAIGNS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/campaigns';
+
+    /**
+     * Identify nhân viên "my" — user có `userType === 'my-authenticated'` (login.js
+     * gắn `userType: ${username}-authenticated` → username 'my' → userType 'my-authenticated').
+     * Audit log entries từ My có `userId = user_my_<timestamp>_<suffix>` (chuẩn `user_${username}_…`).
+     *
+     * "my" được attribute KPI riêng cho chính mình, KHÔNG dùng STT-range rule —
+     * theo owner-confirmed 2026-05-07.
+     *
+     * @param {string} userId - audit log user_id
+     * @param {string} [userName] - display name (fallback heuristic)
+     * @returns {boolean}
+     */
+    function _isMyUser(userId, userName) {
+        if (!userId) return false;
+        const id = String(userId);
+        // Pattern: user_my_<timestamp>_<suffix>. Underscore right after `my` ensures
+        // prefixes like "myanmar" / "myla" don't collide.
+        if (/^user_my_/.test(id)) return true;
+        // Backward-compat: legacy entries may have user_id = displayName 'My' verbatim
+        if (id === 'my' || id.toLowerCase() === 'user_my') return true;
+        return false;
+    }
 
     async function getAssignedEmployeeForSTT(stt, campaignName, campaignId) {
         const unassigned = { userId: 'unassigned', userName: 'Chưa phân' };
@@ -1128,6 +1202,7 @@
         reconcileKPI,
         saveKPIStatistics,
         getAssignedEmployeeForSTT,
+        isMyUser: _isMyUser,
         fetchProductsFromTPOS,
         getCurrentDateString,
         updateKPIBadge,

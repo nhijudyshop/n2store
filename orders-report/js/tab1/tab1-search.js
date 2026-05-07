@@ -317,6 +317,11 @@ window.orderPassesEmployeeRangeFilter = function (order) {
     if (!order) return true;
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
     if (isAdmin) return true;
+    // "my" exemption (owner-confirmed 2026-05-07): nhân viên My có userType
+    // `my-authenticated` được tính KPI riêng (cross-range), nên không bị ràng buộc
+    // STT-range filter — bypass như admin để xem được mọi đơn KPI mình chốt.
+    const auth = window.authManager?.getAuthState?.();
+    if (auth?.userType === 'my-authenticated') return true;
     const ranges = window.employeeRanges || [];
     if (!ranges.length) return true;
     const userRange = _findCurrentUserEmployeeRange();
@@ -334,9 +339,13 @@ function _applyFiltersExceptProcessingTag() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // Apply Employee STT Range Filter for assigned users (non-admin only)
+    // Apply Employee STT Range Filter for assigned users (non-admin only).
+    // "my" exemption: nhân viên My (userType `my-authenticated`) có KPI tracked riêng
+    // → bypass STT range filter (cross-range work), behave như admin về visibility.
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
-    if (!isAdmin && employeeRanges.length > 0) {
+    const auth = window.authManager?.getAuthState?.();
+    const isMyUser = auth?.userType === 'my-authenticated';
+    if (!isAdmin && !isMyUser && employeeRanges.length > 0) {
         const userRange = _findCurrentUserEmployeeRange();
 
         if (userRange) {
@@ -354,7 +363,7 @@ function _applyFiltersExceptProcessingTag() {
                 _setEmployeeToggleBtnDisabled(false);
         }
     } else {
-        // Admin or no ranges configured → enable toggle button
+        // Admin / my-user / no ranges configured → enable toggle button
         if (typeof _setEmployeeToggleBtnDisabled === 'function')
             _setEmployeeToggleBtnDisabled(false);
     }
@@ -652,11 +661,14 @@ function schedulePerformTableSearch(delayMs = 150) {
 window.schedulePerformTableSearch = schedulePerformTableSearch;
 
 // Returns orders filtered by employee assignment (for non-admin users)
-// Used by sidebar panel to show correct counts per user
+// Used by sidebar panel to show correct counts per user.
+// "my" user exempt — KPI tracked riêng, không bị bound by STT range.
 window.getEmployeeFilteredOrders = function () {
     const allOrders = typeof window.getAllOrders === 'function' ? window.getAllOrders() : [];
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
-    if (!isAdmin && employeeRanges.length > 0) {
+    const auth = window.authManager?.getAuthState?.();
+    const isMyUser = auth?.userType === 'my-authenticated';
+    if (!isAdmin && !isMyUser && employeeRanges.length > 0) {
         const userRange = _findCurrentUserEmployeeRange();
 
         if (userRange) {

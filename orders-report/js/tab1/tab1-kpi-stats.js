@@ -128,11 +128,13 @@
         }
 
         // Tổng SP đánh dấu — for non-admin, count only products from kpiOrders in their
-        // STT range (per-user scope). Admin/unassigned: prefer server count (covers
-        // products even when their order detail isn't loaded), fallback to cache.
+        // STT range (per-user scope). Admin/unassigned/my: prefer server count.
+        // "my" user exempt từ scoping (KPI tracked riêng — see kpi-manager.js).
         const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+        const auth = window.authManager?.getAuthState?.();
+        const isMyUser = auth?.userType === 'my-authenticated';
         const ranges = window.employeeRanges || [];
-        const userScoped = !isAdmin && ranges.length > 0;
+        const userScoped = !isAdmin && !isMyUser && ranges.length > 0;
         let totalProducts = 0;
         let hasIncompleteCache = false;
 
@@ -571,11 +573,13 @@
         }
 
         // Non-admin: restrict to their assigned orders by passing codes= filter.
-        // Admin / unassigned: fetch everything.
+        // Admin / unassigned / my: fetch everything (my exempt — KPI tracked riêng).
         const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+        const auth = window.authManager?.getAuthState?.();
+        const isMyUser = auth?.userType === 'my-authenticated';
         const ranges = window.employeeRanges || [];
         let codeParam = '';
-        if (!isAdmin && ranges.length > 0) {
+        if (!isAdmin && !isMyUser && ranges.length > 0) {
             const stats = _computeStats();
             const codes = (stats.kpiOrders || []).map((o) => o.Code).filter(Boolean);
             if (codes.length === 0) {

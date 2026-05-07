@@ -8,6 +8,45 @@
 
 ## 2026-05-07
 
+### [orders] KPI rule — exception cho nhân viên "my" (userType `my-authenticated`)
+
+**Yêu cầu (owner)**: "Ngoại trừ nhân viên my có userType my-authenticated trong localStorage → sẽ tính KPI riêng cho nhân viên my".
+
+Lý do: My làm cross-campaign / cross-range (không gắn STT cụ thể), nên KPI phải gom về My riêng — không attribute theo STT-range owner như rule mặc định.
+
+**Identification**: My user có `username === 'my'` → `userType = 'my-authenticated'` (login.js: `${username}-authenticated`). Audit log entries từ My có `userId` match pattern `^user_my_` (vd `user_my_1764336096777_ybp6023yv`). Verified Firestore doc: `users/my { displayName: "My", identifier: "My", userId: "user_my_..." }`.
+
+**Backend attribution** ([orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js)):
+
+- Helper mới `_isMyUser(userId)` regex `^user_my_/` (underscore chặn collision với `user_myanmar_…` etc.) + legacy variants `'my'`, `'user_my'`. Exposed qua `kpiManager.isMyUser`.
+- `recalculateAndSaveKPI`: split per-user audit-log KPI thành 2 buckets — `my` + `others`.
+    - `my` portion → save 1 row per distinct My userId (usually 1) dưới chính userId của họ.
+    - `others` portion (sum tổng) → save 1 row dưới STT-range owner (rule mặc định).
+    - Edge case: nếu STT-range owner cũng là My → skip duplicate (row đã write ở step 1).
+    - STT range owner vẫn lookup qua `getAssignedEmployeeForSTT(stt, name, id)` (campaign-id-keyed → name-keyed → unassigned).
+
+**Frontend visibility exemption** (tab1-search.js, tab1-kpi-stats.js):
+
+- `orderPassesEmployeeRangeFilter`: nếu `auth.userType === 'my-authenticated'` → `return true` (bypass STT filter, behave như admin).
+- `_applyFiltersExceptProcessingTag` + `getEmployeeFilteredOrders` + KPI counter `_computeStats` + KPI history modal `_loadFullHistory`: tương tự — My exempt khỏi STT-scoping.
+
+**Tests** (browser session, mocked auth):
+
+- ✅ `kpiManager.isMyUser("user_my_xxx")` → true; `("user_admin_xxx")` → false; `("user_myanmar_999")` → false (no collision); `("my")` → true (legacy); `(null)`/`("")` → false.
+- ✅ Logged in as my-authenticated, `orderPassesEmployeeRangeFilter` returns true cho cả STT in-range (50) lẫn out-of-range (500).
+- ✅ `getEmployeeFilteredOrders` returns all orders cho My (vs. chỉ in-range cho Hạnh).
+- ✅ Hạnh (non-my non-admin) vẫn bị STT filter — passes 50, blocked 500.
+
+**Files**:
+
+- [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — `_isMyUser` helper, refactored `recalculateAndSaveKPI` split-attribution logic, expose `isMyUser`.
+- [orders-report/js/tab1/tab1-search.js](../orders-report/js/tab1/tab1-search.js) — `orderPassesEmployeeRangeFilter`, `_applyFiltersExceptProcessingTag`, `getEmployeeFilteredOrders` thêm `isMyUser` bypass.
+- [orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js) — `_computeStats` userScoped + history fetch codes filter thêm My exempt.
+
+Status: ✅ Done
+
+---
+
 ### [aikol] Settings: migrate 3 native `confirm()` còn lại sang `aikolConfirm`
 
 **Bug user báo**: "popup confirm bị lỗi" — admin grant flow vẫn show native browser confirm dialog (xấu, không match design). Cancel topup + logout cũng vậy.
