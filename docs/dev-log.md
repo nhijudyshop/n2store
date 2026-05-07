@@ -8,6 +8,26 @@
 
 ## 2026-05-07
 
+### [delivery] Fix nút "Đang xử lý..." dính cứng trên modal Kiểm tra giao dịch
+
+**Bug** — User mở modal "Kiểm tra giao dịch" cho 1 tx → bấm "✓ Xác nhận đã kiểm tra" → fetch thành công → `closeReviewModal()` được gọi để hide modal NHƯNG **KHÔNG reset nút confirm**. Modal là singleton nên lần mở kế tiếp cho tx khác vẫn thấy nút stuck ở `<i class="fas fa-spinner fa-spin"></i> Đang xử lý...` + disabled. User không bấm xác nhận tiếp được, tưởng app treo.
+
+**Root cause** — `confirmReview()` success path chỉ `closeReviewModal()`, error path mới reset `confirmBtn.innerHTML = originalConfirmHtml`. `closeReviewModal()` không động đến nút.
+
+**Fix** — Thêm `resetReviewConfirmBtn()` helper (set `disabled=false`, `innerHTML='✓ Xác nhận đã kiểm tra'`); gọi trong cả `closeReviewModal()` (cleanup mỗi lần đóng) và `openReviewModal()` (defensive — reset khi mở phòng khi state cũ leak).
+
+**Files MODIFIED (1)**:
+
+- [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — thêm `REVIEW_CONFIRM_DEFAULT_HTML` const + `resetReviewConfirmBtn()` helper, gọi trong `openReviewModal` + `closeReviewModal`.
+
+**Files NEW (1)**:
+
+- [scripts/test-delivery-review-stuck.js](../scripts/test-delivery-review-stuck.js) — Playwright repro: render synthetic customer với 2 tx có sepay_image_url + manager_reviewed=false → driving customer-cell click → activity column render review buttons → STEP1 click first review btn → click confirm → wait close → assert button reset → STEP2 click second review btn → assert button is fresh on reopen. 6/6 PASS với fix; 2/6 FAIL khi revert fix (verified test catches regression).
+
+**Status**: ✅ Done
+
+---
+
 ### [aikol] Sprint 4 — Bulk Generate, Campaigns, SePay topup, Telegram notif
 
 **Goal** — Hoàn tất MVP tikreel clone. Sau Sprint 3 (gen pipeline LIVE), Sprint 4 mở khoá self-serve: user tự nạp credits qua SePay, lưu campaigns + chạy bulk, và nhận thông báo Telegram khi job xong / lỗi / topup paid.

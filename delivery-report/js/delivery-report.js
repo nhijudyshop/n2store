@@ -3380,6 +3380,9 @@
             reviewState.customerName = customerCtx?.customerName || '';
             clearReviewImage();
             modal.querySelector('#dr-rev-note').value = '';
+            // Defensive: ensure confirm button isn't stuck in a previous "Đang xử lý..."
+            // / disabled state (e.g. if a prior open was force-closed mid-request).
+            resetReviewConfirmBtn();
 
             const amount = parseFloat(tx?.amount) || 0;
             const sign = amount >= 0 ? '+' : '−';
@@ -3429,12 +3432,26 @@
             setTimeout(() => modal.querySelector('#dr-rev-note')?.focus(), 30);
         }
 
+        const REVIEW_CONFIRM_DEFAULT_HTML = '✓ Xác nhận đã kiểm tra';
+
+        function resetReviewConfirmBtn() {
+            if (!reviewModalEl) return;
+            const btn = reviewModalEl.querySelector('#dr-rev-confirm');
+            if (!btn) return;
+            btn.disabled = false;
+            btn.innerHTML = REVIEW_CONFIRM_DEFAULT_HTML;
+        }
+
         function closeReviewModal() {
             if (!reviewModalEl) return;
             reviewModalEl.style.display = 'none';
             reviewState.uid = null;
             reviewState.btn = null;
             clearReviewImage();
+            // Bug fix: success path of confirmReview() chỉ gọi closeReviewModal(); nếu
+            // không reset confirm button thì lần mở modal sau button vẫn dính
+            // "Đang xử lý..." disabled → user thấy stuck.
+            resetReviewConfirmBtn();
         }
 
         async function handleReviewImageSelect(file) {
