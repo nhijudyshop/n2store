@@ -2672,6 +2672,57 @@
             return json.html;
         }
 
+        // Fetch full FastSaleOrder details (with OrderLines, Partner, User) for the
+        // shared custom bill template (`window.generateCustomBillHTML` from
+        // orders-report/js/utils/bill-service.js). Falls back to TPOS print1 HTML
+        // when bill-service.js / fetch fails.
+        const orderDetailCache = new Map();
+        async function fetchOrderDetail(orderId) {
+            if (orderDetailCache.has(orderId)) return orderDetailCache.get(orderId);
+            const url = `${WORKER_URL}/api/odata/FastSaleOrder(${encodeURIComponent(orderId)})?$expand=OrderLines,Partner,User`;
+            const token = await getToken().catch(() => null);
+            const headers = { accept: 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const resp = await fetch(url, { method: 'GET', headers });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            orderDetailCache.set(orderId, json);
+            return json;
+        }
+
+        async function ensureBillService() {
+            // bill-service.js exports window.generateCustomBillHTML; web-warehouse-cache
+            // populates window.WebWarehouseCache.getSTT used by the template's product rows.
+            await loadScriptOnce(
+                '../shared/js/api-service.js',
+                () => !!(window.ApiService || window.apiService)
+            ).catch(() => {});
+            await loadScriptOnce(
+                '../orders-report/js/utils/web-warehouse-cache.js',
+                () => !!window.WebWarehouseCache
+            ).catch(() => {});
+            await loadScriptOnce(
+                '../orders-report/js/utils/bill-service.js',
+                () => typeof window.generateCustomBillHTML === 'function'
+            );
+            // Trigger warehouse cache load (best-effort) so STT lookup populates.
+            if (
+                window.WebWarehouseCache &&
+                typeof window.WebWarehouseCache.preload === 'function'
+            ) {
+                window.WebWarehouseCache.preload().catch(() => {});
+            }
+        }
+
+        async function fetchCustomBillHtml(orderId) {
+            await ensureBillService();
+            if (typeof window.generateCustomBillHTML !== 'function') {
+                throw new Error('generateCustomBillHTML không khả dụng');
+            }
+            const detail = await fetchOrderDetail(orderId);
+            return window.generateCustomBillHTML(detail, {});
+        }
+
         async function fetchCustomer(phone) {
             if (customerCache.has(phone)) return customerCache.get(phone);
             // limit=50: bill modal cột phải hiển thị đủ hoạt động (popover scroll OK).
@@ -3089,19 +3140,36 @@
             }
         }
 
-        // Lazy-load shared ticket viewer when eye → ticket clicked.
-        let _ticketViewerLoading = null;
-        async function ensureTicketViewer() {
-            if (typeof window.showTicketHistoryViewer === 'function') return;
-            if (_ticketViewerLoading) return _ticketViewerLoading;
-            _ticketViewerLoading = new Promise((resolve, reject) => {
+        // Lazy-load shared scripts on demand. Idempotent: dedupes parallel calls
+        // and cached completed loads.
+        const _lazyScriptPromises = new Map();
+        function loadScriptOnce(src, predicate) {
+            if (predicate && predicate()) return Promise.resolve();
+            if (_lazyScriptPromises.has(src)) return _lazyScriptPromises.get(src);
+            const p = new Promise((resolve, reject) => {
                 const s = document.createElement('script');
-                s.src = '../shared/js/ticket-history-viewer.js';
-                s.onload = resolve;
-                s.onerror = () => reject(new Error('ticket-history-viewer.js load failed'));
+                s.src = src;
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error(`Script load failed: ${src}`));
                 document.head.appendChild(s);
             });
-            return _ticketViewerLoading;
+            _lazyScriptPromises.set(src, p);
+            return p;
+        }
+
+        // Lazy-load shared ticket viewer (and its ApiService dependency) when eye → ticket clicked.
+        async function ensureTicketViewer() {
+            // ApiService is required by ticket-history-viewer for getTicket / searchTicketsServer.
+            await loadScriptOnce(
+                '../shared/js/api-service.js',
+                () =>
+                    !!(window.ApiService || window.apiService) &&
+                    typeof (window.ApiService || window.apiService).getTicket === 'function'
+            );
+            await loadScriptOnce(
+                '../shared/js/ticket-history-viewer.js',
+                () => typeof window.showTicketHistoryViewer === 'function'
+            );
         }
         async function openTicketDetail(code) {
             if (!code) return;
@@ -3587,22 +3655,32 @@
             const billCol = modal.querySelector('#dr-row-bill');
             const actCol = modal.querySelector('#dr-row-activity');
 
-            // Bill (left) — async load
+            // Bill (left) — prefer the orders-report custom template (with STT and
+            // shop-customised footer); fall back to the TPOS print1 HTML if the shared
+            // bill-service or detail fetch fails.
             if (id) {
                 billCol.innerHTML =
                     '<div class="dr-hp-loading" style="padding:24px;display:flex;align-items:center;justify-content:center;gap:8px;color:#6b7280;"><div class="dr-hp-spinner"></div><span>Đang tải bill ' +
                     escapeHtml(number) +
                     '…</span></div>';
-                fetchBillHtml(id)
-                    .then((html) => {
-                        if (modal.style.display === 'none') return;
-                        billCol.innerHTML = '';
-                        const ifr = document.createElement('iframe');
-                        ifr.style.cssText =
-                            'width:100%;height:100%;border:0;background:white;display:block;';
-                        ifr.sandbox = 'allow-same-origin';
-                        ifr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
-                        billCol.appendChild(ifr);
+                const renderBill = (html) => {
+                    if (modal.style.display === 'none') return;
+                    billCol.innerHTML = '';
+                    const ifr = document.createElement('iframe');
+                    ifr.style.cssText =
+                        'width:100%;height:100%;border:0;background:white;display:block;';
+                    ifr.sandbox = 'allow-same-origin';
+                    ifr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
+                    billCol.appendChild(ifr);
+                };
+                fetchCustomBillHtml(id)
+                    .then(renderBill)
+                    .catch((customErr) => {
+                        console.warn(
+                            '[DELIVERY-REPORT] Custom bill failed, falling back to TPOS print1:',
+                            customErr
+                        );
+                        return fetchBillHtml(id).then(renderBill);
                     })
                     .catch((e) => {
                         if (modal.style.display === 'none') return;

@@ -8,6 +8,36 @@
 
 ## 2026-05-07
 
+### [delivery] Fix "Xem chi tiết phiếu" — z-index, ApiService not loaded, custom bill template
+
+**Bug 1 — Modal "Lịch sử phiếu" sai z-index, hiện sau row modal**
+
+- `thv-modal` (`shared/js/ticket-history-viewer.js`) đặt `z-index: 9999`, trong khi row modal của delivery-report `#dr-row-modal` đã ở `z-index: 10000` ⇒ ticket modal bị che một phần / hiện sau.
+- Fix: bump `#thv-modal` z-index lên `10050` (vẫn dưới các overlay đặc biệt nhưng trên row modal).
+
+**Bug 2 — Lỗi "ApiService.getTicket không khả dụng"**
+
+- delivery-report không load `shared/js/api-service.js`; khi user click eye → "Xem chi tiết phiếu" thì viewer ném lỗi "ApiService.getTicket không khả dụng".
+- Fix: thêm `loadScriptOnce()` helper (idempotent, dedupe parallel calls) và `ensureTicketViewer()` lazy-load cả `api-service.js` lẫn `ticket-history-viewer.js`.
+
+**Bug 3 — Phiếu bán hàng dùng TPOS print1 chứ không phải custom template có STT**
+
+- Cột BILL trong row modal trước đây render trực tiếp HTML từ `WORKER/api/fastsaleorder/print1` (TPOS native template, không có STT, không có note shop tuỳ biến).
+- Fix: thêm `fetchCustomBillHtml(id)` — lazy-load `bill-service.js` + `web-warehouse-cache.js` + `api-service.js`, fetch full FastSaleOrder qua `$expand=OrderLines,Partner,User`, gọi `window.generateCustomBillHTML(detail)` để render với STT prefix và custom shop notes. Fallback to TPOS print1 khi custom flow lỗi.
+
+**Files MODIFIED (2)**:
+
+- [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `loadScriptOnce()` helper, `ensureTicketViewer()` lazy-loads ApiService, `fetchCustomBillHtml()` + `fetchOrderDetail()` + `ensureBillService()`, `openRowModal()` ưu tiên custom template fallback to TPOS.
+- [shared/js/ticket-history-viewer.js](../shared/js/ticket-history-viewer.js) — `#thv-modal` z-index 9999 → 10050.
+
+**Files NEW (1)**:
+
+- [scripts/test-delivery-bill-modal.js](../scripts/test-delivery-bill-modal.js) — Playwright one-shot test, verify lazy-load chains work, `ApiService.getTicket` callable, `thv-modal` z-index > 10000, `generateCustomBillHTML` produces correct HTML (number, customer, phone, products, "Tiền thu hộ", "PHIẾU BÁN HÀNG"). 10/10 PASS.
+
+**Status**: ✅ Done
+
+---
+
 ### [orders][render] Phân chia nhân viên theo campaign id + lịch sử chỉnh sửa + KPI filter per-user
 
 **Yêu cầu**:

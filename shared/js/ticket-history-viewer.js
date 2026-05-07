@@ -15,7 +15,7 @@
     const STYLE_ID = 'thv-style';
 
     const CSS = `
-        #${MODAL_ID} { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999;
+        #${MODAL_ID} { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 10050;
             display: none; align-items: center; justify-content: center; padding: 16px; }
         #${MODAL_ID}.thv-open { display: flex; }
         #${MODAL_ID} .thv-box { background: #fff; border-radius: 12px; width: 100%; max-width: 640px;
@@ -88,7 +88,9 @@
         document.body.appendChild(modal);
         const close = () => modal.classList.remove('thv-open');
         modal.querySelector('.thv-close').addEventListener('click', close);
-        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) close();
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal.classList.contains('thv-open')) close();
         });
@@ -98,8 +100,11 @@
     function escapeHtml(s) {
         if (s == null) return '';
         return String(s)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function formatCurrency(n) {
@@ -111,8 +116,11 @@
         if (!ts) return '';
         const d = new Date(ts);
         if (isNaN(d.getTime())) return '';
-        return d.toLocaleDateString('vi-VN') + ' ' +
-            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        return (
+            d.toLocaleDateString('vi-VN') +
+            ' ' +
+            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        );
     }
 
     function translateType(type) {
@@ -192,14 +200,19 @@
                 done: hasCredit,
                 active: !hasCredit && status === 'PENDING_GOODS',
                 cancelled: status === 'CANCELLED' && !hasCredit,
-                detail: hasCredit ? `ID: ${ticket.virtualCreditId || ticket.virtual_credit_id}` : '',
+                detail: hasCredit
+                    ? `ID: ${ticket.virtualCreditId || ticket.virtual_credit_id}`
+                    : '',
             });
         }
 
         const fixReason = ticket.fixCodReason || ticket.fix_cod_reason;
         const needsGoods =
             ['BOOM', 'RETURN_SHIPPER', 'RETURN_CLIENT', 'FIX_COD'].includes(ticket.type) &&
-            !(ticket.type === 'FIX_COD' && !['REJECT_PARTIAL', 'RETURN_OLD_ORDER'].includes(fixReason));
+            !(
+                ticket.type === 'FIX_COD' &&
+                !['REJECT_PARTIAL', 'RETURN_OLD_ORDER'].includes(fixReason)
+            );
         if (needsGoods) {
             const receivedAt = ticket.receivedAt || ticket.received_at;
             const received = !!receivedAt || status === 'PENDING_FINANCE' || status === 'COMPLETED';
@@ -209,8 +222,10 @@
                 done: received,
                 active: !received && status === 'PENDING_GOODS',
                 cancelled: status === 'CANCELLED' && !received,
-                detail: (ticket.refundNumber || ticket.refund_number)
-                    ? `Phiếu trả: ${ticket.refundNumber || ticket.refund_number}` : '',
+                detail:
+                    ticket.refundNumber || ticket.refund_number
+                        ? `Phiếu trả: ${ticket.refundNumber || ticket.refund_number}`
+                        : '',
             });
         }
 
@@ -255,7 +270,8 @@
             }
             if (!db) return [];
 
-            const snap = await db.collection('edit_history')
+            const snap = await db
+                .collection('edit_history')
                 .where('module', '==', 'issue-tracking')
                 .where('entityId', '==', ticketCode)
                 .orderBy('timestamp', 'asc')
@@ -265,7 +281,9 @@
                 const d = doc.data();
                 return {
                     actionType: d.actionType,
-                    timestamp: d.timestamp?.toDate?.() ? d.timestamp.toDate().getTime() : d.timestamp,
+                    timestamp: d.timestamp?.toDate?.()
+                        ? d.timestamp.toDate().getTime()
+                        : d.timestamp,
                     performer: d.performerUserName || d.performerUserId || '',
                     description: d.description || '',
                 };
@@ -299,7 +317,8 @@
     function renderProducts(ticket) {
         const fix = ticket.fixCodReason || ticket.fix_cod_reason;
         const noteDisplay = ticket.note
-            ? `<div style="color:#b45309;margin-bottom:4px;">${escapeHtml(ticket.note)}</div>` : '';
+            ? `<div style="color:#b45309;margin-bottom:4px;">${escapeHtml(ticket.note)}</div>`
+            : '';
 
         if (ticket.type === 'FIX_COD' && fix !== 'REJECT_PARTIAL' && fix !== 'RETURN_OLD_ORDER') {
             return noteDisplay;
@@ -307,24 +326,27 @@
         const products = ticket.products || [];
         if (products.length === 0) return noteDisplay;
 
-        const items = products.map((p) => {
-            const qty = p.returnQuantity || p.quantity || 1;
-            const code = p.code ? `${escapeHtml(p.code)} ` : '';
-            return `<li>• ${qty}x ${code}${escapeHtml(p.name || '')}</li>`;
-        }).join('');
+        const items = products
+            .map((p) => {
+                const qty = p.returnQuantity || p.quantity || 1;
+                const code = p.code ? `${escapeHtml(p.code)} ` : '';
+                return `<li>• ${qty}x ${code}${escapeHtml(p.name || '')}</li>`;
+            })
+            .join('');
         return `${noteDisplay}<ul>${items}</ul>`;
     }
 
     function renderBody(ticket, steps) {
         const ticketCode = ticket.ticketCode || ticket.ticket_code || ticket.firebaseId || '';
         const amount = ticket.money || ticket.refund_amount || 0;
-        const amtClass = (ticket.type === 'BOOM' || ticket.type === 'FIX_COD') ? 'neg' : '';
+        const amtClass = ticket.type === 'BOOM' || ticket.type === 'FIX_COD' ? 'neg' : '';
 
         const products = renderProducts(ticket);
 
-        const timelineHTML = steps.map((s) => {
-            const cls = s.cancelled ? 'cancelled' : s.done ? 'done' : s.active ? 'active' : '';
-            return `
+        const timelineHTML = steps
+            .map((s) => {
+                const cls = s.cancelled ? 'cancelled' : s.done ? 'done' : s.active ? 'active' : '';
+                return `
                 <div class="thv-step ${cls}">
                     <div class="dot"></div>
                     <div class="title">${escapeHtml(s.label)}</div>
@@ -332,7 +354,8 @@
                     ${s.performer ? `<div class="meta">Bởi: ${escapeHtml(s.performer)}</div>` : ''}
                     ${s.detail ? `<div class="detail">${escapeHtml(s.detail)}</div>` : ''}
                 </div>`;
-        }).join('');
+            })
+            .join('');
 
         return `
             <div class="thv-info">
@@ -347,9 +370,13 @@
             <div class="thv-sec-title">Dòng thời gian xử lý</div>
             <div class="thv-timeline">${timelineHTML}</div>
 
-            ${products ? `
+            ${
+                products
+                    ? `
                 <div class="thv-sec-title" style="margin-top:18px;">Sản phẩm</div>
-                <div class="thv-products">${products}</div>` : ''}
+                <div class="thv-products">${products}</div>`
+                    : ''
+            }
         `;
     }
 
@@ -386,7 +413,10 @@
     }
 
     async function show(identifier) {
-        if (!identifier) { alert('Không có mã phiếu'); return; }
+        if (!identifier) {
+            alert('Không có mã phiếu');
+            return;
+        }
 
         injectStyle();
         const modal = ensureModal();
@@ -406,7 +436,8 @@
             if (!ticket) {
                 throw new Error('Không tìm thấy phiếu');
             }
-            const ticketCode = ticket.ticketCode || ticket.ticket_code || ticket.firebaseId || identifier;
+            const ticketCode =
+                ticket.ticketCode || ticket.ticket_code || ticket.firebaseId || identifier;
             titleEl.textContent = `Lịch sử phiếu ${ticketCode}`;
             const steps = buildTimeline(ticket);
             const logs = await fetchAuditLogs(ticketCode);
