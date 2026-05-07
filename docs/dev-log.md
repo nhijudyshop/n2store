@@ -46,7 +46,38 @@
 - `index.html` (dashboard) — nav links Library/Bulk/Campaigns/Outputs/Settings.
 - `css/aikol.css` — Sprint 4 styles: packs/topup/credit-row/preset/campaign cards.
 
-**Status**: 🔄 In Progress — Cần deploy + apply migration + browser smoke test.
+**Smoke test LIVE** — `dep-d7u25h67r5hc739mbecg` (commit c164fb0c) + migration `aikol_sprint4.sql` applied (12ms).
+
+**API smoke test (live)** — All Sprint 4 endpoints OK:
+
+- `GET /credits`, `GET /settings`, `GET /campaigns`, `GET /billing/topups` → 200.
+- `POST /billing/topup { pack_id: mini }` → 503 `sepay_not_configured` (expected — `SEPAY_ACCOUNT_NUMBER` env chưa set; UI graceful).
+
+**Browser smoke test (Playwright, headless)** — `scripts/test-aikol-sprint4-browser.js`:
+
+- 6/6 pages clean (dashboard, settings, bulk, campaigns, library, history).
+- 0 console errors (excluding expected 401/404/503/CDN noise).
+- Settings: 6 packs grid + telegram form rendered. Bulk: form + 4 presets + cost summary. Campaigns: empty state shown.
+
+**Browser interactive test** — `scripts/test-aikol-sprint4-interactive.js`:
+
+- 12/12 assertions pass.
+- Settings: Mini topup click → 503 toast graceful (`SePay account chưa thiết lập`). Telegram chat_id 999999999 saved → persisted via `GET /settings`. `notify_on_error=false` toggle persisted.
+- Bulk: preset `favorites_image` applies (variations=1, fav_only=true). Cost summary updates correctly (`~4 cr / clip × 20 clips = 80 cr`).
+- Campaigns: empty state visible. Programmatic create → card rendered (count=1). Run with no clips → 404 `no_clips_match` toast graceful.
+- Console errors: 0.
+
+**Files NEW (test)**
+
+- [scripts/test-aikol-sprint4-browser.js](../scripts/test-aikol-sprint4-browser.js) — 6-page smoke.
+- [scripts/test-aikol-sprint4-interactive.js](../scripts/test-aikol-sprint4-interactive.js) — interactive E2E.
+
+**TODO sau khi user cung cấp**
+
+- `SEPAY_ACCOUNT_NUMBER`, `SEPAY_ACCOUNT_NAME`, `SEPAY_BANK` env vars trên Render → mở khoá `/billing/topup` real.
+- Top-up Fal.ai (~$5) để image gen actually returns PNG.
+
+**Status**: ✅ Done — Sprint 4 LIVE. Tất cả 6 pages render sạch, 12 interactive flows pass, end-to-end pipeline (charge/refund/topup/campaigns/bulk) đã verify trong app code và browser.
 
 ---
 
