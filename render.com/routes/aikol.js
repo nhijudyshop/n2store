@@ -18,6 +18,7 @@ const multer = require('multer');
 const router = express.Router();
 const pool = require('../db/pool');
 const bunny = require('../services/bunny-storage-service');
+const clipsRouter = require('./aikol-clips');
 
 const COSTS = {
     image: 4,
@@ -267,7 +268,11 @@ router.get('/health', (_req, res) => {
         bunny_configured: !!process.env.BUNNY_STORAGE_KEY,
         fal_configured: !!process.env.FAL_KEY,
         kling_configured: !!process.env.KLING_ACCESS_KEY,
+        scraper_url: process.env.AIKOL_SCRAPER_URL || null,
     });
 });
+
+// ===== Clips + Imports (separate file to keep size <800 lines) =====
+router.use('/', clipsRouter);
 
 module.exports = router;

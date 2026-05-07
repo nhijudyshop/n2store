@@ -8,6 +8,43 @@
 
 ## 2026-05-07
 
+### [aikol-studio][render] Sprint 2 — Library page + TikTok single import (chạy KHÔNG cần cookie)
+
+**Sprint 2 deliverables**:
+
+- Deploy Render service `n2store-aikol-scraper` (Python FastAPI, JoeanAmier/TikTokDownloader = DouK-Downloader giống tikreel) trên Singapore starter $7/mo
+- Bypass TUI prompts: pre-init SQLite DB với Disclaimer=1, Language=en_US + settings.json run_command="7" (Web API mode)
+- Patch SERVER_PORT để dùng $PORT của Render thay vì hardcoded 5555
+
+**Files NEW (3)**:
+
+- [render.com/services/aikol-scraper-service.js](../render.com/services/aikol-scraper-service.js) — wrapper gọi scraper service (parseTiktokUrl, fetchTiktokVideoDetail, downloadToBuffer)
+- [render.com/routes/aikol-clips.js](../render.com/routes/aikol-clips.js) — sub-router /import/single, /import/upload, /clips CRUD
+- [aikol-studio/js/library.js](../aikol-studio/js/library.js) — page logic (3 import flows + clip grid)
+
+**Files MODIFIED (3)**:
+
+- [render.com/routes/aikol.js](../render.com/routes/aikol.js) — mount clipsRouter + add scraper_url vào /health
+- [aikol-studio/library.html](../aikol-studio/library.html) — replace skeleton bằng full UI 3 panels (channel disabled + single URL active + MP4 upload active)
+- [aikol-studio/js/aikol-api.js](../aikol-studio/js/aikol-api.js) — add importSingle/uploadClip/listClips/deleteClip/toggleClipFavorite
+
+**Endpoints scraper verified**:
+
+- ✅ `POST /tiktok/detail` — KHÔNG cần cookie, return MP4 download URL + cover + metadata
+- ✅ `POST /tiktok/share` — URL resolver
+- ❌ `POST /tiktok/account` — channel scrape cần cookie (deferred Sprint 2.5)
+
+**Cost & charging**:
+
+- Single video URL import: 1 credit (matches tikreel `import_per_clip`)
+- MP4 upload: 0 credits (FREE)
+- Auto-refund khi import fail (TikTok block, geo-restrict, video deleted...)
+- Duplicate detection: same user + same video_id → 409 conflict
+
+**Env var added**: `AIKOL_SCRAPER_URL` trên n2store-fallback service
+
+**Status**: ✅ Backend code done, awaiting auto-redeploy after git push.
+
 ### [orders][feat][security] RT + Auto T switches — chỉ admin/lai-authenticated được toggle
 
 **Files**: MODIFIED [orders-report/tab1-orders.html](../orders-report/tab1-orders.html), [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js)

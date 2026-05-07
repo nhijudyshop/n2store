@@ -19,6 +19,7 @@
         <script src="../shared/js/shared-cache-manager.js"></script>
 
         <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/library.js"></script>
     </head>
     <body>
         <main class="aikol-shell">
@@ -34,7 +35,7 @@
             >
                 <div>
                     <h1>Clip Library</h1>
-                    <p>Import clip TikTok / Douyin → chọn → generate</p>
+                    <p>Import TikTok / Douyin · Upload MP4 · Generate ảnh/video clone</p>
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center">
                     <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
@@ -42,41 +43,134 @@
                 </div>
             </header>
 
+            <div
+                style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                    gap: 1rem;
+                    margin-block: 1rem;
+                "
+            >
+                <!-- 1. Channel scrape (deferred — needs cookie) -->
+                <section class="aikol-panel" style="opacity: 0.6">
+                    <h2>1. Import cả kênh TikTok</h2>
+                    <p style="color: var(--aikol-text-dim); font-size: 0.85rem; margin-top: 0">
+                        Đang phát triển — cần TikTok cookie. Trong khi chờ, dùng "Single video URL"
+                        hoặc "Upload MP4" bên cạnh.
+                    </p>
+                    <input
+                        class="aikol-input"
+                        type="text"
+                        placeholder="tiktok.com/@user (sắp có)"
+                        disabled
+                        aria-disabled="true"
+                    />
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.6rem">
+                        <select class="aikol-input" disabled style="flex: 1">
+                            <option>20 clips</option>
+                            <option>50 clips</option>
+                            <option>100 clips</option>
+                        </select>
+                        <button type="button" class="aikol-btn" disabled>Import</button>
+                    </div>
+                </section>
+
+                <!-- 2. Single video URL -->
+                <section class="aikol-panel">
+                    <h2>2. Import 1 video TikTok</h2>
+                    <form id="single-form" style="display: grid; gap: 0.6rem">
+                        <input
+                            id="single-url"
+                            class="aikol-input"
+                            type="text"
+                            placeholder="https://tiktok.com/@user/video/123…"
+                            required
+                        />
+                        <button id="single-submit" type="submit" class="aikol-btn">
+                            Import — 1 credit
+                        </button>
+                    </form>
+                    <p
+                        style="
+                            color: var(--aikol-text-dim);
+                            font-size: 0.78rem;
+                            margin-top: 0.6rem;
+                            margin-bottom: 0;
+                        "
+                    >
+                        💡 Chạy được KHÔNG cần cookie. Auto refund nếu fail.
+                    </p>
+                </section>
+
+                <!-- 3. Upload MP4 (FREE) -->
+                <section class="aikol-panel">
+                    <h2>
+                        3. Upload MP4 / MOV
+                        <span
+                            style="
+                                color: var(--aikol-success);
+                                font-size: 0.78rem;
+                                font-weight: 500;
+                            "
+                            >FREE</span
+                        >
+                    </h2>
+                    <form id="upload-form" style="display: grid; gap: 0.6rem">
+                        <input
+                            id="upload-title"
+                            class="aikol-input"
+                            type="text"
+                            placeholder="Tên clip (tuỳ chọn)"
+                            maxlength="200"
+                        />
+                        <input
+                            id="upload-file"
+                            class="aikol-input"
+                            type="file"
+                            accept="video/mp4,video/quicktime,.mp4,.mov"
+                            required
+                        />
+                        <button id="upload-submit" type="submit" class="aikol-btn">
+                            Upload (FREE)
+                        </button>
+                    </form>
+                    <p
+                        style="
+                            color: var(--aikol-text-dim);
+                            font-size: 0.78rem;
+                            margin-top: 0.6rem;
+                            margin-bottom: 0;
+                        "
+                    >
+                        MP4/MOV · 3-30s · ≤100MB · 540-3840px
+                    </p>
+                </section>
+            </div>
+
             <section class="aikol-panel">
-                <h2>🚧 Sprint 2 — đang phát triển</h2>
-                <p style="color: var(--aikol-text-dim)">
-                    Trang Library (import + generate flow) sẽ được build trong Sprint 2 sau khi
-                    Sprint 1 (Models) được verify. Bao gồm:
-                </p>
-                <ul
+                <div
                     style="
-                        color: var(--aikol-text-dim);
-                        font-size: 0.9rem;
-                        line-height: 1.8;
-                        margin: 0;
-                        padding-left: 1.2rem;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 0.75rem;
                     "
                 >
-                    <li>Import cả channel TikTok/Douyin (20/50/100/200 clips)</li>
-                    <li>Import 1 video URL (1 credit)</li>
-                    <li>Upload MP4 từ máy (free)</li>
-                    <li>
-                        Pick clips + cấu hình generation (similarity, creativity, keep_pose, etc.)
-                    </li>
-                    <li>Generate image (Fal.ai Flux + InstantID) hoặc video (Kling AI std/pro)</li>
-                    <li>Bulk generate với 4 preset (Fashion / Lookbook / Kling std / Kling pro)</li>
-                </ul>
+                    <h2 style="margin: 0">Clip Library</h2>
+                    <span id="clips-total" style="color: var(--aikol-text-dim); font-size: 0.85rem"
+                        >0 clips</span
+                    >
+                </div>
+                <div id="clips-empty" class="aikol-empty" style="display: none">
+                    Chưa có clip nào. Dùng 1 trong 3 cách phía trên để import.
+                </div>
+                <div id="clips-list" class="aikol-models-grid"></div>
             </section>
         </main>
 
         <script>
-            document.addEventListener('DOMContentLoaded', async () => {
+            document.addEventListener('DOMContentLoaded', () => {
                 if (window.lucide) window.lucide.createIcons();
-                try {
-                    const { balance, plan } = await window.AikolAPI.getCredits();
-                    document.getElementById('aikol-credits').textContent =
-                        `${balance} credits · ${plan}`;
-                } catch (_) {}
             });
         </script>
     </body>

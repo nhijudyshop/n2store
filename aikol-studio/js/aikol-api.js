@@ -83,6 +83,31 @@
         return data;
     }
 
+    async function uploadClip({ file, title }) {
+        const fd = new FormData();
+        if (title) fd.append('title', title);
+        fd.append('file', file);
+        const res = await fetch(`${PREFIX}/import/upload`, {
+            method: 'POST',
+            headers: buildHeaders(),
+            body: fd,
+        });
+        const text = await res.text();
+        let data = null;
+        try {
+            data = text ? JSON.parse(text) : null;
+        } catch (_) {
+            data = { detail: text };
+        }
+        if (!res.ok) {
+            const err = new Error((data && data.detail) || `HTTP ${res.status}`);
+            err.status = res.status;
+            err.data = data;
+            throw err;
+        }
+        return data;
+    }
+
     const AikolAPI = {
         getCurrentUserId: getUserId,
         endpoint: PREFIX,
@@ -95,6 +120,13 @@
         listModels: () => jsonRequest('GET', '/models'),
         uploadModel,
         deleteModel: (id) => jsonRequest('DELETE', `/models/${id}`),
+
+        importSingle: (url) => jsonRequest('POST', '/import/single', { url }),
+        uploadClip,
+        listClips: (limit = 50, offset = 0) =>
+            jsonRequest('GET', `/clips?limit=${limit}&offset=${offset}`),
+        deleteClip: (id) => jsonRequest('DELETE', `/clips/${id}`),
+        toggleClipFavorite: (id, favorite) => jsonRequest('PATCH', `/clips/${id}`, { favorite }),
 
         health: () => jsonRequest('GET', '/health'),
     };
