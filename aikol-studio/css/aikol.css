@@ -1498,3 +1498,94 @@ body {
     border-color: var(--aikol-accent-soft);
     background: var(--aikol-accent-soft);
 }
+
+/* ===== Custom confirm modal — replaces native window.confirm ===== */
+.aikol-confirm-backdrop {
+    /* slightly higher z than gen-modal so confirms can stack on top of it */
+    z-index: 9100;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.aikol-confirm {
+    width: min(440px, 100%);
+    animation: aikol-pop 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.aikol-confirm__head {
+    padding: 1.1rem 1.25rem 0.4rem;
+}
+.aikol-confirm__head h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--aikol-text);
+    letter-spacing: -0.01em;
+}
+.aikol-confirm__body {
+    padding: 0.4rem 1.25rem 1rem;
+    color: var(--aikol-text-dim);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+.aikol-confirm__pack {
+    background: var(--aikol-accent-soft);
+    border: 1px solid var(--aikol-accent-soft);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    display: grid;
+    gap: 0.25rem;
+    margin-bottom: 0.85rem;
+}
+.aikol-confirm__pack-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--aikol-accent-light);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.aikol-confirm__pack-credits {
+    font-size: 1.5rem;
+    color: var(--aikol-text);
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    line-height: 1.1;
+}
+.aikol-confirm__pack-credits .aikol-pack__bolt {
+    color: var(--aikol-accent);
+    font-size: 1.1rem;
+}
+.aikol-confirm__pack-vnd {
+    font-size: 1rem;
+    color: var(--aikol-text);
+    font-weight: 600;
+}
+.aikol-confirm__pack-rate {
+    font-size: 0.8rem;
+    color: var(--aikol-text-dim);
+}
+.aikol-confirm__note {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--aikol-text-dim);
+}
+.aikol-confirm__note strong {
+    color: var(--aikol-text);
+}
+.aikol-confirm__foot {
+    padding: 0.85rem 1.25rem 1rem;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    border-top: 1px solid var(--aikol-border);
+}
+@keyframes aikol-pop {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

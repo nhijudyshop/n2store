@@ -8,6 +8,28 @@
 
 ## 2026-05-07
 
+### [aikol] Settings: custom confirm modal khi click "Nạp ngay"
+
+**Yêu cầu**: Click pack → ra popup xác nhận custom (thay native confirm dialog).
+
+**Fix**:
+
+- [aikol-studio/js/settings.js](../aikol-studio/js/settings.js) — thêm helper `aikolConfirm({title, body, confirmLabel, cancelLabel, danger})` returning Promise<boolean>. Hỗ trợ: click backdrop = cancel, Esc = cancel, Enter = confirm, focus auto vào confirm button. Expose ra `window.aikolConfirm` để các module khác reuse.
+- `onCreateTopup(packId, btn, packs)` giờ hiển thị modal xác nhận với pack info card (tên, ⚡ credits, giá VND, rate / credit) + ghi chú memo + QR SePay; chỉ gọi API `createTopup` sau khi user confirm.
+- [aikol-studio/css/aikol.css](../aikol-studio/css/aikol.css) — style `.aikol-confirm` reuse `.aikol-modal-backdrop` + `.aikol-modal` (Sprint 3), thêm `.aikol-confirm__pack` (purple-soft tinted card), keyframes `aikol-pop`, backdrop blur.
+
+**Smoke test (Playwright local)**:
+
+- aikolConfirm() → modal xuất hiện, screenshot OK ✓
+- Click "Huỷ" → resolve `false`, modal close ✓
+- Click "Tạo đơn nạp" → resolve `true`, modal close ✓
+- Press Escape → resolve `false`, modal close ✓
+- Visual: pack card highlighted (Standard 900 cr · 300.000 ₫), centered modal, backdrop blur ✓
+
+**Files changed**: 2 (js + css).
+
+**Status**: ✅ Done. Cancel-topup native `confirm()` (line 170) và logout `confirm()` (line 383) có thể migrate sau cùng pattern khi cần.
+
 ### [aikol] Settings: gate SePay packs theo `sepay_enabled` (ẩn pack buttons khi env chưa setup)
 
 **Vấn đề**: Trong `aikol-studio/settings.html`, click "Nạp ngay" trên 6 pack credits → POST `/api/aikol/billing/topup` trả `503 sepay_not_configured` (env `SEPAY_ACCOUNT_NUMBER` rỗng trên Render). User thấy lỗi 503 đỏ trên console mà không có hint UX.

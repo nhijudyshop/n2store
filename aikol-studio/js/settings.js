@@ -13,6 +13,57 @@
         setTimeout(() => el.remove(), 4500);
     }
 
+    // Custom confirm modal — replaces native window.confirm with branded UI.
+    // opts: { title, body (HTML allowed — caller must escape), confirmLabel,
+    //         cancelLabel, danger (bool — red confirm button) }
+    // Returns Promise<boolean>.
+    function aikolConfirm(opts) {
+        const o = opts || {};
+        return new Promise((resolve) => {
+            const back = document.createElement('div');
+            back.className = 'aikol-modal-backdrop aikol-confirm-backdrop';
+            back.innerHTML = `
+                <div class="aikol-modal aikol-confirm" role="dialog" aria-modal="true" aria-labelledby="aikol-confirm-title">
+                    <div class="aikol-confirm__head">
+                        <h3 id="aikol-confirm-title">${escapeHtml(o.title || 'Xác nhận')}</h3>
+                    </div>
+                    <div class="aikol-confirm__body">${o.body || ''}</div>
+                    <div class="aikol-confirm__foot">
+                        <button type="button" class="aikol-btn aikol-btn--secondary" data-act="cancel">
+                            ${escapeHtml(o.cancelLabel || 'Huỷ')}
+                        </button>
+                        <button type="button" class="aikol-btn ${o.danger ? 'aikol-btn--danger' : ''}" data-act="confirm">
+                            ${escapeHtml(o.confirmLabel || 'Xác nhận')}
+                        </button>
+                    </div>
+                </div>`;
+            document.body.appendChild(back);
+
+            const cleanup = (val) => {
+                document.removeEventListener('keydown', onKey);
+                back.remove();
+                resolve(val);
+            };
+            const onKey = (e) => {
+                if (e.key === 'Escape') cleanup(false);
+                else if (e.key === 'Enter') cleanup(true);
+            };
+
+            back.addEventListener('click', (e) => {
+                if (e.target === back) cleanup(false);
+            });
+            back.querySelector('[data-act="cancel"]').addEventListener('click', () =>
+                cleanup(false)
+            );
+            back.querySelector('[data-act="confirm"]').addEventListener('click', () =>
+                cleanup(true)
+            );
+            document.addEventListener('keydown', onKey);
+            // Focus confirm button so Enter works immediately.
+            setTimeout(() => back.querySelector('[data-act="confirm"]')?.focus(), 0);
+        });
+    }
+
     function escapeHtml(s) {
         return String(s || '').replace(
             /[&<>"']/g,
@@ -97,14 +148,39 @@
                 })
                 .join('');
             grid.querySelectorAll('button[data-pack]').forEach((btn) => {
-                btn.addEventListener('click', () => onCreateTopup(btn.dataset.pack, btn));
+                btn.addEventListener('click', () => onCreateTopup(btn.dataset.pack, btn, packs));
             });
         } catch (e) {
             showToast('Lỗi tải packs: ' + e.message, 'error');
         }
     }
 
-    async function onCreateTopup(packId, btn) {
+    async function onCreateTopup(packId, btn, packs) {
+        const pack = (packs || []).find((p) => p.id === packId);
+        if (pack) {
+            const vndPerCr = Math.round((pack.vnd || 0) / (pack.credits || 1));
+            const ok = await aikolConfirm({
+                title: 'Xác nhận nạp credits',
+                body: `
+                    <div class="aikol-confirm__pack">
+                        <div class="aikol-confirm__pack-name">${escapeHtml(pack.name)}</div>
+                        <div class="aikol-confirm__pack-credits">
+                            <span class="aikol-pack__bolt" aria-hidden="true">⚡</span>
+                            <strong>${pack.credits}</strong> credits
+                        </div>
+                        <div class="aikol-confirm__pack-vnd">${escapeHtml(fmtVnd(pack.vnd))}</div>
+                        <div class="aikol-confirm__pack-rate">≈ ${escapeHtml(fmtVnd(vndPerCr))} / credit</div>
+                    </div>
+                    <p class="aikol-confirm__note">
+                        Hệ thống sẽ tạo đơn nạp với <strong>memo</strong> và <strong>QR SePay</strong>.
+                        Sau khi chuyển khoản đúng memo, credits tự cộng vào ví trong vài giây.
+                    </p>`,
+                confirmLabel: 'Tạo đơn nạp',
+                cancelLabel: 'Huỷ',
+            });
+            if (!ok) return;
+        }
+
         if (btn) {
             btn.disabled = true;
             btn.textContent = 'Đang tạo…';
@@ -506,4 +582,7 @@
         $('#telegram-link-btn').addEventListener('click', onTelegramLink);
         $('#telegram-save-btn').addEventListener('click', onTelegramSave);
     });
+
+    // Expose for reuse from other modules (e.g. aikol-sidebar logout).
+    window.aikolConfirm = aikolConfirm;
 })();
