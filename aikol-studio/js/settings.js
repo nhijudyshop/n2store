@@ -304,10 +304,98 @@
         }
     }
 
-    // ----- Admin: grant credits panel (gated by localStorage.userType) -----
+    // ----- Account card — read profile from shared/js/shared-auth-manager.js -----
+    function getAuthData() {
+        try {
+            if (window.authManager?.getAuthData) {
+                return window.authManager.getAuthData() || null;
+            }
+        } catch (_) {}
+        try {
+            const raw =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth');
+            return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function populateAccountCard() {
+        const data = getAuthData();
+        if (!data) return;
+        const display = data.displayName || data.username || data.userId || '—';
+        const username = data.username || data.userId || '—';
+        const role =
+            data.roleTemplate === 'admin' ||
+            data.userType === 'admin-authenticated' ||
+            data.isAdmin === true;
+        const initial = (display || username).trim().charAt(0).toUpperCase() || 'A';
+
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        setText('account-avatar', initial);
+        setText('account-display', display);
+        setText('account-username', '@' + username);
+
+        const roleEl = document.getElementById('account-role');
+        if (roleEl) {
+            roleEl.textContent = role ? 'Admin' : data.roleTemplate || 'User';
+            roleEl.classList.toggle('aikol-account__role--user', !role);
+        }
+
+        // Last login — `loginTime` is an ISO string in some installs, while
+        // `timestamp` / `lastActivity` are numeric ms. Coalesce defensively.
+        const sessionEl = document.getElementById('account-session');
+        if (sessionEl) {
+            const tsMs =
+                data.timestamp ||
+                data.lastActivity ||
+                (data.loginTime ? Date.parse(data.loginTime) : 0);
+            const last = tsMs ? fmtDate(Math.round(tsMs / 1000)) : '—';
+            const remembered = data.isRemembered === true ? ' · ghi nhớ' : ' · session';
+            sessionEl.textContent = `Đăng nhập: ${last}${remembered}`;
+        }
+
+        const btnLogout = document.getElementById('account-logout');
+        if (btnLogout && !btnLogout._wired) {
+            btnLogout._wired = true;
+            btnLogout.addEventListener('click', () => {
+                if (!confirm('Đăng xuất khỏi tài khoản?')) return;
+                if (window.authManager?.logout) {
+                    window.authManager.logout('manual');
+                } else {
+                    try {
+                        localStorage.removeItem('loginindex_auth');
+                        sessionStorage.removeItem('loginindex_auth');
+                    } catch (_) {}
+                    window.location.href = '../index.html';
+                }
+            });
+        }
+        const btnPw = document.getElementById('account-change-pw');
+        if (btnPw && !btnPw._wired) {
+            btnPw._wired = true;
+            btnPw.addEventListener('click', () => {
+                showToast('Đổi mật khẩu: liên hệ admin / vào trang quản lý user.', 'info');
+            });
+        }
+    }
+
+    // ----- Admin: grant credits panel (gated by authManager.isAdminTemplate) -----
     function isAdminUser() {
         try {
-            return localStorage.getItem('userType') === 'admin-authenticated';
+            if (window.authManager?.isAdminTemplate) {
+                return window.authManager.isAdminTemplate() === true;
+            }
+            const a = getAuthData();
+            return (
+                a?.roleTemplate === 'admin' ||
+                a?.userType === 'admin-authenticated' ||
+                a?.isAdmin === true
+            );
         } catch (_) {
             return false;
         }
@@ -388,6 +476,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        populateAccountCard();
         refreshCredits();
         loadPacks();
         loadTopupHistory();

@@ -811,6 +811,74 @@ body {
     padding-top: 0.5rem;
 }
 
+/* ===== Account card on settings page ===== */
+.aikol-account {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.25rem;
+    align-items: center;
+}
+.aikol-account__avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--aikol-accent), var(--aikol-accent-light));
+    color: white;
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 14px var(--aikol-accent-glow);
+    flex-shrink: 0;
+}
+.aikol-account__info {
+    min-width: 0;
+}
+.aikol-account__name {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--aikol-text);
+    margin-bottom: 0.2rem;
+    flex-wrap: wrap;
+}
+.aikol-account__role {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.5rem;
+    border-radius: 4px;
+    background: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
+}
+.aikol-account__role--user {
+    background: var(--aikol-surface-2);
+    color: var(--aikol-text-dim);
+}
+.aikol-account__meta {
+    font-size: 0.82rem;
+    color: var(--aikol-text-dim);
+    line-height: 1.5;
+}
+.aikol-account__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+@media (max-width: 720px) {
+    .aikol-account {
+        grid-template-columns: auto 1fr;
+        gap: 1rem;
+    }
+    .aikol-account__actions {
+        grid-column: 1 / -1;
+    }
+}
+
 /* ===== Sprint 5 — Persistent left sidebar (clone tikreel /app) ===== */
 :root {
     --aikol-side-w: 240px;

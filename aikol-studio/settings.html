@@ -41,6 +41,38 @@
                 </div>
             </header>
 
+            <!-- Account card — populated by settings.js from window.authManager. -->
+            <section class="aikol-panel aikol-account-panel" id="account-panel">
+                <h2>Tài khoản</h2>
+                <div class="aikol-account" id="account-card">
+                    <div class="aikol-account__avatar" id="account-avatar">—</div>
+                    <div class="aikol-account__info">
+                        <div class="aikol-account__name">
+                            <span id="account-display">—</span>
+                            <span class="aikol-account__role" id="account-role"></span>
+                        </div>
+                        <div class="aikol-account__meta" id="account-username">@—</div>
+                        <div class="aikol-account__meta" id="account-session">—</div>
+                    </div>
+                    <div class="aikol-account__actions">
+                        <button
+                            type="button"
+                            class="aikol-btn aikol-btn--secondary"
+                            id="account-change-pw"
+                        >
+                            Đổi mật khẩu
+                        </button>
+                        <button
+                            type="button"
+                            class="aikol-btn aikol-btn--danger"
+                            id="account-logout"
+                        >
+                            Đăng xuất
+                        </button>
+                    </div>
+                </div>
+            </section>
+
             <section class="aikol-panel">
                 <h2>1. Chọn gói credits</h2>
                 <p style="color: var(--aikol-text-dim); margin-top: 0">
