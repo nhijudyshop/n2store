@@ -2003,6 +2003,13 @@ server.listen(PORT, () => {
 // Start cron jobs
 require('./cron/scheduler');
 
+// Boot AI KOL Studio queue worker (Sprint 3 — Fal.ai + Kling pollers)
+try {
+    require('./services/aikol-queue-worker').start();
+} catch (e) {
+    console.warn('[server] aikol-queue-worker boot failed:', e.message);
+}
+
 // Graceful shutdown — close HTTP + WS + DB pool before process exits.
 // Render sends SIGTERM then waits 30s before SIGKILL; we want all in-flight
 // requests to finish and DB clients to release cleanly.

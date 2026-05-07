@@ -68,7 +68,14 @@
         meta.textContent = `${userTxt} · ${fmtBytes(c.file_size)}`;
 
         const actions = document.createElement('div');
-        actions.style.cssText = 'display:flex;gap:0.4rem;margin-top:0.5rem;';
+        actions.style.cssText = 'display:flex;gap:0.4rem;margin-top:0.5rem;flex-wrap:wrap;';
+        const genBtn = document.createElement('button');
+        genBtn.className = 'aikol-btn';
+        genBtn.style.cssText = 'flex:1 1 100%;font-size:0.78rem;padding:0.4rem 0.5rem;';
+        genBtn.textContent = '⚡ Generate';
+        genBtn.addEventListener('click', () => {
+            if (window.AikolGenerate) window.AikolGenerate.openForClip(c);
+        });
         const favBtn = document.createElement('button');
         favBtn.className = 'aikol-btn aikol-btn--secondary';
         favBtn.style.cssText = 'flex:1;font-size:0.78rem;padding:0.35rem 0.5rem;';
@@ -79,7 +86,7 @@
         delBtn.style.cssText = 'font-size:0.78rem;padding:0.35rem 0.6rem;';
         delBtn.textContent = 'Xoá';
         delBtn.addEventListener('click', () => onDelete(c.id, c.title || c.video_id));
-        actions.append(favBtn, delBtn);
+        actions.append(genBtn, favBtn, delBtn);
 
         body.append(title, meta, actions);
         card.append(thumb, body);
@@ -205,5 +212,19 @@
         $('#upload-form').addEventListener('submit', onUpload);
         refreshCredits();
         refreshClips();
+
+        // Sprint 3 — queue watcher + auto-refresh on submit/terminal.
+        const queuePanel = document.getElementById('aikol-queue-panel');
+        if (window.AikolGenerate && queuePanel) {
+            window.AikolGenerate.startQueueWatch({
+                container: queuePanel,
+                onTerminal: () => {
+                    refreshCredits();
+                },
+            });
+        }
+        window.addEventListener('aikol:generation-submitted', () => {
+            refreshCredits();
+        });
     });
 })();

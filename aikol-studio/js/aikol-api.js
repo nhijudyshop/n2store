@@ -128,6 +128,18 @@
         deleteClip: (id) => jsonRequest('DELETE', `/clips/${id}`),
         toggleClipFavorite: (id, favorite) => jsonRequest('PATCH', `/clips/${id}`, { favorite }),
 
+        // Sprint 3 — generations
+        submitGeneration: (payload) => jsonRequest('POST', '/generations', payload),
+        listGenerations: (limit = 50, offset = 0) =>
+            jsonRequest('GET', `/generations?limit=${limit}&offset=${offset}`),
+        getGeneration: (id) => jsonRequest('GET', `/generations/${id}`),
+        getQueue: () => jsonRequest('GET', '/queue'),
+        listOutputs: (limit = 50, offset = 0, kind) => {
+            const q = `limit=${limit}&offset=${offset}` + (kind ? `&kind=${kind}` : '');
+            return jsonRequest('GET', `/outputs?${q}`);
+        },
+        deleteOutput: (id) => jsonRequest('DELETE', `/outputs/${id}`),
+
         health: () => jsonRequest('GET', '/health'),
     };
 

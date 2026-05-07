@@ -1,0 +1,110 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Outputs — AI KOL Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link rel="stylesheet" href="../hanghoan/css/modern.css" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/generate-panel.js"></script>
+        <script defer src="js/history.js"></script>
+    </head>
+    <body>
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                "
+            >
+                <div>
+                    <h1>Outputs</h1>
+                    <p>Ảnh & video đã generate · click để xem full size · download / xoá</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <a class="aikol-btn aikol-btn--secondary" href="library.html">← Library</a>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <div
+                    style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 0.75rem;
+                        flex-wrap: wrap;
+                        margin-bottom: 0.75rem;
+                    "
+                >
+                    <div role="tablist" style="display: flex; gap: 0.5rem">
+                        <button
+                            type="button"
+                            class="aikol-btn aikol-btn--secondary"
+                            data-filter="all"
+                            aria-pressed="true"
+                        >
+                            All
+                        </button>
+                        <button
+                            type="button"
+                            class="aikol-btn aikol-btn--secondary"
+                            data-filter="image"
+                            aria-pressed="false"
+                        >
+                            Image
+                        </button>
+                        <button
+                            type="button"
+                            class="aikol-btn aikol-btn--secondary"
+                            data-filter="video"
+                            aria-pressed="false"
+                        >
+                            Video
+                        </button>
+                    </div>
+                    <span
+                        id="outputs-total"
+                        style="color: var(--aikol-text-dim); font-size: 0.85rem"
+                        >0 outputs</span
+                    >
+                </div>
+                <div id="outputs-empty" class="aikol-empty" style="display: none">
+                    Chưa có output. Vào Library, chọn 1 clip rồi bấm <strong>⚡ Generate</strong>.
+                </div>
+                <div id="outputs-list" class="aikol-models-grid"></div>
+            </section>
+
+            <section
+                id="aikol-queue-panel"
+                class="aikol-queue"
+                aria-live="polite"
+                aria-label="Generation queue"
+            ></section>
+        </main>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>

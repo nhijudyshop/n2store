@@ -19,6 +19,7 @@
         <script src="../shared/js/shared-cache-manager.js"></script>
 
         <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/generate-panel.js"></script>
         <script defer src="js/library.js"></script>
     </head>
     <body>
@@ -166,6 +167,18 @@
                 </div>
                 <div id="clips-list" class="aikol-models-grid"></div>
             </section>
+
+            <!-- Sprint 3 — generation queue + outputs link -->
+            <section
+                id="aikol-queue-panel"
+                class="aikol-queue"
+                aria-live="polite"
+                aria-label="Generation queue"
+            ></section>
+
+            <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.5rem">
+                <a class="aikol-btn aikol-btn--secondary" href="history.html">View Outputs →</a>
+            </div>
         </main>
 
         <script>

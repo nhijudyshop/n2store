@@ -8,6 +8,66 @@
 
 ## 2026-05-07
 
+### [aikol] Sprint 3 — Image (Fal.ai) + Video (Kling) generation pipeline
+
+**Goal** — Sau Sprint 2 (Library + import + clip CRUD) đã LIVE. Sprint 3 thêm generation core: model + clip → ảnh / video clone identity-preserving, có queue + charge/refund tự động.
+
+**Backend (Render API)**
+
+- `services/aikol-fal-service.js` — Fal.ai client (queue API). Submit `fal-ai/flux-pulid` (PuLID face-conditioned Flux), poll status, download result. Auth: `Authorization: Key $FAL_KEY`. Cost: 4 cr / variation.
+- `services/aikol-kling-service.js` — Kling AI client. JWT (HS256) signing per request với `KLING_ACCESS_KEY` / `KLING_SECRET_KEY` (`iss + exp +1800s + nbf -5s`). Submit `kling-v1-5` qua `image2video` hoặc `video2video`, poll task → tải MP4 (URL expire ~30 min). Cost: 8 cr/s std, 13 cr/s pro.
+- `routes/aikol-generations.js` — sub-router mounted dưới `/api/aikol/`:
+    - `POST /generations` — body `{ kind, model_id, clip_ids?, config, note? }` → tạo 1 row / clip, charge upfront atomic transaction, kích worker tick (fire-and-forget).
+    - `GET /generations[/:id]` + `GET /queue` + `GET /outputs` + `GET /outputs/:id/file` (302 → Bunny CDN) + `DELETE /outputs/:id`.
+    - Insufficient credits → 402 với detail balance/cost. Refund tự động khi worker mark `error`.
+- `services/aikol-queue-worker.js` — interval-based worker (default 8s). `pickPending()` dùng `FOR UPDATE SKIP LOCKED` cho atomic dispatch. Poll Fal/Kling status, COMPLETED/succeed → tải tất cả variants vào `aikol_outputs` + Bunny key `aikol/outputs/{gen_id}-{i}.{ext}`. Failure → refund credits + mark `error` + finished_at. Timeout 5 min Fal / 15 min Kling.
+- `server.js` — boot worker sau cron scheduler.
+
+**Frontend (`/aikol-studio/`)**
+
+- `js/aikol-api.js` — thêm `submitGeneration` / `listGenerations` / `getGeneration` / `getQueue` / `listOutputs` / `deleteOutput`.
+- `js/generate-panel.js` — module mới: `AikolGenerate.openForClip(clip)` mở modal config (kind, model picker, variations slider, similarity/creativity, keep_pose/outfit/bg/lighting, image_size, shot_type, scene_mode, kling_mode, duration_seconds, note free-form). Live cost label cập nhật theo form. `startQueueWatch({container, onTerminal})` poll `/queue` mỗi 5s, render running jobs, fire `onTerminal` callback khi job rời queue → page tự refresh credits + outputs.
+- `library.html` + `js/library.js` — thêm nút `⚡ Generate` mỗi clip card → mở modal. Thêm queue panel `#aikol-queue-panel`. Link `View Outputs →` đi `history.html`.
+- `history.html` + `js/history.js` (NEW) — outputs grid với filter All/Image/Video, thumb 9:16 (img preview với click-to-open, video controls=true), download + xoá per output.
+- `css/aikol.css` — thêm Sprint 3 styles: `.aikol-modal-backdrop`, `.aikol-modal`, `.aikol-gen-modal__head/body/foot`, `.aikol-gen-row/grid/fieldset`, `.aikol-icon-btn`, `.aikol-queue` + queue item variants pending/running.
+- `index.html` (dashboard) — step 4 cập nhật text dẫn về Library + history link.
+
+**Pricing (matches `COSTS` config in `aikol.js`)**
+
+| Kind            | Cost                       |
+| --------------- | -------------------------- |
+| Image           | 4 cr × variations (max 10) |
+| Video std (5s)  | 40 cr (8 cr/s × 5)         |
+| Video std (10s) | 80 cr                      |
+| Video pro (5s)  | 65 cr (13 cr/s × 5)        |
+| Video pro (10s) | 130 cr                     |
+
+**Files NEW**
+
+- [render.com/services/aikol-fal-service.js](../render.com/services/aikol-fal-service.js)
+- [render.com/services/aikol-kling-service.js](../render.com/services/aikol-kling-service.js)
+- [render.com/services/aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js)
+- [render.com/routes/aikol-generations.js](../render.com/routes/aikol-generations.js)
+- [aikol-studio/js/generate-panel.js](../aikol-studio/js/generate-panel.js)
+- [aikol-studio/history.html](../aikol-studio/history.html)
+- [aikol-studio/js/history.js](../aikol-studio/js/history.js)
+
+**Files MODIFIED**
+
+- [render.com/routes/aikol.js](../render.com/routes/aikol.js) — mount `generationsRouter`.
+- [render.com/server.js](../render.com/server.js) — `aikol-queue-worker.start()` sau cron boot.
+- [aikol-studio/js/aikol-api.js](../aikol-studio/js/aikol-api.js) — thêm 6 generation endpoints.
+- [aikol-studio/library.html](../aikol-studio/library.html) — load `generate-panel.js`, queue panel, history link.
+- [aikol-studio/js/library.js](../aikol-studio/js/library.js) — `⚡ Generate` button + queue watcher.
+- [aikol-studio/css/aikol.css](../aikol-studio/css/aikol.css) — modal + queue styles.
+- [aikol-studio/index.html](../aikol-studio/index.html) — step 4 dashboard text.
+
+**ENV vars** — đã có sẵn trên Render `srv-d4e5pd3gk3sc73bgv600`: `FAL_KEY`, `KLING_ACCESS_KEY`, `KLING_SECRET_KEY`, `BUNNY_*`, `AIKOL_SCRAPER_URL`. Optional new: `AIKOL_WORKER_INTERVAL_MS=8000`, `AIKOL_WORKER_MAX_RUNNING=6`, `AIKOL_WORKER_DISABLED=1` (tắt worker — for tests).
+
+**Status**: 🔄 In Progress — đã code xong, cần deploy + smoke test live (kế tiếp).
+
+---
+
 ### [delivery] Fix "Lỗi: Không tìm thấy phiếu cho đơn NJD/..." — NJD eye mở bill thay vì ticket history
 
 **Bug** — Trong cột "Hoạt động khách hàng" của row modal, mỗi giao dịch thanh toán COD có note như `Thanh toán công nợ qua COD đơn hàng #NJD/2026/65765`. `pickTxEvidence` cũ ghép cả TV-_ (issue-tracking ticket) và NJD/_ (invoice) vào cùng `kind: 'ticket'` ⇒ click eye đều rơi xuống `showTicketHistoryViewer` ⇒ với NJD code thì `searchTicketsServer` không tìm thấy ticket xử lý nào ⇒ "Lỗi: Không tìm thấy phiếu cho đơn NJD/2026/65765".

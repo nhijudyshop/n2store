@@ -19,6 +19,7 @@ const router = express.Router();
 const pool = require('../db/pool');
 const bunny = require('../services/bunny-storage-service');
 const clipsRouter = require('./aikol-clips');
+const generationsRouter = require('./aikol-generations');
 
 const COSTS = {
     image: 4,
@@ -274,5 +275,8 @@ router.get('/health', (_req, res) => {
 
 // ===== Clips + Imports (separate file to keep size <800 lines) =====
 router.use('/', clipsRouter);
+
+// ===== Generations + Outputs (Sprint 3 — Fal.ai + Kling) =====
+router.use('/', generationsRouter);
 
 module.exports = router;
