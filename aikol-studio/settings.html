@@ -62,7 +62,10 @@
                     <strong>chat_id</strong> của bạn (mở Telegram → @userinfobot → /start → copy
                     ID).
                 </p>
-                <form id="telegram-form" style="display: grid; gap: 0.75rem; max-width: 480px">
+                <form
+                    id="telegram-form"
+                    style="display: grid; gap: 0.75rem; max-width: min(640px, 100%)"
+                >
                     <label class="aikol-gen-row">
                         <span>Chat ID</span>
                         <input
@@ -136,7 +139,10 @@
                     Chỉ admin nhìn thấy. Lịch sử ghi nhận
                     <code>kind=admin_grant</code>, kèm tên admin trong note.
                 </p>
-                <form id="admin-grant-form" style="display: grid; gap: 0.75rem; max-width: 540px">
+                <form
+                    id="admin-grant-form"
+                    style="display: grid; gap: 0.75rem; max-width: min(720px, 100%)"
+                >
                     <label class="aikol-gen-row">
                         <span>User</span>
                         <select id="admin-grant-user" class="aikol-input">
