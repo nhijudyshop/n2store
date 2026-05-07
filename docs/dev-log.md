@@ -61,11 +61,18 @@
 - po-source-tracker module loaded ✅, `hasFn: true`
 - Mock injection: `_inject = Map([id, Set([0,2])])` → re-render → 2 `.po-draft-badge` + 1 `.ncc-draft-chip` "📋 2/5" rendered đúng ✅
 - Tổng `sanPham.length` lấy đúng từ `globalState.shipments[].hoaDon[].sanPham[]` ✅
-- Backend changes chưa test online (cần Render redeploy sau push). Sau push sẽ verify end-to-end: convert NCC → submit → reload inventory → badges hiện trên đúng items.
+
+**End-to-end verification (Playwright local + chatomni-proxy live, sau Render redeploy)**:
+
+1. POST DRAFT với `sourceInvoiceId: 'dot_mov8jsfs_vuy0k5', sourceItemIdx: 0` (item Q127T, qty 15, mua 571500, bán 950000) → 200 + draftId `6167f867-...` ✅
+2. GET draft → response có `sourceInvoiceId: 'dot_mov8jsfs_vuy0k5', sourceItemIdx: 0` → backend whitelist persist đúng sau Render redeploy ✅
+3. Reload inventory-tracking → `PoSourceTracker.sourceMap.size = 1`, `isInDraft('dot_mov8jsfs_vuy0k5', 0) === true`, `countInDraft = 1` ✅
+4. DOM: 1 `.po-draft-badge` cạnh maSP "24/1" (sanPham idx 0 của dotHang Q24) + 1 `.ncc-draft-chip` "📋 1/14" cạnh tên NCC "Q24" ✅
+5. Cleanup: DELETE draft `6167f867-...` thành công.
 
 **Files**: 1 mới (`po-source-tracker.js`) + 6 sửa (modal-convert-po.js + table-renderer.js + main.js + index.html + modal-convert-po.css + render.com route).
 
-**Status**: 🔄 Frontend ✅, backend chờ Render redeploy + verify online.
+**Status**: ✅ End-to-end verified.
 
 ### [purchase-orders] Bảng Nháp: hiển thị "— Chưa có" thay vì "0 đ" khi giá mua/bán chưa nhập
 
