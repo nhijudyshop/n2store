@@ -233,13 +233,16 @@ router.post('/import/channel', requireUser, express.json(), async (req, res) => 
             cursor: 0,
         });
     } catch (e) {
-        console.error('[aikol] /import/channel scraper failed', e);
+        console.error('[aikol] /import/channel scraper failed', e.message);
+        const isCookieIssue = e.code === 'scraper_no_data' || e.needsCookie;
         return res.status(502).json({
             error: 'scraper_failed',
             detail: e.message,
-            hint: effectiveCookie
-                ? 'Cookie có thể đã hết hạn — admin cần update AIKOL_TIKTOK_COOKIE env.'
-                : 'Channel scrape cần TikTok cookie. Admin cần set env AIKOL_TIKTOK_COOKIE trên scraper service.',
+            hint: isCookieIssue
+                ? effectiveCookie
+                    ? 'Cookie có thể đã hết hạn — admin cần update env AIKOL_TIKTOK_COOKIE trên scraper service.'
+                    : 'Channel scrape cần TikTok cookie. Admin cần set env AIKOL_TIKTOK_COOKIE trên scraper service (n2store-aikol-scraper). Trong khi chờ, dùng "Import 1 video TikTok" với từng URL.'
+                : 'Scraper service có thể tạm thời lỗi — thử lại sau vài giây.',
         });
     }
 

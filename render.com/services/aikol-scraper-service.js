@@ -178,8 +178,16 @@ async function fetchTiktokAccountVideos(opts) {
     if (cookie) body.cookie = cookie;
 
     const resp = await scraperFetchJson('/tiktok/account', body);
-    if (!resp || resp.message?.includes?.('error') || resp.code === 500) {
-        throw new Error(resp?.message || 'Scraper /tiktok/account failed');
+    // JoeanAmier scraper returns:
+    //   success: { message: <success>, data: [items], params, time }
+    //   failure: { message: "Failed to retrieve data!", data: null, params, time }
+    // Without cookie, TikTok's user-post endpoint returns 0 → data is null.
+    if (!resp || resp.data === null || resp.data === undefined) {
+        const reason = resp?.message || 'No data from scraper';
+        const e = new Error(reason);
+        e.code = 'scraper_no_data';
+        e.needsCookie = !cookie;
+        throw e;
     }
     // The scraper returns { data: [...items], message, params } per JoeanAmier convention.
     // Each item has: id, desc, duration, downloads, static_cover, dynamic_cover, create_timestamp
