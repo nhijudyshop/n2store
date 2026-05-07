@@ -166,18 +166,27 @@
                     <div
                         style="
                             display: flex;
+                            flex-wrap: wrap;
                             justify-content: space-between;
                             align-items: center;
+                            gap: 0.75rem;
                             margin-top: 0.75rem;
                         "
                     >
-                        <div>
+                        <div style="min-width: 0; flex: 1 1 220px">
                             <div id="bulk-cost-summary" style="color: var(--aikol-text-dim)">
                                 — credits / clip × 0 clips = 0
                             </div>
                             <div
                                 id="bulk-save-as-campaign"
-                                style="margin-top: 0.4rem; font-size: 0.85rem"
+                                style="
+                                    margin-top: 0.4rem;
+                                    font-size: 0.85rem;
+                                    display: flex;
+                                    flex-wrap: wrap;
+                                    align-items: center;
+                                    gap: 0.5rem;
+                                "
                             >
                                 <label
                                     style="display: inline-flex; gap: 0.4rem; align-items: center"
@@ -189,7 +198,7 @@
                                     id="campaign-name"
                                     type="text"
                                     class="aikol-input"
-                                    style="display: inline-block; width: 220px; margin-left: 0.5rem"
+                                    style="flex: 1 1 200px; min-width: 0; max-width: 280px"
                                     placeholder="Tên campaign"
                                 />
                             </div>
