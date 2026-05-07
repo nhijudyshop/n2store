@@ -8,6 +8,41 @@
 
 ## 2026-05-07
 
+### [purchase-orders] Bảng Nháp: hiển thị "— Chưa có" thay vì "0 đ" khi giá mua/bán chưa nhập
+
+**Bối cảnh**: User báo "không có giá bán" trong PO Draft khi convert từ inventory-tracking. Khi inspect: `formatVND(item.sellingPrice || 0)` → `"0 đ"` cho item chưa nhập giá → gây hiểu nhầm là dữ liệu lỗi.
+
+**Root cause**: Inventory-tracking chỉ có field `giaDonVi` (= giá mua), không có giá bán riêng. Khi convert-PO modal exploded items từ inventory:
+
+- `purchasePrice` = `giaDonVi * 4500` → set sẵn ✅
+- `sellingPrice` = `''` (empty default) — user phải pick từ TPOS suggestion (auto-fill từ retail price của TPOS) hoặc nhập tay.
+- Submit không fill → backend `item.sellingPrice || 0` → DB lưu 0 → renderer show "0 đ" gây nhầm.
+
+**Fix**:
+
+- [purchase-orders/js/table-renderer.js](../purchase-orders/js/table-renderer.js): cell giá mua + giá bán đổi từ `<span>${formatVND(price || 0)}</span>` sang conditional: `Number(price) > 0` → format VND, ngược lại render `<span class="price-value--empty">— Chưa có</span>` với tooltip.
+- [purchase-orders/css/table.css](../purchase-orders/css/table.css): thêm `.price-value--empty` muted (gray-400, italic, font-size 12px).
+
+**Browser test end-to-end (Playwright local)**:
+
+1. Open inventory-tracking → click cart icon NCC Q24 (62 cart icons available) → modal mở 14 items với giá mua filled (vd 571.500 từ giaDonVi=127 CNY × 4500), giá bán empty ✅
+2. Gõ "Q127T" trong tên SP row 0 → 4 suggestions hiện → click Q127T → giá bán auto-fill 950.000, code Q127T, fromWh=true ✅
+3. Delete 13 rows khác, đổi NCC sang `TEST-FlowTest-FromInventory`, POST trực tiếp orderData (mô phỏng `_confirmConvertToPO`) → API trả 200 + draftId `574ed8ff-...` ✅
+4. GET draft → DB lưu đúng: `purchasePrice: 571500, sellingPrice: 950000, subtotal: 8572500` ✅
+5. Reload purchase-orders → row Q127T hiển thị **Giá mua = 571.500 đ + Giá bán = 950.000 đ** ✅
+6. Items khác (B1948 từ order khác) chưa nhập giá bán → render "— Chưa có" muted (thay vì "0 đ") ✅
+7. Cleanup: DELETE 2 test draft (id 574ed8ff-... + 9960f323-...) khỏi prod DB.
+
+**Kết luận flow**: Inventory → PO transfer hoạt động đúng:
+
+- Giá mua: ALWAYS flow (lấy từ giaDonVi \* 4500).
+- Giá bán: flow khi user pick TPOS suggestion (auto-fill TPOS retail price) hoặc nhập tay. Inventory KHÔNG có field giá bán riêng nên không có gì để "transfer" sẵn — user phải fill trong modal.
+- Hiển thị giá thiếu giờ là "— Chưa có" thay vì "0 đ" để rõ là chưa nhập.
+
+**Files changed**: 2 (js + css).
+
+**Status**: ✅ Done.
+
 ### [inventory] Modal "Tạo đơn đặt hàng": iPad SL hiển thị to hơn, suggest dropdown giữ mở sau khi chọn, thêm nút "Đồng bộ giá"
 
 **Yêu cầu user (3 fix sau khi xem trên iPad)**:
