@@ -8,6 +8,44 @@
 
 ## 2026-05-07
 
+### [inventory] Badge sản phẩm đã được đưa qua PO Nháp + chip đếm cạnh tên NCC
+
+**Yêu cầu user**: "khi bấm nút tạo đơn hàng để đưa qua tab purchase-orders sẽ mark hoặc badge đi" — cần biết được trên inventory-tracking đơn nào / sản phẩm nào đã có trong Đặt hàng Nháp.
+
+**Cách làm (link cứng)**:
+
+1. **convert-PO submit gắn source linkage** ([modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js)):
+    - `_explodeSanPhamToItems(sanPhamArr, tiGia, sourceInvoiceId)` — thêm param thứ 3 là `invoiceId` (= dotHang.id), set vào mỗi item: `sourceInvoiceId` + `sourceItemIdx` (= sanPham index).
+    - `_mkItem` thêm 2 fields với defaults null/null. Backwards compat.
+    - `_confirmConvertToPO` items.map đẩy 2 fields lên payload.
+    - Sau submit success → gọi `PoSourceTracker.refreshAndRerender()` để badge ngay không cần F5.
+
+2. **Backend whitelist** ([render.com/routes/v2/purchase-orders.js](../render.com/routes/v2/purchase-orders.js)):
+    - POST `/` + PUT `/:id`: thêm `sourceInvoiceId` (string|null) + `sourceItemIdx` (number|null) vào preparedItems map.
+    - Copy `/:id/copy` đã `...item` spread → tự preserve.
+
+3. **Inventory-tracking tracker** ([po-source-tracker.js](../inventory-tracking/js/po-source-tracker.js) — file MỚI):
+    - `refresh()`: GET `/v2/purchase-orders?status=DRAFT&pageSize=500` → parse items[] → build `Map<sourceInvoiceId, Set<sourceItemIdx>>`. Dedupe inflight requests via shared promise.
+    - `isInDraft(invoiceId, productIdx)`, `countInDraft(invoiceId)` → expose để renderer query.
+    - `refreshAndRerender()` → fetch + gọi `renderShipments(...)` (bare reference vì `let globalState` không bind window).
+    - Load script trước modal-convert-po trong index.html.
+    - Page load: gọi `refresh()` background sau loadShipmentsData → re-render khi map đến.
+
+4. **Badge UI** ([table-renderer.js](../inventory-tracking/js/table-renderer.js) + [modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css)):
+    - `<span.po-draft-badge>` (icon shopping-cart, hình tròn xanh emerald) cạnh Mã SP cho dòng đã match.
+    - `<span.ncc-draft-chip>` (pill xanh "📋 X/Y") cạnh tên NCC, X = số sản phẩm đã chuyển, Y = tổng `sanPham.length` của dotHang đó.
+
+**Smoke test (Playwright local localhost:8080)**:
+
+- po-source-tracker module loaded ✅, `hasFn: true`
+- Mock injection: `_inject = Map([id, Set([0,2])])` → re-render → 2 `.po-draft-badge` + 1 `.ncc-draft-chip` "📋 2/5" rendered đúng ✅
+- Tổng `sanPham.length` lấy đúng từ `globalState.shipments[].hoaDon[].sanPham[]` ✅
+- Backend changes chưa test online (cần Render redeploy sau push). Sau push sẽ verify end-to-end: convert NCC → submit → reload inventory → badges hiện trên đúng items.
+
+**Files**: 1 mới (`po-source-tracker.js`) + 6 sửa (modal-convert-po.js + table-renderer.js + main.js + index.html + modal-convert-po.css + render.com route).
+
+**Status**: 🔄 Frontend ✅, backend chờ Render redeploy + verify online.
+
 ### [purchase-orders] Bảng Nháp: hiển thị "— Chưa có" thay vì "0 đ" khi giá mua/bán chưa nhập
 
 **Bối cảnh**: User báo "không có giá bán" trong PO Draft khi convert từ inventory-tracking. Khi inspect: `formatVND(item.sellingPrice || 0)` → `"0 đ"` cho item chưa nhập giá → gây hiểu nhầm là dữ liệu lỗi.

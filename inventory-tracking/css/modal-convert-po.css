@@ -32,6 +32,46 @@
     height: 14px;
 }
 
+/* =================== PO-DRAFT BADGE (per product row) ===================
+   Hiển thị bên cạnh Mã SP để báo "sản phẩm này đã được đưa qua Đặt hàng Nháp". */
+.po-draft-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+.po-draft-badge i {
+    width: 11px;
+    height: 11px;
+}
+
+/* =================== NCC-DRAFT COUNT CHIP (per dotHang) ===================
+   Inline chip đặt cạnh tên NCC, ví dụ "📋 3/14" — số sản phẩm trong dotHang này
+   đã được đưa qua PO Nháp / tổng số sản phẩm. */
+.ncc-draft-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: help;
+}
+
 /* =================== MAIN CONVERT MODAL =================== */
 #modalConvertPO .modal-container {
     max-width: 1400px;

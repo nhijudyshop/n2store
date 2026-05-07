@@ -337,12 +337,10 @@ router.post(
         upload.single('image')(req, res, (err) => {
             if (err instanceof multer.MulterError) {
                 if (err.code === 'LIMIT_FILE_SIZE') {
-                    return res
-                        .status(413)
-                        .json({
-                            success: false,
-                            error: `File quá lớn. Tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
-                        });
+                    return res.status(413).json({
+                        success: false,
+                        error: `File quá lớn. Tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
+                    });
                 }
                 return res.status(400).json({ success: false, error: err.message });
             }
@@ -355,12 +353,10 @@ router.post(
     async (req, res) => {
         try {
             if (!req.file) {
-                return res
-                    .status(400)
-                    .json({
-                        success: false,
-                        error: 'Không có file được upload. Sử dụng field name "image".',
-                    });
+                return res.status(400).json({
+                    success: false,
+                    error: 'Không có file được upload. Sử dụng field name "image".',
+                });
             }
 
             const pool = getDb(req);
@@ -512,7 +508,11 @@ router.put('/code-rules', async (req, res) => {
             defaultPrefix: defaultPrefix.trim().toUpperCase() || 'N',
         });
         await adminSettings.setSetting(pool, 'product_code_rules', value, updatedBy);
-        res.json({ success: true, rules: validRules, defaultPrefix: defaultPrefix.trim().toUpperCase() || 'N' });
+        res.json({
+            success: true,
+            rules: validRules,
+            defaultPrefix: defaultPrefix.trim().toUpperCase() || 'N',
+        });
     } catch (error) {
         console.error('[PO API] /code-rules PUT error:', error);
         res.status(500).json({ success: false, error: 'Không thể lưu quy tắc mã sản phẩm' });
@@ -647,6 +647,12 @@ router.post('/', async (req, res) => {
             tposImageUrl: item.tposImageUrl || null,
             _fromWarehouse: !!(item._fromWarehouse || item.tposSynced),
             _isExistingItem: !!(item._isExistingItem || item.tposProductId),
+            // Inventory-tracking source linkage (for badge mapping)
+            sourceInvoiceId: item.sourceInvoiceId || null,
+            sourceItemIdx:
+                typeof item.sourceItemIdx === 'number' && Number.isFinite(item.sourceItemIdx)
+                    ? item.sourceItemIdx
+                    : null,
         }));
 
         const invoiceImages = (data.invoiceImages || []).filter(
@@ -780,6 +786,12 @@ router.put('/:id', async (req, res) => {
                 tposImageUrl: item.tposImageUrl || null,
                 _fromWarehouse: !!(item._fromWarehouse || item.tposSynced),
                 _isExistingItem: !!(item._isExistingItem || item.tposProductId),
+                // Inventory-tracking source linkage (for badge mapping)
+                sourceInvoiceId: item.sourceInvoiceId || null,
+                sourceItemIdx:
+                    typeof item.sourceItemIdx === 'number' && Number.isFinite(item.sourceItemIdx)
+                        ? item.sourceItemIdx
+                        : null,
             }));
 
             setField('items', JSON.stringify(preparedItems));
@@ -993,12 +1005,10 @@ router.delete('/:id/permanent', async (req, res) => {
         }
 
         if (existing.rows[0].status !== 'DELETED') {
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    error: 'Chỉ có thể xóa vĩnh viễn đơn hàng trong thùng rác',
-                });
+            return res.status(400).json({
+                success: false,
+                error: 'Chỉ có thể xóa vĩnh viễn đơn hàng trong thùng rác',
+            });
         }
 
         await pool.query('DELETE FROM purchase_orders WHERE id = $1', [orderId]);

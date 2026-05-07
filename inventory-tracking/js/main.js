@@ -513,6 +513,20 @@ class InventoryTrackingApp {
             if (globalState.currentTab === 'finance' && typeof loadFinanceData === 'function') {
                 await loadFinanceData();
             }
+
+            // Build PO Draft → inventory source map → re-render with badges.
+            // Background load: don't block UI; renderShipments was called inside
+            // loadShipmentsData, so we trigger a re-render when the map arrives.
+            if (window.PoSourceTracker) {
+                window.PoSourceTracker.refresh().then(() => {
+                    if (
+                        typeof renderShipments === 'function' &&
+                        (globalState.filteredShipments || globalState.shipments)
+                    ) {
+                        renderShipments(globalState.filteredShipments || globalState.shipments);
+                    }
+                });
+            }
         } catch (error) {
             console.error('[APP] Error loading data:', error);
             window.notificationManager?.error('Khong the tai du lieu');

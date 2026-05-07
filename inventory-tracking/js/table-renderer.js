@@ -1004,6 +1004,15 @@ function renderProductRow(opts) {
         ? `data-invoice-id="${invoiceId}" data-product-idx="${productIdx}"`
         : '';
 
+    // PO-Draft badge: indicate this product has been pushed to a Đặt hàng Nháp
+    const inDraft =
+        product &&
+        typeof window.PoSourceTracker?.isInDraft === 'function' &&
+        window.PoSourceTracker.isInDraft(invoiceId, productIdx);
+    const poDraftBadge = inDraft
+        ? `<span class="po-draft-badge" title="Đã đưa qua Đặt hàng Nháp"><i data-lucide="shopping-cart"></i></span>`
+        : '';
+
     // For rowspanned cells (rendered on first row), always apply invoice-border since their
     // bottom border appears at the end of their rowspan (which is the last row of invoice)
     // For non-rowspanned cells (STT, Products), only apply on last row
@@ -1030,7 +1039,30 @@ function renderProductRow(opts) {
     const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${_escAttr(invoiceId)}')" title="Xóa NCC ${nccKey}"><i data-lucide="trash-2"></i></button>`;
     const nccConvertBtn = `<button class="btn-convert-po" onclick="event.stopPropagation(); window.openConvertToPurchaseOrderModal('${_escAttr(invoiceId)}')" title="Chuyển NCC ${nccKey} qua Đặt hàng Nháp"><i data-lucide="shopping-cart"></i></button>`;
     const nccEditBtn = `<button class="btn-edit-ncc" onclick="event.stopPropagation(); window.openEditNccInvoiceModal('${_escAttr(invoiceId)}')" title="Sửa hóa đơn NCC ${nccKey}"><i data-lucide="pencil"></i></button>`;
-    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccEditBtn}${nccConvertBtn}${nccDeleteBtn}`;
+    // Đếm số sản phẩm của dotHang này đã được đưa qua PO Nháp.
+    // Schema: globalState.shipments[].hoaDon[].sanPham[] (xem config.js).
+    // Dùng bare reference vì `let globalState` không bind vào `window`.
+    const productsTotal = (function () {
+        try {
+            const ships = (typeof globalState !== 'undefined' && globalState?.shipments) || [];
+            for (const s of ships) {
+                const dot = (s.hoaDon || []).find((hd) => String(hd.id) === String(invoiceId));
+                if (dot) return Array.isArray(dot.sanPham) ? dot.sanPham.length : 0;
+            }
+            return 0;
+        } catch (_) {
+            return 0;
+        }
+    })();
+    const productsInDraft =
+        typeof window.PoSourceTracker?.countInDraft === 'function'
+            ? window.PoSourceTracker.countInDraft(invoiceId)
+            : 0;
+    const nccDraftChip =
+        productsInDraft > 0
+            ? `<span class="ncc-draft-chip" title="${productsInDraft}/${productsTotal} sản phẩm đã có trong Đặt hàng Nháp">📋 ${productsInDraft}/${productsTotal}</span>`
+            : '';
+    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDraftChip}${nccEditBtn}${nccConvertBtn}${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     return `
@@ -1039,7 +1071,7 @@ function renderProductRow(opts) {
             <td class="col-stt ${borderClass}">
                 ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); window.deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
             </td>
-            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}</td>
+            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}</td>
             <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
             <td class="col-colors editable-cell ${borderClass}" ${editAttrs} ondblclick="window.openVariantModal(this)" title="Nhấp đúp để tạo biến thể">${colorDetails}</td>
             <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>

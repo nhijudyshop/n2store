@@ -62,7 +62,7 @@ function openConvertToPurchaseOrderModal(invoiceId) {
         (s.hoaDon || []).some((hd) => String(hd.id) === String(invoiceId))
     );
     const tiGia = parseFloat(parentShipment?.tiGia) || 0;
-    _convertItems = _explodeSanPhamToItems(found.sanPham || [], tiGia);
+    _convertItems = _explodeSanPhamToItems(found.sanPham || [], tiGia, invoiceId);
     _convertCurrentTiGia = tiGia;
     _convertDiscount = 0;
     _convertShipping = 0;
@@ -73,7 +73,7 @@ function openConvertToPurchaseOrderModal(invoiceId) {
     if (window.lucide) lucide.createIcons();
 }
 
-function _explodeSanPhamToItems(sanPhamArr, tiGia = 0) {
+function _explodeSanPhamToItems(sanPhamArr, tiGia = 0, sourceInvoiceId = null) {
     const items = [];
     _convertItemCounter = 0;
     // Inventory-tracking stores prices in tiền Trung (CNY).
@@ -81,7 +81,7 @@ function _explodeSanPhamToItems(sanPhamArr, tiGia = 0) {
     // Fallback ×1000 only when tỉ giá chưa được nhập, để giữ hành vi cũ.
     // Tỉ giá Trung→VND cố định ×4500 (bypass shipment.tiGia per user yêu cầu).
     const INV_TO_VND = 4500;
-    for (const p of sanPhamArr) {
+    sanPhamArr.forEach((p, idx) => {
         const baseName = p.moTa && p.moTa !== '-' ? p.moTa : p.maSP || '';
         const mauSac = Array.isArray(p.mauSac) ? p.mauSac : [];
         const priceVnd = Math.round((parseFloat(p.giaDonVi) || 0) * INV_TO_VND);
@@ -94,6 +94,8 @@ function _explodeSanPhamToItems(sanPhamArr, tiGia = 0) {
                         variant: mv.mau || '',
                         quantity: parseInt(mv.soLuong) || 0,
                         purchasePrice: priceVnd,
+                        sourceInvoiceId,
+                        sourceItemIdx: idx,
                     })
                 );
             }
@@ -105,10 +107,12 @@ function _explodeSanPhamToItems(sanPhamArr, tiGia = 0) {
                     variant: '',
                     quantity: parseInt(p.tongSoLuong || p.soLuong) || 0,
                     purchasePrice: priceVnd,
+                    sourceInvoiceId,
+                    sourceItemIdx: idx,
                 })
             );
         }
-    }
+    });
     return items;
 }
 
@@ -121,6 +125,13 @@ function _mkItem(data = {}) {
         quantity: data.quantity ?? 1,
         purchasePrice: data.purchasePrice ?? 0,
         sellingPrice: data.sellingPrice ?? '',
+        // Source linkage — tracks origin in inventory-tracking nccList[].dotHang[].sanPham[].
+        // Used by inventory-tracking to badge products that have been pushed to PO Draft.
+        sourceInvoiceId: data.sourceInvoiceId || null,
+        sourceItemIdx:
+            typeof data.sourceItemIdx === 'number' && Number.isFinite(data.sourceItemIdx)
+                ? data.sourceItemIdx
+                : null,
     };
 }
 
@@ -1399,6 +1410,10 @@ async function _confirmConvertToPO() {
                 tposImageUrl: it.tposImageUrl || '',
                 _fromWarehouse: fromWh,
                 _isExistingItem: fromWh, // PO form lock toggle
+                // Inventory-tracking source linkage — allows the inventory page
+                // to badge products that have already been pushed to a PO Draft.
+                sourceInvoiceId: it.sourceInvoiceId || null,
+                sourceItemIdx: typeof it.sourceItemIdx === 'number' ? it.sourceItemIdx : null,
             };
         }),
     };
@@ -1422,6 +1437,11 @@ async function _confirmConvertToPO() {
             `Đã tạo đơn Nháp với ${orderData.items.length} sản phẩm`
         );
         closeModal('modalConvertPO');
+        // Refresh inventory-tracking source-map so newly converted items get
+        // badged immediately in the inventory table (no full reload needed).
+        if (window.PoSourceTracker) {
+            window.PoSourceTracker.refreshAndRerender();
+        }
     } catch (err) {
         console.error('[CONVERT-PO] Create failed:', err);
         window.notificationManager?.error(
