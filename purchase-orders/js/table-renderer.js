@@ -403,7 +403,11 @@ class PurchaseOrderTableRenderer {
             <td class="col-purchase-price">
                 <div class="cell-price">
                     ${this.renderPriceImages(item.priceImages)}
-                    <span class="price-value">${config.formatVND(item.purchasePrice || 0)}</span>
+                    ${
+                        Number(item.purchasePrice) > 0
+                            ? `<span class="price-value">${config.formatVND(item.purchasePrice)}</span>`
+                            : `<span class="price-value price-value--empty" title="Chưa nhập giá mua">— Chưa có</span>`
+                    }
                 </div>
             </td>
 
@@ -411,7 +415,11 @@ class PurchaseOrderTableRenderer {
             <td class="col-selling-price">
                 <div class="cell-price">
                     ${this.renderProductImages(item.productImages && item.productImages.length > 0 ? item.productImages : item.tposImageUrl ? [item.tposImageUrl] : null)}
-                    <span class="price-value">${config.formatVND(item.sellingPrice || 0)}</span>
+                    ${
+                        Number(item.sellingPrice) > 0
+                            ? `<span class="price-value">${config.formatVND(item.sellingPrice)}</span>`
+                            : `<span class="price-value price-value--empty" title="Chưa nhập giá bán">— Chưa có</span>`
+                    }
                 </div>
             </td>
 
