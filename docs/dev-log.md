@@ -39,6 +39,28 @@
 
 ---
 
+### [aikol] Account section trong settings — dùng window.authManager (không reinvent)
+
+**Why** — User: "thêm auth account vào như mấy web khác" + "import auth sẽ lấy được userType trong localstorage" + "đã có hệ thông đăng nhập với auth đầy đủ". → Thêm card profile ở settings page nhưng tái dùng auth có sẵn (`shared/js/shared-auth-manager.js`), không xây mới.
+
+**UI** ([settings.html](../aikol-studio/settings.html) + [css/aikol.css](../aikol-studio/css/aikol.css)):
+
+- Section "Tài khoản" panel mới trên đầu trang (trước "1. Chọn gói credits").
+- Card grid 3-col: avatar 56px gradient purple với chữ cái đầu, info 1fr (display name + role badge ADMIN/User + @username + thời gian đăng nhập), actions auto (Đổi mật khẩu / Đăng xuất).
+- @max-width 720px: actions wrap xuống dòng dưới.
+
+**Logic** ([js/settings.js](../aikol-studio/js/settings.js)):
+
+- `getAuthData()` ưu tiên `window.authManager.getAuthData()` (đã load qua `shared-auth-manager.js`); fallback đọc `loginindex_auth` từ session/local storage.
+- `populateAccountCard()` parse timestamp defensively: `data.timestamp || data.lastActivity || Date.parse(data.loginTime)` — vì `loginTime` là ISO string trong khi `timestamp/lastActivity` là ms number.
+- `isAdminUser()` chuyển sang `authManager.isAdminTemplate()` (chính tắc) — fallback hợp các flag `roleTemplate==='admin' || userType==='admin-authenticated' || isAdmin===true`.
+- Logout: clear `loginindex_auth` cả 2 storage + `isLoggedIn`, redirect `../index.html`. KHÔNG dùng `authManager.logout()` vì default `redirectUrl='/index.html'` lệch trên GH Pages project root.
+- Đổi mật khẩu: admin → `../user-management/index.html`; non-admin → toast "Liên hệ admin".
+
+**Status**: ✅ Done — render đúng "Administrator · ADMIN · @admin · Đăng nhập: 13:58 07-05 · ghi nhớ".
+
+---
+
 ### [aikol] Admin nạp credits trực tiếp (bỏ qua SePay)
 
 **Why** — User báo: "admin nạp được credit không cần qua sepay". Hiện tại flow nạp duy nhất là user click pack → server tạo `aikol_topups` pending → user chuyển khoản → SePay webhook tự cộng credits. Admin cần đường tắt: nhập username + delta + note → cộng/trừ credits tức thì.

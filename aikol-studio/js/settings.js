@@ -359,27 +359,33 @@
             sessionEl.textContent = `Đăng nhập: ${last}${remembered}`;
         }
 
+        // Logout — clear cả 2 storage giống aikol-sidebar logout, redirect về
+        // n2store login (../index.html). Không gọi authManager.logout() vì default
+        // redirectUrl='/index.html' (gốc domain) lệch khỏi GH Pages project root.
         const btnLogout = document.getElementById('account-logout');
         if (btnLogout && !btnLogout._wired) {
             btnLogout._wired = true;
             btnLogout.addEventListener('click', () => {
                 if (!confirm('Đăng xuất khỏi tài khoản?')) return;
-                if (window.authManager?.logout) {
-                    window.authManager.logout('manual');
-                } else {
-                    try {
-                        localStorage.removeItem('loginindex_auth');
-                        sessionStorage.removeItem('loginindex_auth');
-                    } catch (_) {}
-                    window.location.href = '../index.html';
-                }
+                try {
+                    localStorage.removeItem('loginindex_auth');
+                    sessionStorage.removeItem('loginindex_auth');
+                    localStorage.removeItem('isLoggedIn');
+                } catch (_) {}
+                window.location.href = '../index.html';
             });
         }
+        // Đổi mật khẩu — admin redirect tới user-management page (đã có sẵn);
+        // user thường thông báo liên hệ admin (chưa có self-service endpoint).
         const btnPw = document.getElementById('account-change-pw');
         if (btnPw && !btnPw._wired) {
             btnPw._wired = true;
             btnPw.addEventListener('click', () => {
-                showToast('Đổi mật khẩu: liên hệ admin / vào trang quản lý user.', 'info');
+                if (isAdminUser()) {
+                    window.location.href = '../user-management/index.html';
+                } else {
+                    showToast('Liên hệ admin để đổi mật khẩu.', 'info');
+                }
             });
         }
     }
