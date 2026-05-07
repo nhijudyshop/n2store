@@ -17,7 +17,8 @@
         { href: 'library.html', label: 'Clip Library', icon: 'film' },
         { href: 'bulk.html', label: 'Bulk generate', icon: 'sparkles' },
         { href: 'campaigns.html', label: 'Campaigns', icon: 'rocket' },
-        { href: 'history.html', label: 'Outputs', icon: 'images' },
+        // 'images' is not in lucide 0.294 — use 'image' for the gallery slot.
+        { href: 'history.html', label: 'Outputs', icon: 'image' },
         { href: 'settings.html', label: 'Settings', icon: 'settings' },
     ];
 
