@@ -19,7 +19,8 @@ async function loadAndRenderEmployeeTable() {
             } else {
                 console.warn('[EMPLOYEE] No users found');
                 const tbody = document.getElementById('employeeAssignmentBody');
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy nhân viên nào</td></tr>';
+                tbody.innerHTML =
+                    '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy nhân viên nào</td></tr>';
             }
         } else {
             console.error('[EMPLOYEE] userEmployeeLoader not available');
@@ -27,7 +28,8 @@ async function loadAndRenderEmployeeTable() {
     } catch (error) {
         console.error('[EMPLOYEE] Error loading employee table:', error);
         const tbody = document.getElementById('employeeAssignmentBody');
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #ef4444;">Lỗi tải danh sách nhân viên</td></tr>';
+        tbody.innerHTML =
+            '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #ef4444;">Lỗi tải danh sách nhân viên</td></tr>';
     }
 }
 
@@ -37,14 +39,14 @@ function renderEmployeeTable(users) {
     // Use global employeeRanges which is synced from Firebase
     let savedRanges = {};
     if (employeeRanges && employeeRanges.length > 0) {
-        employeeRanges.forEach(range => {
+        employeeRanges.forEach((range) => {
             savedRanges[range.name] = { start: range.start, end: range.end };
         });
     }
 
     // Render table rows
     let html = '';
-    users.forEach(user => {
+    users.forEach((user) => {
         const savedRange = savedRanges[user.displayName] || { start: '', end: '' };
 
         html += `
@@ -82,9 +84,7 @@ function sanitizeCampaignName(campaignName) {
     if (!campaignName) return null;
     // Replace invalid Firebase key characters with underscore
     // Note: Forward slash (/) must be replaced to match tab-overview.html sanitization
-    return campaignName
-        .replace(/[.$#\[\]\/]/g, '_')
-        .trim();
+    return campaignName.replace(/[.$#\[\]\/]/g, '_').trim();
 }
 
 function applyEmployeeRanges() {
@@ -92,7 +92,7 @@ function applyEmployeeRanges() {
     const rangesMap = {};
 
     // Collect ranges from inputs
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
         const userName = input.getAttribute('data-user-name');
         const field = input.getAttribute('data-field');
         const value = input.value.trim();
@@ -107,13 +107,15 @@ function applyEmployeeRanges() {
     // Build employee ranges array
     const newRanges = [];
 
-    Object.keys(rangesMap).forEach(userName => {
+    Object.keys(rangesMap).forEach((userName) => {
         const range = rangesMap[userName];
 
         // Only include if both start and end are filled
         if (range.start !== null && range.end !== null && range.start > 0 && range.end > 0) {
             // Find user ID from input attribute
-            const input = document.querySelector(`.employee-range-input[data-user-name="${userName}"]`);
+            const input = document.querySelector(
+                `.employee-range-input[data-user-name="${userName}"]`
+            );
             const userId = input ? input.getAttribute('data-user-id') : null;
 
             newRanges.push({
@@ -122,17 +124,19 @@ function applyEmployeeRanges() {
                 userId: userId,
                 userName: userName,
                 start: range.start,
-                end: range.end
+                end: range.end,
             });
         }
     });
 
     // Use local firestoreDb or fallback to window.firestoreDb
-    const db = (typeof firestoreDb !== 'undefined' && firestoreDb) ? firestoreDb : window.firestoreDb;
+    const db = typeof firestoreDb !== 'undefined' && firestoreDb ? firestoreDb : window.firestoreDb;
 
     // Determine save logic - MUST select a campaign (no general config)
     const campaignSelector = document.getElementById('employeeCampaignSelector');
-    const selectedOption = campaignSelector ? campaignSelector.options[campaignSelector.selectedIndex] : null;
+    const selectedOption = campaignSelector
+        ? campaignSelector.options[campaignSelector.selectedIndex]
+        : null;
 
     if (!selectedOption || !selectedOption.dataset.campaign) {
         alert('⚠️ Vui lòng chọn chiến dịch trước khi áp dụng phân chia nhân viên.');
@@ -140,18 +144,31 @@ function applyEmployeeRanges() {
     }
 
     const campaign = JSON.parse(selectedOption.dataset.campaign);
-    const sanitizedName = sanitizeCampaignName(campaign.displayName);
+    // Use campaign.id as the stable storage key. Name can be edited later — using id
+    // keeps the link intact across renames. Server captures campaign.displayName as
+    // a label so history rows stay human-readable.
+    const campaignKey = campaign.id;
     const campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
 
-    // Save via CampaignAPI
-    window.CampaignAPI.saveEmployeeRanges(sanitizedName, newRanges)
+    const auth = window.authManager?.getAuthState?.() || {};
+    const meta = {
+        userId: auth.userId || auth.uid || auth.id || auth.username || null,
+        userName: auth.displayName || auth.username || auth.userType || null,
+        campaignLabel: campaign.displayName || null,
+    };
+
+    // Save via CampaignAPI (id-keyed)
+    window.CampaignAPI.saveEmployeeRanges(campaignKey, newRanges, meta)
         .then(() => {
             // Update local state immediately
             employeeRanges = newRanges;
             window.employeeRanges = newRanges;
 
             if (window.notificationManager) {
-                window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
+                window.notificationManager.show(
+                    `✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`,
+                    'success'
+                );
             } else {
                 alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`);
             }
@@ -198,7 +215,8 @@ function populateEmployeeCampaignSelector() {
     let count = 0;
 
     // Determine current campaign to auto-select
-    const currentCampaignName = window.selectedCampaign?.displayName || window.selectedCampaign?.name || null;
+    const currentCampaignName =
+        window.selectedCampaign?.displayName || window.selectedCampaign?.name || null;
 
     // Populate dropdown with campaigns
     Object.entries(campaigns).forEach(([campaignId, campaign]) => {
@@ -209,7 +227,7 @@ function populateEmployeeCampaignSelector() {
         // Store campaign data for later use
         option.dataset.campaign = JSON.stringify({
             id: campaignId,
-            displayName: displayName
+            displayName: displayName,
         });
 
         // Auto-select current campaign
@@ -230,10 +248,32 @@ function populateEmployeeCampaignSelector() {
     const selectedOption = select.options[select.selectedIndex];
     if (selectedOption && selectedOption.dataset.campaign) {
         const campaign = JSON.parse(selectedOption.dataset.campaign);
-        loadEmployeeRangesForCampaign(campaign.displayName).then(() => {
+        loadEmployeeRangesForCampaign(campaign).then(() => {
             // Re-render table with loaded ranges
             if (window.userEmployeeLoader && window.userEmployeeLoader.getUsers().length > 0) {
                 renderEmployeeTable(window.userEmployeeLoader.getUsers());
+            }
+        });
+    }
+
+    // Wire change event so changing campaign in selector reloads ranges + history
+    if (!select._cerWired) {
+        select._cerWired = true;
+        select.addEventListener('change', () => {
+            const opt = select.options[select.selectedIndex];
+            if (!opt || !opt.dataset.campaign) return;
+            try {
+                const c = JSON.parse(opt.dataset.campaign);
+                loadEmployeeRangesForCampaign(c).then(() => {
+                    if (
+                        window.userEmployeeLoader &&
+                        window.userEmployeeLoader.getUsers().length > 0
+                    ) {
+                        renderEmployeeTable(window.userEmployeeLoader.getUsers());
+                    }
+                });
+            } catch (_e) {
+                /* ignore parse errors */
             }
         });
     }
@@ -268,8 +308,8 @@ function toggleControlBar() {
         const isHidden = controlBar.style.display === 'none';
 
         if (isHidden) {
-            controlBar.style.display = 'flex'; // Or 'block' depending on layout, but flex is used in inline style in html sometimes. Let's check original css. 
-            // The original div.filter-section likely has display: flex in CSS. 
+            controlBar.style.display = 'flex'; // Or 'block' depending on layout, but flex is used in inline style in html sometimes. Let's check original css.
+            // The original div.filter-section likely has display: flex in CSS.
             // Let's assume removing style.display will revert to CSS class definition, or set to '' to clear inline style.
             controlBar.style.display = '';
 
@@ -307,7 +347,7 @@ function normalizeEmployeeRanges(data) {
         const allKeys = Object.keys(data);
 
         // Try numeric keys first (Firebase array-like object: {0: {...}, 1: {...}})
-        const numericKeys = allKeys.filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+        const numericKeys = allKeys.filter((k) => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
 
         if (numericKeys.length > 0) {
             // Has numeric keys - Firebase stored array as object
@@ -341,39 +381,121 @@ function normalizeEmployeeRanges(data) {
 let _employeeRangesUnsubscribe = null;
 let _currentListeningCampaign = null;
 
-function loadEmployeeRangesForCampaign(campaignName = null) {
-    // Use local firestoreDb or fallback to window.firestoreDb
-    const db = (typeof firestoreDb !== 'undefined' && firestoreDb) ? firestoreDb : window.firestoreDb;
-
-    if (!db) {
-        console.error('[EMPLOYEE] Firestore not initialized. firestoreDb:', typeof firestoreDb, 'window.firestoreDb:', typeof window.firestoreDb);
-        return Promise.resolve();
+/**
+ * Resolve a campaign argument to { id, displayName }. Accepts:
+ *   - object with .id (e.g. employee-drawer dropdown — preferred path)
+ *   - object with .campaignNames array (Shopify-merged main filter — fuzzy match
+ *     against allCampaigns to derive id)
+ *   - object with .displayName / .name only — try by-name lookup
+ *   - string campaign displayName (legacy callers)
+ */
+function _resolveCampaign(arg) {
+    if (!arg) return null;
+    if (typeof arg === 'object') {
+        // Preferred: explicit id
+        if (arg.id) {
+            return {
+                id: String(arg.id),
+                displayName: arg.displayName || arg.name || String(arg.id),
+            };
+        }
+        // Shopify-merged main filter selection — fuzzy match shopifyNames → DB id
+        if (Array.isArray(arg.campaignNames) && arg.campaignNames.length > 0) {
+            try {
+                const matchedId =
+                    typeof window._findMatchingDbCampaignId === 'function'
+                        ? window._findMatchingDbCampaignId(arg.campaignNames)
+                        : null;
+                if (matchedId) {
+                    const c = window.campaignManager?.allCampaigns?.[matchedId];
+                    return {
+                        id: String(matchedId),
+                        displayName:
+                            arg.displayName || c?.name || c?.displayName || String(matchedId),
+                    };
+                }
+            } catch (_e) {
+                /* fall through */
+            }
+        }
+        // Last attempt: by displayName / name lookup
+        const name = arg.displayName || arg.name;
+        if (name) return _resolveCampaign(name);
+        return null;
     }
 
-    if (!campaignName) {
-        // No campaign selected → clear employee ranges (no general config)
+    const name = String(arg);
+    const campaigns = window.campaignManager?.allCampaigns || {};
+    for (const [id, c] of Object.entries(campaigns)) {
+        const display = c?.name || c?.displayName || id;
+        if (display === name) return { id: String(id), displayName: display };
+    }
+    // Fallback: treat the name itself as the key (no id available).
+    return { id: null, displayName: name };
+}
+
+/**
+ * Load employee ranges for a campaign.
+ * Lookup order: by campaign.id (preferred, stable across renames) → by sanitized
+ * displayName (legacy data). When legacy data is found, auto-migrate to id-keyed
+ * row by issuing a save under the new key.
+ */
+function loadEmployeeRangesForCampaign(campaignArg = null) {
+    if (!campaignArg) {
         employeeRanges = [];
         window.employeeRanges = [];
         stopEmployeeRangesListener();
-        // Reset view mode when no campaign
         _resetEmployeeViewModeBtn();
         return Promise.resolve();
     }
 
-    // Load from campaign-specific config
-    const sanitizedName = sanitizeCampaignName(campaignName);
-    // Start real-time listener for this campaign
-    startEmployeeRangesListener(campaignName);
+    const c = _resolveCampaign(campaignArg);
+    if (!c || (!c.id && !c.displayName)) {
+        return Promise.resolve();
+    }
 
-    // Load from PostgreSQL API
-    return window.CampaignAPI.getEmployeeRanges(sanitizedName)
-        .then((data) => {
-            const normalized = normalizeEmployeeRanges(data);
+    const sanitizedName = sanitizeCampaignName(c.displayName);
 
+    // Real-time listener uses the resolved key (prefer id, fallback to sanitized name)
+    const listenerKey = c.id || sanitizedName;
+    startEmployeeRangesListener(listenerKey, c.displayName);
+
+    const api = window.CampaignAPI;
+
+    // 1. Try id-keyed first
+    const tryId = c.id
+        ? api.getEmployeeRanges(c.id).then((d) => normalizeEmployeeRanges(d))
+        : Promise.resolve([]);
+
+    return tryId
+        .then(async (rangesById) => {
+            if (rangesById && rangesById.length > 0) {
+                return rangesById;
+            }
+            // 2. Legacy fallback: by sanitized displayName
+            try {
+                const rangesByName = normalizeEmployeeRanges(
+                    await api.getEmployeeRanges(sanitizedName)
+                );
+                if (rangesByName.length > 0 && c.id) {
+                    // Auto-migrate: persist under id key for future loads. Best-effort.
+                    api.saveEmployeeRanges(c.id, rangesByName, {
+                        userId: '__migration__',
+                        userName: 'auto-migration (legacy name → id)',
+                        campaignLabel: c.displayName,
+                    }).catch((e) =>
+                        console.warn('[EMPLOYEE] auto-migration save failed:', e?.message)
+                    );
+                }
+                return rangesByName;
+            } catch (_e) {
+                return [];
+            }
+        })
+        .then((normalized) => {
             employeeRanges = normalized;
             window.employeeRanges = employeeRanges;
 
-            // Update employee table if drawer is open
             const drawer = document.getElementById('employeeDrawer');
             if (drawer && drawer.classList.contains('active')) {
                 if (window.userEmployeeLoader && window.userEmployeeLoader.getUsers().length > 0) {
@@ -387,26 +509,30 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 }
 
 /**
- * Start real-time listener on employee_ranges_by_campaign document.
- * When any machine saves new ranges, all other machines will automatically receive the update.
+ * Start real-time listener on employee_ranges document for the given campaign key.
+ * When any machine saves new ranges, every other machine receives the update on the
+ * next poll interval.
+ *
+ * @param {string} key - the storage key (campaign.id preferred; sanitized name as fallback)
+ * @param {string} [displayName] - optional human-readable campaign label (for logs only)
  */
-function startEmployeeRangesListener(campaignName) {
-    const sanitizedName = sanitizeCampaignName(campaignName);
+function startEmployeeRangesListener(key, displayName) {
+    if (!key) return;
 
-    // Don't restart listener if already listening to the same campaign
-    if (_currentListeningCampaign === sanitizedName && _employeeRangesUnsubscribe) {
+    // Don't restart listener if already listening to the same key
+    if (_currentListeningCampaign === key && _employeeRangesUnsubscribe) {
         return;
     }
 
     // Stop previous listener/polling
     stopEmployeeRangesListener();
 
-    _currentListeningCampaign = sanitizedName;
+    _currentListeningCampaign = key;
 
     // Poll every 30s instead of Firestore onSnapshot (employee ranges rarely change)
     const pollInterval = setInterval(async () => {
         try {
-            const data = await window.CampaignAPI.getEmployeeRanges(sanitizedName);
+            const data = await window.CampaignAPI.getEmployeeRanges(key);
             const normalized = normalizeEmployeeRanges(data);
 
             // Only update if data actually changed
@@ -424,7 +550,10 @@ function startEmployeeRangesListener(campaignName) {
                 // Update employee table if drawer is open
                 const drawer = document.getElementById('employeeDrawer');
                 if (drawer && drawer.classList.contains('active')) {
-                    if (window.userEmployeeLoader && window.userEmployeeLoader.getUsers().length > 0) {
+                    if (
+                        window.userEmployeeLoader &&
+                        window.userEmployeeLoader.getUsers().length > 0
+                    ) {
                         renderEmployeeTable(window.userEmployeeLoader.getUsers());
                     }
                 }
@@ -488,6 +617,205 @@ function _resetEmployeeViewModeBtn() {
     }
 }
 
+// ─── Employee-ranges edit-history modal ───
+const _CER_HIST_MODAL_ID = 'employeeRangesHistoryModal';
+
+function _formatHistoryTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function _diffRanges(beforeArr, afterArr) {
+    // Build lookup by user identity (id || name) so renamed-but-same-user rows match.
+    const _key = (r) => String(r?.id || r?.userId || r?.name || r?.userName || '?');
+    const before = new Map((beforeArr || []).map((r) => [_key(r), r]));
+    const after = new Map((afterArr || []).map((r) => [_key(r), r]));
+    const allKeys = new Set([...before.keys(), ...after.keys()]);
+
+    const added = [];
+    const removed = [];
+    const changed = [];
+    const unchanged = [];
+
+    for (const k of allKeys) {
+        const b = before.get(k);
+        const a = after.get(k);
+        if (!b && a) added.push(a);
+        else if (b && !a) removed.push(b);
+        else if (b && a) {
+            if ((b.start ?? '') !== (a.start ?? '') || (b.end ?? '') !== (a.end ?? '')) {
+                changed.push({ before: b, after: a });
+            } else {
+                unchanged.push(a);
+            }
+        }
+    }
+    return { added, removed, changed, unchanged };
+}
+
+function _renderHistoryRow(h) {
+    const userName = h.userName || h.userId || '?';
+    const time = _formatHistoryTime(h.createdAt);
+    const action = h.action === 'create' ? 'Tạo mới' : 'Cập nhật';
+    const actionColor = h.action === 'create' ? '#10b981' : '#1d4ed8';
+    const diff = _diffRanges(h.rangesBefore, h.rangesAfter);
+
+    const renderRange = (r) =>
+        `<span style="font-family:monospace;">${r?.name || r?.userName || '?'}: ${r?.start ?? '?'}–${r?.end ?? '?'}</span>`;
+
+    const segs = [];
+    if (diff.added.length > 0) {
+        segs.push(
+            `<div style="color:#065f46;"><b>+ Thêm:</b> ${diff.added.map(renderRange).join(', ')}</div>`
+        );
+    }
+    if (diff.removed.length > 0) {
+        segs.push(
+            `<div style="color:#991b1b;"><b>− Xoá:</b> ${diff.removed.map(renderRange).join(', ')}</div>`
+        );
+    }
+    if (diff.changed.length > 0) {
+        segs.push(
+            `<div style="color:#92400e;"><b>~ Đổi:</b> ${diff.changed
+                .map(
+                    (c) =>
+                        `${renderRange(c.before)} → <span style="font-family:monospace;">${c.after.start ?? '?'}–${c.after.end ?? '?'}</span>`
+                )
+                .join('; ')}</div>`
+        );
+    }
+    if (segs.length === 0) {
+        segs.push(`<div style="color:#9ca3af; font-style:italic;">Không có thay đổi nào.</div>`);
+    }
+
+    return `
+        <div style="padding:10px 12px; border-bottom:1px solid #f3f4f6; font-size:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div>
+                    <span style="color:${actionColor}; font-weight:700; margin-right:8px;">${action}</span>
+                    <b style="color:#111827;">${_escapeHtmlSafe(userName)}</b>
+                </div>
+                <span style="color:#6b7280; font-size:11px;" title="Giờ Vietnam (GMT+7)">${time}</span>
+            </div>
+            <div style="line-height:1.5;">${segs.join('')}</div>
+        </div>`;
+}
+
+function _escapeHtmlSafe(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function _ensureEmployeeRangesHistoryModal() {
+    let modal = document.getElementById(_CER_HIST_MODAL_ID);
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = _CER_HIST_MODAL_ID;
+    modal.style.cssText = [
+        'position:fixed',
+        'inset:0',
+        'display:none',
+        'z-index:10001',
+        'background:rgba(15,23,42,0.45)',
+        'backdrop-filter:blur(2px)',
+        'align-items:center',
+        'justify-content:center',
+    ].join(';');
+    modal.innerHTML = `
+        <div style="background:#fff; border-radius:12px; box-shadow:0 16px 48px rgba(0,0,0,0.18); width:min(720px, 92vw); max-height:86vh; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%); border-bottom:1px solid #93c5fd;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-history" style="color:#1e40af; font-size:16px;"></i>
+                    <strong style="font-size:14px; color:#1e3a8a;" id="employeeRangesHistoryTitle">Lịch sử chỉnh sửa phân chia</strong>
+                </div>
+                <button type="button" id="employeeRangesHistoryClose" style="border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer; color:#1e3a8a;" title="Đóng">×</button>
+            </div>
+            <div id="employeeRangesHistoryBody" style="flex:1; overflow-y:auto;">
+                <div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>
+            </div>
+            <div style="padding:8px 18px; background:#f9fafb; border-top:1px solid #f3f4f6; font-size:11px; color:#6b7280;">
+                Tối đa 50 chỉnh sửa gần nhất. Lịch sử lưu vĩnh viễn theo campaign id.
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (ev) => {
+        if (ev.target === modal) _closeEmployeeRangesHistoryModal();
+    });
+    modal
+        .querySelector('#employeeRangesHistoryClose')
+        .addEventListener('click', _closeEmployeeRangesHistoryModal);
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && modal.style.display !== 'none')
+            _closeEmployeeRangesHistoryModal();
+    });
+    return modal;
+}
+
+function _closeEmployeeRangesHistoryModal() {
+    const modal = document.getElementById(_CER_HIST_MODAL_ID);
+    if (modal) modal.style.display = 'none';
+}
+
+async function openEmployeeRangesHistory() {
+    const select = document.getElementById('employeeCampaignSelector');
+    const opt = select?.options?.[select.selectedIndex];
+    if (!opt || !opt.dataset.campaign) {
+        alert('⚠️ Vui lòng chọn chiến dịch để xem lịch sử.');
+        return;
+    }
+    const campaign = JSON.parse(opt.dataset.campaign);
+    const modal = _ensureEmployeeRangesHistoryModal();
+    modal.style.display = 'flex';
+
+    const titleEl = modal.querySelector('#employeeRangesHistoryTitle');
+    if (titleEl) {
+        titleEl.textContent = `Lịch sử — ${campaign.displayName || campaign.id}`;
+    }
+    const body = modal.querySelector('#employeeRangesHistoryBody');
+    body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>`;
+
+    // Try id first, then sanitized displayName (legacy data may live under name key).
+    const candidates = [];
+    if (campaign.id) candidates.push(String(campaign.id));
+    const sanitized = sanitizeCampaignName(campaign.displayName);
+    if (sanitized && !candidates.includes(sanitized)) candidates.push(sanitized);
+
+    let allHistory = [];
+    for (const key of candidates) {
+        try {
+            const h = await window.CampaignAPI.getEmployeeRangesHistory(key, 50);
+            if (Array.isArray(h) && h.length > 0) allHistory.push(...h);
+        } catch (e) {
+            console.warn('[EMPLOYEE-HISTORY] fetch failed for key', key, e?.message);
+        }
+    }
+
+    // Dedup by id, sort newest first.
+    const seen = new Set();
+    allHistory = allHistory
+        .filter((h) => {
+            if (seen.has(h.id)) return false;
+            seen.add(h.id);
+            return true;
+        })
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (allHistory.length === 0) {
+        body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center; font-style:italic;">Chưa có lịch sử chỉnh sửa cho chiến dịch này.</div>`;
+        return;
+    }
+    body.innerHTML = allHistory.map(_renderHistoryRow).join('');
+}
+
+window.openEmployeeRangesHistory = openEmployeeRangesHistory;
+
 /**
  * Toggle between normal view and employee grouped view
  */
@@ -497,7 +825,10 @@ function toggleEmployeeViewMode() {
 
     if (employeeRanges.length === 0) {
         if (window.notificationManager) {
-            window.notificationManager.show('⚠️ Chưa có cấu hình phân chia nhân viên cho chiến dịch này', 'warning');
+            window.notificationManager.show(
+                '⚠️ Chưa có cấu hình phân chia nhân viên cho chiến dịch này',
+                'warning'
+            );
         } else {
             alert('⚠️ Chưa có cấu hình phân chia nhân viên cho chiến dịch này');
         }
@@ -523,6 +854,4 @@ function toggleEmployeeViewMode() {
     if (typeof performTableSearch === 'function') {
         performTableSearch();
     }
-
 }
-

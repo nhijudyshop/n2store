@@ -81,6 +81,21 @@
         return tooltip;
     }
 
+    /**
+     * Returns true when the order falls within the current user's assigned STT range
+     * for the active campaign. Admin and unassigned users see everything.
+     *
+     * Centralizing through window.orderPassesEmployeeRangeFilter (defined in tab1-search)
+     * means: admin → true; non-admin without ranges → true (no restriction);
+     * non-admin with ranges → only orders inside their [start..end] STT bracket.
+     */
+    function _passesUserScope(order) {
+        if (typeof window.orderPassesEmployeeRangeFilter === 'function') {
+            return window.orderPassesEmployeeRangeFilter(order);
+        }
+        return true;
+    }
+
     function _computeStats() {
         const all = window.allData || [];
         const store = window.KpiSaleFlagStore;
@@ -95,6 +110,9 @@
         const kpiOrders = [];
         for (const o of all) {
             if (!o?.Code) continue;
+            // Per-user scoping: non-admin sees only KPI orders in their STT range.
+            // Admin / unassigned non-admin: see everything.
+            if (!_passesUserScope(o)) continue;
             if (store.hasKpiFlag(o.Code)) {
                 total++;
                 kpiOrders.push(o);
@@ -109,14 +127,28 @@
             }
         }
 
-        // Tổng SP đánh dấu — ưu tiên server count (chính xác, không phụ thuộc cache).
-        // Fallback per-order cache nếu store chưa expose getter (legacy).
+        // Tổng SP đánh dấu — for non-admin, count only products from kpiOrders in their
+        // STT range (per-user scope). Admin/unassigned: prefer server count (covers
+        // products even when their order detail isn't loaded), fallback to cache.
+        const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+        const ranges = window.employeeRanges || [];
+        const userScoped = !isAdmin && ranges.length > 0;
         let totalProducts = 0;
         let hasIncompleteCache = false;
-        if (typeof store.getTotalKpiProductsServer === 'function') {
+
+        if (userScoped) {
+            // Per-user mode: only sum from cache for orders we already filtered.
+            // Server-wide count would leak other staff's products.
+            hasIncompleteCache = true;
+            for (const o of kpiOrders) {
+                const map = store.getAll ? store.getAll(o.Code) : null;
+                if (!map || map.size === 0) continue;
+                for (const v of map.values()) {
+                    if (v === true) totalProducts++;
+                }
+            }
+        } else if (typeof store.getTotalKpiProductsServer === 'function') {
             totalProducts = store.getTotalKpiProductsServer();
-            // Nếu server count = 0 nhưng có order trong KPI set → có thể bulk-summary chưa
-            // đầy đủ (legacy server không trả totalProducts). Fallback sum cache.
             if (totalProducts === 0 && total > 0) {
                 hasIncompleteCache = true;
                 for (const o of kpiOrders) {
@@ -128,7 +160,6 @@
                 }
             }
         } else {
-            // Legacy fallback
             hasIncompleteCache = true;
             for (const o of kpiOrders) {
                 const map = store.getAll ? store.getAll(o.Code) : null;
@@ -538,9 +569,27 @@
         if (!silent) {
             body.innerHTML = `<div style="color:#9ca3af; padding:24px 0; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Đang tải lịch sử…</div>`;
         }
+
+        // Non-admin: restrict to their assigned orders by passing codes= filter.
+        // Admin / unassigned: fetch everything.
+        const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+        const ranges = window.employeeRanges || [];
+        let codeParam = '';
+        if (!isAdmin && ranges.length > 0) {
+            const stats = _computeStats();
+            const codes = (stats.kpiOrders || []).map((o) => o.Code).filter(Boolean);
+            if (codes.length === 0) {
+                // No KPI orders in user's range yet — show empty state right away.
+                _fullHistoryRows = [];
+                _renderFullHistoryRows({ preserveScroll: silent });
+                return;
+            }
+            codeParam = `&codes=${encodeURIComponent(codes.join(','))}`;
+        }
+
         let fresh;
         try {
-            const res = await fetch(`${API_BASE}/kpi-sale-flag/history?limit=200`);
+            const res = await fetch(`${API_BASE}/kpi-sale-flag/history?limit=200${codeParam}`);
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
             fresh = data.history || [];

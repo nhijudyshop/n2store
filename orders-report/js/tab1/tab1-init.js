@@ -108,7 +108,7 @@ window.addEventListener('DOMContentLoaded', async function () {
             const selectedOption = e.target.options[e.target.selectedIndex];
             if (selectedOption && selectedOption.dataset.campaign) {
                 const campaign = JSON.parse(selectedOption.dataset.campaign);
-                loadEmployeeRangesForCampaign(campaign.displayName).then(() => {
+                loadEmployeeRangesForCampaign(campaign).then(() => {
                     // Re-render table with new ranges
                     if (
                         window.userEmployeeLoader &&
@@ -778,7 +778,7 @@ async function continueAfterCampaignSelect(campaignId) {
         // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE fetching orders
         // This ensures the filter works correctly from the start
         if (typeof loadEmployeeRangesForCampaign === 'function') {
-            await loadEmployeeRangesForCampaign(campaign.name);
+            await loadEmployeeRangesForCampaign(campaign);
         } else {
             console.warn('[APP] loadEmployeeRangesForCampaign function not available');
         }

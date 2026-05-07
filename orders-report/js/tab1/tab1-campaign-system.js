@@ -10,7 +10,7 @@ window.campaignManager = {
     activeCampaignId: null,
     activeCampaign: null,
     currentUserId: null,
-    initialized: false
+    initialized: false,
 };
 
 // ============================================
@@ -22,7 +22,7 @@ window.loadAllCampaigns = async function () {
     try {
         const list = await window.CampaignAPI.loadAll();
         const campaigns = {};
-        list.forEach(c => {
+        list.forEach((c) => {
             campaigns[c.id] = c;
         });
         window.campaignManager.allCampaigns = campaigns;
@@ -102,7 +102,6 @@ window.updateCampaignSettingsUI = function (campaign) {
         if (endDate) {
             endDate.value = campaign.customEndDate || '';
         }
-
     }
 };
 
@@ -113,7 +112,7 @@ window.getTimeFrameDisplayText = function (timeFrame) {
     // Try to find the label from the original campaign filter
     const campaignFilter = document.getElementById('campaignFilter');
     if (campaignFilter) {
-        const option = Array.from(campaignFilter.options).find(opt => opt.value === timeFrame);
+        const option = Array.from(campaignFilter.options).find((opt) => opt.value === timeFrame);
         if (option) return option.textContent;
     }
 
@@ -261,7 +260,6 @@ window.saveCampaignDatesAndContinue = async function () {
         if (typeof showNotification === 'function') {
             showNotification('Đã cập nhật và chọn chiến dịch!', 'success');
         }
-
     } catch (error) {
         console.error('[CAMPAIGN] Error updating campaign dates:', error);
         if (typeof showNotification === 'function') {
@@ -426,7 +424,7 @@ window.saveEditCampaign = async function () {
             name: name,
             timeFrame: 'custom',
             customStartDate: customStartDate,
-            customEndDate: customEndDate || ''
+            customEndDate: customEndDate || '',
         };
 
         // If this is the active campaign, update UI
@@ -460,7 +458,11 @@ window.deleteCampaign = async function (campaignId) {
     const campaign = window.campaignManager.allCampaigns[campaignId];
     if (!campaign) return;
 
-    if (!confirm(`Bạn có chắc muốn xóa chiến dịch "${campaign.name}"?\n\nLưu ý: Người dùng khác đang sử dụng chiến dịch này sẽ được thông báo khi họ tải lại trang.`)) {
+    if (
+        !confirm(
+            `Bạn có chắc muốn xóa chiến dịch "${campaign.name}"?\n\nLưu ý: Người dùng khác đang sử dụng chiến dịch này sẽ được thông báo khi họ tải lại trang.`
+        )
+    ) {
         return;
     }
 
@@ -566,7 +568,9 @@ window.applyUserCampaign = async function () {
         if (matchedIndex !== -1) {
             // Found matching Shopify campaign - select it and trigger change
             campaignFilter.selectedIndex = matchedIndex;
-            console.log(`[SYNC] 🔄 Modal → campaignFilter: matched "${campaign.name}" at index ${matchedIndex}`);
+            console.log(
+                `[SYNC] 🔄 Modal → campaignFilter: matched "${campaign.name}" at index ${matchedIndex}`
+            );
 
             if (typeof handleCampaignChange === 'function') {
                 await handleCampaignChange();
@@ -593,12 +597,12 @@ window.applyUserCampaign = async function () {
                 saveFilterPreferencesToFirebase({
                     selectedCampaignValue: 'custom',
                     isCustomMode: true,
-                    customStartDate: campaign.customStartDate
+                    customStartDate: campaign.customStartDate,
                 });
             }
 
             if (typeof loadEmployeeRangesForCampaign === 'function') {
-                await loadEmployeeRangesForCampaign(campaign.name);
+                await loadEmployeeRangesForCampaign(campaign);
             }
 
             if (typeof handleSearch === 'function') {
@@ -652,7 +656,11 @@ window.applyCampaignSettings = async function () {
     // Sync realtime settings
     const originalRealtimeCheckbox = document.getElementById('realtimeToggleCheckbox');
     const modalRealtimeCheckbox = document.getElementById('modalRealtimeToggleCheckbox');
-    if (originalRealtimeCheckbox && modalRealtimeCheckbox && originalRealtimeCheckbox.checked !== modalRealtimeCheckbox.checked) {
+    if (
+        originalRealtimeCheckbox &&
+        modalRealtimeCheckbox &&
+        originalRealtimeCheckbox.checked !== modalRealtimeCheckbox.checked
+    ) {
         originalRealtimeCheckbox.checked = modalRealtimeCheckbox.checked;
         if (typeof toggleRealtimeMode === 'function') {
             toggleRealtimeMode(modalRealtimeCheckbox.checked);
@@ -661,7 +669,11 @@ window.applyCampaignSettings = async function () {
 
     const originalRealtimeMode = document.getElementById('realtimeModeSelect');
     const modalRealtimeMode = document.getElementById('modalRealtimeModeSelect');
-    if (originalRealtimeMode && modalRealtimeMode && originalRealtimeMode.value !== modalRealtimeMode.value) {
+    if (
+        originalRealtimeMode &&
+        modalRealtimeMode &&
+        originalRealtimeMode.value !== modalRealtimeMode.value
+    ) {
         originalRealtimeMode.value = modalRealtimeMode.value;
         if (typeof changeRealtimeMode === 'function') {
             changeRealtimeMode(modalRealtimeMode.value);
@@ -699,14 +711,14 @@ window.applyCampaignSettings = async function () {
                     saveFilterPreferencesToFirebase({
                         selectedCampaignValue: 'custom',
                         isCustomMode: true,
-                        customStartDate: campaign.customStartDate
+                        customStartDate: campaign.customStartDate,
                     });
                 }
 
                 // For custom campaigns, directly trigger search since date is already set
                 // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE search
                 if (typeof loadEmployeeRangesForCampaign === 'function') {
-                    await loadEmployeeRangesForCampaign(campaign.name);
+                    await loadEmployeeRangesForCampaign(campaign);
                 }
 
                 if (typeof handleSearch === 'function') {
@@ -743,4 +755,3 @@ window.applyCampaignSettings = async function () {
         showNotification('Đã áp dụng cài đặt chiến dịch!', 'success');
     }
 };
-

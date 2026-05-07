@@ -1127,7 +1127,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
             // ⭐ Load employee ranges for the selected campaign
             if (selectedCampaign?.displayName) {
-                await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+                await loadEmployeeRangesForCampaign(selectedCampaign);
 
                 if (allData.length > 0) {
                     performTableSearch();
@@ -1179,7 +1179,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
             // ⭐ Load employee ranges for the selected campaign
             if (selectedCampaign?.displayName) {
-                await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+                await loadEmployeeRangesForCampaign(selectedCampaign);
 
                 if (allData.length > 0) {
                     performTableSearch();
@@ -1261,7 +1261,7 @@ async function handleCampaignChange() {
     // để đảm bảo bảng được phân chia đúng ngay từ đầu
 
     if (selectedCampaign?.displayName) {
-        await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+        await loadEmployeeRangesForCampaign(selectedCampaign);
     } else {
         await loadEmployeeRangesForCampaign(null);
     }
@@ -1299,7 +1299,10 @@ function _normalizeCampaignName(name) {
         .replace(/\s+/g, ' ');
 }
 
-// Find DB campaign ID that matches Shopify campaign names
+// Find DB campaign ID that matches Shopify campaign names. Exposed on window so other
+// modules (tab1-employee.js, tab1-kpi-stats.js) can resolve campaignFilter selections
+// to a stable DB campaign id without duplicating fuzzy-match logic.
+window._findMatchingDbCampaignId = _findMatchingDbCampaignId;
 function _findMatchingDbCampaignId(shopifyCampaignNames) {
     const allCampaigns = window.campaignManager?.allCampaigns || {};
     for (const [id, campaign] of Object.entries(allCampaigns)) {
