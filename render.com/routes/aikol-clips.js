@@ -19,6 +19,7 @@ const router = express.Router();
 const pool = require('../db/pool');
 const bunny = require('../services/bunny-storage-service');
 const scraper = require('../services/aikol-scraper-service');
+const ytdlp = require('../services/aikol-ytdlp-service');
 
 const SINGLE_VIDEO_COST = 1; // 1 credit per single TikTok import (matches tikreel)
 
@@ -208,56 +209,76 @@ router.post('/import/channel', requireUser, express.json(), async (req, res) => 
     if (!url || typeof url !== 'string') {
         return res.status(400).json({ error: 'invalid', detail: 'url required' });
     }
-    const limit = Math.max(1, Math.min(parseInt(count, 10) || 20, 35));
+    const limit = Math.max(1, Math.min(parseInt(count, 10) || 20, 100));
 
-    // Step 1: resolve URL → secUid
-    const resolved = await scraper.resolveTiktokSecUid(url);
-    if (!resolved) {
-        return res.status(400).json({
-            error: 'cannot_resolve',
-            detail:
-                'Không lấy được secUid từ URL (TikTok có thể đã chặn IP server). ' +
-                'Bạn có thể paste secUid trực tiếp (chuỗi bắt đầu MS4wLjAB...) thay vì link.',
-        });
+    // Strategy: try yt-dlp first (no cookie needed for most users). Fall back
+    // to JoeanAmier /tiktok/account (needs cookie) only if yt-dlp fails AND
+    // input looks like a secUid (since yt-dlp can't take secUid).
+    let videos = [];
+    let uploader = null;
+    let source = null;
+    let lastError = null;
+
+    const looksLikeSecUid = /^MS4wLjAB[\w-]{40,}$/.test(url.trim());
+    if (!looksLikeSecUid) {
+        try {
+            const r = await ytdlp.listUserVideos(url, { limit });
+            videos = r.videos;
+            uploader = r.uploader;
+            source = 'yt-dlp';
+        } catch (e) {
+            lastError = e;
+            console.warn('[aikol] /import/channel yt-dlp failed:', e.message);
+        }
     }
 
-    // Step 2: fetch account videos via self-hosted scraper.
-    // Use admin-provided cookie env if user didn't pass one.
-    const effectiveCookie = cookie || process.env.AIKOL_TIKTOK_COOKIE || '';
-    let result;
-    try {
-        result = await scraper.fetchTiktokAccountVideos({
-            secUid: resolved.secUid,
-            cookie: effectiveCookie,
-            count: limit,
-            cursor: 0,
-        });
-    } catch (e) {
-        console.error('[aikol] /import/channel scraper failed', e.message);
-        const isCookieIssue = e.code === 'scraper_no_data' || e.needsCookie;
-        return res.status(502).json({
-            error: 'scraper_failed',
-            detail: e.message,
-            hint: isCookieIssue
-                ? effectiveCookie
-                    ? 'Cookie có thể đã hết hạn — admin cần update env AIKOL_TIKTOK_COOKIE trên scraper service.'
-                    : 'Channel scrape cần TikTok cookie. Admin cần set env AIKOL_TIKTOK_COOKIE trên scraper service (n2store-aikol-scraper). Trong khi chờ, dùng "Import 1 video TikTok" với từng URL.'
-                : 'Scraper service có thể tạm thời lỗi — thử lại sau vài giây.',
-        });
+    if (videos.length === 0) {
+        // Fallback to JoeanAmier scraper (requires cookie + secUid)
+        const resolved = await scraper.resolveTiktokSecUid(url);
+        if (!resolved) {
+            return res.status(400).json({
+                error: 'cannot_resolve',
+                detail:
+                    (lastError ? `yt-dlp lỗi: ${lastError.message}. ` : '') +
+                    'Không lấy được secUid từ URL. Bạn có thể paste secUid trực tiếp (MS4wLjAB...) hoặc link kênh đầy đủ.',
+            });
+        }
+        const effectiveCookie = cookie || process.env.AIKOL_TIKTOK_COOKIE || '';
+        try {
+            const r = await scraper.fetchTiktokAccountVideos({
+                secUid: resolved.secUid,
+                cookie: effectiveCookie,
+                count: Math.min(limit, 35),
+                cursor: 0,
+            });
+            videos = r.videos;
+            source = 'scraper';
+            uploader = resolved.uniqueId;
+        } catch (e) {
+            const isCookieIssue = e.code === 'scraper_no_data' || e.needsCookie;
+            return res.status(502).json({
+                error: 'scraper_failed',
+                detail:
+                    (lastError ? `yt-dlp: ${lastError.message}. ` : '') + `scraper: ${e.message}`,
+                hint: isCookieIssue
+                    ? 'Cả yt-dlp + scraper đều fail. Có thể TikTok đang chặn — thử kênh khác hoặc paste video URL từng cái.'
+                    : 'Scraper lỗi tạm thời — thử lại sau vài giây.',
+            });
+        }
     }
 
-    if (!result.videos.length) {
+    if (!videos.length) {
         return res.status(200).json({
-            sec_user_id: resolved.secUid,
-            unique_id: resolved.uniqueId,
             videos: [],
+            uploader,
+            source,
             already_imported_ids: [],
-            hint: 'Scraper trả 0 video. Có thể kênh private, không có video, hoặc cookie đã hết hạn.',
+            hint: 'Trả 0 video. Có thể kênh private, không có video, hoặc TikTok đang chặn.',
         });
     }
 
-    // Step 3: flag which video_ids the user already has in their library
-    const ids = result.videos.map((v) => v.videoId);
+    // Flag which video_ids the user already has in their library
+    const ids = videos.map((v) => v.videoId);
     const dupes = await pool.query(
         `SELECT video_id FROM aikol_clips
          WHERE user_id = $1 AND platform = 'tiktok' AND video_id = ANY($2)`,
@@ -266,12 +287,10 @@ router.post('/import/channel', requireUser, express.json(), async (req, res) => 
     const dupeSet = new Set(dupes.rows.map((r) => r.video_id));
 
     res.json({
-        sec_user_id: resolved.secUid,
-        unique_id: resolved.uniqueId,
-        videos: result.videos.map((v) => ({ ...v, already_imported: dupeSet.has(v.videoId) })),
+        uploader,
+        source,
+        videos: videos.map((v) => ({ ...v, already_imported: dupeSet.has(v.videoId) })),
         already_imported_ids: Array.from(dupeSet),
-        has_more: result.hasMore,
-        cursor: result.cursor,
         cost_per_video: SINGLE_VIDEO_COST,
     });
 });

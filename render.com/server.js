@@ -1998,6 +1998,21 @@ server.listen(PORT, () => {
     // Pre-seed auth token cache (fire-and-forget)
     authTokenStore.preSeed().catch((e) => console.warn('[AUTH-STORE] Pre-seed error:', e.message));
 
+    // Pre-download yt-dlp binary so first /api/aikol/import/channel call is fast
+    // (only runs on Linux Render — silently noops on macOS/Windows where binary
+    // doesn't apply; that's fine since channel scraping is a Render-only feature).
+    if (process.platform === 'linux') {
+        try {
+            const ytdlp = require('./services/aikol-ytdlp-service');
+            ytdlp
+                .ensureYtDlp()
+                .then((bin) => console.log('[ytdlp] Ready at', bin))
+                .catch((e) => console.warn('[ytdlp] Pre-warm failed:', e.message));
+        } catch (e) {
+            console.warn('[ytdlp] require failed:', e.message);
+        }
+    }
+
     // Auto-connect realtime clients after server starts (with delay to ensure DB is ready)
     setTimeout(() => {
         autoConnectRealtimeClients(chatDbPool);

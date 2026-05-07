@@ -95,3 +95,6 @@ resident/data/*.json
 # Scheduled tasks lock
 .claude/scheduled_tasks.lock
 downloads/tikreel-ui-study/
+
+# yt-dlp binary downloaded at runtime (Linux on Render, not portable)
+render.com/bin/

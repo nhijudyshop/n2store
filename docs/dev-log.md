@@ -8,6 +8,19 @@
 
 ## 2026-05-07
 
+### [aikol][clips] Import cả kênh TikTok: yt-dlp primary + scraper fallback (KHÔNG cần cookie)
+
+**Insight user**: "single video tải được → giờ list link kênh rồi tải song song". Confirm `/tiktok/detail` (single) không cần cookie. Vấn đề chỉ ở chỗ list video IDs.
+
+**Fix**: thêm yt-dlp làm primary path:
+
+- [render.com/services/aikol-ytdlp-service.js](../render.com/services/aikol-ytdlp-service.js) — `ensureYtDlp()` lazy-download `yt-dlp_linux` binary (~6MB) vào `render.com/bin/yt-dlp` từ GitHub release latest. `listUserVideos(url, {limit})` spawn yt-dlp với `--flat-playlist -J --playlist-end N` → parse JSON entries → trả `[{videoId, url, title, duration, cover}]`. yt-dlp dùng signed-msToken/X-Bogus path không cần cookie cho most public users.
+- [render.com/routes/aikol-clips.js](../render.com/routes/aikol-clips.js) `/import/channel` — try yt-dlp first; fallback JoeanAmier scraper `/tiktok/account` chỉ khi yt-dlp fail HOẶC input là secUid. Limit max 100 video (yt-dlp) / 35 (scraper).
+- [render.com/server.js](../render.com/server.js) — pre-warm yt-dlp ở `server.listen()` callback (chỉ trên `process.platform === 'linux'`), fire-and-forget.
+- [.gitignore](../.gitignore) — `render.com/bin/` (binary platform-specific).
+
+**Status**: 🔄 Implemented, đợi Render redeploy verify với real TikTok URL.
+
 ### [aikol][clips] Import cả kênh TikTok: backend `/clips/import-channel` + orchestrator song song
 
 **Yêu cầu**: Lấy danh sách video của 1 kênh TikTok rồi batch import song song. JoeanAmier/TikTokDownloader đã có `/tiktok/account` (deployed sẵn ở `n2store-aikol-scraper.onrender.com`).
