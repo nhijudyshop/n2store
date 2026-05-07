@@ -11,16 +11,36 @@
     );
     const PREFIX = `${RENDER_BASE}/api/aikol`;
 
-    // Resolve current user identity from AuthManager (n2store shared auth).
+    // Resolve current user identity. n2store shared auth stores in
+    // `loginindex_auth` (localStorage if "remember me", else sessionStorage).
+    // The shared AuthManager auto-instantiates as `window.authManager` only when
+    // `shared-core-bundle.js` is loaded; on lighter pages we read the raw key.
+    function readAuthFromStorage() {
+        try {
+            const raw =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('authData') || // legacy fallback used by some test shims
+                null;
+            if (!raw) return null;
+            const a = JSON.parse(raw);
+            // Honour expiry if present (matches AuthManager.isSessionExpired).
+            if (a && a.expiresAt && Date.now() > a.expiresAt) return null;
+            return a;
+        } catch (_) {
+            return null;
+        }
+    }
+
     function getUserId() {
         try {
-            if (global.AuthManager && typeof global.AuthManager.getCurrentUser === 'function') {
-                const user = global.AuthManager.getCurrentUser();
-                if (user) return user.userId || user.uid || user.email;
+            // Prefer the live AuthManager instance if it has been bootstrapped.
+            if (global.authManager && typeof global.authManager.getAuthData === 'function') {
+                const a = global.authManager.getAuthData();
+                if (a) return a.userId || a.uid || a.email || a.username || null;
             }
-            // Fallback: legacy localStorage
-            const auth = JSON.parse(localStorage.getItem('authData') || 'null');
-            if (auth) return auth.userId || auth.uid || auth.email;
+            const a = readAuthFromStorage();
+            if (a) return a.userId || a.uid || a.email || a.username || null;
         } catch (_) {}
         return null;
     }
