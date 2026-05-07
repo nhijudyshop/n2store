@@ -109,6 +109,72 @@
                 </form>
             </section>
 
+            <!-- Admin-only — grant credits without going through SePay.
+                 Gated client-side by localStorage.userType === 'admin-authenticated' AND
+                 server-side by requireAdmin middleware (so tampering localStorage doesn't help). -->
+            <section
+                class="aikol-panel"
+                id="admin-grant-panel"
+                style="display: none; border: 1px solid var(--aikol-accent-soft)"
+            >
+                <h2 style="display: flex; align-items: center; gap: 0.5rem">
+                    <span
+                        style="
+                            font-size: 0.7rem;
+                            background: var(--aikol-accent-soft);
+                            color: var(--aikol-accent-light);
+                            padding: 0.2rem 0.5rem;
+                            border-radius: 6px;
+                            letter-spacing: 0.06em;
+                            font-weight: 700;
+                        "
+                        >ADMIN</span
+                    >
+                    Nạp credits trực tiếp (bỏ qua SePay)
+                </h2>
+                <p style="color: var(--aikol-text-dim); margin-top: 0">
+                    Chỉ admin nhìn thấy. Lịch sử ghi nhận
+                    <code>kind=admin_grant</code>, kèm tên admin trong note.
+                </p>
+                <form id="admin-grant-form" style="display: grid; gap: 0.75rem; max-width: 540px">
+                    <label class="aikol-gen-row">
+                        <span>User</span>
+                        <select id="admin-grant-user" class="aikol-input">
+                            <option value="">— đang tải danh sách —</option>
+                        </select>
+                    </label>
+                    <label class="aikol-gen-row">
+                        <span>Δ Credits</span>
+                        <input
+                            id="admin-grant-delta"
+                            class="aikol-input"
+                            type="number"
+                            step="1"
+                            placeholder="Vd: 500 (cộng) · -100 (trừ)"
+                        />
+                    </label>
+                    <label class="aikol-gen-row">
+                        <span>Note</span>
+                        <input
+                            id="admin-grant-note"
+                            class="aikol-input"
+                            type="text"
+                            maxlength="200"
+                            placeholder="Lý do (vd: nạp tay, refund, bonus event)"
+                        />
+                    </label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center">
+                        <button id="admin-grant-btn" type="button" class="aikol-btn">
+                            Nạp ngay
+                        </button>
+                        <span
+                            id="admin-grant-status"
+                            style="font-size: 0.85rem; color: var(--aikol-text-dim)"
+                        ></span>
+                    </div>
+                </form>
+            </section>
+
             <section class="aikol-panel">
                 <h2>4. Lịch sử nạp</h2>
                 <div id="topup-history"></div>

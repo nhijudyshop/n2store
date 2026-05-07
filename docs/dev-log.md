@@ -8,6 +8,33 @@
 
 ## 2026-05-07
 
+### [aikol] Admin nạp credits trực tiếp (bỏ qua SePay)
+
+**Why** — User báo: "admin nạp được credit không cần qua sepay". Hiện tại flow nạp duy nhất là user click pack → server tạo `aikol_topups` pending → user chuyển khoản → SePay webhook tự cộng credits. Admin cần đường tắt: nhập username + delta + note → cộng/trừ credits tức thì.
+
+**Backend** ([render.com/routes/aikol-billing.js](../render.com/routes/aikol-billing.js)):
+
+- `requireAdmin()` middleware — wrap `requireUser`, query `app_users.is_admin = true`. Fallback: `userId === 'admin'` (legacy installs chưa có app_users row).
+- `GET /admin/me` → `{ is_admin, user_id }` để client tự gate UI.
+- `GET /admin/users` → list `{username, display_name, is_admin, balance, plan}` từ JOIN `app_users` ⨝ `aikol_credits`. Limit 200.
+- `POST /admin/credits/grant` body `{ target_user_id, delta, note }`:
+    - Validate `delta` là integer khác 0, |delta| ≤ 1,000,000.
+    - Atomic transaction: `INSERT … ON CONFLICT DO NOTHING` ensure wallet → `UPDATE … balance = balance + delta` → check không âm → `INSERT INTO aikol_credit_history (kind='admin_grant', delta, note=<user-note> · by <admin>)` → COMMIT.
+    - 409 nếu balance sẽ âm; 403 nếu non-admin; 400 nếu delta invalid.
+
+**Frontend** ([settings.html](../aikol-studio/settings.html) + [js/settings.js](../aikol-studio/js/settings.js) + [js/aikol-api.js](../aikol-studio/js/aikol-api.js)):
+
+- `aikol-api.js` thêm 3 method: `adminMe()`, `adminListUsers()`, `adminGrantCredits(target, delta, note)`.
+- `settings.html` — section mới `#admin-grant-panel` (display:none mặc định, border accent purple, badge "ADMIN") với form: User dropdown + Δ Credits + Note + button "Nạp ngay" + status text.
+- `settings.js::setupAdminPanel()` — gate bằng `localStorage.userType === 'admin-authenticated'` (theo localStorage screenshot user share). Nếu pass → panel.style.display='', load `adminListUsers()` populate dropdown ("admin (Administrator) · 30cr"). Click "Nạp ngay" → confirm dialog → POST grant → toast + refresh credits + sidebar dock + history.
+- Server-side `requireAdmin` vẫn là auth boundary thực sự — tampering localStorage không vượt qua được.
+
+**Flow (admin)**: Settings → kéo xuống panel ADMIN → chọn user → Δ = 500 → Note "test grant" → confirm → balance update tức thì, history log `kind=admin_grant · delta=500 · note=test grant · by admin`.
+
+**Status**: ✅ Backend deployed Render (auto-deploy on push), frontend live GH Pages.
+
+---
+
 ### [aikol] Standalone shell rebuild — gỡ global nav, fix sidebar contrast & dead link
 
 **Why** — User báo "menu sidebar bị đụng css gây lỗi" sau đó "giao diện vẫn quá khó nhìn, có thể xóa toàn bộ tạo lại". Browser test (online + local) phát hiện 3 bug chồng nhau:

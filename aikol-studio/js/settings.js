@@ -304,12 +304,85 @@
         }
     }
 
+    // ----- Admin: grant credits panel (gated by localStorage.userType) -----
+    function isAdminUser() {
+        try {
+            return localStorage.getItem('userType') === 'admin-authenticated';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function setupAdminPanel() {
+        const panel = $('#admin-grant-panel');
+        if (!panel || !isAdminUser()) return;
+        panel.style.display = '';
+
+        const sel = $('#admin-grant-user');
+        try {
+            const { users } = await window.AikolAPI.adminListUsers();
+            sel.innerHTML =
+                '<option value="">— chọn user —</option>' +
+                (users || [])
+                    .map((u) => {
+                        const lbl = `${u.username}${u.display_name ? ' (' + u.display_name + ')' : ''} · ${u.balance}cr`;
+                        return `<option value="${escapeHtml(u.username)}">${escapeHtml(lbl)}</option>`;
+                    })
+                    .join('');
+        } catch (e) {
+            // Server rejected — likely the user only LOOKS admin client-side.
+            sel.innerHTML = '<option value="">— không có quyền admin —</option>';
+            $('#admin-grant-status').textContent =
+                'Server từ chối: ' + (e.data?.error || e.message);
+            return;
+        }
+
+        $('#admin-grant-btn').addEventListener('click', async () => {
+            const target = $('#admin-grant-user').value;
+            const delta = parseInt($('#admin-grant-delta').value, 10);
+            const note = $('#admin-grant-note').value.trim();
+            const status = $('#admin-grant-status');
+            if (!target) {
+                status.textContent = 'Chọn user trước';
+                return;
+            }
+            if (!Number.isFinite(delta) || delta === 0) {
+                status.textContent = 'Δ phải là số khác 0';
+                return;
+            }
+            const sign = delta > 0 ? 'cộng' : 'trừ';
+            if (!confirm(`Xác nhận ${sign} ${Math.abs(delta)} credits cho "${target}"?`)) return;
+
+            const btn = $('#admin-grant-btn');
+            btn.disabled = true;
+            status.textContent = 'Đang xử lý…';
+            try {
+                const r = await window.AikolAPI.adminGrantCredits(target, delta, note);
+                status.textContent = `OK · balance mới: ${r.balance}`;
+                showToast(`Đã ${sign} ${Math.abs(delta)}cr cho ${target}`, 'success');
+                $('#admin-grant-delta').value = '';
+                $('#admin-grant-note').value = '';
+                // Refresh dropdown balances + own credits + history.
+                setupAdminPanel();
+                refreshCredits();
+                loadCreditHistory();
+                if (window.AikolSidebar?.refresh) window.AikolSidebar.refresh();
+            } catch (e) {
+                status.textContent = 'Lỗi: ' + (e.data?.detail || e.message);
+                showToast('Lỗi: ' + (e.data?.detail || e.message), 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         refreshCredits();
         loadPacks();
         loadTopupHistory();
         loadCreditHistory();
         loadSettings();
+        setupAdminPanel();
         $('#telegram-link-btn').addEventListener('click', onTelegramLink);
         $('#telegram-save-btn').addEventListener('click', onTelegramSave);
     });

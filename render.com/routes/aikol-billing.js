@@ -274,6 +274,129 @@ router.patch('/settings', requireUser, express.json(), async (req, res) => {
     }
 });
 
+// ---------- Admin: grant credits without SePay ----------
+// Lookup the caller's is_admin flag from app_users. Cached per request only.
+async function isAdminUser(userId) {
+    try {
+        const { rows } = await pool.query(
+            `SELECT is_admin FROM app_users WHERE username = $1 LIMIT 1`,
+            [userId]
+        );
+        if (rows[0]?.is_admin) return true;
+    } catch (_) {}
+    // Hard-coded fallback: the seed `admin` account is always allowed even if the
+    // app_users row was never created (legacy installs).
+    return userId === 'admin';
+}
+
+function requireAdmin(req, res, next) {
+    requireUser(req, res, async () => {
+        const ok = await isAdminUser(req.userId);
+        if (!ok) return res.status(403).json({ error: 'admin_required' });
+        next();
+    });
+}
+
+// GET /admin/me → { is_admin } so the UI can hide the panel from non-admins.
+router.get('/admin/me', requireUser, async (req, res) => {
+    const ok = await isAdminUser(req.userId);
+    res.json({ is_admin: ok, user_id: req.userId });
+});
+
+// GET /admin/users → list usernames + current balance, sorted by username.
+// Used by the admin panel to pick a target. Limit 200 (small workspace).
+router.get('/admin/users', requireAdmin, async (_req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT u.username, u.display_name, u.is_admin,
+                    COALESCE(c.balance, 0) AS balance, COALESCE(c.plan, 'none') AS plan
+             FROM app_users u
+             LEFT JOIN aikol_credits c ON c.user_id = u.username
+             ORDER BY u.username
+             LIMIT 200`
+        );
+        res.json({ users: rows });
+    } catch (e) {
+        console.error('[aikol] /admin/users', e);
+        res.status(500).json({ error: 'db_error', detail: e.message });
+    }
+});
+
+// POST /admin/credits/grant → atomically credit (or debit) any user's wallet.
+// Body: { target_user_id, delta:int, note?:string }
+//   delta > 0 = grant, delta < 0 = adjustment (e.g. refund clawback). Logged in
+//   aikol_credit_history with kind='admin_grant' and the granting admin's id in note.
+router.post('/admin/credits/grant', requireAdmin, express.json(), async (req, res) => {
+    const { target_user_id, delta, note } = req.body || {};
+    const target = target_user_id ? String(target_user_id).trim() : '';
+    const amount = parseInt(delta, 10);
+    if (!target)
+        return res.status(400).json({ error: 'invalid', detail: 'target_user_id required' });
+    if (!Number.isFinite(amount) || amount === 0) {
+        return res
+            .status(400)
+            .json({ error: 'invalid', detail: 'delta must be a non-zero integer' });
+    }
+    if (Math.abs(amount) > 1_000_000) {
+        return res
+            .status(400)
+            .json({ error: 'invalid', detail: 'delta out of range (±1,000,000)' });
+    }
+    const cleanNote = (note ? String(note).slice(0, 200) : '') + ` · by ${req.userId}`;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        // Ensure wallet row exists for the target.
+        await client.query(
+            `INSERT INTO aikol_credits (user_id, balance, plan)
+             VALUES ($1, 0, 'free')
+             ON CONFLICT (user_id) DO NOTHING`,
+            [target]
+        );
+        const upd = await client.query(
+            `UPDATE aikol_credits SET balance = balance + $2
+             WHERE user_id = $1
+             RETURNING balance, plan`,
+            [target, amount]
+        );
+        if (!upd.rows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'wallet_missing' });
+        }
+        if (upd.rows[0].balance < 0) {
+            await client.query('ROLLBACK');
+            return res
+                .status(409)
+                .json({
+                    error: 'insufficient',
+                    detail: `Balance would go negative (${upd.rows[0].balance})`,
+                });
+        }
+        await client.query(
+            `INSERT INTO aikol_credit_history (user_id, kind, delta, note)
+             VALUES ($1, 'admin_grant', $2, $3)`,
+            [target, amount, cleanNote]
+        );
+        await client.query('COMMIT');
+        res.json({
+            ok: true,
+            target_user_id: target,
+            delta: amount,
+            balance: upd.rows[0].balance,
+            plan: upd.rows[0].plan,
+        });
+    } catch (e) {
+        try {
+            await client.query('ROLLBACK');
+        } catch (_) {}
+        console.error('[aikol] /admin/credits/grant', e);
+        res.status(500).json({ error: 'server_error', detail: e.message });
+    } finally {
+        client.release();
+    }
+});
+
 // ---------- POST /telegram/link ----------
 // Send a test message to the supplied chat_id. If 200 from Telegram, save it.
 router.post('/telegram/link', requireUser, express.json(), async (req, res) => {

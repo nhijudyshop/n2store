@@ -177,6 +177,12 @@
         runCampaign: (id, body = {}) => jsonRequest('POST', `/campaigns/${id}/run`, body),
         runBulk: (payload) => jsonRequest('POST', '/bulk', payload),
 
+        // Admin-only — grant credits without going through SePay.
+        adminMe: () => jsonRequest('GET', '/admin/me'),
+        adminListUsers: () => jsonRequest('GET', '/admin/users'),
+        adminGrantCredits: (target_user_id, delta, note) =>
+            jsonRequest('POST', '/admin/credits/grant', { target_user_id, delta, note }),
+
         health: () => jsonRequest('GET', '/health'),
     };
 
