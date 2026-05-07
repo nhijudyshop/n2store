@@ -108,54 +108,61 @@ router.post('/import/single', requireUser, express.json(), async (req, res) => {
         );
     } catch (e) {
         if (e.message === 'insufficient_credits') {
-            return res
-                .status(402)
-                .json({
-                    error: 'insufficient_credits',
-                    detail: 'Không đủ credits',
-                    cost: SINGLE_VIDEO_COST,
-                });
+            return res.status(402).json({
+                error: 'insufficient_credits',
+                detail: 'Không đủ credits',
+                cost: SINGLE_VIDEO_COST,
+            });
         }
         throw e;
     }
 
     let clipId;
+    let detail;
     try {
-        // 1. Insert clip row pending
+        // 1. Fetch metadata from scraper (no cookie required for /tiktok/detail)
+        detail = await scraper.fetchTiktokVideoDetail(videoId);
+        // 2. Insert clip row with metadata, status 'running' until MP4 download attempted
         const ins = await pool.query(
-            `INSERT INTO aikol_clips (user_id, platform, username, video_id, video_url, file_path, download_status)
-             VALUES ($1, 'tiktok', $2, $3, $4, '', 'running')
+            `INSERT INTO aikol_clips (user_id, platform, username, video_id, video_url, cover_url, title, duration, file_path, download_status)
+             VALUES ($1, 'tiktok', $2, $3, $4, $5, $6, $7, '', 'running')
              RETURNING id`,
-            [req.userId, username, videoId, url.trim()]
+            [
+                req.userId,
+                username,
+                videoId,
+                url.trim(),
+                detail.staticCover,
+                detail.title,
+                detail.durationSeconds,
+            ]
         );
         clipId = ins.rows[0].id;
+    } catch (e) {
+        console.error('[aikol] /import/single metadata fetch failed', e);
+        await refundCredits(
+            req.userId,
+            SINGLE_VIDEO_COST,
+            null,
+            `Metadata: ${String(e.message).slice(0, 100)}`
+        ).catch(() => {});
+        return res
+            .status(502)
+            .json({ error: 'metadata_failed', detail: e.message, refunded: SINGLE_VIDEO_COST });
+    }
 
-        // 2. Fetch detail from scraper (no cookie required)
-        const detail = await scraper.fetchTiktokVideoDetail(videoId);
-        if (!detail.downloadUrl) {
-            throw new Error('Scraper không trả download URL');
-        }
-
-        // 3. Download MP4 → Bunny
-        const { buffer, contentType } = await scraper.downloadToBuffer(detail.downloadUrl);
-        const ext = contentType.includes('mp4') ? 'mp4' : 'mp4';
-        const key = `aikol/clips/${clipId}.${ext}`;
+    // 3. Try MP4 download. Akamai signed URLs are cookie-bound (`tt_chain_token`);
+    // without cookie they 403. Degrade gracefully — keep metadata, mark as 'pending'
+    // so the generation pipeline can retry/proxy the download later.
+    try {
+        if (!detail.downloadUrl) throw new Error('No download URL from scraper');
+        const { buffer } = await scraper.downloadToBuffer(detail.downloadUrl);
+        const key = `aikol/clips/${clipId}.mp4`;
         await bunny.uploadBuffer(buffer, key, 'video/mp4');
-
-        // 4. Update row with metadata
         await pool.query(
-            `UPDATE aikol_clips SET
-                file_path = $1,
-                file_size = $2,
-                title = $3,
-                duration = $4,
-                cover_url = $5,
-                download_status = 'done',
-                downloaded_at = NOW()
-             WHERE id = $6`,
-            [key, buffer.length, detail.title, detail.durationSeconds, detail.staticCover, clipId]
+            `UPDATE aikol_clips SET file_path = $1, file_size = $2, download_status = 'done', downloaded_at = NOW() WHERE id = $3`,
+            [key, buffer.length, clipId]
         );
-
         return res.json({
             clip_id: clipId,
             video_id: videoId,
@@ -163,28 +170,31 @@ router.post('/import/single', requireUser, express.json(), async (req, res) => {
             duration: detail.durationSeconds,
             file_size: buffer.length,
             title: detail.title,
+            cover_url: detail.staticCover,
             balance: balanceAfter,
+            mp4_status: 'done',
         });
     } catch (e) {
-        console.error('[aikol] /import/single failed', e);
-        // Mark clip as error + refund credits
-        if (clipId) {
-            await pool
-                .query(
-                    `UPDATE aikol_clips SET download_status = 'error', error = $1 WHERE id = $2`,
-                    [String(e.message).slice(0, 500), clipId]
-                )
-                .catch(() => {});
-        }
-        await refundCredits(
-            req.userId,
-            SINGLE_VIDEO_COST,
-            null,
-            `Import failed: ${String(e.message).slice(0, 100)}`
-        ).catch(() => {});
-        return res
-            .status(502)
-            .json({ error: 'import_failed', detail: e.message, refunded: SINGLE_VIDEO_COST });
+        console.warn('[aikol] /import/single MP4 deferred (metadata kept):', e.message);
+        await pool
+            .query(`UPDATE aikol_clips SET download_status = 'pending', error = $1 WHERE id = $2`, [
+                `MP4 download deferred: ${String(e.message).slice(0, 200)}`,
+                clipId,
+            ])
+            .catch(() => {});
+        // Don't refund — metadata IS valuable (cover, title, duration, embed-able)
+        return res.status(202).json({
+            clip_id: clipId,
+            video_id: videoId,
+            username,
+            duration: detail.durationSeconds,
+            title: detail.title,
+            cover_url: detail.staticCover,
+            balance: balanceAfter,
+            mp4_status: 'deferred',
+            warning:
+                'Metadata + cover saved. MP4 download cần TikTok cookie (sẽ thử lại khi cookie sẵn sàng).',
+        });
     }
 });
 
