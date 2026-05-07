@@ -8,6 +8,26 @@
 
 ## 2026-05-07
 
+### [aikol] Settings: migrate 3 native `confirm()` còn lại sang `aikolConfirm`
+
+**Bug user báo**: "popup confirm bị lỗi" — admin grant flow vẫn show native browser confirm dialog (xấu, không match design). Cancel topup + logout cũng vậy.
+
+**Fix**: 3 chỗ `confirm()` native → `aikolConfirm()`:
+
+- `onAdminGrantClick` (admin nạp credits): modal hiện target user + delta (±N credits) + note, btn "Cộng N cr" / "Trừ N cr" (danger=true khi delta<0).
+- `onCancelTopup`: modal "Huỷ đơn nạp?" với danger button "Huỷ đơn".
+- Logout: modal "Đăng xuất?" với danger button "Đăng xuất".
+
+**Smoke test (Playwright local)**:
+
+- Admin grant +10 cho admin: balance 30 → 40 ✓, modal "Xác nhận cộng credits" + btn "Cộng 10 cr" hiện đúng ✓, history entry kind=admin_grant, delta=10 ✓
+- Cleanup -10: balance 40 → 30 ✓, modal "Xác nhận trừ credits" + btn đỏ "Trừ 10 cr" (danger) ✓
+- Status text: "OK · balance mới: 30" ✓
+
+**Files changed**: 1 (settings.js, +39/-4).
+
+**Status**: ✅ Done.
+
 ### [aikol] Settings: đổi flow "Nạp ngay" → modal "Liên hệ admin" (bỏ SePay self-service)
 
 **Yêu cầu**: Click "Nạp ngay" → popup hướng dẫn user liên hệ admin để được nạp credits, thay vì tạo đơn SePay (đang tắt).

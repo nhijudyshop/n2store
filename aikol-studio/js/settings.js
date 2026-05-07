@@ -238,7 +238,14 @@
     }
 
     async function onCancelTopup(id) {
-        if (!confirm('Huỷ đơn nạp này?')) return;
+        const ok = await aikolConfirm({
+            title: 'Huỷ đơn nạp?',
+            body: '<p class="aikol-confirm__note">Đơn nạp đang chờ thanh toán sẽ bị huỷ. Bạn có thể tạo đơn mới sau.</p>',
+            confirmLabel: 'Huỷ đơn',
+            cancelLabel: 'Quay lại',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await window.AikolAPI.cancelTopup(id);
             showToast('Đã huỷ', 'success');
@@ -450,8 +457,15 @@
         const btnLogout = document.getElementById('account-logout');
         if (btnLogout && !btnLogout._wired) {
             btnLogout._wired = true;
-            btnLogout.addEventListener('click', () => {
-                if (!confirm('Đăng xuất khỏi tài khoản?')) return;
+            btnLogout.addEventListener('click', async () => {
+                const ok = await aikolConfirm({
+                    title: 'Đăng xuất?',
+                    body: '<p class="aikol-confirm__note">Bạn sẽ được đưa về trang đăng nhập n2store.</p>',
+                    confirmLabel: 'Đăng xuất',
+                    cancelLabel: 'Ở lại',
+                    danger: true,
+                });
+                if (!ok) return;
                 try {
                     localStorage.removeItem('loginindex_auth');
                     sessionStorage.removeItem('loginindex_auth');
@@ -542,7 +556,28 @@
             return;
         }
         const sign = delta > 0 ? 'cộng' : 'trừ';
-        if (!confirm(`Xác nhận ${sign} ${Math.abs(delta)} credits cho "${target}"?`)) return;
+        const sel = $('#admin-grant-user');
+        const targetLabel = sel?.options[sel.selectedIndex]?.textContent?.trim() || target;
+        const ok = await aikolConfirm({
+            title: `Xác nhận ${sign} credits`,
+            body: `
+                <div class="aikol-confirm__pack">
+                    <div class="aikol-confirm__pack-name">${escapeHtml(targetLabel)}</div>
+                    <div class="aikol-confirm__pack-credits">
+                        <span class="aikol-pack__bolt" aria-hidden="true">⚡</span>
+                        <strong>${delta > 0 ? '+' : ''}${delta}</strong> credits
+                    </div>
+                    ${note ? `<div class="aikol-confirm__pack-rate">Note: ${escapeHtml(note)}</div>` : ''}
+                </div>
+                <p class="aikol-confirm__note">
+                    Thao tác này sẽ <strong>${sign} ${Math.abs(delta)} credits</strong>
+                    cho user trên và ghi vào history (kind=admin_grant).
+                </p>`,
+            confirmLabel: delta > 0 ? `Cộng ${delta} cr` : `Trừ ${Math.abs(delta)} cr`,
+            cancelLabel: 'Huỷ',
+            danger: delta < 0,
+        });
+        if (!ok) return;
 
         const btn = $('#admin-grant-btn');
         btn.disabled = true;
