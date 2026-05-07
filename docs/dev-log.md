@@ -8,6 +8,30 @@
 
 ## 2026-05-07
 
+### [delivery] Fix Xuất excel ĐƠN 0đ: include TOMATO + toolbar buttons follow tab filter
+
+**Bug 1 — `exportExcelZeroDong()` silently dropped 0đ TOMATO items**
+
+- `groupKeys` chỉ chứa `['nap', 'city', 'shop', 'return']` ⇒ nếu một đơn 0đ có locked DB assignment = `'tomato'` (legacy/manual override), nó bị bỏ khỏi workbook xuất.
+- Fix: thêm `'tomato'` vào đầu `groupKeys`. Sheet TOMATO chỉ render khi có data nên không sinh sheet rỗng.
+
+**Bug 2 — Toolbar buttons (TOMATO/NAP/THÀNH PHỐ/SHOP/THU VỀ) ignore active tab**
+
+- Khi user đang ở tab "ĐƠN 0đ" và bấm TOMATO/NAP/THÀNH PHỐ → trước đây xuất TẤT CẢ items trong nhóm (bao gồm cả non-0đ) thay vì lọc theo 0đ — không khớp expectation của user.
+- Fix `exportExcelGroup`: khi `activeTab === 'zero' && traSoatMode`, filter thêm `isZeroCOD(item)`. Đổi tên file thành `DON0D_<GROUP>_<date>.xlsx`. Nếu nhóm rỗng 0đ → alert "Không có đơn 0đ trong nhóm X để xuất." thay vì xuất file rỗng.
+
+**Files MODIFIED (1)**:
+
+- [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `exportExcelGroup()` filter theo tab=zero, `exportExcelZeroDong()` thêm `'tomato'` vào groupKeys.
+
+**Files NEW (1)**:
+
+- [scripts/test-delivery-zero-export.js](../scripts/test-delivery-zero-export.js) — Playwright one-shot, inject synthetic data qua `getState()`, capture `XLSX.writeFile` output, assert qua 6 test case (TEST 1: main "Xuất excel" trên ĐƠN 0đ tab → 5 sheets including TOMATO; TEST 2-4: toolbar TOMATO/NAP/THÀNH PHỐ trên 0đ tab → chỉ chứa 0đ items; TEST 5: nhóm rỗng 0đ → alert; TEST 6: cùng nút trên tab Tất cả → vẫn export full group). 10/10 PASS.
+
+**Status**: ✅ Done
+
+---
+
 ### [aikol-studio][render] Sprint 2 — Library page + TikTok single import (chạy KHÔNG cần cookie)
 
 **Sprint 2 deliverables**:

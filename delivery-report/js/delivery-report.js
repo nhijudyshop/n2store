@@ -1140,21 +1140,38 @@
             return;
         }
         const allData = DeliveryReportState.allData || [];
-        const items = allData.filter((item) => getItemGroup(item) === group);
+        let items = allData.filter((item) => getItemGroup(item) === group);
+        // When on ĐƠN 0đ tab, scope export to 0đ items only — matches user expectation
+        // that toolbar group buttons follow the active tab filter.
+        const isZeroTab =
+            DeliveryReportState.activeTab === 'zero' && DeliveryReportState.traSoatMode;
+        if (isZeroTab) {
+            items = items.filter((item) => isZeroCOD(item));
+        }
         const label = GROUP_LABELS[group] || group.toUpperCase();
+        const fileLabel = isZeroTab
+            ? `DON0D_${GROUP_FILE_NAMES[group] || group.toUpperCase()}`
+            : GROUP_FILE_NAMES[group] || group.toUpperCase();
+
+        if (isZeroTab && items.length === 0) {
+            alert(`Không có đơn 0đ trong nhóm ${label} để xuất.`);
+            return;
+        }
 
         const wsData = buildExcelRows(items);
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         autoFitColumns(ws, wsData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
-        XLSX.writeFile(wb, makeFileName(GROUP_FILE_NAMES[group] || group.toUpperCase()));
+        XLSX.writeFile(wb, makeFileName(fileLabel));
     }
 
     function exportExcelZeroDong() {
         const allData = (DeliveryReportState.allData || []).filter((item) => isZeroCOD(item));
         const wb = XLSX.utils.book_new();
-        const groupKeys = ['nap', 'city', 'shop', 'return'];
+        // Include 'tomato' so 0đ items with a locked TOMATO assignment (legacy/manual override)
+        // still appear in the export instead of being silently dropped.
+        const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
         let hasData = false;
 
         groupKeys.forEach((key) => {
@@ -2598,7 +2615,7 @@
             // popover appears right next to the phone number — not at the far
             // right edge of the wide customer column.
             const anchorEl = targetEl.classList.contains('dr-hover-customer')
-                ? (targetEl.querySelector('.dr-customer-phone') || targetEl)
+                ? targetEl.querySelector('.dr-customer-phone') || targetEl
                 : targetEl;
             const rect = anchorEl.getBoundingClientRect();
             const margin = 8;
@@ -3157,7 +3174,15 @@
 
         // Lazy-create the manager-review modal (giống balance-history).
         let reviewModalEl = null;
-        const reviewState = { uid: null, btn: null, phone: '', customerName: '', imageFile: null, imageUrl: null, isUploading: false };
+        const reviewState = {
+            uid: null,
+            btn: null,
+            phone: '',
+            customerName: '',
+            imageFile: null,
+            imageUrl: null,
+            isUploading: false,
+        };
 
         function ensureReviewModal() {
             if (reviewModalEl) return reviewModalEl;
@@ -3213,10 +3238,12 @@
             });
 
             // Existing image — open lightbox on click
-            reviewModalEl.querySelector('#dr-rev-existing-img-thumb').addEventListener('click', () => {
-                const img = reviewModalEl.querySelector('#dr-rev-existing-img');
-                if (img && img.src) openLightbox(img.src);
-            });
+            reviewModalEl
+                .querySelector('#dr-rev-existing-img-thumb')
+                .addEventListener('click', () => {
+                    const img = reviewModalEl.querySelector('#dr-rev-existing-img');
+                    if (img && img.src) openLightbox(img.src);
+                });
 
             // Confirm
             reviewModalEl.querySelector('#dr-rev-confirm').addEventListener('click', confirmReview);
@@ -3255,7 +3282,9 @@
             });
 
             // Remove image
-            reviewModalEl.querySelector('#dr-rev-remove-img').addEventListener('click', clearReviewImage);
+            reviewModalEl
+                .querySelector('#dr-rev-remove-img')
+                .addEventListener('click', clearReviewImage);
 
             // Esc to close
             document.addEventListener('keydown', (e) => {
@@ -3280,9 +3309,12 @@
             // "Nội dung CK" + "Ngày GD" prefer raw bank fields (bh_content, bh_transaction_date)
             // — match balance-history's "Kiểm tra giao dịch" modal. Fallback to wallet_transactions
             // fields chỉ khi tx không liên kết balance_history.
-            const noteRaw = (tx?.bh_content || tx?.note || '').replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+            const noteRaw = (tx?.bh_content || tx?.note || '')
+                .replace(/\[Ảnh GD:[^\]]+\]/g, '')
+                .trim();
             const dateStr = fmtShortDateTime(tx?.bh_transaction_date || tx?.created_at);
-            const customerLabel = [customerCtx?.customerName, customerCtx?.phone].filter(Boolean).join(' - ') || '—';
+            const customerLabel =
+                [customerCtx?.customerName, customerCtx?.phone].filter(Boolean).join(' - ') || '—';
 
             modal.querySelector('#dr-rev-summary').innerHTML = `
                 <div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;">
@@ -3464,7 +3496,9 @@
                             description:
                                 'Kiểm tra giao dịch #' +
                                 uid +
-                                (phone ? ' (KH: ' + (customerName || '') + ' - ' + phone + ')' : ''),
+                                (phone
+                                    ? ' (KH: ' + (customerName || '') + ' - ' + phone + ')'
+                                    : ''),
                             oldData: { manager_reviewed: false },
                             newData: {
                                 manager_reviewed: true,
@@ -3479,7 +3513,9 @@
                             entityType: 'balance_history',
                         });
                     }
-                } catch (_) { /* ignore audit log errors */ }
+                } catch (_) {
+                    /* ignore audit log errors */
+                }
                 // Invalidate cache so next open refetches reviewed status
                 if (reviewState.phone) customerCache.delete(reviewState.phone);
                 closeReviewModal();
@@ -3540,7 +3576,8 @@
             const id = billCell?.dataset.id || '';
             const number = billCell?.dataset.number || '';
             const phone = custCell?.dataset.phone || '';
-            const customerName = custCell?.querySelector('.dr-customer-name')?.textContent?.trim() || '';
+            const customerName =
+                custCell?.querySelector('.dr-customer-name')?.textContent?.trim() || '';
 
             const modal = ensureRowModal();
             modal.style.display = 'flex';
@@ -3561,7 +3598,8 @@
                         if (modal.style.display === 'none') return;
                         billCol.innerHTML = '';
                         const ifr = document.createElement('iframe');
-                        ifr.style.cssText = 'width:100%;height:100%;border:0;background:white;display:block;';
+                        ifr.style.cssText =
+                            'width:100%;height:100%;border:0;background:white;display:block;';
                         ifr.sandbox = 'allow-same-origin';
                         ifr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
                         billCol.appendChild(ifr);
