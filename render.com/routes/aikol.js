@@ -108,7 +108,7 @@ router.get('/billing/packs', (_req, res) =>
     res.json({
         packs: PACKS,
         stripe_enabled: false,
-        sepay_enabled: true,
+        sepay_enabled: Boolean(process.env.SEPAY_ACCOUNT_NUMBER),
         currency: 'VND',
         memo_prefix: 'AIKOL',
     })

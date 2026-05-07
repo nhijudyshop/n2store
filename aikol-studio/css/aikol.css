@@ -1479,3 +1479,22 @@ body {
     font-size: 0.85rem;
     border-radius: 8px;
 }
+
+.aikol-notice {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--aikol-border, rgba(255, 255, 255, 0.08));
+    color: var(--aikol-text-dim);
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.aikol-notice strong {
+    color: var(--aikol-text);
+    margin-right: 0.25rem;
+}
+.aikol-notice--info {
+    border-color: var(--aikol-accent-soft);
+    background: var(--aikol-accent-soft);
+}

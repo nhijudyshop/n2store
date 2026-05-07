@@ -57,9 +57,23 @@
 
     async function loadPacks() {
         try {
-            const { packs } = await window.AikolAPI.getBillingPacks();
+            const cfg = await window.AikolAPI.getBillingPacks();
+            const packs = cfg.packs || [];
+            const sepayEnabled = cfg.sepay_enabled !== false;
             const grid = $('#packs-grid');
-            grid.innerHTML = (packs || [])
+            const notice = $('#sepay-disabled-notice');
+            const packsPanel = grid?.closest('.aikol-panel');
+
+            if (!sepayEnabled) {
+                if (grid) grid.innerHTML = '';
+                if (notice) notice.style.display = '';
+                if (packsPanel) packsPanel.dataset.sepayDisabled = 'true';
+                return;
+            }
+            if (notice) notice.style.display = 'none';
+            if (packsPanel) delete packsPanel.dataset.sepayDisabled;
+
+            grid.innerHTML = packs
                 .map((p) => {
                     const isPop = p.id === POPULAR_PACK;
                     const cls = `aikol-pack${isPop ? ' aikol-pack--popular' : ''}`;
