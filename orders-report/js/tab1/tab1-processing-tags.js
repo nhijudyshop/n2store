@@ -23,11 +23,6 @@
     const AUTO_T_CLEAR_KEY = 'auto_t_clear_on_bill';
     let _autoTClearEnabled = true;
 
-    // Auto T confirm — modal hỏi user "xác nhận xóa T-tag?" khi ra đơn
-    // Trạng thái lưu IN-MEMORY (module-scoped); F5 reset → modal hiện lại.
-    // User tick "Không hỏi lại" + Đồng ý → suppressed cho session hiện tại.
-    let _autoTConfirmSuppressed = false;
-
     // Auto-tag ĐÃ RA ĐƠN: LUÔN BẬT khi user tạo PBH thành công (single hoặc bulk).
     // Trước (≤ 2026-04-26): auto-tag dựa trên cột PBH (InvoiceStatusStore active) →
     // gồm cả reconcile khi load page → có thể bất ngờ flip đơn của session khác.
@@ -1491,24 +1486,11 @@
         data.subTag = null;
         data.subState = null;
 
-        // Auto T ON + đơn có T-tag → confirm với user trước khi clear (trừ khi đã suppress)
-        let shouldClearTTags = _autoTClearEnabled;
-        if (
-            _autoTClearEnabled &&
-            Array.isArray(data.tTags) &&
-            data.tTags.length > 0 &&
-            !_autoTConfirmSuppressed
-        ) {
-            const decision = await _showAutoTConfirmModal(orderCode, data.tTags);
-            if (decision.dontAskAgain) {
-                _autoTConfirmSuppressed = true;
-            }
-            shouldClearTTags = decision.confirmed;
-        }
-        if (shouldClearTTags) {
+        // Auto T ON → clear T-tags trực tiếp, không hỏi confirm.
+        // Auto T OFF → giữ nguyên data.tTags. User toggle ở header bảng đơn.
+        if (_autoTClearEnabled) {
             data.tTags = [];
         }
-        // Nếu Auto T OFF (hoặc user từ chối confirm): giữ nguyên data.tTags
         data.assignedAt = Date.now();
         data.previousPosition = snapshot;
 
@@ -6909,100 +6891,30 @@
     // =====================================================
     // AUTO T TOGGLE — bật/tắt clear T-tag khi đơn ra đơn
     // =====================================================
-
-    /**
-     * Show confirm modal khi Auto T ON + đơn có T-tag.
-     * Resolve { confirmed: bool, dontAskAgain: bool }.
-     * F5 reset _autoTConfirmSuppressed → modal hiện lại.
-     */
-    function _showAutoTConfirmModal(orderCode, tTags) {
-        return new Promise((resolve) => {
-            const tagsLabel = (tTags || [])
-                .map((t) =>
-                    typeof t === 'object' && t !== null ? t.name || t.label || '' : String(t)
-                )
-                .filter(Boolean)
-                .map((s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'))
-                .map(
-                    (s) =>
-                        `<span style="display:inline-block; padding:2px 8px; margin:2px; background:#fef3c7; color:#92400e; border-radius:4px; font-size:11px; font-weight:600">${s}</span>`
-                )
-                .join('');
-
-            const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed; inset: 0;
-                background: rgba(0, 0, 0, 0.45);
-                z-index: 10050;
-                display: flex; align-items: center; justify-content: center;
-                animation: ptagModalFadeIn 0.15s ease;
-            `;
-            overlay.innerHTML = `
-                <div style="background:#fff; border-radius:14px; max-width:440px; width:92%; box-shadow:0 20px 60px rgba(0,0,0,0.25); overflow:hidden; font-family: 'Be Vietnam Pro', system-ui, sans-serif">
-                    <div style="padding:18px 20px; background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff">
-                        <h3 style="margin:0; font-size:16px; font-weight:700">
-                            <i class="fas fa-exclamation-triangle" style="margin-right:6px"></i>
-                            Auto T — Xóa T-tag khi ra đơn?
-                        </h3>
-                    </div>
-                    <div style="padding:18px 20px">
-                        <p style="margin:0 0 10px; color:#374151; font-size:14px; line-height:1.55">
-                            Đơn <strong>${orderCode || '?'}</strong> có <strong>${tTags.length}</strong> T-tag. Auto T đang BẬT — bạn muốn xóa toàn bộ T-tag sau khi ra đơn?
-                        </p>
-                        <div style="margin:8px 0 14px">${tagsLabel}</div>
-                        <label style="display:flex; align-items:center; gap:8px; padding:8px; background:#f3f4f6; border-radius:6px; cursor:pointer; font-size:13px; color:#4b5563">
-                            <input type="checkbox" id="ptagAutoTConfirmDontAsk" style="width:16px; height:16px; cursor:pointer; accent-color:#d97706" />
-                            <span>Không hỏi lại lần này (F5 sẽ reset)</span>
-                        </label>
-                    </div>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; padding:12px 20px; background:#f9fafb; border-top:1px solid #e5e7eb">
-                        <button type="button" id="ptagAutoTCancel" style="padding:8px 18px; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer; font-size:13px; color:#374151; font-weight:500">
-                            Giữ nguyên T-tag
-                        </button>
-                        <button type="button" id="ptagAutoTConfirm" style="padding:8px 18px; border:none; background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600">
-                            <i class="fas fa-check"></i> Đồng ý xóa
-                        </button>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-
-            const cleanup = () => overlay.remove();
-            const dontAskCb = overlay.querySelector('#ptagAutoTConfirmDontAsk');
-            overlay.querySelector('#ptagAutoTConfirm').addEventListener('click', () => {
-                cleanup();
-                resolve({ confirmed: true, dontAskAgain: !!dontAskCb?.checked });
-            });
-            overlay.querySelector('#ptagAutoTCancel').addEventListener('click', () => {
-                cleanup();
-                resolve({ confirmed: false, dontAskAgain: !!dontAskCb?.checked });
-            });
-            // ESC = giữ nguyên T-tag
-            const onEsc = (e) => {
-                if (e.key === 'Escape') {
-                    cleanup();
-                    document.removeEventListener('keydown', onEsc);
-                    resolve({ confirmed: false, dontAskAgain: false });
-                }
-            };
-            document.addEventListener('keydown', onEsc);
-        });
-    }
-
+    // UI: iOS-style switch (knob trượt trái/phải) trên header bảng đơn.
+    // Auto T ON → tự xoá T-tag khi PBH thành công, KHÔNG hỏi confirm.
+    // Auto T OFF → giữ nguyên T-tag.
     function _updateAutoTToggleUI() {
-        const btn = document.getElementById('autoTToggle');
-        const dot = document.getElementById('autoTDot');
-        if (!btn || !dot) return;
+        const wrap = document.getElementById('autoTToggle');
+        const knob = document.getElementById('autoTKnob');
+        const label = document.getElementById('autoTLabel');
+        if (!wrap || !knob) return;
         if (_autoTClearEnabled) {
-            dot.style.background = '#22c55e';
-            btn.style.background = '#f0fdf4';
-            btn.style.color = '#16a34a';
-            btn.style.borderColor = '#86efac';
+            wrap.setAttribute('aria-checked', 'true');
+            wrap.style.background = '#22c55e'; // ON = xanh
+            knob.style.transform = 'translateX(16px)';
+            if (label) {
+                label.textContent = 'Auto T: BẬT';
+                label.style.color = '#16a34a';
+            }
         } else {
-            dot.style.background = '#d1d5db';
-            btn.style.background = '#f9fafb';
-            btn.style.color = '#6b7280';
-            btn.style.borderColor = '#d1d5db';
+            wrap.setAttribute('aria-checked', 'false');
+            wrap.style.background = '#d1d5db'; // OFF = xám
+            knob.style.transform = 'translateX(0)';
+            if (label) {
+                label.textContent = 'Auto T: TẮT';
+                label.style.color = '#6b7280';
+            }
         }
     }
 
@@ -7032,15 +6944,8 @@
     }
 
     window.toggleAutoTClear = toggleAutoTClear;
-    // Public reader — fast-sale modal banner cần biết state Auto T để cảnh báo user
-    // trước khi tạo PBH (T-tag sẽ tự xoá nếu Auto T ON).
+    // Public reader — consumers cần biết state Auto T (vd auto-tagger logic).
     window.isAutoTClearEnabled = () => _autoTClearEnabled;
-    // Test/debug hooks
-    window._showAutoTConfirmModal = _showAutoTConfirmModal;
-    window._resetAutoTConfirmSuppressed = () => {
-        _autoTConfirmSuppressed = false;
-    };
-    window._isAutoTConfirmSuppressed = () => _autoTConfirmSuppressed;
 
     // Init: load setting sau khi DOM + userStorageManager ready (retry tối đa 20×200ms)
     (function _initAutoTToggle() {

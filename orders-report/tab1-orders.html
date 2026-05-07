@@ -1039,35 +1039,52 @@
                             ></span>
                             <span id="tposRtLabel">RT</span>
                         </button>
+                        <span
+                            id="autoTLabel"
+                            style="
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: #6b7280;
+                                user-select: none;
+                            "
+                            >Auto T: TẮT</span
+                        >
                         <button
                             id="autoTToggle"
+                            type="button"
+                            role="switch"
+                            aria-checked="false"
+                            aria-label="Auto T toggle"
                             onclick="window.toggleAutoTClear?.()"
                             title="Auto T: BẬT = tự động xóa T-tag khi ra đơn. TẮT = giữ nguyên T-tag sau khi ra đơn."
                             style="
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 4px;
-                                padding: 2px 8px;
+                                position: relative;
+                                width: 36px;
+                                height: 20px;
                                 border-radius: 12px;
-                                border: 1px solid #d1d5db;
-                                background: #f9fafb;
-                                font-size: 11px;
+                                border: none;
+                                background: #d1d5db;
+                                padding: 0;
                                 cursor: pointer;
-                                color: #6b7280;
-                                transition: all 0.2s;
+                                transition: background 0.25s ease;
+                                flex-shrink: 0;
                             "
                         >
                             <span
-                                id="autoTDot"
+                                id="autoTKnob"
                                 style="
-                                    width: 7px;
-                                    height: 7px;
+                                    position: absolute;
+                                    top: 2px;
+                                    left: 2px;
+                                    width: 16px;
+                                    height: 16px;
                                     border-radius: 50%;
-                                    background: #d1d5db;
-                                    transition: background 0.3s;
+                                    background: #ffffff;
+                                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+                                    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                                    transform: translateX(0);
                                 "
                             ></span>
-                            <span>Auto T</span>
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 12px">
@@ -6583,9 +6600,6 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Auto T status banner — populated by renderFastSaleAutoTBanner() -->
-                <div id="fastSaleAutoTBanner" style="display: none"></div>
 
                 <!-- Body -->
                 <div class="merge-modal-body" id="fastSaleModalBody">
