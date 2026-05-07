@@ -8,6 +8,39 @@
 
 ## 2026-05-07
 
+### [aikol] Standalone shell rebuild — gỡ global nav, fix sidebar contrast & dead link
+
+**Why** — User báo "menu sidebar bị đụng css gây lỗi" sau đó "giao diện vẫn quá khó nhìn, có thể xóa toàn bộ tạo lại". Browser test (online + local) phát hiện 3 bug chồng nhau:
+
+1. **CSS contrast bug** — `--aikol-text-dim: #5a5e85` cho inactive sidebar items → contrast ratio chỉ ~2.8:1 (dưới WCAG AA 4.5:1). Items "Models / Products / Clip Library / …" gần như vô hình trên sidebar bg dark navy.
+2. **Global nav bleed** — `navigation-modern.js` (header + global sidebar) đang chạy SONG SONG với aikol-sidebar.js → `<header id="site-header">` chèn band trắng ở đỉnh page, `<aside class="sidebar">` xếp chồng. Ngoài ra `hanghoan/css/modern.css` 863 dòng style global ô nhiễm body bg + typography → sidebar `rgba(...,0.6)` translucent show xuyên thấu sang lớp trắng phía dưới.
+3. **Dead link** — `products.html` ghi trong sidebar nhưng file không tồn tại → click ra 404.
+
+**Fix** (3 đợt thay đổi):
+
+- `aikol-studio/css/aikol.css`:
+    - `--aikol-text-dim: #5a5e85 → #9298c2` (contrast 6.2:1 vs sidebar bg).
+    - `--aikol-sidebar: rgba(18,19,42,0.6) → #0d0e22` (opaque, không bleed).
+    - Thêm `html, body { margin:0; background: var(--aikol-bg); font-family: Inter… }` để body không cần modern.css.
+    - `.aikol-shell` bỏ `min-height: calc(100vh - var(--topbar-height,60px))` → `min-height: 100vh` (không còn topbar).
+    - `.aikol-side` bỏ `top: var(--topbar-height,0)` + `height: calc(...-topbar)` → `top:0; height:100vh` standalone.
+    - Burger button & bulk-launch sticky bỏ `--topbar-height` offset.
+- `aikol-studio/*.html` (7 file: index, models, library, bulk, campaigns, history, settings):
+    - Gỡ `<link href="../hanghoan/css/modern.css">` + `<script src="../shared/js/navigation-modern.js">` + comment `<!-- Navigation injected -->`.
+- `aikol-studio/js/aikol-sidebar.js`:
+    - Gỡ `{ href:'products.html', label:'Products' }` khỏi `ITEMS` (file 404).
+
+**Browser test (localhost:8080 → 7 page)**:
+
+- Dashboard / Models / Clip Library / Bulk generate / Campaigns / Outputs / Settings → 0 console errors, 7 sidebar items, sidebar full-height (0→900px), no white bleed, content shell margin-left 240px chuẩn.
+- Active state purple, inactive readable (`rgb(146,152,194) = #9298c2`), brand white.
+- Bottom dock: model card + credits ⚡30 + Top up + admin email + logout — visible & functional.
+- Mobile breakpoint @max-width 880px sidebar slide off + burger active.
+
+**Status**: ✅ Done — pushed to GH Pages, verified online.
+
+---
+
 ### [delivery] Đánh dấu "đã kiểm tra" đơn — popup khi đóng row modal + tô xám row đã check
 
 - **Why**: User cần workflow xác nhận đã review đơn ở delivery-report. Đóng modal chi tiết đơn (BILL + Hoạt động khách hàng) cần hỏi "đã kiểm tra chưa?" để user gắn cờ. Đơn đã đánh dấu thì lần sau mở/đóng KHÔNG hỏi lại nữa, đồng thời tô xám nhẹ ở bảng chính để dễ phân biệt.

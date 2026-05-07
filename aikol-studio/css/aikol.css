@@ -7,9 +7,9 @@
     --aikol-surface: #12132a;
     --aikol-surface-2: #181a35;
     --aikol-border: #21234a;
-    --aikol-sidebar: rgba(18, 19, 42, 0.6);
+    --aikol-sidebar: #0d0e22;
     --aikol-text: #ecedfa;
-    --aikol-text-dim: #5a5e85;
+    --aikol-text-dim: #9298c2;
     --aikol-accent: #7c5cff;
     --aikol-accent-light: #a47cff;
     --aikol-accent-2: #5b3df0;
@@ -26,10 +26,25 @@
     --aikol-dur: 150ms;
 }
 
+/* Standalone shell — aikol-studio runs without the global app navigation,
+   so we paint the body and main directly without leaving room for a topbar. */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--aikol-bg);
+    color: var(--aikol-text);
+    font-family:
+        'Inter',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        sans-serif;
+}
 .aikol-shell {
     background: var(--aikol-bg);
     color: var(--aikol-text);
-    min-height: calc(100vh - var(--topbar-height, 60px));
+    min-height: 100vh;
     padding: clamp(1rem, 2vw, 2rem);
 }
 
@@ -802,10 +817,10 @@
 
 .aikol-side {
     position: fixed;
-    top: var(--topbar-height, 0);
+    top: 0;
     left: 0;
     width: var(--aikol-side-w);
-    height: calc(100vh - var(--topbar-height, 0px));
+    height: 100vh;
     background: var(--aikol-sidebar);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
@@ -984,7 +999,7 @@
 /* Burger + scrim for mobile drawer */
 .aikol-side__burger {
     position: fixed;
-    top: calc(var(--topbar-height, 0px) + 0.6rem);
+    top: 0.6rem;
     left: 0.6rem;
     width: 40px;
     height: 40px;
@@ -1237,7 +1252,7 @@
 }
 .aikol-bulk-launch {
     position: sticky;
-    top: calc(var(--topbar-height, 0px) + 1rem);
+    top: 1rem;
     align-self: start;
 }
 .aikol-bulk-launch__card {

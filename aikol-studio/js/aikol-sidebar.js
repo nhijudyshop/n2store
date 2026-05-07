@@ -13,7 +13,6 @@
     const ITEMS = [
         { href: 'index.html', label: 'Dashboard', icon: 'layout-dashboard' },
         { href: 'models.html', label: 'Models', icon: 'user-circle' },
-        { href: 'products.html', label: 'Products', icon: 'shopping-bag' },
         { href: 'library.html', label: 'Clip Library', icon: 'film' },
         { href: 'bulk.html', label: 'Bulk generate', icon: 'sparkles' },
         { href: 'campaigns.html', label: 'Campaigns', icon: 'rocket' },
