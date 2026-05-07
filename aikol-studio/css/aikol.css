@@ -967,7 +967,11 @@
     }
     .aikol-shell {
         margin-left: 0;
-        padding-top: 3.6rem; /* avoid burger overlap */
+        padding-top: 4rem; /* clear the 40px burger + a margin */
+    }
+    /* And shift the page header so its content is not hidden behind the burger */
+    .aikol-header {
+        padding-left: 3rem;
     }
 }
 
