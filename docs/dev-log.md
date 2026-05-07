@@ -8,6 +8,30 @@
 
 ## 2026-05-07
 
+### [delivery] Đánh dấu "đã kiểm tra" đơn — popup khi đóng row modal + tô xám row đã check
+
+- **Why**: User cần workflow xác nhận đã review đơn ở delivery-report. Đóng modal chi tiết đơn (BILL + Hoạt động khách hàng) cần hỏi "đã kiểm tra chưa?" để user gắn cờ. Đơn đã đánh dấu thì lần sau mở/đóng KHÔNG hỏi lại nữa, đồng thời tô xám nhẹ ở bảng chính để dễ phân biệt.
+- **What**:
+    - `OrderCheckStore` — Firestore `delivery_report/data/order_checks/{Number}` + cache `localStorage.drOrderChecks_v1`. Pattern theo CLAUDE.md DATA-SYNCHRONIZATION (Firebase as SoT + real-time listener + `merge:true`). Lưu `{ checkedBy, checkedAt, customerName, phone, invoiceId }`.
+    - `requestCloseRowModal()` thay cho gọi thẳng `closeRowModal()` ở 3 trigger đóng (X / click backdrop / ESC). Nếu `OrderCheckStore.isChecked(number)` → đóng luôn; ngược lại hiện popup confirm 2 nút "Đã kiểm tra" / "Chưa duyệt".
+    - Bấm "Đã kiểm tra" → `markChecked()` (lưu Firestore + local + apply class `dr-row-checked`). "Chưa duyệt" / ESC / click backdrop của popup → đóng modal mà không lưu, lần sau mở lại sẽ hỏi tiếp.
+    - Render row: `applyCheckedStylesToTable()` chạy sau mỗi `renderTable()` và sau mỗi snapshot Firestore, gắn class `dr-row-checked` vào `<tr>` chứa `data-number` đã check.
+    - CSS: row tô `bg #f3f4f6 + color #6b7280`, hover sậm hơn (#e5e7eb). Cột # có pseudo `::after { content: ' ✓' }` màu xanh.
+- **E2E test**: [scripts/test-delivery-order-check.js](../scripts/test-delivery-order-check.js) — 5/5 PASS: row chưa check không xám → click row mở modal → click X bật popup → "Đã kiểm tra" tô xám → mở lại + đóng KHÔNG hỏi nữa. Cleanup Firestore sau test.
+
+**Files MODIFIED (2)**:
+
+- [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `OrderCheckStore` + `applyCheckedStylesToTable()` (đoạn ~118-235), wire `applyCheckedStylesToTable()` vào `renderTable()` (~845), refactor `closeRowModal` → `requestCloseRowModal` + popup confirm element (~3793-3895), gán `currentRowCtx` trong `openRowModalByData` (~3965), nâng cấp ESC handler để đóng popup trước khi đóng modal (~4047).
+- [delivery-report/css/delivery-report.css](../delivery-report/css/delivery-report.css) — `.dr-row-checked` (bg xám, ✓ ở cột #, hover state).
+
+**Files NEW (1)**:
+
+- [scripts/test-delivery-order-check.js](../scripts/test-delivery-order-check.js) — Playwright E2E auto-cleanup Firestore sau test.
+
+**Status**: ✅ Done — 5/5 E2E PASS.
+
+---
+
 ### [inbox] Ghim tag — mở rộng pin button cho mọi tag card trong panel
 
 - **Why**: Lần ship đầu chỉ render pin trong sub-list khi expand "TAG KHÔNG CÓ ĐƠN", nhưng user mong đợi thấy pin trên TỪNG tag card chính (CV DIOR 430K, BIKINI CHANEL LIVE…) ở mọi lúc.

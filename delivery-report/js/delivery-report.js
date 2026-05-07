@@ -104,9 +104,134 @@
             if (btn) btn.style.display = 'none';
         }
 
+        OrderCheckStore.init();
         loadHiddenNumbers().finally(() => fetchData());
 
         HoverPreview.init();
+    }
+
+    // =====================================================
+    // ORDER CHECK STORE — đánh dấu đơn "đã kiểm tra"
+    // Firestore: delivery_report/data/order_checks/{number}
+    // Pattern theo CLAUDE.md DATA-SYNCHRONIZATION (Firebase as SoT + listener)
+    // =====================================================
+    const OrderCheckStore = (function () {
+        const _data = new Map(); // number → { checkedBy, checkedAt }
+        let _listener = null;
+        let _initialized = false;
+
+        function getDB() {
+            if (typeof getFirestore === 'function') return getFirestore();
+            if (typeof firebase !== 'undefined' && firebase.apps?.length) return firebase.firestore();
+            return null;
+        }
+
+        function getCollection() {
+            const db = getDB();
+            if (!db) return null;
+            return db.collection('delivery_report').doc('data').collection('order_checks');
+        }
+
+        function loadFromLocal() {
+            try {
+                const raw = localStorage.getItem('drOrderChecks_v1');
+                if (!raw) return;
+                const obj = JSON.parse(raw);
+                Object.entries(obj || {}).forEach(([k, v]) => _data.set(k, v));
+            } catch (e) {
+                console.warn('[ORDER-CHECK] localStorage load failed:', e);
+            }
+        }
+
+        function saveToLocal() {
+            try {
+                const obj = Object.fromEntries(_data);
+                localStorage.setItem('drOrderChecks_v1', JSON.stringify(obj));
+            } catch (e) {
+                console.warn('[ORDER-CHECK] localStorage save failed:', e);
+            }
+        }
+
+        function setupListener() {
+            const col = getCollection();
+            if (!col) return;
+            _listener = col.onSnapshot(
+                (snap) => {
+                    _data.clear();
+                    snap.forEach((doc) => _data.set(doc.id, doc.data() || {}));
+                    saveToLocal();
+                    applyCheckedStylesToTable();
+                },
+                (err) => console.warn('[ORDER-CHECK] listener error:', err)
+            );
+        }
+
+        async function init() {
+            if (_initialized) return;
+            _initialized = true;
+            loadFromLocal();
+            applyCheckedStylesToTable();
+            const col = getCollection();
+            if (!col) return;
+            try {
+                const snap = await col.get();
+                _data.clear();
+                snap.forEach((doc) => _data.set(doc.id, doc.data() || {}));
+                saveToLocal();
+                applyCheckedStylesToTable();
+            } catch (e) {
+                console.warn('[ORDER-CHECK] initial load failed, using cache:', e);
+            }
+            setupListener();
+        }
+
+        function isChecked(number) {
+            return !!number && _data.has(number);
+        }
+
+        function getInfo(number) {
+            return _data.get(number) || null;
+        }
+
+        async function markChecked(number, meta) {
+            if (!number) return;
+            const username = window.authManager?.getUserInfo?.()?.username || 'unknown';
+            const payload = {
+                number,
+                checkedBy: username,
+                checkedAt: Date.now(),
+                customerName: meta?.customerName || '',
+                phone: meta?.phone || '',
+                invoiceId: meta?.id || '',
+            };
+            _data.set(number, payload);
+            saveToLocal();
+            applyCheckedStylesToTable();
+            const col = getCollection();
+            if (!col) return;
+            try {
+                await col.doc(number).set(payload, { merge: true });
+            } catch (e) {
+                console.warn('[ORDER-CHECK] save failed:', e);
+            }
+        }
+
+        return { init, isChecked, getInfo, markChecked };
+    })();
+
+    function applyCheckedStylesToTable() {
+        const tbody = document.getElementById('drTableBody');
+        if (!tbody) return;
+        tbody.querySelectorAll('tr').forEach((tr) => {
+            const billCell = tr.querySelector('.dr-hover-bill');
+            const number = billCell?.dataset.number || '';
+            if (!number) return;
+            if (OrderCheckStore.isChecked(number)) {
+                tr.classList.add('dr-row-checked');
+            } else {
+                tr.classList.remove('dr-row-checked');
+            }
+        });
     }
 
     function toLocalDateStr(d) {
@@ -717,6 +842,7 @@
         });
 
         tbody.innerHTML = html;
+        applyCheckedStylesToTable();
 
         // Pancake enrichment — async, non-blocking
         if (window.PancakeValidator) {
@@ -3665,6 +3791,8 @@
         // Click vào ô số HĐ hoặc ô khách hàng để mở.
         // =====================================================
         let rowModalEl = null;
+        let currentRowCtx = null; // { number, id, phone, customerName }
+        let confirmEl = null;
 
         function ensureRowModal() {
             if (rowModalEl) return rowModalEl;
@@ -3690,15 +3818,82 @@
                     </div>
                 </div>`;
             document.body.appendChild(rowModalEl);
-            rowModalEl.querySelector('#dr-row-close').addEventListener('click', closeRowModal);
+            rowModalEl.querySelector('#dr-row-close').addEventListener('click', requestCloseRowModal);
             rowModalEl.addEventListener('click', (e) => {
-                if (e.target === rowModalEl) closeRowModal();
+                if (e.target === rowModalEl) requestCloseRowModal();
             });
             return rowModalEl;
         }
 
+        // Đóng dứt khoát (không hỏi) — dùng cho khi đã trả lời popup hoặc đơn đã kiểm tra rồi.
         function closeRowModal() {
             if (rowModalEl) rowModalEl.style.display = 'none';
+            currentRowCtx = null;
+        }
+
+        // Yêu cầu đóng — nếu đơn chưa được kiểm tra thì hỏi popup, ngược lại đóng luôn.
+        function requestCloseRowModal() {
+            const ctx = currentRowCtx;
+            if (!ctx || !ctx.number || OrderCheckStore.isChecked(ctx.number)) {
+                closeRowModal();
+                return;
+            }
+            showCheckConfirm(ctx);
+        }
+
+        function ensureConfirmEl() {
+            if (confirmEl) return confirmEl;
+            confirmEl = document.createElement('div');
+            confirmEl.id = 'dr-row-confirm';
+            confirmEl.style.cssText =
+                'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10010;align-items:center;justify-content:center;padding:20px;';
+            confirmEl.innerHTML = `
+                <div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%;max-width:420px;overflow:hidden;font-family:inherit;">
+                    <div style="padding:16px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
+                        <h3 style="margin:0;font-size:16px;font-weight:600;color:#111827;">Xác nhận kiểm tra đơn</h3>
+                    </div>
+                    <div style="padding:16px 18px;font-size:13px;color:#374151;line-height:1.55;">
+                        <div>Đơn <strong id="dr-confirm-number" style="color:#111827;"></strong> đã được kiểm tra chưa?</div>
+                        <div id="dr-confirm-customer" style="color:#6b7280;margin-top:4px;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e5e7eb;background:#f8fafc;">
+                        <button type="button" id="dr-confirm-skip" style="padding:8px 14px;border:1px solid #d1d5db;background:white;color:#374151;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;">Chưa duyệt</button>
+                        <button type="button" id="dr-confirm-yes" style="padding:8px 14px;background:#10b981;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">✓ Đã kiểm tra</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(confirmEl);
+
+            const hide = () => {
+                confirmEl.style.display = 'none';
+            };
+            confirmEl.querySelector('#dr-confirm-skip').addEventListener('click', () => {
+                hide();
+                closeRowModal();
+            });
+            confirmEl.querySelector('#dr-confirm-yes').addEventListener('click', async () => {
+                const ctx = currentRowCtx;
+                hide();
+                closeRowModal();
+                if (ctx?.number) {
+                    await OrderCheckStore.markChecked(ctx.number, ctx);
+                }
+            });
+            // Click backdrop = same as "Chưa duyệt" (skip without saving)
+            confirmEl.addEventListener('click', (e) => {
+                if (e.target === confirmEl) {
+                    hide();
+                    closeRowModal();
+                }
+            });
+            return confirmEl;
+        }
+
+        function showCheckConfirm(ctx) {
+            const el = ensureConfirmEl();
+            el.querySelector('#dr-confirm-number').textContent = ctx.number || '';
+            const customerLine = [ctx.customerName, ctx.phone].filter(Boolean).join(' · ');
+            el.querySelector('#dr-confirm-customer').textContent = customerLine;
+            el.style.display = 'flex';
         }
 
         async function openRowModal(cell) {
@@ -3767,6 +3962,7 @@
 
         async function openRowModalByData({ id, number, phone, customerName }) {
             const modal = ensureRowModal();
+            currentRowCtx = { id, number, phone, customerName };
             modal.style.display = 'flex';
             modal.querySelector('#dr-row-title').textContent =
                 `${number || 'Đơn hàng'}${customerName ? ' · ' + customerName : ''}${phone ? ' · ' + phone : ''}`;
@@ -3849,7 +4045,13 @@
             root.addEventListener('click', onCellClick);
             document.addEventListener('keydown', (e) => {
                 if (e.key !== 'Escape') return;
-                if (rowModalEl && rowModalEl.style.display !== 'none') closeRowModal();
+                // Confirm popup is on top — close that first if open.
+                if (confirmEl && confirmEl.style.display !== 'none') {
+                    confirmEl.style.display = 'none';
+                    closeRowModal();
+                    return;
+                }
+                if (rowModalEl && rowModalEl.style.display !== 'none') requestCloseRowModal();
                 else if (popoverEl) popoverEl.style.display = 'none';
             });
         }

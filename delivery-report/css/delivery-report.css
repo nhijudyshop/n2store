@@ -2,6 +2,23 @@
    TAB DELIVERY REPORT - Thống Kê Giao Hàng
    ===================================================== */
 
+/* Đơn đã được kiểm tra — tô xám nhẹ, vẫn đọc được */
+.dr-table tbody tr.dr-row-checked {
+    background: #f3f4f6 !important;
+    color: #6b7280;
+}
+.dr-table tbody tr.dr-row-checked td {
+    color: #6b7280;
+}
+.dr-table tbody tr.dr-row-checked td[data-col='index']::after {
+    content: ' ✓';
+    color: #10b981;
+    font-weight: 700;
+}
+.dr-table tbody tr.dr-row-checked:hover {
+    background: #e5e7eb !important;
+}
+
 /* Container */
 .delivery-report-container {
     padding: 20px;
