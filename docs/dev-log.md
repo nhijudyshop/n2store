@@ -6,7 +6,56 @@
 
 ---
 
-## 2026-05-06
+## 2026-05-07
+
+### [aikol-studio][render][shared] Sprint 1 — kick off "AI KOL Studio" (tikreel.net clone) trong menu "Khác"
+
+**Goal**: Build module clone 100% chức năng tikreel.net (model upload + TikTok scrape + image/video gen via Kling+Fal). Stack: Next-style page + Render.com BE + Postgres + **Bunny.net** storage/CDN + **Fal.ai** image gen + **Kling AI** video gen + **yt-dlp** (Python service) cho TikTok scrape.
+
+**Files NEW (9)**:
+
+- [render.com/migrations/aikol_create_tables.sql](../render.com/migrations/aikol_create_tables.sql) — 8 bảng: `aikol_models`, `aikol_products`, `aikol_clips`, `aikol_imports`, `aikol_generations`, `aikol_outputs`, `aikol_credits`, `aikol_credit_history`, `aikol_campaigns`. Idempotent (`IF NOT EXISTS`). 30 free credits cho user mới.
+- [render.com/services/bunny-storage-service.js](../render.com/services/bunny-storage-service.js) — Bunny Storage REST wrapper (PUT upload, DELETE, cdnUrl helper). Env: `BUNNY_STORAGE_ZONE=n2store-aikol`, `BUNNY_STORAGE_KEY`, `BUNNY_CDN_HOSTNAME=n2store-aikol.b-cdn.net`.
+- [render.com/routes/aikol.js](../render.com/routes/aikol.js) — Mount `/api/aikol/*`. Sprint 1 endpoints: `/health`, `/costs`, `/billing/packs`, `/credits`, `/credits/history`, `/models` (GET, POST multipart, DELETE), `/models/:id/file` (302 redirect Bunny CDN).
+- [aikol-studio/index.html](../aikol-studio/index.html) — Dashboard 4-step welcome + credit chip + Kling tips.
+- [aikol-studio/models.html](../aikol-studio/models.html) — Upload form + grid model cards.
+- [aikol-studio/library.html](../aikol-studio/library.html) — Skeleton (Sprint 2 placeholder).
+- [aikol-studio/css/aikol.css](../aikol-studio/css/aikol.css) — Dark navy + violet `#7c5cff` theme (echo tikreel).
+- [aikol-studio/js/aikol-api.js](../aikol-studio/js/aikol-api.js) — Frontend API client; uses AuthManager → X-User-Id header.
+- [aikol-studio/js/models.js](../aikol-studio/js/models.js) — Models page logic (upload + list + delete).
+
+**Files MODIFIED (2)**:
+
+- [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — Add `aikol-studio` NAV_ITEM (icon `wand-2`, text "AI KOL Studio") + insert vào group "Khác".
+- [render.com/server.js](../render.com/server.js) — Mount `app.use('/api/aikol', aikolRoutes)`.
+
+**Decisions confirmed bởi user**:
+
+1. Storage: **Bunny.net** ngay từ đầu (đã setup zone `n2store-aikol`, pull zone `n2store-aikol.b-cdn.net`).
+2. Credit pricing: copy y tikreel (333 VND/credit, 6 packs Mini→Agency 60K→3M VND).
+3. Access: **all employees** (không limit admin-only).
+
+**External services confirmed**:
+
+- Fal.ai key: tạo done.
+- Bunny: Storage zone + Pull zone done.
+- Kling: Access + Secret done.
+- TikTok scrape: chốt **Evil0ctal/Douyin_TikTok_Download_API** (17.6K stars, FastAPI, Docker deploy ready) — sẽ deploy ở Sprint 2 như Python service riêng.
+
+**TODO trước khi deploy**:
+
+1. Chạy migration: `psql $DATABASE_URL -f render.com/migrations/aikol_create_tables.sql`.
+2. Add env vars vào Render dashboard: `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_KEY`, `BUNNY_CDN_HOSTNAME`, `BUNNY_STORAGE_ENDPOINT`, `FAL_KEY`, `KLING_ACCESS_KEY`, `KLING_SECRET_KEY`.
+3. Smoke test: `GET /api/aikol/health` → expect `{ok:true, bunny_configured:true, fal_configured:true, kling_configured:true}`.
+
+**Sprint roadmap**:
+
+- ✅ Sprint 1 (this commit): folder + sidebar + DB + Models flow end-to-end.
+- ⏭ Sprint 2: TikTok import (Evil0ctal Python service deploy on Render) + Library page.
+- ⏭ Sprint 3: Fal.ai + Kling integration + queue + credit charge/refund.
+- ⏭ Sprint 4: Bulk + Campaigns + SePay topup + Telegram notify.
+
+**Status**: ✅ Sprint 1 done — code committed. Cần user chạy migration + add env vars trên Render Dashboard trước khi sidebar item dùng được.
 
 ### [delivery-report][css] Bill modal cột phải — list hoạt động dùng hết chiều dọc cột
 
@@ -25,6 +74,7 @@
 **User báo**: trong bill modal (delivery-report — mở từ click ô số HĐ / khách hàng) cột phải "HOẠT ĐỘNG KHÁCH HÀNG" chỉ hiện 5 dòng, trong khi panel "Ví Khách Hàng" ở customer-hub hiện 16 hoạt động đầy đủ. User muốn modal hiển thị toàn bộ.
 
 **Root cause**: cả backend và frontend đều cap 5:
+
 - Server `quick-view` SQL `LIMIT 5` cứng cho `wallet_transactions` → endpoint name "quick-view" gợi ý ý đồ tooltip ngắn.
 - Client `delivery-report.js#renderCustomer` slice thêm `(data.recent_transactions || []).slice(0, 5)`.
 
@@ -39,6 +89,7 @@
 **User báo**: "tôi vừa làm thao tác kiểm tra cũng không thấy" — sau fix delivery-report (commit `dc6a9253`) verify vẫn không xuất hiện trong tab Lịch Sử balance-history.
 
 **Root cause** (verified live trên prod Firestore qua Playwright eval):
+
 - Query cũ `db.collection('edit_history').where('module','==','balance-history').limit(300).get()` KHÔNG có `orderBy` → Firestore default order theo `__name__` (random cho auto-IDs).
 - Test trên prod: query trả 300 docs nhưng newest = 08:21 06/05, oldest = 18:53 10/03 → trải dài 2 tháng, **chỉ 1 trong 26 records hôm nay** lọt qua.
 - 26 records balance-history hôm nay (đã được AuditLogger ghi đúng) bị bỏ sót, user nhìn thấy "lịch sử thiếu".
@@ -59,13 +110,13 @@
 
 ### [delivery-report][fix] Modal "Kiểm tra giao dịch" không ghi audit log → tab "Lịch Sử" (balance-history) thiếu entry hôm nay
 
-**Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html) — thêm `<script src="../shared/js/audit-logger.js">` sau firebase-config. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `reviewState` thêm `customerName`; `openReviewModal()` lưu `customerCtx?.customerName` vào state; `confirmReview()` sau success gọi `window.AuditLogger.logAction('transaction_verify', { module: 'balance-history', ... })` với cùng schema như `accountant.js#confirmManagerReview` (oldData/newData/entityId/approverUser*).
+**Files**: MODIFIED [delivery-report/index.html](../delivery-report/index.html) — thêm `<script src="../shared/js/audit-logger.js">` sau firebase-config. MODIFIED [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `reviewState` thêm `customerName`; `openReviewModal()` lưu `customerCtx?.customerName` vào state; `confirmReview()` sau success gọi `window.AuditLogger.logAction('transaction_verify', { module: 'balance-history', ... })` với cùng schema như `accountant.js#confirmManagerReview` (oldData/newData/entityId/approverUser\*).
 
 **User báo**: "lịch sử bị lỗi không lưu kiểm tra lại" — tab "Lịch Sử" balance-history (filter Loại thao tác = Kiểm tra) chỉ hiện entries 05/05, không thấy entries 06/05 dù transactions đã có badge "DÃ KIỂM TRA" hôm nay.
 
 **Root cause**: Commit `25c1f179` thêm modal "Kiểm tra giao dịch" cho delivery-report popover — copy logic từ balance-history nhưng quên 2 thứ: (1) load `audit-logger.js` trong `delivery-report/index.html`, (2) gọi `AuditLogger.logAction('transaction_verify', ...)` sau khi `POST /manager-review` thành công. Backend chỉ flip `manager_reviewed=true` ở Postgres → UI thấy badge ngay, nhưng không có Firestore `edit_history` doc → `accountant-history.js` (đọc collection `edit_history` để render tab Lịch Sử) bỏ sót.
 
-**Fix**: Mirror schema `transaction_verify` của balance-history (description format, oldData/newData fields, approverUser*). Wrap try/catch để audit log fail không ảnh hưởng UX. Verify khác (qua nút ✓ trên balance-history) đã đúng từ trước; bug chỉ ở path delivery-report popover.
+**Fix**: Mirror schema `transaction_verify` của balance-history (description format, oldData/newData fields, approverUser\*). Wrap try/catch để audit log fail không ảnh hưởng UX. Verify khác (qua nút ✓ trên balance-history) đã đúng từ trước; bug chỉ ở path delivery-report popover.
 
 **Status**: ✅ Done — `node --check` pass. Verify sau khi user kiểm tra GD mới từ delivery-report → check balance-history "Lịch Sử" tab có entry "Kiểm tra" với mã GD đúng.
 
@@ -75,7 +126,7 @@
 
 **User báo**: hover hiện hoạt động gần đây hơi spam, muốn phải bấm mới hiện. Hiện modal lớn 2 cột: bên trái bill TPOS, bên phải hoạt động khách (như popup hover cũ).
 
-**Implement**: Modal lazy-create (1200px × 90vh), header `{Number} · {Name} · {Phone}` + nút ×. Body grid `1fr 1fr`: cột trái bill iframe (sandbox + base target=_blank, srcdoc style giống popover bill cũ), cột phải reuse `renderCustomer()` qua tham số target — vẫn dùng class `dr-hp-*` cho stat/tx items, không apply `.dr-hover-popover` để tránh `max-width:460px / max-height:70vh` của popover override grid cell. Click overlay/× / Esc → close (Esc ưu tiên đóng modal trước popover). Click ô có button/link bên trong (vd nút unscan) → `closest('button, a')` short-circuit, không mở modal. Cache bill/customer share với code hover cũ → click 2 lần không refetch.
+**Implement**: Modal lazy-create (1200px × 90vh), header `{Number} · {Name} · {Phone}` + nút ×. Body grid `1fr 1fr`: cột trái bill iframe (sandbox + base target=\_blank, srcdoc style giống popover bill cũ), cột phải reuse `renderCustomer()` qua tham số target — vẫn dùng class `dr-hp-*` cho stat/tx items, không apply `.dr-hover-popover` để tránh `max-width:460px / max-height:70vh` của popover override grid cell. Click overlay/× / Esc → close (Esc ưu tiên đóng modal trước popover). Click ô có button/link bên trong (vd nút unscan) → `closest('button, a')` short-circuit, không mở modal. Cache bill/customer share với code hover cũ → click 2 lần không refetch.
 
 **Status**: ✅ Done — `node --check` pass. Local server (python3) không có trên Windows env này, bỏ qua live test; chờ user verify.
 

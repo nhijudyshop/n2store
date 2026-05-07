@@ -1,0 +1,83 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Library — AI KOL Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link rel="stylesheet" href="../hanghoan/css/modern.css" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script defer src="js/aikol-api.js"></script>
+    </head>
+    <body>
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                "
+            >
+                <div>
+                    <h1>Clip Library</h1>
+                    <p>Import clip TikTok / Douyin → chọn → generate</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <a class="aikol-btn aikol-btn--secondary" href="index.html">← Dashboard</a>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <h2>🚧 Sprint 2 — đang phát triển</h2>
+                <p style="color: var(--aikol-text-dim)">
+                    Trang Library (import + generate flow) sẽ được build trong Sprint 2 sau khi
+                    Sprint 1 (Models) được verify. Bao gồm:
+                </p>
+                <ul
+                    style="
+                        color: var(--aikol-text-dim);
+                        font-size: 0.9rem;
+                        line-height: 1.8;
+                        margin: 0;
+                        padding-left: 1.2rem;
+                    "
+                >
+                    <li>Import cả channel TikTok/Douyin (20/50/100/200 clips)</li>
+                    <li>Import 1 video URL (1 credit)</li>
+                    <li>Upload MP4 từ máy (free)</li>
+                    <li>
+                        Pick clips + cấu hình generation (similarity, creativity, keep_pose, etc.)
+                    </li>
+                    <li>Generate image (Fal.ai Flux + InstantID) hoặc video (Kling AI std/pro)</li>
+                    <li>Bulk generate với 4 preset (Fashion / Lookbook / Kling std / Kling pro)</li>
+                </ul>
+            </section>
+        </main>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', async () => {
+                if (window.lucide) window.lucide.createIcons();
+                try {
+                    const { balance, plan } = await window.AikolAPI.getCredits();
+                    document.getElementById('aikol-credits').textContent =
+                        `${balance} credits · ${plan}`;
+                } catch (_) {}
+            });
+        </script>
+    </body>
+</html>

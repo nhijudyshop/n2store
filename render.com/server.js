@@ -306,6 +306,7 @@ const uploadImageRoutes = require('./routes/upload');
 const quyTrinhRoutes = require('./routes/quy-trinh');
 const goongPlacesRoutes = require('./routes/goong-places');
 const autofbRoutes = require('./routes/autofb');
+const aikolRoutes = require('./routes/aikol');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse');
@@ -411,6 +412,7 @@ app.use('/api/upload', uploadImageRoutes);
 app.use('/api/quy-trinh', quyTrinhRoutes);
 app.use('/api/goong-places', goongPlacesRoutes);
 app.use('/api/autofb', autofbRoutes);
+app.use('/api/aikol', aikolRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
 // SSE for realtime updates (replaces Firebase listeners)

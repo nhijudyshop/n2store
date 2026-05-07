@@ -263,6 +263,13 @@ const MENU_CONFIG = [
         pageIdentifier: 'gemini-ai',
     },
     {
+        href: '../aikol-studio/index.html',
+        icon: 'wand-2',
+        text: 'AI KOL Studio',
+        shortText: 'AI KOL',
+        pageIdentifier: 'aikol-studio',
+    },
+    {
         href: '../lichsuchinhsua/index.html',
         icon: 'history',
         text: 'Lịch Sử Chỉnh Sửa',
@@ -568,7 +575,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: 'Khác',
         icon: 'grid',
-        items: ['gemini-ai', 'supplier-debt'],
+        items: ['gemini-ai', 'aikol-studio', 'supplier-debt'],
     },
 ];
 

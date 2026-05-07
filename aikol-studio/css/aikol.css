@@ -1,0 +1,261 @@
+/* AI KOL Studio — module-specific styles
+   Design direction: dark navy + violet accent (echoes tikreel's purple). */
+
+:root {
+    --aikol-bg: #0b0d17;
+    --aikol-surface: #131628;
+    --aikol-surface-2: #1a1e36;
+    --aikol-border: #252a45;
+    --aikol-text: #e6e9f5;
+    --aikol-text-dim: #8e94b3;
+    --aikol-accent: #7c5cff;
+    --aikol-accent-2: #5b3df0;
+    --aikol-success: #34d399;
+    --aikol-warn: #f59e0b;
+    --aikol-error: #ef4444;
+}
+
+.aikol-shell {
+    background: var(--aikol-bg);
+    color: var(--aikol-text);
+    min-height: calc(100vh - var(--topbar-height, 60px));
+    padding: clamp(1rem, 2vw, 2rem);
+}
+
+.aikol-header h1 {
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.25rem);
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+    letter-spacing: -0.01em;
+}
+.aikol-header p {
+    color: var(--aikol-text-dim);
+    margin: 0 0 1.5rem;
+}
+
+/* Step cards on dashboard */
+.aikol-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-block: 1.5rem;
+}
+.aikol-step {
+    background: var(--aikol-surface);
+    border: 1px solid var(--aikol-border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition:
+        border-color 150ms ease,
+        transform 150ms ease;
+}
+.aikol-step:hover {
+    border-color: var(--aikol-accent);
+    transform: translateY(-2px);
+}
+.aikol-step__num {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--aikol-surface-2);
+    color: var(--aikol-text-dim);
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+.aikol-step h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+.aikol-step p {
+    margin: 0;
+    color: var(--aikol-text-dim);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+.aikol-step a {
+    color: var(--aikol-accent);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-top: auto;
+}
+.aikol-step a:hover {
+    text-decoration: underline;
+}
+
+/* Card / panel */
+.aikol-panel {
+    background: var(--aikol-surface);
+    border: 1px solid var(--aikol-border);
+    border-radius: 14px;
+    padding: clamp(1rem, 2vw, 1.5rem);
+    margin-block: 1rem;
+}
+.aikol-panel h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* Buttons */
+.aikol-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: var(--aikol-accent);
+    color: white;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition:
+        background 150ms ease,
+        transform 150ms ease;
+}
+.aikol-btn:hover {
+    background: var(--aikol-accent-2);
+    transform: translateY(-1px);
+}
+.aikol-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+.aikol-btn--secondary {
+    background: transparent;
+    border-color: var(--aikol-border);
+    color: var(--aikol-text);
+}
+.aikol-btn--secondary:hover {
+    background: var(--aikol-surface-2);
+    border-color: var(--aikol-accent);
+}
+.aikol-btn--danger {
+    background: transparent;
+    border-color: var(--aikol-border);
+    color: var(--aikol-error);
+}
+.aikol-btn--danger:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: var(--aikol-error);
+}
+
+/* Inputs */
+.aikol-input {
+    width: 100%;
+    background: var(--aikol-surface-2);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    color: var(--aikol-text);
+    font-size: 0.9rem;
+}
+.aikol-input:focus {
+    outline: none;
+    border-color: var(--aikol-accent);
+}
+.aikol-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--aikol-text-dim);
+    margin-bottom: 0.35rem;
+}
+
+/* Models grid */
+.aikol-models-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+}
+.aikol-model-card {
+    background: var(--aikol-surface);
+    border: 1px solid var(--aikol-border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.aikol-model-card__thumb {
+    aspect-ratio: 1;
+    background: var(--aikol-surface-2);
+    background-size: cover;
+    background-position: center;
+}
+.aikol-model-card__body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.aikol-model-card__name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.aikol-model-card__meta {
+    font-size: 0.78rem;
+    color: var(--aikol-text-dim);
+}
+
+/* Empty state */
+.aikol-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--aikol-text-dim);
+}
+
+/* Topbar credit chip */
+.aikol-credit-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.7rem;
+    background: var(--aikol-surface-2);
+    border: 1px solid var(--aikol-border);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--aikol-text);
+}
+
+/* Toast */
+.aikol-toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: var(--aikol-surface);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    color: var(--aikol-text);
+    font-size: 0.9rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 9999;
+    animation: aikol-slide-in 200ms ease;
+}
+.aikol-toast--error {
+    border-color: var(--aikol-error);
+}
+.aikol-toast--success {
+    border-color: var(--aikol-success);
+}
+@keyframes aikol-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}

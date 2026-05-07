@@ -1,0 +1,142 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>AI KOL Studio — n2store</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link rel="stylesheet" href="../hanghoan/css/modern.css" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <!-- Firebase + shared (for menu sync + auth) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <!-- Shared auth + cache -->
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script defer src="js/aikol-api.js"></script>
+    </head>
+    <body>
+        <!-- Navigation injected by shared/js/navigation-modern.js -->
+
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                "
+            >
+                <div>
+                    <h1>AI KOL Studio</h1>
+                    <p>Nhân bản KOL — clone TikTok/Douyin → tạo nội dung không giới hạn</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <a class="aikol-btn aikol-btn--secondary" href="settings.html">Nạp thêm</a>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <h2>Bắt đầu — 4 bước tạo nội dung đầu tiên</h2>
+                <div class="aikol-steps">
+                    <div class="aikol-step">
+                        <span class="aikol-step__num">1</span>
+                        <h3>Upload model</h3>
+                        <p>
+                            1 ảnh chân dung — gương mặt + thân hình. AI sẽ clone vào mọi kết quả.
+                            Chọn ảnh rõ mặt, ánh sáng tốt.
+                        </p>
+                        <a href="models.html">Upload model →</a>
+                    </div>
+                    <div class="aikol-step">
+                        <span class="aikol-step__num">2</span>
+                        <h3>Import clip</h3>
+                        <p>
+                            3 cách: nhập cả kênh TikTok/Douyin · paste 1 video URL · upload MP4 từ
+                            máy.
+                        </p>
+                        <a href="library.html">Mở Library →</a>
+                    </div>
+                    <div class="aikol-step">
+                        <span class="aikol-step__num">3</span>
+                        <h3>(Tuỳ chọn) Sản phẩm</h3>
+                        <p>
+                            Ảnh quần áo / phụ kiện để "mặc" cho model. Khỏi tự generate outfit từ
+                            TikTok frame.
+                        </p>
+                        <a href="products.html">Upload product →</a>
+                    </div>
+                    <div class="aikol-step">
+                        <span class="aikol-step__num">4</span>
+                        <h3>Generate</h3>
+                        <p>
+                            Library → chọn clip → Generate. Hoặc /bulk để 1-click cả channel. Output
+                            về Library.
+                        </p>
+                        <a href="library.html">Generate →</a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="aikol-panel">
+                <h2>Mẹo dùng Kling video</h2>
+                <ul
+                    style="
+                        color: var(--aikol-text-dim);
+                        font-size: 0.9rem;
+                        line-height: 1.8;
+                        margin: 0;
+                        padding-left: 1.2rem;
+                    "
+                >
+                    <li>
+                        Chọn clip <strong style="color: var(--aikol-text)">1 cảnh đơn</strong> —
+                        tránh cắt/zoom liên tục.
+                    </li>
+                    <li>
+                        Subject phải
+                        <strong style="color: var(--aikol-text)">đi/quay 1 hướng</strong> — không
+                        xoay 180° đột ngột.
+                    </li>
+                    <li>
+                        Tránh clip có
+                        <strong style="color: var(--aikol-text)">nhiều người</strong> hoặc che mặt —
+                        Kling sẽ confuse.
+                    </li>
+                    <li>
+                        <strong style="color: var(--aikol-text)">5–15 giây</strong> là tốt nhất. Dài
+                        hơn vẫn chạy nhưng dễ artifact.
+                    </li>
+                </ul>
+                <p style="color: var(--aikol-text-dim); font-size: 0.85rem; margin-top: 1rem">
+                    4 credits / ảnh · 7 credits / sec video std (720p) · 13 credits / sec video pro
+                    (1080p)<br />
+                    1 credit ≈ 333 VND. Hết credits →
+                    <a href="settings.html" style="color: var(--aikol-accent)">nạp thêm</a>.
+                </p>
+            </section>
+        </main>
+
+        <script>
+            // Cosmetic: load credits + lucide icons after DOM ready
+            document.addEventListener('DOMContentLoaded', async () => {
+                if (window.lucide) window.lucide.createIcons();
+                try {
+                    const { balance, plan } = await window.AikolAPI.getCredits();
+                    document.getElementById('aikol-credits').textContent =
+                        `${balance} credits · ${plan}`;
+                } catch (_) {}
+            });
+        </script>
+    </body>
+</html>
