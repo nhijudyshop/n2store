@@ -224,16 +224,25 @@ const isKnown = (m) => KNOWN_OK.some((re) => re.test(String(m)));
         );
     }
 
-    // Toggle kind=video, ensure data-video-only block becomes visible.
-    await page.selectOption('[name="kind"]', 'video');
-    await page.waitForTimeout(300);
+    // Toggle kind=video. Sprint 5 redesign uses segmented buttons + hidden input
+    // (instead of <select>); fall back to selectOption when running on the older
+    // bulk page.
+    async function toggleKind(target) {
+        const seg = await page.$(`.aikol-segmented__btn[data-kind="${target}"]`);
+        if (seg) {
+            await seg.click();
+        } else {
+            await page.selectOption('[name="kind"]', target);
+        }
+        await page.waitForTimeout(300);
+    }
+    await toggleKind('video');
     const videoBlockVisible = await page.$eval(
         '[data-video-only]',
         (el) => getComputedStyle(el).display !== 'none'
     );
     rec('kind=video shows kling_mode + duration block', videoBlockVisible);
-    await page.selectOption('[name="kind"]', 'image');
-    await page.waitForTimeout(300);
+    await toggleKind('image');
 
     // Direct unit-style check of the no-model guard (avoids FormData edge cases —
     // browsers re-snap select.value to the first non-empty option after innerHTML
@@ -289,14 +298,33 @@ const isKnown = (m) => KNOWN_OK.some((re) => re.test(String(m)));
         await page.click('[data-preset="favorites_image"]');
         await page.waitForTimeout(300);
         await page.selectOption('[name="model_id"]', String(modelId));
-        await page.click('#bulk-form button[type="submit"]');
-        const noClipsToast = await toastText(10000);
-        rec(
-            'submit no-matching-clips → 404 toast',
-            noClipsToast && /khớp|không có clip/i.test(noClipsToast),
-            noClipsToast
-        );
-        await dismissToasts();
+        // Sprint 5 redesign:
+        // (a) submit button moved outside the form to a sticky right rail
+        //     (#launch-btn with form="bulk-form"), AND
+        // (b) the button auto-disables when 0 clips match the filter (better UX
+        //     than letting the user submit a doomed request).
+        // We accept EITHER: the button is disabled with a "no clips" title,
+        // OR clicking returns the legacy 404 toast.
+        const launchBtn = await page.$('#launch-btn');
+        const submitSel = launchBtn ? '#launch-btn' : '#bulk-form button[type="submit"]';
+        const isDisabled = await page.$eval(submitSel, (el) => el.disabled);
+        const titleAttr = await page.$eval(submitSel, (el) => el.title || '');
+        if (isDisabled && /khớp|không có clip/i.test(titleAttr)) {
+            rec(
+                'submit no-matching-clips → button disabled with hint',
+                true,
+                `disabled · title="${titleAttr}"`
+            );
+        } else {
+            await page.click(submitSel);
+            const noClipsToast = await toastText(10000);
+            rec(
+                'submit no-matching-clips → 404 toast',
+                noClipsToast && /khớp|không có clip/i.test(noClipsToast),
+                noClipsToast
+            );
+            await dismissToasts();
+        }
     }
 
     // ================== CAMPAIGNS: full lifecycle ==================
