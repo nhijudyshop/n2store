@@ -301,18 +301,26 @@ function renderTagPanelCards() {
 
         // Show sub-list of zero-order tags when active
         if (isZeroActive && zeroOrderTags.length > 0) {
+            const pinnedCount = zeroOrderTags.filter((t) => t.pinned).length;
+            const headerCountText =
+                pinnedCount > 0
+                    ? `${zeroCount} tag không có đơn <span class="zero-order-pinned-count">(${pinnedCount} đã ghim)</span>`
+                    : `${zeroCount} tag không có đơn`;
             html += `<div class="zero-order-tags-list">`;
             html += `
                 <div class="zero-order-tags-header">
-                    <span>${zeroCount} tag không có đơn</span>
-                    <button class="zero-order-delete-all" onclick="event.stopPropagation(); deleteAllZeroOrderTags()" title="Xóa toàn bộ tag không có đơn">
+                    <span>${headerCountText}</span>
+                    <button class="zero-order-delete-all" onclick="event.stopPropagation(); deleteAllZeroOrderTags()" title="Xóa toàn bộ tag không có đơn (bỏ qua tag đã ghim)">
                         <i class="fas fa-trash-alt"></i> Xóa toàn bộ
                     </button>
                 </div>
             `;
             zeroOrderTags.forEach((tag) => {
+                const isPinned = !!tag.pinned;
+                const pinTitle = isPinned ? `Bỏ ghim tag ${tag.name}` : `Ghim tag ${tag.name}`;
+                const itemClass = isPinned ? 'zero-order-tag-item pinned' : 'zero-order-tag-item';
                 html += `
-                    <div class="zero-order-tag-item">
+                    <div class="${itemClass}">
                         <div class="zero-order-tag-icon" style="background: ${tag.color};">
                             ${
                                 tag.image
@@ -321,6 +329,9 @@ function renderTagPanelCards() {
                             }
                         </div>
                         <span class="zero-order-tag-name">${tag.name}</span>
+                        <button class="zero-order-tag-pin ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinZeroOrderTag('${tag.id}')" title="${pinTitle}">
+                            <i class="fas fa-thumbtack"></i>
+                        </button>
                         <button class="zero-order-tag-delete" onclick="event.stopPropagation(); deletePanelTag('${tag.id}')" title="Xóa tag ${tag.name}">
                             <i class="fas fa-trash-alt"></i>
                         </button>
@@ -1198,10 +1209,22 @@ function deleteAllZeroOrderTags() {
         return;
     }
 
-    const names = zeroOrderTags.map((t) => t.name).join(', ');
-    if (!confirm(`Xóa toàn bộ ${zeroOrderTags.length} tag không có đơn?\n\n${names}`)) return;
+    const deletable = zeroOrderTags.filter((t) => !t.pinned);
+    const pinnedCount = zeroOrderTags.length - deletable.length;
 
-    const idsToRemove = new Set(zeroOrderTags.map((t) => t.id));
+    if (deletable.length === 0) {
+        showNotification(
+            `Tất cả ${pinnedCount} tag không có đơn đã được ghim. Bỏ ghim trước khi xóa.`,
+            'info'
+        );
+        return;
+    }
+
+    const names = deletable.map((t) => t.name).join(', ');
+    const pinnedNote = pinnedCount > 0 ? `\n\n(Bỏ qua ${pinnedCount} tag đã ghim)` : '';
+    if (!confirm(`Xóa toàn bộ ${deletable.length} tag không có đơn?\n\n${names}${pinnedNote}`)) return;
+
+    const idsToRemove = new Set(deletable.map((t) => t.id));
     SocialOrderState.tags = SocialOrderState.tags.filter((t) => !idsToRemove.has(t.id));
 
     // Save
@@ -1215,7 +1238,31 @@ function deleteAllZeroOrderTags() {
     performTableSearch();
     if (isTagPanelOpen) renderTagPanelCards();
 
-    showNotification(`Đã xóa ${zeroOrderTags.length} tag không có đơn`, 'success');
+    const successMsg =
+        pinnedCount > 0
+            ? `Đã xóa ${deletable.length} tag (giữ ${pinnedCount} tag đã ghim)`
+            : `Đã xóa ${deletable.length} tag không có đơn`;
+    showNotification(successMsg, 'success');
+}
+
+// ===== TOGGLE PIN ZERO-ORDER TAG =====
+function togglePinZeroOrderTag(tagId) {
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
+    if (!tag) return;
+
+    tag.pinned = !tag.pinned;
+
+    saveSocialTagsToStorage();
+    if (typeof saveSocialTagsToFirebase === 'function') {
+        saveSocialTagsToFirebase(SocialOrderState.tags);
+    }
+
+    if (isTagPanelOpen) renderTagPanelCards();
+
+    showNotification(
+        tag.pinned ? `Đã ghim tag "${tag.name}"` : `Đã bỏ ghim tag "${tag.name}"`,
+        'success'
+    );
 }
 
 // ===== EXPORTS =====
@@ -1251,3 +1298,4 @@ window.onTagDayFilterChange = onTagDayFilterChange;
 window.deletePanelTag = deletePanelTag;
 window.performTableSearchWithZeroOrderTags = performTableSearchWithZeroOrderTags;
 window.deleteAllZeroOrderTags = deleteAllZeroOrderTags;
+window.togglePinZeroOrderTag = togglePinZeroOrderTag;

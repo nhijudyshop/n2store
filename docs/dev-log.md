@@ -8,6 +8,23 @@
 
 ## 2026-05-07
 
+### [inbox] Ghim tag không có đơn — bảo vệ khỏi "Xóa toàn bộ"
+
+- **Why**: Card "TAG KHÔNG CÓ ĐƠN" có nút "Xóa toàn bộ" — đôi khi user muốn giữ một số tag dù chưa có đơn (tag chuẩn bị live, tag template). Cần cách flag tag để skip khỏi xóa hàng loạt.
+- **What**: Thêm icon ghim (📌 `fa-thumbtack`) trên mỗi row trong sub-list zero-order. Click toggle `tag.pinned` boolean → persist qua `saveSocialTagsToStorage()` + `saveSocialTagsToFirebase()`. `deleteAllZeroOrderTags()` filter `!t.pinned` trước khi xóa, hiển thị "(Bỏ qua N tag đã ghim)" trong confirm + notification. Header sub-list show `(N đã ghim)` nếu có. Row pinned có border vàng + icon thumbtack vàng luôn hiển thị (không cần hover).
+- **Edge cases**:
+  - Tất cả tag không có đơn đều ghim → button "Xóa toàn bộ" notify "Tất cả N tag đã được ghim. Bỏ ghim trước khi xóa.", không xóa gì.
+  - Pin state preserve khi tag chuyển sang có đơn / không có đơn (property nằm trên tag, không phụ thuộc trạng thái).
+
+**Files MODIFIED (2)**:
+
+- [don-inbox/js/tab-social-panel.js](../don-inbox/js/tab-social-panel.js) — render pin button + pinned class, `togglePinZeroOrderTag()`, update `deleteAllZeroOrderTags()` skip pinned, expose `window.togglePinZeroOrderTag`.
+- [don-inbox/css/don-inbox.css](../don-inbox/css/don-inbox.css) — `.zero-order-tag-pin` (default + `.pinned` state), `.zero-order-tag-item.pinned` (border vàng), `.zero-order-pinned-count` (text vàng).
+
+**Status**: ✅ Done — chưa verify live, ưu tiên user test UI.
+
+---
+
 ### [render] feat(v2-odata-shadow): TPOS OData drop-in replacement (PoC iter 1)
 
 **Goal**: Build foundation cho thay thế TPOS từng phần. Frontend KHÔNG cần sửa — chỉ cần đổi base URL từ `/api/odata/*` (CF Worker → tomato.tpos.vn) sang `/api/v2/odata/*` (Render local).

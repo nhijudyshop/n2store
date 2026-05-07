@@ -1741,6 +1741,65 @@ td[data-column].hidden {
     color: white;
 }
 
+/* Pin button on each zero-order tag row */
+.zero-order-tag-pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    border: none;
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 10px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0;
+    opacity: 0;
+    transform: rotate(45deg);
+}
+
+.zero-order-tag-item:hover .zero-order-tag-pin {
+    opacity: 1;
+}
+
+.zero-order-tag-pin:hover {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+/* Pinned state — always visible, highlighted */
+.zero-order-tag-pin.pinned {
+    opacity: 1;
+    background: #fef3c7;
+    color: #d97706;
+    transform: rotate(0deg);
+}
+
+.zero-order-tag-pin.pinned:hover {
+    background: #fde68a;
+    color: #b45309;
+}
+
+/* Row styling when pinned */
+.zero-order-tag-item.pinned {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    padding-left: 3px;
+}
+
+.zero-order-tag-item.pinned:hover {
+    background: #fef3c7;
+}
+
+/* Pinned count text in header */
+.zero-order-pinned-count {
+    color: #d97706;
+    font-weight: 600;
+}
+
 .zero-order-tags-empty {
     text-align: center;
     color: #10b981;
