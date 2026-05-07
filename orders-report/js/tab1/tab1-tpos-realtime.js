@@ -672,38 +672,72 @@
 
     let tableUpdateEnabled = true; // Toggle: render new/updated orders into table
 
-    // ===== Status Indicator (inline toggle button) =====
+    // ===== Status Indicator (iOS-style switch) =====
+    // Switch render: ON=xanh + knob phải, OFF=xám + knob trái, RECONNECT=cam.
+    // Label: "RT: BẬT" (ON+connected) / "RT: TẮT" (OFF) / "RT: kết nối lại…" (ON+reconnecting).
     function updateStatusIndicator(connected) {
-        const dot = document.getElementById('tposRtDot');
         const label = document.getElementById('tposRtLabel');
         const btn = document.getElementById('tposRtToggle');
-        if (!dot || !label || !btn) return;
+        const knob = document.getElementById('tposRtKnob');
+        if (!label || !btn || !knob) return;
 
         if (!tableUpdateEnabled) {
-            dot.style.background = '#d1d5db';
-            label.textContent = 'RT tắt';
-            btn.style.borderColor = '#d1d5db';
-            btn.style.background = '#f9fafb';
+            btn.setAttribute('aria-checked', 'false');
+            btn.style.background = '#d1d5db';
+            knob.style.transform = 'translateX(0)';
+            label.textContent = 'RT: TẮT';
+            label.style.color = '#6b7280';
             btn.title = 'Cập nhật bảng real-time đang tắt — click để bật';
         } else if (connected) {
-            dot.style.background = '#22c55e';
-            label.textContent = 'RT';
-            btn.style.borderColor = '#86efac';
-            btn.style.background = '#f0fdf4';
+            btn.setAttribute('aria-checked', 'true');
+            btn.style.background = '#22c55e';
+            knob.style.transform = 'translateX(16px)';
+            label.textContent = 'RT: BẬT';
+            label.style.color = '#16a34a';
             btn.title = 'Đơn mới tự thêm vào bảng — click để tắt';
         } else {
-            dot.style.background = '#ef4444';
-            label.textContent = 'RT...';
-            btn.style.borderColor = '#fca5a5';
-            btn.style.background = '#fef2f2';
+            btn.setAttribute('aria-checked', 'true');
+            btn.style.background = '#f59e0b'; // amber khi reconnecting
+            knob.style.transform = 'translateX(16px)';
+            label.textContent = 'RT: kết nối lại…';
+            label.style.color = '#b45309';
             btn.title = 'Đang kết nối lại server — click để tắt cập nhật bảng';
         }
     }
 
     function toggle() {
+        // Permission gate: chỉ admin / lai-authenticated mới toggle được.
+        if (
+            typeof window._canTogglePowerSwitches === 'function' &&
+            !window._canTogglePowerSwitches()
+        ) {
+            console.warn('[TPOS-RT] Toggle: không có quyền');
+            return;
+        }
         tableUpdateEnabled = !tableUpdateEnabled;
         updateStatusIndicator(ws?.readyState === 1);
         console.log('[TPOS-RT] Table updates:', tableUpdateEnabled ? 'ON' : 'OFF');
+    }
+
+    // Hide RT switch cho user non-priv. Force ON (default) — họ vẫn có realtime
+    // updates nhưng không thấy + không tắt được.
+    function _hideRtUIIfNotAllowed() {
+        if (
+            typeof window._canTogglePowerSwitches === 'function' &&
+            !window._canTogglePowerSwitches()
+        ) {
+            const wrap = document.getElementById('tposRtToggle');
+            const label = document.getElementById('tposRtLabel');
+            if (wrap) wrap.style.display = 'none';
+            if (label) label.style.display = 'none';
+            // Force ON — đảm bảo state mặc định cho non-priv users.
+            tableUpdateEnabled = true;
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _hideRtUIIfNotAllowed);
+    } else {
+        _hideRtUIIfNotAllowed();
     }
 
     // ===== Utilities =====

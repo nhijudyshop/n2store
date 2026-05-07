@@ -6918,7 +6918,25 @@
         }
     }
 
+    function _hideAutoTUI() {
+        const wrap = document.getElementById('autoTToggle');
+        const label = document.getElementById('autoTLabel');
+        if (wrap) wrap.style.display = 'none';
+        if (label) label.style.display = 'none';
+    }
+
     function _loadAutoTClearSetting() {
+        // User không có quyền (không phải admin / lai-authenticated):
+        // → ẨN switch + force state = ON (default cho mọi user khác).
+        // Họ vẫn có Auto T behavior nhưng không thay đổi được.
+        if (
+            typeof window._canTogglePowerSwitches === 'function' &&
+            !window._canTogglePowerSwitches()
+        ) {
+            _autoTClearEnabled = true;
+            _hideAutoTUI();
+            return true;
+        }
         // Luôn sync UI với state (ngay cả khi chưa load được setting) để tránh
         // mismatch UI-vs-state: HTML default styles xám nhưng state default TRUE.
         if (window.userStorageManager) {
@@ -6935,6 +6953,14 @@
     }
 
     function toggleAutoTClear() {
+        // Permission gate: non-priv users không được toggle.
+        if (
+            typeof window._canTogglePowerSwitches === 'function' &&
+            !window._canTogglePowerSwitches()
+        ) {
+            console.warn(`${PTAG_LOG} Auto T toggle: không có quyền`);
+            return;
+        }
         _autoTClearEnabled = !_autoTClearEnabled;
         _updateAutoTToggleUI();
         if (window.userStorageManager) {

@@ -50,6 +50,24 @@
         <script src="js/utils/decoding-utility.js"></script>
         <script src="js/utils/fetch-with-timeout.js"></script>
         <script src="js/core/api-handler.js"></script>
+        <script>
+            // Permission gate cho power-user toggles (RT, Auto T).
+            // Chỉ admin / lai-authenticated được toggle; users khác mặc định ON, ẩn switch.
+            // Dùng inline để load trước mọi module init switch UI.
+            window._canTogglePowerSwitches = function () {
+                try {
+                    const auth = JSON.parse(
+                        localStorage.getItem('loginindex_auth') ||
+                            sessionStorage.getItem('loginindex_auth') ||
+                            '{}'
+                    );
+                    const t = String(auth.userType || localStorage.getItem('userType') || '');
+                    return t === 'admin-authenticated' || t === 'lai-authenticated';
+                } catch (e) {
+                    return false;
+                }
+            };
+        </script>
         <link rel="stylesheet" href="../shared/css/typography.css" />
         <!-- typography:shared -->
         <link rel="stylesheet" href="css/design-system.css" />
@@ -1009,35 +1027,53 @@
                     <div style="display: flex; align-items: center; gap: 8px">
                         <span class="search-result-count" id="searchResultCount">0</span>
                         <span> kết quả</span>
+                        <span
+                            id="tposRtLabel"
+                            style="
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: #6b7280;
+                                user-select: none;
+                            "
+                            >RT: TẮT</span
+                        >
                         <button
                             id="tposRtToggle"
+                            type="button"
+                            role="switch"
+                            aria-checked="false"
+                            aria-label="Realtime toggle"
                             onclick="window.tposRealtime?.toggle()"
                             title="Bật/tắt cập nhật real-time từ TPOS"
                             style="
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 4px;
-                                padding: 2px 8px;
+                                position: relative;
+                                width: 36px;
+                                height: 20px;
                                 border-radius: 12px;
-                                border: 1px solid #d1d5db;
-                                background: #f9fafb;
-                                font-size: 11px;
+                                border: none;
+                                background: #d1d5db;
+                                padding: 0;
                                 cursor: pointer;
-                                color: #6b7280;
-                                transition: all 0.2s;
+                                transition: background 0.25s ease;
+                                flex-shrink: 0;
                             "
                         >
                             <span
-                                id="tposRtDot"
+                                id="tposRtKnob"
                                 style="
-                                    width: 7px;
-                                    height: 7px;
+                                    position: absolute;
+                                    top: 2px;
+                                    left: 2px;
+                                    width: 16px;
+                                    height: 16px;
                                     border-radius: 50%;
-                                    background: #d1d5db;
-                                    transition: background 0.3s;
+                                    background: #ffffff;
+                                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+                                    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                                    transform: translateX(0);
                                 "
                             ></span>
-                            <span id="tposRtLabel">RT</span>
+                            <span id="tposRtDot" style="display: none"></span>
                         </button>
                         <span
                             id="autoTLabel"
