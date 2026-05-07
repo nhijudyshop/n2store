@@ -2887,7 +2887,10 @@
 
         // Pick evidence for a recent_transactions row.
         // Priority: sepay/inline image → ticket reference (TV- > NJD-).
-        // Returns {kind:'image'|'ticket', value} or null.
+        // Returns {kind:'image'|'ticket'|'invoice', value} or null.
+        // - image: tx có ảnh duyệt CK → mở lightbox
+        // - ticket: tx ref đến TV-YYYY-NNNNN (issue-tracking ticket) → mở ticket history viewer
+        // - invoice: tx ref đến NJD/YYYY/N+ (FastSaleOrder) → mở bill modal trực tiếp
         function pickTxEvidence(tx) {
             if (!tx) return null;
             const note = String(tx.note || '');
@@ -2901,20 +2904,26 @@
             }
             for (const f of fields) {
                 const m = String(f).match(/NJD\/\d{4}\/\d+/i);
-                if (m) return { kind: 'ticket', value: m[0].toUpperCase() };
+                if (m) return { kind: 'invoice', value: m[0].toUpperCase() };
             }
             return null;
         }
 
-        // Build eye button for any tx — chooses image lightbox vs ticket viewer.
+        // Build eye button for any tx — chooses image lightbox / ticket viewer / invoice bill.
         function eyeBtnHtmlForTx(tx) {
             const ev = pickTxEvidence(tx);
             if (!ev) return '';
-            const title = ev.kind === 'image' ? 'Xem ảnh duyệt CK' : 'Xem chi tiết phiếu';
-            const dataAttr =
-                ev.kind === 'image'
-                    ? `data-img="${escapeHtml(ev.value)}"`
-                    : `data-ticket="${escapeHtml(ev.value)}"`;
+            let title, dataAttr;
+            if (ev.kind === 'image') {
+                title = 'Xem ảnh duyệt CK';
+                dataAttr = `data-img="${escapeHtml(ev.value)}"`;
+            } else if (ev.kind === 'ticket') {
+                title = 'Xem chi tiết phiếu xử lý';
+                dataAttr = `data-ticket="${escapeHtml(ev.value)}"`;
+            } else {
+                title = `Xem bill ${ev.value}`;
+                dataAttr = `data-invoice="${escapeHtml(ev.value)}"`;
+            }
             return `<button type="button" class="dr-hp-eye-btn" data-eye-kind="${ev.kind}" ${dataAttr} title="${title}"><i class="fas fa-eye"></i></button>`;
         }
 
@@ -3196,8 +3205,9 @@
                     e.stopPropagation();
                     const kind = btn.getAttribute('data-eye-kind') || 'image';
                     if (kind === 'ticket') {
-                        const code = btn.getAttribute('data-ticket');
-                        openTicketDetail(code);
+                        openTicketDetail(btn.getAttribute('data-ticket'));
+                    } else if (kind === 'invoice') {
+                        openInvoiceBillModal(btn.getAttribute('data-invoice'), phone);
                     } else {
                         const url = btn.getAttribute('data-img');
                         if (url) openLightbox(url);
@@ -3666,7 +3676,61 @@
             const phone = custCell?.dataset.phone || '';
             const customerName =
                 custCell?.querySelector('.dr-customer-name')?.textContent?.trim() || '';
+            return openRowModalByData({ id, number, phone, customerName });
+        }
 
+        // Find a FastSaleOrder Id from its Number (NJD/YYYY/N+) via TPOS OData. Mirrors
+        // what TPOS does when the user types a Số HĐ into the invoice list filter.
+        async function resolveInvoiceIdByNumber(number) {
+            if (!number) return null;
+            const fromState = (DeliveryReportState.allData || []).find((i) => i.Number === number);
+            if (fromState?.Id) return fromState.Id;
+            const token = await getToken().catch(() => null);
+            const headers = { accept: 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const filter = `(Type eq 'invoice' and contains(Number,'${number}'))`;
+            const url = `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView?$top=1&$filter=${encodeURIComponent(filter)}&$select=Id,Number,DateInvoice`;
+            const resp = await fetch(url, { headers });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            const found = (json.value || [])[0] || null;
+            return found?.Id || null;
+        }
+
+        // Open the bill+activity modal directly for a given NJD invoice number, e.g.
+        // when the user clicks an eye on a "Thanh toán qua COD đơn hàng #NJD/..."
+        // transaction in the customer activity column.
+        async function openInvoiceBillModal(number, fallbackPhone) {
+            if (!number) return;
+            const modal = ensureRowModal();
+            modal.style.display = 'flex';
+            const titleEl = modal.querySelector('#dr-row-title');
+            titleEl.textContent = `${number} · Đang tìm phiếu…`;
+            const billCol = modal.querySelector('#dr-row-bill');
+            billCol.innerHTML =
+                '<div class="dr-hp-loading" style="padding:24px;display:flex;align-items:center;justify-content:center;gap:8px;color:#6b7280;"><div class="dr-hp-spinner"></div><span>Đang tìm số phiếu ' +
+                escapeHtml(number) +
+                '…</span></div>';
+            try {
+                const id = await resolveInvoiceIdByNumber(number);
+                if (!id) {
+                    billCol.innerHTML = `<div class="dr-hp-error" style="padding:20px;color:#dc2626;">Không tìm thấy phiếu ${escapeHtml(number)} trên TPOS.</div>`;
+                    titleEl.textContent = `${number} · Không tìm thấy`;
+                    return;
+                }
+                await openRowModalByData({
+                    id,
+                    number,
+                    phone: fallbackPhone || '',
+                    customerName: '',
+                });
+            } catch (e) {
+                billCol.innerHTML = `<div class="dr-hp-error" style="padding:20px;color:#dc2626;">Lỗi tìm phiếu: ${escapeHtml(e.message)}</div>`;
+                titleEl.textContent = `${number} · Lỗi`;
+            }
+        }
+
+        async function openRowModalByData({ id, number, phone, customerName }) {
             const modal = ensureRowModal();
             modal.style.display = 'flex';
             modal.querySelector('#dr-row-title').textContent =

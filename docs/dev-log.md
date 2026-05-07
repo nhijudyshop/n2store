@@ -8,6 +8,31 @@
 
 ## 2026-05-07
 
+### [delivery] Fix "Lỗi: Không tìm thấy phiếu cho đơn NJD/..." — NJD eye mở bill thay vì ticket history
+
+**Bug** — Trong cột "Hoạt động khách hàng" của row modal, mỗi giao dịch thanh toán COD có note như `Thanh toán công nợ qua COD đơn hàng #NJD/2026/65765`. `pickTxEvidence` cũ ghép cả TV-_ (issue-tracking ticket) và NJD/_ (invoice) vào cùng `kind: 'ticket'` ⇒ click eye đều rơi xuống `showTicketHistoryViewer` ⇒ với NJD code thì `searchTicketsServer` không tìm thấy ticket xử lý nào ⇒ "Lỗi: Không tìm thấy phiếu cho đơn NJD/2026/65765".
+
+**Fix** — Tách thành 2 kind:
+
+- `kind: 'ticket'` — chỉ cho TV-YYYY-NNNNN (giữ flow cũ qua ticket-history-viewer).
+- `kind: 'invoice'` — cho NJD/YYYY/N+. Eye click gọi `openInvoiceBillModal(number)` mới, mở row modal với title "Đang tìm phiếu...", resolve `Id` qua TPOS OData `FastSaleOrder/ODataService.GetView?$filter=Type eq 'invoice' and contains(Number,'NJD/...')` (bắt chước flow user gõ Số HĐ vào filter trên `tomato.tpos.vn/#/app/fastsaleorder/invoicelist`), rồi gọi tiếp custom bill template như row modal thường. Nếu OData trả empty → bill column hiển thị "Không tìm thấy phiếu NJD/... trên TPOS.".
+
+Refactor: tách logic render bill+activity của `openRowModal(cell)` ra `openRowModalByData({id, number, phone, customerName})` để tái sử dụng từ cả `openRowModal` (click cell) lẫn `openInvoiceBillModal` (click eye).
+
+Cập nhật eye-button title: NJD nay hiện "Xem bill NJD/...", TV-\* hiện "Xem chi tiết phiếu xử lý" (rõ ý).
+
+**Files MODIFIED (1)**:
+
+- [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `pickTxEvidence()` tách invoice/ticket, `eyeBtnHtmlForTx()` 3 nhánh title+dataAttr, `wirePopoverActions` thêm nhánh `kind === 'invoice'`, thêm `resolveInvoiceIdByNumber()` + `openInvoiceBillModal()` + `openRowModalByData()` (refactor `openRowModal`).
+
+**Files NEW (1)**:
+
+- [scripts/test-delivery-invoice-eye.js](../scripts/test-delivery-invoice-eye.js) — Playwright 3 cases / 10 assertions: TEST A (eye buttons rendered with kind=invoice for NJD, kind=ticket for TV-\*), TEST B (NJD click stubs OData GetView + FastSaleOrder($id)?$expand=OrderLines, verify modal opens with custom bill template), TEST C (empty GetView result → "Không tìm thấy phiếu" friendly error). All PASS.
+
+**Status**: ✅ Done
+
+---
+
 ### [delivery] Fix "Xem chi tiết phiếu" — z-index, ApiService not loaded, custom bill template
 
 **Bug 1 — Modal "Lịch sử phiếu" sai z-index, hiện sau row modal**
