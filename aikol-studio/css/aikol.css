@@ -1120,6 +1120,9 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.4rem;
 }
+.aikol-dash-thumbs > .aikol-empty {
+    grid-column: 1 / -1;
+}
 @media (max-width: 540px) {
     .aikol-dash-thumbs {
         grid-template-columns: repeat(3, minmax(0, 1fr));
