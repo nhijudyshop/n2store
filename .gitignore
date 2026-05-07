@@ -94,3 +94,4 @@ resident/data/*.json
 
 # Scheduled tasks lock
 .claude/scheduled_tasks.lock
+downloads/tikreel-ui-study/

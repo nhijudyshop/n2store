@@ -8,6 +8,37 @@
 
 ## 2026-05-07
 
+### [aikol] Sprint 5 PLAN — UI polish (clone tikreel.net/app)
+
+**Why** — User asked: "Browser vào https://www.tikreel.net/app coi giao diện, button, hiệu ứng để học hỏi làm giống hoặc cải thiện giao diện UI web." User's logged-in tikreel session was already running on Chromium at CDP `localhost:9444`. We connected via Playwright `connectOverCDP`, navigated 9 authenticated pages (`/app`, `/app/library`, `/app/models`, `/app/products`, `/app/bulk`, `/app/campaigns`, `/app/history`, `/app/settings`, `/pricing`) and captured screenshots (desktop + mobile) + computed-style tokens.
+
+**Files NEW**
+
+- [scripts/tikreel-ui-study.js](../scripts/tikreel-ui-study.js) — public-only headless UI study (landing/login/pricing).
+- [scripts/tikreel-ui-study-authenticated.js](../scripts/tikreel-ui-study-authenticated.js) — connects to user's CDP session, walks /app/\* read-only.
+- [downloads/tikreel-ui-study/](../downloads/tikreel-ui-study/) — 18 screenshots + `tokens.json` + `auth-tokens.json` + `summary.md` + `auth-summary.md`.
+- [docs/plans/aikol-sprint5-ui-polish.md](plans/aikol-sprint5-ui-polish.md) — Sprint 5 plan with verified design tokens + 7-step task list.
+
+**Key design tokens extracted (verified from live DOM)**
+
+- bg `#0b0c1a` · surface `#12132a` · surface-2 `#181a35` · accent `#7c5cff` · accent-light `#a47cff` · text `#ecedfa`.
+- Primary CTA: `linear-gradient(135deg, #7c5cff, #a47cff)` + shadow `rgba(124, 92, 255, 0.25) 0 4px 18px` · radius 10–12px.
+- Soft-accent: `rgba(124, 92, 255, 0.14)` for tab-active / chip.
+- Section card: radius **16px**, pad **24px**, bg `#12132a`.
+- H1 24px/600 fixed (NOT clamp). H2 14px/600.
+- Transition: `0.15s cubic-bezier(0.4, 0, 0.2, 1)`.
+
+**UX patterns to clone**
+
+- Persistent left **240px sidebar** with bottom-dock (model card + credits chip with ⚡ icon + Top up gradient button + VI/EN + logout). Currently we put nav links in a top header — sidebar is a stronger mental model.
+- Dashboard: 3-KPI hero + Generation Queue + Completed thumbs (replaces our 4-step welcome).
+- Bulk Generate: horizontal 3-step (preset → clip pick → launch).
+- History: soft-accent filter chips (`All / Images / Videos / Model / Channel / Campaign`).
+
+**Status**: 📋 Plan only — awaiting user go-ahead. CSS-first refactor, no backend/DB changes, ~1.5 days, low risk (covered by `test-aikol-sprint4-deep.js`).
+
+---
+
 ### [delivery] Fix nút "Đang xử lý..." dính cứng trên modal Kiểm tra giao dịch
 
 **Bug** — User mở modal "Kiểm tra giao dịch" cho 1 tx → bấm "✓ Xác nhận đã kiểm tra" → fetch thành công → `closeReviewModal()` được gọi để hide modal NHƯNG **KHÔNG reset nút confirm**. Modal là singleton nên lần mở kế tiếp cho tx khác vẫn thấy nút stuck ở `<i class="fas fa-spinner fa-spin"></i> Đang xử lý...` + disabled. User không bấm xác nhận tiếp được, tưởng app treo.
