@@ -8,6 +8,63 @@
 
 ## 2026-05-07
 
+### [aikol] Sprint 5 — UI polish landed (sidebar + dashboard + bulk redesign)
+
+**Why** — clone tikreel.net/app's UX for AI KOL Studio. Source study: [docs/plans/aikol-sprint5-ui-polish.md](plans/aikol-sprint5-ui-polish.md) + [downloads/tikreel-ui-study/](../downloads/tikreel-ui-study/).
+
+**S5.1 — design tokens + buttons** (`aikol-studio/css/aikol.css`)
+
+- Palette aligned to tikreel: `--aikol-bg #0b0c1a`, `--aikol-surface #12132a`, `--aikol-accent #7c5cff`, `--aikol-accent-light #a47cff`, `--aikol-accent-soft rgba(124,92,255,0.14)`, `--aikol-accent-glow rgba(124,92,255,0.25)`.
+- Tokens: `--aikol-radius-card 16px`, `--aikol-pad-card 24px`, `--aikol-ease cubic-bezier(0.4,0,0.2,1)`, `--aikol-dur 150ms`.
+- `.aikol-btn` → gradient + purple glow shadow + `filter: brightness(1.08)` hover.
+- New `.aikol-btn--soft` (translucent purple), `.aikol-btn--xl` (big launch button), `.aikol-chip` (filter pill with active state), `.aikol-segmented` (Image/Video toggle).
+- H1 24px/600 fixed (not clamp). Section padding/radius bumped.
+
+**S5.2 — persistent left sidebar** (`aikol-studio/js/aikol-sidebar.js` NEW)
+
+- Auto-injects 240px sidebar on every aikol page. 8 nav items (Dashboard / Models / Products / Clip Library / Bulk / Campaigns / Outputs / Settings) with active-state pill background + lucide icons.
+- Bottom-dock: model card mini + credits chip with ⚡ + Top up gradient button + email + logout.
+- Mobile (<880px): translates off-screen, toggled by hamburger button + scrim. Esc key closes.
+- `waitForLucide()` polls until lucide UMD ready before rendering icons (defer race condition).
+
+**S5.3 — dashboard refresh** (`aikol-studio/index.html` + `js/dashboard.js` NEW)
+
+- Replaced 4-step welcome with **3-KPI hero** (Clips imported / Models saved / Outputs generated) + **2-col Generation Queue + Completed thumbs** (clone tikreel /app).
+- Auto-refresh: queue every 15s, KPIs+completed every 60s.
+
+**S5.5 — bulk redesign** (`aikol-studio/bulk.html` + `js/bulk.js` rewrite)
+
+- Numbered step heads (1 Pick a preset / 2 Pick clips / 3 Generation config / 4 Launch).
+- 2-col grid: form (left) + sticky launch panel (right rail, 320px).
+- 4 preset cards full-width with active border highlight + subtle gradient overlay.
+- Step 2: filter quick-chips (All / ⭐ Favorites / 🆕 Recent / 🔥 100K+ views) + filter form fields + **live clip thumbnail preview** (9:16, 12 thumbs).
+- Step 3: segmented `🖼️ Image` / `🎬 Video (Kling AI)` control + dynamic image-only / video-only field reveal.
+- Step 4: sticky launch summary card showing Preset / Output / Filter / Clips matching / Cost-per + big "TỔNG N cr" highlight + purple glow `🚀 Launch` button (auto-disabled when 0 clips match).
+- `bulk.js` caches `/clips` for 30s, applies filter client-side for live counts.
+
+**S5 cleanup**
+
+- Removed redundant header nav buttons (Library/Bulk/Campaigns/Outputs/← Dashboard) on all pages — sidebar handles them.
+- Mobile burger no longer overlaps page h1 (padding-top 4rem + header padding-left 3rem).
+- CORS server-side: added `localhost:8080` (CLAUDE.md test port) + `8000` + `127.0.0.1:*` to allow-list.
+
+**Deep test (`scripts/test-aikol-sprint4-deep.js`)** — adapted for Sprint 5 surface:
+
+- `toggleKind()` clicks `.aikol-segmented__btn` (with `selectOption` fallback).
+- "submit no-matching-clips" assertion accepts either `disabled-with-hint` (Sprint 5 disables Launch when 0 matches → better UX) OR legacy 404 toast.
+- **23/23 pass** with REAL admin login on production. 0 console errors. 0 horizontal overflow on 375×812 mobile across all 3 redesigned pages.
+- Real-login multi-page smoke: 6/6 pages clean (dashboard / settings / bulk / campaigns / library / history) — credit chip populated `30 credits · free`, sidebar items rendered, KPI hero loads.
+
+**Files (commits 455f12a3 → 49eaf406)**
+
+- NEW: `aikol-studio/js/aikol-sidebar.js`, `aikol-studio/js/dashboard.js`.
+- MODIFIED: `aikol-studio/css/aikol.css` (+~600 lines), `aikol-studio/{index,models,library,bulk,campaigns,history,settings}.html` (sidebar wired + redundant nav removed), `aikol-studio/bulk.html` + `js/bulk.js` (full redesign), `render.com/server.js` (CORS).
+- TEST: `scripts/test-aikol-sprint4-deep.js` adapted for new selectors.
+
+**Status**: ✅ Done — Sprint 5 LIVE. UI matches tikreel design language (gradient CTAs + sidebar + KPI dashboard + 3-step bulk). 23/23 deep-test pass. Mobile responsive verified.
+
+---
+
 ### [inbox] Nút "Gỡ tag hàng loạt" cho bulk select đơn
 
 - **Why**: Trước đó user phải mở modal tag từng đơn rồi xóa tay — bulk action bar chỉ có "Hủy đơn đã chọn", không có cách gỡ tag đồng loạt.
