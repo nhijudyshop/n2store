@@ -2,17 +2,28 @@
    Design direction: dark navy + violet accent (echoes tikreel's purple). */
 
 :root {
-    --aikol-bg: #0b0d17;
-    --aikol-surface: #131628;
-    --aikol-surface-2: #1a1e36;
-    --aikol-border: #252a45;
-    --aikol-text: #e6e9f5;
-    --aikol-text-dim: #8e94b3;
+    /* Sprint 5 — palette aligned to tikreel.net/app (verified via DOM capture) */
+    --aikol-bg: #0b0c1a;
+    --aikol-surface: #12132a;
+    --aikol-surface-2: #181a35;
+    --aikol-border: #21234a;
+    --aikol-sidebar: rgba(18, 19, 42, 0.6);
+    --aikol-text: #ecedfa;
+    --aikol-text-dim: #5a5e85;
     --aikol-accent: #7c5cff;
+    --aikol-accent-light: #a47cff;
     --aikol-accent-2: #5b3df0;
+    --aikol-accent-soft: rgba(124, 92, 255, 0.14);
+    --aikol-accent-glow: rgba(124, 92, 255, 0.25);
     --aikol-success: #34d399;
     --aikol-warn: #f59e0b;
     --aikol-error: #ef4444;
+    --aikol-radius-card: 16px;
+    --aikol-radius-btn: 10px;
+    --aikol-radius-chip: 6px;
+    --aikol-pad-card: 24px;
+    --aikol-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --aikol-dur: 150ms;
 }
 
 .aikol-shell {
@@ -23,14 +34,16 @@
 }
 
 .aikol-header h1 {
-    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.25rem);
-    font-weight: 700;
+    font-size: 1.5rem; /* tikreel uses 24px fixed */
+    font-weight: 600;
+    line-height: 1.2;
     margin: 0 0 0.25rem;
     letter-spacing: -0.01em;
 }
 .aikol-header p {
     color: var(--aikol-text-dim);
     margin: 0 0 1.5rem;
+    font-size: 0.875rem;
 }
 
 /* Step cards on dashboard */
@@ -94,59 +107,128 @@
 .aikol-panel {
     background: var(--aikol-surface);
     border: 1px solid var(--aikol-border);
-    border-radius: 14px;
-    padding: clamp(1rem, 2vw, 1.5rem);
+    border-radius: var(--aikol-radius-card);
+    padding: var(--aikol-pad-card);
     margin-block: 1rem;
 }
 .aikol-panel h2 {
     margin: 0 0 0.75rem;
-    font-size: 1.1rem;
+    font-size: 0.875rem; /* tikreel-style small heading */
     font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
-/* Buttons */
+/* Buttons — Sprint 5 tikreel-style: gradient primary + purple glow shadow */
 .aikol-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
-    padding: 0.55rem 1rem;
-    border-radius: 10px;
+    padding: 0.55rem 1.05rem;
+    border-radius: var(--aikol-radius-btn);
     border: 1px solid transparent;
-    background: var(--aikol-accent);
+    background-image: linear-gradient(135deg, var(--aikol-accent), var(--aikol-accent-light));
+    background-color: var(--aikol-accent); /* fallback */
     color: white;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+    line-height: 1.2;
     cursor: pointer;
+    box-shadow: 0 4px 18px var(--aikol-accent-glow);
     transition:
-        background 150ms ease,
-        transform 150ms ease;
+        filter var(--aikol-dur) var(--aikol-ease),
+        transform var(--aikol-dur) var(--aikol-ease),
+        box-shadow var(--aikol-dur) var(--aikol-ease);
+    text-decoration: none;
 }
 .aikol-btn:hover {
-    background: var(--aikol-accent-2);
+    filter: brightness(1.08);
     transform: translateY(-1px);
+    box-shadow: 0 6px 22px var(--aikol-accent-glow);
+}
+.aikol-btn:active {
+    transform: translateY(0);
+    filter: brightness(0.96);
 }
 .aikol-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
+    filter: none;
 }
+
+/* Soft accent — translucent purple fill, used for chips / minor CTAs / tab-active */
+.aikol-btn--soft {
+    background-image: none;
+    background-color: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
+    box-shadow: none;
+    border-color: transparent;
+}
+.aikol-btn--soft:hover {
+    background-color: rgba(124, 92, 255, 0.22);
+    color: #fff;
+    transform: none;
+    filter: none;
+    box-shadow: none;
+}
+
 .aikol-btn--secondary {
-    background: transparent;
+    background-image: none;
+    background-color: transparent;
     border-color: var(--aikol-border);
     color: var(--aikol-text);
+    box-shadow: none;
 }
 .aikol-btn--secondary:hover {
-    background: var(--aikol-surface-2);
+    background-color: var(--aikol-surface-2);
     border-color: var(--aikol-accent);
+    color: var(--aikol-text);
+    transform: none;
+    filter: none;
 }
+
 .aikol-btn--danger {
-    background: transparent;
+    background-image: none;
+    background-color: transparent;
     border-color: var(--aikol-border);
     color: var(--aikol-error);
+    box-shadow: none;
 }
 .aikol-btn--danger:hover {
-    background: rgba(239, 68, 68, 0.08);
+    background-color: rgba(239, 68, 68, 0.08);
     border-color: var(--aikol-error);
+    color: var(--aikol-error);
+    transform: none;
+    filter: none;
+}
+
+/* Chip — soft accent pill, used for filter strips */
+.aikol-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--aikol-text-dim);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        color var(--aikol-dur) var(--aikol-ease),
+        background-color var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-chip:hover {
+    color: var(--aikol-text);
+    background: var(--aikol-surface-2);
+}
+.aikol-chip[aria-pressed='true'],
+.aikol-chip--active {
+    background: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
 }
 
 /* Inputs */
@@ -647,4 +729,244 @@
     align-items: center;
     border-top: 1px dashed var(--aikol-border);
     padding-top: 0.5rem;
+}
+
+/* ===== Sprint 5 — Persistent left sidebar (clone tikreel /app) ===== */
+:root {
+    --aikol-side-w: 240px;
+}
+
+.aikol-side {
+    position: fixed;
+    top: var(--topbar-height, 0);
+    left: 0;
+    width: var(--aikol-side-w);
+    height: calc(100vh - var(--topbar-height, 0px));
+    background: var(--aikol-sidebar);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-right: 1px solid var(--aikol-border);
+    display: flex;
+    flex-direction: column;
+    color: var(--aikol-text);
+    z-index: 50;
+    overflow: hidden auto;
+    scrollbar-width: thin;
+}
+
+.aikol-side__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1.1rem 1.1rem 0.9rem;
+    color: var(--aikol-text);
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+.aikol-side__logo {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--aikol-accent), var(--aikol-accent-light));
+    color: white;
+}
+.aikol-side__title {
+    font-size: 0.95rem;
+}
+.aikol-side__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem 0.6rem;
+    overflow: auto;
+    flex: 1 1 auto;
+}
+.aikol-side__item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    color: var(--aikol-text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition:
+        color var(--aikol-dur) var(--aikol-ease),
+        background-color var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-side__item:hover {
+    color: var(--aikol-text);
+    background: var(--aikol-surface-2);
+}
+.aikol-side__item--active {
+    background: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
+}
+.aikol-side__item i,
+.aikol-side__item svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+}
+.aikol-side__dock {
+    margin-top: auto;
+    padding: 0.85rem 0.85rem 1rem;
+    border-top: 1px solid var(--aikol-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    background: rgba(11, 12, 26, 0.5);
+}
+.aikol-side__model {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.55rem 0.7rem;
+    background: var(--aikol-surface-2);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+}
+.aikol-side__model-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--aikol-text-dim);
+    letter-spacing: 0.08em;
+}
+.aikol-side__model-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--aikol-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.aikol-side__credits-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.aikol-side__credits {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    color: var(--aikol-text);
+    font-size: 0.8rem;
+}
+.aikol-side__bolt {
+    color: var(--aikol-accent);
+    font-size: 0.95rem;
+}
+.aikol-side__credits-num {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.aikol-side__credits-label {
+    color: var(--aikol-text-dim);
+    font-size: 0.72rem;
+}
+.aikol-side__topup {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+}
+.aikol-side__user {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.55rem;
+    color: var(--aikol-text-dim);
+    font-size: 0.78rem;
+}
+.aikol-side__email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+}
+.aikol-side__logout {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--aikol-text-dim);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    transition:
+        color var(--aikol-dur) var(--aikol-ease),
+        background-color var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-side__logout:hover {
+    color: var(--aikol-error);
+    background: rgba(239, 68, 68, 0.1);
+}
+.aikol-side__logout i,
+.aikol-side__logout svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Shift main content to leave space for the sidebar (desktop only) */
+.aikol-shell {
+    margin-left: var(--aikol-side-w);
+    padding-inline: clamp(1.25rem, 2vw, 2rem);
+}
+
+/* Burger + scrim for mobile drawer */
+.aikol-side__burger {
+    position: fixed;
+    top: calc(var(--topbar-height, 0px) + 0.6rem);
+    left: 0.6rem;
+    width: 40px;
+    height: 40px;
+    background: var(--aikol-surface);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    z-index: 60;
+}
+.aikol-side__burger span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--aikol-text);
+    border-radius: 1px;
+}
+.aikol-side__scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 49;
+}
+.aikol-side__scrim--show {
+    display: block;
+}
+
+@media (max-width: 880px) {
+    .aikol-side {
+        transform: translateX(-100%);
+        transition: transform 250ms var(--aikol-ease);
+        width: 280px;
+    }
+    .aikol-side--open {
+        transform: translateX(0);
+    }
+    .aikol-side__burger {
+        display: flex;
+    }
+    .aikol-shell {
+        margin-left: 0;
+        padding-top: 3.6rem; /* avoid burger overlap */
+    }
 }
