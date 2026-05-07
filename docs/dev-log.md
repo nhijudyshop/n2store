@@ -8,6 +8,31 @@
 
 ## 2026-05-07
 
+### [render] feat(v2-odata-shadow): TPOS OData drop-in replacement (PoC iter 1)
+
+**Goal**: Build foundation cho thay thế TPOS từng phần. Frontend KHÔNG cần sửa — chỉ cần đổi base URL từ `/api/odata/*` (CF Worker → tomato.tpos.vn) sang `/api/v2/odata/*` (Render local).
+
+**Scope iter 1** — 7 endpoint READ-ONLY:
+
+- Reference data seeded: `GET /POSCategory`, `/ProductCategory`, `/ProductUOM`, `/Tag`, `/AccountTax`, `/ResCurrency`, `/StockWarehouse`
+- DB-backed: `GET /Partner/ODataService.GetViewV2?Type=Customer|Supplier`, `GET /Partner({id})` đọc từ `customers` table
+- Mọi response shape khớp chuẩn OData TPOS: `{ "@odata.context": ..., "@odata.count": N, "value": [...] }`
+- Hỗ trợ `$top`, `$skip`, `$count`, `$select`, naive `$filter=Type eq '...'`
+
+**Files**:
+
+- `render.com/routes/v2/odata-tpos-shadow.js` (mới, ~300 LOC)
+- `render.com/routes/v2/index.js` (mount tại `/api/v2/odata`)
+- `scripts/test-v2-odata-shadow.js` (mới, 18 test cases)
+
+**Test results**: 18/18 pass. Test suite không cần real DB — dùng mock `chatDb` + Express in-memory server.
+
+**Iter sau**: thêm `Product/ODataService.GetViewV2`, `ProductTemplate({id})`, `FastSaleOrder/ODataService.GetView`, `FastPurchaseOrder/OdataService.GetView`. Sau đó migrate 5 ref data thành table riêng, seed từ TPOS production dump.
+
+**Status**: ✅ Done (local commit, NOT pushed — chờ user confirm trước khi auto-deploy lên Render prod).
+
+---
+
 ### [orders] KPI attribution = chủ STT range (không phải user click audit log)
 
 **Yêu cầu (owner clarify)**: "tính KPI là trong STT phân chia nhân viên của nhân viên đó thì được tính KPI" — KPI của 1 đơn được attribute cho NHÂN VIÊN sở hữu khoảng STT chứa đơn (theo `phân chia nhân viên` của campaign), KHÔNG phải user nào click add/remove SP trên TPOS.
