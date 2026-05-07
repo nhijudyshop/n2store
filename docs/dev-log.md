@@ -8,6 +8,32 @@
 
 ## 2026-05-07
 
+### [orders][feat] Auto T toggle — iOS-style switch + bỏ banner/confirm modal
+
+**Files**: MODIFIED [orders-report/tab1-orders.html](../orders-report/tab1-orders.html), [orders-report/js/tab1/tab1-processing-tags.js](../orders-report/js/tab1/tab1-processing-tags.js), [orders-report/js/tab1/tab1-fast-sale.js](../orders-report/js/tab1/tab1-fast-sale.js)
+
+User: "Phần 1 toggle button trên header bảng đơn cho thành nút toggle on off trái phải đi. Phần 2, 3 bỏ đi không cần warning nữa".
+
+**Phần 1 — iOS-style switch**:
+
+- HTML `#autoTToggle` đổi từ pill button (border + dot bên trong) → 36×20 switch với knob 16×16 trượt; thêm `#autoTLabel` "Auto T: BẬT/TẮT".
+- `aria-checked`, `role="switch"` cho screen-reader.
+- `_updateAutoTToggleUI()` đổi bg (xanh `#22c55e` ON / xám `#d1d5db` OFF) + knob `transform: translateX(16px|0)` + label text.
+
+**Phần 2 — bỏ fast-sale banner**:
+
+- Xoá `renderFastSaleAutoTBanner()` (~80 LOC) — banner vàng "⚠️ Auto T đang BẬT" không còn ở modal Fast Sale.
+- Xoá calls trong `showFastSaleModal()` + `removeFastSaleOrder()` + cleanup `closeFastSaleModal()`.
+- Xoá `<div id="fastSaleAutoTBanner">` khỏi HTML.
+
+**Phần 3 — bỏ confirm modal khi xoá T-tag**:
+
+- Xoá `_showAutoTConfirmModal()` (~75 LOC) — modal "Đơn ABC có N T-tag, đồng ý xoá?" không còn.
+- Xoá `_autoTConfirmSuppressed` + 3 window debug exports.
+- Logic gọn: `if (_autoTClearEnabled) data.tTags = []`. Auto T ON → clear ngay. OFF → giữ nguyên.
+
+**Browser-tested**: Toggle render đúng (ON xanh + knob phải, "Auto T: BẬT") → click OFF (xám + knob trái) → click lại ON. `bannerExists: false` ✓.
+
 ### [aikol-studio][render][shared] Sprint 1 — kick off "AI KOL Studio" (tikreel.net clone) trong menu "Khác"
 
 **Goal**: Build module clone 100% chức năng tikreel.net (model upload + TikTok scrape + image/video gen via Kling+Fal). Stack: Next-style page + Render.com BE + Postgres + **Bunny.net** storage/CDN + **Fal.ai** image gen + **Kling AI** video gen + **yt-dlp** (Python service) cho TikTok scrape.
