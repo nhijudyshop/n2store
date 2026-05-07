@@ -8,6 +8,54 @@
 
 ## 2026-05-07
 
+### [orders][render] Hàng rớt xả: double-click → mark as ordered + race fixes
+
+**Yêu cầu (owner)**:
+
+1. Double-click sản phẩm trong "Hàng rớt xả" → badge / mark là đã chốt đơn.
+2. Audit realtime giữa các máy của hàng rớt xả → tìm race condition / bug → fix.
+
+**Backend** ([render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js)):
+
+- `ALTER TABLE dropped_products ADD COLUMN marked_as_ordered BOOLEAN DEFAULT FALSE, marked_at BIGINT, marked_by VARCHAR(255)` — chạy lazy qua `ensureDroppedSchema(pool)` lần đầu hit `GET /dropped-products`, idempotent (`ADD COLUMN IF NOT EXISTS`).
+- New `PATCH /api/realtime/dropped-products/:id/marked` — atomic toggle. Body `{ markedAsOrdered: bool, userId, userName }`. Single SQL `UPDATE … RETURNING *` (no read-modify-write race) → SSE `notifyClients(update)`.
+- `droppedRowToObj` exposes `markedAsOrdered` / `markedAt` / `markedBy` để frontend nhận field này qua GET + qua SSE.
+
+**Frontend dblclick** ([orders-report/js/managers/dropped-products-manager.js](../orders-report/js/managers/dropped-products-manager.js)):
+
+- `_wireDroppedGrid` thêm `dblclick` listener: pop cell ra khỏi selection (vì mousedown đã add), gọi `toggleDroppedProductMarked(dpId, !current)` → server confirm → SSE echo về cập nhật DOM.
+- `toggleDroppedProductMarked(dpId, marked)` PATCH endpoint mới + auto-collect auth state `userId`/`userName`.
+- Render thêm `data-id` (server row id) + `data-marked` ("0"/"1") + class `marked-ordered` + `<span class="dropped-cell-ordered">` green badge bottom-left khi marked.
+- CSS [tab1-chat-modal.css](../orders-report/css/tab1-chat-modal.css): `.marked-ordered` (green outline + tint), `.dropped-cell-ordered` (green corner badge với fa-check-circle), styling kết hợp khi cell vừa selected vừa marked (xanh ngoài + tím trong).
+
+**Race condition #2 fix — single-flight render**:
+
+- **Bug**: `_renderDroppedGridOnly` là async (`await Promise.all(getProductHolders…)` — vài trăm ms). SSE updates có thể fire liên tiếp trong khoảng đó. Render lần 1 đang chờ holders → SSE event mới mutate `droppedProducts` array → render lần 2 bắt đầu. Render lần 1 finish _sau_ (nó dùng dữ liệu cũ) → ghi đè DOM của render lần 2 = stale UI.
+- **Fix**: `_renderInFlight` flag + `_renderQueued` boolean. Trong `renderDroppedProductsTable`: nếu đang in-flight, set queued=true và return. Sau khi render hiện tại xong, drain queued bằng vòng `while (_renderQueued)` đọc state mới nhất. Không bao giờ có 2 render chạy parallel.
+
+**Race condition #1 (duplicate insert by ProductId)** — đã ghi nhận, không fix lần này:
+
+- Nếu 2 máy đồng thời `addToDroppedProducts(productId X)` cùng lúc → cả 2 thấy `existing = undefined` (cache chưa sync) → cả 2 PUT với `id` khác → 2 row cùng product_id trong DB.
+- Frequency: rất hiếm (cần 2 sale click cùng SP trong vài chục ms). Fix sau bằng UNIQUE INDEX `(product_id)` + `ON CONFLICT (product_id)` upsert. Defer vì cần dedup data hiện hữu + thay đổi PUT semantics — out of scope của session này.
+
+**Tests** (browser session, localhost):
+
+- ✅ Dblclick toggle ON: cell `marked="0"` → `marked="1"`, `.marked-ordered` class added, green badge appears (verified via `dblclick` event dispatch + 2.5s SSE round-trip).
+- ✅ Dblclick toggle OFF: ngược lại, `.marked-ordered` removed, badge gone.
+- ✅ Multi-machine sync: `curl -X PATCH .../marked` từ "machine B" với `markedBy=OtherMachine` → trong tab browser (machine A) cell xuất hiện badge sau ~2s qua SSE.
+- ✅ Race fix: 5 sequential PATCH (true/false/true/false/true) → final UI khớp server state (`uiMarked === serverMarked`, `inSync === true`).
+- ✅ Mousedown+dblclick gesture: cell marked nhưng không kẹt selected (selection được pop ra khi dblclick handler chạy).
+
+**Files**:
+
+- [render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js) — `ensureDroppedSchema`, `droppedRowToObj` mở rộng, PATCH `/marked`.
+- [orders-report/js/managers/dropped-products-manager.js](../orders-report/js/managers/dropped-products-manager.js) — `toggleDroppedProductMarked`, dblclick handler, single-flight `_renderInFlight`/`_renderQueued`, render thêm `data-id`/`data-marked`/badge.
+- [orders-report/css/tab1-chat-modal.css](../orders-report/css/tab1-chat-modal.css) — `.marked-ordered` + `.dropped-cell-ordered` + combined-state.
+
+Status: ✅ Done
+
+---
+
 ### [orders] KPI rule — exception cho nhân viên "my" (userType `my-authenticated`)
 
 **Yêu cầu (owner)**: "Ngoại trừ nhân viên my có userType my-authenticated trong localStorage → sẽ tính KPI riêng cho nhân viên my".
