@@ -570,7 +570,10 @@
             let flagMap = null;
             if (strictMode) {
                 try {
-                    if (window.KpiSaleFlagStore && typeof window.KpiSaleFlagStore.load === 'function') {
+                    if (
+                        window.KpiSaleFlagStore &&
+                        typeof window.KpiSaleFlagStore.load === 'function'
+                    ) {
                         flagMap = await window.KpiSaleFlagStore.load(orderCode);
                     } else {
                         // Fallback: trực tiếp gọi API nếu store chưa load (vd. worker tick)
@@ -684,14 +687,16 @@
         if (!userId || !date || !statistics) return;
 
         try {
-            // Ưu tiên userName do caller truyền vào (từ audit log).
-            // Fallback employee_ranges chỉ khi caller không cung cấp (vd. legacy callers).
+            // Ưu tiên userName do caller truyền vào (recalculateAndSaveKPI đã resolve
+            // theo STT-range owner). Fallback employee_ranges chỉ khi caller không cung
+            // cấp (legacy callers).
             let userName = statistics.userName || null;
             if (!userName) {
                 try {
                     const assigned = await getAssignedEmployeeForSTT(
                         statistics.stt,
-                        statistics.campaignName
+                        statistics.campaignName,
+                        statistics.campaignId
                     );
                     if (assigned.userName && assigned.userName !== 'Chưa phân')
                         userName = assigned.userName;
@@ -765,31 +770,62 @@
                 console.warn('[KPI] DELETE kpi-statistics/order failed (non-fatal):', e.message);
             }
 
-            // Ghi entry cho mỗi user có KPI > 0 ở strict HOẶC legacy. Đơn không có
-            // upsell (cả 2 = 0) → không ghi. Dashboard full mode đọc legacy từ JSONB.
-            const userIds = new Set([
-                ...Object.keys(result.perUserKPI || {}),
-                ...Object.keys(result.perUserKPILegacy || {}),
-            ]);
-            for (const userId of userIds) {
-                const userKPI = result.perUserKPI[userId] || 0;
-                const userNet = result.perUserNet[userId] || 0;
-                const userKPILegacy = result.perUserKPILegacy[userId] || 0;
-                const userNetLegacy = result.perUserNetLegacy[userId] || 0;
-                if (userKPI <= 0 && userKPILegacy <= 0) continue;
+            // STT-based attribution: KPI của đơn được tính cho NHÂN VIÊN sở hữu khoảng
+            // STT chứa đơn này (theo cấu hình "phân chia nhân viên"), KHÔNG phải user
+            // nào click add/remove SP trên TPOS. Đây là rule do owner xác nhận:
+            // "tính KPI là trong STT phân chia nhân viên của nhân viên đó thì được tính KPI".
+            //
+            // Sum tất cả perUserKPI (đến từ log.userId trong audit) thành 1 tổng,
+            // rồi attribute cho NV đảm nhiệm STT. Nếu STT không thuộc range nào →
+            // assigned.userId = 'unassigned' → vẫn ghi row 'unassigned' (báo cáo có
+            // thể filter ra) nhưng không cộng vào KPI của ai cả.
+            const totalKPI = Object.values(result.perUserKPI || {}).reduce(
+                (s, v) => s + (Number(v) || 0),
+                0
+            );
+            const totalNet = Object.values(result.perUserNet || {}).reduce(
+                (s, v) => s + (Number(v) || 0),
+                0
+            );
+            const totalKPILegacy = Object.values(result.perUserKPILegacy || {}).reduce(
+                (s, v) => s + (Number(v) || 0),
+                0
+            );
+            const totalNetLegacy = Object.values(result.perUserNetLegacy || {}).reduce(
+                (s, v) => s + (Number(v) || 0),
+                0
+            );
 
-                await saveKPIStatistics(userId, baseDate, {
+            if (totalKPI > 0 || totalKPILegacy > 0) {
+                let assignedUserId = 'unassigned';
+                let assignedUserName = 'Chưa phân';
+                try {
+                    const assigned = await getAssignedEmployeeForSTT(
+                        stt,
+                        base.campaignName,
+                        base.campaignId
+                    );
+                    if (assigned?.userId) {
+                        assignedUserId = assigned.userId;
+                        assignedUserName = assigned.userName || assignedUserId;
+                    }
+                } catch (_e) {
+                    /* unassigned fallback */
+                }
+
+                await saveKPIStatistics(assignedUserId, baseDate, {
                     orderCode: orderCode,
                     orderId: base.orderId || null,
                     stt: stt,
                     campaignName: base.campaignName || null,
-                    netProducts: userNet,
-                    kpi: userKPI,
-                    netProductsLegacy: userNetLegacy,
-                    kpiLegacy: userKPILegacy,
+                    campaignId: base.campaignId || null,
+                    netProducts: totalNet,
+                    kpi: totalKPI,
+                    netProductsLegacy: totalNetLegacy,
+                    kpiLegacy: totalKPILegacy,
                     hasDiscrepancy: false,
                     details: result.details,
-                    userName: result.perUserNames[userId] || null,
+                    userName: assignedUserName,
                 });
             }
 
@@ -815,18 +851,32 @@
     // Employee Range Lookup (Render PostgreSQL)
     // ========================================
     const CAMPAIGNS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/campaigns';
-    let _employeeRangesCache = null;
-    let _employeeRangesCacheTime = 0;
-    const RANGES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-    async function getAssignedEmployeeForSTT(stt, campaignName) {
+    async function getAssignedEmployeeForSTT(stt, campaignName, campaignId) {
         const unassigned = { userId: 'unassigned', userName: 'Chưa phân' };
         if (!stt && stt !== 0) return unassigned;
 
         try {
             const sttNum = Number(stt);
 
-            // 1. Campaign-specific ranges (priority)
+            // 1a. Campaign-id-keyed ranges (NEW canonical key — survives campaign rename).
+            if (campaignId) {
+                try {
+                    const result = await fetch(
+                        `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(String(campaignId))}`
+                    ).then((r) => r.json());
+                    if (
+                        result.success &&
+                        Array.isArray(result.employeeRanges) &&
+                        result.employeeRanges.length > 0
+                    ) {
+                        const found = _findInRanges(result.employeeRanges, sttNum);
+                        if (found) return found;
+                    }
+                } catch (_e) {}
+            }
+
+            // 1b. Campaign-name-keyed ranges (legacy, pre-migration).
             if (campaignName) {
                 try {
                     const safeName = campaignName.replace(/[.$#\[\]\/]/g, '_');
@@ -844,27 +894,13 @@
                 } catch (e) {}
             }
 
-            // 2. General ranges (all campaigns, cached)
-            try {
-                const now = Date.now();
-                if (!_employeeRangesCache || now - _employeeRangesCacheTime > RANGES_CACHE_TTL) {
-                    const result = await fetch(`${CAMPAIGNS_API}/employee-ranges`).then((r) =>
-                        r.json()
-                    );
-                    if (result.success) {
-                        _employeeRangesCache = result.rangesByCampaign || {};
-                        _employeeRangesCacheTime = now;
-                    }
-                }
-                if (_employeeRangesCache) {
-                    for (const ranges of Object.values(_employeeRangesCache)) {
-                        const found = _findInRanges(ranges, sttNum);
-                        if (found) return found;
-                    }
-                }
-            } catch (e) {}
-
-            console.warn(`[KPI] STT ${stt} not found in any Employee_Range`);
+            // Per-rule (owner confirmed 2026-05-07): chỉ count KPI khi STT thuộc range
+            // của ĐÚNG chiến dịch đang chốt. KHÔNG fallback sang ranges của campaign
+            // khác (cross-campaign leak — user A của campaign X không được tính KPI
+            // chỉ vì STT cùng số với range của user A trong campaign Y).
+            console.warn(
+                `[KPI] STT ${stt} not in employee_ranges of campaign "${campaignName || campaignId}" → unassigned`
+            );
             return unassigned;
         } catch (e) {
             return unassigned;

@@ -8,6 +8,37 @@
 
 ## 2026-05-07
 
+### [orders] KPI attribution = chủ STT range (không phải user click audit log)
+
+**Yêu cầu (owner clarify)**: "tính KPI là trong STT phân chia nhân viên của nhân viên đó thì được tính KPI" — KPI của 1 đơn được attribute cho NHÂN VIÊN sở hữu khoảng STT chứa đơn (theo `phân chia nhân viên` của campaign), KHÔNG phải user nào click add/remove SP trên TPOS.
+
+**Trước**: [kpi-manager.js:recalculateAndSaveKPI](../orders-report/js/managers/kpi-manager.js) lưu 1 row `kpi_statistics` cho MỖI `log.userId` xuất hiện trong audit log → nếu admin click upsell hộ cho đơn của Hạnh thì admin được +KPI thay vì Hạnh.
+
+**Sau**:
+
+- Sum tổng `perUserKPI` / `perUserNet` (cả strict + legacy) thành 1 tổng cho cả đơn.
+- `getAssignedEmployeeForSTT(stt, name, id)` lookup chủ STT trong ranges của campaign → 1 user duy nhất.
+- Save 1 row dưới assigned userId. Nếu STT ngoài mọi range → save dưới `'unassigned'` (báo cáo có thể filter, không cộng cho ai).
+- Bỏ cross-campaign fallback — STRICT per-campaign: STT 500 ở T9 SO HOT (range 1-201) → unassigned, không leak sang admin/user của campaign khác.
+- Thêm tham số `campaignId` để query `/employee-ranges/{id}` (canonical key sau migration) trước khi fallback `/employee-ranges/{sanitized name}` (legacy).
+
+**Tests** (localhost browser session):
+
+- ✅ STT 150 (T9 SO HOT, range Hạnh 101-201) → `{userId: "hanh", userName: "Hạnh ฅ ฅ"}`
+- ✅ STT 50 (T9 SO HOT, range Huyền 1-100) → `{userId: "huyen"}`
+- ✅ STT 500 (out of all T9 SO HOT ranges) → `{userId: "unassigned"}` — KHÔNG còn leak (trước fallback step 2 sẽ tìm ra user khác)
+- ✅ Campaign null/non-existent → unassigned
+- ✅ Auto-resolve theo id-keyed key trước, fallback legacy name-keyed
+
+**Files**:
+
+- [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — `recalculateAndSaveKPI` (~lines 770-830) sum total + attribute by STT; `getAssignedEmployeeForSTT` accepts `campaignId`, removed cross-campaign fallback; cleaned dead `_employeeRangesCache`.
+- `saveKPIStatistics` fallback giờ tự pass `campaignId` xuống lookup.
+
+Status: ✅ Done
+
+---
+
 ### [aikol] Sprint 5 — UI polish landed (sidebar + dashboard + bulk redesign)
 
 **Why** — clone tikreel.net/app's UX for AI KOL Studio. Source study: [docs/plans/aikol-sprint5-ui-polish.md](plans/aikol-sprint5-ui-polish.md) + [downloads/tikreel-ui-study/](../downloads/tikreel-ui-study/).
@@ -70,10 +101,10 @@
 - **Why**: Trước đó user phải mở modal tag từng đơn rồi xóa tay — bulk action bar chỉ có "Hủy đơn đã chọn", không có cách gỡ tag đồng loạt.
 - **What**: Thêm nút mới vào bulk action bar (cạnh "Hủy đơn đã chọn", màu đỏ `#dc2626`). Click → mở modal liệt kê CHỈ những tag đang gắn trên đơn được chọn, kèm count `X đơn`. User tick → button "Gỡ N tag" enable → confirm → loop filter tag khỏi `order.tags`, sync Firestore qua `updateSocialOrderTags()`.
 - **Edge cases verify**:
-  - Filter "Đã hủy" → KHÔNG hiện nút (chỉ Khôi phục/Xóa vĩnh viễn)
-  - Đơn không tag → modal empty state "Các đơn đã chọn không có tag nào", button disable
-  - Không chọn đơn → warning notification, modal không mở
-  - Sau khi gỡ → giữ nguyên `selectedOrders` (khác `cancelSelectedOrders` vì đơn không biến mất)
+    - Filter "Đã hủy" → KHÔNG hiện nút (chỉ Khôi phục/Xóa vĩnh viễn)
+    - Đơn không tag → modal empty state "Các đơn đã chọn không có tag nào", button disable
+    - Không chọn đơn → warning notification, modal không mở
+    - Sau khi gỡ → giữ nguyên `selectedOrders` (khác `cancelSelectedOrders` vì đơn không biến mất)
 
 **Files MODIFIED (3)**:
 
