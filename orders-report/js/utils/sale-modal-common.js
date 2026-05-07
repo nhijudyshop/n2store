@@ -1194,10 +1194,45 @@ async function fetchDebtForSaleModal(phone) {
                 currentSaleVirtualCredits = result.data.virtualCredits || [];
             }
 
-            // Store pre-computed wallet note lines (CK / TT / CÒN NỢ) từ backend
-            window.currentSaleWalletNoteLines = Array.isArray(result.data.walletNoteLines)
+            // Store pre-computed wallet note lines (CK / TT / CÒN NỢ) từ backend.
+            // Frontend OVERRIDE bằng computeWalletNoteLines local nếu WalletPairUtils sẵn sàng,
+            // vì backend (render.com/routes/v2/wallets.js:498-528) chỉ xử lý DEPOSIT khi build
+            // depositLines, MISS hẳn ADJUSTMENT (vd CK kiểu "điều chỉnh ví sai SĐT") → khi
+            // toàn bộ tiền vào ví là ADJUSTMENT, depositsAfterSum=0 → legacy = balance →
+            // ghi "Nợ Cũ X" sai, đáng lẽ phải ghi "Nhận điều chỉnh từ SĐT YYY".
+            let walletNoteLines = Array.isArray(result.data.walletNoteLines)
                 ? result.data.walletNoteLines
                 : [];
+            try {
+                if (
+                    window.WalletPairUtils &&
+                    typeof window.WalletPairUtils.computeWalletNoteLines === 'function'
+                ) {
+                    const txResp = await fetch(
+                        `${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}/transactions?limit=200`
+                    );
+                    if (txResp.ok) {
+                        const txJson = await txResp.json();
+                        if (txJson && txJson.success && Array.isArray(txJson.data)) {
+                            // API trả DESC (mới nhất trước), helper expect ASC.
+                            const ascTxs = txJson.data.slice().reverse();
+                            const computed = window.WalletPairUtils.computeWalletNoteLines(
+                                ascTxs,
+                                realBalance
+                            );
+                            if (Array.isArray(computed)) {
+                                walletNoteLines = computed;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(
+                    '[SALE-MODAL] computeWalletNoteLines local failed, fallback to backend:',
+                    e?.message
+                );
+            }
+            window.currentSaleWalletNoteLines = walletNoteLines;
 
             // Store latest DEPOSIT/ADJUSTMENT-positive tx (bất kể consumed)
             // để fallback autoFillSaleNote format "Đã Nhận X ACB dd/mm" khi balance match

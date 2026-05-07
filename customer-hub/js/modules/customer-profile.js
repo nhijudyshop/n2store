@@ -4,6 +4,7 @@ import apiService from '../api-service.js';
 import { PermissionHelper } from '../utils/permissions.js';
 import { WalletPanelModule } from './wallet-panel.js';
 import { logAction } from '../../../shared/js/audit-logger.esm.js';
+import { skipPairedCancelRefunds } from '../../../shared/browser/wallet-pair-utils.js';
 
 export class CustomerProfileModule {
     constructor(containerId, permissionHelper) {
@@ -692,10 +693,19 @@ export class CustomerProfileModule {
                     </div>
                     <div style="display:flex; flex-direction:column; gap:4px;">
                         ${(() => {
+                            // Ẩn cặp tạo-hủy đơn bù trừ (WITHDRAW + DEPOSIT(ORDER_CANCEL_REFUND))
+                            // cùng order ref + cùng amount → triệt tiêu, user không bị rối khi
+                            // tạo-hủy-tạo lại. Helper cần list ASC nên reverse 2 lần (input đến
+                            // đây là DESC từ API recentWalletTransactions).
+                            const ascList = Array.isArray(walletTransactions)
+                                ? walletTransactions.slice().reverse()
+                                : [];
+                            const filteredAsc = skipPairedCancelRefunds(ascList);
+                            const filteredDesc = filteredAsc.reverse();
                             // Gộp các giao dịch COD payment cùng đơn (cùng phút) thành 1 dòng
                             const out = [];
                             const groupMap = new Map();
-                            for (const tx of walletTransactions) {
+                            for (const tx of filteredDesc) {
                                 const rn = tx.note || tx.source || '';
                                 const isCod =
                                     tx.type === 'WITHDRAW' &&

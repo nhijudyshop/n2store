@@ -8,6 +8,37 @@
 
 ## 2026-05-07
 
+### [wallet] Ẩn cặp tạo-hủy đơn khỏi UI ví + fix note PBH "Nợ Cũ" sai khi tiền vào ví là ADJUSTMENT
+
+- **Why**: User báo bug — sau flow `tạo đơn → hủy đơn đó → tạo lại đơn mới`, panel "Hoạt động ví" trong customer-hub hiển thị 5 dòng (gồm cặp `-X Thanh Toán #ABC` + `+X Hoàn Tiền #ABC` triệt tiêu), khiến user không hiểu vì sao có 2 lần thanh toán. Đồng thời note PBH ghi `"Nợ Cũ X -> 0Đ"` thay vì các CK thực tế (vd `"Nhận điều chỉnh từ SĐT 0377395954 (485K)"` + `"Nhận điều chỉnh từ SĐT 0377395954 (1680K)"`), do backend `wallets.js:498-518` chỉ xử lý `tx.type === 'DEPOSIT'` khi build `depositLines`, BỎ QUA `ADJUSTMENT` (vd CK kiểu "điều chỉnh ví sai SĐT") → `depositsAfterSum = 0` → `legacy = balance` → ghi nhầm "Nợ Cũ".
+- **What**:
+    - Tạo helper `WalletPairUtils` (ESM + script-tag wrapper) port logic pair từ `render.com/routes/v2/wallets.js:445-469`:
+        - `parseOrderRefFromTx(tx)`: ưu tiên `reference_id`, fallback parse `#NJD/YYYY/XXXXX` từ `note`.
+        - `computeSkipPairIdx(txs)`: skip cặp `WITHDRAW(ORDER_PAYMENT)` ↔ `DEPOSIT(ORDER_CANCEL_REFUND)` cùng order_ref + cùng `|amount|`. Refund mồ côi cũng skip.
+        - `skipPairedCancelRefunds(txs)`: filter list, bỏ entries trong skipIdx.
+        - `computeWalletNoteLines(txs, balance)`: extend logic backend, cover thêm `ADJUSTMENT` positive (`Nhận điều chỉnh từ SĐT YYY (XK) - lý do`) bên cạnh các DEPOSIT (BANK_TRANSFER → `ĐÃ NHẬN`, RETURN_GOODS → `Khách Gửi`, MANUAL_ADJUSTMENT → giữ note).
+    - **Customer-hub** (`customer-profile.js`) — import `skipPairedCancelRefunds`, áp dụng cho `walletTransactions` (reverse 2 lần vì input từ API là DESC còn helper expect ASC) trước block render IIFE → cặp tạo-hủy ẩn khỏi panel "Hoạt động ví".
+    - **Orders-report sale modal** (`sale-modal-common.js`) — trong `fetchDebtForSaleModal()`, thay vì dùng `result.data.walletNoteLines` từ backend (miss ADJUSTMENT), gọi thêm `/api/v2/wallets/{phone}/transactions?limit=200`, reverse → ASC, gọi `window.WalletPairUtils.computeWalletNoteLines(ascTxs, realBalance)` để override `currentSaleWalletNoteLines`. Fallback về backend nếu helper chưa load hoặc fetch fail.
+    - **HTML pages** — thêm `<script src="../shared/js/wallet-pair-utils.js">` ngay trước `sale-modal-common.js` ở `orders-report/tab1-orders.html` và `don-inbox/index.html`.
+- **Approach**: Frontend-only fix (KHÔNG touch `render.com` server / DB / migrations). Audit trail vẫn giữ trong DB — chỉ ẩn ở UI. Helper duy nhất share giữa customer-hub (ESM) và orders-report (script-tag wrapper).
+- **Live test**: Khách `0867848584` (Mymy Ngô) — UI customer-hub trước fix có 5 dòng → sau fix còn 3 dòng (`-2165K #65701` + `+1680K Điều chỉnh` + `+485K Điều chỉnh`); cặp `-2165K(#65628)` + `+2165K Hoàn(#65628)` đã ẩn. Compute test với raw tx của khách này (balance 2165K state-trước-#65701): `walletNoteLines = ["Nhận điều chỉnh từ SĐT 0377395954 (485K) - KHÁCH ĐỔI SDT NGƯỜI NHẬN GIUP", "Nhận điều chỉnh từ SĐT 0377395954 (1680K) - KHÁCH ĐỔI SDT NGƯỜI NHÀ NHẬN GIUP"]` (đúng — không còn "Nợ Cũ 2165K"). 3 edge cases (chỉ DEPOSIT, legacy thật, mixed pair + ADJ âm) đều PASS.
+
+**Files NEW (2)**:
+
+- [shared/browser/wallet-pair-utils.js](../shared/browser/wallet-pair-utils.js) — ESM helper (source of truth).
+- [shared/js/wallet-pair-utils.js](../shared/js/wallet-pair-utils.js) — Script-tag wrapper expose `window.WalletPairUtils`.
+
+**Files MODIFIED (4)**:
+
+- [customer-hub/js/modules/customer-profile.js](../customer-hub/js/modules/customer-profile.js) — import + áp dụng `skipPairedCancelRefunds()` trước render block "Hoạt động ví".
+- [orders-report/js/utils/sale-modal-common.js](../orders-report/js/utils/sale-modal-common.js) — `fetchDebtForSaleModal()` override `walletNoteLines` qua helper local (cover ADJUSTMENT mà backend miss).
+- [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<script>` wallet-pair-utils.js trước sale-modal-common.js.
+- [don-inbox/index.html](../don-inbox/index.html) — thêm `<script>` wallet-pair-utils.js trước sale-modal-common.js.
+
+**Status**: ✅ Done — Live test PASS với khách thật `0867848584`, 3/3 edge cases pass, smoke test 144 pages: 0 regression.
+
+---
+
 ### [aikol] Admin nạp credits trực tiếp (bỏ qua SePay)
 
 **Why** — User báo: "admin nạp được credit không cần qua sepay". Hiện tại flow nạp duy nhất là user click pack → server tạo `aikol_topups` pending → user chuyển khoản → SePay webhook tự cộng credits. Admin cần đường tắt: nhập username + delta + note → cộng/trừ credits tức thì.
