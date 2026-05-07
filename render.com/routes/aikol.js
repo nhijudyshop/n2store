@@ -16,7 +16,7 @@
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { getPool } = require('../db/pool');
+const pool = require('../db/pool');
 const bunny = require('../services/bunny-storage-service');
 
 const COSTS = {
@@ -76,7 +76,6 @@ function requireUser(req, res, next) {
 
 // Ensure wallet row exists; gives 30 free credits on first call.
 async function ensureWallet(userId) {
-    const pool = getPool();
     const { rows } = await pool.query(
         `INSERT INTO aikol_credits (user_id, balance, plan)
          VALUES ($1, 30, 'free')
@@ -125,7 +124,7 @@ router.get('/credits', requireUser, async (req, res) => {
 router.get('/credits/history', requireUser, async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 30, 200);
     try {
-        const { rows } = await getPool().query(
+        const { rows } = await pool.query(
             `SELECT kind, delta, amount_vnd, bank, memo, gen_id, note, created_at AS at
              FROM aikol_credit_history
              WHERE user_id = $1
@@ -148,7 +147,7 @@ const upload = multer({
 
 router.get('/models', requireUser, async (req, res) => {
     try {
-        const { rows } = await getPool().query(
+        const { rows } = await pool.query(
             `SELECT m.id, m.name, m.file_path, m.file_size, m.mime,
                     EXTRACT(EPOCH FROM m.created_at)::int AS created_at,
                     EXTRACT(EPOCH FROM m.updated_at)::int AS updated_at,
@@ -187,7 +186,6 @@ router.post('/models', requireUser, upload.single('file'), async (req, res) => {
         }
 
         const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[mime];
-        const pool = getPool();
         // Insert row first to get id, then upload to Bunny under that id
         const insRes = await pool.query(
             `INSERT INTO aikol_models (user_id, name, file_path, file_size, mime)
@@ -226,7 +224,7 @@ router.get('/models/:id/file', requireUser, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
     try {
-        const { rows } = await getPool().query(
+        const { rows } = await pool.query(
             `SELECT file_path FROM aikol_models WHERE id = $1 AND user_id = $2`,
             [id, req.userId]
         );
@@ -241,7 +239,6 @@ router.get('/models/:id/file', requireUser, async (req, res) => {
 router.delete('/models/:id', requireUser, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
-    const pool = getPool();
     try {
         const { rows } = await pool.query(
             `DELETE FROM aikol_models
