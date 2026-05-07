@@ -275,18 +275,20 @@ router.patch('/settings', requireUser, express.json(), async (req, res) => {
 });
 
 // ---------- Admin: grant credits without SePay ----------
-// Lookup the caller's is_admin flag from app_users. Cached per request only.
+// X-User-Id carries n2store's `user_id` (UUID like `user_admin_<ts>_<rand>`),
+// not the human-friendly `username`. Match either column so legacy installs
+// (where some rows only have username) keep working.
 async function isAdminUser(userId) {
     try {
         const { rows } = await pool.query(
-            `SELECT is_admin FROM app_users WHERE username = $1 LIMIT 1`,
+            `SELECT is_admin FROM app_users WHERE user_id = $1 OR username = $1 LIMIT 1`,
             [userId]
         );
         if (rows[0]?.is_admin) return true;
     } catch (_) {}
     // Hard-coded fallback: the seed `admin` account is always allowed even if the
     // app_users row was never created (legacy installs).
-    return userId === 'admin';
+    return userId === 'admin' || /^user_admin_/.test(String(userId || ''));
 }
 
 function requireAdmin(req, res, next) {
@@ -303,15 +305,17 @@ router.get('/admin/me', requireUser, async (req, res) => {
     res.json({ is_admin: ok, user_id: req.userId });
 });
 
-// GET /admin/users → list usernames + current balance, sorted by username.
-// Used by the admin panel to pick a target. Limit 200 (small workspace).
+// GET /admin/users → list users + current balance, sorted by username.
+// Returns `user_id` (UUID stored in aikol_credits.user_id) — the dropdown sends
+// this back as `target_user_id` for grants. JOIN keys must match: aikol_credits
+// is keyed by the UUID user_id, NOT the username.
 router.get('/admin/users', requireAdmin, async (_req, res) => {
     try {
         const { rows } = await pool.query(
-            `SELECT u.username, u.display_name, u.is_admin,
+            `SELECT u.username, u.display_name, u.is_admin, u.user_id,
                     COALESCE(c.balance, 0) AS balance, COALESCE(c.plan, 'none') AS plan
              FROM app_users u
-             LEFT JOIN aikol_credits c ON c.user_id = u.username
+             LEFT JOIN aikol_credits c ON c.user_id = u.user_id
              ORDER BY u.username
              LIMIT 200`
         );
@@ -366,12 +370,10 @@ router.post('/admin/credits/grant', requireAdmin, express.json(), async (req, re
         }
         if (upd.rows[0].balance < 0) {
             await client.query('ROLLBACK');
-            return res
-                .status(409)
-                .json({
-                    error: 'insufficient',
-                    detail: `Balance would go negative (${upd.rows[0].balance})`,
-                });
+            return res.status(409).json({
+                error: 'insufficient',
+                detail: `Balance would go negative (${upd.rows[0].balance})`,
+            });
         }
         await client.query(
             `INSERT INTO aikol_credit_history (user_id, kind, delta, note)

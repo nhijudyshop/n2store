@@ -325,8 +325,11 @@
                 '<option value="">— chọn user —</option>' +
                 (users || [])
                     .map((u) => {
+                        // Send `user_id` (UUID) — that's how aikol_credits.user_id is keyed.
+                        // Fall back to username for legacy rows where user_id is null.
+                        const targetId = u.user_id || u.username;
                         const lbl = `${u.username}${u.display_name ? ' (' + u.display_name + ')' : ''} · ${u.balance}cr`;
-                        return `<option value="${escapeHtml(u.username)}">${escapeHtml(lbl)}</option>`;
+                        return `<option value="${escapeHtml(targetId)}">${escapeHtml(lbl)}</option>`;
                     })
                     .join('');
         } catch (e) {

@@ -45,6 +45,7 @@ body {
     background: var(--aikol-bg);
     color: var(--aikol-text);
     min-height: 100vh;
+    min-height: 100dvh;
     padding: clamp(1rem, 2vw, 2rem);
 }
 
@@ -820,7 +821,12 @@ body {
     top: 0;
     left: 0;
     width: var(--aikol-side-w);
+    /* `100dvh` excludes browser chrome / dynamic UI; fall back to 100vh on
+       older browsers. Sidebar must never push the bottom dock off-screen. */
     height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     background: var(--aikol-sidebar);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
