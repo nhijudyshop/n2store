@@ -8,6 +8,34 @@
 
 ## 2026-05-07
 
+### [aikol] Settings: gate SePay packs theo `sepay_enabled` (ẩn pack buttons khi env chưa setup)
+
+**Vấn đề**: Trong `aikol-studio/settings.html`, click "Nạp ngay" trên 6 pack credits → POST `/api/aikol/billing/topup` trả `503 sepay_not_configured` (env `SEPAY_ACCOUNT_NUMBER` rỗng trên Render). User thấy lỗi 503 đỏ trên console mà không có hint UX.
+
+**Root cause**:
+
+- `render.com/routes/aikol.js` `/billing/packs` hardcode `sepay_enabled: true` → client luôn render 6 pack buttons.
+- `render.com/routes/aikol-billing.js` `/billing/topup` check `SEPAY_ACCOUNT_NUMBER` → trả 503 khi rỗng, hợp lý nhưng không expose flag cho client.
+
+**Fix**:
+
+- [render.com/routes/aikol.js](../render.com/routes/aikol.js) — `sepay_enabled` giờ tính từ `Boolean(process.env.SEPAY_ACCOUNT_NUMBER)`.
+- [aikol-studio/js/settings.js](../aikol-studio/js/settings.js) `loadPacks()` — đọc flag, nếu false: clear grid + show notice element.
+- [aikol-studio/settings.html](../aikol-studio/settings.html) — thêm `#sepay-disabled-notice` (display:none mặc định).
+- [aikol-studio/css/aikol.css](../aikol-studio/css/aikol.css) — style `.aikol-notice` + variant `--info` (purple-soft).
+
+**Smoke test (Playwright local localhost:8080)**:
+
+- `sepay_enabled: true` (live state) → 6 packs render, notice hidden ✅
+- Mock API trả `sepay_enabled: false` → grid empty, notice "SePay tạm thời chưa khả dụng. Bạn vẫn có thể được admin nạp credits trực tiếp" hiện ra (purple soft box) ✅
+- Admin grant panel + telegram + history vẫn hoạt động bình thường ✅
+
+**Files changed**: 4 (1 backend route, 3 frontend).
+
+**Note**: Render redeploy cần để flag thật flip về `false`. Cho tới khi setup `SEPAY_ACCOUNT_NUMBER` env var, normal users sẽ thấy notice (thay vì 503 đỏ trên console). Admin grant flow không bị ảnh hưởng.
+
+**Status**: ✅ Done.
+
 ### [web2] Wire 86 cloned TPOS-pages vào nav + fix title=undefined
 
 **Vấn đề**: Repo có 86 page tại `web2/<slug>/index.html` (clone từ TPOS sidebar 04/2026) nhưng:
