@@ -131,6 +131,30 @@
 
 **Status**: ✅ Done.
 
+### [web2] Gộp 86 page + 4 originals vào group "Web 2.0" duy nhất (bỏ 12 sub-group)
+
+**Theo dõi từ commit `c8e59c73`** (split thành 12 sub-group). User feedback: muốn gộp tất cả vào 1 group "Web 2.0" duy nhất, không chia nhỏ.
+
+**Cách làm**:
+
+- Thêm cặp marker `WEB2_GROUP_ITEMS_START/END` ngay TRONG group "Web 2.0" — trỏ vào dòng `items: [...]`
+- Sửa `scripts/web2-build-nav.js`:
+    - Thay vì sinh 12 sub-group → sinh 1 dòng `items: [...]` chứa cả 4 ID gốc (`tpos-pancake`, `native-orders`, `web2-products`, `web2-launcher`) + 86 ID generated (`web2-<dir>`), sort theo category + title (Vietnamese-aware)
+    - `WEB2_NAV_GROUPS` region được splice rỗng (xóa 12 sub-group đã có)
+    - 86 nav item declaration trong `MENU_CONFIG` giữ nguyên (chỉ thay đổi grouping, không xoá định nghĩa)
+- `node --check` xanh, syntax không gãy
+
+**Smoke test (Playwright)**:
+
+- `orders-report/main.html` sidebar: 120 total links / **88 web2 links** / **0 sub-group `Web 2.0 — *` (đã xoá hết)** / 1 group "Web 2.0" có 90 items ✅
+- v1 nav vẫn hoạt động không regression ✅
+
+**File**: `shared/js/navigation-modern.js`, `scripts/web2-build-nav.js`
+
+**Status**: ✅ Done.
+
+---
+
 ### [web2] Split 86 web2/\* page thành 12 sub-group trong main sidebar
 
 **Theo dõi từ commit trước** (chỉ có 1 launcher link). User chọn (A) — split thành sub-menu thật.
