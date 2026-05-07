@@ -110,19 +110,7 @@
         try {
             const cfg = await window.AikolAPI.getBillingPacks();
             const packs = cfg.packs || [];
-            const sepayEnabled = cfg.sepay_enabled !== false;
             const grid = $('#packs-grid');
-            const notice = $('#sepay-disabled-notice');
-            const packsPanel = grid?.closest('.aikol-panel');
-
-            if (!sepayEnabled) {
-                if (grid) grid.innerHTML = '';
-                if (notice) notice.style.display = '';
-                if (packsPanel) packsPanel.dataset.sepayDisabled = 'true';
-                return;
-            }
-            if (notice) notice.style.display = 'none';
-            if (packsPanel) delete packsPanel.dataset.sepayDisabled;
 
             grid.innerHTML = packs
                 .map((p) => {
@@ -148,57 +136,64 @@
                 })
                 .join('');
             grid.querySelectorAll('button[data-pack]').forEach((btn) => {
-                btn.addEventListener('click', () => onCreateTopup(btn.dataset.pack, btn, packs));
+                btn.addEventListener('click', () => requestAdminTopup(btn.dataset.pack, packs));
             });
         } catch (e) {
             showToast('Lỗi tải packs: ' + e.message, 'error');
         }
     }
 
-    async function onCreateTopup(packId, btn, packs) {
+    // Topup hiện qua admin (SePay self-service tạm tắt). Click pack → modal hướng
+    // dẫn user copy thông tin yêu cầu rồi liên hệ admin để được nạp credits.
+    async function requestAdminTopup(packId, packs) {
         const pack = (packs || []).find((p) => p.id === packId);
-        if (pack) {
-            const vndPerCr = Math.round((pack.vnd || 0) / (pack.credits || 1));
-            const ok = await aikolConfirm({
-                title: 'Xác nhận nạp credits',
-                body: `
-                    <div class="aikol-confirm__pack">
-                        <div class="aikol-confirm__pack-name">${escapeHtml(pack.name)}</div>
-                        <div class="aikol-confirm__pack-credits">
-                            <span class="aikol-pack__bolt" aria-hidden="true">⚡</span>
-                            <strong>${pack.credits}</strong> credits
-                        </div>
-                        <div class="aikol-confirm__pack-vnd">${escapeHtml(fmtVnd(pack.vnd))}</div>
-                        <div class="aikol-confirm__pack-rate">≈ ${escapeHtml(fmtVnd(vndPerCr))} / credit</div>
-                    </div>
-                    <p class="aikol-confirm__note">
-                        Hệ thống sẽ tạo đơn nạp với <strong>memo</strong> và <strong>QR SePay</strong>.
-                        Sau khi chuyển khoản đúng memo, credits tự cộng vào ví trong vài giây.
-                    </p>`,
-                confirmLabel: 'Tạo đơn nạp',
-                cancelLabel: 'Huỷ',
-            });
-            if (!ok) return;
+        if (!pack) {
+            showToast('Không tìm thấy gói credits', 'error');
+            return;
         }
+        const vndPerCr = Math.round((pack.vnd || 0) / (pack.credits || 1));
+        const username =
+            localStorage.getItem('displayName') ||
+            localStorage.getItem('username') ||
+            (typeof window.authManager?.getDisplayName === 'function'
+                ? window.authManager.getDisplayName()
+                : null) ||
+            'người dùng';
+        const requestText =
+            `Yêu cầu nạp credits AI KOL Studio:\n` +
+            `• User: ${username}\n` +
+            `• Gói: ${pack.name} — ${pack.credits} credits\n` +
+            `• Số tiền: ${fmtVnd(pack.vnd)}\n` +
+            `• Thời gian: ${new Date().toLocaleString('vi-VN')}`;
 
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Đang tạo…';
-        }
+        const ok = await aikolConfirm({
+            title: 'Liên hệ admin để nạp credits',
+            body: `
+                <div class="aikol-confirm__pack">
+                    <div class="aikol-confirm__pack-name">${escapeHtml(pack.name)}</div>
+                    <div class="aikol-confirm__pack-credits">
+                        <span class="aikol-pack__bolt" aria-hidden="true">⚡</span>
+                        <strong>${pack.credits}</strong> credits
+                    </div>
+                    <div class="aikol-confirm__pack-vnd">${escapeHtml(fmtVnd(pack.vnd))}</div>
+                    <div class="aikol-confirm__pack-rate">≈ ${escapeHtml(fmtVnd(vndPerCr))} / credit</div>
+                </div>
+                <p class="aikol-confirm__note">
+                    Tự nạp qua SePay đang tạm khoá. Vui lòng <strong>liên hệ admin</strong>
+                    để được nạp credits gói này. Bấm <strong>Copy yêu cầu</strong> để gửi
+                    nội dung sau cho admin.
+                </p>
+                <pre class="aikol-confirm__request">${escapeHtml(requestText)}</pre>`,
+            confirmLabel: 'Copy yêu cầu',
+            cancelLabel: 'Đóng',
+        });
+        if (!ok) return;
+
         try {
-            const topup = await window.AikolAPI.createTopup(packId);
-            showToast(`Đã tạo đơn nạp · memo ${topup.memo}`, 'success');
-            renderActiveTopup(topup);
-            startPollActive(topup.id);
-            await loadTopupHistory();
-        } catch (e) {
-            const detail = e.data?.detail || e.message;
-            showToast('Lỗi tạo topup: ' + detail, 'error');
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Nạp';
-            }
+            await navigator.clipboard.writeText(requestText);
+            showToast('Đã copy yêu cầu — gửi cho admin để được nạp', 'success');
+        } catch (_) {
+            showToast('Không copy được — vui lòng chọn và copy thủ công', 'error');
         }
     }
 

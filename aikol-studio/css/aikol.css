@@ -1572,6 +1572,21 @@ body {
 .aikol-confirm__note strong {
     color: var(--aikol-text);
 }
+.aikol-confirm__request {
+    margin: 0.75rem 0 0;
+    padding: 0.75rem 0.9rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--aikol-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 180px;
+    overflow: auto;
+}
 .aikol-confirm__foot {
     padding: 0.85rem 1.25rem 1rem;
     display: flex;

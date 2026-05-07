@@ -8,6 +8,27 @@
 
 ## 2026-05-07
 
+### [aikol] Settings: đổi flow "Nạp ngay" → modal "Liên hệ admin" (bỏ SePay self-service)
+
+**Yêu cầu**: Click "Nạp ngay" → popup hướng dẫn user liên hệ admin để được nạp credits, thay vì tạo đơn SePay (đang tắt).
+
+**Fix**:
+
+- [aikol-studio/js/settings.js](../aikol-studio/js/settings.js) `loadPacks()` — bỏ gate `sepay_enabled`, packs luôn hiện cho user xem giá tham khảo. `onCreateTopup` đổi tên `requestAdminTopup`: build text yêu cầu (user, gói, credits, VND, thời gian), show modal `aikolConfirm` với pack info + ghi chú + `<pre>` request text. Confirm → copy text vào clipboard + toast "Đã copy yêu cầu — gửi cho admin". Không gọi `createTopup` API nữa.
+- Username fallback: `localStorage.getItem('displayName')` → `username` → `authManager.getDisplayName()` → 'người dùng'.
+- [aikol-studio/settings.html](../aikol-studio/settings.html) — bỏ `#sepay-disabled-notice`, sửa subtitle panel "Bấm Nạp ngay để gửi yêu cầu nạp credits..." mô tả đúng flow mới.
+- [aikol-studio/css/aikol.css](../aikol-studio/css/aikol.css) — thêm `.aikol-confirm__request` (mono code block, scroll, max-height 180px).
+
+**Smoke test (Playwright local)**:
+
+- Reload settings.html → 6 packs render (mini/small/standard/pro/power/agency) ✓
+- Click pack "Standard" → modal "Liên hệ admin để nạp credits" với pack card + code block "User: Administrator · Gói: Standard — 900 credits · Số tiền: 300.000 ₫ · Thời gian: 16:49:32 7/5/2026" + 2 nút "Đóng" / "Copy yêu cầu" ✓
+- Username pulled từ `localStorage.displayName` đúng ✓
+
+**Files changed**: 3 (js + html + css).
+
+**Status**: ✅ Done. Khi nào setup `SEPAY_ACCOUNT_NUMBER` env trên Render và muốn enable lại self-service, swap `requestAdminTopup` về `onCreateTopup` cũ (đã giữ logic SePay trong git history `15b7b1e2`).
+
 ### [inventory] Badge sản phẩm đã được đưa qua PO Nháp + chip đếm cạnh tên NCC
 
 **Yêu cầu user**: "khi bấm nút tạo đơn hàng để đưa qua tab purchase-orders sẽ mark hoặc badge đi" — cần biết được trên inventory-tracking đơn nào / sản phẩm nào đã có trong Đặt hàng Nháp.
