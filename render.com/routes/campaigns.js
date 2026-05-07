@@ -53,7 +53,25 @@ async function ensureTables(pool) {
                 employee_ranges JSONB DEFAULT '[]',
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             );
+
+            CREATE TABLE IF NOT EXISTS campaign_employee_ranges_history (
+                id BIGSERIAL PRIMARY KEY,
+                campaign_key VARCHAR(255) NOT NULL,
+                campaign_label VARCHAR(255),
+                action VARCHAR(20) NOT NULL DEFAULT 'update',
+                user_id VARCHAR(255),
+                user_name VARCHAR(255),
+                ranges_before JSONB,
+                ranges_after JSONB,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
         `);
+        await pool.query(
+            `CREATE INDEX IF NOT EXISTS idx_cer_history_key ON campaign_employee_ranges_history(campaign_key)`
+        );
+        await pool.query(
+            `CREATE INDEX IF NOT EXISTS idx_cer_history_created ON campaign_employee_ranges_history(created_at DESC)`
+        );
         _tablesCreated = true;
         console.log('[CAMPAIGNS] Tables created/verified');
     } catch (error) {
@@ -75,13 +93,11 @@ router.get('/', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const result = await pool.query(
-            'SELECT * FROM campaigns ORDER BY created_at DESC'
-        );
+        const result = await pool.query('SELECT * FROM campaigns ORDER BY created_at DESC');
 
         res.json({
             success: true,
-            campaigns: result.rows.map(mapCampaignRow)
+            campaigns: result.rows.map(mapCampaignRow),
         });
     } catch (error) {
         console.error('[CAMPAIGNS] GET / error:', error);
@@ -103,10 +119,12 @@ router.get('/employee-ranges', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const result = await pool.query('SELECT * FROM campaign_employee_ranges ORDER BY updated_at DESC');
+        const result = await pool.query(
+            'SELECT * FROM campaign_employee_ranges ORDER BY updated_at DESC'
+        );
 
         const rangesByCampaign = {};
-        result.rows.forEach(row => {
+        result.rows.forEach((row) => {
             rangesByCampaign[row.campaign_name] = row.employee_ranges || [];
         });
 
@@ -133,10 +151,54 @@ router.get('/employee-ranges/:campaignName', async (req, res) => {
 
         res.json({
             success: true,
-            employeeRanges: result.rows.length > 0 ? result.rows[0].employee_ranges : []
+            employeeRanges: result.rows.length > 0 ? result.rows[0].employee_ranges : [],
         });
     } catch (error) {
         console.error('[CAMPAIGNS] GET /employee-ranges/:campaignName error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/campaigns/employee-ranges/:campaignName/history
+ * Returns the most recent edit history for this campaign key (default 50, max 200).
+ * MUST be declared BEFORE PUT handler so route matching prefers /history sub-path
+ * over the PUT-only `:campaignName` (Express orders by declaration; both share same prefix).
+ */
+router.get('/employee-ranges/:campaignName/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+        const result = await pool.query(
+            `SELECT id, campaign_key, campaign_label, action, user_id, user_name,
+                    ranges_before, ranges_after,
+                    to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at_iso
+             FROM campaign_employee_ranges_history
+             WHERE campaign_key = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [req.params.campaignName, limit]
+        );
+
+        res.json({
+            success: true,
+            history: result.rows.map((r) => ({
+                id: Number(r.id),
+                campaignKey: r.campaign_key,
+                campaignLabel: r.campaign_label,
+                action: r.action,
+                userId: r.user_id,
+                userName: r.user_name,
+                rangesBefore: r.ranges_before || [],
+                rangesAfter: r.ranges_after || [],
+                createdAt: r.created_at_iso,
+            })),
+        });
+    } catch (error) {
+        console.error('[CAMPAIGNS] GET /employee-ranges/:campaignName/history error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -150,7 +212,7 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const { employeeRanges } = req.body;
+        const { employeeRanges, userId, userName, campaignLabel } = req.body;
         const ranges = employeeRanges || [];
 
         // Validate: check for invalid and overlapping ranges
@@ -160,7 +222,9 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
                 const from = r.fromSTT || r.from || r.start || 0;
                 const to = r.toSTT || r.to || r.end || Infinity;
                 if (from < 0 || (to !== Infinity && to < 0)) {
-                    return res.status(400).json({ error: `STT không được âm: from=${from}, to=${to}` });
+                    return res
+                        .status(400)
+                        .json({ error: `STT không được âm: from=${from}, to=${to}` });
                 }
                 if (from > to) {
                     return res.status(400).json({ error: `STT from (${from}) > to (${to})` });
@@ -170,12 +234,12 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
 
         if (Array.isArray(ranges) && ranges.length > 1) {
             const sorted = [...ranges]
-                .map(r => ({
+                .map((r) => ({
                     from: r.fromSTT || r.from || r.start || 0,
                     to: r.toSTT || r.to || r.end || Infinity,
-                    userId: r.userId || r.id || '?'
+                    userId: r.userId || r.id || '?',
                 }))
-                .filter(r => r.from <= r.to)
+                .filter((r) => r.from <= r.to)
                 .sort((a, b) => a.from - b.from);
 
             const overlaps = [];
@@ -184,7 +248,7 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
                     overlaps.push({
                         range1: `${sorted[i - 1].userId} (${sorted[i - 1].from}-${sorted[i - 1].to})`,
                         range2: `${sorted[i].userId} (${sorted[i].from}-${sorted[i].to})`,
-                        overlapAt: `STT ${sorted[i].from}-${Math.min(sorted[i - 1].to, sorted[i].to)}`
+                        overlapAt: `STT ${sorted[i].from}-${Math.min(sorted[i - 1].to, sorted[i].to)}`,
                     });
                 }
             }
@@ -193,18 +257,56 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
                 return res.status(400).json({
                     error: 'Employee ranges overlap',
                     overlaps,
-                    message: `Phát hiện ${overlaps.length} chỗ trùng STT: ${overlaps.map(o => o.overlapAt).join(', ')}`
+                    message: `Phát hiện ${overlaps.length} chỗ trùng STT: ${overlaps.map((o) => o.overlapAt).join(', ')}`,
                 });
             }
         }
 
-        await pool.query(`
+        // Capture previous ranges for history diff (best-effort).
+        let prevRanges = [];
+        try {
+            const prev = await pool.query(
+                'SELECT employee_ranges FROM campaign_employee_ranges WHERE campaign_name = $1',
+                [req.params.campaignName]
+            );
+            if (prev.rows.length > 0) prevRanges = prev.rows[0].employee_ranges || [];
+        } catch (_e) {
+            /* best-effort — never block the save */
+        }
+
+        await pool.query(
+            `
             INSERT INTO campaign_employee_ranges (campaign_name, employee_ranges)
             VALUES ($1, $2)
             ON CONFLICT (campaign_name) DO UPDATE SET
                 employee_ranges = EXCLUDED.employee_ranges,
                 updated_at = NOW()
-        `, [req.params.campaignName, JSON.stringify(ranges)]);
+        `,
+            [req.params.campaignName, JSON.stringify(ranges)]
+        );
+
+        // Audit history — fire-and-forget. Skip if before === after (no actual change).
+        const beforeJSON = JSON.stringify(prevRanges || []);
+        const afterJSON = JSON.stringify(ranges);
+        if (beforeJSON !== afterJSON) {
+            const action = prevRanges && prevRanges.length > 0 ? 'update' : 'create';
+            pool.query(
+                `INSERT INTO campaign_employee_ranges_history
+                    (campaign_key, campaign_label, action, user_id, user_name, ranges_before, ranges_after)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    req.params.campaignName,
+                    campaignLabel || null,
+                    action,
+                    userId || null,
+                    userName || null,
+                    beforeJSON,
+                    afterJSON,
+                ]
+            ).catch((e) =>
+                console.warn('[CAMPAIGNS] employee-ranges history insert failed:', e?.message)
+            );
+        }
 
         res.json({ success: true });
     } catch (error) {
@@ -249,7 +351,8 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'id and name are required' });
         }
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             INSERT INTO campaigns (id, name, time_frame, time_frame_label, custom_start_date, custom_end_date)
             VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (id) DO UPDATE SET
@@ -260,7 +363,16 @@ router.post('/', async (req, res) => {
                 custom_end_date = EXCLUDED.custom_end_date,
                 updated_at = NOW()
             RETURNING *
-        `, [id, name, timeFrame || 'custom', timeFrameLabel || '', customStartDate || '', customEndDate || '']);
+        `,
+            [
+                id,
+                name,
+                timeFrame || 'custom',
+                timeFrameLabel || '',
+                customStartDate || '',
+                customEndDate || '',
+            ]
+        );
 
         res.json({ success: true, campaign: mapCampaignRow(result.rows[0]) });
     } catch (error) {
@@ -281,7 +393,8 @@ router.put('/:id', async (req, res) => {
 
         const { name, timeFrame, timeFrameLabel, customStartDate, customEndDate } = req.body;
 
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             UPDATE campaigns SET
                 name = COALESCE($2, name),
                 time_frame = COALESCE($3, time_frame),
@@ -291,7 +404,9 @@ router.put('/:id', async (req, res) => {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-        `, [req.params.id, name, timeFrame, timeFrameLabel, customStartDate, customEndDate]);
+        `,
+            [req.params.id, name, timeFrame, timeFrameLabel, customStartDate, customEndDate]
+        );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Campaign not found' });
@@ -341,7 +456,8 @@ router.post('/batch', async (req, res) => {
         try {
             await client.query('BEGIN');
             for (const c of campaigns) {
-                await client.query(`
+                await client.query(
+                    `
                     INSERT INTO campaigns (id, name, time_frame, time_frame_label, custom_start_date, custom_end_date, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (id) DO UPDATE SET
@@ -351,11 +467,18 @@ router.post('/batch', async (req, res) => {
                         custom_start_date = EXCLUDED.custom_start_date,
                         custom_end_date = EXCLUDED.custom_end_date,
                         updated_at = EXCLUDED.updated_at
-                `, [
-                    c.id, c.name, c.timeFrame || 'custom', c.timeFrameLabel || '',
-                    c.customStartDate || '', c.customEndDate || '',
-                    c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()
-                ]);
+                `,
+                    [
+                        c.id,
+                        c.name,
+                        c.timeFrame || 'custom',
+                        c.timeFrameLabel || '',
+                        c.customStartDate || '',
+                        c.customEndDate || '',
+                        c.createdAt || new Date().toISOString(),
+                        c.updatedAt || new Date().toISOString(),
+                    ]
+                );
                 inserted++;
             }
             await client.query('COMMIT');
@@ -399,7 +522,7 @@ router.get('/user-pref/:userId', async (req, res) => {
         res.json({
             success: true,
             activeCampaignId: row.active_campaign_id,
-            filterPreferences: row.filter_preferences
+            filterPreferences: row.filter_preferences,
         });
     } catch (error) {
         console.error('[CAMPAIGNS] GET /user-pref/:userId error:', error);
@@ -419,14 +542,21 @@ router.put('/user-pref/:userId', async (req, res) => {
 
         const { activeCampaignId, filterPreferences } = req.body;
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO user_campaign_preferences (user_id, active_campaign_id, filter_preferences)
             VALUES ($1, $2, $3)
             ON CONFLICT (user_id) DO UPDATE SET
                 active_campaign_id = COALESCE($2, user_campaign_preferences.active_campaign_id),
                 filter_preferences = COALESCE($3, user_campaign_preferences.filter_preferences),
                 updated_at = NOW()
-        `, [req.params.userId, activeCampaignId || null, filterPreferences ? JSON.stringify(filterPreferences) : null]);
+        `,
+            [
+                req.params.userId,
+                activeCampaignId || null,
+                filterPreferences ? JSON.stringify(filterPreferences) : null,
+            ]
+        );
 
         res.json({ success: true });
     } catch (error) {
@@ -480,7 +610,7 @@ router.get('/reports/list', async (req, res) => {
 
         res.json({
             success: true,
-            reports: result.rows.map(row => ({
+            reports: result.rows.map((row) => ({
                 id: row.id,
                 tableName: row.table_name,
                 totalOrders: row.total_orders,
@@ -490,8 +620,8 @@ router.get('/reports/list', async (req, res) => {
                 isSavedCopy: row.is_saved_copy,
                 originalCampaign: row.original_campaign,
                 createdAt: row.created_at,
-                updatedAt: row.updated_at
-            }))
+                updatedAt: row.updated_at,
+            })),
         });
     } catch (error) {
         console.error('[CAMPAIGNS] GET /reports/list error:', error);
@@ -509,10 +639,9 @@ router.get('/reports/:tableName', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const result = await pool.query(
-            'SELECT * FROM campaign_reports WHERE table_name = $1',
-            [req.params.tableName]
-        );
+        const result = await pool.query('SELECT * FROM campaign_reports WHERE table_name = $1', [
+            req.params.tableName,
+        ]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Report not found' });
@@ -530,7 +659,7 @@ router.get('/reports/:tableName', async (req, res) => {
                 fetchedAt: row.fetched_at,
                 isSavedCopy: row.is_saved_copy,
                 originalCampaign: row.original_campaign,
-            }
+            },
         });
     } catch (error) {
         console.error('[CAMPAIGNS] GET /reports/:tableName error:', error);
@@ -548,9 +677,18 @@ router.put('/reports/:tableName', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const { orders, totalOrders, successCount, errorCount, fetchedAt, isSavedCopy, originalCampaign } = req.body;
+        const {
+            orders,
+            totalOrders,
+            successCount,
+            errorCount,
+            fetchedAt,
+            isSavedCopy,
+            originalCampaign,
+        } = req.body;
 
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO campaign_reports (table_name, orders, total_orders, success_count, error_count, fetched_at, is_saved_copy, original_campaign)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (table_name) DO UPDATE SET
@@ -562,16 +700,18 @@ router.put('/reports/:tableName', async (req, res) => {
                 is_saved_copy = COALESCE(EXCLUDED.is_saved_copy, campaign_reports.is_saved_copy),
                 original_campaign = COALESCE(EXCLUDED.original_campaign, campaign_reports.original_campaign),
                 updated_at = NOW()
-        `, [
-            req.params.tableName,
-            JSON.stringify(orders || []),
-            totalOrders || 0,
-            successCount || 0,
-            errorCount || 0,
-            fetchedAt || Date.now(),
-            isSavedCopy || false,
-            originalCampaign || null
-        ]);
+        `,
+            [
+                req.params.tableName,
+                JSON.stringify(orders || []),
+                totalOrders || 0,
+                successCount || 0,
+                errorCount || 0,
+                fetchedAt || Date.now(),
+                isSavedCopy || false,
+                originalCampaign || null,
+            ]
+        );
 
         res.json({ success: true });
     } catch (error) {
@@ -589,7 +729,9 @@ router.delete('/reports/:tableName', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const result = await pool.query('DELETE FROM campaign_reports WHERE table_name = $1', [req.params.tableName]);
+        const result = await pool.query('DELETE FROM campaign_reports WHERE table_name = $1', [
+            req.params.tableName,
+        ]);
         res.json({ success: true, deleted: result.rowCount > 0 });
     } catch (error) {
         console.error('[CAMPAIGNS] DELETE /reports/:tableName error:', error);
@@ -638,7 +780,7 @@ function mapCampaignRow(row) {
         customStartDate: row.custom_start_date,
         customEndDate: row.custom_end_date,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
     };
 }
 

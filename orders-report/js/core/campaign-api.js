@@ -154,12 +154,32 @@
             return data.employeeRanges || [];
         },
 
-        /** Save employee ranges for campaign */
-        async saveEmployeeRanges(campaignName, employeeRanges) {
-            return _fetch(`/employee-ranges/${encodeURIComponent(campaignName)}`, {
+        /**
+         * Save employee ranges for campaign.
+         * @param {string} campaignKey - campaign.id (preferred) or sanitized name (legacy)
+         * @param {Array} employeeRanges
+         * @param {{ userId?: string, userName?: string, campaignLabel?: string }} [meta]
+         *   userId/userName recorded for edit-history audit; campaignLabel = display name
+         *   stored alongside id so history is human-readable even after a campaign rename.
+         */
+        async saveEmployeeRanges(campaignKey, employeeRanges, meta = {}) {
+            return _fetch(`/employee-ranges/${encodeURIComponent(campaignKey)}`, {
                 method: 'PUT',
-                body: JSON.stringify({ employeeRanges }),
+                body: JSON.stringify({
+                    employeeRanges,
+                    userId: meta.userId,
+                    userName: meta.userName,
+                    campaignLabel: meta.campaignLabel,
+                }),
             });
+        },
+
+        /** Get edit history for a campaign's employee ranges (most recent first). */
+        async getEmployeeRangesHistory(campaignKey, limit = 50) {
+            const data = await _fetch(
+                `/employee-ranges/${encodeURIComponent(campaignKey)}/history?limit=${limit}`
+            );
+            return data.history || [];
         },
     };
 
