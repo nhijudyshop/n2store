@@ -92,7 +92,24 @@ Status: ✅ Done
 - MODIFIED: `aikol-studio/css/aikol.css` (+~600 lines), `aikol-studio/{index,models,library,bulk,campaigns,history,settings}.html` (sidebar wired + redundant nav removed), `aikol-studio/bulk.html` + `js/bulk.js` (full redesign), `render.com/server.js` (CORS).
 - TEST: `scripts/test-aikol-sprint4-deep.js` adapted for new selectors.
 
-**Status**: ✅ Done — Sprint 5 LIVE. UI matches tikreel design language (gradient CTAs + sidebar + KPI dashboard + 3-step bulk). 23/23 deep-test pass. Mobile responsive verified.
+**S5.6 — history filter chips** (`history.html` + `js/history.js`)
+
+- Replaced `aikol-btn aikol-btn--secondary` filter row with `.aikol-chip` soft-accent (matches tikreel's tab-style chips).
+- Labels: `All / 🖼️ Images only / 🎬 Videos only` (was `All / Image / Video`).
+- `js/history.js` toggles `aikol-chip--active` class in addition to `aria-pressed`.
+
+**S5.7 — settings plans polish** (`js/settings.js` + CSS)
+
+- "Đề xuất" badge on Standard pack (gradient + glow shadow, top-right offset).
+- Per-pack tagline (Thử cho biết / Cá nhân / Đề xuất / Tăng tốc / Chuyên nghiệp / Agency).
+- ⚡ icon + larger credit number with smaller `credits` suffix.
+- VND price in main weight + "≈ X / credit" rate hint.
+- Popular pack: 1px accent border + soft-gradient overlay + inset shadow.
+- Hover lift across all packs.
+
+**Final test (commit ec766a95 → live)**: 23/23 deep test pass. 0 console errors. Settings + history pages match tikreel pricing/library aesthetic.
+
+**Status**: ✅ Done — Sprint 5 COMPLETE (S5.1 → S5.7). UI matches tikreel design language (gradient CTAs + sidebar + KPI dashboard + 3-step bulk + soft-chip filters + premium plan cards). 23/23 deep-test pass on every iteration. Mobile responsive verified at 375×812.
 
 ---
 
