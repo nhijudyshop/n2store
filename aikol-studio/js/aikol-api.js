@@ -140,6 +140,23 @@
         },
         deleteOutput: (id) => jsonRequest('DELETE', `/outputs/${id}`),
 
+        // Sprint 4 — billing / settings / campaigns / bulk
+        createTopup: (pack_id) => jsonRequest('POST', '/billing/topup', { pack_id }),
+        listTopups: () => jsonRequest('GET', '/billing/topups'),
+        getTopup: (id) => jsonRequest('GET', `/billing/topups/${id}`),
+        cancelTopup: (id) => jsonRequest('POST', `/billing/topups/${id}/cancel`),
+
+        getSettings: () => jsonRequest('GET', '/settings'),
+        updateSettings: (payload) => jsonRequest('PATCH', '/settings', payload),
+        linkTelegram: (chat_id) => jsonRequest('POST', '/telegram/link', { chat_id }),
+
+        listCampaigns: () => jsonRequest('GET', '/campaigns'),
+        createCampaign: (payload) => jsonRequest('POST', '/campaigns', payload),
+        updateCampaign: (id, payload) => jsonRequest('PATCH', `/campaigns/${id}`, payload),
+        deleteCampaign: (id) => jsonRequest('DELETE', `/campaigns/${id}`),
+        runCampaign: (id, body = {}) => jsonRequest('POST', `/campaigns/${id}/run`, body),
+        runBulk: (payload) => jsonRequest('POST', '/bulk', payload),
+
         health: () => jsonRequest('GET', '/health'),
     };
 

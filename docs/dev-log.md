@@ -8,6 +8,48 @@
 
 ## 2026-05-07
 
+### [aikol] Sprint 4 — Bulk Generate, Campaigns, SePay topup, Telegram notif
+
+**Goal** — Hoàn tất MVP tikreel clone. Sau Sprint 3 (gen pipeline LIVE), Sprint 4 mở khoá self-serve: user tự nạp credits qua SePay, lưu campaigns + chạy bulk, và nhận thông báo Telegram khi job xong / lỗi / topup paid.
+
+**Backend (`/api/aikol/*`) — 3 sub-routers mới**
+
+- `routes/aikol-billing.js`:
+    - `POST /billing/topup { pack_id }` → tạo `aikol_topups` row với memo `AIKOL` + 8 alnum, return QR URL (`https://qr.sepay.vn/img?...`) + STK + memo + expires_at (24h).
+    - `GET /billing/topups` + `GET /billing/topups/:id` (poll) + `POST /billing/topups/:id/cancel`.
+    - `GET/PATCH /settings` — telegram_chat_id, notify_on_done/error toggles.
+    - `POST /telegram/link { chat_id }` — gửi tin test rồi mới save (verify chat ID hợp lệ).
+- `routes/aikol-campaigns.js`:
+    - `GET/POST/PATCH/DELETE /campaigns` — saved bundle (model × clip filter × config).
+    - `POST /campaigns/:id/run { limit }` — fan-out gen rows theo filter (platform/username/favorite_only/min_views/limit).
+    - `POST /bulk` — one-shot bulk run không lưu campaign. Cùng helper `runBulk()` cho cả 2.
+    - Atomic charge mỗi row trong single TX. Up-front balance check tránh orphan.
+- `services/aikol-telegram-service.js` — `sendTelegramMessage(chatId, text)` + `notifyUser(userId, kind, text)` đọc `aikol_user_settings` cho chat_id + notify toggles. Best-effort (never throws).
+- `services/aikol-queue-worker.js` — hook `notifyDone()` sau `state='done'` và `markError()` thêm telegram error notify.
+- `routes/sepay-webhook-core.js` — `processAikolTopup(db, webhookData)` chạy song song với `processDebtUpdate`. Match memo regex `/AIKOL[A-Z0-9]{8}/` trong `content`/`code` → `UPDATE aikol_topups SET state='paid'` (atomic claim) → `UPDATE aikol_credits balance += credits` → `INSERT aikol_credit_history kind='topup'` → Telegram notify.
+
+**Schema (`migrations/aikol_sprint4.sql`)** — idempotent.
+
+- `aikol_user_settings` (PK user_id, telegram_chat_id, notify_on_done, notify_on_error).
+- `aikol_topups` (id, user_id, pack_id, credits, amount_vnd, **memo UNIQUE**, state='pending'|'paid'|'expired'|'cancelled', paid_at, paid_by_sepay_id, expires_at NOW+24h).
+- Cần apply qua `POST /api/admin/run-single-migration { file: "aikol_sprint4.sql" }` sau deploy.
+
+**ENV vars cần** (Render `srv-d4e5pd3gk3sc73bgv600`):
+
+- `SEPAY_BANK` (default `MBBank`), `SEPAY_ACCOUNT_NUMBER`, `SEPAY_ACCOUNT_NAME` — required cho QR; nếu thiếu, `/billing/topup` trả 503 `sepay_not_configured`.
+- `TELEGRAM_BOT_TOKEN` (đã có cho bot chính) — re-used cho aikol notifications.
+
+**Frontend**
+
+- `js/aikol-api.js` — thêm 12 methods.
+- `settings.html`+`js/settings.js`, `bulk.html`+`js/bulk.js`, `campaigns.html`+`js/campaigns.js` (NEW).
+- `index.html` (dashboard) — nav links Library/Bulk/Campaigns/Outputs/Settings.
+- `css/aikol.css` — Sprint 4 styles: packs/topup/credit-row/preset/campaign cards.
+
+**Status**: 🔄 In Progress — Cần deploy + apply migration + browser smoke test.
+
+---
+
 ### [aikol] Sprint 3 — Image (Fal.ai) + Video (Kling) generation pipeline
 
 **Goal** — Sau Sprint 2 (Library + import + clip CRUD) đã LIVE. Sprint 3 thêm generation core: model + clip → ảnh / video clone identity-preserving, có queue + charge/refund tự động.

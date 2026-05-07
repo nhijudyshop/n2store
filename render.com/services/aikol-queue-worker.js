@@ -18,6 +18,7 @@ const pool = require('../db/pool');
 const bunny = require('./bunny-storage-service');
 const fal = require('./aikol-fal-service');
 const kling = require('./aikol-kling-service');
+const telegram = require('./aikol-telegram-service');
 
 const TICK_INTERVAL_MS = parseInt(process.env.AIKOL_WORKER_INTERVAL_MS, 10) || 8000;
 const MAX_RUNNING = parseInt(process.env.AIKOL_WORKER_MAX_RUNNING, 10) || 6;
@@ -57,6 +58,23 @@ async function markError(genId, userId, costCredits, errMsg) {
         genId,
         `Refund: ${String(errMsg).slice(0, 100)}`
     ).catch((e) => console.warn(`[aikol-worker] refund failed for ${genId}:`, e.message));
+    telegram
+        .notifyUser(
+            userId,
+            'error',
+            `❌ *Generation thất bại*\n\nID: \`${genId.slice(0, 8)}\`\nĐã refund: \`+${costCredits} cr\`\nLỗi: ${String(errMsg).slice(0, 200)}`
+        )
+        .catch(() => {});
+}
+
+async function notifyDone(genId, userId, kind, outputCount) {
+    telegram
+        .notifyUser(
+            userId,
+            'done',
+            `✅ *Generation hoàn tất*\n\n${kind === 'video' ? '🎬' : '🖼️'} \`${kind}\` — \`${outputCount}\` output\nID: \`${genId.slice(0, 8)}\``
+        )
+        .catch(() => {});
 }
 
 // ---------- DISPATCH (pending → running) ----------
@@ -166,7 +184,7 @@ async function pollOne(row) {
 }
 
 async function pollFal(row) {
-    const { id, user_id, external_id, cost_credits } = row;
+    const { id, user_id, external_id, cost_credits, kind } = row;
     const status = await fal.getJobStatus(external_id);
     if (status.status === 'COMPLETED') {
         const result = await fal.getJobResult(external_id);
@@ -201,6 +219,7 @@ async function pollFal(row) {
             `UPDATE aikol_generations SET state = 'done', finished_at = NOW() WHERE id = $1`,
             [id]
         );
+        notifyDone(id, user_id, kind, saved);
     } else if (status.status === 'IN_QUEUE' || status.status === 'IN_PROGRESS') {
         // still running — no-op
     } else {
@@ -210,7 +229,7 @@ async function pollFal(row) {
 }
 
 async function pollKling(row) {
-    const { id, user_id, external_id, cost_credits, config } = row;
+    const { id, user_id, external_id, cost_credits, config, kind } = row;
     const conf = typeof config === 'string' ? JSON.parse(config) : config || {};
     const kindKey = conf.kind_key || 'image2video';
     const status = await kling.getJobStatus(external_id, kindKey);
@@ -245,6 +264,7 @@ async function pollKling(row) {
             `UPDATE aikol_generations SET state = 'done', finished_at = NOW() WHERE id = $1`,
             [id]
         );
+        notifyDone(id, user_id, kind, saved);
     } else if (status.status === 'submitted' || status.status === 'processing') {
         // still running — no-op
     } else {

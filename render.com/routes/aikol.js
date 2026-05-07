@@ -20,6 +20,8 @@ const pool = require('../db/pool');
 const bunny = require('../services/bunny-storage-service');
 const clipsRouter = require('./aikol-clips');
 const generationsRouter = require('./aikol-generations');
+const billingRouter = require('./aikol-billing');
+const campaignsRouter = require('./aikol-campaigns');
 
 const COSTS = {
     image: 4,
@@ -278,5 +280,9 @@ router.use('/', clipsRouter);
 
 // ===== Generations + Outputs (Sprint 3 — Fal.ai + Kling) =====
 router.use('/', generationsRouter);
+
+// ===== Billing + Settings + Campaigns (Sprint 4) =====
+router.use('/', billingRouter);
+router.use('/', campaignsRouter);
 
 module.exports = router;

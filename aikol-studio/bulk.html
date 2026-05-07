@@ -1,0 +1,214 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Bulk Generate — AI KOL Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link rel="stylesheet" href="../hanghoan/css/modern.css" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/generate-panel.js"></script>
+        <script defer src="js/bulk.js"></script>
+    </head>
+    <body>
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                "
+            >
+                <div>
+                    <h1>Bulk Generate</h1>
+                    <p>Chạy 1 model qua nhiều clip cùng lúc · 4 preset hoặc tự cấu hình</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <a class="aikol-btn aikol-btn--secondary" href="library.html">Library</a>
+                    <a class="aikol-btn aikol-btn--secondary" href="campaigns.html">Campaigns</a>
+                    <a class="aikol-btn aikol-btn--secondary" href="index.html">← Dashboard</a>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <h2>1. Chọn preset</h2>
+                <div id="preset-grid" class="aikol-preset-grid">
+                    <button type="button" class="aikol-preset" data-preset="favorites_image">
+                        <strong>⭐ Favorites → Image</strong>
+                        <span>Tất cả clip favorite · 1 image / clip · 9:16</span>
+                    </button>
+                    <button type="button" class="aikol-preset" data-preset="recent_image_3">
+                        <strong>🆕 Recent 5 → 3 images</strong>
+                        <span>5 clip mới nhất · 3 variations · close-up</span>
+                    </button>
+                    <button type="button" class="aikol-preset" data-preset="favorites_video">
+                        <strong>⭐ Favorites → Video std</strong>
+                        <span>Favorite · Kling std 5s / clip</span>
+                    </button>
+                    <button type="button" class="aikol-preset" data-preset="custom">
+                        <strong>⚙️ Custom</strong>
+                        <span>Tự chọn filter + config</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="aikol-panel">
+                <h2>2. Cấu hình</h2>
+                <form id="bulk-form" class="aikol-bulk-form">
+                    <div class="aikol-gen-grid">
+                        <label class="aikol-gen-row">
+                            <span>Kind</span>
+                            <select name="kind">
+                                <option value="image" selected>Image</option>
+                                <option value="video">Video</option>
+                            </select>
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Model</span>
+                            <select name="model_id" required></select>
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Variations / clip</span>
+                            <input type="number" name="variations" min="1" max="10" value="1" />
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Limit clips</span>
+                            <input type="number" name="limit" min="1" max="50" value="10" />
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Platform</span>
+                            <select name="platform">
+                                <option value="">All</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="upload">Upload</option>
+                                <option value="douyin">Douyin</option>
+                            </select>
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Username (filter)</span>
+                            <input type="text" name="username" placeholder="(để trống = tất cả)" />
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Min views</span>
+                            <input type="number" name="min_views" min="0" placeholder="0" />
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Image size</span>
+                            <select name="image_size">
+                                <option value="9:16" selected>9:16</option>
+                                <option value="1:1">1:1</option>
+                                <option value="16:9">16:9</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <fieldset class="aikol-gen-fieldset">
+                        <legend>Filter</legend>
+                        <label><input type="checkbox" name="favorite_only" /> Chỉ favorite</label>
+                    </fieldset>
+
+                    <fieldset class="aikol-gen-fieldset">
+                        <legend>Keep from clip</legend>
+                        <label><input type="checkbox" name="keep_pose" checked /> Pose</label>
+                        <label><input type="checkbox" name="keep_outfit" /> Outfit</label>
+                        <label><input type="checkbox" name="keep_bg" /> Background</label>
+                        <label
+                            ><input type="checkbox" name="keep_lighting" checked /> Lighting</label
+                        >
+                    </fieldset>
+
+                    <div data-video-only style="display: none">
+                        <div class="aikol-gen-grid">
+                            <label class="aikol-gen-row">
+                                <span>Mode</span>
+                                <select name="kling_mode">
+                                    <option value="std" selected>Standard</option>
+                                    <option value="pro">Pro</option>
+                                </select>
+                            </label>
+                            <label class="aikol-gen-row">
+                                <span>Duration</span>
+                                <select name="duration_seconds">
+                                    <option value="5" selected>5s</option>
+                                    <option value="10">10s</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+
+                    <label class="aikol-gen-row">
+                        <span>Note (optional)</span>
+                        <textarea
+                            name="note"
+                            rows="2"
+                            maxlength="500"
+                            placeholder="Free-form prompt cho mọi clip"
+                        ></textarea>
+                    </label>
+
+                    <div
+                        style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-top: 0.75rem;
+                        "
+                    >
+                        <div>
+                            <div id="bulk-cost-summary" style="color: var(--aikol-text-dim)">
+                                — credits / clip × 0 clips = 0
+                            </div>
+                            <div
+                                id="bulk-save-as-campaign"
+                                style="margin-top: 0.4rem; font-size: 0.85rem"
+                            >
+                                <label
+                                    style="display: inline-flex; gap: 0.4rem; align-items: center"
+                                >
+                                    <input type="checkbox" id="save-as-campaign" />
+                                    Lưu thành campaign tên
+                                </label>
+                                <input
+                                    id="campaign-name"
+                                    type="text"
+                                    class="aikol-input"
+                                    style="display: inline-block; width: 220px; margin-left: 0.5rem"
+                                    placeholder="Tên campaign"
+                                />
+                            </div>
+                        </div>
+                        <button type="submit" class="aikol-btn">🚀 Run Bulk</button>
+                    </div>
+                </form>
+            </section>
+
+            <section
+                id="aikol-queue-panel"
+                class="aikol-queue"
+                aria-live="polite"
+                aria-label="Generation queue"
+            ></section>
+
+            <section class="aikol-panel">
+                <h2>3. Recent runs</h2>
+                <div id="bulk-recent"></div>
+            </section>
+        </main>
+    </body>
+</html>

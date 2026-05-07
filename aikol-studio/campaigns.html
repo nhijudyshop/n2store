@@ -1,0 +1,80 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Campaigns — AI KOL Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link rel="stylesheet" href="../hanghoan/css/modern.css" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/generate-panel.js"></script>
+        <script defer src="js/campaigns.js"></script>
+    </head>
+    <body>
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                "
+            >
+                <div>
+                    <h1>Campaigns</h1>
+                    <p>Saved bundles · 1-click chạy lại với cùng filter + config</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <a class="aikol-btn aikol-btn--secondary" href="bulk.html">+ Tạo từ Bulk</a>
+                    <a class="aikol-btn aikol-btn--secondary" href="index.html">← Dashboard</a>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <div
+                    style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-bottom: 0.5rem;
+                    "
+                >
+                    <h2 style="margin: 0">Saved campaigns</h2>
+                    <span
+                        id="campaigns-total"
+                        style="color: var(--aikol-text-dim); font-size: 0.85rem"
+                        >0</span
+                    >
+                </div>
+                <div id="campaigns-empty" class="aikol-empty" style="display: none">
+                    Chưa có campaign nào. Mở
+                    <a href="bulk.html" style="color: var(--aikol-accent)">Bulk</a>, tick "Lưu thành
+                    campaign" trước khi run.
+                </div>
+                <div id="campaigns-list"></div>
+            </section>
+
+            <section
+                id="aikol-queue-panel"
+                class="aikol-queue"
+                aria-live="polite"
+                aria-label="Generation queue"
+            ></section>
+        </main>
+    </body>
+</html>

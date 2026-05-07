@@ -1,0 +1,125 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Settings — AI KOL Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link rel="stylesheet" href="../hanghoan/css/modern.css" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/settings.js"></script>
+    </head>
+    <body>
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                "
+            >
+                <div>
+                    <h1>Settings &amp; Topup</h1>
+                    <p>Nạp credits qua SePay · Liên kết Telegram nhận thông báo gen</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <a class="aikol-btn aikol-btn--secondary" href="index.html">← Dashboard</a>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <h2>1. Chọn gói credits</h2>
+                <p style="color: var(--aikol-text-dim); margin-top: 0">
+                    Quét QR / chuyển khoản với memo đúng → credits tự cộng vào ví ngay khi SePay
+                    webhook báo về.
+                </p>
+                <div id="packs-grid" class="aikol-packs-grid"></div>
+            </section>
+
+            <section class="aikol-panel" id="active-topup-panel" style="display: none">
+                <h2>2. Đơn nạp đang chờ thanh toán</h2>
+                <div id="active-topup"></div>
+            </section>
+
+            <section class="aikol-panel">
+                <h2>3. Telegram notifications</h2>
+                <p style="color: var(--aikol-text-dim); margin-top: 0">
+                    Bot sẽ gửi tin nhắn khi gen hoàn tất / lỗi / topup được ghi nhận. Cần
+                    <strong>chat_id</strong> của bạn (mở Telegram → @userinfobot → /start → copy
+                    ID).
+                </p>
+                <form id="telegram-form" style="display: grid; gap: 0.75rem; max-width: 480px">
+                    <label class="aikol-gen-row">
+                        <span>Chat ID</span>
+                        <input
+                            id="telegram-chat-id"
+                            class="aikol-input"
+                            type="text"
+                            placeholder="Ví dụ: 123456789"
+                        />
+                    </label>
+                    <div style="display: flex; gap: 0.75rem; align-items: center">
+                        <label
+                            style="
+                                display: inline-flex;
+                                gap: 0.4rem;
+                                align-items: center;
+                                font-size: 0.9rem;
+                            "
+                        >
+                            <input id="notify-done" type="checkbox" checked /> Báo khi gen xong
+                        </label>
+                        <label
+                            style="
+                                display: inline-flex;
+                                gap: 0.4rem;
+                                align-items: center;
+                                font-size: 0.9rem;
+                            "
+                        >
+                            <input id="notify-error" type="checkbox" checked /> Báo khi gen lỗi
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem">
+                        <button id="telegram-link-btn" type="button" class="aikol-btn">
+                            Test &amp; Lưu
+                        </button>
+                        <button
+                            id="telegram-save-btn"
+                            type="button"
+                            class="aikol-btn aikol-btn--secondary"
+                        >
+                            Chỉ lưu (không test)
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="aikol-panel">
+                <h2>4. Lịch sử nạp</h2>
+                <div id="topup-history"></div>
+            </section>
+
+            <section class="aikol-panel">
+                <h2>5. Lịch sử credits (gần đây)</h2>
+                <div id="credit-history"></div>
+            </section>
+        </main>
+    </body>
+</html>

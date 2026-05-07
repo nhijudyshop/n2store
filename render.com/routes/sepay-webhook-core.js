@@ -6,6 +6,86 @@
 // =====================================================
 
 const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
+const aikolTelegram = (() => {
+    try {
+        return require('../services/aikol-telegram-service');
+    } catch (_) {
+        return null;
+    }
+})();
+
+/**
+ * Match a SePay inbound transaction against pending aikol topups by memo.
+ * Looks for "AIKOL" + 8 alnum chars in `content`. If found and a pending
+ * topup exists with that memo, credit the user atomically and notify.
+ * Best-effort — never throws into the webhook flow.
+ */
+async function processAikolTopup(db, webhookData, insertedId) {
+    if (!webhookData || webhookData.transferType !== 'in') return;
+    const content = (webhookData.content || webhookData.code || '').toUpperCase();
+    if (!content) return;
+    const m = content.match(/AIKOL[A-Z0-9]{8}/);
+    if (!m) return;
+    const memo = m[0];
+    try {
+        // Atomic match: claim the pending topup → credit wallet → log history.
+        const claim = await db.query(
+            `UPDATE aikol_topups
+             SET state = 'paid', paid_at = NOW(), paid_by_sepay_id = $2
+             WHERE memo = $1 AND state = 'pending'
+             RETURNING id, user_id, pack_id, credits, amount_vnd`,
+            [memo, String(webhookData.id || '')]
+        );
+        if (!claim.rows[0]) {
+            console.log(`[aikol-topup] memo=${memo} no pending topup (already paid or expired)`);
+            return;
+        }
+        const t = claim.rows[0];
+        // Verify amount matches (within 1000 VND tolerance for rounding/fees)
+        const expected = t.amount_vnd;
+        const got = parseInt(webhookData.transferAmount, 10);
+        if (!Number.isFinite(got) || Math.abs(got - expected) > 1000) {
+            console.warn(
+                `[aikol-topup] memo=${memo} amount mismatch: expected=${expected} got=${got} — crediting partial`
+            );
+        }
+        // Ensure wallet row exists, then credit.
+        await db.query(
+            `INSERT INTO aikol_credits (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+            [t.user_id]
+        );
+        await db.query(
+            `UPDATE aikol_credits SET balance = balance + $2, updated_at = NOW() WHERE user_id = $1`,
+            [t.user_id, t.credits]
+        );
+        await db.query(
+            `INSERT INTO aikol_credit_history
+                (user_id, kind, delta, amount_vnd, bank, memo, note)
+             VALUES ($1, 'topup', $2, $3, $4, $5, $6)`,
+            [
+                t.user_id,
+                t.credits,
+                got,
+                webhookData.gateway || null,
+                memo,
+                `Topup ${t.pack_id} via SePay sepay_id=${webhookData.id}`,
+            ]
+        );
+        console.log(`[aikol-topup] paid memo=${memo} user=${t.user_id} +${t.credits} cr`);
+        // Best-effort Telegram notification.
+        if (aikolTelegram) {
+            aikolTelegram
+                .notifyUser(
+                    t.user_id,
+                    'done',
+                    `💰 *Topup thành công*\n\nGói *${t.pack_id}* — \`+${t.credits} credits\`\nMemo: \`${memo}\`\nMember số: ${got.toLocaleString('vi-VN')} VND`
+                )
+                .catch(() => {});
+        }
+    } catch (e) {
+        console.error('[aikol-topup] match failed:', e.message);
+    }
+}
 
 /**
  * Upsert phone into recent_transfer_phones with TOTAL amount from balance_history
@@ -22,20 +102,22 @@ async function upsertRecentTransfer(dbConn, phone) {
             [phone]
         );
         const totalAmount = parseFloat(totalResult.rows[0].total) || 0;
-        await dbConn.query(`
+        await dbConn.query(
+            `
             INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
             VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
             ON CONFLICT (phone) DO UPDATE SET
                 last_transfer_at = CURRENT_TIMESTAMP,
                 transfer_amount = $2,
                 expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
-        `, [phone, totalAmount]);
+        `,
+            [phone, totalAmount]
+        );
         console.log('[RECENT-TRANSFER] Tracked phone:', phone, 'total:', totalAmount);
     } catch (err) {
         console.error('[RECENT-TRANSFER] Error tracking phone:', phone, err.message);
     }
 }
-
 
 /**
  * Helper function: Broadcast to all balance SSE clients
@@ -43,7 +125,7 @@ async function upsertRecentTransfer(dbConn, phone) {
 function broadcastBalanceUpdate(app, event, data) {
     if (!app.locals.balanceSseClients) return;
 
-    app.locals.balanceSseClients.forEach(client => {
+    app.locals.balanceSseClients.forEach((client) => {
         try {
             client.write(`event: ${event}\n`);
             client.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -58,20 +140,23 @@ function broadcastBalanceUpdate(app, event, data) {
  */
 async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessage) {
     try {
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO sepay_webhook_logs (
                 sepay_id, request_method, request_headers, request_body,
                 response_status, response_body, error_message
             ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `, [
-            sepayId,
-            req.method,
-            JSON.stringify(req.headers),
-            JSON.stringify(req.body),
-            statusCode,
-            JSON.stringify(responseBody),
-            errorMessage
-        ]);
+        `,
+            [
+                sepayId,
+                req.method,
+                JSON.stringify(req.headers),
+                JSON.stringify(req.body),
+                statusCode,
+                JSON.stringify(responseBody),
+                errorMessage,
+            ]
+        );
     } catch (err) {
         console.error('[SEPAY-WEBHOOK] Failed to log webhook:', err);
     }
@@ -82,7 +167,8 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
  */
 async function saveToFailedQueue(db, webhookData, errorMessage) {
     try {
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO failed_webhook_queue (
                 sepay_id, gateway, transaction_date, account_number,
                 code, content, transfer_type, transfer_amount,
@@ -92,22 +178,24 @@ async function saveToFailedQueue(db, webhookData, errorMessage) {
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending'
             )
             ON CONFLICT DO NOTHING
-        `, [
-            webhookData.id,
-            webhookData.gateway,
-            webhookData.transactionDate,
-            webhookData.accountNumber,
-            webhookData.code || null,
-            webhookData.content || null,
-            webhookData.transferType,
-            webhookData.transferAmount,
-            webhookData.accumulated,
-            webhookData.subAccount || null,
-            webhookData.referenceCode || null,
-            webhookData.description || null,
-            JSON.stringify(webhookData),
-            errorMessage
-        ]);
+        `,
+            [
+                webhookData.id,
+                webhookData.gateway,
+                webhookData.transactionDate,
+                webhookData.accountNumber,
+                webhookData.code || null,
+                webhookData.content || null,
+                webhookData.transferType,
+                webhookData.transferAmount,
+                webhookData.accumulated,
+                webhookData.subAccount || null,
+                webhookData.referenceCode || null,
+                webhookData.description || null,
+                JSON.stringify(webhookData),
+                errorMessage,
+            ]
+        );
         console.log('[FAILED-QUEUE] Saved webhook to failed queue:', webhookData.id);
         return true;
     } catch (queueError) {
@@ -138,7 +226,7 @@ function registerRoutes(router, deps) {
             success: true,
             message: 'SePay webhook endpoint is healthy',
             timestamp: new Date().toISOString(),
-            api_key_configured: !!process.env.SEPAY_API_KEY
+            api_key_configured: !!process.env.SEPAY_API_KEY,
         });
     });
 
@@ -155,8 +243,8 @@ function registerRoutes(router, deps) {
             );
             res.json({
                 success: true,
-                phones: result.rows.map(r => r.phone),
-                details: result.rows
+                phones: result.rows.map((r) => r.phone),
+                details: result.rows,
             });
         } catch (error) {
             console.error('[RECENT-TRANSFERS] Error:', error.message);
@@ -209,10 +297,17 @@ function registerRoutes(router, deps) {
 
             if (!authHeader) {
                 console.error('[SEPAY-WEBHOOK] Missing Authorization header');
-                await logWebhook(db, null, req, 401, { error: 'Missing Authorization header' }, 'Unauthorized - Missing auth header');
+                await logWebhook(
+                    db,
+                    null,
+                    req,
+                    401,
+                    { error: 'Missing Authorization header' },
+                    'Unauthorized - Missing auth header'
+                );
                 return res.status(401).json({
                     success: false,
-                    error: 'Unauthorized - Missing Authorization header'
+                    error: 'Unauthorized - Missing Authorization header',
                 });
             }
 
@@ -221,16 +316,25 @@ function registerRoutes(router, deps) {
 
             if (apiKey !== SEPAY_API_KEY) {
                 console.error('[SEPAY-WEBHOOK] Invalid API Key');
-                await logWebhook(db, null, req, 401, { error: 'Invalid API Key' }, 'Unauthorized - Invalid API key');
+                await logWebhook(
+                    db,
+                    null,
+                    req,
+                    401,
+                    { error: 'Invalid API Key' },
+                    'Unauthorized - Invalid API key'
+                );
                 return res.status(401).json({
                     success: false,
-                    error: 'Unauthorized - Invalid API Key'
+                    error: 'Unauthorized - Invalid API Key',
                 });
             }
 
             console.log('[SEPAY-WEBHOOK] API Key validated');
         } else {
-            console.warn('[SEPAY-WEBHOOK] Running without API Key authentication (not recommended for production)');
+            console.warn(
+                '[SEPAY-WEBHOOK] Running without API Key authentication (not recommended for production)'
+            );
         }
 
         try {
@@ -239,43 +343,65 @@ function registerRoutes(router, deps) {
             // Validate du lieu
             if (!webhookData || typeof webhookData !== 'object') {
                 console.error('[SEPAY-WEBHOOK] Invalid data type:', typeof webhookData);
-                await logWebhook(db, null, req, 400, { error: 'Invalid data type' }, 'Invalid data type');
+                await logWebhook(
+                    db,
+                    null,
+                    req,
+                    400,
+                    { error: 'Invalid data type' },
+                    'Invalid data type'
+                );
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid data - expected JSON object'
+                    error: 'Invalid data - expected JSON object',
                 });
             }
 
             // Validate required fields
-            const requiredFields = ['id', 'gateway', 'transactionDate', 'accountNumber',
-                'transferType', 'transferAmount', 'accumulated'];
-            const missingFields = requiredFields.filter(field =>
-                webhookData[field] === undefined || webhookData[field] === null
+            const requiredFields = [
+                'id',
+                'gateway',
+                'transactionDate',
+                'accountNumber',
+                'transferType',
+                'transferAmount',
+                'accumulated',
+            ];
+            const missingFields = requiredFields.filter(
+                (field) => webhookData[field] === undefined || webhookData[field] === null
             );
 
             if (missingFields.length > 0) {
                 console.error('[SEPAY-WEBHOOK] Missing required fields:', missingFields);
-                await logWebhook(db, webhookData.id, req, 400,
+                await logWebhook(
+                    db,
+                    webhookData.id,
+                    req,
+                    400,
                     { error: 'Missing required fields', missing: missingFields },
                     `Missing fields: ${missingFields.join(', ')}`
                 );
                 return res.status(400).json({
                     success: false,
                     error: 'Missing required fields',
-                    missing: missingFields
+                    missing: missingFields,
                 });
             }
 
             // Validate transfer_type
             if (!['in', 'out'].includes(webhookData.transferType)) {
                 console.error('[SEPAY-WEBHOOK] Invalid transfer_type:', webhookData.transferType);
-                await logWebhook(db, webhookData.id, req, 400,
+                await logWebhook(
+                    db,
+                    webhookData.id,
+                    req,
+                    400,
                     { error: 'Invalid transfer_type' },
                     'Invalid transfer_type - must be "in" or "out"'
                 );
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid transfer_type - must be "in" or "out"'
+                    error: 'Invalid transfer_type - must be "in" or "out"',
                 });
             }
 
@@ -306,21 +432,28 @@ function registerRoutes(router, deps) {
                 webhookData.subAccount || null,
                 webhookData.referenceCode || null,
                 webhookData.description || null,
-                JSON.stringify(webhookData)
+                JSON.stringify(webhookData),
             ];
 
             const result = await db.query(insertQuery, values);
 
             // Check if insert was successful or skipped due to duplicate
             if (result.rows.length === 0) {
-                console.log('[SEPAY-WEBHOOK] Duplicate transaction ignored (atomic check):', webhookData.id);
-                await logWebhook(db, webhookData.id, req, 200,
+                console.log(
+                    '[SEPAY-WEBHOOK] Duplicate transaction ignored (atomic check):',
+                    webhookData.id
+                );
+                await logWebhook(
+                    db,
+                    webhookData.id,
+                    req,
+                    200,
                     { success: true, message: 'Duplicate transaction ignored' },
                     null
                 );
                 return res.status(200).json({
                     success: true,
-                    message: 'Duplicate transaction - already processed'
+                    message: 'Duplicate transaction - already processed',
                 });
             }
 
@@ -331,14 +464,11 @@ function registerRoutes(router, deps) {
                 sepay_id: webhookData.id,
                 type: webhookData.transferType,
                 amount: webhookData.transferAmount,
-                gateway: webhookData.gateway
+                gateway: webhookData.gateway,
             });
 
             // Log successful webhook
-            await logWebhook(db, webhookData.id, req, 200,
-                { success: true, id: insertedId },
-                null
-            );
+            await logWebhook(db, webhookData.id, req, 200, { success: true, id: insertedId }, null);
 
             // Broadcast realtime update to all connected balance history clients
             broadcastBalanceUpdate(req.app, 'new-transaction', {
@@ -355,9 +485,14 @@ function registerRoutes(router, deps) {
                 sub_account: webhookData.subAccount || null,
                 reference_code: webhookData.referenceCode || null,
                 description: webhookData.description || null,
-                created_at: new Date().toISOString()
+                created_at: new Date().toISOString(),
             });
             console.log('[SEPAY-WEBHOOK] Broadcasting realtime update to clients...');
+
+            // AI KOL Studio topup matching (best-effort, runs alongside debt update).
+            if (webhookData.transferType === 'in') {
+                processAikolTopup(db, webhookData, insertedId).catch(() => {});
+            }
 
             // Auto-update customer debt for incoming transactions
             if (webhookData.transferType === 'in') {
@@ -367,7 +502,8 @@ function registerRoutes(router, deps) {
 
                     // Broadcast updates based on debt result
                     if (debtResult.success) {
-                        const customerPhone = debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone;
+                        const customerPhone =
+                            debtResult.phone || debtResult.linkedPhone || debtResult.fullPhone;
                         const customerName = debtResult.customerName;
 
                         if (customerPhone || customerName) {
@@ -376,9 +512,12 @@ function registerRoutes(router, deps) {
                                 transaction_id: insertedId,
                                 customer_phone: customerPhone || null,
                                 customer_name: customerName || null,
-                                match_method: debtResult.method
+                                match_method: debtResult.method,
                             });
-                            console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
+                            console.log(
+                                '[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:',
+                                insertedId
+                            );
 
                             // Track recent transfer phone (7-day TTL, total amount)
                             if (customerPhone) {
@@ -389,13 +528,19 @@ function registerRoutes(router, deps) {
                             broadcastBalanceUpdate(req.app, 'pending-match-created', {
                                 transaction_id: insertedId,
                                 partial_phone: debtResult.partialPhone,
-                                unique_phones_count: debtResult.uniquePhonesCount
+                                unique_phones_count: debtResult.uniquePhonesCount,
                             });
-                            console.log('[SEPAY-WEBHOOK] Broadcasted pending-match-created for transaction:', insertedId);
+                            console.log(
+                                '[SEPAY-WEBHOOK] Broadcasted pending-match-created for transaction:',
+                                insertedId
+                            );
                         }
                     }
                 } catch (debtError) {
-                    console.error('[SEPAY-WEBHOOK] Debt update error (non-critical):', debtError.message);
+                    console.error(
+                        '[SEPAY-WEBHOOK] Debt update error (non-critical):',
+                        debtError.message
+                    );
                 }
             }
 
@@ -408,15 +553,23 @@ function registerRoutes(router, deps) {
                 success: true,
                 id: insertedId,
                 message: 'Transaction recorded successfully',
-                processing_time_ms: processingTime
+                processing_time_ms: processingTime,
             });
-
         } catch (error) {
             const processingTime = Date.now() - startTime;
-            console.error('[SEPAY-WEBHOOK] Error processing webhook after', processingTime, 'ms:', error);
+            console.error(
+                '[SEPAY-WEBHOOK] Error processing webhook after',
+                processingTime,
+                'ms:',
+                error
+            );
 
             // Log error
-            await logWebhook(db, req.body?.id, req, 500,
+            await logWebhook(
+                db,
+                req.body?.id,
+                req,
+                500,
                 { error: 'Internal server error' },
                 error.message
             );
@@ -430,7 +583,7 @@ function registerRoutes(router, deps) {
                 success: false,
                 error: 'Failed to process webhook',
                 message: error.message,
-                queued_for_retry: true
+                queued_for_retry: true,
             });
         }
     });
@@ -463,14 +616,13 @@ function registerRoutes(router, deps) {
 
             res.json({
                 success: true,
-                stats: result.rows[0]
+                stats: result.rows[0],
             });
-
         } catch (error) {
             console.error('[HISTORY-STATS] Error:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message,
             });
         }
     });
@@ -493,7 +645,7 @@ function registerRoutes(router, deps) {
                 search,
                 showHidden = 'false',
                 verification_status,
-                has_phone
+                has_phone,
             } = req.query;
 
             const offset = (page - 1) * limit;
@@ -563,9 +715,8 @@ function registerRoutes(router, deps) {
                 queryConditions.push(`bh.linked_customer_phone IS NULL`);
             }
 
-            const whereClause = queryConditions.length > 0
-                ? 'WHERE ' + queryConditions.join(' AND ')
-                : '';
+            const whereClause =
+                queryConditions.length > 0 ? 'WHERE ' + queryConditions.join(' AND ') : '';
 
             // Get total count (add JOINs when search references customer fields)
             let countJoins = '';
@@ -649,7 +800,7 @@ function registerRoutes(router, deps) {
             const dataResult = await db.query(paginatedQuery, queryParams);
 
             // Transform data to include pending_match flags and aliases
-            const transformedData = dataResult.rows.map(row => {
+            const transformedData = dataResult.rows.map((row) => {
                 let customerName = row.customer_name;
                 let customerPhone = row.customer_phone;
                 let customerAliases = row.customer_aliases || [];
@@ -675,7 +826,10 @@ function registerRoutes(router, deps) {
                             customerPhone = resolvedCustomer.phone;
                         }
                     } catch (e) {
-                        console.log('[HISTORY] Could not parse resolution_notes:', row.pending_resolution_notes);
+                        console.log(
+                            '[HISTORY] Could not parse resolution_notes:',
+                            row.pending_resolution_notes
+                        );
                     }
                 }
 
@@ -691,7 +845,7 @@ function registerRoutes(router, deps) {
                     // Flag: was skipped
                     pending_match_skipped: row.pending_match_status === 'skipped',
                     // Parse JSONB matched_customers if exists
-                    pending_match_options: row.pending_match_options || null
+                    pending_match_options: row.pending_match_options || null,
                 };
             });
 
@@ -702,16 +856,15 @@ function registerRoutes(router, deps) {
                     page: parseInt(page),
                     limit: parseInt(limit),
                     total,
-                    totalPages: Math.ceil(total / limit)
-                }
+                    totalPages: Math.ceil(total / limit),
+                },
             });
-
         } catch (error) {
             console.error('[SEPAY-HISTORY] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch history',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -748,9 +901,8 @@ function registerRoutes(router, deps) {
                 paramCounter++;
             }
 
-            const whereClause = queryConditions.length > 0
-                ? 'WHERE ' + queryConditions.join(' AND ')
-                : '';
+            const whereClause =
+                queryConditions.length > 0 ? 'WHERE ' + queryConditions.join(' AND ') : '';
 
             const statsQuery = `
                 SELECT
@@ -777,16 +929,15 @@ function registerRoutes(router, deps) {
                     total_in: parseInt(stats.total_in),
                     total_out: parseInt(stats.total_out),
                     net_change: parseInt(stats.net_change),
-                    latest_balance: parseInt(stats.latest_balance) || 0
-                }
+                    latest_balance: parseInt(stats.latest_balance) || 0,
+                },
             });
-
         } catch (error) {
             console.error('[SEPAY-STATS] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch statistics',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -813,7 +964,9 @@ function registerRoutes(router, deps) {
 
         // Add this client to the set
         req.app.locals.balanceSseClients.add(res);
-        console.log(`[BALANCE-SSE] Client connected (Total: ${req.app.locals.balanceSseClients.size})`);
+        console.log(
+            `[BALANCE-SSE] Client connected (Total: ${req.app.locals.balanceSseClients.size})`
+        );
 
         // Send initial connection event
         res.write('event: connected\n');
@@ -828,7 +981,9 @@ function registerRoutes(router, deps) {
         req.on('close', () => {
             clearInterval(keepAliveInterval);
             req.app.locals.balanceSseClients.delete(res);
-            console.log(`[BALANCE-SSE] Client disconnected (Total: ${req.app.locals.balanceSseClients.size})`);
+            console.log(
+                `[BALANCE-SSE] Client disconnected (Total: ${req.app.locals.balanceSseClients.size})`
+            );
             res.end();
         });
     });
@@ -856,7 +1011,8 @@ function registerRoutes(router, deps) {
             const total = parseInt(countResult.rows[0].count);
 
             // Get items
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 SELECT
                     id, sepay_id, gateway, transaction_date, account_number,
                     reference_code, transfer_type, transfer_amount, content,
@@ -866,7 +1022,9 @@ function registerRoutes(router, deps) {
                 WHERE status = $1
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
-            `, [status, limit, offset]);
+            `,
+                [status, limit, offset]
+            );
 
             res.json({
                 success: true,
@@ -875,15 +1033,15 @@ function registerRoutes(router, deps) {
                     page: parseInt(page),
                     limit: parseInt(limit),
                     total,
-                    totalPages: Math.ceil(total / limit)
-                }
+                    totalPages: Math.ceil(total / limit),
+                },
             });
         } catch (error) {
             console.error('[FAILED-QUEUE] Error listing:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to list failed webhooks',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -898,15 +1056,14 @@ function registerRoutes(router, deps) {
 
         try {
             // Get failed webhook
-            const queueResult = await db.query(
-                `SELECT * FROM failed_webhook_queue WHERE id = $1`,
-                [id]
-            );
+            const queueResult = await db.query(`SELECT * FROM failed_webhook_queue WHERE id = $1`, [
+                id,
+            ]);
 
             if (queueResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Failed webhook not found'
+                    error: 'Failed webhook not found',
                 });
             }
 
@@ -918,7 +1075,7 @@ function registerRoutes(router, deps) {
                     success: false,
                     error: 'Max retries exceeded',
                     retry_count: failedWebhook.retry_count,
-                    max_retries: failedWebhook.max_retries
+                    max_retries: failedWebhook.max_retries,
                 });
             }
 
@@ -957,56 +1114,64 @@ function registerRoutes(router, deps) {
                 webhookData.subAccount || null,
                 webhookData.referenceCode || null,
                 webhookData.description || null,
-                JSON.stringify(webhookData)
+                JSON.stringify(webhookData),
             ];
 
             const result = await db.query(insertQuery, values);
 
             if (result.rows.length > 0) {
                 // Success - update queue status
-                await db.query(`
+                await db.query(
+                    `
                     UPDATE failed_webhook_queue
                     SET status = 'success', processed_at = CURRENT_TIMESTAMP, retry_count = retry_count + 1
                     WHERE id = $1
-                `, [id]);
+                `,
+                    [id]
+                );
 
                 console.log('[FAILED-QUEUE] Retry successful for queue ID:', id);
 
                 res.json({
                     success: true,
                     message: 'Webhook retry successful',
-                    balance_history_id: result.rows[0].id
+                    balance_history_id: result.rows[0].id,
                 });
             } else {
                 // Duplicate or other issue
-                await db.query(`
+                await db.query(
+                    `
                     UPDATE failed_webhook_queue
                     SET status = 'success', processed_at = CURRENT_TIMESTAMP, retry_count = retry_count + 1,
                         last_error = 'Duplicate - already exists in balance_history'
                     WHERE id = $1
-                `, [id]);
+                `,
+                    [id]
+                );
 
                 res.json({
                     success: true,
                     message: 'Transaction already exists in balance_history',
-                    duplicate: true
+                    duplicate: true,
                 });
             }
-
         } catch (error) {
             console.error('[FAILED-QUEUE] Retry error:', error);
 
             // Update retry count and error
-            await db.query(`
+            await db.query(
+                `
                 UPDATE failed_webhook_queue
                 SET status = 'pending', retry_count = retry_count + 1, last_error = $2
                 WHERE id = $1
-            `, [id, error.message]);
+            `,
+                [id, error.message]
+            );
 
             res.status(500).json({
                 success: false,
                 error: 'Retry failed',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1031,7 +1196,7 @@ function registerRoutes(router, deps) {
                 total: pendingResult.rows.length,
                 success: 0,
                 failed: 0,
-                details: []
+                details: [],
             };
 
             for (const row of pendingResult.rows) {
@@ -1046,7 +1211,8 @@ function registerRoutes(router, deps) {
 
                     const webhookData = queueResult.rows[0].raw_data;
 
-                    const insertResult = await db.query(`
+                    const insertResult = await db.query(
+                        `
                         INSERT INTO balance_history (
                             sepay_id, gateway, transaction_date, account_number,
                             code, content, transfer_type, transfer_amount,
@@ -1055,55 +1221,65 @@ function registerRoutes(router, deps) {
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
                         ON CONFLICT (sepay_id) DO NOTHING
                         RETURNING id
-                    `, [
-                        webhookData.id,
-                        webhookData.gateway,
-                        webhookData.transactionDate,
-                        webhookData.accountNumber,
-                        webhookData.code || null,
-                        webhookData.content || null,
-                        webhookData.transferType,
-                        webhookData.transferAmount,
-                        webhookData.accumulated,
-                        webhookData.subAccount || null,
-                        webhookData.referenceCode || null,
-                        webhookData.description || null,
-                        JSON.stringify(webhookData)
-                    ]);
+                    `,
+                        [
+                            webhookData.id,
+                            webhookData.gateway,
+                            webhookData.transactionDate,
+                            webhookData.accountNumber,
+                            webhookData.code || null,
+                            webhookData.content || null,
+                            webhookData.transferType,
+                            webhookData.transferAmount,
+                            webhookData.accumulated,
+                            webhookData.subAccount || null,
+                            webhookData.referenceCode || null,
+                            webhookData.description || null,
+                            JSON.stringify(webhookData),
+                        ]
+                    );
 
-                    await db.query(`
+                    await db.query(
+                        `
                         UPDATE failed_webhook_queue
                         SET status = 'success', processed_at = CURRENT_TIMESTAMP, retry_count = retry_count + 1
                         WHERE id = $1
-                    `, [row.id]);
+                    `,
+                        [row.id]
+                    );
 
                     results.success++;
                     results.details.push({ id: row.id, status: 'success' });
-
                 } catch (retryError) {
-                    await db.query(`
+                    await db.query(
+                        `
                         UPDATE failed_webhook_queue
                         SET retry_count = retry_count + 1, last_error = $2
                         WHERE id = $1
-                    `, [row.id, retryError.message]);
+                    `,
+                        [row.id, retryError.message]
+                    );
 
                     results.failed++;
-                    results.details.push({ id: row.id, status: 'failed', error: retryError.message });
+                    results.details.push({
+                        id: row.id,
+                        status: 'failed',
+                        error: retryError.message,
+                    });
                 }
             }
 
             res.json({
                 success: true,
                 message: `Retry complete: ${results.success}/${results.total} successful`,
-                results
+                results,
             });
-
         } catch (error) {
             console.error('[FAILED-QUEUE] Retry all error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Retry all failed',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1123,8 +1299,9 @@ function registerRoutes(router, deps) {
             success: true,
             total_gaps: 0,
             gaps: [],
-            message: 'Gap detection has been disabled for performance. Check database logs if needed.',
-            deprecated: true
+            message:
+                'Gap detection has been disabled for performance. Check database logs if needed.',
+            deprecated: true,
         });
     });
 
@@ -1137,25 +1314,27 @@ function registerRoutes(router, deps) {
         const { status = 'detected' } = req.query;
 
         try {
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 SELECT * FROM reference_code_gaps
                 WHERE status = $1
                 ORDER BY CAST(missing_reference_code AS INTEGER) ASC
                 LIMIT 100
-            `, [status]);
+            `,
+                [status]
+            );
 
             res.json({
                 success: true,
                 data: result.rows,
-                total: result.rows.length
+                total: result.rows.length,
             });
-
         } catch (error) {
             console.error('[GAPS] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to list gaps',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1169,23 +1348,25 @@ function registerRoutes(router, deps) {
         const { referenceCode } = req.params;
 
         try {
-            await db.query(`
+            await db.query(
+                `
                 UPDATE reference_code_gaps
                 SET status = 'ignored', resolved_at = CURRENT_TIMESTAMP
                 WHERE missing_reference_code = $1
-            `, [referenceCode]);
+            `,
+                [referenceCode]
+            );
 
             res.json({
                 success: true,
-                message: `Gap ${referenceCode} marked as ignored`
+                message: `Gap ${referenceCode} marked as ignored`,
             });
-
         } catch (error) {
             console.error('[GAPS] Ignore error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to ignore gap',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1208,7 +1389,7 @@ function registerRoutes(router, deps) {
             if (!SEPAY_API_KEY) {
                 return res.status(400).json({
                     success: false,
-                    error: 'SEPAY_API_KEY not configured'
+                    error: 'SEPAY_API_KEY not configured',
                 });
             }
 
@@ -1217,13 +1398,17 @@ function registerRoutes(router, deps) {
 
             console.log('[FETCH-BY-REF] Calling Sepay API:', sepayUrl);
 
-            const sepayResponse = await fetchWithTimeout(sepayUrl, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${SEPAY_API_KEY}`,
-                    'Content-Type': 'application/json'
-                }
-            }, 15000);
+            const sepayResponse = await fetchWithTimeout(
+                sepayUrl,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${SEPAY_API_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                },
+                15000
+            );
 
             if (!sepayResponse.ok) {
                 const errorText = await sepayResponse.text();
@@ -1231,19 +1416,22 @@ function registerRoutes(router, deps) {
                 return res.status(sepayResponse.status).json({
                     success: false,
                     error: `Sepay API error: ${sepayResponse.status}`,
-                    message: errorText
+                    message: errorText,
                 });
             }
 
             const sepayData = await sepayResponse.json();
-            console.log('[FETCH-BY-REF] Sepay response:', JSON.stringify(sepayData).substring(0, 500));
+            console.log(
+                '[FETCH-BY-REF] Sepay response:',
+                JSON.stringify(sepayData).substring(0, 500)
+            );
 
             // Check if transaction found
             if (!sepayData.transactions || sepayData.transactions.length === 0) {
                 return res.json({
                     success: false,
                     error: 'Transaction not found in Sepay',
-                    message: `Khong tim thay giao dich voi ma tham chieu ${referenceCode}`
+                    message: `Khong tim thay giao dich voi ma tham chieu ${referenceCode}`,
                 });
             }
 
@@ -1276,18 +1464,21 @@ function registerRoutes(router, deps) {
                 transaction.sub_account || null,
                 transaction.reference_number || referenceCode,
                 transaction.description || null,
-                JSON.stringify(transaction)
+                JSON.stringify(transaction),
             ];
 
             const result = await db.query(insertQuery, values);
 
             if (result.rows.length > 0) {
                 // Mark gap as resolved
-                await db.query(`
+                await db.query(
+                    `
                     UPDATE reference_code_gaps
                     SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP
                     WHERE missing_reference_code = $1
-                `, [referenceCode]);
+                `,
+                    [referenceCode]
+                );
 
                 console.log('[FETCH-BY-REF] Transaction inserted:', result.rows[0].id);
 
@@ -1298,24 +1489,26 @@ function registerRoutes(router, deps) {
                     transaction: {
                         id: result.rows[0].id,
                         reference_code: referenceCode,
-                        amount: transaction.amount_in > 0 ? transaction.amount_in : transaction.amount_out,
-                        type: transaction.amount_in > 0 ? 'in' : 'out'
-                    }
+                        amount:
+                            transaction.amount_in > 0
+                                ? transaction.amount_in
+                                : transaction.amount_out,
+                        type: transaction.amount_in > 0 ? 'in' : 'out',
+                    },
                 });
             } else {
                 res.json({
                     success: true,
                     message: 'Giao dich da ton tai trong he thong',
-                    duplicate: true
+                    duplicate: true,
                 });
             }
-
         } catch (error) {
             console.error('[FETCH-BY-REF] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch transaction',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1338,42 +1531,65 @@ function registerRoutes(router, deps) {
             const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
             const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
 
-            const apiHeaders = SEPAY_API_KEY ? {
-                'Authorization': `Bearer ${SEPAY_API_KEY}`,
-                'Content-Type': 'application/json'
-            } : null;
+            const apiHeaders = SEPAY_API_KEY
+                ? {
+                      Authorization: `Bearer ${SEPAY_API_KEY}`,
+                      'Content-Type': 'application/json',
+                  }
+                : null;
 
             if (!apiHeaders) {
-                return res.status(400).json({ success: false, error: 'SEPAY_API_KEY not configured' });
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'SEPAY_API_KEY not configured' });
             }
 
             const [accountsData, countData] = await Promise.all([
-                fetchWithTimeout('https://my.sepay.vn/userapi/bankaccounts/list', { method: 'GET', headers: apiHeaders }, 10000)
-                    .then(r => r.ok ? r.json() : null).catch(() => null),
-                fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`, { method: 'GET', headers: apiHeaders }, 10000)
-                    .then(r => r.ok ? r.json() : null).catch(() => null),
+                fetchWithTimeout(
+                    'https://my.sepay.vn/userapi/bankaccounts/list',
+                    { method: 'GET', headers: apiHeaders },
+                    10000
+                )
+                    .then((r) => (r.ok ? r.json() : null))
+                    .catch(() => null),
+                fetchWithTimeout(
+                    `https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`,
+                    { method: 'GET', headers: apiHeaders },
+                    10000
+                )
+                    .then((r) => (r.ok ? r.json() : null))
+                    .catch(() => null),
             ]);
 
             let bankAccount = null;
             if (accountsData?.bankaccounts) {
-                bankAccount = accountsData.bankaccounts.find(a => a.account_number === SEPAY_ACCOUNT_NUMBER) || accountsData.bankaccounts[0] || null;
+                bankAccount =
+                    accountsData.bankaccounts.find(
+                        (a) => a.account_number === SEPAY_ACCOUNT_NUMBER
+                    ) ||
+                    accountsData.bankaccounts[0] ||
+                    null;
             }
 
             res.json({
                 success: true,
                 data: {
-                    bankAccount: bankAccount ? {
-                        accountNumber: bankAccount.account_number,
-                        accountHolder: bankAccount.account_holder_name,
-                        bankName: bankAccount.bank_short_name || bankAccount.bank_full_name,
-                        balance: bankAccount.accumulated,
-                        active: bankAccount.active === 1,
-                        lastTransaction: bankAccount.last_transaction,
-                    } : null,
-                    transactionCount: countData ? (countData.count_transactions || countData.transactions || 0) : 0,
+                    bankAccount: bankAccount
+                        ? {
+                              accountNumber: bankAccount.account_number,
+                              accountHolder: bankAccount.account_holder_name,
+                              bankName: bankAccount.bank_short_name || bankAccount.bank_full_name,
+                              balance: bankAccount.accumulated,
+                              active: bankAccount.active === 1,
+                              lastTransaction: bankAccount.last_transaction,
+                          }
+                        : null,
+                    transactionCount: countData
+                        ? countData.count_transactions || countData.transactions || 0
+                        : 0,
                     month: `${now.getMonth() + 1}/${now.getFullYear()}`,
                     fetchedAt: now.toISOString(),
-                }
+                },
             });
         } catch (error) {
             console.error('[SEPAY-ACCOUNT-STATUS] Error:', error.message);
@@ -1388,5 +1604,5 @@ module.exports = {
     broadcastBalanceUpdate,
     logWebhook,
     saveToFailedQueue,
-    registerRoutes
+    registerRoutes,
 };
