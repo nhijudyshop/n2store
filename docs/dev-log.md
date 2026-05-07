@@ -8,6 +8,44 @@
 
 ## 2026-05-07
 
+### [inventory] Modal "Tạo đơn đặt hàng": iPad SL hiển thị to hơn, suggest dropdown giữ mở sau khi chọn, thêm nút "Đồng bộ giá"
+
+**Yêu cầu user (3 fix sau khi xem trên iPad)**:
+
+1. Cột SL trên iPad quá nhỏ — số lượng "không thấy".
+2. Dropdown suggest tên sản phẩm: kéo dài hơn, **chọn 1 item vẫn giữ dropdown mở** (chỉ đóng khi click ra ngoài).
+3. Thêm nút "Đồng bộ giá" — copy giá mua/bán cho mọi dòng cùng Mã SP.
+
+**Fix**:
+
+- [inventory-tracking/css/modal-convert-po.css](../inventory-tracking/css/modal-convert-po.css):
+    - `.po-col-qty` width 70px → 80px, input font-weight 600 + font-size 14px (default desktop).
+    - Media query `(max-width: 1280px), (pointer: coarse)` → SL input height 40px / font-size 16px (chống iOS Safari auto-zoom on focus) / font-weight 700, width cột 96px. Giá mua/bán cũng to lên 15px ở touch.
+    - `.po-suggest` max-height 320px → 520px (dropdown cao hơn, thấy nhiều SP hơn).
+    - `.po-row-synced` flash 1.2s xanh khi đồng bộ giá thành công.
+    - `.po-btn-sync-prices` accent vàng/cam (phân biệt với "Tạo mã tất cả" màu trắng).
+
+- [inventory-tracking/js/modal-convert-po.js](../inventory-tracking/js/modal-convert-po.js):
+    - `WarehouseAPI.search(q, 8)` → `(q, 20)`: lấy 20 SP gợi ý thay vì 8.
+    - `_positionSuggestDropdown` desiredHeight 320 → 520.
+    - `_applySuggestPick` giờ làm in-place DOM updates cho lock UI (dataset.fromWarehouse, badge TPOS, variant button "Không có biến thể", code input readonly + locked, gỡ refresh button) — KHÔNG hide dropdown nữa.
+    - `_onItemClick` cho suggestion: bỏ `_rerenderItemsTable()` vì nó destroy dropdown. Lock UI đã in-place.
+    - Outside-click handler cải tiến: clicking `.po-name-wrap` của row khác → đóng dropdown row cũ, giữ row mới (trước chỉ "click bất kỳ trong wrap = giữ tất cả").
+    - Thêm `_syncPricesByCode(btn)` + button `#poBtnSyncPrices` trong footer: group items theo productCode (case-insensitive trim), lấy giá mua/bán đầu tiên >0 trong group làm mốc, áp xuống mọi dòng cùng group, flash xanh 1.2s, notify count.
+
+**Smoke test (Playwright local localhost:8080, FIFO REPL)**:
+
+- CSS loaded: `foundQty: true, foundSync: true, foundSuggest520: true` (119 rules) ✅
+- JS loaded: `hasSearch20, hasSyncFn, hasSyncBtn, hasNoRender, hasInPlaceLock` đều true ✅
+- Modal mở: 14 item rows + button "Đồng bộ giá" hiện trong footer ✅
+- Đồng bộ giá: set 2 dòng cùng code TEST123, dòng 1 có giá 500k/750k dòng 2 = 0 → click sync → cả 2 thành 500k/750k ✅
+- Suggest dropdown: gõ "Q127" → 4 SP gợi ý hiện ra → click 1 SP → dropdown VẪN MỞ với 4 items, row được lock (TPOS badge, code readonly), `stillOpenAfterPick: true` ✅
+- Click ra ngoài (vào input nhà cung cấp): `closedAfterClick: true` ✅
+
+**Files changed**: 2 (css + js).
+
+**Status**: ✅ Done.
+
 ### [aikol] Settings: custom confirm modal khi click "Nạp ngay"
 
 **Yêu cầu**: Click pack → ra popup xác nhận custom (thay native confirm dialog).

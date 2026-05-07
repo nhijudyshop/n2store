@@ -328,7 +328,12 @@
     height: 14px;
 }
 .po-col-qty {
-    width: 70px;
+    width: 80px;
+}
+.po-col-qty .po-it-input {
+    text-align: right;
+    font-weight: 600;
+    font-size: 14px;
 }
 .po-col-buy {
     width: 120px;
@@ -607,6 +612,30 @@
     box-shadow: inset 3px 0 0 #ef4444;
 }
 
+/* Brief flash khi 1 dòng được đồng bộ giá theo Mã SP */
+.po-items tbody tr.po-row-synced td {
+    background: #ecfdf5;
+    transition: background 0.6s ease;
+}
+.po-items tbody tr.po-row-synced {
+    box-shadow: inset 3px 0 0 #10b981;
+}
+
+/* Button "Đồng bộ giá" — gold accent để phân biệt với "Tạo mã tất cả" */
+.po-btn-sync-prices {
+    color: #b45309;
+    border-color: #fcd34d;
+    background: #fffbeb;
+}
+.po-btn-sync-prices:hover {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    color: #92400e;
+}
+.po-btn-sync-prices i {
+    color: #d97706;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .pov-grid {
@@ -616,6 +645,26 @@
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
+    }
+}
+
+/* Tablets / touch devices (iPad) — enlarge SL input so the quantity is readable
+   and prevent iOS Safari from auto-zooming on focus (font-size >= 16px). */
+@media (max-width: 1280px), (pointer: coarse) {
+    .po-col-qty {
+        width: 96px;
+    }
+    .po-col-qty .po-it-input {
+        height: 40px;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 0 10px;
+    }
+    /* Bigger price inputs too — easier to tap on iPad */
+    .po-col-buy .po-it-input,
+    .po-col-sell .po-it-input {
+        height: 40px;
+        font-size: 15px;
     }
 }
 
@@ -630,7 +679,7 @@
     left: 0;
     right: 0;
     z-index: 50;
-    max-height: 320px;
+    max-height: 520px;
     overflow-y: auto;
     background: #fff;
     border: 1px solid #e5e7eb;

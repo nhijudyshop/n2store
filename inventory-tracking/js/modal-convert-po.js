@@ -264,6 +264,9 @@ function _renderConvertModal() {
                 <button type="button" id="poBtnGenAllCodes" class="po-btn-outline po-btn-gen-all" title="Tự tạo mã SP cho mọi dòng còn thiếu">
                     <i data-lucide="refresh-cw"></i> Tạo mã tất cả
                 </button>
+                <button type="button" id="poBtnSyncPrices" class="po-btn-outline po-btn-sync-prices" title="Áp giá mua/bán cho mọi dòng cùng Mã SP">
+                    <i data-lucide="copy"></i> Đồng bộ giá
+                </button>
                 <div class="po-tot-group po-tot-final">
                     <span class="po-tot-label">THÀNH TIỀN:</span>
                     <strong id="poFinalAmount">0 đ</strong>
@@ -420,6 +423,10 @@ function _bindMainEvents() {
     const genAllBtn = document.getElementById('poBtnGenAllCodes');
     if (genAllBtn) genAllBtn.onclick = () => _generateCodesForAll(genAllBtn);
 
+    // Sync purchase + selling prices across rows sharing the same productCode
+    const syncPriceBtn = document.getElementById('poBtnSyncPrices');
+    if (syncPriceBtn) syncPriceBtn.onclick = () => _syncPricesByCode(syncPriceBtn);
+
     // NCC thumbnail click → toggle selection
     const nccPreview = document.getElementById('poNccImgPreview');
     if (nccPreview) {
@@ -435,11 +442,16 @@ function _bindMainEvents() {
     const btnConfirm = document.getElementById('btnConfirmConvertPO');
     if (btnConfirm) btnConfirm.onclick = _confirmConvertToPO;
 
-    // Click outside → close any open suggestion dropdowns
+    // Click outside → close any open suggestion dropdowns.
+    // - Click inside the SAME wrap (input hoặc suggestion item): giữ dropdown mở.
+    // - Click inside a DIFFERENT wrap (row khác): đóng dropdown cũ, dropdown mới
+    //   sẽ tự mở khi user gõ.
+    // - Click bất kỳ chỗ khác trong modal: đóng tất cả dropdown.
     if (!window.__poSuggestOutsideBound) {
         document.addEventListener('click', (e) => {
-            if (e.target.closest('.po-name-wrap')) return;
+            const activeWrap = e.target.closest('.po-name-wrap');
             document.querySelectorAll('#modalConvertPO .po-suggest').forEach((d) => {
+                if (activeWrap && activeWrap.contains(d)) return; // keep current row's dropdown
                 d.hidden = true;
                 d.innerHTML = '';
             });
@@ -514,7 +526,7 @@ function _scheduleSuggest(key, input) {
 
 async function _runSuggest(key, q, drop) {
     try {
-        const rows = await window.WarehouseAPI.search(q, 8);
+        const rows = await window.WarehouseAPI.search(q, 20);
         if (!Array.isArray(rows) || rows.length === 0) {
             drop.hidden = true;
             drop.innerHTML = '';
@@ -563,7 +575,7 @@ function _positionSuggestDropdown(drop) {
     const vh = window.innerHeight;
     const spaceBelow = vh - rect.bottom;
     const spaceAbove = rect.top;
-    const desiredHeight = Math.min(320, drop.scrollHeight || 320);
+    const desiredHeight = Math.min(520, drop.scrollHeight || 520);
     drop.style.position = 'fixed';
     drop.style.left = rect.left + 'px';
     drop.style.width = rect.width + 'px';
@@ -593,21 +605,51 @@ function _applySuggestPick(key, code, name, price, extra = {}) {
     item.tposSynced = true;
     // Không cho có biến thể nếu pick từ kho — biến thể đã tồn ở TPOS
     item.variant = '';
-    // Cập nhật DOM input không re-render toàn bảng (giữ focus + giá mua user nhập)
+
+    // In-place DOM updates (giữ dropdown OPEN — user click ngoài để đóng).
+    // Áp lock UI lên row đã pick mà không re-render cả bảng để dropdown không bị destroy.
     const tr = document.querySelector(`#poItemsBody tr[data-key="${key}"]`);
     if (tr) {
+        const lockTitle = 'Sản phẩm chọn từ kho TPOS — không sửa được mã/biến thể';
+        tr.dataset.fromWarehouse = '1';
+
         const nameInp = tr.querySelector('.po-it-input[data-field="productName"]');
         const codeInp = tr.querySelector('.po-it-input[data-field="productCode"]');
         const sellInp = tr.querySelector('.po-it-input[data-field="sellingPrice"]');
         if (nameInp) nameInp.value = item.productName;
-        if (codeInp) codeInp.value = item.productCode;
+        if (codeInp) {
+            codeInp.value = item.productCode;
+            codeInp.readOnly = true;
+            codeInp.classList.add('po-locked');
+            codeInp.title = lockTitle;
+        }
         if (sellInp && price > 0) sellInp.value = _fmtVND(price);
+
+        // Remove the per-row "tạo mã" refresh button (locked rows don't need it)
+        const refreshBtn = tr.querySelector('.po-btn-gen-code');
+        if (refreshBtn) refreshBtn.remove();
+
+        // Replace variant cell with locked "Không có biến thể" badge
+        const variantTd = tr.querySelector('.po-col-variant');
+        if (variantTd) {
+            variantTd.innerHTML = `<button type="button" class="po-variant-btn po-locked" data-key="${item._key}" disabled title="${lockTitle}"><i data-lucide="package"></i> Không có biến thể</button>`;
+        }
+
+        // Add TPOS badge to STT cell (idempotent — don't duplicate)
+        const sttTd = tr.querySelector('.po-col-stt');
+        if (sttTd && !sttTd.querySelector('.po-tpos-badge')) {
+            const badge = document.createElement('span');
+            badge.className = 'po-tpos-badge';
+            badge.title = lockTitle;
+            badge.innerHTML = '<i data-lucide="check-circle-2"></i> TPOS';
+            sttTd.appendChild(badge);
+        }
+
+        if (window.lucide) lucide.createIcons();
     }
-    const drop = tr?.querySelector('.po-suggest');
-    if (drop) {
-        drop.hidden = true;
-        drop.innerHTML = '';
-    }
+    // KHÔNG hide dropdown — user yêu cầu giữ dropdown sau khi chọn,
+    // chỉ đóng khi user bấm ra ngoài (handled by document outside-click listener).
+
     // Logic TPOS: variants cùng productName share parent code → propagate sang
     // các row cùng tên (cũng update giá bán nếu pick có giá).
     if (code) {
@@ -646,8 +688,9 @@ function _onItemClick(e) {
                     img: suggestItem.dataset.img || '',
                 }
             );
-            // Re-render row để áp khoá variant + mã + badge TPOS
-            _rerenderItemsTable();
+            // KHÔNG re-render cả bảng — _applySuggestPick đã in-place áp khoá
+            // variant/mã/badge TPOS để dropdown không bị destroy (user yêu cầu
+            // giữ dropdown mở sau khi chọn).
             _recalcAll();
         }
         return;
@@ -774,6 +817,79 @@ async function _generateCodesForAll(btn) {
             btn.innerHTML = originalHTML;
             if (window.lucide) lucide.createIcons();
         }
+    }
+}
+
+/**
+ * Đồng bộ giá mua + giá bán cho mọi dòng có cùng Mã SP.
+ * Lấy giá đầu tiên (>0) trong mỗi nhóm làm mốc, áp xuống các dòng còn lại.
+ * - So sánh Mã SP case-insensitive, trim.
+ * - Bỏ qua nhóm chỉ có 1 dòng.
+ * - Nếu nhóm không có dòng nào có giá > 0 → bỏ qua nhóm đó.
+ */
+function _syncPricesByCode(btn) {
+    const groups = new Map(); // upperCode → items[]
+    for (const it of _convertItems) {
+        const code = (it.productCode || '').trim().toUpperCase();
+        if (!code) continue;
+        if (!groups.has(code)) groups.set(code, []);
+        groups.get(code).push(it);
+    }
+
+    let rowsUpdated = 0;
+    let groupsUpdated = 0;
+
+    for (const items of groups.values()) {
+        if (items.length < 2) continue;
+
+        const refPurchase = items.find((i) => _parseVND(i.purchasePrice) > 0)?.purchasePrice;
+        const refSelling = items.find((i) => _parseVND(i.sellingPrice) > 0)?.sellingPrice;
+
+        if (refPurchase === undefined && refSelling === undefined) continue;
+
+        const refPurchaseNum = refPurchase !== undefined ? _parseVND(refPurchase) : null;
+        const refSellingNum = refSelling !== undefined ? _parseVND(refSelling) : null;
+
+        let groupChanged = false;
+        for (const it of items) {
+            let rowChanged = false;
+            const row = document.querySelector(`#poItemsBody tr[data-key="${it._key}"]`);
+
+            if (refPurchaseNum !== null && _parseVND(it.purchasePrice) !== refPurchaseNum) {
+                it.purchasePrice = refPurchaseNum;
+                const inp = row?.querySelector('.po-it-input[data-field="purchasePrice"]');
+                if (inp) inp.value = _fmtVND(refPurchaseNum);
+                _updateRowSubtotal(it._key);
+                rowChanged = true;
+            }
+
+            if (refSellingNum !== null && _parseVND(it.sellingPrice) !== refSellingNum) {
+                it.sellingPrice = refSellingNum;
+                const inp = row?.querySelector('.po-it-input[data-field="sellingPrice"]');
+                if (inp) inp.value = _fmtVND(refSellingNum);
+                rowChanged = true;
+            }
+
+            if (rowChanged) {
+                rowsUpdated++;
+                groupChanged = true;
+                if (row) {
+                    row.classList.add('po-row-synced');
+                    setTimeout(() => row.classList.remove('po-row-synced'), 1200);
+                }
+            }
+        }
+        if (groupChanged) groupsUpdated++;
+    }
+
+    _recalcAll();
+
+    if (groupsUpdated === 0) {
+        window.notificationManager?.info('Không có nhóm sản phẩm cùng Mã SP nào cần đồng bộ giá.');
+    } else {
+        window.notificationManager?.success(
+            `Đã đồng bộ giá ${rowsUpdated} dòng (${groupsUpdated} nhóm Mã SP).`
+        );
     }
 }
 
