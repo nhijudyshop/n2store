@@ -8,6 +8,38 @@
 
 ## 2026-05-07
 
+### [web2] Wire 86 cloned TPOS-pages vào nav + fix title=undefined
+
+**Vấn đề**: Repo có 86 page tại `web2/<slug>/index.html` (clone từ TPOS sidebar 04/2026) nhưng:
+
+- 51 page có `<title>undefined — Web 2.0</title>` (clone codegen lỗi không điền title HTML tag)
+- 0 page link trong nav → user không tìm thấy
+- 3 handcrafted (`product-category`, `product-uom`, `product-uom-categ`) dùng `Web2Page.mount` thay vì `Web2Shell.bootstrap`
+
+**Fix**:
+
+- [scripts/web2-fix-titles.js](../scripts/web2-fix-titles.js) — đọc title từ bootstrap config, replace `<title>undefined</title>` → đúng. Idempotent. Fixed 51/51 page.
+- [scripts/web2-build-manifest.js](../scripts/web2-build-manifest.js) — generate `web2/modules-manifest.js` chứa 86 entry (`{dir, title, slug, category, icon}`), gom theo `breadcrumb[1]` thành 12 nhóm.
+- [web2/index.html](../web2/index.html) — launcher mới: 86 cards + search + group; dùng `tpos-sidebar` cho sidebar consistency.
+- [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — thêm 1 nav item `web2-launcher` vào nhóm "Web 2.0" (3 → 4 items). KHÔNG add 86 items để tránh phình menu.
+
+**Smoke test (Playwright local)**:
+
+- `web2/index.html` → 86 cards, 12 groups, manifest loaded ✅
+- `web2/account-thu/index.html` (Web2Shell pattern) → title đúng "Loại thu", table render, sidebar mount ✅
+- `web2/product-category/index.html` (Web2Page.mount pattern) → render OK, no error ✅
+- `orders-report/main.html`, `purchase-orders/index.html` → vẫn HTTP 200, không regression ✅
+
+**Files changed**:
+
+- 51 file `web2/*/index.html` (chỉ sửa `<title>` tag, bootstrap config không đổi)
+- 4 file mới: `web2/index.html`, `web2/modules-manifest.js`, 2 script `scripts/web2-*.js`
+- 1 file sửa: `shared/js/navigation-modern.js` (+12 dòng additive)
+
+**Status**: ✅ Done. Iter sau: split 86 page thành sub-menu thật trong sidebar (theo category) thay vì 1 link launcher.
+
+---
+
 ### [wallet] Ẩn cặp tạo-hủy đơn khỏi UI ví + fix note PBH "Nợ Cũ" sai khi tiền vào ví là ADJUSTMENT
 
 - **Why**: User báo bug — sau flow `tạo đơn → hủy đơn đó → tạo lại đơn mới`, panel "Hoạt động ví" trong customer-hub hiển thị 5 dòng (gồm cặp `-X Thanh Toán #ABC` + `+X Hoàn Tiền #ABC` triệt tiêu), khiến user không hiểu vì sao có 2 lần thanh toán. Đồng thời note PBH ghi `"Nợ Cũ X -> 0Đ"` thay vì các CK thực tế (vd `"Nhận điều chỉnh từ SĐT 0377395954 (485K)"` + `"Nhận điều chỉnh từ SĐT 0377395954 (1680K)"`), do backend `wallets.js:498-518` chỉ xử lý `tx.type === 'DEPOSIT'` khi build `depositLines`, BỎ QUA `ADJUSTMENT` (vd CK kiểu "điều chỉnh ví sai SĐT") → `depositsAfterSum = 0` → `legacy = balance` → ghi nhầm "Nợ Cũ".

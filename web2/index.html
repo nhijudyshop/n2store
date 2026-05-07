@@ -1,0 +1,255 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Web 2.0 — Tất cả Module</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260507" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <style>
+            body {
+                margin: 0;
+                font-family: Inter, system-ui, sans-serif;
+                background: #ecf0f5;
+                color: #1f2937;
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+            }
+            .web2-aside {
+                flex-shrink: 0;
+            }
+            main {
+                flex: 1;
+                padding: 24px 28px 64px;
+                overflow: auto;
+                height: 100vh;
+            }
+            h1 {
+                margin: 0 0 6px;
+                font-size: 22px;
+                font-weight: 700;
+                color: #111827;
+            }
+            .subtitle {
+                color: #6b7280;
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            .toolbar {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                margin-bottom: 24px;
+                flex-wrap: wrap;
+            }
+            .search {
+                flex: 1;
+                min-width: 240px;
+                max-width: 480px;
+                padding: 10px 14px;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 14px;
+                background: white;
+            }
+            .search:focus {
+                outline: 2px solid #3b82f6;
+                outline-offset: -1px;
+                border-color: transparent;
+            }
+            .stats {
+                color: #6b7280;
+                font-size: 13px;
+            }
+            .group {
+                margin-bottom: 28px;
+            }
+            .group-title {
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: #6b7280;
+                margin-bottom: 10px;
+                padding-bottom: 6px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            .grid {
+                display: grid;
+                gap: 8px;
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            }
+            .card {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 12px;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                text-decoration: none;
+                color: #111827;
+                font-size: 13px;
+                transition: all 0.15s ease;
+            }
+            .card:hover {
+                border-color: #3b82f6;
+                background: #eff6ff;
+                transform: translateY(-1px);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+            }
+            .card .icon {
+                color: #6b7280;
+                flex-shrink: 0;
+            }
+            .card:hover .icon {
+                color: #3b82f6;
+            }
+            .card .name {
+                flex: 1;
+                font-weight: 500;
+            }
+            .card .slug {
+                font-size: 11px;
+                color: #9ca3af;
+                font-family: ui-monospace, monospace;
+            }
+            .empty {
+                color: #9ca3af;
+                font-style: italic;
+                padding: 20px;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main>
+                <h1>Web 2.0 — Tất cả Module</h1>
+                <p class="subtitle">
+                    Phiên bản clone hoàn toàn nội bộ của giao diện TPOS. Dùng schema-driven CRUD
+                    trên Postgres riêng.
+                </p>
+
+                <div class="toolbar">
+                    <input
+                        class="search"
+                        id="search"
+                        placeholder="Tìm theo tên trang, slug, hoặc nhóm..."
+                        autofocus
+                    />
+                    <span class="stats" id="stats"></span>
+                </div>
+
+                <div id="groups"></div>
+            </main>
+        </div>
+
+        <script src="../web2-shared/tpos-sidebar.js?v=20260507"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside');
+                if (window.lucide) lucide.createIcons();
+            });
+        </script>
+        <script src="modules-manifest.js?v=20260507"></script>
+        <script>
+            (function () {
+                const list = (window.WEB2_MODULES_MANIFEST || [])
+                    .slice()
+                    .sort(
+                        (a, b) =>
+                            (a.category || '').localeCompare(b.category || '') ||
+                            (a.title || '').localeCompare(b.title || '')
+                    );
+
+                const grouped = {};
+                for (const m of list) {
+                    const g = m.category || 'Khác';
+                    (grouped[g] = grouped[g] || []).push(m);
+                }
+
+                function render(filter = '') {
+                    const root = document.getElementById('groups');
+                    const stats = document.getElementById('stats');
+                    const q = filter.toLowerCase().trim();
+                    let total = 0;
+                    const html = Object.keys(grouped)
+                        .sort()
+                        .map((category) => {
+                            const items = grouped[category].filter((m) => {
+                                if (!q) return true;
+                                return (
+                                    (m.title || '').toLowerCase().includes(q) ||
+                                    (m.slug || '').toLowerCase().includes(q) ||
+                                    category.toLowerCase().includes(q)
+                                );
+                            });
+                            if (items.length === 0) return '';
+                            total += items.length;
+                            return `
+                    <div class="group">
+                        <div class="group-title">${escapeHtml(category)} (${items.length})</div>
+                        <div class="grid">
+                            ${items
+                                .map(
+                                    (m) => `
+                                <a class="card" href="${escapeAttr(m.dir)}/index.html">
+                                    <i data-lucide="${escapeAttr(m.icon || 'circle')}" class="icon" width="16" height="16"></i>
+                                    <span class="name">${escapeHtml(m.title || m.dir)}</span>
+                                    <span class="slug">${escapeHtml(m.slug || '')}</span>
+                                </a>
+                            `
+                                )
+                                .join('')}
+                        </div>
+                    </div>
+                `;
+                        })
+                        .join('');
+                    root.innerHTML = html || '<div class="empty">Không tìm thấy module</div>';
+                    stats.textContent = `${total} / ${list.length} module`;
+                    if (window.lucide) lucide.createIcons();
+                }
+
+                function escapeHtml(s) {
+                    const div = document.createElement('div');
+                    div.textContent = String(s == null ? '' : s);
+                    return div.innerHTML;
+                }
+                function escapeAttr(s) {
+                    return String(s == null ? '' : s).replace(
+                        /[&<>"']/g,
+                        (c) =>
+                            ({
+                                '&': '&amp;',
+                                '<': '&lt;',
+                                '>': '&gt;',
+                                '"': '&quot;',
+                                "'": '&#39;',
+                            })[c]
+                    );
+                }
+
+                render();
+                document
+                    .getElementById('search')
+                    .addEventListener('input', (e) => render(e.target.value));
+            })();
+        </script>
+    </body>
+</html>

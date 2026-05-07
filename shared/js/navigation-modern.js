@@ -161,6 +161,15 @@ const MENU_CONFIG = [
         publicAccess: true,
     },
     {
+        href: '../web2/index.html',
+        icon: 'layout-grid',
+        text: 'Tất Cả Module Web 2.0',
+        shortText: 'Module 2.0',
+        pageIdentifier: 'web2-launcher',
+        permissionRequired: 'web2-launcher',
+        publicAccess: true,
+    },
+    {
         href: '../delivery-report/index.html',
         icon: 'truck',
         text: 'Thống Kê Giao Hàng',
@@ -535,7 +544,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: 'Web 2.0',
         icon: 'globe',
-        items: ['tpos-pancake', 'native-orders', 'web2-products'],
+        items: ['tpos-pancake', 'native-orders', 'web2-products', 'web2-launcher'],
     },
     {
         name: 'Kho & Nhập Hàng',
