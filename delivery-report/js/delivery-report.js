@@ -3560,7 +3560,9 @@
                 try {
                     result = JSON.parse(text);
                 } catch (_) {
-                    throw new Error(`Server trả response không phải JSON (HTTP ${resp.status}): ${text.slice(0, 120)}`);
+                    throw new Error(
+                        `Server trả response không phải JSON (HTTP ${resp.status}): ${text.slice(0, 120)}`
+                    );
                 }
                 if (!resp.ok || !result.success) {
                     throw new Error(result.error || `HTTP ${resp.status}`);
@@ -3608,17 +3610,22 @@
                             entityType: 'balance_history',
                         });
                     }
-                } catch (_) { /* ignore audit log errors */ }
+                } catch (_) {
+                    /* ignore audit log errors */
+                }
                 try {
                     if (reviewState.phone) customerCache.delete(reviewState.phone);
-                } catch (_) { /* ignore cache invalidation errors */ }
+                } catch (_) {
+                    /* ignore cache invalidation errors */
+                }
                 closeReviewModal();
             } catch (err) {
                 clearTimeout(abortTimer);
                 console.error('[DR REVIEW]', uid, err);
-                const msg = err.name === 'AbortError'
-                    ? 'Quá thời gian chờ (30s). Kiểm tra mạng hoặc thử lại.'
-                    : (err.message || String(err));
+                const msg =
+                    err.name === 'AbortError'
+                        ? 'Quá thời gian chờ (30s). Kiểm tra mạng hoặc thử lại.'
+                        : err.message || String(err);
                 alert('Lỗi kiểm tra giao dịch: ' + msg);
                 confirmBtn.disabled = false;
                 confirmBtn.innerHTML = originalConfirmHtml;
