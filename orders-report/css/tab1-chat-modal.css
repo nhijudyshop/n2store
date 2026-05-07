@@ -3301,6 +3301,47 @@ div.chat-product-image i {
     box-shadow: none;
 }
 
+/* "Đã chốt đơn" badge — set via double-click, synced across machines via SSE.
+   Distinct visual from selection (green corner ring + check), so a marked cell
+   can also be selected for bulk actions without confusion. */
+.dropped-cell.marked-ordered {
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+.dropped-cell.marked-ordered.selected {
+    /* When both selected + marked, prefer marked (green) outer ring + selection
+       inner border so user still sees both states. */
+    border-color: #10b981;
+    box-shadow:
+        0 0 0 2px rgba(16, 185, 129, 0.3),
+        inset 0 0 0 2px rgba(68, 65, 196, 0.5);
+}
+.dropped-cell-ordered {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #10b981;
+    color: #fff;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    z-index: 2;
+}
+.dropped-cell.marked-ordered::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(16, 185, 129, 0.06);
+    pointer-events: none;
+    border-radius: 6px;
+}
+
 .dropped-floating-actions {
     position: absolute;
     right: 16px;

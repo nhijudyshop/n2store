@@ -100,6 +100,13 @@
     let sseSource = null; // SSE EventSource
     let isFirstLoad = true;
 
+    // Single-flight render guard — async holder lookups (`getProductHolders`) means
+    // a render takes 100s of ms. If SSE fires multiple updates during a render, we
+    // must not start overlapping renders (race: an older render finishes after the
+    // newer one and overwrites the DOM with stale data). Track in-flight + queued.
+    let _renderInFlight = false;
+    let _renderQueued = false;
+
     // Campaign filter state for dropped products
     let currentCampaignFilter = 'all'; // 'all' | specific campaignId
     let hasAutoSelectedCampaignFilter = false; // Flag to auto-select active campaign once
@@ -631,6 +638,38 @@
     };
 
     /**
+     * Toggle "marked as ordered" badge on a dropped product. Atomic server-side
+     * (PATCH /marked) → SSE echo updates this client + every other open machine.
+     * Used by dblclick handler in `_wireDroppedGrid`.
+     *
+     * @param {string} dpId - dropped_products row id (`dp_…`)
+     * @param {boolean} markedAsOrdered - desired final state
+     * @returns {Promise<{success:boolean, markedAsOrdered:boolean, markedAt:number, markedBy:string}>}
+     */
+    window.toggleDroppedProductMarked = async function (dpId, markedAsOrdered) {
+        if (!dpId) throw new Error('Missing dropped product id');
+        const auth = window.authManager?.getAuthState?.() || {};
+        const body = {
+            markedAsOrdered: !!markedAsOrdered,
+            userId: auth.userId || auth.uid || auth.id || auth.username || null,
+            userName: auth.displayName || auth.username || null,
+        };
+        const resp = await fetch(
+            `${RENDER_API}/api/realtime/dropped-products/${encodeURIComponent(dpId)}/marked`,
+            {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            }
+        );
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+        return resp.json();
+    };
+
+    /**
      * Get list of users currently holding a product across ALL orders
      */
     window.getProductHolders = async function (productId) {
@@ -1075,7 +1114,27 @@
             _wireDroppedToolbar();
         }
 
-        await _renderDroppedGridOnly(filteredProducts);
+        // Single-flight: if a render is in progress, just queue the next pass and
+        // return — the in-flight render will pick up latest droppedProducts state
+        // when it completes. Prevents stale-overwrite when multiple SSE updates
+        // arrive while async holder lookups are still resolving.
+        if (_renderInFlight) {
+            _renderQueued = true;
+            return;
+        }
+        _renderInFlight = true;
+        try {
+            await _renderDroppedGridOnly(filteredProducts);
+            // Drain queued passes — each loop iteration picks up CURRENT state
+            // (filteredProducts arg is intentionally dropped on requeue; the
+            // passive default re-derives from current globals).
+            while (_renderQueued) {
+                _renderQueued = false;
+                await _renderDroppedGridOnly(null);
+            }
+        } finally {
+            _renderInFlight = false;
+        }
     }
 
     async function _renderDroppedGridOnly(filteredProducts = null) {
@@ -1193,14 +1252,27 @@
                     ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
                     : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
+                // "Marked as ordered" badge — synced across machines via SSE.
+                // Rendered overlay so it's visible on top of selection check too.
+                const isMarked = p.markedAsOrdered === true;
+                const markedTitle = isMarked
+                    ? `Đã chốt đơn${p.markedBy ? ` · ${esc(p.markedBy)}` : ''}`
+                    : '';
+                const markedBadge = isMarked
+                    ? `<span class="dropped-cell-ordered" title="${markedTitle}"><i class="fas fa-check-circle"></i></span>`
+                    : '';
+
                 return `
-                <div class="dropped-cell${isSelected ? ' selected' : ''}${isOutOfStock ? ' held' : ''}"
+                <div class="dropped-cell${isSelected ? ' selected' : ''}${isOutOfStock ? ' held' : ''}${isMarked ? ' marked-ordered' : ''}"
                      data-pid="${p.ProductId}"
+                     data-id="${esc(p.id || '')}"
                      data-name="${productNameEscaped}"
                      data-code="${codeEscaped}"
+                     data-marked="${isMarked ? '1' : '0'}"
                      data-tooltip="${tooltipAttr}">
                     ${imgInner}
                     <span class="dropped-cell-check"><i class="fas fa-check"></i></span>
+                    ${markedBadge}
                 </div>
             `;
             })
@@ -1338,6 +1410,35 @@
             if (typeof window.sendProductToChat === 'function') {
                 window.sendProductToChat(pid, name);
             }
+        });
+
+        // Double-click → toggle "marked as ordered" badge (synced across machines via SSE).
+        // Cancels the mousedown selection drag from the same gesture so it doesn't
+        // leave the cell stuck in selected state.
+        grid.addEventListener('dblclick', (e) => {
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const dpId = cell.dataset.id;
+            if (!dpId) return;
+            // Use server-confirmed marked attribute to decide toggle direction;
+            // optimistic UI update is applied by SSE echo back.
+            const currentlyMarked = cell.dataset.marked === '1';
+            // Cancel any in-progress drag-select gesture from same mousedown.
+            _droppedDragging = false;
+            // Pop the cell out of selection if we accidentally selected it.
+            const pid = Number(cell.dataset.pid);
+            if (_droppedSelectedIds.has(pid)) {
+                _droppedSelectedIds.delete(pid);
+                cell.classList.remove('selected');
+                _updateDroppedFabState();
+            }
+            window.toggleDroppedProductMarked(dpId, !currentlyMarked).catch((err) => {
+                console.error('[DROPPED] toggle marked failed:', err);
+                if (typeof showError === 'function')
+                    showError('Lỗi đánh dấu chốt đơn: ' + err.message);
+            });
         });
     }
 

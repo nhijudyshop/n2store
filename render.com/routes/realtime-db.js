@@ -1989,7 +1989,29 @@ function droppedRowToObj(row) {
         addedDate: row.added_date,
         addedAt: row.created_at ? new Date(row.created_at).getTime() : null,
         orderContext: row.order_context || null,
+        markedAsOrdered: row.marked_as_ordered === true,
+        markedAt: row.marked_at != null ? Number(row.marked_at) : null,
+        markedBy: row.marked_by || null,
     };
+}
+
+// One-time schema add: marked_as_ordered + audit columns. Runs lazily on first
+// /dropped-products hit so we don't need a separate migration runner.
+let _droppedSchemaEnsured = false;
+async function ensureDroppedSchema(pool) {
+    if (_droppedSchemaEnsured) return;
+    try {
+        await pool.query(`
+            ALTER TABLE dropped_products
+              ADD COLUMN IF NOT EXISTS marked_as_ordered BOOLEAN DEFAULT FALSE,
+              ADD COLUMN IF NOT EXISTS marked_at BIGINT,
+              ADD COLUMN IF NOT EXISTS marked_by VARCHAR(255);
+        `);
+        _droppedSchemaEnsured = true;
+        console.log('[REALTIME-DB] dropped_products marked_as_ordered schema ensured');
+    } catch (e) {
+        console.warn('[REALTIME-DB] ensureDroppedSchema failed:', e?.message);
+    }
 }
 
 /**
@@ -2002,6 +2024,7 @@ router.get('/dropped-products', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureDroppedSchema(pool);
 
         // Fetch 2 latest campaigns (always needed for the label)
         const campaignResult = await pool.query(
@@ -2254,6 +2277,64 @@ router.patch('/dropped-products/:id', async (req, res) => {
         res.json({ success: true, id });
     } catch (error) {
         console.error('[REALTIME-DB] PATCH /dropped-products error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/realtime/dropped-products/:id/marked
+ * Toggle "marked as ordered" badge for a dropped product (atomic).
+ * Body: { markedAsOrdered: boolean, userId?: string, userName?: string }
+ *
+ * Atomic: server reads-and-writes in single SQL, no race between concurrent
+ * double-clicks from 2 machines. SSE notify on change so other clients see
+ * the badge immediately. Idempotent: setting the same state again is a no-op
+ * but still echoed (lets late-joiners catch up).
+ */
+router.patch('/dropped-products/:id/marked', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { markedAsOrdered, userId, userName } = req.body || {};
+        if (typeof markedAsOrdered !== 'boolean') {
+            return res.status(400).json({ error: 'markedAsOrdered must be boolean' });
+        }
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureDroppedSchema(pool);
+
+        const result = await pool.query(
+            `UPDATE dropped_products
+             SET marked_as_ordered = $2,
+                 marked_at = CASE WHEN $2 THEN $3::bigint ELSE NULL END,
+                 marked_by = CASE WHEN $2 THEN $4 ELSE NULL END,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1
+             RETURNING *`,
+            [
+                id,
+                markedAsOrdered,
+                markedAsOrdered ? Date.now() : null,
+                markedAsOrdered ? userName || userId || null : null,
+            ]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        const row = result.rows[0];
+        const sseData = { id, ...droppedRowToObj(row) };
+        if (notifyClients) notifyClients('dropped_products', sseData, 'update');
+
+        res.json({
+            success: true,
+            id,
+            markedAsOrdered: row.marked_as_ordered,
+            markedAt: row.marked_at != null ? Number(row.marked_at) : null,
+            markedBy: row.marked_by || null,
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] PATCH /dropped-products/:id/marked error:', error);
         res.status(500).json({ error: error.message });
     }
 });
