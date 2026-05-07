@@ -81,6 +81,36 @@
 
 ---
 
+#### [aikol] Sprint 4 — REAL-LOGIN audit + bug fix
+
+**Bug discovered** — `aikol-studio/js/aikol-api.js` `getUserId()` was reading `localStorage.getItem('authData')` (legacy key) instead of n2store's actual auth key `loginindex_auth`. Also called `window.AuthManager.getCurrentUser()` (a class static, doesn't exist — only the instance `window.authManager` has `getAuthData()`, and that instance only auto-creates when `shared-core-bundle.js` is loaded — which aikol pages don't do).
+
+**Result**: real n2store users (post-login) had their `X-User-Id` silently dropped → every aikol API call returned 401 → credit chip stayed at "— credits", model/clip/output lists were empty. Browser smoke tests passed because they shimmed `authData` directly, masking the bug.
+
+**Fix** ([aikol-studio/js/aikol-api.js](../aikol-studio/js/aikol-api.js)):
+
+1. Prefer `window.authManager` instance (when shared-core-bundle is loaded).
+2. Else read `loginindex_auth` from sessionStorage → localStorage → legacy `authData`.
+3. Honour `expiresAt` for parity with AuthManager.isSessionExpired.
+
+**Test scripts NEW** ([scripts/test-aikol-sprint4-real-login.js](../scripts/test-aikol-sprint4-real-login.js)) — Playwright real n2store login (form id=loginForm, fields #username + #password, requestSubmit because button has CSS animations that flake `.click()`).
+
+**Loop result (real login, no shim)**
+
+- 6/6 Sprint 4 pages clean. Credit chip shows `30 credits · free` (proves header flowed). Settings: 6 packs. Campaigns: empty state visible. Library: `0 clips`. History: `0 outputs`. **0 events captured, 0 errors.**
+- Interactive E2E updated to real login: 12/12 still pass. Programmatic create campaign → render → run-no-clips graceful → cleanup.
+- 144-page smoke (`scripts/n2store-smoke-all-pages.js`) — `144/144 clean, 0 issues`. Sprint 4 didn't break any existing page.
+
+**Commits**:
+
+- `c164fb0c` Sprint 4 backend + frontend (initial)
+- `9e33e453` Sprint 4 test scripts (auth-shim version, masked the bug)
+- `f2471550` fix(aikol): aikol-api uses correct loginindex_auth key
+
+**Status**: ✅ Done — verified end-to-end with REAL admin login on production. tikreel clone MVP fully tested.
+
+---
+
 ### [aikol] Sprint 3 — Image (Fal.ai) + Video (Kling) generation pipeline
 
 **Goal** — Sau Sprint 2 (Library + import + clip CRUD) đã LIVE. Sprint 3 thêm generation core: model + clip → ảnh / video clone identity-preserving, có queue + charge/refund tự động.
