@@ -96,6 +96,37 @@
 
 **Status**: ✅ Done.
 
+### [web2] Split 86 web2/\* page thành 12 sub-group trong main sidebar
+
+**Theo dõi từ commit trước** (chỉ có 1 launcher link). User chọn (A) — split thành sub-menu thật.
+
+**Cách làm**:
+
+- Thêm 2 cặp anchor marker trong `shared/js/navigation-modern.js`:
+    - `WEB2_NAV_ITEMS_START/END` — vị trí inject 86 nav item
+    - `WEB2_NAV_GROUPS_START/END` — vị trí inject 12 group entry
+- Script mới [scripts/web2-build-nav.js](../scripts/web2-build-nav.js):
+    - Đọc `web2/modules-manifest.js` qua VM sandbox (xử lý cả JSON-style và JS-literal style sau khi linter format)
+    - Generate 86 nav item (pageIdentifier `web2-<dir>`, text `[V2] <title>`, share permission `web2-launcher`)
+    - Generate 12 group `Web 2.0 — <Category>` (Bán Hàng / Báo cáo / Cấu hình / ...)
+    - Splice giữa anchors → idempotent re-run
+    - Tự `node --check` sau khi splice để chắc chắn syntax không gãy
+
+**Smoke test (Playwright local)**:
+
+- `orders-report/main.html` sidebar: **120 nav links / 21 groups / 87 web2 page links** ✅
+- `web2/fastsaleorder-invoice/` direct nav → render OK, title đúng "Bán hàng (Hóa đơn) — Web 2.0" ✅
+- v1 pages (orders-report, purchase-orders, hanghoan, soluong-live) → HTTP 200 (không regression) ✅
+
+**Files**:
+
+- 1 file sửa: `shared/js/navigation-modern.js` (+838 dòng additive — 86 items + 12 groups + 2 cặp marker)
+- 1 file mới: `scripts/web2-build-nav.js` (~95 LOC, idempotent)
+
+**Status**: ✅ Done.
+
+---
+
 ### [web2] Wire 86 cloned TPOS-pages vào nav + fix title=undefined
 
 **Vấn đề**: Repo có 86 page tại `web2/<slug>/index.html` (clone từ TPOS sidebar 04/2026) nhưng:
