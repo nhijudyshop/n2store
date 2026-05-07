@@ -12,16 +12,42 @@
 const { chromium } = require('playwright');
 
 const BASE = process.env.BASE || 'https://nhijudyshop.github.io/n2store';
-const USER = process.env.USER_LOGIN || 'aikol-sprint4-test';
+const USER_LOGIN = process.env.USER_LOGIN || 'admin';
+const PASS_LOGIN = process.env.PASS_LOGIN || 'admin@@';
 
 (async () => {
     const browser = await chromium.launch({ headless: true });
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    await ctx.addInitScript((u) => {
-        const auth = { userId: u, uid: u, email: `${u}@test.local`, fullName: 'Sprint4 Tester' };
-        localStorage.setItem('authData', JSON.stringify(auth));
-    }, USER);
     const page = await ctx.newPage();
+
+    // Real login to get a real user (no shim)
+    await page.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('#loginForm');
+    await page.fill('#username', USER_LOGIN);
+    await page.fill('#password', PASS_LOGIN);
+    await page.evaluate(() => document.getElementById('loginForm').requestSubmit());
+    await page.waitForFunction(
+        () => {
+            const a =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth');
+            if (!a) return false;
+            try {
+                const j = JSON.parse(a);
+                return j.isLoggedIn === true || j.isLoggedIn === 'true';
+            } catch (_) {
+                return false;
+            }
+        },
+        { timeout: 25000 }
+    );
+    const USER = await page.evaluate(() => {
+        const a =
+            sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+        const j = JSON.parse(a);
+        return j.userId || j.uid || j.username;
+    });
+    console.log(`[smoke4-i] real login OK as ${USER}`);
 
     const consoleErrs = [];
     page.on('pageerror', (err) => consoleErrs.push({ kind: 'pageerror', msg: err.message }));
@@ -138,9 +164,10 @@ const USER = process.env.USER_LOGIN || 'aikol-sprint4-test';
         const fd = new FormData();
         fd.append('name', 'Sprint4 Browser Test Model');
         fd.append('file', new Blob([buf], { type: 'image/png' }), 'test.png');
+        const uid = window.AikolAPI.getCurrentUserId();
         const res = await fetch(`${window.AikolAPI.endpoint}/models`, {
             method: 'POST',
-            headers: { 'X-User-Id': 'aikol-sprint4-test' },
+            headers: uid ? { 'X-User-Id': uid } : {},
             body: fd,
         });
         const data = await res.json();

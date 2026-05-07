@@ -68,7 +68,8 @@ const isKnown = (m) => KNOWN_OK.some((re) => re.test(String(m)));
     await page.waitForSelector('#loginForm', { timeout: 15000 });
     await page.fill('#username', USER);
     await page.fill('#password', PASS);
-    await page.click('#loginButton');
+    // Login page has CSS animations on button → use form submit() to avoid stability flakes.
+    await page.evaluate(() => document.getElementById('loginForm').requestSubmit());
     // Wait for the login script to populate auth + redirect.
     await page.waitForFunction(
         () => {
