@@ -83,8 +83,12 @@ app.use(
     cors({
         origin: [
             'https://nhijudyshop.github.io', // Primary frontend
-            'http://localhost:5500', // Local development for frontend
+            'http://localhost:5500', // Local development for frontend (Live Server)
             'http://localhost:3000', // Local development for this server itself
+            'http://localhost:8080', // Local browser-test pattern (CLAUDE.md)
+            'http://localhost:8000', // Alt local dev port
+            'http://127.0.0.1:8080',
+            'http://127.0.0.1:5500',
         ],
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id', 'X-API-Key'],
