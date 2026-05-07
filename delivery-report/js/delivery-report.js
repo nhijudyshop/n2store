@@ -70,10 +70,21 @@
     // =====================================================
     // PERMISSION HELPER
     // =====================================================
+    // Whitelist tài khoản được phép dùng tra soát (ngoài admin).
+    // Match cả username (lowercase) và displayName để khỏi phụ thuộc vào việc
+    // user có set displayName hay không.
+    const TRA_SOAT_ALLOWED_USERNAMES = new Set(['bobo']);
+    const TRA_SOAT_ALLOWED_DISPLAY_NAMES = new Set(['Phước đẹp trai', 'bobo']);
+
     function canTraSoat() {
         if (!window.authManager) return false;
         if (window.authManager.isAdmin()) return true;
-        return window.authManager.getUserInfo()?.displayName === 'Phước đẹp trai';
+        const info = window.authManager.getUserInfo();
+        if (!info) return false;
+        const username = String(info.username || '').toLowerCase();
+        if (TRA_SOAT_ALLOWED_USERNAMES.has(username)) return true;
+        if (TRA_SOAT_ALLOWED_DISPLAY_NAMES.has(info.displayName)) return true;
+        return false;
     }
 
     // =====================================================

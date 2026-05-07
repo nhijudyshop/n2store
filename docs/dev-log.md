@@ -8,6 +8,24 @@
 
 ## 2026-05-07
 
+### [delivery] Mở quyền tra soát cho account bobo
+
+**Yêu cầu**: User muốn account `bobo` được dùng nút Tra soát trên delivery-report (trước đây chỉ admin + displayName "Phước đẹp trai" mới có quyền).
+
+**Implementation**: Refactor `canTraSoat()` từ kiểm tra hardcoded 1 displayName sang 2 whitelist Set: `TRA_SOAT_ALLOWED_USERNAMES` (lowercase, match case-insensitive) và `TRA_SOAT_ALLOWED_DISPLAY_NAMES`. Thêm `bobo` vào cả hai để khỏi phụ thuộc vào user đã set displayName hay chưa.
+
+**Files MODIFIED (1)**:
+
+- [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js) — `canTraSoat()` dùng whitelist Set, hỗ trợ match cả username (lowercase) lẫn displayName.
+
+**Files NEW (1)**:
+
+- [scripts/test-delivery-trasoat-permission.js](../scripts/test-delivery-trasoat-permission.js) — Playwright test 6 case (admin/username=bobo/username=BOBO case-insensitive/displayName=bobo/displayName=Phước đẹp trai/random user). Mỗi case dùng fresh BrowserContext + storageState (login admin) + addInitScript dùng `Object.defineProperty(window, 'authManager')` setter để intercept và stub trước khi `delivery-report.js` IIFE chạy `canTraSoat()` ẩn nút. 6/6 PASS.
+
+**Status**: ✅ Done
+
+---
+
 ### [aikol] Sprint 5 PLAN — UI polish (clone tikreel.net/app)
 
 **Why** — User asked: "Browser vào https://www.tikreel.net/app coi giao diện, button, hiệu ứng để học hỏi làm giống hoặc cải thiện giao diện UI web." User's logged-in tikreel session was already running on Chromium at CDP `localhost:9444`. We connected via Playwright `connectOverCDP`, navigated 9 authenticated pages (`/app`, `/app/library`, `/app/models`, `/app/products`, `/app/bulk`, `/app/campaigns`, `/app/history`, `/app/settings`, `/pricing`) and captured screenshots (desktop + mobile) + computed-style tokens.
