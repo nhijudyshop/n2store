@@ -8,6 +8,51 @@
 
 ## 2026-05-07
 
+### [orders][render] Phân chia nhân viên theo campaign id + lịch sử chỉnh sửa + KPI filter per-user
+
+**Yêu cầu**:
+
+1. Lưu cài đặt phân chia nhân viên theo `campaign.id` (stable, không bị mất khi đổi tên chiến dịch) thay vì sanitized name.
+2. Lưu lịch sử chỉnh sửa (ai sửa, lúc nào, before/after).
+3. KPI logic theo chiến dịch đang chọn — non-admin user chỉ thấy KPI orders trong STT range của họ; admin thấy tất cả; đồng bộ dữ liệu giữa các máy.
+
+**Backend** ([render.com/routes/campaigns.js](../render.com/routes/campaigns.js)):
+
+- New table `campaign_employee_ranges_history` (campaign_key, label, action create/update, user_id, user_name, ranges_before/after JSONB, created_at).
+- New `GET /api/campaigns/employee-ranges/:campaignKey/history?limit=N` (max 200, default 50).
+- Modified `PUT /api/campaigns/employee-ranges/:campaignKey` to capture user info from body (`userId`, `userName`, `campaignLabel`), snapshot previous ranges, INSERT history row when before≠after. History insert is fire-and-forget — never blocks the save.
+
+**Frontend**:
+
+- [orders-report/js/core/campaign-api.js](../orders-report/js/core/campaign-api.js) — `saveEmployeeRanges(key, ranges, meta)` accepts `{userId, userName, campaignLabel}`. New `getEmployeeRangesHistory(key, limit)`.
+- [orders-report/js/tab1/tab1-employee.js](../orders-report/js/tab1/tab1-employee.js):
+    - `_resolveCampaign()` resolves any of {object with id, Shopify-merged object with campaignNames[], string displayName} → `{id, displayName}` using `_findMatchingDbCampaignId()` for fuzzy match.
+    - `loadEmployeeRangesForCampaign()`: try id-keyed first → fallback to legacy sanitized-name → auto-migrate to id key (one-time, fire-and-forget save with `userId='__migration__'`).
+    - `applyEmployeeRanges()` saves under `campaign.id` with current user's auth state in meta.
+    - New `openEmployeeRangesHistory()` modal renders diff per row: `+ Thêm`, `− Xoá`, `~ Đổi` with before/after STT ranges, user name, time. Loads history under both id and sanitized name for legacy compat.
+    - New "Lịch sử chỉnh sửa" button in [tab1-orders.html](../orders-report/tab1-orders.html) employee drawer footer.
+- Callers updated to pass campaign **object** (not displayName string) so id flows through:
+  [tab1-init.js:111,781](../orders-report/js/tab1/tab1-init.js), [tab1-search.js:1130,1182,1264](../orders-report/js/tab1/tab1-search.js), [tab1-campaign-system.js:601,709](../orders-report/js/tab1/tab1-campaign-system.js).
+- Exposed `window._findMatchingDbCampaignId` in [tab1-search.js](../orders-report/js/tab1/tab1-search.js) so other modules can reuse the fuzzy-match.
+
+**KPI per-user filter** ([orders-report/js/tab1/tab1-kpi-stats.js](../orders-report/js/tab1/tab1-kpi-stats.js)):
+
+- `_computeStats()` now skips orders that fail `window.orderPassesEmployeeRangeFilter()` (admin or unassigned non-admin → all orders pass; non-admin with assigned range → only their STT).
+- `totalProducts`: per-user mode counts from cache only (server-wide count would leak other staff's products); admin/unassigned still uses fast server count.
+- KPI history modal `_loadFullHistory()`: non-admin appends `&codes=<userOrderCodes>` filter so they only see history rows for their own orders. Admin still fetches everything.
+
+**Tests** (browser session, localhost:8080):
+
+- ✅ Drawer + new history button + modal renders.
+- ✅ Switch campaign → ranges loaded by id; legacy data auto-migrated under campaign id; verified via curl: data appears under both `T9 SO HOT` (legacy) and `campaign_1775706629571` (new id).
+- ✅ History created on auto-migration: `userId='__migration__'`, action='create'.
+- ✅ User-triggered save records action='update' with admin's userId/userName, ranges_before/after snapshot.
+- ✅ KPI counter as admin: 15/15 KPI orders. As mocked non-admin (Hạnh, range 21-28): 8/15 KPI orders matching only their STT bracket. KPI history modal: admin → no codes filter; non-admin → only their order codes.
+
+Status: ✅ Done
+
+---
+
 ### [delivery] Fix Xuất excel ĐƠN 0đ: include TOMATO + toolbar buttons follow tab filter
 
 **Bug 1 — `exportExcelZeroDong()` silently dropped 0đ TOMATO items**
