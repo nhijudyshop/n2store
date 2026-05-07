@@ -1635,6 +1635,65 @@ td[data-column].hidden {
     display: flex;
 }
 
+/* Tag card pin button */
+.tag-panel-card-pin {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    border: none;
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 10px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0;
+    line-height: 1;
+    transform: rotate(45deg);
+}
+
+.tag-panel-card:hover .tag-panel-card-pin {
+    display: flex;
+}
+
+.tag-panel-card-pin:hover {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+/* Pinned state — always visible, highlighted */
+.tag-panel-card-pin.pinned {
+    display: flex;
+    background: #fef3c7;
+    color: #d97706;
+    transform: rotate(0deg);
+}
+
+.tag-panel-card-pin.pinned:hover {
+    background: #fde68a;
+    color: #b45309;
+}
+
+/* Pinned card row styling */
+.tag-panel-card.pinned {
+    background: #fffbeb;
+    border-left-color: #f59e0b;
+    border-left-width: 4px;
+    padding-left: 10px;
+}
+
+.tag-panel-card.pinned:hover {
+    background: #fef3c7;
+}
+
+.tag-panel-card.pinned.active {
+    background: #fef3c7;
+    border-left-color: #d97706;
+}
+
 /* Zero-order tags sub-list */
 .zero-order-tags-list {
     margin: 4px 0 8px 0;

@@ -8,6 +8,21 @@
 
 ## 2026-05-07
 
+### [inbox] Ghim tag — mở rộng pin button cho mọi tag card trong panel
+
+- **Why**: Lần ship đầu chỉ render pin trong sub-list khi expand "TAG KHÔNG CÓ ĐƠN", nhưng user mong đợi thấy pin trên TỪNG tag card chính (CV DIOR 430K, BIKINI CHANEL LIVE…) ở mọi lúc.
+- **What**: Thêm `.tag-panel-card-pin` button vào main tag-card render (giữa info và delete). Button rotate 45° lúc unpinned (chỉ hiện khi hover, giống delete), straight + amber lúc pinned (luôn hiện). Pinned card có background `#fffbeb` + `border-left 4px #f59e0b` (giữ layout vì base card có `border: 2px transparent`, padding-left -2px để bù).
+- **Refactor**: Rename `togglePinZeroOrderTag` → `togglePinTag` (generic), giữ alias để sub-list onclick cũ vẫn hoạt động. Cùng 1 function, share `tag.pinned` state — pin từ chỗ nào cũng cập nhật cả hai view.
+
+**Files MODIFIED (2)**:
+
+- [don-inbox/js/tab-social-panel.js](../don-inbox/js/tab-social-panel.js) — main tag render thêm pin button, rename function, expose `window.togglePinTag` + alias.
+- [don-inbox/css/don-inbox.css](../don-inbox/css/don-inbox.css) — `.tag-panel-card-pin` (default + `.pinned` state), `.tag-panel-card.pinned` (amber bg + 4px left border, padding compensate).
+
+**Status**: ✅ Done — chờ user test live.
+
+---
+
 ### [inbox] Ghim tag không có đơn — bảo vệ khỏi "Xóa toàn bộ"
 
 - **Why**: Card "TAG KHÔNG CÓ ĐƠN" có nút "Xóa toàn bộ" — đôi khi user muốn giữ một số tag dù chưa có đơn (tag chuẩn bị live, tag template). Cần cách flag tag để skip khỏi xóa hàng loạt.

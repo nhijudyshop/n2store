@@ -362,8 +362,18 @@ function renderTagPanelCards() {
                 ? `<span style="color:#ef4444; font-weight:600;"> (${oldCount} ≥${activeTagDayFilter}N)</span>`
                 : '';
 
+        const isPinned = !!tag.pinned;
+        const pinTitle = isPinned ? `Bỏ ghim tag ${tag.name}` : `Ghim tag ${tag.name}`;
+        const cardClasses = [
+            'tag-panel-card',
+            activePanelTagId === tag.id ? 'active' : '',
+            isPinned ? 'pinned' : '',
+        ]
+            .filter(Boolean)
+            .join(' ');
+
         html += `
-            <div class="tag-panel-card ${activePanelTagId === tag.id ? 'active' : ''}"
+            <div class="${cardClasses}"
                  onclick="filterByPanelTag('${tag.id}')" ${hoverAttrs}>
                 <div class="tag-panel-card-icon" style="background: ${tag.color};">
                     ${
@@ -376,6 +386,9 @@ function renderTagPanelCards() {
                     <div class="tag-panel-card-name">${tag.name}</div>
                     <div class="tag-panel-card-count">${count} đơn hàng${dayInfo}</div>
                 </div>
+                <button class="tag-panel-card-pin ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePinTag('${tag.id}')" title="${pinTitle}">
+                    <i class="fas fa-thumbtack"></i>
+                </button>
                 <button class="tag-panel-card-delete" onclick="event.stopPropagation(); deletePanelTag('${tag.id}')" title="Xóa tag">
                     <i class="fas fa-trash-alt"></i>
                 </button>
@@ -1245,8 +1258,8 @@ function deleteAllZeroOrderTags() {
     showNotification(successMsg, 'success');
 }
 
-// ===== TOGGLE PIN ZERO-ORDER TAG =====
-function togglePinZeroOrderTag(tagId) {
+// ===== TOGGLE PIN TAG =====
+function togglePinTag(tagId) {
     const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (!tag) return;
 
@@ -1264,6 +1277,9 @@ function togglePinZeroOrderTag(tagId) {
         'success'
     );
 }
+
+// Alias kept for sub-list pin button (zero-order rows use the same logic)
+const togglePinZeroOrderTag = togglePinTag;
 
 // ===== EXPORTS =====
 window.initTagPanel = initTagPanel;
@@ -1298,4 +1314,5 @@ window.onTagDayFilterChange = onTagDayFilterChange;
 window.deletePanelTag = deletePanelTag;
 window.performTableSearchWithZeroOrderTags = performTableSearchWithZeroOrderTags;
 window.deleteAllZeroOrderTags = deleteAllZeroOrderTags;
+window.togglePinTag = togglePinTag;
 window.togglePinZeroOrderTag = togglePinZeroOrderTag;
