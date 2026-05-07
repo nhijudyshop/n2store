@@ -149,8 +149,12 @@
     function setupFilters() {
         $$('[data-filter]').forEach((btn) => {
             btn.addEventListener('click', () => {
-                $$('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+                $$('[data-filter]').forEach((b) => {
+                    b.setAttribute('aria-pressed', 'false');
+                    b.classList.remove('aikol-chip--active');
+                });
                 btn.setAttribute('aria-pressed', 'true');
+                btn.classList.add('aikol-chip--active');
                 currentFilter = btn.dataset.filter;
                 refreshOutputs();
             });

@@ -496,37 +496,101 @@
     }
 }
 
-/* ===== Sprint 4 — Topup, Settings, Bulk, Campaigns ===== */
+/* ===== Sprint 4/5 — Topup, Settings, Bulk, Campaigns ===== */
 .aikol-packs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.75rem;
-    margin-top: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.85rem;
 }
 .aikol-pack {
+    position: relative;
     background: var(--aikol-bg);
     border: 1px solid var(--aikol-border);
-    border-radius: 12px;
-    padding: 1rem;
+    border-radius: 14px;
+    padding: 1.1rem 1rem 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    align-items: flex-start;
+    gap: 0.5rem;
+    align-items: stretch;
+    transition:
+        border-color var(--aikol-dur) var(--aikol-ease),
+        transform var(--aikol-dur) var(--aikol-ease),
+        box-shadow var(--aikol-dur) var(--aikol-ease);
+}
+.aikol-pack:hover {
+    border-color: rgba(124, 92, 255, 0.45);
+    transform: translateY(-1px);
+}
+.aikol-pack--popular {
+    border: 1px solid var(--aikol-accent);
+    background: linear-gradient(180deg, rgba(124, 92, 255, 0.1) 0%, var(--aikol-bg) 60%);
+    box-shadow: 0 0 0 1px var(--aikol-accent) inset;
+}
+.aikol-pack__badge {
+    position: absolute;
+    top: -10px;
+    right: 12px;
+    background: linear-gradient(135deg, var(--aikol-accent), var(--aikol-accent-light));
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    box-shadow: 0 4px 14px var(--aikol-accent-glow);
+}
+.aikol-pack__head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
 }
 .aikol-pack__name {
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 1.05rem;
+    color: var(--aikol-text);
+}
+.aikol-pack__tagline {
+    color: var(--aikol-text-dim);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 .aikol-pack__credits {
-    color: var(--aikol-accent);
-    font-size: 1.4rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    color: var(--aikol-accent-light);
     font-weight: 700;
+    margin: 0.4rem 0 0.1rem;
+}
+.aikol-pack__bolt {
+    color: var(--aikol-accent);
+    font-size: 1.1rem;
+}
+.aikol-pack__num {
+    font-size: 1.6rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+.aikol-pack__unit {
+    font-size: 0.78rem;
+    color: var(--aikol-text-dim);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 .aikol-pack__vnd {
-    color: var(--aikol-text-dim);
-    font-size: 0.92rem;
+    color: var(--aikol-text);
+    font-size: 1rem;
+    font-weight: 600;
 }
-.aikol-pack .aikol-btn {
+.aikol-pack__rate {
+    color: var(--aikol-text-dim);
+    font-size: 0.72rem;
+}
+.aikol-pack__buy {
     align-self: stretch;
     margin-top: auto;
 }

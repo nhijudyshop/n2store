@@ -44,20 +44,43 @@
         } catch (_) {}
     }
 
+    // Editorial highlights — which pack is recommended (matches tikreel /pricing).
+    const POPULAR_PACK = 'standard';
+    const PACK_TAGLINES = {
+        mini: 'Thử cho biết',
+        small: 'Cá nhân',
+        standard: 'Đề xuất',
+        pro: 'Tăng tốc',
+        power: 'Chuyên nghiệp',
+        agency: 'Agency / Team',
+    };
+
     async function loadPacks() {
         try {
             const { packs } = await window.AikolAPI.getBillingPacks();
             const grid = $('#packs-grid');
             grid.innerHTML = (packs || [])
-                .map(
-                    (p) => `
-                <div class="aikol-pack" data-pack="${escapeHtml(p.id)}">
-                    <div class="aikol-pack__name">${escapeHtml(p.name)}</div>
-                    <div class="aikol-pack__credits">${p.credits} cr</div>
+                .map((p) => {
+                    const isPop = p.id === POPULAR_PACK;
+                    const cls = `aikol-pack${isPop ? ' aikol-pack--popular' : ''}`;
+                    const vndPerCr = Math.round((p.vnd || 0) / (p.credits || 1));
+                    return `
+                <div class="${cls}" data-pack="${escapeHtml(p.id)}">
+                    ${isPop ? '<span class="aikol-pack__badge">Đề xuất</span>' : ''}
+                    <div class="aikol-pack__head">
+                        <div class="aikol-pack__name">${escapeHtml(p.name)}</div>
+                        <div class="aikol-pack__tagline">${escapeHtml(PACK_TAGLINES[p.id] || '')}</div>
+                    </div>
+                    <div class="aikol-pack__credits">
+                        <span class="aikol-pack__bolt" aria-hidden="true">⚡</span>
+                        <span class="aikol-pack__num">${p.credits}</span>
+                        <span class="aikol-pack__unit">credits</span>
+                    </div>
                     <div class="aikol-pack__vnd">${fmtVnd(p.vnd)}</div>
-                    <button type="button" class="aikol-btn" data-pack="${escapeHtml(p.id)}">Nạp</button>
-                </div>`
-                )
+                    <div class="aikol-pack__rate">≈ ${fmtVnd(vndPerCr)} / credit</div>
+                    <button type="button" class="aikol-btn aikol-pack__buy" data-pack="${escapeHtml(p.id)}">Nạp ngay</button>
+                </div>`;
+                })
                 .join('');
             grid.querySelectorAll('button[data-pack]').forEach((btn) => {
                 btn.addEventListener('click', () => onCreateTopup(btn.dataset.pack, btn));
