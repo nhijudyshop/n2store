@@ -318,7 +318,16 @@
         if (!panel || !isAdminUser()) return;
         panel.style.display = '';
 
+        await refreshAdminUserList();
+        // Bind click handler ONCE — calling setupAdminPanel again to refresh the
+        // dropdown previously re-attached this listener and caused double-grants.
+        $('#admin-grant-btn').addEventListener('click', onAdminGrantClick);
+    }
+
+    async function refreshAdminUserList() {
         const sel = $('#admin-grant-user');
+        if (!sel) return;
+        const prev = sel.value; // preserve selection across refreshes
         try {
             const { users } = await window.AikolAPI.adminListUsers();
             sel.innerHTML =
@@ -332,51 +341,50 @@
                         return `<option value="${escapeHtml(targetId)}">${escapeHtml(lbl)}</option>`;
                     })
                     .join('');
+            if (prev) sel.value = prev;
         } catch (e) {
-            // Server rejected — likely the user only LOOKS admin client-side.
             sel.innerHTML = '<option value="">— không có quyền admin —</option>';
             $('#admin-grant-status').textContent =
                 'Server từ chối: ' + (e.data?.error || e.message);
+        }
+    }
+
+    async function onAdminGrantClick() {
+        const target = $('#admin-grant-user').value;
+        const delta = parseInt($('#admin-grant-delta').value, 10);
+        const note = $('#admin-grant-note').value.trim();
+        const status = $('#admin-grant-status');
+        if (!target) {
+            status.textContent = 'Chọn user trước';
             return;
         }
+        if (!Number.isFinite(delta) || delta === 0) {
+            status.textContent = 'Δ phải là số khác 0';
+            return;
+        }
+        const sign = delta > 0 ? 'cộng' : 'trừ';
+        if (!confirm(`Xác nhận ${sign} ${Math.abs(delta)} credits cho "${target}"?`)) return;
 
-        $('#admin-grant-btn').addEventListener('click', async () => {
-            const target = $('#admin-grant-user').value;
-            const delta = parseInt($('#admin-grant-delta').value, 10);
-            const note = $('#admin-grant-note').value.trim();
-            const status = $('#admin-grant-status');
-            if (!target) {
-                status.textContent = 'Chọn user trước';
-                return;
-            }
-            if (!Number.isFinite(delta) || delta === 0) {
-                status.textContent = 'Δ phải là số khác 0';
-                return;
-            }
-            const sign = delta > 0 ? 'cộng' : 'trừ';
-            if (!confirm(`Xác nhận ${sign} ${Math.abs(delta)} credits cho "${target}"?`)) return;
-
-            const btn = $('#admin-grant-btn');
-            btn.disabled = true;
-            status.textContent = 'Đang xử lý…';
-            try {
-                const r = await window.AikolAPI.adminGrantCredits(target, delta, note);
-                status.textContent = `OK · balance mới: ${r.balance}`;
-                showToast(`Đã ${sign} ${Math.abs(delta)}cr cho ${target}`, 'success');
-                $('#admin-grant-delta').value = '';
-                $('#admin-grant-note').value = '';
-                // Refresh dropdown balances + own credits + history.
-                setupAdminPanel();
-                refreshCredits();
-                loadCreditHistory();
-                if (window.AikolSidebar?.refresh) window.AikolSidebar.refresh();
-            } catch (e) {
-                status.textContent = 'Lỗi: ' + (e.data?.detail || e.message);
-                showToast('Lỗi: ' + (e.data?.detail || e.message), 'error');
-            } finally {
-                btn.disabled = false;
-            }
-        });
+        const btn = $('#admin-grant-btn');
+        btn.disabled = true;
+        status.textContent = 'Đang xử lý…';
+        try {
+            const r = await window.AikolAPI.adminGrantCredits(target, delta, note);
+            status.textContent = `OK · balance mới: ${r.balance}`;
+            showToast(`Đã ${sign} ${Math.abs(delta)}cr cho ${target}`, 'success');
+            $('#admin-grant-delta').value = '';
+            $('#admin-grant-note').value = '';
+            // Refresh dropdown balances + own credits + history (no re-bind).
+            refreshAdminUserList();
+            refreshCredits();
+            loadCreditHistory();
+            if (window.AikolSidebar?.refresh) window.AikolSidebar.refresh();
+        } catch (e) {
+            status.textContent = 'Lỗi: ' + (e.data?.detail || e.message);
+            showToast('Lỗi: ' + (e.data?.detail || e.message), 'error');
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
