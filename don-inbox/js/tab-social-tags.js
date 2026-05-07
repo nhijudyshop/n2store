@@ -301,6 +301,142 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
+// ===== BULK REMOVE TAG MODAL =====
+let bulkRemoveTagsToDelete = new Set(); // tag IDs user ticked
+
+function showBulkRemoveTagModal() {
+    const selectedOrderIds = [...SocialOrderState.selectedOrders];
+    if (selectedOrderIds.length === 0) {
+        showNotification('Vui lòng chọn ít nhất 1 đơn hàng', 'warning');
+        return;
+    }
+
+    bulkRemoveTagsToDelete.clear();
+
+    const countEl = document.getElementById('bulkRemoveTagCount');
+    if (countEl) countEl.textContent = selectedOrderIds.length;
+
+    renderBulkRemoveTagList(selectedOrderIds);
+    updateBulkRemoveConfirmBtn();
+
+    const modal = document.getElementById('bulkRemoveTagModal');
+    if (modal) modal.classList.add('show');
+}
+
+function renderBulkRemoveTagList(selectedOrderIds) {
+    const container = document.getElementById('bulkRemoveTagList');
+    if (!container) return;
+
+    // Build map: tagId -> { tag, count }
+    const tagMap = new Map();
+    selectedOrderIds.forEach((id) => {
+        const order = SocialOrderState.orders.find((o) => o.id === id);
+        (order?.tags || []).forEach((t) => {
+            if (!t || !t.id) return;
+            if (!tagMap.has(t.id)) tagMap.set(t.id, { tag: t, count: 0 });
+            tagMap.get(t.id).count++;
+        });
+    });
+
+    if (tagMap.size === 0) {
+        container.innerHTML = `
+            <div class="no-tags-message">
+                <i class="fas fa-tags"></i>
+                <p>Các đơn đã chọn không có tag nào</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = [...tagMap.values()]
+        .map(({ tag, count }) => {
+            const isChecked = bulkRemoveTagsToDelete.has(tag.id);
+            return `
+                <div class="tag-dropdown-item"
+                     onclick="toggleRemoveTagSelection('${tag.id}')"
+                     data-tag-id="${tag.id}">
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                        <input type="checkbox" ${isChecked ? 'checked' : ''}
+                               style="width: 16px; height: 16px; cursor: pointer;"
+                               onclick="event.stopPropagation(); toggleRemoveTagSelection('${tag.id}')">
+                        <div class="tag-item-color" style="background: ${tag.color};"></div>
+                        <span class="tag-item-name">${tag.name}</span>
+                        <span style="margin-left: auto; color: #6b7280; font-size: 12px;">${count} đơn</span>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+function toggleRemoveTagSelection(tagId) {
+    if (bulkRemoveTagsToDelete.has(tagId)) {
+        bulkRemoveTagsToDelete.delete(tagId);
+    } else {
+        bulkRemoveTagsToDelete.add(tagId);
+    }
+    renderBulkRemoveTagList([...SocialOrderState.selectedOrders]);
+    updateBulkRemoveConfirmBtn();
+}
+
+function updateBulkRemoveConfirmBtn() {
+    const btn = document.getElementById('bulkRemoveTagConfirmBtn');
+    const cnt = document.getElementById('bulkRemoveTagSelectedCount');
+    if (cnt) cnt.textContent = bulkRemoveTagsToDelete.size;
+    if (btn) {
+        const enabled = bulkRemoveTagsToDelete.size > 0;
+        btn.disabled = !enabled;
+        btn.style.opacity = enabled ? '1' : '0.5';
+        btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    }
+}
+
+function confirmBulkRemoveTags() {
+    if (bulkRemoveTagsToDelete.size === 0) return;
+
+    const orderIds = [...SocialOrderState.selectedOrders];
+    const removedIds = new Set(bulkRemoveTagsToDelete);
+    let updatedOrderCount = 0;
+    let totalRemoved = 0;
+
+    orderIds.forEach((id) => {
+        const idx = SocialOrderState.orders.findIndex((o) => o.id === id);
+        if (idx < 0) return;
+        const oldTags = SocialOrderState.orders[idx].tags || [];
+        const newTags = oldTags.filter((t) => !removedIds.has(t.id));
+        if (newTags.length === oldTags.length) return; // không có tag nào bị xóa ở đơn này
+        SocialOrderState.orders[idx].tags = newTags;
+        SocialOrderState.orders[idx].updatedAt = Date.now();
+        // Fire-and-forget: sync to Firestore
+        if (typeof updateSocialOrderTags === 'function') {
+            updateSocialOrderTags(id, newTags);
+        }
+        updatedOrderCount++;
+        totalRemoved += oldTags.length - newTags.length;
+    });
+
+    if (typeof saveSocialOrdersToStorage === 'function') saveSocialOrdersToStorage();
+
+    if (window.InboxHistory?.logBulkTagRemove) {
+        window.InboxHistory.logBulkTagRemove(orderIds, [...removedIds]);
+    }
+
+    if (updatedOrderCount > 0) {
+        showNotification(`Đã gỡ ${totalRemoved} tag khỏi ${updatedOrderCount} đơn`, 'success');
+    } else {
+        showNotification('Không có tag nào bị gỡ', 'info');
+    }
+
+    if (typeof performTableSearch === 'function') performTableSearch();
+    closeBulkRemoveTagModal();
+}
+
+function closeBulkRemoveTagModal() {
+    bulkRemoveTagsToDelete.clear();
+    const modal = document.getElementById('bulkRemoveTagModal');
+    if (modal) modal.classList.remove('show');
+}
+
 // ===== EXPORTS =====
 window.openTagModal = openTagModal;
 window.closeTagModal = closeTagModal;
@@ -311,3 +447,7 @@ window.handleTagInputKeydown = handleTagInputKeydown;
 window.saveOrderTags = saveOrderTags;
 window.showBulkTagModal = showBulkTagModal;
 window.saveBulkTags = saveBulkTags;
+window.showBulkRemoveTagModal = showBulkRemoveTagModal;
+window.toggleRemoveTagSelection = toggleRemoveTagSelection;
+window.confirmBulkRemoveTags = confirmBulkRemoveTags;
+window.closeBulkRemoveTagModal = closeBulkRemoveTagModal;

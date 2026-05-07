@@ -1106,6 +1106,9 @@ function updateBulkActionBar() {
             <button class="btn-primary" onclick="cancelSelectedOrders()" style="background:#f59e0b;">
                 <i class="fas fa-ban"></i> Hủy đơn đã chọn
             </button>
+            <button class="btn-primary" onclick="showBulkRemoveTagModal()" style="background:#dc2626;">
+                <i class="fas fa-tag"></i> Gỡ tag hàng loạt
+            </button>
         `;
     }
 }

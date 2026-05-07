@@ -949,6 +949,49 @@
             </div>
         </div>
 
+        <!-- Bulk Remove Tag Modal -->
+        <div class="tag-modal" id="bulkRemoveTagModal">
+            <div class="tag-modal-content" style="max-width: 520px">
+                <div class="tag-modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #e5e7eb">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827">
+                        <i class="fas fa-tag" style="color: #dc2626"></i>
+                        Gỡ tag khỏi <span id="bulkRemoveTagCount">0</span> đơn đã chọn
+                    </h3>
+                    <button class="tag-modal-close" onclick="closeBulkRemoveTagModal()">×</button>
+                </div>
+                <div class="tag-modal-body">
+                    <p style="margin: 0 0 12px; color: #6b7280; font-size: 13px">
+                        Tick chọn tag muốn gỡ. Danh sách chỉ hiện các tag đang gắn trên đơn đã chọn.
+                    </p>
+                    <div class="tag-dropdown-list" id="bulkRemoveTagList" style="max-height: 360px; overflow-y: auto">
+                        <div class="no-tags-message">
+                            <i class="fas fa-tags"></i>
+                            <p>Chưa có dữ liệu</p>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid #e5e7eb; background: #f9fafb">
+                    <button
+                        class="btn-secondary"
+                        onclick="closeBulkRemoveTagModal()"
+                        style="padding: 8px 16px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; color: #374151; font-weight: 500; cursor: pointer"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        class="btn-primary"
+                        id="bulkRemoveTagConfirmBtn"
+                        onclick="confirmBulkRemoveTags()"
+                        style="padding: 8px 16px; background: #dc2626; border: none; border-radius: 6px; color: #fff; font-weight: 500; cursor: pointer; opacity: 0.5"
+                        disabled
+                    >
+                        <i class="fas fa-trash"></i>
+                        Gỡ <span id="bulkRemoveTagSelectedCount">0</span> tag
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Confirm Action Modal (cancel / permanent delete / restore) -->
         <div class="modal-overlay" id="confirmDeleteModal">
             <div class="modal-content" style="max-width: 440px">

@@ -8,6 +8,26 @@
 
 ## 2026-05-07
 
+### [inbox] Nút "Gỡ tag hàng loạt" cho bulk select đơn
+
+- **Why**: Trước đó user phải mở modal tag từng đơn rồi xóa tay — bulk action bar chỉ có "Hủy đơn đã chọn", không có cách gỡ tag đồng loạt.
+- **What**: Thêm nút mới vào bulk action bar (cạnh "Hủy đơn đã chọn", màu đỏ `#dc2626`). Click → mở modal liệt kê CHỈ những tag đang gắn trên đơn được chọn, kèm count `X đơn`. User tick → button "Gỡ N tag" enable → confirm → loop filter tag khỏi `order.tags`, sync Firestore qua `updateSocialOrderTags()`.
+- **Edge cases verify**:
+  - Filter "Đã hủy" → KHÔNG hiện nút (chỉ Khôi phục/Xóa vĩnh viễn)
+  - Đơn không tag → modal empty state "Các đơn đã chọn không có tag nào", button disable
+  - Không chọn đơn → warning notification, modal không mở
+  - Sau khi gỡ → giữ nguyên `selectedOrders` (khác `cancelSelectedOrders` vì đơn không biến mất)
+
+**Files MODIFIED (3)**:
+
+- [don-inbox/index.html](../don-inbox/index.html) — thêm `#bulkRemoveTagModal` (header + body list + footer button "Gỡ N tag").
+- [don-inbox/js/tab-social-tags.js](../don-inbox/js/tab-social-tags.js) — thêm `showBulkRemoveTagModal()`, `renderBulkRemoveTagList()` (build map tagId → count), `toggleRemoveTagSelection()`, `updateBulkRemoveConfirmBtn()`, `confirmBulkRemoveTags()`, `closeBulkRemoveTagModal()`. Reuse `updateSocialOrderTags()` API + `InboxHistory.logBulkTagRemove?.()` (optional chaining).
+- [don-inbox/js/tab-social-table.js](../don-inbox/js/tab-social-table.js) — thêm button vào `updateBulkActionBar()` branch default (không hiện ở filter cancelled).
+
+**Status**: ✅ Done — verified live qua Playwright (2 đơn 4 unique tag → modal đúng count → tick 2 → button enable → cancel không ghi DB).
+
+---
+
 ### [delivery] Mở quyền tra soát cho account bobo
 
 **Yêu cầu**: User muốn account `bobo` được dùng nút Tra soát trên delivery-report (trước đây chỉ admin + displayName "Phước đẹp trai" mới có quyền).
