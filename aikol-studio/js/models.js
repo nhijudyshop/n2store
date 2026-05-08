@@ -183,9 +183,68 @@
         }
     }
 
+    // ===== Prompt generator =====
+    function populateVibeSelect() {
+        const sel = $('#prompt-gen-vibe');
+        if (!sel || !window.aikolPromptGenerator) return;
+        const vibes = window.aikolPromptGenerator.listVibes();
+        for (const v of vibes) {
+            const opt = document.createElement('option');
+            opt.value = v.key;
+            opt.textContent = v.label;
+            sel.appendChild(opt);
+        }
+    }
+
+    function renderSuggestions() {
+        const panel = $('#prompt-suggestions-panel');
+        const grid = $('#prompt-suggestions');
+        const gender = $('#prompt-gen-gender').value;
+        const vibe = $('#prompt-gen-vibe').value;
+        const items = window.aikolPromptGenerator.generateMany({
+            count: 6,
+            gender,
+            vibe,
+        });
+        grid.innerHTML = items
+            .map(
+                (it, i) => `
+            <button type="button" class="aikol-prompt-card" data-prompt="${escapeHtmlAttr(it.prompt)}">
+                <div class="aikol-prompt-card__head">
+                    <span class="aikol-prompt-card__vibe">${escapeHtml(it.vibeLabel)}</span>
+                    <span class="aikol-prompt-card__gender">${it.gender === 'female' ? '♀ Nữ' : '♂ Nam'}</span>
+                </div>
+                <div class="aikol-prompt-card__body">${escapeHtml(it.prompt)}</div>
+            </button>`
+            )
+            .join('');
+        grid.querySelectorAll('.aikol-prompt-card').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const p = btn.dataset.prompt;
+                const ta = $('#model-gen-prompt');
+                ta.value = p;
+                ta.focus();
+                ta.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                showToast('Đã chọn prompt — chỉnh sửa nếu cần rồi bấm Tạo', 'success');
+            });
+        });
+        panel.style.display = 'block';
+    }
+
+    function escapeHtmlAttr(s) {
+        return String(s || '')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         $('#model-form').addEventListener('submit', onSubmit);
         $('#model-gen-form')?.addEventListener('submit', onGenerate);
+        populateVibeSelect();
+        $('#prompt-gen-btn')?.addEventListener('click', renderSuggestions);
+        $('#prompt-gen-shuffle')?.addEventListener('click', renderSuggestions);
+        $('#prompt-gen-gender')?.addEventListener('change', renderSuggestions);
+        $('#prompt-gen-vibe')?.addEventListener('change', renderSuggestions);
         refreshCredits();
         refreshModels();
     });

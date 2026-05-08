@@ -18,6 +18,7 @@
 
         <script defer src="js/aikol-api.js"></script>
         <script defer src="js/aikol-sidebar.js"></script>
+        <script defer src="js/aikol-prompt-generator.js"></script>
         <script defer src="js/models.js"></script>
     </head>
     <body>
@@ -116,18 +117,86 @@
                             />
                         </div>
                         <div>
-                            <label class="aikol-label" for="model-gen-prompt">
-                                Mô tả (tiếng Anh hiệu quả hơn)
-                            </label>
+                            <div
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    gap: 0.5rem;
+                                    flex-wrap: wrap;
+                                "
+                            >
+                                <label class="aikol-label" for="model-gen-prompt">
+                                    Mô tả (tiếng Anh hiệu quả hơn)
+                                </label>
+                                <button
+                                    type="button"
+                                    id="prompt-gen-btn"
+                                    class="aikol-btn aikol-btn--secondary"
+                                    style="font-size: 0.78rem; padding: 0.3rem 0.7rem"
+                                >
+                                    🎲 Tạo gợi ý prompt
+                                </button>
+                            </div>
                             <textarea
                                 id="model-gen-prompt"
                                 class="aikol-input"
                                 rows="4"
-                                placeholder="A young Vietnamese woman, age 25, soft natural studio lighting, gentle smile, professional portrait, photorealistic"
+                                placeholder="Bấm '🎲 Tạo gợi ý prompt' để auto, hoặc tự viết. Ví dụ: A young Vietnamese woman, age 25, soft studio lighting, gentle smile, photorealistic"
                                 maxlength="2000"
                                 required
                                 style="resize: vertical; min-height: 80px; font-family: inherit"
                             ></textarea>
+                        </div>
+                        <div
+                            id="prompt-suggestions-panel"
+                            style="display: none; margin-top: -0.2rem"
+                        >
+                            <div
+                                style="
+                                    display: flex;
+                                    gap: 0.5rem;
+                                    align-items: center;
+                                    flex-wrap: wrap;
+                                    margin-bottom: 0.5rem;
+                                "
+                            >
+                                <select
+                                    id="prompt-gen-gender"
+                                    class="aikol-input"
+                                    style="flex: 1 1 120px; min-width: 110px"
+                                >
+                                    <option value="all">Cả 2 giới</option>
+                                    <option value="female" selected>Nữ</option>
+                                    <option value="male">Nam</option>
+                                </select>
+                                <select
+                                    id="prompt-gen-vibe"
+                                    class="aikol-input"
+                                    style="flex: 1 1 140px; min-width: 130px"
+                                >
+                                    <option value="all">Tất cả vibe</option>
+                                </select>
+                                <button
+                                    type="button"
+                                    id="prompt-gen-shuffle"
+                                    class="aikol-btn"
+                                    style="font-size: 0.78rem; padding: 0.4rem 0.8rem"
+                                >
+                                    🔀 Tạo lại
+                                </button>
+                            </div>
+                            <div id="prompt-suggestions" style="display: grid; gap: 0.5rem"></div>
+                            <p
+                                style="
+                                    color: var(--aikol-text-dim);
+                                    font-size: 0.78rem;
+                                    margin: 0.5rem 0 0;
+                                "
+                            >
+                                💡 Click vào card để chọn prompt, hoặc edit textarea trên trước khi
+                                tạo.
+                            </p>
                         </div>
                         <div>
                             <label class="aikol-label" for="model-gen-aspect"

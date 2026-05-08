@@ -1588,6 +1588,60 @@ body {
     overflow: auto;
 }
 
+/* ===== Prompt generator suggestions ===== */
+.aikol-prompt-card {
+    text-align: left;
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--aikol-border);
+    border-radius: 10px;
+    color: var(--aikol-text);
+    cursor: pointer;
+    transition: all 150ms ease;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.aikol-prompt-card:hover {
+    background: var(--aikol-accent-soft);
+    border-color: var(--aikol-accent);
+    transform: translateY(-1px);
+}
+.aikol-prompt-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+}
+.aikol-prompt-card__vibe {
+    background: var(--aikol-accent-soft);
+    color: var(--aikol-accent-light);
+    padding: 0.18rem 0.5rem;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.aikol-prompt-card__gender {
+    color: var(--aikol-text-dim);
+    font-weight: 500;
+}
+.aikol-prompt-card__body {
+    color: var(--aikol-text-dim);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    /* Limit to 3 lines with ellipsis */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.aikol-prompt-card:hover .aikol-prompt-card__body {
+    color: var(--aikol-text);
+}
+
 /* ===== Channel batch import ===== */
 .aikol-channel-list {
     display: grid;
