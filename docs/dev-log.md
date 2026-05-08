@@ -8,6 +8,28 @@
 
 ## 2026-05-08
 
+### [aikol][prompts] Identity preservation 100% pixel-level — strengthen directives ở cả 3 stage
+
+User: "ghép phải giống 100% mặt model càng giống càng tốt".
+
+Strengthen prompts ở 4 chỗ để identity match pixel-level beyond doubt:
+
+1. **Gemini compose** ([aikol-gemini-clone-service.js](../render.com/services/aikol-gemini-clone-service.js#L51-L95)):
+    - Tách rõ "IMAGE 1 (reference person)" vs "IMAGE 2 (target scene)".
+    - Liệt kê tường minh anatomical features phải giữ pixel-level: eye shape, eye color, eyebrow, nose, mouth, lip line, jawline, chin, cheekbones, ears, face shape, hairline, hair color/texture, skin tone, freckles, moles, makeup, age, ethnicity, gender.
+    - Anchor "INDISTINGUISHABLE" + "same person beyond doubt".
+    - Negative directive: do NOT smooth/beautify/idealize/age-shift/stylize/blend với IMAGE 2.
+2. **Veo animate default** ([aikol-veo-service.js](../render.com/services/aikol-veo-service.js#L75-L88)): "Lock the face" + whitelist allowed motion (head turn ≤10°, micro-expressions, blinks, breathing, body sway, hair) + "preserve EXACT identity across every frame".
+3. **Worker compose-Veo prompt** ([aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js#L233-L250)): Same identity-lock language khi Veo nhận composite từ Gemini → tránh face drift trong frames animation.
+4. **Worker auto_scene + clone-from-image route**: apply same fidelityCore liệt kê features khi place model vào scene mới.
+
+**Verified live** (commit fd8dd47a):
+
+- Job `59f367be-6ec6-431a-b52a-8359f6fec9dd` (Hạnh 4 + clip 4): state=done, 45s, MP4 1.67 MB.
+- Composite (Gemini): `aikol/tmp/59f367be-...-composite.jpg` ✅ HTTP 200.
+- Output (Veo 2.0): `aikol/outputs/59f367be-...-0.mp4` ✅ HTTP 200.
+- Error column clean (Veo 2.0 không hit audio safety + stale-error fix giữ).
+
 ### [aikol][veo] Hạnh 4 ghép video không được — root cause Veo 3.1 audio safety filter
 
 User báo: "model Hạnh 4 ghép video không được". Recent fail gen `64c1e13b-…` lỗi generic "Veo done but no video URI".
