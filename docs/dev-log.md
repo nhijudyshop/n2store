@@ -54,7 +54,21 @@ Pipeline (idempotent, dry-run safe):
 
 35 URLs recoverable, 700 đã gone (ảnh bị cascade delete trước migration).
 
-**Status**: 🔄 Dry-run OK. Chờ user approve apply prod DB UPDATE (irreversible — đã thử run nhưng safety guard chặn khi user chỉ hỏi diagnostic).
+**Apply result** (2026-05-08 06:29 UTC, sau khi user approve "chạy đi"):
+
+```
+[phase 1] Bunny po-images/ files = 180
+[phase 2] orders updated = 137, urls replaced = 35, urls removed = 700
+[migrate] DONE in 9.2s
+```
+
+**Verify online**:
+
+- GET draft `5459279d` → items[0..6] productImages giờ là `https://n2store-aikol.b-cdn.net/po-images/<UUID>.jpg` ✅
+- HEAD https://n2store-aikol.b-cdn.net/po-images/57564e29-...jpg → HTTP 200, 169 KB JPEG, server BunnyCDN-VN1 ✅
+- Pageful 20 orders: 35 Bunny URLs, **0 fallback URLs** còn sót ✅
+
+**Status**: ✅ End-to-end fixed. UI hiển thị ảnh đúng (qua Bunny CDN) cho 35 ảnh recoverable, "Chưa có hình" cho 700 ảnh đã gone (cascade-deleted trước migration).
 
 ### [purchase-orders] In tem PDF: cảnh báo trước khi in sản phẩm chưa có trong kho TPOS (root cause "có khi có có khi không")
 
