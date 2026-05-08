@@ -8,6 +8,32 @@
 
 ## 2026-05-08
 
+### [orders] Tab "Bill Đã Xóa" mất data từ tháng 04 — read-side đọc nhầm Firestore (đã migrate sang Postgres)
+
+**Bug**: `orders-report/main.html` → tab Bill Đã Xóa hiện toàn data cũ, không thấy đơn hủy từ 04/2026 trở đi. Đơn vừa hủy không xuất hiện.
+
+**Root cause**: Writer (`tab1-fast-sale-workflow.js` `InvoiceStatusDeleteStore`) đã migrate sang Postgres qua REST `/api/invoice-status/delete/*` (xem `render.com/migrations/033_create_invoice_status.sql`), nhưng reader (`tab-pending-delete.html`) vẫn đọc Firestore collection `invoice_status_delete_v2` cũ → chỉ thấy snapshot tồn dư trước migration.
+
+**Verify live API**: `GET https://chatomni-proxy.nhijudyshop.workers.dev/api/invoice-status/delete/load` → `success:true, entries:653` (sample row date 2026-05-07). Data đầy đủ ở Postgres.
+
+**Fix** ([orders-report/tab-pending-delete.html](../orders-report/tab-pending-delete.html)):
+
+- Thay `loadData()` đọc Firestore (admin: load all docs, user: load own doc) bằng 1 fetch `${WORKER_URL}/api/invoice-status/delete/load` rồi map row → entry, lọc client-side theo `username` cho non-admin.
+- Thay `toggleHidden()` ghi Firestore `merge:true` bằng `PATCH /entries/:compoundKey/toggle-hidden` (server flip sẵn, optimistic + revert nếu fail, trust giá trị server trả về).
+- Bỏ `<script>` Firebase SDK + `firebase-config.js` không còn cần ở trang này.
+- Bỏ const `DELETE_STORAGE_KEY` và `DELETE_FIRESTORE_COLLECTION`, thêm `DELETE_API_BASE`.
+
+**E2E verify** ([scripts/verify-pending-delete.mjs](../scripts/verify-pending-delete.mjs)):
+
+- Login admin → `[PENDING-DELETE] Loaded 653 entries (admin=true)` ✓
+- Top rows: NJD/2026/65794 (08/05 09:03 Lài), 65838 (08/05 08:39 my), 65829 (07/05 18:49 My)… data mới nhất 08/05/2026 hiển thị đúng ✓
+- User filter dropdown populate đầy đủ: Lài, My, Còi, Hạnh, Huyền, Hồng, admin, Bo, hanhlive, Tâm, Cẩm ✓
+- Không còn pageerror, fetch API trả 200 ✓
+
+**Status**: ✅ Done — fix data flow cho 1 file `tab-pending-delete.html`, không đụng writer.
+
+---
+
 ### [aikol][models] Tạo model bằng Gemini 2.5 Flash Image (Nano Banana) — production-ready
 
 **Insight user**: project có widget AI sẵn (Gemini, Fal, Kling), liệu có thể dùng để TẠO model thay vì chỉ Upload?
