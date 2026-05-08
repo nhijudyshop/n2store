@@ -100,6 +100,13 @@ window.BarcodeLabelDialog = (function () {
         let showProductName = true;
         let showCurrency = false;
         let hideBarcode = false;
+        // TPOS mode toggle — checked: items đã sync TPOS in qua mẫu PDF của TPOS;
+        // unchecked: in HTML local cho tất cả items (kể cả chưa sync).
+        let useTposTemplate = true;
+        // Set chứa product codes đã sync về kho TPOS, populated bởi pre-fetch
+        // ngay khi dialog mở. Items không trong set sẽ bị TPOS print drop silent
+        // → ta show warning trong dialog để user biết trước.
+        let tposCodeSet = null; // null = chưa fetch, Set = fetched
 
         const withBarcode = items.filter((i) => i.code);
         const withoutBarcode = items.filter((i) => !i.code);
@@ -242,8 +249,13 @@ window.BarcodeLabelDialog = (function () {
                         <label for="bld-hide-barcode">Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)</label>
                         <input type="checkbox" id="bld-hide-barcode">
                     </div>
+                    <div class="bld-checkbox-item" title="Bật: in PDF qua TPOS cho sản phẩm đã sync. Tắt: in HTML local cho tất cả sản phẩm.">
+                        <label for="bld-use-tpos">In theo mẫu TPOS</label>
+                        <input type="checkbox" id="bld-use-tpos" checked>
+                    </div>
                 </div>
                 ${warningHTML}
+                <div class="bld-warning bld-warning-tpos" id="bld-warning-tpos" style="display:none"></div>
             </div>
         </div>
         <!-- Tabs + Table section -->
@@ -340,13 +352,69 @@ window.BarcodeLabelDialog = (function () {
         }
         renderTableRows();
 
-        // Update print button count
+        // Update print button count + TPOS warning visibility
         function updateCount() {
             const checked = items.filter((i) => i.code && i.quantity > 0);
-            const totalLabels = checked.reduce((sum, it) => sum + it.quantity, 0);
+            // Khi TPOS mode + đã pre-fetched → chỉ đếm items có trong TPOS warehouse
+            const printable =
+                useTposTemplate && tposCodeSet
+                    ? checked.filter((it) => tposCodeSet.has(it.code))
+                    : checked;
+            const totalLabels = printable.reduce((sum, it) => sum + it.quantity, 0);
             btnPrint.textContent = totalLabels > 0 ? `In bằng pdf (${totalLabels})` : 'In bằng pdf';
+            btnPrint.disabled = totalLabels === 0;
+            updateTposWarning();
+        }
+        function updateTposWarning() {
+            const el = overlay.querySelector('#bld-warning-tpos');
+            if (!el) return;
+            // Chỉ hiển thị khi: TPOS mode + đã pre-fetched + có items thiếu
+            if (!useTposTemplate || !tposCodeSet) {
+                el.style.display = 'none';
+                return;
+            }
+            const checked = items.filter((i) => i.code && i.quantity > 0);
+            const missing = checked.filter((it) => !tposCodeSet.has(it.code));
+            if (missing.length === 0) {
+                el.style.display = 'none';
+                return;
+            }
+            const missingCodes = [...new Set(missing.map((it) => it.code))];
+            const list =
+                missingCodes.slice(0, 8).join(', ') +
+                (missingCodes.length > 8 ? `, +${missingCodes.length - 8} mã khác` : '');
+            el.style.display = '';
+            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm CHƯA sync TPOS, sẽ KHÔNG in qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả.`;
         }
         updateCount();
+
+        // Pre-fetch TPOS warehouse trong background — populate tposCodeSet để
+        // hiển thị warning + filter print items khi user click In.
+        (async function preFetchTpos() {
+            try {
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const codes = [
+                    ...new Set(
+                        items.filter((it) => it.code && it.quantity > 0).map((it) => it.code)
+                    ),
+                ];
+                if (codes.length === 0) return;
+                const r = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codes }),
+                });
+                if (!r.ok) return;
+                const data = await r.json();
+                const products = data.success ? data.data : [];
+                tposCodeSet = new Set(
+                    products.filter((p) => p && p.tpos_product_id).map((p) => p.product_code)
+                );
+                updateCount();
+            } catch (err) {
+                console.warn('[Barcode] TPOS pre-fetch failed:', err.message);
+            }
+        })();
 
         // Tab switching
         overlay.querySelector('#bld-tab-bar').addEventListener('click', (e) => {
@@ -378,6 +446,10 @@ window.BarcodeLabelDialog = (function () {
         });
         overlay.querySelector('#bld-hide-barcode').addEventListener('change', (e) => {
             hideBarcode = e.target.checked;
+        });
+        overlay.querySelector('#bld-use-tpos').addEventListener('change', (e) => {
+            useTposTemplate = e.target.checked;
+            updateCount();
         });
 
         // Quick apply qty
@@ -447,87 +519,59 @@ window.BarcodeLabelDialog = (function () {
             if (e.target === overlay) closeModal();
         });
 
-        // Print via TPOS API
+        // Print: TPOS PDF (đẹp, cần đã sync) hoặc HTML local — chọn theo checkbox.
         btnPrint.addEventListener('click', async () => {
             const printItems = items.filter((it) => it.code && it.quantity > 0);
             if (!printItems.length) return;
 
-            // Items thực sẽ in. Mặc định = tất cả; sau preflight có thể bị shrink
-            // xuống chỉ còn matched (nếu user đồng ý bỏ qua items chưa sync).
-            let itemsToPrint = printItems;
-            // Nếu user đã chủ động chọn local-only (vd tất cả chưa sync), set true
-            // để nhánh TPOS không chạy nữa.
-            let forceLocal = false;
-
-            if (window.TPOSClient?.authenticatedFetch) {
+            // Path 1: TPOS template — items đã sync in qua mẫu PDF của TPOS,
+            // items chưa sync silently dropped (đã được warning trong dialog).
+            if (useTposTemplate && window.TPOSClient?.authenticatedFetch) {
                 btnPrint.disabled = true;
-                btnPrint.textContent = 'Đang kiểm tra...';
+                btnPrint.textContent = 'Đang tạo PDF...';
                 try {
-                    // Pre-flight: items chưa có trong kho TPOS sẽ bị `printViaTPOS`
-                    // drop silently → root cause của "có khi có sản phẩm có sản phẩm
-                    // không". Cảnh báo user trước.
-                    const { matched, missing } = await preflightTposItems(printItems);
-
-                    if (missing.length > 0) {
-                        const matchedQty = matched.reduce((s, it) => s + it.quantity, 0);
-                        // Dedup theo code để user thấy 4 mã thay vì 7 dòng (1 mã có thể có nhiều variant/dòng)
-                        const missingCodes = [...new Set(missing.map((it) => it.code))];
-                        const missingList =
-                            missingCodes.slice(0, 8).join(', ') +
-                            (missingCodes.length > 8
-                                ? `, +${missingCodes.length - 8} mã khác`
-                                : '');
-                        const prompt =
-                            matched.length === 0
-                                ? `⚠ Tất cả ${missing.length} sản phẩm CHƯA có trong kho TPOS — không thể in PDF qua TPOS.\n\n` +
-                                  `Mã thiếu: ${missingList}\n\n` +
-                                  `Chuyển sang in HTML local (in được tất cả nhưng tem định dạng đơn giản)?`
-                                : `⚠ ${missing.length}/${printItems.length} sản phẩm CHƯA có trong kho TPOS — sẽ KHÔNG được in qua PDF.\n\n` +
-                                  `Mã thiếu: ${missingList}\n\n` +
-                                  `→ OK: in PDF cho ${matched.length} mã có sẵn (${matchedQty} tem).\n` +
-                                  `→ Hủy: thoát để bạn sync sản phẩm về TPOS trước.`;
-                        const proceed = window.confirm(prompt);
-                        if (!proceed) {
-                            btnPrint.disabled = false;
-                            updateCount();
-                            return;
-                        }
-                        if (matched.length === 0) {
-                            // User chấp nhận in local cho tất cả — không gọi TPOS.
-                            forceLocal = true;
-                        } else {
-                            // User chấp nhận skip missing → in PDF với matched only.
-                            itemsToPrint = matched;
-                        }
+                    // Filter chỉ items đã sync TPOS. Nếu chưa pre-fetched, fetch giờ
+                    // để đảm bảo printViaTPOS không drop silently.
+                    let matched;
+                    if (tposCodeSet) {
+                        matched = printItems.filter((it) => tposCodeSet.has(it.code));
+                    } else {
+                        const pf = await preflightTposItems(printItems);
+                        tposCodeSet = new Set(pf.matched.map((it) => it.code));
+                        matched = pf.matched;
+                        updateTposWarning();
                     }
-
-                    if (!forceLocal) {
-                        btnPrint.textContent = 'Đang tạo PDF...';
-                        await printViaTPOS(
-                            itemsToPrint,
-                            selectedPaper,
-                            showPrice,
-                            showBold,
-                            showCurrency,
-                            showProductName,
-                            hideBarcode
+                    if (matched.length === 0) {
+                        // Không có gì để in qua TPOS — báo user, gợi ý tắt toggle.
+                        window.notificationManager?.warning?.(
+                            'Không có sản phẩm nào đã sync TPOS. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả.'
                         );
-                        closeModal();
                         return;
                     }
+                    await printViaTPOS(
+                        matched,
+                        selectedPaper,
+                        showPrice,
+                        showBold,
+                        showCurrency,
+                        showProductName,
+                        hideBarcode
+                    );
+                    closeModal();
+                    return;
                 } catch (err) {
                     console.warn('[Barcode] TPOS PDF failed, falling back to local:', err.message);
+                    // Fall through to local print
                 } finally {
                     btnPrint.disabled = false;
                     updateCount();
                 }
             }
 
-            // Fallback: local HTML print (in các items đã chọn — nếu user opted
-            // skip missing thì in matched-only, nếu không thì in tất cả).
+            // Path 2: Local HTML — toggle off OR TPOS path errored. In tất cả.
             closeModal();
             generateAndPrint(
-                itemsToPrint,
+                printItems,
                 selectedPaper,
                 selectedPrintType.id,
                 showPrice,
