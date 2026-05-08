@@ -73,15 +73,16 @@ async function submitVideoJob(args) {
         'Animate the subject naturally, maintaining their face and identity. Cinematic camera, photorealistic.'
     ).slice(0, 1000);
 
-    // predictLongRunning uses Vertex-style envelope (instances[] + parameters)
-    // even on the Gemini API host. Per https://ai.google.dev/gemini-api/docs/video
-    // the input image goes in instances[].image.inlineData.{mimeType,data}.
-    // bytesBase64Encoded is the OLDER Vertex format and returns 400 "Unsupported
-    // video generation request" on the Gemini host.
+    // predictLongRunning uses Vertex-style envelope. Image goes in
+    // instances[].image.{bytesBase64Encoded, mimeType}. The docs page mentions
+    // `inlineData` but Veo on Gemini API rejects it ("`inlineData` isn't
+    // supported by this model"). Real cause of original 400 was `durationSeconds`
+    // sent as numeric 5; valid values are STRING "4"|"6"|"8".
     const instance = {
         prompt: directive,
         image: {
-            inlineData: { mimeType: modelImg.mime, data: modelImg.data },
+            bytesBase64Encoded: modelImg.data,
+            mimeType: modelImg.mime,
         },
     };
     // Veo 3.1 reference image (optional appearance/scene preservation)
@@ -91,7 +92,8 @@ async function submitVideoJob(args) {
             instance.referenceImages = [
                 {
                     image: {
-                        inlineData: { mimeType: sceneImg.mime, data: sceneImg.data },
+                        bytesBase64Encoded: sceneImg.data,
+                        mimeType: sceneImg.mime,
                     },
                     referenceType: 'asset',
                 },
