@@ -74,7 +74,7 @@ function validSlug(s) {
 // Read-only, an toàn dùng để monitor.
 // -----------------------------------------------------
 router.get('/_storage', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -127,7 +127,7 @@ function prettyBytes(b) {
 // GET /api/web2/:entity/health
 // -----------------------------------------------------
 router.get('/:entity/health', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ ok: false, error: 'invalid entity slug' });
@@ -147,7 +147,7 @@ router.get('/:entity/health', async (req, res) => {
 // GET /api/web2/:entity/list?search=&activeOnly=true&page=1&limit=200
 // -----------------------------------------------------
 router.get('/:entity/list', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
@@ -199,7 +199,7 @@ router.get('/:entity/list', async (req, res) => {
 // GET /api/web2/:entity/get/:code
 // -----------------------------------------------------
 router.get('/:entity/get/:code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
@@ -221,7 +221,7 @@ router.get('/:entity/get/:code', async (req, res) => {
 // Body: { code?, name, data?, createdBy? }
 // -----------------------------------------------------
 router.post('/:entity/create', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
@@ -263,7 +263,7 @@ router.post('/:entity/create', async (req, res) => {
 // PATCH /api/web2/:entity/update/:code
 // -----------------------------------------------------
 router.patch('/:entity/update/:code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
@@ -302,7 +302,7 @@ router.patch('/:entity/update/:code', async (req, res) => {
 // Trả về số rows đã xóa. Không tự VACUUM — caller có thể gọi /_vacuum riêng.
 // -----------------------------------------------------
 router.post('/:entity/delete-all', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
@@ -329,7 +329,7 @@ router.post('/:entity/delete-all', async (req, res) => {
 // Thường VACUUM (không FULL) là đủ.
 // -----------------------------------------------------
 router.post('/_vacuum', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!req.body || req.body.confirm !== true) {
         return res
@@ -365,7 +365,7 @@ router.post('/_vacuum', async (req, res) => {
 // DELETE /api/web2/:entity/delete/:code
 // -----------------------------------------------------
 router.delete('/:entity/delete/:code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
@@ -390,7 +390,7 @@ router.delete('/:entity/delete/:code', async (req, res) => {
 // Designed for seeders importing thousands of rows. Cap: 5000 records / call.
 // -----------------------------------------------------
 router.post('/:entity/bulk-create', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });

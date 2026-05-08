@@ -120,8 +120,12 @@ app.use((req, res, next) => {
 // crash the process.
 const chatDbPool = require('./db/pool');
 
+// Web 2.0 isolated DB (Neon free tier). Falls back to chatDb when env unset.
+const web2Pool = require('./db/web2-pool');
+
 // Make pool available to routes via app.locals
 app.locals.chatDb = chatDbPool;
+app.locals.web2Db = web2Pool || chatDbPool;
 // tposTokenManager is set after require() below — see after route imports
 
 // Test database connection on startup
