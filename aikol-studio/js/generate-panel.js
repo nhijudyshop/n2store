@@ -124,8 +124,12 @@
                         </div>
 
                         <label class="aikol-gen-row">
-                            <span>Note (optional)</span>
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap">
+                                <span>Note (optional)</span>
+                                <button type="button" class="aikol-btn aikol-btn--secondary" data-act="suggest-note" style="font-size:0.75rem; padding:0.25rem 0.6rem">🎲 Gợi ý scene</button>
+                            </div>
                             <textarea name="note" rows="2" maxlength="500" placeholder="e.g. evening street market, soft golden light"></textarea>
+                            <div data-suggest-list style="display:none; gap:0.4rem; flex-direction:column; margin-top:0.4rem"></div>
                         </label>
 
                         <footer class="aikol-gen-modal__foot">
@@ -204,6 +208,55 @@
         $('#aikol-gen-cost').textContent = `${cost} credits`;
     }
 
+    // Wire the 🎲 "Gợi ý scene" button next to Note textarea.
+    // Renders 4 scene-note suggestions, click-to-fill into the textarea.
+    function setupNoteSuggestButton(form) {
+        const btn = form.querySelector('[data-act="suggest-note"]');
+        const noteEl = form.querySelector('textarea[name="note"]');
+        const listEl = form.querySelector('[data-suggest-list]');
+        if (!btn || !noteEl || !listEl || !window.aikolPromptGenerator) return;
+        if (btn._wired) return;
+        btn._wired = true;
+
+        const render = () => {
+            const kind = form.elements.kind?.value === 'video' ? 'video' : 'image';
+            const items = window.aikolPromptGenerator.generateSceneNotes({
+                type: kind,
+                count: 4,
+            });
+            listEl.style.display = 'flex';
+            listEl.innerHTML = items
+                .map(
+                    (it) => `
+                <button type="button" class="aikol-prompt-card" style="padding:0.5rem 0.65rem; gap:0.2rem">
+                    <div class="aikol-prompt-card__head" style="font-size:0.68rem">
+                        <span class="aikol-prompt-card__vibe">${escapeHtmlAttr(it.locationSet)}</span>
+                    </div>
+                    <div class="aikol-prompt-card__body" style="-webkit-line-clamp:2; font-size:0.78rem">${escapeHtmlAttr(it.note)}</div>
+                </button>`
+                )
+                .join('');
+            Array.from(listEl.querySelectorAll('button')).forEach((b, i) => {
+                b.addEventListener('click', () => {
+                    noteEl.value = items[i].note;
+                    noteEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    listEl.style.display = 'none';
+                    showToast('Đã chọn scene', 'success');
+                });
+            });
+        };
+        btn.addEventListener('click', render);
+    }
+
+    function escapeHtmlAttr(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function setupVideoToggle(form) {
         const videoBlock = form.querySelector('[data-video-only]');
         function update() {
@@ -237,6 +290,7 @@
         form.reset();
         await loadModelsInto(form.elements.model_id);
         setupVideoToggle(form);
+        setupNoteSuggestButton(form);
         form.onsubmit = async (ev) => {
             ev.preventDefault();
             const data = readForm(form);

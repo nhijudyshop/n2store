@@ -385,11 +385,46 @@
         }
     }
 
+    function setupBulkNoteSuggest(form) {
+        const btn = document.querySelector('#bulk-note-suggest-btn');
+        const textarea = document.querySelector('#bulk-note-textarea');
+        const list = document.querySelector('#bulk-note-suggest-list');
+        if (!btn || !textarea || !list || !window.aikolPromptGenerator) return;
+        btn.addEventListener('click', () => {
+            const kind = form.elements.kind?.value === 'video' ? 'video' : 'image';
+            const items = window.aikolPromptGenerator.generateSceneNotes({
+                type: kind,
+                count: 5,
+            });
+            list.style.display = 'flex';
+            list.innerHTML = items
+                .map(
+                    (it) => `
+                <button type="button" class="aikol-prompt-card" style="padding:0.5rem 0.65rem; gap:0.2rem">
+                    <div class="aikol-prompt-card__head" style="font-size:0.68rem">
+                        <span class="aikol-prompt-card__vibe">${it.locationSet}</span>
+                    </div>
+                    <div class="aikol-prompt-card__body" style="-webkit-line-clamp:2; font-size:0.78rem">${it.note.replace(/[<>"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])}</div>
+                </button>`
+                )
+                .join('');
+            list.querySelectorAll('button').forEach((b, i) => {
+                b.addEventListener('click', () => {
+                    textarea.value = items[i].note;
+                    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    list.style.display = 'none';
+                    showToast('Đã chọn scene', 'success');
+                });
+            });
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         const form = $('#bulk-form');
         loadModelsInto(form.elements.model_id);
         refreshCredits();
         loadRecent();
+        setupBulkNoteSuggest(form);
 
         // Segmented kind toggle
         $$('.aikol-segmented__btn').forEach((b) => {

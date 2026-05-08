@@ -402,9 +402,163 @@
         return Object.keys(VIBES).map((k) => ({ key: k, label: VIBES[k].label }));
     }
 
+    // ===== Scene Note Generator =====
+    // Output: ngắn gọn, dùng làm "Note" addendum trong generate-panel + bulk
+    // (Fal.ai image clone + Kling video clone). Khác với generateOne (portrait
+    // mô tả full subject), scene note CHỈ thêm context scene/atmosphere/light
+    // để rewrite cảnh quay model vào.
+    const SCENE_LOCATIONS = {
+        cafe: [
+            'cozy Saigon café with warm tungsten light',
+            'modern minimalist café, exposed concrete walls',
+            'rustic specialty coffee shop, wooden interior',
+            'rooftop café overlooking the city skyline',
+        ],
+        street: [
+            'bustling Saigon district 1 street at dusk',
+            'narrow Hanoi old quarter alley with hanging lanterns',
+            'wet rainy night street, neon reflections on pavement',
+            'morning Saigon street market with fresh produce',
+            'modern Hồ Chí Minh boulevard at golden hour',
+        ],
+        nature: [
+            'beach at sunset with soft pastel sky',
+            'lush tropical garden with morning mist',
+            'mountain viewpoint with rolling clouds',
+            'rice paddy field at golden hour, Hội An',
+            'pine forest with sun rays through trees',
+        ],
+        indoor: [
+            'modern apartment with soft natural daylight',
+            'minimalist studio with white drapery',
+            'cozy bedroom with sheer white curtains',
+            'industrial loft with concrete and warm wood',
+            'traditional Vietnamese house with wooden beams',
+        ],
+        urban: [
+            'sleek modern office with floor-to-ceiling windows',
+            'rooftop terrace at blue hour, city lights below',
+            'contemporary art gallery, white walls and high ceilings',
+            'underground parking with dramatic neon strip lights',
+            'luxury hotel lobby with marble and chandeliers',
+        ],
+        editorial: [
+            'high-fashion editorial set, deep moody backdrop',
+            'minimalist black gallery, single key spotlight',
+            'monochrome white seamless studio',
+            'warm sepia-toned vintage interior',
+        ],
+    };
+
+    const SCENE_LIGHTING = [
+        'soft golden hour light',
+        'warm afternoon sunlight through window',
+        'cool blue hour ambient',
+        'dramatic chiaroscuro side light',
+        'cinematic three-point lighting',
+        'overcast natural daylight, soft shadows',
+        'neon-lit moody atmosphere',
+        'beauty ring light, even glow',
+    ];
+
+    const SCENE_MOOD = [
+        'cozy intimate atmosphere',
+        'dreamy ethereal mood',
+        'confident editorial energy',
+        'serene contemplative tone',
+        'vibrant playful vibe',
+        'sophisticated luxurious feel',
+        'candid documentary realism',
+        'cinematic dramatic atmosphere',
+    ];
+
+    const SCENE_COLOR = [
+        'warm earth tones',
+        'cool cinematic teal-and-orange',
+        'soft pastel palette',
+        'high-contrast monochrome',
+        'rich saturated jewel tones',
+        'muted vintage film aesthetic',
+        'clean minimalist neutrals',
+    ];
+
+    const VIDEO_CAMERA = [
+        'slow dolly-in toward subject',
+        'gentle pan from left to right',
+        'static shot with subtle handheld feel',
+        'slow zoom out revealing scene',
+        'cinematic tracking shot',
+        'high-angle establishing shot then settle',
+    ];
+
+    /**
+     * Generate a scene/atmosphere note for image or video generation.
+     * Output ~60-160 chars, fits the 500-char Note limit comfortably and
+     * combines: location × lighting × mood × color (+ camera for video).
+     *
+     * @param {object} [opts]
+     * @param {'image'|'video'} [opts.type='image']
+     * @param {string} [opts.locationSet] - one of cafe/street/nature/indoor/urban/editorial
+     * @returns {string}
+     */
+    function generateSceneNote(opts) {
+        const o = opts || {};
+        const type = o.type === 'video' ? 'video' : 'image';
+        const locKey =
+            o.locationSet && SCENE_LOCATIONS[o.locationSet]
+                ? o.locationSet
+                : pick(Object.keys(SCENE_LOCATIONS));
+        const location = pick(SCENE_LOCATIONS[locKey]);
+        const lighting = pick(SCENE_LIGHTING);
+        const mood = pick(SCENE_MOOD);
+        const color = pick(SCENE_COLOR);
+
+        const parts = [location, lighting, mood, color];
+        if (type === 'video') parts.push(pick(VIDEO_CAMERA));
+        return parts.join(', ');
+    }
+
+    function generateSceneNotes(opts) {
+        const o = opts || {};
+        const count = Math.max(1, Math.min(o.count || 6, 12));
+        const type = o.type === 'video' ? 'video' : 'image';
+        const out = [];
+        const seen = new Set();
+        const locKeys = shuffle(Object.keys(SCENE_LOCATIONS));
+        let i = 0;
+        let attempts = 0;
+        while (out.length < count && attempts < count * 6) {
+            const locationSet = locKeys[i % locKeys.length];
+            const note = generateSceneNote({ type, locationSet });
+            const key = note.slice(0, 30);
+            if (!seen.has(key)) {
+                seen.add(key);
+                out.push({ note, locationSet });
+                i++;
+            }
+            attempts++;
+        }
+        return out;
+    }
+
+    function listLocationSets() {
+        const labels = {
+            cafe: 'Cafe / Quán',
+            street: 'Đường phố VN',
+            nature: 'Thiên nhiên',
+            indoor: 'Trong nhà',
+            urban: 'Đô thị / Office',
+            editorial: 'Editorial studio',
+        };
+        return Object.keys(SCENE_LOCATIONS).map((k) => ({ key: k, label: labels[k] || k }));
+    }
+
     global.aikolPromptGenerator = {
         generateOne,
         generateMany,
         listVibes,
+        generateSceneNote,
+        generateSceneNotes,
+        listLocationSets,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

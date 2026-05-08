@@ -18,6 +18,7 @@
 
         <script defer src="js/aikol-api.js"></script>
         <script defer src="js/aikol-sidebar.js"></script>
+        <script defer src="js/aikol-prompt-generator.js"></script>
         <script defer src="js/generate-panel.js"></script>
         <script defer src="js/bulk.js"></script>
     </head>
@@ -215,13 +216,41 @@
                         </fieldset>
 
                         <label class="aikol-gen-row" style="margin-top: 0.6rem">
-                            <span>Note (optional)</span>
+                            <div
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    gap: 0.5rem;
+                                    flex-wrap: wrap;
+                                "
+                            >
+                                <span>Note (optional)</span>
+                                <button
+                                    type="button"
+                                    id="bulk-note-suggest-btn"
+                                    class="aikol-btn aikol-btn--secondary"
+                                    style="font-size: 0.75rem; padding: 0.25rem 0.6rem"
+                                >
+                                    🎲 Gợi ý scene
+                                </button>
+                            </div>
                             <textarea
+                                id="bulk-note-textarea"
                                 name="note"
                                 rows="2"
                                 maxlength="500"
                                 placeholder="Free-form prompt cho mọi clip"
                             ></textarea>
+                            <div
+                                id="bulk-note-suggest-list"
+                                style="
+                                    display: none;
+                                    flex-direction: column;
+                                    gap: 0.4rem;
+                                    margin-top: 0.4rem;
+                                "
+                            ></div>
                         </label>
                     </section>
                 </form>
