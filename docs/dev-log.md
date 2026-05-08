@@ -8,6 +8,38 @@
 
 ## 2026-05-08
 
+### [aikol][video] Kling video2video KHÔNG khả dụng qua public API — revert + label honest
+
+User báo: "Kling thì hỗ trợ ghép model vào clip tiktok, Veo 3 thì chưa". Sau khi research + browser test:
+
+**Verified Kling public JWT API endpoints** (https://raw.githubusercontent.com/tryAGI/KlingAI/main/src/libs/KlingAI/openapi.yaml):
+
+```
+/v1/videos/text2video
+/v1/videos/image2video
+/v1/videos/video-extend
+/v1/videos/lip-sync
+/v1/videos/effects     ← chỉ có themed image effects (christmas, halloween…)
+/v1/videos/avatar
+```
+
+**KHÔNG có** `/v1/videos/video2video`, `/v1/videos/face-swap`, hay `/v1/videos/multi-image2video` — verified 404 trên job test `87f0debb-…`. "Face Swap Video" feature trên Kling web UI (`app.klingai.com/face-swap-*`) yêu cầu **Custom Face Model trained từ 10-30 sample videos qua web UI**, không expose qua API.
+
+**Decision**: revert worker không gọi `kling.submitVideo2Video` nữa. Cả Veo 3.1 + Kling đều chỉ làm image2video. UI relabel để honest:
+
+- Gen mode radio: "🎬 Dùng scene từ clip này (image: ghép model vào thumbnail · video: bake clip note vào prompt)" — không hứa face-swap-video.
+- Engine_video options đồng nhất giữa 2 modes.
+- Image gen "ghép model vào clip" VẪN hoạt động thật sự qua Gemini 3.1 multi-image input (model + clip cover → output là model trong scene clip).
+
+**Verified post-revert** (commit b12716a2):
+
+| Test                         | Job          | Kết quả                  |
+| ---------------------------- | ------------ | ------------------------ |
+| with_clip + Veo 3.1 video    | `6a377521-…` | ✅ MP4 2.56 MB           |
+| with_clip + Gemini 3.1 image | `0b842c1e-…` | ✅ 2 ảnh 411 KB + 466 KB |
+
+**Future**: nếu cần face-swap video thật, options ngoài Kling: fal.ai `kling-video/o1/video-to-video/edit`, PiAPI, Akool, Replicate. Hoặc user upload 10-30 sample videos vào Kling web UI để train Custom Face Model rồi gọi API với face_model_id (workflow manual).
+
 ### [aikol][generate] Toggle "AI tự sáng tạo scene" vs "Ghép model vào clip" — verified end-to-end
 
 Library page Generate modal trước đây luôn ép user dùng scene từ clip đã chọn. User hỏi: "Cho chọn chức năng tự động gemini sáng tạo clip và chức năng ghép model vào clip được chọn".
