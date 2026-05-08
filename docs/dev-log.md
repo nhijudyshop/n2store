@@ -8,6 +8,39 @@
 
 ## 2026-05-08
 
+### [aikol][generate] Toggle "AI tự sáng tạo scene" vs "Ghép model vào clip" — verified end-to-end
+
+Library page Generate modal trước đây luôn ép user dùng scene từ clip đã chọn. User hỏi: "Cho chọn chức năng tự động gemini sáng tạo clip và chức năng ghép model vào clip được chọn".
+
+**UI** ([aikol-studio/js/generate-panel.js](../aikol-studio/js/generate-panel.js)):
+
+- Radio mới đầu form `data-gen-mode-fieldset`:
+    - 🎬 Ghép model vào clip này (default khi mở từ clip card — scene = clip cover)
+    - ✨ AI tự sáng tạo scene (chỉ dùng prompt — không cần clip)
+- Mở modal không có clip → ẩn radio luôn, ép `auto_scene`.
+- Toggle `auto_scene` → ẩn fieldset "Keep from clip" + đổi note placeholder thành scene template chi tiết.
+- Validation submit: `auto_scene` cần note ≥10 chars → toast error + modal stay open nếu vi phạm.
+- Submit `auto_scene` → `clip_ids:[]` (route tự tạo 1 row clip_id NULL).
+
+**Backend worker** ([render.com/services/aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js)):
+
+- Đọc `conf.gen_mode` (fallback theo presence sceneImageUrl).
+- Helper `buildAutoSceneDirective(forVideo)`: prompt yêu cầu Gemini/Veo "place/animate person from ref into new scene from `<note>`" — preserve identity nhưng pose/outfit/scene từ note.
+- Với `with_clip`: pass note như cũ → service tự build "Replace person in image2".
+- Áp dụng đồng bộ cho Gemini 3.1 (image) và Veo 3.1 (video).
+
+**Browser test live verified** (commit 193783d4 trên Render):
+
+| Test                                | Job ID       | Result                              |
+| ----------------------------------- | ------------ | ----------------------------------- |
+| auto_scene image (Gemini 3.1)       | `5dc82d3a-…` | ✅ done — JPG 800 KB                |
+| auto_scene video (Veo 3.1)          | `b2d6d144-…` | ✅ done — MP4 2.87 MB               |
+| with_clip image regression          | `bcc5a2b3-…` | ✅ done — JPG 600 KB                |
+| Validation: empty note + auto_scene | (chặn local) | ✅ toast "≥10 ký tự" + modal open   |
+| UI form full E2E                    | (1 job sent) | ✅ "Đã gửi 1 job · còn 363 credits" |
+
+Status: ✅ Done — all 7 checks passed end-to-end.
+
 ### [shared][ai-widget] Gate AI chat widget — chỉ userType=admin-authenticated
 
 Trước đây AI chat widget load + hiện trên mọi page cho mọi user. Giờ gate hard:
