@@ -15,22 +15,71 @@
         GEMINI_PROXY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/gemini/chat',
         DEEPSEEK_PROXY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/deepseek/chat',
         DEFAULT_MODEL: 'gemini-3-flash-preview',
-        STORAGE_KEY: 'ai_widget_selected_model'
+        STORAGE_KEY: 'ai_widget_selected_model',
     };
 
     // Model options with rate limits
     const MODELS = [
         // Gemini 3 (Preview)
-        { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', rpm: '1K', tpm: '1M', rpd: '10K', provider: 'gemini' },
-        { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', rpm: '25', tpm: '1M', rpd: '250', provider: 'gemini' },
+        {
+            value: 'gemini-3-flash-preview',
+            label: 'Gemini 3 Flash',
+            rpm: '1K',
+            tpm: '1M',
+            rpd: '10K',
+            provider: 'gemini',
+        },
+        {
+            value: 'gemini-3-pro-preview',
+            label: 'Gemini 3 Pro',
+            rpm: '25',
+            tpm: '1M',
+            rpd: '250',
+            provider: 'gemini',
+        },
         // Gemini 2.5
-        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', rpm: '1K', tpm: '1M', rpd: '10K', provider: 'gemini' },
-        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', rpm: '150', tpm: '2M', rpd: '10K', provider: 'gemini' },
+        {
+            value: 'gemini-2.5-flash',
+            label: 'Gemini 2.5 Flash',
+            rpm: '1K',
+            tpm: '1M',
+            rpd: '10K',
+            provider: 'gemini',
+        },
+        {
+            value: 'gemini-2.5-pro',
+            label: 'Gemini 2.5 Pro',
+            rpm: '150',
+            tpm: '2M',
+            rpd: '10K',
+            provider: 'gemini',
+        },
         // Gemini 2.0
-        { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', rpm: '1K', tpm: '4M', rpd: 'Unlimited', provider: 'gemini' },
+        {
+            value: 'gemini-2.0-flash',
+            label: 'Gemini 2.0 Flash',
+            rpm: '1K',
+            tpm: '4M',
+            rpd: 'Unlimited',
+            provider: 'gemini',
+        },
         // DeepSeek
-        { value: 'deepseek-chat', label: 'DeepSeek Chat', rpm: '60', tpm: '1M', rpd: 'Unlimited', provider: 'deepseek' },
-        { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner', rpm: '60', tpm: '1M', rpd: 'Unlimited', provider: 'deepseek' }
+        {
+            value: 'deepseek-chat',
+            label: 'DeepSeek Chat',
+            rpm: '60',
+            tpm: '1M',
+            rpd: 'Unlimited',
+            provider: 'deepseek',
+        },
+        {
+            value: 'deepseek-reasoner',
+            label: 'DeepSeek Reasoner',
+            rpm: '60',
+            tpm: '1M',
+            rpd: 'Unlimited',
+            provider: 'deepseek',
+        },
     ];
 
     // =========================================================
@@ -83,7 +132,7 @@
     function extractProductData() {
         const data = {
             products: [],
-            totalCount: 0
+            totalCount: 0,
         };
 
         try {
@@ -93,12 +142,16 @@
 
             // Extract first few products as sample
             rows.forEach((row, index) => {
-                if (index < 5) { // Only first 5 products
+                if (index < 5) {
+                    // Only first 5 products
                     const cells = row.querySelectorAll('td');
                     if (cells.length > 0) {
                         data.products.push({
                             name: cells[0]?.textContent?.trim() || cells[1]?.textContent?.trim(),
-                            info: Array.from(cells).slice(0, 4).map(c => c.textContent?.trim()).join(' | ')
+                            info: Array.from(cells)
+                                .slice(0, 4)
+                                .map((c) => c.textContent?.trim())
+                                .join(' | '),
                         });
                     }
                 }
@@ -123,7 +176,7 @@
         const data = {
             orders: [],
             totalCount: 0,
-            stats: {}
+            stats: {},
         };
 
         try {
@@ -132,7 +185,7 @@
 
             // Extract stats if available
             const statElements = document.querySelectorAll('.stat-card, .summary-card, .metric');
-            statElements.forEach(el => {
+            statElements.forEach((el) => {
                 const label = el.querySelector('.label, .stat-label')?.textContent?.trim();
                 const value = el.querySelector('.value, .stat-value')?.textContent?.trim();
                 if (label && value) {
@@ -146,7 +199,10 @@
                     const cells = row.querySelectorAll('td');
                     if (cells.length > 0) {
                         data.orders.push({
-                            info: Array.from(cells).slice(0, 3).map(c => c.textContent?.trim()).join(' | ')
+                            info: Array.from(cells)
+                                .slice(0, 3)
+                                .map((c) => c.textContent?.trim())
+                                .join(' | '),
                         });
                     }
                 }
@@ -164,7 +220,7 @@
     function extractCustomerData() {
         const data = {
             totalCount: 0,
-            customers: []
+            customers: [],
         };
 
         try {
@@ -176,7 +232,10 @@
                     const cells = row.querySelectorAll('td');
                     if (cells.length > 0) {
                         data.customers.push({
-                            info: Array.from(cells).slice(0, 3).map(c => c.textContent?.trim()).join(' | ')
+                            info: Array.from(cells)
+                                .slice(0, 3)
+                                .map((c) => c.textContent?.trim())
+                                .join(' | '),
                         });
                     }
                 }
@@ -195,22 +254,28 @@
         const data = {
             filters: {},
             search: '',
-            user: {}
+            user: {},
         };
 
         try {
             // Get search input value
-            const searchInput = document.querySelector('input[type="search"], input[placeholder*="Tìm"], input[name*="search"]');
+            const searchInput = document.querySelector(
+                'input[type="search"], input[placeholder*="Tìm"], input[name*="search"]'
+            );
             if (searchInput) {
                 data.search = searchInput.value?.trim();
             }
 
             // Get active filters
             const filterSelects = document.querySelectorAll('select, .filter-select');
-            filterSelects.forEach(select => {
+            filterSelects.forEach((select) => {
                 if (select.value && select.value !== '' && select.value !== 'all') {
-                    const label = select.previousElementSibling?.textContent || select.getAttribute('name') || 'filter';
-                    data.filters[label] = select.options[select.selectedIndex]?.text || select.value;
+                    const label =
+                        select.previousElementSibling?.textContent ||
+                        select.getAttribute('name') ||
+                        'filter';
+                    data.filters[label] =
+                        select.options[select.selectedIndex]?.text || select.value;
                 }
             });
 
@@ -218,14 +283,14 @@
             if (window.currentUser) {
                 data.user = {
                     name: window.currentUser.name || window.currentUser.username,
-                    role: window.currentUser.role
+                    role: window.currentUser.role,
                 };
             } else if (localStorage.getItem('user')) {
                 try {
                     const user = JSON.parse(localStorage.getItem('user'));
                     data.user = {
                         name: user.name || user.username,
-                        role: user.role
+                        role: user.role,
                     };
                 } catch (e) {}
             }
@@ -254,7 +319,7 @@
             url: window.location.href,
             pathname: window.location.pathname,
             title: document.title,
-            ...generalData
+            ...generalData,
         };
 
         // Add page-specific data
@@ -727,8 +792,9 @@
     // =========================================================
 
     function getWidgetHTML() {
-        const modelOptions = MODELS.map(m =>
-            `<option value="${m.value}" data-provider="${m.provider}" data-rpm="${m.rpm}" data-tpm="${m.tpm}" data-rpd="${m.rpd}">${m.label}</option>`
+        const modelOptions = MODELS.map(
+            (m) =>
+                `<option value="${m.value}" data-provider="${m.provider}" data-rpm="${m.rpm}" data-tpm="${m.tpm}" data-rpd="${m.rpd}">${m.label}</option>`
         ).join('');
 
         return `
@@ -865,20 +931,33 @@
     }
 
     function toggleChat() {
+        if (!isAdminAuthenticated()) {
+            return;
+        }
         isOpen = !isOpen;
         const fab = document.getElementById('aiChatFab');
         const window = document.getElementById('aiChatWindow');
 
         if (isOpen) {
             fab.classList.add('open');
-            window.classList.add('open', 'animate__animated', 'animate__fadeInUp', 'animate__faster');
+            window.classList.add(
+                'open',
+                'animate__animated',
+                'animate__fadeInUp',
+                'animate__faster'
+            );
             fab.innerHTML = '<i data-lucide="x"></i>';
         } else {
             fab.classList.remove('open');
             window.classList.remove('animate__fadeInUp');
             window.classList.add('animate__fadeOutDown');
             setTimeout(() => {
-                window.classList.remove('open', 'animate__animated', 'animate__fadeOutDown', 'animate__faster');
+                window.classList.remove(
+                    'open',
+                    'animate__animated',
+                    'animate__fadeOutDown',
+                    'animate__faster'
+                );
             }, 300);
             fab.innerHTML = '<i data-lucide="message-circle"></i>';
         }
@@ -915,7 +994,7 @@
         let attachHtml = '';
         if (attachments.length > 0) {
             attachHtml = '<div class="ai-chat-msg-attachments">';
-            attachments.forEach(a => {
+            attachments.forEach((a) => {
                 if (a.preview) {
                     attachHtml += `<img src="${a.preview}" alt="attachment">`;
                 }
@@ -952,6 +1031,9 @@
     }
 
     async function sendMessage() {
+        if (!isAdminAuthenticated()) {
+            return;
+        }
         const input = document.getElementById('aiChatInput');
         const text = input.value.trim();
 
@@ -970,12 +1052,15 @@
         showLoading();
 
         try {
-            const model = MODELS.find(m => m.value === currentModel);
+            const model = MODELS.find((m) => m.value === currentModel);
             const isDeepSeek = model?.provider === 'deepseek';
 
             if (isDeepSeek && attachmentsToSend.length > 0) {
                 hideLoading();
-                addMessage('ai', '⚠️ DeepSeek không hỗ trợ file attachments. Vui lòng chọn model Gemini.');
+                addMessage(
+                    'ai',
+                    '⚠️ DeepSeek không hỗ trợ file attachments. Vui lòng chọn model Gemini.'
+                );
                 return;
             }
 
@@ -996,8 +1081,8 @@
                         model: currentModel,
                         messages: [{ role: 'user', content: userMessageWithContext }],
                         max_tokens: 4096,
-                        temperature: 0.7
-                    })
+                        temperature: 0.7,
+                    }),
                 });
                 data = await response.json();
                 aiText = data.choices?.[0]?.message?.content || 'Không có phản hồi';
@@ -1007,7 +1092,7 @@
                 if (text) parts.push({ text: userMessageWithContext });
 
                 // Add attachments
-                attachmentsToSend.forEach(a => {
+                attachmentsToSend.forEach((a) => {
                     parts.push({ inline_data: { mime_type: a.type, data: a.data } });
                 });
 
@@ -1016,8 +1101,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: currentModel,
-                        contents: [{ role: 'user', parts }]
-                    })
+                        contents: [{ role: 'user', parts }],
+                    }),
                 });
                 data = await response.json();
 
@@ -1030,7 +1115,6 @@
 
             hideLoading();
             addMessage('ai', aiText);
-
         } catch (error) {
             hideLoading();
             addMessage('ai', 'Có lỗi xảy ra khi kết nối với AI.');
@@ -1070,7 +1154,7 @@
                 name: file.name,
                 type: file.type,
                 data: reader.result.split(',')[1],
-                preview: file.type.startsWith('image/') ? reader.result : null
+                preview: file.type.startsWith('image/') ? reader.result : null,
             });
             updateAttachmentPreview();
         };
@@ -1087,13 +1171,17 @@
         }
 
         container.classList.add('has-files');
-        container.innerHTML = pendingAttachments.map(a => `
+        container.innerHTML = pendingAttachments
+            .map(
+                (a) => `
             <div class="ai-chat-attachment-item">
                 ${a.preview ? `<img src="${a.preview}" alt="">` : `<i data-lucide="file"></i>`}
                 <span>${a.name.slice(0, 15)}${a.name.length > 15 ? '...' : ''}</span>
                 <button class="ai-chat-attachment-remove" onclick="window.AIChatWidget.removeAttachment(${a.id})">×</button>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -1101,7 +1189,7 @@
     }
 
     function removeAttachment(id) {
-        pendingAttachments = pendingAttachments.filter(a => a.id !== id);
+        pendingAttachments = pendingAttachments.filter((a) => a.id !== id);
         updateAttachmentPreview();
     }
 
@@ -1109,7 +1197,18 @@
     // INITIALIZATION
     // =========================================================
 
+    function isAdminAuthenticated() {
+        try {
+            return localStorage.getItem('userType') === 'admin-authenticated';
+        } catch (e) {
+            return false;
+        }
+    }
+
     function init() {
+        if (!isAdminAuthenticated()) {
+            return;
+        }
         injectStyles();
         injectDependencies();
         createWidget();
@@ -1120,7 +1219,7 @@
     window.AIChatWidget = {
         init,
         toggle: toggleChat,
-        removeAttachment
+        removeAttachment,
     };
 
     // Auto-init when DOM ready
@@ -1129,5 +1228,4 @@
     } else {
         init();
     }
-
 })();

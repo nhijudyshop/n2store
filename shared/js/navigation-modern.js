@@ -7267,10 +7267,20 @@ setTimeout(() => {
 // =====================================================
 // AI CHAT WIDGET LOADER
 // Load floating AI chat widget on all pages
+// Gated: chỉ load cho userType === 'admin-authenticated'
 // =====================================================
 (function loadAIChatWidget() {
     // Check if already loaded
     if (window.AIChatWidget) {
+        return;
+    }
+
+    // Admin-only: chỉ load widget cho admin-authenticated users
+    try {
+        if (localStorage.getItem('userType') !== 'admin-authenticated') {
+            return;
+        }
+    } catch (e) {
         return;
     }
 

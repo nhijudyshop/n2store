@@ -8,6 +8,15 @@
 
 ## 2026-05-08
 
+### [shared][ai-widget] Gate AI chat widget — chỉ userType=admin-authenticated
+
+Trước đây AI chat widget load + hiện trên mọi page cho mọi user. Giờ gate hard:
+
+1. [shared/js/navigation-modern.js](../shared/js/navigation-modern.js#L7271-L7290) — loader skip injection nếu `localStorage.userType !== 'admin-authenticated'`.
+2. [shared/js/ai-chat-widget.js](../shared/js/ai-chat-widget.js) — defensive guard `isAdminAuthenticated()` ở `init()` (line 1126), `toggleChat()` (line 867), `sendMessage()` (line 957) để chặn cả khi script đã được cache trước khi user bị downgrade quyền hoặc khi user gọi `window.AIChatWidget.toggle()` từ console.
+
+Pattern khớp với check đã dùng ở `orders-report/js/tab1/tab1-bulk-tags.js`, `aikol-studio/js/settings.js`, `orders-report/js/celebration.js`. Status: ✅ Done.
+
 ### [aikol][generate] Default engine: Gemini 3.1 (image) + Veo 3.1 (video) thay cho Fal/Kling
 
 Fal PuLID + Kling đều đang locked do exhausted balance ở provider. 2 engine working được verify hoạt động end-to-end (browser test) nên đổi mặc định trong modal Generate sang Gemini 3.1 cho image và Veo 3.1 cho video. Fal/Kling vẫn chọn được nhưng đánh dấu "(cần top-up)".
