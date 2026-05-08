@@ -154,10 +154,11 @@ async function dispatchOne(row) {
     } else {
         // ===== VIDEO =====
         if (engine === 'veo_3_1') {
-            // Gemini Veo videoConfig: durationSeconds is 5-8 (4s rejected).
+            // Gemini Veo durationSeconds buckets: "4" | "6" | "8". Pass raw value
+            // — service quantizes (1080p/4k always force "8").
             const durationSeconds = Math.max(
-                5,
-                Math.min(parseInt(conf.duration_seconds, 10) || 5, 8)
+                4,
+                Math.min(parseInt(conf.duration_seconds, 10) || 8, 8)
             );
             const submit = await veo.submitVideoJob({
                 modelImageUrl,

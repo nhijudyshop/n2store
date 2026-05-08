@@ -10,13 +10,14 @@
 // `image.bytesBase64Encoded` wrapper — that returns 400 "Unsupported video
 // generation request" on generativelanguage.googleapis.com.
 //
-// Default model: veo-2.0-generate-001 — Veo 3.1 preview is allowlist-gated and
-// only available on Vertex AI today. Override via env AIKOL_VEO_MODEL when the
-// Gemini API key gets allowlisted for veo-3.1-generate-preview.
+// Default model: veo-3.1-generate-preview per ai.google.dev/gemini-api/docs/video.
+// Override via env AIKOL_VEO_MODEL. Other valid models on Gemini API:
+//   veo-3.1-generate-preview / veo-3.1-fast-generate-preview /
+//   veo-3.1-lite-generate-preview / veo-3.0-generate-001 / veo-2.0-generate-001.
 // =====================================================
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_MODEL = process.env.AIKOL_VEO_MODEL || 'veo-2.0-generate-001';
+const DEFAULT_MODEL = process.env.AIKOL_VEO_MODEL || 'veo-3.1-generate-preview';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 function authHeaders() {
@@ -72,35 +73,50 @@ async function submitVideoJob(args) {
         'Animate the subject naturally, maintaining their face and identity. Cinematic camera, photorealistic.'
     ).slice(0, 1000);
 
-    // Gemini API schema (NOT Vertex AI): contents[].parts[] with inlineData
-    // (data, mimeType) plus a text part. videoConfig nested under generationConfig.
-    const parts = [{ inlineData: { mimeType: modelImg.mime, data: modelImg.data } }];
-    // Veo 3.1 supports a 2nd reference image for scene/appearance preservation.
+    // predictLongRunning uses Vertex-style envelope (instances[] + parameters)
+    // even on the Gemini API host. Per https://ai.google.dev/gemini-api/docs/video
+    // the input image goes in instances[].image.inlineData.{mimeType,data}.
+    // bytesBase64Encoded is the OLDER Vertex format and returns 400 "Unsupported
+    // video generation request" on the Gemini host.
+    const instance = {
+        prompt: directive,
+        image: {
+            inlineData: { mimeType: modelImg.mime, data: modelImg.data },
+        },
+    };
+    // Veo 3.1 reference image (optional appearance/scene preservation)
     if (sceneImageUrl && isVeo31) {
         try {
             const sceneImg = await fetchImageBase64(sceneImageUrl);
-            parts.push({ inlineData: { mimeType: sceneImg.mime, data: sceneImg.data } });
+            instance.referenceImages = [
+                {
+                    image: {
+                        inlineData: { mimeType: sceneImg.mime, data: sceneImg.data },
+                    },
+                    referenceType: 'asset',
+                },
+            ];
         } catch (e) {
-            // Non-fatal — proceed without scene ref if it fails to fetch.
             console.warn('[aikol-veo] sceneImage fetch failed:', e.message);
         }
     }
-    parts.push({ text: directive });
 
-    // Gemini videoConfig: durationSeconds 5-8, aspectRatio 9:16/16:9, resolution 720p/1080p.
-    const dur = Math.max(5, Math.min(parseInt(durationSeconds, 10) || 5, 8));
-    const videoConfig = { numberOfVideos: 1 };
-    if (aspectRatio) videoConfig.aspectRatio = aspectRatio;
-    if (resolution) videoConfig.resolution = resolution;
-    if (dur) videoConfig.durationSeconds = dur;
+    // parameters: durationSeconds is a STRING per docs ("4"|"6"|"8"), and 1080p/4k
+    // require "8". Quantize input to nearest valid bucket.
+    const durRaw = Math.max(4, Math.min(parseInt(durationSeconds, 10) || 8, 8));
+    const durQuantized = durRaw <= 4 ? '4' : durRaw <= 6 ? '6' : '8';
+    const validResolutions = ['720p', '1080p', '4k'];
+    const resStr = validResolutions.includes(resolution) ? resolution : '720p';
+    const durFinal = resStr === '720p' ? durQuantized : '8';
 
-    const body = {
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-            responseModalities: ['video'],
-            videoConfig,
-        },
+    const parameters = {
+        aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
+        durationSeconds: durFinal,
+        resolution: resStr,
+        sampleCount: 1,
     };
+
+    const body = { instances: [instance], parameters };
 
     const url = `${BASE}/models/${encodeURIComponent(m)}:predictLongRunning`;
     const res = await fetch(url, {
