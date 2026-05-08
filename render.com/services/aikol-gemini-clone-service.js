@@ -48,7 +48,10 @@ async function cloneImage(args) {
         sceneImageUrl ? fetchImageBase64(sceneImageUrl) : Promise.resolve(null),
     ]);
 
-    // Build prompt with explicit instructions (Gemini 3.1 honors clear directives)
+    // Build prompt with explicit instructions (Gemini 3.1 honors clear directives).
+    // Single-image branch defaults to MAX FIDELITY — reproduce 1:1 unless caller
+    // overrides via prompt. The route layer (clone-from-image) already builds
+    // a fidelity-first directive; this fallback exists for direct service callers.
     const directive = sceneImg
         ? [
               'Replace the person in the SECOND image with the woman/man from the FIRST image.',
@@ -59,13 +62,18 @@ async function cloneImage(args) {
           ]
               .filter(Boolean)
               .join(' ')
-        : [
-              'Generate a photorealistic portrait that preserves the exact face and identity from this reference image.',
-              prompt ? `Scene/context: ${prompt}` : 'Same lighting and pose.',
-              'Output: photorealistic, sharp focus, ultra detailed.',
-          ]
-              .filter(Boolean)
-              .join(' ');
+        : prompt
+          ? // Caller provided a custom directive — honour it as-is (route layer
+            // builds explicit fidelity prompts).
+            prompt
+          : [
+                'Reproduce this reference image with maximum fidelity — output must look',
+                'identical to the input. Preserve every detail: exact face, eyes, nose,',
+                'mouth, hairstyle, hair color, skin tone, makeup, facial expression,',
+                'head pose, body pose, outfit, accessories, lighting direction, color',
+                'palette, and background composition. Do not add, remove, or modify any',
+                'element. Photorealistic, sharp focus, ultra detailed, 1:1 reproduction.',
+            ].join(' ');
 
     const parts = [
         { text: directive },

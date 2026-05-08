@@ -283,18 +283,27 @@ router.post('/models/clone-from-image', requireUser, upload.single('file'), asyn
     }
     const refUrl = bunny.cdnUrl(tmpKey);
 
-    // Build directive: focus on identity preservation (no scene image since
-    // user wants the new model to LOOK exactly like the uploaded person)
-    const directive = [
-        'Generate a clean professional portrait that preserves the exact face,',
-        'identity, hairstyle, and distinctive features of the person in this reference image.',
-        extraPrompt
-            ? `Additional context: ${extraPrompt}.`
-            : 'Soft natural studio lighting, neutral background.',
-        'Photorealistic, sharp focus, ultra detailed.',
-    ]
-        .filter(Boolean)
-        .join(' ');
+    // Build directive: MAXIMUM FIDELITY — output phải giống ảnh upload tối đa.
+    // Nếu user không cho thêm prompt → reproduce 1:1, không sáng tạo. Nếu có
+    // prompt → chỉ thay đổi minimal theo prompt, giữ mọi thứ khác y nguyên.
+    const directive = extraPrompt
+        ? [
+              'Reproduce this reference image as closely as possible.',
+              'Preserve the exact face, eyes, nose, mouth, hairstyle, hair color, skin tone,',
+              'makeup, facial expression, head pose, body pose, outfit, accessories,',
+              'lighting direction, color palette, and background composition.',
+              `Apply only this small adjustment per the user request: ${extraPrompt}.`,
+              'Do not change anything else. No re-styling, no re-posing, no re-framing.',
+              'Photorealistic, sharp focus, ultra detailed, identical to the reference.',
+          ].join(' ')
+        : [
+              'Reproduce this reference image with maximum fidelity — output must look',
+              'identical to the input. Preserve every detail: exact face, eyes, nose, mouth,',
+              'hairstyle, hair color, skin tone, makeup, facial expression, head pose,',
+              'body pose, outfit, accessories, lighting direction, color palette, and',
+              'background composition. Do not add, remove, or modify any element.',
+              'Photorealistic, sharp focus, ultra detailed, 1:1 reproduction.',
+          ].join(' ');
 
     let result;
     try {
