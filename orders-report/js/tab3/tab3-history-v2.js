@@ -868,7 +868,25 @@
         const date = new Date(record.timestamp).toLocaleString('vi-VN');
         let totalAssignmentsCalc = record.totalAssignments || record.totalSTTs || 0;
 
+        // Stash record on the modal node so the recon button có thể đọc nguyên liệu
+        // mà không cần re-fetch Firebase. Cleared khi modal close (handled by Bootstrap).
+        const _modalBody = document.getElementById('historyV2DetailModalBody');
+        if (_modalBody) _modalBody.__record = record;
+
         let html = `<div class="history-detail-info mb-4"><div class="row"><div class="col-md-6"><span class="history-detail-label">Upload ID:</span><span class="history-detail-value">${record.uploadId}</span></div><div class="col-md-6"><span class="history-detail-label">Thời gian:</span><span class="history-detail-value">${date}</span></div></div><div class="row"><div class="col-md-6"><span class="history-detail-label">Trạng thái:</span><span class="history-detail-value"><span class="badge bg-${config.class}">${config.icon} ${config.text}</span></span></div><div class="col-md-6"><span class="history-detail-label">Tổng STT:</span><span class="history-detail-value"><strong>${totalAssignmentsCalc}</strong> (✅ ${record.successCount || 0} | ❌ ${record.failCount || 0})</span></div></div></div>`;
+
+        // Reconciliation panel — học cách lấy Excel theo campaignId từ KPI tab
+        // (POST /api/SaleOnline_Order/ExportFile?campaignId=N) rồi đối soát từng
+        // STT × productCode để soi sản phẩm bị TPOS silent-drop sau khi upload.
+        // Records cũ (trước fix post-PUT verify 2026-05-08) hay bị: claim
+        // `success:true` nhưng TPOS thực tế không có sản phẩm.
+        html += `<div class="d-flex justify-content-between align-items-center mb-3" style="gap: 8px;">
+            <h6 class="mb-0"><i class="fas fa-balance-scale"></i> Đối soát với TPOS</h6>
+            <button class="btn btn-sm btn-warning" onclick="reconcileUploadWithTPOSV2()" id="reconcileTposBtn">
+                <i class="fas fa-cloud-download-alt"></i> Tải Excel TPOS &amp; đối soát
+            </button>
+        </div>
+        <div id="tab3ReconcileResults" class="mb-4" style="font-size: 13px;"></div>`;
 
         const productsByCode = {};
         if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
@@ -958,6 +976,363 @@
 
         return html;
     }
+
+    // =====================================================
+    // RECONCILE UPLOAD WITH TPOS EXCEL
+    // =====================================================
+    // Học pattern KPI tab: `POST /api/SaleOnline_Order/ExportFile?campaignId=N`
+    // trả XLSX, mỗi row = 1 SaleOnline_Order với cột "Sản phẩm" gồm các sản phẩm
+    // hiện diện thật trên TPOS. Đối soát danh sách này với upload's beforeSnapshot
+    // để biết product nào claim đã upload nhưng TPOS không lưu (silent drop).
+
+    async function _ensureXLSX() {
+        if (typeof XLSX !== 'undefined') return;
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    async function _getAuthHeaderForRecon() {
+        const tm = window.tokenManager || window.parent?.tokenManager;
+        if (tm?.getAuthHeader) return await tm.getAuthHeader();
+        throw new Error('tokenManager không khả dụng — vui lòng reload trang');
+    }
+
+    function _getWorkerUrl() {
+        return (
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
+    }
+
+    // Resolve campaign name → TPOS campaignId qua OData. Cache theo phiên modal.
+    const _campaignIdCache = new Map();
+    async function _resolveCampaignId(campaignName) {
+        if (!campaignName) return null;
+        if (_campaignIdCache.has(campaignName)) return _campaignIdCache.get(campaignName);
+
+        const headers = await _getAuthHeaderForRecon();
+        const WORKER = _getWorkerUrl();
+        const enc = encodeURIComponent(campaignName);
+        // Dùng eq trước (chính xác). Nếu không tìm thấy, fallback contains.
+        const tryUrl = (filter) =>
+            `${WORKER}/api/odata/SaleOnline_LiveCampaign?$top=10&$orderby=DateCreated+desc&$filter=${filter}`;
+        try {
+            let res = await fetch(tryUrl(`Name+eq+'${enc}'`), {
+                headers: { ...headers, Accept: 'application/json' },
+            });
+            let data = res.ok ? await res.json() : { value: [] };
+            let hit = (data.value || [])[0];
+            if (!hit) {
+                res = await fetch(tryUrl(`contains(Name%2C'${enc}')`), {
+                    headers: { ...headers, Accept: 'application/json' },
+                });
+                data = res.ok ? await res.json() : { value: [] };
+                hit = (data.value || [])[0];
+            }
+            const id = hit?.Id || null;
+            _campaignIdCache.set(campaignName, id);
+            return id;
+        } catch (e) {
+            console.warn('[RECON-V2] resolveCampaignId failed:', campaignName, e);
+            _campaignIdCache.set(campaignName, null);
+            return null;
+        }
+    }
+
+    // Fetch + parse 1 campaign Excel → Map<sttString, Set<productCodeUpper>>
+    async function _fetchCampaignExcel(campaignId) {
+        const headers = await _getAuthHeaderForRecon();
+        const WORKER = _getWorkerUrl();
+        const url = `${WORKER}/api/SaleOnline_Order/ExportFile?campaignId=${campaignId}&sort=date`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json', Accept: '*/*' },
+            body: JSON.stringify({ data: '{}' }),
+        });
+        if (!res.ok) throw new Error(`ExportFile HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        // Skip 2 title rows (giống overview-fetch.js).
+        const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
+        const sttToCodes = new Map();
+        // Cố gắng tìm cột STT + cột Sản phẩm — TPOS đôi khi đổi tên cột.
+        const sampleKeys = rows.length ? Object.keys(rows[0]) : [];
+        const sttKey =
+            sampleKeys.find((k) => /STT/i.test(k) && !/sản phẩm/i.test(k)) ||
+            sampleKeys.find((k) => /Số\s*thứ\s*tự|Index|SessionIndex/i.test(k)) ||
+            'STT';
+        const productKey =
+            sampleKeys.find((k) => /sản\s*phẩm/i.test(k)) ||
+            sampleKeys.find((k) => /Product/i.test(k)) ||
+            'Sản phẩm';
+        for (const row of rows) {
+            const sttVal = row[sttKey];
+            if (sttVal == null) continue;
+            const sttStr = String(sttVal).trim();
+            if (!sttStr) continue;
+            const productsStr = String(row[productKey] || '');
+            const codes = new Set();
+            // Parse "[CODE] Name SL: 1 Giá: 230.000" — có thể nhiều dòng.
+            for (const line of productsStr.split(/[\n\r]+/)) {
+                const m = line.match(/\[([^\]]+)\]/);
+                if (m && m[1]) codes.add(m[1].trim().toUpperCase());
+            }
+            // Merge nếu STT trùng (TPOS hiếm khi nhưng phòng case ghép đơn).
+            if (sttToCodes.has(sttStr)) {
+                for (const c of codes) sttToCodes.get(sttStr).add(c);
+            } else {
+                sttToCodes.set(sttStr, codes);
+            }
+        }
+        return sttToCodes;
+    }
+
+    function _setReconStatus(html) {
+        const el = document.getElementById('tab3ReconcileResults');
+        if (el) el.innerHTML = html;
+    }
+
+    function _renderReconcileResults(record, sttToCodes, sttUnresolved, sttResolvedCampaign) {
+        const productExpectations = []; // [{productCode, productId, productName, stt}]
+        (record.beforeSnapshot?.assignments || []).forEach((a) => {
+            const code = (a.productCode || '').toUpperCase();
+            (a.sttList || []).forEach((sttItem) => {
+                const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+                productExpectations.push({
+                    stt,
+                    productCode: code || '(no code)',
+                    productName: a.productName || '',
+                    productId: a.productId,
+                });
+            });
+        });
+
+        let okCount = 0;
+        let droppedCount = 0;
+        let unresolvedCount = 0;
+        const dropped = []; // { stt, productCode, productName }
+        const unresolved = []; // { stt, productCode, reason }
+        for (const exp of productExpectations) {
+            if (sttUnresolved.has(exp.stt)) {
+                unresolvedCount++;
+                unresolved.push({
+                    stt: exp.stt,
+                    productCode: exp.productCode,
+                    reason: 'campaign không resolve được trên TPOS',
+                });
+                continue;
+            }
+            const tposCodes = sttToCodes.get(exp.stt);
+            if (!tposCodes) {
+                unresolvedCount++;
+                unresolved.push({
+                    stt: exp.stt,
+                    productCode: exp.productCode,
+                    reason: 'STT không có trong Excel campaign',
+                });
+                continue;
+            }
+            if (tposCodes.has(exp.productCode)) {
+                okCount++;
+            } else {
+                droppedCount++;
+                dropped.push(exp);
+            }
+        }
+
+        const total = productExpectations.length;
+        let html = `<div class="alert alert-${droppedCount > 0 ? 'danger' : 'success'} mb-3">`;
+        html += `<i class="fas fa-${droppedCount > 0 ? 'exclamation-triangle' : 'check-circle'}"></i> `;
+        html += `<strong>Đối soát ${total} bản ghi (STT × sản phẩm):</strong> `;
+        html += `<span class="text-success">✅ ${okCount} khớp</span> · `;
+        html += `<span class="text-danger">❌ ${droppedCount} TPOS không có</span>`;
+        if (unresolvedCount > 0) {
+            html += ` · <span class="text-warning">⚠ ${unresolvedCount} không kiểm được</span>`;
+        }
+        html += `</div>`;
+
+        if (sttResolvedCampaign.size > 0) {
+            const items = [...sttResolvedCampaign.entries()]
+                .map(
+                    ([name, id]) =>
+                        `<code>${utils.escapeHtml(name)}</code> → id <strong>${id}</strong>`
+                )
+                .join(', ');
+            html += `<div class="mb-2 small text-muted">Campaign đã resolve: ${items}</div>`;
+        }
+
+        if (dropped.length > 0) {
+            // Group by productCode
+            const byProduct = new Map();
+            for (const d of dropped) {
+                if (!byProduct.has(d.productCode)) {
+                    byProduct.set(d.productCode, { productName: d.productName, stts: [] });
+                }
+                byProduct.get(d.productCode).stts.push(d.stt);
+            }
+            html += `<div class="card border-danger mb-3"><div class="card-body p-0">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-danger"><tr>
+                        <th style="width: 30%;">Sản phẩm</th>
+                        <th style="width: 10%;" class="text-center">SL STT rớt</th>
+                        <th style="width: 60%;">Các STT không có sản phẩm trên TPOS</th>
+                    </tr></thead><tbody>${[...byProduct.entries()]
+                        .map(
+                            ([code, info]) =>
+                                `<tr>
+                                <td><strong>${utils.escapeHtml(code)}</strong><div class="small text-muted">${utils.escapeHtml(info.productName)}</div></td>
+                                <td class="text-center"><span class="badge bg-danger">${info.stts.length}</span></td>
+                                <td class="small">${info.stts.map((s) => `<span class="badge bg-danger" style="margin: 1px;">❌ ${utils.escapeHtml(s)}</span>`).join(' ')}</td>
+                            </tr>`
+                        )
+                        .join('')}</tbody></table></div></div>`;
+        }
+
+        if (unresolved.length > 0) {
+            const sample = unresolved.slice(0, 30);
+            const more = unresolved.length > 30 ? ` (+${unresolved.length - 30} dòng nữa)` : '';
+            html += `<details class="mb-3"><summary class="text-warning small">⚠ ${unresolved.length} bản ghi không kiểm được${more}</summary>
+                <ul class="small mt-2">${sample
+                    .map(
+                        (u) =>
+                            `<li>STT ${utils.escapeHtml(u.stt)} · ${utils.escapeHtml(u.productCode)} — ${utils.escapeHtml(u.reason)}</li>`
+                    )
+                    .join('')}</ul></details>`;
+        }
+
+        _setReconStatus(html);
+    }
+
+    window.reconcileUploadWithTPOSV2 = async function () {
+        const btn = document.getElementById('reconcileTposBtn');
+        const _modalBody = document.getElementById('historyV2DetailModalBody');
+        const record = _modalBody && _modalBody.__record;
+        if (!record) {
+            _setReconStatus(
+                `<div class="alert alert-danger">Không tìm thấy record để đối soát. Đóng modal và mở lại.</div>`
+            );
+            return;
+        }
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang đối soát…';
+        }
+        try {
+            await _ensureXLSX();
+            _setReconStatus(
+                `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang resolve campaign…</div>`
+            );
+
+            // Group STTs theo campaignName từ orderInfo trong beforeSnapshot.
+            const campaignToSTTs = new Map(); // campaignName → Set<sttStr>
+            const sttToCampaign = new Map(); // sttStr → campaignName
+            (record.beforeSnapshot?.assignments || []).forEach((a) => {
+                (a.sttList || []).forEach((sttItem) => {
+                    if (!sttItem || typeof sttItem !== 'object') return;
+                    const stt = String(sttItem.stt);
+                    const cname =
+                        sttItem.orderInfo?.liveCampaignName ||
+                        sttItem.orderInfo?.LiveCampaignName ||
+                        '';
+                    if (!cname) return;
+                    if (!campaignToSTTs.has(cname)) campaignToSTTs.set(cname, new Set());
+                    campaignToSTTs.get(cname).add(stt);
+                    sttToCampaign.set(stt, cname);
+                });
+            });
+
+            if (campaignToSTTs.size === 0) {
+                _setReconStatus(
+                    `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy <code>liveCampaignName</code> nào trong <code>beforeSnapshot.assignments[].sttList[].orderInfo</code>. Có thể đây là upload cũ không lưu thông tin campaign — không thể đối soát qua Excel TPOS.</div>`
+                );
+                return;
+            }
+
+            // Resolve mỗi campaignName → campaignId (parallel).
+            _setReconStatus(
+                `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang resolve ${campaignToSTTs.size} campaign…</div>`
+            );
+            const resolvedCampaign = new Map(); // campaignName → campaignId
+            await Promise.all(
+                [...campaignToSTTs.keys()].map(async (cname) => {
+                    const id = await _resolveCampaignId(cname);
+                    if (id) resolvedCampaign.set(cname, id);
+                })
+            );
+
+            // Tập STTs có campaign không resolve được — sẽ marked unresolved.
+            const sttUnresolved = new Set();
+            for (const [cname, ssts] of campaignToSTTs.entries()) {
+                if (!resolvedCampaign.has(cname)) ssts.forEach((s) => sttUnresolved.add(s));
+            }
+
+            if (resolvedCampaign.size === 0) {
+                _setReconStatus(
+                    `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Không resolve được campaign nào trên TPOS (${[...campaignToSTTs.keys()].map((n) => `<code>${utils.escapeHtml(n)}</code>`).join(', ')}). Có thể campaign đã đổi tên hoặc xóa.</div>`
+                );
+                return;
+            }
+
+            // Fetch Excel parallel cho mỗi campaign đã resolve.
+            _setReconStatus(
+                `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang tải ${resolvedCampaign.size} Excel TPOS…</div>`
+            );
+            const sttToCodes = new Map(); // tổng hợp tất cả campaign
+            const errors = [];
+            await Promise.all(
+                [...resolvedCampaign.entries()].map(async ([cname, cid]) => {
+                    try {
+                        const map = await _fetchCampaignExcel(cid);
+                        for (const [stt, codes] of map.entries()) {
+                            // Chỉ giữ STTs thuộc campaign này (theo grouping).
+                            const wantedSet = campaignToSTTs.get(cname);
+                            if (wantedSet && !wantedSet.has(stt)) continue;
+                            if (sttToCodes.has(stt)) {
+                                for (const c of codes) sttToCodes.get(stt).add(c);
+                            } else {
+                                sttToCodes.set(stt, new Set(codes));
+                            }
+                        }
+                    } catch (e) {
+                        errors.push(`${cname}: ${e.message || e}`);
+                        // Mark all STTs in this campaign unresolved.
+                        const wantedSet = campaignToSTTs.get(cname);
+                        if (wantedSet) wantedSet.forEach((s) => sttUnresolved.add(s));
+                    }
+                })
+            );
+
+            _renderReconcileResults(record, sttToCodes, sttUnresolved, resolvedCampaign);
+
+            if (errors.length) {
+                const el = document.getElementById('tab3ReconcileResults');
+                if (el) {
+                    el.insertAdjacentHTML(
+                        'beforeend',
+                        `<div class="alert alert-warning small mt-2"><strong>Lỗi tải Excel:</strong> ${errors.map(utils.escapeHtml).join('; ')}</div>`
+                    );
+                }
+            }
+        } catch (e) {
+            console.error('[RECON-V2] Reconcile failed:', e);
+            _setReconStatus(
+                `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Lỗi đối soát: ${utils.escapeHtml(e.message || String(e))}</div>`
+            );
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML =
+                    '<i class="fas fa-cloud-download-alt"></i> Tải Excel TPOS &amp; đối soát';
+            }
+        }
+    };
 
     // =====================================================
     // COMPARE CART HISTORY V2

@@ -8,6 +8,36 @@
 
 ## 2026-05-08
 
+### [orders][tab3] Đối soát Excel TPOS trong Lịch Sử Upload — soi sản phẩm bị rớt sau khi upload
+
+User: thêm tính năng "check lại" cho tab Gán Tag Sản Phẩm, học cách KPI tab tải Excel TPOS để biết product nào bị rớt.
+
+**Pattern reuse**: KPI tab (`tab-kpi-commission.js` `fetchRefundedOrderCodes`) + overview-fetch.js dùng `POST /api/SaleOnline_Order/ExportFile?campaignId=N` → XLSX binary, mỗi row = 1 SaleOnline_Order với cột "Sản phẩm" gồm danh sách `[CODE] Name SL: x Giá: y` thực tế trên TPOS. Áp dụng pattern này cho tab3.
+
+**Implementation** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `renderUploadHistoryDetailV2` + `window.reconcileUploadWithTPOSV2`):
+
+- Modal "Chi Tiết Upload" thêm header section + button **"Tải Excel TPOS & đối soát"** + container `#tab3ReconcileResults`.
+- Khi click:
+    1. Group `record.beforeSnapshot.assignments[].sttList[].orderInfo.liveCampaignName` → unique campaignNames.
+    2. Resolve mỗi campaignName → TPOS `Id` (GUID) qua OData `/api/odata/SaleOnline_LiveCampaign?$filter=Name+eq+...` (fallback `contains`). Cache trong session.
+    3. Parallel fetch Excel cho mỗi campaignId → parse `range:2` (skip 2 title rows), tìm cột STT + cột "Sản phẩm" linh hoạt theo regex (TPOS đôi khi rename), regex `[CODE]` extract product codes uppercased, build `Map<sttStr, Set<codeUpper>>`.
+    4. Cross-check mỗi `(stt, productCode)` từ `beforeSnapshot.assignments`: trong Excel TPOS = ✅, không có = ❌ "rớt", STT không có trong Excel hoặc campaign không resolve = ⚠ "không kiểm được".
+    5. Render summary `✅ N khớp · ❌ M rớt · ⚠ K không kiểm được`, table dropped grouped theo productCode kèm các STT badge ❌, `<details>` chứa danh sách "không kiểm được".
+- XLSX library lazy-load nếu chưa có.
+
+**Verify** ([scripts/verify-tab3-reconcile.mjs](../scripts/verify-tab3-reconcile.mjs)) trên upload **#32240280** (chính cái user phát hiện B914 → STT 157):
+
+- Resolve 2 campaign: `HOUSE 06/05/2026` (id `dcb29150…`), `STORE 06/05/2026` (id `057f56c3…`) ✓
+- Đối soát 34 bản ghi (STT × product): **0 khớp · 31 TPOS không có · 3 không kiểm được**
+- Top dropped: **B914 (14 STTs gồm 157, 6, 93, 77, 76, 75, 48, 68, 36, 43, 38, 35, 33, 12)**, B1895D (5 STTs), B1907L (5 STTs), B1895N (3 STTs), B1907M/S (2 STTs each)…
+- Confirm hậu quả phạm vi rộng của bug silent-drop trước fix post-PUT verify: gần như cả upload bị TPOS từ chối lưu, không chỉ B914.
+
+**UX value**: Sau mỗi upload, user click "Đối Soát TPOS" trong Chi Tiết → soi 1 phát ra mọi sản phẩm chưa lưu được → re-gán + re-upload đúng cái thiếu thay vì đoán mò.
+
+**Status**: ✅ Done — single feature trong tab3-history-v2.js (~250 dòng add), không đụng upload-time logic, hoạt động cho cả historical records.
+
+---
+
 ### [orders][tab3] Upload TPOS PUT 200 nhưng silent drop sản phẩm — verify post-PUT, badge ❌ trong lịch sử
 
 **Bug user báo**: Tab "Gán Sản Phẩm - STT" → Lịch Sử Upload #32240280 hiện rõ B914 (3103 B9 ĐỒNG HỒ BBR NU FULL BOX) đã upload cho STT 157 (kèm 13 STT khác). Sang Quản Lý Đơn Hàng → đơn STT 157, kiểm tra giỏ + lịch sử **không có** B914. Nghi race condition.
