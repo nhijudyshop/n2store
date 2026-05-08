@@ -8,6 +8,33 @@
 
 ## 2026-05-08
 
+### [render][chat-db] Bỏ lưu phone_call_recordings (duplicate với OnCallCX portal) — free 92 MB
+
+**Trigger**: chat-db (`n2store-chat-db`, plan basic_1gb) đã chạm 75% (761 MB / 1020 MB). Audit phát hiện `phone_call_recordings` 92 MB chỉ duy nhất 157 row nhưng audio bytea trùng dữ liệu OnCallCX portal — UI `Lịch sử cuộc gọi` đã có sẵn nút **Portal OnCallCX** để fetch trực tiếp.
+
+**Phase 1 (this commit) — Stop ghi**:
+
+- Uninstall launchd daemon: `bash scripts/install-oncallcx-sync.sh uninstall` (đã chạy local máy mac mỗi 5 phút).
+- [scripts/oncallcx-sync-daemon.js](../scripts/oncallcx-sync-daemon.js): truncate xuống deprecation notice + `process.exit(0)`. Code cũ giữ trong git history.
+- [render.com/routes/oncall-sip-proxy.js](../render.com/routes/oncall-sip-proxy.js): 5 routes `/call-recordings*` đổi sang trả 410 Gone (POST upload, GET audio, DELETE, POST remap-phones) hoặc list rỗng (GET list — frontend cũ thấy `Ghi âm 0` thay vì lỗi). Bỏ block `CREATE TABLE phone_call_recordings` + 5 indexes ở init schema để Render restart không recreate bảng.
+- [orders-report/js/phone-recording.js](../orders-report/js/phone-recording.js): xóa `_uploadToCloud()` (browser MediaRecorder fire-and-forget). Local IndexedDB 30d retention vẫn giữ nguyên cho replay tạm.
+
+**Tác động UI**: 3 surface cũ đọc list (`phone-history-badges`, `phone-management`, `tab1-search`) sẽ thấy 0 ghi âm. Click play audio cũ → 410 Gone. User dùng nút "Portal OnCallCX" có sẵn trong dialog để xem ghi âm thật.
+
+**Phase 2 (sau khi deploy live)**: `DROP TABLE phone_call_recordings CASCADE` trên Render Postgres → free ~92 MB.
+
+**Bonus dọn DB chung trong session này**:
+
+- `REINDEX CONCURRENTLY public.realtime_updates` — index bloat 59 MB → 160 kB (251 row, churn 9.5k INSERT vs 29k DELETE → autovacuum chưa kịp với mức tăng index).
+- `DROP INDEX idx_realtime_updates_created` (dup `_created_at`) + `idx_realtime_updates_page` (dup `_page_id`) — verified `indexdef` identical, `idx_scan = 0`.
+- `VACUUM (ANALYZE)` 5 bảng dead-tuple cao: `tpos_sync_log`, `social_orders`, `fb_global_id_cache`, `processing_tags`, `pending_wallet_withdrawals` — dead 13–17% → 0%.
+
+DB size: 739 MB → 687 MB (-52 MB) chưa tính phase 2.
+
+Status: ✅ Phase 1 xong — chờ deploy Render rồi chạy DROP TABLE.
+
+---
+
 ### [orders] Tab "Bill Đã Xóa" mất data từ tháng 04 — read-side đọc nhầm Firestore (đã migrate sang Postgres)
 
 **Bug**: `orders-report/main.html` → tab Bill Đã Xóa hiện toàn data cũ, không thấy đơn hủy từ 04/2026 trở đi. Đơn vừa hủy không xuất hiện.
