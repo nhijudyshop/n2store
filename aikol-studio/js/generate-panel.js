@@ -60,15 +60,15 @@
                         <label class="aikol-gen-row" data-image-only>
                             <span>Engine (image)</span>
                             <select name="engine_image">
-                                <option value="fal_pulid" selected>Fal PuLID — 4cr/variation · nhanh</option>
-                                <option value="gemini_3_1">Gemini 3.1 — 8cr/variation · scene match tốt hơn</option>
+                                <option value="gemini_3_1" selected>Gemini 3.1 — 8cr/variation · scene match tốt nhất ⭐</option>
+                                <option value="fal_pulid">Fal PuLID — 4cr/variation · nhanh (cần top-up)</option>
                             </select>
                         </label>
                         <label class="aikol-gen-row" data-video-only style="display:none">
                             <span>Engine (video)</span>
                             <select name="engine_video">
-                                <option value="kling" selected>Kling — 8-13cr/s · video2video / image2video</option>
-                                <option value="veo_3_1">Veo 3.1 — 16cr/s · Google · 4K capable</option>
+                                <option value="veo_3_1" selected>Veo 3.1 — 16cr/s · Google · chất lượng cao ⭐</option>
+                                <option value="kling">Kling — 8-13cr/s · image2video (cần top-up)</option>
                             </select>
                         </label>
 
@@ -207,9 +207,10 @@
         obj.similarity = parseInt(obj.similarity, 10);
         obj.creativity = parseInt(obj.creativity, 10);
         obj.duration_seconds = parseInt(obj.duration_seconds, 10) || 5;
-        // Engine — pick from the visible field per kind
+        // Engine — pick from the visible field per kind. Default Gemini 3.1 / Veo 3.1
+        // (Fal + Kling vẫn chọn được nhưng provider account cần top-up).
         obj.engine =
-            obj.kind === 'image' ? obj.engine_image || 'fal_pulid' : obj.engine_video || 'kling';
+            obj.kind === 'image' ? obj.engine_image || 'gemini_3_1' : obj.engine_video || 'veo_3_1';
         delete obj.engine_image;
         delete obj.engine_video;
         return obj;
