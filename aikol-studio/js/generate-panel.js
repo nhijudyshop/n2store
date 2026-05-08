@@ -446,6 +446,17 @@
                 showToast('Chế độ AI tự sáng tạo cần mô tả scene chi tiết (≥10 ký tự)', 'error');
                 return;
             }
+            // Cost guard >5.000 ₫ — confirm để tránh burn accidental.
+            const cInfo = computeCost(form);
+            const totalVnd = cInfo.total * VND_PER_CREDIT;
+            if (totalVnd > 5000) {
+                const msg = `Chi phí: ${cInfo.total} cr ≈ ${totalVnd.toLocaleString('vi-VN')} ₫.\nTiếp tục submit?`;
+                const confirmed =
+                    typeof window.aikolConfirm === 'function'
+                        ? await window.aikolConfirm(msg, 'Tạo', 'Huỷ')
+                        : window.confirm(msg);
+                if (!confirmed) return;
+            }
             const submitBtn = form.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Đang gửi…';
