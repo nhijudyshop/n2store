@@ -69,6 +69,61 @@ function validSlug(s) {
 }
 
 // -----------------------------------------------------
+// GET /api/web2/_storage
+// Trả disk usage cho web2_records: tổng table + index, breakdown theo entity_slug.
+// Read-only, an toàn dùng để monitor.
+// -----------------------------------------------------
+router.get('/_storage', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const total = await pool.query(`
+            SELECT
+                pg_size_pretty(pg_total_relation_size('web2_records')) AS total_size,
+                pg_size_pretty(pg_relation_size('web2_records')) AS table_size,
+                pg_size_pretty(pg_indexes_size('web2_records')) AS index_size,
+                pg_total_relation_size('web2_records') AS total_bytes,
+                pg_database_size(current_database()) AS db_total_bytes
+        `);
+        const byEntity = await pool.query(`
+            SELECT entity_slug, COUNT(*)::int AS records,
+                   pg_size_pretty(SUM(pg_column_size(data))) AS data_size,
+                   SUM(pg_column_size(data))::bigint AS data_bytes
+            FROM web2_records
+            GROUP BY entity_slug
+            ORDER BY data_bytes DESC
+        `);
+        res.json({
+            ok: true,
+            web2_records: {
+                total_size_pretty: total.rows[0].total_size,
+                table_size_pretty: total.rows[0].table_size,
+                index_size_pretty: total.rows[0].index_size,
+                total_bytes: Number(total.rows[0].total_bytes),
+            },
+            db_total_bytes: Number(total.rows[0].db_total_bytes),
+            db_total_pretty: prettyBytes(Number(total.rows[0].db_total_bytes)),
+            by_entity: byEntity.rows.map((r) => ({
+                slug: r.entity_slug,
+                records: r.records,
+                data_size_pretty: r.data_size,
+                data_bytes: Number(r.data_bytes),
+            })),
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+function prettyBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB';
+    return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+// -----------------------------------------------------
 // GET /api/web2/:entity/health
 // -----------------------------------------------------
 router.get('/:entity/health', async (req, res) => {
