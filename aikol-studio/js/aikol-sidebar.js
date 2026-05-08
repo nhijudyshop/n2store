@@ -132,8 +132,17 @@
     function bindLogout() {
         const btn = document.getElementById('aikol-side-logout');
         if (!btn) return;
-        btn.addEventListener('click', () => {
-            if (!confirm('Đăng xuất?')) return;
+        btn.addEventListener('click', async () => {
+            const ok = window.aikolConfirm
+                ? await window.aikolConfirm({
+                      title: 'Đăng xuất?',
+                      body: '<p style="margin:0">Bạn sẽ được đưa về trang đăng nhập n2store.</p>',
+                      confirmLabel: 'Đăng xuất',
+                      cancelLabel: 'Ở lại',
+                      danger: true,
+                  })
+                : confirm('Đăng xuất?');
+            if (!ok) return;
             try {
                 localStorage.removeItem('loginindex_auth');
                 sessionStorage.removeItem('loginindex_auth');

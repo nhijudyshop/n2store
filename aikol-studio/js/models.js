@@ -183,7 +183,8 @@
     }
 
     async function onDelete(id, name) {
-        if (!confirm(`Xoá model "${name}"?`)) return;
+        const ok = await window.aikolConfirmDelete(`model "${name}"`, 'Không undo được.');
+        if (!ok) return;
         try {
             await window.AikolAPI.deleteModel(id);
             showToast('Đã xoá', 'success');

@@ -28,30 +28,81 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
+const path = require('path');
 const adminSettings = require('../../services/admin-settings-service');
+const bunnyStorage = require('../../services/bunny-storage-service');
 
-// Image URL pattern: ${BASE_URL}/api/v2/purchase-orders/images/<id>
-// Extract just the trailing id segment so we can cascade-delete from purchase_order_images.
-function extractImageIds(urlArrays) {
-    const ids = new Set();
+// PO images live in Bunny under prefix `po-images/`. Legacy DB rows are still
+// served by `GET /images/:id` until the migration script clears them.
+const BUNNY_PO_PREFIX = 'po-images';
+
+const EXT_BY_MIME = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/heic': 'heic',
+    'image/heif': 'heif',
+    'image/svg+xml': 'svg',
+};
+
+function extFromMime(mime, fallbackName) {
+    if (mime && EXT_BY_MIME[mime.toLowerCase()]) return EXT_BY_MIME[mime.toLowerCase()];
+    if (fallbackName) {
+        const e = path.extname(fallbackName).toLowerCase().replace('.', '');
+        if (e) return e;
+    }
+    return 'jpg';
+}
+
+// Classify URLs in `invoice_images[]` so cascade-delete can route to the right backend.
+// - Bunny CDN URL: https://<cdn-host>/po-images/<id>.<ext>  → DELETE on Bunny
+// - Legacy DB URL: <base>/api/v2/purchase-orders/images/<id>  → DELETE row from purchase_order_images
+function classifyImageUrls(urlArrays) {
+    const dbIds = new Set();
+    const bunnyKeys = new Set();
+    const cdnHost = bunnyStorage.CDN_HOSTNAME;
+    const bunnyRe = new RegExp(
+        `^https?://${cdnHost.replace(/\./g, '\\.')}/(${BUNNY_PO_PREFIX}/[^?#]+)$`
+    );
     for (const arr of urlArrays) {
         if (!Array.isArray(arr)) continue;
         for (const url of arr) {
             if (typeof url !== 'string') continue;
-            const m = url.match(/\/images\/([^/?#]+)$/);
-            if (m && m[1]) ids.add(m[1]);
+            const bm = url.match(bunnyRe);
+            if (bm && bm[1]) {
+                bunnyKeys.add(bm[1]);
+                continue;
+            }
+            const dm = url.match(/\/images\/([^/?#]+)$/);
+            if (dm && dm[1]) dbIds.add(dm[1]);
         }
     }
-    return Array.from(ids);
+    return { dbIds: Array.from(dbIds), bunnyKeys: Array.from(bunnyKeys) };
 }
 
-async function deleteImagesByIds(pool, ids) {
-    if (!ids.length) return 0;
-    const r = await pool.query(
-        'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
-        [ids]
-    );
-    return r.rowCount;
+async function deleteImagesFromUrls(pool, urlArrays) {
+    const { dbIds, bunnyKeys } = classifyImageUrls(urlArrays);
+    let deletedDb = 0;
+    let deletedBunny = 0;
+
+    if (dbIds.length) {
+        const r = await pool.query(
+            'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
+            [dbIds]
+        );
+        deletedDb = r.rowCount;
+    }
+    if (bunnyKeys.length) {
+        const results = await Promise.allSettled(
+            bunnyKeys.map((k) => bunnyStorage.deleteObject(k))
+        );
+        deletedBunny = results.filter(
+            (r) => r.status === 'fulfilled' && r.value && r.value.ok
+        ).length;
+    }
+    return { deletedDb, deletedBunny, total: deletedDb + deletedBunny };
 }
 
 // Use shared DB pool from app.locals (same as all other v2 routes)
@@ -383,26 +434,27 @@ router.post(
                 });
             }
 
-            const pool = getDb(req);
             const { buffer, mimetype, originalname, size } = req.file;
+            const id = uuidv4();
+            const ext = extFromMime(mimetype, originalname);
+            const key = `${BUNNY_PO_PREFIX}/${id}.${ext}`;
 
-            const result = await pool.query(
-                `INSERT INTO purchase_order_images (data, content_type, filename, size_bytes)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id, content_type, filename, size_bytes, created_at`,
-                [buffer, mimetype, originalname || null, size || buffer.length]
+            const uploaded = await bunnyStorage.uploadBuffer(
+                buffer,
+                key,
+                mimetype || 'application/octet-stream'
             );
 
-            const row = result.rows[0];
             res.json({
                 success: true,
-                url: `${BASE_URL}/api/v2/purchase-orders/images/${row.id}`,
+                url: uploaded.cdnUrl,
                 image: {
-                    id: row.id,
-                    contentType: row.content_type,
-                    filename: row.filename,
-                    sizeBytes: row.size_bytes,
-                    createdAt: row.created_at,
+                    id,
+                    key: uploaded.key,
+                    contentType: mimetype,
+                    filename: originalname || null,
+                    sizeBytes: size || buffer.length,
+                    createdAt: new Date().toISOString(),
                 },
             });
         } catch (error) {
@@ -444,7 +496,8 @@ router.get('/images/:id', async (req, res) => {
 });
 
 // ========================================
-// DELETE /images/:id — Delete image
+// DELETE /images/:id — Delete legacy DB-backed image (Bunny ảnh xóa qua cascade
+// purchase_orders.invoice_images vì URL chứa cdn host, không phải /images/:id)
 // ========================================
 router.delete('/images/:id', async (req, res) => {
     try {
@@ -1036,10 +1089,10 @@ router.delete('/:id/permanent', async (req, res) => {
             });
         }
 
-        const imageIds = extractImageIds([existing.rows[0].invoice_images || []]);
+        const urls = [existing.rows[0].invoice_images || []];
         await pool.query('DELETE FROM purchase_orders WHERE id = $1', [orderId]);
-        const deletedImages = await deleteImagesByIds(pool, imageIds);
-        res.json({ success: true, deletedImages });
+        const cleanup = await deleteImagesFromUrls(pool, urls);
+        res.json({ success: true, deletedImages: cleanup });
     } catch (error) {
         console.error('[PO API] Permanent delete error:', error);
         res.status(500).json({ success: false, error: 'Không thể xóa vĩnh viễn đơn hàng' });
@@ -1173,10 +1226,12 @@ router.post('/cleanup-trash', async (req, res) => {
             [retentionDays]
         );
 
-        const imageIds = extractImageIds(result.rows.map((r) => r.invoice_images || []));
-        const deletedImages = await deleteImagesByIds(pool, imageIds);
+        const cleanup = await deleteImagesFromUrls(
+            pool,
+            result.rows.map((r) => r.invoice_images || [])
+        );
 
-        res.json({ success: true, deletedCount: result.rowCount, deletedImages });
+        res.json({ success: true, deletedCount: result.rowCount, deletedImages: cleanup });
     } catch (error) {
         console.error('[PO API] Cleanup error:', error);
         res.status(500).json({ success: false, error: 'Cleanup failed' });

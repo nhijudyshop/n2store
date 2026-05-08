@@ -136,7 +136,8 @@
     }
 
     async function onDelete(id) {
-        if (!confirm('Xoá output này? Không undo được.')) return;
+        const ok = await window.aikolConfirmDelete('output này', 'Không undo được.');
+        if (!ok) return;
         try {
             await window.AikolAPI.deleteOutput(id);
             showToast('Đã xoá', 'success');
