@@ -35,10 +35,27 @@ async function generatePortrait(args = {}) {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { responseModalities: ['IMAGE'] },
     };
+    // aspectRatio config only valid on 3.x models; 2.5 ignores generationConfig
+    // beyond responseModalities. Bake aspect into prompt string for 2.5.
+    const supportsAspectConfig = /gemini-3/i.test(model);
     if (args.aspectRatio) {
-        body.generationConfig.responseFormat = {
-            image: { aspectRatio: args.aspectRatio },
-        };
+        if (supportsAspectConfig) {
+            body.generationConfig.responseFormat = {
+                image: { aspectRatio: args.aspectRatio },
+            };
+        } else {
+            // For 2.5 — append aspect hint to prompt (model honors framing cues)
+            const aspectHint = {
+                '9:16': 'vertical 9:16 portrait composition',
+                '4:5': '4:5 instagram portrait composition',
+                '3:4': '3:4 portrait composition',
+                '16:9': 'horizontal 16:9 widescreen composition',
+                '1:1': 'square 1:1 composition',
+            }[args.aspectRatio];
+            if (aspectHint) {
+                body.contents[0].parts[0].text = `${prompt}, ${aspectHint}`;
+            }
+        }
     }
 
     const res = await fetch(url, {
