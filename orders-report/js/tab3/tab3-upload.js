@@ -27,10 +27,10 @@
     function buildUploadData() {
         const data = {};
 
-        state.assignments.forEach(assignment => {
+        state.assignments.forEach((assignment) => {
             if (!assignment.sttList || assignment.sttList.length === 0) return;
 
-            assignment.sttList.forEach(sttItem => {
+            assignment.sttList.forEach((sttItem) => {
                 const stt = typeof sttItem === 'object' ? sttItem.stt : sttItem;
                 const orderInfo = typeof sttItem === 'object' ? sttItem.orderInfo : null;
 
@@ -38,11 +38,13 @@
                     data[stt] = {
                         stt: stt,
                         orderInfo: orderInfo,
-                        products: []
+                        products: [],
                     };
                 }
 
-                const existingProduct = data[stt].products.find(p => p.productId === assignment.productId);
+                const existingProduct = data[stt].products.find(
+                    (p) => p.productId === assignment.productId
+                );
                 if (existingProduct) {
                     existingProduct.quantity++;
                 } else {
@@ -51,7 +53,7 @@
                         productName: assignment.productName,
                         productCode: assignment.productCode,
                         imageUrl: assignment.imageUrl,
-                        quantity: 1
+                        quantity: 1,
                     });
                 }
             });
@@ -105,14 +107,17 @@
             return;
         }
 
-        tbody.innerHTML = sttKeys.map(stt => {
-            const data = uploadData[stt];
-            const isSelected = selectedSTTs.has(stt);
-            const customerName = data.orderInfo?.customerName || 'N/A';
-            const totalQuantity = data.products.reduce((sum, p) => sum + p.quantity, 0);
-            const productsList = data.products.map(p => `${p.productName} (x${p.quantity})`).join(', ');
+        tbody.innerHTML = sttKeys
+            .map((stt) => {
+                const data = uploadData[stt];
+                const isSelected = selectedSTTs.has(stt);
+                const customerName = data.orderInfo?.customerName || 'N/A';
+                const totalQuantity = data.products.reduce((sum, p) => sum + p.quantity, 0);
+                const productsList = data.products
+                    .map((p) => `${p.productName} (x${p.quantity})`)
+                    .join(', ');
 
-            return `
+                return `
                 <tr class="${isSelected ? 'table-success' : ''}">
                     <td class="checkbox-cell">
                         <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSTTSelection('${stt}')">
@@ -123,7 +128,8 @@
                     <td><span class="product-count-badge"><i class="fas fa-box"></i> ${totalQuantity}</span></td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
     }
 
     function renderByProductView() {
@@ -142,13 +148,13 @@
 
         const byProduct = {};
         Object.entries(uploadData).forEach(([stt, data]) => {
-            data.products.forEach(product => {
+            data.products.forEach((product) => {
                 const key = product.productId;
                 if (!byProduct[key]) {
                     byProduct[key] = {
                         ...product,
                         stts: [],
-                        totalQuantity: 0
+                        totalQuantity: 0,
                     };
                 }
                 byProduct[key].stts.push(stt);
@@ -170,16 +176,17 @@
             return;
         }
 
-        tbody.innerHTML = products.map(product => {
-            const allSelected = product.stts.every(stt => selectedSTTs.has(stt));
-            const someSelected = product.stts.some(stt => selectedSTTs.has(stt));
-            const isIndeterminate = someSelected && !allSelected;
+        tbody.innerHTML = products
+            .map((product) => {
+                const allSelected = product.stts.every((stt) => selectedSTTs.has(stt));
+                const someSelected = product.stts.some((stt) => selectedSTTs.has(stt));
+                const isIndeterminate = someSelected && !allSelected;
 
-            const imageHtml = product.imageUrl
-                ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" class="upload-product-image">`
-                : `<div class="upload-product-image no-image">📦</div>`;
+                const imageHtml = product.imageUrl
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" class="upload-product-image">`
+                    : `<div class="upload-product-image no-image">📦</div>`;
 
-            return `
+                return `
                 <tr class="${allSelected ? 'table-success' : ''}">
                     <td class="checkbox-cell">
                         <input type="checkbox" ${allSelected ? 'checked' : ''} ${isIndeterminate ? 'indeterminate' : ''}
@@ -199,14 +206,17 @@
                     <td><span class="product-count-badge"><i class="fas fa-box"></i> ${product.totalQuantity}</span></td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         setTimeout(() => {
-            products.forEach(product => {
-                const allSelected = product.stts.every(stt => selectedSTTs.has(stt));
-                const someSelected = product.stts.some(stt => selectedSTTs.has(stt));
+            products.forEach((product) => {
+                const allSelected = product.stts.every((stt) => selectedSTTs.has(stt));
+                const someSelected = product.stts.some((stt) => selectedSTTs.has(stt));
                 if (someSelected && !allSelected) {
-                    const checkbox = document.querySelector(`input[onchange*="toggleProductSelection('${product.productId}')"]`);
+                    const checkbox = document.querySelector(
+                        `input[onchange*="toggleProductSelection('${product.productId}')"]`
+                    );
                     if (checkbox) checkbox.indeterminate = true;
                 }
             });
@@ -222,7 +232,7 @@
         let totalProducts = 0;
         let totalItems = 0;
 
-        Object.values(uploadData).forEach(data => {
+        Object.values(uploadData).forEach((data) => {
             totalProducts += data.products.length;
             totalItems += data.products.reduce((sum, p) => sum + p.quantity, 0);
         });
@@ -254,7 +264,7 @@
         const allSTTs = Object.keys(uploadData);
 
         if (checkbox.checked) {
-            allSTTs.forEach(stt => selectedSTTs.add(stt));
+            allSTTs.forEach((stt) => selectedSTTs.add(stt));
         } else {
             selectedSTTs.clear();
         }
@@ -263,7 +273,7 @@
 
     window.selectAllUpload = function () {
         const allSTTs = Object.keys(uploadData);
-        allSTTs.forEach(stt => selectedSTTs.add(stt));
+        allSTTs.forEach((stt) => selectedSTTs.add(stt));
         renderUploadTable();
     };
 
@@ -284,17 +294,17 @@
     window.toggleProductSelection = function (productId) {
         const sttsWithProduct = [];
         Object.entries(uploadData).forEach(([stt, data]) => {
-            if (data.products.some(p => p.productId === productId)) {
+            if (data.products.some((p) => p.productId === productId)) {
                 sttsWithProduct.push(stt);
             }
         });
 
-        const allSelected = sttsWithProduct.every(stt => selectedSTTs.has(stt));
+        const allSelected = sttsWithProduct.every((stt) => selectedSTTs.has(stt));
 
         if (allSelected) {
-            sttsWithProduct.forEach(stt => selectedSTTs.delete(stt));
+            sttsWithProduct.forEach((stt) => selectedSTTs.delete(stt));
         } else {
-            sttsWithProduct.forEach(stt => selectedSTTs.add(stt));
+            sttsWithProduct.forEach((stt) => selectedSTTs.add(stt));
         }
         renderUploadTable();
     };
@@ -302,13 +312,15 @@
     window.viewSTTDetail = function (stt) {
         const data = uploadData[stt];
         if (!data) return;
-        alert(`STT ${stt}\nKhách hàng: ${data.orderInfo?.customerName || 'N/A'}\n\nSản phẩm:\n${data.products.map(p => `- ${p.productName} (x${p.quantity})`).join('\n')}`);
+        alert(
+            `STT ${stt}\nKhách hàng: ${data.orderInfo?.customerName || 'N/A'}\n\nSản phẩm:\n${data.products.map((p) => `- ${p.productName} (x${p.quantity})`).join('\n')}`
+        );
     };
 
     window.viewProductSTTs = function (productId) {
         const stts = [];
         Object.entries(uploadData).forEach(([stt, data]) => {
-            if (data.products.some(p => p.productId === productId)) {
+            if (data.products.some((p) => p.productId === productId)) {
                 stts.push(stt);
             }
         });
@@ -364,7 +376,8 @@
         modal.show();
 
         const modalBody = document.getElementById('previewModalBody');
-        modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-info"></div><p class="text-muted mt-2">Đang tải preview...</p></div>';
+        modalBody.innerHTML =
+            '<div class="text-center py-5"><div class="spinner-border text-info"></div><p class="text-muted mt-2">Đang tải preview...</p></div>';
 
         try {
             const html = await renderPreviewContent(Array.from(selectedSTTs));
@@ -391,36 +404,40 @@
                 try {
                     existingProducts = await fetchExistingOrderProducts(data.orderInfo.orderId);
                 } catch (error) {
-                    console.warn(`Failed to fetch existing products for order ${data.orderInfo.orderId}`);
+                    console.warn(
+                        `Failed to fetch existing products for order ${data.orderInfo.orderId}`
+                    );
                 }
             }
 
             sttProductsData[stt] = {
                 data: data,
-                existingProducts: existingProducts
+                existingProducts: existingProducts,
             };
         }
 
         const sttsWithExistingProducts = [];
 
-        Object.keys(sttProductsData).forEach(stt => {
+        Object.keys(sttProductsData).forEach((stt) => {
             const { data, existingProducts } = sttProductsData[stt];
             const existingProductsMap = {};
-            existingProducts.forEach(p => {
+            existingProducts.forEach((p) => {
                 if (p.productId) existingProductsMap[p.productId] = p;
             });
 
             const existingProductsInOrder = [];
-            data.products.forEach(product => {
+            data.products.forEach((product) => {
                 if (existingProductsMap[product.productId]) {
-                    const existing = existingProductsInOrder.find(p => p.code === product.productCode);
+                    const existing = existingProductsInOrder.find(
+                        (p) => p.code === product.productCode
+                    );
                     if (existing) {
                         existing.quantity += 1;
                     } else {
                         existingProductsInOrder.push({
                             code: product.productCode,
                             quantity: 1,
-                            currentQuantity: existingProductsMap[product.productId].quantity
+                            currentQuantity: existingProductsMap[product.productId].quantity,
                         });
                     }
                 }
@@ -429,7 +446,7 @@
             if (existingProductsInOrder.length > 0) {
                 sttsWithExistingProducts.push({
                     stt: stt,
-                    products: existingProductsInOrder
+                    products: existingProductsInOrder,
                 });
             }
         });
@@ -443,12 +460,16 @@
                         <i class="fas fa-info-circle"></i> Các STT có mã sản phẩm sắp upload đã có sẵn trong đơn hàng
                     </h6>
                     <div class="small">
-                        ${sttsWithExistingProducts.map(item => `
+                        ${sttsWithExistingProducts
+                            .map(
+                                (item) => `
                             <div class="mb-2">
                                 <strong>STT ${item.stt}:</strong>
-                                ${item.products.map(p => `${p.code} +${p.quantity}`).join(', ')}
+                                ${item.products.map((p) => `${p.code} +${p.quantity}`).join(', ')}
                             </div>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </div>
                 </div>
             `;
@@ -461,16 +482,16 @@
             const { data, existingProducts } = sttData;
 
             const existingProductsMap = {};
-            existingProducts.forEach(p => {
+            existingProducts.forEach((p) => {
                 if (p.productId) existingProductsMap[p.productId] = p;
             });
 
-            const productsWithStatus = data.products.map(p => ({
+            const productsWithStatus = data.products.map((p) => ({
                 ...p,
-                isExisting: !!existingProductsMap[p.productId]
+                isExisting: !!existingProductsMap[p.productId],
             }));
 
-            existingProducts.forEach(p => {
+            existingProducts.forEach((p) => {
                 const noteKey = `${stt}-${p.productId}`;
                 if (p.note && !state.productNotes[noteKey]) {
                     state.productNotes[noteKey] = p.note;
@@ -495,13 +516,16 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${productsWithStatus.map(p => {
-                const noteKey = `${stt}-${p.productId}`;
-                if (!state.productNotes[noteKey]) {
-                    state.productNotes[noteKey] = 'live';
-                }
-                const existingNote = filterNonEncodedNotes(state.productNotes[noteKey] || '');
-                return `
+                                        ${productsWithStatus
+                                            .map((p) => {
+                                                const noteKey = `${stt}-${p.productId}`;
+                                                if (!state.productNotes[noteKey]) {
+                                                    state.productNotes[noteKey] = 'live';
+                                                }
+                                                const existingNote = filterNonEncodedNotes(
+                                                    state.productNotes[noteKey] || ''
+                                                );
+                                                return `
                                             <tr class="${p.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
@@ -524,13 +548,17 @@
                                                     />
                                                 </td>
                                             </tr>
-                                        `}).join('')}
+                                        `;
+                                            })
+                                            .join('')}
                                     </tbody>
                                 </table>
                             </div>
                             <div class="col-md-6">
                                 <h6 class="text-info"><i class="fas fa-box"></i> Sản phẩm có sẵn trong đơn (${existingProducts.length})</h6>
-                                ${existingProducts.length > 0 ? `
+                                ${
+                                    existingProducts.length > 0
+                                        ? `
                                     <table class="table table-sm table-bordered">
                                         <thead>
                                             <tr>
@@ -541,12 +569,17 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${existingProducts.map(p => {
-                    const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
-                    const noteKey = `${stt}-${p.productId}`;
-                    const rawNote = state.productNotes[noteKey] || p.note || '';
-                    const existingNote = filterNonEncodedNotes(rawNote);
-                    return `
+                                            ${existingProducts
+                                                .map((p) => {
+                                                    const willBeUpdated = productsWithStatus.some(
+                                                        (ap) => ap.productId === p.productId
+                                                    );
+                                                    const noteKey = `${stt}-${p.productId}`;
+                                                    const rawNote =
+                                                        state.productNotes[noteKey] || p.note || '';
+                                                    const existingNote =
+                                                        filterNonEncodedNotes(rawNote);
+                                                    return `
                                                     <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2">
@@ -573,10 +606,13 @@
                                                         </td>
                                                     </tr>
                                                 `;
-                }).join('')}
+                                                })
+                                                .join('')}
                                         </tbody>
                                     </table>
-                                ` : '<div class="text-center text-muted py-3 border rounded"><i class="fas fa-inbox fa-2x mb-2"></i><p class="mb-0">Không có sản phẩm có sẵn</p><small>(Tất cả sản phẩm đều là mới)</small></div>'}
+                                `
+                                        : '<div class="text-center text-muted py-3 border rounded"><i class="fas fa-inbox fa-2x mb-2"></i><p class="mb-0">Không có sản phẩm có sẵn</p><small>(Tất cả sản phẩm đều là mới)</small></div>'
+                                }
                             </div>
                         </div>
                     </div>
@@ -598,22 +634,22 @@
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                }
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
             });
 
             if (!response.ok) throw new Error('Failed to fetch order');
             const order = await response.json();
 
-            return (order.Details || []).map(detail => ({
+            return (order.Details || []).map((detail) => ({
                 productId: detail.Product?.Id || detail.ProductId,
                 nameGet: detail.Product?.NameGet || detail.ProductName || 'N/A',
                 code: detail.Product?.DefaultCode || detail.ProductCode || '',
                 quantity: detail.Quantity || 0,
                 price: detail.Price || 0,
                 imageUrl: detail.Product?.ImageUrl || '',
-                note: detail.Note || ''
+                note: detail.Note || '',
             }));
         } catch (error) {
             console.error('[FETCH-ORDER] Error:', error);
@@ -649,13 +685,13 @@
                 results.push(result);
             }
 
-            const successCount = results.filter(r => r.success).length;
-            const failCount = results.filter(r => !r.success).length;
-            const status = failCount === 0 ? 'completed' : (successCount > 0 ? 'partial' : 'failed');
+            const successCount = results.filter((r) => r.success).length;
+            const failCount = results.filter((r) => !r.success).length;
+            const status = failCount === 0 ? 'completed' : successCount > 0 ? 'partial' : 'failed';
 
             await saveToUploadHistory(uploadId, results, status);
 
-            const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
+            const successfulSTTs = results.filter((r) => r.success).map((r) => r.stt);
             if (successfulSTTs.length > 0) {
                 await removeUploadedSTTsFromAssignments(successfulSTTs);
             }
@@ -664,9 +700,14 @@
             renderUploadTable();
 
             if (status === 'completed') {
-                ui.showNotification(`Upload thành công ${successCount} STT và đã xóa khỏi danh sách gán`);
+                ui.showNotification(
+                    `Upload thành công ${successCount} STT và đã xóa khỏi danh sách gán`
+                );
             } else if (status === 'partial') {
-                ui.showNotification(`Upload thành công ${successCount} STT, thất bại ${failCount} STT`, 'error');
+                ui.showNotification(
+                    `Upload thành công ${successCount} STT, thất bại ${failCount} STT`,
+                    'error'
+                );
             } else {
                 ui.showNotification(`Upload thất bại ${failCount} STT`, 'error');
             }
@@ -696,9 +737,9 @@
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                }
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -708,15 +749,16 @@
             const orderData = await response.json();
             console.log(`[UPLOAD] Fetched order data for STT ${stt}`);
 
-            const existingProducts = (orderData.Details || []).map(detail => ({
+            const existingProducts = (orderData.Details || []).map((detail) => ({
                 productId: detail.Product?.Id || detail.ProductId,
-                nameGet: detail.Product?.NameGet || detail.ProductNameGet || detail.ProductName || 'N/A',
+                nameGet:
+                    detail.Product?.NameGet || detail.ProductNameGet || detail.ProductName || 'N/A',
                 name: detail.Product?.Name || detail.ProductName || 'N/A',
                 code: detail.Product?.DefaultCode || detail.ProductCode || '',
                 quantity: detail.Quantity || 0,
                 price: detail.Price || 0,
                 imageUrl: detail.Product?.ImageUrl || detail.ImageUrl || '',
-                note: detail.Note || ''
+                note: detail.Note || '',
             }));
 
             const mergedDetails = await prepareUploadDetails(orderData, sessionData, stt);
@@ -724,7 +766,7 @@
 
             let totalQty = 0;
             let totalAmount = 0;
-            orderData.Details.forEach(detail => {
+            orderData.Details.forEach((detail) => {
                 totalQty += detail.Quantity || 0;
                 totalAmount += (detail.Quantity || 0) * (detail.Price || 0);
             });
@@ -733,24 +775,26 @@
 
             const productsForNote = [];
             const priceByProductId = {};
-            mergedDetails.forEach(detail => {
+            mergedDetails.forEach((detail) => {
                 const pid = detail.ProductId || detail.Product?.Id;
                 if (pid) {
                     priceByProductId[pid] = detail.Price || 0;
                 }
             });
 
-            sessionData.products.forEach(p => {
+            sessionData.products.forEach((p) => {
                 const price = priceByProductId[p.productId] || 0;
                 productsForNote.push({
                     productCode: p.productCode || p.productName || 'N/A',
                     quantity: p.quantity || 1,
-                    price: price
+                    price: price,
                 });
             });
 
             if (productsForNote.length > 0) {
-                console.log(`[UPLOAD] Encoding ${productsForNote.length} products into order note...`);
+                console.log(
+                    `[UPLOAD] Encoding ${productsForNote.length} products into order note...`
+                );
                 const currentNote = orderData.Note || '';
                 const encodedNote = noteEncoding.processNoteForUpload(currentNote, productsForNote);
                 orderData.Note = encodedNote;
@@ -765,11 +809,11 @@
             const uploadResponse = await fetch(
                 `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})`,
                 {
-                    method: "PUT",
+                    method: 'PUT',
                     headers: {
                         ...uploadHeaders,
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
                     },
                     body: JSON.stringify(payload),
                 }
@@ -780,15 +824,69 @@
                 throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
             }
 
-            console.log(`[UPLOAD] Successfully uploaded STT ${stt}`);
+            // Post-PUT verification — TPOS đã từng nhận PUT 200 nhưng silently drop
+            // sản phẩm (xem dev-log 2026-05-08 — upload #32240280 ghi B914 cho STT 157,
+            // PUT trả 200, nhưng GET sau cùng không có B914). Verify ngay bằng cách
+            // GET lại Order và đối chiếu danh sách product expected.
+            const expectedProductIds = (sessionData.products || []).map((p) => String(p.productId));
+            let missingProducts = [];
+            try {
+                const verifyHeaders = await window.tokenManager.getAuthHeader();
+                const verifyResponse = await fetch(
+                    `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product)`,
+                    {
+                        headers: {
+                            ...verifyHeaders,
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                        },
+                    }
+                );
+                if (verifyResponse.ok) {
+                    const verified = await verifyResponse.json();
+                    const actualProductIds = new Set(
+                        (verified.Details || []).map((d) => String(d.Product?.Id || d.ProductId))
+                    );
+                    missingProducts = (sessionData.products || [])
+                        .filter((p) => !actualProductIds.has(String(p.productId)))
+                        .map((p) => ({
+                            productId: p.productId,
+                            productCode: p.productCode || 'N/A',
+                            productName: p.productName || '',
+                        }));
+                } else {
+                    console.warn(
+                        `[UPLOAD] Verify GET failed for STT ${stt}: ${verifyResponse.status}`
+                    );
+                }
+            } catch (e) {
+                console.warn(`[UPLOAD] Verify error for STT ${stt}:`, e);
+            }
+
+            if (missingProducts.length > 0) {
+                const codes = missingProducts.map((p) => p.productCode).join(', ');
+                const errMsg = `TPOS không lưu sản phẩm sau PUT (silent drop): ${codes}`;
+                console.error(`[UPLOAD] ${errMsg} cho STT ${stt}`);
+                return {
+                    stt: stt,
+                    success: false,
+                    orderId: orderId,
+                    error: errMsg,
+                    existingProducts: existingProducts,
+                    missingProducts: missingProducts,
+                };
+            }
+
+            console.log(
+                `[UPLOAD] Successfully uploaded STT ${stt} (verified ${expectedProductIds.length} product(s))`
+            );
             return {
                 stt: stt,
                 success: true,
                 orderId: orderId,
                 error: null,
-                existingProducts: existingProducts
+                existingProducts: existingProducts,
             };
-
         } catch (error) {
             console.error(`[UPLOAD] Error uploading STT ${stt}:`, error);
             return {
@@ -796,7 +894,7 @@
                 success: false,
                 orderId: null,
                 error: error.message,
-                existingProducts: []
+                existingProducts: [],
             };
         }
     }
@@ -809,23 +907,27 @@
         const existingDetails = orderData.Details || [];
 
         const existingByProductId = {};
-        existingDetails.forEach(detail => {
+        existingDetails.forEach((detail) => {
             const pid = detail.Product?.Id || detail.ProductId;
             if (pid) existingByProductId[pid] = detail;
         });
 
         const assignedByProductId = {};
-        sessionData.products.forEach(p => {
+        sessionData.products.forEach((p) => {
             const pid = p.productId;
             if (!assignedByProductId[pid]) {
-                assignedByProductId[pid] = { count: 0, productCode: p.productCode, imageUrl: p.imageUrl };
+                assignedByProductId[pid] = {
+                    count: 0,
+                    productCode: p.productCode,
+                    imageUrl: p.imageUrl,
+                };
             }
             assignedByProductId[pid].count += p.quantity;
         });
 
         const mergedDetails = [...existingDetails];
 
-        mergedDetails.forEach(detail => {
+        mergedDetails.forEach((detail) => {
             const pid = detail.Product?.Id || detail.ProductId;
             const noteKey = `${stt}-${pid}`;
             if (state.productNotes[noteKey] !== undefined) {
@@ -845,7 +947,9 @@
                 const oldQty = existingDetail.Quantity || 0;
                 existingDetail.Quantity = oldQty + assignedData.count;
                 existingDetail.Note = noteValue;
-                console.log(`   Updated ${existingDetail.ProductCode || productId}: ${oldQty} -> ${existingDetail.Quantity}, note: "${noteValue}"`);
+                console.log(
+                    `   Updated ${existingDetail.ProductCode || productId}: ${oldQty} -> ${existingDetail.Quantity}, note: "${noteValue}"`
+                );
             } else {
                 console.log(`   Adding new product: ${productId} x${assignedData.count}`);
 
@@ -857,8 +961,12 @@
 
                 const salePrice = fullProduct.PriceVariant || fullProduct.ListPrice;
                 if (salePrice == null || salePrice < 0) {
-                    console.error(`   Product "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) has no sale price.`);
-                    throw new Error(`Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`);
+                    console.error(
+                        `   Product "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) has no sale price.`
+                    );
+                    throw new Error(
+                        `Sản phẩm "${fullProduct.Name || fullProduct.DefaultCode}" (ID: ${fullProduct.Id}) không có giá bán.`
+                    );
                 }
 
                 const newProduct = {
@@ -873,9 +981,10 @@
                     LiveCampaign_DetailId: null,
                     ProductWeight: 0,
                     ProductName: fullProduct.Name || fullProduct.NameTemplate,
-                    ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    ProductNameGet:
+                        fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                     ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
-                    UOMName: fullProduct.UOM?.Name || "Cái",
+                    UOMName: fullProduct.UOM?.Name || 'Cái',
                     ImageUrl: fullProduct.ImageUrl || assignedData.imageUrl,
                     IsOrderPriority: null,
                     QuantityRegex: null,
@@ -899,9 +1008,9 @@
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                }
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -920,11 +1029,12 @@
         const payload = JSON.parse(JSON.stringify(orderData));
 
         if (!payload['@odata.context']) {
-            payload['@odata.context'] = 'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+            payload['@odata.context'] =
+                'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
         }
 
         if (payload.Details && Array.isArray(payload.Details)) {
-            payload.Details = payload.Details.map(detail => {
+            payload.Details = payload.Details.map((detail) => {
                 const cleaned = { ...detail };
                 if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
                     delete cleaned.Id;
@@ -944,16 +1054,16 @@
     async function removeUploadedSTTsFromAssignments(uploadedSTTs) {
         console.log('[DELETE] Removing uploaded STTs:', uploadedSTTs);
 
-        state.assignments.forEach(assignment => {
+        state.assignments.forEach((assignment) => {
             if (assignment.sttList && Array.isArray(assignment.sttList)) {
-                assignment.sttList = assignment.sttList.filter(sttItem => {
+                assignment.sttList = assignment.sttList.filter((sttItem) => {
                     const stt = typeof sttItem === 'object' ? sttItem.stt : sttItem;
                     return !uploadedSTTs.includes(stt.toString());
                 });
             }
         });
 
-        state.assignments = state.assignments.filter(a => a.sttList && a.sttList.length > 0);
+        state.assignments = state.assignments.filter((a) => a.sttList && a.sttList.length > 0);
         dataFns.saveAssignments(true);
         window._tab3.fn.renderAssignmentTable();
         console.log('[DELETE] Removed successfully');
@@ -965,9 +1075,12 @@
                 uploadId: uploadId,
                 timestamp: Date.now(),
                 beforeSnapshot: { assignments: JSON.parse(JSON.stringify(state.assignments)) },
-                uploadedSTTs: uploadedSTTs
+                uploadedSTTs: uploadedSTTs,
             };
-            await database.ref(utils.getUserFirebasePath('productAssignments_backup')).child(uploadId).set(backupData);
+            await database
+                .ref(utils.getUserFirebasePath('productAssignments_backup'))
+                .child(uploadId)
+                .set(backupData);
             console.log('[BACKUP] Created:', uploadId);
         } catch (error) {
             console.error('[BACKUP] Error:', error);
@@ -981,11 +1094,11 @@
                 timestamp: Date.now(),
                 uploadStatus: status,
                 totalSTTs: results.length,
-                successCount: results.filter(r => r.success).length,
-                failCount: results.filter(r => !r.success).length,
-                uploadedSTTs: results.map(r => r.stt),
+                successCount: results.filter((r) => r.success).length,
+                failCount: results.filter((r) => !r.success).length,
+                uploadedSTTs: results.map((r) => r.stt),
                 uploadResults: results,
-                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(state.assignments)) }
+                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(state.assignments)) },
             };
 
             const historyPath = state.userStorageManager
@@ -1012,7 +1125,7 @@
         let totalProducts = 0;
         let totalItems = 0;
 
-        Object.values(uploadData).forEach(data => {
+        Object.values(uploadData).forEach((data) => {
             totalProducts += data.products.length;
             totalItems += data.products.reduce((sum, p) => sum + p.quantity, 0);
         });
@@ -1037,10 +1150,13 @@
                 totalSTTs: Object.keys(uploadData).length,
                 totalProducts: state.assignments.length,
                 note: note,
-                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(state.assignments)) }
+                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(state.assignments)) },
             };
 
-            await database.ref(utils.getUserFirebasePath('productAssignments_finalize_history')).child(finalizeId).set(finalizeData);
+            await database
+                .ref(utils.getUserFirebasePath('productAssignments_finalize_history'))
+                .child(finalizeId)
+                .set(finalizeData);
 
             state.assignments = [];
             dataFns.saveAssignments(true);
@@ -1067,5 +1183,4 @@
     window._tab3.fn.filterNonEncodedNotes = filterNonEncodedNotes;
     window._tab3.fn.prepareUploadPayload = prepareUploadPayload;
     window._tab3.fn.fetchExistingOrderProducts = fetchExistingOrderProducts;
-
 })();

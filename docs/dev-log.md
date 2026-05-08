@@ -8,6 +8,33 @@
 
 ## 2026-05-08
 
+### [orders][tab3] Upload TPOS PUT 200 nhưng silent drop sản phẩm — verify post-PUT, badge ❌ trong lịch sử
+
+**Bug user báo**: Tab "Gán Sản Phẩm - STT" → Lịch Sử Upload #32240280 hiện rõ B914 (3103 B9 ĐỒNG HỒ BBR NU FULL BOX) đã upload cho STT 157 (kèm 13 STT khác). Sang Quản Lý Đơn Hàng → đơn STT 157, kiểm tra giỏ + lịch sử **không có** B914. Nghi race condition.
+
+**Forensic** ([scripts/debug-upload-stt157.mjs](../scripts/debug-upload-stt157.mjs) + [scripts/debug-product-fetch.mjs](../scripts/debug-product-fetch.mjs)):
+
+- Upload `upload_1778132240280` (timestamp 2026-05-07 05:37 UTC, user `guest`, status `completed`):
+    - `uploadResults[stt=157]`: `success:true`, `orderId:01770000-…b9c1-08deabef01e5`, `existingProductsCodes:[Q281T,Q281D1,Q281N]`.
+    - `beforeSnapshot.assignments[B914].sttList` chứa `"157"`.
+- Upload kế tiếp đụng STT 157 (`upload_1778226952230`, 2026-05-08 07:56) ghi nhận `existingProductsCodes:[Q281T,Q281D1,Q281N]` — **không có B914** dù chưa có removal nào ghi (`productRemovals_history` rỗng cho STT 157).
+- Live TPOS state hiện tại: `[Q281T, Q281D1, Q281N, Q279X, Q279N]` (5 sản phẩm, **B914 vắng**). `Product(152750)` (B914) trên TPOS Active=true, có giá → KHÔNG phải fetchProductDetails fail.
+
+→ **Upload trả HTTP 200 nhưng TPOS không persist B914**. Nguyên nhân chính xác phía TPOS chưa rõ (silent drop / race / validation lặng), nhưng lỗi-class lặp lại được: client tin tưởng HTTP 200 = success, không verify bằng GET sau.
+
+**Fix**:
+
+1. [orders-report/js/tab3/tab3-upload.js](../orders-report/js/tab3/tab3-upload.js) `uploadSingleSTT`: ngay sau PUT 200, GET lại `SaleOnline_Order(orderId)?$expand=Details($expand=Product)`, đối chiếu `sessionData.products[].productId` với `Details[].Product.Id`. Sản phẩm nào thiếu → return `success:false`, `error:"TPOS không lưu sản phẩm sau PUT (silent drop): <codes>"`, `missingProducts:[…]`. STT bị verify-fail sẽ KHÔNG bị xóa khỏi `state.assignments` (`removeUploadedSTTsFromAssignments` chỉ filter theo `success:true`) → user thấy giỏ còn nguyên để retry.
+2. [orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `renderUploadHistoryDetailV2`: build `sttOutcome` map từ `record.uploadResults`, render mỗi STT trong cột "Mã đơn hàng" thành badge — `bg-success ✓ 157` cho thành công, `bg-danger ❌ 157` cho thất bại (kèm `title=error` tooltip), tra cứu `missingProducts` để cũng đỏ hóa STT-product cụ thể bị silent drop dù STT tổng `success:true`. Records cũ (như #32240280) vẫn xanh vì historic data lưu `success:true` — không thể rewrite quá khứ; chỉ kết quả upload SAU khi deploy mới được tô màu chính xác.
+
+**Verify** ([scripts/verify-tab3-history-modal.mjs](../scripts/verify-tab3-history-modal.mjs)): mở modal Chi Tiết Upload #32240280, parse HTML → mỗi STT render thành `<span class="badge bg-success">✓ 157</span>` (đúng kỳ vọng historical record). Modal HTML 6.7KB, không pageerror. `node --check` pass cho 2 file sửa.
+
+**User action required**: B914 trên STT 157 hiện KHÔNG CÓ trong TPOS — user cần re-gán B914 → STT 157 → upload lại. Nếu lần này TPOS lại silent drop, post-PUT verify sẽ phát hiện và surface error message + giỏ giữ nguyên để retry.
+
+**Status**: ✅ Done — fix tab3-upload.js (post-PUT verify) + tab3-history-v2.js (badge per STT).
+
+---
+
 ### [aikol][kling] Native multi-image2video face-swap + Kling default video + cost warn > 5K₫
 
 User: log in Kling account, save key vào `serect_dont_push.txt`, browse docs, đưa Kling thành mặc định + thông báo > 5.000 ₫.

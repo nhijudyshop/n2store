@@ -897,6 +897,43 @@
 
         html += '<h6 class="mb-3"><i class="fas fa-box"></i> Sản phẩm đã upload</h6>';
 
+        // Build per-STT outcome map từ uploadResults để màu hóa từng STT trong
+        // bảng "Sản phẩm đã upload". Dữ liệu QUEUED không bằng dữ liệu PERSISTED:
+        // có lúc PUT trả 200 nhưng TPOS silent drop sản phẩm (bug đã gặp 2026-05).
+        // Hiển thị badge ❌ kèm tooltip lỗi cho mỗi STT bị drop để soi nhanh.
+        const sttOutcome = new Map();
+        (record.uploadResults || []).forEach((r) => {
+            const stt = String(r.stt);
+            const missingByPid = new Set((r.missingProducts || []).map((m) => String(m.productId)));
+            const missingByCode = new Set(
+                (r.missingProducts || []).map((m) => (m.productCode || '').toUpperCase())
+            );
+            sttOutcome.set(stt, {
+                success: !!r.success,
+                error: r.error || '',
+                missingByPid,
+                missingByCode,
+            });
+        });
+
+        const renderSttBadge = (stt, product) => {
+            const sttStr = String(stt);
+            const out = sttOutcome.get(sttStr);
+            const productKey = String(product.productId || '');
+            const productCode = (product.productCode || '').toUpperCase();
+            if (!out) {
+                return `<span class="badge bg-light text-dark" style="margin: 1px;">${sttStr}</span>`;
+            }
+            const productMissing =
+                (productKey && out.missingByPid.has(productKey)) ||
+                (productCode && out.missingByCode.has(productCode));
+            if (!out.success || productMissing) {
+                const titleAttr = utils.escapeHtml(out.error || 'TPOS không lưu sản phẩm');
+                return `<span class="badge bg-danger" style="margin: 1px;" title="${titleAttr}">❌ ${sttStr}</span>`;
+            }
+            return `<span class="badge bg-success" style="margin: 1px;">✓ ${sttStr}</span>`;
+        };
+
         if (Object.keys(productsByCode).length === 0) {
             html += `<div class="alert alert-warning" role="alert"><i class="fas fa-exclamation-triangle"></i> Không có dữ liệu products trong beforeSnapshot</div>`;
         } else {
@@ -905,7 +942,7 @@
             )
                 .map(
                     (product) =>
-                        `<tr><td><div class="d-flex align-items-center gap-2">${product.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px;">${product.productName}</div><div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div></div></div></td><td class="text-center"><span class="badge bg-primary">${product.count}</span></td><td class="text-center small">${product.sttList.join(', ')}</td><td class="small">${product.note}</td></tr>`
+                        `<tr><td><div class="d-flex align-items-center gap-2">${product.imageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px;">${product.productName}</div><div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div></div></div></td><td class="text-center"><span class="badge bg-primary">${product.count}</span></td><td class="text-center small" style="line-height: 1.8;">${product.sttList.map((stt) => renderSttBadge(stt, product)).join(' ')}</td><td class="small">${product.note}</td></tr>`
                 )
                 .join('')}</tbody></table></div></div>`;
         }
