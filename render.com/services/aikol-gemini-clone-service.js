@@ -48,17 +48,33 @@ async function cloneImage(args) {
         sceneImageUrl ? fetchImageBase64(sceneImageUrl) : Promise.resolve(null),
     ]);
 
-    // Build prompt with explicit instructions (Gemini 3.1 honors clear directives).
-    // Single-image branch defaults to MAX FIDELITY — reproduce 1:1 unless caller
-    // overrides via prompt. The route layer (clone-from-image) already builds
-    // a fidelity-first directive; this fallback exists for direct service callers.
+    // Build prompt with explicit instructions. Identity preservation directive
+    // emphasizes pixel-level face match — Gemini 3.1 honors highly specific
+    // anatomical anchors better than vague "preserve face" wording.
     const directive = sceneImg
         ? [
-              'Replace the person in the SECOND image with the woman/man from the FIRST image.',
-              'Preserve her/his exact face, hairstyle, and identity from image 1.',
-              'Keep the same scene, lighting, composition, props, and background from image 2.',
-              prompt ? `Additional context: ${prompt}` : '',
-              'Output: photorealistic, sharp focus, ultra detailed.',
+              '**TASK: identity-preserving face transfer.**',
+              'You are given two images:',
+              '- IMAGE 1 (reference person): contains the EXACT identity to preserve.',
+              '- IMAGE 2 (target scene): contains the scene, pose, lighting, and composition.',
+              '',
+              "Generate ONE output image that places IMAGE 1's person into IMAGE 2's scene.",
+              '',
+              '**CRITICAL — preserve from IMAGE 1 with 100% pixel-level fidelity:**',
+              'eye shape, eye color, eyebrow shape, nose shape and proportions,',
+              'mouth shape and lip line, jawline, chin shape, cheekbones, ears,',
+              'face shape and proportions, forehead, hairline, hair color and texture,',
+              'skin tone, freckles, moles, scars, makeup, age, ethnicity, gender.',
+              'The face must look INDISTINGUISHABLE from IMAGE 1 — same person beyond doubt.',
+              'Do NOT smooth, beautify, idealize, age-shift, or stylize the face.',
+              'Do NOT blend features with the person in IMAGE 2.',
+              '',
+              '**From IMAGE 2: keep** scene, lighting direction, color palette,',
+              'composition, camera angle, props, background, and body pose/outfit.',
+              prompt ? `\n**Additional context:** ${prompt}` : '',
+              '',
+              '**Output:** photorealistic, sharp focus on the face, ultra detailed,',
+              'natural skin texture, anatomically correct, no smoothing artifacts.',
           ]
               .filter(Boolean)
               .join(' ')
@@ -67,12 +83,15 @@ async function cloneImage(args) {
             // builds explicit fidelity prompts).
             prompt
           : [
-                'Reproduce this reference image with maximum fidelity — output must look',
-                'identical to the input. Preserve every detail: exact face, eyes, nose,',
-                'mouth, hairstyle, hair color, skin tone, makeup, facial expression,',
-                'head pose, body pose, outfit, accessories, lighting direction, color',
-                'palette, and background composition. Do not add, remove, or modify any',
-                'element. Photorealistic, sharp focus, ultra detailed, 1:1 reproduction.',
+                'Reproduce this reference image with 100% pixel-level fidelity.',
+                'Preserve EXACTLY: eye shape, eye color, eyebrow shape, nose shape and',
+                'proportions, mouth shape, lip line, jawline, chin, cheekbones, ears,',
+                'face shape, hairline, hair color and texture, skin tone, freckles, moles,',
+                'scars, makeup, age, ethnicity, gender, expression, head pose, body pose,',
+                'outfit, accessories, lighting direction, color palette, background.',
+                'The output must look INDISTINGUISHABLE from the input — same person',
+                'beyond doubt. Do NOT smooth, beautify, idealize, age-shift, or stylize.',
+                'Photorealistic, sharp focus, natural skin texture, 1:1 reproduction.',
             ].join(' ');
 
     const parts = [

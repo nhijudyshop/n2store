@@ -71,10 +71,21 @@ async function submitVideoJob(args) {
 
     const modelImg = await fetchImageBase64(modelImageUrl);
 
+    // Default directive emphasizes IDENTITY LOCK — Veo image2video tự nhiên drift
+    // face theo motion. Explicit anchor "do NOT redraw the face" giúp giữ pixel
+    // identity ổn định qua frames.
     const directive = (
         prompt ||
-        'Animate the subject naturally, maintaining their face and identity. Cinematic camera, photorealistic.'
-    ).slice(0, 1000);
+        'Animate this image with subtle natural motion ONLY. ' +
+            'Lock the face: do NOT redraw, smooth, beautify, idealize, or modify the eyes, ' +
+            'nose, mouth, jawline, cheekbones, hairline, hair color, skin tone, makeup, or ' +
+            'any facial feature. The animation must preserve the EXACT identity from the ' +
+            'input image — same person beyond doubt across every frame. ' +
+            'Allowed motion: gentle head turn (≤10°), subtle facial micro-expressions, ' +
+            'eye blinks, breathing, slight body sway, hair movement. ' +
+            'Keep the same scene, lighting, composition, and color palette from the input. ' +
+            'Cinematic camera, photorealistic, natural skin texture, sharp focus on face.'
+    ).slice(0, 1500);
 
     // predictLongRunning uses Vertex-style envelope. Image goes in
     // instances[].image.{bytesBase64Encoded, mimeType}. The docs page mentions

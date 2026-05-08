@@ -137,13 +137,17 @@ async function dispatchOne(row) {
         return [
             `${verb} from this reference image into the following new scene:`,
             sceneDesc + '.',
-            'Preserve the exact face, eyes, nose, mouth, hairstyle, hair color,',
-            'skin tone, and identity from the reference image.',
+            '**Preserve identity 100% pixel-level**: eye shape, eye color, eyebrow',
+            'shape, nose shape and proportions, mouth shape, lip line, jawline,',
+            'chin, cheekbones, face shape, hairline, hair color and texture, skin',
+            'tone, freckles, moles, makeup, age, ethnicity, gender. Same person',
+            'beyond doubt — do NOT smooth, beautify, idealize, age-shift, or',
+            'stylize the face. Do NOT blend with anyone else.',
             'The pose, expression, outfit, lighting, and background should match',
             'the new scene description above, not the reference image.',
             forVideo
-                ? 'Cinematic camera, photorealistic, sharp focus, ultra detailed.'
-                : 'Photorealistic, sharp focus, ultra detailed.',
+                ? 'Cinematic camera, photorealistic, natural skin texture, sharp focus on face.'
+                : 'Photorealistic, natural skin texture, sharp focus on face, ultra detailed.',
         ].join(' ');
     }
 
@@ -226,9 +230,27 @@ async function dispatchOne(row) {
             // Khi đã compose: directive yêu cầu animate composite (giữ scene+identity).
             // Khi auto_scene: directive yêu cầu place model vào scene mới từ note.
             // Khi with_clip nhưng compose fail: fallback note như cũ.
+            // Compose case: input đã là model-trong-scene-clip (Gemini composed).
+            // Veo cần GIỮ NGUYÊN face, chỉ thêm motion → identity-lock prompt
+            // mạnh để tránh face drift qua frames.
+            const composeAnimatePrompt = [
+                'Animate this image with subtle natural motion ONLY.',
+                '**Lock the face**: do NOT redraw, smooth, beautify, idealize, or modify',
+                'the eyes, nose, mouth, jawline, cheekbones, hairline, hair color, skin',
+                'tone, makeup, or any facial feature. The animation must preserve the',
+                'EXACT identity from the input image — same person beyond doubt across',
+                'every frame.',
+                'Allowed motion: gentle head turn (≤10°), subtle facial micro-expressions,',
+                'eye blinks, breathing, slight body sway, hair movement.',
+                'Keep the same scene, lighting, composition, and color palette from the',
+                'input. Cinematic camera, photorealistic, natural skin texture, sharp',
+                'focus on face.',
+                (note || '').trim() ? `\nAdditional motion direction: ${note.trim()}` : '',
+            ]
+                .filter(Boolean)
+                .join(' ');
             const videoPrompt = shouldCompose
-                ? (note || '').trim() ||
-                  'Animate the person in this image naturally — subtle facial expressions, gentle head and body motion, breathing, eye blinks. Keep the exact scene, lighting, and composition from this image. Cinematic, photorealistic.'
+                ? composeAnimatePrompt
                 : genMode === 'auto_scene'
                   ? buildAutoSceneDirective(true)
                   : note;

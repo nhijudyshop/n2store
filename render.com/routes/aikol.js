@@ -283,26 +283,35 @@ router.post('/models/clone-from-image', requireUser, upload.single('file'), asyn
     }
     const refUrl = bunny.cdnUrl(tmpKey);
 
-    // Build directive: MAXIMUM FIDELITY — output phải giống ảnh upload tối đa.
-    // Nếu user không cho thêm prompt → reproduce 1:1, không sáng tạo. Nếu có
-    // prompt → chỉ thay đổi minimal theo prompt, giữ mọi thứ khác y nguyên.
+    // Build directive: 100% pixel-level FIDELITY — output phải giống ảnh upload
+    // beyond doubt. Nếu user không cho thêm prompt → reproduce 1:1, không sáng
+    // tạo. Nếu có prompt → chỉ thay đổi minimal theo prompt, mọi thứ khác y.
+    const fidelityCore = [
+        '**Preserve identity 100% pixel-level**: eye shape, eye color, eyebrow shape,',
+        'nose shape and proportions, mouth shape, lip line, jawline, chin, cheekbones,',
+        'ears, face shape, hairline, hair color and texture, skin tone, freckles,',
+        'moles, scars, makeup, age, ethnicity, gender, facial expression.',
+        'Same person beyond doubt — do NOT smooth, beautify, idealize, age-shift,',
+        'stylize, or blend with anyone else.',
+    ].join(' ');
     const directive = extraPrompt
         ? [
               'Reproduce this reference image as closely as possible.',
-              'Preserve the exact face, eyes, nose, mouth, hairstyle, hair color, skin tone,',
-              'makeup, facial expression, head pose, body pose, outfit, accessories,',
-              'lighting direction, color palette, and background composition.',
+              fidelityCore,
+              'Also preserve: head pose, body pose, outfit, accessories, lighting',
+              'direction, color palette, background composition.',
               `Apply only this small adjustment per the user request: ${extraPrompt}.`,
               'Do not change anything else. No re-styling, no re-posing, no re-framing.',
-              'Photorealistic, sharp focus, ultra detailed, identical to the reference.',
+              'Photorealistic, natural skin texture, sharp focus on face, ultra detailed.',
           ].join(' ')
         : [
-              'Reproduce this reference image with maximum fidelity — output must look',
-              'identical to the input. Preserve every detail: exact face, eyes, nose, mouth,',
-              'hairstyle, hair color, skin tone, makeup, facial expression, head pose,',
-              'body pose, outfit, accessories, lighting direction, color palette, and',
-              'background composition. Do not add, remove, or modify any element.',
-              'Photorealistic, sharp focus, ultra detailed, 1:1 reproduction.',
+              'Reproduce this reference image with 1:1 pixel-level fidelity — output',
+              'must look INDISTINGUISHABLE from the input.',
+              fidelityCore,
+              'Also preserve: head pose, body pose, outfit, accessories, lighting',
+              'direction, color palette, background composition. Do not add, remove,',
+              'or modify any element.',
+              'Photorealistic, natural skin texture, sharp focus on face, ultra detailed.',
           ].join(' ');
 
     let result;
