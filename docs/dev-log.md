@@ -8,6 +8,26 @@
 
 ## 2026-05-08
 
+### [render][purchase-orders] Cascade delete `purchase_order_images` khi xóa đơn (Phase A của migration R2)
+
+**Trigger**: chat-db audit phát hiện `purchase_order_images` 245 MB (1009 row bytea) growing ~40 ảnh/ngày → ~1.4 GB/năm. Phase A: bịt rò rỉ — xóa đơn = xóa ảnh.
+
+**Schema link**: `purchase_orders.invoice_images TEXT[]` chứa URL `${BASE_URL}/api/v2/purchase-orders/images/<id>`. Trước commit này không có cascade — ảnh tồn tại vô thời hạn dù đơn đã hard-delete hay cleanup-trash hết hạn.
+
+**Fix** ([render.com/routes/v2/purchase-orders.js](../render.com/routes/v2/purchase-orders.js)):
+
+- Thêm helper `extractImageIds(urlArrays)` regex `/\/images\/([^/?#]+)$/` lấy id từ URL.
+- Thêm `deleteImagesByIds(pool, ids)` chạy `DELETE FROM purchase_order_images WHERE id = ANY($1)`.
+- `DELETE /:id/permanent`: SELECT trước `invoice_images`, hard-delete đơn xong gọi cascade, trả `{ deletedImages: N }`.
+- `POST /cleanup-trash`: thêm `RETURNING id, invoice_images` rồi cascade batch.
+- Thêm `POST /cleanup-orphan-images { minAgeHours }`: SQL CTE `referenced` parse suffix `/images/<id>` từ tất cả `invoice_images` array của bất kỳ đơn nào → DELETE images NOT IN referenced AND created_at < NOW() - INTERVAL — safety net cho ảnh đã orphan trước commit này.
+
+**Phase B (chờ user setup)**: migrate sang Cloudflare R2 — bytea 245 MB → R2 (egress free, growth không tốn DB nữa). Cần user tạo R2 bucket + S3 API token.
+
+Status: ✅ Phase A xong (cascade + orphan cleanup endpoint). Phase B blueprint pending.
+
+---
+
 ### [render][chat-db] Bỏ lưu phone_call_recordings (duplicate với OnCallCX portal) — free 92 MB
 
 **Trigger**: chat-db (`n2store-chat-db`, plan basic_1gb) đã chạm 75% (761 MB / 1020 MB). Audit phát hiện `phone_call_recordings` 92 MB chỉ duy nhất 157 row nhưng audio bytea trùng dữ liệu OnCallCX portal — UI `Lịch sử cuộc gọi` đã có sẵn nút **Portal OnCallCX** để fetch trực tiếp.

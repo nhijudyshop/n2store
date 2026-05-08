@@ -30,6 +30,30 @@ const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const adminSettings = require('../../services/admin-settings-service');
 
+// Image URL pattern: ${BASE_URL}/api/v2/purchase-orders/images/<id>
+// Extract just the trailing id segment so we can cascade-delete from purchase_order_images.
+function extractImageIds(urlArrays) {
+    const ids = new Set();
+    for (const arr of urlArrays) {
+        if (!Array.isArray(arr)) continue;
+        for (const url of arr) {
+            if (typeof url !== 'string') continue;
+            const m = url.match(/\/images\/([^/?#]+)$/);
+            if (m && m[1]) ids.add(m[1]);
+        }
+    }
+    return Array.from(ids);
+}
+
+async function deleteImagesByIds(pool, ids) {
+    if (!ids.length) return 0;
+    const r = await pool.query(
+        'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
+        [ids]
+    );
+    return r.rowCount;
+}
+
 // Use shared DB pool from app.locals (same as all other v2 routes)
 function getDb(req) {
     return req.app.locals.chatDb;
@@ -997,9 +1021,10 @@ router.delete('/:id/permanent', async (req, res) => {
         const pool = getDb(req);
         const orderId = req.params.id;
 
-        const existing = await pool.query('SELECT status FROM purchase_orders WHERE id = $1', [
-            orderId,
-        ]);
+        const existing = await pool.query(
+            'SELECT status, invoice_images FROM purchase_orders WHERE id = $1',
+            [orderId]
+        );
         if (existing.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Đơn hàng không tồn tại' });
         }
@@ -1011,8 +1036,10 @@ router.delete('/:id/permanent', async (req, res) => {
             });
         }
 
+        const imageIds = extractImageIds([existing.rows[0].invoice_images || []]);
         await pool.query('DELETE FROM purchase_orders WHERE id = $1', [orderId]);
-        res.json({ success: true });
+        const deletedImages = await deleteImagesByIds(pool, imageIds);
+        res.json({ success: true, deletedImages });
     } catch (error) {
         console.error('[PO API] Permanent delete error:', error);
         res.status(500).json({ success: false, error: 'Không thể xóa vĩnh viễn đơn hàng' });
@@ -1132,7 +1159,7 @@ router.post('/:id/copy', async (req, res) => {
 });
 
 // ========================================
-// POST /cleanup-trash — Auto-cleanup old trash
+// POST /cleanup-trash — Auto-cleanup old trash (cascade ảnh)
 // ========================================
 router.post('/cleanup-trash', async (req, res) => {
     try {
@@ -1142,14 +1169,58 @@ router.post('/cleanup-trash', async (req, res) => {
         const result = await pool.query(
             `DELETE FROM purchase_orders
              WHERE status = 'DELETED' AND deleted_at <= NOW() - INTERVAL '1 day' * $1
-             RETURNING id`,
+             RETURNING id, invoice_images`,
             [retentionDays]
         );
 
-        res.json({ success: true, deletedCount: result.rowCount });
+        const imageIds = extractImageIds(result.rows.map((r) => r.invoice_images || []));
+        const deletedImages = await deleteImagesByIds(pool, imageIds);
+
+        res.json({ success: true, deletedCount: result.rowCount, deletedImages });
     } catch (error) {
         console.error('[PO API] Cleanup error:', error);
         res.status(500).json({ success: false, error: 'Cleanup failed' });
+    }
+});
+
+// ========================================
+// POST /cleanup-orphan-images — One-shot dọn ảnh không link tới đơn nào
+// (safety net cho các đơn xóa trước khi cascade được wire)
+// ========================================
+router.post('/cleanup-orphan-images', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        const { minAgeHours = 24 } = req.body || {};
+
+        // Lấy tập id ảnh đang được tham chiếu trong invoice_images của BẤT KỲ đơn nào.
+        // Match suffix /images/<id> để không bắt nhầm string khác.
+        const result = await pool.query(
+            `
+            WITH referenced AS (
+                SELECT DISTINCT
+                    substring(url FROM '/images/([^/?#]+)$') AS img_id
+                FROM purchase_orders po, unnest(po.invoice_images) AS url
+                WHERE po.invoice_images IS NOT NULL
+                  AND array_length(po.invoice_images, 1) > 0
+            )
+            DELETE FROM purchase_order_images
+            WHERE created_at < NOW() - INTERVAL '1 hour' * $1
+              AND id NOT IN (SELECT img_id FROM referenced WHERE img_id IS NOT NULL)
+            RETURNING id, size_bytes
+            `,
+            [minAgeHours]
+        );
+
+        const freedBytes = result.rows.reduce((s, r) => s + (r.size_bytes || 0), 0);
+        res.json({
+            success: true,
+            deletedCount: result.rowCount,
+            freedBytes,
+            freedMB: (freedBytes / 1024 / 1024).toFixed(1),
+        });
+    } catch (error) {
+        console.error('[PO API] Orphan cleanup error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
