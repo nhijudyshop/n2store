@@ -8,6 +8,50 @@
 
 ## 2026-05-08
 
+### [aikol][kling] Native multi-image2video face-swap + Kling default video + cost warn > 5K₫
+
+User: log in Kling account, save key vào `serect_dont_push.txt`, browse docs, đưa Kling thành mặc định + thông báo > 5.000 ₫.
+
+**Browser docs research** (https://kling.ai/document-api):
+
+- Endpoint mới `POST /v1/videos/multi-image2video` — up to 4 reference images. Perfect cho face-swap workflow:
+    - `image[0]` = model face (KOL portrait)
+    - `image[1]` = clip cover frame (target scene)
+    - → 1 API call thay vì Gemini compose + animate (2-step).
+- Base URL `api-singapore.klingai.com` (better latency cho VN).
+- Available models: kling-v1 → kling-v3 (newest, native 4K). Multi-image-only-supports-kling-v1-6.
+
+**Service** ([aikol-kling-service.js](../render.com/services/aikol-kling-service.js)):
+
+- Default: `kling-v2-5-turbo` (general). Multi-image: `kling-v1-6` (chỉ model này support).
+- New `submitMultiImage2Video({imageUrls, config, note})` — gọi `/v1/videos/multi-image2video`.
+- Base singapore region.
+
+**Worker** ([aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js)):
+
+- Engine default video → `kling`.
+- with_clip + Kling: native multi-image2video (no compose) — saves 8cr + ~20-30s latency.
+- with_clip + Veo: vẫn cần Gemini compose pre-step (Veo only accepts 1 image).
+- auto_scene + Kling: image2video.
+
+**Cost** ([routes/aikol-generations.js](../render.com/routes/aikol-generations.js)):
+
+- with_clip + Veo: cộng 8cr Gemini compose.
+- with_clip + Kling: KHÔNG cộng (native multi-image).
+
+**UI** ([generate-panel.js](../aikol-studio/js/generate-panel.js)):
+
+- Engine video default Kling. Label: "Kling multi-image2video — native face-swap (8-13cr/s ⭐ · 1 step, không cần compose)".
+- **Cost warn > 5.000 ₫**: confirm modal trước submit để tránh burn accidental. `aikolConfirm` nếu có (custom modal đẹp), fallback `window.confirm`.
+
+**Render env updated**: `KLING_ACCESS_KEY` + `KLING_SECRET_KEY` (verified PUT 200).
+
+**Verified live** (commit 201e9b5f):
+
+- Job `afd08153-…` (Hạnh 4 + clip 34, multi-image2video, 40 cr): submit reach Kling endpoint → `Account balance not enough (code 1102)` → refund chạy đúng (balance 4559 → 4599).
+- Auth + endpoint + refund logic verified end-to-end.
+- **Pending**: user top-up Kling account tại klingai.com để gen thực sự ra MP4. Code path đã sẵn sàng — chỉ cần balance.
+
 ### [orders][perf] Hard-reload main.html → chọn chiến dịch load lâu — image-cache bypass `loading="lazy"`
 
 **Bug**: User báo hard-reset vào `https://nhijudyshop.github.io/n2store/orders-report/main.html` rồi chọn chiến dịch → load rất lâu.
