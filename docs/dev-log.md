@@ -8,6 +8,20 @@
 
 ## 2026-05-08
 
+### [aikol][generate] Default engine: Gemini 3.1 (image) + Veo 3.1 (video) thay cho Fal/Kling
+
+Fal PuLID + Kling đều đang locked do exhausted balance ở provider. 2 engine working được verify hoạt động end-to-end (browser test) nên đổi mặc định trong modal Generate sang Gemini 3.1 cho image và Veo 3.1 cho video. Fal/Kling vẫn chọn được nhưng đánh dấu "(cần top-up)".
+
+[aikol-studio/js/generate-panel.js](../aikol-studio/js/generate-panel.js): đổi `<option selected>` + fallback default trong `readForm()`.
+
+### [aikol][clone-from-image] Max-fidelity prompt — output phải giống ảnh upload tối đa
+
+User: "AI tạo model từ ảnh prompt là tạo model càng giống ảnh càng tốt".
+
+Trước đây directive `clone-from-image` chỉ yêu cầu Gemini "preserve face & identity" → Gemini tự sáng tạo pose/expression/outfit/lighting, output không giống ảnh nguồn lắm. Đổi prompt thành 1:1 reproduction directive — liệt kê tường minh các yếu tố phải giữ y nguyên (face, eyes, nose, mouth, hair, makeup, expression, pose, outfit, accessories, lighting, color palette, background). Khi user có extraPrompt thì coi như tweak nhỏ, mọi thứ khác vẫn giữ y.
+
+Files: [render.com/routes/aikol.js](../render.com/routes/aikol.js) directive build, [render.com/services/aikol-gemini-clone-service.js](../render.com/services/aikol-gemini-clone-service.js) single-image branch fallback.
+
 ### [purchase-orders] BUG: tab Nháp không có hình ảnh sản phẩm — items[].productImages chưa migrate Bunny
 
 **User báo**: "tab nháp đơn hàng bị bug ở đâu mà không có hình ảnh sản phẩm?"
