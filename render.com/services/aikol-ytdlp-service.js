@@ -81,6 +81,9 @@ async function listUserVideos(userUrl, opts = {}) {
     // Strip /video/... if user pasted a single-video URL — keep just user root
     url = url.replace(/(\/@[\w._-]+)\/video\/.*$/, '$1');
 
+    // Extract @handle from URL so each video URL is unambiguous downstream
+    const handleFromInput = (url.match(/@([\w._-]+)/) || [])[1] || '';
+
     return new Promise((resolve, reject) => {
         // --flat-playlist returns metadata WITHOUT downloading video files.
         // -J prints a single JSON tree with "entries" array.
@@ -121,22 +124,30 @@ async function listUserVideos(userUrl, opts = {}) {
                 return reject(new Error('yt-dlp returned non-JSON: ' + stdout.slice(0, 200)));
             }
             const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+            const uploader = parsed.uploader || parsed.channel || handleFromInput || '';
             const videos = entries
                 .filter((e) => e && (e.id || e.url))
                 .map((e) => {
                     const videoId = String(e.id || '').replace(/[^\d]/g, '');
-                    const handle = (parsed.uploader || parsed.channel || '').replace(/^@/, '');
-                    const url = e.url || `https://www.tiktok.com/@${handle}/video/${videoId}`;
+                    const handle = String(uploader).replace(/^@/, '');
+                    // Prefer entry URL if it has /@handle/video/, else build from handle.
+                    // /import/single parser also accepts raw videoId → safe fallback.
+                    let videoUrl = e.url || '';
+                    if (!/\/@[\w._-]+\/video\//.test(videoUrl)) {
+                        videoUrl = handle
+                            ? `https://www.tiktok.com/@${handle}/video/${videoId}`
+                            : videoId; // raw ID — parser accepts ^\d{12,25}$
+                    }
                     return {
                         videoId,
-                        url,
+                        url: videoUrl,
                         title: e.title || '',
                         duration: typeof e.duration === 'number' ? Math.round(e.duration) : null,
                         cover: e.thumbnails?.[0]?.url || e.thumbnail || null,
                     };
                 })
                 .filter((v) => v.videoId);
-            resolve({ videos, uploader: parsed.uploader || parsed.channel || null });
+            resolve({ videos, uploader });
         });
 
         proc.on('error', (err) => {
