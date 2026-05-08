@@ -226,6 +226,32 @@ router.post('/models', requireUser, upload.single('file'), async (req, res) => {
     }
 });
 
+// POST /models/describe-image — Multipart image upload → portrait prompt text
+// (FREE — Gemini Vision describe, ~$0.001/call). Returns { prompt: "..." } that
+// frontend fills into the "Mô tả" textarea for Section 2 Tạo bằng AI.
+const geminiDescribe = require('../services/aikol-gemini-describe-service');
+router.post('/models/describe-image', requireUser, upload.single('file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'invalid', detail: 'Image file required' });
+    }
+    const mime = (req.file.mimetype || '').toLowerCase();
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) {
+        return res
+            .status(400)
+            .json({ error: 'invalid', detail: 'Chỉ chấp nhận JPEG / PNG / WEBP' });
+    }
+    try {
+        const r = await geminiDescribe.describeFromImage({
+            buffer: req.file.buffer,
+            mimeType: mime,
+        });
+        res.json({ prompt: r.prompt, model: r.model });
+    } catch (e) {
+        console.error('[aikol] /models/describe-image', e.message);
+        res.status(502).json({ error: 'describe_failed', detail: e.message });
+    }
+});
+
 // POST /models/generate — Tạo model bằng AI (Gemini 2.5 Flash Image / Nano Banana)
 // Body: { name, prompt, aspectRatio? } → charges COSTS.image credits, generates
 // portrait via Gemini, uploads to Bunny, inserts aikol_models row.

@@ -129,14 +129,31 @@
                                 <label class="aikol-label" for="model-gen-prompt">
                                     Mô tả (tiếng Anh hiệu quả hơn)
                                 </label>
-                                <button
-                                    type="button"
-                                    id="prompt-gen-btn"
-                                    class="aikol-btn aikol-btn--secondary"
-                                    style="font-size: 0.78rem; padding: 0.3rem 0.7rem"
-                                >
-                                    🎲 Tạo gợi ý prompt
-                                </button>
+                                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap">
+                                    <button
+                                        type="button"
+                                        id="prompt-from-image-btn"
+                                        class="aikol-btn aikol-btn--secondary"
+                                        style="font-size: 0.78rem; padding: 0.3rem 0.7rem"
+                                        title="Upload ảnh tham khảo, AI tả thành prompt"
+                                    >
+                                        📷 Từ ảnh
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="prompt-gen-btn"
+                                        class="aikol-btn aikol-btn--secondary"
+                                        style="font-size: 0.78rem; padding: 0.3rem 0.7rem"
+                                    >
+                                        🎲 Tạo gợi ý
+                                    </button>
+                                </div>
+                                <input
+                                    type="file"
+                                    id="prompt-from-image-file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    style="display: none"
+                                />
                             </div>
                             <textarea
                                 id="model-gen-prompt"

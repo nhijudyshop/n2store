@@ -237,6 +237,33 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Upload reference image → Gemini Vision → fill prompt textarea
+    async function onPromptFromImage(file) {
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) {
+            showToast('Ảnh tối đa 8MB', 'error');
+            return;
+        }
+        const btn = $('#prompt-from-image-btn');
+        const ta = $('#model-gen-prompt');
+        const origLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang đọc ảnh…';
+        try {
+            const r = await window.AikolAPI.describeImageAsPrompt(file);
+            ta.value = r.prompt;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.focus();
+            showToast('Đã tạo prompt từ ảnh — chỉnh sửa nếu cần', 'success');
+        } catch (e) {
+            const detail = e.data?.detail || e.message;
+            showToast('Lỗi đọc ảnh: ' + detail, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = origLabel;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         $('#model-form').addEventListener('submit', onSubmit);
         $('#model-gen-form')?.addEventListener('submit', onGenerate);
@@ -245,6 +272,19 @@
         $('#prompt-gen-shuffle')?.addEventListener('click', renderSuggestions);
         $('#prompt-gen-gender')?.addEventListener('change', renderSuggestions);
         $('#prompt-gen-vibe')?.addEventListener('change', renderSuggestions);
+
+        // 📷 Từ ảnh: trigger hidden file input
+        const fromImgBtn = $('#prompt-from-image-btn');
+        const fromImgFile = $('#prompt-from-image-file');
+        if (fromImgBtn && fromImgFile) {
+            fromImgBtn.addEventListener('click', () => fromImgFile.click());
+            fromImgFile.addEventListener('change', () => {
+                const f = fromImgFile.files?.[0];
+                if (f) onPromptFromImage(f);
+                fromImgFile.value = ''; // reset to allow same file re-pick
+            });
+        }
+
         refreshCredits();
         refreshModels();
     });
