@@ -196,22 +196,21 @@ async function dispatchOne(row) {
         kindKey = 'image';
     } else {
         // ===== VIDEO =====
-        // Kling public JWT API KHÔNG có vid2vid endpoint (verified 404). Cả Veo
-        // + Kling chỉ làm image2video. Để vẫn đạt được "ghép model vào clip" cho
-        // video, dùng pipeline 2-bước khi gen_mode=with_clip + clip cover có sẵn:
-        //   1) Compose: Gemini 3.1 ghép modelImage + clipCover → composite image
-        //      (model trong scene clip — verified hoạt động cho image gen).
-        //   2) Animate: Veo/Kling image2video lấy composite làm input → output là
-        //      MP4 model trong scene clip + motion.
-        // Pipeline thêm ~20-30s latency Gemini compose nhưng kết quả gần với
-        // "face-swap video" nhất có thể qua public API.
+        // 2 engine paths khác nhau cho with_clip:
+        //   - Kling: native multi-image2video — nhận cả model face + clip cover
+        //     trong 1 API call (Kling tự handle identity preservation + scene
+        //     match). KHÔNG cần Gemini compose. 1 step thay vì 2.
+        //   - Veo: chỉ accept 1 image input → cần compose-then-animate
+        //     (Gemini compose model+cover → Veo animate composite).
+        // Auto_scene cả 2 đều dùng image2video (model only + prompt).
         let animationSourceUrl = modelImageUrl;
-        const shouldCompose = genMode === 'with_clip' && !!sceneImageUrl;
-        if (shouldCompose) {
-            // Compose fail KHÔNG silent fallback — nếu Gemini block hoặc lỗi,
-            // user mong đợi "model trong scene clip" mà output chỉ là model gốc
-            // → identity-match bị phá hỏng và user mất credits không biết tại sao.
-            // Throw để worker mark error + refund + surface lý do rõ ràng.
+        const klingMultiImage = engine === 'kling' && genMode === 'with_clip' && !!sceneImageUrl;
+        const veoNeedsCompose = engine === 'veo_3_1' && genMode === 'with_clip' && !!sceneImageUrl;
+        const shouldCompose = veoNeedsCompose; // backwards-compat alias for prompt logic
+
+        if (veoNeedsCompose) {
+            // Compose fail KHÔNG silent fallback — Veo path mất identity nếu
+            // animate raw model image. Throw → markError + refund.
             const composite = await geminiClone
                 .cloneImage({
                     modelImageUrl,
@@ -220,16 +219,14 @@ async function dispatchOne(row) {
                 })
                 .catch((e) => {
                     throw new Error(
-                        `Compose failed (Gemini): ${e.message}. Identity-match pipeline yêu cầu compose step thành công — không thể fallback.`
+                        `Compose failed (Gemini): ${e.message}. Veo pipeline yêu cầu compose step thành công.`
                     );
                 });
             const compExt = composite.mimeType.includes('png') ? 'png' : 'jpg';
             compositeKey = `aikol/tmp/${id}-composite.${compExt}`;
             await bunny.uploadBuffer(composite.buffer, compositeKey, composite.mimeType);
             animationSourceUrl = bunny.cdnUrl(compositeKey);
-            console.log(
-                `[aikol-worker] ${id.slice(0, 8)} with_clip composite ready → ${compositeKey}`
-            );
+            console.log(`[aikol-worker] ${id.slice(0, 8)} veo compose → ${compositeKey}`);
         }
 
         if (engine === 'veo_3_1') {
@@ -316,15 +313,30 @@ async function dispatchOne(row) {
             provider = 'veo';
             kindKey = 'image2video';
         } else {
-            // Kling image2video — dùng composite URL nếu compose ok.
-            const submit = await kling.submitImage2Video({
-                modelImageUrl: animationSourceUrl,
-                config: conf,
-                note,
-            });
-            externalId = submit.taskId;
-            provider = 'kling';
-            kindKey = 'image2video';
+            // ===== KLING =====
+            if (klingMultiImage) {
+                // Native face-swap workflow: model face + clip cover trong 1
+                // multi-image2video request. Kling tự handle identity preservation,
+                // KHÔNG cần Gemini compose step → tiết kiệm 8 cr + ~20-30s latency.
+                const submit = await kling.submitMultiImage2Video({
+                    imageUrls: [modelImageUrl, sceneImageUrl],
+                    config: conf,
+                    note,
+                });
+                externalId = submit.taskId;
+                provider = 'kling';
+                kindKey = 'multi-image2video';
+            } else {
+                // Kling image2video — auto_scene mode hoặc với_clip không có scene.
+                const submit = await kling.submitImage2Video({
+                    modelImageUrl,
+                    config: conf,
+                    note,
+                });
+                externalId = submit.taskId;
+                provider = 'kling';
+                kindKey = 'image2video';
+            }
         }
     }
 

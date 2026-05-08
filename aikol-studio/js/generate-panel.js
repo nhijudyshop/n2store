@@ -212,10 +212,10 @@
         obj.similarity = parseInt(obj.similarity, 10);
         obj.creativity = parseInt(obj.creativity, 10);
         obj.duration_seconds = parseInt(obj.duration_seconds, 10) || 5;
-        // Engine — pick from the visible field per kind. Default Gemini 3.1 / Veo 3.1
-        // (Fal + Kling vẫn chọn được nhưng provider account cần top-up).
+        // Engine default — Gemini 3.1 (image) / Kling (video, native multi-image
+        // face-swap khi with_clip). Veo + Fal cần override hoặc top-up.
         obj.engine =
-            obj.kind === 'image' ? obj.engine_image || 'gemini_3_1' : obj.engine_video || 'veo_3_1';
+            obj.kind === 'image' ? obj.engine_image || 'gemini_3_1' : obj.engine_video || 'kling';
         delete obj.engine_image;
         delete obj.engine_video;
         return obj;
@@ -237,8 +237,9 @@
         }
         const sec = Math.max(COSTS.video_min_seconds, data.duration_seconds);
         const animate = perSec * sec;
-        // with_clip pipeline cộng thêm Gemini compose step (8cr).
-        const composeCost = data.gen_mode === 'with_clip' ? 8 : 0;
+        // CHỈ Veo with_clip cần Gemini compose pre-step. Kling with_clip dùng
+        // native multi-image2video → 0 compose cost.
+        const composeCost = data.gen_mode === 'with_clip' && data.engine === 'veo_3_1' ? 8 : 0;
         return {
             total: animate + composeCost,
             engine: engineLabel,
@@ -368,22 +369,22 @@
                 mode === 'with_clip'
                     ? [
                           {
-                              v: 'veo_3_1',
-                              t: '✨ Veo 3.1 — compose Gemini → animate (16cr/s ⭐ · model trong scene clip)',
+                              v: 'kling',
+                              t: '🎬 Kling multi-image2video — native face-swap (8-13cr/s ⭐ · 1 step, không cần compose)',
                           },
                           {
-                              v: 'kling',
-                              t: 'Kling — compose Gemini → animate (8-13cr/s · cần top-up)',
+                              v: 'veo_3_1',
+                              t: 'Veo 3.1 — Gemini compose → Veo animate (16cr/s + 8cr compose)',
                           },
                       ]
                     : [
                           {
-                              v: 'veo_3_1',
-                              t: '✨ Veo 3.1 image2video — AI tạo video từ ảnh model (16cr/s ⭐)',
+                              v: 'kling',
+                              t: '🎬 Kling image2video — animate ảnh model (8-13cr/s ⭐)',
                           },
                           {
-                              v: 'kling',
-                              t: 'Kling image2video — animate ảnh model (8-13cr/s · cần top-up)',
+                              v: 'veo_3_1',
+                              t: 'Veo 3.1 image2video — AI tạo video từ ảnh model (16cr/s)',
                           },
                       ];
             engineVidSel.innerHTML = opts

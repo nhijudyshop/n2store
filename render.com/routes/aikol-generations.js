@@ -77,9 +77,9 @@ function computeVideoCost(config) {
         perSec = config.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
     }
     let total = perSec * seconds;
-    // Pipeline 2-bước (with_clip + video): worker chạy Gemini compose TRƯỚC khi
-    // animate → cộng 8 credits cho compose step (model + clip cover → composite).
-    if (config.gen_mode === 'with_clip') {
+    // Veo with_clip: cần Gemini compose pre-step (worker tự chạy) → cộng 8cr.
+    // Kling with_clip: dùng native multi-image2video, KHÔNG cần compose → 0cr extra.
+    if (config.gen_mode === 'with_clip' && engine === 'veo_3_1') {
         total += COSTS.image_gemini_3_1;
     }
     return total;
