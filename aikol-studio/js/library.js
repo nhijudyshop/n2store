@@ -273,7 +273,7 @@
                 <button type="button" class="aikol-btn aikol-btn--secondary" id="channel-cancel" style="display:none">
                     Huỷ
                 </button>
-                <span style="color:var(--aikol-text-dim); font-size:0.82rem">3 song song · refund tự động nếu fail</span>
+                <span style="color:var(--aikol-text-dim); font-size:0.82rem">10 song song · refund tự động nếu fail</span>
             </div>
             <div class="aikol-channel-list">
                 ${videos
@@ -307,7 +307,7 @@
                 btnCancel.disabled = true;
                 btnCancel.textContent = 'Đang dừng…';
             };
-            await runChannelBatch(fresh, 3);
+            await runChannelBatch(fresh, 10);
             btnCancel.style.display = 'none';
             btnAll.textContent = 'Đã xong';
             await Promise.all([refreshCredits(), refreshClips()]);
