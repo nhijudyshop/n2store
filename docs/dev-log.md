@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-05-08
+
+### [aikol][clips] Channel import VERIFIED end-to-end — 10/10 success với @khaby.lame
+
+**Test online**: kênh `https://www.tiktok.com/@khaby.lame`, count=10:
+
+- yt-dlp v2026.03.17 (Render Linux) trả 10 video metadata trong ~3s, KHÔNG cần TikTok cookie
+- Frontend orchestrator concurrency=3 dispatch 10 calls vào `/import/single`
+- Final: **10/10 ✓ done**, 0 lỗi
+- Tổng thời gian end-to-end: ~80s (limited bởi MP4 download per video)
+- Screenshot: [downloads/n2store-session/channel-import-10-of-10.png](../downloads/n2store-session/channel-import-10-of-10.png)
+
+**Bugs fixed trong session này**:
+
+1. `ensureYtDlp` redirect handling broken (https.get tạo file stream 1 lần) → `curl -fsSL`.
+2. `resolveTiktokSecUid` không có timeout → AbortController 8s.
+3. `listUserVideos` build URL thiếu @handle khi yt-dlp `parsed.uploader=null` → trích `handleFromInput` từ user-paste URL + fallback raw videoId.
+
+**Diagnostic endpoint**: `GET /api/aikol/import/channel/diag` trả `{platform, bin_path, bin_exists, bin_size, bin_version, ensure_error}` — verified `bin_version: "2026.03.17"`, `bin_size: 36109712`.
+
+**Status**: ✅ Done. Production-ready cho TikTok public channels.
+
 ## 2026-05-07
 
 ### [aikol][clips] Import cả kênh TikTok: yt-dlp primary + scraper fallback (KHÔNG cần cookie)
