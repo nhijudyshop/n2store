@@ -249,16 +249,24 @@
         };
     }
 
+    // Credit → VND rate. Dựa trên packs nhỏ (Mini/Small/Standard) 333 VND/cr
+    // (worst case cho user — packs lớn 300 VND/cr nhưng ít user dùng).
+    const VND_PER_CREDIT = 333;
+    function fmtVnd(cr) {
+        return (cr * VND_PER_CREDIT).toLocaleString('vi-VN') + ' ₫';
+    }
+
     function refreshCostLabel(form) {
         const c = computeCost(form);
         const data = readForm(form);
+        const totalVnd = fmtVnd(c.total);
         let breakdown;
         if (data.kind === 'image') {
-            breakdown = `${c.total} cr (${c.engine === 'gemini_3_1' ? 'Gemini 3.1' : 'Fal PuLID'} × ${data.variations})`;
+            breakdown = `${c.total} cr ≈ ${totalVnd} (${c.engine === 'gemini_3_1' ? 'Gemini 3.1' : 'Fal PuLID'} × ${data.variations})`;
         } else if (c.compose) {
-            breakdown = `${c.total} cr = ${c.animate} (${c.engine} ${c.sec}s × ${c.perSec}cr) + ${c.compose} (Gemini compose)`;
+            breakdown = `${c.total} cr ≈ ${totalVnd} = ${c.animate} (${c.engine} ${c.sec}s × ${c.perSec}cr) + ${c.compose} (Gemini compose)`;
         } else {
-            breakdown = `${c.total} cr (${c.engine} ${c.sec}s × ${c.perSec}cr)`;
+            breakdown = `${c.total} cr ≈ ${totalVnd} (${c.engine} ${c.sec}s × ${c.perSec}cr)`;
         }
         $('#aikol-gen-cost').textContent = breakdown;
     }

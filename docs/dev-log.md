@@ -8,6 +8,55 @@
 
 ## 2026-05-08
 
+### [aikol] AI Tools gate (default OFF) + cost theo engine + Gemini compose step
+
+User: "cho vào setting toggle disable AI web mặc định tắt không cho dùng, khi vào setting bật lên mới được dùng" + "tính tiền mà AI đang chọn dùng để tạo 1 clip luôn".
+
+**Feature gate** ([aikol-feature-gate.js](../aikol-studio/js/aikol-feature-gate.js)):
+
+- localStorage `aiToolsEnabled` (default OFF, user phải toggle ON).
+- aikol-studio/index.html: chip toggle ở header + banner "AI Tools đang TẮT" che dashboard sections khi tắt.
+- Sub-pages (library, models, history, bulk, campaigns) early-redirect về `index.html#disabled` khi flag tắt — chặn API call trước khi page load.
+- navigation-modern.js: `aiToolFeature: true` flag cho gemini-ai → ẩn khỏi nav khi tắt. `aikol-studio` root KHÔNG flag (entry point cho toggle, luôn accessible). Áp dụng filter ở `_isPageAccessible` + `getAccessiblePages`.
+
+**Cost theo engine** + Gemini compose step:
+
+- Backend `routes/aikol-generations.js` `computeVideoCost`: with_clip + video → cộng thêm 8 cr (Gemini compose) vào tổng cost. Nếu user chọn Veo 5s + with_clip → 16×5 + 8 = 88 cr (đúng số credits thật pipeline tốn).
+- Frontend `generate-panel.js` `refreshCostLabel`: hiển thị breakdown đầy đủ trước submit:
+    - Image: `8 cr (Gemini 3.1 × 1)` hoặc `4 cr (Fal PuLID × 1)`.
+    - Video without clip: `80 cr (Veo 5s × 16cr)`.
+    - Video with_clip: `88 cr = 80 (Veo 5s × 16cr) + 8 (Gemini compose)`.
+
+**Verified live** (commit c51f9878):
+
+| Test                                 | Kết quả                                              |
+| ------------------------------------ | ---------------------------------------------------- |
+| Default state OFF → nav library.html | ✅ Auto-redirect `index.html#disabled`               |
+| Toggle ON → state synced             | ✅ `aiEnabled=true`, banner ẩn, label "BẬT"          |
+| Sub-page accessible sau toggle ON    | ✅ library.html load + Generate btn visible          |
+| Cost breakdown UI                    | ✅ "88 cr = 80 (Veo 5s × 16cr) + 8 (Gemini compose)" |
+
+### [aikol][prompts] Deepfake-grade face-swap prompts cho TikTok-style KOL clone
+
+User: "deepfake đó". Bỏ vague identity-preserve language, viết hard-spec deepfake-quality directive với hierarchy of priorities + concrete anatomical anchors + forbidden list (chống AI beauty drift).
+
+**Stage 1 — Gemini compose** ([aikol-gemini-clone-service.js](../render.com/services/aikol-gemini-clone-service.js)):
+
+- Tách section: # TASK / # INPUTS / # PRIORITY 1-3 / # FORBIDDEN / # OUTPUT.
+- PRIORITY 1 (face fidelity): liệt kê 11 nhóm features anatomical (eyes, brows, nose, mouth, jawline, mid/upper face, hair, skin, identity markers).
+- PRIORITY 2 (scene integration): everything else from IMAGE 2 (pose, outfit, lighting, camera, color grade).
+- PRIORITY 3 (naturalness): re-light face theo IMAGE 2 lighting nhưng KHÔNG thay geometry; seamless edge blending tại jawline/neckline; skin texture natural pores (KHÔNG airbrush/Instagram filter).
+- FORBIDDEN: 8 common deepfake failure modes — beautify, symmetry-correct, age-shift, hybridize, ethnicity-shift, AI-face glow.
+
+**Stage 2 — Veo animate** ([aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js)):
+
+- # PRIORITY 1 FACE LOCK: same person beyond doubt mọi frame.
+- # ALLOWED MOTION whitelist: head ≤10°, eye blinks, brow micro-expr, breath rise & fall, body sway ≤5°, hair physics.
+- # FORBIDDEN MOTION: head rotation >15°, walking/dancing, mouthing words, camera moves, scene change.
+- # SCENE CONTINUITY: background, lighting, camera, color grade IDENTICAL.
+
+Veo prompt slice cap 1500→2500 (Veo limit ~4000 per docs). Verified gen `73a9fc28-…` done MP4 1.16 MB sau 59s.
+
 ### [aikol] Comprehensive audit — 11 fixes (3 CRITICAL + 7 HIGH + 1 MED) + auto-tune cho identity match
 
 User: "kiểm tra lại tất cả race condition, bug,... quan trọng là phải ghép mặt model 100% vào clip".
