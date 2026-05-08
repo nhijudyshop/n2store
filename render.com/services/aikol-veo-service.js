@@ -95,18 +95,17 @@ async function submitVideoJob(args) {
         ];
     }
 
-    // Per Vertex AI Veo predictLongRunning schema:
-    // - durationSeconds: integer 4-8 (NOT 5 default Kling — clamp to range)
-    // - aspectRatio + resolution + sampleCount go in parameters
+    // Veo (Gemini API) predictLongRunning — minimal body. Some preview models
+    // are strict about parameters; passing only what's needed avoids
+    // "out of bound" errors. Veo defaults: 8s / 720p / 16:9 if omitted.
     const dur = Math.max(4, Math.min(parseInt(durationSeconds, 10) || 5, 8));
+    const params = {};
+    if (aspectRatio) params.aspectRatio = aspectRatio;
+    if (resolution) params.resolution = resolution;
+    if (dur) params.durationSeconds = dur;
     const body = {
         instances: [instance],
-        parameters: {
-            aspectRatio,
-            resolution,
-            durationSeconds: dur,
-            sampleCount: 1,
-        },
+        ...(Object.keys(params).length ? { parameters: params } : {}),
     };
 
     const url = `${BASE}/models/${encodeURIComponent(m)}:predictLongRunning`;
