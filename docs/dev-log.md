@@ -8,6 +8,29 @@
 
 ## 2026-05-08
 
+### [aikol][video] Pipeline 2-bước: Gemini compose → image2video (giải pháp cho "ghép model vào clip" video)
+
+User insight: "Fal ghép model vào video xong kling mới tạo video à?" — chính xác. Kling public API không có vid2vid endpoint, nhưng có thể đạt được kết quả tương đương bằng pipeline 2-bước:
+
+1. **Compose** ([aikol-gemini-clone-service](../render.com/services/aikol-gemini-clone-service.js)): Gemini 3.1 nhận `modelImageUrl` + `clipCover` + `note prompt` → composite JPG/PNG (model trong scene clip). Verified hoạt động cho image gen từ trước.
+2. **Upload tạm**: composite lưu vào Bunny `aikol/tmp/<gen_id>-composite.{jpg,png}` để có public URL cho image2video service nhận.
+3. **Animate** ([aikol-queue-worker:184-256](../render.com/services/aikol-queue-worker.js#L184)): Veo/Kling image2video lấy composite làm input → MP4 output là model trong scene clip + motion.
+
+**Trigger**: chỉ chạy compose khi `gen_mode === 'with_clip'` AND `sceneImageUrl` có sẵn. Auto_scene mode không cần (chỉ dùng modelImage gốc + prompt).
+
+**Latency**: thêm ~20-30s cho Gemini compose. Cost: charge cost video gốc, compose absorb (free).
+
+**Fallback**: nếu Gemini compose fail (rate limit, API error...) → log warn + dùng modelImage gốc, scene info từ note vào prompt → vẫn ra video (chỉ không có scene clip).
+
+**Verified live** (commit dc48bdfe):
+
+- Job `17671477-4fa7-4d86-9ed0-dbfc2689d181`: state=done, durationSec=62 (Gemini ~20s + Veo ~40s)
+- Composite JPG: `https://n2store-aikol.b-cdn.net/aikol/tmp/17671477-...-composite.jpg` → 410 KB
+- Output MP4: `aikol/outputs/17671477-...-0.mp4` → 1.05 MB
+- Provider: veo, kind_key: image2video
+
+**TODO future**: cleanup `aikol/tmp/` sau khi gen done (cron job hoặc on-success cleanup) — tránh accumulate.
+
 ### [aikol][video] Kling video2video KHÔNG khả dụng qua public API — revert + label honest
 
 User báo: "Kling thì hỗ trợ ghép model vào clip tiktok, Veo 3 thì chưa". Sau khi research + browser test:
