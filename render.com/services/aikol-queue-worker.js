@@ -183,7 +183,24 @@ async function dispatchOne(row) {
         kindKey = 'image';
     } else {
         // ===== VIDEO =====
-        if (engine === 'veo_3_1') {
+        // Engine routing theo gen_mode + clip:
+        //   with_clip + clipVideoUrl + Kling   → Kling video2video (ghép model vào clip thật sự)
+        //   with_clip + Veo                    → Veo image2video (Veo không nhận clip)
+        //   auto_scene + Veo (default)         → Veo image2video
+        //   auto_scene + Kling                 → Kling image2video
+        const useKlingVid2Vid = engine === 'kling' && genMode === 'with_clip' && !!clipVideoUrl;
+
+        if (useKlingVid2Vid) {
+            const submit = await kling.submitVideo2Video({
+                clipVideoUrl,
+                modelImageUrl,
+                config: conf,
+                note,
+            });
+            externalId = submit.taskId;
+            provider = 'kling';
+            kindKey = 'video2video';
+        } else if (engine === 'veo_3_1') {
             // Gemini Veo durationSeconds buckets: "4" | "6" | "8". Pass raw value
             // — service quantizes (1080p/4k always force "8").
             const durationSeconds = Math.max(
@@ -205,8 +222,8 @@ async function dispatchOne(row) {
             provider = 'veo';
             kindKey = 'image2video';
         } else {
-            // Kling: chỉ dùng image2video (video2video endpoint 404 trên Kling
-            // public API; cần plan đặc biệt). Scene info bake vào prompt qua note.
+            // Kling image2video (auto_scene mode hoặc with_clip nhưng chưa có
+            // clipVideoUrl — vd clip download chưa xong).
             const submit = await kling.submitImage2Video({
                 modelImageUrl,
                 config: conf,

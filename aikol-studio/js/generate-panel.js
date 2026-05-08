@@ -72,9 +72,8 @@
                         </label>
                         <label class="aikol-gen-row" data-video-only style="display:none">
                             <span>Engine (video)</span>
-                            <select name="engine_video">
-                                <option value="veo_3_1" selected>Veo 3.1 — 16cr/s · Google · chất lượng cao ⭐</option>
-                                <option value="kling">Kling — 8-13cr/s · image2video (cần top-up)</option>
+                            <select name="engine_video" data-engine-video>
+                                <!-- Options rebuilt theo gen_mode: with_clip → Kling vid2vid; auto_scene → Veo + Kling img2vid -->
                             </select>
                         </label>
 
@@ -312,12 +311,14 @@
     // Toggle visibility of clip-dependent blocks based on `gen_mode` radio.
     // When user picks "AI tự sáng tạo scene" → hide "Keep from clip" + force note
     // placeholder + warn if note empty (note becomes the only signal Gemini has).
+    // Cũng rebuild engine_video options theo mode (Kling vid2vid khi with_clip,
+    // Veo 3.1 image2video khi auto_scene).
     function setupGenModeToggle(form, hasClip) {
         const fieldset = form.querySelector('[data-gen-mode-fieldset]');
         const clipOnlyBlocks = form.querySelectorAll('[data-clip-only-block]');
         const noteEl = form.querySelector('textarea[name="note"]');
+        const engineVidSel = form.querySelector('[data-engine-video]');
         if (!fieldset) return;
-        // Khi không có clip → ẩn radio luôn, ép auto_scene
         if (!hasClip) {
             fieldset.hidden = true;
             const autoRadio = form.querySelector('input[name="gen_mode"][value="auto_scene"]');
@@ -325,6 +326,40 @@
         } else {
             fieldset.hidden = false;
         }
+        const rebuildEngineVideoOptions = (mode) => {
+            if (!engineVidSel) return;
+            const prev = engineVidSel.value;
+            const opts =
+                mode === 'with_clip'
+                    ? [
+                          {
+                              v: 'kling',
+                              t: '🎬 Kling video2video — ghép model vào clip TikTok này (8-13cr/s ⭐)',
+                          },
+                          {
+                              v: 'veo_3_1',
+                              t: 'Veo 3.1 — KHÔNG dùng clip, chỉ animate ảnh model (16cr/s)',
+                          },
+                      ]
+                    : [
+                          {
+                              v: 'veo_3_1',
+                              t: '✨ Veo 3.1 image2video — AI tạo video từ ảnh model (16cr/s ⭐)',
+                          },
+                          {
+                              v: 'kling',
+                              t: 'Kling image2video — animate ảnh model (8-13cr/s · cần top-up)',
+                          },
+                      ];
+            engineVidSel.innerHTML = opts
+                .map(
+                    (o, i) =>
+                        `<option value="${o.v}"${i === 0 ? ' selected' : ''}>${escapeHtml(o.t)}</option>`
+                )
+                .join('');
+            // Giữ lựa chọn cũ nếu còn trong list mới
+            if (prev && opts.some((o) => o.v === prev)) engineVidSel.value = prev;
+        };
         const update = () => {
             const mode = form.elements.gen_mode?.value || (hasClip ? 'with_clip' : 'auto_scene');
             const auto = mode === 'auto_scene';
@@ -334,6 +369,7 @@
                     ? '🎯 Mô tả CHI TIẾT scene để AI tạo từ đầu — vd: "ngồi quán cafe sân vườn buổi sáng, ánh nắng xuyên qua tán cây, mặc áo sweater be, tay cầm ly latte, biểu cảm thư giãn"'
                     : 'e.g. evening street market, soft golden light';
             }
+            rebuildEngineVideoOptions(mode);
         };
         form.addEventListener('change', (ev) => {
             if (ev.target?.name === 'gen_mode') update();
