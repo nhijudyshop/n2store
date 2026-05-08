@@ -226,6 +226,124 @@ router.post('/models', requireUser, upload.single('file'), async (req, res) => {
     }
 });
 
+// POST /models/clone-from-image — Multipart upload ref image + name + optional
+// prompt → Gemini 3.1 multi-image clone preserves EXACT face/identity from
+// reference. Cost: COSTS.image_gemini_3_1 (8cr).
+const geminiClone = require('../services/aikol-gemini-clone-service');
+router.post('/models/clone-from-image', requireUser, upload.single('file'), async (req, res) => {
+    const name = (req.body.name || '').trim();
+    const extraPrompt = (req.body.prompt || '').trim();
+    if (!name || name.length > 80)
+        return res.status(400).json({ error: 'invalid', detail: 'Tên model 1-80 ký tự' });
+    if (!req.file)
+        return res.status(400).json({ error: 'invalid', detail: 'Cần upload ảnh tham khảo' });
+    const refMime = (req.file.mimetype || '').toLowerCase();
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(refMime))
+        return res
+            .status(400)
+            .json({ error: 'invalid', detail: 'Chỉ chấp nhận JPEG / PNG / WEBP' });
+
+    const cost = COSTS.image_gemini_3_1;
+    const chargeRes = await pool.query(
+        `UPDATE aikol_credits SET balance = balance - $2, updated_at = NOW()
+             WHERE user_id = $1 AND balance >= $2 RETURNING balance`,
+        [req.userId, cost]
+    );
+    if (!chargeRes.rows[0])
+        return res
+            .status(402)
+            .json({ error: 'insufficient_credits', detail: 'Không đủ credits', cost });
+    await pool.query(
+        `INSERT INTO aikol_credit_history (user_id, kind, delta, note)
+             VALUES ($1, 'charge', $2, $3)`,
+        [req.userId, -cost, `Clone model from image: ${name}`]
+    );
+    const refund = async (note) => {
+        await pool.query(`UPDATE aikol_credits SET balance = balance + $2 WHERE user_id = $1`, [
+            req.userId,
+            cost,
+        ]);
+        await pool.query(
+            `INSERT INTO aikol_credit_history (user_id, kind, delta, note)
+                 VALUES ($1, 'refund', $2, $3)`,
+            [req.userId, cost, note]
+        );
+    };
+
+    // Upload ref image to Bunny first so Gemini service can fetch via URL
+    // (cleaner than passing buffer through service signature).
+    const tmpKey = `aikol/tmp/ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${refMime
+        .split('/')[1]
+        .replace('jpeg', 'jpg')}`;
+    try {
+        await bunny.uploadBuffer(req.file.buffer, tmpKey, refMime);
+    } catch (e) {
+        await refund(`Bunny tmp upload: ${e.message}`).catch(() => {});
+        return res.status(502).json({ error: 'upload_failed', detail: e.message });
+    }
+    const refUrl = bunny.cdnUrl(tmpKey);
+
+    // Build directive: focus on identity preservation (no scene image since
+    // user wants the new model to LOOK exactly like the uploaded person)
+    const directive = [
+        'Generate a clean professional portrait that preserves the exact face,',
+        'identity, hairstyle, and distinctive features of the person in this reference image.',
+        extraPrompt
+            ? `Additional context: ${extraPrompt}.`
+            : 'Soft natural studio lighting, neutral background.',
+        'Photorealistic, sharp focus, ultra detailed.',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    let result;
+    try {
+        result = await geminiClone.cloneImage({
+            modelImageUrl: refUrl,
+            prompt: directive,
+        });
+    } catch (e) {
+        console.error('[aikol] /models/clone-from-image Gemini failed:', e.message);
+        await refund(`Gemini clone failed: ${String(e.message).slice(0, 100)}`).catch(() => {});
+        return res.status(502).json({ error: 'gen_failed', detail: e.message, refunded: cost });
+    }
+
+    const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
+    const insRes = await pool.query(
+        `INSERT INTO aikol_models (user_id, name, file_path, file_size, mime)
+             VALUES ($1, $2, '', $3, $4)
+             RETURNING id, EXTRACT(EPOCH FROM created_at)::int AS created_at`,
+        [req.userId, name, result.buffer.length, result.mimeType]
+    );
+    const { id, created_at } = insRes.rows[0];
+    const key = `aikol/models/${id}.${ext}`;
+    try {
+        await bunny.uploadBuffer(result.buffer, key, result.mimeType);
+    } catch (uploadErr) {
+        await pool.query(`DELETE FROM aikol_models WHERE id = $1`, [id]);
+        await refund(`Bunny upload: ${uploadErr.message}`).catch(() => {});
+        return res.status(502).json({ error: 'upload_failed', detail: uploadErr.message });
+    }
+    await pool.query(`UPDATE aikol_models SET file_path = $1 WHERE id = $2`, [key, id]);
+    const balRes = await pool.query(`SELECT balance FROM aikol_credits WHERE user_id = $1`, [
+        req.userId,
+    ]);
+    res.json({
+        id,
+        name,
+        file_path: key,
+        mime: result.mimeType,
+        file_size: result.buffer.length,
+        thumb_url: bunny.cdnUrl(key),
+        created_at,
+        updated_at: created_at,
+        ai_model: result.model,
+        ref_url: refUrl,
+        balance: balRes.rows[0]?.balance,
+        cost,
+    });
+});
+
 // POST /models/describe-image — Multipart image upload → portrait prompt text
 // (FREE — Gemini Vision describe, ~$0.001/call). Returns { prompt: "..." } that
 // frontend fills into the "Mô tả" textarea for Section 2 Tạo bằng AI.

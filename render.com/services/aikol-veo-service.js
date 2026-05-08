@@ -72,16 +72,24 @@ async function submitVideoJob(args) {
         'Animate the subject naturally, maintaining their face and identity. Cinematic camera, photorealistic.'
     ).slice(0, 1000);
 
+    // Veo predictLongRunning expects bytesBase64Encoded (not inlineData) per
+    // Vertex AI / Gemini API doc convention. Numeric durationSeconds, not string.
     const instance = {
         prompt: directive,
-        image: { inlineData: { mimeType: modelImg.mime, data: modelImg.data } },
+        image: {
+            bytesBase64Encoded: modelImg.data,
+            mimeType: modelImg.mime,
+        },
     };
-    // Veo 3.1: optional reference images for appearance preservation
+    // Veo 3.1 reference images (optional appearance preservation)
     if (sceneImageUrl && /^veo-3\.1/.test(m)) {
         const sceneImg = await fetchImageBase64(sceneImageUrl);
         instance.referenceImages = [
             {
-                image: { inlineData: { mimeType: sceneImg.mime, data: sceneImg.data } },
+                image: {
+                    bytesBase64Encoded: sceneImg.data,
+                    mimeType: sceneImg.mime,
+                },
                 referenceType: 'asset',
             },
         ];
@@ -92,7 +100,8 @@ async function submitVideoJob(args) {
         parameters: {
             aspectRatio,
             resolution,
-            durationSeconds: String(durationSeconds),
+            durationSeconds: Number(durationSeconds),
+            sampleCount: 1,
         },
     };
 

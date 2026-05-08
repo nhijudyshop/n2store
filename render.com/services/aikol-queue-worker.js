@@ -169,17 +169,9 @@ async function dispatchOne(row) {
             externalId = submit.operationName;
             provider = 'veo';
             kindKey = 'image2video';
-        } else if (clipVideoUrl) {
-            const submit = await kling.submitVideo2Video({
-                clipVideoUrl,
-                modelImageUrl,
-                config: conf,
-                note,
-            });
-            externalId = submit.taskId;
-            provider = 'kling';
-            kindKey = 'video2video';
         } else {
+            // Kling: chỉ dùng image2video (video2video endpoint 404 trên Kling
+            // public API; cần plan đặc biệt). Scene info bake vào prompt qua note.
             const submit = await kling.submitImage2Video({
                 modelImageUrl,
                 config: conf,

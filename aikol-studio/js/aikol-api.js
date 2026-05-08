@@ -141,13 +141,32 @@
         generateModel: ({ name, prompt, aspectRatio }) =>
             jsonRequest('POST', '/models/generate', { name, prompt, aspectRatio }),
         describeImageAsPrompt: async (file) => {
-            // multipart upload — call directly without jsonRequest helper
             const fd = new FormData();
             fd.append('file', file);
             const headers = buildHeaders({ Accept: 'application/json' });
-            // Drop Content-Type so browser sets multipart boundary
             delete headers['Content-Type'];
             const res = await fetch(`${PREFIX}/models/describe-image`, {
+                method: 'POST',
+                headers,
+                body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const err = new Error((data && data.detail) || `HTTP ${res.status}`);
+                err.status = res.status;
+                err.data = data;
+                throw err;
+            }
+            return data;
+        },
+        cloneModelFromImage: async ({ name, prompt, file }) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('name', name);
+            if (prompt) fd.append('prompt', prompt);
+            const headers = buildHeaders({ Accept: 'application/json' });
+            delete headers['Content-Type'];
+            const res = await fetch(`${PREFIX}/models/clone-from-image`, {
                 method: 'POST',
                 headers,
                 body: fd,
