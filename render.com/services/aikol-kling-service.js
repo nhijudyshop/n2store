@@ -19,10 +19,19 @@ const jwt = require('jsonwebtoken');
 
 const ACCESS_KEY = process.env.KLING_ACCESS_KEY;
 const SECRET_KEY = process.env.KLING_SECRET_KEY;
-const KLING_BASE = (process.env.KLING_API_BASE || 'https://api.klingai.com').replace(/\/+$/, '');
+// Singapore region — better latency cho VN users + cùng datacenter Bunny CDN.
+const KLING_BASE = (process.env.KLING_API_BASE || 'https://api-singapore.klingai.com').replace(
+    /\/+$/,
+    ''
+);
 
-// Default model_name — kling-v1, kling-v1-5, kling-v2 are valid.
-const KLING_MODEL = process.env.KLING_MODEL || 'kling-v1-5';
+// Default model — kling-v2-5-turbo cân bằng chất lượng/tốc độ. Available models
+// (per https://kling.ai/document-api): kling-v1, kling-v1-5, kling-v1-6,
+// kling-v2-master, kling-v2-1, kling-v2-1-master, kling-v2-5-turbo, kling-v2-6,
+// kling-v3 (newest, native 4K). Override via env KLING_MODEL.
+const KLING_MODEL = process.env.KLING_MODEL || 'kling-v2-5-turbo';
+// Multi-image2video chỉ support kling-v1-6. Sẽ override khi gọi multi.
+const KLING_MULTI_MODEL = process.env.KLING_MULTI_MODEL || 'kling-v1-6';
 
 /**
  * Sign a short-lived JWT for the request. Kling expects:
@@ -93,6 +102,42 @@ async function submitImage2Video({ modelImageUrl, config, note }) {
         cfg_scale: 0.5,
     };
     return _submit('/v1/videos/image2video', body, 'image2video');
+}
+
+/**
+ * Submit a multi-image-to-video job (face-swap workflow).
+ *
+ * Kling Multi-Image2Video accepts up to 4 reference images — perfect cho
+ * "ghép model vào clip TikTok": image[0] = model face (KOL), image[1] =
+ * clip cover frame (target scene). Kling tự handle identity preservation +
+ * scene match — không cần Gemini compose step (1 API call thay vì 2-stage).
+ *
+ * Endpoint: POST /v1/videos/multi-image2video. Default model: kling-v1-6.
+ *
+ * @param {Object} args
+ * @param {string[]} args.imageUrls - 1-4 reference image URLs (model + scene refs)
+ * @param {Object} args.config - { kling_mode, duration_seconds, ... }
+ * @param {string} [args.note] - prompt text
+ */
+async function submitMultiImage2Video({ imageUrls, config, note }) {
+    if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+        throw new Error('imageUrls (1-4 images) is required');
+    }
+    if (imageUrls.length > 4) {
+        throw new Error('Multi-Image2Video supports max 4 images');
+    }
+    const mode = config.kling_mode === 'pro' ? 'pro' : 'std';
+    const duration = String(config.duration_seconds || 5); // 5 | 10
+    const aspect = config.image_size || config.aspect_ratio || '9:16';
+    const body = {
+        model_name: KLING_MULTI_MODEL,
+        mode,
+        duration,
+        aspect_ratio: ['16:9', '9:16', '1:1'].includes(aspect) ? aspect : '9:16',
+        image_list: imageUrls.map((url) => ({ image: url })),
+        prompt: buildPrompt({ config, note }),
+    };
+    return _submit('/v1/videos/multi-image2video', body, 'multi-image2video');
 }
 
 /**
@@ -195,9 +240,11 @@ async function downloadToBuffer(url, maxBytes = 200 * 1024 * 1024) {
 
 module.exports = {
     submitImage2Video,
+    submitMultiImage2Video,
     submitVideo2Video,
     getJobStatus,
     downloadToBuffer,
     buildPrompt,
     KLING_MODEL,
+    KLING_MULTI_MODEL,
 };

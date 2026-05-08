@@ -110,9 +110,9 @@ async function dispatchOne(row) {
     }
 
     // Engine selection — config.engine overrides default per kind.
-    // image: fal_pulid (default) | gemini_3_1
-    // video: kling (default) | veo_3_1
-    const engine = String(conf.engine || (kind === 'image' ? 'fal_pulid' : 'kling')).toLowerCase();
+    // image: gemini_3_1 (default) | fal_pulid (locked)
+    // video: kling (default — face-swap-capable via multi-image2video) | veo_3_1
+    const engine = String(conf.engine || (kind === 'image' ? 'gemini_3_1' : 'kling')).toLowerCase();
 
     let externalId, provider, kindKey;
     // Khai báo function-scope để final UPDATE outside if/else block đọc được.
