@@ -115,6 +115,8 @@ async function dispatchOne(row) {
     const engine = String(conf.engine || (kind === 'image' ? 'fal_pulid' : 'kling')).toLowerCase();
 
     let externalId, provider, kindKey;
+    // Khai báo function-scope để final UPDATE outside if/else block đọc được.
+    let compositeKey = null;
 
     // gen_mode: 'with_clip' (default) compose model vào scene của clip /
     // 'auto_scene' AI tạo scene mới từ prompt. Nếu không có clip → ép auto_scene.
@@ -204,7 +206,6 @@ async function dispatchOne(row) {
         // Pipeline thêm ~20-30s latency Gemini compose nhưng kết quả gần với
         // "face-swap video" nhất có thể qua public API.
         let animationSourceUrl = modelImageUrl;
-        let compositeKey = null;
         const shouldCompose = genMode === 'with_clip' && !!sceneImageUrl;
         if (shouldCompose) {
             // Compose fail KHÔNG silent fallback — nếu Gemini block hoặc lỗi,
