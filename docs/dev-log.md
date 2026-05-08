@@ -491,6 +491,44 @@ Status: ✅ Done
 
 **Status**: ✅ Done.
 
+### [web2/cleanup] Xóa toàn bộ TPOS data đã seed + reclaim 120 MB disk
+
+**Lý do**: User hỏi "nó chiếm dữ liệu render db dữ vậy?" sau khi seed 91k Partner. Đo thực: 121 MB cho web2_records, 688 MB tổng DB → đã vượt Render Starter $7 (256 MB cap). User chọn xóa.
+
+**Backend mới** ([render.com/routes/web2-generic.js](../render.com/routes/web2-generic.js)):
+
+- `GET /api/web2/_storage` — pg-reported disk usage breakdown theo entity (read-only)
+- `POST /api/web2/:entity/delete-all` — bulk delete với `{confirm: true}` flag bắt buộc
+- `POST /api/web2/_vacuum` — VACUUM (hoặc VACUUM FULL nếu `{full: true}`) reclaim disk
+
+**Cleanup operations**:
+| Slug | Records xóa |
+|---|---|
+| partner-customer | **91,425** |
+| partner-supplier | 186 |
+| tag | 1,000 |
+| productuom | 44 |
+| deliverycarrier | 7 |
+| productattribute | 3 |
+| partnercategory | 2 |
+| productcategory | 1 |
+| rescurrency | 1 |
+| **Tổng** | **92,669** |
+
+**VACUUM FULL ANALYZE**: 121 MB → 72 KB (freed **120.4 MB** thực sự về OS, không chỉ marked deleted).
+
+**State after**:
+
+- web2_records: 0 entity, 0 records, 72 KB
+- Database total: 596.6 MB → **476.2 MB**
+- 86 page web2/\* vẫn LIVE (HTML + nav code không đụng), chỉ là DB rỗng — page hiển thị "Chưa có dữ liệu"
+
+**Lưu ý**: Bulk endpoint + seed script vẫn còn — nếu sau này muốn seed lại, chỉ cần `node scripts/web2-seed-from-tpos.js`.
+
+**Status**: ✅ Done.
+
+---
+
 ### [web2/bulk] Bulk-create endpoint + seed Partner (91,611 records từ TPOS)
 
 **Vấn đề**: Single-row REST quá chậm cho big entity (91k Customer ≈ 25 phút). Cần bulk insert.
