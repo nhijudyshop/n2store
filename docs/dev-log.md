@@ -8,6 +8,31 @@
 
 ## 2026-05-08
 
+### [render][purchase-orders] Phase B — upload ảnh sang BunnyCDN + dual-mode cascade + migration script
+
+**Tại sao Bunny thay vì R2**: R2 require user click "Enable R2" trên CF dashboard (không API được). BunnyCDN đã setup sẵn cho AI KOL Studio (zone `n2store-aikol`, env `BUNNY_STORAGE_KEY` đã có trên Render, `bunny-storage-service.js` viết sẵn). Cùng outcome: object storage + CDN public URL, ship được ngay.
+
+**Khám phá khi dry-run**: 1045 ảnh trong `purchase_order_images` nhưng chỉ **133 referenced** — **912 ảnh orphan = 217 MB rác** (88% bytea là rác do đơn xóa trước cascade hoặc canceled uploads).
+
+**Code changes** ([render.com/routes/v2/purchase-orders.js](../render.com/routes/v2/purchase-orders.js)):
+
+- `POST /images`: upload thẳng lên Bunny `po-images/<uuid>.<ext>`, return `cdnUrl` (`https://n2store-aikol.b-cdn.net/...`). Bỏ INSERT bytea.
+- Helper `classifyImageUrls()` chia URL theo pattern: Bunny CDN host → DELETE on Bunny, legacy `/images/<id>` → DELETE row DB. `deleteImagesFromUrls` chạy cả 2 backend song song qua `Promise.allSettled`, trả `{ deletedDb, deletedBunny, total }`.
+- `GET/DELETE /images/:id` legacy giữ nguyên cho compat. Sau khi DROP TABLE → 404 tự nhiên.
+
+**Migration script** ([scripts/migrate-po-images-to-bunny.js](../scripts/migrate-po-images-to-bunny.js)): idempotent 4-phase, flag `--dry-run` / `--skip-cleanup`. Đọc env từ `serect_dont_push.txt`.
+
+**Pipeline thực thi**:
+
+1. POST `/cleanup-orphan-images { minAgeHours: 24 }` → 912 orphan DB rows ≈ 217 MB
+2. Migration script → 133 ảnh remaining lên Bunny + replace URL ≈ 28 MB
+3. DROP TABLE → free indexes/structure
+4. Bunny chứa ~32 MB referenced images.
+
+Status: 🔄 Phase B committed, đợi deploy.
+
+---
+
 ### [render][purchase-orders] Cascade delete `purchase_order_images` khi xóa đơn (Phase A của migration R2)
 
 **Trigger**: chat-db audit phát hiện `purchase_order_images` 245 MB (1009 row bytea) growing ~40 ảnh/ngày → ~1.4 GB/năm. Phase A: bịt rò rỉ — xóa đơn = xóa ảnh.
