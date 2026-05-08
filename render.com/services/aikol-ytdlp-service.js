@@ -13,10 +13,11 @@
 // Render disk is ephemeral but binary install is ~5s on cold start.
 // =====================================================
 
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
+const { promisify } = require('util');
+const execFileP = promisify(execFile);
 
 const BIN_DIR = path.join(__dirname, '..', 'bin');
 const BIN_PATH = path.join(BIN_DIR, 'yt-dlp');
@@ -25,45 +26,29 @@ const RELEASE_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/y
 
 let installPromise = null;
 
-function downloadFile(url, dest) {
-    return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(dest);
-        const req = (u) => {
-            https
-                .get(u, (res) => {
-                    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                        file.close();
-                        fs.unlinkSync(dest);
-                        return req(res.headers.location);
-                    }
-                    if (res.statusCode !== 200) {
-                        file.close();
-                        try {
-                            fs.unlinkSync(dest);
-                        } catch (_) {}
-                        return reject(new Error(`yt-dlp download HTTP ${res.statusCode}`));
-                    }
-                    res.pipe(file);
-                    file.on('finish', () => file.close(() => resolve()));
-                })
-                .on('error', reject);
-        };
-        req(url);
-    });
-}
-
 async function ensureYtDlp() {
     if (fs.existsSync(BIN_PATH)) return BIN_PATH;
     if (installPromise) return installPromise;
     installPromise = (async () => {
         try {
             fs.mkdirSync(BIN_DIR, { recursive: true });
-            console.log('[ytdlp] Downloading yt-dlp_linux to', BIN_PATH);
             const tmpPath = BIN_PATH + '.tmp';
-            await downloadFile(RELEASE_URL, tmpPath);
+            try {
+                fs.unlinkSync(tmpPath);
+            } catch (_) {}
+            console.log('[ytdlp] Downloading yt-dlp_linux to', BIN_PATH);
+            // curl follows redirects natively; --silent --fail surfaces errors.
+            await execFileP('curl', ['-fsSL', '--max-time', '60', '-o', tmpPath, RELEASE_URL], {
+                timeout: 70000,
+            });
+            const stat = fs.statSync(tmpPath);
+            if (stat.size < 1_000_000) {
+                fs.unlinkSync(tmpPath);
+                throw new Error(`Downloaded file too small: ${stat.size} bytes`);
+            }
             fs.chmodSync(tmpPath, 0o755);
             fs.renameSync(tmpPath, BIN_PATH);
-            console.log('[ytdlp] Install OK');
+            console.log('[ytdlp] Install OK · size=' + stat.size);
             return BIN_PATH;
         } catch (e) {
             installPromise = null;

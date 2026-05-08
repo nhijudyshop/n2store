@@ -199,6 +199,41 @@ router.post('/import/single', requireUser, express.json(), async (req, res) => {
     }
 });
 
+// ---------- GET /import/channel/diag — check yt-dlp install + version ----------
+router.get('/import/channel/diag', async (_req, res) => {
+    const fs = require('fs');
+    const { execFile } = require('child_process');
+    const { promisify } = require('util');
+    const execFileP = promisify(execFile);
+    const out = {
+        platform: process.platform,
+        bin_path: ytdlp.BIN_PATH,
+        bin_exists: fs.existsSync(ytdlp.BIN_PATH),
+        bin_size: null,
+        bin_version: null,
+        ensure_error: null,
+    };
+    if (out.bin_exists) {
+        try {
+            out.bin_size = fs.statSync(ytdlp.BIN_PATH).size;
+            const { stdout } = await execFileP(ytdlp.BIN_PATH, ['--version'], { timeout: 5000 });
+            out.bin_version = stdout.trim();
+        } catch (e) {
+            out.ensure_error = `version: ${e.message}`;
+        }
+    } else {
+        // Try installing now (returns once binary is ready or errors out)
+        try {
+            await ytdlp.ensureYtDlp();
+            out.bin_exists = fs.existsSync(ytdlp.BIN_PATH);
+            out.bin_size = out.bin_exists ? fs.statSync(ytdlp.BIN_PATH).size : null;
+        } catch (e) {
+            out.ensure_error = e.message;
+        }
+    }
+    res.json(out);
+});
+
 // ---------- POST /import/channel — list user's TikTok videos for batch import ----------
 // Returns video metadata only — does NOT charge credits or persist clips. The
 // frontend then calls /import/single per video (parallel, 1 credit each) so

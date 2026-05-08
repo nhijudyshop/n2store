@@ -139,6 +139,10 @@ async function resolveTiktokSecUid(input) {
     const uniqueId = handleMatch[1];
 
     // Fetch profile HTML and pull secUid out via regex (no parsing libs).
+    // TikTok often blackhole-drops cloud server IPs → use AbortController to bail
+    // after 8s instead of hanging forever.
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
     try {
         const res = await fetch(`https://www.tiktok.com/@${uniqueId}`, {
             headers: {
@@ -148,6 +152,7 @@ async function resolveTiktokSecUid(input) {
                 'Accept-Language': 'en-US,en;q=0.9',
             },
             redirect: 'follow',
+            signal: ctrl.signal,
         });
         if (!res.ok) return null;
         const html = await res.text();
@@ -156,6 +161,8 @@ async function resolveTiktokSecUid(input) {
         return { secUid: m[1], uniqueId };
     } catch (_) {
         return null;
+    } finally {
+        clearTimeout(t);
     }
 }
 
