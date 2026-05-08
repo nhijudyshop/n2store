@@ -779,6 +779,35 @@ Status: ✅ Done
 
 **Status**: ✅ Done.
 
+### [web2/db] Tách v2 sang Neon (free tier) — không tốn dữ liệu Render v1 nữa
+
+**Vấn đề**: Sau cleanup 92k records, user hỏi có thể lưu v2 ở DB riêng (Supabase/Neon free) để không đụng Render Postgres v1. Quyết định: **dùng Neon** (Postgres-compatible, 0.5 GB free, auto-suspend khi idle).
+
+**Thay đổi**:
+
+- New [render.com/db/web2-pool.js](../render.com/db/web2-pool.js) — singleton `pg.Pool` từ env `WEB2_DATABASE_URL`. Config nhỏ hơn v1 pool (max=10 thay vì 20 vì Neon free quota), connect timeout 15s để absorb cold-start ~3-5s khi Neon resume từ suspend.
+- [render.com/server.js](../render.com/server.js): require web2Pool, expose `app.locals.web2Db = web2Pool || chatDbPool` (graceful fallback nếu env unset).
+- [render.com/routes/web2-generic.js](../render.com/routes/web2-generic.js): 10 chỗ `req.app.locals.chatDb` → `req.app.locals.web2Db`. Hành vi không đổi khi env set; nếu không set thì rơi về chatDb.
+- Set `WEB2_DATABASE_URL` trên Render service `srv-d4e5pd3gk3sc73bgv600` qua API `PUT /v1/services/{id}/env-vars/{KEY}` (single-key, không touch env vars khác).
+
+**Verify trên prod**:
+
+- Trước: `_storage` báo `db_total: 476 MB` (Render v1)
+- Sau deploy: `_storage` báo `db_total: 7.3 MB` (Neon fresh) ✅
+- Seed test `productuom` 44 records → lên Neon (DB total 7.3 → 7.4 MB), Render v1 KHÔNG tăng
+
+**Connection string**: lưu trong `serect_dont_push.txt` (dòng `Neon: postgresql://...`), endpoint `ep-orange-cloud-aox4ddrx.c-2.ap-southeast-1.aws.neon.tech` (Singapore region).
+
+**Trade-off**:
+
+- Cold-start ~3-5s khi Neon resume từ idle (≥1 tuần idle → suspend, đầu tiên request mất 3-5s)
+- Free tier 0.5 GB → đủ cho ProductTemplate + FastSaleOrder lite, hết khi seed full + lines (~250 MB ước tính)
+- Khi vượt 0.5 GB → upgrade Neon $19/tháng hoặc tự host
+
+**Status**: ✅ Done. v2 hoàn toàn isolate trên Neon, v1 chatDb không bị ảnh hưởng dù seed bao nhiêu data.
+
+---
+
 ### [web2/cleanup] Xóa toàn bộ TPOS data đã seed + reclaim 120 MB disk
 
 **Lý do**: User hỏi "nó chiếm dữ liệu render db dữ vậy?" sau khi seed 91k Partner. Đo thực: 121 MB cho web2_records, 688 MB tổng DB → đã vượt Render Starter $7 (256 MB cap). User chọn xóa.
