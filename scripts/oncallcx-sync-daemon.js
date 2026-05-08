@@ -2,27 +2,19 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 
 /**
- * OnCallCX Sync Daemon
+ * OnCallCX Sync Daemon — DEPRECATED 2026-05-08
  *
- * Lý do tồn tại: Render.com (SG) và CF Worker (global) KHÔNG connect được
- * pbx-ucaas.oncallcx.vn do GeoIP firewall chỉ cho phép IP Vietnam consumer ISP.
- * Máy local của user (VN ISP) thì connect được. Vì vậy chạy sync trên máy user.
+ * Đã ngừng sync vì recording bị duplicate giữa Postgres và OnCallCX portal.
+ * Khi cần ghi âm truy thẳng portal.oncallcx.com (UI đã có nút "Portal OnCallCX").
  *
- * Flow:
- *   1. Login pbx-ucaas.oncallcx.vn (credentials từ serect_dont_push.txt)
- *   2. Fetch 25 CDR gần nhất từ pbxCalls.xhtml
- *   3. Lọc ra rows có Connected=Yes + Duration > 0 + CHƯA sync (state file)
- *   4. Download từng recording.wav
- *   5. POST lên Render /api/oncall/call-recordings (base64)
- *   6. Cập nhật state file → lần sau skip
- *
- * State file: ~/.n2store-oncallcx-sync/state.json
- *   { syncedRowKeys: [...], lastSyncAt: 1234567890 }
- *
- * Run: node scripts/oncallcx-sync-daemon.js
- * Hoặc one-shot: MAX=10 node scripts/oncallcx-sync-daemon.js
- * Hoặc via launchd (xem scripts/install-oncallcx-sync.sh)
+ * launchd plist: bash scripts/install-oncallcx-sync.sh uninstall
+ * Render endpoint POST /api/oncall/call-recordings hiện trả 410 Gone.
  */
+
+console.error('[oncallcx-sync] DEPRECATED — sync was disabled 2026-05-08. Recordings live in OnCallCX portal only.');
+process.exit(0);
+
+/* eslint-disable */ /*
 
 const fs = require('fs');
 const path = require('path');

@@ -24,7 +24,7 @@ function logSip(direction, msg) {
         time: new Date().toISOString(),
         dir: direction,
         first: firstLine,
-        full: msg.substring(0, 2000)
+        full: msg.substring(0, 2000),
     };
     sipDebugLog.push(entry);
     if (sipDebugLog.length > MAX_DEBUG_LOG) sipDebugLog.shift();
@@ -69,7 +69,9 @@ function attachSipProxy(server) {
         // UDP socket receives SIP responses from PBX → rewrite → forward to browser via WSS
         udpSocket.on('message', (msg, rinfo) => {
             const sipResponse = msg.toString('utf8');
-            console.log(`${MODULE} ← PBX (${rinfo.address}:${rinfo.port}): ${getFirstLine(sipResponse)}`);
+            console.log(
+                `${MODULE} ← PBX (${rinfo.address}:${rinfo.port}): ${getFirstLine(sipResponse)}`
+            );
 
             logSip('← PBX', sipResponse);
 
@@ -89,7 +91,9 @@ function attachSipProxy(server) {
         // Bind UDP socket to ephemeral port
         udpSocket.bind(0, () => {
             const addr = udpSocket.address();
-            console.log(`${MODULE} UDP socket bound to ${addr.address}:${addr.port} for session ${sessionId}`);
+            console.log(
+                `${MODULE} UDP socket bound to ${addr.address}:${addr.port} for session ${sessionId}`
+            );
         });
 
         // Browser sends SIP messages via WSS → forward to PBX via UDP
@@ -129,7 +133,9 @@ function attachSipProxy(server) {
                 if (err) {
                     console.error(`${MODULE} UDP send error:`, err.message);
                 } else {
-                    console.log(`${MODULE} UDP sent ${buffer.length} bytes to ${PBX_HOST}:${PBX_PORT}`);
+                    console.log(
+                        `${MODULE} UDP sent ${buffer.length} bytes to ${PBX_HOST}:${PBX_PORT}`
+                    );
                 }
             });
         });
@@ -162,17 +168,11 @@ function rewriteSipForUDP(sipMessage, udpSocket) {
     // 1. Via: SIP/2.0/WSS ... → SIP/2.0/UDP with rport
     //    JsSIP sends: Via: SIP/2.0/WSS 19de78edhvof.invalid;branch=z9hG4bK...
     //    PBX needs:   Via: SIP/2.0/UDP {some-ip};rport;branch=z9hG4bK...
-    msg = msg.replace(
-        /Via:\s*SIP\/2\.0\/WSS?\s+[^\s;]+/gi,
-        `Via: SIP/2.0/UDP ${PBX_HOST};rport`
-    );
+    msg = msg.replace(/Via:\s*SIP\/2\.0\/WSS?\s+[^\s;]+/gi, `Via: SIP/2.0/UDP ${PBX_HOST};rport`);
 
     // Ensure rport is present (PBX uses source IP:port to respond)
     if (msg.includes('Via: SIP/2.0/UDP') && !msg.includes('rport')) {
-        msg = msg.replace(
-            /Via:\s*SIP\/2\.0\/UDP\s+([^\r\n]+)/i,
-            'Via: SIP/2.0/UDP $1;rport'
-        );
+        msg = msg.replace(/Via:\s*SIP\/2\.0\/UDP\s+([^\r\n]+)/i, 'Via: SIP/2.0/UDP $1;rport');
     }
 
     // 2. Contact: replace transport=ws/wss with nothing (default = UDP)
@@ -196,22 +196,13 @@ function rewriteSipForWSS(sipResponse, viaMap, invalidDomain) {
     if (branchMatch && viaMap.has(branchMatch[1])) {
         // Replace with exact original Via (preserves branch, domain, transport)
         const originalVia = viaMap.get(branchMatch[1]);
-        msg = msg.replace(
-            /Via:\s*SIP\/2\.0\/UDP\s+[^\r\n]+/i,
-            `Via: ${originalVia}`
-        );
+        msg = msg.replace(/Via:\s*SIP\/2\.0\/UDP\s+[^\r\n]+/i, `Via: ${originalVia}`);
     } else if (invalidDomain) {
         // Fallback: change transport back to WSS and restore .invalid domain
-        msg = msg.replace(
-            /Via:\s*SIP\/2\.0\/UDP\s+[^\s;]+/gi,
-            `Via: SIP/2.0/WSS ${invalidDomain}`
-        );
+        msg = msg.replace(/Via:\s*SIP\/2\.0\/UDP\s+[^\s;]+/gi, `Via: SIP/2.0/WSS ${invalidDomain}`);
     } else {
         // Last resort: just change transport back to WSS
-        msg = msg.replace(
-            /Via:\s*SIP\/2\.0\/UDP/gi,
-            'Via: SIP/2.0/WSS'
-        );
+        msg = msg.replace(/Via:\s*SIP\/2\.0\/UDP/gi, 'Via: SIP/2.0/WSS');
     }
 
     return msg;
@@ -232,7 +223,9 @@ function getFirstLine(sipMessage) {
 function cleanup(sessionId) {
     const session = activeSessions.get(sessionId);
     if (session) {
-        try { session.udpSocket.close(); } catch {}
+        try {
+            session.udpSocket.close();
+        } catch {}
         activeSessions.delete(sessionId);
         console.log(`${MODULE} Session ${sessionId} cleaned up. Active: ${activeSessions.size}`);
     }
@@ -250,7 +243,7 @@ function createRouter() {
         res.json({
             status: 'ok',
             pbx: `${PBX_HOST}:${PBX_PORT}`,
-            activeSessions: activeSessions.size
+            activeSessions: activeSessions.size,
         });
     });
 
@@ -258,7 +251,7 @@ function createRouter() {
     router.get('/debug', (req, res) => {
         res.json({
             total: sipDebugLog.length,
-            messages: sipDebugLog.slice(-30)
+            messages: sipDebugLog.slice(-30),
         });
     });
 
@@ -273,10 +266,7 @@ function createRouter() {
         const apiKey = process.env.TURN_API_KEY;
         const domain = process.env.TURN_DOMAIN || 'n2store.metered.live';
         if (!apiKey) return null;
-        if (
-            _meteredCache &&
-            Date.now() - _meteredCache.fetchedAt < _METERED_TTL_MS
-        ) {
+        if (_meteredCache && Date.now() - _meteredCache.fetchedAt < _METERED_TTL_MS) {
             return _meteredCache.iceServers;
         }
         try {
@@ -285,10 +275,7 @@ function createRouter() {
             if (!r.ok) return null;
             const data = await r.json();
             if (!Array.isArray(data) || data.length === 0) return null;
-            const iceServers = [
-                { urls: 'stun:stun.l.google.com:19302' },
-                ...data,
-            ];
+            const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }, ...data];
             _meteredCache = { iceServers, fetchedAt: Date.now() };
             return iceServers;
         } catch (e) {
@@ -311,8 +298,8 @@ function createRouter() {
             return res.json({
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                ],
             });
         }
 
@@ -320,8 +307,12 @@ function createRouter() {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: turnUrl, username: turnUsername, credential: turnCredential },
-                { urls: turnUrl.replace('turn:', 'turns:') + '?transport=tcp', username: turnUsername, credential: turnCredential }
-            ]
+                {
+                    urls: turnUrl.replace('turn:', 'turns:') + '?transport=tcp',
+                    username: turnUsername,
+                    credential: turnCredential,
+                },
+            ],
         });
     });
 
@@ -389,9 +380,13 @@ function createRouter() {
     router.get('/ext-assignments', async (req, res) => {
         try {
             const db = req.app.locals.chatDb;
-            const r = await db.query('SELECT username, ext, assigned_by, assigned_at, updated_at FROM phone_ext_assignments ORDER BY username');
+            const r = await db.query(
+                'SELECT username, ext, assigned_by, assigned_at, updated_at FROM phone_ext_assignments ORDER BY username'
+            );
             const map = {};
-            r.rows.forEach(row => { map[row.username] = row.ext; });
+            r.rows.forEach((row) => {
+                map[row.username] = row.ext;
+            });
             res.json({ success: true, assignments: map, rows: r.rows });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
@@ -422,7 +417,10 @@ function createRouter() {
     router.delete('/ext-assignments/:username', async (req, res) => {
         try {
             const username = decodeURIComponent(req.params.username);
-            await req.app.locals.chatDb.query('DELETE FROM phone_ext_assignments WHERE username = $1', [username]);
+            await req.app.locals.chatDb.query(
+                'DELETE FROM phone_ext_assignments WHERE username = $1',
+                [username]
+            );
             res.json({ success: true });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
@@ -433,7 +431,10 @@ function createRouter() {
     router.post('/call-history', async (req, res) => {
         try {
             const b = req.body || {};
-            if (!b.phone || !b.direction) return res.status(400).json({ success: false, error: 'phone and direction required' });
+            if (!b.phone || !b.direction)
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'phone and direction required' });
             const db = req.app.locals.chatDb;
             const r = await db.query(
                 `INSERT INTO phone_call_history
@@ -450,7 +451,7 @@ function createRouter() {
                     b.orderCode || b.order_code || null,
                     b.outcome || null,
                     b.note || null,
-                    b.timestamp || Date.now()
+                    b.timestamp || Date.now(),
                 ]
             );
             res.json({ success: true, id: r.rows[0].id });
@@ -462,13 +463,33 @@ function createRouter() {
     router.get('/call-history', async (req, res) => {
         try {
             const { from, to, direction, username, phone, ext, limit } = req.query;
-            const conds = []; const params = []; let idx = 1;
-            if (from) { conds.push(`timestamp >= $${idx++}`); params.push(parseInt(from, 10)); }
-            if (to) { conds.push(`timestamp < $${idx++}`); params.push(parseInt(to, 10)); }
-            if (direction) { conds.push(`direction = $${idx++}`); params.push(direction); }
-            if (username) { conds.push(`username = $${idx++}`); params.push(username); }
-            if (ext) { conds.push(`ext = $${idx++}`); params.push(ext); }
-            if (phone) { conds.push(`phone ILIKE $${idx++}`); params.push('%' + phone + '%'); }
+            const conds = [];
+            const params = [];
+            let idx = 1;
+            if (from) {
+                conds.push(`timestamp >= $${idx++}`);
+                params.push(parseInt(from, 10));
+            }
+            if (to) {
+                conds.push(`timestamp < $${idx++}`);
+                params.push(parseInt(to, 10));
+            }
+            if (direction) {
+                conds.push(`direction = $${idx++}`);
+                params.push(direction);
+            }
+            if (username) {
+                conds.push(`username = $${idx++}`);
+                params.push(username);
+            }
+            if (ext) {
+                conds.push(`ext = $${idx++}`);
+                params.push(ext);
+            }
+            if (phone) {
+                conds.push(`phone ILIKE $${idx++}`);
+                params.push('%' + phone + '%');
+            }
             const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
             const max = Math.min(parseInt(limit || '500', 10) || 500, 5000);
             const r = await req.app.locals.chatDb.query(
@@ -501,7 +522,10 @@ function createRouter() {
     router.patch('/call-history', async (req, res) => {
         try {
             const { username, phone, outcome, note } = req.body || {};
-            if (!username || !phone) return res.status(400).json({ success: false, error: 'username and phone required' });
+            if (!username || !phone)
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'username and phone required' });
             await req.app.locals.chatDb.query(
                 `UPDATE phone_call_history
                  SET outcome = COALESCE($3, outcome), note = COALESCE($4, note)
@@ -546,13 +570,24 @@ function createRouter() {
     router.post('/presence', async (req, res) => {
         try {
             const b = req.body || {};
-            if (!b.username || !b.state) return res.status(400).json({ success: false, error: 'username and state required' });
+            if (!b.username || !b.state)
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'username and state required' });
             await req.app.locals.chatDb.query(
                 `INSERT INTO phone_presence (username, state, ext, call_phone, call_name, direction, since, updated_at)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
                  ON CONFLICT (username) DO UPDATE SET
                      state = $2, ext = $3, call_phone = $4, call_name = $5, direction = $6, since = $7, updated_at = NOW()`,
-                [b.username, b.state, b.ext || null, b.callPhone || b.call_phone || null, b.callName || b.call_name || null, b.direction || null, b.since || Date.now()]
+                [
+                    b.username,
+                    b.state,
+                    b.ext || null,
+                    b.callPhone || b.call_phone || null,
+                    b.callName || b.call_name || null,
+                    b.direction || null,
+                    b.since || Date.now(),
+                ]
             );
             res.json({ success: true });
         } catch (err) {
@@ -564,7 +599,8 @@ function createRouter() {
     router.post('/audit-log', async (req, res) => {
         try {
             const b = req.body || {};
-            if (!b.action) return res.status(400).json({ success: false, error: 'action required' });
+            if (!b.action)
+                return res.status(400).json({ success: false, error: 'action required' });
             await req.app.locals.chatDb.query(
                 `INSERT INTO phone_audit_log (username, action, detail, timestamp) VALUES ($1,$2,$3,$4)`,
                 [b.username || '', b.action, b.detail || {}, b.timestamp || Date.now()]
@@ -578,8 +614,13 @@ function createRouter() {
     router.get('/audit-log', async (req, res) => {
         try {
             const { action, limit } = req.query;
-            const conds = []; const params = []; let idx = 1;
-            if (action) { conds.push(`action = $${idx++}`); params.push(action); }
+            const conds = [];
+            const params = [];
+            let idx = 1;
+            if (action) {
+                conds.push(`action = $${idx++}`);
+                params.push(action);
+            }
             const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
             const max = Math.min(parseInt(limit || '200', 10), 2000);
             const r = await req.app.locals.chatDb.query(
@@ -608,10 +649,17 @@ function createRouter() {
     router.post('/contacts', async (req, res) => {
         try {
             const b = req.body || {};
-            if (!b.name || !b.phone) return res.status(400).json({ success: false, error: 'name and phone required' });
+            if (!b.name || !b.phone)
+                return res.status(400).json({ success: false, error: 'name and phone required' });
             const r = await req.app.locals.chatDb.query(
                 `INSERT INTO phone_contacts (name, phone, tag, note, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-                [b.name, String(b.phone).replace(/[^\d+]/g, ''), b.tag || null, b.note || null, b.created_by || null]
+                [
+                    b.name,
+                    String(b.phone).replace(/[^\d+]/g, ''),
+                    b.tag || null,
+                    b.note || null,
+                    b.created_by || null,
+                ]
             );
             res.json({ success: true, id: r.rows[0].id });
         } catch (err) {
@@ -621,183 +669,40 @@ function createRouter() {
 
     router.delete('/contacts/:id', async (req, res) => {
         try {
-            await req.app.locals.chatDb.query('DELETE FROM phone_contacts WHERE id = $1', [parseInt(req.params.id, 10)]);
+            await req.app.locals.chatDb.query('DELETE FROM phone_contacts WHERE id = $1', [
+                parseInt(req.params.id, 10),
+            ]);
             res.json({ success: true });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
     });
 
-    // --- CALL RECORDINGS (auto-uploaded from browser MediaRecorder) ---
-    // Tất cả cuộc gọi đều được tự động thu âm và upload lên đây
-    router.post('/call-recordings', async (req, res) => {
-        try {
-            const b = req.body || {};
-            if (!b.phone || !b.audio_b64) {
-                return res.status(400).json({ success: false, error: 'phone and audio_b64 required' });
-            }
-            const audioBuf = Buffer.from(String(b.audio_b64), 'base64');
-            if (!audioBuf.length) return res.status(400).json({ success: false, error: 'empty audio' });
-            const db = req.app.locals.chatDb;
-            const r = await db.query(
-                `INSERT INTO phone_call_recordings
-                 (call_history_id, username, ext, phone, name, direction, order_code, duration, mime_type, size_bytes, audio, timestamp)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-                 RETURNING id`,
-                [
-                    b.call_history_id ? parseInt(b.call_history_id, 10) : null,
-                    b.username || '',
-                    b.ext || null,
-                    String(b.phone || ''),
-                    b.name || null,
-                    b.direction || 'out',
-                    b.orderCode || b.order_code || null,
-                    parseInt(b.duration || 0, 10) || 0,
-                    b.mime_type || b.mimeType || 'audio/webm',
-                    audioBuf.length,
-                    audioBuf,
-                    b.timestamp || Date.now()
-                ]
-            );
-            res.json({ success: true, id: r.rows[0].id, size: audioBuf.length });
-        } catch (err) {
-            console.error(`${MODULE} call-recordings POST error:`, err.message);
-            res.status(500).json({ success: false, error: err.message });
-        }
+    // --- CALL RECORDINGS — DEPRECATED ---
+    // Bỏ lưu audio vào Postgres vì duplicate với OnCallCX portal. Khi cần ghi âm
+    // truy thẳng portal.oncallcx.com. Browser MediaRecorder vẫn cache local 30 ngày.
+    // GET list trả rỗng để frontend cũ không vỡ; ghi mới và stream audio trả 410.
+    const RECORDINGS_DEPRECATED_MSG =
+        'Endpoint deprecated. Audio recordings live in OnCallCX portal — fetch directly from there.';
+
+    router.post('/call-recordings', (_req, res) => {
+        res.status(410).json({ success: false, error: RECORDINGS_DEPRECATED_MSG });
     });
 
-    router.get('/call-recordings', async (req, res) => {
-        try {
-            const { from, to, username, phone, ext, limit } = req.query;
-            const conds = []; const params = []; let idx = 1;
-            if (from) { conds.push(`timestamp >= $${idx++}`); params.push(parseInt(from, 10)); }
-            if (to) { conds.push(`timestamp < $${idx++}`); params.push(parseInt(to, 10)); }
-            if (username) { conds.push(`username = $${idx++}`); params.push(username); }
-            if (ext) { conds.push(`ext = $${idx++}`); params.push(ext); }
-            if (phone) { conds.push(`phone ILIKE $${idx++}`); params.push('%' + phone + '%'); }
-            const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
-            const max = Math.min(parseInt(limit || '500', 10) || 500, 5000);
-            const r = await req.app.locals.chatDb.query(
-                `SELECT id, call_history_id, username, ext, phone, name, direction, order_code,
-                        duration, mime_type, size_bytes, timestamp, created_at
-                 FROM phone_call_recordings ${where}
-                 ORDER BY timestamp DESC LIMIT ${max}`,
-                params
-            );
-            res.json({ success: true, rows: r.rows });
-        } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
-        }
+    router.get('/call-recordings', (_req, res) => {
+        res.json({ success: true, rows: [], deprecated: true });
     });
 
-    // Stream audio bytes for playback / download
-    router.get('/call-recordings/:id/audio', async (req, res) => {
-        try {
-            const id = parseInt(req.params.id, 10);
-            if (!id) return res.status(400).send('bad id');
-            const r = await req.app.locals.chatDb.query(
-                `SELECT audio, mime_type, phone, size_bytes FROM phone_call_recordings WHERE id = $1`,
-                [id]
-            );
-            const row = r.rows[0];
-            if (!row || !row.audio) return res.status(404).send('not found');
-            res.setHeader('Content-Type', row.mime_type || 'audio/webm');
-            res.setHeader('Content-Length', String(row.size_bytes || row.audio.length));
-            res.setHeader('Content-Disposition',
-                `inline; filename="call-${id}-${(row.phone || 'unknown').replace(/[^0-9+]/g, '')}.webm"`);
-            res.setHeader('Cache-Control', 'private, max-age=300');
-            res.end(row.audio);
-        } catch (err) {
-            console.error(`${MODULE} call-recordings audio error:`, err.message);
-            res.status(500).send(err.message);
-        }
+    router.get('/call-recordings/:id/audio', (_req, res) => {
+        res.status(410).send(RECORDINGS_DEPRECATED_MSG);
     });
 
-    router.delete('/call-recordings/:id', async (req, res) => {
-        try {
-            await req.app.locals.chatDb.query(
-                'DELETE FROM phone_call_recordings WHERE id = $1',
-                [parseInt(req.params.id, 10)]
-            );
-            res.json({ success: true });
-        } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
-        }
+    router.delete('/call-recordings/:id', (_req, res) => {
+        res.status(410).json({ success: false, error: RECORDINGS_DEPRECATED_MSG });
     });
 
-    // One-shot backfill: sửa phone cho recordings đã sync bằng daemon trước khi
-    // fix — nó lưu số line công ty (outboundPublicNumber) vào cột phone thay vì
-    // số khách (call.to). Ghép recording ↔ call-history qua (ext, timestamp ±30s,
-    // direction) rồi copy phone đúng + set call_history_id.
-    // Body: { dryRun?: bool, toleranceMs?: number } — default dryRun=false, 30000ms.
-    router.post('/call-recordings/remap-phones', async (req, res) => {
-        try {
-            const db = req.app.locals.chatDb;
-            const tolerance = Math.max(
-                1000,
-                parseInt(req.body?.toleranceMs, 10) || 30000
-            );
-            const dryRun = !!req.body?.dryRun;
-
-            // Chỉ sửa recording từ sync daemon — recording từ browser MediaRecorder
-            // (CSKH etc) có phone đúng từ đầu.
-            const candidates = await db.query(
-                `SELECT r.id, r.phone AS rec_phone, r.ext, r.direction,
-                        r.timestamp AS rec_ts, r.call_history_id
-                 FROM phone_call_recordings r
-                 WHERE r.username = 'oncallcx-portal-sync'`
-            );
-
-            const results = [];
-            let updated = 0,
-                skipped = 0;
-            for (const row of candidates.rows) {
-                const matchQ = await db.query(
-                    `SELECT id, phone FROM phone_call_history
-                     WHERE ext = $1 AND direction = $2
-                       AND ABS(timestamp - $3) < $4
-                     ORDER BY ABS(timestamp - $3) ASC
-                     LIMIT 1`,
-                    [row.ext, row.direction, row.rec_ts, tolerance]
-                );
-                const hit = matchQ.rows[0];
-                if (!hit) {
-                    skipped++;
-                    continue;
-                }
-                if (hit.phone === row.rec_phone && row.call_history_id === hit.id) {
-                    skipped++;
-                    continue;
-                }
-                results.push({
-                    id: row.id,
-                    oldPhone: row.rec_phone,
-                    newPhone: hit.phone,
-                    callHistoryId: hit.id,
-                });
-                if (!dryRun) {
-                    await db.query(
-                        `UPDATE phone_call_recordings
-                         SET phone = $1, call_history_id = $2
-                         WHERE id = $3`,
-                        [hit.phone, hit.id, row.id]
-                    );
-                    updated++;
-                }
-            }
-            res.json({
-                success: true,
-                dryRun,
-                scanned: candidates.rows.length,
-                changes: results.length,
-                updated,
-                skipped,
-                sample: results.slice(0, 20),
-            });
-        } catch (err) {
-            console.error(`${MODULE} remap-phones error:`, err.message);
-            res.status(500).json({ success: false, error: err.message });
-        }
+    router.post('/call-recordings/remap-phones', (_req, res) => {
+        res.status(410).json({ success: false, error: RECORDINGS_DEPRECATED_MSG });
     });
 
     // --- AUTO-REGISTER LOCK (singleton: chỉ 1 máy giữ lock cùng lúc) ---
@@ -810,7 +715,8 @@ function createRouter() {
             );
             const row = r.rows[0] || {};
             const now = Date.now();
-            const expired = !row.last_heartbeat || (now - parseInt(row.last_heartbeat, 10)) > LOCK_EXPIRY_MS;
+            const expired =
+                !row.last_heartbeat || now - parseInt(row.last_heartbeat, 10) > LOCK_EXPIRY_MS;
             res.json({
                 success: true,
                 locked: !!row.holder_session && !expired,
@@ -819,7 +725,7 @@ function createRouter() {
                 holder_session: row.holder_session || null,
                 holder_device: row.holder_device || null,
                 last_heartbeat: row.last_heartbeat ? parseInt(row.last_heartbeat, 10) : null,
-                started_at: row.started_at ? parseInt(row.started_at, 10) : null
+                started_at: row.started_at ? parseInt(row.started_at, 10) : null,
             });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
@@ -829,15 +735,26 @@ function createRouter() {
     router.post('/auto-register-lock', async (req, res) => {
         try {
             const { session, user, device, force } = req.body || {};
-            if (!session) return res.status(400).json({ success: false, error: 'session required' });
+            if (!session)
+                return res.status(400).json({ success: false, error: 'session required' });
             const db = req.app.locals.chatDb;
-            const r = await db.query('SELECT holder_session, last_heartbeat FROM phone_auto_register_lock WHERE id = 1');
+            const r = await db.query(
+                'SELECT holder_session, last_heartbeat FROM phone_auto_register_lock WHERE id = 1'
+            );
             const row = r.rows[0] || {};
             const now = Date.now();
-            const expired = !row.last_heartbeat || (now - parseInt(row.last_heartbeat || 0, 10)) > LOCK_EXPIRY_MS;
+            const expired =
+                !row.last_heartbeat || now - parseInt(row.last_heartbeat || 0, 10) > LOCK_EXPIRY_MS;
             // Refuse if someone else holds a valid (non-expired) lock unless force
             if (row.holder_session && row.holder_session !== session && !expired && !force) {
-                return res.status(409).json({ success: false, error: 'locked_by_other', holder_user: row.holder_user, holder_device: row.holder_device });
+                return res
+                    .status(409)
+                    .json({
+                        success: false,
+                        error: 'locked_by_other',
+                        holder_user: row.holder_user,
+                        holder_device: row.holder_device,
+                    });
             }
             await db.query(
                 `UPDATE phone_auto_register_lock
@@ -847,7 +764,11 @@ function createRouter() {
                 [user || null, session, device || null, now]
             );
             // If we force-took, signal previous holder (they will poll and see they no longer hold)
-            res.json({ success: true, taken: true, forced: !!force && row.holder_session && row.holder_session !== session });
+            res.json({
+                success: true,
+                taken: true,
+                forced: !!force && row.holder_session && row.holder_session !== session,
+            });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
@@ -856,7 +777,8 @@ function createRouter() {
     router.post('/auto-register-lock/heartbeat', async (req, res) => {
         try {
             const { session } = req.body || {};
-            if (!session) return res.status(400).json({ success: false, error: 'session required' });
+            if (!session)
+                return res.status(400).json({ success: false, error: 'session required' });
             const db = req.app.locals.chatDb;
             const r = await db.query(
                 `UPDATE phone_auto_register_lock SET last_heartbeat = $1, updated_at = NOW()
@@ -906,7 +828,8 @@ function createRouter() {
     router.delete('/auto-register-lock', async (req, res) => {
         try {
             const { session } = req.body || {};
-            if (!session) return res.status(400).json({ success: false, error: 'session required' });
+            if (!session)
+                return res.status(400).json({ success: false, error: 'session required' });
             const db = req.app.locals.chatDb;
             const r = await db.query(
                 `UPDATE phone_auto_register_lock
@@ -1007,29 +930,6 @@ async function ensurePhoneManagementTables(pool) {
         );
         CREATE INDEX IF NOT EXISTS idx_phone_contacts_phone ON phone_contacts(phone);
         CREATE INDEX IF NOT EXISTS idx_phone_contacts_name ON phone_contacts(name);
-
-        -- Call recordings: lưu audio blob + metadata, auto-uploaded mỗi khi kết thúc cuộc gọi
-        CREATE TABLE IF NOT EXISTS phone_call_recordings (
-            id SERIAL PRIMARY KEY,
-            call_history_id INTEGER,
-            username VARCHAR(255),
-            ext VARCHAR(20),
-            phone VARCHAR(30) NOT NULL,
-            name VARCHAR(255),
-            direction VARCHAR(10),
-            order_code VARCHAR(50),
-            duration INTEGER DEFAULT 0,
-            mime_type VARCHAR(80),
-            size_bytes INTEGER,
-            audio BYTEA,
-            timestamp BIGINT NOT NULL,
-            created_at TIMESTAMP DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_username_ts ON phone_call_recordings(username, timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_phone_ts ON phone_call_recordings(phone, timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_timestamp ON phone_call_recordings(timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_ext ON phone_call_recordings(ext);
-        CREATE INDEX IF NOT EXISTS idx_phone_call_recordings_history_id ON phone_call_recordings(call_history_id);
 
         -- Lock singleton: chỉ 1 máy giữ lock auto-register 10 line tại 1 thời điểm
         CREATE TABLE IF NOT EXISTS phone_auto_register_lock (

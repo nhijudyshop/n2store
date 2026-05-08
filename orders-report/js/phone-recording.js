@@ -194,39 +194,9 @@ const PhoneRecording = (() => {
             req.onerror = () => reject(req.error);
         });
         console.log('[PhoneRecording] saved local', localId, blob.size, 'bytes');
-        // Fire-and-forget cloud upload (không block UI nếu mạng chậm/lỗi)
-        _uploadToCloud(blob, meta).catch((err) =>
-            console.warn('[PhoneRecording] cloud upload failed:', err.message)
-        );
+        // Cloud upload disabled: dữ liệu trùng với OnCallCX portal. Khi cần ghi âm
+        // truy thẳng portal.oncallcx.com. Local IndexedDB (30d retention) vẫn giữ.
         return localId;
-    }
-
-    async function _uploadToCloud(blob, meta) {
-        if (!meta?.phone) return; // không phone → không có gì để match, bỏ qua
-        const audio_b64 = await _blobToBase64(blob);
-        const body = {
-            username: meta.username || '',
-            ext: meta.ext || null,
-            phone: meta.phone,
-            name: meta.name || null,
-            direction: meta.direction || 'out',
-            order_code: meta.orderCode || null,
-            duration: meta.duration || 0,
-            mime_type: meta.mimeType || 'audio/webm',
-            timestamp: meta.timestamp || Date.now(),
-            audio_b64,
-        };
-        const r = await fetch(CLOUD_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-        if (!r.ok) {
-            const t = await r.text().catch(() => '');
-            throw new Error(`HTTP ${r.status} ${t.substring(0, 120)}`);
-        }
-        const out = await r.json().catch(() => ({}));
-        console.log('[PhoneRecording] cloud upload ok id=' + out.id + ' size=' + (out.size || 0));
     }
 
     function _blobToBase64(blob) {
