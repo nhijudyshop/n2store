@@ -18,12 +18,15 @@ const pool = require('../db/pool');
 const bunny = require('./bunny-storage-service');
 const fal = require('./aikol-fal-service');
 const kling = require('./aikol-kling-service');
+const geminiClone = require('./aikol-gemini-clone-service');
+const veo = require('./aikol-veo-service');
 const telegram = require('./aikol-telegram-service');
 
 const TICK_INTERVAL_MS = parseInt(process.env.AIKOL_WORKER_INTERVAL_MS, 10) || 8000;
 const MAX_RUNNING = parseInt(process.env.AIKOL_WORKER_MAX_RUNNING, 10) || 6;
 const FAL_POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
 const KLING_POLL_TIMEOUT_MS = 15 * 60 * 1000; // 15 min
+const VEO_POLL_TIMEOUT_MS = 20 * 60 * 1000; // 20 min (Veo can take longer)
 
 const inFlight = new Set(); // generation_ids currently being processed by THIS tick
 let intervalHandle = null;
@@ -101,15 +104,72 @@ async function dispatchOne(row) {
         }
     }
 
+    // Engine selection — config.engine overrides default per kind.
+    // image: fal_pulid (default) | gemini_3_1
+    // video: kling (default) | veo_3_1
+    const engine = String(conf.engine || (kind === 'image' ? 'fal_pulid' : 'kling')).toLowerCase();
+
+    // Resolve scene image URL (clip cover) for engines that accept it
+    let sceneImageUrl = null;
+    if (clip_id) {
+        const c = await pool.query(`SELECT cover_url FROM aikol_clips WHERE id = $1`, [clip_id]);
+        sceneImageUrl = c.rows[0]?.cover_url || null;
+    }
+
     let externalId, provider, kindKey;
+
+    // ===== IMAGE =====
     if (kind === 'image') {
+        if (engine === 'gemini_3_1') {
+            // Synchronous — generate, upload, save output, mark done all in one shot
+            const result = await geminiClone.cloneImage({
+                modelImageUrl,
+                sceneImageUrl,
+                prompt: note,
+            });
+            const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
+            const key = `aikol/outputs/${id}-0.${ext}`;
+            await bunny.uploadBuffer(result.buffer, key, result.mimeType);
+            await pool.query(
+                `INSERT INTO aikol_outputs
+                    (generation_id, user_id, variant_index, file_path, file_kind, file_size)
+                 VALUES ($1, $2, 0, $3, 'image', $4)`,
+                [id, user_id, key, result.buffer.length]
+            );
+            await pool.query(
+                `UPDATE aikol_generations
+                 SET state = 'done', finished_at = NOW(), started_at = NOW(),
+                     config = COALESCE(config, '{}'::jsonb) || $1::jsonb
+                 WHERE id = $2`,
+                [JSON.stringify({ provider: 'gemini', kind_key: 'image_clone', engine }), id]
+            );
+            await notifyDone(id, user_id, kind, 1).catch(() => {});
+            return;
+        }
+        // Default: Fal PuLID
         const submit = await fal.submitImageJob({ modelImageUrl, config: conf, note });
         externalId = submit.requestId;
         provider = 'fal';
         kindKey = 'image';
     } else {
-        // Video — use video2video if we have a usable clip MP4, else image2video.
-        if (clipVideoUrl) {
+        // ===== VIDEO =====
+        if (engine === 'veo_3_1') {
+            const durationSeconds = Math.max(
+                3,
+                Math.min(parseInt(conf.duration_seconds, 10) || 5, 8)
+            );
+            const submit = await veo.submitVideoJob({
+                modelImageUrl,
+                sceneImageUrl,
+                prompt: note,
+                durationSeconds,
+                aspectRatio: conf.aspect_ratio || '9:16',
+                resolution: conf.resolution || '720p',
+            });
+            externalId = submit.operationName;
+            provider = 'veo';
+            kindKey = 'image2video';
+        } else if (clipVideoUrl) {
             const submit = await kling.submitVideo2Video({
                 clipVideoUrl,
                 modelImageUrl,
@@ -136,7 +196,7 @@ async function dispatchOne(row) {
          SET state = 'running', external_id = $1, started_at = NOW(),
              config = COALESCE(config, '{}'::jsonb) || $2::jsonb
          WHERE id = $3`,
-        [externalId, JSON.stringify({ provider, kind_key: kindKey }), id]
+        [externalId, JSON.stringify({ provider, kind_key: kindKey, engine }), id]
     );
 }
 
@@ -172,15 +232,48 @@ async function pollOne(row) {
     // Timeout guard.
     const startedAtMs = started_at ? new Date(started_at).getTime() : Date.now();
     const elapsed = Date.now() - startedAtMs;
-    const cap = provider === 'fal' ? FAL_POLL_TIMEOUT_MS : KLING_POLL_TIMEOUT_MS;
+    const cap =
+        provider === 'fal'
+            ? FAL_POLL_TIMEOUT_MS
+            : provider === 'veo'
+              ? VEO_POLL_TIMEOUT_MS
+              : KLING_POLL_TIMEOUT_MS;
     if (elapsed > cap) {
         return markError(id, user_id, cost_credits, `Provider ${provider} timeout (${cap}ms)`);
     }
 
-    if (provider === 'fal') {
-        return pollFal(row);
-    }
+    if (provider === 'fal') return pollFal(row);
+    if (provider === 'veo') return pollVeo(row);
     return pollKling(row);
+}
+
+async function pollVeo(row) {
+    const { id, user_id, external_id, cost_credits, kind } = row;
+    const status = await veo.getJobStatus(external_id);
+    if (status.status === 'running') return;
+    if (status.status === 'error') {
+        return markError(id, user_id, cost_credits, `Veo: ${status.error}`);
+    }
+    if (status.status === 'done' && status.videoUri) {
+        try {
+            const { buffer, contentType } = await veo.downloadVideo(status.videoUri);
+            const key = `aikol/outputs/${id}-0.mp4`;
+            await bunny.uploadBuffer(buffer, key, contentType);
+            await pool.query(
+                `INSERT INTO aikol_outputs
+                    (generation_id, user_id, variant_index, file_path, file_kind, file_size)
+                 VALUES ($1, $2, 0, $3, 'video', $4)`,
+                [id, user_id, key, buffer.length]
+            );
+            await pool.query(
+                `UPDATE aikol_generations SET state = 'done', finished_at = NOW() WHERE id = $1`,
+                [id]
+            );
+            await notifyDone(id, user_id, kind, 1).catch(() => {});
+        } catch (e) {
+            return markError(id, user_id, cost_credits, `Veo download/save: ${e.message}`);
+        }
+    }
 }
 
 async function pollFal(row) {

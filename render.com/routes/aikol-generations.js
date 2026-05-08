@@ -25,9 +25,11 @@ const pool = require('../db/pool');
 const bunny = require('../services/bunny-storage-service');
 
 const COSTS = {
-    image: 4,
-    video_std_per_sec: 8,
-    video_pro_per_sec: 13,
+    image: 4, // Fal PuLID — default
+    image_gemini_3_1: 8, // Gemini 3.1 multi-image clone — better scene fidelity
+    video_std_per_sec: 8, // Kling std
+    video_pro_per_sec: 13, // Kling pro
+    video_veo_per_sec: 16, // Veo 3.1 — Google
     video_min_seconds: 3,
     max_variations: 10,
 };
@@ -60,12 +62,20 @@ function clampInt(n, min, max, fallback) {
 
 function computeImageCost(config) {
     const variations = clampInt(config.variations, 1, COSTS.max_variations, 1);
-    return COSTS.image * variations;
+    const engine = String(config.engine || 'fal_pulid').toLowerCase();
+    const perVariation = engine === 'gemini_3_1' ? COSTS.image_gemini_3_1 : COSTS.image;
+    return perVariation * variations;
 }
 
 function computeVideoCost(config) {
     const seconds = Math.max(COSTS.video_min_seconds, clampInt(config.duration_seconds, 3, 10, 5));
-    const perSec = config.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+    const engine = String(config.engine || 'kling').toLowerCase();
+    let perSec;
+    if (engine === 'veo_3_1') {
+        perSec = COSTS.video_veo_per_sec;
+    } else {
+        perSec = config.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+    }
     return perSec * seconds;
 }
 

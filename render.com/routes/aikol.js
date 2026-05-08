@@ -25,8 +25,10 @@ const campaignsRouter = require('./aikol-campaigns');
 
 const COSTS = {
     image: 4,
+    image_gemini_3_1: 8, // multi-image clone, scene-fidelity tốt
     video_std_per_sec: 8,
     video_pro_per_sec: 13,
+    video_veo_per_sec: 16, // Veo 3.1 image-to-video, 4K
     video_min_seconds: 3,
     import_per_clip: 1,
     video_std: 80,

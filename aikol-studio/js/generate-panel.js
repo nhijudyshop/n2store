@@ -48,13 +48,28 @@
                     <form id="aikol-gen-form" class="aikol-gen-modal__body">
                         <fieldset class="aikol-gen-fieldset">
                             <legend>Kind</legend>
-                            <label><input type="radio" name="kind" value="image" checked> Image (4 credits / variation)</label>
-                            <label><input type="radio" name="kind" value="video"> Video (40–130 credits / clip)</label>
+                            <label><input type="radio" name="kind" value="image" checked> Image (4-8 cr/variation)</label>
+                            <label><input type="radio" name="kind" value="video"> Video (8-16 cr/sec)</label>
                         </fieldset>
 
                         <label class="aikol-gen-row">
                             <span>Model</span>
                             <select name="model_id" required></select>
+                        </label>
+
+                        <label class="aikol-gen-row" data-image-only>
+                            <span>Engine (image)</span>
+                            <select name="engine_image">
+                                <option value="fal_pulid" selected>Fal PuLID — 4cr/variation · nhanh</option>
+                                <option value="gemini_3_1">Gemini 3.1 — 8cr/variation · scene match tốt hơn</option>
+                            </select>
+                        </label>
+                        <label class="aikol-gen-row" data-video-only style="display:none">
+                            <span>Engine (video)</span>
+                            <select name="engine_video">
+                                <option value="kling" selected>Kling — 8-13cr/s · video2video / image2video</option>
+                                <option value="veo_3_1">Veo 3.1 — 16cr/s · Google · 4K capable</option>
+                            </select>
                         </label>
 
                         <div class="aikol-gen-grid">
@@ -192,14 +207,26 @@
         obj.similarity = parseInt(obj.similarity, 10);
         obj.creativity = parseInt(obj.creativity, 10);
         obj.duration_seconds = parseInt(obj.duration_seconds, 10) || 5;
+        // Engine — pick from the visible field per kind
+        obj.engine =
+            obj.kind === 'image' ? obj.engine_image || 'fal_pulid' : obj.engine_video || 'kling';
+        delete obj.engine_image;
+        delete obj.engine_video;
         return obj;
     }
 
     function computeCost(form) {
         const data = readForm(form);
-        if (data.kind === 'image') return COSTS.image * data.variations;
-        const perSec =
-            data.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+        if (data.kind === 'image') {
+            const perVariation = data.engine === 'gemini_3_1' ? 8 : COSTS.image;
+            return perVariation * data.variations;
+        }
+        let perSec;
+        if (data.engine === 'veo_3_1') {
+            perSec = 16; // COSTS.video_veo_per_sec
+        } else {
+            perSec = data.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+        }
         return perSec * Math.max(COSTS.video_min_seconds, data.duration_seconds);
     }
 
@@ -258,10 +285,13 @@
     }
 
     function setupVideoToggle(form) {
-        const videoBlock = form.querySelector('[data-video-only]');
+        const videoBlocks = form.querySelectorAll('[data-video-only]');
+        const imageBlocks = form.querySelectorAll('[data-image-only]');
         function update() {
             const kind = form.elements.kind.value;
-            videoBlock.style.display = kind === 'video' ? 'block' : 'none';
+            const isVideo = kind === 'video';
+            videoBlocks.forEach((el) => (el.style.display = isVideo ? '' : 'none'));
+            imageBlocks.forEach((el) => (el.style.display = isVideo ? 'none' : ''));
         }
         form.addEventListener('change', () => {
             update();
@@ -307,6 +337,7 @@
                     model_id: parseInt(data.model_id, 10),
                     clip_ids: clip ? [clip.id] : [],
                     config: {
+                        engine: data.engine,
                         variations: data.variations,
                         similarity: data.similarity,
                         creativity: data.creativity,
