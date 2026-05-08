@@ -22,7 +22,8 @@ async function handleAddressLookup() {
     }
 
     resultsContainer.style.display = 'block';
-    resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...</div>';
+    resultsContainer.innerHTML =
+        '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...</div>';
 
     try {
         // Use the global searchByName function from api-handler.js which returns data without DOM manipulation
@@ -33,45 +34,47 @@ async function handleAddressLookup() {
         const items = await window.searchByName(keyword);
 
         if (!items || items.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
+            resultsContainer.innerHTML =
+                '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
             return;
         }
 
-        resultsContainer.innerHTML = items.map(item => {
-            // Determine display name and type label
-            let displayName = item.name || item.ward_name || item.district_name || '';
-            let typeLabel = '';
-            let fullAddress = displayName; // Default to display name
-            let subText = '';
+        resultsContainer.innerHTML = items
+            .map((item) => {
+                // Determine display name and type label
+                let displayName = item.name || item.ward_name || item.district_name || '';
+                let typeLabel = '';
+                let fullAddress = displayName; // Default to display name
+                let subText = '';
 
-            if (item.type === 'province') {
-                typeLabel = 'Tỉnh/Thành phố';
-            } else if (item.type === 'district') {
-                typeLabel = 'Quận/Huyện';
-                if (item.province_name) {
-                    fullAddress = `${displayName}, ${item.province_name}`;
-                }
-            } else if (item.type === 'ward') {
-                typeLabel = 'Phường/Xã';
-                // Try to construct better address if fields exist
-                if (item.district_name && item.province_name) {
-                    fullAddress = `${displayName}, ${item.district_name}, ${item.province_name}`;
-                } else if (item.merger_details) {
-                    // Use merger details as context since district_name is missing
-                    subText = `<div style="font-size: 10px; color: #9ca3af; font-style: italic;">${item.merger_details}</div>`;
-                    // Construct full address with province
+                if (item.type === 'province') {
+                    typeLabel = 'Tỉnh/Thành phố';
+                } else if (item.type === 'district') {
+                    typeLabel = 'Quận/Huyện';
                     if (item.province_name) {
                         fullAddress = `${displayName}, ${item.province_name}`;
-                        // Append district info from merger details if possible (simple heuristic)
-                        // This is optional, but helps if the user wants the "old" district name in the text
-                        fullAddress += ` (${item.merger_details})`;
                     }
-                } else if (item.address) {
-                    fullAddress = item.address;
+                } else if (item.type === 'ward') {
+                    typeLabel = 'Phường/Xã';
+                    // Try to construct better address if fields exist
+                    if (item.district_name && item.province_name) {
+                        fullAddress = `${displayName}, ${item.district_name}, ${item.province_name}`;
+                    } else if (item.merger_details) {
+                        // Use merger details as context since district_name is missing
+                        subText = `<div style="font-size: 10px; color: #9ca3af; font-style: italic;">${item.merger_details}</div>`;
+                        // Construct full address with province
+                        if (item.province_name) {
+                            fullAddress = `${displayName}, ${item.province_name}`;
+                            // Append district info from merger details if possible (simple heuristic)
+                            // This is optional, but helps if the user wants the "old" district name in the text
+                            fullAddress += ` (${item.merger_details})`;
+                        }
+                    } else if (item.address) {
+                        fullAddress = item.address;
+                    }
                 }
-            }
 
-            return `
+                return `
             <div class="address-result-item" 
                  onclick="selectAddress('${fullAddress.replace(/'/g, "\\'")}', '${item.type}')"
                  style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;">
@@ -83,15 +86,15 @@ async function handleAddressLookup() {
                 <i class="fas fa-chevron-right" style="font-size: 12px; color: #d1d5db;"></i>
             </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         // Add hover effect via JS since we are injecting HTML
         const resultItems = resultsContainer.querySelectorAll('.address-result-item');
-        resultItems.forEach(item => {
-            item.onmouseover = () => item.style.backgroundColor = '#f9fafb';
-            item.onmouseout = () => item.style.backgroundColor = 'white';
+        resultItems.forEach((item) => {
+            item.onmouseover = () => (item.style.backgroundColor = '#f9fafb');
+            item.onmouseout = () => (item.style.backgroundColor = 'white');
         });
-
     } catch (error) {
         console.error('Address lookup error:', error);
         resultsContainer.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444;">Lỗi: ${error.message}</div>`;
@@ -111,7 +114,8 @@ async function handleFullAddressLookup() {
     }
 
     resultsContainer.style.display = 'block';
-    resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang phân tích địa chỉ...</div>';
+    resultsContainer.innerHTML =
+        '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang phân tích địa chỉ...</div>';
 
     try {
         if (typeof window.searchFullAddress !== 'function') {
@@ -121,17 +125,19 @@ async function handleFullAddressLookup() {
         const response = await window.searchFullAddress(keyword);
 
         if (!response || !response.data || response.data.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
+            resultsContainer.innerHTML =
+                '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
             return;
         }
 
         // The API returns data in a simple format: { address: "...", note: "..." }
 
         const items = response.data;
-        resultsContainer.innerHTML = items.map(item => {
-            const fullAddress = item.address;
+        resultsContainer.innerHTML = items
+            .map((item) => {
+                const fullAddress = item.address;
 
-            return `
+                return `
             <div class="address-result-item" 
                  onclick="selectAddress('${fullAddress.replace(/'/g, "\\'")}', 'full')"
                  style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;">
@@ -142,14 +148,14 @@ async function handleFullAddressLookup() {
                 <i class="fas fa-check" style="font-size: 12px; color: #059669;"></i>
             </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         const resultItems = resultsContainer.querySelectorAll('.address-result-item');
-        resultItems.forEach(item => {
-            item.onmouseover = () => item.style.backgroundColor = '#f9fafb';
-            item.onmouseout = () => item.style.backgroundColor = 'white';
+        resultItems.forEach((item) => {
+            item.onmouseover = () => (item.style.backgroundColor = '#f9fafb');
+            item.onmouseout = () => (item.style.backgroundColor = 'white');
         });
-
     } catch (error) {
         console.error('Full address lookup error:', error);
         resultsContainer.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444;">Lỗi: ${error.message}</div>`;
@@ -157,7 +163,9 @@ async function handleFullAddressLookup() {
 }
 
 async function selectAddress(fullAddress, type) {
-    const addressTextarea = document.querySelector('textarea[onchange*="updateOrderInfo(\'Address\'"]');
+    const addressTextarea = document.querySelector(
+        'textarea[onchange*="updateOrderInfo(\'Address\'"]'
+    );
     if (addressTextarea) {
         let newAddress = fullAddress;
 
@@ -288,7 +296,7 @@ async function saveStatsToFirebase(statsHtml, summaryData) {
             totalProducts: summaryData.totalProducts,
             totalQuantity: summaryData.totalQuantity,
             totalOrders: summaryData.totalOrders,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
         });
         console.log('[PRODUCT-STATS] Saved to Firestore successfully');
     } catch (error) {
@@ -352,7 +360,7 @@ async function runProductStats() {
                         nameGet: product.ProductNameGet || product.ProductName || '',
                         imageUrl: product.ImageUrl || '',
                         sttList: [],
-                        totalQty: 0
+                        totalQty: 0,
                     });
                 }
 
@@ -363,31 +371,36 @@ async function runProductStats() {
         });
 
         // Sort products by total quantity (descending)
-        const sortedProducts = Array.from(productStats.values()).sort((a, b) => b.totalQty - a.totalQty);
+        const sortedProducts = Array.from(productStats.values()).sort(
+            (a, b) => b.totalQty - a.totalQty
+        );
 
         // Summary data
         const summaryData = {
             totalProducts: sortedProducts.length,
             totalQuantity: totalQuantity,
-            totalOrders: orderSet.size
+            totalOrders: orderSet.size,
         };
 
         // Build HTML table
-        const tableRowsHtml = sortedProducts.map((product) => {
-            // Build STT list string with quantity
-            const sttListStr = product.sttList.map(item => {
-                if (item.qty > 1) {
-                    return `${item.stt}<span class="stats-stt-qty">(${item.qty})</span>`;
-                }
-                return item.stt;
-            }).join(', ');
+        const tableRowsHtml = sortedProducts
+            .map((product) => {
+                // Build STT list string with quantity
+                const sttListStr = product.sttList
+                    .map((item) => {
+                        if (item.qty > 1) {
+                            return `${item.stt}<span class="stats-stt-qty">(${item.qty})</span>`;
+                        }
+                        return item.stt;
+                    })
+                    .join(', ');
 
-            // Product image
-            const imageHtml = product.imageUrl
-                ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" class="stats-product-image" alt="${product.code}" onerror="this.style.display='none'">`
-                : `<div class="stats-product-image-placeholder"><i class="fas fa-image"></i></div>`;
+                // Product image
+                const imageHtml = product.imageUrl
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.imageUrl) : product.imageUrl}" class="stats-product-image" alt="${product.code}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none'">`
+                    : `<div class="stats-product-image-placeholder"><i class="fas fa-image"></i></div>`;
 
-            return `
+                return `
                 <tr>
                     <td>
                         <div class="stats-product-info">
@@ -406,7 +419,8 @@ async function runProductStats() {
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         const statsHtml = `
             <div class="stats-summary-header" onclick="toggleStatsSummary(this)">
@@ -435,7 +449,9 @@ async function runProductStats() {
         `;
 
         // Show campaign info
-        const campaignName = selectedCampaign ? selectedCampaign.campaignName : 'Không có chiến dịch';
+        const campaignName = selectedCampaign
+            ? selectedCampaign.campaignName
+            : 'Không có chiến dịch';
         const campaignInfo = `<div class="stats-campaign-info"><i class="fas fa-video"></i>Chiến dịch: ${campaignName} | Cập nhật: ${new Date().toLocaleString('vi-VN')}</div>`;
 
         modalBody.innerHTML = campaignInfo + statsHtml;
@@ -444,9 +460,11 @@ async function runProductStats() {
         await saveStatsToFirebase(statsHtml, summaryData);
 
         if (window.notificationManager) {
-            window.notificationManager.show(`Đã thống kê ${summaryData.totalProducts} sản phẩm từ ${summaryData.totalOrders} đơn hàng`, 'success');
+            window.notificationManager.show(
+                `Đã thống kê ${summaryData.totalProducts} sản phẩm từ ${summaryData.totalOrders} đơn hàng`,
+                'success'
+            );
         }
-
     } catch (error) {
         console.error('[PRODUCT-STATS] Error running stats:', error);
         modalBody.innerHTML = `
@@ -544,7 +562,10 @@ function saveQRCache(cache) {
 function generateUniqueCode() {
     const timestamp = Date.now().toString(36).toUpperCase().slice(-8); // 8 chars
     const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 chars
-    const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0'); // 2 chars
+    const sequence = Math.floor(Math.random() * 1296)
+        .toString(36)
+        .toUpperCase()
+        .padStart(2, '0'); // 2 chars
     return `N2${timestamp}${random}${sequence}`; // N2 (2) + 8 + 6 + 2 = 18 chars
 }
 
@@ -575,7 +596,7 @@ function saveQRToCache(phone, uniqueCode, synced = false) {
     cache[normalizedPhone] = {
         uniqueCode: uniqueCode,
         createdAt: new Date().toISOString(),
-        synced: synced
+        synced: synced,
     };
     saveQRCache(cache);
 }
@@ -594,14 +615,14 @@ async function syncQRFromBalanceHistory() {
             const cache = getQRCache();
             let newCount = 0;
 
-            result.data.forEach(item => {
+            result.data.forEach((item) => {
                 if (item.customer_phone && item.unique_code) {
                     const normalizedPhone = normalizePhoneForQR(item.customer_phone);
                     if (normalizedPhone && !cache[normalizedPhone]) {
                         cache[normalizedPhone] = {
                             uniqueCode: item.unique_code,
                             createdAt: item.updated_at || new Date().toISOString(),
-                            synced: true
+                            synced: true,
                         };
                         newCount++;
                     }
@@ -632,8 +653,8 @@ async function syncQRToBalanceHistory(phone, uniqueCode) {
             body: JSON.stringify({
                 uniqueCode: uniqueCode,
                 customerName: '',
-                customerPhone: normalizedPhone
-            })
+                customerPhone: normalizedPhone,
+            }),
         });
 
         const result = await response.json();
@@ -847,7 +868,7 @@ const QR_BANK_CONFIG = {
     bin: '970416',
     name: 'ACB',
     accountNo: '75918',
-    accountName: 'LAI THUY YEN NHI'
+    accountName: 'LAI THUY YEN NHI',
 };
 
 /**
@@ -901,7 +922,10 @@ function showOrderQRModal(phone, amount = 0, options = {}) {
     const modalBody = document.getElementById('orderQRModalBody');
 
     // Format amount for display
-    const amountText = amount > 0 ? `<strong>Số tiền:</strong> <span style="color: #059669; font-weight: 700;">${amount.toLocaleString('vi-VN')}đ</span><br>` : '';
+    const amountText =
+        amount > 0
+            ? `<strong>Số tiền:</strong> <span style="color: #059669; font-weight: 700;">${amount.toLocaleString('vi-VN')}đ</span><br>`
+            : '';
 
     // Build account info based on options
     let accountInfoHTML = '';
@@ -911,7 +935,9 @@ function showOrderQRModal(phone, amount = 0, options = {}) {
     } else {
         // Show full info or hide account number based on hideAccountNumber option
         const bankLine = `<strong>Ngân hàng:</strong> ${QR_BANK_CONFIG.name}<br>`;
-        const accountNoLine = options.hideAccountNumber ? '' : `<strong>Số TK:</strong> ${QR_BANK_CONFIG.accountNo}<br>`;
+        const accountNoLine = options.hideAccountNumber
+            ? ''
+            : `<strong>Số TK:</strong> ${QR_BANK_CONFIG.accountNo}<br>`;
         const accountNameLine = `<strong>Chủ TK:</strong> ${QR_BANK_CONFIG.accountName}<br>`;
         accountInfoHTML = bankLine + accountNoLine + accountNameLine;
     }
@@ -1016,7 +1042,8 @@ async function loadQRAmountSetting() {
     try {
         // 1. Try localStorage first (for quick load)
         if (window.userStorageManager) {
-            const localValue = window.userStorageManager.loadFromLocalStorage(QR_AMOUNT_SETTING_KEY);
+            const localValue =
+                window.userStorageManager.loadFromLocalStorage(QR_AMOUNT_SETTING_KEY);
             if (localValue !== null) {
                 qrShowAmountEnabled = localValue === true || localValue === 'true';
                 updateQRAmountToggleUI();
@@ -1033,7 +1060,10 @@ async function loadQRAmountSetting() {
                 qrShowAmountEnabled = data.enabled === true || data.enabled === 'true';
                 // Sync to localStorage
                 if (window.userStorageManager) {
-                    window.userStorageManager.saveToLocalStorage(QR_AMOUNT_SETTING_KEY, qrShowAmountEnabled);
+                    window.userStorageManager.saveToLocalStorage(
+                        QR_AMOUNT_SETTING_KEY,
+                        qrShowAmountEnabled
+                    );
                 }
                 updateQRAmountToggleUI();
                 console.log('[QR-SETTING] Loaded from Firestore:', qrShowAmountEnabled);
@@ -1051,7 +1081,10 @@ async function saveQRAmountSetting() {
     try {
         // 1. Save to localStorage
         if (window.userStorageManager) {
-            window.userStorageManager.saveToLocalStorage(QR_AMOUNT_SETTING_KEY, qrShowAmountEnabled);
+            window.userStorageManager.saveToLocalStorage(
+                QR_AMOUNT_SETTING_KEY,
+                qrShowAmountEnabled
+            );
             console.log('[QR-SETTING] Saved to localStorage:', qrShowAmountEnabled);
         }
 
@@ -1060,7 +1093,7 @@ async function saveQRAmountSetting() {
             const db = window.firebase.firestore();
             await db.collection('settings').doc(QR_AMOUNT_SETTING_KEY).set({
                 enabled: qrShowAmountEnabled,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
             console.log('[QR-SETTING] Saved to Firestore:', qrShowAmountEnabled);
         }
@@ -1163,8 +1196,8 @@ async function copyQRImageFromChat() {
         // Canvas dimensions (QR image width + padding + text area)
         const padding = 20;
         const textHeight = 60;
-        canvas.width = img.width + (padding * 2);
-        canvas.height = img.height + textHeight + (padding * 2);
+        canvas.width = img.width + padding * 2;
+        canvas.height = img.height + textHeight + padding * 2;
 
         // Fill white background
         ctx.fillStyle = '#ffffff';
@@ -1181,18 +1214,20 @@ async function copyQRImageFromChat() {
         ctx.fillText(accountNameText, canvas.width / 2, img.height + padding + 30);
 
         // Convert canvas to blob
-        const canvasBlob = await new Promise(resolve => {
+        const canvasBlob = await new Promise((resolve) => {
             canvas.toBlob(resolve, 'image/png');
         });
 
         // Copy to clipboard
         const clipboardItem = new ClipboardItem({
-            'image/png': canvasBlob
+            'image/png': canvasBlob,
         });
 
         await navigator.clipboard.write([clipboardItem]);
         showNotification('Đã copy ảnh QR (có tên Chủ TK)', 'success');
-        console.log(`[QR-CHAT] Copied QR image with account name for ${normalizedPhone}: ${uniqueCode}`);
+        console.log(
+            `[QR-CHAT] Copied QR image with account name for ${normalizedPhone}: ${uniqueCode}`
+        );
 
         // Clean up
         URL.revokeObjectURL(imageUrl);
@@ -1265,7 +1300,9 @@ async function loadChatDebt(phone) {
 
     // Always fetch fresh from wallet API (same source as salePrepaidAmount in fetchDebtForSaleModal)
     try {
-        const response = await fetch(`${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`);
+        const response = await fetch(
+            `${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`
+        );
         const result = await response.json();
 
         if (result.success && result.data) {
@@ -1274,7 +1311,12 @@ async function loadChatDebt(phone) {
             const realBalance = parseFloat(result.data.balance) || 0;
             const virtualBalance = parseFloat(result.data.virtual_balance) || 0;
             const totalBalance = realBalance + virtualBalance;
-            console.log('[CHAT-DEBT] Wallet balance for phone:', normalizedPhone, '=', totalBalance);
+            console.log(
+                '[CHAT-DEBT] Wallet balance for phone:',
+                normalizedPhone,
+                '=',
+                totalBalance
+            );
 
             // Update cache for consistency with debt column
             saveDebtToCache(normalizedPhone, totalBalance);
@@ -1309,7 +1351,8 @@ function updateChatDebtDisplay(debt, phone) {
 
     // Add recent transfer badge if applicable
     if (phone && typeof isRecentTransfer === 'function' && isRecentTransfer(phone)) {
-        html += ' <span style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600;">CK</span>';
+        html +=
+            ' <span style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600;">CK</span>';
     }
 
     debtValueEl.innerHTML = html;
@@ -1317,4 +1360,3 @@ function updateChatDebtDisplay(debt, phone) {
 
 // Export chat debt function
 window.loadChatDebt = loadChatDebt;
-

@@ -1249,7 +1249,7 @@
                 const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
                 const imgInner = p.ImageUrl
-                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
                     : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
                 // "Marked as ordered" badge — synced across machines via SSE.
@@ -1709,7 +1709,7 @@
                 const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
                 const imgInner = p.ImageUrl
-                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
+                    ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" alt="${productNameEscaped}" draggable="false" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')"><div class="dropped-cell-noimg" style="display:none"><i class="fas fa-box"></i></div>`
                     : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
 
                 return `
@@ -2061,7 +2061,7 @@
                 return `
             <tr class="chat-product-row" data-index="${actualIndex}" style="opacity: ${rowOpacity};">
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'}; cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${productNameEscaped}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${productNameEscaped}', ${p.ProductId}, '${(p.ProductCode || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
+                    ${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="chat-product-image" loading="lazy" decoding="async" fetchpriority="low" style="opacity: ${isOutOfStock ? '0.7' : '1'}; cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${productNameEscaped}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${productNameEscaped}', ${p.ProductId}, '${(p.ProductCode || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
                 </td>
                 <td title="${tooltipText}" style="cursor: help;">
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">

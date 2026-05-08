@@ -958,7 +958,7 @@ function populateSaleOrderLinesFromAPI(orderLines) {
                     ? window.TPOSImageProxy.proxyImageUrl(productImage)
                     : productImage;
             const imageHTML = productImage
-                ? `<img src="${proxiedImage}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
+                ? `<img src="${proxiedImage}" alt="" loading="lazy" decoding="async" fetchpriority="low" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
                 : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af;"></i></div>`;
 
             totalQuantity += qty;

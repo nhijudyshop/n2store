@@ -401,6 +401,33 @@
         return AUTO_PATTERNS.some((p) => p.test(src));
     }
 
+    // Deferred wires for `<img loading="lazy">`. Single shared IO; observe each
+    // lazy img and run the original setImgSrc only when the element enters viewport
+    // (200px rootMargin so it warms just before paint). Without this, the cache's
+    // own fetch() bypasses the browser's lazy loader and forces hundreds of
+    // off-screen images to load on hard reload — the actual cause of HTTP/2
+    // REFUSED_STREAM and "load lâu" on chiến dịch lớn.
+    let _lazyIO = null;
+    function _ensureLazyIO() {
+        if (_lazyIO || typeof IntersectionObserver === 'undefined') return _lazyIO;
+        _lazyIO = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((e) => {
+                    if (!e.isIntersecting) return;
+                    const img = e.target;
+                    _lazyIO.unobserve(img);
+                    const src = img.getAttribute('data-cache-defer-src');
+                    if (src) {
+                        img.removeAttribute('data-cache-defer-src');
+                        setImgSrc(img, src);
+                    }
+                });
+            },
+            { rootMargin: '200px 0px' }
+        );
+        return _lazyIO;
+    }
+
     function autoCacheImg(img) {
         if (!img || img.getAttribute('data-cache-wired')) return;
         const src = img.getAttribute('src') || img.src;
@@ -415,6 +442,19 @@
         if (memUrl && memUrl !== src) {
             img.src = memUrl;
             return;
+        }
+
+        // Defer fetch for lazy images until viewport intersection. Browser's
+        // native `loading="lazy"` is bypassed by our fetch() path, so we must
+        // gate it explicitly via IO. Falls back to immediate fetch in browsers
+        // without IntersectionObserver.
+        if (img.getAttribute('loading') === 'lazy') {
+            const io = _ensureLazyIO();
+            if (io) {
+                img.setAttribute('data-cache-defer-src', src);
+                io.observe(img);
+                return;
+            }
         }
 
         setImgSrc(img, src);

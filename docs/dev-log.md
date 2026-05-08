@@ -8,6 +8,38 @@
 
 ## 2026-05-08
 
+### [orders][perf] Hard-reload main.html → chọn chiến dịch load lâu — image-cache bypass `loading="lazy"`
+
+**Bug**: User báo hard-reset vào `https://nhijudyshop.github.io/n2store/orders-report/main.html` rồi chọn chiến dịch → load rất lâu.
+
+**Root cause** (đo bằng [scripts/debug-campaign-load-perf.mjs](../scripts/debug-campaign-load-perf.mjs) trên localhost — Playwright headless, login admin, hard-nav, modal pick campaign, đếm request + thời gian):
+
+- 1 lần chọn chiến dịch tải 51 đơn: **1987 request** trong cửa sổ thay đổi, **1670 cái > 500ms**.
+- Top group: **`/api/image-proxy` 770 request, max 16,400ms, tổng 6,576s cumulative** → vượt giới hạn HTTP/2 stream cùng host → `ERR_HTTP2_SERVER_REFUSED_STREAM` → odata/realtime cùng host bị queue 16-30s.
+- Thêm `loading="lazy"` lên `<img>` product (orders-merge, dropped-products-manager, sale-modal, address-stats, edit-modal, search-functions) **không đủ** vì [shared/js/image-cache.js](../shared/js/image-cache.js) `autoCacheImg` MutationObserver gọi `getUrl()` → `fetch()` ngay sau khi DOM insert → **bypass** native lazy. Cộng thêm [shared/js/tpos-image-proxy.js](../shared/js/tpos-image-proxy.js) `rewriteImg` cũng gọi `setImgSrc` trực tiếp.
+
+**Fix**:
+
+1. `image-cache.js` `autoCacheImg`: thêm `IntersectionObserver` (rootMargin 200px) — nếu `<img loading="lazy">`, hoãn `setImgSrc(src)` cho tới khi sắp lọt viewport. Mem-cache fast path vẫn chạy đồng bộ để tránh flicker.
+2. `tpos-image-proxy.js` `rewriteImg`: nếu img đã có `loading="lazy"`, **không** gọi `setImgSrc` trực tiếp — để ImageCache MutationObserver pick up + defer qua IO. Img không lazy → wire ngay như cũ.
+3. Thêm `loading="lazy" decoding="async" fetchpriority="low"` cho mọi product `<img>` (8 chỗ ở `orders-report/js/{tab1,managers,utils}/...`).
+
+**Result** (cùng kịch bản, chiến dịch "T6 DEAL XINH ĐÓN HÈ THÁNG 5", 51 đơn):
+
+| Metric                         | Before    | After                              |
+| ------------------------------ | --------- | ---------------------------------- |
+| Total requests / change window | 1987      | **167**                            |
+| Slow (>500ms)                  | 1670      | **61**                             |
+| `/api/image-proxy` requests    | 770       | **0 in top groups**                |
+| Image-proxy cumulative ms      | 6,576,134 | (deferred tới scroll)              |
+| `/api/odata/FastSaleOrder` max | 28,895ms  | **1,125ms** (hết queue contention) |
+
+Order rows + customer FB avatars vẫn render (42 fb-avatar req cho ~50 dòng visible). Off-screen product thumbnails chỉ fetch khi scroll tới.
+
+**Status**: ✅ Done — fix shared/js/image-cache.js + tpos-image-proxy.js (defer logic), 8 file orders-report (lazy/async/low-priority attr).
+
+---
+
 ### [aikol] AI Tools gate (default OFF) + cost theo engine + Gemini compose step
 
 User: "cho vào setting toggle disable AI web mặc định tắt không cho dùng, khi vào setting bật lên mới được dùng" + "tính tiền mà AI đang chọn dùng để tạo 1 clip luôn".

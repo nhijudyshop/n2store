@@ -1622,7 +1622,7 @@ function displayInlineResults(results) {
             return `
         <div class="${itemClass}" onclick="addProductToOrderFromInline(${p.Id})" data-product-id="${p.Id}">
             ${isInOrder ? `<div class="inline-result-quantity-badge"><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>` : ''}
-            ${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="inline-result-image" onerror="this.style.display='none'">` : `<div class="inline-result-image placeholder"><i class="fas fa-image"></i></div>`}
+            ${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="inline-result-image" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none'">` : `<div class="inline-result-image placeholder"><i class="fas fa-image"></i></div>`}
             <div class="inline-result-info">
                 <div class="inline-result-name">${p.Name}</div>
                 <div class="inline-result-code">Mã: ${p.Code}</div>

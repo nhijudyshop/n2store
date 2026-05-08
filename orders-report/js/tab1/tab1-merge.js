@@ -1250,7 +1250,7 @@ function renderProductItem(product) {
     const imgSrc =
         imgUrl && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
     const imgHtml = imgUrl
-        ? `<img src="${esc(imgSrc)}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+        ? `<img src="${esc(imgSrc)}" alt="" class="merge-product-img" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none'">`
         : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
 
     const productCode =
@@ -1918,7 +1918,7 @@ function renderHistoryProductItem(product) {
     const imgSrc =
         imgUrl && window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(imgUrl) : imgUrl;
     const imgHtml = imgUrl
-        ? `<img src="${imgSrc}" alt="" class="merge-product-img" onerror="this.style.display='none'">`
+        ? `<img src="${imgSrc}" alt="" class="merge-product-img" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none'">`
         : `<div class="merge-product-img" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;"><i class="fas fa-box"></i></div>`;
 
     const price = product.price ? `${product.price.toLocaleString('vi-VN')}đ` : '';
@@ -2238,8 +2238,7 @@ async function assignTagXLAfterMerge(cluster) {
         // Helpers phân loại id:
         // - merge flag (đặc điểm): GOP_<digits>... — vd GOP_589_655
         // - tTag merge cũ (chờ hàng): GOP_DON
-        const isMergeFlag = (id) =>
-            typeof id === 'string' && /^GOP_\d+(_\d+)*$/.test(id);
+        const isMergeFlag = (id) => typeof id === 'string' && /^GOP_\d+(_\d+)*$/.test(id);
         const isOldMergeTTag = (id) => id === 'GOP_DON' || isMergeFlag(id);
 
         // ===== TARGET: merge flags/tTags từ cluster =====

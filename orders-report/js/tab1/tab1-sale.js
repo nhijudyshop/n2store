@@ -233,7 +233,7 @@ function displaySaleProductResults(results) {
                 <td style="width: 40px; text-align: center;">
                     ${
                         product.ImageUrl
-                            ? `<img src="${safeImg}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`
+                            ? `<img src="${safeImg}" loading="lazy" decoding="async" fetchpriority="low" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`
                             : `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items; center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
                     }
                 </td>

@@ -136,6 +136,9 @@ function renderSearchResultItem(product) {
                     ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(product.ImageUrl) : product.ImageUrl}"
                        class="search-result-image"
                        alt="${product.Name}"
+                       loading="lazy"
+                       decoding="async"
+                       fetchpriority="low"
                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                     : ''
             }

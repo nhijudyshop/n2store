@@ -143,14 +143,24 @@
         }
         // ImageCache (TTL 7d trong IndexedDB) — hoán proxied URL → blob URL nếu cache khả dụng.
         // Idempotent: chỉ wire 1 lần qua data-cache-wired flag.
+        // Defer to ImageCache.autoCacheImg để tôn trọng `loading="lazy"`
+        // (ImageCache có IntersectionObserver gate). Trước đây gọi setImgSrc trực
+        // tiếp → bypass lazy → 700+ ảnh fetch song song khi mở chiến dịch lớn.
         if (
             window.ImageCache &&
-            typeof window.ImageCache.setImgSrc === 'function' &&
-            !img.getAttribute('data-cache-wired')
+            !img.getAttribute('data-cache-wired') &&
+            typeof window.ImageCache.shouldAutoCache === 'function'
         ) {
-            img.setAttribute('data-cache-wired', '1');
             const proxied = img.getAttribute('src');
-            if (proxied) window.ImageCache.setImgSrc(img, proxied);
+            if (proxied && window.ImageCache.shouldAutoCache(proxied)) {
+                if (img.getAttribute('loading') === 'lazy') {
+                    // Để ImageCache MutationObserver tự pick up và defer qua IO.
+                    // Reset cache-wired để ImageCache có cơ hội xử lý.
+                } else if (typeof window.ImageCache.setImgSrc === 'function') {
+                    img.setAttribute('data-cache-wired', '1');
+                    window.ImageCache.setImgSrc(img, proxied);
+                }
+            }
         }
     }
 
