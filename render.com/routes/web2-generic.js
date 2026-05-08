@@ -297,6 +297,71 @@ router.patch('/:entity/update/:code', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /api/web2/:entity/delete-all
+// Bulk delete TẤT CẢ records của 1 entity. Cần body { confirm: true } để tránh accident.
+// Trả về số rows đã xóa. Không tự VACUUM — caller có thể gọi /_vacuum riêng.
+// -----------------------------------------------------
+router.post('/:entity/delete-all', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
+    if (!req.body || req.body.confirm !== true) {
+        return res
+            .status(400)
+            .json({ error: 'confirm flag required: POST body must be {"confirm": true}' });
+    }
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(`DELETE FROM web2_records WHERE entity_slug = $1 RETURNING id`, [
+            req.params.entity,
+        ]);
+        res.json({ success: true, entity: req.params.entity, deleted: r.rowCount });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] delete-all error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /api/web2/_vacuum
+// Reclaim disk sau khi delete hàng loạt. VACUUM FULL chậm + lock table — chỉ chạy adhoc.
+// Thường VACUUM (không FULL) là đủ.
+// -----------------------------------------------------
+router.post('/_vacuum', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    if (!req.body || req.body.confirm !== true) {
+        return res
+            .status(400)
+            .json({ error: 'confirm flag required: POST body must be {"confirm": true}' });
+    }
+    const full = req.body.full === true;
+    try {
+        const before = await pool.query(`
+            SELECT pg_total_relation_size('web2_records') AS bytes
+        `);
+        await pool.query(full ? `VACUUM FULL ANALYZE web2_records` : `VACUUM ANALYZE web2_records`);
+        const after = await pool.query(`
+            SELECT pg_total_relation_size('web2_records') AS bytes
+        `);
+        const beforeBytes = Number(before.rows[0].bytes);
+        const afterBytes = Number(after.rows[0].bytes);
+        res.json({
+            success: true,
+            mode: full ? 'VACUUM FULL ANALYZE' : 'VACUUM ANALYZE',
+            before_bytes: beforeBytes,
+            after_bytes: afterBytes,
+            freed_bytes: beforeBytes - afterBytes,
+            freed_pretty: prettyBytes(beforeBytes - afterBytes),
+        });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] vacuum error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // DELETE /api/web2/:entity/delete/:code
 // -----------------------------------------------------
 router.delete('/:entity/delete/:code', async (req, res) => {
