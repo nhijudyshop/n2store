@@ -85,7 +85,7 @@ async function submitVideoJob(args) {
             'eye blinks, breathing, slight body sway, hair movement. ' +
             'Keep the same scene, lighting, composition, and color palette from the input. ' +
             'Cinematic camera, photorealistic, natural skin texture, sharp focus on face.'
-    ).slice(0, 1500);
+    ).slice(0, 2500); // Veo prompt limit ~4000 chars per docs; 2500 fits identity-lock + scene
 
     // predictLongRunning uses Vertex-style envelope. Image goes in
     // instances[].image.{bytesBase64Encoded, mimeType}. The docs page mentions
