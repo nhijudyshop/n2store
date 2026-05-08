@@ -8,6 +8,32 @@
 
 ## 2026-05-08
 
+### [aikol][veo] Hạnh 4 ghép video không được — root cause Veo 3.1 audio safety filter
+
+User báo: "model Hạnh 4 ghép video không được". Recent fail gen `64c1e13b-…` lỗi generic "Veo done but no video URI".
+
+**Investigation step 1** ([aikol-veo-service.js](../render.com/services/aikol-veo-service.js)): improve parser để detect `raiMediaFilteredCount` (RAI safety filter) + log raw response. Test lại Hạnh 4 → error mới rõ ràng:
+
+```
+Veo safety filter blocked (1 sample(s)): We encountered an issue with the
+audio for your prompt, which means we could not create your video.
+```
+
+→ **Root cause**: Veo 3.x sinh audio kèm video; audio safety filter trigger trên 1 số ảnh model (Hạnh 4 OK visual nhưng audio gen fail safety). Không phải bug Hạnh 4 — là API behavior của Google.
+
+**Step 2**: thử `parameters.generateAudio: false` → API reject "isn't supported by this model" trên `veo-3.1-generate-preview`. Veo 3.x không cho disable audio.
+
+**Step 3 (final fix)**: switch default model sang `veo-2.0-generate-001` — Veo 2.0 không có audio generation, không hit audio safety filter. Override qua env `AIKOL_VEO_MODEL` khi cần audio.
+
+**Verified live** (commit 3b17ff33):
+
+- Job `dfd2cecb-7e94-40b7-af2b-1fde2b9b12c5`: state=done, durationSec=37
+- Composite (Gemini): `aikol/tmp/dfd2cecb-…-composite.jpg` 570 KB ✅ HTTP 200
+- Output (Veo 2.0): `aikol/outputs/dfd2cecb-…-0.mp4` 1.34 MB ✅ HTTP 200
+- External_id: `models/veo-2.0-generate-001/operations/z0mw7xtcrb5t`
+
+**Bonus fix** (commit 0c11f3ec): worker clear `error` column khi state→done — tránh stale error message sau khi gen retry success (race condition trong tick lúc deploy mới live).
+
 ### [aikol][video] Pipeline 2-bước: Gemini compose → image2video (giải pháp cho "ghép model vào clip" video)
 
 User insight: "Fal ghép model vào video xong kling mới tạo video à?" — chính xác. Kling public API không có vid2vid endpoint, nhưng có thể đạt được kết quả tương đương bằng pipeline 2-bước:
