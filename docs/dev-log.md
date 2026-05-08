@@ -374,6 +374,50 @@ Status: ✅ Done
 
 **Status**: ✅ Done.
 
+### [web2/bulk] Bulk-create endpoint + seed Partner (91,611 records từ TPOS)
+
+**Vấn đề**: Single-row REST quá chậm cho big entity (91k Customer ≈ 25 phút). Cần bulk insert.
+
+**Backend**:
+
+- New `POST /api/web2/:entity/bulk-create` trong [render.com/routes/web2-generic.js](../render.com/routes/web2-generic.js):
+    - Body `{records: [{code, name, isActive, data}, ...]}`, max 5000 per call
+    - 1 SQL `INSERT ... VALUES (...) ON CONFLICT (entity_slug, code) WHERE code IS NOT NULL DO NOTHING RETURNING id`
+    - Trả về `{success, total, inserted, skipped}`
+
+**Seeder update** ([scripts/web2-seed-from-tpos.js](../scripts/web2-seed-from-tpos.js)):
+
+- Tự động dùng bulk khi `records >= 50` hoặc entity có `bulk: true`
+- Chunks 500 records / call (cân giữa request size và DB transaction)
+- 2 entity Partner mới: `partner-customer` (91,425 KH), `partner-supplier` (186 NCC)
+- Mapper map ~30 fields TPOS Partner: VN address (City/District/Ward Code+Name), TaxCode/IdCard, Social (FB/Zalo/ASIds), Credit/Debit/Loyalty
+- Fix safety cap pagination: 50k → 500k để chứa hết 91k Customer
+- Idempotent: re-run skip duplicate `code` (verified — lần 2 chỉ insert 41,225 còn lại sau khi cap 50k bị giới hạn lần đầu)
+
+**Performance đo thực tế trên prod**:
+| Entity | Records | Time | Throughput |
+|---|---|---|---|
+| `partner-supplier` | 186 | ~1s (1 chunk) | 186 rec/s |
+| `partner-customer` lần 1 | 50,200 | ~3 min | ~280 rec/s |
+| `partner-customer` lần 2 (resume) | 41,225 + 50,200 skipped | ~70s | ~590 rec/s |
+
+So với single-row REST (1-2 req/s qua HTTPS) — bulk-create nhanh hơn ~300x.
+
+**Browser verify**:
+
+- `web2/partner-customer/index.html` → 200 rows (paginated, total 91,425): "Sophia Huynh", "Trang Tran", "Nguyễn Dung"... ✅
+- `web2/partner-supplier/index.html` → 186 rows: "[B45] B45 TRANG PANDA", "[B43] B43 MINH LỘC (HÀ NỘI)"... ✅
+
+**Final counts trên prod** (`/api/web2/<slug>/health`):
+
+- partner-customer: **91,425**
+- partner-supplier: **186**
+- Tổng cộng từ tất cả seed: **92,666 records** từ TPOS đã ở kho local (cộng với 1055 ref data từ iter trước)
+
+**Iter sau**: ProductTemplate (3k) + Product variants (5.5k); FastSaleOrder (11k) + lines; FastPurchaseOrder (1.2k) + lines.
+
+---
+
 ### [web2] Seed TPOS reference data → Postgres `web2_records` (1055 records, 5 entities)
 
 **Goal**: Đưa data thật từ TPOS production xuống kho local để page web2/\* không còn rỗng.
