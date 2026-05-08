@@ -46,6 +46,12 @@
                     </header>
 
                     <form id="aikol-gen-form" class="aikol-gen-modal__body">
+                        <fieldset class="aikol-gen-fieldset" data-gen-mode-fieldset hidden>
+                            <legend>Cách tạo</legend>
+                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Ghép model vào clip này (scene từ clip)</label>
+                            <label><input type="radio" name="gen_mode" value="auto_scene"> ✨ AI tự sáng tạo scene (chỉ dùng prompt — không cần clip)</label>
+                        </fieldset>
+
                         <fieldset class="aikol-gen-fieldset">
                             <legend>Kind</legend>
                             <label><input type="radio" name="kind" value="image" checked> Image (4-8 cr/variation)</label>
@@ -111,7 +117,7 @@
                             </label>
                         </div>
 
-                        <fieldset class="aikol-gen-fieldset">
+                        <fieldset class="aikol-gen-fieldset" data-clip-only-block>
                             <legend>Keep from clip</legend>
                             <label><input type="checkbox" name="keep_pose" checked> Pose</label>
                             <label><input type="checkbox" name="keep_outfit"> Outfit</label>
@@ -303,6 +309,38 @@
         refreshCostLabel(form);
     }
 
+    // Toggle visibility of clip-dependent blocks based on `gen_mode` radio.
+    // When user picks "AI tự sáng tạo scene" → hide "Keep from clip" + force note
+    // placeholder + warn if note empty (note becomes the only signal Gemini has).
+    function setupGenModeToggle(form, hasClip) {
+        const fieldset = form.querySelector('[data-gen-mode-fieldset]');
+        const clipOnlyBlocks = form.querySelectorAll('[data-clip-only-block]');
+        const noteEl = form.querySelector('textarea[name="note"]');
+        if (!fieldset) return;
+        // Khi không có clip → ẩn radio luôn, ép auto_scene
+        if (!hasClip) {
+            fieldset.hidden = true;
+            const autoRadio = form.querySelector('input[name="gen_mode"][value="auto_scene"]');
+            if (autoRadio) autoRadio.checked = true;
+        } else {
+            fieldset.hidden = false;
+        }
+        const update = () => {
+            const mode = form.elements.gen_mode?.value || (hasClip ? 'with_clip' : 'auto_scene');
+            const auto = mode === 'auto_scene';
+            clipOnlyBlocks.forEach((el) => (el.style.display = auto ? 'none' : ''));
+            if (noteEl) {
+                noteEl.placeholder = auto
+                    ? '🎯 Mô tả CHI TIẾT scene để AI tạo từ đầu — vd: "ngồi quán cafe sân vườn buổi sáng, ánh nắng xuyên qua tán cây, mặc áo sweater be, tay cầm ly latte, biểu cảm thư giãn"'
+                    : 'e.g. evening street market, soft golden light';
+            }
+        };
+        form.addEventListener('change', (ev) => {
+            if (ev.target?.name === 'gen_mode') update();
+        });
+        update();
+    }
+
     async function openForClip(clip) {
         const root = ensureModalRoot();
         root.querySelector('.aikol-modal-backdrop').hidden = false;
@@ -314,19 +352,27 @@
             );
             root.dataset.clipId = clip.id;
         } else {
-            meta.textContent = 'Không có clip — generate từ model only.';
+            meta.textContent = 'Không có clip — AI sẽ tự sáng tạo scene từ prompt.';
             delete root.dataset.clipId;
         }
         const form = $('#aikol-gen-form', root);
         form.reset();
         await loadModelsInto(form.elements.model_id);
         setupVideoToggle(form);
+        setupGenModeToggle(form, !!clip);
         setupNoteSuggestButton(form);
         form.onsubmit = async (ev) => {
             ev.preventDefault();
             const data = readForm(form);
             if (!data.model_id) {
                 showToast('Chọn 1 model trước', 'error');
+                return;
+            }
+            // Chế độ AI tự sáng tạo → bắt buộc note (Gemini/Veo cần prompt).
+            const useClip = data.gen_mode === 'with_clip' && !!clip;
+            const note = (data.note || '').trim();
+            if (!useClip && note.length < 10) {
+                showToast('Chế độ AI tự sáng tạo cần mô tả scene chi tiết (≥10 ký tự)', 'error');
                 return;
             }
             const submitBtn = form.querySelector('button[type="submit"]');
@@ -336,23 +382,24 @@
                 const payload = {
                     kind: data.kind,
                     model_id: parseInt(data.model_id, 10),
-                    clip_ids: clip ? [clip.id] : [],
+                    clip_ids: useClip ? [clip.id] : [],
                     config: {
                         engine: data.engine,
                         variations: data.variations,
                         similarity: data.similarity,
                         creativity: data.creativity,
-                        keep_pose: data.keep_pose,
-                        keep_outfit: data.keep_outfit,
-                        keep_bg: data.keep_bg,
-                        keep_lighting: data.keep_lighting,
+                        keep_pose: useClip ? data.keep_pose : false,
+                        keep_outfit: useClip ? data.keep_outfit : false,
+                        keep_bg: useClip ? data.keep_bg : false,
+                        keep_lighting: useClip ? data.keep_lighting : false,
                         image_size: data.image_size,
                         shot_type: data.shot_type,
-                        scene_mode: data.scene_mode,
+                        scene_mode: useClip ? 'match' : 'free_form',
+                        gen_mode: useClip ? 'with_clip' : 'auto_scene',
                         duration_seconds: data.duration_seconds,
                         kling_mode: data.kling_mode,
                     },
-                    note: data.note || null,
+                    note: note || null,
                 };
                 const res = await global.AikolAPI.submitGeneration(payload);
                 showToast(`Đã gửi ${res.count} job · còn ${res.balance} credits`, 'success');

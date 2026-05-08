@@ -118,14 +118,44 @@ async function dispatchOne(row) {
 
     let externalId, provider, kindKey;
 
+    // gen_mode: 'with_clip' (default) compose model vào scene của clip /
+    // 'auto_scene' AI tạo scene mới từ prompt. Nếu không có clip → ép auto_scene.
+    const genMode = sceneImageUrl
+        ? String(conf.gen_mode || 'with_clip').toLowerCase()
+        : 'auto_scene';
+
+    // Build engine-agnostic directive.
+    // - with_clip + sceneImageUrl: service tự build "Replace person in image2"
+    //   directive → pass `note` để Gemini biết tweak gì thêm.
+    // - auto_scene: build directive yêu cầu Gemini/Veo đặt model vào scene mới
+    //   từ prompt (note bắt buộc, frontend đã validate).
+    function buildAutoSceneDirective(forVideo) {
+        const sceneDesc =
+            (note || '').trim() ||
+            'photorealistic studio portrait, soft natural lighting, neutral background';
+        const verb = forVideo ? 'Animate the person' : 'Place the person';
+        return [
+            `${verb} from this reference image into the following new scene:`,
+            sceneDesc + '.',
+            'Preserve the exact face, eyes, nose, mouth, hairstyle, hair color,',
+            'skin tone, and identity from the reference image.',
+            'The pose, expression, outfit, lighting, and background should match',
+            'the new scene description above, not the reference image.',
+            forVideo
+                ? 'Cinematic camera, photorealistic, sharp focus, ultra detailed.'
+                : 'Photorealistic, sharp focus, ultra detailed.',
+        ].join(' ');
+    }
+
     // ===== IMAGE =====
     if (kind === 'image') {
         if (engine === 'gemini_3_1') {
+            const imagePrompt = genMode === 'auto_scene' ? buildAutoSceneDirective(false) : note;
             // Synchronous — generate, upload, save output, mark done all in one shot
             const result = await geminiClone.cloneImage({
                 modelImageUrl,
-                sceneImageUrl,
-                prompt: note,
+                sceneImageUrl: genMode === 'auto_scene' ? null : sceneImageUrl,
+                prompt: imagePrompt,
             });
             const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
             const key = `aikol/outputs/${id}-0.${ext}`;
@@ -160,10 +190,13 @@ async function dispatchOne(row) {
                 4,
                 Math.min(parseInt(conf.duration_seconds, 10) || 8, 8)
             );
+            const videoPrompt = genMode === 'auto_scene' ? buildAutoSceneDirective(true) : note;
             const submit = await veo.submitVideoJob({
                 modelImageUrl,
-                sceneImageUrl,
-                prompt: note,
+                // Veo referenceImages disabled (Gemini API không support) — sceneImageUrl
+                // currently ignored bởi service. Truyền null để rõ intent.
+                sceneImageUrl: null,
+                prompt: videoPrompt,
                 durationSeconds,
                 aspectRatio: conf.aspect_ratio || conf.image_size || '9:16',
                 resolution: conf.resolution || '720p',
