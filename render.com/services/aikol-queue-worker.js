@@ -183,12 +183,39 @@ async function dispatchOne(row) {
         kindKey = 'image';
     } else {
         // ===== VIDEO =====
-        // Kling public JWT API KHÔNG có endpoint video2video / face-swap thật sự
-        // (verified 404 trên /v1/videos/video2video). Kling "Face Swap Video" trên
-        // web UI yêu cầu Custom Face Model trained từ 10-30 sample videos qua web,
-        // không expose qua API. → Cả Veo lẫn Kling chỉ làm image2video; "with_clip"
-        // mode chỉ dùng cover frame của clip làm scene reference (Gemini image)
-        // hoặc bake scene description từ note vào prompt (Veo/Kling video).
+        // Kling public JWT API KHÔNG có vid2vid endpoint (verified 404). Cả Veo
+        // + Kling chỉ làm image2video. Để vẫn đạt được "ghép model vào clip" cho
+        // video, dùng pipeline 2-bước khi gen_mode=with_clip + clip cover có sẵn:
+        //   1) Compose: Gemini 3.1 ghép modelImage + clipCover → composite image
+        //      (model trong scene clip — verified hoạt động cho image gen).
+        //   2) Animate: Veo/Kling image2video lấy composite làm input → output là
+        //      MP4 model trong scene clip + motion.
+        // Pipeline thêm ~20-30s latency Gemini compose nhưng kết quả gần với
+        // "face-swap video" nhất có thể qua public API.
+        let animationSourceUrl = modelImageUrl;
+        const shouldCompose = genMode === 'with_clip' && !!sceneImageUrl;
+        if (shouldCompose) {
+            try {
+                const composite = await geminiClone.cloneImage({
+                    modelImageUrl,
+                    sceneImageUrl,
+                    prompt: note,
+                });
+                const compExt = composite.mimeType.includes('png') ? 'png' : 'jpg';
+                const compKey = `aikol/tmp/${id}-composite.${compExt}`;
+                await bunny.uploadBuffer(composite.buffer, compKey, composite.mimeType);
+                animationSourceUrl = bunny.cdnUrl(compKey);
+                console.log(
+                    `[aikol-worker] ${id.slice(0, 8)} with_clip composite ready → ${compKey}`
+                );
+            } catch (e) {
+                console.warn(
+                    `[aikol-worker] ${id.slice(0, 8)} compose failed (${e.message}), fallback dùng modelImage gốc`
+                );
+                // Fallback: dùng model gốc, scene từ note vào prompt
+            }
+        }
+
         if (engine === 'veo_3_1') {
             // Gemini Veo durationSeconds buckets: "4" | "6" | "8". Pass raw value
             // — service quantizes (1080p/4k always force "8").
@@ -196,11 +223,17 @@ async function dispatchOne(row) {
                 4,
                 Math.min(parseInt(conf.duration_seconds, 10) || 8, 8)
             );
-            const videoPrompt = genMode === 'auto_scene' ? buildAutoSceneDirective(true) : note;
+            // Khi đã compose: directive yêu cầu animate composite (giữ scene+identity).
+            // Khi auto_scene: directive yêu cầu place model vào scene mới từ note.
+            // Khi with_clip nhưng compose fail: fallback note như cũ.
+            const videoPrompt = shouldCompose
+                ? (note || '').trim() ||
+                  'Animate the person in this image naturally — subtle facial expressions, gentle head and body motion, breathing, eye blinks. Keep the exact scene, lighting, and composition from this image. Cinematic, photorealistic.'
+                : genMode === 'auto_scene'
+                  ? buildAutoSceneDirective(true)
+                  : note;
             const submit = await veo.submitVideoJob({
-                modelImageUrl,
-                // Veo referenceImages disabled (Gemini API không support) — sceneImageUrl
-                // currently ignored bởi service. Truyền null để rõ intent.
+                modelImageUrl: animationSourceUrl,
                 sceneImageUrl: null,
                 prompt: videoPrompt,
                 durationSeconds,
@@ -211,10 +244,9 @@ async function dispatchOne(row) {
             provider = 'veo';
             kindKey = 'image2video';
         } else {
-            // Kling image2video (auto_scene mode hoặc with_clip nhưng chưa có
-            // clipVideoUrl — vd clip download chưa xong).
+            // Kling image2video — dùng composite URL nếu compose ok.
             const submit = await kling.submitImage2Video({
-                modelImageUrl,
+                modelImageUrl: animationSourceUrl,
                 config: conf,
                 note,
             });

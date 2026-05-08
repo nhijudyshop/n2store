@@ -48,7 +48,7 @@
                     <form id="aikol-gen-form" class="aikol-gen-modal__body">
                         <fieldset class="aikol-gen-fieldset" data-gen-mode-fieldset hidden>
                             <legend>Cách tạo</legend>
-                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Dùng scene từ clip này (image: ghép model vào ảnh thumbnail · video: bake clip note vào prompt)</label>
+                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Ghép model vào clip này (image: Gemini compose · video: Gemini compose → image2video, ~30s thêm)</label>
                             <label><input type="radio" name="gen_mode" value="auto_scene"> ✨ AI tự sáng tạo scene (chỉ dùng prompt — không cần clip)</label>
                         </fieldset>
 
@@ -339,11 +339,11 @@
                     ? [
                           {
                               v: 'veo_3_1',
-                              t: '✨ Veo 3.1 image2video — animate ảnh model với scene từ note (16cr/s ⭐)',
+                              t: '✨ Veo 3.1 — compose Gemini → animate (16cr/s ⭐ · model trong scene clip)',
                           },
                           {
                               v: 'kling',
-                              t: 'Kling image2video — animate ảnh model (8-13cr/s · cần top-up)',
+                              t: 'Kling — compose Gemini → animate (8-13cr/s · cần top-up)',
                           },
                       ]
                     : [
