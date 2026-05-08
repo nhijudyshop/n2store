@@ -57,37 +57,50 @@ Verified với curl: 5 mã `[B1947, B1948, B1949, Q127T, NONEXIST]` → batch-lo
 
 **Status**: ✅ Done.
 
-### [aikol][veo] Fix Veo image2video — chuyển sang Gemini API schema (contents+inlineData+videoConfig)
+### [aikol][veo] Fix Veo 3.1 image2video — verified hoạt động qua browser test live
 
-**Bug**: Browser test trên `library.html` với model "Hạnh 2" + clip TikTok → engine `veo_3_1` luôn fail tại submit:
+**Bug user-facing**: Browser test trên `library.html` với model "Hạnh 2" + clip TikTok → engine `veo_3_1` luôn fail tại submit với error mơ hồ "Unsupported video generation request. Please check the documentation".
 
+**Verify cuối**: gen `18b643cb-536f-4f36-a0ae-e0d02d8dd11b` → `state:done` → output MP4 2.2 MB tại `aikol/outputs/18b643cb-...-0.mp4`. Schema final hoạt động:
+
+```js
+POST https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning
+{
+  instances: [{
+    prompt: "Animate the subject naturally, ...",
+    image: { bytesBase64Encoded: "<b64>", mimeType: "image/jpeg" }
+  }],
+  parameters: {
+    aspectRatio: "9:16",
+    durationSeconds: 8,        // NUMERIC — API reject string với "needs to be a number"
+    resolution: "720p",
+    sampleCount: 1
+  }
+}
 ```
-Veo submit: Unsupported video generation request. Please check the documentation for supported usage: https://ai.google.dev/gemini-api/docs/video
-```
 
-**Root cause**: Body request đang dùng schema **Vertex AI** (`instances[].image.bytesBase64Encoded` + `parameters`) nhưng endpoint là Gemini API (`generativelanguage.googleapis.com`). Hai API dùng schema khác nhau hoàn toàn — Gemini API yêu cầu `contents[].parts[].inlineData` + `generationConfig.videoConfig`. Thêm: model `veo-3.1-generate-preview` chưa available trên Gemini API public (chỉ Vertex AI + allowlist).
+**Root cause + lessons** (4 lần fix sai trước khi đúng — docs Google không trustworthy):
 
-**Fix** ([render.com/services/aikol-veo-service.js](../render.com/services/aikol-veo-service.js)):
+1. ❌ `contents`/`generationConfig` (theo `generateContent` schema) → API reject "Unknown name `contents`". `predictLongRunning` dùng Vertex envelope, KHÔNG dùng Gemini Content envelope.
+2. ❌ `instances[].image.inlineData.{data,mimeType}` (theo trang docs `ai.google.dev/gemini-api/docs/video`) → API reject "`inlineData` isn't supported by this model". Đúng phải là `bytesBase64Encoded`.
+3. ❌ `durationSeconds: "8"` STRING (theo docs cùng trang) → API reject "needs to be a number". Đúng là NUMERIC.
+4. ❌ `instance.referenceImages = [...]` cho Veo 3.1 sceneImageUrl → trigger generic "Unsupported video generation request". Field này chỉ có trên Vertex AI, chưa có trên Gemini API public. Drop, scene info nhét vô prompt.
 
-- Body: chuyển sang `{ contents: [{ role:"user", parts: [{inlineData:{mimeType,data}}, {text}] }], generationConfig: { responseModalities:["video"], videoConfig: {aspectRatio, durationSeconds, resolution, numberOfVideos:1} } }`.
-- Default model: `veo-2.0-generate-001` (stable trên Gemini API). Override qua env `AIKOL_VEO_MODEL` khi key được allowlist Veo 3.1.
-- Veo 3.1 reference image: nếu có `sceneImageUrl` → push thêm 1 inlineData part (thay vì `referenceImages` Vertex format).
-- Duration: floor 5s (Gemini reject 4s), max 8s. Worker queue cũng update floor 5.
-- Response parser: thêm fallback `resp.generatedSamples` (Gemini API trả thẳng, không bọc `generateVideoResponse`).
+→ Cách debug duy nhất hiệu quả là **submit + xem API error message** chứ docs không trustworthy.
 
 **Files**:
 
-- [render.com/services/aikol-veo-service.js](../render.com/services/aikol-veo-service.js)
-- [render.com/services/aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js) (duration floor 5s + dùng `image_size` làm fallback aspect ratio)
-- [scripts/n2store-browser-session.js](../scripts/n2store-browser-session.js): fix `safe()` helper crash khi `JSON.stringify(undefined)` (eval/feval không có `return`)
+- [render.com/services/aikol-veo-service.js](../render.com/services/aikol-veo-service.js): final correct schema + drop `referenceImages` + duration buckets {4,6,8} numeric.
+- [render.com/services/aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js): duration floor 4s + dùng `image_size` làm fallback aspect ratio.
+- [scripts/n2store-browser-session.js](../scripts/n2store-browser-session.js): fix `safe()` helper crash khi `JSON.stringify(undefined)` (eval/feval không có `return`).
 
-**Bug provider-side ghi nhận** (không phải code bug — refund đã chạy đúng):
+**Bug provider-side phát hiện cùng lúc** (không phải code bug — refund đã chạy đúng):
 
-- Fal PuLID (default image engine): `403 User is locked. Reason: Exhausted balance` → cần top-up fal.ai.
+- Fal PuLID (default image engine): `403 User is locked. Exhausted balance` → cần top-up fal.ai.
 - Kling (default video engine): `429 code:1102 Account balance not enough` → cần top-up Kling.
-- **Workaround tạm**: user chọn `Gemini 3.1` cho image (đã verify hoạt động — gen `424a4ba4-...` trả đúng output), `Veo 3.1` cho video (sau khi deploy fix này).
+- **Workaround user**: chọn `Gemini 3.1` cho image (verify gen `424a4ba4-...` trả output OK), `Veo 3.1` cho video (verify gen `18b643cb-...` trả MP4 OK).
 
-Status: ✅ Code fix done, ⏳ chờ deploy verify online.
+Status: ✅ Done — verified end-to-end live trên Render production.
 
 ### [render][purchase-orders] Phase B — upload ảnh sang BunnyCDN + dual-mode cascade + migration script
 
