@@ -138,6 +138,8 @@
         getBillingPacks: () => jsonRequest('GET', '/billing/packs'),
 
         listModels: () => jsonRequest('GET', '/models'),
+        generateModel: ({ name, prompt, aspectRatio }) =>
+            jsonRequest('POST', '/models/generate', { name, prompt, aspectRatio }),
         uploadModel,
         deleteModel: (id) => jsonRequest('DELETE', `/models/${id}`),
 

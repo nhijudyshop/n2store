@@ -122,6 +122,55 @@
         }
     }
 
+    async function onGenerate(ev) {
+        ev.preventDefault();
+        const nameEl = $('#model-gen-name');
+        const promptEl = $('#model-gen-prompt');
+        const aspectEl = $('#model-gen-aspect');
+        const btn = $('#model-gen-submit');
+        const statusEl = $('#model-gen-status');
+        const name = (nameEl.value || '').trim();
+        const prompt = (promptEl.value || '').trim();
+        const aspectRatio = aspectEl.value || undefined;
+        if (!name || !prompt) {
+            showToast('Vui lòng nhập tên + mô tả', 'error');
+            return;
+        }
+        if (prompt.length < 10) {
+            showToast('Mô tả phải ≥10 ký tự', 'error');
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Đang vẽ… (10-25s)';
+        statusEl.style.display = 'block';
+        statusEl.innerHTML =
+            '<span style="color:var(--aikol-accent)">Gemini đang generate ảnh…</span>';
+        try {
+            const r = await window.AikolAPI.generateModel({ name, prompt, aspectRatio });
+            showToast(`Tạo model "${r.name}" thành công`, 'success');
+            statusEl.innerHTML = `<span style="color:var(--aikol-success)">✓ Done · model #${r.id} · còn ${r.balance} credits</span>`;
+            nameEl.value = '';
+            promptEl.value = '';
+            await Promise.all([refreshCredits(), refreshModels()]);
+        } catch (e) {
+            const detail = e.data?.detail || e.message;
+            const refunded = e.data?.refunded;
+            console.error('[aikol] generateModel', e);
+            statusEl.innerHTML = `<span style="color:var(--aikol-error)">Lỗi: ${escapeHtml(detail)}${refunded ? ` (đã refund ${refunded}cr)` : ''}</span>`;
+            showToast('Lỗi tạo: ' + detail, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Tạo bằng AI — 4 credits';
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
+    }
+
     async function onDelete(id, name) {
         if (!confirm(`Xoá model "${name}"?`)) return;
         try {
@@ -136,6 +185,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         $('#model-form').addEventListener('submit', onSubmit);
+        $('#model-gen-form')?.addEventListener('submit', onGenerate);
         refreshCredits();
         refreshModels();
     });

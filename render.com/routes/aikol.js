@@ -224,6 +224,107 @@ router.post('/models', requireUser, upload.single('file'), async (req, res) => {
     }
 });
 
+// POST /models/generate — Tạo model bằng AI (Gemini 2.5 Flash Image / Nano Banana)
+// Body: { name, prompt, aspectRatio? } → charges COSTS.image credits, generates
+// portrait via Gemini, uploads to Bunny, inserts aikol_models row.
+const geminiImg = require('../services/aikol-gemini-image-service');
+router.post('/models/generate', requireUser, express.json(), async (req, res) => {
+    const name = (req.body.name || '').trim();
+    const prompt = (req.body.prompt || '').trim();
+    const aspectRatio = (req.body.aspectRatio || '').trim() || undefined;
+    if (!name || name.length > 80)
+        return res.status(400).json({ error: 'invalid', detail: 'Tên model 1-80 ký tự' });
+    if (!prompt || prompt.length < 10)
+        return res
+            .status(400)
+            .json({ error: 'invalid', detail: 'Prompt phải ≥10 ký tự (mô tả model)' });
+    if (prompt.length > 2000)
+        return res.status(400).json({ error: 'invalid', detail: 'Prompt tối đa 2000 ký tự' });
+
+    const cost = COSTS.image; // 4 credits, match Fal/Gemini single image
+    // Charge credits BEFORE generation; refund on any failure.
+    const chargeRes = await pool.query(
+        `UPDATE aikol_credits SET balance = balance - $2, updated_at = NOW()
+         WHERE user_id = $1 AND balance >= $2
+         RETURNING balance`,
+        [req.userId, cost]
+    );
+    if (!chargeRes.rows[0]) {
+        return res
+            .status(402)
+            .json({ error: 'insufficient_credits', detail: 'Không đủ credits', cost });
+    }
+    await pool.query(
+        `INSERT INTO aikol_credit_history (user_id, kind, delta, note)
+         VALUES ($1, 'charge', $2, $3)`,
+        [req.userId, -cost, `AI model gen: ${name}`]
+    );
+
+    const refund = async (note) => {
+        await pool.query(`UPDATE aikol_credits SET balance = balance + $2 WHERE user_id = $1`, [
+            req.userId,
+            cost,
+        ]);
+        await pool.query(
+            `INSERT INTO aikol_credit_history (user_id, kind, delta, note)
+             VALUES ($1, 'refund', $2, $3)`,
+            [req.userId, cost, note]
+        );
+    };
+
+    let result;
+    try {
+        result = await geminiImg.generatePortrait({ prompt, aspectRatio });
+    } catch (e) {
+        console.error('[aikol] /models/generate Gemini failed:', e.message);
+        await refund(`Gemini gen failed: ${String(e.message).slice(0, 100)}`).catch(() => {});
+        return res.status(502).json({
+            error: 'gen_failed',
+            detail: e.message,
+            refunded: cost,
+        });
+    }
+
+    const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
+    const insRes = await pool.query(
+        `INSERT INTO aikol_models (user_id, name, file_path, file_size, mime)
+         VALUES ($1, $2, '', $3, $4)
+         RETURNING id, EXTRACT(EPOCH FROM created_at)::int AS created_at`,
+        [req.userId, name, result.buffer.length, result.mimeType]
+    );
+    const { id, created_at } = insRes.rows[0];
+    const key = `aikol/models/${id}.${ext}`;
+    try {
+        await bunny.uploadBuffer(result.buffer, key, result.mimeType);
+    } catch (uploadErr) {
+        await pool.query(`DELETE FROM aikol_models WHERE id = $1`, [id]);
+        await refund(`Bunny upload failed: ${String(uploadErr.message).slice(0, 100)}`).catch(
+            () => {}
+        );
+        return res.status(502).json({ error: 'upload_failed', detail: uploadErr.message });
+    }
+    await pool.query(`UPDATE aikol_models SET file_path = $1 WHERE id = $2`, [key, id]);
+
+    // Get updated balance
+    const balRes = await pool.query(`SELECT balance FROM aikol_credits WHERE user_id = $1`, [
+        req.userId,
+    ]);
+
+    res.json({
+        id,
+        name,
+        file_path: key,
+        mime: result.mimeType,
+        file_size: result.buffer.length,
+        thumb_url: bunny.cdnUrl(key),
+        created_at,
+        updated_at: created_at,
+        ai_model: result.model,
+        balance: balRes.rows[0]?.balance,
+        cost,
+    });
+});
+
 router.get('/models/:id/file', requireUser, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });

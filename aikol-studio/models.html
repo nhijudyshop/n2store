@@ -41,37 +41,114 @@
                 </div>
             </header>
 
-            <section class="aikol-panel">
-                <h2>Upload model mới</h2>
-                <form id="model-form" style="display: grid; gap: 0.85rem; max-width: 500px">
-                    <div>
-                        <label class="aikol-label" for="model-name">Tên model</label>
-                        <input
-                            id="model-name"
-                            class="aikol-input"
-                            type="text"
-                            placeholder="vd: Linh — full body"
-                            maxlength="80"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label class="aikol-label" for="model-file"
-                            >Ảnh chân dung (JPEG / PNG / WEBP, ≤8MB)</label
+            <div
+                style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+                    gap: 1rem;
+                    margin-block: 1rem;
+                "
+            >
+                <section class="aikol-panel">
+                    <h2>1. Upload model có sẵn</h2>
+                    <p style="color: var(--aikol-text-dim); font-size: 0.85rem; margin-top: 0">
+                        Đã có ảnh chân dung? Upload trực tiếp — <strong>FREE</strong>.
+                    </p>
+                    <form id="model-form" style="display: grid; gap: 0.7rem">
+                        <div>
+                            <label class="aikol-label" for="model-name">Tên model</label>
+                            <input
+                                id="model-name"
+                                class="aikol-input"
+                                type="text"
+                                placeholder="vd: Linh — full body"
+                                maxlength="80"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label class="aikol-label" for="model-file"
+                                >Ảnh chân dung (JPEG / PNG / WEBP, ≤8MB)</label
+                            >
+                            <input
+                                id="model-file"
+                                class="aikol-input"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                required
+                            />
+                        </div>
+                        <button id="model-submit" type="submit" class="aikol-btn">
+                            Lưu model (FREE)
+                        </button>
+                    </form>
+                </section>
+
+                <section class="aikol-panel">
+                    <h2>
+                        2. Tạo bằng AI
+                        <span
+                            style="
+                                font-size: 0.7rem;
+                                background: var(--aikol-accent-soft);
+                                color: var(--aikol-accent-light);
+                                padding: 0.2rem 0.5rem;
+                                border-radius: 6px;
+                                letter-spacing: 0.06em;
+                            "
+                            >GEMINI 2.5</span
                         >
-                        <input
-                            id="model-file"
-                            class="aikol-input"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <button id="model-submit" type="submit" class="aikol-btn">Lưu model</button>
-                    </div>
-                </form>
-            </section>
+                    </h2>
+                    <p style="color: var(--aikol-text-dim); font-size: 0.85rem; margin-top: 0">
+                        Mô tả model muốn có → Gemini Nano Banana sẽ vẽ.
+                        <strong>4 credits / lần</strong>.
+                    </p>
+                    <form id="model-gen-form" style="display: grid; gap: 0.7rem">
+                        <div>
+                            <label class="aikol-label" for="model-gen-name">Tên model</label>
+                            <input
+                                id="model-gen-name"
+                                class="aikol-input"
+                                type="text"
+                                placeholder="vd: Mai — KOL trẻ trung"
+                                maxlength="80"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label class="aikol-label" for="model-gen-prompt">
+                                Mô tả (tiếng Anh hiệu quả hơn)
+                            </label>
+                            <textarea
+                                id="model-gen-prompt"
+                                class="aikol-input"
+                                rows="4"
+                                placeholder="A young Vietnamese woman, age 25, soft natural studio lighting, gentle smile, professional portrait, photorealistic"
+                                maxlength="2000"
+                                required
+                                style="resize: vertical; min-height: 80px; font-family: inherit"
+                            ></textarea>
+                        </div>
+                        <div>
+                            <label class="aikol-label" for="model-gen-aspect">Tỉ lệ ảnh</label>
+                            <select id="model-gen-aspect" class="aikol-input">
+                                <option value="">1:1 (mặc định)</option>
+                                <option value="9:16">9:16 (chân dung dọc)</option>
+                                <option value="4:5">4:5 (instagram portrait)</option>
+                                <option value="3:4">3:4 (chân dung)</option>
+                                <option value="16:9">16:9 (ngang)</option>
+                            </select>
+                        </div>
+                        <button id="model-gen-submit" type="submit" class="aikol-btn">
+                            Tạo bằng AI — 4 credits
+                        </button>
+                    </form>
+                    <div
+                        id="model-gen-status"
+                        style="display: none; margin-top: 0.6rem; font-size: 0.85rem"
+                    ></div>
+                </section>
+            </div>
 
             <section class="aikol-panel">
                 <h2>Models của bạn</h2>
