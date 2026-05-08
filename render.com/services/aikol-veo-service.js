@@ -10,14 +10,17 @@
 // `image.bytesBase64Encoded` wrapper — that returns 400 "Unsupported video
 // generation request" on generativelanguage.googleapis.com.
 //
-// Default model: veo-3.1-generate-preview per ai.google.dev/gemini-api/docs/video.
-// Override via env AIKOL_VEO_MODEL. Other valid models on Gemini API:
-//   veo-3.1-generate-preview / veo-3.1-fast-generate-preview /
-//   veo-3.1-lite-generate-preview / veo-3.0-generate-001 / veo-2.0-generate-001.
+// Default model: veo-2.0-generate-001 — KHÔNG có audio generation → không hit
+// audio safety filter (verified Veo 3.1 block "issue with the audio for your
+// prompt" với 1 số ảnh model). Veo 2.0 stable + nhanh hơn cho silent KOL clones.
+// Override via env AIKOL_VEO_MODEL khi cần audio (3.0/3.1).
+// Available models: veo-2.0-generate-001 (no audio) / veo-3.0-generate-001
+// (audio) / veo-3.0-fast-generate-001 / veo-3.1-generate-preview /
+// veo-3.1-fast-generate-preview / veo-3.1-lite-generate-preview.
 // =====================================================
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_MODEL = process.env.AIKOL_VEO_MODEL || 'veo-3.1-generate-preview';
+const DEFAULT_MODEL = process.env.AIKOL_VEO_MODEL || 'veo-2.0-generate-001';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 function authHeaders() {
@@ -101,17 +104,15 @@ async function submitVideoJob(args) {
     const resStr = validResolutions.includes(resolution) ? resolution : '720p';
     const durFinal = resStr === '720p' ? durQuantized : 8;
 
-    // generateAudio:false → silent video. Veo 3.x mặc định sinh audio kèm
-    // video; audio safety filter có thể block ngay cả khi visual OK (verified
-    // qua user case Hạnh 4: "issue with the audio for your prompt"). Use case
-    // KOL silent clone video không cần audio → tắt để tránh false-positive
-    // safety blocks + giảm cost.
+    // Veo 3.x sinh audio kèm video → audio safety filter có thể block ngay cả
+    // khi visual OK (verified user case Hạnh 4: "issue with the audio for your
+    // prompt"). Param `generateAudio:false` không support trên 3.1 (tested 400).
+    // → Default model Veo 2.0 (không có audio gen) tránh false-positive blocks.
     const parameters = {
         aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
         durationSeconds: durFinal,
         resolution: resStr,
         sampleCount: 1,
-        generateAudio: false,
     };
 
     const body = { instances: [instance], parameters };
