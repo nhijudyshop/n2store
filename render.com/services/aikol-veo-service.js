@@ -85,31 +85,21 @@ async function submitVideoJob(args) {
             mimeType: modelImg.mime,
         },
     };
-    // Veo 3.1 reference image (optional appearance/scene preservation)
-    if (sceneImageUrl && isVeo31) {
-        try {
-            const sceneImg = await fetchImageBase64(sceneImageUrl);
-            instance.referenceImages = [
-                {
-                    image: {
-                        bytesBase64Encoded: sceneImg.data,
-                        mimeType: sceneImg.mime,
-                    },
-                    referenceType: 'asset',
-                },
-            ];
-        } catch (e) {
-            console.warn('[aikol-veo] sceneImage fetch failed:', e.message);
-        }
-    }
+    // NOTE: Veo 3.1 reference image (`referenceImages`) is currently unsupported
+    // by the public Gemini API endpoint — sending it triggers a generic 400
+    // "Unsupported video generation request". Scene info goes into the prompt
+    // instead. Re-enable when Google publishes the field name for Gemini API.
+    void sceneImageUrl; // suppress unused warning
+    void isVeo31;
 
-    // parameters: durationSeconds is a STRING per docs ("4"|"6"|"8"), and 1080p/4k
-    // require "8". Quantize input to nearest valid bucket.
+    // parameters: durationSeconds NUMERIC (docs say string but API rejects with
+    // "The value type for `durationSeconds` needs to be a number"). Valid buckets
+    // 4/6/8; 1080p/4k require 8.
     const durRaw = Math.max(4, Math.min(parseInt(durationSeconds, 10) || 8, 8));
-    const durQuantized = durRaw <= 4 ? '4' : durRaw <= 6 ? '6' : '8';
+    const durQuantized = durRaw <= 4 ? 4 : durRaw <= 6 ? 6 : 8;
     const validResolutions = ['720p', '1080p', '4k'];
     const resStr = validResolutions.includes(resolution) ? resolution : '720p';
-    const durFinal = resStr === '720p' ? durQuantized : '8';
+    const durFinal = resStr === '720p' ? durQuantized : 8;
 
     const parameters = {
         aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
