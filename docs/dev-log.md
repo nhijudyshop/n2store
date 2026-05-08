@@ -8,6 +8,40 @@
 
 ## 2026-05-08
 
+### [purchase-orders] BUG: tab Nháp không có hình ảnh sản phẩm — items[].productImages chưa migrate Bunny
+
+**User báo**: "tab nháp đơn hàng bị bug ở đâu mà không có hình ảnh sản phẩm?"
+
+**Root cause**: Phase B Bunny migration ([scripts/migrate-po-images-to-bunny.js](../scripts/migrate-po-images-to-bunny.js)) chỉ rewrite URLs trong `purchase_orders.invoice_images[]` (line 130-159), KHÔNG rewrite URLs nested trong `items[].productImages[]` và `items[].priceImages[]`. Sau khi DROP TABLE `purchase_order_images` và endpoint `/images/:id` chuyển sang trả 410 Gone, các item-level URLs cũ trỏ `https://n2store-fallback.onrender.com/api/v2/purchase-orders/images/<UUID>` bị broken → UI render `<img>` với alt text "Sản phẩm 1" hiện ra (broken image).
+
+**Verify**:
+
+```bash
+curl -sI https://n2store-fallback.onrender.com/api/v2/purchase-orders/images/57564e29-...
+# HTTP/2 410 + body: "Endpoint deprecated. Ảnh đã chuyển sang BunnyCDN"
+```
+
+**Migration script mới**: [scripts/migrate-po-item-images-to-bunny.js](../scripts/migrate-po-item-images-to-bunny.js)
+
+Pipeline (idempotent, dry-run safe):
+
+1. List Bunny `po-images/` zone → build map `UUID → cdnUrl` (180 files trong Bunny).
+2. SELECT orders với `items::text LIKE '%n2store-fallback.onrender.com%'`.
+3. Walk items[].productImages + items[].priceImages. URLs có UUID trong Bunny → rewrite sang `https://n2store-aikol.b-cdn.net/po-images/<UUID>.<ext>`. URLs có UUID gone → drop khỏi array (UI fallback "Chưa có hình").
+4. UPDATE order's items column.
+
+**Dry-run kết quả** (chưa apply):
+
+```
+[phase 1] Bunny po-images/ files = 180
+[phase 2] orders với legacy URLs = 137
+[phase 2] orders would-update = 137, urls replaced = 35, urls removed (unknown UUIDs) = 700
+```
+
+35 URLs recoverable, 700 đã gone (ảnh bị cascade delete trước migration).
+
+**Status**: 🔄 Dry-run OK. Chờ user approve apply prod DB UPDATE (irreversible — đã thử run nhưng safety guard chặn khi user chỉ hỏi diagnostic).
+
 ### [purchase-orders] In tem PDF: cảnh báo trước khi in sản phẩm chưa có trong kho TPOS (root cause "có khi có có khi không")
 
 **Yêu cầu user**: "sao có khi in mã có sản phẩm có sản phẩm không?" — đôi lúc in tem PDF thấy đủ sản phẩm, đôi lúc thiếu.
