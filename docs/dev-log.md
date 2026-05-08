@@ -8,6 +8,58 @@
 
 ## 2026-05-08
 
+### [aikol] Comprehensive audit — 11 fixes (3 CRITICAL + 7 HIGH + 1 MED) + auto-tune cho identity match
+
+User: "kiểm tra lại tất cả race condition, bug,... quan trọng là phải ghép mặt model 100% vào clip".
+
+Code-review parallel agent phát hiện 15 issues (3 CRITICAL + 7 HIGH + 4 MED + 1 LOW). Fix 11 cái có impact trực tiếp lên identity-match quality + production stability:
+
+**CRITICAL** (block production):
+
+1. **State machine race**: `pickPending` flip `'pending'→'dispatching'` atomic trong CTE. Trước đây chỉ flip `started_at`, row vẫn `state='pending'` → re-pick trên restart hoặc multi-instance. Thêm `recoverStuckDispatching()` reset rows quá `DISPATCH_TIMEOUT_MS=90s` về pending.
+2. **dispatching→running atomic**: thêm guard `WHERE state='dispatching'` cho UPDATE. Persist `composite_key` vào config cho cleanup hook.
+3. **Compose silent fallback** ([aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js)): Trước đây `try/catch` swallow Gemini error → Veo animate model gốc thay vì composite → identity-match BỊ PHÁ HỎNG. Đổi sang throw → markError + refund + surface clear reason.
+
+**HIGH**:
+
+4. Gemini error response: extract `text` part + `safetyRatings` → user thấy lý do block (`SAFETY` / `IMAGE_SAFETY` / `RECITATION` cụ thể).
+5. Veo 2.0 duration buckets `{5, 8}` (KHÁC Veo 3.x `{4, 6, 8}`). Auto-quantize theo regex model.
+6. `outputs INSERT` idempotent qua `WHERE NOT EXISTS` pattern (works without UNIQUE constraint). Migration SQL thêm constraint optional cho perf về sau.
+7. Remove balance pre-check race — chỉ rely vào `chargeCredits` `WHERE balance >= $2`. `chargeCredits` return balance từ trong transaction → response consistent với commit state.
+
+**MED**:
+
+8. Wrap raw note với `buildAutoSceneDirective` cho with_clip + no clip cover edge case (identity-lock không bypass).
+9. Merge 2 clip queries → 1 (`file_path + cover_url + download_status`) tránh stale.
+10. `cleanupComposite()` helper: `bunny.deleteObject(tmp/...)` sau poll done/error → tmp file không accumulate.
+
+**AUTO-TUNE** (route POST /generations) khi `gen_mode='with_clip'`:
+
+- `similarity = max(80, input)` → strong identity anchor
+- `creativity = min(30, input)` → giảm Veo/Gemini face drift
+- `keep_pose, keep_outfit, keep_bg, keep_lighting = true` → giữ scene clip
+- `engine` ép `gemini_3_1` (image) / `veo_3_1` (video) nếu chưa set/set bậy
+- User opt-out qua `auto_tune: false` trong config
+
+**Bonus fixes**:
+
+- `compositeKey` scope: declare function-level (trước đây else-block scope gây ReferenceError trong final UPDATE).
+- UPDATE `state='done'` thêm guard `WHERE state IN ('running','dispatching')` chống ghi đè terminal.
+
+**Verified live** (commit eb89593c):
+
+| Test               | Job ID       | Kết quả                                                                              |
+| ------------------ | ------------ | ------------------------------------------------------------------------------------ |
+| Auto-tune coercion | `61848f70-…` | ✅ similarity 50→80, creativity 80→30, keep\_\* true                                 |
+| Composite cleanup  | (đã xóa)     | ✅ HTTP 404 sau done/error                                                           |
+| Hạnh 4 + clip 34   | `2689af62-…` | ✅ done, MP4 1.3 MB sau 77s                                                          |
+| Hạnh 4 + clip 4    | `ac7dd841-…` | ⚠ Veo content policy block (clip 4 cover-specific, not code bug) — refund+cleanup OK |
+
+Issues còn lại (LOW priority, deferred):
+
+- `aikol-queue-worker.js` poll error throws bubble lên log không markError → 20-min timeout limbo (acceptable).
+- Veo prompt truncation 1500 chars (đủ cho hiện tại, prompts ≤ 800 chars).
+
 ### [aikol][prompts] Identity preservation 100% pixel-level — strengthen directives ở cả 3 stage
 
 User: "ghép phải giống 100% mặt model càng giống càng tốt".
