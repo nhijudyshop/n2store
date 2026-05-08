@@ -101,11 +101,17 @@ async function submitVideoJob(args) {
     const resStr = validResolutions.includes(resolution) ? resolution : '720p';
     const durFinal = resStr === '720p' ? durQuantized : 8;
 
+    // generateAudio:false → silent video. Veo 3.x mặc định sinh audio kèm
+    // video; audio safety filter có thể block ngay cả khi visual OK (verified
+    // qua user case Hạnh 4: "issue with the audio for your prompt"). Use case
+    // KOL silent clone video không cần audio → tắt để tránh false-positive
+    // safety blocks + giảm cost.
     const parameters = {
         aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
         durationSeconds: durFinal,
         resolution: resStr,
         sampleCount: 1,
+        generateAudio: false,
     };
 
     const body = { instances: [instance], parameters };
