@@ -130,13 +130,18 @@
                             ></textarea>
                         </div>
                         <div>
-                            <label class="aikol-label" for="model-gen-aspect">Tỉ lệ ảnh</label>
+                            <label class="aikol-label" for="model-gen-aspect"
+                                >Composition hint
+                                <span style="color: var(--aikol-text-dim); font-weight: 400">
+                                    — ảnh xuất 1024×1024, hint chỉ thay đổi framing
+                                </span>
+                            </label>
                             <select id="model-gen-aspect" class="aikol-input">
-                                <option value="">1:1 (mặc định)</option>
-                                <option value="9:16">9:16 (chân dung dọc)</option>
-                                <option value="4:5">4:5 (instagram portrait)</option>
-                                <option value="3:4">3:4 (chân dung)</option>
-                                <option value="16:9">16:9 (ngang)</option>
+                                <option value="">Mặc định</option>
+                                <option value="9:16">9:16 (full body dọc)</option>
+                                <option value="4:5">4:5 (Instagram portrait)</option>
+                                <option value="3:4">3:4 (chân dung khít)</option>
+                                <option value="1:1">1:1 (đối xứng)</option>
                             </select>
                         </div>
                         <button id="model-gen-submit" type="submit" class="aikol-btn">

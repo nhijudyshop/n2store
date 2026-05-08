@@ -8,6 +8,50 @@
 
 ## 2026-05-08
 
+### [aikol][models] Tạo model bằng Gemini 2.5 Flash Image (Nano Banana) — production-ready
+
+**Insight user**: project có widget AI sẵn (Gemini, Fal, Kling), liệu có thể dùng để TẠO model thay vì chỉ Upload?
+
+**Research** (browser-read Gemini docs + WebFetch + verify qua existing `/api/gemini/chat` proxy):
+
+- 3 image-gen models accessible với GEMINI_API_KEY env (paid tier):
+    - `gemini-2.5-flash-image` (Nano Banana): 1024×1024 max, **$0.039/ảnh**, ~10s
+    - `gemini-3.1-flash-image-preview` (Nano Banana 2): 4K, $0.06/ảnh
+    - `gemini-3-pro-image-preview` (Pro): 4K + thinking, $0.12/ảnh
+- aspectRatio config (`responseFormat.image.aspectRatio`) **chỉ valid Gemini 3.x**. 2.5 trả 502 "Unknown name responseFormat" nếu pass.
+- Tikreel.net/app/models check: chỉ có Upload, KHÔNG có "Tạo bằng AI" → feature này mới hơn Tikreel.
+
+**Architecture**:
+
+- [render.com/services/aikol-gemini-image-service.js](../render.com/services/aikol-gemini-image-service.js) — `generatePortrait({prompt, aspectRatio, model})` → Buffer PNG. Default `gemini-2.5-flash-image`. Cho 2.5 bake aspect hint vào prompt text (model honor framing cues qua text). Cho 3.x dùng `responseFormat.image.aspectRatio` đúng schema docs.
+- [render.com/routes/aikol.js](../render.com/routes/aikol.js) — `POST /api/aikol/models/generate` → charge `COSTS.image=4` credits → Gemini → Bunny CDN (`aikol/models/{id}.png`) → INSERT aikol_models. Auto-refund nếu Gemini error / Bunny upload fail.
+- [aikol-studio/models.html](../aikol-studio/models.html) — 2 panel side-by-side: **Section 1 Upload (FREE)** vs **Section 2 Tạo bằng AI (4cr)** với badge "GEMINI 2.5".
+- [aikol-studio/js/models.js](../aikol-studio/js/models.js) — `onGenerate()` show inline status "Đang vẽ… (10-25s)" + result message với balance + cost. Refund info trong tooltip lỗi.
+
+**End-to-end verified online**:
+
+- Model #16 "AI test" 1024×1024 PNG 1.49MB · 9.7s · cost 4cr · ai_model `gemini-2.5-flash-image` ✓
+- Model #17 "Mai test" Vietnamese woman portrait 1.35MB · gentle smile, professional headshot ✓
+- Model #18 "Aspect test" Vietnamese man portrait professional, suit + cityscape backdrop ✓
+- Refund verified: aspectRatio 4:5 trên 2.5 trả 502 "Unknown name responseFormat" → backend bắt + refund 4cr ✓
+
+**Limitations** (đã document trong UI):
+
+- `gemini-2.5-flash-image` xuất CỐ ĐỊNH 1024×1024. AspectRatio hint chỉ thay đổi framing (chân dung khít/dọc/ngang) chứ không đổi resolution. Để có true 4K + aspect → switch sang `gemini-3.1-flash-image-preview` ($0.06/ảnh) hoặc Imagen 4 ($0.04/ảnh).
+- Free tier: NOT available cho image-gen models.
+- SynthID watermark trên mọi ảnh (Google policy).
+
+**Prompt template default** (placeholder UI):
+
+```
+A young Vietnamese woman, age 25, soft natural studio lighting,
+gentle smile, professional portrait, photorealistic
+```
+
+**Files changed**: 5 (1 backend service, 1 backend route, 1 HTML, 2 JS).
+
+**Status**: ✅ Done. Production-ready.
+
 ### [aikol][clips] Channel import VERIFIED end-to-end — 10/10 success với @khaby.lame
 
 **Test online**: kênh `https://www.tiktok.com/@khaby.lame`, count=10:
