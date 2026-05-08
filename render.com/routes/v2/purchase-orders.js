@@ -87,12 +87,20 @@ async function deleteImagesFromUrls(pool, urlArrays) {
     let deletedDb = 0;
     let deletedBunny = 0;
 
+    // Bảng `purchase_order_images` đã drop 2026-05-08 sau migration Bunny.
+    // dbIds chỉ có thể xuất hiện nếu invoice_images còn URL legacy chưa migrate —
+    // không expected, nhưng fail gracefully thay vì throw cho cả request.
     if (dbIds.length) {
-        const r = await pool.query(
-            'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
-            [dbIds]
-        );
-        deletedDb = r.rowCount;
+        try {
+            const r = await pool.query(
+                'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
+                [dbIds]
+            );
+            deletedDb = r.rowCount;
+        } catch (err) {
+            // Table dropped → silently noop (URL trỏ ID không tồn tại).
+            if (!String(err.message || '').includes('does not exist')) throw err;
+        }
     }
     if (bunnyKeys.length) {
         const results = await Promise.allSettled(
@@ -465,57 +473,20 @@ router.post(
 );
 
 // ========================================
-// GET /images/:id — Serve image
+// GET/DELETE /images/:id — Legacy endpoints. Bảng `purchase_order_images` đã drop
+// 2026-05-08 sau khi migrate sang Bunny CDN. Các URL cũ phải đã được rewrite
+// trong `purchase_orders.invoice_images[]`, nên endpoint này chỉ phục vụ
+// client cache cũ — trả 410 Gone gọn gàng.
 // ========================================
-router.get('/images/:id', async (req, res) => {
-    try {
-        const pool = getDb(req);
-        const result = await pool.query(
-            'SELECT data, content_type, filename FROM purchase_order_images WHERE id = $1',
-            [req.params.id]
-        );
+const LEGACY_IMAGE_GONE_MSG =
+    'Endpoint deprecated. Ảnh đã chuyển sang BunnyCDN — refresh đơn để lấy URL mới.';
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Ảnh không tồn tại' });
-        }
-
-        const { data, content_type, filename } = result.rows[0];
-
-        res.setHeader('Content-Type', content_type);
-        res.setHeader('Content-Length', data.length);
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        if (filename) {
-            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-        }
-
-        res.send(data);
-    } catch (error) {
-        console.error('[PO API] Image serve error:', error);
-        res.status(500).json({ success: false, error: 'Không thể tải ảnh' });
-    }
+router.get('/images/:id', (_req, res) => {
+    res.status(410).json({ success: false, error: LEGACY_IMAGE_GONE_MSG });
 });
 
-// ========================================
-// DELETE /images/:id — Delete legacy DB-backed image (Bunny ảnh xóa qua cascade
-// purchase_orders.invoice_images vì URL chứa cdn host, không phải /images/:id)
-// ========================================
-router.delete('/images/:id', async (req, res) => {
-    try {
-        const pool = getDb(req);
-        const result = await pool.query(
-            'DELETE FROM purchase_order_images WHERE id = $1 RETURNING id',
-            [req.params.id]
-        );
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ success: false, error: 'Ảnh không tồn tại' });
-        }
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('[PO API] Image delete error:', error);
-        res.status(500).json({ success: false, error: 'Không thể xóa ảnh' });
-    }
+router.delete('/images/:id', (_req, res) => {
+    res.status(410).json({ success: false, error: LEGACY_IMAGE_GONE_MSG });
 });
 
 // ========================================
@@ -1242,41 +1213,15 @@ router.post('/cleanup-trash', async (req, res) => {
 // POST /cleanup-orphan-images — One-shot dọn ảnh không link tới đơn nào
 // (safety net cho các đơn xóa trước khi cascade được wire)
 // ========================================
-router.post('/cleanup-orphan-images', async (req, res) => {
-    try {
-        const pool = getDb(req);
-        const { minAgeHours = 24 } = req.body || {};
-
-        // Lấy tập id ảnh đang được tham chiếu trong invoice_images của BẤT KỲ đơn nào.
-        // Match suffix /images/<id> để không bắt nhầm string khác.
-        const result = await pool.query(
-            `
-            WITH referenced AS (
-                SELECT DISTINCT
-                    substring(url FROM '/images/([^/?#]+)$') AS img_id
-                FROM purchase_orders po, unnest(po.invoice_images) AS url
-                WHERE po.invoice_images IS NOT NULL
-                  AND array_length(po.invoice_images, 1) > 0
-            )
-            DELETE FROM purchase_order_images
-            WHERE created_at < NOW() - INTERVAL '1 hour' * $1
-              AND id NOT IN (SELECT img_id FROM referenced WHERE img_id IS NOT NULL)
-            RETURNING id, size_bytes
-            `,
-            [minAgeHours]
-        );
-
-        const freedBytes = result.rows.reduce((s, r) => s + (r.size_bytes || 0), 0);
-        res.json({
-            success: true,
-            deletedCount: result.rowCount,
-            freedBytes,
-            freedMB: (freedBytes / 1024 / 1024).toFixed(1),
-        });
-    } catch (error) {
-        console.error('[PO API] Orphan cleanup error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
+router.post('/cleanup-orphan-images', (_req, res) => {
+    // Bảng `purchase_order_images` đã drop 2026-05-08 sau khi migrate sang
+    // BunnyCDN. Cascade delete bytea không còn cần thiết. Bunny orphan cleanup
+    // (nếu cần trong tương lai) sẽ là endpoint riêng so sánh objects trong
+    // zone vs URLs trong invoice_images[].
+    res.status(410).json({
+        success: false,
+        error: 'Endpoint deprecated — bảng purchase_order_images đã drop sau migration Bunny.',
+    });
 });
 
 module.exports = router;
