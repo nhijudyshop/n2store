@@ -95,12 +95,16 @@ async function submitVideoJob(args) {
         ];
     }
 
+    // Per Vertex AI Veo predictLongRunning schema:
+    // - durationSeconds: integer 4-8 (NOT 5 default Kling — clamp to range)
+    // - aspectRatio + resolution + sampleCount go in parameters
+    const dur = Math.max(4, Math.min(parseInt(durationSeconds, 10) || 5, 8));
     const body = {
         instances: [instance],
         parameters: {
             aspectRatio,
             resolution,
-            durationSeconds: Number(durationSeconds),
+            durationSeconds: dur,
             sampleCount: 1,
         },
     };
