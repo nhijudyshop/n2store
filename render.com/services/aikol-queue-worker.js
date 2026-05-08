@@ -154,8 +154,9 @@ async function dispatchOne(row) {
     } else {
         // ===== VIDEO =====
         if (engine === 'veo_3_1') {
+            // Gemini Veo videoConfig: durationSeconds is 5-8 (4s rejected).
             const durationSeconds = Math.max(
-                3,
+                5,
                 Math.min(parseInt(conf.duration_seconds, 10) || 5, 8)
             );
             const submit = await veo.submitVideoJob({
@@ -163,7 +164,7 @@ async function dispatchOne(row) {
                 sceneImageUrl,
                 prompt: note,
                 durationSeconds,
-                aspectRatio: conf.aspect_ratio || '9:16',
+                aspectRatio: conf.aspect_ratio || conf.image_size || '9:16',
                 resolution: conf.resolution || '720p',
             });
             externalId = submit.operationName;

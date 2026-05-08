@@ -8,6 +8,38 @@
 
 ## 2026-05-08
 
+### [aikol][veo] Fix Veo image2video — chuyển sang Gemini API schema (contents+inlineData+videoConfig)
+
+**Bug**: Browser test trên `library.html` với model "Hạnh 2" + clip TikTok → engine `veo_3_1` luôn fail tại submit:
+
+```
+Veo submit: Unsupported video generation request. Please check the documentation for supported usage: https://ai.google.dev/gemini-api/docs/video
+```
+
+**Root cause**: Body request đang dùng schema **Vertex AI** (`instances[].image.bytesBase64Encoded` + `parameters`) nhưng endpoint là Gemini API (`generativelanguage.googleapis.com`). Hai API dùng schema khác nhau hoàn toàn — Gemini API yêu cầu `contents[].parts[].inlineData` + `generationConfig.videoConfig`. Thêm: model `veo-3.1-generate-preview` chưa available trên Gemini API public (chỉ Vertex AI + allowlist).
+
+**Fix** ([render.com/services/aikol-veo-service.js](../render.com/services/aikol-veo-service.js)):
+
+- Body: chuyển sang `{ contents: [{ role:"user", parts: [{inlineData:{mimeType,data}}, {text}] }], generationConfig: { responseModalities:["video"], videoConfig: {aspectRatio, durationSeconds, resolution, numberOfVideos:1} } }`.
+- Default model: `veo-2.0-generate-001` (stable trên Gemini API). Override qua env `AIKOL_VEO_MODEL` khi key được allowlist Veo 3.1.
+- Veo 3.1 reference image: nếu có `sceneImageUrl` → push thêm 1 inlineData part (thay vì `referenceImages` Vertex format).
+- Duration: floor 5s (Gemini reject 4s), max 8s. Worker queue cũng update floor 5.
+- Response parser: thêm fallback `resp.generatedSamples` (Gemini API trả thẳng, không bọc `generateVideoResponse`).
+
+**Files**:
+
+- [render.com/services/aikol-veo-service.js](../render.com/services/aikol-veo-service.js)
+- [render.com/services/aikol-queue-worker.js](../render.com/services/aikol-queue-worker.js) (duration floor 5s + dùng `image_size` làm fallback aspect ratio)
+- [scripts/n2store-browser-session.js](../scripts/n2store-browser-session.js): fix `safe()` helper crash khi `JSON.stringify(undefined)` (eval/feval không có `return`)
+
+**Bug provider-side ghi nhận** (không phải code bug — refund đã chạy đúng):
+
+- Fal PuLID (default image engine): `403 User is locked. Reason: Exhausted balance` → cần top-up fal.ai.
+- Kling (default video engine): `429 code:1102 Account balance not enough` → cần top-up Kling.
+- **Workaround tạm**: user chọn `Gemini 3.1` cho image (đã verify hoạt động — gen `424a4ba4-...` trả đúng output), `Veo 3.1` cho video (sau khi deploy fix này).
+
+Status: ✅ Code fix done, ⏳ chờ deploy verify online.
+
 ### [render][purchase-orders] Phase B — upload ảnh sang BunnyCDN + dual-mode cascade + migration script
 
 **Tại sao Bunny thay vì R2**: R2 require user click "Enable R2" trên CF dashboard (không API được). BunnyCDN đã setup sẵn cho AI KOL Studio (zone `n2store-aikol`, env `BUNNY_STORAGE_KEY` đã có trên Render, `bunny-storage-service.js` viết sẵn). Cùng outcome: object storage + CDN public URL, ship được ngay.

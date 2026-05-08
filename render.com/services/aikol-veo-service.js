@@ -1,23 +1,22 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
 // =====================================================
-// VEO 3.1 VIDEO CLONE — Google's image-to-video model accessible via Gemini API.
+// VEO VIDEO CLONE — Google's image-to-video model via Gemini API.
 //
 // Endpoint: models/{model}:predictLongRunning (async — returns operation name,
-// must poll :operations/{name} until done.response.generateVideoResponse).
+// must poll :operations/{name} until done.response.generatedSamples).
 //
-// Models per docs (https://ai.google.dev/gemini-api/docs/video):
-//   - veo-3.1-generate-preview      — preview, up to 4K, 8s
-//   - veo-3.1-fast-generate-preview — preview, faster
-//   - veo-3.1-lite-generate-preview — preview, cheap
-//   - veo-3.0-generate-001          — stable, 4K, 8s
-//   - veo-3.0-fast-generate-001     — stable fast
-//   - veo-2.0-generate-001          — stable 720p
+// Schema: Gemini API uses `contents` + `inlineData` + `generationConfig.videoConfig`
+// (https://ai.google.dev/gemini-api/docs/video). NOT the Vertex AI `instances` +
+// `image.bytesBase64Encoded` wrapper — that returns 400 "Unsupported video
+// generation request" on generativelanguage.googleapis.com.
 //
-// Veo 3.1 supports up to 3 reference images for appearance preservation.
+// Default model: veo-2.0-generate-001 — Veo 3.1 preview is allowlist-gated and
+// only available on Vertex AI today. Override via env AIKOL_VEO_MODEL when the
+// Gemini API key gets allowlisted for veo-3.1-generate-preview.
 // =====================================================
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_MODEL = process.env.AIKOL_VEO_MODEL || 'veo-3.1-generate-preview';
+const DEFAULT_MODEL = process.env.AIKOL_VEO_MODEL || 'veo-2.0-generate-001';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 function authHeaders() {
@@ -44,12 +43,12 @@ async function fetchImageBase64(url) {
  *
  * @param {object} args
  * @param {string} args.modelImageUrl - Required: portrait of the KOL
- * @param {string} [args.sceneImageUrl] - Optional: scene reference (Veo 3.1)
+ * @param {string} [args.sceneImageUrl] - Optional: scene reference (Veo 3.1 only — appended as 2nd inline image)
  * @param {string} [args.prompt] - Action/scene description
- * @param {number} [args.durationSeconds=5] - 4 / 6 / 8
- * @param {string} [args.aspectRatio='9:16'] - 9:16 vertical default for TikTok
- * @param {string} [args.resolution='720p']
- * @param {string} [args.model] - override
+ * @param {number} [args.durationSeconds=5] - 5 / 6 / 7 / 8
+ * @param {string} [args.aspectRatio='9:16'] - "9:16" or "16:9"
+ * @param {string} [args.resolution='720p'] - "720p" (default) or "1080p" (allowlist)
+ * @param {string} [args.model] - override; default veo-2.0-generate-001
  * @returns {Promise<{operationName: string, model: string}>}
  */
 async function submitVideoJob(args) {
@@ -64,6 +63,7 @@ async function submitVideoJob(args) {
     } = args || {};
     if (!modelImageUrl) throw new Error('modelImageUrl is required');
     const m = model || DEFAULT_MODEL;
+    const isVeo31 = /^veo-3\.1/.test(m);
 
     const modelImg = await fetchImageBase64(modelImageUrl);
 
@@ -72,40 +72,34 @@ async function submitVideoJob(args) {
         'Animate the subject naturally, maintaining their face and identity. Cinematic camera, photorealistic.'
     ).slice(0, 1000);
 
-    // Veo predictLongRunning expects bytesBase64Encoded (not inlineData) per
-    // Vertex AI / Gemini API doc convention. Numeric durationSeconds, not string.
-    const instance = {
-        prompt: directive,
-        image: {
-            bytesBase64Encoded: modelImg.data,
-            mimeType: modelImg.mime,
-        },
-    };
-    // Veo 3.1 reference images (optional appearance preservation)
-    if (sceneImageUrl && /^veo-3\.1/.test(m)) {
-        const sceneImg = await fetchImageBase64(sceneImageUrl);
-        instance.referenceImages = [
-            {
-                image: {
-                    bytesBase64Encoded: sceneImg.data,
-                    mimeType: sceneImg.mime,
-                },
-                referenceType: 'asset',
-            },
-        ];
+    // Gemini API schema (NOT Vertex AI): contents[].parts[] with inlineData
+    // (data, mimeType) plus a text part. videoConfig nested under generationConfig.
+    const parts = [{ inlineData: { mimeType: modelImg.mime, data: modelImg.data } }];
+    // Veo 3.1 supports a 2nd reference image for scene/appearance preservation.
+    if (sceneImageUrl && isVeo31) {
+        try {
+            const sceneImg = await fetchImageBase64(sceneImageUrl);
+            parts.push({ inlineData: { mimeType: sceneImg.mime, data: sceneImg.data } });
+        } catch (e) {
+            // Non-fatal — proceed without scene ref if it fails to fetch.
+            console.warn('[aikol-veo] sceneImage fetch failed:', e.message);
+        }
     }
+    parts.push({ text: directive });
 
-    // Veo (Gemini API) predictLongRunning — minimal body. Some preview models
-    // are strict about parameters; passing only what's needed avoids
-    // "out of bound" errors. Veo defaults: 8s / 720p / 16:9 if omitted.
-    const dur = Math.max(4, Math.min(parseInt(durationSeconds, 10) || 5, 8));
-    const params = {};
-    if (aspectRatio) params.aspectRatio = aspectRatio;
-    if (resolution) params.resolution = resolution;
-    if (dur) params.durationSeconds = dur;
+    // Gemini videoConfig: durationSeconds 5-8, aspectRatio 9:16/16:9, resolution 720p/1080p.
+    const dur = Math.max(5, Math.min(parseInt(durationSeconds, 10) || 5, 8));
+    const videoConfig = { numberOfVideos: 1 };
+    if (aspectRatio) videoConfig.aspectRatio = aspectRatio;
+    if (resolution) videoConfig.resolution = resolution;
+    if (dur) videoConfig.durationSeconds = dur;
+
     const body = {
-        instances: [instance],
-        ...(Object.keys(params).length ? { parameters: params } : {}),
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+            responseModalities: ['video'],
+            videoConfig,
+        },
     };
 
     const url = `${BASE}/models/${encodeURIComponent(m)}:predictLongRunning`;
@@ -135,13 +129,19 @@ async function getJobStatus(operationName) {
     }
     if (!data.done) return { status: 'running', raw: data };
     if (data.error) return { status: 'error', error: data.error.message || 'Veo failed' };
-    // done — extract video URI
+    // done — extract video URI from various known response shapes
     const resp = data.response || {};
     const generated =
+        resp.generatedSamples ||
         resp.generateVideoResponse?.generatedSamples ||
         resp.predictions?.flatMap?.((p) => p.generatedSamples || []) ||
         [];
-    const videoUri = generated[0]?.video?.uri || generated[0]?.uri || null;
+    const videoUri =
+        generated[0]?.video?.uri ||
+        generated[0]?.uri ||
+        resp.video?.uri ||
+        resp.videos?.[0]?.uri ||
+        null;
     if (!videoUri) return { status: 'error', error: 'Veo done but no video URI', raw: data };
     return { status: 'done', videoUri, raw: data };
 }

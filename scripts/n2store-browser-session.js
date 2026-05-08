@@ -137,7 +137,10 @@ const log = (...a) => {
     const safe = async (fn, label) => {
         try {
             const r = await fn();
-            log(`${label} →`, JSON.stringify(r).slice(0, 800));
+            // JSON.stringify(undefined) returns undefined (not 'undefined') — guard
+            // before calling .slice so eval/feval with no return doesn't crash here.
+            const s = r === undefined ? 'undefined' : JSON.stringify(r);
+            log(`${label} →`, (s == null ? String(s) : s).slice(0, 800));
         } catch (e) {
             log(`${label} ERROR:`, String(e).slice(0, 300));
         }
