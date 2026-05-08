@@ -64,7 +64,9 @@ function mapRow(row) {
 }
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/;
-function validSlug(s) { return typeof s === 'string' && SLUG_RE.test(s); }
+function validSlug(s) {
+    return typeof s === 'string' && SLUG_RE.test(s);
+}
 
 // -----------------------------------------------------
 // GET /api/web2/:entity/health
@@ -72,7 +74,8 @@ function validSlug(s) { return typeof s === 'string' && SLUG_RE.test(s); }
 router.get('/:entity/health', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
-    if (!validSlug(req.params.entity)) return res.status(400).json({ ok: false, error: 'invalid entity slug' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ ok: false, error: 'invalid entity slug' });
     try {
         await ensureTables(pool);
         const r = await pool.query(
@@ -91,7 +94,8 @@ router.get('/:entity/health', async (req, res) => {
 router.get('/:entity/list', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    if (!validSlug(req.params.entity)) return res.status(400).json({ error: 'invalid entity slug' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
     try {
         await ensureTables(pool);
         const { search, activeOnly, page = 1, limit = 200 } = req.query;
@@ -109,7 +113,10 @@ router.get('/:entity/list', async (req, res) => {
         }
         const where = 'WHERE ' + conds.join(' AND ');
 
-        const countR = await pool.query(`SELECT COUNT(*)::int AS n FROM web2_records ${where}`, params);
+        const countR = await pool.query(
+            `SELECT COUNT(*)::int AS n FROM web2_records ${where}`,
+            params
+        );
         const total = countR.rows[0].n;
 
         const listParams = [...params, limitNum, offset];
@@ -123,7 +130,9 @@ router.get('/:entity/list', async (req, res) => {
             success: true,
             entity: req.params.entity,
             records: listR.rows.map(mapRow),
-            total, page: pageNum, limit: limitNum,
+            total,
+            page: pageNum,
+            limit: limitNum,
             hasMore: offset + listR.rows.length < total,
         });
     } catch (e) {
@@ -137,7 +146,8 @@ router.get('/:entity/list', async (req, res) => {
 router.get('/:entity/get/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    if (!validSlug(req.params.entity)) return res.status(400).json({ error: 'invalid entity slug' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
     try {
         await ensureTables(pool);
         const r = await pool.query(
@@ -158,7 +168,8 @@ router.get('/:entity/get/:code', async (req, res) => {
 router.post('/:entity/create', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    if (!validSlug(req.params.entity)) return res.status(400).json({ error: 'invalid entity slug' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
     try {
         await ensureTables(pool);
         const b = req.body || {};
@@ -181,7 +192,9 @@ router.post('/:entity/create', async (req, res) => {
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
-                return res.status(409).json({ error: `Mã "${b.code}" đã tồn tại trong "${req.params.entity}"` });
+                return res
+                    .status(409)
+                    .json({ error: `Mã "${b.code}" đã tồn tại trong "${req.params.entity}"` });
             }
             throw err;
         }
@@ -197,7 +210,8 @@ router.post('/:entity/create', async (req, res) => {
 router.patch('/:entity/update/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    if (!validSlug(req.params.entity)) return res.status(400).json({ error: 'invalid entity slug' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
     try {
         await ensureTables(pool);
         const allowed = { name: 'name', data: 'data', isActive: 'is_active' };
@@ -233,7 +247,8 @@ router.patch('/:entity/update/:code', async (req, res) => {
 router.delete('/:entity/delete/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    if (!validSlug(req.params.entity)) return res.status(400).json({ error: 'invalid entity slug' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
     try {
         await ensureTables(pool);
         const r = await pool.query(
@@ -243,6 +258,75 @@ router.delete('/:entity/delete/:code', async (req, res) => {
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /api/web2/:entity/bulk-create
+// Body: { records: [{ code, name, data?, isActive?, createdBy? }, ...] }
+// Inserts all rows in a single statement; ON CONFLICT (entity_slug, code) DO NOTHING.
+// Returns: { success, total, inserted, skipped }
+// Designed for seeders importing thousands of rows. Cap: 5000 records / call.
+// -----------------------------------------------------
+router.post('/:entity/bulk-create', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    if (!validSlug(req.params.entity))
+        return res.status(400).json({ error: 'invalid entity slug' });
+    const records = Array.isArray(req.body?.records) ? req.body.records : null;
+    if (!records || records.length === 0) {
+        return res.status(400).json({ error: 'records array required' });
+    }
+    if (records.length > 5000) {
+        return res
+            .status(413)
+            .json({ error: `Too many records (${records.length}); limit 5000 per call` });
+    }
+    try {
+        await ensureTables(pool);
+        const now = Date.now();
+        const slug = req.params.entity;
+
+        const valuesSql = [];
+        const params = [];
+        let pi = 1;
+        for (const rec of records) {
+            if (!rec || !rec.name) continue;
+            valuesSql.push(
+                `($${pi++}, $${pi++}, $${pi++}, $${pi++}::jsonb, $${pi++}, $${pi++}, $${pi++}, $${pi++})`
+            );
+            params.push(
+                slug,
+                rec.code ? String(rec.code).trim() : null,
+                String(rec.name).trim(),
+                JSON.stringify(rec.data || {}),
+                rec.isActive !== false,
+                rec.createdBy || null,
+                now,
+                now
+            );
+        }
+        if (valuesSql.length === 0) {
+            return res.status(400).json({ error: 'no valid records (each needs name)' });
+        }
+
+        const sql = `
+            INSERT INTO web2_records
+                (entity_slug, code, name, data, is_active, created_by, created_at, updated_at)
+            VALUES ${valuesSql.join(', ')}
+            ON CONFLICT (entity_slug, code) WHERE code IS NOT NULL DO NOTHING
+            RETURNING id
+        `;
+        const r = await pool.query(sql, params);
+        res.json({
+            success: true,
+            total: records.length,
+            inserted: r.rows.length,
+            skipped: records.length - r.rows.length,
+        });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] bulk-create error:', e);
         res.status(500).json({ error: e.message });
     }
 });

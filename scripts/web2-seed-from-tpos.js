@@ -161,6 +161,49 @@ function postWeb2(base, slug, payload) {
     );
 }
 
+// Bulk-create endpoint: POSTs {records:[...]} in chunks of <=BULK_CHUNK records.
+const BULK_CHUNK = 500;
+async function bulkInsert(base, slug, records) {
+    const url = new URL(`${base}/api/web2/${encodeURIComponent(slug)}/bulk-create`);
+    let inserted = 0,
+        skipped = 0,
+        errors = 0;
+    for (let i = 0; i < records.length; i += BULK_CHUNK) {
+        const chunk = records.slice(i, i + BULK_CHUNK);
+        try {
+            const resp = await httpRequest(
+                {
+                    protocol: url.protocol,
+                    method: 'POST',
+                    hostname: url.hostname,
+                    port: url.port || (url.protocol === 'https:' ? 443 : 80),
+                    path: url.pathname + url.search,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                },
+                JSON.stringify({ records: chunk })
+            );
+            if (resp.status >= 200 && resp.status < 300) {
+                const j = JSON.parse(resp.body);
+                inserted += j.inserted || 0;
+                skipped += j.skipped || 0;
+                log(
+                    `    bulk chunk ${i}-${i + chunk.length - 1}: inserted=${j.inserted} skipped=${j.skipped}`
+                );
+            } else {
+                errors += chunk.length;
+                log(`    ❌ bulk chunk ${i}: HTTP ${resp.status} ${resp.body.slice(0, 200)}`);
+            }
+        } catch (e) {
+            errors += chunk.length;
+            log(`    ❌ bulk chunk ${i}: ${e.message}`);
+        }
+    }
+    return { inserted, skipped, errors };
+}
+
 // ── Entity configurations ──────────────────────────────────────
 function pickFields(obj, keys) {
     const out = {};
@@ -276,6 +319,95 @@ const ENTITIES = [
         }),
     },
     {
+        slug: 'partner-customer',
+        // Partner GetViewV2 with Type=Customer; max 200 per page (TPOS limit)
+        tposPath:
+            '/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&%24orderby=DateCreated+desc',
+        bulk: true,
+        mapper: (r) => ({
+            code: `tpos-${r.Id}`,
+            name: r.DisplayName || r.Name || `Customer ${r.Id}`,
+            isActive: r.Active !== false,
+            data: pickFields(r, [
+                'Id',
+                'Name',
+                'DisplayName',
+                'NameNoSign',
+                'Phone',
+                'Email',
+                'Street',
+                'CityName',
+                'CityCode',
+                'DistrictName',
+                'DistrictCode',
+                'WardName',
+                'WardCode',
+                'TaxCode',
+                'IdCardNumber',
+                'BirthDay',
+                'Customer',
+                'Supplier',
+                'IsCompany',
+                'CompanyType',
+                'Type',
+                'Status',
+                'StatusText',
+                'Source',
+                'SourceRef',
+                'Facebook',
+                'FacebookId',
+                'FacebookASIds',
+                'Zalo',
+                'ZaloUserId',
+                'ZaloUserName',
+                'Credit',
+                'Debit',
+                'LoyaltyPoints',
+                'Discount',
+                'Comment',
+                'ImageUrl',
+                'Tags',
+                'DateCreated',
+                'LastUpdated',
+            ]),
+        }),
+    },
+    {
+        slug: 'partner-supplier',
+        tposPath:
+            '/odata/Partner/ODataService.GetViewV2?Type=Supplier&Active=true&%24orderby=DateCreated+desc',
+        bulk: true,
+        mapper: (r) => ({
+            code: `tpos-${r.Id}`,
+            name: r.DisplayName || r.Name || `Supplier ${r.Id}`,
+            isActive: r.Active !== false,
+            data: pickFields(r, [
+                'Id',
+                'Name',
+                'DisplayName',
+                'NameNoSign',
+                'Phone',
+                'Email',
+                'Street',
+                'CityName',
+                'DistrictName',
+                'WardName',
+                'TaxCode',
+                'Customer',
+                'Supplier',
+                'IsCompany',
+                'CompanyType',
+                'Type',
+                'Credit',
+                'Debit',
+                'Comment',
+                'ImageUrl',
+                'Tags',
+                'DateCreated',
+            ]),
+        }),
+    },
+    {
         slug: 'accountjournal',
         tposPath: '/odata/AccountJournal',
         mapper: (r) => ({
@@ -335,25 +467,37 @@ const ENTITIES = [
             continue;
         }
 
-        let created = 0,
-            skipped = 0,
+        const records = tposRows.map((r) => ent.mapper(r)).filter((p) => p && p.name);
+        const useBulk = records.length >= 50 || ent.bulk === true;
+        let created, skipped, errors;
+        if (useBulk) {
+            log(`  using bulk-create (${records.length} records, chunks of ${BULK_CHUNK})`);
+            const bulkResult = await bulkInsert(ARGS.base, ent.slug, records);
+            created = bulkResult.inserted;
+            skipped = bulkResult.skipped;
+            errors = bulkResult.errors;
+        } else {
+            created = 0;
+            skipped = 0;
             errors = 0;
-        for (const r of tposRows) {
-            const payload = ent.mapper(r);
-            try {
-                const resp = await postWeb2(ARGS.base, ent.slug, payload);
-                if (resp.status >= 200 && resp.status < 300) {
-                    created++;
-                } else if (resp.status === 409 || /already|duplicate/i.test(resp.body)) {
-                    skipped++;
-                } else {
+            for (const payload of records) {
+                try {
+                    const resp = await postWeb2(ARGS.base, ent.slug, payload);
+                    if (resp.status >= 200 && resp.status < 300) {
+                        created++;
+                    } else if (resp.status === 409 || /already|duplicate/i.test(resp.body)) {
+                        skipped++;
+                    } else {
+                        errors++;
+                        if (errors <= 3)
+                            log(
+                                `  ❌ ${payload.code}: HTTP ${resp.status} ${resp.body.slice(0, 120)}`
+                            );
+                    }
+                } catch (e) {
                     errors++;
-                    if (errors <= 3)
-                        log(`  ❌ ${payload.code}: HTTP ${resp.status} ${resp.body.slice(0, 120)}`);
+                    if (errors <= 3) log(`  ❌ ${payload.code}: ${e.message}`);
                 }
-            } catch (e) {
-                errors++;
-                if (errors <= 3) log(`  ❌ ${payload.code}: ${e.message}`);
             }
         }
         log(`  ✅ created=${created} skipped=${skipped} errors=${errors}`);
