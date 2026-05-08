@@ -225,20 +225,42 @@
         const data = readForm(form);
         if (data.kind === 'image') {
             const perVariation = data.engine === 'gemini_3_1' ? 8 : COSTS.image;
-            return perVariation * data.variations;
+            return { total: perVariation * data.variations, engine: data.engine };
         }
-        let perSec;
+        let perSec, engineLabel;
         if (data.engine === 'veo_3_1') {
             perSec = 16; // COSTS.video_veo_per_sec
+            engineLabel = 'Veo';
         } else {
             perSec = data.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+            engineLabel = data.kling_mode === 'pro' ? 'Kling pro' : 'Kling std';
         }
-        return perSec * Math.max(COSTS.video_min_seconds, data.duration_seconds);
+        const sec = Math.max(COSTS.video_min_seconds, data.duration_seconds);
+        const animate = perSec * sec;
+        // with_clip pipeline cộng thêm Gemini compose step (8cr).
+        const composeCost = data.gen_mode === 'with_clip' ? 8 : 0;
+        return {
+            total: animate + composeCost,
+            engine: engineLabel,
+            animate,
+            compose: composeCost,
+            sec,
+            perSec,
+        };
     }
 
     function refreshCostLabel(form) {
-        const cost = computeCost(form);
-        $('#aikol-gen-cost').textContent = `${cost} credits`;
+        const c = computeCost(form);
+        const data = readForm(form);
+        let breakdown;
+        if (data.kind === 'image') {
+            breakdown = `${c.total} cr (${c.engine === 'gemini_3_1' ? 'Gemini 3.1' : 'Fal PuLID'} × ${data.variations})`;
+        } else if (c.compose) {
+            breakdown = `${c.total} cr = ${c.animate} (${c.engine} ${c.sec}s × ${c.perSec}cr) + ${c.compose} (Gemini compose)`;
+        } else {
+            breakdown = `${c.total} cr (${c.engine} ${c.sec}s × ${c.perSec}cr)`;
+        }
+        $('#aikol-gen-cost').textContent = breakdown;
     }
 
     // Wire the 🎲 "Gợi ý scene" button next to Note textarea.

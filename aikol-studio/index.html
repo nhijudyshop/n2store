@@ -18,6 +18,7 @@
         <script src="../shared/js/shared-auth-manager.js"></script>
         <script src="../shared/js/shared-cache-manager.js"></script>
 
+        <script src="js/aikol-feature-gate.js"></script>
         <script defer src="js/aikol-api.js"></script>
         <script defer src="js/aikol-modal.js"></script>
         <script defer src="js/aikol-sidebar.js"></script>
@@ -40,9 +41,40 @@
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap">
                     <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                    <label
+                        id="aikol-feature-toggle"
+                        class="aikol-credit-chip"
+                        style="cursor: pointer; user-select: none; gap: 0.4rem"
+                        title="Bật/tắt AI Tools (deepfake, gen video). Mặc định TẮT."
+                    >
+                        <input type="checkbox" id="aikol-feature-toggle-input" />
+                        <span id="aikol-feature-toggle-label">AI Tools: TẮT</span>
+                    </label>
                     <a class="aikol-btn" href="settings.html">⚡ Nạp thêm</a>
                 </div>
             </header>
+
+            <!-- Banner hiển thị khi AI Tools đang TẮT — block dashboard panels. -->
+            <section
+                id="aikol-disabled-banner"
+                class="aikol-panel"
+                style="display: none; border: 2px solid var(--aikol-warn, #d97706); padding: 1.5rem"
+            >
+                <h2 style="margin-top: 0">⚠ AI Tools đang TẮT</h2>
+                <p style="color: var(--aikol-text-dim); line-height: 1.6">
+                    AI tools (deepfake clone, gen video, etc.) bị tắt mặc định để tránh nhầm tốn
+                    credits. Bật toggle ở góc trên-phải để mở khoá Library / Models / History / Bulk
+                    / Campaigns.
+                </p>
+                <button
+                    type="button"
+                    id="aikol-enable-btn"
+                    class="aikol-btn"
+                    style="margin-top: 0.5rem"
+                >
+                    🔓 Bật AI Tools ngay
+                </button>
+            </section>
 
             <!-- Sprint 5 — KPI hero (clone tikreel /app dashboard) -->
             <section class="aikol-kpi-grid" aria-label="Workspace stats">
@@ -139,15 +171,54 @@
 
         <script defer src="js/dashboard.js"></script>
         <script>
-            // Cosmetic: load credits + lucide icons after DOM ready
-            document.addEventListener('DOMContentLoaded', async () => {
-                if (window.lucide) window.lucide.createIcons();
-                try {
-                    const { balance, plan } = await window.AikolAPI.getCredits();
-                    document.getElementById('aikol-credits').textContent =
-                        `${balance} credits · ${plan}`;
-                } catch (_) {}
-            });
+            (function () {
+                const toggleInput = document.getElementById('aikol-feature-toggle-input');
+                const toggleLabel = document.getElementById('aikol-feature-toggle-label');
+                const banner = document.getElementById('aikol-disabled-banner');
+                const enableBtn = document.getElementById('aikol-enable-btn');
+                // Hide các dashboard sections khi tắt — KPI grid, queue, completed, tips.
+                const dashboardSections = Array.from(
+                    document.querySelectorAll(
+                        '.aikol-kpi-grid, .aikol-dash-row, .aikol-panel:not(#aikol-disabled-banner)'
+                    )
+                );
+
+                function paint() {
+                    const enabled = window.AikolGate.isEnabled();
+                    toggleInput.checked = enabled;
+                    toggleLabel.textContent = `AI Tools: ${enabled ? 'BẬT' : 'TẮT'}`;
+                    toggleLabel.style.color = enabled
+                        ? 'var(--aikol-success, #10b981)'
+                        : 'var(--aikol-warn, #d97706)';
+                    banner.style.display = enabled ? 'none' : 'block';
+                    dashboardSections.forEach((el) => {
+                        el.style.display = enabled ? '' : 'none';
+                    });
+                }
+
+                toggleInput.addEventListener('change', () => {
+                    window.AikolGate.setEnabled(toggleInput.checked);
+                    paint();
+                });
+                enableBtn?.addEventListener('click', () => {
+                    window.AikolGate.setEnabled(true);
+                    paint();
+                });
+
+                document.addEventListener('DOMContentLoaded', async () => {
+                    if (window.lucide) window.lucide.createIcons();
+                    paint();
+                    if (window.location.hash === '#disabled') {
+                        // User bị redirect từ sub-page → highlight banner.
+                        banner.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    try {
+                        const { balance, plan } = await window.AikolAPI.getCredits();
+                        document.getElementById('aikol-credits').textContent =
+                            `${balance} credits · ${plan}`;
+                    } catch (_) {}
+                });
+            })();
         </script>
     </body>
 </html>

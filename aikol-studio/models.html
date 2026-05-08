@@ -16,6 +16,14 @@
         <script src="../shared/js/shared-auth-manager.js"></script>
         <script src="../shared/js/shared-cache-manager.js"></script>
 
+        <script src="js/aikol-feature-gate.js"></script>
+        <script>
+            // Early redirect: if AI Tools disabled, kick back to index immediately
+            // (before page tries to call API). User must toggle ON in index first.
+            if (!window.AikolGate?.isEnabled()) {
+                window.location.replace('./index.html#disabled');
+            }
+        </script>
         <script defer src="js/aikol-api.js"></script>
         <script defer src="js/aikol-modal.js"></script>
         <script defer src="js/aikol-sidebar.js"></script>

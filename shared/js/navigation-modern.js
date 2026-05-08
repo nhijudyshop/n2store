@@ -270,6 +270,7 @@ const MENU_CONFIG = [
         text: 'Gemini AI Assistant',
         shortText: 'AI',
         pageIdentifier: 'gemini-ai',
+        aiToolFeature: true, // Gate qua localStorage.aiToolsEnabled (default OFF)
     },
     {
         href: '../aikol-studio/index.html',
@@ -277,6 +278,8 @@ const MENU_CONFIG = [
         text: 'AI KOL Studio',
         shortText: 'AI KOL',
         pageIdentifier: 'aikol-studio',
+        // KHÔNG flag aiToolFeature — index.html là entry point cho toggle, phải
+        // luôn accessible. Sub-pages (library, models, …) tự redirect khi tắt.
     },
     {
         href: '../lichsuchinhsua/index.html',
@@ -1831,6 +1834,13 @@ const MenuLayoutStore = {
 
         const menuItem = MENU_CONFIG.find((m) => m.pageIdentifier === pageId);
         if (!menuItem) return false;
+        // AI Tools gate: feature ẩn khi user chưa toggle ON trong aikol-studio.
+        // Mặc định localStorage.aiToolsEnabled === undefined → tắt.
+        if (menuItem.aiToolFeature) {
+            try {
+                if (localStorage.getItem('aiToolsEnabled') !== 'true') return false;
+            } catch (_) {}
+        }
         if (!menuItem.permissionRequired) return true; // Public pages
         if (menuItem.publicAccess) return true;
         return accessiblePageIds.includes(menuItem.permissionRequired);
@@ -4614,11 +4624,14 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
-        // ALL users check detailedPermissions - NO admin bypass
+        // AI Tools gate: localStorage.aiToolsEnabled !== 'true' → ẩn AI items.
+        let aiEnabled = false;
+        try {
+            aiEnabled = localStorage.getItem('aiToolsEnabled') === 'true';
+        } catch (_) {}
         const accessible = MENU_CONFIG.filter((item) => {
-            // Items without permissionRequired are accessible to everyone
+            if (item.aiToolFeature && !aiEnabled) return false;
             if (!item.permissionRequired) return true;
-            // Public access pages are accessible to everyone
             if (item.publicAccess) return true;
             return this.userPermissions.includes(item.permissionRequired);
         });
