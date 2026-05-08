@@ -120,8 +120,8 @@ async function fetchAllPaged(token, basePath, pageSize = 200) {
         all.push(...value);
         if (value.length < pageSize) break;
         skip += pageSize;
-        if (skip > 50000) {
-            log(`  ⚠ stopping at skip=${skip} for safety`);
+        if (skip > 500000) {
+            log(`  ⚠ stopping at skip=${skip} for safety (cap raised to 500k)`);
             break;
         }
     }
