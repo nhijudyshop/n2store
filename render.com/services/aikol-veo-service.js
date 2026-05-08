@@ -126,6 +126,11 @@ async function submitVideoJob(args) {
 
 /**
  * Poll a Veo operation. Returns status + (when done) video URLs.
+ *
+ * Veo có thể trả `done:true` mà không có video trong các trường hợp:
+ *   - Safety filter blocked (raiMediaFilteredCount > 0): liệt kê reasons.
+ *   - Person generation policy block: ảnh có người + region restricted (EU/UK).
+ *   - Different response shape: log raw để debug.
  */
 async function getJobStatus(operationName) {
     if (!operationName) throw new Error('operationName required');
@@ -137,8 +142,23 @@ async function getJobStatus(operationName) {
     }
     if (!data.done) return { status: 'running', raw: data };
     if (data.error) return { status: 'error', error: data.error.message || 'Veo failed' };
-    // done — extract video URI from various known response shapes
+
     const resp = data.response || {};
+    // Detect safety / RAI filter — Veo trả `raiMediaFilteredCount > 0` + `raiMediaFilteredReasons`
+    // khi block. Có thể nằm ở resp top-level hoặc nested generateVideoResponse.
+    const rai = resp.raiMediaFilteredCount ?? resp.generateVideoResponse?.raiMediaFilteredCount;
+    const raiReasons =
+        resp.raiMediaFilteredReasons ?? resp.generateVideoResponse?.raiMediaFilteredReasons ?? [];
+    if (rai && rai > 0) {
+        const reasons = Array.isArray(raiReasons) ? raiReasons.join('; ') : String(raiReasons);
+        return {
+            status: 'error',
+            error: `Veo safety filter blocked (${rai} sample(s)): ${reasons || 'no reason given'}. Có thể do ảnh model trigger person/face policy hoặc prompt nhạy cảm.`,
+            raw: data,
+        };
+    }
+
+    // Extract video URI từ nhiều shape đã biết
     const generated =
         resp.generatedSamples ||
         resp.generateVideoResponse?.generatedSamples ||
@@ -146,11 +166,27 @@ async function getJobStatus(operationName) {
         [];
     const videoUri =
         generated[0]?.video?.uri ||
+        generated[0]?.video?.gcsUri ||
+        generated[0]?.videoUri ||
         generated[0]?.uri ||
+        generated[0]?.gcsUri ||
         resp.video?.uri ||
+        resp.video?.gcsUri ||
         resp.videos?.[0]?.uri ||
+        resp.videos?.[0]?.gcsUri ||
         null;
-    if (!videoUri) return { status: 'error', error: 'Veo done but no video URI', raw: data };
+    if (!videoUri) {
+        // Log raw để identify shape mới
+        console.warn(
+            `[aikol-veo] done but no URI — operation=${operationName} response=${JSON.stringify(resp).slice(0, 1500)}`
+        );
+        const dbg = JSON.stringify(resp).slice(0, 200);
+        return {
+            status: 'error',
+            error: `Veo done but no video URI. Raw response keys: ${Object.keys(resp).join(',') || '(empty)'}. Snippet: ${dbg}`,
+            raw: data,
+        };
+    }
     return { status: 'done', videoUri, raw: data };
 }
 
