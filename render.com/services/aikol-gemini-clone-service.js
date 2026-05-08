@@ -118,8 +118,21 @@ async function cloneImage(args) {
     const cand = (data.candidates || [])[0];
     const out = (cand?.content?.parts || []).find((p) => p.inlineData?.data || p.inline_data?.data);
     if (!out) {
+        // Surface lý do rõ ràng: extract finishReason + text part nếu có (Gemini
+        // thường kèm text refusal khi block bằng safety/policy/recitation).
         const finish = cand?.finishReason || 'no candidate';
-        throw new Error(`Gemini clone: no image (${finish})`);
+        const textPart = (cand?.content?.parts || []).find((p) => p.text);
+        const hint = textPart?.text?.slice(0, 250) || '';
+        const safetyRatings = cand?.safetyRatings;
+        const blockedRatings = Array.isArray(safetyRatings)
+            ? safetyRatings.filter((r) => r.blocked || r.probability === 'HIGH').slice(0, 3)
+            : [];
+        const safetyHint = blockedRatings.length
+            ? ` safety=${blockedRatings.map((r) => `${r.category}:${r.probability}`).join(',')}`
+            : '';
+        throw new Error(
+            `Gemini clone: no image (${finish})${hint ? ' — ' + hint : ''}${safetyHint}`
+        );
     }
     const inline = out.inlineData || out.inline_data;
     return {

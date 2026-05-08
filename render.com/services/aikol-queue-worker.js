@@ -93,28 +93,26 @@ async function dispatchOne(row) {
     if (!modelRow.rows[0]) throw new Error(`model ${model_id} missing`);
     const modelImageUrl = bunny.cdnUrl(modelRow.rows[0].file_path);
 
+    // Single round-trip cho tất cả clip data — tránh stale state nếu clip
+    // bị delete giữa 2 query.
     let clipVideoUrl = null;
+    let sceneImageUrl = null;
     if (clip_id) {
         const clipRow = await pool.query(
-            `SELECT file_path, download_status FROM aikol_clips WHERE id = $1`,
+            `SELECT file_path, download_status, cover_url FROM aikol_clips WHERE id = $1`,
             [clip_id]
         );
-        if (clipRow.rows[0]?.file_path && clipRow.rows[0].download_status === 'done') {
-            clipVideoUrl = bunny.cdnUrl(clipRow.rows[0].file_path);
+        const c = clipRow.rows[0];
+        if (c?.file_path && c.download_status === 'done') {
+            clipVideoUrl = bunny.cdnUrl(c.file_path);
         }
+        sceneImageUrl = c?.cover_url || null;
     }
 
     // Engine selection — config.engine overrides default per kind.
     // image: fal_pulid (default) | gemini_3_1
     // video: kling (default) | veo_3_1
     const engine = String(conf.engine || (kind === 'image' ? 'fal_pulid' : 'kling')).toLowerCase();
-
-    // Resolve scene image URL (clip cover) for engines that accept it
-    let sceneImageUrl = null;
-    if (clip_id) {
-        const c = await pool.query(`SELECT cover_url FROM aikol_clips WHERE id = $1`, [clip_id]);
-        sceneImageUrl = c.rows[0]?.cover_url || null;
-    }
 
     let externalId, provider, kindKey;
 
@@ -164,17 +162,26 @@ async function dispatchOne(row) {
             const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
             const key = `aikol/outputs/${id}-0.${ext}`;
             await bunny.uploadBuffer(result.buffer, key, result.mimeType);
+            // Idempotent: nếu poll re-fire / restart re-dispatch, INSERT trùng
+            // (generation_id, variant_index) sẽ no-op thay vì duplicate row.
+            // Yêu cầu UNIQUE constraint trên (generation_id, variant_index) — sẽ
+            // cần migration nếu chưa có.
             await pool.query(
                 `INSERT INTO aikol_outputs
                     (generation_id, user_id, variant_index, file_path, file_kind, file_size)
-                 VALUES ($1, $2, 0, $3, 'image', $4)`,
+                 SELECT $1, $2, 0, $3, 'image', $4
+                 WHERE NOT EXISTS (
+                   SELECT 1 FROM aikol_outputs WHERE generation_id = $1 AND variant_index = 0
+                 )`,
                 [id, user_id, key, result.buffer.length]
             );
+            // Atomic flip: chỉ done nếu state vẫn là dispatching (chống ghi đè
+            // markError đã chạy concurrent).
             await pool.query(
                 `UPDATE aikol_generations
-                 SET state = 'done', finished_at = NOW(), started_at = NOW(),
+                 SET state = 'done', error = NULL, finished_at = NOW(),
                      config = COALESCE(config, '{}'::jsonb) || $1::jsonb
-                 WHERE id = $2`,
+                 WHERE id = $2 AND state IN ('dispatching','running')`,
                 [JSON.stringify({ provider: 'gemini', kind_key: 'image_clone', engine }), id]
             );
             await notifyDone(id, user_id, kind, 1).catch(() => {});
@@ -197,27 +204,31 @@ async function dispatchOne(row) {
         // Pipeline thêm ~20-30s latency Gemini compose nhưng kết quả gần với
         // "face-swap video" nhất có thể qua public API.
         let animationSourceUrl = modelImageUrl;
+        let compositeKey = null;
         const shouldCompose = genMode === 'with_clip' && !!sceneImageUrl;
         if (shouldCompose) {
-            try {
-                const composite = await geminiClone.cloneImage({
+            // Compose fail KHÔNG silent fallback — nếu Gemini block hoặc lỗi,
+            // user mong đợi "model trong scene clip" mà output chỉ là model gốc
+            // → identity-match bị phá hỏng và user mất credits không biết tại sao.
+            // Throw để worker mark error + refund + surface lý do rõ ràng.
+            const composite = await geminiClone
+                .cloneImage({
                     modelImageUrl,
                     sceneImageUrl,
                     prompt: note,
+                })
+                .catch((e) => {
+                    throw new Error(
+                        `Compose failed (Gemini): ${e.message}. Identity-match pipeline yêu cầu compose step thành công — không thể fallback.`
+                    );
                 });
-                const compExt = composite.mimeType.includes('png') ? 'png' : 'jpg';
-                const compKey = `aikol/tmp/${id}-composite.${compExt}`;
-                await bunny.uploadBuffer(composite.buffer, compKey, composite.mimeType);
-                animationSourceUrl = bunny.cdnUrl(compKey);
-                console.log(
-                    `[aikol-worker] ${id.slice(0, 8)} with_clip composite ready → ${compKey}`
-                );
-            } catch (e) {
-                console.warn(
-                    `[aikol-worker] ${id.slice(0, 8)} compose failed (${e.message}), fallback dùng modelImage gốc`
-                );
-                // Fallback: dùng model gốc, scene từ note vào prompt
-            }
+            const compExt = composite.mimeType.includes('png') ? 'png' : 'jpg';
+            compositeKey = `aikol/tmp/${id}-composite.${compExt}`;
+            await bunny.uploadBuffer(composite.buffer, compositeKey, composite.mimeType);
+            animationSourceUrl = bunny.cdnUrl(compositeKey);
+            console.log(
+                `[aikol-worker] ${id.slice(0, 8)} with_clip composite ready → ${compositeKey}`
+            );
         }
 
         if (engine === 'veo_3_1') {
@@ -253,7 +264,10 @@ async function dispatchOne(row) {
                 ? composeAnimatePrompt
                 : genMode === 'auto_scene'
                   ? buildAutoSceneDirective(true)
-                  : note;
+                  : // with_clip nhưng không có sceneImageUrl (edge case clip
+                    // chưa download cover hoặc cover URL invalid). Vẫn cần
+                    // identity-lock — wrap note vào auto_scene directive.
+                    buildAutoSceneDirective(true);
             const submit = await veo.submitVideoJob({
                 modelImageUrl: animationSourceUrl,
                 sceneImageUrl: null,
@@ -278,17 +292,41 @@ async function dispatchOne(row) {
         }
     }
 
-    await pool.query(
+    // Atomic flip dispatching → running. Guard `state='dispatching'` chống race
+    // (vd row đã bị recoverStuckDispatching reset về pending rồi pick lại).
+    const flip = await pool.query(
         `UPDATE aikol_generations
-         SET state = 'running', external_id = $1, started_at = NOW(),
+         SET state = 'running', external_id = $1,
              config = COALESCE(config, '{}'::jsonb) || $2::jsonb
-         WHERE id = $3`,
-        [externalId, JSON.stringify({ provider, kind_key: kindKey, engine }), id]
+         WHERE id = $3 AND state = 'dispatching'
+         RETURNING id`,
+        [
+            externalId,
+            JSON.stringify({
+                provider,
+                kind_key: kindKey,
+                engine,
+                composite_key: compositeKey,
+            }),
+            id,
+        ]
     );
+    if (!flip.rows[0]) {
+        // State đã bị thay đổi bởi process khác (vd recover, hoặc concurrent
+        // markError). Job đã submit lên provider nhưng row bị hijack → log
+        // warn, nhưng không refund (vì có thể run khác đã refund).
+        console.warn(
+            `[aikol-worker] ${id.slice(0, 8)} dispatching→running flip hijacked. Provider job ${externalId} có thể leak.`
+        );
+    }
 }
 
 async function pickPending() {
-    // Reserve atomically — flip to a transient marker so concurrent ticks skip.
+    // Reserve atomically — flip state to 'dispatching' transient marker. Sau khi
+    // submit thành công sẽ flip 'running'. Nếu process restart giữa chừng,
+    // recoverDispatching() sẽ reset về 'pending' (sau timeout) để retry, hoặc
+    // mark error nếu vượt quá retry limit. Giữ guard `state='pending'` trong CTE
+    // để chống double-flip race khi 2 process tick cùng lúc.
     const { rows } = await pool.query(
         `WITH next AS (
              SELECT id FROM aikol_generations
@@ -298,13 +336,32 @@ async function pickPending() {
              FOR UPDATE SKIP LOCKED
          )
          UPDATE aikol_generations g
-         SET started_at = NOW()
+         SET state = 'dispatching', started_at = NOW()
          FROM next
          WHERE g.id = next.id AND g.state = 'pending'
          RETURNING g.id, g.user_id, g.kind, g.model_id, g.clip_id, g.config, g.cost_credits`,
         [MAX_RUNNING]
     );
     return rows;
+}
+
+// Recovery: rows stuck ở 'dispatching' lâu hơn DISPATCH_TIMEOUT_MS (process
+// restart giữa dispatch) → reset về 'pending' để re-dispatch. Chạy 1 lần
+// mỗi tick.
+const DISPATCH_TIMEOUT_MS = 90 * 1000;
+async function recoverStuckDispatching() {
+    const { rows } = await pool.query(
+        `UPDATE aikol_generations
+         SET state = 'pending'
+         WHERE state = 'dispatching'
+           AND started_at < NOW() - INTERVAL '${Math.floor(DISPATCH_TIMEOUT_MS / 1000)} seconds'
+         RETURNING id`
+    );
+    if (rows.length) {
+        console.warn(
+            `[aikol-worker] recovered ${rows.length} stuck dispatching rows: ${rows.map((r) => r.id.slice(0, 8)).join(',')}`
+        );
+    }
 }
 
 // ---------- POLL (running → done|error) ----------
@@ -334,11 +391,29 @@ async function pollOne(row) {
     return pollKling(row);
 }
 
+// Cleanup composite tmp file sau khi gen done. Read composite_key từ config
+// (đã persist khi dispatch). Best-effort — failure không fail gen.
+async function cleanupComposite(id, conf) {
+    const compKey = conf?.composite_key;
+    if (!compKey) return;
+    try {
+        await bunny.deleteObject(compKey);
+        console.log(`[aikol-worker] ${id.slice(0, 8)} cleanup composite ${compKey}`);
+    } catch (e) {
+        console.warn(
+            `[aikol-worker] ${id.slice(0, 8)} cleanup composite ${compKey} failed:`,
+            e.message
+        );
+    }
+}
+
 async function pollVeo(row) {
-    const { id, user_id, external_id, cost_credits, kind } = row;
+    const { id, user_id, external_id, cost_credits, kind, config } = row;
+    const conf = typeof config === 'string' ? JSON.parse(config) : config || {};
     const status = await veo.getJobStatus(external_id);
     if (status.status === 'running') return;
     if (status.status === 'error') {
+        await cleanupComposite(id, conf);
         return markError(id, user_id, cost_credits, `Veo: ${status.error}`);
     }
     if (status.status === 'done' && status.videoUri) {
@@ -349,27 +424,35 @@ async function pollVeo(row) {
             await pool.query(
                 `INSERT INTO aikol_outputs
                     (generation_id, user_id, variant_index, file_path, file_kind, file_size)
-                 VALUES ($1, $2, 0, $3, 'video', $4)`,
+                 SELECT $1, $2, 0, $3, 'video', $4
+                 WHERE NOT EXISTS (
+                   SELECT 1 FROM aikol_outputs WHERE generation_id = $1 AND variant_index = 0
+                 )`,
                 [id, user_id, key, buffer.length]
             );
             await pool.query(
-                `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW() WHERE id = $1`,
+                `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW()
+                 WHERE id = $1 AND state IN ('running','dispatching')`,
                 [id]
             );
+            await cleanupComposite(id, conf);
             await notifyDone(id, user_id, kind, 1).catch(() => {});
         } catch (e) {
+            await cleanupComposite(id, conf);
             return markError(id, user_id, cost_credits, `Veo download/save: ${e.message}`);
         }
     }
 }
 
 async function pollFal(row) {
-    const { id, user_id, external_id, cost_credits, kind } = row;
+    const { id, user_id, external_id, cost_credits, kind, config } = row;
+    const conf = typeof config === 'string' ? JSON.parse(config) : config || {};
     const status = await fal.getJobStatus(external_id);
     if (status.status === 'COMPLETED') {
         const result = await fal.getJobResult(external_id);
         const images = Array.isArray(result.images) ? result.images : [];
         if (images.length === 0) {
+            await cleanupComposite(id, conf);
             return markError(id, user_id, cost_credits, 'Fal returned 0 images');
         }
         let saved = 0;
@@ -384,7 +467,10 @@ async function pollFal(row) {
                 await pool.query(
                     `INSERT INTO aikol_outputs
                         (generation_id, user_id, variant_index, file_path, file_kind, file_size)
-                     VALUES ($1, $2, $3, $4, 'image', $5)`,
+                     SELECT $1, $2, $3, $4, 'image', $5
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM aikol_outputs WHERE generation_id = $1 AND variant_index = $3
+                     )`,
                     [id, user_id, i, key, buffer.length]
                 );
                 saved++;
@@ -393,17 +479,21 @@ async function pollFal(row) {
             }
         }
         if (saved === 0) {
+            await cleanupComposite(id, conf);
             return markError(id, user_id, cost_credits, 'All image variants failed to download');
         }
         await pool.query(
-            `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW() WHERE id = $1`,
+            `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW()
+             WHERE id = $1 AND state IN ('running','dispatching')`,
             [id]
         );
+        await cleanupComposite(id, conf);
         notifyDone(id, user_id, kind, saved);
     } else if (status.status === 'IN_QUEUE' || status.status === 'IN_PROGRESS') {
         // still running — no-op
     } else {
         // FAILED or unknown
+        await cleanupComposite(id, conf);
         return markError(id, user_id, cost_credits, `Fal status: ${status.status}`);
     }
 }
@@ -416,6 +506,7 @@ async function pollKling(row) {
     if (status.status === 'succeed') {
         const videos = status.videos || [];
         if (videos.length === 0) {
+            await cleanupComposite(id, conf);
             return markError(id, user_id, cost_credits, 'Kling returned 0 videos');
         }
         let saved = 0;
@@ -429,7 +520,10 @@ async function pollKling(row) {
                 await pool.query(
                     `INSERT INTO aikol_outputs
                         (generation_id, user_id, variant_index, file_path, file_kind, file_size)
-                     VALUES ($1, $2, $3, $4, 'video', $5)`,
+                     SELECT $1, $2, $3, $4, 'video', $5
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM aikol_outputs WHERE generation_id = $1 AND variant_index = $3
+                     )`,
                     [id, user_id, i, key, buffer.length]
                 );
                 saved++;
@@ -438,16 +532,20 @@ async function pollKling(row) {
             }
         }
         if (saved === 0) {
+            await cleanupComposite(id, conf);
             return markError(id, user_id, cost_credits, 'All video variants failed to download');
         }
         await pool.query(
-            `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW() WHERE id = $1`,
+            `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW()
+             WHERE id = $1 AND state IN ('running','dispatching')`,
             [id]
         );
+        await cleanupComposite(id, conf);
         notifyDone(id, user_id, kind, saved);
     } else if (status.status === 'submitted' || status.status === 'processing') {
         // still running — no-op
     } else {
+        await cleanupComposite(id, conf);
         return markError(
             id,
             user_id,
@@ -463,6 +561,12 @@ async function tick() {
     if (_ticking) return; // re-entrancy guard
     _ticking = true;
     try {
+        // 0. Recover dispatching rows stuck quá DISPATCH_TIMEOUT_MS (vd process
+        // restart giữa Gemini compose 30s+) → reset về 'pending' để retry.
+        await recoverStuckDispatching().catch((e) =>
+            console.warn('[aikol-worker] recover stuck failed:', e.message)
+        );
+
         // 1. Dispatch new pending jobs.
         const pending = await pickPending();
         for (const row of pending) {

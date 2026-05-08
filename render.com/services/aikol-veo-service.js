@@ -107,10 +107,13 @@ async function submitVideoJob(args) {
     void isVeo31;
 
     // parameters: durationSeconds NUMERIC (docs say string but API rejects with
-    // "The value type for `durationSeconds` needs to be a number"). Valid buckets
-    // 4/6/8; 1080p/4k require 8.
+    // "needs to be a number"). Valid buckets KHÁC NHAU theo model:
+    //   Veo 2.0:  5 | 8           (4 hoặc 6 → API reject "invalid duration")
+    //   Veo 3.x:  4 | 6 | 8
+    // 1080p/4k yêu cầu 8 trên cả 2.
+    const isVeo2 = /^veo-2/.test(m);
     const durRaw = Math.max(4, Math.min(parseInt(durationSeconds, 10) || 8, 8));
-    const durQuantized = durRaw <= 4 ? 4 : durRaw <= 6 ? 6 : 8;
+    const durQuantized = isVeo2 ? (durRaw >= 7 ? 8 : 5) : durRaw <= 4 ? 4 : durRaw <= 6 ? 6 : 8;
     const validResolutions = ['720p', '1080p', '4k'];
     const resStr = validResolutions.includes(resolution) ? resolution : '720p';
     const durFinal = resStr === '720p' ? durQuantized : 8;

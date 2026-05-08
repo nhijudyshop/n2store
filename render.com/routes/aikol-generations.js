@@ -97,12 +97,13 @@ async function chargeCredits(client, userId, amount, gen_id, kind, note) {
         err.needed = amount;
         throw err;
     }
+    const balanceAfter = row.rows[0].balance;
     await client.query(
         `INSERT INTO aikol_credit_history (user_id, kind, delta, gen_id, note)
          VALUES ($1, $2, $3, $4, $5)`,
         [userId, kind, -amount, gen_id, note]
     );
-    return row.rows[0].balance;
+    return balanceAfter;
 }
 
 async function refundCredits(userId, amount, gen_id, note) {
@@ -133,6 +134,29 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
     }
     const conf = config && typeof config === 'object' ? config : {};
 
+    // AUTO-TUNE — identity match là priority #1. Khi user chọn with_clip,
+    // FORCE settings tối ưu cho preserve identity (override input):
+    //   - similarity ≥ 80 (anchor mặt strong)
+    //   - creativity ≤ 30 (giảm Veo/Gemini drift)
+    //   - keep_pose, keep_outfit, keep_bg, keep_lighting = true (giữ scene clip)
+    //   - engine image: gemini_3_1 (Fal PuLID locked + identity tốt hơn)
+    //   - engine video: veo_3_1 default Veo 2.0 (no audio safety filter)
+    // User có thể override qua flag `auto_tune: false` trong config.
+    if (conf.auto_tune !== false && conf.gen_mode === 'with_clip') {
+        conf.similarity = Math.max(80, parseInt(conf.similarity, 10) || 80);
+        conf.creativity = Math.min(30, parseInt(conf.creativity, 10) || 30);
+        conf.keep_pose = true;
+        conf.keep_outfit = true;
+        conf.keep_bg = true;
+        conf.keep_lighting = true;
+        if (kind === 'image' && conf.engine !== 'gemini_3_1' && conf.engine !== 'fal_pulid') {
+            conf.engine = 'gemini_3_1';
+        }
+        if (kind === 'video' && !conf.engine) {
+            conf.engine = 'veo_3_1';
+        }
+    }
+
     // Validate model belongs to user.
     const modelRow = await pool.query(
         `SELECT id, file_path FROM aikol_models WHERE id = $1 AND user_id = $2`,
@@ -162,24 +186,12 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
 
     const targets = clipsValid.length > 0 ? clipsValid : [{ id: null, file_path: null }];
     const perJobCost = kind === 'image' ? computeImageCost(conf) : computeVideoCost(conf);
-    const totalCost = perJobCost * targets.length;
 
-    // Check balance up-front (avoid creating orphans).
-    const wallet = await pool.query(`SELECT balance FROM aikol_credits WHERE user_id = $1`, [
-        req.userId,
-    ]);
-    const balance = wallet.rows[0]?.balance ?? 0;
-    if (balance < totalCost) {
-        return res.status(402).json({
-            error: 'insufficient_credits',
-            detail: `Cần ${totalCost} credits, có ${balance}`,
-            cost: totalCost,
-            balance,
-        });
-    }
-
-    // Create generation rows + charge per row in a single transaction.
+    // Atomic charge inside transaction — chargeCredits dùng `WHERE balance >= $2`
+    // an toàn cho concurrent. KHÔNG pre-check balance vì pre-check race với
+    // concurrent POST khác (cả 2 cùng pass pre-check rồi cùng charge → balance âm).
     const created = [];
+    let lastBalance = null;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -192,7 +204,7 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
                 [req.userId, c.id, modelId, kind, JSON.stringify({ ...conf, note }), perJobCost]
             );
             const genId = ins.rows[0].id;
-            await chargeCredits(
+            lastBalance = await chargeCredits(
                 client,
                 req.userId,
                 perJobCost,
@@ -224,16 +236,12 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
         worker.tick().catch((err) => console.warn('[aikol] worker tick:', err.message));
     } catch (_) {}
 
-    const balanceAfter = (
-        await pool.query(`SELECT balance FROM aikol_credits WHERE user_id = $1`, [req.userId])
-    ).rows[0]?.balance;
-
     res.json({
         generation_ids: created.map((c) => c.id),
         count: created.length,
         cost_each: perJobCost,
-        cost_total: totalCost,
-        balance: balanceAfter,
+        cost_total: perJobCost * created.length,
+        balance: lastBalance, // Returned từ chargeCredits trong transaction (consistent).
     });
 });
 

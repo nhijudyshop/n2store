@@ -178,3 +178,18 @@ COMMENT ON TABLE aikol_outputs      IS 'AI KOL Studio: generated outputs';
 COMMENT ON TABLE aikol_credits      IS 'AI KOL Studio: user credit balance';
 COMMENT ON TABLE aikol_credit_history IS 'AI KOL Studio: charge/refund/topup ledger';
 COMMENT ON TABLE aikol_campaigns    IS 'AI KOL Studio: saved bundles for re-run';
+
+-- ===== Idempotency for poll re-fire / restart re-dispatch =====
+-- aikol_outputs (generation_id, variant_index) UNIQUE → cho phép switch
+-- INSERT từ NOT EXISTS pattern sang ON CONFLICT DO NOTHING (faster). Worker
+-- code hiện dùng NOT EXISTS để work cả khi constraint chưa apply.
+DO $$
+BEGIN
+    BEGIN
+        ALTER TABLE aikol_outputs
+        ADD CONSTRAINT aikol_outputs_gen_variant_unique
+        UNIQUE (generation_id, variant_index);
+    EXCEPTION WHEN duplicate_table OR duplicate_object THEN
+        NULL;
+    END;
+END$$;
