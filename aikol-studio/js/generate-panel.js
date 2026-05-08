@@ -48,7 +48,7 @@
                     <form id="aikol-gen-form" class="aikol-gen-modal__body">
                         <fieldset class="aikol-gen-fieldset" data-gen-mode-fieldset hidden>
                             <legend>Cách tạo</legend>
-                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Ghép model vào clip này (scene từ clip)</label>
+                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Dùng scene từ clip này (image: ghép model vào ảnh thumbnail · video: bake clip note vào prompt)</label>
                             <label><input type="radio" name="gen_mode" value="auto_scene"> ✨ AI tự sáng tạo scene (chỉ dùng prompt — không cần clip)</label>
                         </fieldset>
 
@@ -326,6 +326,11 @@
         } else {
             fieldset.hidden = false;
         }
+        // Lưu ý API thực tế: Kling public API KHÔNG có endpoint video2video /
+        // face-swap-clip — feature đó trên Kling web UI yêu cầu Custom Face Model
+        // không expose qua API. Cả Veo + Kling chỉ làm image2video; "with_clip"
+        // mode dùng cover frame + note để bake scene vào prompt, không phải
+        // ghép identity vào video clip thật sự.
         const rebuildEngineVideoOptions = (mode) => {
             if (!engineVidSel) return;
             const prev = engineVidSel.value;
@@ -333,12 +338,12 @@
                 mode === 'with_clip'
                     ? [
                           {
-                              v: 'kling',
-                              t: '🎬 Kling video2video — ghép model vào clip TikTok này (8-13cr/s ⭐)',
+                              v: 'veo_3_1',
+                              t: '✨ Veo 3.1 image2video — animate ảnh model với scene từ note (16cr/s ⭐)',
                           },
                           {
-                              v: 'veo_3_1',
-                              t: 'Veo 3.1 — KHÔNG dùng clip, chỉ animate ảnh model (16cr/s)',
+                              v: 'kling',
+                              t: 'Kling image2video — animate ảnh model (8-13cr/s · cần top-up)',
                           },
                       ]
                     : [
@@ -357,7 +362,6 @@
                         `<option value="${o.v}"${i === 0 ? ' selected' : ''}>${escapeHtml(o.t)}</option>`
                 )
                 .join('');
-            // Giữ lựa chọn cũ nếu còn trong list mới
             if (prev && opts.some((o) => o.v === prev)) engineVidSel.value = prev;
         };
         const update = () => {
