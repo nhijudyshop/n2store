@@ -331,7 +331,7 @@ async function pollVeo(row) {
                 [id, user_id, key, buffer.length]
             );
             await pool.query(
-                `UPDATE aikol_generations SET state = 'done', finished_at = NOW() WHERE id = $1`,
+                `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW() WHERE id = $1`,
                 [id]
             );
             await notifyDone(id, user_id, kind, 1).catch(() => {});
@@ -374,7 +374,7 @@ async function pollFal(row) {
             return markError(id, user_id, cost_credits, 'All image variants failed to download');
         }
         await pool.query(
-            `UPDATE aikol_generations SET state = 'done', finished_at = NOW() WHERE id = $1`,
+            `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW() WHERE id = $1`,
             [id]
         );
         notifyDone(id, user_id, kind, saved);
@@ -419,7 +419,7 @@ async function pollKling(row) {
             return markError(id, user_id, cost_credits, 'All video variants failed to download');
         }
         await pool.query(
-            `UPDATE aikol_generations SET state = 'done', finished_at = NOW() WHERE id = $1`,
+            `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW() WHERE id = $1`,
             [id]
         );
         notifyDone(id, user_id, kind, saved);
