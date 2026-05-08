@@ -13,56 +13,13 @@
         setTimeout(() => el.remove(), 4500);
     }
 
-    // Custom confirm modal — replaces native window.confirm with branded UI.
-    // opts: { title, body (HTML allowed — caller must escape), confirmLabel,
-    //         cancelLabel, danger (bool — red confirm button) }
-    // Returns Promise<boolean>.
-    function aikolConfirm(opts) {
-        const o = opts || {};
-        return new Promise((resolve) => {
-            const back = document.createElement('div');
-            back.className = 'aikol-modal-backdrop aikol-confirm-backdrop';
-            back.innerHTML = `
-                <div class="aikol-modal aikol-confirm" role="dialog" aria-modal="true" aria-labelledby="aikol-confirm-title">
-                    <div class="aikol-confirm__head">
-                        <h3 id="aikol-confirm-title">${escapeHtml(o.title || 'Xác nhận')}</h3>
-                    </div>
-                    <div class="aikol-confirm__body">${o.body || ''}</div>
-                    <div class="aikol-confirm__foot">
-                        <button type="button" class="aikol-btn aikol-btn--secondary" data-act="cancel">
-                            ${escapeHtml(o.cancelLabel || 'Huỷ')}
-                        </button>
-                        <button type="button" class="aikol-btn ${o.danger ? 'aikol-btn--danger' : ''}" data-act="confirm">
-                            ${escapeHtml(o.confirmLabel || 'Xác nhận')}
-                        </button>
-                    </div>
-                </div>`;
-            document.body.appendChild(back);
-
-            const cleanup = (val) => {
-                document.removeEventListener('keydown', onKey);
-                back.remove();
-                resolve(val);
-            };
-            const onKey = (e) => {
-                if (e.key === 'Escape') cleanup(false);
-                else if (e.key === 'Enter') cleanup(true);
-            };
-
-            back.addEventListener('click', (e) => {
-                if (e.target === back) cleanup(false);
-            });
-            back.querySelector('[data-act="cancel"]').addEventListener('click', () =>
-                cleanup(false)
-            );
-            back.querySelector('[data-act="confirm"]').addEventListener('click', () =>
-                cleanup(true)
-            );
-            document.addEventListener('keydown', onKey);
-            // Focus confirm button so Enter works immediately.
-            setTimeout(() => back.querySelector('[data-act="confirm"]')?.focus(), 0);
-        });
-    }
+    // aikolConfirm now lives in shared aikol-modal.js (loaded via <script>).
+    // Local alias for backwards-compat with code in this file.
+    const aikolConfirm = (opts) => {
+        if (typeof window.aikolConfirm === 'function') return window.aikolConfirm(opts);
+        // Fallback: native confirm (only if shared module not loaded)
+        return Promise.resolve(window.confirm(opts?.title || 'Xác nhận?'));
+    };
 
     function escapeHtml(s) {
         return String(s || '').replace(
@@ -613,6 +570,5 @@
         $('#telegram-save-btn').addEventListener('click', onTelegramSave);
     });
 
-    // Expose for reuse from other modules (e.g. aikol-sidebar logout).
-    window.aikolConfirm = aikolConfirm;
+    // aikolConfirm is now exposed by shared aikol-modal.js (loaded earlier).
 })();

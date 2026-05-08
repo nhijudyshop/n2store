@@ -197,7 +197,8 @@
     }
 
     async function onDelete(id, label) {
-        if (!confirm(`Xoá clip "${label}"?`)) return;
+        const ok = await window.aikolConfirmDelete(`clip "${label}"`);
+        if (!ok) return;
         try {
             await window.AikolAPI.deleteClip(id);
             showToast('Đã xoá', 'success');

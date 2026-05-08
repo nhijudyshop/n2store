@@ -138,7 +138,8 @@
     }
 
     async function onDelete(id, name) {
-        if (!confirm(`Xoá campaign "${name}"?`)) return;
+        const ok = await window.aikolConfirmDelete(`campaign "${name}"`);
+        if (!ok) return;
         try {
             await window.AikolAPI.deleteCampaign(id);
             showToast('Đã xoá', 'success');
