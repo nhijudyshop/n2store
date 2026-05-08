@@ -217,6 +217,27 @@
         );
     }
 
+    // Trích @handle từ URL bất kỳ (channel URL, video URL, share URL).
+    // Trả null nếu không tìm thấy.
+    function extractTiktokHandle(input) {
+        if (!input) return null;
+        const s = String(input).trim();
+        // Pattern 1: /@handle anywhere in URL or string
+        const m = s.match(/@([a-zA-Z0-9_.-]+)/);
+        return m ? m[1] : null;
+    }
+
+    // Normalize: nếu user paste video URL, strip về URL kênh để hiển thị rõ
+    // user đang scrape kênh nào (không tự thay đổi value, chỉ hiển thị hint).
+    function normalizeChannelUrl(input) {
+        const s = String(input || '').trim();
+        const handle = extractTiktokHandle(s);
+        if (!handle) return { url: s, handle: null };
+        // Khi user paste link video → rewrite về URL kênh (frontend hint, backend
+        // cũng strip /video/ nhưng làm cả ở đây để UI feedback rõ).
+        return { url: `https://www.tiktok.com/@${handle}`, handle };
+    }
+
     async function onChannelFetch(ev) {
         ev.preventDefault();
         const input = $('#channel-input');
@@ -224,19 +245,29 @@
         const btn = $('#channel-fetch-btn');
         const progress = $('#channel-progress');
         const list = $('#channel-list');
-        const url = (input.value || '').trim();
-        if (!url) return showToast('Vui lòng dán URL kênh hoặc secUid', 'error');
+        const raw = (input.value || '').trim();
+        if (!raw) return showToast('Vui lòng dán URL kênh, video, hoặc secUid', 'error');
+
+        const { url, handle } = normalizeChannelUrl(raw);
+        // Nếu user paste video URL → rewrite input field sang URL kênh để rõ ràng.
+        if (handle && raw !== url && /\/video\//.test(raw)) {
+            input.value = url;
+            showToast(`Đã tách kênh: @${handle}`, 'success');
+        }
 
         btn.disabled = true;
         btn.textContent = 'Đang lấy…';
         progress.style.display = 'block';
-        progress.textContent = 'Đang resolve secUid + gọi scraper…';
+        progress.textContent = handle
+            ? `Đang lấy danh sách video của @${handle}…`
+            : 'Đang resolve secUid + gọi scraper…';
         list.style.display = 'none';
         list.innerHTML = '';
 
         try {
             const r = await window.AikolAPI.importChannel(url, parseInt(countSel.value, 10));
             const fresh = r.videos.filter((v) => !v.already_imported);
+            const channelLabel = r.uploader ? `@${r.uploader}` : handle ? `@${handle}` : 'kênh';
             if (!r.videos.length) {
                 progress.innerHTML =
                     '<span style="color:var(--aikol-warn)">' +
@@ -246,7 +277,7 @@
                 btn.textContent = 'Lấy danh sách';
                 return;
             }
-            progress.innerHTML = `Tìm thấy <strong>${r.videos.length}</strong> video — đã có sẵn ${r.videos.length - fresh.length}, mới <strong>${fresh.length}</strong>. Mỗi video tốn ${r.cost_per_video} credit.`;
+            progress.innerHTML = `<strong>${escapeHtml(channelLabel)}</strong> · tìm thấy <strong>${r.videos.length}</strong> video — đã có sẵn ${r.videos.length - fresh.length}, mới <strong>${fresh.length}</strong>. Mỗi video tốn ${r.cost_per_video} credit.`;
             renderChannelList(r.videos, fresh.length, r.cost_per_video);
         } catch (e) {
             const detail = e.data?.detail || e.message;
