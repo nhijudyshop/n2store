@@ -452,21 +452,69 @@ window.BarcodeLabelDialog = (function () {
             const printItems = items.filter((it) => it.code && it.quantity > 0);
             if (!printItems.length) return;
 
+            // Items thực sẽ in. Mặc định = tất cả; sau preflight có thể bị shrink
+            // xuống chỉ còn matched (nếu user đồng ý bỏ qua items chưa sync).
+            let itemsToPrint = printItems;
+            // Nếu user đã chủ động chọn local-only (vd tất cả chưa sync), set true
+            // để nhánh TPOS không chạy nữa.
+            let forceLocal = false;
+
             if (window.TPOSClient?.authenticatedFetch) {
                 btnPrint.disabled = true;
-                btnPrint.textContent = 'Đang tạo PDF...';
+                btnPrint.textContent = 'Đang kiểm tra...';
                 try {
-                    await printViaTPOS(
-                        printItems,
-                        selectedPaper,
-                        showPrice,
-                        showBold,
-                        showCurrency,
-                        showProductName,
-                        hideBarcode
-                    );
-                    closeModal();
-                    return;
+                    // Pre-flight: items chưa có trong kho TPOS sẽ bị `printViaTPOS`
+                    // drop silently → root cause của "có khi có sản phẩm có sản phẩm
+                    // không". Cảnh báo user trước.
+                    const { matched, missing } = await preflightTposItems(printItems);
+
+                    if (missing.length > 0) {
+                        const matchedQty = matched.reduce((s, it) => s + it.quantity, 0);
+                        // Dedup theo code để user thấy 4 mã thay vì 7 dòng (1 mã có thể có nhiều variant/dòng)
+                        const missingCodes = [...new Set(missing.map((it) => it.code))];
+                        const missingList =
+                            missingCodes.slice(0, 8).join(', ') +
+                            (missingCodes.length > 8
+                                ? `, +${missingCodes.length - 8} mã khác`
+                                : '');
+                        const prompt =
+                            matched.length === 0
+                                ? `⚠ Tất cả ${missing.length} sản phẩm CHƯA có trong kho TPOS — không thể in PDF qua TPOS.\n\n` +
+                                  `Mã thiếu: ${missingList}\n\n` +
+                                  `Chuyển sang in HTML local (in được tất cả nhưng tem định dạng đơn giản)?`
+                                : `⚠ ${missing.length}/${printItems.length} sản phẩm CHƯA có trong kho TPOS — sẽ KHÔNG được in qua PDF.\n\n` +
+                                  `Mã thiếu: ${missingList}\n\n` +
+                                  `→ OK: in PDF cho ${matched.length} mã có sẵn (${matchedQty} tem).\n` +
+                                  `→ Hủy: thoát để bạn sync sản phẩm về TPOS trước.`;
+                        const proceed = window.confirm(prompt);
+                        if (!proceed) {
+                            btnPrint.disabled = false;
+                            updateCount();
+                            return;
+                        }
+                        if (matched.length === 0) {
+                            // User chấp nhận in local cho tất cả — không gọi TPOS.
+                            forceLocal = true;
+                        } else {
+                            // User chấp nhận skip missing → in PDF với matched only.
+                            itemsToPrint = matched;
+                        }
+                    }
+
+                    if (!forceLocal) {
+                        btnPrint.textContent = 'Đang tạo PDF...';
+                        await printViaTPOS(
+                            itemsToPrint,
+                            selectedPaper,
+                            showPrice,
+                            showBold,
+                            showCurrency,
+                            showProductName,
+                            hideBarcode
+                        );
+                        closeModal();
+                        return;
+                    }
                 } catch (err) {
                     console.warn('[Barcode] TPOS PDF failed, falling back to local:', err.message);
                 } finally {
@@ -475,10 +523,11 @@ window.BarcodeLabelDialog = (function () {
                 }
             }
 
-            // Fallback: local HTML print
+            // Fallback: local HTML print (in các items đã chọn — nếu user opted
+            // skip missing thì in matched-only, nếu không thì in tất cả).
             closeModal();
             generateAndPrint(
-                printItems,
+                itemsToPrint,
                 selectedPaper,
                 selectedPrintType.id,
                 showPrice,
@@ -488,6 +537,38 @@ window.BarcodeLabelDialog = (function () {
                 hideBarcode
             );
         });
+    }
+
+    /**
+     * Pre-flight check: query TPOS warehouse for the given item codes,
+     * return { matched, missing } where matched items are confirmed in TPOS
+     * (have valid tpos_product_id) and missing items would be silently dropped
+     * by `printViaTPOS`.
+     *
+     * Throws if the warehouse API call itself fails — caller catches and falls
+     * back to local print.
+     */
+    async function preflightTposItems(printItems) {
+        const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const codes = [...new Set(printItems.map((it) => it.code))];
+        const resp = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codes }),
+        });
+        if (!resp.ok) throw new Error('Warehouse lookup HTTP ' + resp.status);
+        const data = await resp.json();
+        const products = data.success ? data.data : [];
+        const validCodes = new Set(
+            products.filter((p) => p && p.tpos_product_id).map((p) => p.product_code)
+        );
+        const matched = printItems.filter((it) => validCodes.has(it.code));
+        const missing = printItems.filter((it) => !validCodes.has(it.code));
+        console.log(
+            `[Barcode] Pre-flight: ${matched.length} matched, ${missing.length} missing in TPOS warehouse`,
+            { missingCodes: missing.map((it) => it.code) }
+        );
+        return { matched, missing };
     }
 
     /**

@@ -8,6 +8,55 @@
 
 ## 2026-05-08
 
+### [purchase-orders] In tem PDF: cảnh báo trước khi in sản phẩm chưa có trong kho TPOS (root cause "có khi có có khi không")
+
+**Yêu cầu user**: "sao có khi in mã có sản phẩm có sản phẩm không?" — đôi lúc in tem PDF thấy đủ sản phẩm, đôi lúc thiếu.
+
+**Root cause** ([barcode-label-dialog.js:540-543](../purchase-orders/js/lib/barcode-label-dialog.js)):
+
+```js
+for (const it of validItems) {
+    const p = codeMap.get(it.code);
+    if (!p || !p.tpos_product_id) continue;  // SILENTLY skip items not in TPOS warehouse
+    ...
+}
+```
+
+`printViaTPOS` query batch-lookup web-warehouse → silently skip mã chưa có trong kho TPOS (vd PO Draft mới convert từ inventory, item có `productCode` nhưng chưa sync về TPOS). Số lượng skip phụ thuộc vào % items đã sync nên user thấy "có khi có có khi không":
+
+- 100% trong TPOS → in đủ.
+- 0% trong TPOS → throw "No products found" → fallback local print all → in đủ.
+- 50/50 → in 1 nửa, 1 nửa biến mất silent.
+
+Verified với curl: 5 mã `[B1947, B1948, B1949, Q127T, NONEXIST]` → batch-lookup chỉ trả về Q127T (1/5).
+
+**Fix** ([purchase-orders/js/lib/barcode-label-dialog.js](../purchase-orders/js/lib/barcode-label-dialog.js)):
+
+- New helper `preflightTposItems(items)` → query batch-lookup, return `{matched, missing}`.
+- Click handler "In bằng pdf":
+    - Pre-flight trước khi gọi `printViaTPOS`.
+    - Nếu missing > 0 → `window.confirm(...)` cảnh báo user, list `[...new Set(missing.map(it=>it.code))]` (dedup, max 8 mã).
+    - All missing → "Chuyển sang in HTML local?" (Y → fallback all, N → return).
+    - Partial missing → "OK: in PDF cho N matched, Cancel: thoát để sync TPOS" (Y → `printViaTPOS(matched)`, N → return).
+    - No missing → silent, proceed như cũ.
+- `itemsToPrint` track items thực sẽ in (matched only nếu user opted skip), local fallback dùng cùng set để consistent với confirm choice.
+
+**Browser test (Playwright local, isolated FIFO)**:
+
+- Real Draft `5459279d-...` 7 dòng (B1947/B1948/B1949/B1950 — không có trong TPOS) → confirm prompt:
+    > ⚠ Tất cả 7 sản phẩm CHƯA có trong kho TPOS — không thể in PDF qua TPOS.
+    > Mã thiếu: B1947, B1948, B1949, B1950 (deduped from 7 rows → 4 codes ✅)
+    > Chuyển sang in HTML local (in được tất cả nhưng tem định dạng đơn giản)?
+- Mock partial (Q127T + B1947 + B1948) → confirm prompt:
+    > ⚠ 2/3 sản phẩm CHƯA có trong kho TPOS — sẽ KHÔNG được in qua PDF.
+    > Mã thiếu: B1947, B1948
+    > → OK: in PDF cho 1 mã có sẵn (5 tem). → Hủy: thoát để sync sản phẩm về TPOS trước.
+- Mock all-found (Q127T) → no confirm shown, silent proceed ✅
+
+**Files**: 1 sửa (`purchase-orders/js/lib/barcode-label-dialog.js`).
+
+**Status**: ✅ Done.
+
 ### [aikol][veo] Fix Veo image2video — chuyển sang Gemini API schema (contents+inlineData+videoConfig)
 
 **Bug**: Browser test trên `library.html` với model "Hạnh 2" + clip TikTok → engine `veo_3_1` luôn fail tại submit:
