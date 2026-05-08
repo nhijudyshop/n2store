@@ -29,7 +29,17 @@
 3. DROP TABLE → free indexes/structure
 4. Bunny chứa ~32 MB referenced images.
 
-Status: 🔄 Phase B committed, đợi deploy.
+**Pipeline thực thi runtime**:
+
+1. ✅ SQL trực tiếp xóa 865 orphan rows (created_at < NOW() - 24h, không referenced) → DELETE 865
+2. ✅ Migration script: phase 1 list 180 rows → phase 2 upload Bunny 180/180 (67s) → phase 3 update 132 orders (133 URLs replaced) → phase 4 DELETE 180 bytea rows
+3. ✅ Sample URL test: `https://n2store-aikol.b-cdn.net/po-images/3ec8e9e4-…ac.png` → HTTP/2 200 từ BunnyCDN-VN1 (Vietnam edge)
+4. ✅ `DROP TABLE purchase_order_images CASCADE`
+5. ✅ Legacy GET/DELETE `/images/:id` + `cleanup-orphan-images` → 410 Gone (commit a9959829)
+
+**Result**: DB size **739 MB → 223 MB** (-516 MB, **-70%**). Bunny zone chứa ~32 MB referenced images. Tất cả 142 đơn có ảnh giờ trỏ Bunny CDN, query verify `still_db=0`.
+
+Status: ✅ Phase B done, deploy live.
 
 ---
 
