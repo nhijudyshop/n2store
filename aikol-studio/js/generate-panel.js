@@ -77,52 +77,62 @@
                             </select>
                         </label>
 
+                        <!-- Settings chính: chỉ những thứ thật sự ảnh hưởng output. -->
                         <div class="aikol-gen-grid">
                             <label class="aikol-gen-row">
                                 <span>Variations</span>
                                 <input type="number" name="variations" min="1" max="10" value="1" />
                             </label>
                             <label class="aikol-gen-row">
-                                <span>Image size</span>
+                                <span>Aspect ratio</span>
                                 <select name="image_size">
-                                    <option value="9:16" selected>9:16</option>
-                                    <option value="1:1">1:1</option>
-                                    <option value="16:9">16:9</option>
-                                </select>
-                            </label>
-                            <label class="aikol-gen-row">
-                                <span>Similarity</span>
-                                <input type="range" name="similarity" min="0" max="100" value="80" />
-                            </label>
-                            <label class="aikol-gen-row">
-                                <span>Creativity</span>
-                                <input type="range" name="creativity" min="0" max="100" value="40" />
-                            </label>
-                            <label class="aikol-gen-row">
-                                <span>Shot</span>
-                                <select name="shot_type">
-                                    <option value="match_clip" selected>Match clip</option>
-                                    <option value="close_up">Close-up</option>
-                                    <option value="waist_up">Waist-up</option>
-                                    <option value="full_body">Full body</option>
-                                </select>
-                            </label>
-                            <label class="aikol-gen-row">
-                                <span>Scene</span>
-                                <select name="scene_mode">
-                                    <option value="match" selected>Match clip</option>
-                                    <option value="free_form">Free-form (note)</option>
+                                    <option value="9:16" selected>9:16 (đứng - TikTok)</option>
+                                    <option value="1:1">1:1 (vuông)</option>
+                                    <option value="16:9">16:9 (ngang)</option>
                                 </select>
                             </label>
                         </div>
 
-                        <fieldset class="aikol-gen-fieldset" data-clip-only-block>
-                            <legend>Keep from clip</legend>
-                            <label><input type="checkbox" name="keep_pose" checked> Pose</label>
-                            <label><input type="checkbox" name="keep_outfit"> Outfit</label>
-                            <label><input type="checkbox" name="keep_bg"> Background</label>
-                            <label><input type="checkbox" name="keep_lighting" checked> Lighting</label>
-                        </fieldset>
+                        <!-- Auto-tune note hiện khi with_clip — báo user biết các setting "ẩn" đã được tối ưu. -->
+                        <p
+                            data-clip-only-block
+                            style="margin: 0; padding: 0.5rem 0.75rem; background: var(--aikol-bg-soft, rgba(99,102,241,0.08)); border-left: 3px solid var(--aikol-accent, #6366F1); font-size: 0.78rem; color: var(--aikol-text-dim); border-radius: 4px"
+                        >
+                            ✨ Auto-tune đã bật: similarity 80 · creativity 30 · giữ pose/outfit/bg/lighting từ clip · engine
+                            <strong>Kling multi-image2video</strong> (1-step face-swap)
+                        </p>
+
+                        <!-- Advanced: ẩn mặc định, các setting tác động yếu hoặc đã bị auto-tune force. -->
+                        <details class="aikol-gen-fieldset" style="padding: 0.5rem 0.75rem">
+                            <summary style="cursor: pointer; font-size: 0.85rem; color: var(--aikol-text-dim)">
+                                🔧 Tinh chỉnh nâng cao (auto-tune sẽ override)
+                            </summary>
+                            <div class="aikol-gen-grid" style="margin-top: 0.6rem">
+                                <label class="aikol-gen-row">
+                                    <span>Similarity (identity)</span>
+                                    <input type="range" name="similarity" min="0" max="100" value="80" />
+                                </label>
+                                <label class="aikol-gen-row">
+                                    <span>Creativity (motion)</span>
+                                    <input type="range" name="creativity" min="0" max="100" value="40" />
+                                </label>
+                            </div>
+                            <fieldset
+                                data-clip-only-block
+                                style="border: 1px dashed var(--aikol-border, #ddd); padding: 0.4rem 0.6rem; margin-top: 0.5rem; font-size: 0.82rem"
+                            >
+                                <legend style="font-size: 0.78rem; padding: 0 0.3rem">
+                                    Keep from clip (auto-tune force ON)
+                                </legend>
+                                <label><input type="checkbox" name="keep_pose" checked> Pose</label>
+                                <label><input type="checkbox" name="keep_outfit" checked> Outfit</label>
+                                <label><input type="checkbox" name="keep_bg" checked> Background</label>
+                                <label><input type="checkbox" name="keep_lighting" checked> Lighting</label>
+                            </fieldset>
+                            <!-- shot_type/scene_mode: hidden inputs giữ default cho backend cũ vẫn nhận. -->
+                            <input type="hidden" name="shot_type" value="match_clip" />
+                            <input type="hidden" name="scene_mode" value="match" />
+                        </details>
 
                         <div data-video-only style="display:none">
                             <div class="aikol-gen-grid">
