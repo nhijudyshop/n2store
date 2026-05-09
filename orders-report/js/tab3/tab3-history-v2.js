@@ -1313,16 +1313,40 @@
             return;
         }
 
-        const sortedCampaigns = [...campaignStats.entries()].sort(
-            (a, b) => b[1].recordCount - a[1].recordCount
-        );
+        // Học theo KPI tab: tải Excel theo chiến dịch user ĐANG CHỌN (active
+        // campaign từ tab1 — tab3 nhận qua postMessage CAMPAIGN_CHANGED_FOR_TAB3
+        // rồi mirror vào state.activeCampaignNames). Auto-select option khớp +
+        // auto-run cho UX 0-click.
+        const activeNames = (state.activeCampaignNames || []).map((n) => String(n));
+        const findActiveMatch = (cname) =>
+            activeNames.some(
+                (a) => a === cname || a.trim().toLowerCase() === cname.trim().toLowerCase()
+            );
+
+        // Sort: chiến dịch đang xem lên đầu, rồi sort theo recordCount desc.
+        const sortedCampaigns = [...campaignStats.entries()].sort((a, b) => {
+            const aActive = findActiveMatch(a[0]) ? 1 : 0;
+            const bActive = findActiveMatch(b[0]) ? 1 : 0;
+            if (aActive !== bActive) return bActive - aActive;
+            return b[1].recordCount - a[1].recordCount;
+        });
+
+        const defaultName = sortedCampaigns[0]?.[0] || null;
+        const defaultIsActive = defaultName && findActiveMatch(defaultName);
 
         const optionsHtml = sortedCampaigns
-            .map(
-                ([cname, stat], i) =>
-                    `<option value="${utils.escapeHtml(cname)}" ${i === 0 ? 'selected' : ''}>${utils.escapeHtml(cname)} — ${stat.recordCount} upload, ${stat.sttCount} STT</option>`
-            )
+            .map(([cname, stat]) => {
+                const isActive = findActiveMatch(cname);
+                const tag = isActive ? ' 👀 đang xem' : '';
+                return `<option value="${utils.escapeHtml(cname)}" ${cname === defaultName ? 'selected' : ''}>${utils.escapeHtml(cname)}${tag} — ${stat.recordCount} upload, ${stat.sttCount} STT</option>`;
+            })
             .join('');
+
+        const hint = defaultIsActive
+            ? `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Tự chọn chiến dịch <strong>đang xem</strong> ở Tab Quản Lý Đơn Hàng. Đổi dropdown nếu muốn chiến dịch khác.</div>`
+            : activeNames.length > 0
+              ? `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Chiến dịch đang xem (<code>${activeNames.map(utils.escapeHtml).join(', ')}</code>) chưa có upload nào trong history — chọn 1 chiến dịch khác.</div>`
+              : `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Chưa xác định chiến dịch đang xem; chọn từ dropdown.</div>`;
 
         _setBulkReconStatus(
             `<div class="card border-warning"><div class="card-body p-3">
@@ -1336,11 +1360,13 @@
                     </button>
                     <button class="btn btn-link btn-sm" onclick="document.getElementById('bulkReconcileResults').innerHTML=''" title="Đóng">×</button>
                 </div>
+                ${hint}
                 <div id="bulkReconRunOutput" class="mt-3"></div>
             </div></div>`
         );
 
-        document.getElementById('bulkReconRunBtn').onclick = async () => {
+        const runBtnEl = document.getElementById('bulkReconRunBtn');
+        runBtnEl.onclick = async () => {
             const select = document.getElementById('bulkReconCampaignSelect');
             const runBtn = document.getElementById('bulkReconRunBtn');
             const cname = select.value;
@@ -1472,6 +1498,12 @@
                 runBtn.disabled = false;
             }
         };
+
+        // Auto-run nếu default match đúng chiến dịch user đang xem (UX 0-click).
+        if (defaultIsActive) {
+            // Đợi 1 tick để DOM gắn xong các listener.
+            setTimeout(() => runBtnEl.click(), 50);
+        }
     };
 
     // Wrapper cho button "Đối Soát TPOS" trong outer history list — mở detail

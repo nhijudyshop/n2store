@@ -8,6 +8,32 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Bulk recon auto-pick chiến dịch đang xem (KPI tab pattern)
+
+User: "coi tab kpi hoa hồng cách nó tải excel theo chiến dịch đang chọn làm theo và đối soát tất cả".
+
+**KPI tab pattern**: `tab-kpi-commission.js` `syncCampaignFromParent` đọc `window.parent?.campaignManager?.activeCampaign` rồi auto-select option matching trong dropdown filter `kpiFilterCampaign`. Tab3 không thể đọc trực tiếp do iframe boundary, nhưng đã có sẵn cơ chế: tab1 broadcast postMessage `CAMPAIGN_CHANGED_FOR_TAB3` mỗi khi user đổi campaign → tab3-core.js mirror vào `state.activeCampaignNames`.
+
+**Apply** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `reconcileAllInCampaignV2`):
+
+- Đọc `state.activeCampaignNames` (mảng tên campaign user đang xem ở tab1).
+- Hàm `findActiveMatch(cname)`: case-insensitive trim equal so với active names.
+- Sort options: chiến dịch đang xem lên đầu, rồi mới đến recordCount desc.
+- Render mỗi option: `<name> 👀 đang xem — N upload, M STT` nếu là active.
+- Hint section: nếu default = active → "Tự chọn chiến dịch đang xem"; nếu active không có upload trong history → "chọn chiến dịch khác"; nếu không có active → "chọn từ dropdown".
+- **Auto-run**: nếu default option khớp active campaign → `setTimeout(() => runBtn.click(), 50)` → UX 0-click.
+
+**Verify** ([scripts/verify-tab3-bulk-active.mjs](../scripts/verify-tab3-bulk-active.mjs)):
+
+- Simulate `postMessage({type: 'CAMPAIGN_CHANGED_FOR_TAB3', campaignNames: ['STORE 30/03/2026']})` → `state.activeCampaignNames = ["STORE 30/03/2026"]` ✓
+- Click "Đối soát toàn chiến dịch" → picker default = `STORE 30/03/2026 👀 đang xem — 23 upload, 110 STT` ✓
+- Auto-run kick off → 18ms sau render kết quả: ✅ 101 khớp · ❌ 9 TPOS không có ✓
+- Verdict: ✅ PASS — auto-pick + auto-run on active campaign.
+
+**Status**: ✅ Done — UX 0-click cho case phổ biến (vào tab3 với campaign đã chọn ở tab1, click 1 nút → ra kết quả ngay).
+
+---
+
 ### [orders][tab3] Nút "Đối soát toàn chiến dịch" — 1 Excel × N uploads chạm chiến dịch
 
 User: "cho nút đối soát tất cả ở chiến dịch hiện tại".
