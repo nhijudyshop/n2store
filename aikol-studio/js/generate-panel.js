@@ -103,10 +103,19 @@
                         </p>
 
                         <!-- Advanced: ẩn mặc định, các setting tác động yếu hoặc đã bị auto-tune force. -->
-                        <details class="aikol-gen-fieldset" style="padding: 0.5rem 0.75rem">
+                        <details
+                            class="aikol-gen-fieldset aikol-gen-details"
+                            style="padding: 0.5rem 0.75rem"
+                        >
                             <summary style="cursor: pointer; font-size: 0.85rem; color: var(--aikol-text-dim)">
                                 🔧 Tinh chỉnh nâng cao (auto-tune sẽ override)
                             </summary>
+                            <style>
+                                /* Force-hide children when collapsed — global .aikol-gen-row{display:flex} overrides browser UA. */
+                                details.aikol-gen-details:not([open]) > *:not(summary) {
+                                    display: none !important;
+                                }
+                            </style>
                             <div class="aikol-gen-grid" style="margin-top: 0.6rem">
                                 <label class="aikol-gen-row">
                                     <span>Similarity (identity)</span>
