@@ -1349,13 +1349,23 @@
             dateGroups.get(date).push({ cname, stat });
         }
 
-        // Build picker entries — group ≥2 thành 1 option gộp.
+        // Parse "DD/MM/YYYY" → ms epoch để sort theo ngày desc (mới nhất lên đầu).
+        // Trả 0 nếu không parse được → entry sẽ rớt xuống cuối.
+        const parseDateMs = (dStr) => {
+            if (!dStr) return 0;
+            const m = String(dStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) return 0;
+            return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+        };
+
+        // Build picker entries — group ≥2 thành 1 option gộp. dateMs để sort.
         const entries = [];
         for (const [date, members] of dateGroups.entries()) {
             const memberCnames = members.map((m) => m.cname);
             const totalRecords = members.reduce((s, m) => s + m.stat.recordCount, 0);
             const totalSTT = members.reduce((s, m) => s + m.stat.sttCount, 0);
             const groupActive = memberCnames.some(isActiveCName);
+            const dateMs = parseDateMs(date);
             if (members.length >= 2) {
                 const types = members.map((m) => extractTypePrefix(m.cname, date)).join('+');
                 entries.push({
@@ -1364,6 +1374,7 @@
                     members: memberCnames,
                     totalRecords,
                     isActive: groupActive,
+                    dateMs,
                 });
             } else {
                 const m = members[0];
@@ -1373,6 +1384,7 @@
                     members: [m.cname],
                     totalRecords: m.stat.recordCount,
                     isActive: isActiveCName(m.cname),
+                    dateMs,
                 });
             }
         }
@@ -1383,12 +1395,15 @@
                 members: [cname],
                 totalRecords: stat.recordCount,
                 isActive: isActiveCName(cname),
+                dateMs: 0, // không có date → rớt xuống cuối
             });
         }
 
-        // Sort: active group đầu tiên, rồi totalRecords desc.
+        // Sort: 1) active group đầu tiên (giữ logic cũ — user đang xem ưu tiên),
+        // 2) chiến dịch ngày MỚI NHẤT đứng trên, 3) totalRecords desc tie-break.
         entries.sort((a, b) => {
             if (a.isActive !== b.isActive) return b.isActive - a.isActive;
+            if (a.dateMs !== b.dateMs) return b.dateMs - a.dateMs;
             return b.totalRecords - a.totalRecords;
         });
 

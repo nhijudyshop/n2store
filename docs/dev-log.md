@@ -8,6 +8,37 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Bulk recon picker — chiến dịch mới nhất lên đầu
+
+User: "hiện chiến dịch mới nhất lên".
+
+**Thay đổi** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `reconcileAllInCampaignV2`):
+
+- Thêm `parseDateMs(dStr)`: parse `DD/MM/YYYY` → epoch ms.
+- Mỗi entry trong picker giờ có `dateMs` (0 nếu không parse được).
+- Sort priority đổi thành: **(1) active first → (2) dateMs desc → (3) totalRecords desc tie-break**. Trước đây (1) → totalRecords desc (mới nhất bị nhấn xuống do upload count thấp hơn).
+
+**Verify** ([scripts/verify-tab3-bulk-newest.mjs](../scripts/verify-tab3-bulk-newest.mjs)) — không broadcast active:
+
+```
+Top 10 picker (non-increasing by date):
+  1. 📅 23/04/2026 [HOUSE+STORE] — 7 upload, 24 STT  ← MỚI NHẤT (default)
+  2. STORE 19/04/2026 — 1 upload
+  3. 📅 15/04/2026 [STORE+HOUSE] — 15 upload
+  4. 📅 12/04/2026 [STORE+HOUSE] — 41 upload
+  5. 📅 04/04/2026 — 2 upload
+  6. 📅 01/04/2026 — 23 upload
+  7. 📅 30/03/2026 — 44 upload  ← trước đây là default
+  ...
+VERDICT: ✅ PASS
+```
+
+Active campaign từ tab1 vẫn ưu tiên lên đầu nếu có; không active → ngày mới nhất.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders][tab3] Bulk recon — gộp STORE+HOUSE cùng ngày thành 1 option (KPI/overview pattern)
 
 User: "cùng ngày của store và house -> gộp lại như bên kpi hoa hồng".
