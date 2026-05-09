@@ -8,6 +8,36 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Bulk recon — badge xác nhận uploads hôm nay đã được quét
+
+User: "bấm chạy đối soát toàn chiến dịch -> thì chạy mấy cái ở dưới bảng hình 2, 3 -> nhớ đúng file excel".
+
+**Confusion**: User upload hôm nay (`#06888131`, `#06678443`, ...) ở 9/5/2026 nhưng không thấy trong kết quả bulk recon → nghĩ bulk recon không quét uploads hôm nay.
+
+**Forensic** ([scripts/probe-latest-uploads.mjs](../scripts/probe-latest-uploads.mjs)): 9 uploads HÔM NAY (13:09 → 09:59) đều target campaign `STORE 06/05/2026` + `HOUSE 06/05/2026` (live ngày 6/5 nhưng đơn được upload trễ vào 9/5). Bulk recon picker default `06/05/2026 [STORE+HOUSE]` đúng campaign → đã include 9 uploads hôm nay. Lý do không thấy trong dropped table: tất cả khớp 100%, không có drop nào.
+
+**Verify** ([scripts/verify-bulk-includes-today.mjs](../scripts/verify-bulk-includes-today.mjs)) trên active 06/05 group:
+
+```
+Summary: ... Quét 40 upload chạm nhóm · Đối soát 875 bản ghi → ✅ 865 khớp · ❌ 10 TPOS không có
+Drops thuộc 7 uploads CŨ: #15395627, #14838845, #41466341, #40827813, #33316385, #32240280, #31873231
+9 uploads hôm nay: 0 drops (đã upload thành công 100%)
+```
+
+**Fix UX** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js)):
+
+- Tracking `todayUploadsScanned: [{shortId, tsStr, sttCount, dropCount}]` trong vòng lặp đối soát.
+- Render thêm 1 alert section ngay sau summary header:
+    - 0 drop: `alert-success` "Upload hôm nay đã quét — N upload, tất cả KHỚP TPOS hoàn toàn" + badges xanh `#shortId ✓`.
+    - Có drop: `alert-warning` "N upload, M drop" + badges đỏ `#shortId ❌X` cho upload có drop, xanh cho upload OK.
+- User xem 1 phát biết: bulk recon ĐÃ include uploads hôm nay + thành công/thất bại của từng cái.
+
+**Live verify**: dropped table vẫn list 7 uploads cũ. Today badge mới hiển thị `#06980475 ✓ #06888131 ✓ #06678443 ✓ #06563884 ✓ #06111532 ✓ #00860050 ✓ #00678026 ✓ #00183563 ✓ #95553024 ✓` (9 badges xanh, all today's uploads → all pass).
+
+**Status**: ✅ Done — bulk recon đúng campaign Excel + visualize trực quan uploads hôm nay đã quét.
+
+---
+
 ### [orders][tab3] Bulk recon — quét all-users (90 ngày) độc lập với UI filter
 
 User: "hiện tại là tháng 5 và chiến dịch mới nhất là 09/05/2026 mà??".

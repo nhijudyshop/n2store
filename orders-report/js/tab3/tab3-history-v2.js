@@ -1556,6 +1556,11 @@
                 let totalChecked = 0;
                 let totalMatched = 0;
                 let totalRecordsHit = 0;
+                // Track today's uploads riêng để hiển thị badge xác nhận đã quét.
+                const today0 = new Date();
+                today0.setHours(0, 0, 0, 0);
+                const todayCutoff = today0.getTime();
+                const todayUploadsScanned = []; // [{shortId, tsStr, sttCount, dropCount}]
 
                 for (const record of allRecords) {
                     const recordShortId = (record.firebaseKey || record.uploadId || '').slice(-8);
@@ -1563,6 +1568,8 @@
                         ? new Date(record.timestamp).toLocaleString('vi-VN')
                         : '';
                     let recordTouched = false;
+                    let recordTotalChecked = 0;
+                    let recordDropped = 0;
                     (record.beforeSnapshot?.assignments || []).forEach((a) => {
                         const code = (a.productCode || '').toUpperCase();
                         (a.sttList || []).forEach((sttItem) => {
@@ -1574,12 +1581,14 @@
                             if (!memberCnameSet.has(recCname)) return;
                             recordTouched = true;
                             totalChecked += 1;
+                            recordTotalChecked += 1;
                             const stt = String(sttItem.stt);
                             // Lookup Excel của ĐÚNG campaign mà STT này thuộc về.
                             const tposCodes = sttToCodesByCampaign.get(recCname)?.get(stt);
                             if (tposCodes && tposCodes.has(code)) {
                                 totalMatched += 1;
                             } else {
+                                recordDropped += 1;
                                 allDrops.push({
                                     recordTs,
                                     recordShortId,
@@ -1591,8 +1600,20 @@
                             }
                         });
                     });
-                    if (recordTouched) totalRecordsHit += 1;
+                    if (recordTouched) {
+                        totalRecordsHit += 1;
+                        if ((record.timestamp || 0) >= todayCutoff) {
+                            todayUploadsScanned.push({
+                                shortId: recordShortId,
+                                tsStr: recordTs,
+                                sttCount: recordTotalChecked,
+                                dropCount: recordDropped,
+                            });
+                        }
+                    }
                 }
+                // Sort newest first
+                todayUploadsScanned.sort((a, b) => b.tsStr.localeCompare(a.tsStr));
 
                 const droppedCount = allDrops.length;
                 const headTitle =
@@ -1609,12 +1630,35 @@
                     failed.length > 0
                         ? ` <span class="text-warning small">⚠ Bỏ qua ${failed.length} chiến dịch không resolve được: ${failed.map((n) => `<code>${utils.escapeHtml(n)}</code>`).join(', ')}</span>`
                         : '';
+                // Today badge: list các upload hôm nay đã được quét (giúp user xác
+                // nhận bulk recon include uploads vừa làm). Tô màu theo dropCount.
+                let todayBadgeHtml = '';
+                if (todayUploadsScanned.length > 0) {
+                    const todayDropsTotal = todayUploadsScanned.reduce(
+                        (s, u) => s + u.dropCount,
+                        0
+                    );
+                    const badges = todayUploadsScanned
+                        .map((u) => {
+                            const cls = u.dropCount > 0 ? 'bg-danger' : 'bg-success';
+                            const icon = u.dropCount > 0 ? `❌${u.dropCount}` : '✓';
+                            return `<span class="badge ${cls} me-1 mb-1" title="${utils.escapeHtml(u.tsStr)} · ${u.sttCount} bản ghi · ${u.dropCount} drop">#${utils.escapeHtml(u.shortId)} ${icon}</span>`;
+                        })
+                        .join('');
+                    const cls = todayDropsTotal === 0 ? 'alert-success' : 'alert-warning';
+                    const headline =
+                        todayDropsTotal === 0
+                            ? `Upload hôm nay đã quét — ${todayUploadsScanned.length} upload, tất cả KHỚP TPOS hoàn toàn`
+                            : `Upload hôm nay đã quét — ${todayUploadsScanned.length} upload, ${todayDropsTotal} drop`;
+                    todayBadgeHtml = `<div class="alert ${cls} small py-2 mb-2"><i class="fas fa-calendar-day"></i> <strong>${headline}:</strong> ${badges}</div>`;
+                }
+
                 const headHtml = `<div class="alert alert-${droppedCount > 0 ? 'danger' : 'success'} mb-2">
                     <strong><i class="fas fa-${droppedCount > 0 ? 'exclamation-triangle' : 'check-circle'}"></i> ${headTitle} — id ${headIds}</strong><br>
                     Excel TPOS gồm <strong>${excelTotalSTTs}</strong> STT · Quét <strong>${totalRecordsHit}</strong> upload chạm ${resolved.length > 1 ? 'nhóm' : 'chiến dịch'} · Đối soát <strong>${totalChecked}</strong> bản ghi →
                     <span class="text-success">✅ ${totalMatched} khớp</span> ·
                     <span class="text-danger">❌ ${droppedCount} TPOS không có</span>${failedNote}
-                </div>`;
+                </div>${todayBadgeHtml}`;
 
                 if (droppedCount === 0) {
                     out.innerHTML =
