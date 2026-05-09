@@ -2020,6 +2020,8 @@
                     success: r.success,
                     error: r.error || null,
                     existingProducts: r.existingProducts || [],
+                    missingProducts: r.missingProducts || null,
+                    liveCampaignName: r.liveCampaignName || null,
                 })),
                 totalSTTs: results.length,
                 totalAssignments: totalAssignments,
