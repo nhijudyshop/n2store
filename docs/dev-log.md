@@ -8,6 +8,33 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Nút "Đối soát toàn chiến dịch" — 1 Excel × N uploads chạm chiến dịch
+
+User: "cho nút đối soát tất cả ở chiến dịch hiện tại".
+
+**Implementation**:
+
+1. [orders-report/tab3-product-assignment.html](../orders-report/tab3-product-assignment.html): thêm button `<button id="reconcileAllCampaignBtn" class="btn-warning">Đối soát toàn chiến dịch</button>` vào header của modal "Lịch Sử Upload TPOS v2", cạnh close button. Panel kết quả `#bulkReconcileResults` ngay phía trên filter row.
+2. [orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `window.reconcileAllInCampaignV2`:
+    - Quét toàn bộ `uploadHistoryRecordsV2` hiện đang load → collect unique `liveCampaignName` + đếm số upload + tổng STT × product chạm mỗi campaign + sample orderId.
+    - Render dropdown sorted desc theo recordCount, mỗi option `"<name> — N upload, M STT"`.
+    - User pick chiến dịch + click "Chạy đối soát" → resolve campaignId qua `_resolveCampaignIdByOrderId(sampleOrderId)` (authoritative, fallback name lookup) → fetch Excel TPOS **1 lần duy nhất** → walk lại tất cả records, đối soát từng `(stt, productCode)` thuộc campaign đó với Excel.
+    - Render summary + bảng drops grouped theo `productCode`, mỗi badge `"#<recordShortId> → ❌ <stt>"` để trace ngược về upload nào chứa drop.
+
+**Performance**: với 23 upload chạm cùng 1 chiến dịch, bulk reconcile = **1 Excel fetch + 110 in-memory comparisons** (~860ms total). So sánh per-upload sẽ tốn 23 Excel fetch + N OData order GET = nhiều giây hơn chục lần.
+
+**Verify** ([scripts/verify-tab3-bulk-recon.mjs](../scripts/verify-tab3-bulk-recon.mjs)):
+
+- Header button render `Đối soát toàn chiến dịch` ✓
+- Click → picker hiện 19 chiến dịch unique từ history, sorted theo `recordCount` desc.
+- Default `STORE 30/03/2026 — 23 upload, 110 STT`
+- Click "Chạy đối soát" → 860ms render kết quả: Excel TPOS có 84 STT, quét 23 upload, đối soát 110 bản ghi → ✅ 101 khớp · ❌ 9 TPOS không có.
+- Sample drop: B900 → upload `#45930477` → ❌ STT 160 — trace ngược dễ ràng.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders][tab3] Nút "Đối Soát TPOS" ngoài history list + resolve campaignId từ orderId (chính xác hơn name lookup)
 
 User: "ở ngoài này có nút chạy đối soát không? và quan trọng là bạn phải tải đúng file excel của đúng chiến dịch đó".

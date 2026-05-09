@@ -1252,6 +1252,228 @@
         _setReconStatus(html);
     }
 
+    // ── BULK RECONCILE: 1 chiến dịch × ALL uploads đã chạm chiến dịch đó ──
+    // User pick 1 chiến dịch trong dropdown → fetch Excel TPOS 1 lần →
+    // quét toàn bộ uploadHistoryRecordsV2 hiện tại tìm record có STT thuộc
+    // chiến dịch → render bảng tổng hợp drops (group theo productCode).
+
+    function _setBulkReconStatus(html) {
+        const el = document.getElementById('bulkReconcileResults');
+        if (el) el.innerHTML = html;
+    }
+
+    window.reconcileAllInCampaignV2 = async function () {
+        if (!uploadHistoryRecordsV2 || uploadHistoryRecordsV2.length === 0) {
+            _setBulkReconStatus(
+                `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Chưa load history. Đợi list xong rồi thử lại.</div>`
+            );
+            return;
+        }
+
+        // Collect unique campaign names + sample orderId từ records visible.
+        const campaignStats = new Map();
+        for (const record of uploadHistoryRecordsV2) {
+            const sttOrderId = new Map();
+            (record.uploadResults || []).forEach((r) => {
+                if (r.orderId) sttOrderId.set(String(r.stt), r.orderId);
+            });
+            const recordCampaigns = new Set();
+            (record.beforeSnapshot?.assignments || []).forEach((a) => {
+                (a.sttList || []).forEach((sttItem) => {
+                    if (!sttItem || typeof sttItem !== 'object') return;
+                    const cname =
+                        sttItem.orderInfo?.liveCampaignName ||
+                        sttItem.orderInfo?.LiveCampaignName ||
+                        '';
+                    if (!cname) return;
+                    recordCampaigns.add(cname);
+                    if (!campaignStats.has(cname)) {
+                        campaignStats.set(cname, {
+                            sttCount: 0,
+                            sampleOrderId: null,
+                            recordCount: 0,
+                        });
+                    }
+                    const stat = campaignStats.get(cname);
+                    stat.sttCount += 1;
+                    if (!stat.sampleOrderId && sttOrderId.has(String(sttItem.stt))) {
+                        stat.sampleOrderId = sttOrderId.get(String(sttItem.stt));
+                    }
+                });
+            });
+            for (const cname of recordCampaigns) {
+                campaignStats.get(cname).recordCount += 1;
+            }
+        }
+
+        if (campaignStats.size === 0) {
+            _setBulkReconStatus(
+                `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy chiến dịch nào trong history hiện tại.</div>`
+            );
+            return;
+        }
+
+        const sortedCampaigns = [...campaignStats.entries()].sort(
+            (a, b) => b[1].recordCount - a[1].recordCount
+        );
+
+        const optionsHtml = sortedCampaigns
+            .map(
+                ([cname, stat], i) =>
+                    `<option value="${utils.escapeHtml(cname)}" ${i === 0 ? 'selected' : ''}>${utils.escapeHtml(cname)} — ${stat.recordCount} upload, ${stat.sttCount} STT</option>`
+            )
+            .join('');
+
+        _setBulkReconStatus(
+            `<div class="card border-warning"><div class="card-body p-3">
+                <div class="d-flex align-items-center" style="gap: 12px; flex-wrap: wrap;">
+                    <strong style="white-space: nowrap;"><i class="fas fa-bullseye"></i> Chiến dịch:</strong>
+                    <select id="bulkReconCampaignSelect" class="form-select form-select-sm" style="flex: 1; min-width: 280px;">
+                        ${optionsHtml}
+                    </select>
+                    <button id="bulkReconRunBtn" class="btn btn-warning btn-sm" style="white-space: nowrap;">
+                        <i class="fas fa-play"></i> Chạy đối soát
+                    </button>
+                    <button class="btn btn-link btn-sm" onclick="document.getElementById('bulkReconcileResults').innerHTML=''" title="Đóng">×</button>
+                </div>
+                <div id="bulkReconRunOutput" class="mt-3"></div>
+            </div></div>`
+        );
+
+        document.getElementById('bulkReconRunBtn').onclick = async () => {
+            const select = document.getElementById('bulkReconCampaignSelect');
+            const runBtn = document.getElementById('bulkReconRunBtn');
+            const cname = select.value;
+            if (!cname) return;
+            const stat = campaignStats.get(cname);
+            const out = document.getElementById('bulkReconRunOutput');
+
+            select.disabled = true;
+            runBtn.disabled = true;
+            try {
+                await _ensureXLSX();
+                out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang xác thực campaignId qua orderId mẫu…</div>`;
+
+                let campaignId = null;
+                let actualName = cname;
+                if (stat.sampleOrderId) {
+                    const info = await _resolveCampaignIdByOrderId(stat.sampleOrderId);
+                    if (info && info.id) {
+                        campaignId = info.id;
+                        actualName = info.name || cname;
+                    }
+                }
+                if (!campaignId) {
+                    campaignId = await _resolveCampaignIdByName(cname);
+                }
+                if (!campaignId) {
+                    out.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Không resolve được chiến dịch <code>${utils.escapeHtml(cname)}</code> trên TPOS. Order đã xóa hoặc tài khoản không có quyền.</div>`;
+                    return;
+                }
+
+                out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang tải Excel TPOS cho <code>${utils.escapeHtml(actualName)}</code> (id <small>${utils.escapeHtml(String(campaignId).slice(0, 8))}…</small>)…</div>`;
+                const sttToCodes = await _fetchCampaignExcel(campaignId);
+                const totalSTTsInExcel = sttToCodes.size;
+
+                const allDrops = [];
+                let totalChecked = 0;
+                let totalMatched = 0;
+                let totalRecordsHit = 0;
+
+                for (const record of uploadHistoryRecordsV2) {
+                    const recordShortId = (record.firebaseKey || record.uploadId || '').slice(-8);
+                    const recordTs = record.timestamp
+                        ? new Date(record.timestamp).toLocaleString('vi-VN')
+                        : '';
+                    let recordTouched = false;
+                    (record.beforeSnapshot?.assignments || []).forEach((a) => {
+                        const code = (a.productCode || '').toUpperCase();
+                        (a.sttList || []).forEach((sttItem) => {
+                            if (!sttItem || typeof sttItem !== 'object') return;
+                            const recCname =
+                                sttItem.orderInfo?.liveCampaignName ||
+                                sttItem.orderInfo?.LiveCampaignName ||
+                                '';
+                            if (recCname !== cname) return;
+                            recordTouched = true;
+                            totalChecked += 1;
+                            const stt = String(sttItem.stt);
+                            const tposCodes = sttToCodes.get(stt);
+                            if (tposCodes && tposCodes.has(code)) {
+                                totalMatched += 1;
+                            } else {
+                                allDrops.push({
+                                    recordTs,
+                                    recordShortId,
+                                    stt,
+                                    productCode: code || '(no code)',
+                                    productName: a.productName || '',
+                                });
+                            }
+                        });
+                    });
+                    if (recordTouched) totalRecordsHit += 1;
+                }
+
+                const droppedCount = allDrops.length;
+                const headHtml = `<div class="alert alert-${droppedCount > 0 ? 'danger' : 'success'} mb-2">
+                    <strong><i class="fas fa-${droppedCount > 0 ? 'exclamation-triangle' : 'check-circle'}"></i> Chiến dịch <code>${utils.escapeHtml(actualName)}</code>${actualName !== cname ? ` <small class="text-muted">(snapshot: ${utils.escapeHtml(cname)})</small>` : ''} — id <small>${utils.escapeHtml(String(campaignId).slice(0, 8))}…</small></strong><br>
+                    Excel TPOS có <strong>${totalSTTsInExcel}</strong> STT · Quét <strong>${totalRecordsHit}</strong> upload chạm chiến dịch · Đối soát <strong>${totalChecked}</strong> bản ghi →
+                    <span class="text-success">✅ ${totalMatched} khớp</span> ·
+                    <span class="text-danger">❌ ${droppedCount} TPOS không có</span>
+                </div>`;
+
+                if (droppedCount === 0) {
+                    out.innerHTML =
+                        headHtml +
+                        `<div class="alert alert-success small mb-0">Tất cả sản phẩm trong chiến dịch này đã upload thành công lên TPOS. 🎉</div>`;
+                    return;
+                }
+
+                // Group drops theo productCode để dễ scan.
+                const byProduct = new Map();
+                for (const d of allDrops) {
+                    if (!byProduct.has(d.productCode))
+                        byProduct.set(d.productCode, { productName: d.productName, items: [] });
+                    byProduct.get(d.productCode).items.push(d);
+                }
+                const sorted = [...byProduct.entries()].sort(
+                    (a, b) => b[1].items.length - a[1].items.length
+                );
+
+                const tableHtml = `<div class="card border-danger"><div class="card-body p-0">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-danger"><tr>
+                            <th style="width: 22%;">Sản phẩm rớt</th>
+                            <th style="width: 8%;" class="text-center">Số STT</th>
+                            <th style="width: 70%;">Upload (mã ngắn) → ❌ STT</th>
+                        </tr></thead><tbody>${sorted
+                            .map(
+                                ([code, info]) =>
+                                    `<tr>
+                                <td><strong>${utils.escapeHtml(code)}</strong><div class="small text-muted">${utils.escapeHtml(info.productName)}</div></td>
+                                <td class="text-center"><span class="badge bg-danger">${info.items.length}</span></td>
+                                <td class="small">${info.items
+                                    .map(
+                                        (d) =>
+                                            `<span class="badge bg-light text-dark me-1 mb-1" style="border: 1px solid #dc3545;" title="${utils.escapeHtml(d.recordTs)}">#${utils.escapeHtml(d.recordShortId)} → ❌ ${utils.escapeHtml(d.stt)}</span>`
+                                    )
+                                    .join('')}</td>
+                            </tr>`
+                            )
+                            .join('')}</tbody></table></div></div>`;
+
+                out.innerHTML = headHtml + tableHtml;
+            } catch (e) {
+                console.error('[BULK-RECON] Error:', e);
+                out.innerHTML = `<div class="alert alert-danger">Lỗi: ${utils.escapeHtml(e.message || String(e))}</div>`;
+            } finally {
+                select.disabled = false;
+                runBtn.disabled = false;
+            }
+        };
+    };
+
     // Wrapper cho button "Đối Soát TPOS" trong outer history list — mở detail
     // modal trước rồi auto-chạy reconcile, không bắt user phải click 2 lần.
     window.reconcileFromListV2 = async function (firebaseKey, userId) {
