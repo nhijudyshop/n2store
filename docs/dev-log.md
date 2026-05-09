@@ -8,6 +8,35 @@
 
 ## 2026-05-09
 
+### [orders] Chat modal — lock outer table-wrapper scroll, save+restore scrollTop
+
+**Bug owner báo**: "khi bật modal tin nhắn inbox chat → tự động scroll xuống dưới cùng của modal → bị race condition là lâu lâu nó scroll bảng ở ngoài luôn".
+
+**Root cause**: `_scrollChatToBottom()` ([tab1-chat-messages.js](../orders-report/js/tab1/tab1-chat-messages.js)) dùng rAF + `container.scrollTop = container.scrollHeight` + listen `img.onload` re-scroll. Khi image load trong messages → reflow → scroll event bubble lên parent chain. Outer `.table-wrapper` (overflow:auto, max-height:70vh) bắt scroll này → bảng đơn hàng phía sau modal bị di chuyển. Tới lúc đóng modal → user thấy bảng đã scroll khác vị trí ban đầu.
+
+**Fix** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) + [orders-report/css/tab1-orders.css](../orders-report/css/tab1-orders.css)):
+
+1. **CSS lock**: `body.chat-modal-open .table-wrapper, .table-container { overflow: hidden !important; pointer-events: none; }` — chặn user-triggered scroll (mouse wheel, touch) trên bảng phía sau khi modal mở.
+
+2. **Snapshot + restore scrollTop**: trong `openChatModal` lưu `scrollTop`/`scrollLeft` của mọi `.table-wrapper` + `.table-container` vào `window._chatModalScrollSnapshot`. Trong `closeChatModal` restore TRƯỚC khi remove class (tránh paint intermediate state). Bắt được race programmatic-scroll (`focus()`, `scrollIntoView`) — overflow:hidden CSS không chặn programmatic scroll, snapshot là safety net duy nhất.
+
+**Tests** (browser):
+
+- ✅ Lock applied: `cssOverflow: "auto" → "hidden"`, `pointerEvents: "auto" → "none"` khi modal mở.
+- ✅ Lock released: trở lại `"auto"`/`"auto"` khi modal close.
+- ✅ Snapshot: `_chatModalScrollSnapshot` length=2 (table-wrapper + table-container) khi mở.
+- ✅ Race scenario: scroll bảng tới 300 trước khi mở → modal mở → trigger `scrollIntoView` lên row cuối inside table-wrapper (race programmatic) → scrollTop nhảy về 0 — nhưng khi close modal, `topAfterClose === 300` (restored chính xác).
+- ✅ `restoredCorrectly: true`.
+
+**Files**:
+
+- [orders-report/css/tab1-orders.css](../orders-report/css/tab1-orders.css) — body.chat-modal-open lock rule.
+- [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js) — openChatModal save snapshot + add class; closeChatModal restore + remove class.
+
+Status: ✅ Done
+
+---
+
 ### [aikol][kling] Multi-image2video face-swap VERIFIED end-to-end với Kling API Resource Pack
 
 **Tiếp 08/05** sau khi user mua Trial Resource Pack ($9.8 → 100 units, 30-day) — verified Kling face-swap thực sự hoạt động:
