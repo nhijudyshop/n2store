@@ -154,12 +154,16 @@
                                 </label>
                                 <label class="aikol-gen-row">
                                     <span>Duration</span>
-                                    <select name="duration_seconds">
-                                        <option value="5" selected>5s</option>
-                                        <option value="10">10s</option>
-                                    </select>
+                                    <span style="display:flex; align-items:center; gap:0.5rem">
+                                        <input type="range" name="duration_seconds" min="5" max="10" step="5" value="5" style="flex:1" data-duration-input />
+                                        <span data-duration-label style="min-width:2.5em; text-align:right; font-variant-numeric:tabular-nums">5s</span>
+                                    </span>
                                 </label>
                             </div>
+                            <p data-duration-hint style="margin:0.4rem 0 0; font-size:0.75rem; color:var(--aikol-text-dim)">
+                                Kling chỉ cho 5s hoặc 10s. Tối đa = thời lượng clip gốc.
+                                <strong>5s nhanh gấp đôi 10s</strong>.
+                            </p>
                         </div>
 
                         <label class="aikol-gen-row">
@@ -340,6 +344,30 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Duration slider: max = clip duration (clamp 10), step 5 (Kling chỉ accept
+    // 5 hoặc 10). Default 5s. Khi clip < 10s → disable max=10. Live update label.
+    function setupDurationSlider(form, clip) {
+        const input = form.querySelector('[data-duration-input]');
+        const label = form.querySelector('[data-duration-label]');
+        if (!input || !label) return;
+        // Quantize clip.duration xuống 5 hoặc 10. Mặc định 10 nếu không có clip.
+        const clipDur = clip?.duration ? parseFloat(clip.duration) : 10;
+        const maxAllowed = clipDur >= 10 ? 10 : 5;
+        input.max = String(maxAllowed);
+        input.value = '5'; // default
+        label.textContent = '5s';
+        if (maxAllowed === 5) {
+            input.disabled = true;
+            label.textContent = '5s (clip ngắn)';
+        } else {
+            input.disabled = false;
+        }
+        input.addEventListener('input', () => {
+            label.textContent = `${input.value}s`;
+            refreshCostLabel(form);
+        });
+    }
+
     function setupVideoToggle(form) {
         const videoBlocks = form.querySelectorAll('[data-video-only]');
         const imageBlocks = form.querySelectorAll('[data-image-only]');
@@ -451,6 +479,7 @@
         setupVideoToggle(form);
         setupGenModeToggle(form, !!clip);
         setupNoteSuggestButton(form);
+        setupDurationSlider(form, clip);
         form.onsubmit = async (ev) => {
             ev.preventDefault();
             const data = readForm(form);
@@ -523,14 +552,16 @@
     let watchTimer = null;
     let lastQueueIds = new Set();
 
+    let _renderTickTimer = null;
     function startQueueWatch({ container, onTerminal } = {}) {
         stopQueueWatch();
+        let lastQueueData = [];
         async function pollOnce() {
             try {
                 const { queue } = await global.AikolAPI.getQueue();
-                if (container) renderQueue(container, queue);
-                const currentIds = new Set(queue.map((q) => q.id));
-                // detect terminal transitions
+                lastQueueData = queue || [];
+                if (container) renderQueue(container, lastQueueData);
+                const currentIds = new Set(lastQueueData.map((q) => q.id));
                 const terminated = [...lastQueueIds].filter((id) => !currentIds.has(id));
                 if (terminated.length && typeof onTerminal === 'function') {
                     onTerminal(terminated);
@@ -541,12 +572,36 @@
             }
         }
         pollOnce();
+        // API poll mỗi 5s (tránh spam) nhưng UI re-render mỗi 1s để progress %
+        // tăng smooth (compute từ Date.now() - started_at).
         watchTimer = setInterval(pollOnce, 5000);
+        _renderTickTimer = setInterval(() => {
+            if (container && lastQueueData.length) renderQueue(container, lastQueueData);
+        }, 1000);
     }
 
     function stopQueueWatch() {
         if (watchTimer) clearInterval(watchTimer);
         watchTimer = null;
+        if (_renderTickTimer) clearInterval(_renderTickTimer);
+        _renderTickTimer = null;
+    }
+
+    // Estimated total seconds per kind+provider — dùng để compute % progress.
+    // Số liệu lấy từ thực tế gen verified:
+    //   - Gemini image (sync, no compose):   ~15s
+    //   - Gemini compose + Veo animate:      ~60s
+    //   - Kling multi-image2video:           ~100s
+    //   - Kling image2video:                 ~80s
+    function estimateTotalSec(q) {
+        const kind = q.kind;
+        const provider = q.config?.provider;
+        const kindKey = q.config?.kind_key;
+        if (kind === 'image') return 20;
+        if (provider === 'kling' && kindKey === 'multi-image2video') return 110;
+        if (provider === 'kling') return 80;
+        if (provider === 'veo') return 90; // Veo + (compose 30s nếu with_clip)
+        return 90; // fallback
     }
 
     function renderQueue(container, queue) {
@@ -557,17 +612,44 @@
             return;
         }
         container.style.display = 'block';
+        const now = Math.floor(Date.now() / 1000);
         container.innerHTML =
             `<h3 style="margin:0 0 0.5rem">Queue (${queue.length})</h3>` +
             queue
-                .map(
-                    (q) => `
-                <div class="aikol-queue-item aikol-queue-item--${q.state}">
-                    <span>${escapeHtml(q.kind)}</span>
-                    <span>${escapeHtml(q.state)}</span>
-                    <span style="color:var(--aikol-text-dim);font-size:0.78rem">${q.cost_credits} cr</span>
-                </div>`
-                )
+                .map((q) => {
+                    let pct = 0;
+                    let elapsedSec = 0;
+                    let eta = '';
+                    if (q.state === 'pending') {
+                        pct = 5; // hiển thị thanh đang chờ
+                        eta = 'đang chờ dispatch…';
+                    } else if (q.state === 'dispatching') {
+                        pct = 12;
+                        eta = 'đang gửi job lên provider…';
+                    } else if (q.state === 'running' && q.started_at) {
+                        const total = estimateTotalSec(q);
+                        elapsedSec = Math.max(0, now - q.started_at);
+                        // Cap tại 95% để user biết chưa done
+                        pct = Math.min(95, Math.round((elapsedSec / total) * 100));
+                        const remain = Math.max(0, total - elapsedSec);
+                        eta = elapsedSec >= total ? 'sắp xong…' : `~${remain}s còn lại`;
+                    }
+                    const elapsedDisplay = elapsedSec > 0 ? ` · ${elapsedSec}s` : '';
+                    return `
+                <div class="aikol-queue-item aikol-queue-item--${q.state}" style="display:grid; gap:0.3rem; padding:0.5rem 0.6rem; border:1px solid var(--aikol-border, rgba(255,255,255,0.08)); border-radius:6px; margin-bottom:0.4rem">
+                    <div style="display:flex; justify-content:space-between; gap:0.5rem; font-size:0.85rem">
+                        <span>${q.kind === 'video' ? '🎬' : '🖼️'} ${escapeHtml(q.kind)}${q.config?.engine ? ` · ${escapeHtml(q.config.engine)}` : ''}</span>
+                        <span style="color:var(--aikol-text-dim); font-size:0.78rem">${q.cost_credits} cr${elapsedDisplay}</span>
+                    </div>
+                    <div style="height:6px; background:var(--aikol-bg-soft, rgba(99,102,241,0.1)); border-radius:3px; overflow:hidden">
+                        <div style="height:100%; width:${pct}%; background:var(--aikol-accent, #6366F1); transition:width 0.5s ease"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--aikol-text-dim)">
+                        <span>${escapeHtml(q.state)} · ${pct}%</span>
+                        <span>${escapeHtml(eta)}</span>
+                    </div>
+                </div>`;
+                })
                 .join('');
     }
 

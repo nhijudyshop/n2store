@@ -316,10 +316,11 @@ router.get('/queue', requireUser, async (req, res) => {
     try {
         const { rows } = await pool.query(
             `SELECT id, kind, state, cost_credits, clip_id, model_id, external_id,
+                    config,
                     EXTRACT(EPOCH FROM created_at)::int AS created_at,
                     EXTRACT(EPOCH FROM started_at)::int AS started_at
              FROM aikol_generations
-             WHERE user_id = $1 AND state IN ('pending', 'running')
+             WHERE user_id = $1 AND state IN ('pending', 'dispatching', 'running')
              ORDER BY created_at ASC
              LIMIT 100`,
             [req.userId]
