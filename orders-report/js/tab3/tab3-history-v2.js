@@ -565,6 +565,27 @@
                         <i class="fas fa-list"></i>
                         <span><strong>${totalAssignmentsCalc}</strong> tổng STT</span>
                     </div>
+                    ${(() => {
+                        // Reconcile badge từ post-upload reconcile result.
+                        const rr = record.reconcileResult;
+                        if (!rr || !rr.status) {
+                            return `<div class="history-stat-item" style="background: #f3f4f6; color: #6b7280;" title="Chưa có kết quả đối soát Excel TPOS"><i class="fas fa-hourglass-half"></i> <span>Chưa đối soát</span></div>`;
+                        }
+                        if (rr.status === 'running') {
+                            return `<div class="history-stat-item" style="background: #fef3c7; color: #92400e;" title="Đang fetch Excel TPOS + đối soát…"><i class="fas fa-spinner fa-spin"></i> <span>Đang đối soát</span></div>`;
+                        }
+                        if (rr.status === 'error') {
+                            return `<div class="history-stat-item" style="background: #fef3c7; color: #92400e;" title="${utils.escapeHtml(rr.error || 'Lỗi đối soát')}"><i class="fas fa-exclamation-triangle"></i> <span>Đối soát lỗi</span></div>`;
+                        }
+                        if (rr.dropCount > 0) {
+                            const sample = (rr.drops || [])
+                                .slice(0, 3)
+                                .map((d) => `${d.productCode}→STT${d.stt}`)
+                                .join(', ');
+                            return `<div class="history-stat-item" style="background: #fee2e2; color: #991b1b;" title="${utils.escapeHtml(sample)}"><i class="fas fa-times-circle"></i> <span><strong>❌ ${rr.dropCount}</strong> SP rớt TPOS</span></div>`;
+                        }
+                        return `<div class="history-stat-item" style="background: #dcfce7; color: #166534;" title="Excel TPOS đối soát ${rr.scannedCount} bản ghi, tất cả khớp"><i class="fas fa-shield-check"></i> <span><strong>✓ ${rr.matchedCount}</strong> khớp TPOS</span></div>`;
+                    })()}
                 </div>
 
                 <div class="history-stts">
@@ -1251,6 +1272,181 @@
 
         _setReconStatus(html);
     }
+
+    // ── POST-UPLOAD RECONCILE ──
+    // Sau mỗi lần upload thành công, chạy đối soát Excel TPOS cho chính record
+    // vừa lưu, ghi `reconcileResult` vào Firebase để list view show badge mà
+    // không cần user click. Async — chạy sau khi modal upload đóng, không
+    // block UX. Add 2s delay để TPOS persist xong sau PUT.
+
+    async function _runReconcileForRecord(record) {
+        // Trả {scannedCount, matchedCount, dropCount, drops, error}.
+        const sttToOrderId = new Map();
+        (record.uploadResults || []).forEach((r) => {
+            if (r.orderId && r.success) sttToOrderId.set(String(r.stt), r.orderId);
+        });
+        if (sttToOrderId.size === 0) {
+            return { scannedCount: 0, matchedCount: 0, dropCount: 0, drops: [] };
+        }
+
+        const successfulSTTs = new Set(sttToOrderId.keys());
+        const expectations = []; // {stt, productCode, productName, productId, cname}
+        const campaignToSTTs = new Map();
+        (record.beforeSnapshot?.assignments || []).forEach((a) => {
+            const code = (a.productCode || '').toUpperCase();
+            (a.sttList || []).forEach((sttItem) => {
+                if (typeof sttItem !== 'object' || !sttItem) return;
+                const stt = String(sttItem.stt);
+                if (!successfulSTTs.has(stt)) return;
+                const cname =
+                    sttItem.orderInfo?.liveCampaignName ||
+                    sttItem.orderInfo?.LiveCampaignName ||
+                    '';
+                if (!cname) return;
+                if (!campaignToSTTs.has(cname)) campaignToSTTs.set(cname, new Set());
+                campaignToSTTs.get(cname).add(stt);
+                expectations.push({
+                    stt,
+                    productCode: code || '(no code)',
+                    productName: a.productName || '',
+                    productId: a.productId,
+                    cname,
+                });
+            });
+        });
+
+        if (campaignToSTTs.size === 0) {
+            return {
+                scannedCount: 0,
+                matchedCount: 0,
+                dropCount: 0,
+                drops: [],
+                error: 'Không tìm thấy liveCampaignName trong snapshot',
+            };
+        }
+
+        // Resolve campaignId qua orderId mẫu (authoritative).
+        const resolvedById = new Map(); // cname → campaignId
+        await Promise.all(
+            [...campaignToSTTs.entries()].map(async ([cname, ssts]) => {
+                let id = null;
+                for (const s of ssts) {
+                    if (sttToOrderId.has(s)) {
+                        const info = await _resolveCampaignIdByOrderId(sttToOrderId.get(s));
+                        if (info && info.id) {
+                            id = info.id;
+                            break;
+                        }
+                    }
+                }
+                if (!id) id = await _resolveCampaignIdByName(cname);
+                if (id) resolvedById.set(cname, id);
+            })
+        );
+
+        if (resolvedById.size === 0) {
+            return {
+                scannedCount: expectations.length,
+                matchedCount: 0,
+                dropCount: 0,
+                drops: [],
+                error: 'Không resolve được campaignId',
+            };
+        }
+
+        // Fetch Excel parallel.
+        const sttToCodesByCampaign = new Map();
+        await Promise.all(
+            [...resolvedById.entries()].map(async ([cname, cid]) => {
+                try {
+                    const map = await _fetchCampaignExcel(cid);
+                    sttToCodesByCampaign.set(cname, map);
+                } catch (e) {
+                    console.warn(`[POST-UPLOAD-RECON] Excel fetch failed for ${cname}:`, e);
+                }
+            })
+        );
+
+        const drops = [];
+        let matchedCount = 0;
+        for (const exp of expectations) {
+            const tposCodes = sttToCodesByCampaign.get(exp.cname)?.get(exp.stt);
+            if (tposCodes && tposCodes.has(exp.productCode)) {
+                matchedCount += 1;
+            } else {
+                drops.push({
+                    stt: exp.stt,
+                    productCode: exp.productCode,
+                    productName: exp.productName,
+                    fromCampaign: exp.cname,
+                });
+            }
+        }
+
+        return {
+            scannedCount: expectations.length,
+            matchedCount,
+            dropCount: drops.length,
+            drops,
+        };
+    }
+
+    window.postUploadReconcileV2 = async function (uploadId) {
+        if (!uploadId) return;
+        try {
+            await _ensureXLSX();
+
+            // Find record by scanning user paths (mirrors viewUploadHistoryDetailV2).
+            const usm = state.userStorageManager || window.userStorageManager;
+            const currentUser =
+                usm && typeof usm.getUserIdentifier === 'function' ? usm.getUserIdentifier() : null;
+            const candidatePaths = [];
+            if (currentUser) {
+                candidatePaths.push(`productAssignments_v2_history/${currentUser}`);
+            }
+            candidatePaths.push('productAssignments_v2_history/guest');
+
+            let recordRef = null;
+            let record = null;
+            for (const path of candidatePaths) {
+                const ref = database.ref(`${path}/${uploadId}`);
+                const snap = await ref.once('value');
+                if (snap.exists()) {
+                    recordRef = ref;
+                    record = snap.val();
+                    break;
+                }
+            }
+            if (!record || !recordRef) {
+                console.warn(`[POST-UPLOAD-RECON] Record not found: ${uploadId}`);
+                return;
+            }
+
+            // Mark đang chạy để list view có thể show "⏳ Đang đối soát…".
+            await recordRef.child('reconcileResult').set({ ts: Date.now(), status: 'running' });
+
+            const result = await _runReconcileForRecord(record);
+
+            // Cap drops list ở 200 entries để tránh node Firebase quá lớn.
+            const cappedDrops = (result.drops || []).slice(0, 200);
+            const reconcilePayload = {
+                ts: Date.now(),
+                status: result.error ? 'error' : 'done',
+                scannedCount: result.scannedCount || 0,
+                matchedCount: result.matchedCount || 0,
+                dropCount: result.dropCount || 0,
+                drops: cappedDrops,
+                ...(result.error ? { error: result.error } : {}),
+                ...(result.drops && result.drops.length > 200 ? { dropsTruncated: true } : {}),
+            };
+            await recordRef.child('reconcileResult').set(reconcilePayload);
+            console.log(
+                `[POST-UPLOAD-RECON] ${uploadId}: scanned=${reconcilePayload.scannedCount} matched=${reconcilePayload.matchedCount} drops=${reconcilePayload.dropCount}`
+            );
+        } catch (e) {
+            console.error('[POST-UPLOAD-RECON] Fatal:', e);
+        }
+    };
 
     // ── BULK RECONCILE: 1 chiến dịch × ALL uploads đã chạm chiến dịch đó ──
     // User pick 1 chiến dịch trong dropdown → fetch Excel TPOS 1 lần →

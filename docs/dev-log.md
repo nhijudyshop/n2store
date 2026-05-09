@@ -8,6 +8,40 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Auto-reconcile sau upload + badge "khớp TPOS" / "SP rớt" trong history list
+
+User: "khi gán sản phẩm upload tpos xong -> thành công -> thì chạy đối soát cho đơn đó và badge vào lịch sử luôn".
+
+**Flow mới**:
+
+1. [orders-report/js/tab3/tab3-upload.js](../orders-report/js/tab3/tab3-upload.js) `uploadToTPOS`: sau khi `saveToUploadHistory` xong + `removeUploadedSTTsFromAssignments`, fire-and-forget `setTimeout(() => window.postUploadReconcileV2(uploadId), 2000)` — delay 2s cho TPOS persist xong, async không block UX.
+2. `uploadSingleSTT` thêm field `liveCampaignName` vào result (đọc từ `sessionData.orderInfo`) để post-upload reconcile có sẵn campaign info, không cần re-fetch.
+3. `saveToUploadHistoryV2` persist thêm `missingProducts` + `liveCampaignName` cho mỗi result trong Firebase.
+4. [orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `window.postUploadReconcileV2(uploadId)`:
+    - Lookup record qua `productAssignments_v2_history/{currentUser}/{uploadId}` (fallback `guest`).
+    - Mark `reconcileResult.status = 'running'`.
+    - Build expectations từ `beforeSnapshot.assignments` × successful STTs trong `uploadResults`.
+    - Group by `liveCampaignName`, resolve campaignId qua orderId mẫu (authoritative), fetch Excel parallel.
+    - Đối soát từng (stt, productCode) với Excel TPOS đúng campaign của STT đó.
+    - Write `reconcileResult: {ts, status:'done', scannedCount, matchedCount, dropCount, drops:[{stt,productCode,productName,fromCampaign}]}` (cap drops ở 200, mark `dropsTruncated:true` nếu cắt).
+5. List card rendering thêm 1 stat-item badge ở row stats:
+    - Chưa có reconcileResult → ⏳ "Chưa đối soát" (xám)
+    - status:'running' → 🔄 "Đang đối soát" (vàng)
+    - status:'error' → ⚠ "Đối soát lỗi" với title=error (vàng)
+    - dropCount > 0 → ❌ "X SP rớt TPOS" (đỏ) với tooltip top-3 drops
+    - dropCount === 0 → ✓ "N khớp TPOS" (xanh)
+
+**Verify** ([scripts/verify-post-upload-recon.mjs](../scripts/verify-post-upload-recon.mjs)):
+
+- Trigger `postUploadReconcileV2('upload_1778300860050')` → 2.4s xong, ghi Firebase: `{scanned:20, matched:20, dropCount:0, status:'done'}` ✓
+- Mở list modal "Tất cả người dùng" → 20 cards render với badge tương ứng (cards cũ chưa có reconcileResult → "Chưa đối soát" xám) ✓
+
+**UX hệ quả**: User upload xong, modal đóng → 2s sau Excel reconcile chạy nền → list card auto-update badge: thấy ngay xanh = TPOS persist đầy đủ, đỏ = có silent drop cần re-upload. Không cần click thêm gì.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders][tab3] Bulk recon — badge xác nhận uploads hôm nay đã được quét
 
 User: "bấm chạy đối soát toàn chiến dịch -> thì chạy mấy cái ở dưới bảng hình 2, 3 -> nhớ đúng file excel".

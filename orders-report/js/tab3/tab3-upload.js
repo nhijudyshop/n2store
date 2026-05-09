@@ -696,6 +696,18 @@
                 await removeUploadedSTTsFromAssignments(successfulSTTs);
             }
 
+            // Post-upload reconcile — async, không block UX. Tải Excel TPOS đối
+            // soát lại các STT đã upload thành công, ghi `reconcileResult` vào
+            // history record để list view show badge ngay. Delay 2s cho TPOS
+            // persist xong sau PUT (Excel export đôi khi cache chậm hơn write).
+            if (typeof window.postUploadReconcileV2 === 'function' && successfulSTTs.length > 0) {
+                setTimeout(() => {
+                    window
+                        .postUploadReconcileV2(uploadId)
+                        .catch((e) => console.error('[POST-UPLOAD-RECON]', e));
+                }, 2000);
+            }
+
             selectedSTTs.clear();
             renderUploadTable();
 
