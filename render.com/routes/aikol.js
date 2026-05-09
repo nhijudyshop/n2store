@@ -80,22 +80,18 @@ function requireUser(req, res, next) {
     next();
 }
 
-// Ensure wallet row exists; gives 30 free credits on first call.
+// Ensure wallet row exists. KHÔNG cấp credits free khi signup — user phải nạp
+// qua billing/topup để có balance. Trước đây cấp 30 free credits, nhưng admin
+// quyết định bỏ (08/05/2026) để tránh user spam tạo account ăn free.
 async function ensureWallet(userId) {
     const { rows } = await pool.query(
         `INSERT INTO aikol_credits (user_id, balance, plan)
-         VALUES ($1, 30, 'free')
+         VALUES ($1, 0, 'free')
          ON CONFLICT (user_id) DO NOTHING
          RETURNING balance, plan`,
         [userId]
     );
     if (rows[0]) {
-        // First-time: log the signup bonus
-        await pool.query(
-            `INSERT INTO aikol_credit_history (user_id, kind, delta, note)
-             VALUES ($1, 'signup_bonus', 30, 'Welcome — 30 free credits')`,
-            [userId]
-        );
         return rows[0];
     }
     const cur = await pool.query(`SELECT balance, plan FROM aikol_credits WHERE user_id = $1`, [

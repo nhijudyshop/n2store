@@ -126,7 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_aikol_outputs_gen      ON aikol_outputs(generatio
 -- ====================================================================
 CREATE TABLE IF NOT EXISTS aikol_credits (
     user_id     TEXT PRIMARY KEY,
-    balance     INTEGER NOT NULL DEFAULT 30,     -- 30 free credits on signup (matches tikreel)
+    balance     INTEGER NOT NULL DEFAULT 0,      -- KHÔNG free credits signup (admin: 09/05/2026 bỏ 30cr free)
     plan        TEXT NOT NULL DEFAULT 'free',
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
