@@ -6,6 +6,36 @@
 
 ---
 
+## 2026-05-09
+
+### [orders][tab3] Nút "Đối Soát TPOS" ngoài history list + resolve campaignId từ orderId (chính xác hơn name lookup)
+
+User: "ở ngoài này có nút chạy đối soát không? và quan trọng là bạn phải tải đúng file excel của đúng chiến dịch đó".
+
+**Thay đổi** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js)):
+
+1. **Nút outer list**: mỗi card upload trong "Lịch Sử Upload TPOS v2" thêm nút `<button class="btn-warning">⬇ Đối Soát TPOS</button>` cạnh "So Sánh Giỏ" + "Xem Chi Tiết". Click → wrapper `reconcileFromListV2(firebaseKey, userId)` mở detail modal rồi auto-chạy reconcile (1-click thay vì 2).
+
+2. **Authoritative campaignId resolution** (`_resolveCampaignIdByOrderId`):
+    - Trước: chỉ dùng `_resolveCampaignIdByName(cname)` query OData `SaleOnline_LiveCampaign?$filter=Name+eq+'...'` rồi pick row đầu (sort `DateCreated desc`). Vấn đề: tên chiến dịch trùng giữa các shop / chiến dịch bị rename → có thể tải nhầm Excel.
+    - Giờ: pick 1 STT bất kỳ trong nhóm → lấy `uploadResults[stt].orderId` → `GET SaleOnline_Order(orderId)?$select=Id,LiveCampaignId,LiveCampaignName` → đọc thẳng `LiveCampaignId` (GUID, unique) từ chính order trên TPOS. Tên chỉ dùng để hiển thị/group key.
+    - Fallback name lookup chỉ khi nhóm không có orderId.
+    - Hiển thị: nếu TPOS đang đặt tên khác snapshot → `<code>HOUSE 06/05/2026</code> (TPOS hiện: <code>NEW NAME</code>) → dcb29150…` (8 ký tự đầu GUID làm bằng chứng tải đúng).
+
+3. **Dedupe theo campaignId**: 2 group keys khác nhau có thể trỏ về cùng campaignId sau resolve → fetch 1 Excel duy nhất thay vì duplicate.
+
+**Verify** ([scripts/verify-tab3-recon-list-button.mjs](../scripts/verify-tab3-recon-list-button.mjs)):
+
+- Mở modal Lịch Sử Upload V2 → **20/20 cards** có button "Đối Soát TPOS" mới ✓
+- Click `reconcileFromListV2` cho upload `#32240280` → auto-mở detail + chạy reconcile (~24s e2e)
+- Kết quả: ✅ 31 khớp · ❌ 3 TPOS không có (giống verify trước fix, không regression)
+- Excel line: `STORE 06/05/2026 → 057f56c3… · HOUSE 06/05/2026 → dcb29150…` (GUID prefix làm bằng chứng tải đúng campaign)
+- 3 silent drops thực: B914 → STT 157 · B1907M → STT 47 · B1907L → STT 178
+
+**Status**: ✅ Done.
+
+---
+
 ## 2026-05-08
 
 ### [orders][tab3][fix] Đối soát Excel — sửa parse STT: dùng cột `###` (SessionIndex) thay vì `STT` (row counter)
