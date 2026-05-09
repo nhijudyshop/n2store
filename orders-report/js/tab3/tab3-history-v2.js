@@ -1313,39 +1313,102 @@
             return;
         }
 
-        // Học theo KPI tab: tải Excel theo chiến dịch user ĐANG CHỌN (active
-        // campaign từ tab1 — tab3 nhận qua postMessage CAMPAIGN_CHANGED_FOR_TAB3
-        // rồi mirror vào state.activeCampaignNames). Auto-select option khớp +
-        // auto-run cho UX 0-click.
+        // Học KPI/overview pattern: extract date "dd/mm/yyyy" từ campaign name
+        // → các chiến dịch CÙNG NGÀY (vd "STORE 30/03/2026" + "HOUSE 30/03/2026")
+        // gộp thành 1 option duy nhất, fetch Excel + đối soát chung. Mỗi STT
+        // trong upload snapshot vẫn giữ riêng `liveCampaignName` của nó nên khi
+        // lookup product code ta query ĐÚNG Excel của chính campaign STT đó.
+        const extractDate = (name) => {
+            const m = String(name || '').match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+            return m ? m[1] : null;
+        };
+        const extractTypePrefix = (name, date) => {
+            const s = String(name || '')
+                .replace(date || '', ' ')
+                .trim()
+                .replace(/\s+/g, ' ');
+            return s || name;
+        };
+
         const activeNames = (state.activeCampaignNames || []).map((n) => String(n));
-        const findActiveMatch = (cname) =>
+        const isActiveCName = (cname) =>
             activeNames.some(
                 (a) => a === cname || a.trim().toLowerCase() === cname.trim().toLowerCase()
             );
 
-        // Sort: chiến dịch đang xem lên đầu, rồi sort theo recordCount desc.
-        const sortedCampaigns = [...campaignStats.entries()].sort((a, b) => {
-            const aActive = findActiveMatch(a[0]) ? 1 : 0;
-            const bActive = findActiveMatch(b[0]) ? 1 : 0;
-            if (aActive !== bActive) return bActive - aActive;
-            return b[1].recordCount - a[1].recordCount;
+        // Group by date.
+        const dateGroups = new Map(); // dateStr → [{cname, stat}]
+        const standalone = [];
+        for (const [cname, stat] of campaignStats.entries()) {
+            const date = extractDate(cname);
+            if (!date) {
+                standalone.push({ cname, stat });
+                continue;
+            }
+            if (!dateGroups.has(date)) dateGroups.set(date, []);
+            dateGroups.get(date).push({ cname, stat });
+        }
+
+        // Build picker entries — group ≥2 thành 1 option gộp.
+        const entries = [];
+        for (const [date, members] of dateGroups.entries()) {
+            const memberCnames = members.map((m) => m.cname);
+            const totalRecords = members.reduce((s, m) => s + m.stat.recordCount, 0);
+            const totalSTT = members.reduce((s, m) => s + m.stat.sttCount, 0);
+            const groupActive = memberCnames.some(isActiveCName);
+            if (members.length >= 2) {
+                const types = members.map((m) => extractTypePrefix(m.cname, date)).join('+');
+                entries.push({
+                    value: `__date__:${date}`,
+                    label: `📅 ${date} [${types}] — ${totalRecords} upload, ${totalSTT} STT (gộp ${members.length})`,
+                    members: memberCnames,
+                    totalRecords,
+                    isActive: groupActive,
+                });
+            } else {
+                const m = members[0];
+                entries.push({
+                    value: m.cname,
+                    label: `${m.cname} — ${m.stat.recordCount} upload, ${m.stat.sttCount} STT`,
+                    members: [m.cname],
+                    totalRecords: m.stat.recordCount,
+                    isActive: isActiveCName(m.cname),
+                });
+            }
+        }
+        for (const { cname, stat } of standalone) {
+            entries.push({
+                value: cname,
+                label: `${cname} — ${stat.recordCount} upload, ${stat.sttCount} STT`,
+                members: [cname],
+                totalRecords: stat.recordCount,
+                isActive: isActiveCName(cname),
+            });
+        }
+
+        // Sort: active group đầu tiên, rồi totalRecords desc.
+        entries.sort((a, b) => {
+            if (a.isActive !== b.isActive) return b.isActive - a.isActive;
+            return b.totalRecords - a.totalRecords;
         });
 
-        const defaultName = sortedCampaigns[0]?.[0] || null;
-        const defaultIsActive = defaultName && findActiveMatch(defaultName);
+        const defaultEntry = entries[0] || null;
+        const defaultIsActive = !!defaultEntry?.isActive;
 
-        const optionsHtml = sortedCampaigns
-            .map(([cname, stat]) => {
-                const isActive = findActiveMatch(cname);
-                const tag = isActive ? ' 👀 đang xem' : '';
-                return `<option value="${utils.escapeHtml(cname)}" ${cname === defaultName ? 'selected' : ''}>${utils.escapeHtml(cname)}${tag} — ${stat.recordCount} upload, ${stat.sttCount} STT</option>`;
+        const optionsHtml = entries
+            .map((e) => {
+                const tag = e.isActive ? ' 👀 đang xem' : '';
+                return `<option value="${utils.escapeHtml(e.value)}" ${e === defaultEntry ? 'selected' : ''}>${utils.escapeHtml(e.label)}${tag}</option>`;
             })
             .join('');
 
+        // Map value → entry để run handler tra cứu nhanh.
+        const entryByValue = new Map(entries.map((e) => [e.value, e]));
+
         const hint = defaultIsActive
-            ? `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Tự chọn chiến dịch <strong>đang xem</strong> ở Tab Quản Lý Đơn Hàng. Đổi dropdown nếu muốn chiến dịch khác.</div>`
+            ? `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Tự chọn chiến dịch <strong>đang xem</strong> ở Tab Quản Lý Đơn Hàng${defaultEntry.members.length > 1 ? ` (gộp ${defaultEntry.members.length} chiến dịch cùng ngày)` : ''}. Đổi dropdown nếu muốn khác.</div>`
             : activeNames.length > 0
-              ? `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Chiến dịch đang xem (<code>${activeNames.map(utils.escapeHtml).join(', ')}</code>) chưa có upload nào trong history — chọn 1 chiến dịch khác.</div>`
+              ? `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Chiến dịch đang xem (<code>${activeNames.map(utils.escapeHtml).join(', ')}</code>) chưa có upload nào trong history — chọn từ dropdown.</div>`
               : `<div class="small text-muted mt-2"><i class="fas fa-info-circle"></i> Chưa xác định chiến dịch đang xem; chọn từ dropdown.</div>`;
 
         _setBulkReconStatus(
@@ -1369,37 +1432,71 @@
         runBtnEl.onclick = async () => {
             const select = document.getElementById('bulkReconCampaignSelect');
             const runBtn = document.getElementById('bulkReconRunBtn');
-            const cname = select.value;
-            if (!cname) return;
-            const stat = campaignStats.get(cname);
+            const value = select.value;
+            if (!value) return;
+            const entry = entryByValue.get(value);
+            if (!entry) return;
+            const memberCnames = entry.members; // [cname1, cname2, …]
+            const memberCnameSet = new Set(memberCnames);
             const out = document.getElementById('bulkReconRunOutput');
 
             select.disabled = true;
             runBtn.disabled = true;
             try {
                 await _ensureXLSX();
-                out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang xác thực campaignId qua orderId mẫu…</div>`;
+                out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang xác thực ${memberCnames.length} chiến dịch qua orderId mẫu…</div>`;
 
-                let campaignId = null;
-                let actualName = cname;
-                if (stat.sampleOrderId) {
-                    const info = await _resolveCampaignIdByOrderId(stat.sampleOrderId);
-                    if (info && info.id) {
-                        campaignId = info.id;
-                        actualName = info.name || cname;
-                    }
-                }
-                if (!campaignId) {
-                    campaignId = await _resolveCampaignIdByName(cname);
-                }
-                if (!campaignId) {
-                    out.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Không resolve được chiến dịch <code>${utils.escapeHtml(cname)}</code> trên TPOS. Order đã xóa hoặc tài khoản không có quyền.</div>`;
+                // Resolve campaignId cho TỪNG member, parallel.
+                const resolved = []; // [{ cname, campaignId, actualName }]
+                const failed = []; // [cname]
+                await Promise.all(
+                    memberCnames.map(async (cname) => {
+                        const stat = campaignStats.get(cname);
+                        let campaignId = null;
+                        let actualName = cname;
+                        if (stat?.sampleOrderId) {
+                            const info = await _resolveCampaignIdByOrderId(stat.sampleOrderId);
+                            if (info && info.id) {
+                                campaignId = info.id;
+                                actualName = info.name || cname;
+                            }
+                        }
+                        if (!campaignId) {
+                            campaignId = await _resolveCampaignIdByName(cname);
+                        }
+                        if (campaignId) resolved.push({ cname, campaignId, actualName });
+                        else failed.push(cname);
+                    })
+                );
+
+                if (resolved.length === 0) {
+                    out.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Không resolve được chiến dịch nào trên TPOS (${memberCnames.map((n) => `<code>${utils.escapeHtml(n)}</code>`).join(', ')}).</div>`;
                     return;
                 }
 
-                out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang tải Excel TPOS cho <code>${utils.escapeHtml(actualName)}</code> (id <small>${utils.escapeHtml(String(campaignId).slice(0, 8))}…</small>)…</div>`;
-                const sttToCodes = await _fetchCampaignExcel(campaignId);
-                const totalSTTsInExcel = sttToCodes.size;
+                // Fetch Excel parallel cho mỗi resolved campaign. Mỗi STT giữ
+                // partition theo campaign name (vì STT chỉ unique trong scope 1
+                // campaign — STT 5 ở STORE khác STT 5 ở HOUSE).
+                out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang tải ${resolved.length} Excel TPOS…</div>`;
+                const sttToCodesByCampaign = new Map(); // cname → Map<sttStr, Set<codeUpper>>
+                let excelTotalSTTs = 0;
+                const fetchErrors = [];
+                await Promise.all(
+                    resolved.map(async (r) => {
+                        try {
+                            const map = await _fetchCampaignExcel(r.campaignId);
+                            sttToCodesByCampaign.set(r.cname, map);
+                            excelTotalSTTs += map.size;
+                        } catch (e) {
+                            fetchErrors.push(`${r.cname}: ${e.message || e}`);
+                        }
+                    })
+                );
+
+                if (sttToCodesByCampaign.size === 0) {
+                    out.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Không tải được Excel: ${fetchErrors.map(utils.escapeHtml).join('; ')}</div>`;
+                    return;
+                }
 
                 const allDrops = [];
                 let totalChecked = 0;
@@ -1420,11 +1517,12 @@
                                 sttItem.orderInfo?.liveCampaignName ||
                                 sttItem.orderInfo?.LiveCampaignName ||
                                 '';
-                            if (recCname !== cname) return;
+                            if (!memberCnameSet.has(recCname)) return;
                             recordTouched = true;
                             totalChecked += 1;
                             const stt = String(sttItem.stt);
-                            const tposCodes = sttToCodes.get(stt);
+                            // Lookup Excel của ĐÚNG campaign mà STT này thuộc về.
+                            const tposCodes = sttToCodesByCampaign.get(recCname)?.get(stt);
                             if (tposCodes && tposCodes.has(code)) {
                                 totalMatched += 1;
                             } else {
@@ -1434,6 +1532,7 @@
                                     stt,
                                     productCode: code || '(no code)',
                                     productName: a.productName || '',
+                                    fromCampaign: recCname,
                                 });
                             }
                         });
@@ -1442,17 +1541,31 @@
                 }
 
                 const droppedCount = allDrops.length;
+                const headTitle =
+                    resolved.length > 1
+                        ? `Chiến dịch gộp ${resolved.length}: ${resolved.map((r) => `<code>${utils.escapeHtml(r.actualName)}</code>`).join(' + ')}`
+                        : `Chiến dịch <code>${utils.escapeHtml(resolved[0].actualName)}</code>${resolved[0].actualName !== resolved[0].cname ? ` <small class="text-muted">(snapshot: ${utils.escapeHtml(resolved[0].cname)})</small>` : ''}`;
+                const headIds = resolved
+                    .map(
+                        (r) =>
+                            `<small>${utils.escapeHtml(String(r.campaignId).slice(0, 8))}…</small>`
+                    )
+                    .join(' · ');
+                const failedNote =
+                    failed.length > 0
+                        ? ` <span class="text-warning small">⚠ Bỏ qua ${failed.length} chiến dịch không resolve được: ${failed.map((n) => `<code>${utils.escapeHtml(n)}</code>`).join(', ')}</span>`
+                        : '';
                 const headHtml = `<div class="alert alert-${droppedCount > 0 ? 'danger' : 'success'} mb-2">
-                    <strong><i class="fas fa-${droppedCount > 0 ? 'exclamation-triangle' : 'check-circle'}"></i> Chiến dịch <code>${utils.escapeHtml(actualName)}</code>${actualName !== cname ? ` <small class="text-muted">(snapshot: ${utils.escapeHtml(cname)})</small>` : ''} — id <small>${utils.escapeHtml(String(campaignId).slice(0, 8))}…</small></strong><br>
-                    Excel TPOS có <strong>${totalSTTsInExcel}</strong> STT · Quét <strong>${totalRecordsHit}</strong> upload chạm chiến dịch · Đối soát <strong>${totalChecked}</strong> bản ghi →
+                    <strong><i class="fas fa-${droppedCount > 0 ? 'exclamation-triangle' : 'check-circle'}"></i> ${headTitle} — id ${headIds}</strong><br>
+                    Excel TPOS gồm <strong>${excelTotalSTTs}</strong> STT · Quét <strong>${totalRecordsHit}</strong> upload chạm ${resolved.length > 1 ? 'nhóm' : 'chiến dịch'} · Đối soát <strong>${totalChecked}</strong> bản ghi →
                     <span class="text-success">✅ ${totalMatched} khớp</span> ·
-                    <span class="text-danger">❌ ${droppedCount} TPOS không có</span>
+                    <span class="text-danger">❌ ${droppedCount} TPOS không có</span>${failedNote}
                 </div>`;
 
                 if (droppedCount === 0) {
                     out.innerHTML =
                         headHtml +
-                        `<div class="alert alert-success small mb-0">Tất cả sản phẩm trong chiến dịch này đã upload thành công lên TPOS. 🎉</div>`;
+                        `<div class="alert alert-success small mb-0">Tất cả sản phẩm trong ${resolved.length > 1 ? 'nhóm chiến dịch' : 'chiến dịch'} này đã upload thành công lên TPOS. 🎉</div>`;
                     return;
                 }
 
@@ -1480,10 +1593,15 @@
                                 <td><strong>${utils.escapeHtml(code)}</strong><div class="small text-muted">${utils.escapeHtml(info.productName)}</div></td>
                                 <td class="text-center"><span class="badge bg-danger">${info.items.length}</span></td>
                                 <td class="small">${info.items
-                                    .map(
-                                        (d) =>
-                                            `<span class="badge bg-light text-dark me-1 mb-1" style="border: 1px solid #dc3545;" title="${utils.escapeHtml(d.recordTs)}">#${utils.escapeHtml(d.recordShortId)} → ❌ ${utils.escapeHtml(d.stt)}</span>`
-                                    )
+                                    .map((d) => {
+                                        // Khi gộp nhiều chiến dịch, hiển thị tag campaign để biết STT thuộc đâu.
+                                        const campaignTag =
+                                            resolved.length > 1 && d.fromCampaign
+                                                ? `<small class="text-muted me-1">[${utils.escapeHtml(extractTypePrefix(d.fromCampaign, extractDate(d.fromCampaign)))}]</small>`
+                                                : '';
+                                        const titleAttr = `${d.recordTs}${d.fromCampaign ? ' · ' + d.fromCampaign : ''}`;
+                                        return `<span class="badge bg-light text-dark me-1 mb-1" style="border: 1px solid #dc3545;" title="${utils.escapeHtml(titleAttr)}">${campaignTag}#${utils.escapeHtml(d.recordShortId)} → ❌ ${utils.escapeHtml(d.stt)}</span>`;
+                                    })
                                     .join('')}</td>
                             </tr>`
                             )

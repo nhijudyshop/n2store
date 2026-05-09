@@ -8,6 +8,43 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Bulk recon — gộp STORE+HOUSE cùng ngày thành 1 option (KPI/overview pattern)
+
+User: "cùng ngày của store và house -> gộp lại như bên kpi hoa hồng".
+
+**Pattern reuse**: `overview-fetch.js` `extractDateFromCampaignName` regex `/(\d{1,2}\/\d{1,2}\/\d{4})/` rồi `fetchCampaignsFromTPOS(dateFilter)` query OData `?$filter=contains(Name,'30/12/2025')` → trả TẤT CẢ chiến dịch cùng ngày → fetch Excel cho từng campaignId rồi combine.
+
+**Apply** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `reconcileAllInCampaignV2`):
+
+1. **Group by date**: extract `dd/mm/yyyy` từ campaign name → các chiến dịch cùng ngày (vd `STORE 30/03/2026` + `HOUSE 30/03/2026`) đi vào 1 picker entry với `value: "__date__:30/03/2026"`, `members: [name1, name2]`. Solo campaign hoặc không có date → giữ option riêng.
+2. **Label** option gộp: `📅 30/03/2026 [HOUSE+STORE] — 44 upload, 198 STT (gộp 2)` — extract type prefix bằng cách strip date khỏi name. Standalone giữ format cũ.
+3. **Run handler**:
+    - Resolve campaignId cho TỪNG member parallel (qua orderId mẫu, fallback name lookup).
+    - Fetch Excel parallel cho mỗi resolved campaign → build `sttToCodesByCampaign: Map<cname, Map<sttStr, Set<codeUpper>>>` (partition theo cname vì STT chỉ unique trong scope 1 campaign).
+    - Walk records: cho mỗi (sttItem) có `cname ∈ memberCnameSet`, lookup ĐÚNG Excel của campaign đó (`sttToCodesByCampaign.get(recCname).get(stt)`) → cross-check productCode.
+    - Skip campaign nào fetch fail, list ra dưới `failed` notice.
+4. **Display**: header alert `"Chiến dịch gộp 2: HOUSE 30/03/2026 + STORE 30/03/2026 — id <8char> · <8char>"`. Drop badge có tag `[HOUSE]`/`[STORE]` để biết STT thuộc campaign nào.
+
+**Verify** ([scripts/verify-tab3-bulk-merged.mjs](../scripts/verify-tab3-bulk-merged.mjs)) trên active = "STORE 30/03/2026":
+
+- Picker default = `📅 30/03/2026 [HOUSE+STORE] — 44 upload, 198 STT (gộp 2) 👀 đang xem` ✓
+- Top 5 picker entries đều là gộp 2 (30/03, 12/04, 01/04, 22/03, 15/04) — confirm pattern phổ biến ✓
+- Auto-run → 18ms render: `Chiến dịch gộp 2: HOUSE 30/03/2026 + STORE 30/03/2026 — id 215757aa… · b2a4dcc6… Excel TPOS gồm 173 STT · Quét 27 upload · Đối soát 198 bản ghi → ✅ 181 khớp · ❌ 17 TPOS không có` ✓
+- Sample drop: `B905 [HOUSE]#46038765 → ❌ 102` — tag `[HOUSE]` rõ ràng ✓
+
+**So sánh** trước-sau:
+
+| Mode                  | Upload | Bản ghi | Drops  | Time  |
+| --------------------- | ------ | ------- | ------ | ----- |
+| Trước (chỉ STORE)     | 23     | 110     | 9      | 698ms |
+| Sau (gộp HOUSE+STORE) | **27** | **198** | **17** | ~1s   |
+
+→ User chỉ cần 1 click (hoặc 0-click với auto-run khi active) là cover full ngày, không phải đối soát STORE rồi đối soát HOUSE riêng.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders][tab3] Bulk recon auto-pick chiến dịch đang xem (KPI tab pattern)
 
 User: "coi tab kpi hoa hồng cách nó tải excel theo chiến dịch đang chọn làm theo và đối soát tất cả".
