@@ -8,6 +8,41 @@
 
 ## 2026-05-09
 
+### [aikol][kling] Multi-image2video face-swap VERIFIED end-to-end với Kling API Resource Pack
+
+**Tiếp 08/05** sau khi user mua Trial Resource Pack ($9.8 → 100 units, 30-day) — verified Kling face-swap thực sự hoạt động:
+
+**Verified live** (commit 04eaf718):
+
+- Job `ccb893ee-65a6-400e-a4cf-f54cbbfa046b` (Hạnh 4 + clip 34, multi-image2video kling-v1-6, 5s std):
+    - state: done sau **103 giây** (1m43s)
+    - external_id: `882000498562306068` (Kling task ID)
+    - kind_key: `multi-image2video`
+    - **Output MP4: 3.57 MB** tại `aikol/outputs/ccb893ee-...-0.mp4` ✅ HTTP 200
+- Cost: 40 cr ≈ 13.320 ₫ (no Gemini compose — saved 8cr vs Veo path)
+- Pipeline: 1 step (Kling tự handle identity + scene), không cần compose tmp file
+- Real Kling API consumption: ~3 units (5s × 0.6 std no-audio)
+
+**So sánh Kling vs Veo path** (gen 17671477 trước đó):
+
+|                | Kling multi-image2video            | Veo 2.0 + Gemini compose     |
+| -------------- | ---------------------------------- | ---------------------------- |
+| Steps          | 1                                  | 2 (compose + animate)        |
+| Time           | 103s                               | 62s                          |
+| Output size    | 3.57 MB                            | 1.05 MB                      |
+| Cost           | 40 cr                              | 88 cr                        |
+| Identity match | Native multi-image (Kling tự ghép) | Gemini compose → Veo animate |
+
+Kling rẻ hơn 50% + chất lượng video lớn hơn (3.5x size = bitrate cao hơn). Default engine giờ chính là Kling.
+
+**Pricing reference từ Kling docs** (https://kling.ai/dev/pricing):
+
+- std × 1s × no audio = 0.6 units = $0.084
+- Multi-image2video: chỉ kling-v1-6 hỗ trợ
+- Resource pack: Trial $9.8 → 100 units (30% off) → ~$0.098/unit, hoặc Standard $700 → 5K units
+
+**Important**: Kling **API Resource Pack ≠ web subscription Pro plan**. User Pro plan trên klingai.com (creative studio) KHÔNG cấp credits cho API. Phải mua Resource Pack riêng tại kling.ai/dev/pricing.
+
 ### [orders][tab3] Auto-reconcile sau upload + badge "khớp TPOS" / "SP rớt" trong history list
 
 User: "khi gán sản phẩm upload tpos xong -> thành công -> thì chạy đối soát cho đơn đó và badge vào lịch sử luôn".
