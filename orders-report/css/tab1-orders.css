@@ -114,6 +114,18 @@ body {
     scrollbar-gutter: stable;
 }
 
+/* Lock outer order-table scroll while chat modal is open. Prevents browser
+   auto-scroll side-effects (focus(), scrollIntoView, image-load reflow) from
+   shifting the table behind the modal — race owner reported: "lâu lâu nó sẽ
+   scroll bảng ở ngoài luôn" khi chat modal auto-scroll xuống cuối.
+   `pointer-events: none` chặn cả wheel/touch trên bảng — modal vẫn nổi trên
+   nên close button + UI bên trong vẫn click được. */
+body.chat-modal-open .table-wrapper,
+body.chat-modal-open .table-container {
+    overflow: hidden !important;
+    pointer-events: none;
+}
+
 .table {
     width: 100%;
     border-collapse: collapse;

@@ -321,6 +321,25 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
 
+    // Lock outer table scroll: snapshot scrollTop of every scrollable container
+    // BEHIND the modal so we can restore it on close. Race seen: chat modal's
+    // _scrollChatToBottom() uses focus()/scrollTop on chat messages — when an
+    // image inside a message loads, the resulting reflow occasionally bubbles
+    // a scroll up to the order table-wrapper (which has its own
+    // overflow:auto + max-height:600px), shifting the page behind the modal.
+    // Owner-reported flake: "lâu lâu nó sẽ scroll bảng ở ngoài luôn".
+    //
+    // Strategy: add `body.chat-modal-open` class → CSS pins outer scroll
+    // containers to overflow:hidden+pointer-events:none. Save scrollTop before
+    // lock so closeChatModal can restore the user's exact prior position.
+    document.body.classList.add('chat-modal-open');
+    const _scrollLockTargets = document.querySelectorAll('.table-wrapper, .table-container');
+    window._chatModalScrollSnapshot = Array.from(_scrollLockTargets).map((el) => ({
+        el,
+        top: el.scrollTop,
+        left: el.scrollLeft,
+    }));
+
     // Click outside modal content to close
     modal.onclick = function (e) {
         if (e.target === modal) window.closeChatModal();
@@ -554,6 +573,25 @@ window.closeChatModal = function () {
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
+
+    // Release outer-scroll lock + restore user's prior scrollTop on the order
+    // table-wrapper (and any other snapshotted scrollable container). Restore
+    // BEFORE removing the class so the browser doesn't paint an intermediate
+    // shifted state.
+    if (Array.isArray(window._chatModalScrollSnapshot)) {
+        for (const snap of window._chatModalScrollSnapshot) {
+            try {
+                if (snap.el && snap.el.isConnected) {
+                    snap.el.scrollTop = snap.top;
+                    snap.el.scrollLeft = snap.left;
+                }
+            } catch (_e) {
+                /* ignore */
+            }
+        }
+        window._chatModalScrollSnapshot = null;
+    }
+    document.body.classList.remove('chat-modal-open');
 
     // Stop chat polling
     _stopChatPolling();
