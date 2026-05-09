@@ -863,6 +863,14 @@
                 console.warn(`[UPLOAD] Verify error for STT ${stt}:`, e);
             }
 
+            // Bao gồm liveCampaignName vào result để post-upload reconcile
+            // có thể group + fetch Excel TPOS đúng campaign mà không cần
+            // re-fetch order.
+            const liveCampaignName =
+                sessionData.orderInfo?.liveCampaignName ||
+                sessionData.orderInfo?.LiveCampaignName ||
+                '';
+
             if (missingProducts.length > 0) {
                 const codes = missingProducts.map((p) => p.productCode).join(', ');
                 const errMsg = `TPOS không lưu sản phẩm sau PUT (silent drop): ${codes}`;
@@ -874,6 +882,7 @@
                     error: errMsg,
                     existingProducts: existingProducts,
                     missingProducts: missingProducts,
+                    liveCampaignName,
                 };
             }
 
@@ -886,6 +895,7 @@
                 orderId: orderId,
                 error: null,
                 existingProducts: existingProducts,
+                liveCampaignName,
             };
         } catch (error) {
             console.error(`[UPLOAD] Error uploading STT ${stt}:`, error);
