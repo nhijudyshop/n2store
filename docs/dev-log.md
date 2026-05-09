@@ -8,6 +8,42 @@
 
 ## 2026-05-09
 
+### [orders][tab3] Bulk recon — quét all-users (90 ngày) độc lập với UI filter
+
+User: "hiện tại là tháng 5 và chiến dịch mới nhất là 09/05/2026 mà??".
+
+**Root cause** ([scripts/probe-may-uploads.mjs](../scripts/probe-may-uploads.mjs)): bulk recon trước đây dùng `uploadHistoryRecordsV2` đã bị filter bởi UI dropdown "Lịch sử của tôi" (default). DB có 164 May uploads nhưng đa số do user `guest` (158 records); user đăng nhập (admin trong test) chỉ có 0 records May → picker không thấy.
+
+**Fix** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `_loadAllRecentRecordsForRecon`):
+
+- Bulk recon bây giờ scan trực tiếp Firebase `productAssignments_v2_history`, **all users**, last 90 ngày, mỗi lần click "Đối soát toàn chiến dịch".
+- Independent với filter UI của list.
+- Show progress message "Đang tải toàn bộ history (90 ngày, all users)…" trong khi fetch.
+
+**Verify** ([scripts/verify-tab3-bulk-newest.mjs](../scripts/verify-tab3-bulk-newest.mjs)):
+
+```
+Top 10 picker (login admin, không broadcast active):
+  1. 📅 06/05/2026 [STORE+HOUSE] — 66 upload, 774 STT (gộp 2)  ← MỚI NHẤT
+  2. 📅 03/05/2026 [STORE+HOUSE] — 216 upload, 1356 STT
+  3. 📅 26/04/2026 [HOUSE+STORE] — 165 upload
+  4. 📅 23/04/2026 [HOUSE+STORE]
+  5. 📅 19/04/2026
+  6. 📅 15/04/2026 — 189 upload, 1482 STT
+  7. 📅 12/04/2026
+  8. 📅 09/04/2026
+  9. 📅 04/04/2026
+ 10. 📅 01/04/2026
+
+VERDICT: ✅ PASS — non-increasing date order, all-user data
+```
+
+Trước đây admin chỉ thấy max 23/04/2026 (admin không có May uploads); giờ thấy đủ tới 06/05 (chiến dịch mới nhất có trong DB). Khi có upload đến 09/05 thì picker tự auto-default sang đó.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders][tab3] Bulk recon picker — chiến dịch mới nhất lên đầu
 
 User: "hiện chiến dịch mới nhất lên".

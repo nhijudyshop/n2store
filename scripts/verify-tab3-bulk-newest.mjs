@@ -26,7 +26,12 @@ await page.evaluate(() => window.openUploadHistoryV2Modal());
 await page.waitForTimeout(4000);
 
 await page.click('#reconcileAllCampaignBtn');
-await page.waitForTimeout(1500);
+// Bulk recon now does a Firebase scan (90d, all users) before picker renders.
+await page.waitForFunction(
+    () => !!document.getElementById('bulkReconCampaignSelect'),
+    { timeout: 30000 }
+).catch(() => {});
+await page.waitForTimeout(500);
 
 const pickerInfo = await page.evaluate(() => {
     const sel = document.getElementById('bulkReconCampaignSelect');

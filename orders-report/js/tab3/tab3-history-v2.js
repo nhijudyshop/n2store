@@ -1262,17 +1262,56 @@
         if (el) el.innerHTML = html;
     }
 
+    // Quét Firebase TẤT CẢ users (last `daysBack` ngày) → trả flat array records.
+    // Bulk recon độc lập với filter UI; nếu chỉ dùng `uploadHistoryRecordsV2`
+    // (theo filter "Lịch sử của tôi"), những chiến dịch user khác upload sẽ
+    // không xuất hiện trong picker. User cần thấy mọi chiến dịch active gần đây
+    // bất kể ai đã chạy upload.
+    async function _loadAllRecentRecordsForRecon(daysBack = 90) {
+        const cutoff = Date.now() - daysBack * 24 * 3600 * 1000;
+        const tree =
+            (await database.ref('productAssignments_v2_history').once('value')).val() || {};
+        const out = [];
+        for (const [uid, recs] of Object.entries(tree)) {
+            if (!recs || typeof recs !== 'object') continue;
+            for (const [fk, rec] of Object.entries(recs)) {
+                if (!rec || typeof rec !== 'object') continue;
+                const ts = rec.timestamp || 0;
+                if (ts < cutoff) continue;
+                out.push({
+                    ...rec,
+                    userId: uid,
+                    firebaseKey: fk,
+                });
+            }
+        }
+        out.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        return out;
+    }
+
     window.reconcileAllInCampaignV2 = async function () {
-        if (!uploadHistoryRecordsV2 || uploadHistoryRecordsV2.length === 0) {
+        _setBulkReconStatus(
+            `<div class="text-muted small p-3"><i class="fas fa-spinner fa-spin"></i> Đang tải toàn bộ history (90 ngày, all users) để soi tất cả chiến dịch…</div>`
+        );
+        let allRecords;
+        try {
+            allRecords = await _loadAllRecentRecordsForRecon(90);
+        } catch (e) {
             _setBulkReconStatus(
-                `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Chưa load history. Đợi list xong rồi thử lại.</div>`
+                `<div class="alert alert-danger">Lỗi tải history: ${utils.escapeHtml(e.message || String(e))}</div>`
+            );
+            return;
+        }
+        if (allRecords.length === 0) {
+            _setBulkReconStatus(
+                `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy upload history nào trong 90 ngày qua.</div>`
             );
             return;
         }
 
-        // Collect unique campaign names + sample orderId từ records visible.
+        // Collect unique campaign names + sample orderId từ ALL records (90d, all users).
         const campaignStats = new Map();
-        for (const record of uploadHistoryRecordsV2) {
+        for (const record of allRecords) {
             const sttOrderId = new Map();
             (record.uploadResults || []).forEach((r) => {
                 if (r.orderId) sttOrderId.set(String(r.stt), r.orderId);
@@ -1518,7 +1557,7 @@
                 let totalMatched = 0;
                 let totalRecordsHit = 0;
 
-                for (const record of uploadHistoryRecordsV2) {
+                for (const record of allRecords) {
                     const recordShortId = (record.firebaseKey || record.uploadId || '').slice(-8);
                     const recordTs = record.timestamp
                         ? new Date(record.timestamp).toLocaleString('vi-VN')
