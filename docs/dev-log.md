@@ -8,6 +8,43 @@
 
 ## 2026-05-08
 
+### [orders][tab3][fix] Đối soát Excel — sửa parse STT: dùng cột `###` (SessionIndex) thay vì `STT` (row counter)
+
+User browser-test lại nút Đối Soát → kết quả lúc đầu trả `0 khớp · 31 không có · 3 không kiểm được` cho upload #32240280. Trông sai (vì lần fix trước đó chỉ confirm B914→STT 157 missing, không phải toàn bộ).
+
+**Sanity check** ([scripts/sanity-check-recon.mjs](../scripts/sanity-check-recon.mjs) — direct OData GET cho 6 sample (STT, product) đã bị flag là rớt):
+
+- STT 87 / B1895D, STT 48 / B914, STT 6 / B914, STT 33 / B914, STT 53 / B1907S → TPOS thực tế **CÓ** sản phẩm. Chỉ STT 47 / B1907M là true positive.
+- ⇒ Reconcile đang false-positive 5/6 spot checks.
+
+**Inspect Excel** ([scripts/inspect-excel-rows.mjs](../scripts/inspect-excel-rows.mjs)):
+
+- TPOS Excel header (row 3): `STT, ###, Kênh, Mã, Facebook, Email, Tên, ..., Sản phẩm, ...`
+- **Cột `STT`** (column 1) = row counter 1..N (chỉ là số dòng trong báo cáo). Excel STT=33 trỏ đến order `Mã 260501294 — Như Hạnh Dương Tâm` với `[B1898D]` — không liên quan tới SessionIndex 33.
+- **Cột `###`** (column 2) = SessionIndex thực của order. Excel STT=87 có `###: 247`, STT=48 có `###: 388`, …
+
+→ Bug: parser dùng `sampleKeys.find((k) => /STT/i.test(k))` → match cột "STT" (row counter) → mọi (stt, product) đều mismatch trừ khi SessionIndex tình cờ = row index.
+
+**Fix** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js) `_fetchCampaignExcel`):
+
+```js
+const sttKey =
+    sampleKeys.find((k) => k === '###') ||
+    sampleKeys.find((k) => /Số\s*thứ\s*tự|SessionIndex/i.test(k)) ||
+    sampleKeys[1] ||
+    sampleKeys[0]; // fallback: column index 1
+```
+
+**Verify** ([scripts/verify-tab3-reconcile.mjs](../scripts/verify-tab3-reconcile.mjs)):
+
+- Đối soát 34 bản ghi → **✅ 31 khớp · ❌ 3 TPOS không có**
+- 3 silent drops thực sự: **B914 → STT 157** (user's original bug), **B1907M → STT 47**, **B1907L → STT 178**.
+- Match với sanity-check OData direct: STT 47 / B1907M `tposHasExpected: false` ✓
+
+**Status**: ✅ Fixed — parser column resolution sai → 100% false-positive trước đó. Giờ kết quả khớp với reality.
+
+---
+
 ### [orders][tab3] Đối soát Excel TPOS trong Lịch Sử Upload — soi sản phẩm bị rớt sau khi upload
 
 User: thêm tính năng "check lại" cho tab Gán Tag Sản Phẩm, học cách KPI tab tải Excel TPOS để biết product nào bị rớt.

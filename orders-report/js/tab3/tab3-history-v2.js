@@ -1062,12 +1062,16 @@
         // Skip 2 title rows (giống overview-fetch.js).
         const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
         const sttToCodes = new Map();
-        // Cố gắng tìm cột STT + cột Sản phẩm — TPOS đôi khi đổi tên cột.
+        // Cột STT thực = SessionIndex của order. TPOS Excel header là `###`
+        // (cột thứ 2). Cột "STT" (cột 1) chỉ là row counter 1..N — KHÔNG phải
+        // SessionIndex; trước đây dùng nhầm cột này → 0 khớp khi đối soát.
         const sampleKeys = rows.length ? Object.keys(rows[0]) : [];
         const sttKey =
-            sampleKeys.find((k) => /STT/i.test(k) && !/sản phẩm/i.test(k)) ||
-            sampleKeys.find((k) => /Số\s*thứ\s*tự|Index|SessionIndex/i.test(k)) ||
-            'STT';
+            sampleKeys.find((k) => k === '###') ||
+            sampleKeys.find((k) => /Số\s*thứ\s*tự|SessionIndex/i.test(k)) ||
+            // Fallback: nếu TPOS đổi format, ưu tiên cột thứ 2 (vị trí ###).
+            sampleKeys[1] ||
+            sampleKeys[0];
         const productKey =
             sampleKeys.find((k) => /sản\s*phẩm/i.test(k)) ||
             sampleKeys.find((k) => /Product/i.test(k)) ||
