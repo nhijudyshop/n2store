@@ -8,6 +8,32 @@
 
 ## 2026-05-10
 
+### [orders][bill] Chat modal Gửi Bill — fallback Extension khi bị 24h Pancake policy + fix signature bug
+
+**Yêu cầu owner**: "nếu bị 24h gửi bằng extension".
+
+**Audit hiện tại**: `BillService.sendBillToCustomer` đã có 2 fallback paths:
+
+- **Late fallback** (line 1528-1642): khi Pancake API trả `e_code=10/e_subcode=2018278` (24h policy) hoặc `e_code=551` (#551 user unavailable) → call `sendImagesViaExtension([billImageFile], null, extConv)` (correct signature) → also send CAMON image+text qua extension.
+- **Early fallback** (line 1447): khi không tìm được `convId` → had a SIGNATURE BUG: gọi `sendImagesViaExtension(pageId, psid, [billImageFile])`. Real signature là `(images, text, conv)` → `pageId` (string) bị iterate như array → `uploadImageViaExtension` crash với từng ký tự pageId.
+
+**Fix** ([orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js)):
+
+- Early fallback: rebuild đúng `conv = { pageId, psid, conversationId: null, _raw: { from_psid }, customers: [], customerName from orderResult, type: 'INBOX' }` rồi `sendImagesViaExtension([billImageFile], null, conv)`. Trả `viafallback: true`.
+- [tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js): khi `sendResult.viafallback === true`, notification show "Đã gửi bill qua Extension (24h/Pancake fallback)" thay vì "Đã gửi bill cho khách" — user biết đường nào được dùng.
+
+**Tests** (browser, T6 DEAL XINH, mock Pancake API trả 24h error):
+
+- ✅ `mockedSendInbox: 1` — gọi Pancake API trước (đúng flow).
+- ✅ Pancake API trả `e_code=10, e_subcode=2018278` → `sendBillFromChat` chạy tiếp xuống late-fallback path.
+- ✅ `extensionInvoked: true` — extension fallback fired.
+- ✅ `extConvUsed`: hasPageId, hasPsid, hasConvId, hasCustomerName, type=INBOX, imageCount=1, hasText=true (CAMON image+text). Cả bill image + CAMON đều qua extension.
+- ✅ 0 console errors.
+
+Status: ✅ Done (commit `3b4ea3ac`).
+
+---
+
 ### [orders] Fix nút Gửi Bill trong chat modal — bill bị thiếu sản phẩm
 
 **Bug owner báo**: "nút gửi bill trong modal chat inbox nó không lấy sản phẩm vào bill".
