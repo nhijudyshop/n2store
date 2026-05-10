@@ -8,6 +8,30 @@
 
 ## 2026-05-10
 
+### [orders] Fix nút Gửi Bill trong chat modal — bill bị thiếu sản phẩm
+
+**Bug owner báo**: "nút gửi bill trong modal chat inbox nó không lấy sản phẩm vào bill".
+
+**Root cause**: `sendBillFromChat` ([tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)) gọi thẳng `BillService.sendBillToCustomer(invoiceData, ...)` mà không qua `ensureOrderLinesForBill` resolver. Trong khi `sendBillFromMainTable` thì có. Hậu quả: với invoices được store với `OrderLines: []` (đơn cũ chưa refetch), bill image render với 0 sản phẩm.
+
+Repro verified: order `595b0000-…` (code `260501563`) trong store có `hasOrderLines: true, orderLinesCount: 0` — đúng case bug.
+
+**Fix**:
+
+- Expose `window.ensureOrderLinesForBill` từ [tab1-fast-sale-invoice-status.js](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) (helper trước đây module-private).
+- `sendBillFromChat` check `OrderLines.length === 0` → call `ensureOrderLinesForBill({ orderId, invoiceData, order, opts: { label: 'CHAT-BILL' } })` → resolver chạy chain: cache → `OrderStore.Details` → TPOS GetDetails refetch (last resort) → persist back vào InvoiceStatusStore.
+- Re-read `invoiceData` sau resolver để có OrderLines mới merged.
+- Nếu vẫn rỗng (TPOS refetch fail) → block với error notification thay vì gửi bill rỗng.
+
+**Tests** (browser, T6 DEAL XINH):
+
+- ✅ Direct call `ensureOrderLinesForBill(...)` cho order code 260501563: trước=0 lines, sau=1 line `[B1962H] 0805 B48 ÁO KHOÁC NÓN TAP CHỮ C` qty=1 price=260000. Persisted vào store.
+- ✅ Full `sendBillFromChat` flow với mocked `sendBillToCustomer`: captured `invoiceOrderLines: 1`, sample product name match. 0 console errors.
+
+Status: ✅ Done (auto-commits `cf4377c2` + `ec30e9a0`).
+
+---
+
 ### [orders] STT expand fast-path — render từ report snapshot (instant) + background OData refresh
 
 **Yêu cầu owner**: "đọc bên KPI HOA HỒNG lấy được danh sách sản phẩm theo excel đó → phần expand sản phẩm này lấy theo excel đó cho nhanh được không? → mà phải đảm bảo dữ liệu phải mới và cập nhật liên tục".
