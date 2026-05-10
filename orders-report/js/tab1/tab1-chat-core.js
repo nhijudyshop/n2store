@@ -883,9 +883,17 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         //   - cùng tên + khác SĐT → homonym, từ chối
         const _normPhone = (p) => (p == null ? '' : String(p).replace(/\D/g, '').replace(/^0/, ''));
         const customerPhoneNorm = _normPhone(customerPhone);
+        // Returns:
+        //   true   — conv has phone meta and one matches customerPhone
+        //   false  — conv has phone meta but NONE matches (likely homonym → reject)
+        //   null   — uncertain (no customerPhone, OR conv has empty phone pool)
+        // Bug fix (2026-05-10): old version returned `false` for empty pool, conflating
+        // "no phone info" with "different phone" → rejected legitimate convs whose
+        // phone simply hadn't been captured on the target page yet.
         const _convHasPhone = (c) => {
             if (!customerPhoneNorm) return null;
             const pool = [].concat(c.recent_phone_numbers || []).concat(c.phone_numbers || []);
+            if (pool.length === 0) return null; // empty pool = uncertain, not "different"
             for (const item of pool) {
                 const raw = typeof item === 'string' ? item : item?.phone_number || item?.captured;
                 if (_normPhone(raw) === customerPhoneNorm) return true;
@@ -900,27 +908,78 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     ?.normalize('NFD')
                     .replace(/[\u0300-\u036f]/g, '')
                     .toLowerCase()
+                    .replace(/[\s\-_]+/g, ' ')
                     .trim() || '';
-            const _nameMatch = (a, b) => a && b && (a === b || _strip(a) === _strip(b));
+            // Bug fix (2026-05-10): order-row .customer-name may include suffixes
+            // (e.g. "Hu\u1ef3nh Th\u00e0nh \u0110\u1ea1t - BOOM" \u2014 order tag), but Pancake conv name
+            // is the bare customer name ("Hu\u1ef3nh Th\u00e0nh \u0110\u1ea1t"). Strict equality
+            // rejected the match. Accept substring containment in either direction
+            // \u2014 the search query is already the Pancake-side customerName so
+            // homonym risk is bounded by phone verification below.
+            const _nameMatch = (a, b) => {
+                if (!a || !b) return false;
+                const sa = _strip(a);
+                const sb = _strip(b);
+                if (!sa || !sb) return false;
+                return sa === sb || sa.includes(sb) || sb.includes(sa);
+            };
 
             if (pdm.searchConversations) {
-                const searchResult = await pdm.searchConversations(customerName, {
+                // Strip order-tag suffix " - <X>" from the search query — order rows often
+                // display "Huỳnh Thành Đạt - BOOM" but Pancake stores the bare FB name
+                // ("Huỳnh Thành Đạt"). Searching with the suffix yields 0 hits.
+                // Owner repro 2026-05-10: 0123456788 → switch to Store → empty state.
+                const _bareSearchName = (n) => {
+                    if (!n) return '';
+                    // Cut at first " - " (with surrounding spaces) — preserves names that
+                    // legitimately have a dash in them (e.g. "Anne-Marie") since those
+                    // typically don't have spaces around the dash.
+                    const idx = n.indexOf(' - ');
+                    return (idx > 0 ? n.substring(0, idx) : n).trim();
+                };
+                const searchQuery = _bareSearchName(customerName) || customerName;
+                let searchResult = await pdm.searchConversations(searchQuery, {
                     signal: opts?.signal,
                 });
-                const onTargetPage = (searchResult.conversations || []).filter(
+                let onTargetPage = (searchResult.conversations || []).filter(
                     (c) =>
                         String(c.page_id) === String(pageId) &&
                         _nameMatch(c.from?.name, customerName)
                 );
+                // If bare-name search returned nothing on target page, retry with raw
+                // customerName (some customers may have legit suffixes in their name).
+                if (onTargetPage.length === 0 && searchQuery !== customerName) {
+                    searchResult = await pdm.searchConversations(customerName, {
+                        signal: opts?.signal,
+                    });
+                    onTargetPage = (searchResult.conversations || []).filter(
+                        (c) =>
+                            String(c.page_id) === String(pageId) &&
+                            _nameMatch(c.from?.name, customerName)
+                    );
+                }
                 if (customerPhoneNorm) {
-                    // Strict: phone must match (loại homonym). Search meta có thể chưa load
-                    // phone → fetch chi tiết qua fetchConversationsByCustomerFbId để verify.
+                    // Verify identity by phone:
+                    //   • true  → confirmed → accept
+                    //   • false → mismatch → reject (homonym)
+                    //   • null  → uncertain (no phone on conv); fetch detail; if detail
+                    //            still uncertain, accept best-effort (name match alone).
+                    // Owner repro 2026-05-10: "0123456788 → đổi qua page Store xem
+                    // debug lỗi sao không có đoạn hội thoại". Search returned 2 convs by
+                    // name (INBOX + COMMENT) on Store, but phone meta empty → previously
+                    // rejected. Now accepted as best-effort.
                     const verified = [];
                     for (const c of onTargetPage) {
-                        if (_convHasPhone(c) === true) {
+                        const initialCheck = _convHasPhone(c);
+                        if (initialCheck === true) {
                             verified.push(c);
                             continue;
                         }
+                        if (initialCheck === false) {
+                            // Phone confirmed mismatched → homonym, skip.
+                            continue;
+                        }
+                        // initialCheck === null (uncertain) — fetch detail to try harder.
                         const fbId = c.from_psid || c.from?.id;
                         if (!fbId) continue;
                         try {
@@ -932,7 +991,16 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                             const detail = (detailRes.conversations || []).find(
                                 (d) => String(d.id) === String(c.id)
                             );
-                            if (detail && _convHasPhone(detail) === true) verified.push(detail);
+                            const detailCheck = detail ? _convHasPhone(detail) : null;
+                            if (detailCheck === true) {
+                                verified.push(detail);
+                            } else if (detailCheck === null) {
+                                // Still uncertain → accept best-effort. Same name +
+                                // same target page is a strong-enough signal when no
+                                // phone exists to verify against.
+                                verified.push(detail || c);
+                            }
+                            // detailCheck === false → reject (mismatch confirmed).
                         } catch (_) {}
                     }
                     foundConvs = verified;
