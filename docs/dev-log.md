@@ -8,6 +8,42 @@
 
 ## 2026-05-10
 
+### [orders] STT expand fast-path — render từ report snapshot (instant) + background OData refresh
+
+**Yêu cầu owner**: "đọc bên KPI HOA HỒNG lấy được danh sách sản phẩm theo excel đó → phần expand sản phẩm này lấy theo excel đó cho nhanh được không? → mà phải đảm bảo dữ liệu phải mới và cập nhật liên tục".
+
+**Trước**: mỗi click STT → fetch OData `SaleOnline_Order(<UUID>)?$expand=Details` (~200-500ms / call). Spinner hiển thị, user phải chờ. Mở nhiều STT = nhiều round-trip mạng.
+
+**Sau** ([orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js)):
+
+**Source priority cho product detail**:
+
+1. `_productDetailCache` — recent OData fetch trong session.
+2. **`_reportDetailsByOrderId`** — snapshot tải 1 lần / chiến dịch từ PostgreSQL `report_orders_v2` qua `CampaignAPI.getReport(tableName)` (cùng dữ liệu mà tab KPI HOA HỒNG dùng; populate khi user mở "Báo Cáo Tổng Hợp"). Synchronous lookup, no per-click network.
+3. OData fallback (chỉ khi cả 2 cache miss).
+
+**Bridge ID schemas**: live OData dùng UUID `Id` (`595b0000-…`) trong khi report dùng `Code` (`260501563`) làm Id. Lookup Code qua `window.allData.find(o => o.Id === orderId).Code` rồi query map bằng `codeKey`.
+
+**Freshness guarantee** ("phải đảm bảo dữ liệu phải mới"): sau khi render từ snapshot, LUÔN fire `_refreshOrderDetailsBackground(orderId)` — silent OData fetch + `_detailsEqual()` deep compare → chỉ update DOM khi data thật sự khác. User vừa thấy instant render, vừa được auto-cập-nhật ~200ms sau nếu snapshot stale.
+
+**Stock cell deferred**: snapshot có thể render trước khi `_detailStockMap` load xong → render một lần với hasStock=false, sau đó re-render khi stock arrives.
+
+**Hooks pre-load** snapshot khi user chọn / đổi chiến dịch:
+
+- [tab1-init.js:continueAfterCampaignSelect](../orders-report/js/tab1/tab1-init.js) — sau handleSearch, call invalidate + preload.
+- [tab1-search.js:handleCampaignChange](../orders-report/js/tab1/tab1-search.js) — tương tự khi user đổi dropdown filter.
+
+**Tests verified** (browser, T6 DEAL XINH 704 orders):
+
+- ✅ Snapshot loaded: 704 orders với Details qua `CampaignAPI.getReport`.
+- ✅ 1st click STT → render trong **2ms**, no spinner, table populated. Trước đây ~200-500ms với spinner.
+- ✅ 3 subsequent clicks (STT 10/20/30) → 78-93ms each (chi phí DOM mutation, không network).
+- ✅ Background OData fires đúng 1 lần / click → silent refresh path verified qua fetch spy.
+
+Status: ✅ Done (commit `e44f525b`).
+
+---
+
 ### [aikol] Default sang CF FLUX (FREE) — Gemini ẩn khỏi UI nhưng giữ làm fallback
 
 User: "B" sau khi tôi đề xuất giữ Gemini làm safety net thay vì xóa hẳn (rủi ro CF free 10K neurons/day quota exceeded → mất gen nếu không có fallback).
