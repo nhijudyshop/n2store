@@ -8,6 +8,26 @@
 
 ## 2026-05-10
 
+### [aikol][render] Cloudflare Workers AI — env vars set live, Workers AI scoped token created via Global API key
+
+User: "bạn vào cloudflare coi luôn đi có key và gmail rồi mà" + email `nhijudyshop@gmail.com`.
+
+**Approach**: Cloudflare Global API key (`f9cbd...`) không gọi được Workers AI trực tiếp (Bearer fail "Invalid format" 6111). Thay vào đó dùng Global key + email với `X-Auth-Email + X-Auth-Key` headers để:
+
+1. `GET /accounts` → Account ID `27170a8625bb696ad1c253e6b221f59e` (Nhijudyshop@gmail.com's Account).
+2. `GET /user/tokens/permission_groups` → ID Workers AI Read `a92d2450...`, Workers AI Write `bacc64e0...`.
+3. `POST /user/tokens` payload với `policies[].permission_groups` → token `cfut_IXSrGwSy1jE9...` status active.
+
+**Verify**: `POST /accounts/{id}/ai/run/@cf/black-forest-labs/flux-1-schnell` với `Authorization: Bearer cfut_...` → success: true, image base64 404 KB.
+
+**Render env** (PUT single key — không destroy other vars per MEMORY.md):
+
+- `CF_ACCOUNT_ID = 27170a8625bb696ad1c253e6b221f59e`
+- `CF_WORKERS_AI_TOKEN = cfut_***` (lưu trong Render env + memory `reference_cloudflare_creds.md`)
+- (`GROQ_API_KEY` đã set từ trước)
+
+**Lưu ý**: PUT env-vars KHÔNG auto-redeploy → phải `POST /deploys` thủ công. Deploy `dep-d7vvrrrtqb8s73fnksb0` build_in_progress.
+
 ### [aikol] Tikreel-parity comprehensive — 12 scene presets, 5 framing, style strength, Products page, Source channels
 
 User: "tất cả" sau khi research Tikreel JS bundle (extracted SCENE_PRESETS schema, shot_type enum, payload shape).
