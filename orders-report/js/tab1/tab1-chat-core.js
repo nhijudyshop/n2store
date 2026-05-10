@@ -160,7 +160,13 @@ window.sendBillFromChat = async function () {
         }
 
         if (sendResult?.success) {
-            window.notificationManager?.show?.('Đã gửi bill cho khách', 'success');
+            // Surface when extension bypass was used (24h policy / #551 user
+            // unavailable / no conversation found) so user knows it didn't go
+            // through the normal Pancake API path.
+            const sentMsg = sendResult.viafallback
+                ? 'Đã gửi bill qua Extension (24h/Pancake fallback)'
+                : 'Đã gửi bill cho khách';
+            window.notificationManager?.show?.(sentMsg, 'success');
             window.InvoiceStatusStore.markBillSent?.(orderId);
 
             // Append bill message to chat modal (optimistic UI)

@@ -1443,7 +1443,11 @@ ${
                 }
             }
 
-            // If no conversation found, try extension bypass as fallback
+            // If no conversation found, try extension bypass as fallback.
+            // Bug fix (2026-05-10): wrong arg order — `sendImagesViaExtension(images,
+            // text, conv)` per tab1-extension-bridge.js. Previous call passed
+            // (pageId, psid, [billImageFile]) which would treat pageId as the images
+            // array (string.length=15 chars iterated → error in upload loop).
             if (!convId) {
                 if (
                     billImageFile &&
@@ -1452,8 +1456,23 @@ ${
                 ) {
                     console.log('[BILL-SERVICE] No conversation — trying extension bypass');
                     try {
-                        await window.sendImagesViaExtension(pageId, psid, [billImageFile]);
-                        return { success: true, method: 'extension' };
+                        const conv = {
+                            pageId,
+                            psid,
+                            conversationId: null,
+                            _raw: { from_psid: psid },
+                            customers: [],
+                            _messagesData: { customers: [] },
+                            updated_at: null,
+                            customerName:
+                                orderResult?.PartnerDisplayName ||
+                                orderResult?.ReceiverName ||
+                                orderResult?.Partner?.Name ||
+                                '',
+                            type: 'INBOX',
+                        };
+                        await window.sendImagesViaExtension([billImageFile], null, conv);
+                        return { success: true, method: 'extension', viafallback: true };
                     } catch (extErr) {
                         console.error('[BILL-SERVICE] Extension fallback failed:', extErr.message);
                     }
