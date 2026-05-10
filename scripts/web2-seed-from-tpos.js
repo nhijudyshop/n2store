@@ -470,7 +470,7 @@ const ENTITIES = [
         }),
     },
     {
-        slug: 'product-variant',
+        slug: 'product',
         // ~5658 variants. Slim 17 fields.
         tposPath: '/odata/Product/ODataService.GetViewV2?Active=true&%24orderby=DateCreated+desc',
         bulk: true,
@@ -500,7 +500,7 @@ const ENTITIES = [
         }),
     },
     {
-        slug: 'fastsaleorder',
+        slug: 'fastsaleorder-invoice',
         // ~11k orders, 108 fields. Pick top ~40 most useful for the local clone page.
         tposPath: '/odata/FastSaleOrder/ODataService.GetView?%24orderby=DateInvoice+desc',
         bulk: true,
@@ -574,7 +574,7 @@ const ENTITIES = [
         }),
     },
     {
-        slug: 'fastpurchaseorder',
+        slug: 'fastpurchaseorder-invoice',
         // ~1230 POs, 30 fields.
         tposPath: '/odata/FastPurchaseOrder/OdataService.GetView?%24orderby=DateInvoice+desc',
         bulk: true,
@@ -616,7 +616,7 @@ const ENTITIES = [
         }),
     },
     {
-        slug: 'saleonline-order',
+        slug: 'saleonline-facebook',
         // ~10k social orders. 49 fields including Facebook + LiveCampaign linkage.
         tposPath: '/odata/SaleOnline_Order/ODataService.GetView?%24orderby=DateCreated+desc',
         bulk: true,
