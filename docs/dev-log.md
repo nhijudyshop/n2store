@@ -8,6 +8,42 @@
 
 ## 2026-05-10
 
+### [chat] Switch page lookup — fix "Không tìm thấy cuộc hội thoại" trên page khác
+
+**Bug owner báo**: "browser test 0123456788 → đổi qua page store xem debug lỗi sao không có đoạn hội thoại". Click chat từ row có SĐT `0123456788` trên Nhi Judy House → switch sang NhiJudy Store → empty state.
+
+**Diagnose**: direct API `pdm.searchConversations("Huỳnh Thành Đạt")` trả 2 convs trên Store (INBOX + COMMENT, fb_id `25717004554573583`) — convs tồn tại nhưng lookup chain reject hết.
+
+2 root causes trong `_doFindAndLoadConversation` (allowDrift=false branch, [tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
+
+**1. customerName có suffix "- BOOM"** (order tag) nhưng Pancake lưu name gốc:
+
+- `pdm.searchConversations("Huỳnh Thành Đạt - BOOM")` → 0 hits.
+- Strict `_nameMatch(c.from?.name, customerName)` → false.
+- Order data confirm: `Facebook_UserName: "Huỳnh Thành Đạt"` (bare), `PartnerName: "Huỳnh Thành Đạt - BOOM"` (suffix).
+
+**2. `_convHasPhone` trả `false` cho conv có phone pool rỗng**, conflating "no phone info" với "different phone" → reject convs hợp lệ chưa capture phone trên target page.
+
+**Fix**:
+
+- `_bareSearchName(n)`: cắt tại " - " đầu tiên (preserve hyphenated names như "Anne-Marie" vì không có space xung quanh dash). Try bare-query trước, fallback raw customerName nếu 0 hits.
+- `_nameMatch`: relax thành substring-contains (cả 2 chiều) với normalization (diacritic strip + lowercase + collapse dash/underscore/whitespace).
+- `_convHasPhone` 3-state: `true` (match), `false` (mismatch confirmed → reject homonym), `null` (uncertain, empty pool). Verifier:
+    - `true` → accept
+    - `false` → reject
+    - `null` → fetch detail; nếu detail vẫn null → accept best-effort.
+
+**Tests verified** (browser, customerName="Huỳnh Thành Đạt - BOOM", phone="0123456788"):
+
+- ✅ `switchChatPage("270136663390370")` (Store) → currentConvId resolved `1573633073980967_890142437017229` (was null).
+- ✅ msgCount = 1 (was 0).
+- ✅ hasConvData = true.
+- ✅ 0 console errors.
+
+Status: ✅ Done (commit `6d5f244d`).
+
+---
+
 ### [orders][bill] Chat modal Gửi Bill — fallback Extension khi bị 24h Pancake policy + fix signature bug
 
 **Yêu cầu owner**: "nếu bị 24h gửi bằng extension".
