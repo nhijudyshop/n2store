@@ -2813,7 +2813,10 @@ async function _refreshOrderDetailsBackground(orderId) {
 
         // Snapshot is stale — refresh cache + DOM if user still has it open.
         _productDetailCache.set(orderId, latest);
-        _reportDetailsByOrderId.set(String(orderId), latest);
+        const orderRow = (window.allData || []).find((o) => o && o.Id === orderId);
+        const codeKey = orderRow?.Code ? String(orderRow.Code) : null;
+        if (codeKey) _reportDetailsByOrderId.set(codeKey, latest);
+
         if (!_expandedOrderIds.has(orderId)) return;
 
         const tr = document.querySelector(`tr[data-order-id="${orderId}"]`);
@@ -2967,13 +2970,23 @@ async function toggleProductDetail(orderId, sttCell) {
     // a stale snapshot self-heals → DOM updates silently if data changed.
     // Owner: "phải đảm bảo dữ liệu phải mới và cập nhật liên tục".
 
+    // ID schema mismatch: live OData uses UUID Id (`595b0000-…`); the report
+    // snapshot uses the Code (numeric `260501563`) as its Id. Bridge via
+    // window.allData so snapshot lookup works.
+    const orderRow = (window.allData || []).find((o) => o && o.Id === orderId);
+    const codeKey = orderRow?.Code ? String(orderRow.Code) : null;
+
     // Try synchronous fast paths first.
     let details = null;
     let usedSnapshot = false;
     if (_productDetailCache.has(orderId)) {
         details = _productDetailCache.get(orderId);
-    } else if (_reportDetailsByOrderId.has(String(orderId))) {
-        details = _reportDetailsByOrderId.get(String(orderId));
+    } else if (
+        _reportDetailsByOrderId.has(String(orderId)) ||
+        (codeKey && _reportDetailsByOrderId.has(codeKey))
+    ) {
+        details =
+            _reportDetailsByOrderId.get(String(orderId)) || _reportDetailsByOrderId.get(codeKey);
         _productDetailCache.set(orderId, details);
         usedSnapshot = true;
         // Cache TTL parity with OData path.
@@ -3060,7 +3073,10 @@ async function toggleProductDetail(orderId, sttCell) {
         const data = await res.json();
         details = data.Details || [];
         _productDetailCache.set(orderId, details);
-        _reportDetailsByOrderId.set(String(orderId), details);
+        // Index snapshot map by Code (matches report shape) so subsequent
+        // expands of the same order — even after a tbody re-render — pick it
+        // up via the Code-key fast path.
+        if (codeKey) _reportDetailsByOrderId.set(codeKey, details);
         // Auto-clear cache after 5 minutes — also evict from expanded set
         // so the post-cache-evict render doesn't hang on a missing cache.
         setTimeout(
