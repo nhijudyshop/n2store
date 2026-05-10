@@ -227,7 +227,7 @@ async function dispatchOne(row) {
 
     // ===== IMAGE =====
     if (kind === 'image') {
-        if (engine === 'gemini_3_1') {
+        if (engine === 'gemini_3_1' || engine === 'cf_flux') {
             // gen_mode='product': IMAGE 1 = model, IMAGE 2 = outfit (config.outfit_url).
             // Override sceneImageUrl với outfit_url + dùng product directive.
             let imagePrompt, secondImageUrl;
@@ -241,12 +241,36 @@ async function dispatchOne(row) {
                 imagePrompt = note;
                 secondImageUrl = sceneImageUrl;
             }
-            // Synchronous — generate, upload, save output, mark done all in one shot
-            const result = await geminiClone.cloneImage({
-                modelImageUrl,
-                sceneImageUrl: secondImageUrl,
-                prompt: imagePrompt,
-            });
+            // CF FLUX path (cheap free option) — fetch images as buffers, dùng
+            // multi-image compose endpoint (FLUX-2 dev). Auto-fallback Gemini
+            // nếu CF chưa configure.
+            let result;
+            const cfFlux = require('./aikol-cf-flux-service');
+            if (engine === 'cf_flux' && cfFlux.isAvailable()) {
+                const fetchAsBuf = async (url) => {
+                    const r = await fetch(url);
+                    if (!r.ok) throw new Error(`fetch image ${r.status}`);
+                    const arr = await r.arrayBuffer();
+                    return {
+                        buffer: Buffer.from(arr),
+                        mimeType: r.headers.get('content-type') || 'image/jpeg',
+                    };
+                };
+                const refs = [await fetchAsBuf(modelImageUrl)];
+                if (secondImageUrl) refs.push(await fetchAsBuf(secondImageUrl));
+                result = await cfFlux.multiImageCompose({
+                    images: refs.map((r) => r.buffer),
+                    mimeTypes: refs.map((r) => r.mimeType),
+                    prompt: imagePrompt,
+                });
+            } else {
+                // Synchronous — generate, upload, save output, mark done all in one shot
+                result = await geminiClone.cloneImage({
+                    modelImageUrl,
+                    sceneImageUrl: secondImageUrl,
+                    prompt: imagePrompt,
+                });
+            }
             const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
             const key = `aikol/outputs/${id}-0.${ext}`;
             await bunny.uploadBuffer(result.buffer, key, result.mimeType);
@@ -270,7 +294,14 @@ async function dispatchOne(row) {
                  SET state = 'done', error = NULL, finished_at = NOW(),
                      config = COALESCE(config, '{}'::jsonb) || $1::jsonb
                  WHERE id = $2 AND state IN ('dispatching','running')`,
-                [JSON.stringify({ provider: 'gemini', kind_key: 'image_clone', engine }), id]
+                [
+                    JSON.stringify({
+                        provider: engine === 'cf_flux' ? 'cloudflare' : 'gemini',
+                        kind_key: 'image_clone',
+                        engine,
+                    }),
+                    id,
+                ]
             );
             await notifyDone(id, user_id, kind, 1).catch(() => {});
             return;

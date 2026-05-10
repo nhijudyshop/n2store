@@ -380,10 +380,11 @@ router.post('/products/upload-outfit', requireUser, upload.single('file'), async
     }
 });
 
-// POST /models/describe-image — Multipart image upload → portrait prompt text
-// (FREE — Gemini Vision describe, ~$0.001/call). Returns { prompt: "..." } that
-// frontend fills into the "Mô tả" textarea for Section 2 Tạo bằng AI.
+// POST /models/describe-image — Multipart image upload → portrait prompt text.
+// Provider chain: Groq (free 14400/day) → Gemini fallback. Groq vision dùng
+// Llama-4 Scout vision-capable, OpenAI-compatible.
 const geminiDescribe = require('../services/aikol-gemini-describe-service');
+const groqVision = require('../services/aikol-groq-vision-service');
 router.post('/models/describe-image', requireUser, upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'invalid', detail: 'Image file required' });
@@ -394,12 +395,19 @@ router.post('/models/describe-image', requireUser, upload.single('file'), async 
             .status(400)
             .json({ error: 'invalid', detail: 'Chỉ chấp nhận JPEG / PNG / WEBP' });
     }
+    const args = { buffer: req.file.buffer, mimeType: mime };
+    // Try Groq first (free tier), fallback Gemini if disabled or rate-limited.
+    if (groqVision.isAvailable()) {
+        try {
+            const r = await groqVision.describeFromImage(args);
+            return res.json({ prompt: r.prompt, model: r.model, provider: 'groq' });
+        } catch (e) {
+            console.warn('[aikol] Groq describe failed, fallback Gemini:', e.message);
+        }
+    }
     try {
-        const r = await geminiDescribe.describeFromImage({
-            buffer: req.file.buffer,
-            mimeType: mime,
-        });
-        res.json({ prompt: r.prompt, model: r.model });
+        const r = await geminiDescribe.describeFromImage(args);
+        res.json({ prompt: r.prompt, model: r.model, provider: 'gemini' });
     } catch (e) {
         console.error('[aikol] /models/describe-image', e.message);
         res.status(502).json({ error: 'describe_failed', detail: e.message });

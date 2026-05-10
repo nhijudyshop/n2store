@@ -66,7 +66,8 @@
                         <label class="aikol-gen-row" data-image-only>
                             <span>Engine (image)</span>
                             <select name="engine_image">
-                                <option value="gemini_3_1" selected>Gemini 3.1 — 8cr/variation · scene match tốt nhất ⭐</option>
+                                <option value="gemini_3_1" selected>Gemini 3.1 — 8cr/variation · chất lượng cao ⭐</option>
+                                <option value="cf_flux">CF FLUX-2 — 4cr/variation · FREE 10K neurons/day 🆓</option>
                                 <option value="fal_pulid">Fal PuLID — 4cr/variation · nhanh (cần top-up)</option>
                             </select>
                         </label>
@@ -284,6 +285,8 @@
     function computeCost(form) {
         const data = readForm(form);
         if (data.kind === 'image') {
+            // gemini_3_1: 8cr (paid). cf_flux: 4cr (FREE tier 10K neurons/day).
+            // fal_pulid: 4cr.
             const perVariation = data.engine === 'gemini_3_1' ? 8 : COSTS.image;
             return { total: perVariation * data.variations, engine: data.engine };
         }
