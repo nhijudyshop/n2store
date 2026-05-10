@@ -977,29 +977,36 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     );
                 }
                 if (customerPhoneNorm) {
-                    // Verify identity by phone:
-                    //   • true  → confirmed → accept
-                    //   • false → mismatch → reject (homonym)
-                    //   • null  → uncertain (no phone on conv); fetch detail; if detail
-                    //            still uncertain, accept best-effort (name match alone).
-                    // Owner repro 2026-05-10: "0123456788 → đổi qua page Store xem
-                    // debug lỗi sao không có đoạn hội thoại". Search returned 2 convs by
-                    // name (INBOX + COMMENT) on Store, but phone meta empty → previously
-                    // rejected. Now accepted as best-effort.
-                    const verified = [];
+                    // Verify identity by phone, GROUPED by fb_id (page-scoped customer).
+                    // Reasoning: INBOX + COMMENT for the same customer share fb_id and
+                    // belong to the same person. If ANY conv for a given fb_id has a
+                    // confirmed phone mismatch (returns false), the entire fb_id is a
+                    // homonym → reject ALL convs for that fb_id (even those with
+                    // empty/uncertain phone meta).
+                    //
+                    // Owner repro 2026-05-10 trace: Store has 2 convs for fb_id
+                    // 25717004554573583, both name "Huỳnh Thành Đạt":
+                    //   • INBOX: recent_phones=[0908123456] → mismatch → reject
+                    //   • COMMENT: recent_phones=[] → uncertain
+                    // If we accepted COMMENT alone, we'd be loading the homonym's
+                    // comments. Instead, the INBOX mismatch should disqualify the
+                    // whole fb_id.
+                    //
+                    // Fetch detail for any uncertain conv to give it a fair chance
+                    // before grouping — empty meta on the search shape often gets
+                    // filled in by the per-fbId fetch.
+                    const enriched = [];
                     for (const c of onTargetPage) {
                         const initialCheck = _convHasPhone(c);
-                        if (initialCheck === true) {
-                            verified.push(c);
+                        if (initialCheck !== null) {
+                            enriched.push({ conv: c, check: initialCheck });
                             continue;
                         }
-                        if (initialCheck === false) {
-                            // Phone confirmed mismatched → homonym, skip.
-                            continue;
-                        }
-                        // initialCheck === null (uncertain) — fetch detail to try harder.
                         const fbId = c.from_psid || c.from?.id;
-                        if (!fbId) continue;
+                        if (!fbId) {
+                            enriched.push({ conv: c, check: null });
+                            continue;
+                        }
                         try {
                             const detailRes = await pdm.fetchConversationsByCustomerFbId(
                                 pageId,
@@ -1010,16 +1017,39 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                                 (d) => String(d.id) === String(c.id)
                             );
                             const detailCheck = detail ? _convHasPhone(detail) : null;
-                            if (detailCheck === true) {
-                                verified.push(detail);
-                            } else if (detailCheck === null) {
-                                // Still uncertain → accept best-effort. Same name +
-                                // same target page is a strong-enough signal when no
-                                // phone exists to verify against.
-                                verified.push(detail || c);
-                            }
-                            // detailCheck === false → reject (mismatch confirmed).
-                        } catch (_) {}
+                            enriched.push({ conv: detail || c, check: detailCheck });
+                        } catch (_) {
+                            enriched.push({ conv: c, check: null });
+                        }
+                    }
+
+                    // Group by fb_id to spot homonyms via cross-conv evidence.
+                    const byFbId = new Map();
+                    for (const e of enriched) {
+                        const fid = String(e.conv.from_psid || e.conv.from?.id || '');
+                        if (!fid) {
+                            byFbId.set(`__nofid_${e.conv.id}`, [e]);
+                            continue;
+                        }
+                        if (!byFbId.has(fid)) byFbId.set(fid, []);
+                        byFbId.get(fid).push(e);
+                    }
+
+                    const verified = [];
+                    for (const [, group] of byFbId) {
+                        const hasMatch = group.some((g) => g.check === true);
+                        const hasMismatch = group.some((g) => g.check === false);
+                        if (hasMatch) {
+                            // Confirmed correct customer — accept all convs in group.
+                            for (const g of group) verified.push(g.conv);
+                        } else if (hasMismatch) {
+                            // Any conv in group has different phone → entire group is
+                            // a homonym → reject all (including uncertain siblings).
+                            continue;
+                        } else {
+                            // No phone evidence either way → best-effort accept.
+                            for (const g of group) verified.push(g.conv);
+                        }
                     }
                     foundConvs = verified;
                 } else {
