@@ -8,6 +8,31 @@
 
 ## 2026-05-10
 
+### [orders] STT expand survives table re-render — fix auto-close giật
+
+**Bug owner báo (tiếp)**: "expand STT ra 1 lúc nó tự động đóng → bị giật bảng đó → sửa bug này hoặc tối ưu giao diện". Sau fix lần trước (multi-row + scroll anchor), expand vẫn auto-close sau vài giây.
+
+**Root cause sâu hơn**: TPOS realtime SSE liên tục fire (mỗi đơn mới / order update) → `schedulePerformTableSearch(150)` → `performTableSearch()` → `renderTable()` → `renderAllOrders()` chạy `tbody.innerHTML = initialBatch.map(...)` — wipe sạch tbody bao gồm mọi `.product-detail-row` đang mở. User thấy: mở STT → chờ vài giây → SSE fire → tbody rebuild → detail rows biến mất → table layout shrink → scroll giật.
+
+**Fix** ([orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js)):
+
+- **Track expansion state** qua `_expandedOrderIds` Set (orderId-keyed). Add khi toggle-open, delete khi toggle-close + khi cache TTL 5min evict.
+- **`_restoreExpandedDetailRows()`** — chạy sau mỗi tbody.innerHTML rebuild. Walk Set, find `tr[data-order-id]`, lookup cached details qua `_productDetailCache` (synchronous, no extra network), insert detail row + re-add `.stt-expanded` class.
+- **Extract `_buildDetailRowInnerHTML(orderId, details, colCount, hasStock)`** — pure HTML builder shared giữa click-flow và post-render restore. Single source of truth, removed inline duplicate.
+- **Hook restore vào mọi render path**: `renderAllOrders`, `loadMoreRows` (sau append fragment — cho expanded orders ở batch tiếp theo), `renderStandard`, `renderVisibleRows`, `renderByEmployee`.
+- **Click-flow async resilience**: re-resolve detail row reference sau mỗi `await` boundary (auth fetch, OData fetch, stock fetch). Nếu re-render landed giữa await → write vào detached node → call `_restoreExpandedDetailRows()` thay thế.
+
+**Tests** (browser, T6 DEAL XINH 704 orders):
+
+- ✅ Expand STT 2 + 7 + 15 → 3 detail rows + 3 expanded classes.
+- ✅ Trigger `window.performTableSearch()` (mô phỏng SSE re-render): tbody rebuild xong → **vẫn 3 detail rows + 3 expanded** (restored).
+- ✅ Toggle close 1 row → 2 detail rows. Re-render lại → vẫn 2 (closed orderId đã removed khỏi Set, không bị "vô tình restore lại").
+- ✅ 0 console errors.
+
+Status: ✅ Done (commit `32474e5f`).
+
+---
+
 ### [orders] STT expand — fix scroll giật khi mở nhiều đơn
 
 **Bug owner báo**: "đơn hàng bấm vào STT để expand danh sách sản phẩm → expand nhiều quá scroll nó sẽ giật → hình như nó đóng mấy đơn kia nên giật".
