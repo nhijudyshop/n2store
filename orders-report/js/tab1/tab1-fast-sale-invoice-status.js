@@ -4142,6 +4142,12 @@
         window.sendBillManually = sendBillManually;
         window.sendBillBatch = sendBillBatch;
         window.bulkSendSelectedBills = bulkSendSelectedBills;
+        // Expose so the chat-modal "Gửi Bill" path (tab1-chat-core.js) can
+        // reuse the same OrderLines resolution chain (cache → store → TPOS
+        // refetch) before handing invoiceData to BillService. Without this,
+        // an invoiceData with empty OrderLines would generate a bill image
+        // missing all products — owner-reported bug 2026-05-10.
+        window.ensureOrderLinesForBill = ensureOrderLinesForBill;
 
         /**
          * Refresh PBH cho 1 order — fetch fresh từ TPOS OData by Reference
