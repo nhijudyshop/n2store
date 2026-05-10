@@ -8,6 +8,54 @@
 
 ## 2026-05-10
 
+### [chat] Switch page conv lookup — fb_id grouped phone-verify + type-correct pick + avatar refresh
+
+**Yêu cầu owner**:
+
+1. "browser test 0123456788 → đổi qua page store xem debug lỗi sao không có đoạn hội thoại"
+2. "có 2 loại conv inbox và comment → load cho chính xác"
+3. "coi lại luôn phần load avatar khách và avatar page"
+
+**Diagnose** (live API check trên Store):
+2 convs trên Store cho fb_id `25717004554573583` (homonym, cùng tên "Huỳnh Thành Đạt"):
+
+- INBOX `recent_phones=[0908123456]` → mismatch với customer phone 0123456788
+- COMMENT `recent_phones=[]` → uncertain
+
+Phiên fix trước (`null = uncertain → accept`) khiến COMMENT được accept → user thấy đoạn hội thoại của HOMONYM, không phải khách thực. Loose-uncertain-accept không an toàn khi cùng fb_id đã có evidence mismatch.
+
+**Fix** ([tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
+
+1. **`fb_id`-grouped phone verification**: Map<fb_id, [{conv, check}]>:
+    - `hasMatch` → accept tất cả conv của group (đúng khách)
+    - `hasMismatch` → reject TẤT CẢ (homonym xác định, kể cả uncertain siblings)
+    - neither → best-effort accept (không có evidence)
+
+2. **Type-correct pick**: line 1043 `c.type === 'INBOX'` (hardcoded) → `c.type === type` (correct: switch sang COMMENT thì pick COMMENT, sang INBOX thì pick INBOX).
+
+3. **Strip order-tag suffix** trong search query: `_bareSearchName(n)` cắt tại " - " đầu tiên. customerName "Huỳnh Thành Đạt - BOOM" → search "Huỳnh Thành Đạt" (bare name FB lưu). Preserves "Anne-Marie" (no surrounding spaces around dash).
+
+4. **Relax `_nameMatch`**: substring-contains 2 chiều với normalize (diacritic strip + lowercase + collapse dash/underscore/whitespace), thay strict equality.
+
+5. **Sync `currentChatPSID` post-resolve**: PSID page-scoped, sau cross-page switch phải update sang conv's from_psid → subsequent operations (type-switch, bill send, extension) dùng đúng PSID.
+
+6. **`switchConversationType` allowDrift=false**: trigger strict-branch + name-search fallback (trước chỉ reachable qua `switchChatPage`).
+
+7. **Avatar refresh**:
+    - `_refreshChatHeaderAvatar()` extracted helper, gọi initial open + sau mỗi conv resolve. Avatar header customer cập nhật theo page-customer profile pic của conv mới (cross-page có thể avatar khác).
+    - `_updatePageSelectorLabel` thêm render avatar page trong selector button (thay icon `storefront` static khi page có avatar; fallback initial trên img error).
+
+**Tests verified** (browser):
+
+- ✅ 0123456788 → Store: empty state đúng (homonym group rejected vì INBOX có phone 0908123456 ≠ 0123456788).
+- ✅ Per direct API: 2 convs cùng fb_id trên Store, đều thuộc về khách KHÁC tên trùng → reject toàn bộ là correct behavior.
+- ✅ currentChatPSID synced từ `24948162744877764` (Nhi Judy House PSID) sang Store conv's PSID khi resolve thành công (real cross-page case).
+- ✅ Avatar HTML loaded ngay sau switch (`<img src="blob:..." style="...border-radius:50%">`).
+
+Status: ✅ Done (commit `21bd7895`).
+
+---
+
 ### [render][incident] TRUNCATE nhầm `inventory_product_images` 45 rows + recovery qua Render PITR
 
 **Trigger**: cleanup chat-db disk usage (post Phase B Bunny migration). Thấy bảng `inventory_product_images` có TOAST 11 MB, pg_stat hiện `n_live_tup=0, n_dead_tup=0, last_autovacuum=NULL` → tưởng bảng rỗng từ trước, chạy `TRUNCATE` để reclaim TOAST.
