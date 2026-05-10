@@ -87,10 +87,48 @@ window.sendBillFromChat = async function () {
     }
 
     try {
-        const invoiceData = window.InvoiceStatusStore.get(orderId);
+        let invoiceData = window.InvoiceStatusStore.get(orderId);
         if (!invoiceData) {
             window.notificationManager?.error?.('Không tìm thấy dữ liệu phiếu bán hàng');
             return;
+        }
+
+        // Owner-reported (2026-05-10): "nút gửi bill trong modal chat inbox nó
+        // không lấy sản phẩm vào bill" — bill image was generated with empty
+        // OrderLines because the InvoiceStatusStore entry for older invoices
+        // doesn't include product lines. Reuse the same resolution helper
+        // sendBillFromMainTable uses: cache → OrderStore.Details → TPOS
+        // GetDetails refetch (last resort) → persist back into the store so
+        // future sends are instant.
+        if (
+            (!invoiceData.OrderLines || invoiceData.OrderLines.length === 0) &&
+            typeof window.ensureOrderLinesForBill === 'function'
+        ) {
+            const order =
+                window.OrderStore?.get?.(orderId) ||
+                (window.displayedData || []).find(
+                    (o) => o.Id === orderId || String(o.Id) === String(orderId)
+                ) ||
+                null;
+            const lines = await window.ensureOrderLinesForBill({
+                orderId,
+                invoiceData,
+                order,
+                opts: { showNotif: false, label: 'CHAT-BILL' },
+            });
+            if (lines && lines.length > 0) {
+                // Pull fresh entry — ensureOrderLinesForBill persists into the
+                // store on TPOS-refetch path, so this picks up the merged data.
+                invoiceData = window.InvoiceStatusStore.get(orderId) || {
+                    ...invoiceData,
+                    OrderLines: lines,
+                };
+            } else {
+                window.notificationManager?.error?.(
+                    'Đơn hàng không có sản phẩm — không thể gửi bill rỗng.'
+                );
+                return;
+            }
         }
 
         // Generate bill image once (reuse for preview + send)
