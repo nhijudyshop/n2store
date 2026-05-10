@@ -225,6 +225,29 @@ window.sendBillFromChat = async function () {
  * Get avatar URL for a customer — same 4-tier fallback as inbox-chat.js
  * Extracts direct avatar from currentConversationData, then falls back to proxy.
  */
+/**
+ * Refresh customer avatar in chat header. Called on:
+ *   • initial chat modal open (after currentConversationData first set)
+ *   • after _doFindAndLoadConversation resolves a conv (cross-page or type switch)
+ * Uses _getChatAvatarUrl which prefers the resolved conv's direct avatar over
+ * the FB graph proxy fallback — gives the right page-customer profile pic.
+ */
+function _refreshChatHeaderAvatar() {
+    const avatarEl = document.getElementById('chatCustomerAvatar');
+    if (!avatarEl) return;
+    const psid = window.currentChatPSID;
+    const pageId = window.currentChatChannelId;
+    if (!psid) {
+        avatarEl.textContent = (window.currentCustomerName || 'K').charAt(0).toUpperCase();
+        return;
+    }
+    const initial = (window.currentCustomerName || 'K').charAt(0).toUpperCase();
+    const safeInitial = initial.replace(/['"\\<>&]/g, '');
+    const imgUrl = window._getChatAvatarUrl(psid, pageId);
+    avatarEl.innerHTML = `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${safeInitial}'">`;
+}
+window._refreshChatHeaderAvatar = _refreshChatHeaderAvatar;
+
 window._getChatAvatarUrl = function (psid, pageId) {
     const conv = window.currentConversationData || {};
     const raw = conv._raw || {};
@@ -424,12 +447,7 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     }
 
     // Update header avatar (same approach as inbox: extract direct avatar from conv data)
-    const avatarEl = document.getElementById('chatCustomerAvatar');
-    if (avatarEl && psid) {
-        const initial = (window.currentCustomerName || 'K').charAt(0).toUpperCase();
-        const imgUrl = window._getChatAvatarUrl(psid, pageId);
-        avatarEl.innerHTML = `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
-    }
+    _refreshChatHeaderAvatar();
 
     // Update order note banner — shows first note, click to expand all
     const noteEl = document.getElementById('chatOrderNote');
@@ -1131,6 +1149,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         window.currentChatPSID = String(convPSID);
     }
 
+    // Refresh chat header avatar after conv resolves — _getChatAvatarUrl
+    // reads from currentConversationData which we just updated, so the
+    // avatar shown will reflect this page's customer profile (different
+    // pages can have different cached avatars for the same human).
+    _refreshChatHeaderAvatar();
+
     // Save to per-page conv cache for quick re-switch
     // Only cache if conv actually belongs to the requested page
     const convPageId = conv.page_id || pageId;
@@ -1679,6 +1703,36 @@ function _updatePageSelectorLabel(pageId) {
     const pdm = window.pancakeDataManager;
     const page = (pdm?.pages || []).find((p) => String(p.id) === String(pageId));
     label.textContent = page?.name || 'Page';
+
+    // Render the active page's avatar in the selector button (replaces the
+    // generic `storefront` Material icon when an avatar is available). Same
+    // shape as dropdown-item avatars below: 18px circle, fallback to initial
+    // on img error. Owner repro 2026-05-10: "coi lại luôn phần load avatar
+    // khách và avatar page" — page side was always a static storefront icon.
+    const btn = document.getElementById('chatPageSelectorBtn');
+    if (!btn) return;
+    let icon = btn.querySelector('.chat-page-selector-icon');
+    if (!icon) {
+        // Replace the leading `storefront` material icon with a span we own.
+        const old = btn.querySelector('.material-symbols-outlined');
+        if (old && old.textContent.trim() === 'storefront') {
+            const newSpan = document.createElement('span');
+            newSpan.className = 'chat-page-selector-icon';
+            newSpan.style.cssText =
+                'display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;overflow:hidden;font-size:10px;font-weight:700;color:#475569;background:#e2e8f0;flex:0 0 auto;';
+            old.replaceWith(newSpan);
+            icon = newSpan;
+        }
+    }
+    if (icon) {
+        const initial = (page?.name || 'P').charAt(0).toUpperCase();
+        const safeInitial = initial.replace(/['"\\<>&]/g, '');
+        if (page?.avatar) {
+            icon.innerHTML = `<img src="${page.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='${safeInitial}'">`;
+        } else {
+            icon.textContent = safeInitial;
+        }
+    }
 }
 
 function _updatePageSelectorActive(pageId) {
