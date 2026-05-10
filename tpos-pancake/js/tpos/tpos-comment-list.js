@@ -925,9 +925,14 @@ const TposCommentList = {
         const comment = state.comments.find((c) => c.id === commentId);
         const pageObj = comment?._pageObj || state.selectedPage;
         const crmTeamId = pageObj?.Id;
-        const postId = comment?._campaignId
-            ? state.liveCampaigns.find((c) => c.Id === comment._campaignId)?.Facebook_LiveId
-            : state.selectedCampaign?.Facebook_LiveId;
+        // Resolve the campaign that owns this comment so we can persist it on the
+        // native order (used by native-orders page filter chip).
+        const campaignObj = comment?._campaignId
+            ? state.liveCampaigns.find((c) => c.Id === comment._campaignId)
+            : state.selectedCampaign;
+        const postId = campaignObj?.Facebook_LiveId;
+        const liveCampaignId = campaignObj?.Id ? String(campaignObj.Id) : null;
+        const liveCampaignName = campaignObj?.Name || null;
         const fbPageId = pageObj?.Facebook_PageId || pageObj?.FacebookPageId;
         const message = comment?.message || '';
 
@@ -959,6 +964,8 @@ const TposCommentList = {
                 fbPostId: postId || null,
                 fbCommentId: commentId,
                 crmTeamId: crmTeamId || null,
+                liveCampaignId,
+                liveCampaignName,
                 message,
                 phone,
                 address,

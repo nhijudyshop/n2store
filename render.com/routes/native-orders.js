@@ -230,6 +230,7 @@ router.post('/from-comment', async (req, res) => {
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id, crm_team_id,
                 products, total_quantity, total_amount,
                 status, tags,
+                live_campaign_id, live_campaign_name,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
                 $1, $2, 'NATIVE_WEB',
@@ -237,7 +238,8 @@ router.post('/from-comment', async (req, res) => {
                 $7, $8, $9, $10, $11, $12,
                 '[]'::jsonb, 0, 0,
                 'draft', '[]'::jsonb,
-                $13, $14, $15, $15
+                $13, $14,
+                $15, $16, $17, $17
             ) RETURNING *`,
             [
                 code,
@@ -252,6 +254,8 @@ router.post('/from-comment', async (req, res) => {
                 b.fbPostId || null,
                 b.fbCommentId || null,
                 b.crmTeamId ? parseInt(b.crmTeamId, 10) : null,
+                b.liveCampaignId || null,
+                b.liveCampaignName || null,
                 b.createdBy || null,
                 b.createdByName || null,
                 now,
