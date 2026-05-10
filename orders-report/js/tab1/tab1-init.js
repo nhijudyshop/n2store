@@ -790,6 +790,18 @@ async function continueAfterCampaignSelect(campaignId) {
         if (window.realtimeManager) {
             window.realtimeManager.connectServerMode();
         }
+
+        // Preload report-snapshot details so STT expand renders instantly from
+        // PostgreSQL `report_orders_v2` instead of per-click OData. Background
+        // refresh on click keeps data fresh — see tab1-table.js
+        // _refreshOrderDetailsBackground.
+        if (typeof window.invalidateReportOrderDetailsCache === 'function') {
+            window.invalidateReportOrderDetailsCache();
+        }
+        if (typeof window.preloadReportOrderDetailsForExpand === 'function') {
+            // Fire-and-forget — failure just falls back to OData on click.
+            window.preloadReportOrderDetailsForExpand();
+        }
     } catch (error) {
         console.error('[APP] ❌ Error in continueAfterCampaignSelect:', error);
         if (window.notificationManager) {

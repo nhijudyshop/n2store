@@ -1290,6 +1290,15 @@ async function handleCampaignChange() {
         // 🔥 Setup new Firebase TAG listeners for this campaign
         setupTagRealtimeListeners();
 
+        // Preload report-snapshot details so STT expand is instant for this
+        // campaign (background refresh on click keeps data fresh).
+        if (typeof window.invalidateReportOrderDetailsCache === 'function') {
+            window.invalidateReportOrderDetailsCache();
+        }
+        if (typeof window.preloadReportOrderDetailsForExpand === 'function') {
+            window.preloadReportOrderDetailsForExpand();
+        }
+
         // Notify Tab 3 about campaign change
         window.parent.postMessage(
             {

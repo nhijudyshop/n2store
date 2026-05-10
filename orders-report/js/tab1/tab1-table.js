@@ -2708,6 +2708,126 @@ function _findScrollableAncestor(el) {
 // → renderAllOrders() → tbody.innerHTML rebuilds → detail rows lost.
 const _expandedOrderIds = new Set();
 
+// Owner-requested fast-path (2026-05-10): use the campaign report snapshot
+// stored in PostgreSQL `report_orders_v2` (populated when user opens "Báo Cáo
+// Tổng Hợp") as the FIRST source for product details — instant render, no
+// per-click OData fetch. Then ALWAYS background-refresh from OData so a stale
+// snapshot self-heals if products changed.
+//
+// Map<orderIdString, Details[]>. Loaded once per campaign on first need.
+const _reportDetailsByOrderId = new Map();
+let _reportLoadedForCampaign = null;
+let _reportLoadingPromise = null;
+
+async function _ensureReportDetailsLoaded() {
+    const campaignName =
+        window.campaignManager?.activeCampaign?.name || window.selectedCampaign?.displayName || '';
+    if (!campaignName || !window.CampaignAPI?.getReport) return;
+    if (_reportLoadedForCampaign === campaignName) return; // already loaded for this campaign
+    if (_reportLoadingPromise) return _reportLoadingPromise; // dedupe concurrent loads
+
+    _reportLoadingPromise = (async () => {
+        try {
+            const report = await window.CampaignAPI.getReport(campaignName);
+            const orders = report?.orders || [];
+            _reportDetailsByOrderId.clear();
+            for (const o of orders) {
+                const id = o.Id || o.id;
+                if (id && Array.isArray(o.Details)) {
+                    _reportDetailsByOrderId.set(String(id), o.Details);
+                }
+            }
+            _reportLoadedForCampaign = campaignName;
+            console.log(
+                `[STT-EXPAND] Loaded ${_reportDetailsByOrderId.size} order details from report snapshot (${campaignName})`
+            );
+        } catch (e) {
+            console.warn(
+                '[STT-EXPAND] Report snapshot load failed (will fall back to OData):',
+                e?.message
+            );
+        } finally {
+            _reportLoadingPromise = null;
+        }
+    })();
+    return _reportLoadingPromise;
+}
+
+// Public hooks: campaign-system code calls these on campaign select / refresh
+// so the snapshot is preloaded before user clicks any STT.
+window.preloadReportOrderDetailsForExpand = _ensureReportDetailsLoaded;
+window.invalidateReportOrderDetailsCache = function () {
+    _reportDetailsByOrderId.clear();
+    _reportLoadedForCampaign = null;
+};
+
+/**
+ * Cheap deep-equal for Details[] — used to skip DOM updates when the
+ * background OData fetch returns the same data as the snapshot.
+ */
+function _detailsEqual(a, b) {
+    if (a === b) return true;
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        const x = a[i],
+            y = b[i];
+        if (!x || !y) return false;
+        if (
+            x.ProductId !== y.ProductId ||
+            (x.Quantity || 0) !== (y.Quantity || 0) ||
+            (x.Price || 0) !== (y.Price || 0) ||
+            (x.Note || '') !== (y.Note || '') ||
+            (x.ProductNameGet || x.ProductName || '') !== (y.ProductNameGet || y.ProductName || '')
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Background OData refresh: fetch latest order Details and silently update
+ * the open detail row + per-order cache if data has changed. Called after
+ * we render from the snapshot to guarantee freshness — owner concern: "phải
+ * đảm bảo dữ liệu phải mới và cập nhật liên tục".
+ */
+async function _refreshOrderDetailsBackground(orderId) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const res = await API_CONFIG.smartFetch(
+            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
+            {
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+            }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const latest = data.Details || [];
+        const cached = _productDetailCache.get(orderId);
+        if (_detailsEqual(latest, cached)) return; // snapshot was already correct
+
+        // Snapshot is stale — refresh cache + DOM if user still has it open.
+        _productDetailCache.set(orderId, latest);
+        _reportDetailsByOrderId.set(String(orderId), latest);
+        if (!_expandedOrderIds.has(orderId)) return;
+
+        const tr = document.querySelector(`tr[data-order-id="${orderId}"]`);
+        const detailRow = tr?.nextElementSibling;
+        if (!detailRow || !detailRow.classList.contains('product-detail-row')) return;
+
+        const colCount = tr.children.length;
+        const hasStock = _detailStockMap.size > 0;
+        detailRow.innerHTML = _buildDetailRowInnerHTML(orderId, latest, colCount, hasStock);
+    } catch (_e) {
+        /* silent — snapshot already showing, network issues fall back to next user click */
+    }
+}
+
 function _escapeHtmlForDetail(str) {
     return str
         ? str
@@ -2835,6 +2955,84 @@ async function toggleProductDetail(orderId, sttCell) {
     // Count columns for colspan
     const colCount = tr.children.length;
 
+    // ─── FAST PATH (owner-requested, 2026-05-10) ─────────────────────
+    // Source priority for detail data:
+    //   1. _productDetailCache  (recent OData fetch, this session)
+    //   2. _reportDetailsByOrderId (snapshot from PostgreSQL report_orders_v2 —
+    //      same data the KPI HOA HỒNG tab uses; populated when user opens
+    //      "Báo Cáo Tổng Hợp"). One-shot bulk load → no per-click network.
+    //   3. OData fetch (fallback when neither cache hit).
+    //
+    // After a snapshot/cache hit, ALWAYS fire OData refresh in background so
+    // a stale snapshot self-heals → DOM updates silently if data changed.
+    // Owner: "phải đảm bảo dữ liệu phải mới và cập nhật liên tục".
+
+    // Try synchronous fast paths first.
+    let details = null;
+    let usedSnapshot = false;
+    if (_productDetailCache.has(orderId)) {
+        details = _productDetailCache.get(orderId);
+    } else if (_reportDetailsByOrderId.has(String(orderId))) {
+        details = _reportDetailsByOrderId.get(String(orderId));
+        _productDetailCache.set(orderId, details);
+        usedSnapshot = true;
+        // Cache TTL parity with OData path.
+        setTimeout(
+            () => {
+                _productDetailCache.delete(orderId);
+                _expandedOrderIds.delete(orderId);
+            },
+            5 * 60 * 1000
+        );
+    }
+
+    // If we have details, render immediately without ever showing the spinner.
+    if (details) {
+        const detailRow = document.createElement('tr');
+        detailRow.className = 'product-detail-row';
+        // Stock cell relies on _detailStockMap — check sync availability; if
+        // not yet loaded just skip the column for now (snapshot may render
+        // before stock is fetched on first click). Background refresh will
+        // re-render with stock once available.
+        const hasStock = _detailStockMap && _detailStockMap.size > 0;
+        if (details.length === 0) {
+            detailRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #f8fafc; color: #6b7280; font-style: italic;">Không có sản phẩm</td>`;
+        } else {
+            detailRow.innerHTML = _buildDetailRowInnerHTML(orderId, details, colCount, hasStock);
+        }
+        tr.after(detailRow);
+        sttCell.classList.add('stt-expanded');
+
+        // If stock wasn't ready, fire it now so the next render has the column.
+        if (!hasStock) {
+            _ensureDetailStockLoaded().then(() => {
+                // After stock loads, re-render this open row if still expanded.
+                if (!_expandedOrderIds.has(orderId)) return;
+                const tr2 = document.querySelector(`tr[data-order-id="${orderId}"]`);
+                const dr2 = tr2?.nextElementSibling;
+                if (dr2 && dr2.classList.contains('product-detail-row')) {
+                    const d = _productDetailCache.get(orderId) || details;
+                    if (d.length > 0) {
+                        dr2.innerHTML = _buildDetailRowInnerHTML(
+                            orderId,
+                            d,
+                            tr2.children.length,
+                            _detailStockMap.size > 0
+                        );
+                    }
+                }
+            });
+        }
+
+        // Background-refresh from OData when we used the snapshot path —
+        // catches edits made after the snapshot was saved.
+        if (usedSnapshot) {
+            _refreshOrderDetailsBackground(orderId);
+        }
+        return;
+    }
+
+    // ─── Fallback: original OData fetch with spinner ─────────────────
     // Show loading row
     const loadingRow = document.createElement('tr');
     loadingRow.className = 'product-detail-row';
@@ -2842,36 +3040,36 @@ async function toggleProductDetail(orderId, sttCell) {
     tr.after(loadingRow);
     sttCell.classList.add('stt-expanded');
 
+    // Lazy-load report snapshot in background for next click (other orders
+    // in the same campaign will hit the snapshot path next time).
+    _ensureReportDetailsLoaded();
+
     try {
-        let details;
-        if (_productDetailCache.has(orderId)) {
-            details = _productDetailCache.get(orderId);
-        } else {
-            const headers = await window.tokenManager.getAuthHeader();
-            const res = await API_CONFIG.smartFetch(
-                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
-                {
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                    },
-                }
-            );
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            details = data.Details || [];
-            _productDetailCache.set(orderId, details);
-            // Auto-clear cache after 5 minutes — also evict from expanded set
-            // so the post-cache-evict render doesn't hang on a missing cache.
-            setTimeout(
-                () => {
-                    _productDetailCache.delete(orderId);
-                    _expandedOrderIds.delete(orderId);
+        const headers = await window.tokenManager.getAuthHeader();
+        const res = await API_CONFIG.smartFetch(
+            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
+            {
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
                 },
-                5 * 60 * 1000
-            );
-        }
+            }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        details = data.Details || [];
+        _productDetailCache.set(orderId, details);
+        _reportDetailsByOrderId.set(String(orderId), details);
+        // Auto-clear cache after 5 minutes — also evict from expanded set
+        // so the post-cache-evict render doesn't hang on a missing cache.
+        setTimeout(
+            () => {
+                _productDetailCache.delete(orderId);
+                _expandedOrderIds.delete(orderId);
+            },
+            5 * 60 * 1000
+        );
 
         // Re-resolve loadingRow because a re-render between `tr.after(loadingRow)`
         // and the await could have wiped the original DOM node.
