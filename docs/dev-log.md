@@ -8,6 +8,30 @@
 
 ## 2026-05-10
 
+### [render][incident] TRUNCATE nhầm `inventory_product_images` 45 rows + recovery qua Render PITR
+
+**Trigger**: cleanup chat-db disk usage (post Phase B Bunny migration). Thấy bảng `inventory_product_images` có TOAST 11 MB, pg_stat hiện `n_live_tup=0, n_dead_tup=0, last_autovacuum=NULL` → tưởng bảng rỗng từ trước, chạy `TRUNCATE` để reclaim TOAST.
+
+**Sự thật**: bảng có **45 rows live** (106 URL ảnh inventory, batches từ 17/04). Autovacuum chưa từng chạy bảng này nên statistics stale → pg_stat sai. `SELECT COUNT(*)` mới là source of truth.
+
+**Recovery flow** (Render PITR API):
+
+1. `POST /v1/postgres/{id}/recovery { restoreTime: "2026-05-10T08:44:00Z" }` → Render fork **DB instance mới** từ snapshot (KHÔNG modify DB gốc). Status: `recovery_in_progress` → `creating` → `available` (~3 min).
+2. `GET /v1/postgres/{new-id}/connection-info` → lấy connection string.
+3. [scripts/recover-inventory-images.js](../scripts/recover-inventory-images.js): SELECT 45 rows từ DB restored → INSERT vào prod với `ON CONFLICT (ngay_di_hang, dot_so, ncc) DO NOTHING` (idempotent). Lưu ý: `urls jsonb` phải `JSON.stringify(row.urls || [])` trước khi pass vào pg client (pg không auto-stringify object cho jsonb param).
+4. Verify: prod `total_rows=45, total_urls=106` ✓
+5. `DELETE /v1/postgres/{new-id}` để stop billing fork DB tạm.
+
+**Lesson**:
+
+- **NEVER trust `pg_stat_user_tables.n_live_tup`** cho destructive op. Stale nếu autovacuum chưa chạy. Luôn `SELECT COUNT(*)` ngay trước TRUNCATE/DROP/DELETE bulk.
+- Render PITR API rất tiện: tạo fork mới từ snapshot, không động DB gốc, billing tính theo giờ instance đứng lên — delete sau khi recovery xong.
+- Recovery window 7 ngày trên Render Postgres standard plan.
+
+Status: ✅ Restored, fork DB tạm đã DELETE, prod khớp 45 rows.
+
+---
+
 ### [chat] Switch page lookup — fix "Không tìm thấy cuộc hội thoại" trên page khác
 
 **Bug owner báo**: "browser test 0123456788 → đổi qua page store xem debug lỗi sao không có đoạn hội thoại". Click chat từ row có SĐT `0123456788` trên Nhi Judy House → switch sang NhiJudy Store → empty state.
