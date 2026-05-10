@@ -6,6 +6,47 @@
 
 ---
 
+## 2026-05-10
+
+### [aikol] Tikreel-parity comprehensive — 12 scene presets, 5 framing, style strength, Products page, Source channels
+
+User: "tất cả" sau khi research Tikreel JS bundle (extracted SCENE_PRESETS schema, shot_type enum, payload shape).
+
+**Shared module** ([aikol-presets.js](../aikol-studio/js/aikol-presets.js)) — dùng cả frontend (window.AikolPresets) + backend (Node require):
+
+- 12 SCENE_PRESETS với prompt fragments: living_room, bedroom, kitchen, hotel_suite, studio_backdrop, outdoor_cafe, garden, balcony, library, rooftop, beach, art_gallery.
+- 5 SHOT_TYPES: auto/full_body/three_quarter/waist_up/portrait.
+- 4 BULK_PRESETS config bundles.
+- Tier label functions: similarityTier, creativityTier, styleStrengthTier.
+
+**Backend**:
+
+- buildSceneDescription/shotTypeDirective/styleStrengthDirective trong queue-worker.
+- buildProductDirective() — outfit try-on (IMAGE 1 model + IMAGE 2 outfit).
+- Kling buildPrompt rewritten với 3 scene modes + framing + style.
+- gen_mode='product' branch dispatch với outfit_url làm 2nd Gemini ref.
+- Route sanitize: shot_type/scene_presets/style_strength validation.
+
+**Frontend modal** (generate-panel.js):
+
+- Variations pill 1/3/5/10. Framing select 5 modes. Scene mode 3 radios + 12 preset checkboxes. Style strength slider + tier labels live-update.
+
+**Library**: Min views filter (Any/10K/100K/1M) + Fav-only + KB shortcuts (Esc/⌘↵).
+
+**NEW pages**:
+
+- products.html + js: outfit upload + scene preset → POST /products/upload-outfit + submit gen_mode='product'.
+- channels.html + js: channel-level dashboard (group by username, READY/FAILED/PENDING).
+- POST /products/upload-outfit + GET /channels endpoints.
+
+**Verified live** (commit 77942c99):
+
+| Test                   | Kết quả                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| GET /channels endpoint | ✅ 4 channels                                                                                      |
+| Products page render   | ✅ 12 preset radios, 4 variations pills, "8 cr ≈ 2.664 ₫"                                          |
+| Generate modal upgrade | ✅ 4 var pills, 5 shot, 3 scene radios, 12 preset checkboxes, tier labels Balanced/Strict/Balanced |
+
 ## 2026-05-09
 
 ### [orders] Chat modal — lock outer table-wrapper scroll, save+restore scrollTop
