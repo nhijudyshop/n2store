@@ -1599,6 +1599,58 @@ Status: ✅ Done
 
 **Status**: ✅ Done.
 
+### [web2/seed-all] Seed 15 entities lên Neon — 124,972 records, browser verified
+
+**Goal**: Sau khi tách Neon, seed FULL v2 data từ TPOS để mọi page web2/\* có nội dung thật.
+
+**Recap pipeline**: TPOS OData → seeder paged GET (200/page) → POST `/api/web2/<slug>/bulk-create` (chunks 500) → Neon `web2_records`. Idempotent, ~300x nhanh hơn single-row REST.
+
+**Bổ sung 5 entity mới** ([scripts/web2-fetch-shapes.js](../scripts/tpos-fetch-shapes.js) crawl trước để verify shape):
+
+- `producttemplate`: 3,119 records, 29 fields slim
+- `product` (variant): 5,691, 17 fields
+- `fastsaleorder-invoice`: 11,571, ~60 fields (chỉ pick fields cần)
+- `fastpurchaseorder-invoice`: 1,263, ~28 fields
+- `saleonline-facebook`: 10,499, ~36 fields (Facebook order linkage)
+
+**Slug fix**: lần đầu seed dùng slug `fastsaleorder`/`fastpurchaseorder`/`saleonline-order`/`product-variant` không khớp slug page (`fastsaleorder-invoice`, `fastpurchaseorder-invoice`, `saleonline-facebook`, `product`). Đã delete-all 4 entity sai → re-seed dưới slug đúng. Page verify OK.
+
+**Final state Neon**:
+| Slug | Records | Size |
+|---|---|---|
+| partner-customer | 91,452 | 83 MB |
+| fastsaleorder-invoice | 11,571 | 16 MB |
+| saleonline-facebook | 10,499 | 15 MB |
+| product (variant) | 5,691 | 2.9 MB |
+| producttemplate | 3,119 | 2.8 MB |
+| fastpurchaseorder-invoice | 1,263 | 982 KB |
+| tag | 1,000 | 90 KB |
+| partner-supplier | 186 | 89 KB |
+| productattributevalue | 108 | 16 KB |
+| productuom | 44 | 8 KB |
+| productcategory | 21 | 2.7 KB |
+| deliverycarrier | 7 | 1.7 KB |
+| accountjournal | 7 | 0.97 KB |
+| productattribute | 3 | 252 B |
+| rescurrency | 1 | 52 B |
+| **Total** | **124,972** | **~118 MB** (table+index 168 MB, DB 184.6 MB) |
+
+**Browser verify (Playwright)** — 4 page corrected slugs render data thật:
+
+- `web2/fastsaleorder-invoice/` → 200 rows: "NJD/2026/54267 Nhieu Le", "NJD/2026/54266 Diamond Lê" ✅
+- `web2/fastpurchaseorder-invoice/` → 200 rows: "BILL/2026/0806 [B29] B29 HỒNG ÂN" ✅
+- `web2/sale-online-facebook/` → 200 rows: "260300080 Van Anh Luu", "Thuy Huynh", "Dung Pham" ✅
+- `web2/product-variant/` → 200 rows: "[MM293] MM ÁO TD NHUNG PHỐI REN ĐEN" ✅
+
+**Files**:
+
+- New: `scripts/tpos-fetch-shapes.js` (crawl utility để verify TPOS field shape trước khi build mapper)
+- Updated: `scripts/web2-seed-from-tpos.js` (15 entity configs, slugs match page slugs)
+
+**Status**: ✅ Done. Neon DB 184.6 MB / 500 MB free tier, còn ~315 MB margin.
+
+---
+
 ### [web2/db] Tách v2 sang Neon (free tier) — không tốn dữ liệu Render v1 nữa
 
 **Vấn đề**: Sau cleanup 92k records, user hỏi có thể lưu v2 ở DB riêng (Supabase/Neon free) để không đụng Render Postgres v1. Quyết định: **dùng Neon** (Postgres-compatible, 0.5 GB free, auto-suspend khi idle).
