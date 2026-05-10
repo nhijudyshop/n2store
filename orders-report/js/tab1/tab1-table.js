@@ -463,6 +463,11 @@ function renderAllOrders() {
 
     // Clear rendering flag after render is complete
     isRendering = false;
+
+    // Restore any expanded product-detail rows that were wiped by the
+    // tbody.innerHTML rebuild above. Owner reported "expand 1 lúc tự động đóng"
+    // — TPOS realtime SSE was triggering re-renders that cleared expansions.
+    if (typeof _restoreExpandedDetailRows === 'function') _restoreExpandedDetailRows();
 }
 
 // =====================================================
@@ -706,6 +711,7 @@ const VirtualTable = {
         // Render all rows (như cũ, nhưng không dùng infinite scroll)
         this.tbody.innerHTML = orders.map((order) => createRowHTML(order)).join('');
         renderedCount = orders.length;
+        if (typeof _restoreExpandedDetailRows === 'function') _restoreExpandedDetailRows();
     },
 
     /**
@@ -764,6 +770,7 @@ const VirtualTable = {
 
         this.tbody.innerHTML = html;
         renderedCount = endIndex; // Track for compatibility
+        if (typeof _restoreExpandedDetailRows === 'function') _restoreExpandedDetailRows();
 
         // Apply column visibility to new rows
         if (window.columnVisibility) {
@@ -1038,6 +1045,10 @@ function loadMoreRows() {
 
     tbody.appendChild(fragment);
 
+    // Restore detail rows for any expanded orders whose <tr> just got appended.
+    // Cheap: function early-returns when set is empty.
+    if (typeof _restoreExpandedDetailRows === 'function') _restoreExpandedDetailRows();
+
     // Column visibility uses <style> tag — auto-applies to new DOM, no JS needed
 
     // Add spacer back if still have more
@@ -1250,6 +1261,10 @@ function renderByEmployee() {
 
     // Clear rendering flag after render is complete
     isRendering = false;
+
+    // Restore expanded detail rows in employee view too (each section has its
+    // own table so the same orderId-keyed lookup works — first match wins).
+    if (typeof _restoreExpandedDetailRows === 'function') _restoreExpandedDetailRows();
 
     // Fetch wallet debt data for employee view
     if (typeof triggerWalletDebtFetch === 'function') {
@@ -2686,6 +2701,107 @@ function _findScrollableAncestor(el) {
     return document.scrollingElement || document.documentElement;
 }
 
+// Set of orderIds whose detail row is currently expanded. Survives table
+// re-renders so we can restore the detail rows after `tbody.innerHTML = …`
+// wipes them — that's the source of "expand 1 lúc tự động đóng" giật reported
+// by owner: TPOS realtime SSE → schedulePerformTableSearch() → renderTable()
+// → renderAllOrders() → tbody.innerHTML rebuilds → detail rows lost.
+const _expandedOrderIds = new Set();
+
+function _escapeHtmlForDetail(str) {
+    return str
+        ? str
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+        : '';
+}
+
+/**
+ * Build the inner HTML for a product-detail-row (the <td colspan> wrapping the
+ * details mini-table). Pure function so we can call it from both the click
+ * flow AND the post-render restore.
+ */
+function _buildDetailRowInnerHTML(orderId, details, colCount, hasStock) {
+    if (!details || details.length === 0) {
+        return `<td colspan="${colCount}" style="padding: 12px 16px; background: #f8fafc; color: #6b7280; font-style: italic;">Không có sản phẩm</td>`;
+    }
+    const rows = details
+        .map(
+            (p, i) => `
+            <tr>
+                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-weight: 500;">${p.ProductNameGet || p.ProductName || ''}</div>
+                    <div class="inline-note-wrapper" data-order-id="${orderId}" data-product-id="${p.ProductId}" data-detail-index="${i}"
+                         onclick="startInlineNoteEdit(this)" title="Click để sửa ghi chú"
+                         style="font-size: 11px; color: #6b7280; font-style: italic; cursor: pointer; min-height: 16px; padding: 1px 0;">
+                        ${p.Note ? _escapeHtmlForDetail(p.Note) : '<span style="color: #d1d5db;">+ Thêm ghi chú</span>'}
+                    </div>
+                </td>
+                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
+                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
+                ${hasStock ? _renderDetailStockCell(p) : ''}
+            </tr>
+        `
+        )
+        .join('');
+
+    return `
+            <td colspan="${colCount}" style="padding: 0; background: #f8fafc;">
+                <table style="width: auto; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #e2e8f0;">
+                            <th style="padding: 6px 12px; text-align: left; font-weight: 600;">Sản phẩm</th>
+                            <th style="padding: 6px 12px; text-align: center; width: 60px; font-weight: 600;">Số lượng</th>
+                            <th style="padding: 6px 12px; text-align: right; width: 100px; font-weight: 600;">Đơn giá</th>
+                            ${hasStock ? _renderDetailStockHeader() : ''}
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </td>`;
+}
+
+/**
+ * After a tbody re-render, walk the expanded-set and re-insert detail rows
+ * for any order still rendered in the table. Synchronous fast-path uses the
+ * `_productDetailCache` (no network). Orders whose row hasn't been rendered
+ * yet (progressive render: only first 50 + appended via loadMoreRows) get
+ * their detail row restored when their <tr> next appears via
+ * `_restoreExpandedDetailRows()` re-call from the load-more hook.
+ */
+function _restoreExpandedDetailRows() {
+    if (_expandedOrderIds.size === 0) return;
+    const stockReady = _detailStockMap && _detailStockMap.size > 0;
+    for (const orderId of _expandedOrderIds) {
+        const tr = document.querySelector(`tr[data-order-id="${orderId}"]`);
+        if (!tr) continue; // not in current view yet
+        const sttCell = tr.querySelector('.stt-clickable');
+        if (!sttCell) continue;
+        // Skip if already has a detail row right after (rare but possible if
+        // a partial render kept it).
+        const next = tr.nextElementSibling;
+        if (next && next.classList.contains('product-detail-row')) {
+            sttCell.classList.add('stt-expanded');
+            continue;
+        }
+        // Need cached details — without cache we'd silently swallow user
+        // expansion. Skip silently rather than fire a bunch of network
+        // requests during render (would amplify the original perf problem).
+        if (!_productDetailCache.has(orderId)) continue;
+
+        const details = _productDetailCache.get(orderId);
+        const colCount = tr.children.length;
+        const detailRow = document.createElement('tr');
+        detailRow.className = 'product-detail-row';
+        detailRow.innerHTML = _buildDetailRowInnerHTML(orderId, details, colCount, stockReady);
+        tr.after(detailRow);
+        sttCell.classList.add('stt-expanded');
+    }
+}
+window._restoreExpandedDetailRows = _restoreExpandedDetailRows;
+
 async function toggleProductDetail(orderId, sttCell) {
     const tr = sttCell.closest('tr');
     const existingDetailRow = tr.nextElementSibling;
@@ -2702,6 +2818,7 @@ async function toggleProductDetail(orderId, sttCell) {
             existingDetailRow.remove();
             sttCell.classList.remove('stt-expanded');
         });
+        _expandedOrderIds.delete(orderId);
         return;
     }
 
@@ -2710,6 +2827,10 @@ async function toggleProductDetail(orderId, sttCell) {
     // each new expand → giật / nhảy scroll khi user mở nhiều. The expensive
     // close-all-others batch was the cause; toggling only the clicked row is
     // a single-row layout change instead of N rows removed at once.
+
+    // Track expansion BEFORE async fetch so a re-render arriving mid-fetch can
+    // restore the row from cache (or we'll cache below before render lands).
+    _expandedOrderIds.add(orderId);
 
     // Count columns for colspan
     const colCount = tr.children.length;
@@ -2741,12 +2862,30 @@ async function toggleProductDetail(orderId, sttCell) {
             const data = await res.json();
             details = data.Details || [];
             _productDetailCache.set(orderId, details);
-            // Auto-clear cache after 5 minutes
-            setTimeout(() => _productDetailCache.delete(orderId), 5 * 60 * 1000);
+            // Auto-clear cache after 5 minutes — also evict from expanded set
+            // so the post-cache-evict render doesn't hang on a missing cache.
+            setTimeout(
+                () => {
+                    _productDetailCache.delete(orderId);
+                    _expandedOrderIds.delete(orderId);
+                },
+                5 * 60 * 1000
+            );
+        }
+
+        // Re-resolve loadingRow because a re-render between `tr.after(loadingRow)`
+        // and the await could have wiped the original DOM node.
+        let detailRow = document.querySelector(
+            `tr[data-order-id="${orderId}"]`
+        )?.nextElementSibling;
+        if (!detailRow || !detailRow.classList.contains('product-detail-row')) {
+            // Render landed and removed our placeholder — try restore via cache path.
+            _restoreExpandedDetailRows();
+            return;
         }
 
         if (details.length === 0) {
-            loadingRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #f8fafc; color: #6b7280; font-style: italic;">Không có sản phẩm</td>`;
+            detailRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #f8fafc; color: #6b7280; font-style: italic;">Không có sản phẩm</td>`;
             return;
         }
 
@@ -2754,51 +2893,20 @@ async function toggleProductDetail(orderId, sttCell) {
         await _ensureDetailStockLoaded();
         const hasStock = _detailStockMap.size > 0;
 
-        const escapeHtml = (str) =>
-            str
-                ? str
-                      .replace(/&/g, '&amp;')
-                      .replace(/</g, '&lt;')
-                      .replace(/>/g, '&gt;')
-                      .replace(/"/g, '&quot;')
-                : '';
-        const rows = details
-            .map(
-                (p, i) => `
-            <tr>
-                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    <div style="font-weight: 500;">${p.ProductNameGet || p.ProductName || ''}</div>
-                    <div class="inline-note-wrapper" data-order-id="${orderId}" data-product-id="${p.ProductId}" data-detail-index="${i}"
-                         onclick="startInlineNoteEdit(this)" title="Click để sửa ghi chú"
-                         style="font-size: 11px; color: #6b7280; font-style: italic; cursor: pointer; min-height: 16px; padding: 1px 0;">
-                        ${p.Note ? escapeHtml(p.Note) : '<span style="color: #d1d5db;">+ Thêm ghi chú</span>'}
-                    </div>
-                </td>
-                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
-                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
-                ${hasStock ? _renderDetailStockCell(p) : ''}
-            </tr>
-        `
-            )
-            .join('');
+        // Re-resolve again after stock fetch (another async boundary).
+        detailRow = document.querySelector(`tr[data-order-id="${orderId}"]`)?.nextElementSibling;
+        if (!detailRow || !detailRow.classList.contains('product-detail-row')) {
+            _restoreExpandedDetailRows();
+            return;
+        }
 
-        loadingRow.innerHTML = `
-            <td colspan="${colCount}" style="padding: 0; background: #f8fafc;">
-                <table style="width: auto; border-collapse: collapse; font-size: 13px;">
-                    <thead>
-                        <tr style="background: #e2e8f0;">
-                            <th style="padding: 6px 12px; text-align: left; font-weight: 600;">Sản phẩm</th>
-                            <th style="padding: 6px 12px; text-align: center; width: 60px; font-weight: 600;">Số lượng</th>
-                            <th style="padding: 6px 12px; text-align: right; width: 100px; font-weight: 600;">Đơn giá</th>
-                            ${hasStock ? _renderDetailStockHeader() : ''}
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            </td>`;
+        detailRow.innerHTML = _buildDetailRowInnerHTML(orderId, details, colCount, hasStock);
     } catch (err) {
         console.error('[PRODUCT-DETAIL] Error:', err);
-        loadingRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #fef2f2; color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Lỗi tải dữ liệu</td>`;
+        const errRow = document.querySelector(`tr[data-order-id="${orderId}"]`)?.nextElementSibling;
+        if (errRow && errRow.classList.contains('product-detail-row')) {
+            errRow.innerHTML = `<td colspan="${tr.children.length}" style="padding: 12px 16px; background: #fef2f2; color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Lỗi tải dữ liệu</td>`;
+        }
     }
 }
 
