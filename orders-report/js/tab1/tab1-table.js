@@ -2644,20 +2644,72 @@ function _renderDetailStockCell(detail) {
     return `<td style="padding: 6px 12px; text-align: center; width: 80px; color: ${color}; font-weight: 500; border-bottom: 1px solid #e5e7eb;">${icon}${qty}</td>`;
 }
 
+/**
+ * Run a DOM mutation while keeping a reference row's screen position stable.
+ *
+ * Browser scroll-anchoring kicks in only sometimes (depends on mutation order
+ * + scroll-anchor CSS). For the order table-wrapper we explicitly snapshot
+ * `anchorEl.getBoundingClientRect().top` BEFORE mutate and adjust the
+ * scrollable container's `scrollTop` AFTER mutate by the delta — keeps the
+ * clicked row pinned to the same y-coordinate the user clicked on.
+ *
+ * @param {HTMLElement} anchorEl - the element whose viewport position to keep
+ * @param {() => void} mutate - synchronous DOM mutation
+ */
+function _withScrollAnchor(anchorEl, mutate) {
+    const scroller = _findScrollableAncestor(anchorEl);
+    if (!scroller) {
+        mutate();
+        return;
+    }
+    const beforeTop = anchorEl.getBoundingClientRect().top;
+    mutate();
+    const afterTop = anchorEl.getBoundingClientRect().top;
+    const delta = afterTop - beforeTop;
+    if (delta !== 0) {
+        scroller.scrollTop += delta;
+    }
+}
+
+function _findScrollableAncestor(el) {
+    let cur = el?.parentElement || null;
+    while (cur && cur !== document.body && cur !== document.documentElement) {
+        const cs = window.getComputedStyle(cur);
+        if (
+            (cs.overflowY === 'auto' || cs.overflowY === 'scroll') &&
+            cur.scrollHeight > cur.clientHeight
+        ) {
+            return cur;
+        }
+        cur = cur.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+}
+
 async function toggleProductDetail(orderId, sttCell) {
     const tr = sttCell.closest('tr');
     const existingDetailRow = tr.nextElementSibling;
 
-    // Toggle: if detail row exists, remove it
+    // Toggle: if detail row exists, remove it (preserve scroll — close-only-this
+    // still removes a row above the viewport bottom, but only ONE row's worth
+    // of layout shift instead of the whole list).
     if (existingDetailRow && existingDetailRow.classList.contains('product-detail-row')) {
-        existingDetailRow.remove();
-        sttCell.classList.remove('stt-expanded');
+        // Anchor scroll to the clicked row so the visual position doesn't jump
+        // when the row below it disappears (height shrinks above the viewport
+        // edge → would shift content up; sticking to the clicked row's offset
+        // keeps the row in place).
+        _withScrollAnchor(tr, () => {
+            existingDetailRow.remove();
+            sttCell.classList.remove('stt-expanded');
+        });
         return;
     }
 
-    // Close all other open detail rows
-    document.querySelectorAll('.product-detail-row').forEach((row) => row.remove());
-    document.querySelectorAll('.stt-expanded').forEach((el) => el.classList.remove('stt-expanded'));
+    // Owner-confirmed (2026-05-10): allow MULTIPLE STT rows expanded
+    // simultaneously. Previous behavior closed every other open detail row on
+    // each new expand → giật / nhảy scroll khi user mở nhiều. The expensive
+    // close-all-others batch was the cause; toggling only the clicked row is
+    // a single-row layout change instead of N rows removed at once.
 
     // Count columns for colspan
     const colCount = tr.children.length;
