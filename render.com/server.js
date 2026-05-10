@@ -531,6 +531,13 @@ setTimeout(async () => {
     } catch (err) {
         console.error('[STARTUP] TPOS Socket.IO connection failed (will retry):', err.message);
     }
+
+    // Web 2.0 ↔ TPOS sync (gated by WEB2_SYNC_ENABLED env var)
+    try {
+        require('./services/web2-sync-worker').init();
+    } catch (err) {
+        console.error('[STARTUP] web2-sync-worker init failed:', err.message);
+    }
 }, 10000); // delay 10s after server start
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)

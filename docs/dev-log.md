@@ -1623,6 +1623,36 @@ Status: ✅ Done
 
 **Status**: ✅ Done.
 
+### [web2/cron-sync] Add 4 ref entities + auto-sync worker (TPOS → Neon delta)
+
+**+ 4 ref data entities** seeded:
+
+- `accounttax`: 6 records, `stockwarehouse`: 2, `crmteam`: 5, `livecampaign`: 38
+- Total: **51 records**, all small ref data, ~ms via REST. Page web2/account-tax, stock-warehouse, sales-channel, live-campaign giờ có nội dung.
+
+**+ Cron auto-sync worker** ([render.com/services/web2-sync-worker.js](../render.com/services/web2-sync-worker.js)):
+
+- Spawn `scripts/web2-seed-from-tpos.js` (đã idempotent) làm child process — KHÔNG duplicate logic
+- 3 tier theo tốc độ thay đổi:
+    - **hot** (15 phút): fastsaleorder-invoice, fastpurchaseorder-invoice, saleonline-facebook, livecampaign — đơn mới phải nhanh
+    - **master** (1 giờ tại :05): partner-customer, partner-supplier, producttemplate, product
+    - **refData** (6 giờ tại :30): tag, productcategory, productuom, accounttax, stockwarehouse, crmteam, rescurrency, productattribute, productattributevalue, deliverycarrier, accountjournal
+- Initial-hot sync 60s sau khi server boot
+- Concurrency lock — skip nếu tier khác đang chạy (tránh quota burn Neon)
+- Toggle qua env `WEB2_SYNC_ENABLED=true`. Set trên Render API ngay.
+
+**Tổng state Neon final**: **125,023 records** trong **19 entities** (~185 MB / 500 MB free, 315 MB margin). Sync auto chạy mỗi 15 phút sau khi deploy.
+
+**Files**:
+
+- New: `render.com/services/web2-sync-worker.js`
+- Updated: `render.com/server.js` (+5 dòng init), `scripts/web2-seed-from-tpos.js` (+4 entity configs)
+- Render env var: `WEB2_SYNC_ENABLED=true` set qua API
+
+**Status**: ✅ Done. v2 production-ready: data 100% từ TPOS, auto-sync 15min hot tier, isolate Neon, bulk-create endpoint, browser verified pages.
+
+---
+
 ### [web2/seed-all] Seed 15 entities lên Neon — 124,972 records, browser verified
 
 **Goal**: Sau khi tách Neon, seed FULL v2 data từ TPOS để mọi page web2/\* có nội dung thật.
