@@ -112,9 +112,9 @@ async function dispatchOne(row) {
     }
 
     // Engine selection — config.engine overrides default per kind.
-    // image: gemini_3_1 (default) | fal_pulid (locked)
+    // image: cf_flux (default — FREE 10K neurons/day) | gemini_3_1 (paid fallback) | fal_pulid (locked)
     // video: kling (default — face-swap-capable via multi-image2video) | veo_3_1
-    const engine = String(conf.engine || (kind === 'image' ? 'gemini_3_1' : 'kling')).toLowerCase();
+    const engine = String(conf.engine || (kind === 'image' ? 'cf_flux' : 'kling')).toLowerCase();
 
     let externalId, provider, kindKey;
     // Khai báo function-scope để final UPDATE outside if/else block đọc được.
@@ -241,35 +241,48 @@ async function dispatchOne(row) {
                 imagePrompt = note;
                 secondImageUrl = sceneImageUrl;
             }
-            // CF FLUX path (cheap free option) — fetch images as buffers, dùng
+            // CF FLUX path (FREE default) — fetch images as buffers, dùng
             // multi-image compose endpoint (FLUX-2 dev). Auto-fallback Gemini
-            // nếu CF chưa configure.
-            let result;
+            // khi CF chưa configure HOẶC quota exceeded / runtime error.
+            let result = null;
+            let usedProvider = null;
             const cfFlux = require('./aikol-cf-flux-service');
             if (engine === 'cf_flux' && cfFlux.isAvailable()) {
-                const fetchAsBuf = async (url) => {
-                    const r = await fetch(url);
-                    if (!r.ok) throw new Error(`fetch image ${r.status}`);
-                    const arr = await r.arrayBuffer();
-                    return {
-                        buffer: Buffer.from(arr),
-                        mimeType: r.headers.get('content-type') || 'image/jpeg',
+                try {
+                    const fetchAsBuf = async (url) => {
+                        const r = await fetch(url);
+                        if (!r.ok) throw new Error(`fetch image ${r.status}`);
+                        const arr = await r.arrayBuffer();
+                        return {
+                            buffer: Buffer.from(arr),
+                            mimeType: r.headers.get('content-type') || 'image/jpeg',
+                        };
                     };
-                };
-                const refs = [await fetchAsBuf(modelImageUrl)];
-                if (secondImageUrl) refs.push(await fetchAsBuf(secondImageUrl));
-                result = await cfFlux.multiImageCompose({
-                    images: refs.map((r) => r.buffer),
-                    mimeTypes: refs.map((r) => r.mimeType),
-                    prompt: imagePrompt,
-                });
-            } else {
-                // Synchronous — generate, upload, save output, mark done all in one shot
+                    const refs = [await fetchAsBuf(modelImageUrl)];
+                    if (secondImageUrl) refs.push(await fetchAsBuf(secondImageUrl));
+                    result = await cfFlux.multiImageCompose({
+                        images: refs.map((r) => r.buffer),
+                        mimeTypes: refs.map((r) => r.mimeType),
+                        prompt: imagePrompt,
+                    });
+                    usedProvider = 'cloudflare';
+                } catch (e) {
+                    console.warn(
+                        '[aikol] CF FLUX failed, fallback Gemini:',
+                        e?.message || String(e)
+                    );
+                    result = null; // fallback below
+                }
+            }
+            if (!result) {
+                // Synchronous — generate, upload, save output, mark done all in one shot.
+                // Hit when engine='gemini_3_1' OR cf_flux unavailable/failed.
                 result = await geminiClone.cloneImage({
                     modelImageUrl,
                     sceneImageUrl: secondImageUrl,
                     prompt: imagePrompt,
                 });
+                usedProvider = 'gemini';
             }
             const ext = result.mimeType.includes('png') ? 'png' : 'jpg';
             const key = `aikol/outputs/${id}-0.${ext}`;
@@ -296,7 +309,7 @@ async function dispatchOne(row) {
                  WHERE id = $2 AND state IN ('dispatching','running')`,
                 [
                     JSON.stringify({
-                        provider: engine === 'cf_flux' ? 'cloudflare' : 'gemini',
+                        provider: usedProvider || (engine === 'cf_flux' ? 'cloudflare' : 'gemini'),
                         kind_key: 'image_clone',
                         engine,
                     }),

@@ -48,7 +48,7 @@
                     <form id="aikol-gen-form" class="aikol-gen-modal__body">
                         <fieldset class="aikol-gen-fieldset" data-gen-mode-fieldset hidden>
                             <legend>Cách tạo</legend>
-                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Ghép model vào clip này (image: Gemini compose · video: Gemini compose → image2video, ~30s thêm)</label>
+                            <label><input type="radio" name="gen_mode" value="with_clip" checked> 🎬 Ghép model vào clip này (image: CF FLUX compose · video: Kling multi-image2video native)</label>
                             <label><input type="radio" name="gen_mode" value="auto_scene"> ✨ AI tự sáng tạo scene (chỉ dùng prompt — không cần clip)</label>
                         </fieldset>
 
@@ -66,9 +66,9 @@
                         <label class="aikol-gen-row" data-image-only>
                             <span>Engine (image)</span>
                             <select name="engine_image">
-                                <option value="gemini_3_1" selected>Gemini 3.1 — 8cr/variation · chất lượng cao ⭐</option>
-                                <option value="cf_flux">CF FLUX-2 — 4cr/variation · FREE 10K neurons/day 🆓</option>
+                                <option value="cf_flux" selected>CF FLUX-2 — 4cr/variation · FREE 10K neurons/day 🆓</option>
                                 <option value="fal_pulid">Fal PuLID — 4cr/variation · nhanh (cần top-up)</option>
+                                <!-- gemini_3_1 ẩn khỏi UI — vẫn hoạt động khi CF fail/quota (auto-fallback backend). -->
                             </select>
                         </label>
                         <label class="aikol-gen-row" data-video-only style="display:none">
@@ -273,10 +273,11 @@
         obj.similarity = parseInt(obj.similarity, 10);
         obj.creativity = parseInt(obj.creativity, 10);
         obj.duration_seconds = parseInt(obj.duration_seconds, 10) || 5;
-        // Engine default — Gemini 3.1 (image) / Kling (video, native multi-image
-        // face-swap khi with_clip). Veo + Fal cần override hoặc top-up.
+        // Engine default — CF FLUX-2 (image, FREE) / Kling (video, native multi-image
+        // face-swap khi with_clip). Gemini hidden in UI nhưng vẫn auto-fallback ở backend
+        // khi CF unavailable / quota exceeded.
         obj.engine =
-            obj.kind === 'image' ? obj.engine_image || 'gemini_3_1' : obj.engine_video || 'kling';
+            obj.kind === 'image' ? obj.engine_image || 'cf_flux' : obj.engine_video || 'kling';
         delete obj.engine_image;
         delete obj.engine_video;
         return obj;
@@ -307,15 +308,19 @@
         return (cr * VND_PER_CREDIT).toLocaleString('vi-VN') + ' ₫';
     }
 
+    const ENGINE_LABEL = {
+        cf_flux: 'CF FLUX-2 🆓',
+        gemini_3_1: 'Gemini 3.1',
+        fal_pulid: 'Fal PuLID',
+    };
     function refreshCostLabel(form) {
         const c = computeCost(form);
         const data = readForm(form);
         const totalVnd = fmtVnd(c.total);
         let breakdown;
         if (data.kind === 'image') {
-            breakdown = `${c.total} cr ≈ ${totalVnd} (${c.engine === 'gemini_3_1' ? 'Gemini 3.1' : 'Fal PuLID'} × ${data.variations})`;
-        } else if (c.compose) {
-            breakdown = `${c.total} cr ≈ ${totalVnd} = ${c.animate} (${c.engine} ${c.sec}s × ${c.perSec}cr) + ${c.compose} (Gemini compose)`;
+            const label = ENGINE_LABEL[c.engine] || c.engine;
+            breakdown = `${c.total} cr ≈ ${totalVnd} (${label} × ${data.variations})`;
         } else {
             breakdown = `${c.total} cr ≈ ${totalVnd} (${c.engine} ${c.sec}s × ${c.perSec}cr)`;
         }

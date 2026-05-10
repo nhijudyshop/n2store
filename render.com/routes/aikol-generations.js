@@ -62,7 +62,8 @@ function clampInt(n, min, max, fallback) {
 
 function computeImageCost(config) {
     const variations = clampInt(config.variations, 1, COSTS.max_variations, 1);
-    const engine = String(config.engine || 'fal_pulid').toLowerCase();
+    const engine = String(config.engine || 'cf_flux').toLowerCase();
+    // gemini_3_1 = 8cr (paid). cf_flux + fal_pulid = 4cr.
     const perVariation = engine === 'gemini_3_1' ? COSTS.image_gemini_3_1 : COSTS.image;
     return perVariation * variations;
 }
@@ -134,8 +135,8 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
     //   - similarity ≥ 80 (anchor mặt strong)
     //   - creativity ≤ 30 (giảm Veo/Gemini drift)
     //   - keep_pose, keep_outfit, keep_bg, keep_lighting = true (giữ scene clip)
-    //   - engine image: gemini_3_1 (Fal PuLID locked + identity tốt hơn)
-    //   - engine video: veo_3_1 default Veo 2.0 (no audio safety filter)
+    //   - engine image: cf_flux (FREE default, fallback Gemini khi quota exceed)
+    //   - engine video: kling (face-swap native multi-image2video)
     // User có thể override qua flag `auto_tune: false` trong config.
     if (conf.auto_tune !== false && conf.gen_mode === 'with_clip') {
         conf.similarity = Math.max(80, parseInt(conf.similarity, 10) || 80);
@@ -144,8 +145,9 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
         conf.keep_outfit = true;
         conf.keep_bg = true;
         conf.keep_lighting = true;
-        if (kind === 'image' && conf.engine !== 'gemini_3_1' && conf.engine !== 'fal_pulid') {
-            conf.engine = 'gemini_3_1';
+        const allowedImage = ['cf_flux', 'gemini_3_1', 'fal_pulid'];
+        if (kind === 'image' && !allowedImage.includes(conf.engine)) {
+            conf.engine = 'cf_flux';
         }
         // Veo bỏ — chỉ còn Kling.
         if (kind === 'video') conf.engine = 'kling';

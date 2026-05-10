@@ -8,6 +8,38 @@
 
 ## 2026-05-10
 
+### [aikol] Default sang CF FLUX (FREE) — Gemini ẩn khỏi UI nhưng giữ làm fallback
+
+User: "B" sau khi tôi đề xuất giữ Gemini làm safety net thay vì xóa hẳn (rủi ro CF free 10K neurons/day quota exceeded → mất gen nếu không có fallback).
+
+**Backend**:
+
+- `aikol-queue-worker.js:117` — default engine image đổi `gemini_3_1` → `cf_flux`.
+- `aikol-queue-worker.js:230` (CF/Gemini path) — wrap CF call trong try-catch, log + fall back Gemini khi runtime fail. Track `usedProvider` để config persist đúng provider thực tế dùng.
+- `aikol-generations.js:147` — auto-tune sanitize: nếu engine không nằm trong `[cf_flux, gemini_3_1, fal_pulid]` → ép về `cf_flux`.
+- `aikol-generations.js:66` (`computeImageCost`) — default engine khi blank đổi `fal_pulid` → `cf_flux` (cùng giá 4cr nên không break billing cho user cũ).
+
+**Frontend** (`generate-panel.js`):
+
+- Engine select: `cf_flux` selected, Gemini option **xóa khỏi dropdown** (vẫn chấp nhận giá trị `gemini_3_1` nếu config cũ stored).
+- Default fallback `obj.engine || 'cf_flux'` (was `gemini_3_1`).
+- Cost label dùng `ENGINE_LABEL` map → tự động hiển thị đúng tên với engine bất kỳ thay vì if/else cứng.
+- Bỏ "Gemini compose" mention khỏi label radio with_clip — giờ là "CF FLUX compose · Kling multi-image2video native".
+
+**Behavior khi CF fail/quota**:
+
+```
+engine='cf_flux' + cfFlux.isAvailable()
+  → try CF multiImageCompose
+  → catch error → console.warn → result=null
+  → fall through to geminiClone.cloneImage (paid 8cr)
+  → DB log usedProvider='gemini' để biết fallback đã trigger
+```
+
+Nếu chỉ muốn dùng Gemini (skip CF), user gửi `engine: 'gemini_3_1'` trong config (vẫn route đúng).
+
+**Verified**: syntax check 3 file passed (`node -c`). Live test cần sau khi push + Render redeploy.
+
 ### [orders] STT expand survives table re-render — fix auto-close giật
 
 **Bug owner báo (tiếp)**: "expand STT ra 1 lúc nó tự động đóng → bị giật bảng đó → sửa bug này hoặc tối ưu giao diện". Sau fix lần trước (multi-row + scroll anchor), expand vẫn auto-close sau vài giây.
