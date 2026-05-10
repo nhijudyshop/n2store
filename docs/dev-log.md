@@ -8,6 +8,38 @@
 
 ## 2026-05-10
 
+### [orders] STT expand — fix scroll giật khi mở nhiều đơn
+
+**Bug owner báo**: "đơn hàng bấm vào STT để expand danh sách sản phẩm → expand nhiều quá scroll nó sẽ giật → hình như nó đóng mấy đơn kia nên giật".
+
+**Root cause** ([orders-report/js/tab1/tab1-table.js:toggleProductDetail](../orders-report/js/tab1/tab1-table.js)): Mỗi lần click STT trên row mới, code chạy:
+
+```js
+document.querySelectorAll('.product-detail-row').forEach((row) => row.remove());
+document.querySelectorAll('.stt-expanded').forEach((el) => el.classList.remove('stt-expanded'));
+```
+
+→ tất cả detail rows đang mở bị xoá batch trong cùng một frame → table-wrapper layout shrink lớn → scroll position relative tới layout cũ → user thấy giật / nhảy về vị trí khác.
+
+**Fix**:
+
+1. **Cho phép nhiều STT mở cùng lúc**. Bỏ block "close all others". Click STT chưa mở → chỉ thêm 1 detail row. Click STT đã mở → chỉ remove detail row đó. Mutation 1 row tại 1 thời điểm = layout shift nhỏ, browser tự handle scroll-anchor được.
+
+2. **Scroll-anchor helper `_withScrollAnchor(anchorEl, mutate)`** + `_findScrollableAncestor(el)`: snapshot `getBoundingClientRect().top` của clicked row TRƯỚC remove → mutate → tính delta sau remove → adjust `scroller.scrollTop += delta` để pin clicked row tại y-position cũ. Defensive fallback cho trường hợp browser scroll-anchor không kick in.
+
+**Tests** (browser session local, T6 DEAL XINH ĐÓN HÈ THÁNG 5, 704 orders):
+
+- ✅ Click STT 1 → 1 detail row + 1 expanded class.
+- ✅ Click STT 5 → **2** detail rows + **2** expanded (STT 1 vẫn mở, không bị đóng tự động).
+- ✅ Click STT 10 → **3** detail rows + **3** expanded.
+- ✅ Scroll-anchor: scroll STT 15 lên đầu viewport (`scrollIntoView`) → click STT 15 close → `beforeY=180, afterY=180` (deltaY=0, row pinned). 2 detail rows còn lại (STT 5, STT 25) vẫn mở.
+
+**Files**: [orders-report/js/tab1/tab1-table.js](../orders-report/js/tab1/tab1-table.js) — bỏ close-all-others, thêm `_withScrollAnchor`/`_findScrollableAncestor`, wrap close-toggle bằng anchor.
+
+Status: ✅ Done (auto-commit `39b9b470`).
+
+---
+
 ### [aikol][render] Cloudflare Workers AI — env vars set live, Workers AI scoped token created via Global API key
 
 User: "bạn vào cloudflare coi luôn đi có key và gmail rồi mà" + email `nhijudyshop@gmail.com`.
