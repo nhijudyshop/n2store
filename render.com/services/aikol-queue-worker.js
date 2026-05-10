@@ -19,7 +19,8 @@ const bunny = require('./bunny-storage-service');
 const fal = require('./aikol-fal-service');
 const kling = require('./aikol-kling-service');
 const geminiClone = require('./aikol-gemini-clone-service');
-const veo = require('./aikol-veo-service');
+// Veo service đã bỏ — chỉ giữ require để không break tests cũ. Comment out:
+// const veo = require('./aikol-veo-service');
 const telegram = require('./aikol-telegram-service');
 const presets = require('../../aikol-studio/js/aikol-presets');
 
@@ -27,7 +28,7 @@ const TICK_INTERVAL_MS = parseInt(process.env.AIKOL_WORKER_INTERVAL_MS, 10) || 8
 const MAX_RUNNING = parseInt(process.env.AIKOL_WORKER_MAX_RUNNING, 10) || 6;
 const FAL_POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
 const KLING_POLL_TIMEOUT_MS = 15 * 60 * 1000; // 15 min
-const VEO_POLL_TIMEOUT_MS = 20 * 60 * 1000; // 20 min (Veo can take longer)
+// VEO_POLL_TIMEOUT_MS bỏ — Veo service đã removed.
 
 const inFlight = new Set(); // generation_ids currently being processed by THIS tick
 let intervalHandle = null;
@@ -280,124 +281,12 @@ async function dispatchOne(row) {
         provider = 'fal';
         kindKey = 'image';
     } else {
-        // ===== VIDEO =====
-        // 2 engine paths khác nhau cho with_clip:
-        //   - Kling: native multi-image2video — nhận cả model face + clip cover
-        //     trong 1 API call (Kling tự handle identity preservation + scene
-        //     match). KHÔNG cần Gemini compose. 1 step thay vì 2.
-        //   - Veo: chỉ accept 1 image input → cần compose-then-animate
-        //     (Gemini compose model+cover → Veo animate composite).
-        // Auto_scene cả 2 đều dùng image2video (model only + prompt).
-        let animationSourceUrl = modelImageUrl;
-        const klingMultiImage = engine === 'kling' && genMode === 'with_clip' && !!sceneImageUrl;
-        const veoNeedsCompose = engine === 'veo_3_1' && genMode === 'with_clip' && !!sceneImageUrl;
-        const shouldCompose = veoNeedsCompose; // backwards-compat alias for prompt logic
+        // ===== VIDEO — Kling only (Veo bỏ 10/05/2026) =====
+        // with_clip: native multi-image2video (face + clip cover, 1 API call).
+        // auto_scene: image2video (model + prompt).
+        const klingMultiImage = genMode === 'with_clip' && !!sceneImageUrl;
 
-        if (veoNeedsCompose) {
-            // Compose fail KHÔNG silent fallback — Veo path mất identity nếu
-            // animate raw model image. Throw → markError + refund.
-            const composite = await geminiClone
-                .cloneImage({
-                    modelImageUrl,
-                    sceneImageUrl,
-                    prompt: note,
-                })
-                .catch((e) => {
-                    throw new Error(
-                        `Compose failed (Gemini): ${e.message}. Veo pipeline yêu cầu compose step thành công.`
-                    );
-                });
-            const compExt = composite.mimeType.includes('png') ? 'png' : 'jpg';
-            compositeKey = `aikol/tmp/${id}-composite.${compExt}`;
-            await bunny.uploadBuffer(composite.buffer, compositeKey, composite.mimeType);
-            animationSourceUrl = bunny.cdnUrl(compositeKey);
-            console.log(`[aikol-worker] ${id.slice(0, 8)} veo compose → ${compositeKey}`);
-        }
-
-        if (engine === 'veo_3_1') {
-            // Gemini Veo durationSeconds buckets: "4" | "6" | "8". Pass raw value
-            // — service quantizes (1080p/4k always force "8").
-            const durationSeconds = Math.max(
-                4,
-                Math.min(parseInt(conf.duration_seconds, 10) || 8, 8)
-            );
-            // Khi đã compose: directive yêu cầu animate composite (giữ scene+identity).
-            // Khi auto_scene: directive yêu cầu place model vào scene mới từ note.
-            // Khi with_clip nhưng compose fail: fallback note như cũ.
-            // Compose case: input đã là model-trong-scene-clip (Gemini composed).
-            // Veo cần GIỮ NGUYÊN face, chỉ thêm motion → identity-lock prompt
-            // mạnh để tránh face drift qua frames.
-            // Veo image2video deepfake-grade animate. Input là composite model+
-            // clip-scene từ Gemini; Veo phải animate KHÔNG drift face qua frames.
-            const composeAnimatePrompt = [
-                '# TASK',
-                'Animate this static image into a 5-8 second vertical short-form clip',
-                'with subtle, natural, TikTok-appropriate motion.',
-                '',
-                '# PRIORITY 1 — FACE LOCK (absolute)',
-                'The face in the input image is the EXACT identity that must be preserved',
-                'across every single frame. The viewer must recognize the same person',
-                'beyond doubt from frame 1 to the last frame.',
-                'DO NOT modify, redraw, smooth, beautify, idealize, age, or stylize:',
-                '- Eye shape, eye color, eyelid fold',
-                '- Eyebrow shape and color',
-                '- Nose shape, tip, bridge, nostrils',
-                '- Mouth, lip shape, lip line, lip color',
-                '- Jawline, chin, cheekbones, face shape',
-                '- Hairline, hair color, hair texture',
-                '- Skin tone, freckles, moles, makeup',
-                'No "AI face" effect. No symmetry correction. No glow. No airbrush.',
-                '',
-                '# PRIORITY 2 — ALLOWED MOTION (subtle, natural)',
-                '- Head: gentle turns ≤10° in any direction',
-                '- Eyes: 1-3 natural blinks, soft gaze shift',
-                '- Brows: micro-expressions consistent with mood',
-                '- Mouth: subtle smile shift or breath-related lip movement',
-                '  (NO mouthing words — lip-sync not requested)',
-                '- Body: chest/shoulder rise & fall from breathing',
-                '- Posture: natural sway ≤5°',
-                '- Hair: physics-based gentle sway',
-                '',
-                '# FORBIDDEN MOTION',
-                '- Large head rotation (>15°) or full profile turn',
-                '- Walking, running, jumping, dancing, or large gestures',
-                '- Speaking with mouth wide open or rapid lip movement',
-                '- Camera zoom, pan, tilt, dolly, or focus pull',
-                '- Scene change, cut, or transition',
-                '',
-                '# SCENE CONTINUITY',
-                'Keep IDENTICAL to the input image: background, props, environment,',
-                'lighting direction & intensity, color temperature, camera angle,',
-                'framing, focal length, color grade, saturation, contrast.',
-                '',
-                '# STYLE',
-                'Cinematic 9:16 vertical, photorealistic, 24-30 fps natural motion blur,',
-                'sharp focus on the face throughout, natural skin texture with pores',
-                'visible. Indistinguishable from real footage.',
-                (note || '').trim() ? `\n# ADDITIONAL DIRECTION\n${note.trim()}` : '',
-            ]
-                .filter(Boolean)
-                .join(' ');
-            const videoPrompt = shouldCompose
-                ? composeAnimatePrompt
-                : genMode === 'auto_scene'
-                  ? buildAutoSceneDirective(true)
-                  : // with_clip nhưng không có sceneImageUrl (edge case clip
-                    // chưa download cover hoặc cover URL invalid). Vẫn cần
-                    // identity-lock — wrap note vào auto_scene directive.
-                    buildAutoSceneDirective(true);
-            const submit = await veo.submitVideoJob({
-                modelImageUrl: animationSourceUrl,
-                sceneImageUrl: null,
-                prompt: videoPrompt,
-                durationSeconds,
-                aspectRatio: conf.aspect_ratio || conf.image_size || '9:16',
-                resolution: conf.resolution || '720p',
-            });
-            externalId = submit.operationName;
-            provider = 'veo';
-            kindKey = 'image2video';
-        } else {
+        {
             // ===== KLING =====
             if (klingMultiImage) {
                 // Native face-swap workflow: model face + clip cover trong 1
@@ -506,21 +395,25 @@ async function pollOne(row) {
     const conf = typeof config === 'string' ? JSON.parse(config) : config || {};
     const provider = conf.provider || (kind === 'image' ? 'fal' : 'kling');
 
-    // Timeout guard.
+    // Timeout guard. Veo bỏ — chỉ fal + kling.
     const startedAtMs = started_at ? new Date(started_at).getTime() : Date.now();
     const elapsed = Date.now() - startedAtMs;
-    const cap =
-        provider === 'fal'
-            ? FAL_POLL_TIMEOUT_MS
-            : provider === 'veo'
-              ? VEO_POLL_TIMEOUT_MS
-              : KLING_POLL_TIMEOUT_MS;
+    const cap = provider === 'fal' ? FAL_POLL_TIMEOUT_MS : KLING_POLL_TIMEOUT_MS;
     if (elapsed > cap) {
         return markError(id, user_id, cost_credits, `Provider ${provider} timeout (${cap}ms)`);
     }
 
     if (provider === 'fal') return pollFal(row);
-    if (provider === 'veo') return pollVeo(row);
+    if (provider === 'veo') {
+        // Legacy gen với provider='veo' từ trước commit này — mark error vì
+        // service đã bỏ. Refund auto qua markError.
+        return markError(
+            id,
+            user_id,
+            cost_credits,
+            'Veo service đã bỏ — vui lòng resubmit với engine=kling'
+        );
+    }
     return pollKling(row);
 }
 
@@ -540,42 +433,8 @@ async function cleanupComposite(id, conf) {
     }
 }
 
-async function pollVeo(row) {
-    const { id, user_id, external_id, cost_credits, kind, config } = row;
-    const conf = typeof config === 'string' ? JSON.parse(config) : config || {};
-    const status = await veo.getJobStatus(external_id);
-    if (status.status === 'running') return;
-    if (status.status === 'error') {
-        await cleanupComposite(id, conf);
-        return markError(id, user_id, cost_credits, `Veo: ${status.error}`);
-    }
-    if (status.status === 'done' && status.videoUri) {
-        try {
-            const { buffer, contentType } = await veo.downloadVideo(status.videoUri);
-            const key = `aikol/outputs/${id}-0.mp4`;
-            await bunny.uploadBuffer(buffer, key, contentType);
-            await pool.query(
-                `INSERT INTO aikol_outputs
-                    (generation_id, user_id, variant_index, file_path, file_kind, file_size)
-                 SELECT $1, $2, 0, $3, 'video', $4
-                 WHERE NOT EXISTS (
-                   SELECT 1 FROM aikol_outputs WHERE generation_id = $1 AND variant_index = 0
-                 )`,
-                [id, user_id, key, buffer.length]
-            );
-            await pool.query(
-                `UPDATE aikol_generations SET state = 'done', error = NULL, finished_at = NOW()
-                 WHERE id = $1 AND state IN ('running','dispatching')`,
-                [id]
-            );
-            await cleanupComposite(id, conf);
-            await notifyDone(id, user_id, kind, 1).catch(() => {});
-        } catch (e) {
-            await cleanupComposite(id, conf);
-            return markError(id, user_id, cost_credits, `Veo download/save: ${e.message}`);
-        }
-    }
-}
+// pollVeo bỏ — Veo service đã removed. Legacy gen với provider='veo' được
+// mark error trong pollOne với refund auto.
 
 async function pollFal(row) {
     const { id, user_id, external_id, cost_credits, kind, config } = row;

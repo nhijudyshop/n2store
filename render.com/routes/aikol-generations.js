@@ -69,20 +69,9 @@ function computeImageCost(config) {
 
 function computeVideoCost(config) {
     const seconds = Math.max(COSTS.video_min_seconds, clampInt(config.duration_seconds, 3, 10, 5));
-    const engine = String(config.engine || 'kling').toLowerCase();
-    let perSec;
-    if (engine === 'veo_3_1') {
-        perSec = COSTS.video_veo_per_sec;
-    } else {
-        perSec = config.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
-    }
-    let total = perSec * seconds;
-    // Veo with_clip: cần Gemini compose pre-step (worker tự chạy) → cộng 8cr.
-    // Kling with_clip: dùng native multi-image2video, KHÔNG cần compose → 0cr extra.
-    if (config.gen_mode === 'with_clip' && engine === 'veo_3_1') {
-        total += COSTS.image_gemini_3_1;
-    }
-    return total;
+    // Veo 3 đã bỏ — chỉ còn Kling (multi-image2video native, no compose cost).
+    const perSec = config.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+    return perSec * seconds;
 }
 
 async function chargeCredits(client, userId, amount, gen_id, kind, note) {
@@ -158,9 +147,8 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
         if (kind === 'image' && conf.engine !== 'gemini_3_1' && conf.engine !== 'fal_pulid') {
             conf.engine = 'gemini_3_1';
         }
-        if (kind === 'video' && !conf.engine) {
-            conf.engine = 'kling';
-        }
+        // Veo bỏ — chỉ còn Kling.
+        if (kind === 'video') conf.engine = 'kling';
     }
     // Sanitize new fields (shot_type, scene_presets, style_strength) trước khi
     // persist vào aikol_generations.config — invalid id → drop về default.

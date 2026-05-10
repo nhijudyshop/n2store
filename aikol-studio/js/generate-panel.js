@@ -287,27 +287,14 @@
             const perVariation = data.engine === 'gemini_3_1' ? 8 : COSTS.image;
             return { total: perVariation * data.variations, engine: data.engine };
         }
-        let perSec, engineLabel;
-        if (data.engine === 'veo_3_1') {
-            perSec = 16; // COSTS.video_veo_per_sec
-            engineLabel = 'Veo';
-        } else {
-            perSec = data.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
-            engineLabel = data.kling_mode === 'pro' ? 'Kling pro' : 'Kling std';
-        }
+        // Video — only Kling (Veo bỏ).
+        const perSec =
+            data.kling_mode === 'pro' ? COSTS.video_pro_per_sec : COSTS.video_std_per_sec;
+        const engineLabel = data.kling_mode === 'pro' ? 'Kling pro' : 'Kling std';
         const sec = Math.max(COSTS.video_min_seconds, data.duration_seconds);
         const animate = perSec * sec;
-        // CHỈ Veo with_clip cần Gemini compose pre-step. Kling with_clip dùng
-        // native multi-image2video → 0 compose cost.
-        const composeCost = data.gen_mode === 'with_clip' && data.engine === 'veo_3_1' ? 8 : 0;
-        return {
-            total: animate + composeCost,
-            engine: engineLabel,
-            animate,
-            compose: composeCost,
-            sec,
-            perSec,
-        };
+        // Kling multi-image2video native (no compose cost).
+        return { total: animate, engine: engineLabel, animate, compose: 0, sec, perSec };
     }
 
     // Credit → VND rate. Dựa trên packs nhỏ (Mini/Small/Standard) 333 VND/cr
@@ -515,26 +502,19 @@
         const rebuildEngineVideoOptions = (mode) => {
             if (!engineVidSel) return;
             const prev = engineVidSel.value;
+            // Veo 3 đã bỏ — chỉ còn Kling. Giữ array opts cho future engines.
             const opts =
                 mode === 'with_clip'
                     ? [
                           {
                               v: 'kling',
-                              t: '🎬 Kling multi-image2video — native face-swap (8-13cr/s ⭐ · 1 step, không cần compose)',
-                          },
-                          {
-                              v: 'veo_3_1',
-                              t: 'Veo 3.1 — Gemini compose → Veo animate (16cr/s + 8cr compose)',
+                              t: '🎬 Kling multi-image2video — native face-swap (8-13cr/s)',
                           },
                       ]
                     : [
                           {
                               v: 'kling',
-                              t: '🎬 Kling image2video — animate ảnh model (8-13cr/s ⭐)',
-                          },
-                          {
-                              v: 'veo_3_1',
-                              t: 'Veo 3.1 image2video — AI tạo video từ ảnh model (16cr/s)',
+                              t: '🎬 Kling image2video — animate ảnh model (8-13cr/s)',
                           },
                       ];
             engineVidSel.innerHTML = opts
