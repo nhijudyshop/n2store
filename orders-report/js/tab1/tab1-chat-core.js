@@ -1039,8 +1039,10 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             };
             foundConvs.sort(_byTypeAndTime);
 
-            // Auto-pick first INBOX (or first conv if no INBOX)
-            conv = foundConvs.find((c) => c.type === 'INBOX') || foundConvs[0];
+            // Auto-pick the conv matching the requested type (INBOX/COMMENT) first.
+            // Bug fix (2026-05-10): previously hardcoded 'INBOX' regardless of `type`
+            // arg → switching to COMMENT tab silently loaded an INBOX conv.
+            conv = foundConvs.find((c) => c.type === type) || foundConvs[0];
 
             // Cache for repick button (sync icon)
             if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
@@ -1117,6 +1119,17 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
+
+    // Sync currentChatPSID to the page-scoped PSID of the resolved conv. PSIDs are
+    // FB-page-specific — same human = different PSID per page. After cross-page
+    // switch (Nhi Judy House → NhiJudy Store), the PSID we used to open the
+    // chat ("from old page") is wrong for the new page. Save the correct one
+    // so subsequent type-switch (INBOX↔COMMENT), bill send, extension bypass,
+    // etc. all use the page-correct PSID.
+    const convPSID = conv.from_psid || conv.from?.id || null;
+    if (convPSID && convPSID !== window.currentChatPSID) {
+        window.currentChatPSID = String(convPSID);
+    }
 
     // Save to per-page conv cache for quick re-switch
     // Only cache if conv actually belongs to the requested page
@@ -1479,11 +1492,16 @@ window.switchConversationType = async function (type) {
     }
 
     try {
+        // allowDrift=false → use strict same-page lookup with phone-search +
+        // name-search fallback. Without this, type-switch on a non-default page
+        // would only hit the cache/PSID-by-fbid path which uses the original
+        // page's PSID (page-scoped) and silently misses the right conv.
         await _findAndLoadConversation(
             window.currentChatChannelId,
             window.currentChatPSID,
             type,
-            myToken
+            myToken,
+            { allowDrift: false }
         );
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
