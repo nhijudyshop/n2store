@@ -40,17 +40,29 @@
          * @param {string} [params.status]
          * @param {string} [params.search]
          * @param {string} [params.fbPostId]
+         * @param {string[]} [params.campaignIds]  use '__no_campaign__' for orders without a campaign
          * @param {number} [params.page=1]
          * @param {number} [params.limit=200]
          */
-        async list({ status, search, fbPostId, page = 1, limit = 200 } = {}) {
+        async list({ status, search, fbPostId, campaignIds, page = 1, limit = 200 } = {}) {
             const qs = new URLSearchParams();
             if (status && status !== 'all') qs.set('status', status);
             if (search) qs.set('search', search);
             if (fbPostId) qs.set('fbPostId', fbPostId);
+            if (Array.isArray(campaignIds) && campaignIds.length) {
+                qs.set('campaignIds', campaignIds.join(','));
+            }
             qs.set('page', String(page));
             qs.set('limit', String(limit));
             return _fetchJson(`${BASE}/load?${qs}`);
+        },
+
+        /**
+         * GET /api/native-orders/campaigns — distinct list of campaigns + counts
+         * @returns {Promise<{success, campaigns: Array<{id,name,count,lastOrderAt}>}>}
+         */
+        async campaigns() {
+            return _fetchJson(`${BASE}/campaigns`);
         },
 
         async getByUser(fbUserId) {

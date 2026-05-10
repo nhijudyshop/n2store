@@ -19,6 +19,11 @@
         loading: false,
         filterVisible: true,
         expandedOrders: new Set(), // codes of rows currently expanded
+        // Campaign filter (multi-select). Empty array = "all"; explicit array of campaign IDs
+        // = filter to those (use '__no_campaign__' for orders without a campaign).
+        // On boot, restored from localStorage `tpos_selected_campaigns` (set by tpos-pancake).
+        selectedCampaignIds: [],
+        availableCampaigns: [], // [{id, name, count, lastOrderAt}]
     };
 
     // ---------- DOM ----------
@@ -406,6 +411,9 @@
                 search: STATE.search || undefined,
                 page: STATE.page,
                 limit: STATE.limit,
+                campaignIds: STATE.selectedCampaignIds.length
+                    ? STATE.selectedCampaignIds
+                    : undefined,
             });
             STATE.orders = resp.orders || [];
             STATE.total = resp.total || 0;
@@ -438,8 +446,122 @@
         STATE.search = '';
         STATE.status = 'all';
         STATE.limit = 200;
+        STATE.selectedCampaignIds = [];
+        saveCampaignSelection();
+        renderCampaignDropdown();
+        renderCampaignLabel();
         STATE.page = 1;
         load();
+    }
+
+    // ---------- Campaign filter ----------
+    const CAMPAIGN_STORAGE_KEY = 'native_orders_selected_campaigns';
+    const TPOS_PANCAKE_KEY = 'tpos_selected_campaigns';
+
+    function loadCampaignSelection() {
+        // Priority: own key (per-page selection) > shared tpos-pancake key (cross-page sync)
+        try {
+            const own = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
+            if (own != null) return JSON.parse(own) || [];
+        } catch (_) {
+            /* ignore */
+        }
+        try {
+            const shared = localStorage.getItem(TPOS_PANCAKE_KEY);
+            return shared ? JSON.parse(shared) || [] : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function saveCampaignSelection() {
+        try {
+            localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(STATE.selectedCampaignIds));
+        } catch (_) {
+            /* ignore quota */
+        }
+    }
+
+    async function loadAvailableCampaigns() {
+        try {
+            const resp = await window.NativeOrdersApi.campaigns();
+            STATE.availableCampaigns = resp.campaigns || [];
+            renderCampaignDropdown();
+        } catch (e) {
+            console.warn('[native-orders] campaigns fetch failed:', e.message);
+            const list = $('#campaignList');
+            if (list)
+                list.innerHTML = `<div style="padding:8px;color:#ef4444;font-size:12px;">Lỗi tải: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+
+    function renderCampaignDropdown() {
+        const list = $('#campaignList');
+        if (!list) return;
+        if (STATE.availableCampaigns.length === 0) {
+            list.innerHTML =
+                '<div style="padding:8px;color:#9ca3af;font-size:12px;">Chưa có chiến dịch nào</div>';
+            return;
+        }
+        const sel = new Set(STATE.selectedCampaignIds);
+        const html = STATE.availableCampaigns
+            .map((c) => {
+                const checked = sel.has(c.id) ? 'checked' : '';
+                return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;font-size:13px;border-radius:4px;" data-id="${escapeHtml(c.id)}">
+                    <input type="checkbox" class="campaign-check" data-id="${escapeHtml(c.id)}" ${checked} style="margin:0;">
+                    <span style="flex:1;">${escapeHtml(c.name)}</span>
+                    <span style="color:#9ca3af;font-size:11px;">${c.count}</span>
+                </label>`;
+            })
+            .join('');
+        list.innerHTML = html;
+    }
+
+    function renderCampaignLabel() {
+        const label = $('#filterCampaignLabel');
+        if (!label) return;
+        const ids = STATE.selectedCampaignIds;
+        if (ids.length === 0) {
+            label.textContent = 'Tất cả';
+            return;
+        }
+        if (ids.length === 1) {
+            const c = STATE.availableCampaigns.find((x) => x.id === ids[0]);
+            label.textContent = c
+                ? c.name.slice(0, 28) + (c.name.length > 28 ? '…' : '')
+                : '1 chiến dịch';
+            return;
+        }
+        label.textContent = `${ids.length} chiến dịch`;
+    }
+
+    function toggleCampaignDropdown(force) {
+        const dd = $('#filterCampaignDropdown');
+        if (!dd) return;
+        const isOpen = dd.style.display !== 'none';
+        const next = typeof force === 'boolean' ? force : !isOpen;
+        dd.style.display = next ? 'block' : 'none';
+    }
+
+    function syncFromTposPancake() {
+        try {
+            const shared = localStorage.getItem(TPOS_PANCAKE_KEY);
+            const ids = shared ? JSON.parse(shared) || [] : [];
+            STATE.selectedCampaignIds = ids;
+            saveCampaignSelection();
+            renderCampaignDropdown();
+            renderCampaignLabel();
+            STATE.page = 1;
+            load();
+            notify(
+                ids.length
+                    ? `Đã đồng bộ ${ids.length} chiến dịch từ Tpos-Pancake`
+                    : 'Tpos-Pancake chưa chọn chiến dịch — hiển thị tất cả',
+                'info'
+            );
+        } catch (e) {
+            notify('Lỗi đồng bộ: ' + e.message, 'error');
+        }
     }
 
     function toggleFilter() {
@@ -881,6 +1003,63 @@
         });
         $('#filterStatus')?.addEventListener('change', applyFilters);
         $('#filterLimit')?.addEventListener('change', applyFilters);
+
+        // Campaign filter wiring
+        STATE.selectedCampaignIds = loadCampaignSelection();
+        renderCampaignLabel();
+        loadAvailableCampaigns();
+
+        $('#filterCampaignBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCampaignDropdown();
+        });
+        document.addEventListener('click', (e) => {
+            const dd = $('#filterCampaignDropdown');
+            const btn = $('#filterCampaignBtn');
+            if (!dd || !btn) return;
+            if (dd.style.display === 'none') return;
+            if (btn.contains(e.target) || dd.contains(e.target)) return;
+            toggleCampaignDropdown(false);
+        });
+        $('#campaignList')?.addEventListener('change', (e) => {
+            const cb = e.target.closest('.campaign-check');
+            if (!cb) return;
+            const id = cb.getAttribute('data-id');
+            const set = new Set(STATE.selectedCampaignIds);
+            if (cb.checked) set.add(id);
+            else set.delete(id);
+            STATE.selectedCampaignIds = Array.from(set);
+            saveCampaignSelection();
+            renderCampaignLabel();
+            STATE.page = 1;
+            load();
+        });
+        $('#campaignSelectAll')?.addEventListener('click', () => {
+            STATE.selectedCampaignIds = STATE.availableCampaigns.map((c) => c.id);
+            saveCampaignSelection();
+            renderCampaignDropdown();
+            renderCampaignLabel();
+            STATE.page = 1;
+            load();
+        });
+        $('#campaignSelectNone')?.addEventListener('click', () => {
+            STATE.selectedCampaignIds = [];
+            saveCampaignSelection();
+            renderCampaignDropdown();
+            renderCampaignLabel();
+            STATE.page = 1;
+            load();
+        });
+        $('#campaignSyncTpos')?.addEventListener('click', syncFromTposPancake);
+        // Live cross-tab sync — when tpos-pancake updates its selection, refresh ours
+        window.addEventListener('storage', (e) => {
+            if (e.key === TPOS_PANCAKE_KEY) {
+                // Only auto-sync if user hasn't made an own selection (own key still null)
+                if (localStorage.getItem(CAMPAIGN_STORAGE_KEY) == null) {
+                    syncFromTposPancake();
+                }
+            }
+        });
 
         // Check-all
         $('#checkAll')?.addEventListener('change', (e) => {

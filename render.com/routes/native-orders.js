@@ -290,12 +290,46 @@ router.get('/by-user/:fbUserId', async (req, res) => {
 // -----------------------------------------------------
 // GET /api/native-orders/load — list with filters
 // -----------------------------------------------------
+// -----------------------------------------------------
+// GET /api/native-orders/campaigns
+// Distinct list of campaigns currently used by native orders, with row count.
+// Frontend dùng để render chip filter "Chiến Dịch".
+// -----------------------------------------------------
+router.get('/campaigns', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(`
+            SELECT
+                COALESCE(NULLIF(live_campaign_id, ''), '__no_campaign__') AS id,
+                MAX(NULLIF(live_campaign_name, '')) AS name,
+                COUNT(*)::int AS count,
+                MAX(created_at)::text AS last_order_at
+            FROM native_orders
+            GROUP BY COALESCE(NULLIF(live_campaign_id, ''), '__no_campaign__')
+            ORDER BY MAX(created_at) DESC NULLS LAST
+        `);
+        res.json({
+            success: true,
+            campaigns: r.rows.map((row) => ({
+                id: row.id,
+                name: row.id === '__no_campaign__' ? '(Không chiến dịch)' : row.name || row.id,
+                count: row.count,
+                lastOrderAt: row.last_order_at,
+            })),
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.get('/load', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const { status, page = 1, limit = 200, search, fbPostId } = req.query;
+        const { status, page = 1, limit = 200, search, fbPostId, campaignIds } = req.query;
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(1000, Math.max(1, parseInt(limit)));
         const offset = (pageNum - 1) * limitNum;
@@ -313,11 +347,37 @@ router.get('/load', async (req, res) => {
         if (search) {
             params.push(`%${search}%`);
             const i = params.length;
-            conds.push(`(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i})`);
+            conds.push(
+                `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i})`
+            );
+        }
+        // campaignIds=id1,id2,...  → match orders that belong to ANY of the chosen campaigns.
+        // Special token __no_campaign__ matches orders WITHOUT a campaign (NULL/empty).
+        if (campaignIds) {
+            const ids = String(campaignIds)
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            if (ids.length) {
+                const realIds = ids.filter((s) => s !== '__no_campaign__');
+                const wantsNoCampaign = ids.includes('__no_campaign__');
+                const orParts = [];
+                if (realIds.length) {
+                    params.push(realIds);
+                    orParts.push(`live_campaign_id = ANY($${params.length}::text[])`);
+                }
+                if (wantsNoCampaign) {
+                    orParts.push(`(live_campaign_id IS NULL OR live_campaign_id = '')`);
+                }
+                if (orParts.length) conds.push(`(${orParts.join(' OR ')})`);
+            }
         }
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 
-        const countR = await pool.query(`SELECT COUNT(*)::int AS n FROM native_orders ${where}`, params);
+        const countR = await pool.query(
+            `SELECT COUNT(*)::int AS n FROM native_orders ${where}`,
+            params
+        );
         const total = countR.rows[0].n;
 
         const listParams = [...params, limitNum, offset];
@@ -357,12 +417,14 @@ router.patch('/:code', async (req, res) => {
         if (Array.isArray(body.products)) {
             if (body.totalQuantity === undefined) {
                 body.totalQuantity = body.products.reduce(
-                    (s, p) => s + (Number(p.quantity) || 0), 0
+                    (s, p) => s + (Number(p.quantity) || 0),
+                    0
                 );
             }
             if (body.totalAmount === undefined) {
                 body.totalAmount = body.products.reduce(
-                    (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0), 0
+                    (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0),
+                    0
                 );
             }
         }
@@ -421,10 +483,9 @@ router.delete('/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const r = await pool.query(
-            `DELETE FROM native_orders WHERE code = $1 RETURNING code`,
-            [req.params.code]
-        );
+        const r = await pool.query(`DELETE FROM native_orders WHERE code = $1 RETURNING code`, [
+            req.params.code,
+        ]);
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true });
     } catch (error) {
