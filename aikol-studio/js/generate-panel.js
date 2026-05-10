@@ -79,11 +79,17 @@
 
                         <!-- Settings chính: chỉ những thứ thật sự ảnh hưởng output. -->
                         <div class="aikol-gen-grid">
-                            <label class="aikol-gen-row">
-                                <span>Variations</span>
-                                <input type="number" name="variations" min="1" max="10" value="1" />
+                            <label class="aikol-gen-row" style="grid-column: 1 / -1">
+                                <span>Variations / clip</span>
+                                <span class="aikol-pill-row" data-variations-pills>
+                                    <button type="button" data-var="1" class="aikol-pill aikol-pill--active">1</button>
+                                    <button type="button" data-var="3" class="aikol-pill">3</button>
+                                    <button type="button" data-var="5" class="aikol-pill">5</button>
+                                    <button type="button" data-var="10" class="aikol-pill">10</button>
+                                    <input type="hidden" name="variations" value="1" />
+                                </span>
                             </label>
-                            <label class="aikol-gen-row">
+                            <label class="aikol-gen-row" style="grid-column: 1 / -1">
                                 <span>Aspect ratio</span>
                                 <select name="image_size">
                                     <option value="9:16" selected>9:16 (đứng - TikTok)</option>
@@ -92,6 +98,40 @@
                                 </select>
                             </label>
                         </div>
+
+                        <!-- Framing — 5 mode -->
+                        <label class="aikol-gen-row">
+                            <span>Framing (shot type)</span>
+                            <select name="shot_type" data-shot-select>
+                                <!-- Options injected từ AikolPresets.SHOT_TYPES -->
+                            </select>
+                        </label>
+
+                        <!-- Scene mode — 3 radio + multi-preset checkbox panel -->
+                        <fieldset class="aikol-gen-fieldset" data-scene-mode-fieldset>
+                            <legend style="font-size:0.85rem">Scene</legend>
+                            <label style="display:block">
+                                <input type="radio" name="scene_mode" value="match" checked />
+                                Match clip's scene (giữ nguyên setting clip gốc)
+                            </label>
+                            <label style="display:block">
+                                <input type="radio" name="scene_mode" value="preset" />
+                                Pick presets (chọn 1+ scenes, mix variants)
+                            </label>
+                            <label style="display:block">
+                                <input type="radio" name="scene_mode" value="free_form" />
+                                Free-form prompt (mô tả scene riêng)
+                            </label>
+                            <div data-scene-presets-panel hidden style="margin-top:0.5rem; display:grid; grid-template-columns:repeat(2, 1fr); gap:0.3rem; font-size:0.82rem">
+                                <!-- Checkbox grid injected từ AikolPresets.SCENE_PRESETS -->
+                            </div>
+                        </fieldset>
+
+                        <!-- Style Strength slider (scene mood) -->
+                        <label class="aikol-gen-row">
+                            <span>Style strength <em data-tier="style" style="font-style:normal; color:var(--aikol-text-dim); font-size:0.78rem; margin-left:0.4rem">— Balanced</em></span>
+                            <input type="range" name="style_strength" min="0" max="100" value="50" data-style-input />
+                        </label>
 
                         <!-- Auto-tune note hiện khi with_clip — báo user biết các setting "ẩn" đã được tối ưu. -->
                         <p
@@ -118,12 +158,12 @@
                             </style>
                             <div class="aikol-gen-grid" style="margin-top: 0.6rem">
                                 <label class="aikol-gen-row">
-                                    <span>Similarity (identity)</span>
-                                    <input type="range" name="similarity" min="0" max="100" value="80" />
+                                    <span>Similarity (identity) <em data-tier="similarity" style="font-style:normal; color:var(--aikol-text-dim); font-size:0.78rem; margin-left:0.4rem">— Strict</em></span>
+                                    <input type="range" name="similarity" min="0" max="100" value="80" data-sim-input />
                                 </label>
                                 <label class="aikol-gen-row">
-                                    <span>Creativity (motion)</span>
-                                    <input type="range" name="creativity" min="0" max="100" value="40" />
+                                    <span>Creativity (unkept axes) <em data-tier="creativity" style="font-style:normal; color:var(--aikol-text-dim); font-size:0.78rem; margin-left:0.4rem">— Balanced</em></span>
+                                    <input type="range" name="creativity" min="0" max="100" value="40" data-creat-input />
                                 </label>
                             </div>
                             <fieldset
@@ -131,16 +171,13 @@
                                 style="border: 1px dashed var(--aikol-border, #ddd); padding: 0.4rem 0.6rem; margin-top: 0.5rem; font-size: 0.82rem"
                             >
                                 <legend style="font-size: 0.78rem; padding: 0 0.3rem">
-                                    Keep from clip (auto-tune force ON)
+                                    Keep — locked attributes
                                 </legend>
                                 <label><input type="checkbox" name="keep_pose" checked> Pose</label>
                                 <label><input type="checkbox" name="keep_outfit" checked> Outfit</label>
                                 <label><input type="checkbox" name="keep_bg" checked> Background</label>
                                 <label><input type="checkbox" name="keep_lighting" checked> Lighting</label>
                             </fieldset>
-                            <!-- shot_type/scene_mode: hidden inputs giữ default cho backend cũ vẫn nhận. -->
-                            <input type="hidden" name="shot_type" value="match_clip" />
-                            <input type="hidden" name="scene_mode" value="match" />
                         </details>
 
                         <div data-video-only style="display:none">
@@ -344,6 +381,72 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Inject SHOT_TYPES options + SCENE_PRESETS checkboxes
+    function setupShotTypeAndPresets(form) {
+        const shotSel = form.querySelector('[data-shot-select]');
+        const presetsPanel = form.querySelector('[data-scene-presets-panel]');
+        const P = global.AikolPresets;
+        if (!P) return;
+        if (shotSel && !shotSel.options.length) {
+            shotSel.innerHTML = P.SHOT_TYPES.map(
+                (s, i) =>
+                    `<option value="${s.id}"${i === 0 ? ' selected' : ''}>${escapeHtml(s.label)}</option>`
+            ).join('');
+        }
+        if (presetsPanel && !presetsPanel.children.length) {
+            presetsPanel.innerHTML = P.SCENE_PRESETS.map(
+                (p) =>
+                    `<label style="display:flex; gap:0.3rem; align-items:center"><input type="checkbox" name="scene_presets" value="${p.id}" /> ${escapeHtml(p.label)}</label>`
+            ).join('');
+        }
+        // Toggle preset panel visibility based on scene_mode radio
+        form.addEventListener('change', (ev) => {
+            if (ev.target?.name === 'scene_mode') {
+                presetsPanel.hidden = ev.target.value !== 'preset';
+            }
+        });
+    }
+
+    // Variations pill row 1/3/5/10 — sync hidden input
+    function setupVariationsPills(form) {
+        const row = form.querySelector('[data-variations-pills]');
+        const hidden = row?.querySelector('input[name="variations"]');
+        if (!row || !hidden) return;
+        row.querySelectorAll('button[data-var]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                row.querySelectorAll('button[data-var]').forEach((b) =>
+                    b.classList.remove('aikol-pill--active')
+                );
+                btn.classList.add('aikol-pill--active');
+                hidden.value = btn.dataset.var;
+                hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                refreshCostLabel(form);
+            });
+        });
+    }
+
+    // Tier labels live-update khi user kéo slider (Similarity/Creativity/Style)
+    function setupTierLabels(form) {
+        const P = global.AikolPresets;
+        if (!P) return;
+        const update = () => {
+            const sim = form.querySelector('[data-sim-input]');
+            const creat = form.querySelector('[data-creat-input]');
+            const style = form.querySelector('[data-style-input]');
+            const simT = form.querySelector('[data-tier="similarity"]');
+            const creT = form.querySelector('[data-tier="creativity"]');
+            const styT = form.querySelector('[data-tier="style"]');
+            if (sim && simT) simT.textContent = '— ' + P.similarityTier(sim.value);
+            if (creat && creT) creT.textContent = '— ' + P.creativityTier(creat.value);
+            if (style && styT) styT.textContent = '— ' + P.styleStrengthTier(style.value);
+        };
+        form.addEventListener('input', (ev) => {
+            const n = ev.target?.name;
+            if (n === 'similarity' || n === 'creativity' || n === 'style_strength') update();
+        });
+        update();
+    }
+
     // Duration slider: max = clip duration (clamp 10), step 5 (Kling chỉ accept
     // 5 hoặc 10). Default 5s. Khi clip < 10s → disable max=10. Live update label.
     function setupDurationSlider(form, clip) {
@@ -480,6 +583,9 @@
         setupGenModeToggle(form, !!clip);
         setupNoteSuggestButton(form);
         setupDurationSlider(form, clip);
+        setupShotTypeAndPresets(form);
+        setupVariationsPills(form);
+        setupTierLabels(form);
         form.onsubmit = async (ev) => {
             ev.preventDefault();
             const data = readForm(form);
@@ -509,22 +615,32 @@
             submitBtn.disabled = true;
             submitBtn.textContent = 'Đang gửi…';
             try {
+                // Collect multi-checkbox scene_presets array
+                const scenePresetIds = Array.from(
+                    form.querySelectorAll('input[name="scene_presets"]:checked')
+                ).map((el) => el.value);
+                // Scene mode from radio (default match)
+                const sceneMode =
+                    form.querySelector('input[name="scene_mode"]:checked')?.value ||
+                    (useClip ? 'match' : 'free_form');
                 const payload = {
                     kind: data.kind,
                     model_id: parseInt(data.model_id, 10),
                     clip_ids: useClip ? [clip.id] : [],
                     config: {
                         engine: data.engine,
-                        variations: data.variations,
+                        variations: parseInt(data.variations, 10) || 1,
                         similarity: data.similarity,
                         creativity: data.creativity,
+                        style_strength: parseInt(data.style_strength, 10) || 50,
                         keep_pose: useClip ? data.keep_pose : false,
                         keep_outfit: useClip ? data.keep_outfit : false,
                         keep_bg: useClip ? data.keep_bg : false,
                         keep_lighting: useClip ? data.keep_lighting : false,
                         image_size: data.image_size,
-                        shot_type: data.shot_type,
-                        scene_mode: useClip ? 'match' : 'free_form',
+                        shot_type: data.shot_type || 'auto',
+                        scene_mode: sceneMode,
+                        scene_presets: sceneMode === 'preset' ? scenePresetIds : [],
                         gen_mode: useClip ? 'with_clip' : 'auto_scene',
                         duration_seconds: data.duration_seconds,
                         kling_mode: data.kling_mode,

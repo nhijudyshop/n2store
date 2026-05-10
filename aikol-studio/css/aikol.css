@@ -1713,3 +1713,39 @@ body {
         transform: translateY(0) scale(1);
     }
 }
+
+/* === Variations pill row + scene preset checkbox grid === */
+.aikol-pill-row {
+    display: inline-flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.aikol-pill {
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--aikol-border, rgba(255, 255, 255, 0.15));
+    background: var(--aikol-surface-2, rgba(255, 255, 255, 0.04));
+    color: var(--aikol-text, inherit);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.aikol-pill:hover {
+    border-color: var(--aikol-accent, #6366f1);
+}
+.aikol-pill--active {
+    background: var(--aikol-accent, #6366f1);
+    color: #fff;
+    border-color: var(--aikol-accent, #6366f1);
+}
+[data-scene-presets-panel] label {
+    padding: 0.2rem 0.3rem;
+    border-radius: 4px;
+}
+[data-scene-presets-panel] label:hover {
+    background: var(--aikol-bg-soft, rgba(99, 102, 241, 0.06));
+}
+[data-scene-presets-panel] label:has(input:checked) {
+    background: var(--aikol-accent-soft, rgba(99, 102, 241, 0.15));
+}

@@ -358,6 +358,28 @@ router.post('/models/clone-from-image', requireUser, upload.single('file'), asyn
     });
 });
 
+// POST /products/upload-outfit — multipart upload outfit/clothing image lên
+// Bunny tmp/. Trả CDN URL cho frontend dùng làm config.outfit_url khi submit
+// /generations với gen_mode='product'.
+router.post('/products/upload-outfit', requireUser, upload.single('file'), async (req, res) => {
+    if (!req.file)
+        return res.status(400).json({ error: 'invalid', detail: 'Outfit image file required' });
+    const mime = (req.file.mimetype || '').toLowerCase();
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime))
+        return res
+            .status(400)
+            .json({ error: 'invalid', detail: 'Chỉ chấp nhận JPEG / PNG / WEBP' });
+    const ext = mime.split('/')[1].replace('jpeg', 'jpg');
+    const key = `aikol/tmp/outfit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    try {
+        await bunny.uploadBuffer(req.file.buffer, key, mime);
+        return res.json({ url: bunny.cdnUrl(key), key });
+    } catch (e) {
+        console.error('[aikol] /products/upload-outfit', e);
+        return res.status(502).json({ error: 'upload_failed', detail: e.message });
+    }
+});
+
 // POST /models/describe-image — Multipart image upload → portrait prompt text
 // (FREE — Gemini Vision describe, ~$0.001/call). Returns { prompt: "..." } that
 // frontend fills into the "Mô tả" textarea for Section 2 Tạo bằng AI.

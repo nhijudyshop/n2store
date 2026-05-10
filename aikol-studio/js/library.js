@@ -93,22 +93,47 @@
         return card;
     }
 
-    async function refreshClips() {
+    let _allClips = [];
+    let _filterMinViews = 0;
+    let _filterFavOnly = false;
+
+    function applyFilter() {
+        return _allClips.filter((c) => {
+            if (_filterFavOnly && !c.favorite) return false;
+            const views = parseInt(c.view_count, 10) || 0;
+            if (_filterMinViews > 0 && views < _filterMinViews) return false;
+            return true;
+        });
+    }
+
+    function rerenderClips() {
         const list = $('#clips-list');
         const empty = $('#clips-empty');
         const totalEl = $('#clips-total');
+        const filtered = applyFilter();
+        list.innerHTML = '';
+        if (totalEl) {
+            const t = _allClips.length;
+            const f = filtered.length;
+            totalEl.textContent =
+                f === t ? `${t} clip${t === 1 ? '' : 's'}` : `${f}/${t} clip${t === 1 ? '' : 's'}`;
+        }
+        if (!filtered.length) {
+            empty.style.display = 'block';
+            list.style.display = 'none';
+            return;
+        }
+        empty.style.display = 'none';
+        list.style.display = 'grid';
+        filtered.forEach((c) => list.appendChild(clipCard(c)));
+    }
+
+    async function refreshClips() {
         try {
             const { clips, total } = await window.AikolAPI.listClips(50, 0);
-            list.innerHTML = '';
-            if (totalEl) totalEl.textContent = `${total} clip${total === 1 ? '' : 's'}`;
-            if (!clips || clips.length === 0) {
-                empty.style.display = 'block';
-                list.style.display = 'none';
-                return;
-            }
-            empty.style.display = 'none';
-            list.style.display = 'grid';
-            clips.forEach((c) => list.appendChild(clipCard(c)));
+            _allClips = clips || [];
+            rerenderClips();
+            void total;
         } catch (e) {
             console.error('[aikol] listClips', e);
             showToast('Lỗi tải danh sách: ' + e.message, 'error');
@@ -407,6 +432,52 @@
         $('#channel-form')?.addEventListener('submit', onChannelFetch);
         refreshCredits();
         refreshClips();
+
+        // Min views pill row + Fav-only toggle
+        const viewsPills = document.querySelector('[data-views-pills]');
+        viewsPills?.querySelectorAll('button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                viewsPills
+                    .querySelectorAll('button')
+                    .forEach((b) => b.classList.remove('aikol-pill--active'));
+                btn.classList.add('aikol-pill--active');
+                _filterMinViews = parseInt(btn.dataset.minViews, 10) || 0;
+                rerenderClips();
+            });
+        });
+        document.getElementById('clips-fav-only')?.addEventListener('change', (ev) => {
+            _filterFavOnly = !!ev.target.checked;
+            rerenderClips();
+        });
+
+        // KB shortcuts: ⌘A select all / Esc clear / ⌘↵ generate first selected
+        document.addEventListener('keydown', (ev) => {
+            // Don't intercept while typing trong input/textarea
+            const tag = (ev.target?.tagName || '').toLowerCase();
+            if (['input', 'textarea', 'select'].includes(tag)) return;
+            const isMod = ev.metaKey || ev.ctrlKey;
+            if (isMod && ev.key === 'a') {
+                ev.preventDefault();
+                showToast(
+                    '⌘A: chọn nhiều clip — placeholder, multi-select cần redesign card layout',
+                    'info'
+                );
+            } else if (ev.key === 'Escape') {
+                // Close generate modal if open
+                const backdrop = document.querySelector('.aikol-modal-backdrop:not([hidden])');
+                if (backdrop && window.AikolGenerate) window.AikolGenerate.close();
+            } else if (isMod && ev.key === 'Enter') {
+                // Quick: generate on first clip
+                const firstCard = document.querySelector('.aikol-model-card');
+                const btn = firstCard?.querySelector(
+                    'button.aikol-btn:not(.aikol-btn--secondary):not(.aikol-btn--danger)'
+                );
+                if (btn) {
+                    ev.preventDefault();
+                    btn.click();
+                }
+            }
+        });
 
         // Sprint 3 — queue watcher + auto-refresh on submit/terminal.
         const queuePanel = document.getElementById('aikol-queue-panel');

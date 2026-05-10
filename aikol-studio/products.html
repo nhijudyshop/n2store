@@ -1,0 +1,194 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Products — AI KOL Studio</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="css/aikol.css" />
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/shared-cache-manager.js"></script>
+
+        <script src="js/aikol-feature-gate.js"></script>
+        <script>
+            if (!window.AikolGate?.isEnabled()) {
+                window.location.replace('./index.html#disabled');
+            }
+        </script>
+        <script defer src="js/aikol-api.js"></script>
+        <script defer src="js/aikol-modal.js"></script>
+        <script defer src="js/aikol-sidebar.js"></script>
+        <script defer src="js/aikol-presets.js"></script>
+        <script defer src="js/products.js"></script>
+    </head>
+    <body>
+        <main class="aikol-shell">
+            <header
+                class="aikol-header"
+                style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem"
+            >
+                <div>
+                    <h1>Products</h1>
+                    <p>Outfits — clothes/accessories để model mặc trong scene chọn sẵn</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                    <span id="aikol-credits" class="aikol-credit-chip">— credits</span>
+                </div>
+            </header>
+
+            <section class="aikol-panel">
+                <div
+                    style="
+                        display: flex;
+                        gap: 1.5rem;
+                        align-items: center;
+                        margin-bottom: 1rem;
+                        font-size: 0.9rem;
+                        color: var(--aikol-text-dim);
+                    "
+                >
+                    <span><strong style="color: var(--aikol-accent)">1</strong> Upload outfit</span>
+                    <span>→</span>
+                    <span><strong style="color: var(--aikol-accent)">2</strong> Pick scene</span>
+                    <span>→</span>
+                    <span><strong style="color: var(--aikol-accent)">3</strong> Generate</span>
+                </div>
+
+                <form id="products-form" style="display: grid; gap: 1rem">
+                    <label class="aikol-gen-row">
+                        <span>Subject model</span>
+                        <select name="model_id" required>
+                            <option value="">— Loading…</option>
+                        </select>
+                    </label>
+
+                    <label class="aikol-gen-row">
+                        <span>Outfit photo</span>
+                        <input
+                            type="file"
+                            name="outfit_file"
+                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                            required
+                            class="aikol-input"
+                        />
+                    </label>
+
+                    <div id="outfit-preview" style="display: none">
+                        <img
+                            id="outfit-preview-img"
+                            alt="outfit preview"
+                            style="
+                                max-width: 200px;
+                                border-radius: 8px;
+                                border: 1px solid var(--aikol-border);
+                            "
+                        />
+                    </div>
+
+                    <div class="aikol-gen-grid">
+                        <label class="aikol-gen-row">
+                            <span>Variations</span>
+                            <span class="aikol-pill-row" data-variations-pills>
+                                <button
+                                    type="button"
+                                    data-var="1"
+                                    class="aikol-pill aikol-pill--active"
+                                >
+                                    1
+                                </button>
+                                <button type="button" data-var="3" class="aikol-pill">3</button>
+                                <button type="button" data-var="5" class="aikol-pill">5</button>
+                                <button type="button" data-var="10" class="aikol-pill">10</button>
+                                <input type="hidden" name="variations" value="1" />
+                            </span>
+                        </label>
+                        <label class="aikol-gen-row">
+                            <span>Aspect ratio</span>
+                            <select name="image_size">
+                                <option value="9:16" selected>9:16 (TikTok)</option>
+                                <option value="1:1">1:1 (square)</option>
+                                <option value="16:9">16:9 (landscape)</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <fieldset class="aikol-gen-fieldset">
+                        <legend>Scene preset (chọn 1)</legend>
+                        <div
+                            data-scene-presets-grid
+                            style="
+                                display: grid;
+                                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                                gap: 0.4rem;
+                                font-size: 0.85rem;
+                            "
+                        ></div>
+                    </fieldset>
+
+                    <label class="aikol-gen-row">
+                        <span>Custom scene (optional)</span>
+                        <input
+                            type="text"
+                            name="custom_scene"
+                            maxlength="300"
+                            placeholder="Override preset — vd: 'evening street market with golden lanterns'"
+                            class="aikol-input"
+                        />
+                    </label>
+
+                    <label class="aikol-gen-row">
+                        <span>AI note (optional)</span>
+                        <textarea
+                            name="note"
+                            rows="2"
+                            maxlength="500"
+                            placeholder="Extra context — vd: confident pose, side glance"
+                        ></textarea>
+                    </label>
+
+                    <footer
+                        style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            gap: 1rem;
+                            flex-wrap: wrap;
+                            padding-top: 0.5rem;
+                            border-top: 1px solid var(--aikol-border, rgba(255, 255, 255, 0.1));
+                        "
+                    >
+                        <span
+                            id="products-cost"
+                            style="font-size: 0.9rem; color: var(--aikol-text-dim)"
+                            >Estimated cost: — credits</span
+                        >
+                        <button type="submit" class="aikol-btn">🚀 Generate</button>
+                    </footer>
+                </form>
+            </section>
+
+            <section
+                id="aikol-queue-panel"
+                class="aikol-queue"
+                aria-live="polite"
+                aria-label="Generation queue"
+            ></section>
+
+            <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.5rem">
+                <a class="aikol-btn aikol-btn--secondary" href="history.html">View Outputs →</a>
+            </div>
+        </main>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>

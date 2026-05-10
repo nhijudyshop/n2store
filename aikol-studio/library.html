@@ -28,6 +28,7 @@
         <script defer src="js/aikol-modal.js"></script>
         <script defer src="js/aikol-sidebar.js"></script>
         <script defer src="js/aikol-prompt-generator.js"></script>
+        <script defer src="js/aikol-presets.js"></script>
         <script defer src="js/generate-panel.js"></script>
         <script defer src="js/library.js"></script>
     </head>
@@ -173,12 +174,78 @@
                         justify-content: space-between;
                         align-items: center;
                         margin-bottom: 0.75rem;
+                        flex-wrap: wrap;
+                        gap: 0.5rem;
                     "
                 >
                     <h2 style="margin: 0">Clip Library</h2>
-                    <span id="clips-total" style="color: var(--aikol-text-dim); font-size: 0.85rem"
-                        >0 clips</span
+                    <div
+                        style="
+                            display: flex;
+                            gap: 0.4rem;
+                            align-items: center;
+                            flex-wrap: wrap;
+                            font-size: 0.82rem;
+                            color: var(--aikol-text-dim);
+                        "
                     >
+                        <span id="clips-total">0 clips</span>
+                        <span style="opacity: 0.5">·</span>
+                        <span style="display: inline-flex; gap: 0.3rem; align-items: center">
+                            <span>Min views:</span>
+                            <span class="aikol-pill-row" data-views-pills>
+                                <button
+                                    type="button"
+                                    class="aikol-pill aikol-pill--active"
+                                    data-min-views="0"
+                                >
+                                    Any
+                                </button>
+                                <button type="button" class="aikol-pill" data-min-views="10000">
+                                    10K+
+                                </button>
+                                <button type="button" class="aikol-pill" data-min-views="100000">
+                                    100K+
+                                </button>
+                                <button type="button" class="aikol-pill" data-min-views="1000000">
+                                    1M+
+                                </button>
+                            </span>
+                        </span>
+                        <span style="opacity: 0.5">·</span>
+                        <label
+                            style="
+                                display: inline-flex;
+                                gap: 0.3rem;
+                                align-items: center;
+                                cursor: pointer;
+                            "
+                        >
+                            <input type="checkbox" id="clips-fav-only" /> ★ Fav only
+                        </label>
+                        <span style="opacity: 0.5">·</span>
+                        <kbd
+                            style="
+                                font-size: 0.72rem;
+                                padding: 0.1rem 0.3rem;
+                                border: 1px solid var(--aikol-border, rgba(255, 255, 255, 0.15));
+                                border-radius: 3px;
+                            "
+                            >⌘A</kbd
+                        >
+                        select all
+                        <kbd
+                            style="
+                                font-size: 0.72rem;
+                                padding: 0.1rem 0.3rem;
+                                border: 1px solid var(--aikol-border, rgba(255, 255, 255, 0.15));
+                                border-radius: 3px;
+                                margin-left: 0.3rem;
+                            "
+                            >Esc</kbd
+                        >
+                        clear
+                    </div>
                 </div>
                 <div id="clips-empty" class="aikol-empty" style="display: none">
                     Chưa có clip nào. Dùng 1 trong 3 cách phía trên để import.

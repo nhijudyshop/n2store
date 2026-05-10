@@ -375,6 +375,33 @@ router.post('/import/upload', requireUser, upload.single('file'), async (req, re
     }
 });
 
+// ---------- GET /channels — channel-level dashboard ----------
+// Trả group_by username + platform với stats: total, ready, failed, pending,
+// last_imported_at. Source channels page render từ data này.
+router.get('/channels', requireUser, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT
+                COALESCE(username, '_upload') AS username,
+                platform,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE download_status = 'done')::int AS ready,
+                COUNT(*) FILTER (WHERE download_status = 'error')::int AS failed,
+                COUNT(*) FILTER (WHERE download_status NOT IN ('done','error'))::int AS pending,
+                MAX(EXTRACT(EPOCH FROM imported_at))::int AS last_imported_at
+            FROM aikol_clips
+            WHERE user_id = $1
+            GROUP BY username, platform
+            ORDER BY last_imported_at DESC`,
+            [req.userId]
+        );
+        return res.json({ channels: rows });
+    } catch (e) {
+        console.error('[aikol] GET /channels', e);
+        res.status(500).json({ error: 'db_error', detail: e.message });
+    }
+});
+
 // ---------- GET /clips ----------
 router.get('/clips', requireUser, async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);

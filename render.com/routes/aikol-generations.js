@@ -159,7 +159,38 @@ router.post('/generations', requireUser, express.json(), async (req, res) => {
             conf.engine = 'gemini_3_1';
         }
         if (kind === 'video' && !conf.engine) {
-            conf.engine = 'veo_3_1';
+            conf.engine = 'kling';
+        }
+    }
+    // Sanitize new fields (shot_type, scene_presets, style_strength) trước khi
+    // persist vào aikol_generations.config — invalid id → drop về default.
+    {
+        const validShot = ['auto', 'full_body', 'three_quarter', 'waist_up', 'portrait'];
+        if (conf.shot_type && !validShot.includes(conf.shot_type)) conf.shot_type = 'auto';
+        if (Array.isArray(conf.scene_presets)) {
+            const validIds = [
+                'living_room',
+                'bedroom',
+                'kitchen',
+                'hotel_suite',
+                'studio_backdrop',
+                'outdoor_cafe',
+                'garden',
+                'balcony',
+                'library',
+                'rooftop',
+                'beach',
+                'art_gallery',
+            ];
+            conf.scene_presets = conf.scene_presets
+                .filter((id) => validIds.includes(id))
+                .slice(0, 5);
+        }
+        if (conf.style_strength != null) {
+            conf.style_strength = Math.max(
+                0,
+                Math.min(100, parseInt(conf.style_strength, 10) || 50)
+            );
         }
     }
 

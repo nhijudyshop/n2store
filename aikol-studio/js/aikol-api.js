@@ -183,6 +183,7 @@
         uploadModel,
         deleteModel: (id) => jsonRequest('DELETE', `/models/${id}`),
 
+        listChannels: () => jsonRequest('GET', '/channels'),
         importSingle: (url) => jsonRequest('POST', '/import/single', { url }),
         importChannel: (url, count, cookie) =>
             jsonRequest('POST', '/import/channel', { url, count, cookie }),

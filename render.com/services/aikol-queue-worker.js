@@ -21,6 +21,7 @@ const kling = require('./aikol-kling-service');
 const geminiClone = require('./aikol-gemini-clone-service');
 const veo = require('./aikol-veo-service');
 const telegram = require('./aikol-telegram-service');
+const presets = require('../../aikol-studio/js/aikol-presets');
 
 const TICK_INTERVAL_MS = parseInt(process.env.AIKOL_WORKER_INTERVAL_MS, 10) || 8000;
 const MAX_RUNNING = parseInt(process.env.AIKOL_WORKER_MAX_RUNNING, 10) || 6;
@@ -118,25 +119,61 @@ async function dispatchOne(row) {
     // Khai báo function-scope để final UPDATE outside if/else block đọc được.
     let compositeKey = null;
 
-    // gen_mode: 'with_clip' (default) compose model vào scene của clip /
-    // 'auto_scene' AI tạo scene mới từ prompt. Nếu không có clip → ép auto_scene.
-    const genMode = sceneImageUrl
-        ? String(conf.gen_mode || 'with_clip').toLowerCase()
-        : 'auto_scene';
+    // gen_mode: 'with_clip' (clip scene) / 'auto_scene' (prompt) / 'product'
+    // (outfit try-on, IMAGE 2 = outfit_url, no clip needed). Nếu user gửi
+    // gen_mode='product' với outfit_url thì giữ nguyên; còn lại fallback theo
+    // sceneImageUrl presence.
+    let genMode = String(conf.gen_mode || '').toLowerCase();
+    if (genMode === 'product' && conf.outfit_url) {
+        // OK, keep as product
+    } else {
+        genMode = sceneImageUrl ? 'with_clip' : 'auto_scene';
+    }
 
     // Build engine-agnostic directive.
     // - with_clip + sceneImageUrl: service tự build "Replace person in image2"
     //   directive → pass `note` để Gemini biết tweak gì thêm.
     // - auto_scene: build directive yêu cầu Gemini/Veo đặt model vào scene mới
     //   từ prompt (note bắt buộc, frontend đã validate).
-    function buildAutoSceneDirective(forVideo) {
-        const sceneDesc =
+    // Build scene description từ config:
+    //   - scene_presets array (multi-select) → join các preset.prompt
+    //   - free_form note → dùng note trực tiếp
+    //   - fallback default studio
+    function buildSceneDescription() {
+        const sp = Array.isArray(conf.scene_presets) ? conf.scene_presets : [];
+        if (sp.length > 0) {
+            const prompts = sp.map((id) => presets.presetById(id)?.prompt).filter(Boolean);
+            if (prompts.length > 0) {
+                return prompts.length === 1
+                    ? prompts[0]
+                    : `one of these scenes (mix across variations): ${prompts.join(' OR ')}`;
+            }
+        }
+        return (
             (note || '').trim() ||
-            'photorealistic studio portrait, soft natural lighting, neutral background';
+            'photorealistic studio portrait, soft natural lighting, neutral background'
+        );
+    }
+    // Inject framing directive based on shot_type
+    function shotTypeDirective() {
+        const st = presets.shotTypeById(conf.shot_type);
+        return st?.prompt ? ' ' + st.prompt : '';
+    }
+    // Style strength (0-100) — control intensity of scene mood vs identity.
+    function styleStrengthDirective() {
+        const v = parseInt(conf.style_strength, 10);
+        if (!Number.isFinite(v)) return '';
+        if (v >= 70) return ' Apply the scene mood strongly — saturated cinematic look.';
+        if (v <= 30) return ' Apply the scene mood subtly — soft, understated.';
+        return '';
+    }
+
+    function buildAutoSceneDirective(forVideo) {
+        const sceneDesc = buildSceneDescription();
         const verb = forVideo ? 'Animate the person' : 'Place the person';
         return [
             `${verb} from this reference image into the following new scene:`,
-            sceneDesc + '.',
+            sceneDesc + '.' + shotTypeDirective() + styleStrengthDirective(),
             '**Preserve identity 100% pixel-level**: eye shape, eye color, eyebrow',
             'shape, nose shape and proportions, mouth shape, lip line, jawline,',
             'chin, cheekbones, face shape, hairline, hair color and texture, skin',
@@ -151,14 +188,62 @@ async function dispatchOne(row) {
         ].join(' ');
     }
 
+    // Product (outfit) directive — IMAGE 1 = model, IMAGE 2 = outfit photo.
+    // Place model wearing outfit in a chosen scene preset.
+    function buildProductDirective() {
+        const sceneDesc = buildSceneDescription();
+        return [
+            '**TASK: e-commerce product try-on.**',
+            'You are given two images:',
+            '- IMAGE 1 (KOL model): contains the EXACT face/identity to preserve.',
+            '- IMAGE 2 (outfit/clothing): the clothing item the model must wear.',
+            '',
+            `Generate ONE photorealistic image where the model from IMAGE 1 is`,
+            `wearing the outfit/clothing from IMAGE 2 in this scene: ${sceneDesc}.`,
+            shotTypeDirective(),
+            styleStrengthDirective(),
+            '',
+            '**FACE FIDELITY (Priority 1)**: pixel-level preserve from IMAGE 1 —',
+            'eye shape, eye color, eyebrows, nose, mouth, lip line, jawline, chin,',
+            'cheekbones, face shape, hairline, hair color/texture, skin tone, freckles,',
+            'moles, makeup, age, ethnicity, gender. Same person beyond doubt.',
+            '',
+            '**OUTFIT FIDELITY (Priority 2)**: replicate IMAGE 2 outfit exactly —',
+            'cut, color, fabric texture, pattern, accessories. Fit naturally to model body.',
+            '',
+            '**SCENE INTEGRATION (Priority 3)**: place model in described scene with',
+            'realistic lighting, color grade, depth of field. Seamless edge blending',
+            'between model, outfit, and background — no visible composite seam.',
+            '',
+            '# FORBIDDEN: do NOT beautify, idealize, age-shift, or stylize the face.',
+            'Do NOT alter the outfit color or pattern. No "AI face" glow.',
+            '',
+            'Output: photorealistic, natural skin texture, sharp focus on face, vertical 9:16.',
+        ]
+            .filter(Boolean)
+            .join(' ');
+    }
+
     // ===== IMAGE =====
     if (kind === 'image') {
         if (engine === 'gemini_3_1') {
-            const imagePrompt = genMode === 'auto_scene' ? buildAutoSceneDirective(false) : note;
+            // gen_mode='product': IMAGE 1 = model, IMAGE 2 = outfit (config.outfit_url).
+            // Override sceneImageUrl với outfit_url + dùng product directive.
+            let imagePrompt, secondImageUrl;
+            if (genMode === 'product' && conf.outfit_url) {
+                imagePrompt = buildProductDirective();
+                secondImageUrl = conf.outfit_url;
+            } else if (genMode === 'auto_scene') {
+                imagePrompt = buildAutoSceneDirective(false);
+                secondImageUrl = null;
+            } else {
+                imagePrompt = note;
+                secondImageUrl = sceneImageUrl;
+            }
             // Synchronous — generate, upload, save output, mark done all in one shot
             const result = await geminiClone.cloneImage({
                 modelImageUrl,
-                sceneImageUrl: genMode === 'auto_scene' ? null : sceneImageUrl,
+                sceneImageUrl: secondImageUrl,
                 prompt: imagePrompt,
             });
             const ext = result.mimeType.includes('png') ? 'png' : 'jpg';

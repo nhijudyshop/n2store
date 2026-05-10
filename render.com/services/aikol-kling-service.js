@@ -53,6 +53,13 @@ function authHeader() {
     return { Authorization: `Bearer ${signToken()}`, 'Content-Type': 'application/json' };
 }
 
+// Lazy-require presets — avoid circular dep at module-load.
+let _presets;
+function getPresets() {
+    if (!_presets) _presets = require('../../aikol-studio/js/aikol-presets');
+    return _presets;
+}
+
 function buildPrompt({ config, note }) {
     const sim = Math.max(0, Math.min(100, Number(config.similarity ?? 80)));
     const creat = Math.max(0, Math.min(100, Number(config.creativity ?? 50)));
@@ -62,19 +69,36 @@ function buildPrompt({ config, note }) {
     if (config.keep_bg) keep.push('same background as reference');
     if (config.keep_lighting) keep.push('same lighting as reference');
 
-    const sceneNote =
-        config.scene_mode === 'free_form' && note
-            ? note
-            : config.scene_mode === 'match'
-              ? 'matching the source video setting'
-              : '';
+    // Scene fragment: 3 modes — match (clip scene), preset (1+ from SCENE_PRESETS),
+    // free_form (note text). Multi-preset → join với "or" để mix variants.
+    const P = getPresets();
+    let sceneNote = '';
+    if (config.scene_mode === 'preset' && Array.isArray(config.scene_presets)) {
+        const prompts = config.scene_presets.map((id) => P.presetById(id)?.prompt).filter(Boolean);
+        if (prompts.length === 1) sceneNote = prompts[0];
+        else if (prompts.length > 1) sceneNote = `one of: ${prompts.join(' OR ')}`;
+    } else if (config.scene_mode === 'free_form' && note) {
+        sceneNote = note;
+    } else if (config.scene_mode === 'match') {
+        sceneNote = 'matching the source video setting';
+    }
+
+    // Framing directive
+    const shot = P.shotTypeById(config.shot_type);
+    const shotNote = shot?.prompt ? shot.prompt : '';
+
+    // Style strength → keyword
+    const ss = Math.max(0, Math.min(100, Number(config.style_strength ?? 50)));
+    const styleNote = ss >= 70 ? 'strong cinematic mood' : ss <= 30 ? 'subtle mood' : '';
 
     return [
         'Portrait person',
         sceneNote,
+        shotNote,
         ...keep,
         `identity strength ${sim}%`,
         `motion creativity ${creat}%`,
+        styleNote,
         'natural motion, vertical 9:16 frame',
     ]
         .filter(Boolean)
