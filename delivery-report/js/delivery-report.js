@@ -1664,66 +1664,50 @@
     // =====================================================
     // DB ASSIGNMENTS — PostgreSQL as Source of Truth
     // =====================================================
-    function getAssignmentDate() {
-        // Use the fromDate filter date (YYYY-MM-DD) — kept for fallback only.
-        const fromDate = document.getElementById('drFilterFromDate')?.value;
-        if (fromDate) return fromDate;
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    }
-
-    function getAssignmentDateRange() {
-        const fromInput = document.getElementById('drFilterFromDate')?.value;
-        const toInput = document.getElementById('drFilterToDate')?.value;
-        const todayStr = toLocalDateStr(new Date());
-        let from = fromInput || todayStr;
-        let to = toInput || from;
-        if (from > to) {
-            const tmp = from;
-            from = to;
-            to = tmp;
-        }
-        return { from, to };
-    }
-
-    // TZ-safe extraction: TPOS DateInvoice is ISO with +07:00 offset (VN local time).
-    // Take the YYYY-MM-DD prefix directly — independent of the browser's timezone.
-    // Avoids new Date().getDate() which shifts ±1 day in non-VN browsers.
+    // TZ-safe: extract YYYY-MM-DD prefix from TPOS DateInvoice ISO (independent of browser TZ).
+    // Used to set the assignment_date metadata when inserting new rows.
     function extractTposDate(iso) {
         const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(iso || ''));
         return m ? m[1] : null;
     }
 
-    // Per-order date: use the order's actual DateInvoice (YYYY-MM-DD).
-    // Fallback to fromDate if DateInvoice missing or unparseable.
-    function getDateForOrder(orderNumber) {
-        const item = (DeliveryReportState.allData || []).find((i) => i && i.Number === orderNumber);
-        if (item && item.DateInvoice) {
-            const d = extractTposDate(item.DateInvoice);
-            if (d) return d;
-        }
-        return getAssignmentDate();
+    // Today's local YYYY-MM-DD — used as last-resort fallback only.
+    function todayLocalStr() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
+    function getCurrentOrderNumbers() {
+        return (DeliveryReportState.allData || []).map((i) => i && i.Number).filter(Boolean);
+    }
+
+    // Load DB assignments via lookup-batch — keyed by order_number alone, no date dependency.
     async function loadAssignmentsFromDB() {
-        const { from, to } = getAssignmentDateRange();
+        const orderNumbers = getCurrentOrderNumbers();
+        if (orderNumbers.length === 0) {
+            DeliveryReportState.dbAssignments = {};
+            DeliveryReportState._dbAssignmentsLoaded = true;
+            DeliveryReportState._dbLockedCount = 0;
+            DeliveryReportState.scannedNumbers = new Set();
+            DeliveryReportState.hiddenNumbers = new Set();
+            return {};
+        }
         try {
-            const resp = await fetch(
-                `${RENDER_URL}/api/v2/delivery-assignments?from=${from}&to=${to}`
-            );
+            const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments/lookup-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderNumbers }),
+            });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
             if (result.success && result.data) {
                 DeliveryReportState.dbAssignments = result.data.assignments || {};
                 DeliveryReportState._dbAssignmentsLoaded = true;
                 DeliveryReportState._dbLockedCount = result.data.totalCount || 0;
-
-                // Load scanned + hidden from same response
                 DeliveryReportState.scannedNumbers = new Set(result.data.scannedNumbers || []);
                 DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
-
                 console.log(
-                    `[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${from}..${to}`
+                    `[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${orderNumbers.length} orders in view`
                 );
                 return result.data.assignments;
             }
@@ -1734,18 +1718,15 @@
     }
 
     async function saveAssignmentsToDB(items, groups) {
-        const fallbackDate = getAssignmentDate();
-        const assignments = items.map((item) => {
-            const perDate = (item.DateInvoice && extractTposDate(item.DateInvoice)) || fallbackDate;
-            return {
-                date: perDate,
-                orderNumber: item.Number,
-                groupName: groups[item.Number] || getItemGroup(item),
-                amountTotal: item.AmountTotal || 0,
-                cashOnDelivery: item.CashOnDelivery || 0,
-                carrierName: item.CarrierName || '',
-            };
-        });
+        const assignments = items.map((item) => ({
+            // assignment_date as metadata only (no longer part of key); use TPOS DateInvoice when available.
+            date: (item.DateInvoice && extractTposDate(item.DateInvoice)) || todayLocalStr(),
+            orderNumber: item.Number,
+            groupName: groups[item.Number] || getItemGroup(item),
+            amountTotal: item.AmountTotal || 0,
+            cashOnDelivery: item.CashOnDelivery || 0,
+            carrierName: item.CarrierName || '',
+        }));
 
         if (assignments.length === 0) return { inserted: 0, skipped: 0 };
 
@@ -1759,7 +1740,7 @@
                         unescape(encodeURIComponent(JSON.stringify({ userName: user })))
                     ),
                 },
-                body: JSON.stringify({ date: fallbackDate, assignments }),
+                body: JSON.stringify({ assignments }),
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
@@ -1794,19 +1775,16 @@
 
     async function hideOrder(number) {
         if (!number) return;
-        // Resolve order date BEFORE removing from allData (lookup needs the item)
-        const date = getDateForOrder(number);
         DeliveryReportState.hiddenNumbers.add(number);
         DeliveryReportState.scannedNumbers.delete(number);
         DeliveryReportState.allData = (DeliveryReportState.allData || []).filter(
             (i) => i.Number !== number
         );
 
-        // Save to DB
         try {
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
             await fetch(
-                `${RENDER_URL}/api/v2/delivery-assignments/hide/${encodeURIComponent(number)}?date=${date}`,
+                `${RENDER_URL}/api/v2/delivery-assignments/hide/${encodeURIComponent(number)}`,
                 {
                     method: 'PATCH',
                     headers: {
@@ -1827,11 +1805,10 @@
     }
 
     async function saveScannedNumber(orderNumber) {
-        const date = getDateForOrder(orderNumber);
         try {
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
             await fetch(
-                `${RENDER_URL}/api/v2/delivery-assignments/scan/${encodeURIComponent(orderNumber)}?date=${date}`,
+                `${RENDER_URL}/api/v2/delivery-assignments/scan/${encodeURIComponent(orderNumber)}`,
                 {
                     method: 'PATCH',
                     headers: {
@@ -1847,13 +1824,10 @@
     }
 
     async function unscanNumberInDB(orderNumber) {
-        const date = getDateForOrder(orderNumber);
         try {
             await fetch(
-                `${RENDER_URL}/api/v2/delivery-assignments/unscan/${encodeURIComponent(orderNumber)}?date=${date}`,
-                {
-                    method: 'PATCH',
-                }
+                `${RENDER_URL}/api/v2/delivery-assignments/unscan/${encodeURIComponent(orderNumber)}`,
+                { method: 'PATCH' }
             );
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to unscan in DB:', e.message);
@@ -1861,15 +1835,11 @@
     }
 
     async function unscanBulkInDB(orderNumbers) {
-        const items = orderNumbers.map((n) => ({
-            orderNumber: n,
-            date: getDateForOrder(n),
-        }));
         try {
             await fetch(`${RENDER_URL}/api/v2/delivery-assignments/unscan-bulk`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items }),
+                body: JSON.stringify({ orderNumbers }),
             });
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to bulk unscan in DB:', e.message);
@@ -1943,10 +1913,13 @@
         _syncInterval = setInterval(async () => {
             if (!DeliveryReportState.traSoatMode) return;
             try {
-                const { from, to } = getAssignmentDateRange();
-                const resp = await fetch(
-                    `${RENDER_URL}/api/v2/delivery-assignments?from=${from}&to=${to}`
-                );
+                const orderNumbers = getCurrentOrderNumbers();
+                if (orderNumbers.length === 0) return;
+                const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments/lookup-batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderNumbers }),
+                });
                 if (!resp.ok) return;
                 const result = await resp.json();
                 if (!result.success) return;

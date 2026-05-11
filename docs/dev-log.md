@@ -170,6 +170,45 @@ Handler `pages:update_conversation` chỉ kiểm tra `unread_count` để quyế
 
 **Status**: ✅ Done. Direct lookup verified live (hit + miss cases). Picker auto-renders when name-ambiguity trigger fires. No regression for unambiguous flows (phone-confirmed match still auto-loads).
 
+### [delivery-report][render][DB] refactor: schema order_number-keyed — loại bỏ class bug "duplicate by date"
+
+**Vấn đề gốc**: schema có `UNIQUE (assignment_date, order_number)` — compound key cho phép cùng `order_number` xuất hiện ở nhiều `assignment_date` (đã ghi nhận 16265 row duplicate trong DB, max 6 row/đơn). Class bug này tồn tại từ ngày 1 của module. `order_number` (NJD/2026/XXXXX) đã unique trên TPOS nên `assignment_date` là redundant trong key — gây ra đúng class bug ta đang fix.
+
+**Migration toàn bảng** ([render.com/scripts/dedupe-delivery-fulltable.js](../render.com/scripts/dedupe-delivery-fulltable.js)):
+
+1. Backup `pg_dump` CSV mới (`backups/delivery_assignments-20260511-180452.csv`, 25327 rows).
+2. `LOCK TABLE EXCLUSIVE` + transaction.
+3. Cho mỗi `order_number` có >1 row: keep row có `created_at` mới nhất (= user-visible value). Merge `is_scanned=OR`, `is_hidden=OR`, `scanned_at=earliest non-null`, `scanned_by=corresponding`.
+4. DELETE 16265 row duplicate. Còn lại 9062 row distinct (1 row / đơn).
+5. `ALTER TABLE ADD CONSTRAINT delivery_assignments_order_number_unique UNIQUE (order_number)`.
+6. Sau khi backend deploy với `ON CONFLICT (order_number)`: `DROP CONSTRAINT delivery_assignments_assignment_date_order_number_key`.
+
+**Refactor backend** ([render.com/routes/v2/delivery-assignments.js](../render.com/routes/v2/delivery-assignments.js)):
+
+- `GET /` thêm filter `?order_numbers=N1,N2,...` (preferred new). `?date=` và `?from=&to=` giữ cho compat.
+- `POST /` dùng `ON CONFLICT (order_number) DO NOTHING`. `date` param chỉ làm metadata (assignment_date), default `today` nếu missing.
+- `PATCH /scan|/unscan|/hide`, `PUT`, `DELETE`: bỏ requirement `?date=` query param. Chỉ cần `order_number` trong path.
+- `PATCH /unscan-bulk`: shape mới `{orderNumbers:[...]}`. Legacy `{date,orderNumbers}` và `{items:[{orderNumber,date}]}` vẫn nhận.
+- `POST /lookup-batch`: trả về `{assignments, scannedNumbers, hiddenNumbers}` (extended payload — thay vì chỉ groups).
+
+**Refactor frontend** ([delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)):
+
+- Bỏ `getAssignmentDateRange()`, `getDateForOrder()`, `getAssignmentDate()` — không còn cần lookup date.
+- Thêm `getCurrentOrderNumbers()` lấy `order_number` từ `allData`.
+- `loadAssignmentsFromDB()` dùng `POST /lookup-batch` với `orderNumbers` từ allData (thay range query `?from=&to=`).
+- Sync polling: dùng `lookup-batch` thay range.
+- `saveScannedNumber`, `unscanNumberInDB`, `hideOrder`: không truyền date trong URL.
+- `unscanBulkInDB(numbers)`: body `{orderNumbers: numbers}`.
+- `saveAssignmentsToDB`: bỏ `date` top-level; mỗi item vẫn pass `date: extractTposDate(DateInvoice)` làm metadata cho `assignment_date`.
+
+**Verify**:
+
+- Pre-migration: 25327 rows / 9062 distinct / 6218 đơn có duplicate.
+- Post-migration: 9062 rows / 9062 distinct / 0 duplicate. UNIQUE constraint giờ chỉ `delivery_assignments_order_number_unique`.
+- API endpoints test pass với cả legacy `?date=` và new `?order_numbers=`.
+
+**Status**: ✅ Done. Class bug "same order with different assignment_date" giờ **không thể xảy ra** ở DB level (UNIQUE constraint).
+
 ### [delivery-report] TZ-safe date extract — `extractTposDate(iso)` thay `new Date().getDate()`
 
 **Vấn đề**: `getDateForOrder()` và `saveAssignmentsToDB()` dùng `new Date(item.DateInvoice).getDate()` → phụ thuộc browser TZ. Nếu browser ở TZ âm (vd US-PDT) và DateInvoice rơi vào sáng sớm VN → date lệch 1 ngày → `assignment_date` ghi sai. Toàn bộ user n2store ở VN nên không lộ trong production, nhưng CI/headless test ở server US sẽ tái xuất bug.
