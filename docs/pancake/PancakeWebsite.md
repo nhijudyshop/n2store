@@ -1596,11 +1596,11 @@ GHN, GHTK, ViettelPost, VNPost, JT Express, NinjaVan, SPX, Ahamove, GrabExpress,
 
 ---
 
-## 18. Live verification & gaps (2026-05-11)
+## 20. Live verification & gaps (2026-05-11)
 
 Browser recon từ phiên đăng nhập thật của tài khoản "Kỹ Thuật NJD". Bổ sung cho các section 2-5 với các phát hiện không có sẵn trong build manifest.
 
-### 18.1 Endpoint mới verified live
+### 20.1 Endpoint mới verified live
 
 | Endpoint                                                                       | Hit response                                                                                                                                                                                                                                           | Miss response                                                              | Notes                                                                                                                                                                                                                                               |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1608,7 +1608,7 @@ Browser recon từ phiên đăng nhập thật của tài khoản "Kỹ Thuật 
 | `GET /api/v1/pages/{pageId}/conversations/{pageId}_{fbId}?access_token={JWT}`  | Full conv object: `id`, `type`, `from_psid`, `customers[].id` (UUID), `recent_phone_numbers[]`, `thread_id`, `last_sent_by`, `last_customer_interactive_at`, `unread_count`, `message_count`, `snippet`, `seen`, `tags`, `assignee_ids`, `task_opened` | `{existed: false, success: false, message: "Hội thoại này không tồn tại"}` | **Most reliable direct lookup** — no fuzzy match, no phone ambiguity. Use khi biết page-scoped fb_id từ DB.                                                                                                                                         |
 | `GET /api/v1/pages/{pageId}/conversations/search?q={query}&access_token={JWT}` | `{conversations: [...]}`                                                                                                                                                                                                                               | `{conversations: []}`                                                      | **FULL-TEXT SEARCH** — không chỉ phone. Match cả message body. VD `q=0123456788` trên Store trả conv "Huỳnh Thành Đạt" `fb_id=25717004554573583` với phone thực `0908123456` vì text body chứa số đó. Đừng tin search results là exact phone match. |
 
-### 18.2 Conv object new fields verified
+### 20.2 Conv object new fields verified
 
 Từ direct lookup `/conversations/{convId}` (section 18.1):
 
@@ -1651,7 +1651,7 @@ Từ direct lookup `/conversations/{convId}` (section 18.1):
 
 **`last_sent_by.id`** là field critical: khi value === pageId → shop là người gửi cuối (cleaned conv). Dùng để skip stale unread states. Cũng có thể đọc từ `last_message.from.id` nếu `last_sent_by` null.
 
-### 18.3 Hidden globals verified
+### 20.3 Hidden globals verified
 
 | Global                              | Type                   | Purpose                                                                      |
 | ----------------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
@@ -1661,7 +1661,7 @@ Từ direct lookup `/conversations/{convId}` (section 18.1):
 | `window.findGlobalIdForConv(e)`     | Function               | Triggers extension `GET_GLOBAL_ID_FOR_CONV` message                          |
 | `window.__capturedActions`          | (custom, after inject) | Wrap `store.dispatch` để capture future action types                         |
 
-### 18.4 WS channel bindings (81 events on `pages:{pageId}`)
+### 20.4 WS channel bindings (81 events on `pages:{pageId}`)
 
 Verified via `auth.channel.bindings` — đủ list của tất cả events được listen on the page-scoped channel:
 
@@ -1681,7 +1681,7 @@ Verified via `auth.channel.bindings` — đủ list của tất cả events đư
 
 Khi user đổi page, channel re-joins on `pages:{newPageId}`. Cùng bindings list được copy sang.
 
-### 18.5 Confirmed-not-existing endpoints
+### 20.5 Confirmed-not-existing endpoints
 
 Probed 2026-05-11, all return 404 or 406:
 
@@ -1702,7 +1702,7 @@ Probed 2026-05-11, all return 404 or 406:
 
 → **Pancake không expose REST endpoint để manually set/update phone hoặc tìm customer cross-page bằng phone**. Phone được auto-extract từ message body qua `recent_phone_numbers`. Tất cả customer mutations đi qua các thunk private (không HTTP routes).
 
-### 18.6 Top navigation structure (verified DOM)
+### 20.6 Top navigation structure (verified DOM)
 
 ```
 NAV.navbar.navbar-default.navbar-fixed-top
@@ -1722,7 +1722,7 @@ NAV.navbar.navbar-default.navbar-fixed-top
 
 Click handlers chạy qua Redux action dispatch (không native href). Cần `el.click()` synthetic — `nativeSet + dispatchEvent` không đủ.
 
-### 18.7 Key page slugs (Nhi Judy account)
+### 20.7 Key page slugs (Nhi Judy account)
 
 | Display name   | Username (URL slug)    | Platform  | ID                      |
 | -------------- | ---------------------- | --------- | ----------------------- |
@@ -1735,7 +1735,7 @@ Click handlers chạy qua Redux action dispatch (không native href). Cần `el.
 
 URL format: `https://pancake.vn/{username}` cho Hội thoại. Subpath thêm `/post`, `/statistic/overview`, `/setting/general`. **`.VietNam` case-sensitive** (capital V + N).
 
-### 18.8 Search behavior caveat
+### 20.8 Search behavior caveat
 
 `GET /api/v1/pages/{pid}/conversations/search?q=X` là **full-text** match (snippet, customer name, recent phones, message body). KHÔNG chỉ phone. Hậu quả:
 
