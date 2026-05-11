@@ -1743,3 +1743,73 @@ URL format: `https://pancake.vn/{username}` cho Hội thoại. Subpath thêm `/p
 - Trên House: 2 hits (1 real customer phone 0123456788 + 1 "Nguyễn Tâm" cũng từng đề cập số đó trong message).
 
 **Suy ra**: kết quả search PHẢI verify lại phone bằng cách so sánh với `recent_phone_numbers[].phone_number` của từng conv. Đừng auto-assume search hit = customer có phone đó.
+
+### 20.9 Multi-page (gộp trang) mode
+
+Pancake hỗ trợ kết hợp inbox của nhiều page vào 1 view duy nhất ("Chế độ gộp trang").
+
+**Cách kích hoạt**:
+
+1. Vào `/dashboard` (hub page).
+2. Click button **"Gộp trang"** ở góc phải-trên.
+3. Modal "Chế độ gộp trang" mở — click chọn các page card (`.multipage-item-content`). Hỗ trợ `Cmd+A` shortcut để select all / bỏ chọn.
+4. Click **"Vào chế độ gộp trang"** ở góc phải-dưới modal.
+
+**State changes** verified 2026-05-11 with House + Store:
+
+| Field                          | Single mode                        | Gộp mode                                     |
+| ------------------------------ | ---------------------------------- | -------------------------------------------- |
+| URL                            | `/{pageSlug}` (vd `/NhiJudyStore`) | `/multi_pages`                               |
+| `pages.multiplePageMode`       | `false`                            | `true`                                       |
+| `pages.multiplePageIds`        | `[]`                               | `["270136663390370","117267091364524"]`      |
+| `pages.currentPageId`          | `<pageId>`                         | `null`                                       |
+| `pages.currentPageName`        | tên page                           | `null`                                       |
+| `pages.currentPagePathName`    | slug                               | `null`                                       |
+| `auth.channel.topic`           | `pages:{pageId}`                   | `multiple_pages:{userUid}`                   |
+| `auth.socket.channels` open    | `users:{uid}` + `pages:{pageId}`   | `users:{uid}` + `multiple_pages:{uid}`       |
+| Conv list `conversations.data` | All from 1 page                    | Mixed từ tất cả page trong `multiplePageIds` |
+| `page_id` trong từng conv      | 1 unique value                     | Multiple values                              |
+
+**WS bindings** (verified): cả 2 channels (`users:` và `multiple_pages:`) đều có **81 events** — cùng set với `pages:` channel. Events `pages:new_message`, `pages:update_conversation` được broadcast qua channel `multiple_pages:{uid}` thay vì page-scoped channel khi ở gộp mode.
+
+**Page switching** (single → other single, không qua gộp):
+
+- Nav `https://pancake.vn/{newSlug}` (vd `NhiJudyStore` → `NhiJudyHouse.VietNam`).
+- Channel `pages:{oldPageId}` leaves, `pages:{newPageId}` joins.
+- `auth.socket.channels` chỉ có 2: `users:{uid}` + `pages:{currentPageId}` (gộp mode add `multiple_pages:` instead).
+- Conv list reload — chỉ giữ convs của page mới.
+
+**Hệ quả cho n2store**:
+
+- WS listener của ta hiện listen `pages:{pageId}` topic. Nếu user của ta chạy gộp mode trên Pancake riêng, ta vẫn nhận events qua page channel (vì ta dùng token tài khoản n2store, không phải account đang gộp).
+- Khi n2store reuses Pancake account JWT của staff user (vd "Kỹ Thuật NJD") đang trong gộp mode, có thể subscribe **cả 2 channels** để không miss events: `pages:{pageId}` (luôn có) + `multiple_pages:{uid}` (chỉ khi user đó đang gộp).
+- `multiplePageIds` array trong Redux là source of truth cho biết user đang gộp những page nào.
+
+### 20.10 Pancake accounts registered in n2store Render DB
+
+Tracked qua `pancake_accounts` table, đồng bộ qua `POST /api/pancake-accounts/sync` + load qua `GET /api/pancake-accounts?active=true`.
+
+Snapshot 2026-05-11 (6 accounts active):
+
+| Name             | fb_id              | uid                                  | exp            | Pages accessible         |
+| ---------------- | ------------------ | ------------------------------------ | -------------- | ------------------------ |
+| Thu Huyền        | 113829328380970    | c2177f20-4b9f-4a38-b97a-7de087116034 | 2026-06-29     | Nè, Ơi, House, Store (4) |
+| Chloe Duongg     | 1343498490221397   | 3d44e696-275c-4193-a607-61de19c3fdd7 | 2026-06-28     | Nè, House, Store (3)     |
+| Con Nhoc         | 1017600961907293   | 99d3d4e1-7483-4ef2-8ff5-d14ab1c313fe | 2026-06-25     | (0)                      |
+| Thu Lai          | 130155613372876    | 24ed43c8-7a0a-4191-b52f-97a13c598651 | 2026-06-25     | Nè, House, Store, Ơi (4) |
+| Huyền Nhi        | 122114482322119647 | 56023ff1-2717-4237-afd2-9661bb36db56 | 2026-06-28     | Store, Ơi, House (3)     |
+| **Kỹ Thuật NJD** | 130759086650522    | c42ef91d-1a1d-43aa-b8af-8ac014d83d6c | **2026-08-09** | (added 2026-05-11)       |
+
+Schema:
+
+```
+pancake_accounts:
+  account_id (PK, = uid)
+  uid, name, token (JWT), token_exp
+  fb_id, fb_name
+  pages JSONB [{id, name}]   ← populated from /api/v1/pages with that token
+  is_active boolean
+  saved_at, last_used_at, created_at, updated_at
+```
+
+Token managers tự pick account theo `localStorage['tpos_pancake_active_account_id']`, fallback first active. Account "Kỹ Thuật NJD" là dev account cho recon — không nên dùng cho production reply (token này login từ máy dev nên có thể bị limit hoặc phát hiện bất thường).
