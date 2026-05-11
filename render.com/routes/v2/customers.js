@@ -450,31 +450,43 @@ router.post('/link-fb-ids', async (req, res) => {
  *   4. Return the resulting customer row
  */
 router.post('/set-phone', async (req, res) => {
+    const client = await req.app.locals.chatDb.connect();
     try {
-        const db = req.app.locals.chatDb;
         const { fbId, globalId, pageId, phone, name } = req.body || {};
         const normPhone = (phone || '').toString().replace(/\D/g, '');
-        if (!normPhone) return res.status(400).json({ error: 'phone required' });
+        if (!normPhone) {
+            client.release();
+            return res.status(400).json({ error: 'phone required' });
+        }
         if (!fbId && !globalId) {
+            client.release();
             return res.status(400).json({ error: 'fbId or globalId required' });
         }
 
-        // 1. Find existing customer in priority order: fb_id → global_id → phone
+        await client.query('BEGIN');
+
+        // 1. Phone-first lookup (with FOR UPDATE row lock) — the UNIQUE index is
+        // on `phone`, so locking that row is critical when we're going to set
+        // phone. Falls back to fb_id then global_id for cases where the customer
+        // exists but has no phone yet.
         let existing = null;
-        if (fbId) {
-            const r1 = await db.query('SELECT * FROM customers WHERE fb_id = $1 LIMIT 1', [fbId]);
-            if (r1.rows.length > 0) existing = r1.rows[0];
-        }
-        if (!existing && globalId) {
-            const r2 = await db.query('SELECT * FROM customers WHERE global_id = $1 LIMIT 1', [
-                globalId,
-            ]);
+        const r1 = await client.query(
+            'SELECT * FROM customers WHERE phone = $1 LIMIT 1 FOR UPDATE',
+            [normPhone]
+        );
+        if (r1.rows.length > 0) existing = r1.rows[0];
+        if (!existing && fbId) {
+            const r2 = await client.query(
+                'SELECT * FROM customers WHERE fb_id = $1 LIMIT 1 FOR UPDATE',
+                [fbId]
+            );
             if (r2.rows.length > 0) existing = r2.rows[0];
         }
-        if (!existing) {
-            const r3 = await db.query('SELECT * FROM customers WHERE phone = $1 LIMIT 1', [
-                normPhone,
-            ]);
+        if (!existing && globalId) {
+            const r3 = await client.query(
+                'SELECT * FROM customers WHERE global_id = $1 LIMIT 1 FOR UPDATE',
+                [globalId]
+            );
             if (r3.rows.length > 0) existing = r3.rows[0];
         }
 
@@ -488,10 +500,8 @@ router.post('/set-phone', async (req, res) => {
 
         let row;
         if (existing) {
-            // 3a. Update existing customer — fill any missing fields, preserve user
-            // edits to the row.
             const newPancakeData = buildPageFbIds(existing.pancake_data);
-            const result = await db.query(
+            const result = await client.query(
                 `UPDATE customers
                  SET phone = $2,
                      name = COALESCE(NULLIF(customers.name, ''), $3, customers.name),
@@ -512,16 +522,10 @@ router.post('/set-phone', async (req, res) => {
             );
             row = result.rows[0];
         } else {
-            // 3b. Insert new row, race-safe on phone uniqueness.
             const newPancakeData = buildPageFbIds(null);
-            const result = await db.query(
-                `INSERT INTO customers (phone, name, fb_id, global_id, pancake_data, status)
-                 VALUES ($1, $2, $3, $4, $5, 'active')
-                 ON CONFLICT (phone) DO UPDATE SET
-                     fb_id = COALESCE(customers.fb_id, EXCLUDED.fb_id),
-                     global_id = COALESCE(customers.global_id, EXCLUDED.global_id),
-                     pancake_data = COALESCE(customers.pancake_data, EXCLUDED.pancake_data),
-                     updated_at = NOW()
+            const result = await client.query(
+                `INSERT INTO customers (phone, name, fb_id, global_id, pancake_data)
+                 VALUES ($1, $2, $3, $4, $5)
                  RETURNING *`,
                 [
                     normPhone,
@@ -534,11 +538,13 @@ router.post('/set-phone', async (req, res) => {
             row = result.rows[0];
         }
 
+        await client.query('COMMIT');
+
         // Also seed fb_global_id_cache so the chat-core lookup chain
         // (psid→globalId / by-global/psid-on-page) picks this up next time.
         if (fbId && pageId && globalId) {
             try {
-                await db.query(
+                await client.query(
                     `INSERT INTO fb_global_id_cache (page_id, psid, global_user_id, resolved_by, use_count)
                      VALUES ($1, $2, $3, 'set-phone', 1)
                      ON CONFLICT (page_id, psid) DO UPDATE SET
@@ -557,7 +563,12 @@ router.post('/set-phone', async (req, res) => {
             created: !existing,
         });
     } catch (error) {
+        try {
+            await client.query('ROLLBACK');
+        } catch (_e) {}
         handleError(res, error, 'Failed to set customer phone');
+    } finally {
+        client.release();
     }
 });
 
