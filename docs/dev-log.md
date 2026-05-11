@@ -170,6 +170,39 @@ Handler `pages:update_conversation` chỉ kiểm tra `unread_count` để quyế
 
 **Status**: ✅ Done. Direct lookup verified live (hit + miss cases). Picker auto-renders when name-ambiguity trigger fires. No regression for unambiguous flows (phone-confirmed match still auto-loads).
 
+### [delivery-report] TZ-safe date extract — `extractTposDate(iso)` thay `new Date().getDate()`
+
+**Vấn đề**: `getDateForOrder()` và `saveAssignmentsToDB()` dùng `new Date(item.DateInvoice).getDate()` → phụ thuộc browser TZ. Nếu browser ở TZ âm (vd US-PDT) và DateInvoice rơi vào sáng sớm VN → date lệch 1 ngày → `assignment_date` ghi sai. Toàn bộ user n2store ở VN nên không lộ trong production, nhưng CI/headless test ở server US sẽ tái xuất bug.
+
+**Fix** ([delivery-report.js](../delivery-report/js/delivery-report.js)):
+
+- Thêm helper `extractTposDate(iso)` dùng regex `^(\d{4}-\d{2}-\d{2})` trích YYYY-MM-DD trực tiếp từ string ISO (TPOS luôn trả `2026-05-10T19:21:55.637+07:00` — prefix là VN-local date, không cần parse Date).
+- `getDateForOrder()` và `saveAssignmentsToDB()` dùng helper mới → 0 dependency vào browser TZ.
+
+**Status**: ✅ Done. Code-only fix, không đụng DB.
+
+### [delivery-report][DB] dedupe 09-10/05 — 1504 rows → 778 (Strategy B: 09/05 wins)
+
+**Vấn đề**: 726 đơn duplicate trong DB do bug `getAssignmentDate()` cũ ghi `fromDate=09/05` cho TẤT CẢ scan trong filter multi-day 09-10/05. Sau đó user vào filter 10/05 single-day → save lại đúng date → 2 row/đơn. Phát hiện qua API range query: 1504 total / 778 distinct.
+
+**Migration** ([render.com/scripts/dedupe-delivery-09-10-strategyB.js](../render.com/scripts/dedupe-delivery-09-10-strategyB.js)):
+
+1. Backup `pg_dump` CSV (`backups/delivery_assignments-20260511-113130.csv`, 26013 rows, gzipped + MD5).
+2. `LOCK TABLE EXCLUSIVE` → BEGIN transaction.
+3. UPDATE 726 row 10/05 với: `group_name = 09's value` (Strategy B — giữ user-visible state), `is_scanned = OR`, `is_hidden = OR`, `scanned_at = earliest non-null`, `scanned_by = tương ứng`.
+4. DELETE 726 row 09/05 duplicate.
+5. COMMIT.
+
+**Verify**:
+
+- Trước: 778 đơn distinct, 1504 rows, 559 scanned (deduped).
+- Sau: 778 đơn distinct, 778 rows, 559 scanned. 0 duplicate.
+- Group breakdown unchanged user-visible: nap=422, tomato=119, city=220, shop=10, return=7.
+- 0 đơn mất scan (verified pre-migration: 0 cases scan@09 nhưng không@10).
+- Special: NJD/2026/66254 → tomato (riêng request user). Sau đó: nap=421, tomato=120.
+
+**Status**: ✅ Done. Strategy B chọn vì preserve toàn bộ user-visible state (0 đơn flip group), khớp với "giữ nguyên assignments đã assign cho 2 ngày 9, 10".
+
 ### [delivery-report][render] fix tra soát — đã quét/chưa quét chia đúng theo filter nhiều ngày
 
 **Vấn đề**: filter 09/05–10/05, "Đã quét" tab chỉ hiển thị scans của ngày 09/05 (fromDate); scans của 10/05 trôi sang "Chưa quét". Lý do: `loadAssignmentsFromDB` chỉ gọi `?date=fromDate`, một ngày. Tương tự `saveScannedNumber`/`unscan`/`hide` ghi `assignment_date = fromDate` thay vì DateInvoice thực của đơn → đơn 10/05 scan trong filter 09–10 bị lưu nhầm dưới ngày 09/05.

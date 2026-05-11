@@ -1686,15 +1686,21 @@
         return { from, to };
     }
 
+    // TZ-safe extraction: TPOS DateInvoice is ISO with +07:00 offset (VN local time).
+    // Take the YYYY-MM-DD prefix directly — independent of the browser's timezone.
+    // Avoids new Date().getDate() which shifts ±1 day in non-VN browsers.
+    function extractTposDate(iso) {
+        const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(iso || ''));
+        return m ? m[1] : null;
+    }
+
     // Per-order date: use the order's actual DateInvoice (YYYY-MM-DD).
-    // Fallback to fromDate if DateInvoice missing or out of range.
+    // Fallback to fromDate if DateInvoice missing or unparseable.
     function getDateForOrder(orderNumber) {
         const item = (DeliveryReportState.allData || []).find((i) => i && i.Number === orderNumber);
         if (item && item.DateInvoice) {
-            const d = new Date(item.DateInvoice);
-            if (!isNaN(d.getTime())) {
-                return toLocalDateStr(d);
-            }
+            const d = extractTposDate(item.DateInvoice);
+            if (d) return d;
         }
         return getAssignmentDate();
     }
@@ -1730,11 +1736,7 @@
     async function saveAssignmentsToDB(items, groups) {
         const fallbackDate = getAssignmentDate();
         const assignments = items.map((item) => {
-            let perDate = fallbackDate;
-            if (item.DateInvoice) {
-                const d = new Date(item.DateInvoice);
-                if (!isNaN(d.getTime())) perDate = toLocalDateStr(d);
-            }
+            const perDate = (item.DateInvoice && extractTposDate(item.DateInvoice)) || fallbackDate;
             return {
                 date: perDate,
                 orderNumber: item.Number,
