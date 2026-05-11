@@ -645,15 +645,11 @@
         const params = new URLSearchParams();
 
         // Đổi endpoint Report/DeliveryReport → FastSaleOrder/ODataService.GetView:
-        // DeliveryReport (server-side) loại State ∈ {draft, cancel}, làm thiếu các đơn đã
-        // bị hủy hôm trước (user thấy "568 đã khóa" nhưng table chỉ hiện 566). FSO/GetView
-        // trả về MỌI State; ta whitelist {open, paid, cancel} (loại draft — đơn chưa lên,
-        // không phải invoice thật) rồi đánh dấu State='cancel' để user thấy đơn đã hủy.
-        // GetView không honor `ne` nên phải dùng OR explicit.
-        const filterParts = [
-            "Type eq 'invoice'",
-            "(State eq 'open' or State eq 'paid' or State eq 'cancel')",
-        ];
+        // DeliveryReport (server-side) loại State ∈ {draft, cancel}, làm thiếu đơn đã hủy
+        // và đơn nháp. Dùng GetView trả về ĐẦY ĐỦ MỌI State (draft + open + paid + cancel)
+        // cho range filter; client-side đánh dấu draft (vàng) + cancel (đỏ) để phân biệt
+        // với đơn active. Chỉ lọc Type='invoice' (loại refund/sale_order khác).
+        const filterParts = ["Type eq 'invoice'"];
 
         if (f.fromDate) {
             const d = new Date(f.fromDate);
@@ -824,15 +820,19 @@
             const rowClasses = [];
             if (startIndex + i === boundaryIndex) rowClasses.push('dr-debt-boundary');
             if (item.State === 'cancel') rowClasses.push('dr-row-cancelled');
+            else if (item.State === 'draft') rowClasses.push('dr-row-draft');
             const rowClass = rowClasses.length ? ` class="${rowClasses.join(' ')}"` : '';
-            const cancelBadge =
-                item.State === 'cancel'
-                    ? '<span class="dr-cancel-badge" title="Đơn đã hủy">Đã hủy</span> '
-                    : '';
+            let stateBadge = '';
+            if (item.State === 'cancel') {
+                stateBadge = '<span class="dr-cancel-badge" title="Đơn đã hủy">Đã hủy</span> ';
+            } else if (item.State === 'draft') {
+                stateBadge =
+                    '<span class="dr-draft-badge" title="Đơn nháp — chưa lên đơn">Nháp</span> ';
+            }
 
             html += `<tr${rowClass}>
                 <td data-col="index">${startIndex + i + 1}</td>
-                <td data-col="number" class="dr-hover-bill" data-id="${escapeHtml(String(item.Id || ''))}" data-number="${escapeHtml(item.Number || '')}">${cancelBadge}${escapeHtml(item.Number || '')}</td>
+                <td data-col="number" class="dr-hover-bill" data-id="${escapeHtml(String(item.Id || ''))}" data-number="${escapeHtml(item.Number || '')}">${stateBadge}${escapeHtml(item.Number || '')}</td>
                 <td data-col="customer" class="dr-hover-customer" data-phone="${escapeHtml(item.Phone || '')}">
                     <div class="dr-customer-name">${escapeHtml(item.PartnerDisplayName || '')}</div>
                     <div class="dr-customer-phone">ĐT: ${escapeHtml(item.Phone || '')}</div>
@@ -879,13 +879,13 @@
         }
 
         // Footer totals (from ALL data, not just current page). Đơn State='cancel'
-        // không cộng tiền vào tổng — vẫn hiển thị trong table nhưng money/COD/ship
-        // không tính (khớp logic renderStats).
+        // hoặc 'draft' không cộng tiền vào tổng — vẫn hiển thị trong table nhưng
+        // money/COD/ship không tính (khớp logic renderStats).
         let allTotalAmount = 0,
             allTotalCOD = 0,
             allTotalShipPrice = 0;
         allData.forEach((item) => {
-            if (item.State === 'cancel') return;
+            if (item.State === 'cancel' || item.State === 'draft') return;
             allTotalAmount += item.AmountTotal || 0;
             allTotalCOD += item.CashOnDelivery || 0;
             allTotalShipPrice += item.DeliveryPrice || 0;
@@ -929,13 +929,23 @@
         let failControlCount = 0;
         let failControlAmount = 0;
 
+        let draftCount = 0;
+        let draftAmount = 0;
+
         // Stats from ALL data (accurate). State='cancel' (đơn hủy) ưu tiên trước
         // ShipStatus vì khi invoice bị hủy thì ShipStatus có thể vẫn là 'none'.
+        // Đơn 'draft' (nháp - chưa lên đơn) tách riêng vào "Đối soát không thành công"
+        // bucket (đại diện đơn chưa kết-thúc-workflow); không cộng vào COD active.
         data.forEach((item) => {
-            // COD tổng chỉ tính đơn chưa hủy
-            if (item.State !== 'cancel') totalCOD += item.CashOnDelivery || 0;
+            // COD tổng chỉ tính đơn active (chưa hủy, chưa nháp)
+            if (item.State !== 'cancel' && item.State !== 'draft') {
+                totalCOD += item.CashOnDelivery || 0;
+            }
 
-            if (
+            if (item.State === 'draft') {
+                draftCount++;
+                draftAmount += item.CashOnDelivery || 0;
+            } else if (
                 item.State === 'cancel' ||
                 item.ShipStatus === 'returned' ||
                 item.ShipStatus === 'cancel'
@@ -951,7 +961,9 @@
             }
         });
 
-        const activeCount = totalCount - returnCount;
+        failControlCount = draftCount;
+        failControlAmount = draftAmount;
+        const activeCount = totalCount - returnCount - draftCount;
 
         // Update stat elements
         updateStatElement('drStatCODCount', `${formatNumber(activeCount)} Hóa đơn`);
