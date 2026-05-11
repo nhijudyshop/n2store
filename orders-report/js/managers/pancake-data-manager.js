@@ -920,16 +920,28 @@ class PancakeDataManager {
             if (!res.ok) return { conversations: [] };
             let data = await res.json();
 
-            // Error 122 = subscription expired → find bad pages and retry without them
-            if (data.error_code === 122 && data.errors && ids.length > 1) {
+            // Error 121/122 — subscription missing or expired for a page.
+            // 121 = "Không tìm thấy gói cước nào cho người dùng này" (no plan)
+            // 122 = subscription expired
+            // Both make the WHOLE multi-page search fail. Retry without the
+            // bad pages. Owner repro 2026-05-11: searchConversations
+            // returned 0 because page Sách Nói (324873917372219) had
+            // error_code 121 — the entire result set was discarded.
+            const SUB_ERR_CODES = new Set([121, 122]);
+            if (
+                data.error_code &&
+                SUB_ERR_CODES.has(data.error_code) &&
+                data.errors &&
+                ids.length > 1
+            ) {
                 const badIds = new Set(
                     (data.errors || [])
-                        .filter((e) => e.error_code === 122)
+                        .filter((e) => SUB_ERR_CODES.has(e.error_code))
                         .map((e) => String(e.page_id))
                 );
                 const goodIds = ids.filter((id) => !badIds.has(String(id)));
                 console.warn(
-                    `[PDM] Search error 122: removing expired pages [${[...badIds]}], retrying with ${goodIds.length} pages`
+                    `[PDM] Search error ${data.error_code}: removing pages [${[...badIds]}], retrying with ${goodIds.length} pages`
                 );
                 if (goodIds.length > 0) {
                     for (const bid of badIds) this._expiredPageIds.add(bid);

@@ -1114,7 +1114,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     // ambiguity. Use the customer's target-page fb_id from our DB
     // (`pancake_data.page_fb_ids[pageId]`) when available — that's exactly
     // what set-phone flow persists for cross-page resolution.
-    if (!conv && !allowDrift && pdm.fetchConversationDirect) {
+    //
+    // Run for BOTH initial-open and explicit page-switch. Owner repro
+    // 2026-05-11: opening order with ChannelId=Store but customer's real
+    // PSID is on House → multi-page fallback returned empty → silent
+    // "Không tìm thấy" instead of finding the cross-page conv via DB.
+    if (!conv && pdm.fetchConversationDirect) {
         const phone = (window.currentChatPhone || '').toString().replace(/\D/g, '');
         if (phone) {
             try {
@@ -1200,8 +1205,110 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
     }
 
-    if (!conv && !allowDrift) {
-        // Explicit page switch: PSID is page-specific (different per page).
+    // Cross-page phone search — only at initial open (allowDrift=true).
+    // If no conv on target page, search by phone across ALL active pages
+    // and drift to whichever page actually has the customer. Handles the
+    // case where the order's ChannelId is wrong (e.g. order created on
+    // Store but customer's primary conv is on House). Owner repro
+    // 2026-05-11: openChatModal(Store, House-psid, ...) → no Store conv
+    // → multi-page Pancake fallback by PSID returned 0 (PSID is page-
+    // scoped). Phone-search across all pages is the right fallback.
+    //
+    // Pancake search returns matches by BODY TEXT not by phone field, so
+    // a conv whose customer has phone 0123456788 in our DB may not have
+    // it in `recent_phone_numbers` (Pancake auto-extracts only when phone
+    // appears as message text). Use NAME match + phone-or-PSID as the
+    // verification path — accept conv when:
+    //   • phone confirmed in recent_phone_numbers (strong), OR
+    //   • customer name matches AND from_psid matches the original psid
+    //     (medium — same human, just on different page), OR
+    //   • customer name matches AND only 1 candidate (high — no other
+    //     homonyms in search result).
+    if (!conv && allowDrift && pdm.searchConversations) {
+        const phone = _phoneNorm(window.currentChatPhone);
+        const customerName = window.currentCustomerName || '';
+        const _strip = (s) =>
+            (s || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .toLowerCase()
+                .replace(/[\s\-_]+/g, ' ')
+                .trim();
+        const _bareName = (n) => {
+            if (!n) return '';
+            const idx = n.indexOf(' - ');
+            return (idx > 0 ? n.substring(0, idx) : n).trim();
+        };
+        const targetName = _strip(_bareName(customerName));
+        if (phone) {
+            try {
+                const globalRes = await pdm.searchConversations(phone, {
+                    signal: opts?.signal,
+                });
+                if (_isStale()) return;
+                const allCandidates = globalRes.conversations || [];
+                // Bucket by phone verdict.
+                const phoneVerified = [];
+                const nameMatched = [];
+                const psid = String(window.currentChatPSID || '');
+                for (const c of allCandidates) {
+                    const check = _convHasPhoneVerify(c, phone);
+                    if (check === true) {
+                        phoneVerified.push(c);
+                        continue;
+                    }
+                    if (targetName) {
+                        const cName = _strip(c.from?.name);
+                        if (
+                            cName === targetName ||
+                            cName.includes(targetName) ||
+                            targetName.includes(cName)
+                        ) {
+                            // Name match: stronger if same PSID (same human).
+                            const cFid = String(c.from_psid || c.from?.id || '');
+                            nameMatched.push({ conv: c, samePsid: cFid === psid && psid !== '' });
+                        }
+                    }
+                }
+                const _sortByRecency = (a, b) =>
+                    new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime() -
+                    new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime();
+                phoneVerified.sort(_sortByRecency);
+                // Among name matches: prefer same PSID, then newest.
+                nameMatched.sort((a, b) => {
+                    if (a.samePsid && !b.samePsid) return -1;
+                    if (!a.samePsid && b.samePsid) return 1;
+                    return _sortByRecency(a.conv, b.conv);
+                });
+
+                if (phoneVerified.length > 0) {
+                    conv = phoneVerified.find((c) => c.type === type) || phoneVerified[0];
+                } else if (nameMatched.length === 1 || nameMatched[0]?.samePsid) {
+                    // Unambiguous name match OR same-PSID name match.
+                    const list = nameMatched.map((x) => x.conv);
+                    conv = list.find((c) => c.type === type) || list[0];
+                } else if (nameMatched.length > 1) {
+                    // Multiple homonyms — defer to the picker block downstream.
+                    // Stash so the !allowDrift name-search block (which now
+                    // also runs at initial open) sees them.
+                    window._chatPickerCandidates = nameMatched.map((x) => x.conv);
+                }
+            } catch (e) {
+                if (e?.name === 'AbortError') throw e;
+                console.warn('[Chat-Core] cross-page phone-search failed:', e?.message);
+            }
+        }
+    }
+
+    if (!conv) {
+        // DB lookup chain + cross-page name search + picker.
+        // Runs at BOTH initial open and explicit page switch (was gated on
+        // !allowDrift previously, but that meant initial-open cross-page
+        // PSID scenarios silently fell through to the generic empty state
+        // — owner repro 2026-05-11: opening Store-channel order with House
+        // PSID → multi-page Pancake fallback empty → empty modal).
+        //
         // Use DB lookup chain to find exact customer fb_id on target page.
         const customerName = window.currentCustomerName;
         const customerPhone = window.currentChatPhone;
@@ -1596,7 +1703,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             // phone manually. Saves to our customers table → next lookup on
             // either page finds them. Pancake's own phone capture is automatic
             // from chat content; this is the manual override for the same goal.
-            const showPhoneSetter = !allowDrift; // only on explicit page-switch empty state
+            // Phone-setter empty state runs at both initial-open and page-
+            // switch, since the picker block (with phone+name verification)
+            // now runs unconditionally. If we land here, the lookup chain
+            // didn't find anything → giving user the option to assign a
+            // phone for the target page is the right escape hatch.
+            const showPhoneSetter = true;
             const safePageName = _escapeHtml ? _escapeHtml(pageName) : String(pageName);
             const persisted = window._chatPhonePersistedForPage === pageId;
 
