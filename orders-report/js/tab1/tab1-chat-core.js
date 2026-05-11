@@ -233,17 +233,29 @@ window.sendBillFromChat = async function () {
  * Owner request 2026-05-11: "nếu không tìm được thì hiện khách chưa có sđt
  * → cho set sđt".
  */
-function _renderSetPhoneEmptyState(pageName) {
+function _renderSetPhoneEmptyState(pageName, opts = {}) {
     const currentPhone = window.currentChatPhone || '';
     const safeCurrent = String(currentPhone).replace(/"/g, '&quot;');
+    // Two-mode message: default = "khách chưa có sđt"; after a save attempt
+    // that still didn't resolve a conv on Pancake, switch to "đã lưu, nhưng
+    // chưa có hội thoại trên page này" so the user knows the save worked
+    // even though the lookup remained empty (customer never messaged this
+    // page yet — Pancake won't have a conv to find).
+    const persisted = opts.persisted === true;
+    const heading = persisted
+        ? `Đã lưu SĐT nhưng chưa có hội thoại trên ${pageName}`
+        : `Khách chưa có SĐT trên ${pageName}`;
+    const help = persisted
+        ? 'SĐT đã được lưu vào hệ thống. Pancake chỉ có hội thoại khi khách đã nhắn tin với page này. Có thể thử nhập SĐT khác nếu đúng khách có nhiều số.'
+        : 'Pancake chưa map số điện thoại với khách trên page này. Nhập SĐT để liên kết — nếu khách đã từng nhắn page này, mình sẽ tìm ra hội thoại.';
     return `
         <div class="chat-empty-state" style="text-align:center; padding:24px 18px; color:#475569;">
             <div style="font-size:14px; margin-bottom:6px;">
                 <i class="fas fa-user-slash" style="font-size:32px; color:#cbd5e1; display:block; margin-bottom:10px;"></i>
-                <b>Khách chưa có SĐT trên ${pageName}</b>
+                <b>${heading}</b>
             </div>
             <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">
-                Pancake chưa map số điện thoại với khách trên page này. Nhập SĐT để liên kết — lần sau mở chat sẽ tìm thấy.
+                ${help}
             </div>
             <form id="chatSetPhoneForm" style="display:flex; gap:6px; max-width:320px; margin:0 auto;" onsubmit="return false">
                 <input type="tel" id="chatSetPhoneInput" placeholder="VD: 0901234567" value="${safeCurrent}"
@@ -251,7 +263,7 @@ function _renderSetPhoneEmptyState(pageName) {
                     style="flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; outline:none;">
                 <button type="button" id="chatSetPhoneBtn"
                     style="padding:8px 14px; background:#3b82f6; color:#fff; border:0; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
-                    <i class="fas fa-link"></i> Gán SĐT
+                    <i class="fas fa-link"></i> ${persisted ? 'Thử SĐT khác' : 'Gán SĐT'}
                 </button>
             </form>
             <div id="chatSetPhoneStatus" style="font-size:11px; color:#ef4444; margin-top:8px; min-height:14px;"></div>
@@ -302,6 +314,11 @@ function _wireSetPhoneEmptyState(targetPageId) {
         status.textContent = '';
         try {
             await _setPhoneForCurrentCustomer(targetPageId, phone);
+            // Flag this page as having had a phone-save attempt, so the
+            // empty-state re-render (if conv still not found) shows the
+            // "đã lưu nhưng chưa có hội thoại" message instead of the
+            // initial "khách chưa có SĐT" prompt.
+            window._chatPhonePersistedForPage = targetPageId;
             // Update local state so the re-lookup uses the new phone.
             window.currentChatPhone = phone;
             const phoneEl = document.getElementById('chatPhoneNumber');
@@ -485,6 +502,9 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     window.currentConversationType = conversationType;
     window.currentConversationId = null;
     window.currentConversationData = null;
+    // Reset per-modal phone-persist flag so reopening a different order's chat
+    // doesn't carry the previous order's "persisted" state into the empty-state UI.
+    window._chatPhonePersistedForPage = null;
     window.allChatMessages = [];
     window.currentChatReadWatermarks = [];
     window.currentChatCursor = null;
@@ -1292,8 +1312,9 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             // from chat content; this is the manual override for the same goal.
             const showPhoneSetter = !allowDrift; // only on explicit page-switch empty state
             const safePageName = _escapeHtml ? _escapeHtml(pageName) : String(pageName);
+            const persisted = window._chatPhonePersistedForPage === pageId;
             messagesEl.innerHTML = showPhoneSetter
-                ? _renderSetPhoneEmptyState(safePageName)
+                ? _renderSetPhoneEmptyState(safePageName, { persisted })
                 : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
             if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
         }
