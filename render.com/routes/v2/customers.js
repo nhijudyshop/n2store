@@ -436,6 +436,132 @@ router.post('/link-fb-ids', async (req, res) => {
 });
 
 /**
+ * POST /api/v2/customers/set-phone
+ * Owner-requested 2026-05-11: when chat modal shows empty state on a target
+ * page ("khách chưa có sđt"), user can manually input the customer's phone.
+ * This persists into our DB so the next cross-page lookup finds the conv via
+ * `searchConversationsOnPage(pageId, phone)`.
+ *
+ * Body: { fbId?, globalId?, pageId?, phone, name? }
+ * Logic:
+ *   1. Normalize phone
+ *   2. Find existing customer by fb_id → global_id → phone (in that order)
+ *   3. UPSERT phone + fb_id + global_id + pancake_data.page_fb_ids[pageId]
+ *   4. Return the resulting customer row
+ */
+router.post('/set-phone', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const { fbId, globalId, pageId, phone, name } = req.body || {};
+        const normPhone = (phone || '').toString().replace(/\D/g, '');
+        if (!normPhone) return res.status(400).json({ error: 'phone required' });
+        if (!fbId && !globalId) {
+            return res.status(400).json({ error: 'fbId or globalId required' });
+        }
+
+        // 1. Find existing customer in priority order: fb_id → global_id → phone
+        let existing = null;
+        if (fbId) {
+            const r1 = await db.query('SELECT * FROM customers WHERE fb_id = $1 LIMIT 1', [fbId]);
+            if (r1.rows.length > 0) existing = r1.rows[0];
+        }
+        if (!existing && globalId) {
+            const r2 = await db.query('SELECT * FROM customers WHERE global_id = $1 LIMIT 1', [
+                globalId,
+            ]);
+            if (r2.rows.length > 0) existing = r2.rows[0];
+        }
+        if (!existing) {
+            const r3 = await db.query('SELECT * FROM customers WHERE phone = $1 LIMIT 1', [
+                normPhone,
+            ]);
+            if (r3.rows.length > 0) existing = r3.rows[0];
+        }
+
+        // 2. Build pancake_data.page_fb_ids mapping (used by cross-page lookup chain)
+        const buildPageFbIds = (curr) => {
+            if (!pageId || !fbId) return curr || null;
+            const data = curr && typeof curr === 'object' ? { ...curr } : {};
+            data.page_fb_ids = { ...(data.page_fb_ids || {}), [pageId]: String(fbId) };
+            return data;
+        };
+
+        let row;
+        if (existing) {
+            // 3a. Update existing customer — fill any missing fields, preserve user
+            // edits to the row.
+            const newPancakeData = buildPageFbIds(existing.pancake_data);
+            const result = await db.query(
+                `UPDATE customers
+                 SET phone = $2,
+                     name = COALESCE(NULLIF(customers.name, ''), $3, customers.name),
+                     fb_id = COALESCE(customers.fb_id, $4),
+                     global_id = COALESCE(customers.global_id, $5),
+                     pancake_data = $6,
+                     updated_at = NOW()
+                 WHERE id = $1
+                 RETURNING *`,
+                [
+                    existing.id,
+                    normPhone,
+                    name || null,
+                    fbId || null,
+                    globalId || null,
+                    newPancakeData ? JSON.stringify(newPancakeData) : existing.pancake_data,
+                ]
+            );
+            row = result.rows[0];
+        } else {
+            // 3b. Insert new row, race-safe on phone uniqueness.
+            const newPancakeData = buildPageFbIds(null);
+            const result = await db.query(
+                `INSERT INTO customers (phone, name, fb_id, global_id, pancake_data, status)
+                 VALUES ($1, $2, $3, $4, $5, 'active')
+                 ON CONFLICT (phone) DO UPDATE SET
+                     fb_id = COALESCE(customers.fb_id, EXCLUDED.fb_id),
+                     global_id = COALESCE(customers.global_id, EXCLUDED.global_id),
+                     pancake_data = COALESCE(customers.pancake_data, EXCLUDED.pancake_data),
+                     updated_at = NOW()
+                 RETURNING *`,
+                [
+                    normPhone,
+                    name || 'Khách hàng',
+                    fbId || null,
+                    globalId || null,
+                    newPancakeData ? JSON.stringify(newPancakeData) : null,
+                ]
+            );
+            row = result.rows[0];
+        }
+
+        // Also seed fb_global_id_cache so the chat-core lookup chain
+        // (psid→globalId / by-global/psid-on-page) picks this up next time.
+        if (fbId && pageId && globalId) {
+            try {
+                await db.query(
+                    `INSERT INTO fb_global_id_cache (page_id, psid, global_user_id, resolved_by, use_count)
+                     VALUES ($1, $2, $3, 'set-phone', 1)
+                     ON CONFLICT (page_id, psid) DO UPDATE SET
+                         global_user_id = EXCLUDED.global_user_id,
+                         use_count = fb_global_id_cache.use_count + 1`,
+                    [pageId, fbId, globalId]
+                );
+            } catch (_e) {
+                /* best-effort */
+            }
+        }
+
+        res.json({
+            success: true,
+            customer: row,
+            created: !existing,
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to set customer phone');
+    }
+});
+
+/**
  * GET /api/v2/customers/by-global-id/:globalId
  * Lookup customer by Facebook Global ID (cross-page)
  */

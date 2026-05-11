@@ -226,6 +226,131 @@ window.sendBillFromChat = async function () {
  * Extracts direct avatar from currentConversationData, then falls back to proxy.
  */
 /**
+ * Render empty-state HTML with a "Set phone" input on the conv panel when
+ * cross-page lookup fails. User can type the customer's phone → POST to
+ * /api/v2/customers/set-phone → re-trigger lookup with the new phone.
+ *
+ * Owner request 2026-05-11: "nếu không tìm được thì hiện khách chưa có sđt
+ * → cho set sđt".
+ */
+function _renderSetPhoneEmptyState(pageName) {
+    const currentPhone = window.currentChatPhone || '';
+    const safeCurrent = String(currentPhone).replace(/"/g, '&quot;');
+    return `
+        <div class="chat-empty-state" style="text-align:center; padding:24px 18px; color:#475569;">
+            <div style="font-size:14px; margin-bottom:6px;">
+                <i class="fas fa-user-slash" style="font-size:32px; color:#cbd5e1; display:block; margin-bottom:10px;"></i>
+                <b>Khách chưa có SĐT trên ${pageName}</b>
+            </div>
+            <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">
+                Pancake chưa map số điện thoại với khách trên page này. Nhập SĐT để liên kết — lần sau mở chat sẽ tìm thấy.
+            </div>
+            <form id="chatSetPhoneForm" style="display:flex; gap:6px; max-width:320px; margin:0 auto;" onsubmit="return false">
+                <input type="tel" id="chatSetPhoneInput" placeholder="VD: 0901234567" value="${safeCurrent}"
+                    inputmode="numeric" autocomplete="off"
+                    style="flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; outline:none;">
+                <button type="button" id="chatSetPhoneBtn"
+                    style="padding:8px 14px; background:#3b82f6; color:#fff; border:0; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
+                    <i class="fas fa-link"></i> Gán SĐT
+                </button>
+            </form>
+            <div id="chatSetPhoneStatus" style="font-size:11px; color:#ef4444; margin-top:8px; min-height:14px;"></div>
+        </div>`;
+}
+
+async function _setPhoneForCurrentCustomer(targetPageId, phone) {
+    const fbId = window.currentChatPSID || null;
+    const globalId = window.currentConversationData?.customers?.[0]?.global_id || null;
+    const name = window.currentCustomerName || null;
+    const body = JSON.stringify({
+        fbId,
+        globalId,
+        pageId: targetPageId,
+        phone,
+        name,
+    });
+    const res = await fetch(
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/customers/set-phone',
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+        }
+    );
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+}
+
+function _wireSetPhoneEmptyState(targetPageId) {
+    const btn = document.getElementById('chatSetPhoneBtn');
+    const inp = document.getElementById('chatSetPhoneInput');
+    const status = document.getElementById('chatSetPhoneStatus');
+    if (!btn || !inp) return;
+    const submit = async () => {
+        const phone = (inp.value || '').replace(/\D/g, '');
+        if (!phone || phone.length < 9 || phone.length > 12) {
+            status.textContent = 'Số điện thoại không hợp lệ';
+            inp.focus();
+            return;
+        }
+        btn.disabled = true;
+        const origLabel = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+        status.textContent = '';
+        try {
+            await _setPhoneForCurrentCustomer(targetPageId, phone);
+            // Update local state so the re-lookup uses the new phone.
+            window.currentChatPhone = phone;
+            const phoneEl = document.getElementById('chatPhoneNumber');
+            if (phoneEl) phoneEl.textContent = phone;
+            const copyBtn = document.getElementById('chatCopyPhone');
+            if (copyBtn) copyBtn.style.display = 'inline';
+
+            status.style.color = '#10b981';
+            status.textContent = '✓ Đã gán SĐT, đang tìm lại hội thoại…';
+
+            // Re-trigger cross-page lookup — strict mode (allowDrift=false) so we
+            // land on the target page's conv with the new phone available.
+            const myToken = ++window._chatLoadSeq;
+            _resetTransientChatState();
+            const messagesEl = document.getElementById('chatMessages');
+            if (messagesEl) {
+                messagesEl.innerHTML =
+                    '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tìm lại…</p></div>';
+            }
+            try {
+                await _findAndLoadConversation(
+                    targetPageId,
+                    window.currentChatPSID,
+                    window.currentConversationType,
+                    myToken,
+                    { allowDrift: false }
+                );
+            } catch (_e) {
+                /* lookup function handles its own empty-state */
+            }
+        } catch (err) {
+            console.error('[CHAT] set-phone failed:', err);
+            status.style.color = '#ef4444';
+            status.textContent = 'Lỗi: ' + (err?.message || 'không lưu được');
+            btn.disabled = false;
+            btn.innerHTML = origLabel;
+        }
+    };
+    btn.addEventListener('click', submit);
+    inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submit();
+        }
+    });
+    setTimeout(() => inp.focus(), 80);
+}
+
+/**
  * Refresh customer avatar in chat header. Called on:
  *   • initial chat modal open (after currentConversationData first set)
  *   • after _doFindAndLoadConversation resolves a conv (cross-page or type switch)
@@ -1158,9 +1283,19 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         if (messagesEl) {
             const pageName =
                 (pdm.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
-            messagesEl.innerHTML = allowDrift
-                ? '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>'
-                : `<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên <b>${pageName}</b>.</p></div>`;
+            // Owner-requested 2026-05-11: when no conv resolves (typically because
+            // the customer's phone hasn't been captured on the target page yet so
+            // our phone-based lookup chain can't find them), surface a "Khách
+            // chưa có SĐT trên page này" empty state with an input to set the
+            // phone manually. Saves to our customers table → next lookup on
+            // either page finds them. Pancake's own phone capture is automatic
+            // from chat content; this is the manual override for the same goal.
+            const showPhoneSetter = !allowDrift; // only on explicit page-switch empty state
+            const safePageName = _escapeHtml ? _escapeHtml(pageName) : String(pageName);
+            messagesEl.innerHTML = showPhoneSetter
+                ? _renderSetPhoneEmptyState(safePageName)
+                : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
+            if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
         }
         return;
     }
