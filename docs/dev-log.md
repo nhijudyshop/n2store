@@ -8,6 +8,52 @@
 
 ## 2026-05-11
 
+### [chat][render] "Khách chưa có SĐT" empty state — set-phone flow + Pancake recon
+
+**Yêu cầu owner**: "xem pancake set sđt ra sao → nếu không tìm được thì hiện khách chưa có sđt → cho set sđt".
+Tiếp: "request set phone trên pancake là được rồi vì tìm đoạn hội thoại trên pancake mà".
+
+**Pancake recon** (passive inspection của `__pancakeReduxStore__` + bundle grep + endpoint probe):
+
+- Pancake capture phone TỰ ĐỘNG từ chat content qua `recent_phone_numbers[{m_id, offset, length, phone_number, status}]` — m_id reference message gốc, offset+length = position trong text.
+- **Không có public REST API để set phone manually**. Probed các pattern:
+    - `PATCH/PUT /api/v1/pages/{pid}/customers/{uuid}` → 404
+    - `POST .../phone_numbers`, `.../recent_phone_numbers`, `.../edit_phone`, `.../add_phone_number`, `.../info`, `.../extra_info` → 404
+    - `POST /api/v1/customers/update_global_id` → 404
+    - `customers_by_phone_number?phone_number=...` → 500 (lookup-only, broken or needs special params)
+- Pancake hidden globals tìm được: `window.findGlobalIdForConv(e)` (gọi extension `GET_GLOBAL_ID_FOR_CONV`), `window.__pancakeReduxStore__`, `window.__pancakeReduxHistoryLog__`. Pancake action types `UPDATE_CUSTOMER_PROFILE_INFO`, `ADD_CUSTOMER_NOTE` etc. có ở store nhưng dispatch qua các thunk private không expose URL constants.
+
+**Kết luận**: không clone được "Pancake set-phone" qua HTTP. Best practical: lưu phone trong DB n2store + re-trigger lookup chain (`searchConversationsOnPage(pageId, phone)` + by-phone DB lookup + `pancake_data.page_fb_ids[pageId]` mapping).
+
+**Backend** ([render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js)):
+
+- `POST /api/v2/customers/set-phone` body `{ fbId?, globalId?, pageId?, phone, name? }`.
+- Dedicated `client.connect()` + `BEGIN`. **Phone-first** `SELECT … FOR UPDATE` row-lock (UNIQUE index ở phone → lock trước khi UPDATE/INSERT để tránh race + duplicate-key). Fallback fb_id → global_id dưới cùng lock.
+- UPDATE existing với `COALESCE` preserve các field non-null (chỉ điền null cũ). Maintain `pancake_data.page_fb_ids[pageId] = fbId` mapping → chat-core lookup chain dùng cho cross-page resolve.
+- INSERT branch dùng plain INSERT (không ON CONFLICT vì SELECT FOR UPDATE đã guarantee no race).
+- Seed `fb_global_id_cache(page_id, psid, global_user_id, resolved_by='set-phone')` nếu có cả 3.
+
+**Frontend** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
+
+- `_renderSetPhoneEmptyState(pageName, opts)` 2-mode UX:
+    - Initial: `"Khách chưa có SĐT trên <page>"` + button **"Gán SĐT"**.
+    - Sau save mà vẫn chưa có conv (`opts.persisted`): `"Đã lưu SĐT nhưng chưa có hội thoại trên <page>"` + button **"Thử SĐT khác"** — user biết save thành công, lý do empty là Pancake không có conv (khách chưa nhắn page).
+- `_wireSetPhoneEmptyState(targetPageId)` submit → POST set-phone → cập nhật `window.currentChatPhone` + header → flag `window._chatPhonePersistedForPage` → re-trigger `_findAndLoadConversation(allowDrift=false)`. Nếu vẫn empty → re-render với mode `persisted=true`.
+- Flag `_chatPhonePersistedForPage` reset trong `openChatModal` để không leak giữa các order khác nhau.
+
+**Tests verified** (browser, test customer 0123456788 → switch sang NhiJudy Store):
+
+- ✅ Heading ban đầu: "Khách chưa có SĐT trên NhiJudy Store"
+- ✅ Submit SĐT 0123456788 → POST `/api/v2/customers/set-phone` → 200 success
+- ✅ Verify DB: customer.pancake_data.page_fb_ids = {"270136663390370": "24948162744877764"} ← link Store fb_id
+- ✅ Re-lookup vẫn empty (đúng — test customer chưa nhắn Store) → heading switch sang "Đã lưu SĐT nhưng chưa có hội thoại trên NhiJudy Store"
+- ✅ Button label: "Gán SĐT" → "Thử SĐT khác"
+- ✅ 0 console errors
+
+Status: ✅ Done (commits `ebec2276` backend transaction fix + `93e6c865` frontend two-mode UX + `e86b1319` initial scaffold).
+
+---
+
 ### [delivery-report] Hiển thị đủ đơn 2 ngày — đổi TPOS endpoint từ Report/DeliveryReport sang FastSaleOrder/GetView
 
 **User báo**: filter 09/05–10/05 trên delivery-report thấy "568 đã khóa" nhưng bảng chỉ hiện 566 dòng → 2 đơn "biến mất". Tổng quát hơn, table không có đơn đã hủy hôm trước nên user không biết các đơn đã commit vào ngày giao đã đi đâu.
