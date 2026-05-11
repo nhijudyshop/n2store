@@ -644,46 +644,39 @@
         const f = DeliveryReportState.filters;
         const params = new URLSearchParams();
 
-        // Đổi endpoint Report/DeliveryReport → FastSaleOrder/ODataService.GetView:
-        // DeliveryReport (server-side) loại State ∈ {draft, cancel}, làm thiếu các đơn đã
-        // bị hủy hôm trước (user thấy "568 đã khóa" nhưng table chỉ hiện 566). FSO/GetView
-        // trả về MỌI State; ta whitelist {open, paid, cancel} (loại draft — đơn chưa lên,
-        // không phải invoice thật) rồi đánh dấu State='cancel' để user thấy đơn đã hủy.
-        // GetView không honor `ne` nên phải dùng OR explicit.
-        const filterParts = [
-            "Type eq 'invoice'",
-            "(State eq 'open' or State eq 'paid' or State eq 'cancel')",
-        ];
-
+        // Date conversion: local datetime → UTC ISO
+        // ToDate uses 23:59:59.999 (end of selected minute) so we don't drop
+        // records whose DateInvoice falls in the last 60 seconds of the range.
         if (f.fromDate) {
             const d = new Date(f.fromDate);
             if (!isNaN(d.getTime())) {
-                filterParts.push(`DateInvoice ge ${d.toISOString()}`);
+                params.set('FromDate', d.toISOString());
             }
         }
         if (f.toDate) {
             const d = new Date(f.toDate);
             if (!isNaN(d.getTime())) {
                 d.setSeconds(59, 999);
-                filterParts.push(`DateInvoice le ${d.toISOString()}`);
+                params.set('ToDate', d.toISOString());
             }
         }
 
         // Phone-aware search: nếu keyword match Vietnamese phone pattern (10-11 digit
-        // starting 0/3/5/7/8/9), KHÔNG đẩy vào filter (Number/TrackingRef không chứa
-        // Phone) → fetch full date range, lọc client-side theo Phone.
+        // starting 0/3/5/7/8/9), KHÔNG gửi Q lên TPOS (Q chỉ search Number/TrackingRef,
+        // không match Phone) → fetch full date range, lọc client-side theo Phone.
+        // Loại trừ: barcode dài (>12 chars hoặc chứa ký tự không-digit-không-/-không-_).
         if (f.keyword && !isPhoneSearchKeyword(f.keyword)) {
-            const safe = String(f.keyword).replace(/'/g, "''");
-            filterParts.push(`(contains(Number,'${safe}') or contains(TrackingRef,'${safe}'))`);
+            params.set('Q', f.keyword);
         }
 
-        params.set('$filter', filterParts.join(' and '));
         // Fetch all data (client-side pagination)
         params.set('$top', '10000');
+
+        // Sort
         params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
         params.set('$count', 'true');
 
-        return `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView?${params.toString()}`;
+        return `${WORKER_URL}/api/odata/Report/DeliveryReport?${params.toString()}`;
     }
 
     // =====================================================
@@ -821,18 +814,11 @@
 
             const shipStatusClass = getShipStatusClass(item.ShipStatus);
             const forControlText = getForControlText(item);
-            const rowClasses = [];
-            if (startIndex + i === boundaryIndex) rowClasses.push('dr-debt-boundary');
-            if (item.State === 'cancel') rowClasses.push('dr-row-cancelled');
-            const rowClass = rowClasses.length ? ` class="${rowClasses.join(' ')}"` : '';
-            const cancelBadge =
-                item.State === 'cancel'
-                    ? '<span class="dr-cancel-badge" title="Đơn đã hủy">Đã hủy</span> '
-                    : '';
+            const rowClass = startIndex + i === boundaryIndex ? ' class="dr-debt-boundary"' : '';
 
             html += `<tr${rowClass}>
                 <td data-col="index">${startIndex + i + 1}</td>
-                <td data-col="number" class="dr-hover-bill" data-id="${escapeHtml(String(item.Id || ''))}" data-number="${escapeHtml(item.Number || '')}">${cancelBadge}${escapeHtml(item.Number || '')}</td>
+                <td data-col="number" class="dr-hover-bill" data-id="${escapeHtml(String(item.Id || ''))}" data-number="${escapeHtml(item.Number || '')}">${escapeHtml(item.Number || '')}</td>
                 <td data-col="customer" class="dr-hover-customer" data-phone="${escapeHtml(item.Phone || '')}">
                     <div class="dr-customer-name">${escapeHtml(item.PartnerDisplayName || '')}</div>
                     <div class="dr-customer-phone">ĐT: ${escapeHtml(item.Phone || '')}</div>
@@ -878,14 +864,11 @@
             });
         }
 
-        // Footer totals (from ALL data, not just current page). Đơn State='cancel'
-        // không cộng tiền vào tổng — vẫn hiển thị trong table nhưng money/COD/ship
-        // không tính (khớp logic renderStats).
+        // Footer totals (from ALL data, not just current page)
         let allTotalAmount = 0,
             allTotalCOD = 0,
             allTotalShipPrice = 0;
         allData.forEach((item) => {
-            if (item.State === 'cancel') return;
             allTotalAmount += item.AmountTotal || 0;
             allTotalCOD += item.CashOnDelivery || 0;
             allTotalShipPrice += item.DeliveryPrice || 0;
@@ -929,32 +912,23 @@
         let failControlCount = 0;
         let failControlAmount = 0;
 
-        // Stats from ALL data (accurate). State='cancel' (đơn hủy) ưu tiên trước
-        // ShipStatus vì khi invoice bị hủy thì ShipStatus có thể vẫn là 'none'.
+        // Stats from ALL data (accurate)
         data.forEach((item) => {
-            // COD tổng chỉ tính đơn chưa hủy
-            if (item.State !== 'cancel') totalCOD += item.CashOnDelivery || 0;
-
-            if (
-                item.State === 'cancel' ||
-                item.ShipStatus === 'returned' ||
-                item.ShipStatus === 'cancel'
-            ) {
-                returnCount++;
-                returnAmount += item.CashOnDelivery || 0;
-            } else if (item.ShipStatus === 'done') {
+            totalCOD += item.CashOnDelivery || 0;
+            if (item.ShipStatus === 'done') {
                 paidCount++;
                 paidAmount += item.CashOnDelivery || 0;
+            } else if (item.ShipStatus === 'returned' || item.ShipStatus === 'cancel') {
+                returnCount++;
+                returnAmount += item.CashOnDelivery || 0;
             } else {
                 shippingCount++;
                 shippingAmount += item.CashOnDelivery || 0;
             }
         });
 
-        const activeCount = totalCount - returnCount;
-
         // Update stat elements
-        updateStatElement('drStatCODCount', `${formatNumber(activeCount)} Hóa đơn`);
+        updateStatElement('drStatCODCount', `${formatNumber(totalCount)} Hóa đơn`);
         updateStatElement('drStatCODValue', formatMoney(totalCOD));
 
         updateStatElement('drStatPaidCount', `${formatNumber(paidCount)} Hóa đơn`);
@@ -963,7 +937,7 @@
         updateStatElement('drStatReturnCount', `${formatNumber(returnCount)} Hóa đơn`);
         updateStatElement('drStatReturnValue', formatMoney(returnAmount));
 
-        updateStatElement('drStatShippingCount', `${formatNumber(shippingCount)} Hóa đơn`);
+        updateStatElement('drStatShippingCount', `${formatNumber(totalCount)} Hóa đơn`);
         updateStatElement('drStatShippingValue', formatMoney(shippingAmount));
 
         updateStatElement('drStatFailCount', `${formatNumber(failControlCount)} Hóa đơn`);
@@ -2015,17 +1989,15 @@
             for (const item of itemsToSave) {
                 state.dbAssignments[item.Number] = allGroups[item.Number];
             }
+            updateAssignmentStatus(
+                Object.keys(state.dbAssignments).length -
+                    itemsToSave.length +
+                    (result.inserted || 0),
+                result.inserted || 0
+            );
+        } else {
+            updateAssignmentStatus(Object.keys(state.dbAssignments).length, 0);
         }
-
-        // Banner "đã khóa" chỉ đếm assignment có MẶT trong allData hiện tại — nếu order
-        // đã hủy ngoài range hoặc đã bị xóa khỏi TPOS, không tính (tránh hiển thị số
-        // "ma" lớn hơn số dòng table khiến user nghi ngờ dữ liệu thiếu).
-        const shownNumbers = new Set(allData.map((i) => i.Number));
-        let displayLocked = 0;
-        for (const num of Object.keys(state.dbAssignments)) {
-            if (shownNumbers.has(num)) displayLocked++;
-        }
-        updateAssignmentStatus(displayLocked, itemsToSave.length);
     }
 
     function updateAssignmentStatus(lockedCount, newCount) {
