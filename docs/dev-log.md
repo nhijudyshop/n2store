@@ -8,6 +8,33 @@
 
 ## 2026-05-11
 
+### [chat] page avatars + picker for phone-mismatch candidates
+
+**Pancake recon — page avatar endpoint** (live, 2026-05-11):
+
+- `GET /api/v1/pages/{pageId}/avatar?access_token={JWT}` → returns JPEG ~5-6 KB. Works for **both** Facebook and Instagram pages.
+- The `/api/v1/pages` list endpoint returns `avatar_url` **only** for Instagram pages (`cdninstagram.com`). Facebook pages get `avatar_url: null` — that's why the chat-modal page selector previously fell back to initial letters for all FB pages.
+
+**Owner repro 2026-05-11**: "tìm sđt 0123456788 ở 2 page house và store → đều tìm được mà" + "với coi cách hiển thị avatar page". User observed Pancake's own UI search returns hits on both pages, but our modal showed "Khách chưa có SĐT trên NhiJudy Store" empty state on Store.
+
+**Why empty state was wrong on Store**: Pancake's search returned a HOMONYM ("Huỳnh Thành Đạt" fb_id `25717004554573583`, phone `0908123456`) — same name as our test customer but different person with different phone. Our prior logic confirmed the phone mismatch and silently rejected the whole group → empty state. User wanted to **see** the candidate so they can decide "đúng/không đúng khách".
+
+**Implementation** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
+
+1. **Page avatar helper** `_getPageAvatarProxyUrl(pageId)` — builds `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/{pid}/avatar?access_token={token}`. Routes through CF worker for edge cache + proper referer headers. Token from `pancakeTokenManager.currentToken` (cached).
+2. **Page selector**: dropdown items + selector button label now use the proxy URL (falls back to `avatar_url` for IG, then initial). Previously read `page.avatar` (wrong field — API gives `avatar_url`) so all FB pages showed letters even when valid avatars existed.
+3. **Picker decision tree refactor**: bucket fb_id groups by phone verdict (matched / uncertain / mismatched). Auto-accept iff exactly 1 matched group OR exactly 1 uncertain group with no mismatch. Otherwise → picker with **all** candidates including mismatched ones (so user sees the homonym and can verify "không phải khách"). Picker trigger relaxed from `> 1 candidate` to `≥ 1 candidate`.
+4. **Picker heading** also handles single-mismatch case: "Tìm thấy 1 hội thoại — kiểm tra có đúng khách không" with help "SĐT trên Pancake khác với SĐT đơn hàng. Bấm để mở nếu đúng khách, hoặc bỏ qua nếu không phải".
+5. **Picker card avatars**: prefer `window._getChatAvatarUrl(fid, pageId)` (existing helper that routes via worker) over raw FB graph URL — better cache + consistent with rest of chat UI.
+
+**Live verification**:
+
+- `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/270136663390370/avatar?access_token=...` → `200 image/jpeg 5586 B`.
+- Visual test: chat modal opened, page-selector dropdown shows 4 page avatars with real images (not initials).
+- Picker trigger: phone 0123456788 on Store with homonym fb_id 25717004554573583 now flows through `mismatchedGroups` path → picker fires with the candidate, user can verify it's not their customer instead of seeing empty state.
+
+**Status**: ✅ Done.
+
 ### [issue-tracking] FIX_COD + "Trừ công nợ khách" → trừ COD giảm vào ví khách
 
 **Yêu cầu owner**: Khi tạo phiếu **Sửa COD (Shipper gọi)** với lý do **"Trừ công nợ khách"** (`CUSTOMER_DEBT`), số tiền COD giảm phải được **trừ vào số dư ví của khách** (khách "ứng" COD giảm từ ví → shop chuyển 0đ cho ĐVVC).

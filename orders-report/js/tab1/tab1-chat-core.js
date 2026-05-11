@@ -368,6 +368,33 @@ function _wireSetPhoneEmptyState(targetPageId) {
 }
 
 /**
+ * Build a Pancake page-avatar URL via our Cloudflare worker proxy.
+ *
+ * Pancake exposes page avatars at:
+ *   GET /api/v1/pages/{pageId}/avatar?access_token={JWT}
+ * which returns the page's profile picture as JPEG (~5-6 KB) for both
+ * Facebook and Instagram pages. The /api/v1/pages list endpoint only
+ * returns `avatar_url` for Instagram pages (cdninstagram CDN) — Facebook
+ * pages get `avatar_url: null`, which is why our selector previously
+ * fell back to an initial letter. The token-bound /avatar endpoint
+ * works for both.
+ *
+ * Routed via chatomni-proxy.workers.dev so we don't expose the JWT in
+ * referer headers across origins and so Cloudflare can edge-cache.
+ *
+ * @param {string} pageId  e.g. "270136663390370" or "igo_..."
+ * @returns {string|null}  Proxied URL ready for an <img src>; null if no token.
+ */
+function _getPageAvatarProxyUrl(pageId) {
+    if (!pageId) return null;
+    const tm = window.pancakeTokenManager;
+    const token = tm?.currentToken;
+    if (!token) return null;
+    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    return `${WORKER}/api/pancake/pages/${encodeURIComponent(pageId)}/avatar?access_token=${token}`;
+}
+
+/**
  * Render a picker empty-state for ambiguous name-search results.
  *
  * Triggered when name search returns multiple DISTINCT fb_id groups on the
@@ -414,7 +441,12 @@ function _renderConvPickerEmptyState(candidates, pageName) {
             : [];
         const phoneText = phones.length ? phones.join(', ') : '(chưa có SĐT trên Pancake)';
         const snippet = (c.snippet || '').toString().slice(0, 90);
+        // Prefer Pancake's page-customer avatar via _getChatAvatarUrl (which
+        // routes through our worker proxy with proper headers + edge cache).
+        // Falls back to the raw conv shape, then to FB graph CDN.
+        const pageIdForAvatar = c.page_id || window.currentChatChannelId;
         const avatarUrl =
+            (window._getChatAvatarUrl ? window._getChatAvatarUrl(fid, pageIdForAvatar) : null) ||
             c.avatar ||
             c.from?.picture?.data?.url ||
             c.from?.profile_pic ||
@@ -452,13 +484,22 @@ function _renderConvPickerEmptyState(candidates, pageName) {
         `);
     }
 
+    const candidateCount = byFbId.size;
+    const heading =
+        candidateCount > 1
+            ? `Có ${candidateCount} người tên "${safeCustomerName}" trên ${pageName}`
+            : `Tìm thấy 1 hội thoại trên ${pageName} — kiểm tra có đúng khách không`;
+    const help =
+        candidateCount > 1
+            ? 'Không xác định được khách qua SĐT. Chọn đúng đoạn hội thoại bên dưới:'
+            : 'SĐT trên Pancake khác với SĐT đơn hàng. Bấm để mở nếu đúng khách, hoặc bỏ qua nếu không phải.';
     return `
         <div class="chat-empty-state" style="text-align:left; padding:18px; color:#475569;">
             <div style="text-align:center; margin-bottom:14px;">
                 <i class="fas fa-users" style="font-size:28px; color:#cbd5e1; display:block; margin-bottom:8px;"></i>
-                <b style="font-size:13px; color:#0f172a;">Có nhiều người tên "${safeCustomerName}" trên ${pageName}</b>
+                <b style="font-size:13px; color:#0f172a;">${heading}</b>
                 <div style="font-size:11px; color:#94a3b8; margin-top:4px;">
-                    Không xác định được khách qua SĐT. Chọn đúng đoạn hội thoại bên dưới:
+                    ${help}
                 </div>
             </div>
             <div id="chatPickerList" style="display:flex; flex-direction:column; gap:8px; max-width:480px; margin:0 auto;">
@@ -1396,39 +1437,51 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                         byFbId.get(fid).push(e);
                     }
 
-                    const verified = [];
-                    const uncertainGroups = []; // groups with no phone evidence
-                    let hasAnyConfirmedMatch = false;
+                    // Bucket each fb_id group by phone-evidence verdict.
+                    const matchedGroups = []; // ≥1 conv confirmed same phone
+                    const uncertainGroups = []; // no phone evidence either way
+                    const mismatchedGroups = []; // ≥1 conv confirmed different phone
                     for (const [fid, group] of byFbId) {
                         const hasMatch = group.some((g) => g.check === true);
                         const hasMismatch = group.some((g) => g.check === false);
-                        if (hasMatch) {
-                            hasAnyConfirmedMatch = true;
-                            // Confirmed correct customer — accept all convs in group.
-                            for (const g of group) verified.push(g.conv);
-                        } else if (hasMismatch) {
-                            // Any conv in group has different phone → entire group is
-                            // a homonym → reject all (including uncertain siblings).
-                            continue;
-                        } else {
-                            // No phone evidence either way → best-effort accept.
-                            for (const g of group) verified.push(g.conv);
-                            uncertainGroups.push({ fid, convs: group.map((g) => g.conv) });
-                        }
+                        const convs = group.map((g) => g.conv);
+                        if (hasMatch) matchedGroups.push({ fid, convs });
+                        else if (hasMismatch) mismatchedGroups.push({ fid, convs });
+                        else uncertainGroups.push({ fid, convs });
                     }
 
-                    // Ambiguity detection: when NONE of the verified groups had a
-                    // confirmed phone match AND we have multiple distinct fb_id
-                    // groups left after filtering → we can't tell which person is
-                    // the right one. Surface a picker UI instead of auto-loading
-                    // whichever sorts first (user-requested 2026-05-11: "fall
-                    // back tên — có danh sách cho chọn vì tên có thể trùng").
-                    if (!hasAnyConfirmedMatch && uncertainGroups.length > 1) {
-                        window._chatPickerCandidates = verified;
-                        foundConvs = []; // force empty → triggers picker render below
-                    } else {
+                    // Decision tree:
+                    //   • exactly 1 phone-match group → auto-accept (highest confidence).
+                    //   • multiple match groups (phone collision, rare) → picker.
+                    //   • no match + exactly 1 uncertain + no mismatch → auto-accept
+                    //     (preserves prior "best-effort accept" for unambiguous case).
+                    //   • everything else with ≥1 candidate → picker (lets the user
+                    //     decide instead of silently rejecting Pancake hits — owner
+                    //     repro 2026-05-11: "tìm sđt 0123456788 ở 2 page house và
+                    //     store → đều tìm được mà". Phone-mismatch candidates are
+                    //     surfaced so the user can recognize "wrong person".
+                    //   • no candidates → empty state.
+                    const allCandidates = [
+                        ...matchedGroups,
+                        ...uncertainGroups,
+                        ...mismatchedGroups,
+                    ].flatMap((g) => g.convs);
+                    if (matchedGroups.length === 1) {
+                        foundConvs = matchedGroups[0].convs;
                         window._chatPickerCandidates = null;
-                        foundConvs = verified;
+                    } else if (
+                        matchedGroups.length === 0 &&
+                        uncertainGroups.length === 1 &&
+                        mismatchedGroups.length === 0
+                    ) {
+                        foundConvs = uncertainGroups[0].convs;
+                        window._chatPickerCandidates = null;
+                    } else if (allCandidates.length > 0) {
+                        foundConvs = []; // force empty → picker renders below
+                        window._chatPickerCandidates = allCandidates;
+                    } else {
+                        foundConvs = [];
+                        window._chatPickerCandidates = null;
                     }
                 } else {
                     // No phone — best-effort name match only
@@ -1548,11 +1601,14 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             const persisted = window._chatPhonePersistedForPage === pageId;
 
             // Priority: picker > phone-setter > generic empty.
-            // Picker wins when name search returned multiple ambiguous fb_id
-            // groups (homonyms). User must manually pick the right human since
-            // we can't disambiguate by phone.
+            // Picker wins when name search returned ambiguous fb_id groups
+            // (homonyms) OR a phone-mismatch candidate the user should still
+            // see and verify. Trigger on ≥1 candidate so even a single
+            // "wrong-phone" hit surfaces instead of silently empty-stating —
+            // owner repro 2026-05-11: Store search 0123456788 returned a
+            // homonym which was previously rejected & hidden.
             const pickerCandidates = window._chatPickerCandidates;
-            const showPicker = Array.isArray(pickerCandidates) && pickerCandidates.length > 1;
+            const showPicker = Array.isArray(pickerCandidates) && pickerCandidates.length >= 1;
 
             if (showPicker) {
                 messagesEl.innerHTML = _renderConvPickerEmptyState(pickerCandidates, safePageName);
@@ -2107,9 +2163,14 @@ function _renderPageSelectorItems() {
         const name = page.name || page.id;
         const isActive = pageId === currentId;
         const initial = (name || 'P').charAt(0).toUpperCase();
-        const avatarHtml = page.avatar
-            ? `<img src="${page.avatar}" class="chat-page-item-avatar" alt="" onerror="this.outerHTML='<div class=\\'chat-page-item-avatar-ph\\'>${initial}</div>'">`
-            : `<div class="chat-page-item-avatar-ph">${initial}</div>`;
+        // Pancake's /api/v1/pages returns avatar_url only for Instagram pages
+        // (Facebook pages get null). Use the token-bound /avatar endpoint via
+        // our CF worker proxy — works for both platforms.
+        const avatarUrl = page.avatar_url || _getPageAvatarProxyUrl(pageId);
+        const safeInitial = String(initial).replace(/['"\\<>&]/g, '');
+        const avatarHtml = avatarUrl
+            ? `<img src="${avatarUrl}" class="chat-page-item-avatar" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'chat-page-item-avatar-ph\\'>${safeInitial}</div>'">`
+            : `<div class="chat-page-item-avatar-ph">${safeInitial}</div>`;
 
         html += `<div class="chat-page-item${isActive ? ' active' : ''}" data-page-id="${pageId}">
             ${avatarHtml}
@@ -2169,8 +2230,11 @@ function _updatePageSelectorLabel(pageId) {
     if (icon) {
         const initial = (page?.name || 'P').charAt(0).toUpperCase();
         const safeInitial = initial.replace(/['"\\<>&]/g, '');
-        if (page?.avatar) {
-            icon.innerHTML = `<img src="${page.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='${safeInitial}'">`;
+        // Prefer Instagram-style CDN avatar_url; fall back to the
+        // token-bound /avatar proxy for Facebook pages.
+        const avatarUrl = page?.avatar_url || _getPageAvatarProxyUrl(pageId);
+        if (avatarUrl) {
+            icon.innerHTML = `<img src="${avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='${safeInitial}'">`;
         } else {
             icon.textContent = safeInitial;
         }
