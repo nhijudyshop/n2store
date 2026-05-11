@@ -1669,36 +1669,48 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         _updatePageSelectorActive(convPageId);
     }
 
-    // Self-heal stale "X MỚI" badges. Pancake is the source of truth for
-    // unread state. If the resolved conv shows the page sent last OR
-    // unread_count=0, then any local pending entry is stale (typically
-    // happens when the shop replied while the user was offline — the
-    // pages:update_conversation event with shopSentLast detection was
-    // missed, so the localStorage/server cache kept the old count).
-    // Owner repro 2026-05-11: Huỳnh Thành Đạt 0123456788 showed "2 MỚI"
-    // even though shop sent the bill-success template last (Pancake's
-    // unread_count was 0).
+    // READ semantics (owner clarification 2026-05-11):
+    //   "mở modal tin nhắn không tính là read mà tương tác với khách
+    //    → tin nhắn cuối cùng là của page, có chữ ký nv, là Nhijudy
+    //      House / Nhijudy Store → thì là read"
+    //
+    // Diễn giải: chỉ marked-as-read khi SHOP đã tương tác (gửi tin nhắn
+    // cuối), KHÔNG phải khi user chỉ mở modal xem. Indicator:
+    //   • Pancake's `last_sent_by.id === pageId`  (authoritative), HOẶC
+    //   • snippet có chữ ký nhân viên "NV.{name}" (reply-tool tự append)
+    //
+    // Khi điều kiện thỏa → DELETE pending_customers row (multi-staff
+    // sync) + clearPendingForCustomer local (badge biến ngay).
+    //
+    // Send/react paths đã có _markRepliedOnServer riêng (chat-products-ui,
+    // quick-reply-manager) → tương tác trực tiếp luôn được tính read.
     try {
         const psidForClear = String(conv.from_psid || conv.from?.id || psid || '');
         const convPageIdStr = String(convPageId || conv.page_id || '');
         const lastSenderId = String(conv.last_sent_by?.id || conv.last_message?.from?.id || '');
         const shopSentLast = !!lastSenderId && lastSenderId === convPageIdStr;
-        const unreadCount = typeof conv.unread_count === 'number' ? conv.unread_count : null;
-        const isClean = shopSentLast || unreadCount === 0;
-        if (isClean && psidForClear && window.newMessagesNotifier) {
-            const pending = window.newMessagesNotifier
-                .getPendingCustomers()
-                .find((pc) => String(pc.psid || pc.from_psid || '') === psidForClear);
-            if (pending && (pending.inboxCount || 0) > 0) {
-                window.newMessagesNotifier.clearPendingForCustomer(psidForClear);
-                _markRepliedOnServer(psidForClear, convPageIdStr);
-                console.log(
-                    `[Chat-Core] Self-heal: cleared stale ${pending.inboxCount} MỚI for ${psidForClear} (shop sent last)`
-                );
+        const snippet = conv.snippet || '';
+        // NV.{name} signature appended by our reply tool (e.g. "...\nNV.Bo",
+        // "Nv.My"). Strong evidence shop replied — covers cases where
+        // last_sent_by is missing/stale from Pancake's side.
+        const hasNvSignature = /[\r\n]\s*N\.?V\.?\s*[A-Za-zÀ-ỹ]/i.test(snippet);
+        const shopInteracted = shopSentLast || hasNvSignature;
+        if (shopInteracted && psidForClear) {
+            _markRepliedOnServer(psidForClear, convPageIdStr);
+            if (window.newMessagesNotifier) {
+                const pending = window.newMessagesNotifier
+                    .getPendingCustomers()
+                    .find((pc) => String(pc.psid || pc.from_psid || '') === psidForClear);
+                if (pending) {
+                    window.newMessagesNotifier.clearPendingForCustomer(psidForClear);
+                    console.log(
+                        `[Chat-Core] Cleared ${pending.inboxCount || 0} MỚI for ${psidForClear} (shop interacted: shopSentLast=${shopSentLast} NV=${hasNvSignature})`
+                    );
+                }
             }
         }
     } catch (_e) {
-        /* self-heal is best-effort */
+        /* mark-read is best-effort */
     }
 
     // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)

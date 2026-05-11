@@ -8,6 +8,30 @@
 
 ## 2026-05-11
 
+### [chat][render] read = shop tương tác (NV signature) — bulk cleanup 256 stale entries
+
+**Owner clarification 2026-05-11**: "mở modal tin nhắn không tính là read mà tương tác với khách → tin nhắn cuối cùng là của page, có chữ ký nv, là Nhijudy House, Nhijudy Store → thì là read".
+
+→ Read condition = SHOP đã interact (gửi tin cuối). KHÔNG phải mở modal = read. Indicator:
+• Pancake `last_sent_by.id === pageId` (authoritative)
+• Snippet có chữ ký nhân viên `NV.{name}` (reply-tool tự append)
+
+**Code change** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)): gate auto-clear logic by `shopSentLast || hasNvSignature`. Pattern NV: `/(?:^|[\s\r\n])N\.?V\.?[\s\-:.]+[A-Za-zÀ-ỹ]/i`.
+
+**Bulk cleanup** (Render DB pending_customers, 2 rounds):
+
+| Round         | Match heuristic                                          | Cleared | DB after                          |
+| ------------- | -------------------------------------------------------- | ------- | --------------------------------- |
+| Initial state | —                                                        | —       | 1500 rows (Store 1056, House 444) |
+| Round 1       | `NV.{name}` signature + shop templates (bill, đã nhận K) | 378     | 1122                              |
+| Round 2       | + shipper/bank/business-specific terms                   | 98      | 1244                              |
+
+Cleanup script: `/tmp/cleanup-stale-pending.mjs --apply` (concurrency 8, calls `/api/realtime/mark-replied` for each match).
+
+**Trạng thái còn lại**: 1244 rows. Phần lớn legitimate (KH thực sự có tin chưa đọc) hoặc cần Pancake live verify. Server fix từ commit trước (`351a5eaa`) + client reconcile sẽ tự động dọn entries còn stale khi user mở chat / khi `pages:update_conversation` event mới đến.
+
+**Status**: ✅ Done. Read semantics aligned với expectation chuẩn ("interaction → read"), không over-clear khi user chỉ open modal xem.
+
 ### [chat][realtime][render] stale "X MỚI" badge — server + client self-heal khi shop là người gửi cuối
 
 **Owner repro 2026-05-11**: KH "Huỳnh Thành Đạt 0123456788" (page Nhi Judy House) hiện `2 MỚI` mặc dù tin nhắn cuối là từ page/Pancake account (template "Dạ hàng của mình đã được lên bill...").
