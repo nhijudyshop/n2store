@@ -98,3 +98,8 @@ downloads/tikreel-ui-study/
 
 # yt-dlp binary downloaded at runtime (Linux on Render, not portable)
 render.com/bin/
+
+# Local DB backups (chứa dữ liệu khách hàng - tuyệt đối không commit)
+backups/
+*.dump
+*.sql.gz
