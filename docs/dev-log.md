@@ -8,6 +8,38 @@
 
 ## 2026-05-11
 
+### [chat][realtime][render] stale "X MỚI" badge — server + client self-heal khi shop là người gửi cuối
+
+**Owner repro 2026-05-11**: KH "Huỳnh Thành Đạt 0123456788" (page Nhi Judy House) hiện `2 MỚI` mặc dù tin nhắn cuối là từ page/Pancake account (template "Dạ hàng của mình đã được lên bill...").
+
+**Diagnosis** (live recon Pancake + DB):
+
+- **Pancake live state**: `unread_count: 0`, `last_sent_by: {id:"117267091364524" Nhi Judy House}`, `snippet: "Dạ hàng của mình đã được lên bill..."`, `updated_at: 2026-05-10T04:17:24Z`, `last_customer_interactive_at: 2026-04-22` (KH không nhắn 19 ngày).
+- **Render DB `pending_customers`**: row tồn tại với `message_count: 2`, snippet là template shop reply, `last_message_time: 2026-05-10 04:17:24+07`. → server không xóa khi shop reply.
+- **Client localStorage `n2s_pending_customers`**: cùng entry với `inboxCount: 2`.
+
+**Root cause** (server [render.com/server.js:790](../render.com/server.js#L790)):
+
+Handler `pages:update_conversation` chỉ kiểm tra `unread_count` để quyết định upsert/delete `pending_customers`. Khi shop reply qua direct API (auto bill-send), Pancake đôi khi vẫn báo `unread_count > 0` ngay sau reply (delay) hoặc gửi snippet shop trước khi clear unread → server BUMP count thêm 1 và lưu snippet shop. Không có path detect `last_sent_by.id === pageId`. → row stale tồn tại cho tới khi user manual mark-replied.
+
+**Fix server** ([render.com/server.js](../render.com/server.js)):
+
+- Detect `shopSentLast` = `conversation.last_sent_by?.id === pageId` HOẶC `last_message?.from?.id === pageId`.
+- DELETE `pending_customers` row nếu `shopSentLast` HOẶC `unread_count === 0` (cũ chỉ check sau).
+- Upsert chỉ khi `!shopSentLast && unread > 0`.
+
+**Fix client** ([orders-report/js/chat/new-messages-notifier.js](../orders-report/js/chat/new-messages-notifier.js), [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
+
+- Thêm `reconcilePendingWithPancake()` — chạy 8s sau load + mỗi 5 phút. Cho mỗi page có pending: 1 call `fetchConversationsForPage` → cross-check `last_sent_by.id` / `unread_count` cho mọi pending psid trong list → clear stale. 1 API call/page (3-5 pages), không phải 1/customer.
+- Self-heal khi chat modal open: conv resolve xong + `shopSentLast` || `unread_count===0` + có pending entry → `clearPendingForCustomer(psid)` + `_markRepliedOnServer`. Mọi lần user click chat sẽ tự sửa stale badge.
+
+**Live verification**:
+
+- Manual mark-replied cho psid `24948162744877764`: server returned `{success:true, removed:1}` → row đã xóa khỏi `pending_customers`.
+- Local cache cleared via `newMessagesNotifier.clearPendingForCustomer` → entry biến mất.
+
+**Status**: ✅ Done. Server auto-deploys khi push.
+
 ### [chat] page avatars + picker for phone-mismatch candidates
 
 **Pancake recon — page avatar endpoint** (live, 2026-05-11):

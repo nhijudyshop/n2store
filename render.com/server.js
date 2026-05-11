@@ -783,29 +783,50 @@ class RealtimeClient {
                         console.error('[SERVER-WS] Failed to save update:', err.message)
                     );
 
-                // Upsert pending_customers CHỈ cho INBOX với unread_count > 0.
-                // COMMENT events không count (badge "tin nhắn" chỉ track inbox unread).
-                // unread_count = 0 nghĩa là shop đã đọc → KHÔNG bump count, ngược lại
-                // DELETE row để clear badge cho mọi user (multi-staff sync).
+                // Upsert pending_customers CHỈ cho INBOX với unread_count > 0
+                // VÀ shop chưa phải người gửi cuối.
+                // - unread_count = 0 → shop đã đọc → DELETE (sync mọi user)
+                // - last_sent_by.id === page_id (shop là người gửi cuối) → DELETE
+                //   kể cả khi Pancake vẫn báo unread > 0. Pancake đôi khi delay
+                //   clearing unread_count sau khi shop reply qua direct API
+                //   (đặc biệt với auto bill-send). Owner repro 2026-05-11: KH
+                //   Huỳnh Thành Đạt 0123456788 stale "2 MỚI" — Pancake live
+                //   unread=0 + last_sent_by=page nhưng row pending_customers
+                //   trên Render vẫn count=2, snippet là shop bill template.
                 if (convType === 'INBOX') {
                     const unread = conversation.unread_count || 0;
-                    if (unread > 0) {
+                    const pageIdStr = String(updateData.pageId || '');
+                    const lastSenderId = String(
+                        conversation.last_sent_by?.id || conversation.last_message?.from?.id || ''
+                    );
+                    const shopSentLast =
+                        !!lastSenderId && !!pageIdStr && lastSenderId === pageIdStr;
+
+                    if (shopSentLast || unread === 0) {
+                        if (updateData.psid && updateData.pageId) {
+                            this.db
+                                .query(
+                                    `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2`,
+                                    [updateData.psid, updateData.pageId]
+                                )
+                                .then((r) => {
+                                    if (r.rowCount > 0) {
+                                        console.log(
+                                            `[SERVER-WS] Cleared pending for ${updateData.psid} (${shopSentLast ? 'shop sent last' : 'unread=0'})`
+                                        );
+                                    }
+                                })
+                                .catch((err) =>
+                                    console.error(
+                                        '[SERVER-WS] Failed to clear pending on read:',
+                                        err.message
+                                    )
+                                );
+                        }
+                    } else if (unread > 0) {
                         upsertPendingCustomer(this.db, updateData).catch((err) =>
                             console.error('[SERVER-WS] Failed to upsert pending:', err.message)
                         );
-                    } else if (updateData.psid && updateData.pageId) {
-                        // unread = 0 → shop bất kỳ vừa đọc → clear pending cho mọi user
-                        this.db
-                            .query(
-                                `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2`,
-                                [updateData.psid, updateData.pageId]
-                            )
-                            .catch((err) =>
-                                console.error(
-                                    '[SERVER-WS] Failed to clear pending on read:',
-                                    err.message
-                                )
-                            );
                     }
                 }
             }

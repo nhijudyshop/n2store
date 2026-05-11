@@ -469,6 +469,93 @@
     }
 
     // =====================================================
+    // BULK RECONCILE STALE PENDING vs LIVE PANCAKE STATE
+    // =====================================================
+
+    /**
+     * Reconcile local pending_customers with Pancake's authoritative state.
+     *
+     * Stale entries appear when the shop replies but our pages:update_conversation
+     * handler missed the event (offline, page refresh during the event window,
+     * server merge restored an old entry, etc.). Pancake's conv `last_sent_by.id`
+     * + `unread_count` is the source of truth.
+     *
+     * Strategy: for each page that has ≥1 pending entry, fetch that page's
+     * recent conversation list ONCE (`fetchConversationsForPage` is cached),
+     * then for every pending psid that appears in the list, check if shop
+     * sent last or unread_count=0 → clear it. One API call per page, not
+     * per customer (489 entries × per-customer would be untenable).
+     *
+     * Customers absent from the page's recent list are left alone — they
+     * may have legitimately old unread state that's still tracked.
+     */
+    let _lastReconcileAt = 0;
+    async function reconcilePendingWithPancake() {
+        const RECONCILE_COOLDOWN_MS = 60_000; // skip if ran in last 60s
+        if (Date.now() - _lastReconcileAt < RECONCILE_COOLDOWN_MS) return;
+        _lastReconcileAt = Date.now();
+
+        const pdm = window.pancakeDataManager;
+        if (!pdm || _pendingCustomers.length === 0) return;
+
+        // Group pending by pageId
+        const byPage = new Map();
+        for (const pc of _pendingCustomers) {
+            const pid = String(pc.pageId || pc.page_id || '');
+            const psid = String(pc.psid || pc.from_psid || '');
+            if (!pid || !psid) continue;
+            if (!byPage.has(pid)) byPage.set(pid, new Set());
+            byPage.get(pid).add(psid);
+        }
+        if (byPage.size === 0) return;
+
+        let cleared = 0;
+        for (const [pageId, psidSet] of byPage) {
+            try {
+                const result = await pdm.fetchConversationsForPage(pageId, {});
+                const convs = result?.conversations || [];
+                if (convs.length === 0) continue;
+                // Build psid → conv lookup (page-scoped fb_id = INBOX from_psid)
+                const convByPsid = new Map();
+                for (const c of convs) {
+                    const psid = String(c.from_psid || c.from?.id || '');
+                    if (psid) convByPsid.set(psid, c);
+                }
+                for (const psid of psidSet) {
+                    const conv = convByPsid.get(psid);
+                    if (!conv) continue; // not in recent list — leave alone
+                    const lastSenderId = String(
+                        conv.last_sent_by?.id || conv.last_message?.from?.id || ''
+                    );
+                    const shopSentLast = !!lastSenderId && lastSenderId === String(pageId);
+                    const unread = typeof conv.unread_count === 'number' ? conv.unread_count : null;
+                    if (shopSentLast || unread === 0) {
+                        clearPendingForCustomer(psid);
+                        cleared++;
+                    }
+                }
+            } catch (_e) {
+                /* one page failure shouldn't block the rest */
+            }
+        }
+        if (cleared > 0) {
+            console.log(`[NOTIFIER] reconcile: cleared ${cleared} stale pending entries`);
+        }
+    }
+
+    // Run reconcile once on startup, then every 5 min.
+    // Defer initial run to give pancakeDataManager time to authenticate.
+    setTimeout(() => {
+        reconcilePendingWithPancake().catch(() => {});
+    }, 8000);
+    setInterval(
+        () => {
+            reconcilePendingWithPancake().catch(() => {});
+        },
+        5 * 60 * 1000
+    );
+
+    // =====================================================
     // CSS for badges and row highlight
     // =====================================================
 
@@ -510,5 +597,6 @@
         clearPendingForCustomer,
         clearAll,
         getPendingCustomers: () => [..._pendingCustomers],
+        reconcilePendingWithPancake,
     };
 })();

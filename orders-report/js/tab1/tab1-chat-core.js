@@ -1669,6 +1669,38 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         _updatePageSelectorActive(convPageId);
     }
 
+    // Self-heal stale "X MỚI" badges. Pancake is the source of truth for
+    // unread state. If the resolved conv shows the page sent last OR
+    // unread_count=0, then any local pending entry is stale (typically
+    // happens when the shop replied while the user was offline — the
+    // pages:update_conversation event with shopSentLast detection was
+    // missed, so the localStorage/server cache kept the old count).
+    // Owner repro 2026-05-11: Huỳnh Thành Đạt 0123456788 showed "2 MỚI"
+    // even though shop sent the bill-success template last (Pancake's
+    // unread_count was 0).
+    try {
+        const psidForClear = String(conv.from_psid || conv.from?.id || psid || '');
+        const convPageIdStr = String(convPageId || conv.page_id || '');
+        const lastSenderId = String(conv.last_sent_by?.id || conv.last_message?.from?.id || '');
+        const shopSentLast = !!lastSenderId && lastSenderId === convPageIdStr;
+        const unreadCount = typeof conv.unread_count === 'number' ? conv.unread_count : null;
+        const isClean = shopSentLast || unreadCount === 0;
+        if (isClean && psidForClear && window.newMessagesNotifier) {
+            const pending = window.newMessagesNotifier
+                .getPendingCustomers()
+                .find((pc) => String(pc.psid || pc.from_psid || '') === psidForClear);
+            if (pending && (pending.inboxCount || 0) > 0) {
+                window.newMessagesNotifier.clearPendingForCustomer(psidForClear);
+                _markRepliedOnServer(psidForClear, convPageIdStr);
+                console.log(
+                    `[Chat-Core] Self-heal: cleared stale ${pending.inboxCount} MỚI for ${psidForClear} (shop sent last)`
+                );
+            }
+        }
+    } catch (_e) {
+        /* self-heal is best-effort */
+    }
+
     // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)
     // inboxMapByPSID cache and messages API often don't have thread_id,
     // but conversation list API does. Fire background fetch to get it.
