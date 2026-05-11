@@ -8,6 +8,26 @@
 
 ## 2026-05-11
 
+### [delivery-report][render] fix tra soát — đã quét/chưa quét chia đúng theo filter nhiều ngày
+
+**Vấn đề**: filter 09/05–10/05, "Đã quét" tab chỉ hiển thị scans của ngày 09/05 (fromDate); scans của 10/05 trôi sang "Chưa quét". Lý do: `loadAssignmentsFromDB` chỉ gọi `?date=fromDate`, một ngày. Tương tự `saveScannedNumber`/`unscan`/`hide` ghi `assignment_date = fromDate` thay vì DateInvoice thực của đơn → đơn 10/05 scan trong filter 09–10 bị lưu nhầm dưới ngày 09/05.
+
+**Fix backend** ([render.com/routes/v2/delivery-assignments.js](../render.com/routes/v2/delivery-assignments.js)):
+
+- `GET /` thêm `?from=YYYY-MM-DD&to=YYYY-MM-DD` (BETWEEN), giữ `?date=` cho backward compat. Dedupe `scannedNumbers`/`hiddenNumbers` khi 1 order có 2 row khác `assignment_date`.
+- `POST /` chấp nhận per-assignment `.date` (fallback `date` top-level) → mỗi đơn lưu đúng `assignment_date` theo DateInvoice của chính nó.
+- `PATCH /unscan-bulk` chấp nhận shape mới `{ items: [{orderNumber, date}] }` (giữ shape cũ `{date, orderNumbers}` để compat) → bulk unscan cross-date trong 1 statement.
+
+**Fix frontend** ([delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)):
+
+- Thêm `getAssignmentDateRange()` và `getDateForOrder(orderNumber)` (resolve qua `allData[].DateInvoice`, fallback fromDate).
+- `loadAssignmentsFromDB`, sync polling: dùng `from`/`to` thay vì `date`.
+- `saveAssignmentsToDB`: từng item gán `.date = toLocalDateStr(item.DateInvoice)`.
+- `saveScannedNumber`, `unscanNumberInDB`, `hideOrder`: query string `date = getDateForOrder(orderNumber)`.
+- `unscanBulkInDB`: gửi `{ items:[{orderNumber, date}] }`.
+
+**Status**: ✅ Done.
+
 ### [chat][render] "Khách chưa có SĐT" empty state — set-phone flow + Pancake recon
 
 **Yêu cầu owner**: "xem pancake set sđt ra sao → nếu không tìm được thì hiện khách chưa có sđt → cho set sđt".

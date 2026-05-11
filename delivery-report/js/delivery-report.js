@@ -1665,17 +1665,46 @@
     // DB ASSIGNMENTS — PostgreSQL as Source of Truth
     // =====================================================
     function getAssignmentDate() {
-        // Use the fromDate filter date (YYYY-MM-DD)
+        // Use the fromDate filter date (YYYY-MM-DD) — kept for fallback only.
         const fromDate = document.getElementById('drFilterFromDate')?.value;
         if (fromDate) return fromDate;
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     }
 
+    function getAssignmentDateRange() {
+        const fromInput = document.getElementById('drFilterFromDate')?.value;
+        const toInput = document.getElementById('drFilterToDate')?.value;
+        const todayStr = toLocalDateStr(new Date());
+        let from = fromInput || todayStr;
+        let to = toInput || from;
+        if (from > to) {
+            const tmp = from;
+            from = to;
+            to = tmp;
+        }
+        return { from, to };
+    }
+
+    // Per-order date: use the order's actual DateInvoice (YYYY-MM-DD).
+    // Fallback to fromDate if DateInvoice missing or out of range.
+    function getDateForOrder(orderNumber) {
+        const item = (DeliveryReportState.allData || []).find((i) => i && i.Number === orderNumber);
+        if (item && item.DateInvoice) {
+            const d = new Date(item.DateInvoice);
+            if (!isNaN(d.getTime())) {
+                return toLocalDateStr(d);
+            }
+        }
+        return getAssignmentDate();
+    }
+
     async function loadAssignmentsFromDB() {
-        const date = getAssignmentDate();
+        const { from, to } = getAssignmentDateRange();
         try {
-            const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments?date=${date}`);
+            const resp = await fetch(
+                `${RENDER_URL}/api/v2/delivery-assignments?from=${from}&to=${to}`
+            );
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
             if (result.success && result.data) {
@@ -1688,7 +1717,7 @@
                 DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
 
                 console.log(
-                    `[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${date}`
+                    `[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${from}..${to}`
                 );
                 return result.data.assignments;
             }
@@ -1699,14 +1728,22 @@
     }
 
     async function saveAssignmentsToDB(items, groups) {
-        const date = getAssignmentDate();
-        const assignments = items.map((item) => ({
-            orderNumber: item.Number,
-            groupName: groups[item.Number] || getItemGroup(item),
-            amountTotal: item.AmountTotal || 0,
-            cashOnDelivery: item.CashOnDelivery || 0,
-            carrierName: item.CarrierName || '',
-        }));
+        const fallbackDate = getAssignmentDate();
+        const assignments = items.map((item) => {
+            let perDate = fallbackDate;
+            if (item.DateInvoice) {
+                const d = new Date(item.DateInvoice);
+                if (!isNaN(d.getTime())) perDate = toLocalDateStr(d);
+            }
+            return {
+                date: perDate,
+                orderNumber: item.Number,
+                groupName: groups[item.Number] || getItemGroup(item),
+                amountTotal: item.AmountTotal || 0,
+                cashOnDelivery: item.CashOnDelivery || 0,
+                carrierName: item.CarrierName || '',
+            };
+        });
 
         if (assignments.length === 0) return { inserted: 0, skipped: 0 };
 
@@ -1720,7 +1757,7 @@
                         unescape(encodeURIComponent(JSON.stringify({ userName: user })))
                     ),
                 },
-                body: JSON.stringify({ date, assignments }),
+                body: JSON.stringify({ date: fallbackDate, assignments }),
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
@@ -1755,7 +1792,8 @@
 
     async function hideOrder(number) {
         if (!number) return;
-        const date = getAssignmentDate();
+        // Resolve order date BEFORE removing from allData (lookup needs the item)
+        const date = getDateForOrder(number);
         DeliveryReportState.hiddenNumbers.add(number);
         DeliveryReportState.scannedNumbers.delete(number);
         DeliveryReportState.allData = (DeliveryReportState.allData || []).filter(
@@ -1787,7 +1825,7 @@
     }
 
     async function saveScannedNumber(orderNumber) {
-        const date = getAssignmentDate();
+        const date = getDateForOrder(orderNumber);
         try {
             const user = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
             await fetch(
@@ -1807,7 +1845,7 @@
     }
 
     async function unscanNumberInDB(orderNumber) {
-        const date = getAssignmentDate();
+        const date = getDateForOrder(orderNumber);
         try {
             await fetch(
                 `${RENDER_URL}/api/v2/delivery-assignments/unscan/${encodeURIComponent(orderNumber)}?date=${date}`,
@@ -1821,12 +1859,15 @@
     }
 
     async function unscanBulkInDB(orderNumbers) {
-        const date = getAssignmentDate();
+        const items = orderNumbers.map((n) => ({
+            orderNumber: n,
+            date: getDateForOrder(n),
+        }));
         try {
             await fetch(`${RENDER_URL}/api/v2/delivery-assignments/unscan-bulk`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date, orderNumbers }),
+                body: JSON.stringify({ items }),
             });
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to bulk unscan in DB:', e.message);
@@ -1900,8 +1941,10 @@
         _syncInterval = setInterval(async () => {
             if (!DeliveryReportState.traSoatMode) return;
             try {
-                const date = getAssignmentDate();
-                const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments?date=${date}`);
+                const { from, to } = getAssignmentDateRange();
+                const resp = await fetch(
+                    `${RENDER_URL}/api/v2/delivery-assignments?from=${from}&to=${to}`
+                );
                 if (!resp.ok) return;
                 const result = await resp.json();
                 if (!result.success) return;

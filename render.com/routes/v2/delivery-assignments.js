@@ -29,62 +29,92 @@ function getUserFromHeaders(req) {
             // Try base64 decode first (new format), fallback to raw JSON (old format)
             let jsonStr;
             try {
-                jsonStr = decodeURIComponent(escape(Buffer.from(authData, 'base64').toString('binary')));
+                jsonStr = decodeURIComponent(
+                    escape(Buffer.from(authData, 'base64').toString('binary'))
+                );
             } catch (_) {
                 jsonStr = authData;
             }
             const parsed = JSON.parse(jsonStr);
             return parsed.userName || parsed.displayName || parsed.userId || 'anonymous';
         }
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+        /* ignore */
+    }
     return 'anonymous';
 }
 
 // =====================================================
-// GET / — Load all assignments for a date
+// GET / — Load all assignments for a date OR a date range
+// Query: ?date=YYYY-MM-DD  OR  ?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Returns: assignments map, scanned set, hidden set
 // =====================================================
 router.get('/', async (req, res) => {
     try {
         const db = getDb(req);
-        const { date } = req.query;
+        let { date, from, to } = req.query;
 
-        if (!date) {
-            return res.status(400).json({ success: false, error: 'Missing date parameter' });
+        // Backward compat: single ?date= is treated as from=to=date
+        if (date && !from && !to) {
+            from = date;
+            to = date;
+        }
+
+        if (!from || !to) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Missing date or from/to parameter' });
+        }
+
+        // Normalize order (swap if reversed)
+        if (from > to) {
+            const tmp = from;
+            from = to;
+            to = tmp;
         }
 
         const result = await db.query(
             `SELECT order_number, group_name, amount_total, cash_on_delivery, carrier_name,
-                    is_scanned, is_hidden, scanned_by, assigned_by, created_at
+                    is_scanned, is_hidden, scanned_by, assigned_by, assignment_date, created_at
              FROM delivery_assignments
-             WHERE assignment_date = $1
+             WHERE assignment_date BETWEEN $1 AND $2
              ORDER BY created_at ASC`,
-            [date]
+            [from, to]
         );
 
         const assignments = {};
         const scannedNumbers = [];
         const hiddenNumbers = [];
+        const seenScanned = new Set();
+        const seenHidden = new Set();
 
         for (const row of result.rows) {
             if (!row.is_hidden) {
                 assignments[row.order_number] = row.group_name;
             }
-            if (row.is_scanned) scannedNumbers.push(row.order_number);
-            if (row.is_hidden) hiddenNumbers.push(row.order_number);
+            if (row.is_scanned && !seenScanned.has(row.order_number)) {
+                scannedNumbers.push(row.order_number);
+                seenScanned.add(row.order_number);
+            }
+            if (row.is_hidden && !seenHidden.has(row.order_number)) {
+                hiddenNumbers.push(row.order_number);
+                seenHidden.add(row.order_number);
+            }
         }
 
         res.json({
             success: true,
             data: {
-                date,
+                date: from === to ? from : undefined,
+                from,
+                to,
                 assignments,
                 scannedNumbers,
                 hiddenNumbers,
                 totalCount: result.rows.length,
                 scannedCount: scannedNumbers.length,
-                hiddenCount: hiddenNumbers.length
-            }
+                hiddenCount: hiddenNumbers.length,
+            },
         });
     } catch (err) {
         console.error('[delivery-assignments] GET / error:', err.message);
@@ -101,8 +131,16 @@ router.post('/', async (req, res) => {
         const { date, assignments } = req.body;
         const user = getUserFromHeaders(req);
 
-        if (!date || !assignments || !Array.isArray(assignments) || assignments.length === 0) {
-            return res.status(400).json({ success: false, error: 'Missing date or assignments array' });
+        if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+            return res.status(400).json({ success: false, error: 'Missing assignments array' });
+        }
+
+        // date is optional iff every assignment carries its own .date
+        const everyHasDate = assignments.every((a) => !!a.date);
+        if (!date && !everyHasDate) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Missing date (top-level) or per-assignment date' });
         }
 
         const values = [];
@@ -111,9 +149,13 @@ router.post('/', async (req, res) => {
 
         for (const a of assignments) {
             if (!a.orderNumber || !a.groupName) continue;
-            values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`);
+            const rowDate = a.date || date;
+            if (!rowDate) continue;
+            values.push(
+                `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`
+            );
             params.push(
-                date,
+                rowDate,
                 a.orderNumber,
                 a.groupName,
                 a.amountTotal || 0,
@@ -139,11 +181,13 @@ router.post('/', async (req, res) => {
         const inserted = result.rows.length;
         const skipped = assignments.length - inserted;
 
-        console.log(`[delivery-assignments] POST: ${inserted} inserted, ${skipped} skipped for ${date}`);
+        console.log(
+            `[delivery-assignments] POST: ${inserted} inserted, ${skipped} skipped for ${date}`
+        );
 
         res.json({
             success: true,
-            data: { inserted, skipped, insertedOrders: result.rows.map(r => r.order_number) }
+            data: { inserted, skipped, insertedOrders: result.rows.map((r) => r.order_number) },
         });
     } catch (err) {
         console.error('[delivery-assignments] POST / error:', err.message);
@@ -219,19 +263,41 @@ router.patch('/unscan/:orderNumber', async (req, res) => {
 router.patch('/unscan-bulk', async (req, res) => {
     try {
         const db = getDb(req);
-        const { date, orderNumbers } = req.body;
+        const { date, orderNumbers, items } = req.body;
 
-        if (!date || !orderNumbers || !Array.isArray(orderNumbers) || orderNumbers.length === 0) {
-            return res.status(400).json({ success: false, error: 'Missing date or orderNumbers' });
+        // New shape: items=[{orderNumber, date}] — unscans across multiple dates
+        // Old shape: {date, orderNumbers:[...]} — single date (backward compat)
+        let pairs = [];
+        if (Array.isArray(items) && items.length > 0) {
+            pairs = items
+                .filter((it) => it && it.orderNumber && it.date)
+                .map((it) => ({ date: it.date, orderNumber: it.orderNumber }));
+        } else if (date && Array.isArray(orderNumbers) && orderNumbers.length > 0) {
+            pairs = orderNumbers.map((n) => ({ date, orderNumber: n }));
         }
 
-        const placeholders = orderNumbers.map((_, i) => `$${i + 2}`).join(', ');
+        if (pairs.length === 0) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Missing items or (date+orderNumbers)' });
+        }
+
+        // Build a single statement: WHERE (assignment_date, order_number) IN ((...),(...))
+        const conds = [];
+        const params = [];
+        let p = 1;
+        for (const it of pairs) {
+            conds.push(`(assignment_date = $${p} AND order_number = $${p + 1})`);
+            params.push(it.date, it.orderNumber);
+            p += 2;
+        }
+
         const result = await db.query(
             `UPDATE delivery_assignments
              SET is_scanned = FALSE, scanned_at = NULL, scanned_by = NULL, updated_at = NOW()
-             WHERE assignment_date = $1 AND order_number IN (${placeholders})
+             WHERE ${conds.join(' OR ')}
              RETURNING order_number`,
-            [date, ...orderNumbers]
+            params
         );
 
         res.json({ success: true, data: { unscanned: result.rows.length } });
@@ -286,7 +352,12 @@ router.put('/:orderNumber', async (req, res) => {
 
         const validGroups = ['tomato', 'nap', 'city', 'shop', 'return'];
         if (!validGroups.includes(groupName)) {
-            return res.status(400).json({ success: false, error: `Invalid groupName. Must be one of: ${validGroups.join(', ')}` });
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    error: `Invalid groupName. Must be one of: ${validGroups.join(', ')}`,
+                });
         }
 
         const result = await db.query(
