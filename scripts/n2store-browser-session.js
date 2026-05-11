@@ -321,6 +321,23 @@ const log = (...a) => {
             }, `shot ${p}`);
             return;
         }
+        if (cmd === 'storage') {
+            // Dump full Playwright storageState (cookies incl. HttpOnly +
+            // localStorage + sessionStorage) — usable to re-auth later via
+            // context.addCookies() / page.evaluate(localStorage population).
+            const p = arg || path.join(OUT_DIR, `storage-${Date.now()}.json`);
+            await safe(async () => {
+                const state = await ctx.storageState();
+                fs.writeFileSync(p, JSON.stringify(state, null, 2));
+                return {
+                    ok: true,
+                    path: p,
+                    cookies: state.cookies.length,
+                    origins: state.origins.length,
+                };
+            }, `storage ${p}`);
+            return;
+        }
         log(`Unknown command: ${cmd}. Type help.`);
     });
 })().catch((e) => {
