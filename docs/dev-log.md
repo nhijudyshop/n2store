@@ -8,6 +8,35 @@
 
 ## 2026-05-11
 
+### [issue-tracking] FIX_COD + "Trừ công nợ khách" → trừ COD giảm vào ví khách
+
+**Yêu cầu owner**: Khi tạo phiếu **Sửa COD (Shipper gọi)** với lý do **"Trừ công nợ khách"** (`CUSTOMER_DEBT`), số tiền COD giảm phải được **trừ vào số dư ví của khách** (khách "ứng" COD giảm từ ví → shop chuyển 0đ cho ĐVVC).
+
+**Ví dụ**: Ví 100k, đơn COD 205k, COD giảm 40k → COD còn phải thu 165k, trừ vào ví 40k → ví còn lại 60k. **Ràng buộc**: `walletBalance >= codReduce` (nếu không đủ → block submit, alert chi tiết).
+
+**Implementation** ([issue-tracking/index.html](../issue-tracking/index.html), [issue-tracking/js/script.js](../issue-tracking/js/script.js)):
+
+1. **UI preview** (`#wallet-deduct-preview`): khối vàng hiện khi reason = CUSTOMER_DEBT, show Số dư ví / Trừ vào ví / Ví còn lại / cảnh báo nếu ví thiếu. Auto-update khi đổi `codReduce` (qua `calculateCodRemaining`) hoặc đổi reason (qua `onFixCodReasonChange`).
+2. **Track wallet balance** trên `currentCustomer.walletBalance` ở 3 nhánh load customer (searchCustomerByPhone + selectOrder hit/miss/error) thay vì chỉ render xuống DOM — function `updateWalletDeductPreview()` cần đọc giá trị.
+3. **Validation** trong `handleSubmitTicket` (FIX_COD branch): nếu reason CUSTOMER_DEBT thì check `codReduce > 0` và `walletBalance >= codReduce`, fail → `alert` chi tiết "thiếu X đ" và `return` không gọi createTicket.
+4. **Withdraw sau khi createTicket thành công**: gọi `ApiService.walletWithdraw(phone, money, orderId, note, createdBy)` (POST `/api/v2/wallets/:phone/withdraw`, dùng `wallet_withdraw_fifo` SQL function — FIFO virtual credit trước, rồi real balance). Withdraw fail không rollback ticket, chỉ notify warning "trừ ví thủ công qua Customer 360".
+
+**Browser test** (localhost:8080, customer test mặc định Huỳnh Thành Đạt `0123456788`):
+
+- Test 1 (preview): mock selectedOrder COD 205k + currentCustomer walletBalance 100k, set codReduce 40k → preview hiện `Wallet 100k / Trừ 40k / Còn lại 60k`, không error. ✓
+- Test 2 (ví thiếu preview): codReduce 150k > wallet 100k → preview cảnh báo `⚠️ Ví không đủ (thiếu 50.000 ₫)`. ✓
+- Test 3 (reason switch): chuyển sang `WRONG_SHIP` → preview ẩn; quay lại `CUSTOMER_DEBT` → preview hiện. ✓
+- Test 4 (validation block submit): codReduce 150k > wallet 100k, gọi `handleSubmitTicket` → alert chi tiết, ticket KHÔNG được tạo. ✓
+- Test 5 (happy path e2e): codReduce 40k ≤ wallet 100k → ticket `TV-2026-00737` (FIX_COD/CUSTOMER_DEBT/40000/PENDING_FINANCE) tạo OK, wallet đi từ `100000.00` → `60000.00` (đúng -40k). ✓
+
+**Cleanup test**: hard-delete ticket `TV-2026-00737` (DELETE `?hard=true`), deposit lại 40k, withdraw 100k seed deposit → wallet về 0 nguyên trạng.
+
+**Files**: [issue-tracking/index.html:300-315](../issue-tracking/index.html#L300-L315), [issue-tracking/js/script.js:516-518, 619-621, 636, 988-1019, 1052, 1530-1546, 1655-1683](../issue-tracking/js/script.js).
+
+**Status**: ✅ Done
+
+---
+
 ### [chat] cross-page conv lookup — priority chain FB-ID → phone → name picker
 
 **Yêu cầu owner** (2026-05-11): "browser test pancake id facebook → và tìm theo id này được không? Nếu được ưu tiên tìm theo id facebook → fallback sđt → fall back tên (có danh sách cho chọn vì tên có thể trùng)".

@@ -507,12 +507,13 @@ async function searchCustomerByPhone(phone) {
         if (customerData && customerData.customer) {
             // Customer found, display info
             currentCustomer = customerData.customer; // Store full customer object
+            currentCustomer.walletBalance = customerData.wallet?.balance || 0;
             elements.customerInfoSection.classList.remove('hidden');
             elements.customerInfoName.textContent = currentCustomer.name || 'N/A';
             elements.customerInfoPhone.textContent = currentCustomer.phone || 'N/A';
             elements.customerInfoTier.textContent = currentCustomer.tier || 'New';
             elements.customerInfoWalletBalance.textContent = formatCurrency(
-                customerData.wallet?.balance || 0
+                currentCustomer.walletBalance
             );
             elements.customerInfoNewCustomerWarning.classList.add('hidden');
 
@@ -609,12 +610,13 @@ async function selectOrder(order) {
             const customerDetails = await ApiService.getCustomer360(normalizePhone(order.phone));
             if (customerDetails && customerDetails.customer) {
                 currentCustomer = customerDetails.customer;
+                currentCustomer.walletBalance = customerDetails.wallet?.balance || 0;
                 elements.customerInfoSection.classList.remove('hidden');
                 elements.customerInfoName.textContent = currentCustomer.name || 'N/A';
                 elements.customerInfoPhone.textContent = currentCustomer.phone || 'N/A';
                 elements.customerInfoTier.textContent = currentCustomer.tier || 'New';
                 elements.customerInfoWalletBalance.textContent = formatCurrency(
-                    customerDetails.wallet?.balance || 0
+                    currentCustomer.walletBalance
                 );
             } else {
                 // If customer not found for this phone, still show warning as it will be created via ticket
@@ -631,6 +633,7 @@ async function selectOrder(order) {
                     phone: normalizePhone(order.phone),
                     tier: 'New',
                     wallet_balance: 0,
+                    walletBalance: 0,
                 };
             }
         } catch (error) {
@@ -974,7 +977,39 @@ window.calculateCodRemaining = function () {
 
     document.getElementById('cod-remaining-display').textContent = formatCurrency(codRemaining);
     document.getElementById('cod-diff-display').textContent = formatCurrency(codReduce);
+
+    updateWalletDeductPreview();
 };
+
+// Show wallet deduction preview when FIX_COD reason is CUSTOMER_DEBT
+function updateWalletDeductPreview() {
+    const reasonEl = document.getElementById('fix-cod-reason');
+    const previewEl = document.getElementById('wallet-deduct-preview');
+    if (!reasonEl || !previewEl) return;
+
+    if (reasonEl.value !== 'CUSTOMER_DEBT') {
+        previewEl.classList.add('hidden');
+        return;
+    }
+
+    previewEl.classList.remove('hidden');
+    const codReduce = parseInt(document.getElementById('cod-reduce-amount').value) || 0;
+    const walletBalance = Number(currentCustomer?.walletBalance) || 0;
+    const remaining = walletBalance - codReduce;
+
+    document.getElementById('wallet-current-display').textContent = formatCurrency(walletBalance);
+    document.getElementById('wallet-deduct-display').textContent = formatCurrency(codReduce);
+    document.getElementById('wallet-remaining-display').textContent = formatCurrency(
+        Math.max(0, remaining)
+    );
+
+    const errorEl = document.getElementById('wallet-error-display');
+    if (codReduce > 0 && walletBalance < codReduce) {
+        errorEl.textContent = `⚠️ Ví không đủ (thiếu ${formatCurrency(codReduce - walletBalance)})`;
+    } else {
+        errorEl.textContent = '';
+    }
+}
 
 // Handle FIX_COD reason change
 window.onFixCodReasonChange = function () {
@@ -1034,6 +1069,8 @@ window.onFixCodReasonChange = function () {
         const checkboxes = document.querySelectorAll('#product-checklist input[type="checkbox"]');
         checkboxes.forEach((cb) => (cb.checked = true));
     }
+
+    updateWalletDeductPreview();
 };
 
 // Handle BOOM reason change
@@ -1472,6 +1509,23 @@ async function handleSubmitTicket() {
             status = 'PENDING_FINANCE';
             selectedProducts = []; // Không có sản phẩm
         }
+
+        // VALIDATION cho CUSTOMER_DEBT: ví khách phải >= COD giảm
+        if (fixCodReason === 'CUSTOMER_DEBT') {
+            if (codReduce <= 0) {
+                return alert('Vui lòng nhập số COD giảm (lớn hơn 0).');
+            }
+            const walletBalance = Number(currentCustomer?.walletBalance) || 0;
+            if (walletBalance < codReduce) {
+                return alert(
+                    `Số dư ví không đủ để trừ COD giảm.\n\n` +
+                        `• Số dư ví: ${formatCurrency(walletBalance)}\n` +
+                        `• COD giảm: ${formatCurrency(codReduce)}\n` +
+                        `• Thiếu: ${formatCurrency(codReduce - walletBalance)}\n\n` +
+                        `Vui lòng nạp thêm vào ví khách hoặc chọn lý do khác.`
+                );
+            }
+        }
     } else if (type === 'BOOM') {
         // BOOM: COD giảm = toàn bộ COD (khách không nhận gì)
         money = selectedOrder?.cod || 0;
@@ -1629,7 +1683,42 @@ async function handleSubmitTicket() {
             console.warn('[AuditLog] ticket_create log failed:', e);
         }
 
-        await ApiService.createTicket(ticketData);
+        const createdTicket = await ApiService.createTicket(ticketData);
+
+        // =====================================================
+        // FIX_COD + CUSTOMER_DEBT: Trừ COD giảm vào ví khách
+        // Khách "ứng" COD giảm từ ví → shop chuyển 0đ tới ĐVVC
+        // Validation wallet >= codReduce đã chạy ở trên, gọi withdraw để
+        // ghi giao dịch (FIFO virtual credit trước, rồi real balance)
+        // =====================================================
+        if (type === 'FIX_COD' && fixCodReason === 'CUSTOMER_DEBT' && money > 0) {
+            try {
+                const withdrawNote =
+                    `Trừ công nợ khách qua Sửa COD - Ticket ${createdTicket.ticketCode || createdTicket.firebaseId}` +
+                    (tposOrderId ? ` - Đơn ${tposOrderId}` : '');
+                const result = await ApiService.walletWithdraw(
+                    customerPhone,
+                    money,
+                    tposOrderId || createdTicket.ticketCode,
+                    withdrawNote,
+                    window.authManager?.getUserInfo()?.username || 'issue_tracking'
+                );
+                console.log('[APP] Wallet withdraw success:', result);
+                notificationManager.success(
+                    `Đã trừ ${formatCurrency(money)} từ ví khách ${customerPhone}`,
+                    3000,
+                    'Ví đã cập nhật'
+                );
+            } catch (walletErr) {
+                console.error('[APP] Wallet withdraw failed for CUSTOMER_DEBT:', walletErr);
+                notificationManager.warning(
+                    `Tạo phiếu thành công nhưng trừ ví thất bại: ${walletErr.message}. ` +
+                        `Vui lòng trừ ví thủ công qua Customer 360.`,
+                    8000,
+                    'Cần xử lý ví thủ công'
+                );
+            }
+        }
 
         // =====================================================
         // RETURN_SHIPPER: KHÔNG tự động cấp virtual_credit khi tạo ticket

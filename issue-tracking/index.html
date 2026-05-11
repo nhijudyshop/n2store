@@ -303,6 +303,15 @@
                             <p class="calc-hint" style="margin:0;">Phải trả ĐVVC: <strong id="cod-diff-display"
                                     style="color:#ef4444;">0đ</strong></p>
                         </div>
+                        <!-- Wallet deduction preview (only for CUSTOMER_DEBT reason) -->
+                        <div id="wallet-deduct-preview" class="hidden" style="margin-top:10px;padding:10px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;font-size:13px;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                                <div>Số dư ví hiện tại: <strong id="wallet-current-display" style="color:#0f172a;">0đ</strong></div>
+                                <div>Trừ vào ví: <strong id="wallet-deduct-display" style="color:#ef4444;">0đ</strong></div>
+                                <div>Ví còn lại: <strong id="wallet-remaining-display" style="color:#10b981;">0đ</strong></div>
+                                <div id="wallet-error-display" style="color:#dc2626;font-weight:600;"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- RETURN Details -->
