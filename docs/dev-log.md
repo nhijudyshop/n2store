@@ -35,6 +35,27 @@
 
 **Status**: ✅ Done
 
+### [issue-tracking] custom confirm dialog cho FIX_COD + CUSTOMER_DEBT
+
+**Yêu cầu owner**: thêm custom confirm xác nhận khi Sửa COD (Shipper gọi) + "Trừ công nợ khách" — đây là thao tác trừ ví thật, không tự động hoàn nếu user lỡ tay.
+
+**Implementation** ([issue-tracking/js/script.js:1652-1680](../issue-tracking/js/script.js#L1652-L1680)):
+
+- Dùng `notificationManager.confirm(htmlMessage, title)` ([shared/js/notification-system.js:306](../shared/js/notification-system.js#L306)) — đã có sẵn, render modal Promise-based, hỗ trợ HTML trong body, Enter=OK, Esc/click overlay=Cancel.
+- Title: `⚠️ Xác nhận trừ ví khách`.
+- Body (HTML): Khách + Đơn + COD ban đầu + COD giảm (đỏ) + COD còn phải thu + Số dư ví hiện tại + Số dư ví sau khi trừ (xanh).
+- Confirm đặt **sau khi tạo ticketData** nhưng **trước khi `isSubmitting=true` + disable nút submit** → user bấm Hủy không bị stuck disable button.
+
+**Browser test (3 paths)**:
+
+- **Cancel path**: mock `notificationManager.confirm` → return false → `handleSubmitTicket` không tạo ticket, không trừ ví (100k → 100k unchanged). ✓
+- **OK path**: mock confirm → return true → ticket tạo OK, ví 100k → 60k (-40k đúng). ✓
+- **Visual path**: gọi handleSubmitTicket thật → dialog hiện với title đúng, body chứa đủ 40k/100k/60k/205k, click Cancel → dialog đóng. ✓
+
+**Files**: [issue-tracking/js/script.js:1652-1680](../issue-tracking/js/script.js#L1652-L1680).
+
+**Status**: ✅ Done
+
 ---
 
 ### [chat] cross-page conv lookup — priority chain FB-ID → phone → name picker

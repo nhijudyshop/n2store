@@ -1649,6 +1649,33 @@ async function handleSubmitTicket() {
         returnFromTposId: isReturnOldOrder ? selectedOldOrder?.id : null,
     };
 
+    // Custom confirm cho FIX_COD + CUSTOMER_DEBT (trừ ví thật → bất khả hồi nếu user
+    // lỡ tay). Block trước khi vào try/createTicket để KHÔNG disable nút submit nếu
+    // user bấm Hủy.
+    if (type === 'FIX_COD' && fixCodReason === 'CUSTOMER_DEBT') {
+        const codReduceAmount = Number(money) || 0;
+        const walletBalance = Number(currentCustomer?.walletBalance) || 0;
+        const walletAfter = Math.max(0, walletBalance - codReduceAmount);
+        const codAfter = (Number(selectedOrder?.cod) || 0) - codReduceAmount;
+        const confirmMsg =
+            `<div style="text-align:left;line-height:1.7;">` +
+            `<div style="margin-bottom:10px;">Phiếu này sẽ <b style="color:#dc2626;">trừ trực tiếp ${formatCurrency(codReduceAmount)}</b> từ ví khách (không thể tự hoàn lại).</div>` +
+            `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px;border-radius:4px;font-size:13px;">` +
+            `<div><b>Khách:</b> ${customerName || customerPhone}</div>` +
+            (tposOrderId ? `<div><b>Đơn:</b> ${tposOrderId}</div>` : '') +
+            `<div><b>COD ban đầu:</b> ${formatCurrency(Number(selectedOrder?.cod) || 0)}</div>` +
+            `<div><b>COD giảm (trừ vào ví):</b> <span style="color:#dc2626;font-weight:600;">${formatCurrency(codReduceAmount)}</span></div>` +
+            `<div><b>COD còn phải thu:</b> ${formatCurrency(Math.max(0, codAfter))}</div>` +
+            `<hr style="margin:8px 0;border:none;border-top:1px dashed #d97706;">` +
+            `<div><b>Số dư ví hiện tại:</b> ${formatCurrency(walletBalance)}</div>` +
+            `<div><b>Số dư ví sau khi trừ:</b> <span style="color:#10b981;font-weight:600;">${formatCurrency(walletAfter)}</span></div>` +
+            `</div>` +
+            `<div style="margin-top:10px;font-size:12px;color:#475569;">Bấm <b>Đồng ý</b> để xác nhận trừ ví và tạo phiếu.</div>` +
+            `</div>`;
+        const ok = await notificationManager.confirm(confirmMsg, '⚠️ Xác nhận trừ ví khách');
+        if (!ok) return; // user bấm Hủy → không tạo phiếu, không disable submit
+    }
+
     isSubmitting = true;
     const btnSubmit = document.getElementById('btn-submit-ticket');
     btnSubmit.disabled = true;
