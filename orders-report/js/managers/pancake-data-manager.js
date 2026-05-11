@@ -367,6 +367,48 @@ class PancakeDataManager {
         }
     }
 
+    /**
+     * Direct FB-ID conversation lookup — returns the FULL conv object if it
+     * exists on the target page, null otherwise.
+     *
+     * Pancake (live recon 2026-05-11):
+     *   GET /api/v1/pages/{pageId}/conversations/{pageId}_{fbId}
+     *   → Hit  : full conv object (id, type, customers[], from, ...)
+     *   → Miss : { existed: false, success: false, message: "Hội thoại này không tồn tại" }
+     *
+     * This is THE most reliable lookup: no fuzzy name match, no phone
+     * ambiguity. Use when we know the customer's target-page fb_id (e.g.
+     * from our DB `customers.pancake_data.page_fb_ids[pageId]`).
+     *
+     * @param {string} pageId
+     * @param {string} fbId   page-scoped customer fb_id (NOT global_id, NOT
+     *                        a psid from a different page).
+     * @returns {Promise<object|null>}
+     */
+    async fetchConversationDirect(pageId, fbId) {
+        if (!pageId || !fbId) return null;
+        if (String(pageId).startsWith('igo_')) return null; // Instagram unsupported
+        try {
+            const token = await this.tm?.getToken();
+            if (!token) return null;
+            const convId = `${pageId}_${fbId}`;
+            const url = PancakeApiConfig.buildUrl.pancake(
+                `pages/${pageId}/conversations/${encodeURIComponent(convId)}`,
+                `access_token=${token}`
+            );
+            const _fetch = window.fetchWithTimeout || fetch;
+            const res = await _fetch(url, { headers: this._v1Headers }, 8000);
+            if (!res.ok) return null;
+            const data = await res.json().catch(() => null);
+            // Miss shape is { existed:false, success:false, message:"..." }.
+            if (!data || data.existed === false || data.success === false) return null;
+            return data;
+        } catch (e) {
+            console.warn('[PDM] fetchConversationDirect failed:', e?.message);
+            return null;
+        }
+    }
+
     // --- Fetch Conversations by customer fb_id (page-scoped) ---
     // Uses Pancake API v1: GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
     // NOTE: fbId here is page-scoped (= PSID for INBOX). Different on each page.

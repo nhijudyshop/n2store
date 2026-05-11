@@ -368,6 +368,171 @@ function _wireSetPhoneEmptyState(targetPageId) {
 }
 
 /**
+ * Render a picker empty-state for ambiguous name-search results.
+ *
+ * Triggered when name search returns multiple DISTINCT fb_id groups on the
+ * target page (homonyms) and NONE of them has a confirmed phone match. The
+ * existing flow would "best-effort accept" and silently load whichever conv
+ * sorts first — which can be the wrong person. Showing a picker lets the
+ * user pick the right candidate manually.
+ *
+ * Each card surfaces: avatar, FB name, recent_phone_numbers (if any), and
+ * the conv snippet so the user can recognize the right human.
+ *
+ * @param {Array} candidates - Conv objects (one per fb_id group).
+ * @param {string} pageName  - Pre-escaped page name for heading.
+ * @returns {string} HTML markup
+ */
+function _renderConvPickerEmptyState(candidates, pageName) {
+    const customerName = window.currentCustomerName || 'khách hàng';
+    const safeCustomerName = String(customerName).replace(
+        /[<>&"]/g,
+        (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]
+    );
+
+    const _esc = (s) =>
+        String(s || '').replace(
+            /[<>&"]/g,
+            (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]
+        );
+
+    // Group candidates by fb_id so each picker row = one human (not one conv).
+    // Same fb_id with multiple convs (INBOX+COMMENT) is the same person.
+    const byFbId = new Map();
+    for (const c of candidates) {
+        const fid = String(c.from_psid || c.from?.id || c.id);
+        if (!byFbId.has(fid)) byFbId.set(fid, []);
+        byFbId.get(fid).push(c);
+    }
+
+    const cards = [];
+    for (const [fid, convs] of byFbId) {
+        const c = convs[0]; // representative conv for display
+        const name = c.from?.name || c.customer?.name || '(không tên)';
+        const phones = Array.isArray(c.recent_phone_numbers)
+            ? c.recent_phone_numbers.map((p) => p.phone_number).filter(Boolean)
+            : [];
+        const phoneText = phones.length ? phones.join(', ') : '(chưa có SĐT trên Pancake)';
+        const snippet = (c.snippet || '').toString().slice(0, 90);
+        const avatarUrl =
+            c.avatar ||
+            c.from?.picture?.data?.url ||
+            c.from?.profile_pic ||
+            `https://graph.facebook.com/${fid}/picture?type=small`;
+        const initial = name
+            .charAt(0)
+            .toUpperCase()
+            .replace(/[<>&"']/g, '');
+        const types = convs
+            .map((cc) => cc.type)
+            .filter((t, i, a) => a.indexOf(t) === i)
+            .join(' + ');
+
+        cards.push(`
+            <button type="button" class="chat-picker-card" data-fbid="${_esc(fid)}"
+                style="display:flex; gap:12px; align-items:flex-start; width:100%; text-align:left;
+                       padding:10px 12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+                       cursor:pointer; transition:border-color .15s, transform .1s;
+                       font-family:inherit;"
+                onmouseover="this.style.borderColor='#3b82f6';this.style.transform='translateY(-1px)';"
+                onmouseout="this.style.borderColor='#e2e8f0';this.style.transform='translateY(0)';">
+                <img src="${_esc(avatarUrl)}" alt=""
+                    style="width:40px; height:40px; border-radius:50%; object-fit:cover; flex:0 0 40px; background:#e2e8f0;"
+                    onerror="this.style.display='none';this.parentElement.querySelector('.chat-picker-initial').style.display='flex';">
+                <span class="chat-picker-initial" style="display:none; width:40px; height:40px; border-radius:50%; background:#cbd5e1; color:#fff; align-items:center; justify-content:center; flex:0 0 40px; font-weight:600;">${_esc(initial)}</span>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; color:#0f172a; font-size:13px; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${_esc(name)}</div>
+                    <div style="font-size:11px; color:#64748b; margin-bottom:3px;">
+                        <i class="fas fa-phone" style="font-size:10px;"></i> ${_esc(phoneText)}
+                        <span style="margin-left:8px; padding:1px 6px; background:#eff6ff; color:#2563eb; border-radius:4px; font-weight:600;">${_esc(types)}</span>
+                    </div>
+                    ${snippet ? `<div style="font-size:11px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${_esc(snippet)}</div>` : ''}
+                </div>
+            </button>
+        `);
+    }
+
+    return `
+        <div class="chat-empty-state" style="text-align:left; padding:18px; color:#475569;">
+            <div style="text-align:center; margin-bottom:14px;">
+                <i class="fas fa-users" style="font-size:28px; color:#cbd5e1; display:block; margin-bottom:8px;"></i>
+                <b style="font-size:13px; color:#0f172a;">Có nhiều người tên "${safeCustomerName}" trên ${pageName}</b>
+                <div style="font-size:11px; color:#94a3b8; margin-top:4px;">
+                    Không xác định được khách qua SĐT. Chọn đúng đoạn hội thoại bên dưới:
+                </div>
+            </div>
+            <div id="chatPickerList" style="display:flex; flex-direction:column; gap:8px; max-width:480px; margin:0 auto;">
+                ${cards.join('')}
+            </div>
+        </div>`;
+}
+
+/**
+ * Wire click handlers on conv-picker cards. When user picks a candidate,
+ * resolve it as the active conv and load its messages directly.
+ *
+ * @param {string} pageId  - Target page ID (for _loadMessages).
+ * @param {Map<string, Array>} byFbIdMap - fb_id → conv[] (same grouping used in render).
+ * @param {number} loadToken - Stale-guard token from the parent _doFindAndLoadConversation.
+ * @param {string} type - 'INBOX' | 'COMMENT' — pick the matching type from the chosen fb_id group.
+ */
+function _wireConvPickerEmptyState(pageId, byFbIdMap, loadToken, type) {
+    const list = document.getElementById('chatPickerList');
+    if (!list) return;
+    list.querySelectorAll('.chat-picker-card').forEach((card) => {
+        card.addEventListener('click', async () => {
+            const fbId = card.getAttribute('data-fbid');
+            const convs = byFbIdMap.get(fbId);
+            if (!convs || convs.length === 0) return;
+            // Prefer the conv matching the requested type, fall back to first.
+            const conv = convs.find((c) => c.type === type) || convs[0];
+            if (!conv) return;
+
+            // Stale-guard: if user already moved on, skip the load.
+            if (loadToken !== window._chatLoadSeq) return;
+
+            window.currentConversationId = conv.id;
+            window.currentConversationData = conv;
+
+            // Sync page-scoped PSID to the picked fb_id (page-scoped fb_id IS the PSID).
+            const convPSID = conv.from_psid || conv.from?.id || fbId;
+            if (convPSID) window.currentChatPSID = String(convPSID);
+
+            // Drift the current page if needed — picker results are already on the
+            // target page so this is usually a no-op, but keep consistent with the
+            // post-conv-resolve block in _doFindAndLoadConversation.
+            const convPageId = conv.page_id || pageId;
+            window.currentChatChannelId = convPageId;
+            window.currentSendPageId = convPageId;
+
+            if (window._refreshChatHeaderAvatar) window._refreshChatHeaderAvatar();
+
+            // Cache for repick button
+            if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
+            window._pageConvPickerCache.set(convPageId, { convs, loadToken });
+
+            const messagesEl = document.getElementById('chatMessages');
+            if (messagesEl) {
+                messagesEl.innerHTML =
+                    '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải tin nhắn…</p></div>';
+            }
+
+            const customerId =
+                conv.customers?.[0]?.id ||
+                conv.customerId ||
+                conv.customer?.id ||
+                conv.from?.id ||
+                null;
+            try {
+                await _loadMessages(convPageId, conv.id, customerId, loadToken, {});
+            } catch (e) {
+                console.warn('[Chat-Core] picker: _loadMessages failed:', e?.message);
+            }
+        });
+    });
+}
+
+/**
  * Refresh customer avatar in chat header. Called on:
  *   • initial chat modal open (after currentConversationData first set)
  *   • after _doFindAndLoadConversation resolves a conv (cross-page or type switch)
@@ -880,6 +1045,11 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
 
+    // Reset picker carry-over from a previous lookup. The name-search block
+    // below sets this only when it detects homonym ambiguity; clearing here
+    // ensures we don't render a stale picker if this lookup resolves cleanly.
+    window._chatPickerCandidates = null;
+
     // If caller didn't supply a token, allocate one so we still guard
     if (loadToken == null) loadToken = ++window._chatLoadSeq;
     const _isStale = () => loadToken !== window._chatLoadSeq;
@@ -893,6 +1063,52 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     const cached = window._pageConvCache.get(cacheKey);
     if (cached) {
         conv = cached;
+    }
+
+    // PRIORITY 1: direct FB-ID lookup on Pancake.
+    // After live recon (2026-05-11) we confirmed Pancake supports
+    //   GET /api/v1/pages/{pageId}/conversations/{pageId}_{fbId}
+    // → returns full conv object if exists, `{existed:false}` otherwise.
+    // This is the most reliable lookup: no fuzzy name match, no phone-mismatch
+    // ambiguity. Use the customer's target-page fb_id from our DB
+    // (`pancake_data.page_fb_ids[pageId]`) when available — that's exactly
+    // what set-phone flow persists for cross-page resolution.
+    if (!conv && !allowDrift && pdm.fetchConversationDirect) {
+        const phone = (window.currentChatPhone || '').toString().replace(/\D/g, '');
+        if (phone) {
+            try {
+                const renderUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const r = await fetch(
+                    `${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(phone)}`,
+                    { signal: opts?.signal }
+                );
+                if (r.ok) {
+                    const data = await r.json().catch(() => null);
+                    const targetFbId = data?.pancake_data?.page_fb_ids?.[pageId];
+                    if (targetFbId) {
+                        try {
+                            const direct = await pdm.fetchConversationDirect(pageId, targetFbId);
+                            if (
+                                direct &&
+                                direct.id &&
+                                direct.existed !== false &&
+                                direct.success !== false
+                            ) {
+                                conv = direct;
+                                console.log(
+                                    `[Chat-Core] ✓ Direct FB-ID lookup hit: ${pageId}_${targetFbId}`
+                                );
+                            }
+                        } catch (_e) {
+                            /* fall through */
+                        }
+                    }
+                }
+            } catch (_e) {
+                /* fall through to phone search */
+            }
+        }
+        if (_isStale()) return;
     }
 
     // ─── PRIMARY (2026-04-26 v4): Phone-as-query Pancake search on target page ───
@@ -1181,10 +1397,13 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     }
 
                     const verified = [];
-                    for (const [, group] of byFbId) {
+                    const uncertainGroups = []; // groups with no phone evidence
+                    let hasAnyConfirmedMatch = false;
+                    for (const [fid, group] of byFbId) {
                         const hasMatch = group.some((g) => g.check === true);
                         const hasMismatch = group.some((g) => g.check === false);
                         if (hasMatch) {
+                            hasAnyConfirmedMatch = true;
                             // Confirmed correct customer — accept all convs in group.
                             for (const g of group) verified.push(g.conv);
                         } else if (hasMismatch) {
@@ -1194,9 +1413,23 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                         } else {
                             // No phone evidence either way → best-effort accept.
                             for (const g of group) verified.push(g.conv);
+                            uncertainGroups.push({ fid, convs: group.map((g) => g.conv) });
                         }
                     }
-                    foundConvs = verified;
+
+                    // Ambiguity detection: when NONE of the verified groups had a
+                    // confirmed phone match AND we have multiple distinct fb_id
+                    // groups left after filtering → we can't tell which person is
+                    // the right one. Surface a picker UI instead of auto-loading
+                    // whichever sorts first (user-requested 2026-05-11: "fall
+                    // back tên — có danh sách cho chọn vì tên có thể trùng").
+                    if (!hasAnyConfirmedMatch && uncertainGroups.length > 1) {
+                        window._chatPickerCandidates = verified;
+                        foundConvs = []; // force empty → triggers picker render below
+                    } else {
+                        window._chatPickerCandidates = null;
+                        foundConvs = verified;
+                    }
                 } else {
                     // No phone — best-effort name match only
                     foundConvs = onTargetPage;
@@ -1313,10 +1546,33 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             const showPhoneSetter = !allowDrift; // only on explicit page-switch empty state
             const safePageName = _escapeHtml ? _escapeHtml(pageName) : String(pageName);
             const persisted = window._chatPhonePersistedForPage === pageId;
-            messagesEl.innerHTML = showPhoneSetter
-                ? _renderSetPhoneEmptyState(safePageName, { persisted })
-                : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
-            if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
+
+            // Priority: picker > phone-setter > generic empty.
+            // Picker wins when name search returned multiple ambiguous fb_id
+            // groups (homonyms). User must manually pick the right human since
+            // we can't disambiguate by phone.
+            const pickerCandidates = window._chatPickerCandidates;
+            const showPicker = Array.isArray(pickerCandidates) && pickerCandidates.length > 1;
+
+            if (showPicker) {
+                messagesEl.innerHTML = _renderConvPickerEmptyState(pickerCandidates, safePageName);
+                // Re-group the candidates the same way the renderer does so click
+                // wiring resolves the right conv from the chosen fb_id.
+                const byFbIdMap = new Map();
+                for (const c of pickerCandidates) {
+                    const fid = String(c.from_psid || c.from?.id || c.id);
+                    if (!byFbIdMap.has(fid)) byFbIdMap.set(fid, []);
+                    byFbIdMap.get(fid).push(c);
+                }
+                _wireConvPickerEmptyState(pageId, byFbIdMap, loadToken, type);
+                // One-shot: clear so a subsequent unrelated lookup doesn't reuse it.
+                window._chatPickerCandidates = null;
+            } else {
+                messagesEl.innerHTML = showPhoneSetter
+                    ? _renderSetPhoneEmptyState(safePageName, { persisted })
+                    : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
+                if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
+            }
         }
         return;
     }

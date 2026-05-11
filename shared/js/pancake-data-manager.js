@@ -475,6 +475,47 @@ class PancakeDataManager {
      * @param {string} fbId - Facebook AS User ID (Facebook_ASUserId)
      * @returns {Promise<Object>} { conversations: Array, customerUuid: string|null, success: boolean }
      */
+    /**
+     * Direct FB-ID conversation lookup — returns the FULL conv object if exists.
+     *
+     * Pancake (recon 2026-05-11): GET /api/v1/pages/{pageId}/conversations/{pageId}_{fbId}
+     * - Hit  : returns the conv object directly (id, type, customers[], from, etc.)
+     * - Miss : returns { existed: false, success: false, message: "Hội thoại này không tồn tại" }
+     *
+     * This is THE most reliable lookup — no fuzzy name match, no phone ambiguity.
+     * Use when you know the customer's target-page fb_id (e.g. from
+     * customer.pancake_data.page_fb_ids[pageId] in our DB).
+     *
+     * @param {string} pageId
+     * @param {string} fbId  - Page-scoped customer fb_id (the customer's fb_id
+     *                         on THIS page, not the global_id and not a psid
+     *                         from another page).
+     * @returns {Promise<object|null>}  Conv object on hit, null on miss/error.
+     */
+    async fetchConversationDirect(pageId, fbId) {
+        if (!pageId || !fbId) return null;
+        if (String(pageId).startsWith('igo_')) return null; // Instagram unsupported
+        try {
+            const token = await this.getToken();
+            if (!token) return null;
+            const convId = `${pageId}_${fbId}`;
+            // Page-scoped endpoint: /api/v1/pages/{pid}/conversations/{convId}
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/conversations/${encodeURIComponent(convId)}`,
+                `access_token=${token}`
+            );
+            const r = await fetch(url, { method: 'GET' });
+            if (!r.ok) return null;
+            const data = await r.json().catch(() => null);
+            // existed: false → miss; otherwise the response IS the conv object.
+            if (!data || data.existed === false || data.success === false) return null;
+            return data;
+        } catch (e) {
+            console.warn('[PANCAKE] fetchConversationDirect failed:', e?.message);
+            return null;
+        }
+    }
+
     async fetchConversationsByCustomerFbId(pageId, fbId) {
         try {
             if (!pageId || !fbId) {
