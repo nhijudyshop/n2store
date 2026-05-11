@@ -77,6 +77,48 @@
     vertical-align: middle;
 }
 
+/* "Chỉ hiện đơn đã đối soát" toggle */
+.dr-filter-row-checkbox {
+    display: flex;
+    align-items: center;
+}
+.dr-only-scanned-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease;
+}
+.dr-only-scanned-label:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+}
+.dr-only-scanned-label input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    accent-color: #059669;
+    cursor: pointer;
+}
+.dr-only-scanned-label:has(input:checked) {
+    background: #059669;
+    border-color: #047857;
+    color: #ffffff;
+}
+.dr-only-scanned-count {
+    font-size: 12px;
+    opacity: 0.8;
+    font-weight: 500;
+}
+
 /* Container */
 .delivery-report-container {
     padding: 20px;
