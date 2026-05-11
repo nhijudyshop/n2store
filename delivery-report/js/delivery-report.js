@@ -44,9 +44,6 @@
             keyword: '',
         },
 
-        // Toggle "Chỉ hiện đơn đã đối soát" — client-side filter, persist localStorage
-        onlyScanned: false,
-
         // Header filter: Công nợ < Tổng tiền (toggle khi click cột Công nợ)
         filter: {
             debtLessThanTotal: false,
@@ -387,30 +384,6 @@
                 }
             });
         }
-
-        // Toggle "Chỉ hiện đơn đã đối soát" — client-side filter (không refetch),
-        // chỉ re-render table+stats+pagination với data đã có.
-        const onlyScannedCb = document.getElementById('drOnlyScanned');
-        if (onlyScannedCb) {
-            onlyScannedCb.addEventListener('change', () => {
-                DeliveryReportState.onlyScanned = onlyScannedCb.checked;
-                DeliveryReportState.currentPage = 1;
-                saveFiltersToStorage();
-                renderTable();
-                renderStats();
-                renderPagination();
-                updateOnlyScannedCount();
-            });
-        }
-    }
-
-    function updateOnlyScannedCount() {
-        const el = document.getElementById('drOnlyScannedCount');
-        if (!el) return;
-        const state = DeliveryReportState;
-        const all = state.allData || [];
-        const scanned = all.filter((i) => state.scannedNumbers.has(i.Number)).length;
-        el.textContent = all.length ? `(${scanned}/${all.length})` : '';
     }
 
     function collectFilters() {
@@ -443,7 +416,6 @@
     function saveFiltersToStorage() {
         try {
             localStorage.setItem('dr_filters', JSON.stringify(DeliveryReportState.filters));
-            localStorage.setItem('dr_only_scanned', DeliveryReportState.onlyScanned ? '1' : '0');
         } catch (e) {
             /* ignore quota errors */
         }
@@ -460,10 +432,6 @@
                     document.getElementById('drFilterKeyword').value = f.keyword;
                 }
             }
-            const onlyScanned = localStorage.getItem('dr_only_scanned') === '1';
-            DeliveryReportState.onlyScanned = onlyScanned;
-            const cb = document.getElementById('drOnlyScanned');
-            if (cb) cb.checked = onlyScanned;
         } catch (e) {
             /* ignore */
         }
@@ -634,7 +602,6 @@
             renderTable();
             renderStats();
             renderPagination();
-            updateOnlyScannedCount();
             if (DeliveryReportState.traSoatMode) {
                 updateScanCount();
             }
@@ -786,15 +753,12 @@
             return data;
         }
 
-        // Normal mode
-        let data = state.allData || [];
-        if (state.onlyScanned) {
-            data = data.filter((item) => state.scannedNumbers.has(item.Number));
-        }
+        // Normal mode: phone filter nếu keyword là SĐT
+        const all = state.allData || [];
         if (phoneFilter) {
-            data = data.filter((item) => matchesPhoneFilter(item, kw));
+            return all.filter((item) => matchesPhoneFilter(item, kw));
         }
-        return data;
+        return all;
     }
 
     // =====================================================
@@ -1481,8 +1445,7 @@
             if (tableWrapper) tableWrapper.style.display = '';
 
             stopSyncPolling();
-            // Giữ scannedNumbers để toggle "Chỉ hiện đơn đã đối soát" hoạt động đúng
-            // sau khi thoát tra soát mode (set rỗng trước đây làm filter luôn ra 0).
+            state.scannedNumbers = new Set();
             state.activeTab = 'all';
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
@@ -1491,7 +1454,6 @@
             renderTable();
             renderStats();
             renderPagination();
-            updateOnlyScannedCount();
         }
     }
 
