@@ -1692,25 +1692,64 @@ class PurchaseOrderController {
             btn.textContent = 'Xuất Excel';
         });
 
-        // Submit to TPOS
-        overlay.querySelector('#btnSubmitTPOS').addEventListener('click', async () => {
+        // Submit to TPOS — physically impossible to click twice:
+        //   1. {once:true} listener: auto-remove sau lần fire đầu tiên
+        //   2. Synchronous hasFired guard: chặn queued click cùng tick
+        //   3. Replace button HTML → còn lại là span text, không phải button
+        //   4. Modal overlay pointer-events:none → block click thông qua form
+        let hasFired = false;
+        const submitHandler = async () => {
+            if (hasFired) return; // synchronous re-entry guard
+            hasFired = true;
+
             console.log('[PO Preview] btnSubmitTPOS clicked');
             const btn = overlay.querySelector('#btnSubmitTPOS');
             // Sticky lock prevents updateButtonStates from re-enabling the button
             // mid-flight (root cause of duplicate FastPurchaseOrder POSTs in 5/2026).
             tposSubmitLocked = true;
-            btn.disabled = true;
-            btn.textContent = 'Đang tạo...';
-            btn.style.opacity = '0.6';
-            btn.style.cursor = 'not-allowed';
+            // Replace button bằng span text — không còn DOM button để click
+            const wrapper = document.createElement('span');
+            wrapper.id = 'btnSubmitTPOS-inflight';
+            wrapper.style.cssText =
+                'display:inline-block;padding:8px 20px;border-radius:4px;background:#9ca3af;color:white;font-size:14px;font-weight:600;cursor:not-allowed;user-select:none;';
+            wrapper.textContent = '⏳ Đang tạo TPOS...';
+            btn.replaceWith(wrapper);
+            // Block all clicks trong modal (trừ nút Hủy/Close để user thoát được)
+            const modalContent = overlay.querySelector('div'); // first div = modal content
+            if (modalContent) {
+                modalContent.querySelectorAll('input, button, select, textarea').forEach((el) => {
+                    if (el.id !== 'btnCancelPO') {
+                        el.disabled = true;
+                        el.style.pointerEvents = 'none';
+                    }
+                });
+            }
 
             const resetBtn = () => {
-                // Only allow retry on real failure — release lock + re-enable
+                // Only allow retry on real failure — release lock + restore button.
                 tposSubmitLocked = false;
-                btn.disabled = false;
-                btn.textContent = 'Tạo đơn TPOS';
-                btn.style.opacity = '';
-                btn.style.cursor = 'pointer';
+                hasFired = false;
+                const inflight = overlay.querySelector('#btnSubmitTPOS-inflight');
+                if (inflight) {
+                    const restored = document.createElement('button');
+                    restored.type = 'button';
+                    restored.id = 'btnSubmitTPOS';
+                    restored.style.cssText =
+                        'padding: 8px 20px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer; font-size: 14px; font-weight: 600;';
+                    restored.textContent = 'Tạo đơn TPOS';
+                    restored.addEventListener('click', submitHandler, { once: true });
+                    inflight.replaceWith(restored);
+                }
+                // Re-enable form inputs
+                const modalContent2 = overlay.querySelector('div');
+                if (modalContent2) {
+                    modalContent2
+                        .querySelectorAll('input, button, select, textarea')
+                        .forEach((el) => {
+                            el.disabled = false;
+                            el.style.pointerEvents = '';
+                        });
+                }
             };
 
             try {
@@ -2007,7 +2046,10 @@ class PurchaseOrderController {
                 this.ui.showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
                 resetBtn();
             }
-        });
+        };
+        overlay
+            .querySelector('#btnSubmitTPOS')
+            .addEventListener('click', submitHandler, { once: true });
     }
 
     /**

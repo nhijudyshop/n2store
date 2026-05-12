@@ -8,6 +8,25 @@
 
 ## 2026-05-12
 
+### [orders] Hardening: chặn user click "Tạo đơn TPOS" 2 lần bằng nhiều lớp DOM
+
+**Trigger**: Sau commit 883ff0a2 (3-layer guard), vẫn chưa chứng minh nguyên nhân duplicate là double-click hay TPOS internal bug. Đề phòng trường hợp double-click, thêm 4 lớp DOM-level — không thể physical click 2 lần được.
+
+**4 lớp mới** ([purchase-orders/js/main.js](../purchase-orders/js/main.js)):
+
+1. **`{ once: true }` trên listener**: Auto-remove sau lần fire đầu — queued click thứ 2 không tìm được handler.
+2. **Synchronous `hasFired` guard**: Re-entry check ngay đầu hàm — chặn rapid click cùng tick.
+3. **Replace button → static span**: Ngay khi click, `btn.replaceWith(span)` — DOM button không còn để click.
+4. **Disable form trong modal**: Mọi input/button/select/textarea `disabled=true + pointerEvents:none` (trừ nút Hủy). Block click thông qua form fields.
+
+`resetBtn()` khi failure: re-add button + re-enable form để user retry.
+
+**Kết hợp với 3 guard cũ**: tổng 7 lớp defense — kể cả user click tốc độ 1000fps cũng không xuyên qua được.
+
+Status: ✅ Done.
+
+---
+
 ### [scripts][tpos] Cleanup 103 SP bị nhân đôi SL trên TPOS từ PO BILL/2026/1805
 
 **Trigger**: Sau khi merge fix code-side (commit 883ff0a2 — chống duplicate POST), cần clean up dữ liệu đã sai trên TPOS. 103 SP của PO 55687 đều có 2 stock move thừa qty=N → tồn kho TPOS gấp đôi.
