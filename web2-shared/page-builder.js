@@ -206,10 +206,7 @@
             const tb = root.querySelector('#w2pTbody');
             const colCount = (config.columns?.length || 0) + 5;
             if (!STATE.records.length) {
-                const isFiltered = !!(
-                    STATE.search ||
-                    (STATE.activeOnly !== null && STATE.activeOnly !== undefined)
-                );
+                const isFiltered = !!(STATE.search || STATE.activeOnly === true);
                 const emptyTitle = isFiltered ? 'Không có kết quả phù hợp' : 'Chưa có dữ liệu';
                 const emptyHint = isFiltered
                     ? 'Xoá lọc hoặc thử từ khoá khác.'
