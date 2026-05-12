@@ -1035,8 +1035,29 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
     // post_id: prefer direct conv field, then _raw, then messages post response
     const postId = conv.post_id || raw.post_id || conv._messagesData?.post?.id || '';
     const fromId = window.currentChatPSID || raw.from?.id || '';
-    const messageId = replyData?.id || convId;
     const type = window.currentReplyType || 'reply_comment';
+    // message_id is the FB comment_id that the action targets.
+    //   • reply_comment  → posts a public reply under that specific comment.
+    //   • private_replies → opens a DM referencing that comment (FB requires
+    //     a real comment_id; passing convId silently no-ops on Pancake's
+    //     side — owner repro 2026-05-12: "Nhắn riêng cho Hằng Phú gửi
+    //     nhưng Pancake không thấy".
+    // When user hasn't clicked a specific comment to reply to (no replyData),
+    // fall back to the LATEST customer comment in this conv (the user's
+    // intent is "reply to the most recent thing they said").
+    let messageId = replyData?.id;
+    if (!messageId) {
+        const msgs = Array.isArray(window.allChatMessages) ? window.allChatMessages : [];
+        const customerMsgs = msgs.filter(
+            (m) =>
+                m?.sender !== 'shop' &&
+                m?.id &&
+                !String(m.id).startsWith('opt_') &&
+                !String(m.id).startsWith('pr_')
+        );
+        const latest = customerMsgs[customerMsgs.length - 1];
+        messageId = latest?.id || convId;
+    }
 
     if (type === 'reply_comment') {
         // Chain: Pancake reply_comment → Extension SEND_COMMENT → Pancake private_replies → Extension SEND_PRIVATE_REPLY → Extension inbox
@@ -1124,6 +1145,30 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
         // private_replies mode
         // Pancake API often sends message successfully to Facebook but returns success:false
         // → Use pdm.sendMessage() directly, only throw on clear Facebook errors
+
+        // Sanity check: message_id must be a real comment_id, not convId.
+        // Facebook's private_replies endpoint silently no-ops when given a
+        // conv_id pretending to be a comment_id — message never appears on
+        // Pancake. The fallback at the top of this fn picks the latest
+        // customer comment; if even that failed, abort with a clear error.
+        if (messageId === convId) {
+            console.warn(
+                '[Chat-Msg] private_replies: no customer comment found to target; aborting'
+            );
+            throw new Error(
+                'Không có bình luận nào của khách để nhắn riêng. Vui lòng đợi khách bình luận hoặc dùng "Tin nhắn" thay vì "Nhắn riêng".'
+            );
+        }
+
+        console.log('[Chat-Msg] private_replies →', {
+            pageId,
+            convId,
+            postId,
+            message_id: messageId,
+            from_id: fromId,
+            textLen: text.length,
+        });
+
         const result = await pdm.sendMessage(
             pageId,
             convId,
