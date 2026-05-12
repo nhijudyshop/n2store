@@ -2044,7 +2044,6 @@ const KPICommission = {
                     2500
                 );
             }
-            forceRefresh = !!forceRefresh; // unused but keeps linter calm if needed
         } catch (e) {
             console.error('[KPI L1] Reconciliation failed:', e);
             if (window.notificationManager?.error) {
