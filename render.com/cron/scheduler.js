@@ -18,7 +18,9 @@ cron.schedule('0 * * * *', async () => {
     try {
         const result = await db.query('SELECT * FROM expire_virtual_credits()');
         const { expired_count, total_expired_amount } = result.rows[0];
-        console.log(`[CRON] ✅ Expired ${expired_count} credits, total: ${total_expired_amount} VND`);
+        console.log(
+            `[CRON] ✅ Expired ${expired_count} credits, total: ${total_expired_amount} VND`
+        );
     } catch (error) {
         console.error('[CRON] ❌ Error running expire_virtual_credits:', error);
     }
@@ -38,8 +40,10 @@ cron.schedule('0 */6 * * *', async () => {
             RETURNING ticket_code;
         `);
         if (result.rows.length > 0) {
-            const ticketCodes = result.rows.map(row => row.ticket_code).join(', ');
-            console.log(`[CRON] ✅ Updated priority to 'high' for tickets nearing carrier deadline: ${ticketCodes}`);
+            const ticketCodes = result.rows.map((row) => row.ticket_code).join(', ');
+            console.log(
+                `[CRON] ✅ Updated priority to 'high' for tickets nearing carrier deadline: ${ticketCodes}`
+            );
         } else {
             console.log('[CRON] No tickets found nearing carrier deadline.');
         }
@@ -74,7 +78,9 @@ cron.schedule('*/5 * * * *', async () => {
             return;
         }
 
-        console.log(`[CRON] Found ${unprocessedResult.rows.length} unprocessed transactions (catching up...)`);
+        console.log(
+            `[CRON] Found ${unprocessedResult.rows.length} unprocessed transactions (catching up...)`
+        );
 
         let processedCount = 0;
         let totalAmount = 0;
@@ -85,16 +91,24 @@ cron.schedule('*/5 * * * *', async () => {
                 let customerId = tx.customer_id;
                 if (!customerId) {
                     try {
-                        const customerResult = await ensureCustomerWithTPOS(db, tx.linked_customer_phone);
+                        const customerResult = await ensureCustomerWithTPOS(
+                            db,
+                            tx.linked_customer_phone
+                        );
                         customerId = customerResult.customerId;
-                        console.log(`[CRON] Created missing customer: ${tx.linked_customer_phone} -> ID ${customerId}`);
+                        console.log(
+                            `[CRON] Created missing customer: ${tx.linked_customer_phone} -> ID ${customerId}`
+                        );
 
                         await db.query(
                             'UPDATE balance_history SET customer_id = $1 WHERE id = $2',
                             [customerId, tx.id]
                         );
                     } catch (custErr) {
-                        console.error(`[CRON] Failed to create customer for ${tx.linked_customer_phone}:`, custErr.message);
+                        console.error(
+                            `[CRON] Failed to create customer for ${tx.linked_customer_phone}:`,
+                            custErr.message
+                        );
                     }
                 }
 
@@ -135,16 +149,22 @@ cron.schedule('*/5 * * * *', async () => {
 
                 processedCount++;
                 totalAmount += parseFloat(tx.transfer_amount);
-                console.log(`[CRON] ✅ Processed tx ${tx.id}: +${tx.transfer_amount} VND (wallet TX: ${walletResult.transactionId}${walletResult.skipped ? ' — duplicate sepay_id, wallet_processed flag set' : ''})`);
+                console.log(
+                    `[CRON] ✅ Processed tx ${tx.id}: +${tx.transfer_amount} VND (wallet TX: ${walletResult.transactionId}${walletResult.skipped ? ' — duplicate sepay_id, wallet_processed flag set' : ''})`
+                );
             } catch (txError) {
-                console.error(`[CRON] ❌ Error processing balance_history id=${tx.id}:`, txError.message);
+                console.error(
+                    `[CRON] ❌ Error processing balance_history id=${tx.id}:`,
+                    txError.message
+                );
             }
         }
 
         if (processedCount > 0) {
-            console.log(`[CRON] ✅ Backup processed ${processedCount} bank transactions, total: ${totalAmount} VND`);
+            console.log(
+                `[CRON] ✅ Backup processed ${processedCount} bank transactions, total: ${totalAmount} VND`
+            );
         }
-
     } catch (error) {
         console.error('[CRON] ❌ Error running process-bank-transactions:', error);
     }
@@ -161,8 +181,12 @@ cron.schedule('0 2 * * *', async () => {
             RETURNING id, phone, return_rate;
         `);
         if (result.rows.length > 0) {
-            const customerDetails = result.rows.map(row => `Phone: ${row.phone}, Return Rate: ${row.return_rate}%`).join('; ');
-            console.log(`[CRON] 🚨 Blacklisted customers due to high return rate: ${customerDetails}`);
+            const customerDetails = result.rows
+                .map((row) => `Phone: ${row.phone}, Return Rate: ${row.return_rate}%`)
+                .join('; ');
+            console.log(
+                `[CRON] 🚨 Blacklisted customers due to high return rate: ${customerDetails}`
+            );
         } else {
             console.log('[CRON] No customers found for blacklisting due to high return rate.');
         }
@@ -214,8 +238,10 @@ cron.schedule('0 9 * * *', async () => {
         `);
 
         if (result.rows.length > 0) {
-            const ticketCodes = result.rows.map(r => r.ticket_code).join(', ');
-            console.log(`[CRON] 🚨 Found ${result.rows.length} overdue RETURN_SHIPPER tickets: ${ticketCodes}`);
+            const ticketCodes = result.rows.map((r) => r.ticket_code).join(', ');
+            console.log(
+                `[CRON] 🚨 Found ${result.rows.length} overdue RETURN_SHIPPER tickets: ${ticketCodes}`
+            );
         } else {
             console.log('[CRON] ✅ No overdue RETURN_SHIPPER tickets found.');
         }
@@ -309,8 +335,9 @@ cron.schedule('*/5 * * * *', async () => {
             }
         }
 
-        console.log(`[CRON] ✅ Pending withdrawals: ${successCount} success, ${failCount} failed, ${retryLaterCount} retry later`);
-
+        console.log(
+            `[CRON] ✅ Pending withdrawals: ${successCount} success, ${failCount} failed, ${retryLaterCount} retry later`
+        );
     } catch (error) {
         console.error('[CRON] ❌ Error in retry-pending-withdrawals:', error.message);
     }
@@ -324,13 +351,16 @@ cron.schedule('0 6 * * *', async () => {
     console.log('[CRON] Running KPI auto-reconcile...');
     try {
         // Get all statistics from last 7 days
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .substring(0, 10);
         const statsResult = await db.query(
             'SELECT user_id, stat_date, orders FROM kpi_statistics WHERE stat_date >= $1',
             [sevenDaysAgo]
         );
 
-        let checked = 0, flagged = 0;
+        let checked = 0,
+            flagged = 0;
 
         for (const row of statsResult.rows) {
             const orders = row.orders || [];
@@ -340,7 +370,8 @@ cron.schedule('0 6 * * *', async () => {
 
                 // Get BASE with creation timestamp
                 const baseResult = await db.query(
-                    'SELECT products, created_at FROM kpi_base WHERE order_code = $1', [order.orderCode]
+                    'SELECT products, created_at FROM kpi_base WHERE order_code = $1',
+                    [order.orderCode]
                 );
                 if (baseResult.rows.length === 0) continue;
                 const baseCreatedAt = baseResult.rows[0].created_at;
@@ -355,13 +386,15 @@ cron.schedule('0 6 * * *', async () => {
 
                 // Cross-check userId: flag if audit user ≠ assigned employee
                 const assignedUserId = row.user_id;
-                const foreignActions = auditResult.rows.filter(l =>
-                    l.user_id && l.user_id !== assignedUserId && l.user_id !== 'unknown'
+                const foreignActions = auditResult.rows.filter(
+                    (l) => l.user_id && l.user_id !== assignedUserId && l.user_id !== 'unknown'
                 );
                 if (foreignActions.length > 0) {
-                    const foreignUsers = [...new Set(foreignActions.map(l => l.user_id))];
+                    const foreignUsers = [...new Set(foreignActions.map((l) => l.user_id))];
                     flagged++;
-                    console.warn(`[KPI-RECONCILE] ⚠️ Order ${order.orderCode}: ${foreignActions.length} actions by ${foreignUsers.join(', ')} (assigned: ${assignedUserId})`);
+                    console.warn(
+                        `[KPI-RECONCILE] ⚠️ Order ${order.orderCode}: ${foreignActions.length} actions by ${foreignUsers.join(', ')} (assigned: ${assignedUserId})`
+                    );
                 }
             }
         }
@@ -410,13 +443,16 @@ cron.schedule('15 */6 * * *', async () => {
         const FORTY_FIVE_DAYS_MS = 45 * 24 * 60 * 60 * 1000;
         const cutoff = Date.now() - FORTY_FIVE_DAYS_MS;
 
-        const { rows } = await db.query(`
+        const { rows } = await db.query(
+            `
             SELECT page_id, saved_at, generated_by
             FROM pancake_page_access_tokens
             WHERE saved_at IS NOT NULL AND saved_at < $1
             ORDER BY saved_at ASC
             LIMIT 100
-        `, [cutoff]);
+        `,
+            [cutoff]
+        );
 
         if (rows.length === 0) {
             console.log('[CRON] No PATs need refresh');
@@ -426,47 +462,71 @@ cron.schedule('15 */6 * * *', async () => {
         console.log(`[CRON] Found ${rows.length} PATs to refresh`);
 
         // Load active Pancake accounts
-        const acctRes = await db.query('SELECT account_id, token, pages FROM pancake_accounts WHERE is_active = true');
+        const acctRes = await db.query(
+            'SELECT account_id, token, pages FROM pancake_accounts WHERE is_active = true'
+        );
         const accounts = acctRes.rows || [];
         if (accounts.length === 0) {
             console.warn('[CRON] No active Pancake accounts — skip refresh');
             return;
         }
 
-        const WORKER_URL = process.env.CF_WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const WORKER_URL =
+            process.env.CF_WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         let refreshed = 0;
         let failed = 0;
 
         for (const { page_id: pageId } of rows) {
             // Find an account that has this page
-            const acc = accounts.find(a => {
-                const pages = Array.isArray(a.pages) ? a.pages : (typeof a.pages === 'string' ? JSON.parse(a.pages) : []);
-                return pages.some(p => String(p.id || p.pageId) === String(pageId));
+            const acc = accounts.find((a) => {
+                const pages = Array.isArray(a.pages)
+                    ? a.pages
+                    : typeof a.pages === 'string'
+                      ? JSON.parse(a.pages)
+                      : [];
+                return pages.some((p) => String(p.id || p.pageId) === String(pageId));
             });
-            if (!acc) { failed++; continue; }
+            if (!acc) {
+                failed++;
+                continue;
+            }
 
             try {
                 const url = `${WORKER_URL}/api/pancake/pages/${pageId}/generate_page_access_token?access_token=${acc.token}`;
-                const r = await fetch(url, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } });
-                if (!r.ok) { failed++; continue; }
+                const r = await fetch(url, {
+                    method: 'POST',
+                    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+                });
+                if (!r.ok) {
+                    failed++;
+                    continue;
+                }
                 const data = await r.json();
-                if (!data.success || !data.page_access_token) { failed++; continue; }
+                if (!data.success || !data.page_access_token) {
+                    failed++;
+                    continue;
+                }
 
                 // Extract timestamp from JWT payload
                 let newTs = null;
                 try {
                     const parts = data.page_access_token.split('.');
                     if (parts.length === 3) {
-                        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+                        const payload = JSON.parse(
+                            Buffer.from(parts[1], 'base64url').toString('utf8')
+                        );
                         newTs = payload.timestamp || null;
                     }
                 } catch (_) {}
 
-                await db.query(`
+                await db.query(
+                    `
                     UPDATE pancake_page_access_tokens
                     SET token = $2, timestamp = $3, saved_at = $4, generated_by = $5, updated_at = NOW()
                     WHERE page_id = $1
-                `, [pageId, data.page_access_token, newTs, Date.now(), 'cron-refresh']);
+                `,
+                    [pageId, data.page_access_token, newTs, Date.now(), 'cron-refresh']
+                );
                 refreshed++;
             } catch (e) {
                 console.warn(`[CRON] PAT refresh failed for ${pageId}:`, e.message);
@@ -474,10 +534,12 @@ cron.schedule('15 */6 * * *', async () => {
             }
 
             // Rate limit: 500ms between calls
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 500));
         }
 
-        console.log(`[CRON] ✅ PAT refresh done — refreshed: ${refreshed}, failed: ${failed}, total: ${rows.length}`);
+        console.log(
+            `[CRON] ✅ PAT refresh done — refreshed: ${refreshed}, failed: ${failed}, total: ${rows.length}`
+        );
     } catch (error) {
         console.error('[CRON] ❌ Error in PAT refresh:', error.message);
     }
@@ -500,5 +562,139 @@ cron.schedule('*/5 * * * *', async () => {
         }
     } catch (error) {
         console.error('[CRON] ❌ Error cleaning regen locks:', error.message);
+    }
+});
+
+// =====================================================
+// Reconcile pending_customers vs Pancake live state — every 5 min
+// =====================================================
+//
+// Background: server's WS handler updates pending_customers on
+// pages:update_conversation events, but Pancake doesn't reliably
+// fire that event after shop-direct-API replies (auto bill-send,
+// reactions from extension, etc.). Result: row stays with bumped
+// message_count even though Pancake's unread_count = 0 or shop is
+// last sender. Owner repro 2026-05-12: Mật Ngọt count=6 in DB,
+// Pancake unread=0 + shopSentLast=true.
+//
+// Strategy: every 5 minutes, fetch every pending row, look up the
+// matching conv on Pancake via an active staff JWT, and:
+//   • shopSentLast || unread_count === 0  → DELETE the row
+//   • unread > 0 && != db.message_count    → UPDATE message_count
+//   • aligned                              → leave alone
+//
+// Concurrency 4, rate-limited. Skip when DB has 0 pending rows or
+// no usable Pancake account is available.
+//
+cron.schedule('*/5 * * * *', async () => {
+    try {
+        const pendingRes = await db.query(
+            `SELECT psid, page_id, customer_name, message_count, last_message_snippet
+             FROM pending_customers
+             WHERE type = 'INBOX'
+             ORDER BY last_message_time DESC
+             LIMIT 500`
+        );
+        const rows = pendingRes.rows || [];
+        if (rows.length === 0) return;
+
+        // Pick an active pancake account token. Prefer most-recently-used
+        // active row with a non-expired token. token_exp is epoch seconds.
+        const nowSec = Math.floor(Date.now() / 1000);
+        const acctRes = await db.query(
+            `SELECT account_id, token, token_exp, fb_name
+             FROM pancake_accounts
+             WHERE is_active = true
+               AND token IS NOT NULL
+               AND (token_exp IS NULL OR token_exp::bigint > $1)
+             ORDER BY last_used_at DESC NULLS LAST
+             LIMIT 1`,
+            [nowSec]
+        );
+        const acct = acctRes.rows[0];
+        if (!acct) {
+            console.log('[CRON] reconcile-pending: no usable Pancake account, skipping');
+            return;
+        }
+        const token = acct.token;
+
+        let deleted = 0;
+        let updated = 0;
+        let aligned = 0;
+        let errored = 0;
+        const CONCURRENCY = 4;
+        const queue = [...rows];
+
+        async function worker() {
+            while (queue.length) {
+                const row = queue.shift();
+                if (!row) break;
+                try {
+                    const url = `https://pancake.vn/api/v1/pages/${row.page_id}/conversations/${row.page_id}_${row.psid}?access_token=${token}`;
+                    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+                    if (!r.ok) {
+                        errored++;
+                        continue;
+                    }
+                    const conv = await r.json().catch(() => null);
+                    if (!conv || conv.existed === false || conv.success === false) {
+                        // Orphan — no conv on Pancake.
+                        await db.query(
+                            `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2`,
+                            [row.psid, row.page_id]
+                        );
+                        deleted++;
+                        continue;
+                    }
+                    const lastSenderId = String(
+                        conv.last_sent_by?.id || conv.last_message?.from?.id || ''
+                    );
+                    const shopSentLast = !!lastSenderId && lastSenderId === String(row.page_id);
+                    const unread = typeof conv.unread_count === 'number' ? conv.unread_count : null;
+
+                    if (shopSentLast || unread === 0) {
+                        await db.query(
+                            `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2`,
+                            [row.psid, row.page_id]
+                        );
+                        deleted++;
+                    } else if (unread !== null && unread !== row.message_count) {
+                        const newSnip = (conv.snippet || row.last_message_snippet || '')
+                            .toString()
+                            .substring(0, 200);
+                        await db.query(
+                            `UPDATE pending_customers
+                             SET message_count = $3,
+                                 last_message_snippet = $4,
+                                 last_message_time = NOW()
+                             WHERE psid = $1 AND page_id = $2`,
+                            [row.psid, row.page_id, unread, newSnip]
+                        );
+                        updated++;
+                    } else {
+                        aligned++;
+                    }
+                } catch (e) {
+                    errored++;
+                }
+            }
+        }
+
+        await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+        // Update last_used_at on the account we used.
+        await db
+            .query(`UPDATE pancake_accounts SET last_used_at = NOW() WHERE account_id = $1`, [
+                acct.account_id,
+            ])
+            .catch(() => {});
+
+        if (deleted + updated > 0) {
+            console.log(
+                `[CRON] reconcile-pending (acct=${acct.fb_name}): scanned ${rows.length}, deleted=${deleted}, updated=${updated}, aligned=${aligned}, errored=${errored}`
+            );
+        }
+    } catch (error) {
+        console.error('[CRON] ❌ reconcile-pending error:', error.message);
     }
 });
