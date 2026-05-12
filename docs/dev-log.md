@@ -6,6 +6,59 @@
 
 ---
 
+## 2026-05-12
+
+### [render][chat] badge "X MỚI" — sync `message_count` với Pancake `unread_count`
+
+**Owner repro 2026-05-12**: cột TIN NHẮN hiện badge "3 MỚI" / "8 MỚI" sai số. Verify live vs Pancake API: nhiều rows DB drift quá xa khỏi `unread_count` thật.
+
+| KH          | DB count | Pancake unread | Trạng thái                                                              |
+| ----------- | -------- | -------------- | ----------------------------------------------------------------------- |
+| Vo Linh Vo  | 8        | 2              | OVERCOUNT +6                                                            |
+| Hoa Luong   | 16       | 1              | OVERCOUNT +15                                                           |
+| Hứa Vân     | 23       | 0              | STALE — shop replied                                                    |
+| Trinh Trinh | 3        | 0              | STALE — shop replied (snippet "Mẫu guốc 2 màu Trắng - Đen Giá 260k...") |
+| Mật Ngọt    | 6        | 0              | STALE — snippet có "Nv.My"                                              |
+
+**Root cause** ([render.com/routes/realtime.js:upsertPendingCustomer](../render.com/routes/realtime.js)):
+
+```sql
+UPDATE pending_customers SET message_count = message_count + 1
+```
+
+Bump +1 mỗi event không bao giờ reset theo source-of-truth. Khi nhiều `pages:new_message` + `pages:update_conversation` fire cho cùng 1 conv, count tăng vô tội vạ vượt xa Pancake `unread_count`. Stale rows xảy ra khi shop reply giữa các event window (Pancake không re-fire `update_conversation` ngay).
+
+**Fix server** ([render.com/routes/realtime.js](../render.com/routes/realtime.js)):
+
+1. `upsertPendingCustomer(db, data)` nhận thêm `data.unreadCount` (optional integer ≥ 1). Khi có → SQL `SET message_count = $unreadCount` (authoritative). Khi không có (vd `pages:new_message` single event) → bump +1 như cũ; `update_conversation` tiếp theo sẽ correct lại.
+
+2. **NEW endpoint** `POST /api/realtime/sync-pending`:
+
+    ```json
+    { "psid": "...", "pageId": "...", "unreadCount": 2, "snippet": "...", "customerName": "..." }
+    ```
+
+    - `unreadCount = 0` → DELETE row
+    - `unreadCount > 0` → upsert với `message_count = unreadCount`
+      Dùng cho offline reconcile scripts khi DB drift khỏi live Pancake state.
+
+3. `server.js` đã pass `unreadCount: conversation.unread_count` trong updateData → tự động sync khi WS event fire.
+
+**One-shot reconcile** (`/tmp/reconcile-pending.mjs`):
+
+Iterate mỗi pending row, fetch Pancake `/conversations/{pid}_{psid}` qua JWT (Kỹ Thuật NJD từ serect_dont_push.txt), so:
+
+- `shopSentLast || unread_count === 0` → call `mark-replied` (DELETE)
+- `unread_count > 0 && != db.message_count` → call `sync-pending` (UPDATE)
+- Else → aligned
+
+**Kết quả** chạy 2 lần:
+
+- Lần 1 (trước có endpoint `sync-pending`): DELETE 35 stale, identify 6 drifted → DB 44 → 9 rows
+- Lần 2 (sau deploy `sync-pending`): UPDATE 6 drifted → tất cả 9 rows khớp Pancake. 0 stale.
+
+**Status**: ✅ Done. Tất cả badge "X MỚI" hiện đúng `unread_count` từ Pancake.
+
 ## 2026-05-11
 
 ### [chat][render] read = shop tương tác (NV signature) — bulk cleanup 256 stale entries
