@@ -746,12 +746,76 @@
         }
     }
 
+    /**
+     * Add a CUSTOM (user-defined) tag name to TPOS for an order, by raw
+     * tagName instead of mapped flagKey. Used by the merge flow for the
+     * dynamic "GỘP X Y Z" flag — its id (e.g. GOP_589_655) is generated
+     * per merge cluster so it can't live in the static FLAG_TO_TPOS map.
+     *
+     * Behaviour mirrors syncXLFlagAddToTPOS (ADD-only, never remove):
+     *   - lookup current TPOS tags on the order
+     *   - skip if a tag with the same normalized name already exists
+     *   - find-or-create the TPOS tag by name
+     *   - PUT the combined tag list to TPOS
+     *   - update local order.Tags + trigger row refresh
+     *
+     * Owner repro 2026-05-12: "TAG XL đơn gộp → gắn qua tag TPOS luôn".
+     *
+     * @param {string} orderCode  TPOS order Code (vd "S-123456").
+     * @param {string} tagName    Display label, vd "GỘP 589 655".
+     */
+    async function syncXLCustomTagAddToTPOS(orderCode, tagName) {
+        if (!tagName) return;
+        const order = _findOrderByCode(orderCode);
+        if (!order || !order.Id) {
+            console.warn(`${LOG} [XL→TPOS-CUSTOM] Không tìm thấy order ${orderCode}`);
+            return;
+        }
+
+        if (_syncingReverse.has(orderCode)) return;
+
+        const currentTags = _getTPOSTagsFromOrder(order);
+        const upperTarget = _normalizeName(tagName);
+        const alreadyHas = currentTags.some((t) => _normalizeName(t.Name) === upperTarget);
+        if (alreadyHas) {
+            console.log(`${LOG} [XL→TPOS-CUSTOM] ${orderCode}: TPOS đã có "${tagName}", skip`);
+            return;
+        }
+
+        const tagObj = await _findOrCreateTPOSTag(tagName);
+        if (!tagObj) {
+            console.warn(`${LOG} [XL→TPOS-CUSTOM] Không tạo được tag "${tagName}"`);
+            return;
+        }
+
+        const newTagObjs = [
+            ...currentTags,
+            { Id: tagObj.Id, Name: tagObj.Name, Color: tagObj.Color },
+        ];
+
+        _syncingForward.add(orderCode);
+        try {
+            await _callAssignTag(order.Id, newTagObjs);
+            order.Tags = JSON.stringify(newTagObjs);
+            _recentForwardSyncAt.set(orderCode, Date.now());
+            console.log(`${LOG} [XL→TPOS-CUSTOM] ${orderCode}: thêm "${tagName}" thành công`);
+            if (typeof window.updateOrderInTable === 'function') {
+                window.updateOrderInTable(order.Id, { Tags: order.Tags });
+            }
+        } catch (e) {
+            console.warn(`${LOG} [XL→TPOS-CUSTOM] AssignTag failed for ${orderCode}:`, e.message);
+        } finally {
+            _syncingForward.delete(orderCode);
+        }
+    }
+
     // =====================================================
     // EXPOSE
     // =====================================================
 
     window.syncXLToTPOS = syncXLToTPOS;
     window.syncXLFlagAddToTPOS = syncXLFlagAddToTPOS;
+    window.syncXLCustomTagAddToTPOS = syncXLCustomTagAddToTPOS;
     window.handleTPOSTagsChanged = handleTPOSTagsChanged;
     // Expose managed-name lookup so other modules (vd Tag XL cell render)
     // có thể detect tag KHÁC = unmanaged TPOS tag.

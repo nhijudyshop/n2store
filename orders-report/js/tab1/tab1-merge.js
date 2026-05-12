@@ -2321,6 +2321,20 @@ async function assignTagXLAfterMerge(cluster) {
             console.log(
                 `[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: flags=${allFlags.size}, tTags=${allTTags.size}, +flag ${mergeTagLabel}`
             );
+            // Owner-requested 2026-05-12: "TAG XL đơn gộp → gắn qua tag TPOS
+            // luôn". Đẩy "GỘP X Y Z" lên TPOS làm Tag cho TARGET (đơn đích).
+            // ADD-only — sync ngược TPOS→XL cho merge flag không bật, nên
+            // remove ở TPOS sẽ không xoá oan flag XL phía web.
+            if (typeof window.syncXLCustomTagAddToTPOS === 'function') {
+                window
+                    .syncXLCustomTagAddToTPOS(targetCode, mergeTagLabel)
+                    .catch((e) =>
+                        console.warn(
+                            `[MERGE-PTAG] TPOS sync merge tag for target ${targetCode}:`,
+                            e?.message
+                        )
+                    );
+            }
         } catch (e) {
             console.error(`[MERGE-PTAG] Failed to add merge flag to target ${targetCode}:`, e);
         }
@@ -2361,6 +2375,19 @@ async function assignTagXLAfterMerge(cluster) {
                 console.log(
                     `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${sourceFlags.length} GOP_* flag(s)`
                 );
+                // Cùng owner request: source order cũng gắn "GỘP X Y Z" lên
+                // cột Tag TPOS (đối xứng với target). Để cluster gộp đơn
+                // search-được trong TPOS bằng tag duy nhất.
+                if (typeof window.syncXLCustomTagAddToTPOS === 'function') {
+                    window
+                        .syncXLCustomTagAddToTPOS(sourceCode, mergeTagLabel)
+                        .catch((e) =>
+                            console.warn(
+                                `[MERGE-PTAG] TPOS sync merge tag for source ${sourceCode}:`,
+                                e?.message
+                            )
+                        );
+                }
             } catch (e) {
                 console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
             }
