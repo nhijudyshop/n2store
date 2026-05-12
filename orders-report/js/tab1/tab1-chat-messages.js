@@ -1038,15 +1038,29 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
     // fetch the full conv to enrich. Owner repro 2026-05-12: KH Hằng Phú
     // private_replies → DM never sent because payload.post_id was "".
     let postId = conv.post_id || raw.post_id || conv._messagesData?.post?.id || '';
-    if (!postId && pdm.fetchConversationDirect) {
+    if (!postId && convId && pat) {
+        // Fetch the FULL conv detail directly by its own id. The slim
+        // payload from /conversations list lacks post_id; the per-conv
+        // endpoint includes it. We can't use fetchConversationDirect
+        // (which builds `pageId_fbId` for INBOX) because COMMENT conv ids
+        // have format `{postShortId}_{commentThreadId}` — completely
+        // different. Use the actual conv.id verbatim.
         try {
-            const fbId = conv.from_psid || conv.from?.id || window.currentChatPSID;
-            const detail = await pdm.fetchConversationDirect(pageId, fbId);
-            if (detail?.post_id) {
-                postId = detail.post_id;
-                // Cache on currentConversationData so subsequent sends skip the fetch.
-                if (window.currentConversationData) {
-                    window.currentConversationData.post_id = postId;
+            const token = await window.pancakeTokenManager?.getToken();
+            if (token) {
+                const detailUrl = window.API_CONFIG.buildUrl.pancake(
+                    `pages/${pageId}/conversations/${encodeURIComponent(convId)}`,
+                    `access_token=${token}`
+                );
+                const r = await fetch(detailUrl);
+                if (r.ok) {
+                    const d = await r.json().catch(() => null);
+                    if (d?.post_id) {
+                        postId = d.post_id;
+                        if (window.currentConversationData) {
+                            window.currentConversationData.post_id = postId;
+                        }
+                    }
                 }
             }
         } catch (_e) {
