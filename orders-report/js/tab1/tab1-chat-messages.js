@@ -1032,8 +1032,27 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
 async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
     const conv = window.currentConversationData || {};
     const raw = conv._raw || {};
-    // post_id: prefer direct conv field, then _raw, then messages post response
-    const postId = conv.post_id || raw.post_id || conv._messagesData?.post?.id || '';
+    // post_id: prefer direct conv field, then _raw, then messages post response.
+    // Conv objects from /conversations list endpoint are SLIM and lack post_id —
+    // only the direct /conversations/{convId} endpoint returns it. If missing,
+    // fetch the full conv to enrich. Owner repro 2026-05-12: KH Hằng Phú
+    // private_replies → DM never sent because payload.post_id was "".
+    let postId = conv.post_id || raw.post_id || conv._messagesData?.post?.id || '';
+    if (!postId && pdm.fetchConversationDirect) {
+        try {
+            const fbId = conv.from_psid || conv.from?.id || window.currentChatPSID;
+            const detail = await pdm.fetchConversationDirect(pageId, fbId);
+            if (detail?.post_id) {
+                postId = detail.post_id;
+                // Cache on currentConversationData so subsequent sends skip the fetch.
+                if (window.currentConversationData) {
+                    window.currentConversationData.post_id = postId;
+                }
+            }
+        } catch (_e) {
+            /* fetch failed — proceed with empty postId, Pancake may still route */
+        }
+    }
     const fromId = window.currentChatPSID || raw.from?.id || '';
     const type = window.currentReplyType || 'reply_comment';
     // message_id is the FB comment_id that the action targets.
