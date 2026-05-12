@@ -412,32 +412,112 @@ router.post('/wipe-all', async (req, res) => {
 });
 
 /**
- * Upsert vào pending_customers khi có tin nhắn mới
- * Được gọi từ saveRealtimeUpdate
+ * POST /api/realtime/sync-pending
+ * Body: { psid, pageId, unreadCount, customerName?, snippet?, type? }
+ *
+ * Override message_count với giá trị từ Pancake's authoritative
+ * unread_count. Dùng cho reconcile khi DB drift khỏi Pancake state
+ * (vd server WS bị miss event hoặc bump dồn).
+ *
+ * - unreadCount === 0 → DELETE row (clear)
+ * - unreadCount > 0  → upsert với message_count = unreadCount
+ */
+router.post('/sync-pending', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+
+        const { psid, pageId, unreadCount, customerName, snippet, type } = req.body || {};
+        if (!psid || !pageId) {
+            return res.status(400).json({ error: 'psid + pageId required' });
+        }
+        const count = parseInt(unreadCount, 10);
+        if (!Number.isFinite(count) || count < 0) {
+            return res.status(400).json({ error: 'unreadCount must be a non-negative integer' });
+        }
+
+        if (count === 0) {
+            const r = await db.query(
+                `DELETE FROM pending_customers WHERE psid = $1 AND page_id = $2 RETURNING psid`,
+                [psid, pageId]
+            );
+            return res.json({ success: true, action: 'deleted', removed: r.rowCount });
+        }
+
+        await upsertPendingCustomer(db, {
+            psid,
+            pageId,
+            customerName: customerName || null,
+            snippet: snippet || null,
+            type: type || 'INBOX',
+            unreadCount: count,
+        });
+        return res.json({ success: true, action: 'upserted', count });
+    } catch (error) {
+        console.error('[REALTIME-API] sync-pending error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Upsert vào pending_customers khi có tin nhắn mới.
+ *
+ * `data.unreadCount` (optional, integer):
+ *   • Pancake's authoritative unread_count cho conversation (đến từ
+ *     `pages:update_conversation` event). Khi có giá trị, SET
+ *     message_count = unreadCount (không bump). Đảm bảo badge "X MỚI"
+ *     khớp với Pancake (owner repro 2026-05-12: DB count 8 nhưng
+ *     Pancake unread chỉ 2 vì server bump +1 mỗi event mà không reset
+ *     theo source-of-truth).
+ *   • Khi không có (vd `pages:new_message` single-message event), bump
+ *     count thêm 1 như cũ — update_conversation tiếp theo sẽ correct
+ *     lại nếu drift.
  */
 async function upsertPendingCustomer(db, data) {
     try {
-        const query = `
-            INSERT INTO pending_customers
-            (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type)
-            VALUES ($1, $2, $3, $4, NOW(), 1, $5)
-            ON CONFLICT (psid, page_id)
-            DO UPDATE SET
-                customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
-                last_message_snippet = EXCLUDED.last_message_snippet,
-                last_message_time = NOW(),
-                message_count = pending_customers.message_count + 1
-        `;
+        const useUnread = typeof data.unreadCount === 'number' && data.unreadCount >= 1;
+        const initialCount = useUnread ? data.unreadCount : 1;
 
-        await db.query(query, [
+        // INSERT: dùng count truyền vào (hoặc 1 nếu không có).
+        // UPDATE: nếu unreadCount provided, SET = nó (authoritative); else bump.
+        const query = useUnread
+            ? `
+                INSERT INTO pending_customers
+                (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type)
+                VALUES ($1, $2, $3, $4, NOW(), $6, $5)
+                ON CONFLICT (psid, page_id)
+                DO UPDATE SET
+                    customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
+                    last_message_snippet = EXCLUDED.last_message_snippet,
+                    last_message_time = NOW(),
+                    message_count = $6
+            `
+            : `
+                INSERT INTO pending_customers
+                (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type)
+                VALUES ($1, $2, $3, $4, NOW(), 1, $5)
+                ON CONFLICT (psid, page_id)
+                DO UPDATE SET
+                    customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
+                    last_message_snippet = EXCLUDED.last_message_snippet,
+                    last_message_time = NOW(),
+                    message_count = pending_customers.message_count + 1
+            `;
+
+        const params = [
             data.psid,
             data.pageId,
             data.customerName,
             data.snippet ? data.snippet.substring(0, 200) : null,
             data.type || 'INBOX',
-        ]);
+        ];
+        if (useUnread) params.push(initialCount);
 
-        console.log(`[REALTIME-DB] Upserted pending customer: ${data.customerName || data.psid}`);
+        await db.query(query, params);
+
+        console.log(
+            `[REALTIME-DB] Upserted pending customer: ${data.customerName || data.psid} (count=${useUnread ? data.unreadCount : '+1'})`
+        );
     } catch (error) {
         console.error('[REALTIME-DB] Error upserting pending customer:', error.message);
     }
