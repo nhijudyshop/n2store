@@ -262,11 +262,13 @@
                                 <th>Tên nhân viên</th>
                                 <th>Số đơn</th>
                                 <th>SP NET</th>
-                                <th title="KPI tổng (chưa trừ đơn hoàn)">KPI gross</th>
-                                <th title="Đơn hoàn — chỉ hiển thị sau khi chạy đối soát">
-                                    <i data-lucide="undo-2"></i> Hoàn
+                                <th title="KPI tổng (chưa trừ đơn hoàn/hủy)">KPI gross</th>
+                                <th
+                                    title="Đơn loại: đơn hoàn (refund excel) + đơn có phiếu Hủy bỏ trên TPOS. Cancelled detect tự động từ invoice cache; refund cần chạy đối soát."
+                                >
+                                    <i data-lucide="undo-2"></i> Loại
                                 </th>
-                                <th title="KPI thực = KPI gross - KPI bị loại do refund">
+                                <th title="KPI thực = KPI gross - KPI bị loại do hoàn/hủy">
                                     KPI thực (VNĐ)
                                 </th>
                                 <th style="min-width: 200px">Phiếu bán hàng</th>
@@ -445,9 +447,26 @@
                         <i data-lucide="user"></i>
                         Chi tiết KPI - <span id="modalL1EmployeeName">---</span>
                     </h3>
-                    <button class="modal-close" onclick="KPICommission.closeEmployeeOrders()">
-                        <i data-lucide="x"></i>
-                    </button>
+                    <div class="modal-l1-header-actions">
+                        <button
+                            class="btn-l1-recon"
+                            id="btnModalL1Recon"
+                            type="button"
+                            onclick="KPICommission.runEmployeeReconciliation()"
+                            title="Đối soát đơn của nhân viên này. Kết quả lưu cache 7 ngày."
+                        >
+                            <i data-lucide="check-check"></i>
+                            <span id="btnModalL1ReconLabel">Chạy đối soát</span>
+                        </button>
+                        <span
+                            class="l1-recon-cache-info"
+                            id="modalL1ReconCacheInfo"
+                            style="display: none"
+                        ></span>
+                        <button class="modal-close" onclick="KPICommission.closeEmployeeOrders()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Modal L1 Filters -->
@@ -482,8 +501,13 @@
                         <i data-lucide="list-ordered"></i> Tất cả đơn
                         <span class="modalL1-tab-count" id="l1TabCountAll">0</span>
                     </button>
-                    <button class="modalL1-tab" data-l1-tab="refunds" type="button">
-                        <i data-lucide="undo-2"></i> Đơn hoàn
+                    <button
+                        class="modalL1-tab"
+                        data-l1-tab="refunds"
+                        type="button"
+                        title="Đơn bị loại khỏi KPI: đơn hoàn (refund excel) hoặc đơn có phiếu Hủy bỏ trên TPOS"
+                    >
+                        <i data-lucide="undo-2"></i> Đơn loại
                         <span class="modalL1-tab-count l1-tab-refund-count" id="l1TabCountRefund"
                             >0</span
                         >
@@ -509,8 +533,11 @@
                             <div class="l1-sum-label">OK (tính KPI)</div>
                             <div class="l1-sum-value" id="l1SumOkOrders">0</div>
                         </div>
-                        <div class="l1-sum-item l1-sum-refund">
-                            <div class="l1-sum-label">Đơn hoàn</div>
+                        <div
+                            class="l1-sum-item l1-sum-refund"
+                            title="Đơn hoàn (refund excel) + đơn có phiếu Hủy bỏ trên TPOS"
+                        >
+                            <div class="l1-sum-label">Đơn loại</div>
                             <div class="l1-sum-value" id="l1SumRefundOrders">0</div>
                         </div>
                         <div class="l1-sum-item l1-sum-kpi">

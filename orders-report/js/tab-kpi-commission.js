@@ -769,6 +769,37 @@ const KPICommission = {
     },
 
     /**
+     * Phiếu TPOS có bị hủy không? (cả Huỷ bỏ thường lẫn IsMergeCancel/state=cancel).
+     * Đơn có invoice hủy KHÔNG được tính KPI (giống đơn refund).
+     * @param {object|null|undefined} invoice
+     * @returns {boolean}
+     */
+    _isInvoiceCancelled(invoice) {
+        if (!invoice) return false;
+        const showState = invoice.ShowState || '';
+        const stateCode = invoice.StateCode || '';
+        return (
+            invoice.State === 'cancel' ||
+            stateCode === 'cancel' ||
+            invoice.IsMergeCancel === true ||
+            showState === 'Huỷ bỏ' ||
+            showState === 'Hủy bỏ'
+        );
+    },
+
+    /**
+     * Đơn có bị loại khỏi KPI không? Trả về 'refund' | 'cancel' | null.
+     * Truyền vào `recon` từ _reconByOrder (có thể null khi chưa chạy đối soát).
+     * Đối với 'cancel' — phát hiện ngay từ invoice cache, không cần recon.
+     */
+    _getKpiExclusionKind(orderId, recon) {
+        if (recon?.isRefunded) return 'refund';
+        const invoice = this._invoiceCache?.get(orderId);
+        if (this._isInvoiceCancelled(invoice)) return 'cancel';
+        return null;
+    },
+
+    /**
      * Render invoice status cell for a single order in KPI tab.
      * @param {string} orderId - SaleOnlineId
      * @returns {string} HTML string
@@ -1464,22 +1495,50 @@ const KPICommission = {
                 return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
             }).length;
 
-            const lossInfo = this._reconKpiLossByUser?.get(emp.userId) || {
+            // Đếm cancelled trực tiếp từ invoice cache — KHÔNG cần chờ recon.
+            // Đơn có phiếu Hủy bỏ phải bị loại khỏi KPI gross ngay.
+            let cancelledKpi = 0;
+            let cancelledCount = 0;
+            for (const order of emp.orders || []) {
+                if (order._stale) continue;
+                const inv = this._invoiceCache?.get(order.orderId);
+                if (this._isInvoiceCancelled(inv)) {
+                    cancelledKpi += order.kpi || 0;
+                    cancelledCount++;
+                }
+            }
+
+            const reconLoss = this._reconKpiLossByUser?.get(emp.userId) || {
                 kpiLost: 0,
                 refundCount: 0,
             };
+            // Tránh đếm trùng: nếu recon đã mark đơn cancelled là refund thì
+            // reconLoss đã bao gồm chúng. Lấy max cho an toàn (cancelled luôn
+            // được detect độc lập từ invoice cache).
+            const lossInfo = {
+                kpiLost: Math.max(reconLoss.kpiLost, cancelledKpi),
+                refundCount: Math.max(reconLoss.refundCount, cancelledCount),
+                cancelledCount,
+                cancelledKpi,
+            };
             const kpiNet = emp.totalKPI - lossInfo.kpiLost;
             const hasLoss = lossInfo.kpiLost > 0;
+            const lossTitle =
+                cancelledCount > 0 && reconLoss.kpiLost === 0
+                    ? `${cancelledCount} phiếu hủy — bị loại ${this.formatCurrency(cancelledKpi)}`
+                    : `${lossInfo.refundCount} đơn loại (hoàn/hủy) — bị loại ${this.formatCurrency(lossInfo.kpiLost)}`;
 
             const grossCellHtml = hasLoss
-                ? `<td class="col-kpi-gross" title="Tổng KPI trước khi loại đơn hoàn">${this.formatCurrency(emp.totalKPI)}</td>`
+                ? `<td class="col-kpi-gross" title="Tổng KPI trước khi loại đơn hoàn/hủy">${this.formatCurrency(emp.totalKPI)}</td>`
                 : `<td class="col-kpi-gross" style="text-decoration:none;color:inherit;">${this.formatCurrency(emp.totalKPI)}</td>`;
 
-            const refundCellHtml = reconRan
-                ? `<td class="col-refund-count"><span class="refund-badge ${lossInfo.refundCount === 0 ? 'is-zero' : ''}" title="${lossInfo.refundCount} đơn hoàn — bị loại ${this.formatCurrency(lossInfo.kpiLost)}">↩ ${lossInfo.refundCount}</span></td>`
+            // Hiển thị refund cell khi recon đã chạy HOẶC có cancelled detect được
+            const showRefundCell = reconRan || cancelledCount > 0;
+            const refundCellHtml = showRefundCell
+                ? `<td class="col-refund-count"><span class="refund-badge ${lossInfo.refundCount === 0 ? 'is-zero' : ''}" title="${lossTitle}">↩ ${lossInfo.refundCount}</span></td>`
                 : `<td class="col-refund-count" style="color:#9ca3af;font-size:11px;" title="Chưa chạy đối soát">—</td>`;
 
-            const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? 'Bị loại ' + this.formatCurrency(lossInfo.kpiLost) + ' do refund' : 'Không có đơn hoàn'}">${this.formatCurrency(kpiNet)}</td>`;
+            const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? lossTitle : 'Không có đơn hoàn/hủy'}">${this.formatCurrency(kpiNet)}</td>`;
 
             html += `<tr>
                 <td>${idx + 1}</td>
@@ -1623,30 +1682,36 @@ const KPICommission = {
         orders.forEach((order) => {
             if (order._stale) return;
             const recon = this._reconByOrder?.get(order.orderId);
-            const isRefunded = !!recon?.isRefunded;
-            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện đơn refunded để user
-            // thấy lý do "đã hoàn — không tính KPI" dù KPI=0
-            if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
+            const exclusionKind = this._getKpiExclusionKind(order.orderId, recon);
+            const isRefunded = exclusionKind === 'refund';
+            const isCancelled = exclusionKind === 'cancel';
+            const isExcluded = !!exclusionKind;
+            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện đơn loại (refund/cancel)
+            // để user thấy lý do "không tính KPI" dù KPI=0
+            if (simpleMode && !isExcluded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
                 return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
-            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isRefunded;
+            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isExcluded;
             const invNumber =
                 recon?.invoiceNumber || this._invoiceCache?.get(order.orderId)?.Number || '';
 
             totalOrders++;
             kpiGross += order.kpi || 0;
-            if (isRefunded) {
+            if (isExcluded) {
                 refundOrders++;
                 kpiLost += order.kpi || 0;
             } else {
                 okOrders++;
             }
 
-            const rowClass = isRefunded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
+            const rowClass = isExcluded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
 
             let statusPill;
-            if (isRefunded) {
+            if (isCancelled) {
+                statusPill =
+                    '<span class="kpi-status-pill pill-refund" title="Phiếu đã hủy trên TPOS — không tính KPI">✗ Hủy bỏ</span>';
+            } else if (isRefunded) {
                 statusPill = '<span class="kpi-status-pill pill-refund">↩ Đã hoàn</span>';
             } else if (hasDiscrepancy) {
                 statusPill = '<span class="kpi-status-pill pill-discrepancy">⚠ Sai lệch</span>';
@@ -1739,6 +1804,259 @@ const KPICommission = {
         this.hideEl('modalEmployeeOrders');
         this.state.currentEmployeeUserId = null;
         this.state.currentEmployeeOrders = [];
+    },
+
+    // ========================================
+    // PER-EMPLOYEE RECONCILIATION + 7-DAY CACHE
+    // ========================================
+
+    _L1_RECON_CACHE_TTL_MS: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v1__',
+
+    _getL1ReconCacheKey(userId) {
+        return `${this._L1_RECON_CACHE_PREFIX}${userId}`;
+    },
+
+    _readL1ReconCache(userId) {
+        try {
+            const key = this._getL1ReconCacheKey(userId);
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            if (!obj || typeof obj !== 'object') return null;
+            if (!obj.savedAt || !obj.results) return null;
+            const ageMs = Date.now() - obj.savedAt;
+            if (ageMs > this._L1_RECON_CACHE_TTL_MS) {
+                localStorage.removeItem(key);
+                return null;
+            }
+            return obj;
+        } catch (e) {
+            console.warn('[KPI L1] Read cache failed:', e?.message);
+            return null;
+        }
+    },
+
+    _writeL1ReconCache(userId, results) {
+        try {
+            const key = this._getL1ReconCacheKey(userId);
+            const payload = {
+                savedAt: Date.now(),
+                ttlMs: this._L1_RECON_CACHE_TTL_MS,
+                results,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+        } catch (e) {
+            console.warn('[KPI L1] Write cache failed:', e?.message);
+        }
+    },
+
+    _formatL1ReconAge(savedAt) {
+        const diffMs = Date.now() - savedAt;
+        if (diffMs < 60 * 1000) return 'vừa xong';
+        const diffMin = Math.floor(diffMs / (60 * 1000));
+        if (diffMin < 60) return `${diffMin} phút trước`;
+        const diffHr = Math.floor(diffMin / 60);
+        if (diffHr < 24) return `${diffHr} giờ trước`;
+        const diffDay = Math.floor(diffHr / 24);
+        return `${diffDay} ngày trước`;
+    },
+
+    _setL1ReconCacheInfo(userId) {
+        const infoEl = document.getElementById('modalL1ReconCacheInfo');
+        const btn = document.getElementById('btnModalL1Recon');
+        const lbl = document.getElementById('btnModalL1ReconLabel');
+        if (!infoEl || !btn || !lbl) return;
+        const cache = this._readL1ReconCache(userId);
+        if (!cache) {
+            infoEl.style.display = 'none';
+            infoEl.className = 'l1-recon-cache-info';
+            btn.classList.remove('is-cached');
+            lbl.textContent = 'Chạy đối soát';
+            return;
+        }
+        const ageMs = Date.now() - cache.savedAt;
+        const isStale = ageMs > 3 * 24 * 60 * 60 * 1000; // > 3 ngày
+        infoEl.style.display = '';
+        infoEl.className = 'l1-recon-cache-info ' + (isStale ? 'is-stale' : 'is-fresh');
+        infoEl.textContent = `Đã đối soát ${this._formatL1ReconAge(cache.savedAt)}`;
+        btn.classList.add('is-cached');
+        lbl.textContent = 'Đối soát lại';
+    },
+
+    /**
+     * Áp dụng cache recon (1 employee) vào _reconByOrder + _reconKpiLossByUser
+     * và re-render modal L1. Gọi khi mở modal nếu có cache fresh.
+     */
+    _applyL1ReconCache(userId, cachedResults) {
+        if (!this._reconByOrder) this._reconByOrder = new Map();
+        if (!this._reconKpiLossByUser) this._reconKpiLossByUser = new Map();
+
+        const orders = this.state.currentEmployeeOrders || [];
+        let lossSum = 0;
+        let refundCount = 0;
+        for (const r of cachedResults || []) {
+            this._reconByOrder.set(r.orderId, r);
+        }
+        for (const order of orders) {
+            const r = this._reconByOrder.get(order.orderId);
+            const inv = this._invoiceCache?.get(order.orderId);
+            const isCancelled = this._isInvoiceCancelled(inv);
+            if (r?.isRefunded || isCancelled) {
+                lossSum += order.kpi || 0;
+                refundCount++;
+            }
+        }
+        this._reconKpiLossByUser.set(userId, { kpiLost: lossSum, refundCount });
+
+        // Re-render table với reconRan=true
+        this.renderEmployeeOrdersTable(orders);
+    },
+
+    /**
+     * Run reconciliation for ONLY the current employee in modal L1.
+     * Always runs fresh and overwrites the 7-day cache. Cache lookup happens
+     * automatically on `showEmployeeOrders` open — clicking the button is the
+     * explicit "đối soát lại" action.
+     */
+    async runEmployeeReconciliation() {
+        const userId = this.state.currentEmployeeUserId;
+        if (!userId) {
+            console.warn('[KPI L1] No employee selected');
+            return;
+        }
+
+        const orders = (this.state.currentEmployeeOrders || []).filter((o) => !o._stale);
+        if (orders.length === 0) {
+            if (window.notificationManager?.warning) {
+                window.notificationManager.warning('Không có đơn nào để đối soát', 2000);
+            }
+            return;
+        }
+
+        const btn = document.getElementById('btnModalL1Recon');
+        const lbl = document.getElementById('btnModalL1ReconLabel');
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('is-running');
+        }
+        if (lbl) lbl.textContent = 'Đang đối soát...';
+
+        try {
+            // Step 1: đảm bảo invoice cache + refund excel
+            const [, refundInfoRaw] = await Promise.all([
+                this.loadInvoiceStatusData().catch((e) => {
+                    console.warn('[KPI L1] Load invoice cache failed:', e?.message);
+                }),
+                this.fetchRefundedOrderCodes(3).catch((e) => {
+                    console.warn('[KPI L1] Fetch refund excel failed:', e?.message);
+                    return { codes: new Set(), totalRows: 0 };
+                }),
+            ]);
+            const refundInfo = refundInfoRaw || { codes: new Set() };
+            const refundedInvoiceNumbers = refundInfo.codes || new Set();
+
+            // Step 2: reconcile từng đơn — worker pool concurrency 6
+            const CONCURRENCY = Math.min(6, orders.length);
+            const total = orders.length;
+            const results = new Array(total);
+            let nextIdx = 0;
+
+            const reconcileOne = async (idx) => {
+                const order = orders[idx];
+                const invoice = this._invoiceCache?.get(order.orderId) || null;
+                const invNumber = invoice?.Number || '';
+                const isRefunded = !!(invNumber && refundedInvoiceNumbers.has(invNumber));
+                const baseFields = {
+                    orderId: order.orderId,
+                    orderCode: order.orderCode || '',
+                    invoiceNumber: invoice?.Number || '',
+                    invoiceState: invoice?.ShowState || '',
+                    kpiAmount: order.kpi || 0,
+                    stt: order.stt,
+                    expectedNet: order.netProducts || 0,
+                };
+                try {
+                    let result = { hasDiscrepancy: false, discrepancies: [], actualNet: null };
+                    if (window.kpiManager?.reconcileKPI) {
+                        result = await window.kpiManager.reconcileKPI(
+                            order.orderId,
+                            order.campaignName,
+                            order.orderCode
+                        );
+                    }
+                    const refundDiscrepancy = isRefunded
+                        ? [
+                              {
+                                  type: 'refunded',
+                                  message: 'Đơn đã có trong refund excel — không tính KPI',
+                              },
+                          ]
+                        : [];
+                    results[idx] = {
+                        ...baseFields,
+                        actualNet:
+                            result.actualNet != null ? result.actualNet : order.netProducts || 0,
+                        hasDiscrepancy: isRefunded || result.hasDiscrepancy,
+                        isRefunded,
+                        discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
+                    };
+                } catch (e) {
+                    console.error('[KPI L1] Recon error for', order.orderId, e);
+                    results[idx] = {
+                        ...baseFields,
+                        actualNet: 'Lỗi',
+                        hasDiscrepancy: true,
+                        isRefunded,
+                        discrepancies: [
+                            ...(isRefunded ? [{ type: 'refunded', message: 'Đơn đã hoàn' }] : []),
+                            { type: 'error', message: e?.message || 'lỗi' },
+                        ],
+                    };
+                }
+            };
+
+            const workers = Array.from({ length: CONCURRENCY }, async () => {
+                while (true) {
+                    const myIdx = nextIdx++;
+                    if (myIdx >= total) break;
+                    await reconcileOne(myIdx);
+                }
+            });
+            await Promise.all(workers);
+
+            // Step 3: lưu cache 7 ngày + apply vào maps + re-render
+            this._writeL1ReconCache(userId, results);
+            this._applyL1ReconCache(userId, results);
+
+            // Update main KPI table (cho employee này) để KPI thực reflect ngay
+            try {
+                await this.renderKPITable(this.state.filteredData || []);
+            } catch (e) {
+                console.warn('[KPI L1] Sync main table failed:', e?.message);
+            }
+
+            if (window.notificationManager?.success) {
+                const refundCnt = results.filter((r) => r.isRefunded).length;
+                const discCnt = results.filter((r) => r.hasDiscrepancy && !r.isRefunded).length;
+                window.notificationManager.success(
+                    `Đối soát xong ${total} đơn (hoàn: ${refundCnt}, sai lệch: ${discCnt})`,
+                    2500
+                );
+            }
+            forceRefresh = !!forceRefresh; // unused but keeps linter calm if needed
+        } catch (e) {
+            console.error('[KPI L1] Reconciliation failed:', e);
+            if (window.notificationManager?.error) {
+                window.notificationManager.error(`Đối soát thất bại: ${e.message}`, 3000);
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('is-running');
+            }
+            this._setL1ReconCacheInfo(userId);
+        }
     },
 
     // ========================================
@@ -2813,13 +3131,16 @@ const KPICommission = {
         for (const r of results) {
             this._reconByOrder.set(r.orderId, r);
         }
-        // Aggregate KPI loss per user via this.state.filteredData
+        // Aggregate KPI loss per user via this.state.filteredData.
+        // Loại đơn = đơn refund (từ excel) HOẶC đơn có phiếu Hủy bỏ trên TPOS.
         const refundedSet = new Set(results.filter((r) => r.isRefunded).map((r) => r.orderId));
         for (const emp of this.state.filteredData || []) {
             let lossSum = 0;
             let refundCount = 0;
             for (const order of emp.orders || []) {
-                if (refundedSet.has(order.orderId)) {
+                const inv = this._invoiceCache?.get(order.orderId);
+                const isCancelled = this._isInvoiceCancelled(inv);
+                if (refundedSet.has(order.orderId) || isCancelled) {
                     lossSum += order.kpi || 0;
                     refundCount++;
                 }

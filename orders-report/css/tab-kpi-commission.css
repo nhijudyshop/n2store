@@ -2659,3 +2659,81 @@ body {
     border-radius: 3px;
     color: #4b5563;
 }
+
+/* ============================================
+   MODAL L1 — Recon button (per-employee)
+   ============================================ */
+.modal-l1-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-l1-recon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    transition:
+        transform 0.15s,
+        box-shadow 0.15s,
+        filter 0.15s;
+}
+.btn-l1-recon:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+    filter: brightness(1.05);
+}
+.btn-l1-recon:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.btn-l1-recon svg {
+    width: 16px;
+    height: 16px;
+}
+.btn-l1-recon.is-cached {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+.btn-l1-recon.is-running {
+    pointer-events: none;
+}
+.btn-l1-recon.is-running svg {
+    animation: l1ReconSpin 0.8s linear infinite;
+}
+
+@keyframes l1ReconSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.l1-recon-cache-info {
+    font-size: 11px;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.l1-recon-cache-info.is-fresh {
+    background: #dcfce7;
+    color: #166534;
+}
+.l1-recon-cache-info.is-stale {
+    background: #fef3c7;
+    color: #92400e;
+}
