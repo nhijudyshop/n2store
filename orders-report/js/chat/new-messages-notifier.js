@@ -288,59 +288,50 @@
      * data is not lost if server has incomplete data.
      */
     function setPendingCustomers(customers) {
-        if (!customers || !customers.length) {
-            // Server returned empty → server là authoritative source. Clear local
-            // localStorage để đồng bộ với server (sau wipe / reset toàn bộ DB).
-            // Trước đây "keep existing" gây stale: server đã wipe nhưng client vẫn
-            // hiện badge cũ từ localStorage cho tới khi nhận event mới.
-            // Lưu ý: chỉ ảnh hưởng khi client gọi _fetchOfflinePendingCustomers
-            // và server return success+empty — trường hợp lỗi network không gọi
-            // setPendingCustomers (đã catch trong _fetchOfflinePendingCustomers).
-            if (_pendingCustomers.length > 0) {
-                _pendingCustomers = [];
-                _saveToLocalStorage();
-            }
-            reapply();
-            return;
+        // SERVER IS THE SINGLE SOURCE OF TRUTH.
+        //
+        // pending_customers table on Render Postgres is canonical:
+        // - WS handlers upsert/delete per pages:* events
+        // - Cron mỗi 5 phút reconcile against Pancake's unread_count
+        // - mark-replied API deletes when user opens chat
+        //
+        // Client cache (_pendingCustomers + localStorage) only exists
+        // for instant render before fetch completes. Whenever we fetch
+        // fresh from server, REPLACE local — don't merge or take max,
+        // since both lead to stale-high counts:
+        //   • Math.max keeps local count even when server is correct lower
+        //     (eg cron reconciled count=2 but local still has 8 from old bumps)
+        //   • Keeping local-only entries (not in server) preserves rows
+        //     that server already deleted (shop replied → server DELETED → local kept)
+        // Owner repro 2026-05-12: Mật Ngọt showed "4 MỚI" even after server
+        // reconcile DELETEd the row, because client merged old local in.
+        //
+        // The only thing we PRESERVE locally: entries that have been
+        // marked-replied recently (within REPLIED_TTL_MS = 24h) — used to
+        // suppress stale WS broadcasts that may re-add a just-replied
+        // customer. That filter remains via _wasRecentlyReplied.
+        //
+        // Trade-off accepted: if a realtime event arrives between fetch
+        // start and finish, it'll be briefly overwritten by stale fetch
+        // data. The next realtime event or 5-min reconcile corrects it.
+
+        const next = [];
+        const arr = Array.isArray(customers) ? customers : [];
+        for (const pc of arr) {
+            const key = String(pc.psid || '');
+            if (!key) continue;
+            // Skip entries server hasn't cleaned but we already marked replied.
+            if (_wasRecentlyReplied(key, pc.timestamp)) continue;
+            next.push({
+                psid: key,
+                pageId: String(pc.pageId || pc.page_id || ''),
+                customerName: pc.customerName || pc.customer_name || '',
+                inboxCount: pc.inboxCount || pc.unread_count || pc.message_count || 0,
+                snippet: pc.snippet || pc.lastMessage || '',
+                timestamp: pc.timestamp || pc.updated_at || null,
+            });
         }
-
-        // Merge: existing data + server data
-        const merged = new Map();
-
-        // Load existing first (from localStorage/realtime)
-        _pendingCustomers.forEach((pc) => {
-            const key = String(pc.psid || '');
-            if (key) merged.set(key, { ...pc });
-        });
-
-        // Merge server data — bỏ qua entry server nào đã được user reply rồi
-        // (server có thể lag chưa cập nhật DELETE từ /api/realtime/mark-replied,
-        // hoặc có entry với last_message_time <= repliedAt là tin cũ trước reply).
-        customers.forEach((pc) => {
-            const key = String(pc.psid || '');
-            if (!key) return;
-
-            // Skip nếu user đã reply sau khi nhận tin này
-            if (_wasRecentlyReplied(key, pc.timestamp)) return;
-
-            const existing = merged.get(key);
-            if (existing) {
-                existing.inboxCount = Math.max(existing.inboxCount || 0, pc.inboxCount || 0);
-                if ((pc.timestamp || 0) > (existing.timestamp || 0)) {
-                    existing.snippet = pc.snippet || existing.snippet;
-                    existing.timestamp = pc.timestamp;
-                }
-                existing.pageId = pc.pageId || existing.pageId;
-                // Preserve customerName: ưu tiên server data (mới hơn local cache).
-                if (pc.customerName || pc.customer_name) {
-                    existing.customerName = pc.customerName || pc.customer_name;
-                }
-            } else {
-                merged.set(key, { ...pc });
-            }
-        });
-
-        _pendingCustomers = [...merged.values()];
+        _pendingCustomers = next;
         _saveToLocalStorage();
         reapply();
     }
