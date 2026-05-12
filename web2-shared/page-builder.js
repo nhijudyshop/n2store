@@ -206,7 +206,17 @@
             const tb = root.querySelector('#w2pTbody');
             const colCount = (config.columns?.length || 0) + 5;
             if (!STATE.records.length) {
-                tb.innerHTML = `<tr><td colspan="${colCount}" class="empty-row">Chưa có dữ liệu — bấm "Thêm mới" ở trên</td></tr>`;
+                const isFiltered = !!(
+                    STATE.search ||
+                    (STATE.activeOnly !== null && STATE.activeOnly !== undefined)
+                );
+                const emptyTitle = isFiltered ? 'Không có kết quả phù hợp' : 'Chưa có dữ liệu';
+                const emptyHint = isFiltered
+                    ? 'Xoá lọc hoặc thử từ khoá khác.'
+                    : 'Bấm "Thêm mới" ở trên để tạo bản ghi đầu tiên.';
+                const icon = isFiltered ? 'search-x' : 'inbox';
+                tb.innerHTML = `<tr><td colspan="${colCount}" class="empty-row"><div class="empty-state"><i data-lucide="${icon}" class="empty-state-icon"></i><div class="empty-state-title">${emptyTitle}</div><div class="empty-state-hint">${emptyHint}</div></div></td></tr>`;
+                if (global.lucide) global.lucide.createIcons();
                 return;
             }
             tb.innerHTML = STATE.records
@@ -330,7 +340,8 @@
                 renderPagination();
                 renderCounters();
             } catch (e) {
-                tb.innerHTML = `<tr><td colspan="${colCount}" class="empty-row" style="color:#f05050;">Lỗi: ${escapeHtml(e.message)}</td></tr>`;
+                tb.innerHTML = `<tr><td colspan="${colCount}" class="empty-row"><div class="empty-state empty-state-error"><i data-lucide="alert-triangle" class="empty-state-icon"></i><div class="empty-state-title">Không tải được dữ liệu</div><div class="empty-state-hint">${escapeHtml(e.message)}</div></div></td></tr>`;
+                if (global.lucide) global.lucide.createIcons();
                 notify('Lỗi tải dữ liệu: ' + e.message, 'error');
             } finally {
                 STATE.loading = false;

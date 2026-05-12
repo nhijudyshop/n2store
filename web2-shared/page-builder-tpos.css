@@ -30,7 +30,9 @@
     font-weight: 400;
     font-size: 13px;
 }
-.web2-shell .web2-breadcrumb-current { font-weight: 600; }
+.web2-shell .web2-breadcrumb-current {
+    font-weight: 600;
+}
 
 /* Search/filter section — TPOS search bar look (no border, gray bg, sharp corners) */
 .web2-shell .search-section {
@@ -58,17 +60,25 @@
 }
 /* Hide search-icon + search-clear absolute overlays (TPOS doesn't use them) */
 .web2-shell .search-wrapper > .search-icon,
-.web2-shell .search-wrapper > .search-clear { display: none; }
+.web2-shell .search-wrapper > .search-clear {
+    display: none;
+}
 .web2-shell .search-input:focus {
     background: #ffffff;
     border: 0;
     box-shadow: none;
 }
-.web2-shell .search-icon { color: #58666e; }
-.web2-shell .search-clear { color: #58666e; }
+.web2-shell .search-icon {
+    color: #58666e;
+}
+.web2-shell .search-clear {
+    color: #58666e;
+}
 
 /* Filter chip area — flatten to TPOS toolbar look */
-.web2-shell .filter-chip-group { gap: 4px; }
+.web2-shell .filter-chip-group {
+    gap: 4px;
+}
 .web2-shell .chip-label {
     color: #58666e;
     font-size: 12px;
@@ -107,18 +117,20 @@
     color: #000000;
     font-size: 14px;
     font-weight: 600;
-    padding: 0.5em 0.6em 0.4em;        /* 7px 8.4px 5.6px @ 14px font */
+    padding: 0.5em 0.6em 0.4em; /* 7px 8.4px 5.6px @ 14px font */
     border-bottom: 1px solid #dddddd;
     text-transform: none;
     letter-spacing: 0;
 }
 .web2-shell .data-table tbody td {
-    padding: 0.4em 0.6em;              /* 5.6px 8.4px @ 14px font */
+    padding: 0.4em 0.6em; /* 5.6px 8.4px @ 14px font */
     border-bottom: 1px solid #dddddd;
     font-size: 14px;
     color: #333333;
 }
-.web2-shell .data-table tbody tr:hover td { background: #f9fafb; }
+.web2-shell .data-table tbody tr:hover td {
+    background: #f9fafb;
+}
 
 /* Pagination — TPOS flat */
 .web2-shell .pagination {
@@ -153,7 +165,9 @@
     font-size: 14px;
     color: #58666e;
 }
-.web2-shell .modal-body { padding: 15px; }
+.web2-shell .modal-body {
+    padding: 15px;
+}
 .web2-shell .modal-footer {
     background: #ffffff;
     border-top: 1px solid #dddddd;
@@ -161,7 +175,9 @@
 }
 
 /* Form fields inside modal */
-.web2-shell .field-row { margin-bottom: 10px; }
+.web2-shell .field-row {
+    margin-bottom: 10px;
+}
 .web2-shell .field-row label {
     font-size: 12px;
     color: #58666e;
@@ -169,10 +185,10 @@
     display: block;
     margin-bottom: 4px;
 }
-.web2-shell .field-row input[type="text"],
-.web2-shell .field-row input[type="number"],
-.web2-shell .field-row input[type="email"],
-.web2-shell .field-row input[type="tel"],
+.web2-shell .field-row input[type='text'],
+.web2-shell .field-row input[type='number'],
+.web2-shell .field-row input[type='email'],
+.web2-shell .field-row input[type='tel'],
 .web2-shell .field-row select,
 .web2-shell .field-row textarea {
     width: 100%;
@@ -191,7 +207,10 @@
     border-color: #3c8dbc;
     box-shadow: none;
 }
-.web2-shell .field-row textarea { min-height: 64px; resize: vertical; }
+.web2-shell .field-row textarea {
+    min-height: 64px;
+    resize: vertical;
+}
 
 /* ========== Ref autocomplete picker ========== */
 .web2-shell .web2-ref-wrapper {
@@ -250,8 +269,12 @@
     border-bottom: 1px solid #f0f0f0;
     font-size: 13px;
 }
-.web2-shell .web2-ref-item:last-child { border-bottom: 0; }
-.web2-shell .web2-ref-item:hover { background: #edf1f2; }
+.web2-shell .web2-ref-item:last-child {
+    border-bottom: 0;
+}
+.web2-shell .web2-ref-item:hover {
+    background: #edf1f2;
+}
 .web2-shell .web2-ref-item-code {
     font-family: monospace;
     color: #3c8dbc;
@@ -268,14 +291,18 @@
     font-size: 12px;
     font-style: italic;
 }
-.web2-shell .web2-ref-empty.error { color: #f05050; }
+.web2-shell .web2-ref-empty.error {
+    color: #f05050;
+}
 .web2-shell .web2-ref-hint {
     display: block;
     margin-top: 3px;
     font-size: 11px;
     color: #58666e;
 }
-.web2-shell .web2-ref-hint.error { color: #f05050; }
+.web2-shell .web2-ref-hint.error {
+    color: #f05050;
+}
 
 /* Linkable code cell in table — TPOS-like clickable record reference */
 .web2-shell .data-table td a.web2-cell-link {
@@ -286,4 +313,41 @@
 .web2-shell .data-table td a.web2-cell-link:hover {
     color: #357ca5;
     text-decoration: underline;
+}
+
+/* Empty state — friendlier than plain text. Used when no records OR filter no-match OR error. */
+.web2-shell .data-table td.empty-row {
+    padding: 0;
+    background: #fafbfc;
+}
+.web2-shell .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 24px;
+    color: #6b7280;
+    text-align: center;
+}
+.web2-shell .empty-state-icon {
+    width: 44px !important;
+    height: 44px !important;
+    color: #cbd5e1;
+    margin-bottom: 12px;
+}
+.web2-shell .empty-state-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+}
+.web2-shell .empty-state-hint {
+    font-size: 13px;
+    color: #9ca3af;
+}
+.web2-shell .empty-state.empty-state-error .empty-state-icon {
+    color: #f05050;
+}
+.web2-shell .empty-state.empty-state-error .empty-state-title {
+    color: #b91c1c;
 }

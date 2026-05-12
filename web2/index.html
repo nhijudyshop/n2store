@@ -124,8 +124,14 @@
             }
             .card .slug {
                 font-size: 11px;
-                color: #9ca3af;
+                color: #cbd5e1;
                 font-family: ui-monospace, monospace;
+                opacity: 0;
+                transition: opacity 0.15s ease;
+            }
+            .card:hover .slug {
+                opacity: 1;
+                color: #6b7280;
             }
             .empty {
                 color: #9ca3af;
