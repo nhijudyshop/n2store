@@ -8,6 +8,26 @@
 
 ## 2026-05-12
 
+### [native-orders] STT global tự tăng + endpoint reset
+
+**Trigger user**: STT cột trong list `native-orders` luôn hiển 1 vì xài `session_index` (per-customer counter). User muốn: tạo đơn từ `tpos-pancake` → STT +1 toàn cục, có nút reset về 1.
+
+**Fix**:
+
+- Postgres SEQUENCE `native_orders_display_stt_seq` + column `display_stt INTEGER` (migration 068 nội tuyến trong `ensureTables`).
+- Backfill: DO $$ … nextval(...) UPDATE đơn cũ theo `created_at ASC` (one-shot, IF NULL).
+- `POST /from-comment` insert `display_stt = nextval('native_orders_display_stt_seq')` — atomic, không lo race.
+- `POST /reset-stt { renumber? }`:
+    - `renumber=false` (default): `ALTER SEQUENCE … RESTART WITH 1` — đơn cũ giữ STT, đơn mới tiếp = 1.
+    - `renumber=true`: RESTART + loop UPDATE tất cả đơn theo `created_at ASC` → 1..N.
+- Frontend: thêm button `#btnResetStt` + confirm() chọn mode. Render `o.displayStt ?? o.sessionIndex` (fallback) bold.
+
+**Verify live**: GET /load → 7 đơn STT 1..7 (cũ nhất 24/04=1, mới nhất 12/05=7). POST /reset-stt {} → next nextval=1. POST /reset-stt {renumber:true} → renumbered 7.
+
+Status: ✅ deploy live commit `4da0eadc`.
+
+---
+
 ### [orders] Hardening: chặn user click "Tạo đơn TPOS" 2 lần bằng nhiều lớp DOM
 
 **Trigger**: Sau commit 883ff0a2 (3-layer guard), vẫn chưa chứng minh nguyên nhân duplicate là double-click hay TPOS internal bug. Đề phòng trường hợp double-click, thêm 4 lớp DOM-level — không thể physical click 2 lần được.
