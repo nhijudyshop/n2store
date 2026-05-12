@@ -1,0 +1,1557 @@
+{
+    "base": "http://localhost:8080",
+    "timestamp": "2026-05-12T05:38:15.071Z",
+    "total": 86,
+    "ok": 86,
+    "fail": 0,
+    "results": [
+        {
+            "dir": "account-chi",
+            "slug": "accountaccount-chi",
+            "title": "Loại chi",
+            "httpStatus": 200,
+            "pageTitle": "Loại chi — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountaccount-chi/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-deposit",
+            "slug": "accountdeposit",
+            "title": "Ký quỹ",
+            "httpStatus": 200,
+            "pageTitle": "Ký quỹ — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountdeposit/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-inventory",
+            "slug": "accountinventory",
+            "title": "Điều chỉnh công nợ",
+            "httpStatus": 200,
+            "pageTitle": "Điều chỉnh công nợ — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountinventory/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-journal",
+            "slug": "accountjournal",
+            "title": "Sổ nhật ký",
+            "httpStatus": 200,
+            "pageTitle": "Sổ nhật ký — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountjournal/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-list",
+            "slug": "accountaccount",
+            "title": "Tài khoản kế toán",
+            "httpStatus": 200,
+            "pageTitle": "Tài khoản kế toán — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountaccount/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-payment-change",
+            "slug": "accountpayment-change",
+            "title": "Tiền thối POS",
+            "httpStatus": 200,
+            "pageTitle": "Tiền thối POS — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountpayment-change/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-payment-chi",
+            "slug": "accountpayment-chi",
+            "title": "Phiếu chi",
+            "httpStatus": 200,
+            "pageTitle": "Phiếu chi — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountpayment-chi/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-payment-list",
+            "slug": "accountpayment",
+            "title": "Thanh toán bán hàng",
+            "httpStatus": 200,
+            "pageTitle": "Thanh toán bán hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountpayment/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-payment-thu",
+            "slug": "accountpayment-thu",
+            "title": "Phiếu thu",
+            "httpStatus": 200,
+            "pageTitle": "Phiếu thu — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountpayment-thu/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "account-thu",
+            "slug": "accountaccount-thu",
+            "title": "Loại thu",
+            "httpStatus": 200,
+            "pageTitle": "Loại thu — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/accountaccount-thu/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "application-user",
+            "slug": "applicationuser",
+            "title": "Người dùng",
+            "httpStatus": 200,
+            "pageTitle": "Người dùng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/applicationuser/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "barcode-product-label",
+            "slug": "barcodeproductlabel",
+            "title": "In mã vạch",
+            "httpStatus": 200,
+            "pageTitle": "In mã vạch — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/barcodeproductlabel/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "callcenter-config",
+            "slug": "callcenter-config",
+            "title": "Tích hợp Callcenter",
+            "httpStatus": 200,
+            "pageTitle": "Tích hợp Callcenter — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/callcenter-config/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "category-distributor",
+            "slug": "category-ext-distributor",
+            "title": "Danh mục khác",
+            "httpStatus": 200,
+            "pageTitle": "Danh mục khác — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/category-ext-distributor/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "company",
+            "slug": "company",
+            "title": "Công ty",
+            "httpStatus": 200,
+            "pageTitle": "Công ty — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/company/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "configs-advanced",
+            "slug": "configs-advanced",
+            "title": "Cấu hình nâng cao",
+            "httpStatus": 200,
+            "pageTitle": "Cấu hình nâng cao — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/configs-advanced/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "configs-general",
+            "slug": "configs-general",
+            "title": "Cấu hình chung",
+            "httpStatus": 200,
+            "pageTitle": "Cấu hình chung — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/configs-general/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "configs-printer",
+            "slug": "configs-printer",
+            "title": "Máy in",
+            "httpStatus": 200,
+            "pageTitle": "Máy in — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/configs-printer/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "configs-roles",
+            "slug": "configs-roles",
+            "title": "Phân quyền",
+            "httpStatus": 200,
+            "pageTitle": "Phân quyền — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/configs-roles/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "configs-twofa",
+            "slug": "configs-twofa",
+            "title": "Xác thực 2FA",
+            "httpStatus": 200,
+            "pageTitle": "Xác thực 2FA — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/configs-twofa/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "coupon-program",
+            "slug": "couponprogram",
+            "title": "Coupon",
+            "httpStatus": 200,
+            "pageTitle": "Coupon — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/couponprogram/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "delivery-carrier",
+            "slug": "deliverycarrier",
+            "title": "Đối tác giao hàng",
+            "httpStatus": 200,
+            "pageTitle": "Đối tác giao hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/deliverycarrier/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "export-file",
+            "slug": "exportfile",
+            "title": "Tác vụ xuất file",
+            "httpStatus": 200,
+            "pageTitle": "Tác vụ xuất file — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/exportfile/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "fastpurchaseorder-invoice",
+            "slug": "fastpurchaseorder-invoice",
+            "title": "Mua hàng",
+            "httpStatus": 200,
+            "pageTitle": "Mua hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/fastpurchaseorder-invoice/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "fastpurchaseorder-refund",
+            "slug": "fastpurchaseorder-refund",
+            "title": "Trả hàng mua",
+            "httpStatus": 200,
+            "pageTitle": "Trả hàng mua — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/fastpurchaseorder-refund/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "fastsaleorder-delivery",
+            "slug": "fastsaleorder-delivery",
+            "title": "Phiếu giao hàng",
+            "httpStatus": 200,
+            "pageTitle": "Phiếu giao hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/fastsaleorder-delivery/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "fastsaleorder-invoice",
+            "slug": "fastsaleorder-invoice",
+            "title": "Bán hàng (Hóa đơn)",
+            "httpStatus": 200,
+            "pageTitle": "Bán hàng (Hóa đơn) — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/fastsaleorder-invoice/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "fastsaleorder-refund",
+            "slug": "fastsaleorder-refund",
+            "title": "Trả hàng",
+            "httpStatus": 200,
+            "pageTitle": "Trả hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/fastsaleorder-refund/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "history-cross-check-product",
+            "slug": "historycrosscheckproduct",
+            "title": "Đối soát sản phẩm",
+            "httpStatus": 200,
+            "pageTitle": "Đối soát sản phẩm — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/historycrosscheckproduct/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "history-ds",
+            "slug": "historyds",
+            "title": "Lịch sử đối soát",
+            "httpStatus": 200,
+            "pageTitle": "Lịch sử đối soát — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/historyds/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "inventory-valuation",
+            "slug": "inventory-valuation",
+            "title": "Giá trị tồn kho",
+            "httpStatus": 200,
+            "pageTitle": "Giá trị tồn kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/inventory-valuation/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "ir-mailserver",
+            "slug": "irmailserver",
+            "title": "Cấu hình Mail Server",
+            "httpStatus": 200,
+            "pageTitle": "Cấu hình Mail Server — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/irmailserver/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "live-campaign",
+            "slug": "livecampaign",
+            "title": "Chiến dịch Live",
+            "httpStatus": 200,
+            "pageTitle": "Chiến dịch Live — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/livecampaign/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "loyalty-program",
+            "slug": "loyaltyprogram",
+            "title": "Tích điểm",
+            "httpStatus": 200,
+            "pageTitle": "Tích điểm — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/loyaltyprogram/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "mail-template",
+            "slug": "mailtemplate",
+            "title": "Mẫu email",
+            "httpStatus": 200,
+            "pageTitle": "Mẫu email — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/mailtemplate/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "offer-program",
+            "slug": "offerprogram",
+            "title": "Ưu đãi",
+            "httpStatus": 200,
+            "pageTitle": "Ưu đãi — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/offerprogram/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "partner-category",
+            "slug": "partnercategory",
+            "title": "Nhóm khách hàng",
+            "httpStatus": 200,
+            "pageTitle": "Nhóm khách hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/partnercategory/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "partner-category-revenue-config",
+            "slug": "partnercategory-revenueconfig",
+            "title": "Cấu hình nhóm doanh số",
+            "httpStatus": 200,
+            "pageTitle": "Cấu hình nhóm doanh số — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/partnercategory-revenueconfig/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "partner-customer",
+            "slug": "partner-customer",
+            "title": "Khách hàng",
+            "httpStatus": 200,
+            "pageTitle": "Khách hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/partner-customer/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "partner-supplier",
+            "slug": "partner-supplier",
+            "title": "Nhà cung cấp",
+            "httpStatus": 200,
+            "pageTitle": "Nhà cung cấp — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/partner-supplier/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "pos-config",
+            "slug": "posconfig",
+            "title": "Điểm bán hàng",
+            "httpStatus": 200,
+            "pageTitle": "Điểm bán hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/posconfig/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "pos-order",
+            "slug": "posorder",
+            "title": "Đơn hàng POS",
+            "httpStatus": 200,
+            "pageTitle": "Đơn hàng POS — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/posorder/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "pos-session",
+            "slug": "possession",
+            "title": "Phiên bán hàng",
+            "httpStatus": 200,
+            "pageTitle": "Phiên bán hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/possession/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-attribute",
+            "slug": "productattribute",
+            "title": "Thuộc tính",
+            "httpStatus": 200,
+            "pageTitle": "Thuộc tính — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/productattribute/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-attribute-value",
+            "slug": "productattributevalue",
+            "title": "Giá trị thuộc tính",
+            "httpStatus": 200,
+            "pageTitle": "Giá trị thuộc tính — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/productattributevalue/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-category",
+            "slug": "productcategory",
+            "title": "Nhóm sản phẩm",
+            "httpStatus": 200,
+            "pageTitle": "Nhóm sản phẩm — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/productcategory/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-label-paper",
+            "slug": "productlabelpaper",
+            "title": "Giấy in mã vạch",
+            "httpStatus": 200,
+            "pageTitle": "Giấy in mã vạch — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/productlabelpaper/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-template",
+            "slug": "producttemplate",
+            "title": "Sản phẩm",
+            "httpStatus": 200,
+            "pageTitle": "Sản phẩm — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/producttemplate/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-uom",
+            "slug": "productuom",
+            "title": "Đơn vị tính",
+            "httpStatus": 200,
+            "pageTitle": "Đơn vị tính — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/productuom/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-uom-categ",
+            "slug": "productuomcateg",
+            "title": "Nhóm đơn vị tính",
+            "httpStatus": 200,
+            "pageTitle": "Nhóm đơn vị tính — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/productuomcateg/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "product-variant",
+            "slug": "product",
+            "title": "Biến thể sản phẩm",
+            "httpStatus": 200,
+            "pageTitle": "Biến thể sản phẩm — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/product/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "promotion-program",
+            "slug": "promotionprogram",
+            "title": "Chương trình khuyến mãi",
+            "httpStatus": 200,
+            "pageTitle": "Chương trình khuyến mãi — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/promotionprogram/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-audit-fastsale",
+            "slug": "report-audit-fastsale",
+            "title": "Audit log PBH",
+            "httpStatus": 200,
+            "pageTitle": "Audit log PBH — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-audit-fastsale/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-business-results",
+            "slug": "report-business-results",
+            "title": "Kết quả kinh doanh",
+            "httpStatus": 200,
+            "pageTitle": "Kết quả kinh doanh — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-business-results/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-cash-journal",
+            "slug": "report-cash-journal",
+            "title": "Sổ tiền mặt",
+            "httpStatus": 200,
+            "pageTitle": "Sổ tiền mặt — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-cash-journal/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-customer-debt",
+            "slug": "report-customer-debt",
+            "title": "Công nợ KH",
+            "httpStatus": 200,
+            "pageTitle": "Công nợ KH — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-customer-debt/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-delivery",
+            "slug": "report-delivery",
+            "title": "Thống kê giao hàng",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê giao hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-delivery/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-exported",
+            "slug": "report-exported",
+            "title": "Thống kê xuất kho",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê xuất kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-exported/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-imported",
+            "slug": "report-imported",
+            "title": "Thống kê nhập kho",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê nhập kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-imported/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-not-invoice",
+            "slug": "report-not-invoice",
+            "title": "KH chưa phát sinh HĐ",
+            "httpStatus": 200,
+            "pageTitle": "KH chưa phát sinh HĐ — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-not-invoice/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-order",
+            "slug": "report-order",
+            "title": "Thống kê hóa đơn",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê hóa đơn — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-order/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-partner-create",
+            "slug": "report-partner-create",
+            "title": "Nguồn tạo KH",
+            "httpStatus": 200,
+            "pageTitle": "Nguồn tạo KH — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-partner-create/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-product-invoice",
+            "slug": "report-product-invoice",
+            "title": "SP HĐ nháp/xác nhận",
+            "httpStatus": 200,
+            "pageTitle": "SP HĐ nháp/xác nhận — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-product-invoice/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-purchase",
+            "slug": "report-purchase",
+            "title": "Thống kê mua hàng",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê mua hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-purchase/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-rate-saleonline",
+            "slug": "report-rate-saleonline",
+            "title": "Tỷ lệ lên đơn SO",
+            "httpStatus": 200,
+            "pageTitle": "Tỷ lệ lên đơn SO — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-rate-saleonline/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-refund",
+            "slug": "report-refund",
+            "title": "Thống kê trả hàng",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê trả hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-refund/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-revenue",
+            "slug": "report-revenue",
+            "title": "Thống kê doanh thu",
+            "httpStatus": 200,
+            "pageTitle": "Thống kê doanh thu — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-revenue/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "report-supplier-debt",
+            "slug": "report-supplier-debt",
+            "title": "Công nợ NCC",
+            "httpStatus": 200,
+            "pageTitle": "Công nợ NCC — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/report-supplier-debt/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "res-currency",
+            "slug": "rescurrency",
+            "title": "Tiền tệ",
+            "httpStatus": 200,
+            "pageTitle": "Tiền tệ — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/rescurrency/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "revenue-began-customer",
+            "slug": "revenuebegan",
+            "title": "DSD đầu kỳ Khách hàng",
+            "httpStatus": 200,
+            "pageTitle": "DSD đầu kỳ Khách hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/revenuebegan/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "revenue-began-supplier",
+            "slug": "revenuebegan-supplier",
+            "title": "DSD đầu kỳ Nhà cung cấp",
+            "httpStatus": 200,
+            "pageTitle": "DSD đầu kỳ Nhà cung cấp — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/revenuebegan-supplier/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "sale-online-facebook",
+            "slug": "saleonline-facebook",
+            "title": "Facebook (Sale Online)",
+            "httpStatus": 200,
+            "pageTitle": "Facebook (Sale Online) — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/saleonline-facebook/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "sale-order",
+            "slug": "saleorder",
+            "title": "Đơn đặt hàng",
+            "httpStatus": 200,
+            "pageTitle": "Đơn đặt hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/saleorder/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "sale-quotation",
+            "slug": "salequotation",
+            "title": "Báo giá",
+            "httpStatus": 200,
+            "pageTitle": "Báo giá — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/salequotation/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "sales-channel",
+            "slug": "salechannel",
+            "title": "Kênh bán hàng",
+            "httpStatus": 200,
+            "pageTitle": "Kênh bán hàng — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/salechannel/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "stock-fifo-vacuum",
+            "slug": "stockmove-fifovacuum",
+            "title": "Điều chỉnh giá vốn",
+            "httpStatus": 200,
+            "pageTitle": "Điều chỉnh giá vốn — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/stockmove-fifovacuum/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "stock-inventory",
+            "slug": "stockinventory",
+            "title": "Điều chỉnh tồn kho",
+            "httpStatus": 200,
+            "pageTitle": "Điều chỉnh tồn kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/stockinventory/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "stock-location",
+            "slug": "stocklocation",
+            "title": "Vị trí kho",
+            "httpStatus": 200,
+            "pageTitle": "Vị trí kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/stocklocation/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "stock-move",
+            "slug": "stockmove",
+            "title": "Dịch chuyển kho",
+            "httpStatus": 200,
+            "pageTitle": "Dịch chuyển kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/stockmove/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "stock-picking-type",
+            "slug": "stockpickingtype",
+            "title": "Tất cả hoạt động kho",
+            "httpStatus": 200,
+            "pageTitle": "Tất cả hoạt động kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/stockpickingtype/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "stock-warehouse-product",
+            "slug": "stockwarehouseproduct",
+            "title": "Cấu hình SP kho",
+            "httpStatus": 200,
+            "pageTitle": "Cấu hình SP kho — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/stockwarehouseproduct/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "tag",
+            "slug": "tag",
+            "title": "Nhãn (Tag)",
+            "httpStatus": 200,
+            "pageTitle": "Nhãn (Tag) — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/tag/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "wi-invoice",
+            "slug": "wiinvoice",
+            "title": "Hóa đơn điện tử",
+            "httpStatus": 200,
+            "pageTitle": "Hóa đơn điện tử — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/wiinvoice/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "wi-invoice-config",
+            "slug": "wiinvoice-config",
+            "title": "HĐĐT cấu hình",
+            "httpStatus": 200,
+            "pageTitle": "HĐĐT cấu hình — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/wiinvoice-config/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "wi-invoice-history",
+            "slug": "wiinvoice-history",
+            "title": "HĐĐT lịch sử",
+            "httpStatus": 200,
+            "pageTitle": "HĐĐT lịch sử — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/wiinvoice-history/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        },
+        {
+            "dir": "xuat-nhap-ton",
+            "slug": "xuat-nhap-ton",
+            "title": "Nhập-Xuất-Tồn",
+            "httpStatus": 200,
+            "pageTitle": "Nhập-Xuất-Tồn — Web 2.0",
+            "hasTable": true,
+            "consoleErrors": [],
+            "pageErrors": [],
+            "networkErrors": [],
+            "apiCalls": [
+                {
+                    "url": "/api/web2/xuat-nhap-ton/list?page=1&limit=200",
+                    "status": 200
+                }
+            ],
+            "ok": true
+        }
+    ]
+}
