@@ -1483,10 +1483,18 @@ const KPICommission = {
         const tbody = document.getElementById('kpiTableBody');
         if (!tbody) return;
 
+        // Hydrate cache cho mọi employee đang hiển thị (nếu chưa có recon
+        // trong session) — đảm bảo per-employee recon đã cache hiển thị đúng.
+        this._hydrateL1ReconCachesForEmployees(aggregated.map((e) => e.userId));
+
         const fullMode = this.state.displayMode === 'full';
-        const reconRan = !!(this._reconKpiLossByUser && this._reconKpiLossByUser.size > 0);
         let html = '';
         aggregated.forEach((emp, idx) => {
+            // reconRan per-employee: true nếu employee này đã có recon results
+            // (từ global recon hoặc per-employee recon trong modal L1).
+            const reconRan = !!(
+                this._reconKpiLossByUser && this._reconKpiLossByUser.has(emp.userId)
+            );
             const invoiceSummaryHtml = this.renderKPIInvoiceStatusSummary(emp.orders);
 
             const orderCount = emp.orders.filter((o) => {
@@ -1619,8 +1627,17 @@ const KPICommission = {
         const searchInput = document.getElementById('modalL1Search');
         if (searchInput) searchInput.value = '';
 
-        // Render table
-        this.renderEmployeeOrdersTable(this.state.currentEmployeeOrders);
+        // Áp dụng cache recon nếu có (cache TTL 7 ngày). Khi cache hết hạn
+        // hoặc chưa từng đối soát → table render ở trạng thái "chưa check".
+        const cached = this._readL1ReconCache(userId);
+        if (cached?.results) {
+            this._applyL1ReconCache(userId, cached.results);
+        } else {
+            this.renderEmployeeOrdersTable(this.state.currentEmployeeOrders);
+        }
+
+        // Update button label + cache info
+        this._setL1ReconCacheInfo(userId);
 
         // Show modal
         this.showEl('modalEmployeeOrders');
@@ -1860,6 +1877,36 @@ const KPICommission = {
         if (diffHr < 24) return `${diffHr} giờ trước`;
         const diffDay = Math.floor(diffHr / 24);
         return `${diffDay} ngày trước`;
+    },
+
+    /**
+     * Hydrate per-employee recon cache vào maps in-memory. Idempotent.
+     * Gọi trước khi render main KPI table để các employee đã có cache
+     * hiển thị KPI loss + Hoàn count ngay (không cần reopen modal).
+     */
+    _hydrateL1ReconCachesForEmployees(userIds) {
+        if (!Array.isArray(userIds) || userIds.length === 0) return;
+        if (!this._reconByOrder) this._reconByOrder = new Map();
+        if (!this._reconKpiLossByUser) this._reconKpiLossByUser = new Map();
+        for (const userId of userIds) {
+            if (this._reconKpiLossByUser.has(userId)) continue;
+            const cache = this._readL1ReconCache(userId);
+            if (!cache?.results) continue;
+            for (const r of cache.results) this._reconByOrder.set(r.orderId, r);
+            const emp = this.state.filteredData?.find((e) => e.userId === userId);
+            let lossSum = 0;
+            let refundCount = 0;
+            for (const order of emp?.orders || []) {
+                const r = this._reconByOrder.get(order.orderId);
+                const inv = this._invoiceCache?.get(order.orderId);
+                const isCancelled = this._isInvoiceCancelled(inv);
+                if (r?.isRefunded || isCancelled) {
+                    lossSum += order.kpi || 0;
+                    refundCount++;
+                }
+            }
+            this._reconKpiLossByUser.set(userId, { kpiLost: lossSum, refundCount });
+        }
     },
 
     _setL1ReconCacheInfo(userId) {
