@@ -1250,6 +1250,12 @@ class PurchaseOrderController {
 
         // Track editing state
         const editingPrices = new Set();
+        // Sticky lock — once user starts submitting TPOS, freeze the submit
+        // button even if a price-edit triggers updateButtonStates.
+        // Owner repro 2026-05-12: PO 55687 generated duplicate stock moves
+        // because updateButtonStates re-enabled btnTPOS while the first POST
+        // was in flight, letting a second click slip through.
+        let tposSubmitLocked = false;
 
         // Update button states based on zero-price and editing state
         const updateButtonStates = () => {
@@ -1311,9 +1317,12 @@ class PurchaseOrderController {
                 btnExcel.disabled = false;
                 btnExcel.style.opacity = '';
                 btnExcel.style.cursor = 'pointer';
-                btnTPOS.disabled = false;
-                btnTPOS.style.opacity = '';
-                btnTPOS.style.cursor = 'pointer';
+                // Honor sticky submit lock — never re-enable TPOS button mid-flight
+                if (!tposSubmitLocked) {
+                    btnTPOS.disabled = false;
+                    btnTPOS.style.opacity = '';
+                    btnTPOS.style.cursor = 'pointer';
+                }
             }
         };
 
@@ -1687,14 +1696,21 @@ class PurchaseOrderController {
         overlay.querySelector('#btnSubmitTPOS').addEventListener('click', async () => {
             console.log('[PO Preview] btnSubmitTPOS clicked');
             const btn = overlay.querySelector('#btnSubmitTPOS');
+            // Sticky lock prevents updateButtonStates from re-enabling the button
+            // mid-flight (root cause of duplicate FastPurchaseOrder POSTs in 5/2026).
+            tposSubmitLocked = true;
             btn.disabled = true;
             btn.textContent = 'Đang tạo...';
             btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
 
             const resetBtn = () => {
+                // Only allow retry on real failure — release lock + re-enable
+                tposSubmitLocked = false;
                 btn.disabled = false;
                 btn.textContent = 'Tạo đơn TPOS';
                 btn.style.opacity = '';
+                btn.style.cursor = 'pointer';
             };
 
             try {
@@ -1797,6 +1813,16 @@ class PurchaseOrderController {
                 overlay.remove();
 
                 if (tposResult.success) {
+                    // Mutate in-memory order RIGHT AWAY so any subsequent
+                    // createFromExcel call for this same order is blocked by
+                    // Guard 1 in tpos-purchase.js. Defense-in-depth against the
+                    // duplicate-FastPurchaseOrder bug that doubled stock moves
+                    // (PO 55687, 5/2026).
+                    if (tposResult.poId) {
+                        singleOrder.tposPoId = tposResult.poId;
+                        singleOrder.tposPoNumber = tposResult.poNumber || null;
+                    }
+
                     this.ui.showToast(
                         `Đã tạo đơn TPOS: ${tposResult.poNumber || 'ID ' + tposResult.poId} (${tposResult.linesCount} SP)`,
                         'success'

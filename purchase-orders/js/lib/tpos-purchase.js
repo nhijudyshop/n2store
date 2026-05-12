@@ -384,6 +384,55 @@ window.TPOSPurchase = (function () {
     // =====================================================
 
     let _createInProgress = false;
+    // Per-orderId cooldown — owner repro 2026-05-12: PO 55687 generated 103 stock
+    // moves at 12:49:33 and another 103 at 12:50:32 (59s apart, all qty doubled).
+    // Single global _createInProgress reset on `finally` doesn't survive a rapid
+    // second click after success or a page reload. Persist `<orderId>` →
+    // `<timestamp>` so the second submit for the SAME order is blocked for 10 min.
+    const DEDUPE_KEY = 'tpos_po_dedupe_v1';
+    const DEDUPE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+    function _readDedupeMap() {
+        try {
+            const raw = sessionStorage.getItem(DEDUPE_KEY);
+            const map = raw ? JSON.parse(raw) : {};
+            const now = Date.now();
+            for (const k of Object.keys(map)) {
+                if (!map[k] || now - map[k] > DEDUPE_TTL_MS) delete map[k];
+            }
+            return map;
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function _markCreating(orderId) {
+        if (!orderId) return;
+        try {
+            const map = _readDedupeMap();
+            map[orderId] = Date.now();
+            sessionStorage.setItem(DEDUPE_KEY, JSON.stringify(map));
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function _isRecentlyCreated(orderId) {
+        if (!orderId) return false;
+        const map = _readDedupeMap();
+        return Boolean(map[orderId]);
+    }
+
+    function _clearMark(orderId) {
+        if (!orderId) return;
+        try {
+            const map = _readDedupeMap();
+            delete map[orderId];
+            sessionStorage.setItem(DEDUPE_KEY, JSON.stringify(map));
+        } catch (e) {
+            /* ignore */
+        }
+    }
 
     /**
      * Dry-run validation: upload workbook to TPOS via PurchaseByExcel endpoint
@@ -405,7 +454,39 @@ window.TPOSPurchase = (function () {
             window.notificationManager?.show?.bind(window.notificationManager) ||
             ((msg, type) => console.log(`[TPOSPurchase] ${type}: ${msg}`));
 
-        // Guard: prevent concurrent/duplicate submissions
+        // Guard 1: order already pushed to TPOS — never re-create the same PO.
+        // tposPoId is persisted right after the first POST; if user reopens the
+        // preview and clicks again, this stops the second submit cold.
+        if (order?.tposPoId) {
+            console.warn(
+                '[TPOSPurchase] Order already has tposPoId, refusing to re-create',
+                order.tposPoId
+            );
+            showToast(
+                `Đơn đã tạo trên TPOS (PO ${order.tposPoNumber || order.tposPoId}). Không tạo lại để tránh nhân đôi số lượng.`,
+                'warning'
+            );
+            return {
+                success: false,
+                error: 'Đơn đã có tposPoId — đã chặn để tránh duplicate stock moves',
+            };
+        }
+
+        // Guard 2: persistent per-orderId cooldown — survives page reload and
+        // rapid second clicks (e.g. user double-clicks before disabled flips).
+        if (order?.id && _isRecentlyCreated(order.id)) {
+            console.warn(
+                '[TPOSPurchase] Order recently submitted in last 10 min, refusing duplicate',
+                order.id
+            );
+            showToast(
+                'Đơn này vừa được gửi TPOS trong 10 phút qua. Vui lòng kiểm tra TPOS trước khi tạo lại.',
+                'warning'
+            );
+            return { success: false, error: 'Recent duplicate submission blocked' };
+        }
+
+        // Guard 3: in-memory concurrency lock (handles same-tick double-click)
         if (_createInProgress) {
             console.warn(
                 '[TPOSPurchase] createFromExcel already in progress, skipping duplicate call'
@@ -414,6 +495,7 @@ window.TPOSPurchase = (function () {
             return { success: false, error: 'Đang xử lý, vui lòng chờ' };
         }
         _createInProgress = true;
+        _markCreating(order?.id);
 
         try {
             // 1. Find NCC (accept from caller or lookup)
@@ -438,13 +520,16 @@ window.TPOSPurchase = (function () {
                 window.NCCManager.getFullPartnerData(ncc.docId),
             ]);
 
-            // BLOCK khi TPOS trả về Errors — tránh tạo PO thiếu dòng
+            // BLOCK khi TPOS trả về Errors — tránh tạo PO thiếu dòng.
+            // No POST went through to FastPurchaseOrder → safe to clear cooldown
+            // so user can fix Excel and resubmit immediately.
             if (excelResult.errors && excelResult.errors.length > 0) {
                 console.warn(
                     '[TPOSPurchase] Blocked: TPOS trả về',
                     excelResult.errors.length,
                     'lỗi'
                 );
+                _clearMark(order?.id);
                 return {
                     success: false,
                     tposErrors: excelResult.errors,
@@ -479,6 +564,8 @@ window.TPOSPurchase = (function () {
             };
         } catch (error) {
             console.error('[TPOSPurchase] createFromExcel failed:', error);
+            // Real failure (network/auth) — clear mark so retry isn't blocked
+            _clearMark(order?.id);
             showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
             return { success: false, error: error.message };
         } finally {

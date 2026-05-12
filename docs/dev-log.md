@@ -8,6 +8,63 @@
 
 ## 2026-05-12
 
+### [orders][tpos] Chặn duplicate FastPurchaseOrder POST → nhân đôi SL trên TPOS
+
+**Owner repro 2026-05-12**: User chỉ ra: sản phẩm upload lên TPOS đều hiển thị SL = 2. Diff verify qua OData:
+
+| Code  | n2store PO qty | TPOS Product.QtyAvailable | TPOS user ordered |
+| ----- | -------------- | ------------------------- | ----------------- |
+| B2154 | 1              | **2**                     | 1                 |
+| B2137 | 1              | **2**                     | 1                 |
+| B2169 | 1              | **2**                     | 1                 |
+| B2165 | 1              | **2**                     | 1                 |
+| B2155 | 1              | **2**                     | 1                 |
+| B2170 | 1              | **2**                     | 1                 |
+| B2141 | 1              | **2**                     | 1                 |
+| B2145 | 1              | **2**                     | 1                 |
+
+Truy stock moves cho PO 55687 (BILL/2026/1805 — Origin của tất cả 103 SP trong PO PO-20260512-011 từ B45):
+
+- 103 stock moves tại **12:49:33** (move ID 935409 → 935511)
+- 103 stock moves tại **12:50:32** (move ID 935512 → 935614)
+- **206 moves tổng cộng, gấp đôi số line** — mỗi product có 2 move qty=1 (hoặc qty=N nếu ordered N) → TPOS cộng vào tồn kho 2 lần.
+- PO 55663 (hôm qua) có 110 line, 110 stock moves, **không bị nhân đôi** → bug chỉ trigger ở PO này.
+
+**Root cause**: race condition trong submit flow của PO preview modal (`purchase-orders/js/main.js` `showPurchaseOrderPreview`):
+
+1. User click `#btnSubmitTPOS` → `btn.disabled = true`
+2. `await createFromExcel(...)` chạy ~30-60s (POST `FastPurchaseOrder` với 103 lines)
+3. Trong lúc chờ, `updateButtonStates` chạy (bất kỳ price-input edit/blur nào trigger) → check `isBlocked` false → **set `btnTPOS.disabled = false`**
+4. User click thêm lần thứ 2 → POST `FastPurchaseOrder` thứ 2 đi qua (vì `_createInProgress` global đã reset xong sau khi POST 1 succeed)
+5. TPOS tạo 2 set stock moves cho cùng 1 PO (TPOS không dedupe theo Number, chỉ generate sequential moves)
+
+`_createInProgress` global ở `tpos-purchase.js` chỉ chặn được concurrent calls. Sau khi POST 1 finish + `_createInProgress=false`, click 2 (1 phút sau) đi qua bình thường.
+
+**Fix** — defense-in-depth 3 lớp:
+
+1. **`purchase-orders/js/lib/tpos-purchase.js`**:
+    - Guard 1 (per-order tposPoId): Nếu `order.tposPoId` đã tồn tại → block + toast cảnh báo.
+    - Guard 2 (persistent cooldown): `sessionStorage` map `orderId → timestamp`, TTL 10 phút. Survives page reload + rapid second click. Chỉ clear khi (a) failure thật (network/auth thrown) hoặc (b) TPOS trả về `Errors` ở PurchaseByExcel (chưa POST FastPurchaseOrder).
+    - Guard 3 (in-memory `_createInProgress`): giữ nguyên cho concurrent same-tick.
+
+2. **`purchase-orders/js/main.js`** (`showPurchaseOrderPreview`):
+    - Thêm `tposSubmitLocked` flag — sticky lock, set `true` khi click `btnSubmitTPOS`, **chỉ release ở `resetBtn()` trên error path**. `updateButtonStates` honor flag, không re-enable button mid-flight.
+    - Sau `createFromExcel` success → mutate `singleOrder.tposPoId` + `tposPoNumber` IN MEMORY **ngay** (trước Firebase write) → Guard 1 sẽ chặn nếu code path nào đó retry.
+
+**Test verify** (browser session vs http://localhost:8080):
+
+- Guard 1 test: order có `tposPoId=99999` → `createFromExcel` return `{success:false, error:"Đơn đã có tposPoId — đã chặn để tránh duplicate stock moves"}`. ✓
+- Guard 2 test: 2 calls cách nhau 30ms cùng `order.id` → call 2 return `{success:false, error:"Recent duplicate submission blocked"}`. ✓
+- Smoke verify: tab "Chờ hàng" load 174 rows OK, không JS errors. ✓
+
+**Manual cleanup cần làm** (KHÔNG tự động — đụng prod DB):
+
+- PO 55687 trên TPOS đã có double stock — user cần manual: vào TPOS UI → Stock Move list → filter `Origin=BILL/2026/1805` → xóa 103 move (batch 12:50:32, IDs 935512-935614) hoặc dùng Inventory Adjustment để giảm qty về đúng. Hoặc nếu chấp nhận, để TPOS như vậy + sửa lần sau.
+
+Status: ✅ Done — code fix prevent future duplicates.
+
+---
+
 ### [web2][ui] Cải tiến empty state + home module cards
 
 **Trigger**: UI audit qua screenshot 8 trang. Phát hiện:
