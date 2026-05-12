@@ -8,6 +8,33 @@
 
 ## 2026-05-12
 
+### [cron][render] auto reconcile pending_customers vs Pancake (mỗi 5 phút)
+
+**Owner repro 2026-05-12**: KH "Mật Ngọt 0935855316" hiện `4 MỚI` nhưng conversation thực chỉ có 1 tin mới (customer "Mũ tròn á e" 09:02). Pancake live: `unread_count: 0`, `last_sent_by.id === pageId` (shop replied tại 02:43 với "Nv.My" signature). DB stuck count=6.
+
+**Why fix WS handler alone không đủ**: Pancake **không reliably fire `pages:update_conversation`** sau khi shop reply qua direct API (auto bill-send, reaction từ extension, chrome bypass replies). Event miss → DB row giữ count cũ vô thời hạn.
+
+Bằng chứng: chạy reconcile script `/tmp/reconcile-pending.mjs` lần 2 (sau 1.5h từ deploy fix WS handler) — tìm thấy **33 stale rows** mới tích tụ. Chứng tỏ WS event không bắt được mọi shop-reply.
+
+**Fix**: thêm cron job server-side mỗi 5 phút ([render.com/cron/scheduler.js](../render.com/cron/scheduler.js)):
+
+1. SELECT `pending_customers WHERE type='INBOX'` (limit 500)
+2. Pick most-recently-used active row từ `pancake_accounts` table với token còn hạn → JWT
+3. Cho mỗi pending row, fetch `https://pancake.vn/api/v1/pages/{pid}/conversations/{pid}_{psid}?access_token={jwt}` (concurrency 4)
+4. Apply rule:
+    - `existed: false || shopSentLast || unread_count === 0` → DELETE
+    - `unread > 0 && != message_count` → UPDATE message_count + snippet
+    - Else → leave alone (aligned)
+5. UPDATE `pancake_accounts.last_used_at` cho account đã dùng
+6. Log chỉ khi có thay đổi (deleted+updated > 0)
+
+**Kết quả** trước/sau:
+
+- Trước cron: DB drift accumulate, badge "X MỚI" sai liên tục (cần manual reconcile script)
+- Sau cron: tự động sync mỗi 5 phút. Reconcile script `/tmp/reconcile-pending.mjs` chỉ còn dùng cho manual force sync.
+
+**Status**: ✅ Done. Server auto-deploys khi push commit `f4c5a187`.
+
 ### [render][chat] badge "X MỚI" — sync `message_count` với Pancake `unread_count`
 
 **Owner repro 2026-05-12**: cột TIN NHẮN hiện badge "3 MỚI" / "8 MỚI" sai số. Verify live vs Pancake API: nhiều rows DB drift quá xa khỏi `unread_count` thật.
