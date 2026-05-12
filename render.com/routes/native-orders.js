@@ -83,9 +83,32 @@ async function ensureTables(pool) {
                 ON native_orders(assigned_employee_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_reversed_code
                 ON native_orders(reversed_code);
+
+            -- Migration 068: global display STT — sequence cấp số atomic
+            -- "Reset về 1" = ALTER SEQUENCE ... RESTART WITH 1
+            CREATE SEQUENCE IF NOT EXISTS native_orders_display_stt_seq START 1;
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS display_stt INTEGER;
+            CREATE INDEX IF NOT EXISTS idx_native_orders_display_stt
+                ON native_orders(display_stt DESC);
+        `);
+
+        // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
+        await pool.query(`
+            DO $$
+            DECLARE r RECORD;
+            BEGIN
+                IF EXISTS (SELECT 1 FROM native_orders WHERE display_stt IS NULL LIMIT 1) THEN
+                    FOR r IN SELECT id FROM native_orders WHERE display_stt IS NULL ORDER BY created_at ASC LOOP
+                        UPDATE native_orders SET display_stt = nextval('native_orders_display_stt_seq') WHERE id = r.id;
+                    END LOOP;
+                END IF;
+            END $$;
         `);
         _tablesCreated = true;
-        console.log('[NATIVE-ORDERS] Tables created/verified (migration 067 applied)');
+        console.log(
+            '[NATIVE-ORDERS] Tables created/verified (migration 068: display_stt sequence)'
+        );
     } catch (error) {
         console.error('[NATIVE-ORDERS] Table creation error:', error.message);
     }
@@ -99,6 +122,7 @@ function mapRowToOrder(row) {
     return {
         id: row.id,
         code: row.code,
+        displayStt: row.display_stt,
         sessionIndex: row.session_index,
         source: row.source,
         customerName: row.customer_name,
@@ -186,6 +210,42 @@ router.get('/health', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /api/native-orders/reset-stt
+// Reset sequence về 1 — đơn mới tạo sau sẽ có display_stt=1, 2, 3...
+// Không ảnh hưởng display_stt của đơn cũ. Optional renumber=true để renumber
+// tất cả đơn hiện có theo created_at ASC.
+// -----------------------------------------------------
+router.post('/reset-stt', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const renumber = req.body?.renumber === true;
+        if (renumber) {
+            // Renumber tất cả đơn theo created_at ASC, sequence cuối = N+1
+            await pool.query('ALTER SEQUENCE native_orders_display_stt_seq RESTART WITH 1');
+            await pool.query(`
+                DO $$
+                DECLARE r RECORD;
+                BEGIN
+                    FOR r IN SELECT id FROM native_orders ORDER BY created_at ASC LOOP
+                        UPDATE native_orders SET display_stt = nextval('native_orders_display_stt_seq') WHERE id = r.id;
+                    END LOOP;
+                END $$;
+            `);
+            const c = await pool.query('SELECT COUNT(*)::int AS n FROM native_orders');
+            return res.json({ success: true, mode: 'renumber', renumbered: c.rows[0].n });
+        }
+        // Default: chỉ reset sequence — đơn cũ giữ STT, đơn mới bắt đầu từ 1
+        await pool.query('ALTER SEQUENCE native_orders_display_stt_seq RESTART WITH 1');
+        res.json({ success: true, mode: 'sequence-only', message: 'Đơn mới sẽ có STT từ 1' });
+    } catch (e) {
+        console.error('[NATIVE-ORDERS] reset-stt error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // POST /api/native-orders/from-comment
 // Body:
 //  { fbUserId, fbUserName, fbPageId, fbPostId, fbCommentId,
@@ -225,7 +285,7 @@ router.post('/from-comment', async (req, res) => {
 
         const insert = await pool.query(
             `INSERT INTO native_orders (
-                code, session_index, source,
+                code, session_index, display_stt, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id, crm_team_id,
                 products, total_quantity, total_amount,
@@ -233,7 +293,7 @@ router.post('/from-comment', async (req, res) => {
                 live_campaign_id, live_campaign_name,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
-                $1, $2, 'NATIVE_WEB',
+                $1, $2, nextval('native_orders_display_stt_seq'), 'NATIVE_WEB',
                 $3, $4, $5, $6,
                 $7, $8, $9, $10, $11, $12,
                 '[]'::jsonb, 0, 0,

@@ -272,7 +272,7 @@
                             </button>
                         </div>
                     </td>
-                    <td class="tpos-cell-center">${o.sessionIndex ?? ''}</td>
+                    <td class="tpos-cell-center"><strong>${o.displayStt ?? o.sessionIndex ?? ''}</strong></td>
                     <td class="tpos-cell-center">
                         <div class="tpos-code-cell" style="align-items:center;">
                             <span class="tpos-code-main" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">${escapeHtml(o.code)}</span>
@@ -452,6 +452,31 @@
         renderCampaignLabel();
         STATE.page = 1;
         load();
+    }
+
+    async function resetStt() {
+        const renumber = confirm(
+            'Reset STT — chọn OK để RENUMBER toàn bộ đơn hiện có (1, 2, 3...) theo thứ tự ngày tạo.\n\n' +
+                'Chọn Cancel để chỉ reset bộ đếm — đơn cũ giữ STT, đơn MỚI tiếp theo bắt đầu từ 1.'
+        );
+        try {
+            const r = await fetch(`${WORKER_URL}/api/native-orders/reset-stt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ renumber }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            const msg =
+                data.mode === 'renumber'
+                    ? `Đã renumber ${data.renumbered} đơn — STT 1..${data.renumbered}`
+                    : 'Đã reset bộ đếm — đơn mới sẽ có STT từ 1';
+            alert(msg);
+            load();
+        } catch (err) {
+            console.error('[NativeOrders] resetStt error:', err);
+            alert('Lỗi reset STT: ' + err.message);
+        }
     }
 
     // ---------- Campaign filter ----------
@@ -989,6 +1014,7 @@
         $('#btnApplyFilter')?.addEventListener('click', applyFilters);
         $('#btnClearFilter')?.addEventListener('click', clearFilters);
         $('#btnRefresh')?.addEventListener('click', load);
+        $('#btnResetStt')?.addEventListener('click', resetStt);
         $('#filterSearch')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') applyFilters();
         });
