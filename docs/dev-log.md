@@ -8,6 +8,28 @@
 
 ## 2026-05-12
 
+### [web2][ui] Cải tiến empty state + home module cards
+
+**Trigger**: UI audit qua screenshot 8 trang. Phát hiện:
+
+- Empty state plain text — không có icon, không phân biệt empty vs filter no-match.
+- Home page module cards hiển thị slug code dev-y (`fastsaleorder-invoice` etc.) cạnh title, lộn xộn.
+
+**Fix** ([web2-shared/page-builder.js](../web2-shared/page-builder.js) + [page-builder-tpos.css](../web2-shared/page-builder-tpos.css) + [web2/index.html](../web2/index.html)):
+
+- Empty state 2 variant: `inbox` icon "Chưa có dữ liệu" (genuine empty), `search-x` icon "Không có kết quả phù hợp" (filter no-match). Phân biệt bằng `STATE.search || STATE.activeOnly === true`.
+- Error state: `alert-triangle` icon + tiêu đề đỏ thay vì plain `style="color:#f05050"`.
+- CSS `.empty-state` flex-col layout, padding 56px, icon 44px màu `#cbd5e1`, title `#374151`, hint `#9ca3af`.
+- Home `.card .slug`: `opacity: 0` mặc định, `opacity: 1` on hover.
+
+**Bug nhỏ trong fix**: lần đầu `isFiltered = STATE.activeOnly !== null && STATE.activeOnly !== undefined` — `false !== null` luôn true → empty page nào cũng hiển "Không có kết quả phù hợp". Sửa thành `STATE.activeOnly === true`.
+
+**Regression**: smoke 86/86 + nav 90 links + interaction + CRUD 5/5 đều pass sau UI changes.
+
+Status: ✅ done.
+
+---
+
 ### [web2][test] Full functional verification — 4 test suites, all pass
 
 **Trigger**: user yêu cầu "test lại toàn bộ chức năng của web2 này để đảm bảo tất cả chức năng đều hoạt động chính xác".
