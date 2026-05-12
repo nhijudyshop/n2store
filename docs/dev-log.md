@@ -8,6 +8,42 @@
 
 ## 2026-05-12
 
+### [scripts][tpos] Cleanup 103 SP bị nhân đôi SL trên TPOS từ PO BILL/2026/1805
+
+**Trigger**: Sau khi merge fix code-side (commit 883ff0a2 — chống duplicate POST), cần clean up dữ liệu đã sai trên TPOS. 103 SP của PO 55687 đều có 2 stock move thừa qty=N → tồn kho TPOS gấp đôi.
+
+**Approach**: Dùng đúng API mà TPOS UI sử dụng (capture từ Chrome DevTools sau khi user fix tay B2171). 2-step flow:
+
+1. `POST /odata/StockChangeProductQty/ODataService.PostChangeQtyProduct`
+    - Body: `{model:[{Id:0, ProductId, ProductTmplId, NewQuantity, LocationId:12, ProductTmpl:{...full}, Product:{...full}, Location:{...full}}]}`
+    - Returns: array với `Id` (StockChangeProductQty record)
+
+2. `POST /odata/StockChangeProductQty/ODataService.ChangeProductQtyIds`
+    - Body: `{ids:[<id from step 1>]}`
+    - Returns: TPOS tạo StockInventory + StockMove adjustment
+
+**Script** ([scripts/fix-po-55687-duplicates.js](../scripts/fix-po-55687-duplicates.js)):
+
+- List stock moves từ Origin BILL/2026/1805 → group by ProductId → detect duplicate (≥2 moves cùng product)
+- Cho mỗi SP: GET current qty → compute `target = current - excess` (excess = lineQty × số duplicate batch)
+- Skip nếu target<0 hoặc current ≤ lineQty (đã fix tay rồi)
+- Apply 2-step adjust, verify by re-reading qty
+- Flags: `--apply` (default dry-run), `--only <code>`, `--limit N`
+
+**Result** (chạy 2026-05-12 ~16:30):
+
+- 101 SP fixed via script (143 excess units removed)
+- 2 SP skipped (B2171 fix tay sớm, B2172 test apply trước batch)
+- 0 fail, 0 mismatch
+- Top fix lớn nhất: N4117 (13→7, removed 6), B2105 (9→5), B2001 (9→5)
+- Log JSON: `downloads/n2store-session/fix-po-55687-applied-*.json`
+
+**Verify**: spot-check 4 SP qua TPOS OData `Product(id)?$select=QtyAvailable` — tất cả match `after_fix` trong log script.
+
+Status: ✅ Cleanup done — TPOS qty đã đúng cho toàn bộ PO 55687.
+
+---
+
 ### [orders][tpos] Chặn duplicate FastPurchaseOrder POST → nhân đôi SL trên TPOS
 
 **Owner repro 2026-05-12**: User chỉ ra: sản phẩm upload lên TPOS đều hiển thị SL = 2. Diff verify qua OData:
