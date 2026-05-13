@@ -204,15 +204,13 @@
         notify('Đã hủy ' + number, 'success');
         load();
     }
-    async function printOrder(number) {
-        const r = await fetch(
-            `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/print`,
-            { method: 'POST' }
-        );
-        const data = await r.json();
-        if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
-        notify(`Đã ghi nhận in — lần ${data.order.printCount}`, 'success');
-        load();
+    function printOrder(number) {
+        // Open print page in popup; page tự fetch detail + auto-call /print API
+        const url = `print.html?number=${encodeURIComponent(number)}`;
+        const w = window.open(url, `pbh_print_${number}`, 'width=900,height=1000');
+        if (!w) notify('Trình duyệt chặn popup — hãy cho phép', 'warning');
+        // Reload list sau 3s để print_count cập nhật
+        setTimeout(() => load(), 3000);
     }
 
     async function createDelivery(number) {

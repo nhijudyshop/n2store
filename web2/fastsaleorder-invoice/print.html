@@ -1,0 +1,356 @@
+<!-- #Note: PBH printable view — opens via PbhApp.print() or direct URL ?number=HD-... -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>In Phiếu bán hàng</title>
+        <style>
+            @page {
+                size: A4;
+                margin: 18mm 15mm 15mm 15mm;
+            }
+            body {
+                font-family: 'Inter', system-ui, sans-serif;
+                font-size: 13px;
+                color: #111827;
+                margin: 0;
+                padding: 0;
+            }
+            .print-shell {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .top-actions {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 16px;
+            }
+            .top-actions button {
+                padding: 8px 14px;
+                border: 1px solid #d1d5db;
+                background: #fff;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+            }
+            .top-actions button.primary {
+                background: #6d28d9;
+                color: #fff;
+                border-color: #6d28d9;
+            }
+            .top-actions button:hover {
+                background: #f9fafb;
+            }
+            .top-actions button.primary:hover {
+                background: #5b21b6;
+            }
+            .invoice-header {
+                display: flex;
+                justify-content: space-between;
+                border-bottom: 2px solid #111827;
+                padding-bottom: 12px;
+                margin-bottom: 16px;
+            }
+            .invoice-header .brand {
+                font-size: 20px;
+                font-weight: 800;
+                color: #6d28d9;
+            }
+            .invoice-header .company {
+                font-size: 11px;
+                color: #6b7280;
+                margin-top: 2px;
+            }
+            .invoice-meta {
+                text-align: right;
+            }
+            .invoice-meta h1 {
+                margin: 0 0 4px;
+                font-size: 22px;
+                color: #111827;
+            }
+            .invoice-meta .num {
+                font-size: 14px;
+                font-weight: 600;
+                color: #6d28d9;
+            }
+            .invoice-meta .date {
+                color: #6b7280;
+                font-size: 12px;
+            }
+            .parties {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+                margin-bottom: 18px;
+            }
+            .party h3 {
+                margin: 0 0 6px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .party-row {
+                margin-bottom: 3px;
+            }
+            .party-row span.label {
+                color: #6b7280;
+            }
+            table.items {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 16px;
+            }
+            table.items th {
+                background: #f3f4f6;
+                padding: 8px;
+                text-align: left;
+                font-size: 12px;
+                border-bottom: 2px solid #d1d5db;
+            }
+            table.items td {
+                padding: 8px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            table.items .right {
+                text-align: right;
+            }
+            table.items .center {
+                text-align: center;
+            }
+            .totals {
+                margin-left: auto;
+                width: 60%;
+                margin-bottom: 18px;
+            }
+            .totals .row {
+                display: flex;
+                justify-content: space-between;
+                padding: 4px 0;
+            }
+            .totals .row.grand {
+                border-top: 2px solid #111827;
+                margin-top: 6px;
+                padding-top: 8px;
+                font-size: 16px;
+                font-weight: 700;
+                color: #6d28d9;
+            }
+            .footer-note {
+                margin-top: 24px;
+                font-size: 11px;
+                color: #6b7280;
+                border-top: 1px dashed #d1d5db;
+                padding-top: 12px;
+            }
+            .sigs {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+                margin-top: 36px;
+            }
+            .sig-block {
+                text-align: center;
+                font-size: 11px;
+            }
+            .sig-block .title {
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 4px;
+            }
+            .sig-block .ts {
+                color: #9ca3af;
+                font-style: italic;
+                margin-bottom: 40px;
+            }
+            .sig-block .name {
+                border-top: 1px solid #9ca3af;
+                padding-top: 4px;
+                color: #6b7280;
+            }
+            @media print {
+                .top-actions {
+                    display: none;
+                }
+                body {
+                    font-size: 11px;
+                }
+            }
+            .error {
+                color: #dc2626;
+                padding: 20px;
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                border-radius: 6px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="print-shell" id="printShell">
+            <div class="top-actions no-print">
+                <button class="primary" onclick="window.print()">🖨️ In</button>
+                <button onclick="window.close()">Đóng</button>
+            </div>
+            <div id="content">Đang tải…</div>
+        </div>
+        <script>
+            const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const params = new URLSearchParams(location.search);
+            const number = params.get('number');
+
+            function fmtMoney(n) {
+                return (Number(n) || 0).toLocaleString('vi-VN') + ' đ';
+            }
+            function fmtDate(s) {
+                if (!s) return '—';
+                const d = new Date(s);
+                return d.toLocaleString('vi-VN', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
+            }
+            function esc(s) {
+                const d = document.createElement('div');
+                d.textContent = String(s ?? '');
+                return d.innerHTML;
+            }
+
+            async function render() {
+                if (!number) {
+                    document.getElementById('content').innerHTML =
+                        '<div class="error">Thiếu ?number= trong URL</div>';
+                    return;
+                }
+                try {
+                    const r = await fetch(
+                        `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}`
+                    );
+                    const data = await r.json();
+                    if (!data.success) throw new Error(data.error || `HTTP ${r.status}`);
+                    const o = data.order;
+                    const p = o.partner || {};
+                    const addr =
+                        [
+                            p.address,
+                            o.addressDetail?.wardName,
+                            o.addressDetail?.districtName,
+                            o.addressDetail?.cityName,
+                        ]
+                            .filter(Boolean)
+                            .join(', ') || '—';
+                    const lines = o.orderLines || [];
+
+                    const linesHtml =
+                        lines
+                            .map(
+                                (l, i) => `
+                        <tr>
+                            <td class="center">${i + 1}</td>
+                            <td><strong>${esc(l.productName || '')}</strong>${l.productCode ? `<br><small style="color:#9ca3af">${esc(l.productCode)}</small>` : ''}</td>
+                            <td class="center">${esc(l.uomName || 'Cái')}</td>
+                            <td class="right">${l.quantity}</td>
+                            <td class="right">${fmtMoney(l.priceUnit)}</td>
+                            <td class="right">${l.discountAmount ? fmtMoney(l.discountAmount) : '—'}</td>
+                            <td class="right"><strong>${fmtMoney((Number(l.quantity) || 0) * (Number(l.priceUnit) || 0) - (Number(l.discountAmount) || 0))}</strong></td>
+                        </tr>
+                    `
+                            )
+                            .join('') ||
+                        `<tr><td colspan="7" class="center" style="color:#9ca3af;padding:24px;">Không có dòng sản phẩm</td></tr>`;
+
+                    document.getElementById('content').innerHTML = `
+                        <div class="invoice-header">
+                            <div>
+                                <div class="brand">N2 Store</div>
+                                <div class="company">${esc(o.company?.name || 'NJD Live')}</div>
+                            </div>
+                            <div class="invoice-meta">
+                                <h1>PHIẾU BÁN HÀNG</h1>
+                                <div class="num">${esc(o.number)}</div>
+                                <div class="date">Ngày: ${fmtDate(o.dateInvoice)}</div>
+                                <div class="date">STT: ${o.displayStt ?? '—'}</div>
+                            </div>
+                        </div>
+
+                        <div class="parties">
+                            <div class="party">
+                                <h3>Bên bán</h3>
+                                <div class="party-row"><span class="label">Cửa hàng:</span> <strong>${esc(o.warehouse?.name || 'Nhi Judy House')}</strong></div>
+                                <div class="party-row"><span class="label">NV bán hàng:</span> ${esc(o.assignedUser?.name || o.createdByName || '—')}</div>
+                            </div>
+                            <div class="party">
+                                <h3>Khách hàng</h3>
+                                <div class="party-row"><span class="label">Tên:</span> <strong>${esc(p.name || '—')}</strong></div>
+                                <div class="party-row"><span class="label">SĐT:</span> ${esc(p.phone || '—')}</div>
+                                <div class="party-row"><span class="label">Email:</span> ${esc(p.email || '—')}</div>
+                                <div class="party-row"><span class="label">Địa chỉ:</span> ${esc(addr)}</div>
+                            </div>
+                        </div>
+
+                        <table class="items">
+                            <thead>
+                                <tr>
+                                    <th class="center" style="width:32px;">#</th>
+                                    <th>Sản phẩm</th>
+                                    <th class="center" style="width:60px;">ĐVT</th>
+                                    <th class="right" style="width:50px;">SL</th>
+                                    <th class="right" style="width:90px;">Đơn giá</th>
+                                    <th class="right" style="width:80px;">Giảm</th>
+                                    <th class="right" style="width:110px;">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>${linesHtml}</tbody>
+                        </table>
+
+                        <div class="totals">
+                            <div class="row"><span>Tổng SL:</span><strong>${o.totals?.quantity || 0}</strong></div>
+                            <div class="row"><span>Tổng tiền hàng:</span><strong>${fmtMoney(o.totals?.untaxed)}</strong></div>
+                            <div class="row"><span>Chiết khấu:</span><strong>${fmtMoney(o.totals?.discount)}</strong></div>
+                            <div class="row"><span>Thuế VAT:</span><strong>${fmtMoney(o.totals?.tax)}</strong></div>
+                            <div class="row"><span>Phí giao hàng:</span><strong>${fmtMoney(o.delivery?.price)}</strong></div>
+                            <div class="row grand"><span>TỔNG CỘNG:</span><strong>${fmtMoney(o.totals?.total)}</strong></div>
+                            ${Number(o.payment?.deposit) > 0 ? `<div class="row" style="color:#059669"><span>Đã đặt cọc:</span><strong>${fmtMoney(o.payment.deposit)}</strong></div>` : ''}
+                            ${Number(o.payment?.residual) > 0 ? `<div class="row" style="color:#dc2626"><span>Còn nợ:</span><strong>${fmtMoney(o.payment.residual)}</strong></div>` : ''}
+                        </div>
+
+                        ${o.comment ? `<div class="footer-note"><strong>Ghi chú:</strong> ${esc(o.comment)}</div>` : ''}
+                        ${o.delivery?.carrierName ? `<div class="footer-note"><strong>Vận chuyển:</strong> ${esc(o.delivery.carrierName)}${o.delivery.trackingRef ? ` · Tracking: ${esc(o.delivery.trackingRef)}` : ''}</div>` : ''}
+
+                        <div class="sigs">
+                            <div class="sig-block">
+                                <div class="title">KHÁCH HÀNG</div>
+                                <div class="ts">(Ký và ghi rõ họ tên)</div>
+                                <div class="name">${esc(p.name || '')}</div>
+                            </div>
+                            <div class="sig-block">
+                                <div class="title">NHÂN VIÊN BÁN HÀNG</div>
+                                <div class="ts">(Ký và ghi rõ họ tên)</div>
+                                <div class="name">${esc(o.assignedUser?.name || o.createdByName || '')}</div>
+                            </div>
+                        </div>
+
+                        <div class="footer-note" style="text-align:center;">
+                            Phiếu in lần ${o.printCount + 1} · Cảm ơn quý khách. Mọi thắc mắc xin liên hệ shop.
+                        </div>
+                    `;
+
+                    // Auto increment print count via API (fire-and-forget)
+                    fetch(`${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/print`, {
+                        method: 'POST',
+                    }).catch(() => {});
+                    document.title = `PBH ${o.number} — ${p.name || ''}`;
+                } catch (e) {
+                    document.getElementById('content').innerHTML =
+                        `<div class="error">Lỗi: ${esc(e.message)}</div>`;
+                }
+            }
+            render();
+        </script>
+    </body>
+</html>
