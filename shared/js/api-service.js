@@ -948,6 +948,10 @@ const ApiService = {
         console.log('[API] Refund order details loaded');
 
         // ========== STEP 2.5: Filter OrderLines for Partial Refund ==========
+        // TPOS PUT replace OrderLines KHÔNG xoá các line bị remove khỏi payload →
+        // ActionInvoiceOpenV2 vẫn thấy invoice rỗng/đầy đủ inconsistent và trả
+        // "Vui lòng thêm vài chi tiết hóa đơn". Cần DELETE từng line server-side
+        // qua /odata/FastSaleOrderLine(Id) TRƯỚC khi PUT để TPOS thực sự bỏ chúng.
         if (productsToRefund && Array.isArray(productsToRefund) && productsToRefund.length > 0) {
             console.log('[API] Step 2.5: Filtering OrderLines for partial refund');
             console.log('[API] Products to refund:', productsToRefund);
@@ -972,7 +976,7 @@ const ApiService = {
                 });
             });
 
-            // Filter and update quantities based on productsToRefund
+            const linesToRemove = [];
             const filteredOrderLines = originalOrderLines.filter((line) => {
                 const productMatch = productsToRefund.find((p) => {
                     const pId = parseInt(p.productId || p.id);
@@ -1006,10 +1010,60 @@ const ApiService = {
                 console.log(
                     `[API] Excluding line ${line.ProductBarcode} - not in products to refund`
                 );
+                linesToRemove.push(line);
                 return false;
             });
 
-            console.log('[API] Filtered OrderLines count:', filteredOrderLines.length);
+            console.log(
+                '[API] Filtered OrderLines:',
+                filteredOrderLines.length,
+                'keep,',
+                linesToRemove.length,
+                'to DELETE'
+            );
+
+            if (filteredOrderLines.length === 0) {
+                throw new Error(
+                    'Partial refund filter loại bỏ TẤT CẢ OrderLines — sản phẩm trong ticket không khớp với đơn TPOS. ' +
+                        'Kiểm tra lại products của ticket so với OrderLines của đơn gốc.'
+                );
+            }
+
+            // DELETE từng OrderLine bị filter khỏi refund order trên TPOS.
+            // PUT replace mình mình không xoá lines server-side → ActionInvoiceOpenV2
+            // sẽ thấy invoice "trống" và reject ("Vui lòng thêm vài chi tiết hóa đơn").
+            // Phải gọi DELETE tường minh qua /odata/FastSaleOrderLine(Id).
+            for (const line of linesToRemove) {
+                if (!line.Id) continue;
+                try {
+                    const delRes = await window.tokenManager.authenticatedFetch(
+                        `${API_CONFIG.TPOS_ODATA}/FastSaleOrderLine(${line.Id})`,
+                        {
+                            method: 'DELETE',
+                            headers: { Accept: 'application/json, text/plain, */*' },
+                        }
+                    );
+                    if (!delRes.ok && delRes.status !== 404) {
+                        const errText = await delRes.text().catch(() => '');
+                        console.error(
+                            `[API] DELETE FastSaleOrderLine(${line.Id}) failed ${delRes.status}:`,
+                            errText.slice(0, 300)
+                        );
+                        throw new Error(
+                            `Không xoá được dòng SP "${line.ProductName || line.ProductBarcode || line.Id}" trên TPOS (${delRes.status})`
+                        );
+                    }
+                    console.log(
+                        `[API] Deleted refund OrderLine ${line.Id} (${line.ProductBarcode || line.ProductName})`
+                    );
+                } catch (e) {
+                    if (e instanceof Error && e.message?.startsWith('Không xoá được')) throw e;
+                    console.error(`[API] DELETE OrderLine(${line.Id}) network error:`, e);
+                    throw new Error(
+                        `Lỗi mạng khi xoá dòng SP ${line.ProductBarcode || line.Id}: ${e.message}`
+                    );
+                }
+            }
 
             refundDetails.OrderLines = filteredOrderLines;
 

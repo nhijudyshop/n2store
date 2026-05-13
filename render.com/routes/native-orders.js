@@ -109,6 +109,11 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS warehouse_name    VARCHAR(150),
                 ADD COLUMN IF NOT EXISTS message_count     INTEGER DEFAULT 0,
                 ADD COLUMN IF NOT EXISTS tpos_index        INTEGER;
+
+            -- Migration 073: gộp comment cùng campaign+customer thay vì tạo đơn mới
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS comment_ids JSONB DEFAULT '[]'::jsonb,
+                ADD COLUMN IF NOT EXISTS comment_count INTEGER NOT NULL DEFAULT 1;
             CREATE INDEX IF NOT EXISTS idx_native_orders_partner_id ON native_orders(partner_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_company_id ON native_orders(company_id);
         `);
@@ -190,6 +195,9 @@ function mapRowToOrder(row) {
         companyName: row.company_name,
         messageCount: Number(row.message_count || 0),
         tposIndex: row.tpos_index,
+        // Migration 073 — multi-comment merge
+        commentIds: row.comment_ids || [],
+        commentCount: Number(row.comment_count || 1),
     };
 }
 
@@ -298,18 +306,73 @@ router.post('/from-comment', async (req, res) => {
             return res.status(400).json({ error: 'fbUserId required' });
         }
 
-        // Idempotency: if same comment already has an order, return it
+        // Idempotency: if same comment already linked to an order, return it
         if (b.fbCommentId) {
             const existing = await pool.query(
-                `SELECT * FROM native_orders WHERE fb_comment_id = $1 LIMIT 1`,
-                [b.fbCommentId]
+                `SELECT * FROM native_orders
+                 WHERE fb_comment_id = $1 OR comment_ids @> $2::jsonb
+                 LIMIT 1`,
+                [b.fbCommentId, JSON.stringify([b.fbCommentId])]
             );
             if (existing.rows.length > 0) {
                 return res.json({
                     success: true,
                     order: mapRowToOrder(existing.rows[0]),
                     idempotent: true,
+                    merged: false,
                 });
+            }
+        }
+
+        // ============================================================
+        // MERGE LOGIC (Feature 2): nếu khách đã có đơn DRAFT trong
+        // chiến dịch hiện tại → append comment + message vào đơn cũ,
+        // không tạo đơn mới.
+        // ============================================================
+        if (b.fbUserId && b.liveCampaignId) {
+            const draft = await pool.query(
+                `SELECT * FROM native_orders
+                 WHERE fb_user_id = $1
+                   AND live_campaign_id = $2
+                   AND status IN ('draft', 'confirmed')
+                 ORDER BY created_at DESC
+                 LIMIT 1`,
+                [b.fbUserId, b.liveCampaignId]
+            );
+            if (draft.rows.length > 0) {
+                const src = draft.rows[0];
+                const newCommentIds = Array.from(
+                    new Set([
+                        ...(src.comment_ids || []),
+                        ...(src.fb_comment_id ? [src.fb_comment_id] : []),
+                        ...(b.fbCommentId ? [b.fbCommentId] : []),
+                    ])
+                );
+                const appendedNote = b.message
+                    ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${b.message}`
+                    : src.note;
+                const updated = await pool.query(
+                    `UPDATE native_orders
+                     SET note = $1,
+                         comment_ids = $2::jsonb,
+                         comment_count = comment_count + 1,
+                         message_count = COALESCE(message_count, 0) + 1,
+                         updated_at = $3
+                     WHERE id = $4
+                     RETURNING *`,
+                    [appendedNote, JSON.stringify(newCommentIds), Date.now(), src.id]
+                );
+                const order = mapRowToOrder(updated.rows[0]);
+                // Broadcast WS event để UI tự refresh
+                if (req.app.locals.broadcastToClients) {
+                    req.app.locals.broadcastToClients({
+                        type: 'native_order:updated',
+                        action: 'comment-merged',
+                        order,
+                        newCommentId: b.fbCommentId || null,
+                    });
+                }
+                return res.json({ success: true, order, merged: true });
             }
         }
 
@@ -358,7 +421,16 @@ router.post('/from-comment', async (req, res) => {
             ]
         );
 
-        res.json({ success: true, order: mapRowToOrder(insert.rows[0]) });
+        const order = mapRowToOrder(insert.rows[0]);
+        // Broadcast WS event để các trang khác auto-refresh (native-orders list, etc.)
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:created',
+                action: 'created',
+                order,
+            });
+        }
+        res.json({ success: true, order, merged: false });
     } catch (error) {
         console.error('[NATIVE-ORDERS] POST /from-comment error:', error);
         res.status(500).json({ error: error.message });

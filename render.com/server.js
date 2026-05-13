@@ -1994,6 +1994,9 @@ const broadcastToClients = (data) => {
     );
 };
 
+// Expose broadcast to routes (use req.app.locals.broadcastToClients)
+app.locals.broadcastToClients = broadcastToClients;
+
 // Heartbeat for Frontend Clients (Keep-Alive)
 const interval = setInterval(function ping() {
     wss.clients.forEach(function each(ws) {
