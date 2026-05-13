@@ -25,6 +25,49 @@
 
 ## 2026-05-13
 
+### [pbh][native-orders][web2] Phase 1-3: TPOS-clone PBH (Phiếu Bán Hàng) flow
+
+**User**: "clone full TPOS chức năng PBH". Phase 1-3 deployed commit `05c7ad18`.
+
+**Research**: probe TPOS API → SaleOnline_Order 77 fields (sample đơn Huỳnh Thành Đạt 0123456788). FastSaleOrder list trả 500 (permission/server issue) — design schema riêng theo industry-standard.
+
+**Phase 1** — `native_orders` mirror TPOS SaleOnline_Order (migration 069 inline trong ensureTables):
+
+```
+ALTER TABLE native_orders ADD COLUMN
+  city_code/city_name, district_code/district_name, ward_code/ward_name,
+  partner_id, partner_code, partner_unique_id, email,
+  company_id/company_name, warehouse_name, message_count, tpos_index.
+```
+
+PATCH endpoint mở 15 field mới.
+
+**Phase 2** — `fast_sale_orders` table (migration 070, [render.com/routes/fast-sale-orders.js](../render.com/routes/fast-sale-orders.js)):
+
+- Schema: `number` (`HD-YYYYMMDD-XXXX`), `display_stt` sequence, partner snapshot (id/code/name/phone/address/email), address breakdown, `order_lines` jsonb, totals (qty/untaxed/tax/discount/total), payment (amount/deposit/residual), delivery (price/COD/carrier/tracking), state machine (`draft|confirmed|done|cancel`), source link (`source_type/id/code` → native_orders), live_campaign, warehouse, company, crm_team, assigned_user, comment, tags, print_count.
+- Routes: `GET /health|/load|/:number`, `POST /` (manual), `POST /from-native-order` (idempotent — skip nếu đã convert), `PATCH /:number`, `POST /:number/{cancel,confirm,print}`, `DELETE /:number?force=1`, `POST /reset-stt`.
+- Register `/api/fast-sale-orders/*` ở [render.com/server.js](../render.com/server.js) + [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) + [cloudflare-worker/worker.js](../cloudflare-worker/worker.js).
+
+**Phase 3** — Convert + UI:
+
+- [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js): thêm action button "Tạo PBH" (xanh receipt icon) cạnh edit/delete. `createPbh(code)` → POST /from-native-order → notify + reload. NativeOrder status `draft` auto → `confirmed` sau convert.
+- [web2/fastsaleorder-invoice/index.html](../web2/fastsaleorder-invoice/index.html) + [pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js): full PBH list page — filter state + search + pagination, detail modal, confirm/cancel/print actions, reset-stt.
+
+**Verify live**:
+
+```
+NW-20260513-0001 → POST /from-native-order → HD-20260513-0001 (STT=1)
+GET /load → 1 PBH (Antina Trân, phone 0849772439, từ NW-20260513-0001, state=draft)
+```
+
+UI screenshot: PBH list hiển thị cross-link `NW-20260513-0001` (đơn nguồn) — flow tpos-pancake → native-orders → PBH hoạt động end-to-end.
+
+**Phase 4-5** (chưa làm): delivery invoice, refund, print HTML/PDF, reports, partner_id reference vào customer 360.
+
+Status: ✅ Phase 1-3 live commit `05c7ad18`.
+
+---
+
 ### [orders][tab3] Đối soát Excel — skip STT có tag "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT"
 
 **User**: "trong file excel có cột 'Nhãn' -> nếu có 'ĐÃ GỘP KO CHỐT', 'KHÔNG CẦN CHỐT' -> thì không cần Đối Soát".
