@@ -619,6 +619,14 @@
                     >
                         <i data-lucide="lock"></i> BASE Products
                     </button>
+                    <button
+                        class="modal-tab-btn"
+                        onclick="KPICommission.switchOrderTab('inbox')"
+                        data-order-tab="inbox"
+                        title="Tin nhắn Messenger/Pancake của khách đặt đơn này"
+                    >
+                        <i data-lucide="message-square"></i> Tin nhắn
+                    </button>
                 </div>
 
                 <!-- Modal L2 Tab Contents -->
@@ -745,6 +753,23 @@
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Tin nhắn (Pancake/Messenger inbox) -->
+                    <div class="order-tab-content" id="tabInbox" style="display: none">
+                        <div id="inboxLoading" class="loading-state" style="display: none">
+                            <div class="spinner"></div>
+                            <p>Đang tải tin nhắn...</p>
+                        </div>
+                        <div id="inboxEmpty" class="empty-state" style="display: none">
+                            <p>Đơn hàng này chưa được map với conversation Pancake.</p>
+                        </div>
+                        <div id="inboxContent" style="display: none">
+                            <div class="inbox-meta" id="inboxMeta">
+                                <!-- Khách + Page + link Open in Pancake — render JS -->
+                            </div>
+                            <div class="inbox-messages" id="inboxMessages" aria-live="polite"></div>
                         </div>
                     </div>
                 </div>

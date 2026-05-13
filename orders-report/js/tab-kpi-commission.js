@@ -2143,6 +2143,7 @@ const KPICommission = {
             'audit-log': 'tabAuditLog',
             'all-products': 'tabAllProducts',
             'base-products': 'tabBaseProducts',
+            inbox: 'tabInbox',
         };
 
         Object.values(tabMap).forEach((id) => {
@@ -2170,6 +2171,7 @@ const KPICommission = {
         else if (tabName === 'audit-log') this.renderAuditLogTab(orderId);
         else if (tabName === 'all-products') this.renderAllProductsTab(orderId);
         else if (tabName === 'base-products') this.renderBaseProductsTab(orderId);
+        else if (tabName === 'inbox') this.renderInboxTab(orderId);
     },
 
     closeOrderDetails() {
@@ -2625,6 +2627,246 @@ const KPICommission = {
             this.hideEl('baseProductsLoading');
             this.showEl('baseProductsEmpty');
         }
+    },
+
+    // ========================================
+    // INBOX TAB — Pancake/Messenger messages của khách đặt đơn
+    // ========================================
+
+    /**
+     * Lấy auth header TPOS — dùng chung cho mọi gọi OData từ KPI iframe.
+     * Ưu tiên tokenManager nếu có; fallback POST /api/token với cred từ
+     * KPI manager (đã có sẵn trong fetchRefundedOrderCodes).
+     */
+    async _getKpiTposAuthHeader() {
+        if (this._kpiTposAuth?.expiresAt > Date.now()) return this._kpiTposAuth.header;
+        const tokenManager =
+            window.tokenManager || window.parent?.tokenManager || window.top?.tokenManager;
+        if (tokenManager?.getAuthHeader) {
+            const header = await tokenManager.getAuthHeader();
+            // tokenManager tự refresh, không cache thêm
+            return header;
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const creds = {
+            grant_type: 'password',
+            username: 'nvktlive1',
+            password: 'Aa@28612345678',
+            client_id: 'tmtWebApp',
+        };
+        const body = new URLSearchParams();
+        for (const [k, v] of Object.entries(creds)) body.append(k, v);
+        const tokenRes = await fetch(`${WORKER}/api/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        });
+        if (!tokenRes.ok) throw new Error(`Token HTTP ${tokenRes.status}`);
+        const tj = await tokenRes.json();
+        if (!tj.access_token) throw new Error('Invalid token response');
+        const header = { Authorization: `Bearer ${tj.access_token}` };
+        this._kpiTposAuth = { header, expiresAt: Date.now() + 50 * 60 * 1000 };
+        return header;
+    },
+
+    /**
+     * Lookup SaleOnline_Order on TPOS để lấy Facebook_PageId, Facebook_ASUserId,
+     * Facebook_PostId, PartnerId. Cache trong-memory mỗi orderId 5 phút.
+     */
+    async _fetchSaleOnlineOrderForInbox(orderId) {
+        if (!this._inboxOrderCache) this._inboxOrderCache = new Map();
+        const cached = this._inboxOrderCache.get(orderId);
+        if (cached && Date.now() - cached.savedAt < 5 * 60 * 1000) return cached.data;
+
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        const authHeader = await this._getKpiTposAuthHeader();
+        const url = `${WORKER}/api/odata/SaleOnline_Order(${orderId})?$expand=Partner`;
+        const res = await fetch(url, {
+            headers: {
+                ...authHeader,
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!res.ok) throw new Error(`SaleOnline_Order HTTP ${res.status}`);
+        const data = await res.json();
+        this._inboxOrderCache.set(orderId, { savedAt: Date.now(), data });
+        return data;
+    },
+
+    async renderInboxTab(orderId) {
+        this.showEl('inboxLoading');
+        this.hideEl('inboxEmpty');
+        this.hideEl('inboxContent');
+
+        try {
+            const order = await this._fetchSaleOnlineOrderForInbox(orderId);
+            const postId = order?.Facebook_PostId || '';
+            // Facebook_PageId thường null cho đơn từ LIVE → derive từ
+            // Facebook_PostId (format: "pageId_postId").
+            const pageId =
+                order?.Facebook_PageId || (postId ? String(postId).split('_')[0] : '') || '';
+            const psid = order?.Facebook_ASUserId || '';
+            const fbUserName = order?.Facebook_UserName || '';
+            const partnerName = order?.Partner?.Name || order?.PartnerName || fbUserName || '';
+            const partnerPhone = order?.Partner?.Phone || order?.Telephone || '';
+
+            if (!pageId || !psid) {
+                this.hideEl('inboxLoading');
+                this.showEl('inboxEmpty');
+                const emp = document.getElementById('inboxEmpty');
+                if (emp) {
+                    emp.querySelector('p').textContent =
+                        !pageId && !psid
+                            ? 'Đơn không có Facebook_PageId/PostId & Facebook_ASUserId — không map được Pancake.'
+                            : !pageId
+                              ? 'Đơn không có Facebook_PageId/PostId.'
+                              : 'Đơn không có Facebook_ASUserId (psid).';
+                }
+                return;
+            }
+
+            // Render meta + messages
+            const channelId = postId ? String(postId).split('_')[0] : pageId;
+            const pancakeInboxUrl = `https://pages.fm/#!/conversation/${pageId}/inbox?psid=${psid}`;
+            const meta = document.getElementById('inboxMeta');
+            if (meta) {
+                meta.innerHTML = `
+                    <div class="inbox-meta-row">
+                        <span class="inbox-meta-label">Khách:</span>
+                        <span class="inbox-meta-value">${this.escapeHtml(partnerName || '—')}${partnerPhone ? ' · ' + this.escapeHtml(partnerPhone) : ''}</span>
+                    </div>
+                    <div class="inbox-meta-row">
+                        <span class="inbox-meta-label">Page ID:</span>
+                        <code class="inbox-code">${this.escapeHtml(pageId)}</code>
+                        <span class="inbox-meta-label">PSID:</span>
+                        <code class="inbox-code">${this.escapeHtml(psid)}</code>
+                    </div>
+                    <div class="inbox-meta-row">
+                        <a class="inbox-pancake-link" href="${pancakeInboxUrl}" target="_blank" rel="noopener">
+                            <i data-lucide="external-link"></i> Mở trên Pancake
+                        </a>
+                    </div>`;
+            }
+
+            // Fetch messages via PDM if available
+            const pdm =
+                window.pancakeDataManager ||
+                window.parent?.pancakeDataManager ||
+                window.top?.pancakeDataManager ||
+                window.pdm;
+
+            let messages = [];
+            if (pdm?.fetchInboxPreview) {
+                try {
+                    const customerId = order?.Partner?.Id || order?.PartnerId || '';
+                    const preview = await pdm.fetchInboxPreview(pageId, customerId);
+                    messages = preview?.messages || [];
+                } catch (e) {
+                    console.warn('[KPI Inbox] fetchInboxPreview failed:', e?.message);
+                }
+            }
+
+            // Fallback: direct fetch via worker (Pancake official endpoint)
+            if (messages.length === 0 && channelId) {
+                try {
+                    const WORKER =
+                        window.API_CONFIG?.WORKER_URL ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    // Pancake endpoint via worker proxy — depends on existing route
+                    const res = await fetch(
+                        `${WORKER}/api/pancake/pages/${pageId}/conversations/by-psid/${psid}/messages?limit=30`
+                    );
+                    if (res.ok) {
+                        const j = await res.json();
+                        messages = j?.messages || j?.data || [];
+                    }
+                } catch (e) {
+                    console.warn('[KPI Inbox] worker fallback failed:', e?.message);
+                }
+            }
+
+            this._renderInboxMessages(messages, { pageId, psid, pancakeInboxUrl });
+            this.hideEl('inboxLoading');
+            this.showEl('inboxContent');
+            this.reinitIcons();
+        } catch (e) {
+            console.error('[KPI Inbox] Error:', e);
+            this.hideEl('inboxLoading');
+            this.showEl('inboxEmpty');
+            const emp = document.getElementById('inboxEmpty');
+            if (emp) {
+                emp.querySelector('p').textContent = `Lỗi tải tin nhắn: ${e.message}`;
+            }
+        }
+    },
+
+    _renderInboxMessages(messages, ctx) {
+        const wrap = document.getElementById('inboxMessages');
+        if (!wrap) return;
+
+        if (!messages || messages.length === 0) {
+            wrap.innerHTML = `
+                <div class="inbox-empty-list">
+                    <p>Chưa lấy được tin nhắn — có thể conversation chưa được sync vào Pancake.</p>
+                    <p><a href="${ctx.pancakeInboxUrl}" target="_blank" rel="noopener">Mở trực tiếp trên Pancake</a> để xem full lịch sử.</p>
+                </div>`;
+            return;
+        }
+
+        // Sort by inserted_at / created_time ascending (oldest first → newest at bottom)
+        const sorted = [...messages].sort((a, b) => {
+            const ta = new Date(a.inserted_at || a.created_time || a.timestamp || 0).getTime();
+            const tb = new Date(b.inserted_at || b.created_time || b.timestamp || 0).getTime();
+            return ta - tb;
+        });
+
+        const pageId = String(ctx.pageId);
+        let html = '';
+        for (const msg of sorted) {
+            const fromId = msg?.from?.id || msg.from_id || '';
+            const isFromPage = String(fromId) === pageId;
+            const side = isFromPage ? 'page' : 'customer';
+            const text = msg.message || msg.text || '';
+            const senderName = msg?.from?.name || (isFromPage ? 'Page' : 'Khách') || 'Unknown';
+            const t = msg.inserted_at || msg.created_time || msg.timestamp || '';
+            const tStr = t ? new Date(t).toLocaleString('vi-VN') : '';
+            const attachments = msg.attachments || [];
+
+            let attachHtml = '';
+            for (const a of attachments) {
+                const url = a.url || a.image_url || a.payload?.url || '';
+                if (!url) continue;
+                if (a.type === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(url)) {
+                    attachHtml += `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener"><img src="${this.escapeHtml(url)}" class="inbox-attach-img" alt="" /></a>`;
+                } else {
+                    attachHtml += `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener" class="inbox-attach-file">📎 ${this.escapeHtml(a.name || 'Tệp đính kèm')}</a>`;
+                }
+            }
+
+            html += `
+                <div class="inbox-msg inbox-msg-${side}">
+                    <div class="inbox-msg-bubble">
+                        ${text ? `<div class="inbox-msg-text">${this.escapeHtml(text)}</div>` : ''}
+                        ${attachHtml ? `<div class="inbox-msg-attach">${attachHtml}</div>` : ''}
+                    </div>
+                    <div class="inbox-msg-meta">
+                        <span class="inbox-msg-sender">${this.escapeHtml(senderName)}</span>
+                        ${tStr ? `<span class="inbox-msg-time">${this.escapeHtml(tStr)}</span>` : ''}
+                    </div>
+                </div>`;
+        }
+
+        wrap.innerHTML = html;
+        // Scroll to bottom
+        wrap.scrollTop = wrap.scrollHeight;
     },
 
     // ========================================

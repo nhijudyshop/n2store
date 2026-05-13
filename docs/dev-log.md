@@ -6,7 +6,82 @@
 
 ---
 
+## 2026-05-13
+
+### [orders][kpi] Tab "Tin nhắn" trong modal chi tiết đơn — meta + Pancake link
+
+**Trigger user**: "bấm vào đơn modal có tab hiển thị tin nhắn inbox" — click 1 đơn ở modal L1 → modal L2 mở ra → cần tab xem messages của khách đặt đơn.
+
+**Fix**:
+
+- HTML: thêm tab `[data-order-tab="inbox"]` (icon `message-square`) + body `#tabInbox` chứa loading/empty/content stages.
+- JS:
+    - `_getKpiTposAuthHeader()` — helper auth chung (tokenManager → fallback POST `/api/token` với credential nội tuyến + cache 50 phút).
+    - `_fetchSaleOnlineOrderForInbox(orderId)` — fetch `${WORKER}/api/odata/SaleOnline_Order(${orderId})?$expand=Partner`, cache 5 phút.
+    - `renderInboxTab(orderId)`:
+        - Pageid resolution: `order.Facebook_PageId || order.Facebook_PostId.split('_')[0]` (fallback vì `Facebook_PageId` thường null cho đơn từ LIVE).
+        - Render meta: tên khách, SĐT, page ID, PSID, nút "Mở trên Pancake" (`https://pages.fm/#!/conversation/<pageId>/inbox?psid=<psid>`).
+        - Fetch messages: ưu tiên `pdm.fetchInboxPreview(pageId, customerId)` → fallback `/api/pancake/pages/<pageId>/conversations/by-psid/<psid>/messages?limit=30` qua worker.
+        - Render bubble style (page=tím phải, customer=trắng trái) với time + attachments. Auto scroll bottom.
+- CSS: `.inbox-meta`, `.inbox-msg-{customer,page}`, `.inbox-attach-img`, `.inbox-pancake-link` (gradient + hover states).
+
+**Test localhost** (order `260500568` — Hủy bỏ, Hạnh):
+
+- TPOS SaleOnline_Order(GUID)?$expand=Partner ✓ (sau khi sửa auth header).
+- `Facebook_PageId=null`, `Facebook_PostId="270136663390370_948890684420411"` → derive pageId `270136663390370` ✓.
+- Meta render: "Uyen Nhi Le · 0907777701" + Page ID + PSID + nút Pancake ✓ [downloads/n2store-session/kpi-test-9-inbox-loaded.png](downloads/n2store-session/kpi-test-9-inbox-loaded.png).
+- Messages empty (worker chưa có route `/api/pancake/.../by-psid/...`) → hiển thị empty state với link "Mở trực tiếp trên Pancake" ✓.
+
+**Limitations & next**:
+
+- Inline messages cần thêm route worker proxy `/api/pancake/pages/<pageId>/conversations/by-psid/<psid>/messages` HOẶC dùng JWT từ tokenManager để fetch trực tiếp Pancake. MVP hiện tại: meta + deep link.
+- `pdm.fetchInboxPreview` chỉ work nếu KPI iframe có `window.pancakeDataManager` (chưa wired vào KPI iframe).
+
+Files: `orders-report/js/tab-kpi-commission.js` (+200), `orders-report/tab-kpi-commission.html` (+30), `orders-report/css/tab-kpi-commission.css` (+130).
+
+Status: 🔄 MVP done — meta + Pancake deep link. Inline messages cần thêm worker route ở iteration sau.
+
+---
+
 ## 2026-05-12
+
+### [orders][kpi] Loại đơn Hủy bỏ + nút "Đối soát" trong modal NV (cache 7 ngày)
+
+**Trigger user**: Tab KPI - HOA HỒNG, modal "Chi tiết KPI" hiển thị đơn phiếu **Hủy bỏ** (vd `260500568 / NJD/2026/65477`) **vẫn cộng 5.000đ KPI** + trạng thái "— chưa check". Hỏi: "chưa check" là gì? tại sao đơn hủy có trong đây?
+
+**Trả lời**:
+
+- **"chưa check"** = cột TRẠNG THÁI (recon pill) khi reconciliation chưa chạy (`reconRan=false`). Click "Đối soát" → chuyển sang ✓ OK / ↩ Đã hoàn / ⚠ Sai lệch.
+- **Đơn Hủy bỏ vẫn cộng KPI**: logic cũ CHỈ exclude đơn có invoice nằm trong **refund excel**. Phiếu `ShowState='Huỷ bỏ'` / `IsMergeCancel` / `State='cancel'` không được detect ⇒ vẫn tính KPI gross.
+
+**Fix**:
+
+- `_isInvoiceCancelled(invoice)` helper: detect 5 trường hợp (`State='cancel'`, `StateCode='cancel'`, `IsMergeCancel`, `ShowState='Huỷ bỏ' | 'Hủy bỏ'`).
+- `_getKpiExclusionKind(orderId, recon) → 'refund' | 'cancel' | null` — refund cần recon, cancelled detect ngay từ invoice cache.
+- `renderEmployeeOrdersTable`: tách 2 status pill — `✗ Hủy bỏ` (đỏ) cho cancelled, `↩ Đã hoàn` cho refund. Cả 2 đều excluded khỏi KPI gross (`okOrders++` chỉ khi `!isExcluded`).
+- `renderKPITable` (main): pre-compute cancelled loss từ invoice cache (KHÔNG cần recon); `lossInfo.kpiLost = max(reconLoss, cancelledKpi)` tránh đếm trùng. Hiển thị cell "Loại" ngay sau load (trước đó phải chờ recon).
+- `_indexReconResults`: thêm cancelled vào refundedSet khi tính `kpiLost` per-user.
+- Per-employee reconciliation trong modal L1:
+    - Nút "Chạy đối soát" trong header modal (icon `check-check`, gradient tím).
+    - Click → worker pool concurrency 6 chỉ reconcile đơn của user này (KHÔNG cần đối soát toàn page).
+    - Lưu cache 7 ngày trong localStorage `kpi_recon_l1_v1__<userId>` (TTL 604800000ms).
+    - Mở lại modal trong 7 ngày → tự apply cache (label = "Đối soát lại" + badge "Đã đối soát X phút/giờ/ngày trước").
+    - `_hydrateL1ReconCachesForEmployees`: trước render main table, load cache cho mọi user → KPI thực reflect ngay sau reload page.
+- Đổi label: "Đơn hoàn" → "Đơn loại", "Bị loại (refund)" → "Bị loại (loại)", header table "Hoàn" → "Loại".
+
+**Test localhost** (admin@@, port 8080, employee `hanh` 30 ngày):
+
+- Trước fix: Tổng 25 / OK 25 / KPI Gross 150.000đ / KPI Thực 150.000đ ❌
+- Sau fix (chưa recon): Tổng 26 / OK 24 / Đơn loại 2 / KPI Gross 150.000đ / Bị loại 5.000đ / KPI Thực **145.000đ** ✓
+- Sau click "Chạy đối soát": phát hiện thêm 2 refund (đơn 184, 344) → Tổng 27 / OK 23 / Đơn loại 4 / KPI Thực **140.000đ** ✓
+- Cache localStorage verified: `kpi_recon_l1_v1__hanh` savedAt=Date.now(), ttlMs=604800000, results=45.
+- Đóng modal → mở lại → label "Đối soát lại", info "Đã đối soát vừa xong", KPI thực giữ 140.000đ KHÔNG cần re-run ✓.
+
+Files: `orders-report/js/tab-kpi-commission.js` (+396), `orders-report/tab-kpi-commission.html` (+30), `orders-report/css/tab-kpi-commission.css` (+78).
+
+Status: ✅ Deploy commits `fc1f0c06` → `87f4a65b` → `0761cc06`.
+
+---
 
 ### [native-orders] STT global tự tăng + endpoint reset
 
