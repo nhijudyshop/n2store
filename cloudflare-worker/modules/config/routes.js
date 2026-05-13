@@ -112,6 +112,12 @@ export const ROUTES = {
     // Fast Sale Orders (PBH — Phiếu Bán Hàng) — convert native_order → invoice
     FAST_SALE_ORDERS: { pattern: '/api/fast-sale-orders/*' },
 
+    // Delivery Invoices (Phiếu Giao Hàng) — from PBH
+    DELIVERY_INVOICES: { pattern: '/api/delivery-invoices/*' },
+
+    // Refunds (Trả hàng) — from PBH
+    REFUNDS: { pattern: '/api/refunds/*' },
+
     // Web 2.0 Products — kho sản phẩm cho native_orders
     WEB2_PRODUCTS: { pattern: '/api/web2-products/*' },
 
@@ -194,6 +200,8 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/native-orders/')) return 'NATIVE_ORDERS';
     if (pathname.startsWith('/api/fast-sale-orders/')) return 'FAST_SALE_ORDERS';
+    if (pathname.startsWith('/api/delivery-invoices/')) return 'DELIVERY_INVOICES';
+    if (pathname.startsWith('/api/refunds/')) return 'REFUNDS';
     if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products')
         return 'WEB2_PRODUCTS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';

@@ -103,6 +103,8 @@
                             ${o.state === 'draft' ? `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Xác nhận" onclick="PbhApp.confirm('${escapeHtml(o.number)}')"><i data-lucide="check" style="width:12px;height:12px;"></i></button>` : ''}
                             ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Hủy" onclick="PbhApp.cancel('${escapeHtml(o.number)}')"><i data-lucide="x-circle" style="width:12px;height:12px;"></i></button>` : ''}
                             <button class="tpos-btn tpos-btn-default tpos-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
+                            ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-info tpos-btn-xs" title="Tạo phiếu giao" onclick="PbhApp.createDelivery('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
+                            ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Trả hàng" onclick="PbhApp.createRefund('${escapeHtml(o.number)}')"><i data-lucide="undo-2" style="width:12px;height:12px;"></i></button>` : ''}
                         </div>
                     </td>
                     <td class="tpos-cell-center"><strong>${o.displayStt ?? ''}</strong></td>
@@ -211,6 +213,38 @@
         if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
         notify(`Đã ghi nhận in — lần ${data.order.printCount}`, 'success');
         load();
+    }
+
+    async function createDelivery(number) {
+        if (!confirm(`Tạo Phiếu Giao Hàng từ ${number}?`)) return;
+        try {
+            const r = await fetch(`${WORKER}/api/delivery-invoices/from-pbh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pbhNumber: number }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            notify(`Đã tạo phiếu giao ${data.order.number}`, 'success');
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
+        }
+    }
+    async function createRefund(number) {
+        const reason = prompt(`Tạo phiếu trả hàng từ ${number}\n\nLý do trả?`, 'Khách đổi/trả');
+        if (!reason) return;
+        try {
+            const r = await fetch(`${WORKER}/api/refunds/from-pbh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pbhNumber: number, reason, refundMode: 'cash' }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            notify(`Đã tạo refund ${data.order.number}`, 'success');
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
+        }
     }
 
     async function resetStt() {
