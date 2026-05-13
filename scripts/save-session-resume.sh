@@ -55,12 +55,18 @@ TIMESTAMP_TOKEN="$(date +%Y%m%d-%H%M%S)"
 TIMESTAMP_HUMAN="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 TIMESTAMP_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# ---- find previous resume to compute commit range ----
+# ---- find previous resume to compute commit range + chain link ----
+# Exclude file đang tạo (theo timestamp+sha) — chỉ tính các session đã commit từ trước
 PREV_RESUME="$(ls -1 docs/sessions/2*-*.md 2>/dev/null | tail -1 || true)"
 PREV_SHA7=""
+PREV_TOKEN_FULL="INITIAL"
+PREV_LINK="_(session đầu tiên — không có chain)_"
 COMMIT_COUNT="?"
 if [[ -n "$PREV_RESUME" ]]; then
-  PREV_SHA7="$(basename "$PREV_RESUME" .md | awk -F- '{print $NF}')"
+  PREV_BASE="$(basename "$PREV_RESUME" .md)"      # e.g. 20260513-102128-4ab7812
+  PREV_SHA7="${PREV_BASE##*-}"                    # 4ab7812
+  PREV_TOKEN_FULL="RESUME:${PREV_BASE}"
+  PREV_LINK="[\`${PREV_TOKEN_FULL}\`](./$(basename "$PREV_RESUME"))"
   if git cat-file -e "$PREV_SHA7" 2>/dev/null; then
     COMMIT_COUNT="$(git rev-list --count "${PREV_SHA7}..HEAD" 2>/dev/null || echo "?")"
   else
@@ -99,6 +105,8 @@ replacements = {
     "{{SHA7}}":            """$SHA7""",
     "{{SHA_FULL}}":        """$SHA_FULL""",
     "{{PREV_SHA7}}":       """${PREV_SHA7:-INITIAL}""",
+    "{{PREV_TOKEN_FULL}}": """$PREV_TOKEN_FULL""",
+    "{{PREV_LINK}}":       """$PREV_LINK""",
     "{{COMMIT_COUNT}}":    """$COMMIT_COUNT""",
     "{{BRANCH}}":          """$BRANCH""",
     "{{AUTHOR}}":          """$AUTHOR""",

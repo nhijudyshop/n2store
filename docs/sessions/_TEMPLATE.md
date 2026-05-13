@@ -52,6 +52,19 @@
 
 <!-- Cảnh báo, gotcha, dependency cần check, env state, browser session đang chạy, etc. -->
 
+## 7. Previous Session (Chain Pointer)
+
+> Một conversation có thể có nhiều token tạo dần qua các turn. Section này link đến session trước để Claude tự lần ngược, ghép đủ ngữ cảnh khi user chỉ paste **token cuối**.
+
+- Previous: {{PREV_LINK}}
+
+**Chain walking** (Claude tự làm khi nhận token):
+
+1. Đọc file hiện tại.
+2. Nếu Previous ≠ "INITIAL" → đọc thêm file previous.
+3. Lặp lại tối đa **N=3 levels** mặc định (tránh context bloat).
+4. Nếu user nói "đọc full chain" → đi hết tới INITIAL.
+
 ---
 
 ## How to resume
@@ -62,4 +75,9 @@ User paste vào chat mới:
 RESUME:{{TIMESTAMP_TOKEN}}-{{SHA7}}
 ```
 
-Claude sẽ tự `Read` file này, tóm tắt 2-3 câu để xác nhận hiểu đúng, rồi tiếp tục từ phần "Next Steps".
+Claude sẽ:
+
+1. `Read` file này.
+2. Walk chain theo section 7 (mặc định 3 levels, hoặc theo yêu cầu user).
+3. Tóm tắt 2-3 câu để xác nhận hiểu đúng.
+4. Tiếp tục từ phần "Next Steps" của session gần nhất.
