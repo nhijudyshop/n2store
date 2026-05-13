@@ -38,10 +38,11 @@ if [[ -z "$ROOT" ]]; then
 fi
 cd "$ROOT"
 
-# ---- ensure clean tree (commits done) ----
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "⚠  Working tree not clean. Commit hết trước khi tạo session resume." >&2
-  git status --short >&2
+# ---- ensure modified/staged files are committed (untracked files OK) ----
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+  echo "⚠  Có file modified/staged chưa commit. Commit hết trước khi tạo session resume." >&2
+  echo "    (Untracked files không sao, chỉ cần commit hết tracked changes.)" >&2
+  git status --short --untracked-files=no >&2
   exit 1
 fi
 
