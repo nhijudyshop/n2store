@@ -246,6 +246,87 @@ async function main() {
         ok(`renumbered ${r.data.renumbered} PBH`);
     });
 
+    // ---- PHASE 6: Comment-merge by campaign ----
+    console.log('\n▶ STEP 9b: PHASE 6 — Comment merge by campaign');
+    const TEST_CAMPAIGN_ID = 'qa-camp-' + Date.now();
+    const TEST_CAMPAIGN_NAME = 'QA Live Campaign';
+    const SECOND_FB_USER = 'qa-merge-' + Date.now();
+    let mergeBaseCode = null;
+
+    await step('Create order #1 in campaign (no merge yet)', async () => {
+        const r = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: SECOND_FB_USER,
+            fbUserName: 'QA Merge Test',
+            phone: '0900000088',
+            customerName: 'QA Merge',
+            liveCampaignId: TEST_CAMPAIGN_ID,
+            liveCampaignName: TEST_CAMPAIGN_NAME,
+            fbCommentId: 'comment-1',
+            message: 'Comment 1 — đặt áo size M',
+        });
+        if (!r.data?.success) throw new Error(JSON.stringify(r.data).slice(0, 200));
+        if (r.data.merged) throw new Error('first order should NOT be merged');
+        mergeBaseCode = r.data.order.code;
+        if (r.data.order.commentCount !== 1)
+            throw new Error(`expected commentCount=1, got ${r.data.order.commentCount}`);
+        ok(`order #1 ${mergeBaseCode}, commentCount=1, merged=false`);
+    });
+    await step('Create order #2 same customer+campaign → MERGE', async () => {
+        const r = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: SECOND_FB_USER,
+            fbUserName: 'QA Merge Test',
+            phone: '0900000088',
+            customerName: 'QA Merge',
+            liveCampaignId: TEST_CAMPAIGN_ID,
+            liveCampaignName: TEST_CAMPAIGN_NAME,
+            fbCommentId: 'comment-2',
+            message: 'Comment 2 — đổi size L',
+        });
+        if (!r.data?.success) throw new Error(JSON.stringify(r.data).slice(0, 200));
+        if (!r.data.merged) throw new Error('expected merged=true');
+        if (r.data.order.code !== mergeBaseCode)
+            throw new Error(`expected same order code ${mergeBaseCode}, got ${r.data.order.code}`);
+        if (r.data.order.commentCount !== 2)
+            throw new Error(`expected commentCount=2, got ${r.data.order.commentCount}`);
+        if (!r.data.order.commentIds.includes('comment-2'))
+            throw new Error('comment-2 not in commentIds');
+        if (!r.data.order.note.includes('Comment 2'))
+            throw new Error('Comment 2 text not appended to note');
+        ok(`merge ✓ same code ${mergeBaseCode}, commentCount=2, both commentIds present`);
+    });
+    await step('Create order #3 different campaign → NEW order', async () => {
+        const r = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: SECOND_FB_USER,
+            fbUserName: 'QA Merge Test',
+            phone: '0900000088',
+            customerName: 'QA Merge',
+            liveCampaignId: 'different-campaign-' + Date.now(),
+            liveCampaignName: 'Other Campaign',
+            fbCommentId: 'comment-3',
+            message: 'Comment 3 — campaign khác',
+        });
+        if (!r.data?.success) throw new Error(JSON.stringify(r.data).slice(0, 200));
+        if (r.data.merged) throw new Error('different campaign should NOT merge');
+        if (r.data.order.code === mergeBaseCode)
+            throw new Error('should create new code for different campaign');
+        ok(`new order ${r.data.order.code} for different campaign (not merged)`);
+        // Cleanup
+        await fetch(`${WORKER}/api/native-orders/${r.data.order.code}`, { method: 'DELETE' });
+    });
+    await step('Idempotency: re-send comment-2 → return same merged order', async () => {
+        const r = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: SECOND_FB_USER,
+            fbCommentId: 'comment-2',
+            liveCampaignId: TEST_CAMPAIGN_ID,
+        });
+        if (!r.data?.idempotent) throw new Error('expected idempotent=true');
+        if (r.data.order.code !== mergeBaseCode)
+            throw new Error(`expected same order, got ${r.data.order.code}`);
+        ok(`idempotent ✓ comment-2 returns ${mergeBaseCode}`);
+    });
+    // Cleanup merge test base order
+    await fetch(`${WORKER}/api/native-orders/${mergeBaseCode}`, { method: 'DELETE' });
+
     // ---- PHASE 4: Delivery + Refund ----
     console.log('\n▶ STEP 10b: PHASE 4 — Delivery invoice');
     // Need a non-cancel PBH for delivery — re-confirm
@@ -315,6 +396,58 @@ async function main() {
 
     // Cancel PBH for cleanup
     await api('POST', `/api/fast-sale-orders/${pbhNumber}/cancel`);
+
+    // ---- PHASE 7: Realtime WebSocket events ----
+    console.log('\n▶ STEP 10d: PHASE 7 — Realtime WS broadcast');
+    await step('WS connect + receive native_order:created event', async () => {
+        const WebSocket = require('ws');
+        const ws = new WebSocket('wss://n2store-fallback.onrender.com');
+        await new Promise((res, rej) => {
+            const timeout = setTimeout(() => rej(new Error('WS connect timeout')), 5000);
+            ws.on('open', () => {
+                clearTimeout(timeout);
+                res();
+            });
+            ws.on('error', (e) => {
+                clearTimeout(timeout);
+                rej(e);
+            });
+        });
+        const events = [];
+        ws.on('message', (raw) => {
+            try {
+                const msg = JSON.parse(raw.toString());
+                if (msg.type?.startsWith('native_order:') || msg.type?.startsWith('pbh:')) {
+                    events.push(msg);
+                }
+            } catch {}
+        });
+        // Trigger create event
+        const wsTestPhone = '0900000077';
+        const wsTestFb = 'qa-ws-' + Date.now();
+        const createR = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: wsTestFb,
+            fbUserName: 'QA WS Test',
+            phone: wsTestPhone,
+            customerName: 'QA WS Test',
+            fbCommentId: 'ws-comment-' + Date.now(),
+        });
+        if (!createR.data?.success) throw new Error('create failed');
+        const wsTestCode = createR.data.order.code;
+        // Wait up to 3s for WS event
+        await new Promise((res) => setTimeout(res, 3000));
+        const createdEvent = events.find(
+            (e) => e.type === 'native_order:created' && e.order?.code === wsTestCode
+        );
+        ws.close();
+        if (!createdEvent)
+            throw new Error(
+                `no native_order:created event received (got ${events.length} events: ${events.map((e) => e.type).join(', ')})`
+            );
+        ok(`WS event received: ${createdEvent.type} order=${createdEvent.order.code}`);
+        // Cleanup
+        await fetch(`${WORKER}/api/native-orders/${wsTestCode}`, { method: 'DELETE' });
+    });
 
     // ---- Browser tests ----
     console.log('\n▶ STEP 11: Browser UI tests');
