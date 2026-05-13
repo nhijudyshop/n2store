@@ -324,5 +324,7 @@
         print: printOrder,
         goPage,
         resetStt,
+        createDelivery,
+        createRefund,
     };
 })();
