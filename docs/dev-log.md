@@ -25,6 +25,23 @@
 
 ## 2026-05-13
 
+### [issue-tracking] Fix: cột "Mã đơn" đè tên khách trong modal customer lookup
+
+**Trigger user**: ảnh chụp → "NJD/2026/63950" rộng > 100px cell → overflow đè "Huỳnh Thành Đạt".
+
+**Fix** [issue-tracking/css/style.css](../issue-tracking/css/style.css):
+
+- `.customer-order-summary` grid: `auto 100px 1.2fr 1fr 100px 110px 24px` → `22px 150px 1.2fr 1.1fr 110px 100px` (mở rộng code 100→150px, bỏ trailing 24px empty cell, gap 12→14px).
+- `.customer-order-summary > * { min-width: 0 }` để grid item respect column width (không spillover).
+- `.order-code`, `.order-cust`, `.order-code-sub`: `overflow:hidden; text-overflow:ellipsis; white-space:nowrap` — text dài cắt gọn thay vì đè.
+- `.order-channel-carrier`: line-clamp 2 dòng (carrier name "THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú,...)" rất dài, clamp giúp gọn).
+
+**Verify**: screenshot local sau fix — code "NJD/2026/65932" tách hẳn khỏi "Huỳnh Thành Đạt", carrier address clamp 2 dòng có "…", layout đều.
+
+**Status**: ✅ Done
+
+---
+
 ### [tag-sync][merge] Rename TPOS tag "ĐÃ GỘP KO CHỐT" → "ĐÃ GỘP KHÔNG CHỐT" (đồng bộ XL label)
 
 **Trigger user**: "TAG XL 'ĐÃ GỘP KHÔNG CHỐT' sẽ auto gán cho TAG tpos 'ĐÃ GỘP KHÔNG CHỐT'" — trước đây XL label đầy đủ "ĐÃ GỘP KHÔNG CHỐT" nhưng sync sang TPOS lại viết tắt "ĐÃ GỘP KO CHỐT". User muốn tên TPOS = tên XL chính xác.
