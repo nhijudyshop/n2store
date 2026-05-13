@@ -577,14 +577,22 @@
                         if (rr.status === 'error') {
                             return `<div class="history-stat-item" style="background: #fef3c7; color: #92400e;" title="${utils.escapeHtml(rr.error || 'Lỗi đối soát')}"><i class="fas fa-exclamation-triangle"></i> <span>Đối soát lỗi</span></div>`;
                         }
+                        const skippedSuffix =
+                            rr.skippedCount > 0
+                                ? ` <span class="text-secondary" title="STT có tag ĐÃ GỘP / KHÔNG CẦN CHỐT — bỏ qua đối soát">(⏭ ${rr.skippedCount} bỏ qua)</span>`
+                                : '';
                         if (rr.dropCount > 0) {
                             const sample = (rr.drops || [])
                                 .slice(0, 3)
                                 .map((d) => `${d.productCode}→STT${d.stt}`)
                                 .join(', ');
-                            return `<div class="history-stat-item" style="background: #fee2e2; color: #991b1b;" title="${utils.escapeHtml(sample)}"><i class="fas fa-times-circle"></i> <span><strong>❌ ${rr.dropCount}</strong> SP rớt TPOS</span></div>`;
+                            return `<div class="history-stat-item" style="background: #fee2e2; color: #991b1b;" title="${utils.escapeHtml(sample)}"><i class="fas fa-times-circle"></i> <span><strong>❌ ${rr.dropCount}</strong> SP rớt TPOS${skippedSuffix}</span></div>`;
                         }
-                        return `<div class="history-stat-item" style="background: #dcfce7; color: #166534;" title="Excel TPOS đối soát ${rr.scannedCount} bản ghi, tất cả khớp"><i class="fas fa-shield-check"></i> <span><strong>✓ ${rr.matchedCount}</strong> khớp TPOS</span></div>`;
+                        // Nếu scanned=0 nhưng skippedCount>0 → all skipped, hiển thị riêng.
+                        if ((rr.scannedCount || 0) === 0 && rr.skippedCount > 0) {
+                            return `<div class="history-stat-item" style="background: #f3f4f6; color: #6b7280;" title="Tất cả STT có tag ĐÃ GỘP / KHÔNG CẦN CHỐT — bỏ qua hoàn toàn"><i class="fas fa-forward"></i> <span><strong>⏭ ${rr.skippedCount}</strong> bỏ qua hoàn toàn</span></div>`;
+                        }
+                        return `<div class="history-stat-item" style="background: #dcfce7; color: #166534;" title="Excel TPOS đối soát ${rr.scannedCount} bản ghi, tất cả khớp"><i class="fas fa-shield-check"></i> <span><strong>✓ ${rr.matchedCount}</strong> khớp TPOS${skippedSuffix}</span></div>`;
                     })()}
                 </div>
 
@@ -1102,6 +1110,21 @@
     }
 
     // Fetch + parse 1 campaign Excel → Map<sttString, Set<productCodeUpper>>
+    // Tags trong cột "Nhãn" mà nếu xuất hiện sẽ bỏ qua đối soát STT đó.
+    // User instruction (2026-05-10): "ĐÃ GỘP KO CHỐT", "KHÔNG CẦN CHỐT" → skip.
+    // Match accent-insensitive + case-insensitive.
+    const _SKIP_TAGS_RAW = ['ĐÃ GỘP KO CHỐT', 'KHÔNG CẦN CHỐT'];
+    function _normalizeTag(s) {
+        return String(s || '')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/gi, 'd')
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, ' ');
+    }
+    const _SKIP_TAGS_NORM = new Set(_SKIP_TAGS_RAW.map(_normalizeTag));
+
     async function _fetchCampaignExcel(campaignId) {
         const headers = await _getAuthHeaderForRecon();
         const WORKER = _getWorkerUrl();
@@ -1118,6 +1141,8 @@
         // Skip 2 title rows (giống overview-fetch.js).
         const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
         const sttToCodes = new Map();
+        // Map<sttStr, string> — STT có tag skip kèm tag gốc để hiển thị.
+        const sttSkipReason = new Map();
         // Cột STT thực = SessionIndex của order. TPOS Excel header là `###`
         // (cột thứ 2). Cột "STT" (cột 1) chỉ là row counter 1..N — KHÔNG phải
         // SessionIndex; trước đây dùng nhầm cột này → 0 khớp khi đối soát.
@@ -1132,6 +1157,11 @@
             sampleKeys.find((k) => /sản\s*phẩm/i.test(k)) ||
             sampleKeys.find((k) => /Product/i.test(k)) ||
             'Sản phẩm';
+        // Cột Nhãn: skip recon nếu chứa "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT".
+        const tagKey =
+            sampleKeys.find((k) => /^Nh[aã]n$/i.test(k)) ||
+            sampleKeys.find((k) => /Nh[aã]n/i.test(k)) ||
+            null;
         for (const row of rows) {
             const sttVal = row[sttKey];
             if (sttVal == null) continue;
@@ -1150,8 +1180,27 @@
             } else {
                 sttToCodes.set(sttStr, codes);
             }
+            // Tag → skip reason. Split theo dấu phổ biến trong TPOS: , ; / newline.
+            if (tagKey) {
+                const tagsStr = String(row[tagKey] || '');
+                if (tagsStr) {
+                    const tokens = tagsStr
+                        .split(/[,;\/\n\r]+/)
+                        .map((t) => t.trim())
+                        .filter(Boolean);
+                    for (const tok of tokens) {
+                        if (_SKIP_TAGS_NORM.has(_normalizeTag(tok))) {
+                            // Giữ tag gốc đầu tiên match để hiển thị (vd "ĐÃ GỘP KO CHỐT").
+                            if (!sttSkipReason.has(sttStr)) {
+                                sttSkipReason.set(sttStr, tok);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
         }
-        return sttToCodes;
+        return { sttToCodes, sttSkipReason };
     }
 
     function _setReconStatus(html) {
@@ -1159,7 +1208,14 @@
         if (el) el.innerHTML = html;
     }
 
-    function _renderReconcileResults(record, sttToCodes, sttUnresolved, sttResolvedCampaign) {
+    function _renderReconcileResults(
+        record,
+        sttToCodes,
+        sttUnresolved,
+        sttResolvedCampaign,
+        sttSkipReason
+    ) {
+        sttSkipReason = sttSkipReason || new Map();
         const productExpectations = []; // [{productCode, productId, productName, stt}]
         (record.beforeSnapshot?.assignments || []).forEach((a) => {
             const code = (a.productCode || '').toUpperCase();
@@ -1177,8 +1233,10 @@
         let okCount = 0;
         let droppedCount = 0;
         let unresolvedCount = 0;
+        let skippedCount = 0;
         const dropped = []; // { stt, productCode, productName }
         const unresolved = []; // { stt, productCode, reason }
+        const skipped = []; // { stt, productCode, productName, reason }
         for (const exp of productExpectations) {
             if (sttUnresolved.has(exp.stt)) {
                 unresolvedCount++;
@@ -1186,6 +1244,18 @@
                     stt: exp.stt,
                     productCode: exp.productCode,
                     reason: 'campaign không resolve được trên TPOS',
+                });
+                continue;
+            }
+            // Skip STT có tag "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT".
+            const skipReason = sttSkipReason.get(exp.stt);
+            if (skipReason) {
+                skippedCount++;
+                skipped.push({
+                    stt: exp.stt,
+                    productCode: exp.productCode,
+                    productName: exp.productName,
+                    reason: skipReason,
                 });
                 continue;
             }
@@ -1213,6 +1283,9 @@
         html += `<strong>Đối soát ${total} bản ghi (STT × sản phẩm):</strong> `;
         html += `<span class="text-success">✅ ${okCount} khớp</span> · `;
         html += `<span class="text-danger">❌ ${droppedCount} TPOS không có</span>`;
+        if (skippedCount > 0) {
+            html += ` · <span class="text-secondary" title="STT có tag ĐÃ GỘP KO CHỐT / KHÔNG CẦN CHỐT — bỏ qua đối soát">⏭ ${skippedCount} bỏ qua (đã gộp / không cần chốt)</span>`;
+        }
         if (unresolvedCount > 0) {
             html += ` · <span class="text-warning">⚠ ${unresolvedCount} không kiểm được</span>`;
         }
@@ -1256,6 +1329,18 @@
                             </tr>`
                         )
                         .join('')}</tbody></table></div></div>`;
+        }
+
+        if (skipped.length > 0) {
+            const sample = skipped.slice(0, 30);
+            const more = skipped.length > 30 ? ` (+${skipped.length - 30} dòng nữa)` : '';
+            html += `<details class="mb-3"><summary class="text-secondary small">⏭ ${skipped.length} bản ghi bỏ qua (TPOS có tag "đã gộp" / "không cần chốt")${more}</summary>
+                <ul class="small mt-2">${sample
+                    .map(
+                        (u) =>
+                            `<li>STT ${utils.escapeHtml(u.stt)} · ${utils.escapeHtml(u.productCode)} — tag: <code>${utils.escapeHtml(u.reason)}</code></li>`
+                    )
+                    .join('')}</ul></details>`;
         }
 
         if (unresolved.length > 0) {
@@ -1354,13 +1439,15 @@
             };
         }
 
-        // Fetch Excel parallel.
+        // Fetch Excel parallel. Mỗi campaign trả {sttToCodes, sttSkipReason}.
         const sttToCodesByCampaign = new Map();
+        const sttSkipByCampaign = new Map();
         await Promise.all(
             [...resolvedById.entries()].map(async ([cname, cid]) => {
                 try {
-                    const map = await _fetchCampaignExcel(cid);
-                    sttToCodesByCampaign.set(cname, map);
+                    const { sttToCodes, sttSkipReason } = await _fetchCampaignExcel(cid);
+                    sttToCodesByCampaign.set(cname, sttToCodes);
+                    sttSkipByCampaign.set(cname, sttSkipReason);
                 } catch (e) {
                     console.warn(`[POST-UPLOAD-RECON] Excel fetch failed for ${cname}:`, e);
                 }
@@ -1368,8 +1455,21 @@
         );
 
         const drops = [];
+        const skipped = []; // [{stt, productCode, productName, fromCampaign, reason}]
         let matchedCount = 0;
         for (const exp of expectations) {
+            // STT có tag "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT" → bỏ qua đối soát.
+            const skipReason = sttSkipByCampaign.get(exp.cname)?.get(exp.stt);
+            if (skipReason) {
+                skipped.push({
+                    stt: exp.stt,
+                    productCode: exp.productCode,
+                    productName: exp.productName,
+                    fromCampaign: exp.cname,
+                    reason: skipReason,
+                });
+                continue;
+            }
             const tposCodes = sttToCodesByCampaign.get(exp.cname)?.get(exp.stt);
             if (tposCodes && tposCodes.has(exp.productCode)) {
                 matchedCount += 1;
@@ -1384,8 +1484,10 @@
         }
 
         return {
-            scannedCount: expectations.length,
+            scannedCount: expectations.length - skipped.length,
             matchedCount,
+            skippedCount: skipped.length,
+            skipped,
             dropCount: drops.length,
             drops,
         };
@@ -1427,8 +1529,9 @@
 
             const result = await _runReconcileForRecord(record);
 
-            // Cap drops list ở 200 entries để tránh node Firebase quá lớn.
+            // Cap drops + skipped lists ở 200 entries để tránh node Firebase quá lớn.
             const cappedDrops = (result.drops || []).slice(0, 200);
+            const cappedSkipped = (result.skipped || []).slice(0, 200);
             const reconcilePayload = {
                 ts: Date.now(),
                 status: result.error ? 'error' : 'done',
@@ -1436,12 +1539,17 @@
                 matchedCount: result.matchedCount || 0,
                 dropCount: result.dropCount || 0,
                 drops: cappedDrops,
+                skippedCount: result.skippedCount || 0,
+                skipped: cappedSkipped,
                 ...(result.error ? { error: result.error } : {}),
                 ...(result.drops && result.drops.length > 200 ? { dropsTruncated: true } : {}),
+                ...(result.skipped && result.skipped.length > 200
+                    ? { skippedTruncated: true }
+                    : {}),
             };
             await recordRef.child('reconcileResult').set(reconcilePayload);
             console.log(
-                `[POST-UPLOAD-RECON] ${uploadId}: scanned=${reconcilePayload.scannedCount} matched=${reconcilePayload.matchedCount} drops=${reconcilePayload.dropCount}`
+                `[POST-UPLOAD-RECON] ${uploadId}: scanned=${reconcilePayload.scannedCount} matched=${reconcilePayload.matchedCount} drops=${reconcilePayload.dropCount} skipped=${reconcilePayload.skippedCount}`
             );
         } catch (e) {
             console.error('[POST-UPLOAD-RECON] Fatal:', e);
@@ -1729,14 +1837,18 @@
                 // campaign — STT 5 ở STORE khác STT 5 ở HOUSE).
                 out.innerHTML = `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang tải ${resolved.length} Excel TPOS…</div>`;
                 const sttToCodesByCampaign = new Map(); // cname → Map<sttStr, Set<codeUpper>>
+                const sttSkipByCampaign = new Map(); // cname → Map<sttStr, skipReason>
                 let excelTotalSTTs = 0;
                 const fetchErrors = [];
                 await Promise.all(
                     resolved.map(async (r) => {
                         try {
-                            const map = await _fetchCampaignExcel(r.campaignId);
-                            sttToCodesByCampaign.set(r.cname, map);
-                            excelTotalSTTs += map.size;
+                            const { sttToCodes, sttSkipReason } = await _fetchCampaignExcel(
+                                r.campaignId
+                            );
+                            sttToCodesByCampaign.set(r.cname, sttToCodes);
+                            sttSkipByCampaign.set(r.cname, sttSkipReason);
+                            excelTotalSTTs += sttToCodes.size;
                         } catch (e) {
                             fetchErrors.push(`${r.cname}: ${e.message || e}`);
                         }
@@ -1751,12 +1863,14 @@
                 const allDrops = [];
                 let totalChecked = 0;
                 let totalMatched = 0;
+                let totalSkipped = 0;
+                const skipSamples = []; // {stt, reason, fromCampaign}
                 let totalRecordsHit = 0;
                 // Track today's uploads riêng để hiển thị badge xác nhận đã quét.
                 const today0 = new Date();
                 today0.setHours(0, 0, 0, 0);
                 const todayCutoff = today0.getTime();
-                const todayUploadsScanned = []; // [{shortId, tsStr, sttCount, dropCount}]
+                const todayUploadsScanned = []; // [{shortId, tsStr, sttCount, dropCount, skipCount}]
 
                 for (const record of allRecords) {
                     const recordShortId = (record.firebaseKey || record.uploadId || '').slice(-8);
@@ -1766,6 +1880,7 @@
                     let recordTouched = false;
                     let recordTotalChecked = 0;
                     let recordDropped = 0;
+                    let recordSkipped = 0;
                     (record.beforeSnapshot?.assignments || []).forEach((a) => {
                         const code = (a.productCode || '').toUpperCase();
                         (a.sttList || []).forEach((sttItem) => {
@@ -1776,9 +1891,23 @@
                                 '';
                             if (!memberCnameSet.has(recCname)) return;
                             recordTouched = true;
+                            const stt = String(sttItem.stt);
+                            // STT có tag "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT" → bỏ qua.
+                            const skipReason = sttSkipByCampaign.get(recCname)?.get(stt);
+                            if (skipReason) {
+                                totalSkipped += 1;
+                                recordSkipped += 1;
+                                if (skipSamples.length < 30) {
+                                    skipSamples.push({
+                                        stt,
+                                        reason: skipReason,
+                                        fromCampaign: recCname,
+                                    });
+                                }
+                                return;
+                            }
                             totalChecked += 1;
                             recordTotalChecked += 1;
-                            const stt = String(sttItem.stt);
                             // Lookup Excel của ĐÚNG campaign mà STT này thuộc về.
                             const tposCodes = sttToCodesByCampaign.get(recCname)?.get(stt);
                             if (tposCodes && tposCodes.has(code)) {
@@ -1804,6 +1933,7 @@
                                 tsStr: recordTs,
                                 sttCount: recordTotalChecked,
                                 dropCount: recordDropped,
+                                skipCount: recordSkipped,
                             });
                         }
                     }
@@ -1849,11 +1979,15 @@
                     todayBadgeHtml = `<div class="alert ${cls} small py-2 mb-2"><i class="fas fa-calendar-day"></i> <strong>${headline}:</strong> ${badges}</div>`;
                 }
 
+                const skipNote =
+                    totalSkipped > 0
+                        ? ` · <span class="text-secondary" title="STT có tag ĐÃ GỘP KO CHỐT / KHÔNG CẦN CHỐT — bỏ qua đối soát">⏭ ${totalSkipped} bỏ qua (đã gộp / không cần chốt)</span>`
+                        : '';
                 const headHtml = `<div class="alert alert-${droppedCount > 0 ? 'danger' : 'success'} mb-2">
                     <strong><i class="fas fa-${droppedCount > 0 ? 'exclamation-triangle' : 'check-circle'}"></i> ${headTitle} — id ${headIds}</strong><br>
                     Excel TPOS gồm <strong>${excelTotalSTTs}</strong> STT · Quét <strong>${totalRecordsHit}</strong> upload chạm ${resolved.length > 1 ? 'nhóm' : 'chiến dịch'} · Đối soát <strong>${totalChecked}</strong> bản ghi →
                     <span class="text-success">✅ ${totalMatched} khớp</span> ·
-                    <span class="text-danger">❌ ${droppedCount} TPOS không có</span>${failedNote}
+                    <span class="text-danger">❌ ${droppedCount} TPOS không có</span>${skipNote}${failedNote}
                 </div>${todayBadgeHtml}`;
 
                 if (droppedCount === 0) {
@@ -2040,23 +2174,29 @@
                 `<div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Đang tải ${uniqueCampaignIds.size} Excel TPOS…</div>`
             );
             const sttToCodes = new Map();
+            const sttSkipReason = new Map(); // stt → skipReason (tag gốc)
             const errors = [];
             await Promise.all(
                 [...uniqueCampaignIds.entries()].map(async ([cid, meta]) => {
                     try {
-                        const map = await _fetchCampaignExcel(cid);
+                        const { sttToCodes: codesMap, sttSkipReason: skipMap } =
+                            await _fetchCampaignExcel(cid);
                         // Tập STTs thuộc campaign này (gom từ tất cả groupKeys).
                         const wantedSet = new Set();
                         for (const gk of meta.groupKeys) {
                             (campaignToSTTs.get(gk) || new Set()).forEach((s) => wantedSet.add(s));
                         }
-                        for (const [stt, codes] of map.entries()) {
+                        for (const [stt, codes] of codesMap.entries()) {
                             if (wantedSet.size > 0 && !wantedSet.has(stt)) continue;
                             if (sttToCodes.has(stt)) {
                                 for (const c of codes) sttToCodes.get(stt).add(c);
                             } else {
                                 sttToCodes.set(stt, new Set(codes));
                             }
+                        }
+                        for (const [stt, reason] of skipMap.entries()) {
+                            if (wantedSet.size > 0 && !wantedSet.has(stt)) continue;
+                            sttSkipReason.set(stt, reason);
                         }
                     } catch (e) {
                         errors.push(`${meta.actualName}: ${e.message || e}`);
@@ -2069,7 +2209,13 @@
                 })
             );
 
-            _renderReconcileResults(record, sttToCodes, sttUnresolved, resolvedCampaign);
+            _renderReconcileResults(
+                record,
+                sttToCodes,
+                sttUnresolved,
+                resolvedCampaign,
+                sttSkipReason
+            );
 
             if (errors.length) {
                 const el = document.getElementById('tab3ReconcileResults');

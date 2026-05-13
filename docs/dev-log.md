@@ -25,6 +25,46 @@
 
 ## 2026-05-13
 
+### [orders][tab3] Đối soát Excel — skip STT có tag "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT"
+
+**User**: "trong file excel có cột 'Nhãn' -> nếu có 'ĐÃ GỘP KO CHỐT', 'KHÔNG CẦN CHỐT' -> thì không cần Đối Soát".
+
+**Implementation** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js)):
+
+1. `_fetchCampaignExcel` thay return từ `Map<sttStr,Set<codes>>` thành object `{sttToCodes, sttSkipReason}` — `sttSkipReason: Map<sttStr,string>` map STT có tag skip → tag gốc.
+2. Detect cột "Nhãn" trong Excel (regex `/^Nh[aã]n$/i` ưu tiên, fallback `/Nh[aã]n/i`).
+3. Split tag-cell theo `, ; / newline`, normalize tag (NFD strip accents + `đ→d` + lowercase + trim), compare với set `['ĐÃ GỘP KO CHỐT', 'KHÔNG CẦN CHỐT']`.
+4. Match → set `sttSkipReason.set(stt, tag-gốc)`.
+5. 3 reconcile flows xử lý skip:
+    - `_runReconcileForRecord` (post-upload): trả thêm `skippedCount` + `skipped[]` → ghi Firebase `reconcileResult.skippedCount/skipped`.
+    - `reconcileUploadWithTPOSV2` (per-record modal): truyền `sttSkipReason` vào `_renderReconcileResults`, hiển thị `⏭ N bỏ qua` trong summary + `<details>` collapsible.
+    - `reconcileAllInCampaignV2` (bulk): summary `⏭ N bỏ qua (đã gộp / không cần chốt)` + track `sttSkipByCampaign` partition theo campaign name.
+6. List card badge (line ~570): nếu `rr.skippedCount > 0` thêm suffix `(⏭ N bỏ qua)`; nếu `scannedCount=0 && skippedCount>0` → badge xám `⏭ N bỏ qua hoàn toàn`.
+
+**Verify** ([scripts/verify-skip-tags-trigger.mjs](../scripts/verify-skip-tags-trigger.mjs)) — auto-scan 20 campaigns gần nhất, build skip-stt set, find upload có overlap:
+
+```
+Trigger reconcile cho upload chạm HOUSE+STORE 15/04/2026:
+  skippedCount: 11
+  Sample skipped:
+    STT 18  · B1537B · ĐÃ GỘP KO CHỐT · HOUSE 15/04/2026
+    STT 17  · B1537B · ĐÃ GỘP KO CHỐT · STORE 15/04/2026
+    STT 5   · B1537V · KHÔNG CẦN CHỐT · HOUSE 15/04/2026
+    STT 236 · B1564  · ĐÃ GỘP KO CHỐT · STORE 15/04/2026
+    STT 197 · B1511H · ĐÃ GỘP KO CHỐT · HOUSE 15/04/2026
+
+VERDICT: ✅ PASS — recognized 2 tag variants, accent-insensitive, đúng campaign per STT
+```
+
+**Probe** ([scripts/probe-excel-tags.mjs](../scripts/probe-excel-tags.mjs)) — 15/20 campaigns recent có STTs với skip tags; tổng across all:
+
+- `ĐÃ GỘP KO CHỐT`: 80 occurrences
+- `KHÔNG CẦN CHỐT`: 241 occurrences
+
+**Status**: ✅ Done — feature triển khai trong 3 reconcile flows + list badge, không regression existing test (upload `00860050` skip=0 vì 06/05/2026 không có tag skip, vẫn 19 matched + 1 drop).
+
+---
+
 ### [issue-tracking] Fix: cột "Mã đơn" đè tên khách trong modal customer lookup
 
 **Trigger user**: ảnh chụp → "NJD/2026/63950" rộng > 100px cell → overflow đè "Huỳnh Thành Đạt".
