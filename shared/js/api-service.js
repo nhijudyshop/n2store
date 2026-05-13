@@ -1022,11 +1022,47 @@ const ApiService = {
                 'to DELETE'
             );
 
+            // Filter loại bỏ TẤT CẢ → SP ticket KHÔNG có trong refund order TPOS vừa tạo.
+            // Nguyên nhân: ActionRefund chỉ include SP chưa-được-refund của đơn gốc; nếu SP
+            // mục tiêu đã refunded trước đó (qua attempt khác / TPOS manual / failed PUT cũ
+            // đã set ReturnTotal), ActionRefund bỏ qua nó → refund order mới chỉ có các SP
+            // KHÔNG-muốn-refund. Confirm refund order này = refund nhầm các SP đó.
+            // Xử lý: hủy refund order vừa tạo (orphan, không có SP target) + trả về
+            // alreadyRefunded để caller mark ticket COMPLETED mà không refund nhầm.
             if (filteredOrderLines.length === 0) {
-                throw new Error(
-                    'Partial refund filter loại bỏ TẤT CẢ OrderLines — sản phẩm trong ticket không khớp với đơn TPOS. ' +
-                        'Kiểm tra lại products của ticket so với OrderLines của đơn gốc.'
+                console.warn(
+                    '[API] Filter loại bỏ TẤT CẢ OrderLines — TPOS đã refund SP target trước đó. ' +
+                        'Hủy orphan refund order',
+                    refundOrderId,
+                    'và trả về alreadyRefunded'
                 );
+                try {
+                    await window.tokenManager.authenticatedFetch(
+                        `${API_CONFIG.TPOS_ODATA}/FastSaleOrder(${refundOrderId})`,
+                        {
+                            method: 'DELETE',
+                            headers: { Accept: 'application/json, text/plain, */*' },
+                        }
+                    );
+                    console.log('[API] Cancelled orphan refund order', refundOrderId);
+                } catch (delErr) {
+                    console.warn(
+                        '[API] Không hủy được orphan refund order',
+                        refundOrderId,
+                        '- cần dọn TPOS thủ công:',
+                        delErr?.message
+                    );
+                }
+                reportProgress(5, 'TPOS đã refund SP này trước đó — bỏ qua refund flow');
+                return {
+                    alreadyRefunded: true,
+                    refundOrderId: null,
+                    printHtml: null,
+                    confirmResult: null,
+                    refundAmountFromHtml: null,
+                    refundAmountFromJson: null,
+                    message: 'Sản phẩm đã được TPOS refund trước đó',
+                };
             }
 
             // DELETE từng OrderLine bị filter khỏi refund order trên TPOS.

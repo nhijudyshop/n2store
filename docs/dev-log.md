@@ -25,6 +25,29 @@
 
 ## 2026-05-13
 
+### [issue-tracking][fix] Nhận hàng RETURN_SHIPPER không trigger được — DELETE OrderLine + alreadyRefunded fallback
+
+**File**: [shared/js/api-service.js](../shared/js/api-service.js) (processRefund step 2.5)
+
+**User report**: Đơn Thu Về của khách Anna Ngọc (TV-2026-00630, tposId 430612) — bấm "Nhận hàng" → "Xác nhận" → toast lỗi `ActionInvoiceOpenV2 failed: 400 "Vui lòng thêm vài chi tiết hóa đơn"`. Lặp lại nhiều lần → tạo nhiều orphan draft refund order trên TPOS (435065/66/67/70, all 0 lines), original 430612 bị set `ReturnTotal=1` cho **cả 6 lines** → cuối cùng đơn thành "đã trả hết" mà thực tế chỉ trả 1 SP.
+
+**Root cause**: Step 2.5 partial-refund filter chỉ filter client-side (`refundDetails.OrderLines = filteredOrderLines`) rồi PUT replace. Test thực tế cho thấy PUT replace OrderLines KHÔNG xoá line subtraction server-side đúng cách — refund order kết quả có 0 lines (TPOS emptied tất cả thay vì giữ 1 line ta gửi). ActionInvoiceOpenV2 sau đó thấy invoice rỗng → reject.
+
+Side effect: mỗi failed attempt vẫn set `ReturnTotal` trên các line gốc → ActionRefund lần kế bỏ qua chúng (TPOS nghĩ đã refund) → vòng lặp tệ hơn.
+
+**Fix (2 nhánh)**:
+
+1. **DELETE từng line không match TRƯỚC khi PUT** — sau khi filter xác định `linesToRemove`, gọi `DELETE /odata/FastSaleOrderLine({Id})` cho từng line bị loại. Server-side state lúc đó chỉ còn lines target → PUT + ActionInvoiceOpenV2 work đúng.
+2. **filteredOrderLines === 0 (target đã refund elsewhere)**: SP target không có trong refund order TPOS vừa tạo (do `ReturnTotal` đã set từ failed PUT cũ / refund khác). Confirm refund order này = refund nhầm 5 SP khác. Fix: thử `DELETE /odata/FastSaleOrder({refundOrderId})` để hủy orphan, return `{ alreadyRefunded: true, refundOrderId: null }` để [script.js handleConfirmAction](../issue-tracking/js/script.js#L1905) mark ticket COMPLETED qua nhánh xử lý sẵn có.
+
+**Verify**:
+
+- Re-trigger Nhận hàng cho TV-2026-00630 sau fix → ActionRefund returns 400 "Đơn hàng này đã được trả hết" (do ReturnTotal=1 trên 6/6 lines từ các attempt fail trước) → existing handler ở step 1 fail trả `alreadyRefunded:true` → ticket auto COMPLETED. Không còn lỗi `"Vui lòng thêm vài chi tiết hóa đơn"`.
+- Orphan refund 435065/66/67/70 (0 lines) + 435073 (5 lines) cần dọn thủ công trên TPOS — fix có code DELETE FastSaleOrder() trong nhánh 2 nhưng cleanup quá khứ phải user xử lý.
+- DELETE FastSaleOrderLine endpoint verified hoạt động qua dry test (`DELETE /odata/FastSaleOrderLine(99999999)` → 500 NRE thay vì 404 → endpoint tồn tại).
+
+**Status**: ✅ Done
+
 ### [orders][kpi] Dọn header doc + remove dead code Firestore trong tab KPI Hoa Hồng
 
 **File**: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js)
