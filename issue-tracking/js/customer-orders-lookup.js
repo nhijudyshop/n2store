@@ -209,6 +209,8 @@
             status: String(o.State || '').toLowerCase(),
             carrier: o.CarrierName || '',
             channel: o.CRMTeamName || 'TPOS',
+            note: (o.Comment || '').trim(),
+            deliveryNote: (o.DeliveryNote || '').trim(),
             createdAt: o.DateInvoice ? new Date(o.DateInvoice).getTime() : 0,
         }));
     }
@@ -217,6 +219,12 @@
         const stateKey = STATE_GROUP[order.status] || 'cancel';
         const stateLabel = STATE_LABELS[order.status] || order.status || '—';
         const dateStr = formatDate(order.createdAt);
+        const noteRibbon = order.note
+            ? `<div class="customer-order-note" title="${escapeHtml(order.note)}">
+                <span class="note-icon">📝</span>
+                <span class="note-text">${escapeHtml(order.note)}</span>
+            </div>`
+            : '';
         return `
         <div class="customer-order-row" data-order-id="${order.id}" data-state="${stateKey}">
             <div class="customer-order-summary" role="button" tabindex="0" aria-expanded="false">
@@ -238,8 +246,8 @@
                     <span class="order-amount-cod">COD ${formatVnd(order.cod)}</span>
                 </div>
                 <span class="order-status-pill status-${stateKey}">${escapeHtml(stateLabel)}</span>
-                <span></span>
             </div>
+            ${noteRibbon}
             <div class="customer-order-details" hidden></div>
         </div>`;
     }
@@ -272,6 +280,10 @@
         });
     }
 
+    function findOrderInState(orderId) {
+        return state.orders.find((o) => o.id === orderId) || null;
+    }
+
     async function onRowClick(e) {
         const row = e.currentTarget.closest('.customer-order-row');
         if (!row) return;
@@ -279,6 +291,7 @@
         const detailsEl = row.querySelector('.customer-order-details');
         const summaryEl = row.querySelector('.customer-order-summary');
         const isExpanded = row.classList.contains('expanded');
+        const orderFromList = findOrderInState(orderId);
 
         if (isExpanded) {
             row.classList.remove('expanded');
@@ -292,7 +305,10 @@
         detailsEl.hidden = false;
 
         if (state.loadedDetails.has(orderId)) {
-            detailsEl.innerHTML = renderDetailsHtml(state.loadedDetails.get(orderId));
+            detailsEl.innerHTML = renderDetailsHtml(
+                state.loadedDetails.get(orderId),
+                orderFromList
+            );
             return;
         }
         if (state.loadingDetails.has(orderId)) {
@@ -306,7 +322,7 @@
             state.loadedDetails.set(orderId, details);
             // Only render if still expanded (user may have collapsed)
             if (row.classList.contains('expanded')) {
-                detailsEl.innerHTML = renderDetailsHtml(details);
+                detailsEl.innerHTML = renderDetailsHtml(details, orderFromList);
             }
         } catch (err) {
             console.error('[CustomerLookup] getOrderDetails failed', err);
@@ -318,7 +334,7 @@
         }
     }
 
-    function renderDetailsHtml(details) {
+    function renderDetailsHtml(details, orderFromList) {
         if (!details) {
             return `<div class="customer-orders-error">Không có dữ liệu chi tiết.</div>`;
         }
@@ -348,7 +364,25 @@
                   .join('')
             : `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px;">Không có sản phẩm.</td></tr>`;
 
+        const note = orderFromList && orderFromList.note ? orderFromList.note : '';
+        const deliveryNote =
+            orderFromList && orderFromList.deliveryNote ? orderFromList.deliveryNote : '';
+        const noteSection = note
+            ? `<div class="order-note-block order-note-main">
+                <div class="order-note-label">📝 Ghi chú</div>
+                <div class="order-note-content">${escapeHtml(note)}</div>
+            </div>`
+            : '';
+        const deliveryNoteSection = deliveryNote
+            ? `<details class="order-note-block order-note-delivery">
+                <summary class="order-note-label">🚚 Ghi chú giao hàng</summary>
+                <div class="order-note-content">${escapeHtml(deliveryNote)}</div>
+            </details>`
+            : '';
+
         return `
+        ${noteSection}
+        ${deliveryNoteSection}
         <div class="order-details-grid">
             <div><span class="det-label">Mã đơn:</span><span class="det-value">${escapeHtml(details.tposCode || '—')}</span></div>
             <div><span class="det-label">Ngày tạo:</span><span class="det-value">${escapeHtml(formatDateTime(details.createdAt))}</span></div>

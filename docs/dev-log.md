@@ -135,6 +135,34 @@ VERDICT: ✅ PASS — recognized 2 tag variants, accent-insensitive, đúng camp
 
 ---
 
+### [issue-tracking] Hiển thị "Ghi chú" (Comment) + "Ghi chú giao hàng" (DeliveryNote) trong modal customer lookup
+
+**Trigger user**: ảnh TPOS → "Ghi chú: (THU VỀ 1 QUAT B1564 - 169K LỖI)" cần hiển thị trong modal tra cứu vì CSKH cần thông tin này.
+
+**Discovery** (qua browser session inspect TPOS OData):
+
+- `FastSaleOrder.Comment` = "Ghi chú" (order-level, do ops typed, vd "GG 390K", "THU VỀ 1 QUAT B1564 - 169K LỖI")
+- `FastSaleOrder.DeliveryNote` = "Ghi chú giao hàng" (thường là template boilerplate dài)
+- Cả 2 field đều CÓ SẴN trong response của `ODataService.GetView` (search list) — không cần extra fetch.
+
+**Implement**:
+
+- [issue-tracking/js/customer-orders-lookup.js](../issue-tracking/js/customer-orders-lookup.js):
+    - Map `note: o.Comment` + `deliveryNote: o.DeliveryNote` (trim) trong `fetchOrders`.
+    - `renderOrderRow`: thêm ribbon `📝 {note}` (vàng nhạt, 1 dòng ellipsis) ngay dưới grid summary nếu note non-empty — visible từ list, đỡ phải click vào từng đơn.
+    - `renderDetailsHtml(details, orderFromList)`: nhận thêm order từ state để lấy note. Block "📝 Ghi chú" (vàng amber) hiển thị full. Block "🚚 Ghi chú giao hàng" (xanh blue) dùng `<details>` element collapsible (default đóng) vì DeliveryNote thường dài + boilerplate.
+- [issue-tracking/css/style.css](../issue-tracking/css/style.css): +70 dòng — `.customer-order-note` ribbon (gradient yellow, ellipsis, padding-left 44px align với code col), `.order-note-block` blocks với `border-left` semantic (amber cho note, blue cho delivery), `<details>` chevron rotation animation.
+
+**Verify (local)**:
+
+- ✅ Search SĐT 0123456788: 79/143 đơn có Comment, ribbon render đúng 79 lần.
+- ✅ Expand đơn `434176` (NJD/2026/65932): note="GG 390K" hiển thị main block, delivery note collapsible 'KHÔNG ĐƯỢC TỰ Ý HOÀN...' nhấp mở/đóng được.
+- ✅ Screenshot xác nhận layout sạch, hierarchy rõ.
+
+**Status**: ✅ Done
+
+---
+
 ### [issue-tracking] Fix: cột "Mã đơn" đè tên khách trong modal customer lookup
 
 **Trigger user**: ảnh chụp → "NJD/2026/63950" rộng > 100px cell → overflow đè "Huỳnh Thành Đạt".
