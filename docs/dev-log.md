@@ -21,6 +21,33 @@
 
 ## 2026-05-13
 
+### [tag-sync][merge] Rename TPOS tag "ĐÃ GỘP KO CHỐT" → "ĐÃ GỘP KHÔNG CHỐT" (đồng bộ XL label)
+
+**Trigger user**: "TAG XL 'ĐÃ GỘP KHÔNG CHỐT' sẽ auto gán cho TAG tpos 'ĐÃ GỘP KHÔNG CHỐT'" — trước đây XL label đầy đủ "ĐÃ GỘP KHÔNG CHỐT" nhưng sync sang TPOS lại viết tắt "ĐÃ GỘP KO CHỐT". User muốn tên TPOS = tên XL chính xác.
+
+**Fix**:
+
+- `orders-report/js/tab1/tab1-tag-sync.js`:
+    - `SUBTAG_TO_TPOS.DA_GOP_KHONG_CHOT`: `'ĐÃ GỘP KO CHỐT'` → `'ĐÃ GỘP KHÔNG CHỐT'`.
+    - `TPOS_ALIASES` thêm legacy `'ĐÃ GỘP KO CHỐT': 'subtag:DA_GOP_KHONG_CHOT'` → reverse-sync vẫn nhận dạng đơn cũ.
+- `orders-report/js/tab1/tab1-merge.js`:
+    - `MERGED_ORDER_TAG_NAME`: `'ĐÃ GỘP KO CHỐT'` → `'ĐÃ GỘP KHÔNG CHỐT'`.
+    - Thêm `MERGED_ORDER_LEGACY_TAG_NAMES = new Set(['ĐÃ GỘP KO CHỐT', 'ĐÃ GỘP KHÔNG CHỐT'])` để `shouldExcludeTag()` của `calculateMergedTagsPreview` + `calculateSourceTagsPreview` filter cả 2 spelling.
+    - Confirm modal message: "tag KO CHỐT" → "tag KHÔNG CHỐT".
+- `orders-report/js/tab1/tab1-bulk-tags.js`: `hasBlockedTag` check `t.Name === 'ĐÃ GỘP KHÔNG CHỐT' || t.Name === 'ĐÃ GỘP KO CHỐT'` (đơn merge cũ vẫn redirect).
+- `orders-report/js/tab1/tab1-processing-tags.js`: cập nhật log message.
+
+**Backward-compat**:
+
+- Đơn merge cũ trên TPOS có tag "ĐÃ GỘP KO CHỐT" vẫn được nhận dạng (reverse sync + bulk-tag block + merge preview filter).
+- Merge mới tạo tag "ĐÃ GỘP KHÔNG CHỐT" qua `_findOrCreateTPOSTag()` (tạo tag mới nếu chưa có).
+
+**Verify localhost**: source check confirms `SUBTAG_TO_TPOS.DA_GOP_KHONG_CHOT === 'ĐÃ GỘP KHÔNG CHỐT'` + alias entry loaded.
+
+Status: ✅ XL ↔ TPOS tag name đồng bộ, legacy đơn cũ KHÔNG bị xoá oan.
+
+---
+
 ### [issue-tracking] Tra cứu nhanh tất cả đơn hàng của khách (SĐT/tên)
 
 **Trigger user**: "cho 1 input nhập sđt hoặc tên khách hàng (không phân biệt tiếng việt không dấu, có dấu) -> mở modal coi được tất cả đơn hàng của khách đó, bấm vào đơn sẽ expand coi được chi tiết bên trong".
