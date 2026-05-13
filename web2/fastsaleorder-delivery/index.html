@@ -1,124 +1,135 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
         <title>Phiếu giao hàng — Web 2.0</title>
-        <script src="../../web2-shared/page-shell.js?v=20260425n"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../../web2-shared/tpos-sidebar.css?v=20260513" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260513" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260513" />
+        <link rel="stylesheet" href="../../web2-shared/page-builder-tpos.css?v=20260513" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
     </head>
-    <body>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content" style="overflow: auto; height: 100vh">
+                <header
+                    class="web2-main-header"
+                    style="padding: 12px 20px; border-bottom: 1px solid #e5e7eb; background: #fff"
+                >
+                    <div class="web2-breadcrumb">
+                        <span class="web2-breadcrumb-item">App</span>
+                        <span class="web2-breadcrumb-sep">/</span>
+                        <span class="web2-breadcrumb-item">Bán Hàng</span>
+                        <span class="web2-breadcrumb-sep">/</span>
+                        <span class="web2-breadcrumb-current">Phiếu giao hàng</span>
+                    </div>
+                    <span class="counter-pill" id="dlvCounter">— phiếu</span>
+                </header>
+                <section class="search-section" style="padding: 12px 20px">
+                    <div class="filter-row">
+                        <div class="search-wrapper">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input
+                                type="text"
+                                class="search-input"
+                                id="dlvSearch"
+                                placeholder="Tìm số phiếu, PBH, SĐT, tên KH, tracking..."
+                                autocomplete="off"
+                            />
+                            <button class="search-clear" id="dlvSearchClear">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                        <div class="filter-chip-group">
+                            <label class="chip-label chip-label-primary"
+                                ><i data-lucide="truck"></i> Trạng thái:</label
+                            >
+                            <div class="chip-select-wrapper">
+                                <select id="dlvState" class="chip-select chip-select-primary">
+                                    <option value="">Tất cả</option>
+                                    <option value="pending">Chờ giao</option>
+                                    <option value="shipping">Đang giao</option>
+                                    <option value="delivered">Đã giao</option>
+                                    <option value="returned">Bị trả</option>
+                                    <option value="cancel">Đã hủy</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="chip-caret"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="search-info">
+                        <div class="search-info-left">
+                            <span class="search-result-count" id="dlvResultCount">0</span>
+                            <span class="search-result-label">phiếu giao</span>
+                        </div>
+                        <div class="search-info-right">
+                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="dlvReload">
+                                <i data-lucide="refresh-cw" style="width: 12px; height: 12px"></i>
+                                Tải lại
+                            </button>
+                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="dlvApply">
+                                <i data-lucide="filter" style="width: 12px; height: 12px"></i> Áp
+                                dụng
+                            </button>
+                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="dlvClear">
+                                <i data-lucide="x" style="width: 12px; height: 12px"></i> Xóa lọc
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                <section class="table-section" style="padding: 0 20px 24px">
+                    <div class="table-scroll">
+                        <table class="data-table" id="dlvTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px">
+                                        <input type="checkbox" id="dlvCheckAll" />
+                                    </th>
+                                    <th style="width: 160px">Thao tác</th>
+                                    <th style="width: 50px; text-align: center">STT</th>
+                                    <th style="width: 170px">Số phiếu</th>
+                                    <th style="width: 170px">PBH</th>
+                                    <th>Khách hàng</th>
+                                    <th style="width: 140px">SĐT</th>
+                                    <th style="width: 150px">Hãng VC</th>
+                                    <th style="width: 150px">Tracking</th>
+                                    <th style="width: 70px; text-align: right">SL</th>
+                                    <th style="width: 110px">Trạng thái</th>
+                                    <th style="width: 140px">Ngày giao</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dlvTbody">
+                                <tr>
+                                    <td colspan="12" class="empty-row">
+                                        <div class="empty-state">
+                                            <i data-lucide="inbox" class="empty-state-icon"></i>
+                                            <div class="empty-state-title">Đang tải...</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="dlvPagination"></div>
+                </section>
+            </main>
+        </div>
+        <script src="../../web2-shared/tpos-sidebar.js?v=20260513"></script>
         <script>
-            Web2Shell.bootstrap({
-                slug: 'fastsaleorder-delivery',
-                title: 'Phiếu giao hàng',
-                breadcrumb: ['App', 'Bán Hàng'],
-                columns: [
-                    {
-                        key: 'code',
-                        label: 'Số phiếu',
-                        width: 150,
-                        align: 'center',
-                    },
-                    {
-                        key: 'name',
-                        label: 'Tiêu đề',
-                        align: 'left',
-                    },
-                    {
-                        key: 'data.invoiceCode',
-                        label: 'HĐ',
-                        width: 140,
-                        align: 'center',
-                    },
-                    {
-                        key: 'data.customerCode',
-                        label: 'KH',
-                        width: 140,
-                        align: 'center',
-                    },
-                    {
-                        key: 'data.carrierCode',
-                        label: 'Hãng VC',
-                        width: 130,
-                        align: 'center',
-                    },
-                    {
-                        key: 'data.fee',
-                        label: 'Phí ship',
-                        width: 120,
-                        align: 'right',
-                    },
-                    {
-                        key: 'data.status',
-                        label: 'TT',
-                        width: 130,
-                        align: 'center',
-                    },
-                ],
-                fields: [
-                    {
-                        key: 'code',
-                        label: 'Số phiếu',
-                        type: 'text',
-                        required: true,
-                    },
-                    {
-                        key: 'name',
-                        label: 'Tiêu đề',
-                        type: 'text',
-                        required: true,
-                    },
-                    {
-                        key: 'data.invoiceCode',
-                        label: 'Số HĐ',
-                        type: 'text',
-                    },
-                    {
-                        key: 'data.customerCode',
-                        label: 'Mã KH',
-                        type: 'text',
-                    },
-                    {
-                        key: 'data.carrierCode',
-                        label: 'Mã hãng VC',
-                        type: 'text',
-                    },
-                    {
-                        key: 'data.fee',
-                        label: 'Phí ship',
-                        type: 'number',
-                    },
-                    {
-                        key: 'data.status',
-                        label: 'Trạng thái',
-                        type: 'select',
-                        options: [
-                            {
-                                value: 'pending',
-                                label: 'Chờ giao',
-                            },
-                            {
-                                value: 'shipping',
-                                label: 'Đang giao',
-                            },
-                            {
-                                value: 'delivered',
-                                label: 'Đã giao',
-                            },
-                            {
-                                value: 'returned',
-                                label: 'Hoàn',
-                            },
-                        ],
-                    },
-                    {
-                        key: 'data.note',
-                        label: 'Ghi chú',
-                        type: 'textarea',
-                    },
-                ],
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside');
             });
         </script>
+        <script src="dlv-app.js?v=20260513"></script>
     </body>
 </html>

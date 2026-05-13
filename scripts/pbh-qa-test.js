@@ -60,6 +60,8 @@ async function api(method, path, body) {
 
 let nativeCode = null;
 let pbhNumber = null;
+let dlvNumber = null;
+let rfNumber = null;
 
 async function main() {
     console.log('═══════════════ QA Phase 1-3 PBH ═══════════════\n');
@@ -244,6 +246,76 @@ async function main() {
         ok(`renumbered ${r.data.renumbered} PBH`);
     });
 
+    // ---- PHASE 4: Delivery + Refund ----
+    console.log('\n▶ STEP 10b: PHASE 4 — Delivery invoice');
+    // Need a non-cancel PBH for delivery — re-confirm
+    await api('POST', `/api/fast-sale-orders/${pbhNumber}/confirm`);
+
+    await step('Delivery /health', async () => {
+        const r = await api('GET', '/api/delivery-invoices/health');
+        if (r.status !== 200 || !r.data?.ok) throw new Error(`HTTP ${r.status}`);
+        ok(`delivery count=${r.data.count}`);
+    });
+    await step('POST /from-pbh creates delivery', async () => {
+        const r = await api('POST', '/api/delivery-invoices/from-pbh', {
+            pbhNumber,
+            carrierName: 'TEST Carrier',
+            trackingRef: 'TRK-QA-001',
+        });
+        if (r.status !== 200 || !r.data?.success)
+            throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+        dlvNumber = r.data.order.number;
+        if (r.data.order.fso?.number !== pbhNumber) throw new Error(`fso cross-ref mismatch`);
+        if (r.data.order.state !== 'pending')
+            throw new Error(`state=${r.data.order.state}, expected pending`);
+        ok(`delivery ${dlvNumber} created, state=pending, fso=${pbhNumber}`);
+    });
+    await step('Delivery state machine: ship → deliver', async () => {
+        let r = await api('POST', `/api/delivery-invoices/${dlvNumber}/ship`);
+        if (r.data.order.state !== 'shipping')
+            throw new Error(`expected shipping, got ${r.data.order.state}`);
+        r = await api('POST', `/api/delivery-invoices/${dlvNumber}/deliver`);
+        if (r.data.order.state !== 'delivered')
+            throw new Error(`expected delivered, got ${r.data.order.state}`);
+        if (!Array.isArray(r.data.order.stateHistory) || r.data.order.stateHistory.length < 2)
+            throw new Error('stateHistory missing');
+        ok(
+            `delivery ${dlvNumber} state: pending → shipping → delivered, history=${r.data.order.stateHistory.length}`
+        );
+    });
+
+    console.log('\n▶ STEP 10c: PHASE 4 — Refund');
+    await step('Refund /health', async () => {
+        const r = await api('GET', '/api/refunds/health');
+        if (r.status !== 200 || !r.data?.ok) throw new Error(`HTTP ${r.status}`);
+        ok(`refunds count=${r.data.count}`);
+    });
+    await step('POST /from-pbh creates refund', async () => {
+        const r = await api('POST', '/api/refunds/from-pbh', {
+            pbhNumber,
+            reason: 'QA test refund',
+            refundMode: 'cash',
+        });
+        if (r.status !== 200 || !r.data?.success)
+            throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+        rfNumber = r.data.order.number;
+        if (r.data.order.fso?.number !== pbhNumber) throw new Error(`fso cross-ref mismatch`);
+        if (r.data.order.state !== 'draft') throw new Error(`state=${r.data.order.state}`);
+        if (Number(r.data.order.amountRefund) !== 200000)
+            throw new Error(`amountRefund=${r.data.order.amountRefund}, expected 200000`);
+        ok(`refund ${rfNumber} draft, amount=${r.data.order.amountRefund}`);
+    });
+    await step('Refund state: draft → approved → completed', async () => {
+        let r = await api('POST', `/api/refunds/${rfNumber}/approve`);
+        if (r.data.order.state !== 'approved') throw new Error(`expected approved`);
+        r = await api('POST', `/api/refunds/${rfNumber}/complete`);
+        if (r.data.order.state !== 'completed') throw new Error(`expected completed`);
+        ok(`refund ${rfNumber}: draft → approved → completed`);
+    });
+
+    // Cancel PBH for cleanup
+    await api('POST', `/api/fast-sale-orders/${pbhNumber}/cancel`);
+
     // ---- Browser tests ----
     console.log('\n▶ STEP 11: Browser UI tests');
     await ensureLocalServer(BASE);
@@ -303,6 +375,22 @@ async function main() {
 
     // ---- Cleanup ----
     console.log('\n▶ CLEANUP');
+    await step('DELETE refund (force)', async () => {
+        if (!rfNumber) return;
+        const r = await fetch(`${WORKER}/api/refunds/${rfNumber}?force=1`, { method: 'DELETE' });
+        const data = await r.json();
+        if (!data.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(data)}`);
+        ok(`deleted ${rfNumber}`);
+    });
+    await step('DELETE delivery (force)', async () => {
+        if (!dlvNumber) return;
+        const r = await fetch(`${WORKER}/api/delivery-invoices/${dlvNumber}?force=1`, {
+            method: 'DELETE',
+        });
+        const data = await r.json();
+        if (!data.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(data)}`);
+        ok(`deleted ${dlvNumber}`);
+    });
     await step('DELETE PBH (force)', async () => {
         if (!pbhNumber) return;
         const r = await fetch(`${WORKER}/api/fast-sale-orders/${pbhNumber}?force=1`, {
