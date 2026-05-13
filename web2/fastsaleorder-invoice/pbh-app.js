@@ -293,6 +293,22 @@
 
     function init() {
         if (window.lucide) lucide.createIcons();
+        // Realtime auto-refresh khi có PBH mới hoặc state đổi
+        if (window.PbhRealtime) {
+            window.PbhRealtime.subscribe({
+                types: ['pbh:created', 'pbh:cancelled', 'pbh:confirmed', 'pbh:printed'],
+                onEvent: (msg) => {
+                    console.log('[PBH] realtime reload:', msg.type);
+                    load();
+                    if (msg.type === 'pbh:created') {
+                        notify(
+                            `🆕 PBH mới ${msg.order?.number} (${msg.order?.partner?.name})`,
+                            'info'
+                        );
+                    }
+                },
+            });
+        }
         $('#pbhApply').addEventListener('click', applyFilters);
         $('#pbhClear').addEventListener('click', clearFilters);
         $('#pbhReload').addEventListener('click', load);

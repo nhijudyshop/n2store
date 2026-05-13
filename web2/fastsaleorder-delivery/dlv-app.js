@@ -165,6 +165,24 @@
 
     function init() {
         if (window.lucide) lucide.createIcons();
+        if (window.PbhRealtime) {
+            window.PbhRealtime.subscribe({
+                types: [
+                    'delivery:created',
+                    'delivery:shipping',
+                    'delivery:delivered',
+                    'delivery:returned',
+                    'delivery:cancel',
+                ],
+                onEvent: (msg) => {
+                    console.log('[DLV] realtime reload:', msg.type);
+                    load();
+                    if (msg.type === 'delivery:created') {
+                        notify(`🆕 Phiếu giao mới ${msg.order?.number}`, 'info');
+                    }
+                },
+            });
+        }
         $('#dlvApply').addEventListener('click', applyFilters);
         $('#dlvClear').addEventListener('click', clearFilters);
         $('#dlvReload').addEventListener('click', load);

@@ -262,7 +262,15 @@ router.post('/from-pbh', async (req, res) => {
                 b.createdByName || null,
             ]
         );
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'refund:created',
+                order: o,
+                pbhNumber: fso.number,
+            });
+        }
+        res.json({ success: true, order: o });
     } catch (e) {
         console.error('[REFUNDS] from-pbh error:', e.message);
         res.status(500).json({ error: e.message });
@@ -293,7 +301,11 @@ for (const [path, st] of [
             await ensureTables(pool);
             const row = await _changeState(pool, req.params.number, st, req.body?.by);
             if (!row) return res.status(404).json({ error: 'Not found' });
-            res.json({ success: true, order: mapRow(row) });
+            const o = mapRow(row);
+            if (req.app.locals.broadcastToClients) {
+                req.app.locals.broadcastToClients({ type: `refund:${st}`, order: o });
+            }
+            res.json({ success: true, order: o });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

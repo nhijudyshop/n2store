@@ -163,6 +163,18 @@
 
     function init() {
         if (window.lucide) lucide.createIcons();
+        if (window.PbhRealtime) {
+            window.PbhRealtime.subscribe({
+                types: ['refund:created', 'refund:approved', 'refund:completed', 'refund:cancel'],
+                onEvent: (msg) => {
+                    console.log('[RF] realtime reload:', msg.type);
+                    load();
+                    if (msg.type === 'refund:created') {
+                        notify(`🆕 Phiếu trả mới ${msg.order?.number}`, 'info');
+                    }
+                },
+            });
+        }
         $('#rfApply').addEventListener('click', applyFilters);
         $('#rfClear').addEventListener('click', clearFilters);
         $('#rfReload').addEventListener('click', load);
