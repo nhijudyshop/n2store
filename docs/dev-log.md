@@ -25,6 +25,42 @@
 
 ## 2026-05-13
 
+### [reports][customer-360] Phase 13: Top khách hàng 360° unified report
+
+**Mục tiêu**: tận dụng `customer_id` FK của Phase 12 để rank khách hàng theo doanh thu hợp nhất (NW + PBH), thay vì group theo `partner_phone + partner_name` (V1 chỉ có PBH, dễ duplicate nếu cùng khách có nhiều variant phone/name).
+
+**Backend** ([render.com/routes/pbh-reports.js](../render.com/routes/pbh-reports.js)):
+
+- `GET /api/pbh-reports/top-customers-360?days=30&limit=10`
+- `FULL OUTER JOIN` 2 CTE: `nw` (native_orders by customer_id) + `pbh` (fast_sale_orders by customer_id, exclude state='cancel')
+- `LEFT JOIN customers c` → canonical name/phone/status từ Customer 360 (fallback hint từ orders nếu customer bị xóa)
+- Order by `combined_total DESC LIMIT N`
+- Trả thêm `unlinked: { native, pbh }` đếm số đơn chưa link customer_id (data-quality signal)
+- Response shape: `{ customers: [{customerId, name, phone, status, nw:{count,total}, pbh:{count,total}, combinedTotal, lastOrder}], unlinked }`
+
+**UI** ([web2/report-revenue/index.html](../web2/report-revenue/index.html)):
+
+- Panel mới full-width: "🌐 Top khách hàng 360° (NW + PBH combined)"
+- Hint line phía trên bảng: "Đơn chưa liên kết customer 360 trong N ngày: X NW + Y PBH"
+- Table cols: #, KH (+ status badge), SĐT, NW (count + amount), PBH (count + amount), Tổng combined, action 👤
+- Click 👤 → mở `#customer360Modal` (gọi `GET /api/v2/customers/:id/orders?limit=20`, render giống pattern PBH + Native pages)
+
+**Test live** (Render commit `f1d5611` live):
+
+- Endpoint trả 5 customers + `unlinked.native=15` (15 NW chưa có phone — đúng vì test orders không gắn phone)
+- UI render 7 rows, top: Phuong Huynh 100k combined
+- Modal mở thành công cho customerId=6820, title "Khách hàng #6820 — Đơn web + PBH"
+- 0 console errors, 0 fetch fails
+
+**So với V1** (`/api/pbh-reports/top-customers`):
+
+- V1: group `partner_phone + partner_name` (PBH only, không cross-source) — vẫn giữ cho backward compat
+- V13: group `customer_id` (NW + PBH combined) — recommended cho mọi report mới
+
+**Production backfill** (Phase 12 follow-up): chạy `POST /api/native-orders/backfill-customer-links` + `/api/fast-sale-orders/backfill-customer-links` — 0 new links (mọi đơn có phone đã được auto-link từ create-time). Endpoints sẵn sàng cho future cleanup.
+
+**Status**: ✅ Live, ready for further customer-aware analytics (lifetime value, cohort, RFM).
+
 ### [pbh][native-orders][customer-360] Phase 12: Partner reference → Customer 360 cross-system FK
 
 **Mục tiêu**: kết nối đơn hàng (Đơn Web NW-... + PBH HD-...) với Customer 360 (table `customers`) để mọi đơn có FK đến khách hàng duy nhất, mở đường cho aggregation báo cáo "khách X có bao nhiêu đơn / tổng tiền bao nhiêu".
