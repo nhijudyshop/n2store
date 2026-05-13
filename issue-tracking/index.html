@@ -45,6 +45,18 @@
 
             </header>
 
+            <!-- Customer Lookup Bar — Search all orders of a customer -->
+            <div class="customer-lookup-bar">
+                <div class="customer-lookup-icon">🔍</div>
+                <input type="text" id="customer-lookup-input"
+                    class="customer-lookup-input"
+                    placeholder="Tra cứu đơn khách — nhập SĐT hoặc tên (không phân biệt dấu)..."
+                    autocomplete="off">
+                <button id="btn-customer-lookup" class="btn btn-primary customer-lookup-btn">
+                    Tra cứu
+                </button>
+            </div>
+
             <!-- Alert Banner for Overdue Tickets -->
             <div id="overdue-alert" class="overdue-alert hidden">
                 <div class="overdue-alert-content">
@@ -529,6 +541,64 @@ Ví dụ:
         </div>
     </div>
 
+    <!-- Modal: Customer Orders Lookup -->
+    <div id="modal-customer-orders" class="modal">
+        <div class="modal-content large-modal customer-orders-modal">
+            <span class="close-modal">&times;</span>
+            <div class="customer-orders-header">
+                <div>
+                    <h2 class="customer-orders-title">
+                        <span class="title-icon">📋</span>
+                        Đơn hàng của khách
+                    </h2>
+                    <p id="customer-orders-subtitle" class="customer-orders-subtitle">
+                        Đang tải…
+                    </p>
+                </div>
+                <div class="customer-orders-stats" id="customer-orders-stats" hidden>
+                    <div class="stat-pill">
+                        <span class="stat-pill-label">Tổng đơn</span>
+                        <strong id="cust-stat-total" class="stat-pill-value">0</strong>
+                    </div>
+                    <div class="stat-pill stat-pill-success">
+                        <span class="stat-pill-label">Hoàn tất</span>
+                        <strong id="cust-stat-paid" class="stat-pill-value">0</strong>
+                    </div>
+                    <div class="stat-pill stat-pill-warning">
+                        <span class="stat-pill-label">Mở</span>
+                        <strong id="cust-stat-open" class="stat-pill-value">0</strong>
+                    </div>
+                    <div class="stat-pill stat-pill-muted">
+                        <span class="stat-pill-label">Hủy/Nháp</span>
+                        <strong id="cust-stat-cancel" class="stat-pill-value">0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="customer-orders-toolbar">
+                <div class="quick-filter-tabs" id="cust-orders-filter">
+                    <button type="button" class="quick-filter-btn active" data-filter="all">Tất cả</button>
+                    <button type="button" class="quick-filter-btn" data-filter="open">Mở</button>
+                    <button type="button" class="quick-filter-btn" data-filter="paid">Đã thanh toán</button>
+                    <button type="button" class="quick-filter-btn" data-filter="cancel">Hủy/Nháp</button>
+                </div>
+                <div class="customer-orders-range">
+                    <label for="cust-orders-days" class="range-label">Khoảng:</label>
+                    <select id="cust-orders-days" class="range-select">
+                        <option value="60">60 ngày</option>
+                        <option value="180" selected>180 ngày</option>
+                        <option value="365">1 năm</option>
+                        <option value="730">2 năm</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="customer-orders-content" class="customer-orders-body">
+                <!-- Status messages, list, etc. injected by JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Ticket History Timeline -->
     <div id="modal-ticket-history" class="modal">
         <div class="modal-content large-modal">
@@ -565,6 +635,7 @@ Ví dụ:
     <script src="../shared/js/api-service.js"></script>
     <script src="../shared/js/audit-logger.js"></script>
     <script src="js/script.js"></script>
+    <script src="js/customer-orders-lookup.js"></script>
     </main>
 </body>
 
