@@ -120,8 +120,13 @@ print(f"✅ Wrote {dst}")
 PYEOF
 
 # ---- commit + push the resume file ----
+# Full RESUME token trong commit message (subject + body) — git log hiển thị
+# nguyên token để user copy paste khi cần.
+FULL_TOKEN="RESUME:${TIMESTAMP_TOKEN}-${SHA7}"
 git add "$OUT_FILE"
-git commit -m "chore(session): resume token ${SHA7}" >/dev/null
+git commit -m "chore(session): ${FULL_TOKEN}" -m "Paste token \`${FULL_TOKEN}\` vào chat mới để Claude tiếp tục từ session này.
+Source: parent commit ${SHA7} • Branch: ${BRANCH}
+File: ${OUT_FILE}" >/dev/null
 
 if [[ "$SKIP_PUSH" == "false" ]]; then
   git push >/dev/null 2>&1 && echo "📤 Pushed to $(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo origin)"

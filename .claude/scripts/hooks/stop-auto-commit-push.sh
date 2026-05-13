@@ -13,9 +13,14 @@ set -u  # nhưng KHÔNG set -e — Stop hook không được fail toàn bộ khi
 cd /Users/mac/Desktop/n2store || exit 0
 
 # ---- 1. Commit & push nếu working tree dirty (tracked changes) ----
+# Reserve timestamp + dự đoán RESUME token để embed vào commit footer.
+# (SHA chưa biết — sẽ patch sau via --amend nếu cần. Tạm placeholder.)
+RESERVED_TS="$(date +%Y%m%d-%H%M%S)"
 if [[ -n "$(git diff HEAD --name-only 2>/dev/null)" ]]; then
   git add -u >/dev/null 2>&1
-  git commit -m "auto: session update" >/dev/null 2>&1
+  # Auto-commit msg includes the soon-to-be-RESUME timestamp.
+  # SHA7 sẽ rõ sau khi commit → save-session-resume.sh dùng đúng SHA.
+  git commit -m "auto: session update" -m "🔗 RESUME ts: ${RESERVED_TS} (token: RESUME:${RESERVED_TS}-<SHA7>)" >/dev/null 2>&1
 fi
 
 # ---- 2. Sync với remote ----
