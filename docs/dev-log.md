@@ -25,6 +25,33 @@
 
 ## 2026-05-13
 
+### [pbh][delivery][refund] Phase 4-5: delivery_invoices + refunds + QA 35/35 PASS
+
+**Phase 4** — Backend ([render.com/routes/delivery-invoices.js](../render.com/routes/delivery-invoices.js), [refunds.js](../render.com/routes/refunds.js)):
+
+- `delivery_invoices` (DLV-YYYYMMDD-XXXX, migration 071): từ PBH (`fso_id/number`), partner snapshot, carrier (id/name/tracking), `delivery_lines` jsonb subset, COD + delivery_fee, state machine `pending→shipping→delivered|returned|cancel` với `state_history` jsonb. `POST /from-pbh + /ship + /deliver + /return + /cancel`.
+- `refunds` (RF-YYYYMMDD-XXXX, migration 072): từ PBH, `refund_lines` với `quantityReturned`, `refund_mode` (cash|wallet|exchange), `amount_refund` auto compute, state machine `draft→approved→completed|cancel`. `POST /from-pbh + /approve + /complete + /cancel`.
+- Register `/api/delivery-invoices/*` + `/api/refunds/*` ở server + CF Worker proxy.
+
+**Phase 5** — UI list pages:
+
+- [web2/fastsaleorder-delivery](../web2/fastsaleorder-delivery): full list + filter state + paging + detail modal + 4 action buttons (ship/deliver/return/cancel) chỉ visible đúng state.
+- [web2/fastsaleorder-refund](../web2/fastsaleorder-refund): same pattern + 3 action buttons (approve/complete/cancel). Mode badge "Tiền mặt/Ví/Đổi", amount_refund highlight đỏ.
+- PBH list ([pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js)) thêm 2 action button: "Tạo phiếu giao" (info truck) + "Trả hàng" (warning undo) cho mỗi PBH ≠ cancel.
+- Cross-link UI: delivery/refund row → click số PBH → mở fastsaleorder-invoice.
+
+**QA loop** ([scripts/pbh-qa-test.js](../scripts/pbh-qa-test.js)):
+
+- Iter 1 (Phase 1-3): **25/25 PASS** — health, create native, convert, idempotency, search, confirm/print/cancel, filter state, reset-stt, browser UI.
+- Iter 2 (Phase 1-4): **33/33 PASS** — thêm delivery /health + from-pbh + state machine (3-step history), refund /health + from-pbh + amount calc + state machine.
+- Iter 3 (Phase 1-5): **35/35 PASS** — thêm browser load delivery + refund list pages (verify no console errors + tbody rows).
+
+Tất cả test có cleanup (DELETE force=1) — test data không leak prod DB.
+
+Status: ✅ Phase 1-5 deployed live commits `05c7ad18` (1-3) → `97296e10` (4 backend) → `bc70f35d` (5 UI). QA clean.
+
+---
+
 ### [pbh][native-orders][web2] Phase 1-3: TPOS-clone PBH (Phiếu Bán Hàng) flow
 
 **User**: "clone full TPOS chức năng PBH". Phase 1-3 deployed commit `05c7ad18`.

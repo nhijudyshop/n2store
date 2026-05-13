@@ -355,6 +355,31 @@ async function main() {
         ok(`search filter returns ${rowCount} rows`);
     });
 
+    await step('Load delivery list page', async () => {
+        consoleErrs.length = 0;
+        await page.goto(`${BASE}/web2/fastsaleorder-delivery/index.html?t=${Date.now()}`, {
+            waitUntil: 'networkidle',
+        });
+        await page.waitForTimeout(2500);
+        const rows = await page.locator('#dlvTbody tr').count();
+        if (rows < 1) throw new Error('no tbody');
+        if (consoleErrs.length > 0)
+            throw new Error('console errs: ' + consoleErrs.slice(0, 2).join(' / '));
+        ok(`delivery page loaded, ${rows} tbody rows, no errors`);
+    });
+    await step('Load refund list page', async () => {
+        consoleErrs.length = 0;
+        await page.goto(`${BASE}/web2/fastsaleorder-refund/index.html?t=${Date.now()}`, {
+            waitUntil: 'networkidle',
+        });
+        await page.waitForTimeout(2500);
+        const rows = await page.locator('#rfTbody tr').count();
+        if (rows < 1) throw new Error('no tbody');
+        if (consoleErrs.length > 0)
+            throw new Error('console errs: ' + consoleErrs.slice(0, 2).join(' / '));
+        ok(`refund page loaded, ${rows} tbody rows, no errors`);
+    });
+
     await step('Native-orders has Tạo PBH button', async () => {
         consoleErrs.length = 0;
         await page.goto(`${BASE}/native-orders/index.html?t=${Date.now()}`, {
