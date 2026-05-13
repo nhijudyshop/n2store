@@ -37,7 +37,10 @@ export const ROUTES = {
     TPOS_EXPORT_V2: { pattern: '/api/Product/ExportProductV2', method: 'POST' },
     TPOS_EXPORT_STANDARD: { pattern: '/api/Product/ExportFileWithStandardPriceV2', method: 'POST' },
     TPOS_EXPORT_SALEONLINE: { pattern: '/api/SaleOnline_Order/ExportFile', method: 'POST' },
-    TPOS_EXPORT_SALEONLINE_DETAIL: { pattern: '/api/SaleOnline_Order/ExportFileDetail', method: 'POST' },
+    TPOS_EXPORT_SALEONLINE_DETAIL: {
+        pattern: '/api/SaleOnline_Order/ExportFileDetail',
+        method: 'POST',
+    },
     TPOS_ORDER_LINES: { pattern: '/tpos/order/:id/lines', method: 'GET' },
     TPOS_ORDER_REF_LINES: { pattern: '/tpos/order-ref/:ref/lines', method: 'GET' },
     TPOS_REST: { pattern: '/api/rest/*' },
@@ -72,12 +75,12 @@ export const ROUTES = {
     USERS: { pattern: '/api/users/*' },
     CAMPAIGNS: { pattern: '/api/campaigns/*' },
     FACEBOOK_RENDER: { pattern: '/facebook/*' },
-    RENDER_V2_FALLBACK: { pattern: '/api/v2/*' },  // catch-all for /api/v2/* not matched above
+    RENDER_V2_FALLBACK: { pattern: '/api/v2/*' }, // catch-all for /api/v2/* not matched above
     // Render-owned /api/* routes that must not fall into the TPOS_GENERIC catch-all.
     // Each is served by a specific Render Express router (see render.com/server.js).
     ATTENDANCE: { pattern: '/api/attendance/*' },
     GEMINI: { pattern: '/api/gemini/*' },
-    DEEPSEEK_RENDER: { pattern: '/api/deepseek/*' },  // /api/deepseek (exact) stays on CF direct-to-DeepSeek
+    DEEPSEEK_RENDER: { pattern: '/api/deepseek/*' }, // /api/deepseek (exact) stays on CF direct-to-DeepSeek
     TELEGRAM: { pattern: '/api/telegram/*' },
     QUICK_REPLIES: { pattern: '/api/quick-replies/*' },
     FB_ADS: { pattern: '/api/fb-ads/*' },
@@ -90,9 +93,9 @@ export const ROUTES = {
     RETURN_ORDERS: { pattern: '/api/return-orders/*' },
     TPOS_SAVED: { pattern: '/api/tpos-saved/*' },
     QUY_TRINH: { pattern: '/api/quy-trinh/*' },
-    AUTOFB_RENDER: { pattern: '/api/autofb/*' },  // /api/autofb-<name> exact routes stay CF-direct (autofb-handler.js)
-    TPOS_ORDER_BUFFER: { pattern: '/api/tpos/order-buffer/*' },  // tab1-tpos-realtime.js polling
-    ADMIN_DATA: { pattern: '/api/admin/data/*' },                // render-data-manager admin tool
+    AUTOFB_RENDER: { pattern: '/api/autofb/*' }, // /api/autofb-<name> exact routes stay CF-direct (autofb-handler.js)
+    TPOS_ORDER_BUFFER: { pattern: '/api/tpos/order-buffer/*' }, // tab1-tpos-realtime.js polling
+    ADMIN_DATA: { pattern: '/api/admin/data/*' }, // render-data-manager admin tool
 
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
@@ -105,6 +108,9 @@ export const ROUTES = {
 
     // Native Orders (PostgreSQL - web-native orders from tpos-pancake button)
     NATIVE_ORDERS: { pattern: '/api/native-orders/*' },
+
+    // Fast Sale Orders (PBH — Phiếu Bán Hàng) — convert native_order → invoice
+    FAST_SALE_ORDERS: { pattern: '/api/fast-sale-orders/*' },
 
     // Web 2.0 Products — kho sản phẩm cho native_orders
     WEB2_PRODUCTS: { pattern: '/api/web2-products/*' },
@@ -157,7 +163,8 @@ export function matchRoute(pathname) {
     if (pathname === '/api/Product/ExportProductV2') return 'TPOS_EXPORT_V2';
     if (pathname === '/api/Product/ExportFileWithStandardPriceV2') return 'TPOS_EXPORT_STANDARD';
     if (pathname === '/api/SaleOnline_Order/ExportFile') return 'TPOS_EXPORT_SALEONLINE';
-    if (pathname === '/api/SaleOnline_Order/ExportFileDetail') return 'TPOS_EXPORT_SALEONLINE_DETAIL';
+    if (pathname === '/api/SaleOnline_Order/ExportFileDetail')
+        return 'TPOS_EXPORT_SALEONLINE_DETAIL';
     if (pathname === '/api/sepay-dashboard') return 'SEPAY_DASHBOARD';
     if (pathname === '/api/autofb-balance') return 'AUTOFB_BALANCE';
     if (pathname === '/api/autofb-services') return 'AUTOFB_SERVICES';
@@ -180,19 +187,23 @@ export function matchRoute(pathname) {
 
     if (pathname.startsWith('/api/admin/firebase/')) return 'ADMIN_FIREBASE';
     if (pathname.startsWith('/api/admin/render/')) return 'ADMIN_RENDER';
-    if (pathname.startsWith('/api/admin/data/') || pathname === '/api/admin/data') return 'ADMIN_DATA';
+    if (pathname.startsWith('/api/admin/data/') || pathname === '/api/admin/data')
+        return 'ADMIN_DATA';
     if (pathname.startsWith('/api/invoice-mapping/')) return 'INVOICE_MAPPING';
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/native-orders/')) return 'NATIVE_ORDERS';
-    if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products') return 'WEB2_PRODUCTS';
+    if (pathname.startsWith('/api/fast-sale-orders/')) return 'FAST_SALE_ORDERS';
+    if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products')
+        return 'WEB2_PRODUCTS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
     if (pathname.startsWith('/api/chat/')) return 'CHAT';
     if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') return 'CUSTOMERS';
-    if (pathname.startsWith('/api/pancake-accounts/') || pathname === '/api/pancake-accounts') return 'PANCAKE_ACCOUNTS';
+    if (pathname.startsWith('/api/pancake-accounts/') || pathname === '/api/pancake-accounts')
+        return 'PANCAKE_ACCOUNTS';
 
     // Render fallback proxies (absorb 502 + inject CORS)
     if (pathname.startsWith('/api/oncall/') || pathname === '/api/oncall') return 'ONCALL';
@@ -204,33 +215,56 @@ export function matchRoute(pathname) {
     // Order: prefix matches for paths that share a root with CF-direct routes need extra care —
     // `/api/deepseek` exact (CF→api.deepseek.com) is handled above this block via exact match,
     // so `/api/deepseek/` (with slash) here is safe to route to Render.
-    if (pathname.startsWith('/api/attendance/') || pathname === '/api/attendance') return 'ATTENDANCE';
+    if (pathname.startsWith('/api/attendance/') || pathname === '/api/attendance')
+        return 'ATTENDANCE';
     if (pathname.startsWith('/api/gemini/') || pathname === '/api/gemini') return 'GEMINI';
     if (pathname.startsWith('/api/deepseek/')) return 'DEEPSEEK_RENDER';
     if (pathname.startsWith('/api/telegram/') || pathname === '/api/telegram') return 'TELEGRAM';
-    if (pathname.startsWith('/api/quick-replies/') || pathname === '/api/quick-replies') return 'QUICK_REPLIES';
+    if (pathname.startsWith('/api/quick-replies/') || pathname === '/api/quick-replies')
+        return 'QUICK_REPLIES';
     if (pathname.startsWith('/api/fb-ads/') || pathname === '/api/fb-ads') return 'FB_ADS';
-    if (pathname.startsWith('/api/fb-global-id/') || pathname === '/api/fb-global-id') return 'FB_GLOBAL_ID';
-    if (pathname.startsWith('/api/pancake-account-pages/') || pathname === '/api/pancake-account-pages') return 'PANCAKE_ACCOUNT_PAGES';
-    if (pathname.startsWith('/api/pancake-page-tokens/') || pathname === '/api/pancake-page-tokens') return 'PANCAKE_PAGE_TOKENS';
-    if (pathname.startsWith('/api/tpos-credentials/') || pathname === '/api/tpos-credentials') return 'TPOS_CREDENTIALS';
-    if (pathname.startsWith('/api/goong-places/') || pathname === '/api/goong-places') return 'GOONG_PLACES';
-    if (pathname.startsWith('/api/return-orders/') || pathname === '/api/return-orders') return 'RETURN_ORDERS';
-    if (pathname.startsWith('/api/tpos-saved/') || pathname === '/api/tpos-saved') return 'TPOS_SAVED';
+    if (pathname.startsWith('/api/fb-global-id/') || pathname === '/api/fb-global-id')
+        return 'FB_GLOBAL_ID';
+    if (
+        pathname.startsWith('/api/pancake-account-pages/') ||
+        pathname === '/api/pancake-account-pages'
+    )
+        return 'PANCAKE_ACCOUNT_PAGES';
+    if (pathname.startsWith('/api/pancake-page-tokens/') || pathname === '/api/pancake-page-tokens')
+        return 'PANCAKE_PAGE_TOKENS';
+    if (pathname.startsWith('/api/tpos-credentials/') || pathname === '/api/tpos-credentials')
+        return 'TPOS_CREDENTIALS';
+    if (pathname.startsWith('/api/goong-places/') || pathname === '/api/goong-places')
+        return 'GOONG_PLACES';
+    if (pathname.startsWith('/api/return-orders/') || pathname === '/api/return-orders')
+        return 'RETURN_ORDERS';
+    if (pathname.startsWith('/api/tpos-saved/') || pathname === '/api/tpos-saved')
+        return 'TPOS_SAVED';
     if (pathname.startsWith('/api/quy-trinh/') || pathname === '/api/quy-trinh') return 'QUY_TRINH';
     // /api/autofb/* (prefix) → Render; specific /api/autofb-xxx routes (no slash) handled by exact matches above
     if (pathname.startsWith('/api/autofb/')) return 'AUTOFB_RENDER';
 
     // Customer 360 v2 routes (match FIRST before v1)
-    if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';
-    if (pathname.startsWith('/api/v2/wallets/') || pathname === '/api/v2/wallets') return 'WALLETS_V2';
+    if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers')
+        return 'CUSTOMERS_V2';
+    if (pathname.startsWith('/api/v2/wallets/') || pathname === '/api/v2/wallets')
+        return 'WALLETS_V2';
     if (pathname.startsWith('/api/v2/wallet/')) return 'WALLETS_V2'; // Singular alias
-    if (pathname.startsWith('/api/v2/tickets/') || pathname === '/api/v2/tickets') return 'TICKETS_V2';
-    if (pathname.startsWith('/api/v2/balance-history/') || pathname === '/api/v2/balance-history') return 'BALANCE_HISTORY_V2';
-    if (pathname.startsWith('/api/v2/pending-withdrawals/') || pathname === '/api/v2/pending-withdrawals') return 'WALLETS_V2';
-    if (pathname.startsWith('/api/v2/analytics/') || pathname === '/api/v2/analytics') return 'ANALYTICS_V2';
-    if (pathname.startsWith('/api/v2/web-warehouse/') || pathname === '/api/v2/web-warehouse') return 'WEB_WAREHOUSE_V2';
-    if (pathname.startsWith('/api/v2/kho-di-cho/') || pathname === '/api/v2/kho-di-cho') return 'WEB_WAREHOUSE_V2'; // backward compat
+    if (pathname.startsWith('/api/v2/tickets/') || pathname === '/api/v2/tickets')
+        return 'TICKETS_V2';
+    if (pathname.startsWith('/api/v2/balance-history/') || pathname === '/api/v2/balance-history')
+        return 'BALANCE_HISTORY_V2';
+    if (
+        pathname.startsWith('/api/v2/pending-withdrawals/') ||
+        pathname === '/api/v2/pending-withdrawals'
+    )
+        return 'WALLETS_V2';
+    if (pathname.startsWith('/api/v2/analytics/') || pathname === '/api/v2/analytics')
+        return 'ANALYTICS_V2';
+    if (pathname.startsWith('/api/v2/web-warehouse/') || pathname === '/api/v2/web-warehouse')
+        return 'WEB_WAREHOUSE_V2';
+    if (pathname.startsWith('/api/v2/kho-di-cho/') || pathname === '/api/v2/kho-di-cho')
+        return 'WEB_WAREHOUSE_V2'; // backward compat
 
     // Customer 360 v1 routes (legacy)
     if (pathname.startsWith('/api/customer360/')) return 'CUSTOMER_360';

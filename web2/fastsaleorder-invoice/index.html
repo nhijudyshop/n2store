@@ -1,113 +1,160 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Bán hàng (Hóa đơn) — Web 2.0</title>
-        <script src="../../web2-shared/page-shell.js?v=20260425n"></script>
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Phiếu bán hàng (PBH) — Web 2.0</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2-shared/tpos-sidebar.css?v=20260513" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260513" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260513" />
+        <link rel="stylesheet" href="../../web2-shared/page-builder-tpos.css?v=20260513" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
     </head>
-    <body>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content" style="overflow: auto; height: 100vh">
+                <header
+                    class="web2-main-header"
+                    style="padding: 12px 20px; border-bottom: 1px solid #e5e7eb; background: #fff"
+                >
+                    <div class="web2-breadcrumb">
+                        <span class="web2-breadcrumb-item">App</span>
+                        <span class="web2-breadcrumb-sep">/</span>
+                        <span class="web2-breadcrumb-item">Bán Hàng</span>
+                        <span class="web2-breadcrumb-sep">/</span>
+                        <span class="web2-breadcrumb-current">Bán hàng (Hóa đơn)</span>
+                    </div>
+                    <span class="counter-pill" id="pbhCounter">— PBH</span>
+                </header>
+
+                <section class="search-section" style="padding: 12px 20px">
+                    <div class="filter-row">
+                        <div class="search-wrapper">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input
+                                type="text"
+                                class="search-input"
+                                id="pbhSearch"
+                                placeholder="Tìm số HĐ, SĐT, tên khách, mã đơn nguồn..."
+                                autocomplete="off"
+                            />
+                            <button class="search-clear" id="pbhSearchClear">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                        <div class="filter-chip-group">
+                            <label class="chip-label chip-label-primary"
+                                ><i data-lucide="bookmark-check"></i> Trạng thái:</label
+                            >
+                            <div class="chip-select-wrapper">
+                                <select id="pbhState" class="chip-select chip-select-primary">
+                                    <option value="">Tất cả</option>
+                                    <option value="draft">Nháp</option>
+                                    <option value="confirmed">Đã xác nhận</option>
+                                    <option value="done">Hoàn thành</option>
+                                    <option value="cancel">Đã hủy</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="chip-caret"></i>
+                            </div>
+                        </div>
+                        <div class="filter-chip-group">
+                            <label class="chip-label chip-label-muted"
+                                ><i data-lucide="list"></i> Limit:</label
+                            >
+                            <div class="chip-select-wrapper">
+                                <select id="pbhLimit" class="chip-select chip-select-muted">
+                                    <option value="100">100 / trang</option>
+                                    <option value="200" selected>200 / trang</option>
+                                    <option value="500">500 / trang</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="chip-caret"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="search-info">
+                        <div class="search-info-left">
+                            <span class="search-result-count" id="pbhResultCount">0</span>
+                            <span class="search-result-label">PBH</span>
+                        </div>
+                        <div class="search-info-right">
+                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="pbhReload">
+                                <i data-lucide="refresh-cw" style="width: 12px; height: 12px"></i>
+                                Tải lại
+                            </button>
+                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="pbhApply">
+                                <i data-lucide="filter" style="width: 12px; height: 12px"></i> Áp
+                                dụng
+                            </button>
+                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="pbhClear">
+                                <i data-lucide="x" style="width: 12px; height: 12px"></i> Xóa lọc
+                            </button>
+                            <button
+                                class="tpos-btn tpos-btn-default tpos-btn-sm"
+                                id="pbhResetStt"
+                                title="Reset STT"
+                            >
+                                <i data-lucide="rotate-ccw" style="width: 12px; height: 12px"></i>
+                                Reset STT
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="table-section" style="padding: 0 20px 24px">
+                    <div class="table-scroll">
+                        <table class="data-table" id="pbhTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px">
+                                        <input type="checkbox" id="pbhCheckAll" />
+                                    </th>
+                                    <th style="width: 110px">Thao tác</th>
+                                    <th style="width: 50px; text-align: center">STT</th>
+                                    <th style="width: 170px">Số HĐ</th>
+                                    <th>Khách hàng</th>
+                                    <th style="width: 140px">SĐT</th>
+                                    <th>Địa chỉ</th>
+                                    <th style="width: 130px; text-align: right">Tổng tiền</th>
+                                    <th style="width: 110px">Trạng thái</th>
+                                    <th style="width: 160px">Đơn nguồn</th>
+                                    <th style="width: 140px">Ngày HĐ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pbhTbody">
+                                <tr>
+                                    <td colspan="11" class="empty-row">
+                                        <div class="empty-state">
+                                            <i data-lucide="inbox" class="empty-state-icon"></i>
+                                            <div class="empty-state-title">Đang tải...</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="pbhPagination"></div>
+                </section>
+            </main>
+        </div>
+
+        <script src="../../web2-shared/tpos-sidebar.js?v=20260513"></script>
         <script>
-            Web2Shell.bootstrap({
-                slug: 'fastsaleorder-invoice',
-                title: 'Bán hàng (Hóa đơn)',
-                breadcrumb: ['App', 'Bán Hàng'],
-                columns: [
-                    {
-                        key: 'code',
-                        label: 'Số HĐ',
-                        width: 150,
-                        align: 'center',
-                    },
-                    {
-                        key: 'name',
-                        label: 'Tiêu đề',
-                        align: 'left',
-                    },
-                    {
-                        key: 'data.customerCode',
-                        label: 'KH',
-                        width: 140,
-                        align: 'center',
-                    },
-                    {
-                        key: 'data.totalAmount',
-                        label: 'Tổng tiền',
-                        width: 140,
-                        align: 'right',
-                    },
-                    {
-                        key: 'data.date',
-                        label: 'Ngày',
-                        width: 120,
-                        align: 'center',
-                    },
-                    {
-                        key: 'data.status',
-                        label: 'TT',
-                        width: 130,
-                        align: 'center',
-                    },
-                ],
-                fields: [
-                    {
-                        key: 'code',
-                        label: 'Số hóa đơn',
-                        type: 'text',
-                        required: true,
-                    },
-                    {
-                        key: 'name',
-                        label: 'Tiêu đề',
-                        type: 'text',
-                        required: true,
-                    },
-                    {
-                        key: 'data.customerCode',
-                        label: 'Mã KH',
-                        type: 'text',
-                    },
-                    {
-                        key: 'data.totalAmount',
-                        label: 'Tổng tiền',
-                        type: 'number',
-                    },
-                    {
-                        key: 'data.date',
-                        label: 'Ngày',
-                        type: 'text',
-                    },
-                    {
-                        key: 'data.status',
-                        label: 'Trạng thái',
-                        type: 'select',
-                        options: [
-                            {
-                                value: 'draft',
-                                label: 'Nháp',
-                            },
-                            {
-                                value: 'confirmed',
-                                label: 'Đã xác nhận',
-                            },
-                            {
-                                value: 'paid',
-                                label: 'Đã thanh toán',
-                            },
-                            {
-                                value: 'cancelled',
-                                label: 'Đã hủy',
-                            },
-                        ],
-                    },
-                    {
-                        key: 'data.note',
-                        label: 'Ghi chú',
-                        type: 'textarea',
-                    },
-                ],
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside');
             });
         </script>
+        <script src="pbh-app.js?v=20260513"></script>
     </body>
 </html>

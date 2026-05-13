@@ -266,6 +266,10 @@
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
+                            <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
+                                onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
+                                <i data-lucide="receipt" style="width:12px;height:12px;"></i>
+                            </button>
                             <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa"
                                 onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
@@ -980,6 +984,30 @@
         }
     }
 
+    async function createPbh(code) {
+        if (!confirm(`Tạo Phiếu Bán Hàng (PBH) từ đơn ${code}?`)) return;
+        try {
+            const r = await fetch(`${WORKER_URL}/api/fast-sale-orders/from-native-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nativeOrderCode: code }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            const isIdempotent = data.idempotent;
+            const pbh = data.order;
+            notify(
+                `${isIdempotent ? 'PBH đã tồn tại' : 'Đã tạo PBH'}: ${pbh.number} (STT ${pbh.displayStt})`,
+                'success'
+            );
+            // Reload để show new status (draft → confirmed)
+            await load();
+        } catch (e) {
+            notify('Lỗi tạo PBH: ' + e.message, 'error');
+            console.error('[createPbh]', e);
+        }
+    }
+
     async function removeOrder(code) {
         if (!confirm(`Xóa đơn ${code}? Hành động không thể hoàn tác.`)) return;
         try {
@@ -1111,6 +1139,7 @@
         openEdit,
         quickStatus,
         removeOrder,
+        createPbh,
         copyCode,
         goPage,
         toggleFilter,

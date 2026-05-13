@@ -91,6 +91,26 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS display_stt INTEGER;
             CREATE INDEX IF NOT EXISTS idx_native_orders_display_stt
                 ON native_orders(display_stt DESC);
+
+            -- Migration 069: mirror TPOS SaleOnline_Order fields cho full clone
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS city_code         VARCHAR(20),
+                ADD COLUMN IF NOT EXISTS city_name         VARCHAR(120),
+                ADD COLUMN IF NOT EXISTS district_code     VARCHAR(20),
+                ADD COLUMN IF NOT EXISTS district_name     VARCHAR(120),
+                ADD COLUMN IF NOT EXISTS ward_code         VARCHAR(20),
+                ADD COLUMN IF NOT EXISTS ward_name         VARCHAR(120),
+                ADD COLUMN IF NOT EXISTS partner_id        INTEGER,
+                ADD COLUMN IF NOT EXISTS partner_code      VARCHAR(60),
+                ADD COLUMN IF NOT EXISTS partner_unique_id VARCHAR(80),
+                ADD COLUMN IF NOT EXISTS email             VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS company_id        INTEGER,
+                ADD COLUMN IF NOT EXISTS company_name      VARCHAR(150),
+                ADD COLUMN IF NOT EXISTS warehouse_name    VARCHAR(150),
+                ADD COLUMN IF NOT EXISTS message_count     INTEGER DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS tpos_index        INTEGER;
+            CREATE INDEX IF NOT EXISTS idx_native_orders_partner_id ON native_orders(partner_id);
+            CREATE INDEX IF NOT EXISTS idx_native_orders_company_id ON native_orders(company_id);
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -152,8 +172,24 @@ function mapRowToOrder(row) {
         deposit: Number(row.deposit || 0),
         partnerStatus: row.partner_status,
         warehouseId: row.warehouse_id,
+        warehouseName: row.warehouse_name,
         reversedCode: row.reversed_code,
         printCount: Number(row.print_count || 0),
+        // Migration 069 — TPOS SaleOnline_Order mirror fields
+        cityCode: row.city_code,
+        cityName: row.city_name,
+        districtCode: row.district_code,
+        districtName: row.district_name,
+        wardCode: row.ward_code,
+        wardName: row.ward_name,
+        partnerId: row.partner_id,
+        partnerCode: row.partner_code,
+        partnerUniqueId: row.partner_unique_id,
+        email: row.email,
+        companyId: row.company_id,
+        companyName: row.company_name,
+        messageCount: Number(row.message_count || 0),
+        tposIndex: row.tpos_index,
     };
 }
 
@@ -513,6 +549,22 @@ router.patch('/:code', async (req, res) => {
             warehouseId: 'warehouse_id',
             reversedCode: 'reversed_code',
             printCount: 'print_count',
+            // Migration 069 — extended TPOS mirror
+            cityCode: 'city_code',
+            cityName: 'city_name',
+            districtCode: 'district_code',
+            districtName: 'district_name',
+            wardCode: 'ward_code',
+            wardName: 'ward_name',
+            partnerId: 'partner_id',
+            partnerCode: 'partner_code',
+            partnerUniqueId: 'partner_unique_id',
+            email: 'email',
+            companyId: 'company_id',
+            companyName: 'company_name',
+            warehouseName: 'warehouse_name',
+            messageCount: 'message_count',
+            tposIndex: 'tpos_index',
         };
         const sets = [];
         const params = [];
