@@ -2918,3 +2918,175 @@ body {
     width: 12px;
     height: 12px;
 }
+
+/* ============================================
+   KPI SUB-TABS (Đơn hàng vs Đơn Inbox)
+   ============================================ */
+.kpi-subtabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    margin: 16px 0 12px;
+    background: #f1f5f9;
+    border-radius: 12px;
+    width: fit-content;
+}
+.kpi-subtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.kpi-subtab svg {
+    width: 16px;
+    height: 16px;
+}
+.kpi-subtab:hover {
+    color: #1e293b;
+    background: rgba(255, 255, 255, 0.5);
+}
+.kpi-subtab.is-active {
+    background: #fff;
+    color: #6366f1;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.kpi-subtab-view {
+    display: none;
+}
+.kpi-subtab-view.is-active {
+    display: block;
+}
+
+/* Inbox tab toolbar */
+.kpi-inbox-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%);
+    border: 1px solid #ddd6fe;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.kpi-inbox-toolbar-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #4c1d95;
+    font-weight: 700;
+    font-size: 15px;
+}
+.kpi-inbox-toolbar-title svg {
+    width: 22px;
+    height: 22px;
+    color: #6366f1;
+}
+.kpi-inbox-toolbar-title small {
+    display: block;
+    font-size: 12px;
+    color: #6b21a8;
+    font-weight: 400;
+    margin-top: 2px;
+}
+.kpi-inbox-toolbar-title > span {
+    display: block;
+}
+
+.kpi-inbox-presets {
+    display: flex;
+    gap: 4px;
+    background: #fff;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+.kpi-inbox-preset {
+    padding: 6px 14px;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.kpi-inbox-preset:hover {
+    color: #1e293b;
+    background: #f1f5f9;
+}
+.kpi-inbox-preset.is-active {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+}
+
+/* Inbox summary stats */
+.kpi-inbox-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.kpi-inbox-stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.kpi-inbox-stat-label {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.kpi-inbox-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 4px;
+}
+.kpi-inbox-stat-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #fff;
+    border-color: transparent;
+}
+.kpi-inbox-stat-primary .kpi-inbox-stat-label,
+.kpi-inbox-stat-primary .kpi-inbox-stat-value {
+    color: #fff;
+}
+.kpi-inbox-stat-sub {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.75);
+    margin-top: 2px;
+}
+
+.kpi-inbox-section .section-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.kpi-inbox-section .section-card-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}

@@ -381,6 +381,190 @@ const KPICommission = {
         }
     },
 
+    // Inbox tab state
+    _inboxSubtabPreset: '30d', // 'today' | '7d' | '30d' | 'thismonth' | 'all'
+    _activeKpiSubtab: 'orders', // 'orders' | 'inbox'
+
+    /**
+     * Resolve date range cho inbox tab theo preset.
+     * @returns {{from: number, to: number, label: string}|null} — null = không filter
+     */
+    _resolveInboxDateRange(preset) {
+        const now = Date.now();
+        const startOfDay = (d) => {
+            const x = new Date(d);
+            x.setHours(0, 0, 0, 0);
+            return x.getTime();
+        };
+        const endOfDay = (d) => {
+            const x = new Date(d);
+            x.setHours(23, 59, 59, 999);
+            return x.getTime();
+        };
+        const today = new Date();
+        if (preset === 'today') {
+            return { from: startOfDay(today), to: endOfDay(today), label: 'Hôm nay' };
+        }
+        if (preset === '7d') {
+            return { from: now - 7 * 86400000, to: now, label: '7 ngày' };
+        }
+        if (preset === '30d') {
+            return { from: now - 30 * 86400000, to: now, label: '30 ngày' };
+        }
+        if (preset === 'thismonth') {
+            const first = new Date(today.getFullYear(), today.getMonth(), 1);
+            return { from: startOfDay(first), to: endOfDay(today), label: 'Tháng này' };
+        }
+        // 'all' → không filter
+        return null;
+    },
+
+    /**
+     * Load Inbox KPI riêng cho tab (KHÔNG đụng date filter của campaign tab).
+     * Trả về { perUser: Map, totals }. Cache tách biệt từ _inboxKpiByUser
+     * (cái này phục vụ tab campaign — đã bị loại bỏ ở cells nhưng để lại
+     * helper cho backward-compat).
+     */
+    async loadInboxSubtabStats() {
+        const range = this._resolveInboxDateRange(this._inboxSubtabPreset);
+        const params = new URLSearchParams();
+        if (range) {
+            params.set('from', range.from);
+            params.set('to', range.to);
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const url = `${WORKER}/api/social-orders/kpi-stats${params.toString() ? '?' + params.toString() : ''}`;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'failed');
+            this._inboxSubtabStats = data;
+            return data;
+        } catch (e) {
+            console.warn('[KPI Inbox Tab] load failed:', e?.message);
+            this._inboxSubtabStats = {
+                perUser: {},
+                totals: { orderCount: 0, totalQty: 0, totalKPI: 0 },
+            };
+            return this._inboxSubtabStats;
+        }
+    },
+
+    /**
+     * Resolve display name cho 1 user trong inbox KPI — ưu tiên name từ user table
+     * (kpi_statistics → userName) nếu trùng userId, fallback name trong social_orders.
+     */
+    _resolveInboxUserName(userId, fallbackName) {
+        if (!userId) return fallbackName || 'Không rõ';
+        // Tìm trong statsData (đã có name resolved đúng) trước
+        const stat = (this.state.statsData || []).find((s) => s.userId === userId);
+        if (stat?.userName) return stat.userName;
+        return fallbackName || userId;
+    },
+
+    /**
+     * Render inbox KPI leaderboard table + summary stats.
+     */
+    async renderInboxKpiView() {
+        const tbody = document.getElementById('kpiInboxTableBody');
+        const wrapper = document.getElementById('kpiInboxTableWrapper');
+        const empty = document.getElementById('kpiInboxEmpty');
+        if (!tbody) return;
+
+        // Trong khi load, không clear bảng cũ (smooth UX)
+        const data = await this.loadInboxSubtabStats();
+        const perUser = data?.perUser || {};
+        const totals = data?.totals || { orderCount: 0, totalQty: 0, totalKPI: 0 };
+
+        // Update summary cards
+        const set = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        const userCount = Object.keys(perUser).length;
+        set('kpiInboxUserCount', userCount.toLocaleString('vi-VN'));
+        set('kpiInboxOrderCount', (totals.orderCount || 0).toLocaleString('vi-VN'));
+        set('kpiInboxQtyTotal', (totals.totalQty || 0).toLocaleString('vi-VN'));
+        set('kpiInboxKpiTotal', this.formatCurrency(totals.totalKPI || 0));
+
+        // Build sorted user list by KPI desc
+        const users = Object.values(perUser).sort((a, b) => (b.totalKPI || 0) - (a.totalKPI || 0));
+
+        if (users.length === 0) {
+            tbody.innerHTML = '';
+            if (wrapper) wrapper.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (wrapper) wrapper.style.display = '';
+        if (empty) empty.style.display = 'none';
+
+        let html = '';
+        users.forEach((u, idx) => {
+            const displayName = this._resolveInboxUserName(u.userId, u.userName);
+            html += `<tr>
+                <td>${idx + 1}</td>
+                <td>${this.escapeHtml(displayName)}</td>
+                <td>${(u.orderCount || 0).toLocaleString('vi-VN')}</td>
+                <td>${(u.totalQty || 0).toLocaleString('vi-VN')}</td>
+                <td>${this.formatCurrency(u.totalAmount || 0)}</td>
+                <td class="col-kpi-inbox has-inbox">${this.formatCurrency(u.totalKPI || 0)}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        this.reinitIcons();
+    },
+
+    /** User click "Tải lại" trong inbox tab. */
+    refreshInboxKpi() {
+        return this.renderInboxKpiView();
+    },
+
+    /**
+     * Switch giữa 2 sub-tab KPI: 'orders' (campaign-driven) và 'inbox' (don-inbox).
+     * Hide/show views + ensure inbox view loaded khi active.
+     */
+    switchKpiSubTab(name) {
+        this._activeKpiSubtab = name;
+        // Update active state on buttons
+        document.querySelectorAll('[data-kpi-subtab]').forEach((b) => {
+            b.classList.toggle('is-active', b.dataset.kpiSubtab === name);
+        });
+        // Toggle view containers
+        const ordersView = document.getElementById('kpiOrdersView');
+        const inboxView = document.getElementById('kpiInboxView');
+        if (ordersView) {
+            ordersView.classList.toggle('is-active', name === 'orders');
+            ordersView.style.display = name === 'orders' ? '' : 'none';
+        }
+        if (inboxView) {
+            inboxView.classList.toggle('is-active', name === 'inbox');
+            inboxView.style.display = name === 'inbox' ? '' : 'none';
+        }
+        if (name === 'inbox') {
+            // Lazy-load inbox view khi click lần đầu
+            this.renderInboxKpiView();
+        }
+    },
+
+    /** Bind preset buttons trong inbox tab. */
+    _bindInboxPresets() {
+        const btns = document.querySelectorAll('[data-inbox-preset]');
+        btns.forEach((btn) => {
+            if (btn.__inboxPresetBound) return;
+            btn.__inboxPresetBound = true;
+            btn.addEventListener('click', () => {
+                this._inboxSubtabPreset = btn.dataset.inboxPreset;
+                btns.forEach((b) => b.classList.toggle('is-active', b === btn));
+                this.renderInboxKpiView();
+            });
+        });
+    },
+
     /**
      * Lookup KPI inbox cho 1 user — tries multiple id forms (userId, username,
      * displayName) vì created_by của social_orders có thể là userId hoặc
@@ -436,6 +620,8 @@ const KPICommission = {
 
             // Bind filter v2 (date presets, status chips, more menu) — sets default 30d
             this._bindFilterV2();
+            // Bind inbox subtab preset buttons (tab "KPI Đơn Inbox")
+            this._bindInboxPresets();
 
             await this.applyFilters();
             this.reinitIcons();
@@ -1440,12 +1626,7 @@ const KPICommission = {
                     ? `<span class="lb-emp-refund-badge"><i data-lucide="undo-2"></i>${lossInfo.refundCount} hoàn</span>`
                     : '';
 
-            // KPI Inbox badge (phân riêng) — chỉ hiện khi user có đơn inbox
-            const inboxStats = this._getInboxKpiForUser(emp);
-            const inboxBadge =
-                inboxStats.totalKPI > 0
-                    ? `<span class="lb-emp-inbox-badge" title="${inboxStats.orderCount} đơn inbox · ${inboxStats.totalQty} SP"><i data-lucide="inbox"></i>${this.formatCurrency(inboxStats.totalKPI)} inbox</span>`
-                    : '';
+            // KPI Inbox đã chuyển sang tab riêng — không badge ở đây nữa.
 
             html += `<div class="lb-row" onclick="window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')" tabindex="0" role="button">
                 <div class="lb-rank ${rankCls}" title="Hạng ${rank}">${rankIcon}</div>
@@ -1456,7 +1637,6 @@ const KPICommission = {
                             <span class="lb-emp-meta-item"><i data-lucide="package"></i>${orderCount} đơn</span>
                             <span class="lb-emp-meta-item"><i data-lucide="layers"></i>${emp.totalNetProducts} SP NET</span>
                             ${refundBadge}
-                            ${inboxBadge}
                         </div>
                     </div>
                 </div>
@@ -1650,13 +1830,8 @@ const KPICommission = {
 
             const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? lossTitle : 'Không có đơn hoàn'}">${this.formatCurrency(kpiNet)}</td>`;
 
-            // KPI Inbox cell (phân riêng — không cộng vào KPI thực)
-            const inboxStats = this._getInboxKpiForUser(emp);
-            const inboxKpi = inboxStats.totalKPI || 0;
-            const inboxCellHtml =
-                inboxKpi > 0
-                    ? `<td class="col-kpi-inbox has-inbox" title="${inboxStats.orderCount} đơn inbox · ${inboxStats.totalQty} SP × 5.000đ">${this.formatCurrency(inboxKpi)}<div class="col-kpi-inbox-sub">${inboxStats.orderCount} đơn · ${inboxStats.totalQty} SP</div></td>`
-                    : '<td class="col-kpi-inbox is-zero" title="Chưa có đơn inbox trong khoảng lọc">—</td>';
+            // KPI Inbox phân vào tab riêng "KPI Đơn Inbox" — không hiển thị ở đây
+            // để tránh đụng filter campaign của KPI Đơn Hàng.
 
             html += `<tr>
                 <td>${idx + 1}</td>
@@ -1666,7 +1841,6 @@ const KPICommission = {
                 ${grossCellHtml}
                 ${refundCellHtml}
                 ${netCellHtml}
-                ${inboxCellHtml}
                 <td>${invoiceSummaryHtml}</td>
             </tr>`;
         });

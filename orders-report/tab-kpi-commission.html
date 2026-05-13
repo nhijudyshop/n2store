@@ -84,369 +84,501 @@
                 </div>
             </div>
 
-            <!-- ===== FILTER BAR (compact, sticky) ===== -->
-            <div class="kpi-filters-v2">
-                <div class="kpi-filters-row">
-                    <!-- Date range presets -->
-                    <div class="kpi-date-presets" role="tablist" aria-label="Khoảng thời gian">
-                        <button class="kpi-preset-btn" data-preset="today" type="button">
+            <!-- ===== KPI SUB-TABS (Đơn hàng vs Đơn inbox) ===== -->
+            <nav class="kpi-subtabs" role="tablist" aria-label="Loại KPI">
+                <button
+                    class="kpi-subtab is-active"
+                    data-kpi-subtab="orders"
+                    type="button"
+                    role="tab"
+                    onclick="KPICommission.switchKpiSubTab('orders')"
+                >
+                    <i data-lucide="package"></i> KPI Đơn Hàng
+                </button>
+                <button
+                    class="kpi-subtab"
+                    data-kpi-subtab="inbox"
+                    type="button"
+                    role="tab"
+                    onclick="KPICommission.switchKpiSubTab('inbox')"
+                    title="KPI từ đơn inbox (don-inbox/index.html) — phân riêng, không đụng campaign filter"
+                >
+                    <i data-lucide="inbox"></i> KPI Đơn Inbox
+                </button>
+            </nav>
+
+            <!-- ===== VIEW: KPI ĐƠN HÀNG (existing — campaign-driven) ===== -->
+            <div id="kpiOrdersView" class="kpi-subtab-view is-active">
+                <!-- ===== FILTER BAR (compact, sticky) ===== -->
+                <div class="kpi-filters-v2">
+                    <div class="kpi-filters-row">
+                        <!-- Date range presets -->
+                        <div class="kpi-date-presets" role="tablist" aria-label="Khoảng thời gian">
+                            <button class="kpi-preset-btn" data-preset="today" type="button">
+                                Hôm nay
+                            </button>
+                            <button class="kpi-preset-btn" data-preset="7d" type="button">
+                                7 ngày
+                            </button>
+                            <button
+                                class="kpi-preset-btn is-active"
+                                data-preset="30d"
+                                type="button"
+                            >
+                                30 ngày
+                            </button>
+                            <button class="kpi-preset-btn" data-preset="thismonth" type="button">
+                                Tháng này
+                            </button>
+                            <button class="kpi-preset-btn" data-preset="custom" type="button">
+                                <i data-lucide="calendar"></i>
+                            </button>
+                        </div>
+
+                        <!-- Custom date inputs (shown when preset = custom) -->
+                        <div class="kpi-date-custom" id="kpiDateCustom" style="display: none">
+                            <input type="date" id="kpiFilterDateFrom" aria-label="Từ ngày" />
+                            <span class="kpi-date-sep">→</span>
+                            <input type="date" id="kpiFilterDateTo" aria-label="Đến ngày" />
+                        </div>
+
+                        <!-- Campaign + Employee selects -->
+                        <div class="kpi-select-wrap">
+                            <i data-lucide="megaphone"></i>
+                            <select id="kpiFilterCampaign" title="Campaign">
+                                <option value="">Tất cả campaign</option>
+                            </select>
+                        </div>
+                        <div class="kpi-select-wrap">
+                            <i data-lucide="user"></i>
+                            <select id="kpiFilterEmployee" title="Nhân viên">
+                                <option value="">Tất cả NV</option>
+                            </select>
+                        </div>
+
+                        <!-- Status chips (replace dropdown) -->
+                        <div class="kpi-status-chips" role="tablist" aria-label="Trạng thái">
+                            <button class="kpi-chip is-active" data-status="" type="button">
+                                Tất cả
+                            </button>
+                            <button class="kpi-chip" data-status="ok" type="button">
+                                <i data-lucide="check"></i> OK
+                            </button>
+                            <button
+                                class="kpi-chip kpi-chip-warn"
+                                data-status="discrepancy"
+                                type="button"
+                            >
+                                <i data-lucide="alert-triangle"></i> Sai lệch
+                            </button>
+                        </div>
+
+                        <!-- Display mode quick toggle -->
+                        <button
+                            id="btnToggleDisplayMode"
+                            onclick="KPICommission.toggleDisplayMode()"
+                            class="kpi-icon-btn"
+                            title="Chỉ KPI / Đầy đủ"
+                        >
+                            <i data-lucide="eye"></i> <span id="displayModeLabel">Chỉ có KPI</span>
+                        </button>
+
+                        <!-- Primary action -->
+                        <button onclick="KPICommission.applyFilters()" class="kpi-apply-btn">
+                            <i data-lucide="filter"></i> Lọc
+                        </button>
+
+                        <!-- More actions menu -->
+                        <div class="kpi-more-wrap">
+                            <button
+                                class="kpi-icon-btn kpi-more-trigger"
+                                type="button"
+                                id="btnKpiMoreActions"
+                                title="Thêm hành động"
+                            >
+                                <i data-lucide="more-horizontal"></i>
+                            </button>
+                            <div class="kpi-more-menu" id="kpiMoreMenu">
+                                <button onclick="KPICommission.refreshData()">
+                                    <i data-lucide="refresh-cw"></i> Làm mới dữ liệu
+                                </button>
+                                <button onclick="KPICommission.recomputeAllKPI()">
+                                    <i data-lucide="calculator"></i> Tính lại KPI toàn bộ
+                                </button>
+                                <button onclick="KPICommission.exportExcel()">
+                                    <i data-lucide="file-spreadsheet"></i> Export Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kpi-filters-summary" id="kpiFiltersSummary"></div>
+                </div>
+
+                <!-- ===== SUMMARY CARDS (11.3) ===== -->
+                <div class="kpi-summary-cards">
+                    <div class="summary-card card-blue">
+                        <div class="card-icon">👥</div>
+                        <div class="card-value" id="totalEmployees">0</div>
+                        <div class="card-label">Tổng NV có KPI</div>
+                    </div>
+                    <div class="summary-card card-purple">
+                        <div class="card-icon">🛒</div>
+                        <div class="card-value" id="totalOrdersWithBase">0</div>
+                        <div class="card-label">Tổng đơn có BASE</div>
+                    </div>
+                    <div class="summary-card card-orange">
+                        <div class="card-icon">📦</div>
+                        <div class="card-value" id="totalNetProducts">0</div>
+                        <div class="card-label">SP thêm ròng (NET)</div>
+                    </div>
+                    <div class="summary-card card-green">
+                        <div class="card-icon">💰</div>
+                        <div class="card-value" id="totalKPIAmount">0đ</div>
+                        <div class="card-label">Tổng KPI (VNĐ)</div>
+                    </div>
+                </div>
+
+                <!-- ===== MAIN KPI LEADERBOARD (11.4 — redesign) ===== -->
+                <div class="section-card kpi-leaderboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i data-lucide="trophy"></i>
+                            Bảng xếp hạng KPI theo nhân viên
+                        </h2>
+                        <div class="kpi-leaderboard-toggle" role="tablist" aria-label="View mode">
+                            <button
+                                class="lb-toggle-btn is-active"
+                                data-view="leaderboard"
+                                type="button"
+                                title="Bảng xếp hạng"
+                            >
+                                <i data-lucide="layout-grid"></i>
+                            </button>
+                            <button
+                                class="lb-toggle-btn"
+                                data-view="table"
+                                type="button"
+                                title="Bảng truyền thống"
+                            >
+                                <i data-lucide="table"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Loading state -->
+                    <div id="kpiTableLoading" class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Đang tải dữ liệu KPI...</p>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div id="kpiTableEmpty" class="empty-state" style="display: none">
+                        <i data-lucide="inbox"></i>
+                        <p>Chưa có dữ liệu KPI. Hãy chọn bộ lọc và nhấn "Lọc".</p>
+                    </div>
+
+                    <!-- Leaderboard cards (default view) -->
+                    <div class="kpi-leaderboard" id="kpiLeaderboardWrapper" style="display: none">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <!-- Table view (alternative) -->
+                    <div class="table-wrapper" id="kpiTableWrapper" style="display: none">
+                        <table class="kpi-main-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Tên nhân viên</th>
+                                    <th>Số đơn</th>
+                                    <th>SP NET</th>
+                                    <th
+                                        title="KPI tổng (chưa trừ đơn hoàn). Đơn Hủy bỏ đã bị loại hoàn toàn từ trước."
+                                    >
+                                        KPI gross
+                                    </th>
+                                    <th
+                                        title="Đơn hoàn (refund excel) — cần chạy đối soát mới biết. Đơn Hủy bỏ đã bị loại hoàn toàn khỏi KPI."
+                                    >
+                                        <i data-lucide="undo-2"></i> Hoàn
+                                    </th>
+                                    <th title="KPI thực = KPI gross - KPI bị loại do hoàn">
+                                        KPI thực (VNĐ)
+                                    </th>
+                                    <th style="min-width: 200px">Phiếu bán hàng</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kpiTableBody">
+                                <!-- Rendered by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== RECONCILIATION SECTION (11.5) — REDESIGN ===== -->
+                <div class="section-card recon-section" id="reconciliationSection">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i data-lucide="shield-check"></i>
+                            Đối soát KPI
+                            <span class="recon-subtitle"
+                                >So sánh KPI với refund excel 3 tháng từ TPOS</span
+                            >
+                        </h2>
+                        <button
+                            onclick="KPICommission.runReconciliation()"
+                            class="btn-warning ds-btn ds-btn-warning recon-run-btn"
+                            id="btnRunReconciliation"
+                        >
+                            <i data-lucide="play-circle"></i>
+                            <span class="recon-run-label">Chạy đối soát</span>
+                        </button>
+                    </div>
+
+                    <!-- Progress bar (hiện khi đang chạy) -->
+                    <div id="reconProgress" class="recon-progress" style="display: none">
+                        <div class="recon-progress-header">
+                            <span class="recon-progress-stage" id="reconProgressStage"
+                                >Đang khởi tạo...</span
+                            >
+                            <span class="recon-progress-pct" id="reconProgressPct">0%</span>
+                        </div>
+                        <div class="recon-progress-bar">
+                            <div
+                                class="recon-progress-fill"
+                                id="reconProgressFill"
+                                style="width: 0%"
+                            ></div>
+                        </div>
+                        <div class="recon-progress-detail" id="reconProgressDetail">—</div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div id="reconEmpty" class="empty-state recon-empty">
+                        <i data-lucide="shield-check"></i>
+                        <p>
+                            Nhấn <strong>Chạy đối soát</strong> để so sánh KPI với refund excel 3
+                            tháng từ TPOS. Đơn nằm trong refund sẽ bị loại khỏi KPI.
+                        </p>
+                    </div>
+
+                    <!-- Stats cards (hiện sau khi chạy xong) -->
+                    <div id="reconStatsCards" class="recon-stats-grid" style="display: none">
+                        <div class="recon-stat-card recon-stat-total" data-filter="all">
+                            <div class="recon-stat-icon"><i data-lucide="layers"></i></div>
+                            <div class="recon-stat-body">
+                                <div class="recon-stat-label">Tổng đơn</div>
+                                <div class="recon-stat-value" data-target="0" id="reconStatTotal">
+                                    0
+                                </div>
+                            </div>
+                        </div>
+                        <div class="recon-stat-card recon-stat-ok" data-filter="ok">
+                            <div class="recon-stat-icon"><i data-lucide="check-circle-2"></i></div>
+                            <div class="recon-stat-body">
+                                <div class="recon-stat-label">OK (tính KPI)</div>
+                                <div class="recon-stat-value" data-target="0" id="reconStatOk">
+                                    0
+                                </div>
+                            </div>
+                        </div>
+                        <div class="recon-stat-card recon-stat-refund" data-filter="refunded">
+                            <div class="recon-stat-icon"><i data-lucide="undo-2"></i></div>
+                            <div class="recon-stat-body">
+                                <div class="recon-stat-label">Đã hoàn (loại KPI)</div>
+                                <div
+                                    class="recon-stat-value"
+                                    data-target="0"
+                                    id="reconStatRefunded"
+                                >
+                                    0
+                                </div>
+                                <div class="recon-stat-sub" id="reconStatRefundedSub">— ₫</div>
+                            </div>
+                        </div>
+                        <div
+                            class="recon-stat-card recon-stat-discrepancy"
+                            data-filter="discrepancy"
+                        >
+                            <div class="recon-stat-icon"><i data-lucide="alert-triangle"></i></div>
+                            <div class="recon-stat-body">
+                                <div class="recon-stat-label">Sai lệch khác</div>
+                                <div
+                                    class="recon-stat-value"
+                                    data-target="0"
+                                    id="reconStatDiscrepancy"
+                                >
+                                    0
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter chips + meta -->
+                    <div id="reconControlBar" class="recon-control-bar" style="display: none">
+                        <div class="recon-chips" role="tablist" aria-label="Lọc kết quả đối soát">
+                            <button class="recon-chip is-active" data-filter="all" type="button">
+                                <i data-lucide="list"></i> Tất cả
+                                <span class="recon-chip-count" id="chipCountAll">0</span>
+                            </button>
+                            <button class="recon-chip" data-filter="ok" type="button">
+                                <i data-lucide="check"></i> OK
+                                <span class="recon-chip-count" id="chipCountOk">0</span>
+                            </button>
+                            <button
+                                class="recon-chip recon-chip-refund"
+                                data-filter="refunded"
+                                type="button"
+                            >
+                                <i data-lucide="undo-2"></i> Đã hoàn
+                                <span class="recon-chip-count" id="chipCountRefunded">0</span>
+                            </button>
+                            <button
+                                class="recon-chip recon-chip-warn"
+                                data-filter="discrepancy"
+                                type="button"
+                            >
+                                <i data-lucide="alert-triangle"></i> Sai lệch
+                                <span class="recon-chip-count" id="chipCountDiscrepancy">0</span>
+                            </button>
+                        </div>
+                        <div class="recon-meta" id="reconMetaInfo">—</div>
+                        <button
+                            class="recon-export-btn"
+                            id="btnExportReconExcel"
+                            onclick="KPICommission.exportReconciliationExcel()"
+                            type="button"
+                            title="Xuất kết quả đối soát ra Excel"
+                        >
+                            <i data-lucide="download"></i> Xuất Excel
+                        </button>
+                    </div>
+
+                    <!-- Reconciliation results table -->
+                    <div
+                        class="table-wrapper recon-table-wrapper"
+                        id="reconResultsWrapper"
+                        style="display: none"
+                    >
+                        <table class="kpi-main-table recon-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 36px"></th>
+                                    <th data-sort="orderCode">
+                                        Mã ĐH <i data-lucide="arrow-up-down"></i>
+                                    </th>
+                                    <th>Số phiếu (TPOS)</th>
+                                    <th data-sort="stt">STT</th>
+                                    <th data-sort="expectedNet">Expected</th>
+                                    <th data-sort="actualNet">Actual</th>
+                                    <th data-sort="delta">Delta</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reconTableBody">
+                                <!-- Rendered by JS -->
+                            </tbody>
+                        </table>
+                        <div class="recon-empty-filter" id="reconEmptyFilter" style="display: none">
+                            <i data-lucide="search-x"></i> Không có kết quả với bộ lọc này.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- /#kpiOrdersView -->
+
+            <!-- ===== VIEW: KPI ĐƠN INBOX (standalone — không campaign filter) ===== -->
+            <div id="kpiInboxView" class="kpi-subtab-view" style="display: none">
+                <div class="kpi-inbox-toolbar">
+                    <div class="kpi-inbox-toolbar-title">
+                        <i data-lucide="inbox"></i>
+                        <span>KPI từ đơn Inbox</span>
+                        <small
+                            >Tổng hợp đơn tạo trên trang Đơn Inbox (don-inbox) — phân riêng khỏi KPI
+                            đơn hàng campaign.</small
+                        >
+                    </div>
+                    <div class="kpi-inbox-presets" role="tablist" aria-label="Khoảng thời gian">
+                        <button class="kpi-inbox-preset" data-inbox-preset="today" type="button">
                             Hôm nay
                         </button>
-                        <button class="kpi-preset-btn" data-preset="7d" type="button">
+                        <button class="kpi-inbox-preset" data-inbox-preset="7d" type="button">
                             7 ngày
                         </button>
-                        <button class="kpi-preset-btn is-active" data-preset="30d" type="button">
+                        <button
+                            class="kpi-inbox-preset is-active"
+                            data-inbox-preset="30d"
+                            type="button"
+                        >
                             30 ngày
                         </button>
-                        <button class="kpi-preset-btn" data-preset="thismonth" type="button">
+                        <button
+                            class="kpi-inbox-preset"
+                            data-inbox-preset="thismonth"
+                            type="button"
+                        >
                             Tháng này
                         </button>
-                        <button class="kpi-preset-btn" data-preset="custom" type="button">
-                            <i data-lucide="calendar"></i>
-                        </button>
-                    </div>
-
-                    <!-- Custom date inputs (shown when preset = custom) -->
-                    <div class="kpi-date-custom" id="kpiDateCustom" style="display: none">
-                        <input type="date" id="kpiFilterDateFrom" aria-label="Từ ngày" />
-                        <span class="kpi-date-sep">→</span>
-                        <input type="date" id="kpiFilterDateTo" aria-label="Đến ngày" />
-                    </div>
-
-                    <!-- Campaign + Employee selects -->
-                    <div class="kpi-select-wrap">
-                        <i data-lucide="megaphone"></i>
-                        <select id="kpiFilterCampaign" title="Campaign">
-                            <option value="">Tất cả campaign</option>
-                        </select>
-                    </div>
-                    <div class="kpi-select-wrap">
-                        <i data-lucide="user"></i>
-                        <select id="kpiFilterEmployee" title="Nhân viên">
-                            <option value="">Tất cả NV</option>
-                        </select>
-                    </div>
-
-                    <!-- Status chips (replace dropdown) -->
-                    <div class="kpi-status-chips" role="tablist" aria-label="Trạng thái">
-                        <button class="kpi-chip is-active" data-status="" type="button">
+                        <button class="kpi-inbox-preset" data-inbox-preset="all" type="button">
                             Tất cả
                         </button>
-                        <button class="kpi-chip" data-status="ok" type="button">
-                            <i data-lucide="check"></i> OK
-                        </button>
+                    </div>
+                </div>
+
+                <div class="kpi-inbox-summary">
+                    <div class="kpi-inbox-stat">
+                        <div class="kpi-inbox-stat-label">Số NV</div>
+                        <div class="kpi-inbox-stat-value" id="kpiInboxUserCount">0</div>
+                    </div>
+                    <div class="kpi-inbox-stat">
+                        <div class="kpi-inbox-stat-label">Tổng đơn</div>
+                        <div class="kpi-inbox-stat-value" id="kpiInboxOrderCount">0</div>
+                    </div>
+                    <div class="kpi-inbox-stat">
+                        <div class="kpi-inbox-stat-label">Tổng SP</div>
+                        <div class="kpi-inbox-stat-value" id="kpiInboxQtyTotal">0</div>
+                    </div>
+                    <div class="kpi-inbox-stat kpi-inbox-stat-primary">
+                        <div class="kpi-inbox-stat-label">Tổng KPI Inbox</div>
+                        <div class="kpi-inbox-stat-value" id="kpiInboxKpiTotal">0đ</div>
+                        <div class="kpi-inbox-stat-sub">1 SP = 5.000đ</div>
+                    </div>
+                </div>
+
+                <div class="section-card kpi-inbox-section">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <i data-lucide="trophy"></i> Bảng xếp hạng KPI Inbox theo nhân viên
+                        </h3>
                         <button
-                            class="kpi-chip kpi-chip-warn"
-                            data-status="discrepancy"
+                            class="kpi-icon-btn"
                             type="button"
+                            onclick="KPICommission.refreshInboxKpi()"
+                            title="Tải lại"
                         >
-                            <i data-lucide="alert-triangle"></i> Sai lệch
+                            <i data-lucide="refresh-cw"></i>
                         </button>
                     </div>
-
-                    <!-- Display mode quick toggle -->
-                    <button
-                        id="btnToggleDisplayMode"
-                        onclick="KPICommission.toggleDisplayMode()"
-                        class="kpi-icon-btn"
-                        title="Chỉ KPI / Đầy đủ"
-                    >
-                        <i data-lucide="eye"></i> <span id="displayModeLabel">Chỉ có KPI</span>
-                    </button>
-
-                    <!-- Primary action -->
-                    <button onclick="KPICommission.applyFilters()" class="kpi-apply-btn">
-                        <i data-lucide="filter"></i> Lọc
-                    </button>
-
-                    <!-- More actions menu -->
-                    <div class="kpi-more-wrap">
-                        <button
-                            class="kpi-icon-btn kpi-more-trigger"
-                            type="button"
-                            id="btnKpiMoreActions"
-                            title="Thêm hành động"
-                        >
-                            <i data-lucide="more-horizontal"></i>
-                        </button>
-                        <div class="kpi-more-menu" id="kpiMoreMenu">
-                            <button onclick="KPICommission.refreshData()">
-                                <i data-lucide="refresh-cw"></i> Làm mới dữ liệu
-                            </button>
-                            <button onclick="KPICommission.recomputeAllKPI()">
-                                <i data-lucide="calculator"></i> Tính lại KPI toàn bộ
-                            </button>
-                            <button onclick="KPICommission.exportExcel()">
-                                <i data-lucide="file-spreadsheet"></i> Export Excel
-                            </button>
-                        </div>
+                    <div id="kpiInboxEmpty" class="empty-state" style="display: none">
+                        <p>Chưa có đơn inbox nào trong khoảng thời gian này.</p>
                     </div>
-                </div>
-                <div class="kpi-filters-summary" id="kpiFiltersSummary"></div>
-            </div>
-
-            <!-- ===== SUMMARY CARDS (11.3) ===== -->
-            <div class="kpi-summary-cards">
-                <div class="summary-card card-blue">
-                    <div class="card-icon">👥</div>
-                    <div class="card-value" id="totalEmployees">0</div>
-                    <div class="card-label">Tổng NV có KPI</div>
-                </div>
-                <div class="summary-card card-purple">
-                    <div class="card-icon">🛒</div>
-                    <div class="card-value" id="totalOrdersWithBase">0</div>
-                    <div class="card-label">Tổng đơn có BASE</div>
-                </div>
-                <div class="summary-card card-orange">
-                    <div class="card-icon">📦</div>
-                    <div class="card-value" id="totalNetProducts">0</div>
-                    <div class="card-label">SP thêm ròng (NET)</div>
-                </div>
-                <div class="summary-card card-green">
-                    <div class="card-icon">💰</div>
-                    <div class="card-value" id="totalKPIAmount">0đ</div>
-                    <div class="card-label">Tổng KPI (VNĐ)</div>
-                </div>
-            </div>
-
-            <!-- ===== MAIN KPI LEADERBOARD (11.4 — redesign) ===== -->
-            <div class="section-card kpi-leaderboard-section">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i data-lucide="trophy"></i>
-                        Bảng xếp hạng KPI theo nhân viên
-                    </h2>
-                    <div class="kpi-leaderboard-toggle" role="tablist" aria-label="View mode">
-                        <button
-                            class="lb-toggle-btn is-active"
-                            data-view="leaderboard"
-                            type="button"
-                            title="Bảng xếp hạng"
-                        >
-                            <i data-lucide="layout-grid"></i>
-                        </button>
-                        <button
-                            class="lb-toggle-btn"
-                            data-view="table"
-                            type="button"
-                            title="Bảng truyền thống"
-                        >
-                            <i data-lucide="table"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Loading state -->
-                <div id="kpiTableLoading" class="loading-state">
-                    <div class="spinner"></div>
-                    <p>Đang tải dữ liệu KPI...</p>
-                </div>
-
-                <!-- Empty state -->
-                <div id="kpiTableEmpty" class="empty-state" style="display: none">
-                    <i data-lucide="inbox"></i>
-                    <p>Chưa có dữ liệu KPI. Hãy chọn bộ lọc và nhấn "Lọc".</p>
-                </div>
-
-                <!-- Leaderboard cards (default view) -->
-                <div class="kpi-leaderboard" id="kpiLeaderboardWrapper" style="display: none">
-                    <!-- Rendered by JS -->
-                </div>
-
-                <!-- Table view (alternative) -->
-                <div class="table-wrapper" id="kpiTableWrapper" style="display: none">
-                    <table class="kpi-main-table">
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>Tên nhân viên</th>
-                                <th>Số đơn</th>
-                                <th>SP NET</th>
-                                <th
-                                    title="KPI tổng (chưa trừ đơn hoàn). Đơn Hủy bỏ đã bị loại hoàn toàn từ trước."
-                                >
-                                    KPI gross
-                                </th>
-                                <th
-                                    title="Đơn hoàn (refund excel) — cần chạy đối soát mới biết. Đơn Hủy bỏ đã bị loại hoàn toàn khỏi KPI."
-                                >
-                                    <i data-lucide="undo-2"></i> Hoàn
-                                </th>
-                                <th title="KPI thực = KPI gross - KPI bị loại do hoàn">
-                                    KPI thực (VNĐ)
-                                </th>
-                                <th
-                                    title="KPI từ đơn Inbox (don-inbox/index.html) — phân riêng, 1 SP = 5.000đ"
-                                    style="min-width: 110px"
-                                >
-                                    <i data-lucide="inbox"></i> KPI Inbox
-                                </th>
-                                <th style="min-width: 200px">Phiếu bán hàng</th>
-                            </tr>
-                        </thead>
-                        <tbody id="kpiTableBody">
-                            <!-- Rendered by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ===== RECONCILIATION SECTION (11.5) — REDESIGN ===== -->
-            <div class="section-card recon-section" id="reconciliationSection">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <i data-lucide="shield-check"></i>
-                        Đối soát KPI
-                        <span class="recon-subtitle"
-                            >So sánh KPI với refund excel 3 tháng từ TPOS</span
-                        >
-                    </h2>
-                    <button
-                        onclick="KPICommission.runReconciliation()"
-                        class="btn-warning ds-btn ds-btn-warning recon-run-btn"
-                        id="btnRunReconciliation"
-                    >
-                        <i data-lucide="play-circle"></i>
-                        <span class="recon-run-label">Chạy đối soát</span>
-                    </button>
-                </div>
-
-                <!-- Progress bar (hiện khi đang chạy) -->
-                <div id="reconProgress" class="recon-progress" style="display: none">
-                    <div class="recon-progress-header">
-                        <span class="recon-progress-stage" id="reconProgressStage"
-                            >Đang khởi tạo...</span
-                        >
-                        <span class="recon-progress-pct" id="reconProgressPct">0%</span>
-                    </div>
-                    <div class="recon-progress-bar">
-                        <div
-                            class="recon-progress-fill"
-                            id="reconProgressFill"
-                            style="width: 0%"
-                        ></div>
-                    </div>
-                    <div class="recon-progress-detail" id="reconProgressDetail">—</div>
-                </div>
-
-                <!-- Empty state -->
-                <div id="reconEmpty" class="empty-state recon-empty">
-                    <i data-lucide="shield-check"></i>
-                    <p>
-                        Nhấn <strong>Chạy đối soát</strong> để so sánh KPI với refund excel 3 tháng
-                        từ TPOS. Đơn nằm trong refund sẽ bị loại khỏi KPI.
-                    </p>
-                </div>
-
-                <!-- Stats cards (hiện sau khi chạy xong) -->
-                <div id="reconStatsCards" class="recon-stats-grid" style="display: none">
-                    <div class="recon-stat-card recon-stat-total" data-filter="all">
-                        <div class="recon-stat-icon"><i data-lucide="layers"></i></div>
-                        <div class="recon-stat-body">
-                            <div class="recon-stat-label">Tổng đơn</div>
-                            <div class="recon-stat-value" data-target="0" id="reconStatTotal">
-                                0
-                            </div>
-                        </div>
-                    </div>
-                    <div class="recon-stat-card recon-stat-ok" data-filter="ok">
-                        <div class="recon-stat-icon"><i data-lucide="check-circle-2"></i></div>
-                        <div class="recon-stat-body">
-                            <div class="recon-stat-label">OK (tính KPI)</div>
-                            <div class="recon-stat-value" data-target="0" id="reconStatOk">0</div>
-                        </div>
-                    </div>
-                    <div class="recon-stat-card recon-stat-refund" data-filter="refunded">
-                        <div class="recon-stat-icon"><i data-lucide="undo-2"></i></div>
-                        <div class="recon-stat-body">
-                            <div class="recon-stat-label">Đã hoàn (loại KPI)</div>
-                            <div class="recon-stat-value" data-target="0" id="reconStatRefunded">
-                                0
-                            </div>
-                            <div class="recon-stat-sub" id="reconStatRefundedSub">— ₫</div>
-                        </div>
-                    </div>
-                    <div class="recon-stat-card recon-stat-discrepancy" data-filter="discrepancy">
-                        <div class="recon-stat-icon"><i data-lucide="alert-triangle"></i></div>
-                        <div class="recon-stat-body">
-                            <div class="recon-stat-label">Sai lệch khác</div>
-                            <div class="recon-stat-value" data-target="0" id="reconStatDiscrepancy">
-                                0
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Filter chips + meta -->
-                <div id="reconControlBar" class="recon-control-bar" style="display: none">
-                    <div class="recon-chips" role="tablist" aria-label="Lọc kết quả đối soát">
-                        <button class="recon-chip is-active" data-filter="all" type="button">
-                            <i data-lucide="list"></i> Tất cả
-                            <span class="recon-chip-count" id="chipCountAll">0</span>
-                        </button>
-                        <button class="recon-chip" data-filter="ok" type="button">
-                            <i data-lucide="check"></i> OK
-                            <span class="recon-chip-count" id="chipCountOk">0</span>
-                        </button>
-                        <button
-                            class="recon-chip recon-chip-refund"
-                            data-filter="refunded"
-                            type="button"
-                        >
-                            <i data-lucide="undo-2"></i> Đã hoàn
-                            <span class="recon-chip-count" id="chipCountRefunded">0</span>
-                        </button>
-                        <button
-                            class="recon-chip recon-chip-warn"
-                            data-filter="discrepancy"
-                            type="button"
-                        >
-                            <i data-lucide="alert-triangle"></i> Sai lệch
-                            <span class="recon-chip-count" id="chipCountDiscrepancy">0</span>
-                        </button>
-                    </div>
-                    <div class="recon-meta" id="reconMetaInfo">—</div>
-                    <button
-                        class="recon-export-btn"
-                        id="btnExportReconExcel"
-                        onclick="KPICommission.exportReconciliationExcel()"
-                        type="button"
-                        title="Xuất kết quả đối soát ra Excel"
-                    >
-                        <i data-lucide="download"></i> Xuất Excel
-                    </button>
-                </div>
-
-                <!-- Reconciliation results table -->
-                <div
-                    class="table-wrapper recon-table-wrapper"
-                    id="reconResultsWrapper"
-                    style="display: none"
-                >
-                    <table class="kpi-main-table recon-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 36px"></th>
-                                <th data-sort="orderCode">
-                                    Mã ĐH <i data-lucide="arrow-up-down"></i>
-                                </th>
-                                <th>Số phiếu (TPOS)</th>
-                                <th data-sort="stt">STT</th>
-                                <th data-sort="expectedNet">Expected</th>
-                                <th data-sort="actualNet">Actual</th>
-                                <th data-sort="delta">Delta</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reconTableBody">
-                            <!-- Rendered by JS -->
-                        </tbody>
-                    </table>
-                    <div class="recon-empty-filter" id="reconEmptyFilter" style="display: none">
-                        <i data-lucide="search-x"></i> Không có kết quả với bộ lọc này.
+                    <div class="table-wrapper" id="kpiInboxTableWrapper">
+                        <table class="kpi-main-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Nhân viên</th>
+                                    <th>Số đơn</th>
+                                    <th>Tổng SP</th>
+                                    <th>Tổng tiền hàng</th>
+                                    <th>KPI Inbox (VNĐ)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kpiInboxTableBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
+            <!-- /#kpiInboxView -->
         </div>
 
         <!-- ===== MODAL LEVEL 1: Employee Orders (11.6) ===== -->
