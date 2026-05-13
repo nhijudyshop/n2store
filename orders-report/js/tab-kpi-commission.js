@@ -709,7 +709,10 @@ const KPICommission = {
             if (opt.value !== '') opt.remove();
         }
 
-        const campaigns = new Set();
+        // Giữ thứ tự giống tab1 "Cài Đặt Chiến Dịch": /api/campaigns sort
+        // created_at DESC (mới nhất đầu). KHÔNG alphabetize, dùng insertion order.
+        const orderedNames = [];
+        const seen = new Set();
 
         // 1) Lấy FULL danh sách campaign từ /api/campaigns (giống tab1) —
         // tránh case "campaign chưa có KPI thì không xuất hiện trong filter".
@@ -731,23 +734,31 @@ const KPICommission = {
             }
             for (const c of list) {
                 const name = c?.name || c?.displayName || c?.id;
-                if (name) campaigns.add(name);
+                if (name && !seen.has(name)) {
+                    seen.add(name);
+                    orderedNames.push(name);
+                }
             }
         } catch (e) {
             console.warn('[KPI Tab] Load full campaign list failed:', e?.message);
         }
 
         // 2) Bổ sung campaign từ statsData (case campaign đã bị xóa nhưng
-        // KPI history vẫn còn — vẫn cần filter được để xem lại).
+        // KPI history vẫn còn — vẫn cần filter được để xem lại). Append cuối
+        // để giữ campaign đang active của API ở trên.
         for (const stat of this.state.statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
                 for (const order of dateData.orders || []) {
-                    if (order.campaignName) campaigns.add(order.campaignName);
+                    const name = order.campaignName;
+                    if (name && !seen.has(name)) {
+                        seen.add(name);
+                        orderedNames.push(name);
+                    }
                 }
             }
         }
 
-        [...campaigns].sort().forEach((name) => {
+        orderedNames.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = name;
             opt.textContent = name;
