@@ -474,46 +474,7 @@ const TposApi = {
         }
     },
 
-    /**
-     * Confirm an order
-     * @param {string} orderId
-     * @returns {Promise<boolean>}
-     */
-    async confirmOrder(orderId) {
-        try {
-            const url = `${TposApi._getWorkerUrl()}/api/odata/SaleOnline_Order/ODataService.ActionConfirm`;
-            const response = await this.authenticatedFetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [orderId] }),
-            });
-            return response.ok;
-        } catch (error) {
-            console.error('[TPOS-API] confirmOrder error:', error);
-            return false;
-        }
-    },
-
-    /**
-     * Cancel an order
-     * @param {string} orderId
-     * @returns {Promise<boolean>}
-     */
-    async cancelOrder(orderId) {
-        try {
-            const url = `${TposApi._getWorkerUrl()}/api/odata/SaleOnline_Order/ODataService.ActionCancel`;
-            const response = await this.authenticatedFetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [orderId] }),
-            });
-            return response.ok;
-        } catch (error) {
-            console.error('[TPOS-API] cancelOrder error:', error);
-            return false;
-        }
-    },
-
+    // confirmOrder / cancelOrder REMOVED — not used by this page.
     // createOrderFromComment REMOVED — tpos-pancake page now creates
     // orders via NativeOrdersApi.createFromComment() (PostgreSQL, not TPOS).
 };

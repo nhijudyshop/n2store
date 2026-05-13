@@ -221,23 +221,6 @@ const TposCustomerPanel = {
                 `
                         : ''
                 }
-                <!-- Order Actions -->
-                <div style="display:flex;gap:8px;margin-top:12px;" id="orderActions">
-                    ${
-                        order.StatusText === 'Nháp'
-                            ? `
-                    <button onclick="TposCustomerPanel.confirmOrder('${order.Id}')"
-                            style="padding:6px 14px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">
-                        Xác nhận đơn
-                    </button>
-                    <button onclick="TposCustomerPanel.cancelOrder('${order.Id}')"
-                            style="padding:6px 14px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">
-                        Hủy đơn
-                    </button>
-                    `
-                            : ''
-                    }
-                </div>
             </div>
             `
                     : `
@@ -289,58 +272,7 @@ const TposCustomerPanel = {
         }
     },
 
-    /**
-     * Select status from dropdown and update via API
-     * @param {string} value
-     * @param {string} text
-     */
-    /**
-     * Confirm an order
-     * @param {string} orderId
-     */
-    async confirmOrder(orderId) {
-        if (!confirm('Xác nhận đơn hàng này?')) return;
-        const success = await window.TposApi.confirmOrder(orderId);
-        if (success) {
-            const badge = document.getElementById('orderStatusBadge');
-            if (badge) {
-                badge.textContent = 'Đã xác nhận';
-                badge.className = 'status-badge status-normal';
-            }
-            const actions = document.getElementById('orderActions');
-            if (actions)
-                actions.innerHTML =
-                    '<span style="color:#10b981;font-size:12px;font-weight:500;">✓ Đã xác nhận</span>';
-            if (window.notificationManager)
-                window.notificationManager.show('Đã xác nhận đơn!', 'success');
-        } else {
-            if (window.notificationManager)
-                window.notificationManager.show('Lỗi xác nhận đơn', 'error');
-        }
-    },
-
-    /**
-     * Cancel an order
-     * @param {string} orderId
-     */
-    async cancelOrder(orderId) {
-        if (!confirm('Hủy đơn hàng này?')) return;
-        const success = await window.TposApi.cancelOrder(orderId);
-        if (success) {
-            const badge = document.getElementById('orderStatusBadge');
-            if (badge) {
-                badge.textContent = 'Huỷ bỏ';
-                badge.className = 'status-badge status-danger';
-            }
-            const actions = document.getElementById('orderActions');
-            if (actions)
-                actions.innerHTML =
-                    '<span style="color:#ef4444;font-size:12px;font-weight:500;">✗ Đã hủy</span>';
-            if (window.notificationManager) window.notificationManager.show('Đã hủy đơn!', 'info');
-        } else {
-            if (window.notificationManager) window.notificationManager.show('Lỗi hủy đơn', 'error');
-        }
-    },
+    // confirmOrder / cancelOrder REMOVED — not used by this page.
 
     async selectStatus(value, text) {
         const state = window.TposState;

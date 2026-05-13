@@ -21,6 +21,19 @@
 
 ## 2026-05-13
 
+### [tpos-pancake] Bỏ Confirm/Cancel đơn TPOS — trang này không cần
+
+**Trigger user**: "bỏ luôn phần Confirm/Cancel đơn TPOS đi vì đâu có cần" — trang `tpos-pancake/` đã chuyển tạo đơn sang NATIVE_WEB (Postgres Render), 2 action TPOS này còn sót lại.
+
+**Fix**:
+
+- [tpos-pancake/js/tpos/tpos-api.js](../tpos-pancake/js/tpos/tpos-api.js): xoá `confirmOrder()` + `cancelOrder()` (2 endpoint `SaleOnline_Order/ODataService.ActionConfirm` & `ActionCancel`).
+- [tpos-pancake/js/tpos/tpos-customer-panel.js](../tpos-pancake/js/tpos/tpos-customer-panel.js): xoá block button "Xác nhận đơn"/"Hủy đơn" (chỉ show khi `order.StatusText === 'Nháp'`) + 2 handler tương ứng.
+
+**Status**: ✅ Done. Modal khách hàng còn nút "Đóng" + "Mở trên TPOS" (link sang tomato.tpos.vn — không phải API call).
+
+---
+
 ### [orders][kpi] Đơn Hủy bỏ → ẩn HOÀN TOÀN khỏi modal KPI (không tính, không hiển thị)
 
 **Trigger user**: "phần kpi đơn nào trạng thái 'HỦY' thì không tính vào và không cần hiển thị" — fix trước chỉ exclude khỏi KPI gross nhưng VẪN hiển thị với pill "✗ Hủy bỏ" trong tab "Đơn loại". User muốn tàng hình hoàn toàn.
