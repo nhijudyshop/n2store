@@ -209,6 +209,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'REFUNDS':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'PBH_REPORTS':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_PRODUCTS':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_GENERIC':

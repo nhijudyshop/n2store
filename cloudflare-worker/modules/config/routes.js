@@ -118,6 +118,9 @@ export const ROUTES = {
     // Refunds (Trả hàng) — from PBH
     REFUNDS: { pattern: '/api/refunds/*' },
 
+    // PBH Reports — analytics dashboard
+    PBH_REPORTS: { pattern: '/api/pbh-reports/*' },
+
     // Web 2.0 Products — kho sản phẩm cho native_orders
     WEB2_PRODUCTS: { pattern: '/api/web2-products/*' },
 
@@ -202,6 +205,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/fast-sale-orders/')) return 'FAST_SALE_ORDERS';
     if (pathname.startsWith('/api/delivery-invoices/')) return 'DELIVERY_INVOICES';
     if (pathname.startsWith('/api/refunds/')) return 'REFUNDS';
+    if (pathname.startsWith('/api/pbh-reports/')) return 'PBH_REPORTS';
     if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products')
         return 'WEB2_PRODUCTS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
