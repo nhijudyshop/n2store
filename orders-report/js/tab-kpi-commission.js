@@ -516,8 +516,43 @@ const KPICommission = {
         const select = document.getElementById('kpiFilterCampaign');
         if (!select) return;
 
-        // Derive campaigns from loaded statsData
+        // Idempotent: xóa options cũ (giữ lại "Tất cả campaign") trước khi
+        // append. Nếu init() chạy 2 lần (vd hot reload) → tránh duplicate.
+        const opts = [...select.options];
+        for (const opt of opts) {
+            if (opt.value !== '') opt.remove();
+        }
+
         const campaigns = new Set();
+
+        // 1) Lấy FULL danh sách campaign từ /api/campaigns (giống tab1) —
+        // tránh case "campaign chưa có KPI thì không xuất hiện trong filter".
+        try {
+            const parentApi = window.parent?.CampaignAPI || window.top?.CampaignAPI;
+            let list = [];
+            if (parentApi?.loadAll) {
+                list = await parentApi.loadAll();
+            } else {
+                const url =
+                    (window.API_CONFIG?.WORKER_URL ||
+                        window.parent?.API_CONFIG?.WORKER_URL ||
+                        'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/campaigns';
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    list = data.campaigns || [];
+                }
+            }
+            for (const c of list) {
+                const name = c?.name || c?.displayName || c?.id;
+                if (name) campaigns.add(name);
+            }
+        } catch (e) {
+            console.warn('[KPI Tab] Load full campaign list failed:', e?.message);
+        }
+
+        // 2) Bổ sung campaign từ statsData (case campaign đã bị xóa nhưng
+        // KPI history vẫn còn — vẫn cần filter được để xem lại).
         for (const stat of this.state.statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
                 for (const order of dateData.orders || []) {
