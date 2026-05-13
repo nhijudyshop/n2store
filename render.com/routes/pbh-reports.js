@@ -222,4 +222,110 @@ router.get('/by-campaign', async (req, res) => {
     }
 });
 
+// =====================================================
+// PHASE 13 — Customer 360° unified report
+// GET /top-customers-360?days=30&limit=10
+// Groups by customer_id (when linked) — aggregates BOTH native_orders + fast_sale_orders.
+// Falls back to bucket "(chưa liên kết)" for orders without customer_id.
+// =====================================================
+router.get('/top-customers-360', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    try {
+        const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));
+        const r = await pool.query(
+            `
+            WITH nw AS (
+                SELECT
+                    customer_id,
+                    COUNT(*)::int AS nw_count,
+                    COALESCE(SUM(total_amount), 0)::numeric AS nw_total,
+                    MAX(to_timestamp(created_at / 1000)) AS nw_last,
+                    MAX(phone) FILTER (WHERE phone IS NOT NULL) AS phone_hint,
+                    MAX(customer_name) FILTER (WHERE customer_name IS NOT NULL) AS name_hint
+                FROM native_orders
+                WHERE customer_id IS NOT NULL
+                  AND to_timestamp(created_at / 1000) >= CURRENT_DATE - ($1 || ' days')::interval
+                GROUP BY customer_id
+            ),
+            pbh AS (
+                SELECT
+                    customer_id,
+                    COUNT(*)::int AS pbh_count,
+                    COALESCE(SUM(amount_total) FILTER (WHERE state != 'cancel'), 0)::numeric AS pbh_total,
+                    MAX(date_invoice) AS pbh_last,
+                    MAX(partner_phone) FILTER (WHERE partner_phone IS NOT NULL) AS phone_hint,
+                    MAX(partner_name) FILTER (WHERE partner_name IS NOT NULL) AS name_hint
+                FROM fast_sale_orders
+                WHERE customer_id IS NOT NULL
+                  AND date_invoice >= CURRENT_DATE - ($1 || ' days')::interval
+                GROUP BY customer_id
+            )
+            SELECT
+                COALESCE(nw.customer_id, pbh.customer_id) AS customer_id,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                c.status AS customer_status,
+                COALESCE(nw.nw_count, 0) AS nw_count,
+                COALESCE(nw.nw_total, 0)::numeric AS nw_total,
+                COALESCE(pbh.pbh_count, 0) AS pbh_count,
+                COALESCE(pbh.pbh_total, 0)::numeric AS pbh_total,
+                (COALESCE(nw.nw_total, 0) + COALESCE(pbh.pbh_total, 0))::numeric AS combined_total,
+                GREATEST(COALESCE(nw.nw_last, '-infinity'::timestamptz),
+                         COALESCE(pbh.pbh_last, '-infinity'::timestamptz)) AS last_order,
+                COALESCE(nw.name_hint, pbh.name_hint) AS name_hint,
+                COALESCE(nw.phone_hint, pbh.phone_hint) AS phone_hint
+            FROM nw
+            FULL OUTER JOIN pbh ON nw.customer_id = pbh.customer_id
+            LEFT JOIN customers c ON c.id = COALESCE(nw.customer_id, pbh.customer_id)
+            ORDER BY combined_total DESC
+            LIMIT $2
+            `,
+            [days, limit]
+        );
+
+        // Also collect "unlinked" bucket — orders without customer_id (data quality signal)
+        const unlinked = await pool.query(
+            `
+            SELECT
+                (SELECT COUNT(*)::int FROM native_orders
+                 WHERE customer_id IS NULL
+                   AND to_timestamp(created_at / 1000) >= CURRENT_DATE - ($1 || ' days')::interval) AS nw_unlinked,
+                (SELECT COUNT(*)::int FROM fast_sale_orders
+                 WHERE customer_id IS NULL
+                   AND date_invoice >= CURRENT_DATE - ($1 || ' days')::interval) AS pbh_unlinked
+            `,
+            [days]
+        );
+
+        res.json({
+            success: true,
+            range: { days, limit },
+            customers: r.rows.map((x) => ({
+                customerId: Number(x.customer_id),
+                name: x.customer_name || x.name_hint || null,
+                phone: x.customer_phone || x.phone_hint || null,
+                status: x.customer_status || null,
+                nw: {
+                    count: Number(x.nw_count),
+                    total: num(x.nw_total),
+                },
+                pbh: {
+                    count: Number(x.pbh_count),
+                    total: num(x.pbh_total),
+                },
+                combinedTotal: num(x.combined_total),
+                lastOrder: x.last_order,
+            })),
+            unlinked: {
+                native: Number(unlinked.rows[0].nw_unlinked),
+                pbh: Number(unlinked.rows[0].pbh_unlinked),
+            },
+        });
+    } catch (e) {
+        console.error('[PBH-REPORTS] top-customers-360 error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;

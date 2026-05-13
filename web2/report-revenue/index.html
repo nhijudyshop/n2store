@@ -266,6 +266,17 @@
                         <div id="byCampaign" class="loading">...</div>
                     </div>
                 </div>
+
+                <div class="panels" style="grid-template-columns: 1fr">
+                    <div class="panel">
+                        <h3>🌐 Top khách hàng 360° (NW + PBH combined)</h3>
+                        <div
+                            id="topCustomers360Hint"
+                            style="font-size: 12px; color: #6b7280; margin-bottom: 8px"
+                        ></div>
+                        <div id="topCustomers360" class="loading">...</div>
+                    </div>
+                </div>
             </main>
         </div>
 
@@ -427,6 +438,134 @@
                 `;
             }
 
+            async function loadTopCustomers360() {
+                const r = await fetch(
+                    `${WORKER}/api/pbh-reports/top-customers-360?days=${currentDays}&limit=15`
+                );
+                const d = await r.json();
+                if (!d.success) throw new Error(d.error);
+                // Hint above the table about unlinked counts (data-quality signal)
+                const hint = `Đơn chưa liên kết customer 360 trong ${currentDays} ngày: <strong>${d.unlinked.native}</strong> Đơn web + <strong>${d.unlinked.pbh}</strong> PBH. Bấm "👤" trên 1 row để xem chi tiết.`;
+                $('#topCustomers360Hint').innerHTML = hint;
+                if (d.customers.length === 0) {
+                    $('#topCustomers360').innerHTML =
+                        '<div class="loading">Chưa có khách hàng nào được liên kết</div>';
+                    return;
+                }
+                $('#topCustomers360').innerHTML = `
+                    <table class="table-list">
+                        <thead><tr>
+                            <th>#</th>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th class="right">NW</th>
+                            <th class="right">PBH</th>
+                            <th class="right">Tổng</th>
+                            <th></th>
+                        </tr></thead>
+                        <tbody>
+                            ${d.customers
+                                .map(
+                                    (c, i) => `
+                                <tr>
+                                    <td>${i + 1}</td>
+                                    <td><strong>${esc(c.name || '—')}</strong>${c.status ? ` <span style="font-size:10px;color:#7c3aed;background:#ede9fe;padding:1px 5px;border-radius:3px;">${esc(c.status)}</span>` : ''}</td>
+                                    <td><code style="font-size:11px">${esc(c.phone || '—')}</code></td>
+                                    <td class="right">${c.nw.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.nw.total)}</span></td>
+                                    <td class="right">${c.pbh.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.pbh.total)}</span></td>
+                                    <td class="right" style="color:#10b981;font-weight:700;">${fmtMoney(c.combinedTotal)}</td>
+                                    <td>
+                                        <button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xem khách 360°" style="color:#7c3aed;" onclick="openCustomerModal(${c.customerId})">
+                                            <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `
+                                )
+                                .join('')}
+                        </tbody>
+                    </table>
+                `;
+                if (window.lucide) lucide.createIcons();
+            }
+
+            // Inline customer 360 modal (same shape as PBH + Native pages)
+            async function openCustomerModal(customerId) {
+                if (!customerId) return;
+                let modal = document.getElementById('customer360Modal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'customer360Modal';
+                    modal.style.cssText =
+                        'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+                    modal.innerHTML = `
+                        <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
+                            <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                                <strong id="c360Title" style="font-size:14px;color:#1f2937;">Khách hàng 360°</strong>
+                                <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
+                            </div>
+                            <div id="c360Body" style="padding:16px;font-size:13px;color:#374151;">Đang tải…</div>
+                        </div>`;
+                    document.body.appendChild(modal);
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) modal.style.display = 'none';
+                    });
+                    modal.querySelector('#c360Close').addEventListener('click', () => {
+                        modal.style.display = 'none';
+                    });
+                }
+                modal.style.display = 'flex';
+                const body = modal.querySelector('#c360Body');
+                const title = modal.querySelector('#c360Title');
+                title.textContent = `Khách hàng #${customerId} — Đơn web + PBH`;
+                body.innerHTML = '<div style="color:#6b7280;">Đang tải…</div>';
+                try {
+                    const r = await fetch(
+                        `${WORKER}/api/v2/customers/${customerId}/orders?limit=20`
+                    );
+                    const data = await r.json();
+                    if (!data?.success) throw new Error(data?.error || `HTTP ${r.status}`);
+                    const { native, pbh, summary } = data;
+                    const m = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+                    const renderRows = (label, items, codeKey, totalKey, stateKey) => `
+                        <div style="margin-bottom:14px;">
+                            <div style="font-weight:600;margin-bottom:6px;color:#111827;">${label} (${items.length})</div>
+                            ${
+                                items.length === 0
+                                    ? '<div style="color:#9ca3af;font-style:italic;">Không có</div>'
+                                    : `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                                        <thead><tr style="background:#f9fafb;text-align:left;"><th style="padding:6px 8px;">Mã</th><th style="padding:6px 8px;text-align:right;">Tổng</th><th style="padding:6px 8px;">Trạng thái</th><th style="padding:6px 8px;">Chiến dịch</th></tr></thead>
+                                        <tbody>${items
+                                            .slice(0, 10)
+                                            .map(
+                                                (it) =>
+                                                    `<tr style="border-top:1px solid #e5e7eb;"><td style="padding:6px 8px;font-weight:600;">${esc(it[codeKey])}</td><td style="padding:6px 8px;text-align:right;">${m(it[totalKey])}</td><td style="padding:6px 8px;">${esc(it[stateKey] || '—')}</td><td style="padding:6px 8px;color:#6b7280;">${esc(it.liveCampaign?.name || '—')}</td></tr>`
+                                            )
+                                            .join('')}</tbody>
+                                    </table>`
+                            }
+                        </div>`;
+                    body.innerHTML = `
+                        <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
+                            <div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web</div>
+                                <div style="font-size:18px;font-weight:700;">${summary.native.count}</div>
+                                <div style="font-size:11px;">${m(summary.native.totalAmount)}</div>
+                            </div>
+                            <div style="background:#dbeafe;color:#1e40af;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">PBH</div>
+                                <div style="font-size:18px;font-weight:700;">${summary.pbh.count}</div>
+                                <div style="font-size:11px;">${m(summary.pbh.totalAmount)}</div>
+                            </div>
+                        </div>
+                        ${renderRows('Đơn web', native, 'code', 'totalAmount', 'status')}
+                        ${renderRows('PBH', pbh, 'number', 'amountTotal', 'state')}
+                    `;
+                } catch (e) {
+                    body.innerHTML = `<div style="color:#dc2626;">Lỗi: ${esc(e.message)}</div>`;
+                }
+            }
+
             async function loadAll() {
                 try {
                     await Promise.all([
@@ -434,6 +573,7 @@
                         loadRevenueChart(),
                         loadTopCustomers(),
                         loadByCampaign(),
+                        loadTopCustomers360(),
                     ]);
                 } catch (e) {
                     console.error('[reports] load error', e);
