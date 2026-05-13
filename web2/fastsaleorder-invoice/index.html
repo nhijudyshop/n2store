@@ -102,6 +102,14 @@
                             </button>
                             <button
                                 class="tpos-btn tpos-btn-default tpos-btn-sm"
+                                id="pbhExportCsv"
+                                title="Xuất Excel CSV"
+                            >
+                                <i data-lucide="download" style="width: 12px; height: 12px"></i>
+                                Xuất Excel
+                            </button>
+                            <button
+                                class="tpos-btn tpos-btn-default tpos-btn-sm"
                                 id="pbhResetStt"
                                 title="Reset STT"
                             >
@@ -109,6 +117,38 @@
                                 Reset STT
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Bulk action toolbar — visible when any row checked -->
+                    <div
+                        id="pbhBulkBar"
+                        style="
+                            display: none;
+                            margin-top: 10px;
+                            padding: 10px 14px;
+                            background: #ede9fe;
+                            border: 1px solid #c4b5fd;
+                            border-radius: 8px;
+                            align-items: center;
+                            gap: 12px;
+                        "
+                    >
+                        <span><strong id="pbhBulkCount">0</strong> đơn được chọn</span>
+                        <button class="tpos-btn tpos-btn-success tpos-btn-sm" id="pbhBulkConfirm">
+                            <i data-lucide="check" style="width: 12px; height: 12px"></i> Xác nhận
+                            tất cả
+                        </button>
+                        <button class="tpos-btn tpos-btn-warning tpos-btn-sm" id="pbhBulkCancel">
+                            <i data-lucide="x-circle" style="width: 12px; height: 12px"></i> Hủy tất
+                            cả
+                        </button>
+                        <button
+                            class="tpos-btn tpos-btn-default tpos-btn-sm"
+                            id="pbhBulkUnselect"
+                            style="margin-left: auto"
+                        >
+                            <i data-lucide="x" style="width: 12px; height: 12px"></i> Bỏ chọn
+                        </button>
                     </div>
                 </section>
 

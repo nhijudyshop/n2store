@@ -259,6 +259,160 @@ router.get('/health', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// GET /export — CSV download (Excel-compatible, UTF-8 BOM)
+// -----------------------------------------------------
+router.get('/export', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).send('DB unavailable');
+    try {
+        await ensureTables(pool);
+        const { state, search } = req.query;
+        const conds = [];
+        const params = [];
+        if (state) {
+            params.push(state);
+            conds.push(`state = $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            const i = params.length;
+            conds.push(
+                `(partner_name ILIKE $${i} OR partner_phone ILIKE $${i} OR number ILIKE $${i} OR source_code ILIKE $${i})`
+            );
+        }
+        const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+        const r = await pool.query(
+            `SELECT * FROM fast_sale_orders ${where} ORDER BY date_invoice DESC LIMIT 10000`,
+            params
+        );
+
+        // CSV header
+        const STATE_LABEL = {
+            draft: 'Nháp',
+            confirmed: 'Đã xác nhận',
+            done: 'Hoàn thành',
+            cancel: 'Đã hủy',
+        };
+        const headers = [
+            'STT',
+            'Số HĐ',
+            'Ngày HĐ',
+            'Khách hàng',
+            'SĐT',
+            'Địa chỉ',
+            'Tỉnh/TP',
+            'Quận/Huyện',
+            'Phường/Xã',
+            'Tổng SL',
+            'Tổng tiền',
+            'Đã thanh toán',
+            'Đặt cọc',
+            'Còn nợ',
+            'Phí giao',
+            'COD',
+            'Hãng VC',
+            'Tracking',
+            'Trạng thái',
+            'Số lần in',
+            'Đơn nguồn',
+            'Chiến dịch',
+            'Kho',
+            'NV bán',
+        ];
+
+        function esc(v) {
+            if (v == null) return '';
+            const s = String(v);
+            // CSV escape: wrap in quotes if contains comma/newline/quote
+            if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        }
+        function fmtDate(d) {
+            if (!d) return '';
+            const dt = new Date(d);
+            return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        }
+
+        const rows = r.rows.map((row) =>
+            [
+                row.display_stt || '',
+                row.number,
+                fmtDate(row.date_invoice),
+                row.partner_name || '',
+                row.partner_phone || '',
+                row.partner_address || '',
+                row.city_name || '',
+                row.district_name || '',
+                row.ward_name || '',
+                row.total_quantity || 0,
+                Number(row.amount_total || 0),
+                Number(row.payment_amount || 0),
+                Number(row.deposit || 0),
+                Number(row.residual || 0),
+                Number(row.delivery_price || 0),
+                Number(row.cash_on_delivery || 0),
+                row.carrier_name || '',
+                row.tracking_ref || '',
+                STATE_LABEL[row.state] || row.state,
+                row.print_count || 0,
+                row.source_code || '',
+                row.live_campaign_name || '',
+                row.warehouse_name || '',
+                row.assigned_user_name || row.created_by_name || '',
+            ]
+                .map(esc)
+                .join(',')
+        );
+
+        // UTF-8 BOM (﻿) cho Excel hiển thị đúng tiếng Việt
+        const csv = '﻿' + headers.join(',') + '\n' + rows.join('\n');
+        const filename = `pbh-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    } catch (e) {
+        console.error('[FAST-SALE-ORDERS] export error:', e.message);
+        res.status(500).send('Export failed: ' + e.message);
+    }
+});
+
+// -----------------------------------------------------
+// POST /bulk-confirm + /bulk-cancel — batch state change
+// Body: { numbers: ['HD-...', 'HD-...'] }
+// -----------------------------------------------------
+async function _bulkStateChange(req, res, newState) {
+    const pool = req.app.locals.chatDb;
+    try {
+        await ensureTables(pool);
+        const numbers = Array.isArray(req.body?.numbers) ? req.body.numbers : [];
+        if (!numbers.length) return res.status(400).json({ error: 'numbers required' });
+
+        // Guard: confirm only from draft, cancel only from non-cancel
+        const allowedSource = newState === 'done' ? `state = 'draft'` : `state != 'cancel'`;
+        const r = await pool.query(
+            `UPDATE fast_sale_orders SET state = $1, date_updated = NOW()
+             WHERE number = ANY($2::text[]) AND ${allowedSource}
+             RETURNING *`,
+            [newState, numbers]
+        );
+        const orders = r.rows.map(mapRow);
+        // Broadcast batch event
+        if (req.app.locals.broadcastToClients && orders.length) {
+            req.app.locals.broadcastToClients({
+                type: newState === 'done' ? 'pbh:bulk-confirmed' : 'pbh:bulk-cancelled',
+                count: orders.length,
+                numbers: orders.map((o) => o.number),
+            });
+        }
+        res.json({ success: true, changed: orders.length, requested: numbers.length, orders });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+}
+router.post('/bulk-confirm', (req, res) => _bulkStateChange(req, res, 'done'));
+router.post('/bulk-cancel', (req, res) => _bulkStateChange(req, res, 'cancel'));
+
+// -----------------------------------------------------
 // GET /load — list with filter + paging
 // -----------------------------------------------------
 router.get('/load', async (req, res) => {

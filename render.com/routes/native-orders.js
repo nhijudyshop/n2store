@@ -496,6 +496,121 @@ router.get('/campaigns', async (req, res) => {
     }
 });
 
+// -----------------------------------------------------
+// GET /export — CSV download cho Đơn Web
+// -----------------------------------------------------
+router.get('/export', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).send('DB unavailable');
+    try {
+        await ensureTables(pool);
+        const { status, search, campaignIds } = req.query;
+        const conds = [];
+        const params = [];
+        if (status && status !== 'all') {
+            const arr = String(status).split(',').filter(Boolean);
+            params.push(arr.length === 1 ? arr[0] : arr);
+            conds.push(
+                arr.length === 1
+                    ? `status = $${params.length}`
+                    : `status = ANY($${params.length}::text[])`
+            );
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            const i = params.length;
+            conds.push(
+                `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i})`
+            );
+        }
+        if (campaignIds) {
+            const ids = String(campaignIds)
+                .split(',')
+                .filter((s) => s && s !== '__no_campaign__');
+            if (ids.length) {
+                params.push(ids);
+                conds.push(`live_campaign_id = ANY($${params.length}::text[])`);
+            }
+        }
+        const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+        const r = await pool.query(
+            `SELECT * FROM native_orders ${where} ORDER BY created_at DESC LIMIT 10000`,
+            params
+        );
+
+        const STATUS_LABEL = {
+            draft: 'Nháp',
+            confirmed: 'Đã XN',
+            cancelled: 'Đã hủy',
+            delivered: 'Đã giao',
+        };
+        const headers = [
+            'STT',
+            'Mã đơn',
+            'Ngày tạo',
+            'Khách hàng',
+            'SĐT',
+            'Địa chỉ',
+            'Tỉnh/TP',
+            'Quận/Huyện',
+            'Phường/Xã',
+            'Tổng SL',
+            'Tổng tiền',
+            'Đặt cọc',
+            'Trạng thái',
+            'Comment count',
+            'Chiến dịch',
+            'FB Page',
+            'FB User',
+            'Nhân viên',
+        ];
+        function esc(v) {
+            if (v == null) return '';
+            const s = String(v);
+            if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        }
+        function fmtMs(ms) {
+            if (!ms) return '';
+            const d = new Date(Number(ms));
+            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+        const rows = r.rows.map((row) =>
+            [
+                row.display_stt || '',
+                row.code,
+                fmtMs(row.created_at),
+                row.customer_name || '',
+                row.phone || '',
+                row.address || '',
+                row.city_name || '',
+                row.district_name || '',
+                row.ward_name || '',
+                row.total_quantity || 0,
+                Number(row.total_amount || 0),
+                Number(row.deposit || 0),
+                STATUS_LABEL[row.status] || row.status,
+                row.comment_count || 1,
+                row.live_campaign_name || '',
+                row.fb_page_id || '',
+                row.fb_user_name || '',
+                row.assigned_employee_name || row.created_by_name || '',
+            ]
+                .map(esc)
+                .join(',')
+        );
+
+        const csv = '﻿' + headers.join(',') + '\n' + rows.join('\n');
+        const filename = `donweb-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    } catch (e) {
+        console.error('[NATIVE-ORDERS] export error:', e.message);
+        res.status(500).send('Export failed: ' + e.message);
+    }
+});
+
 router.get('/load', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });

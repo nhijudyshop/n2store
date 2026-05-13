@@ -245,6 +245,67 @@
         }
     }
 
+    function exportCsv() {
+        const p = new URLSearchParams();
+        if (STATE.search) p.set('search', STATE.search);
+        if (STATE.state) p.set('state', STATE.state);
+        const url = `${WORKER}/api/fast-sale-orders/export?${p}`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        notify('Đang tải Excel...', 'info');
+    }
+
+    // -------- Bulk actions --------
+    function getSelectedNumbers() {
+        return Array.from(document.querySelectorAll('#pbhTbody .row-check:checked')).map(
+            (c) => c.value
+        );
+    }
+    function updateBulkBar() {
+        const sel = getSelectedNumbers();
+        const bar = $('#pbhBulkBar');
+        if (sel.length === 0) {
+            bar.style.display = 'none';
+        } else {
+            bar.style.display = 'flex';
+            $('#pbhBulkCount').textContent = sel.length;
+        }
+    }
+    async function bulkAction(endpoint, label) {
+        const numbers = getSelectedNumbers();
+        if (!numbers.length) return;
+        if (!confirm(`${label} ${numbers.length} đơn?`)) return;
+        try {
+            const r = await fetch(`${WORKER}/api/fast-sale-orders/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numbers }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            notify(`${label}: ${data.changed}/${data.requested} đơn`, 'success');
+            // Uncheck check-all + reload
+            const ca = $('#pbhCheckAll');
+            if (ca) ca.checked = false;
+            updateBulkBar();
+            load();
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
+        }
+    }
+    function unselectAll() {
+        document.querySelectorAll('#pbhTbody .row-check:checked').forEach((c) => {
+            c.checked = false;
+        });
+        const ca = $('#pbhCheckAll');
+        if (ca) ca.checked = false;
+        updateBulkBar();
+    }
+
     async function resetStt() {
         const renumber = confirm(
             'Reset STT — OK để renumber tất cả PBH theo ngày HĐ. Cancel để chỉ reset bộ đếm.'
@@ -307,6 +368,22 @@
                 },
             });
         }
+        $('#pbhExportCsv').addEventListener('click', exportCsv);
+        $('#pbhBulkConfirm').addEventListener('click', () =>
+            bulkAction('bulk-confirm', 'Xác nhận')
+        );
+        $('#pbhBulkCancel').addEventListener('click', () => bulkAction('bulk-cancel', 'Hủy'));
+        $('#pbhBulkUnselect').addEventListener('click', unselectAll);
+        // Check-all + per-row check delegation
+        $('#pbhCheckAll')?.addEventListener('change', (e) => {
+            document.querySelectorAll('#pbhTbody .row-check').forEach((c) => {
+                c.checked = e.target.checked;
+            });
+            updateBulkBar();
+        });
+        document.addEventListener('change', (e) => {
+            if (e.target.classList?.contains('row-check')) updateBulkBar();
+        });
         $('#pbhApply').addEventListener('click', applyFilters);
         $('#pbhClear').addEventListener('click', clearFilters);
         $('#pbhReload').addEventListener('click', load);
