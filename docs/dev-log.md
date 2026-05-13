@@ -25,6 +25,31 @@
 
 ## 2026-05-13
 
+### [pbh][print][reports] Phase 8-9: Print HTML + Reports dashboard
+
+**Phase 8 — Print PBH** ([web2/fastsaleorder-invoice/print.html](../web2/fastsaleorder-invoice/print.html)):
+
+- Standalone printable invoice page A4 (`?number=HD-...`).
+- Layout: company header (N2 Store brand) + parties block (bên bán / khách hàng) + items table (#, SP, ĐVT, SL, đơn giá, giảm, thành tiền) + totals (untaxed/discount/tax/delivery/grand) + COD/deposit/residual + signature blocks.
+- `@media print` ẩn top-actions, font 11px.
+- Auto increment `print_count` via `/print` API on render → realtime WS `pbh:printed` event broadcast.
+- PBH list "In" button mở popup print.html thay vì alert.
+
+**Phase 9 — Reports dashboard** ([render.com/routes/pbh-reports.js](../render.com/routes/pbh-reports.js) + [web2/report-revenue](../web2/report-revenue)):
+
+- 4 endpoints: `/summary` (KPI + states), `/revenue` (daily series), `/top-customers` (ranked), `/by-campaign` (group by live_campaign).
+- UI: 6 KPI cards color-coded (today revenue/30d revenue/residual/native orders/shipping/refunds), bar chart doanh thu theo ngày với hover tooltip, 4-pie state breakdown, top customers table, campaign table.
+- Range selector 7/30/90/365 ngày.
+- **Realtime auto-refresh**: subscribe `pbh:*` + `native_order:created` (debounced 2s) → reload toàn bộ dashboard.
+
+**tpos-pancake feedback** ([tpos-comment-list.js](../tpos-pancake/js/tpos/tpos-comment-list.js)):
+
+- Phân biệt 3 trường hợp khi tạo đơn từ comment: idempotent ("đã tồn tại"), merged ("📝 Đã gộp comment vào đơn N comments"), created ("🆕 Đã tạo đơn web").
+
+Status: ✅ Deploy live commit `0041026c`. Dashboard có thể xem tại `/web2/report-revenue/index.html`.
+
+---
+
 ### [pbh][realtime][merge] Phase 6-7: WS realtime sync + comment-merge by campaign — QA 40/40
 
 **User**: "1/ tạo đơn ở tpos-pancake → realtime update native-orders bảng / 2/ khách đã có đơn trong chiến dịch → bấm tạo nữa thì thêm comment vào đơn cũ".
