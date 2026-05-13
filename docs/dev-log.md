@@ -8,14 +8,18 @@
 
 ## 🔗 Session Resume Protocol (BẮT BUỘC)
 
-> Sau mỗi commit+push xong, Claude phải tạo session resume để chat mới có thể tiếp tục seamless.
+> Sau mỗi commit+push xong, **Stop hook tự động** tạo session resume + in token. Claude không cần chạy script thủ công.
 
-- **Tạo**: `bash scripts/save-session-resume.sh "<1-dòng summary>"` → sinh `docs/sessions/<YYYYMMDD-HHMMSS>-<sha7>.md` + commit/push tự động.
+- **Tạo (auto)**: hook `.claude/scripts/hooks/stop-auto-commit-push.sh` gọi `bash scripts/save-session-resume.sh` sau khi commit+push → sinh `docs/sessions/<YYYYMMDD-HHMMSS>-<sha7>.md` + commit/push file đó → in token.
 - **Token in cuối turn**: `🔗 RESUME:<YYYYMMDD-HHMMSS>-<sha7>` (ví dụ `RESUME:20260513-094400-2f8a169`). User copy paste vào chat mới.
-- **Khi chat mới nhận token** match `RESUME:[0-9]{8}-[0-9]{6}-[a-f0-9]{7}` → Claude `Read` file `docs/sessions/<token>.md` → tóm tắt 2-3 câu → tiếp tục từ "Next Steps".
-- **Sau script** mở file vừa sinh, điền chi tiết các mục Key Decisions / Next Steps / Context Pointers (script chỉ fill metadata + file list).
+- **Chain walking** khi chat mới nhận token match `RESUME:[0-9]{8}-[0-9]{6}-[a-f0-9]{7}`:
+    1. `Read` file `docs/sessions/<token>.md`.
+    2. Xem section "7. Previous Session" — nếu có Previous ≠ INITIAL → `Read` file previous đó.
+    3. Lặp tối đa **3 levels** mặc định, hoặc đến INITIAL nếu user yêu cầu "full chain".
+    4. Tóm tắt 2-3 câu tổng hợp → tiếp tục từ Next Steps của session gần nhất.
+- **Sau script chạy**: nên mở file vừa sinh, điền chi tiết **Key Decisions / Next Steps / Context Pointers** (script chỉ fill metadata + file list từ commit message).
 - Quy ước đầy đủ: [`docs/sessions/README.md`](sessions/README.md). Template: [`docs/sessions/_TEMPLATE.md`](sessions/_TEMPLATE.md).
-- **Vì sao không base64/hash thô**: hash 1-chiều không recover; base64 transcript đầy đủ vài MB không paste nổi → token ngắn + file md trong git là balance tốt nhất.
+- **Vì sao không base64/hash thô**: hash 1-chiều không recover; base64 transcript đầy đủ vài MB không paste nổi → token ngắn + file md trong git + chain pointer là balance tốt nhất.
 
 ---
 

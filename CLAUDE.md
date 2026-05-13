@@ -11,10 +11,17 @@
 - In token ra cuối câu trả lời: `🔗 RESUME:<YYYYMMDD-HHMMSS>-<sha7>` (ví dụ `RESUME:20260513-094400-2f8a169`)
 - Sau khi script chạy, MỞ file vừa sinh, điền các mục **Key Decisions / Next Steps / Context Pointers** cho chi tiết (script chỉ fill metadata + file list).
 
-**Khi đọc (Claude nhận diện):**
+**Khi đọc (Claude nhận diện) — CHAIN WALKING:**
 
-- Nếu user paste chuỗi match regex `RESUME:[0-9]{8}-[0-9]{6}-[a-f0-9]{7}` trong chat mới → parse → `Read` file `docs/sessions/<token>.md` → tóm tắt 2-3 câu confirm hiểu đúng → tiếp tục từ phần "Next Steps".
+- Nếu user paste chuỗi match regex `RESUME:[0-9]{8}-[0-9]{6}-[a-f0-9]{7}` trong chat mới:
+    1. `Read` file `docs/sessions/<token>.md`.
+    2. Xem section **"7. Previous Session (Chain Pointer)"** — nếu có Previous ≠ "INITIAL" → `Read` luôn file previous đó.
+    3. Lặp lại bước 2 tối đa **3 levels** mặc định (token cuối → previous → previous previous). Tránh context bloat.
+    4. Nếu user nói "đọc full chain" / "đi hết chain" → walk hết tới INITIAL.
+    5. Tóm tắt 2-3 câu tổng hợp các session đã đọc → confirm hiểu đúng → tiếp tục từ "Next Steps" của session **gần nhất** (file user paste).
 - File không tồn tại → báo lỗi, KHÔNG đoán mò.
+
+**Vì sao chain walking:** 1 conversation có thể tạo nhiều token (mỗi turn Stop hook fire 1 lần). Mỗi session file có link đến previous, nên paste 1 token cuối là Claude tự lần ngược đủ context, không cần user paste nhiều token.
 
 **Format & rationale**: xem [`docs/sessions/README.md`](docs/sessions/README.md). Tóm: dùng token+file md thay vì base64/hash thô vì hash 1-chiều, base64 transcript đầy đủ quá dài để paste; token ~30 ký tự + file structured có thể chứa context lớn, được git track.
 
