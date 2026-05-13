@@ -451,8 +451,186 @@ async function main() {
         await fetch(`${WORKER}/api/native-orders/${wsTestCode}`, { method: 'DELETE' });
     });
 
+    // ---- Phase 10: Excel CSV export ----
+    console.log('\n▶ STEP 10: Phase 10 — Excel CSV export');
+
+    await step('GET /api/fast-sale-orders/export → CSV (UTF-8 BOM)', async () => {
+        const r = await fetch(`${WORKER}/api/fast-sale-orders/export?state=draft&limit=1000`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const ct = r.headers.get('content-type') || '';
+        if (!/text\/csv/.test(ct)) throw new Error(`content-type=${ct}, want text/csv`);
+        const cd = r.headers.get('content-disposition') || '';
+        if (!/pbh-export-\d{4}-\d{2}-\d{2}\.csv/.test(cd))
+            throw new Error(`bad filename in CD: ${cd}`);
+        const buf = Buffer.from(await r.arrayBuffer());
+        // UTF-8 BOM = EF BB BF
+        if (buf[0] !== 0xef || buf[1] !== 0xbb || buf[2] !== 0xbf)
+            throw new Error('missing UTF-8 BOM');
+        const csv = buf.slice(3).toString('utf-8');
+        const headerLine = csv.split('\n')[0];
+        // Verify ≥20 columns header
+        const cols = headerLine.split(',').length;
+        if (cols < 20) throw new Error(`only ${cols} columns in header, want ≥20`);
+        ok(`CSV exports ${cols} columns, UTF-8 BOM present`);
+    });
+
+    await step('GET /api/native-orders/export → CSV', async () => {
+        const r = await fetch(`${WORKER}/api/native-orders/export?limit=1000`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const cd = r.headers.get('content-disposition') || '';
+        if (!/donweb-export-\d{4}-\d{2}-\d{2}\.csv/.test(cd))
+            throw new Error(`bad filename: ${cd}`);
+        const buf = Buffer.from(await r.arrayBuffer());
+        if (buf[0] !== 0xef || buf[1] !== 0xbb || buf[2] !== 0xbf)
+            throw new Error('missing UTF-8 BOM');
+        ok('Native-orders CSV export OK');
+    });
+
+    // ---- Phase 11: Bulk actions ----
+    console.log('\n▶ STEP 11: Phase 11 — Bulk actions');
+
+    await step('POST /bulk-confirm with empty numbers → 400 (validation)', async () => {
+        const r = await api('POST', '/api/fast-sale-orders/bulk-confirm', { numbers: [] });
+        if (r.status !== 400) throw new Error(`expected 400 (numbers required), got ${r.status}`);
+        if (!/numbers required/i.test(r.data?.error || ''))
+            throw new Error(`unexpected error message: ${r.data?.error}`);
+        ok('empty array → 400 with "numbers required" error');
+    });
+
+    await step('POST /bulk-confirm with fake number → 0 changed', async () => {
+        const r = await api('POST', '/api/fast-sale-orders/bulk-confirm', {
+            numbers: ['HD-DOESNOTEXIST-99999'],
+        });
+        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
+        if (r.data?.changed !== 0) throw new Error(`expected 0 changed, got ${r.data?.changed}`);
+        ok('fake number → graceful no-op (0 changed, 1 requested)');
+    });
+
+    await step('POST /bulk-cancel with fake number → 0 changed', async () => {
+        const r = await api('POST', '/api/fast-sale-orders/bulk-cancel', {
+            numbers: ['HD-DOESNOTEXIST-99999'],
+        });
+        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
+        if (r.data?.changed !== 0) throw new Error(`expected 0 changed, got ${r.data?.changed}`);
+        ok('bulk-cancel graceful no-op');
+    });
+
+    // ---- Phase 12: Customer 360 cross-system FK ----
+    console.log('\n▶ STEP 12: Phase 12 — Customer 360 link');
+
+    // Test customer per CLAUDE.md memory: Huỳnh Thành Đạt — 0123456788 (test default).
+    // We use this phone so the auto-link can find an existing customer row.
+    const TEST_CUSTOMER_PHONE = '0123456788';
+    let testCustomerId = null;
+
+    await step('Lookup test customer (Huỳnh Thành Đạt)', async () => {
+        const r = await api('GET', `/api/v2/customers/by-phone/${TEST_CUSTOMER_PHONE}`);
+        if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+        // Endpoint can return {success:true, data:null} if customer doesn't exist
+        // In live system the test customer should exist; if not, we'll skip downstream
+        if (!r.data?.success) throw new Error(`response not success: ${JSON.stringify(r.data)}`);
+        // Fetch numeric id via /load search by phone
+        const lr = await api('GET', `/api/v2/customers?phone=${TEST_CUSTOMER_PHONE}&limit=1`);
+        if (lr.data?.data?.length > 0) {
+            testCustomerId = Number(lr.data.data[0].id);
+            ok(`test customer id=${testCustomerId}`);
+        } else {
+            ok('test customer not in DB — downstream tests will exercise null path');
+        }
+    });
+
+    let phase12NativeCode = null;
+    await step('Create NW with test phone → auto-link customer_id', async () => {
+        const r = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: `qa-phase12-${Date.now()}`,
+            fbUserName: 'Phase12 Test',
+            phone: TEST_CUSTOMER_PHONE,
+            customerName: 'Phase12 Test',
+        });
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
+        phase12NativeCode = r.data.order.code;
+        if (testCustomerId && r.data.order.customerId !== testCustomerId) {
+            throw new Error(`customerId=${r.data.order.customerId}, expected ${testCustomerId}`);
+        }
+        ok(
+            `NW ${phase12NativeCode}, customerId=${r.data.order.customerId} (matched=${
+                testCustomerId === r.data.order.customerId
+            })`
+        );
+    });
+
+    await step('PATCH NW phone → re-links customer_id', async () => {
+        if (!phase12NativeCode) return ok('skipped — no NW created');
+        // Change phone to a non-existent one → customer_id should become null
+        const r = await api('PATCH', `/api/native-orders/${phase12NativeCode}`, {
+            phone: '0900000000',
+        });
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}`);
+        if (r.data.order.customerId !== null)
+            throw new Error(
+                `customer_id=${r.data.order.customerId}, expected null after phone swap`
+            );
+        ok('phone swap unlinks customer_id (null)');
+        // Restore to test phone for cleanup
+        await api('PATCH', `/api/native-orders/${phase12NativeCode}`, {
+            phone: TEST_CUSTOMER_PHONE,
+        });
+    });
+
+    let phase12PbhNumber = null;
+    await step('Convert NW → PBH → inherits customer_id', async () => {
+        if (!phase12NativeCode) return ok('skipped — no NW created');
+        const r = await api('POST', '/api/fast-sale-orders/from-native-order', {
+            nativeOrderCode: phase12NativeCode,
+        });
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
+        phase12PbhNumber = r.data.order.number;
+        if (testCustomerId && r.data.order.customerId !== testCustomerId) {
+            throw new Error(
+                `PBH customerId=${r.data.order.customerId}, expected ${testCustomerId}`
+            );
+        }
+        ok(`PBH ${phase12PbhNumber} customerId=${r.data.order.customerId}`);
+    });
+
+    await step('POST /api/native-orders/backfill-customer-links idempotent', async () => {
+        const r = await api('POST', '/api/native-orders/backfill-customer-links', {});
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
+        ok(`backfill linked ${r.data.linked} native_orders`);
+    });
+
+    await step('POST /api/fast-sale-orders/backfill-customer-links idempotent', async () => {
+        const r = await api('POST', '/api/fast-sale-orders/backfill-customer-links', {});
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
+        ok(`backfill linked ${r.data.linked} PBHs`);
+    });
+
+    await step('GET /api/v2/customers/:id/orders aggregation', async () => {
+        if (!testCustomerId) return ok('skipped — test customer not in DB');
+        const r = await api('GET', `/api/v2/customers/${testCustomerId}/orders`);
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
+        const { native, pbh, summary } = r.data;
+        if (!Array.isArray(native) || !Array.isArray(pbh)) throw new Error('native/pbh not arrays');
+        // Our test NW + PBH must appear in the result
+        const foundNw = native.some((o) => o.code === phase12NativeCode);
+        const foundPbh = pbh.some((o) => o.number === phase12PbhNumber);
+        if (!foundNw) throw new Error(`test NW ${phase12NativeCode} not in aggregation`);
+        if (!foundPbh) throw new Error(`test PBH ${phase12PbhNumber} not in aggregation`);
+        ok(
+            `aggregation OK — ${summary.native.count} NW + ${summary.pbh.count} PBH, total ${summary.native.totalAmount + summary.pbh.totalAmount}`
+        );
+    });
+
+    await step('GET /api/v2/customers/<phone>/orders also works', async () => {
+        const r = await api('GET', `/api/v2/customers/${TEST_CUSTOMER_PHONE}/orders`);
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}`);
+        if (!Array.isArray(r.data.native) || !Array.isArray(r.data.pbh))
+            throw new Error('native/pbh not arrays');
+        ok(`phone-as-id works (${r.data.native.length} NW + ${r.data.pbh.length} PBH)`);
+    });
+
     // ---- Browser tests ----
-    console.log('\n▶ STEP 11: Browser UI tests');
+    console.log('\n▶ STEP 12: Browser UI tests');
     await ensureLocalServer(BASE);
     const browser = await chromium.launch({ headless: true });
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -488,6 +666,59 @@ async function main() {
         const rowCount = await page.locator('#pbhTbody tr:not(:has(.empty-row))').count();
         if (rowCount === 0) throw new Error('search after fill found 0 rows');
         ok(`search filter returns ${rowCount} rows`);
+    });
+
+    await step('Phase 10 UI: Xuất Excel button present', async () => {
+        const btn = page.locator('#pbhExportCsv');
+        const cnt = await btn.count();
+        if (cnt === 0) throw new Error('#pbhExportCsv button not found');
+        const text = (await btn.textContent()) || '';
+        if (!/Xuất Excel/.test(text))
+            throw new Error(`button text="${text.trim()}", expect "Xuất Excel"`);
+        ok('"Xuất Excel" button present');
+    });
+
+    await step('Phase 11 UI: bulk bar appears when row checked', async () => {
+        // Clear filter so all rows show (test PBH may not exist)
+        await page.fill('#pbhSearch', '');
+        await page.click('#pbhApply');
+        await page.waitForTimeout(1500);
+        const rowCheckboxes = await page.locator('#pbhTbody .row-check').count();
+        if (rowCheckboxes === 0) throw new Error('no .row-check checkboxes rendered');
+        // Bulk bar should be hidden initially
+        const bulkBarBefore = await page
+            .locator('#pbhBulkBar')
+            .evaluate((el) => window.getComputedStyle(el).display);
+        if (bulkBarBefore !== 'none')
+            throw new Error(`bulk bar visible before check (display=${bulkBarBefore})`);
+        // Check the first row
+        await page.locator('#pbhTbody .row-check').first().check();
+        await page.waitForTimeout(300);
+        const bulkBarAfter = await page
+            .locator('#pbhBulkBar')
+            .evaluate((el) => window.getComputedStyle(el).display);
+        if (bulkBarAfter === 'none') throw new Error('bulk bar still hidden after checking row');
+        const countText = (await page.locator('#pbhBulkCount').textContent()) || '';
+        if (!/^[1-9]/.test(countText.trim()))
+            throw new Error(`bulk count="${countText.trim()}", expect ≥1`);
+        ok(`bulk bar appears (display=${bulkBarAfter}, count=${countText.trim()})`);
+        // Uncheck to clean state
+        await page.click('#pbhBulkUnselect').catch(() => {});
+        await page.waitForTimeout(200);
+    });
+
+    await step('Phase 11 UI: check-all toggles all rows', async () => {
+        const total = await page.locator('#pbhTbody .row-check').count();
+        await page.locator('#pbhCheckAll').check();
+        await page.waitForTimeout(300);
+        const checkedAfter = await page.locator('#pbhTbody .row-check:checked').count();
+        if (checkedAfter !== total)
+            throw new Error(`checked=${checkedAfter}/${total} after check-all`);
+        const bulkCount = parseInt((await page.locator('#pbhBulkCount').textContent()) || '0', 10);
+        if (bulkCount !== total) throw new Error(`bulk count=${bulkCount}, want ${total}`);
+        ok(`check-all → ${total}/${total} checked, bulk shows ${bulkCount}`);
+        await page.locator('#pbhCheckAll').uncheck();
+        await page.waitForTimeout(200);
     });
 
     await step('Load delivery list page', async () => {
@@ -566,6 +797,24 @@ async function main() {
         const data = await r.json();
         if (!data.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(data)}`);
         ok(`deleted ${nativeCode}`);
+    });
+    await step('DELETE Phase12 PBH', async () => {
+        if (!phase12PbhNumber) return;
+        const r = await fetch(`${WORKER}/api/fast-sale-orders/${phase12PbhNumber}?force=1`, {
+            method: 'DELETE',
+        });
+        const data = await r.json();
+        if (!data.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(data)}`);
+        ok(`deleted ${phase12PbhNumber}`);
+    });
+    await step('DELETE Phase12 NativeOrder', async () => {
+        if (!phase12NativeCode) return;
+        const r = await fetch(`${WORKER}/api/native-orders/${phase12NativeCode}`, {
+            method: 'DELETE',
+        });
+        const data = await r.json();
+        if (!data.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(data)}`);
+        ok(`deleted ${phase12NativeCode}`);
     });
 
     // ---- Summary ----

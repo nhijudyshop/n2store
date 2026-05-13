@@ -25,6 +25,50 @@
 
 ## 2026-05-13
 
+### [pbh][native-orders][customer-360] Phase 12: Partner reference → Customer 360 cross-system FK
+
+**Mục tiêu**: kết nối đơn hàng (Đơn Web NW-... + PBH HD-...) với Customer 360 (table `customers`) để mọi đơn có FK đến khách hàng duy nhất, mở đường cho aggregation báo cáo "khách X có bao nhiêu đơn / tổng tiền bao nhiêu".
+
+**Migration 074** (idempotent, chạy auto qua `ensureTables` ở mỗi server start):
+
+- `native_orders.customer_id INTEGER` + `idx_native_orders_customer_id`
+- `fast_sale_orders.customer_id INTEGER` + `idx_fso_customer_id`
+- **Soft FK** (không có CONSTRAINT) — đơn vẫn sống nếu customer bị hard-delete
+
+**Helper** ([render.com/utils/customer-helpers.js](../render.com/utils/customer-helpers.js)):
+
+- `lookupCustomerIdByPhone(db, phone) → number|null` — **NO auto-create**, chỉ lookup. Khác với `getOrCreateCustomer` đã có (chuyên dùng cho "lưu khách"). Order INSERT/UPDATE chỉ link tới customer đã tồn tại.
+
+**Auto-link wired vào**:
+
+- `POST /api/native-orders/from-comment` — INSERT lấy `customer_id` từ phone lookup
+- `POST /api/native-orders/from-comment` (merge path) — `customer_id = COALESCE(customer_id, $lookup)` để fill khi merge bổ sung phone mới
+- `PATCH /api/native-orders/:code` — khi phone thay đổi → re-link
+- `POST /api/fast-sale-orders` (manual) — INSERT lấy `customer_id` từ `partnerPhone`
+- `POST /api/fast-sale-orders/from-native-order` — inherit `customer_id` từ source NW; fallback phone lookup
+- `PATCH /api/fast-sale-orders/:number` — khi `partnerPhone` thay đổi → re-link
+
+**Backfill endpoints** (admin, idempotent):
+
+- `POST /api/native-orders/backfill-customer-links` → single-query UPDATE join, trả `{ linked, codes[] }`
+- `POST /api/fast-sale-orders/backfill-customer-links` → tương tự với `partner_phone`
+
+**Aggregation endpoint** ([render.com/routes/v2/customers.js:1241](../render.com/routes/v2/customers.js)):
+
+- `GET /api/v2/customers/:id/orders` — accept numeric id HOẶC phone string
+- Query song song `native_orders` + `fast_sale_orders` WHERE `customer_id = $1 OR phone = $2` (cover orders chưa backfill)
+- Trả về `{ native[], pbh[], summary: { native: {count, totalAmount}, pbh: {count, totalAmount, byState} } }`
+
+**API response shape** (cả NW + PBH thêm field mới):
+
+- `order.customerId: number|null` — null = chưa link / không có phone hoặc phone không match customer nào trong DB
+
+**Cloudflare Worker**: không cần đổi — `/api/native-orders/*` + `/api/fast-sale-orders/*` + `/api/v2/customers/*` đã wildcard sẵn.
+
+**QA tests** ([scripts/pbh-qa-test.js](../scripts/pbh-qa-test.js)): thêm 7 test steps cho Phase 12 — auto-link NW, PATCH re-link, NW→PBH inherit, backfill idempotent, aggregation by-id, aggregation by-phone. Dùng test customer mặc định "Huỳnh Thành Đạt — 0123456788" (per memory rule).
+
+**Status**: 🔄 Deploying — đợi Render auto-deploy + run QA suite live verify.
+
 ### [tpos-pancake][native-orders][ui] Tạo đơn lặp lại cho cùng 1 khách — count badge + merge UX
 
 **Vấn đề trước đó**: khi khách bình luận nhiều lần trong cùng campaign, sau khi tạo đơn cho comment đầu, nút "Tạo đơn" bị thay bằng icon khóa `package-open` → user KHÔNG bấm được comment khác của cùng khách để gộp vào đơn cũ (dù backend Phase 6 đã hỗ trợ merge).

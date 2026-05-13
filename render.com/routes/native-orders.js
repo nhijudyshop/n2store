@@ -11,6 +11,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
 
 // -----------------------------------------------------
 // Auto-create table on first request
@@ -114,8 +115,13 @@ async function ensureTables(pool) {
             ALTER TABLE native_orders
                 ADD COLUMN IF NOT EXISTS comment_ids JSONB DEFAULT '[]'::jsonb,
                 ADD COLUMN IF NOT EXISTS comment_count INTEGER NOT NULL DEFAULT 1;
+            -- Migration 074: Customer 360 cross-system FK (Phase 12)
+            -- Soft FK (no constraint) — orders survive if customer is hard-deleted
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS customer_id INTEGER;
             CREATE INDEX IF NOT EXISTS idx_native_orders_partner_id ON native_orders(partner_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_company_id ON native_orders(company_id);
+            CREATE INDEX IF NOT EXISTS idx_native_orders_customer_id ON native_orders(customer_id);
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -198,6 +204,8 @@ function mapRowToOrder(row) {
         // Migration 073 — multi-comment merge
         commentIds: row.comment_ids || [],
         commentCount: Number(row.comment_count || 1),
+        // Migration 074 — Customer 360 link (Phase 12)
+        customerId: row.customer_id != null ? Number(row.customer_id) : null,
     };
 }
 
@@ -237,6 +245,39 @@ async function nextSessionIndex(pool, fbUserId) {
     );
     return (r.rows[0]?.n || 0) + 1;
 }
+
+// -----------------------------------------------------
+// POST /api/native-orders/backfill-customer-links
+// One-shot admin endpoint to link existing native_orders → customers
+// by normalized phone match. Idempotent: only updates orders where
+// customer_id IS NULL.
+// -----------------------------------------------------
+router.post('/backfill-customer-links', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        // Single-query UPDATE: match by raw phone (already normalized at insert)
+        const r = await pool.query(`
+            UPDATE native_orders AS o
+            SET customer_id = c.id
+            FROM customers AS c
+            WHERE o.customer_id IS NULL
+              AND o.phone IS NOT NULL
+              AND o.phone <> ''
+              AND c.phone = o.phone
+            RETURNING o.code
+        `);
+        res.json({
+            success: true,
+            linked: r.rows.length,
+            codes: r.rows.slice(0, 50).map((x) => x.code),
+        });
+    } catch (e) {
+        console.error('[NATIVE-ORDERS] backfill-customer-links error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 // -----------------------------------------------------
 // GET /api/native-orders/health
@@ -351,16 +392,30 @@ router.post('/from-comment', async (req, res) => {
                 const appendedNote = b.message
                     ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${b.message}`
                     : src.note;
+                // Phase 12: if this merge brings a phone the order didn't have before,
+                // attempt to link customer_id (lookup-only)
+                const mergedPhone = b.phone || src.phone;
+                let mergedCustomerId = src.customer_id;
+                if (mergedPhone && !mergedCustomerId) {
+                    mergedCustomerId = await lookupCustomerIdByPhone(pool, mergedPhone);
+                }
                 const updated = await pool.query(
                     `UPDATE native_orders
                      SET note = $1,
                          comment_ids = $2::jsonb,
                          comment_count = comment_count + 1,
                          message_count = COALESCE(message_count, 0) + 1,
+                         customer_id = COALESCE(customer_id, $5),
                          updated_at = $3
                      WHERE id = $4
                      RETURNING *`,
-                    [appendedNote, JSON.stringify(newCommentIds), Date.now(), src.id]
+                    [
+                        appendedNote,
+                        JSON.stringify(newCommentIds),
+                        Date.now(),
+                        src.id,
+                        mergedCustomerId,
+                    ]
                 );
                 const order = mapRowToOrder(updated.rows[0]);
                 // Broadcast WS event để UI tự refresh
@@ -382,6 +437,9 @@ router.post('/from-comment', async (req, res) => {
 
         const note = b.note || (b.message ? String(b.message).slice(0, 500) : null);
 
+        // Phase 12: link to Customer 360 by phone (no auto-create)
+        const customerId = b.phone ? await lookupCustomerIdByPhone(pool, b.phone) : null;
+
         const insert = await pool.query(
             `INSERT INTO native_orders (
                 code, session_index, display_stt, source,
@@ -390,6 +448,7 @@ router.post('/from-comment', async (req, res) => {
                 products, total_quantity, total_amount,
                 status, tags,
                 live_campaign_id, live_campaign_name,
+                customer_id,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
                 $1, $2, nextval('native_orders_display_stt_seq'), 'NATIVE_WEB',
@@ -398,7 +457,8 @@ router.post('/from-comment', async (req, res) => {
                 '[]'::jsonb, 0, 0,
                 'draft', '[]'::jsonb,
                 $13, $14,
-                $15, $16, $17, $17
+                $15,
+                $16, $17, $18, $18
             ) RETURNING *`,
             [
                 code,
@@ -415,6 +475,7 @@ router.post('/from-comment', async (req, res) => {
                 b.crmTeamId ? parseInt(b.crmTeamId, 10) : null,
                 b.liveCampaignId || null,
                 b.liveCampaignName || null,
+                customerId,
                 b.createdBy || null,
                 b.createdByName || null,
                 now,
@@ -761,6 +822,12 @@ router.patch('/:code', async (req, res) => {
             sets.push(`${col} = $${params.length}`);
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });
+        // Phase 12: when phone is updated, re-link customer_id (lookup-only, no auto-create)
+        if (body.phone !== undefined) {
+            const cid = body.phone ? await lookupCustomerIdByPhone(pool, body.phone) : null;
+            params.push(cid);
+            sets.push(`customer_id = $${params.length}`);
+        }
         params.push(Date.now());
         sets.push(`updated_at = $${params.length}`);
         params.push(req.params.code);

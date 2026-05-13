@@ -1238,6 +1238,115 @@ router.get('/:id/rfm', async (req, res) => {
  * GET /api/v2/customers/:id/transactions
  * Consolidated transactions (wallet_transactions + customer_activities + customer_tickets)
  */
+/**
+ * GET /api/v2/customers/:id/orders
+ * Phase 12: aggregate Native Web orders (NW-...) + PBH (HD-...) for a customer.
+ * Customer is identified by numeric id OR phone (auto-detected).
+ * Returns: { native: [...], pbh: [...], summary: { ... } }
+ */
+router.get('/:id/orders', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+
+    const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
+    try {
+        let customerId = null;
+        let phone = null;
+        if (isPhone) {
+            phone = id.replace(/\D/g, '');
+            if (!phone.startsWith('0')) phone = '0' + phone;
+            const r = await db.query('SELECT id FROM customers WHERE phone = $1 LIMIT 1', [phone]);
+            customerId = r.rows[0]?.id || null;
+        } else {
+            customerId = parseInt(id, 10);
+            if (!Number.isFinite(customerId))
+                return res.status(400).json({ success: false, error: 'Invalid id' });
+            const r = await db.query('SELECT phone FROM customers WHERE id = $1', [customerId]);
+            if (r.rows.length === 0)
+                return res.status(404).json({ success: false, error: 'Customer not found' });
+            phone = r.rows[0].phone;
+        }
+
+        // Query both tables — join by customer_id OR by phone (for orders not yet backfilled)
+        const [nwRes, pbhRes] = await Promise.all([
+            db.query(
+                `SELECT code, display_stt, status, customer_name, phone, total_amount,
+                        total_quantity, live_campaign_id, live_campaign_name,
+                        created_at, updated_at
+                 FROM native_orders
+                 WHERE customer_id = $1 OR (phone IS NOT NULL AND phone = $2)
+                 ORDER BY created_at DESC
+                 LIMIT $3`,
+                [customerId, phone, limit]
+            ),
+            db.query(
+                `SELECT number, display_stt, state, partner_name, partner_phone, amount_total,
+                        total_quantity, live_campaign_id, live_campaign_name,
+                        date_invoice, date_created, date_updated
+                 FROM fast_sale_orders
+                 WHERE customer_id = $1 OR (partner_phone IS NOT NULL AND partner_phone = $2)
+                 ORDER BY date_created DESC
+                 LIMIT $3`,
+                [customerId, phone, limit]
+            ),
+        ]);
+
+        const native = nwRes.rows.map((r) => ({
+            code: r.code,
+            displayStt: r.display_stt,
+            status: r.status,
+            customerName: r.customer_name,
+            phone: r.phone,
+            totalAmount: Number(r.total_amount || 0),
+            totalQuantity: r.total_quantity,
+            liveCampaign: { id: r.live_campaign_id, name: r.live_campaign_name },
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        }));
+        const pbh = pbhRes.rows.map((r) => ({
+            number: r.number,
+            displayStt: r.display_stt,
+            state: r.state,
+            partnerName: r.partner_name,
+            partnerPhone: r.partner_phone,
+            amountTotal: Number(r.amount_total || 0),
+            totalQuantity: r.total_quantity,
+            liveCampaign: { id: r.live_campaign_id, name: r.live_campaign_name },
+            dateInvoice: r.date_invoice,
+            dateCreated: r.date_created,
+            dateUpdated: r.date_updated,
+        }));
+
+        // Summary aggregate (totals across both order types)
+        const summary = {
+            native: {
+                count: native.length,
+                totalAmount: native.reduce((s, o) => s + o.totalAmount, 0),
+            },
+            pbh: {
+                count: pbh.length,
+                totalAmount: pbh.reduce((s, o) => s + o.amountTotal, 0),
+                byState: pbh.reduce((acc, o) => {
+                    acc[o.state] = (acc[o.state] || 0) + 1;
+                    return acc;
+                }, {}),
+            },
+        };
+
+        res.json({
+            success: true,
+            customerId,
+            phone,
+            native,
+            pbh,
+            summary,
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to load customer orders');
+    }
+});
+
 router.get('/:id/transactions', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;

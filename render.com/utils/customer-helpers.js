@@ -25,12 +25,15 @@ async function getOrCreateCustomer(db, phone, name) {
     }
 
     // Auto-create customer
-    result = await db.query(`
+    result = await db.query(
+        `
         INSERT INTO customers (phone, name, status, tier, created_at)
         VALUES ($1, $2, 'Bình thường', 'new', CURRENT_TIMESTAMP)
         ON CONFLICT (phone) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
         RETURNING id
-    `, [normalized, name || 'Khách hàng mới']);
+    `,
+        [normalized, name || 'Khách hàng mới']
+    );
 
     console.log(`[AUTO-CREATE] Created customer: ${name || 'Khách hàng mới'} (${normalized})`);
     return result.rows[0].id;
@@ -85,8 +88,8 @@ function validateCustomerData(data, isUpdate = false) {
 
     if (!isUpdate) {
         const requiredFields = ['name', 'phone'];
-        const missingFields = requiredFields.filter(field =>
-            !data[field] || data[field].trim() === ''
+        const missingFields = requiredFields.filter(
+            (field) => !data[field] || data[field].trim() === ''
         );
 
         if (missingFields.length > 0) {
@@ -125,9 +128,34 @@ function validateCustomerData(data, isUpdate = false) {
     return errors;
 }
 
+/**
+ * Lookup-only (NO auto-create) — returns customer.id if a customer with
+ * this phone exists, else null. Use this on order INSERT/UPDATE paths so
+ * we link orders to existing Customer 360 records without polluting the
+ * customers table with anonymous order rows.
+ *
+ * @param {import('pg').Pool} db
+ * @param {string} phone
+ * @returns {Promise<number|null>}
+ */
+async function lookupCustomerIdByPhone(db, phone) {
+    if (!phone) return null;
+    const normalized = normalizePhone(phone);
+    if (!normalized) return null;
+    try {
+        const r = await db.query('SELECT id FROM customers WHERE phone = $1 LIMIT 1', [normalized]);
+        return r.rows.length > 0 ? Number(r.rows[0].id) : null;
+    } catch (e) {
+        // Don't break order creation if customer lookup fails (e.g. DB unavailable)
+        console.warn('[CUSTOMER-LINK] lookupCustomerIdByPhone failed:', e.message);
+        return null;
+    }
+}
+
 module.exports = {
     normalizePhone,
     getOrCreateCustomer,
+    lookupCustomerIdByPhone,
     detectCarrier,
-    validateCustomerData
+    validateCustomerData,
 };

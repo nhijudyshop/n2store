@@ -20,6 +20,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
 
 // -----------------------------------------------------
 // Schema + auto-migrate
@@ -109,6 +110,10 @@ async function ensureTables(pool) {
                 created_by_name VARCHAR(255)
             );
 
+            -- Migration 074: Customer 360 cross-system FK (Phase 12)
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS customer_id INTEGER;
+
             CREATE INDEX IF NOT EXISTS idx_fso_date_invoice ON fast_sale_orders(date_invoice DESC);
             CREATE INDEX IF NOT EXISTS idx_fso_partner_phone ON fast_sale_orders(partner_phone);
             CREATE INDEX IF NOT EXISTS idx_fso_state ON fast_sale_orders(state);
@@ -117,6 +122,7 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_fso_partner_id ON fast_sale_orders(partner_id);
             CREATE INDEX IF NOT EXISTS idx_fso_display_stt ON fast_sale_orders(display_stt DESC);
             CREATE INDEX IF NOT EXISTS idx_fso_live_campaign ON fast_sale_orders(live_campaign_id);
+            CREATE INDEX IF NOT EXISTS idx_fso_customer_id ON fast_sale_orders(customer_id);
 
             -- STT sequence
             CREATE SEQUENCE IF NOT EXISTS fast_sale_orders_display_stt_seq START 1;
@@ -201,6 +207,8 @@ function mapRow(row) {
         printCount: row.print_count,
         createdBy: row.created_by,
         createdByName: row.created_by_name,
+        // Migration 074 — Customer 360 link (Phase 12)
+        customerId: row.customer_id != null ? Number(row.customer_id) : null,
     };
 }
 
@@ -242,6 +250,37 @@ function computeTotals(lines, deposit, deliveryPrice) {
     const residual = Math.max(0, total - (Number(deposit) || 0));
     return { qty, untaxed, discount, tax, total, residual };
 }
+
+// -----------------------------------------------------
+// POST /backfill-customer-links — Phase 12 admin one-shot
+// Link existing fast_sale_orders → customers by partner_phone match.
+// Idempotent: only updates where customer_id IS NULL.
+// -----------------------------------------------------
+router.post('/backfill-customer-links', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(`
+            UPDATE fast_sale_orders AS o
+            SET customer_id = c.id
+            FROM customers AS c
+            WHERE o.customer_id IS NULL
+              AND o.partner_phone IS NOT NULL
+              AND o.partner_phone <> ''
+              AND c.phone = o.partner_phone
+            RETURNING o.number
+        `);
+        res.json({
+            success: true,
+            linked: r.rows.length,
+            numbers: r.rows.slice(0, 50).map((x) => x.number),
+        });
+    } catch (e) {
+        console.error('[FAST-SALE-ORDERS] backfill-customer-links error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 // -----------------------------------------------------
 // GET /health
@@ -500,6 +539,10 @@ router.post('/', async (req, res) => {
         const number = await nextNumber(pool);
         const lines = Array.isArray(b.orderLines) ? b.orderLines : [];
         const totals = computeTotals(lines, b.deposit, b.deliveryPrice);
+        // Phase 12: link to Customer 360 by phone (no auto-create)
+        const customerId = b.partnerPhone
+            ? await lookupCustomerIdByPhone(pool, b.partnerPhone)
+            : null;
 
         const r = await pool.query(
             `INSERT INTO fast_sale_orders (
@@ -516,7 +559,8 @@ router.post('/', async (req, res) => {
                 live_campaign_id, live_campaign_name,
                 warehouse_id, warehouse_name, company_id, company_name,
                 crm_team_id, crm_team_name, assigned_user_id, assigned_user_name,
-                comment, tags, created_by, created_by_name
+                comment, tags, created_by, created_by_name,
+                customer_id
             ) VALUES (
                 $1, nextval('fast_sale_orders_display_stt_seq'), $2,
                 COALESCE($3::timestamptz, NOW()),
@@ -531,7 +575,8 @@ router.post('/', async (req, res) => {
                 $36, $37,
                 $38, $39, $40, $41,
                 $42, $43, $44, $45,
-                $46, $47::jsonb, $48, $49
+                $46, $47::jsonb, $48, $49,
+                $50
             ) RETURNING *`,
             [
                 number,
@@ -583,6 +628,7 @@ router.post('/', async (req, res) => {
                 JSON.stringify(b.tags || []),
                 b.createdBy || null,
                 b.createdByName || null,
+                customerId,
             ]
         );
         const o = mapRow(r.rows[0]);
@@ -643,6 +689,11 @@ router.post('/from-native-order', async (req, res) => {
             note: p.note || null,
         }));
         const totals = computeTotals(lines, b.deposit ?? src.deposit, b.deliveryPrice);
+        // Phase 12: inherit customer_id from source NativeOrder; fall back to phone lookup
+        let customerId = src.customer_id || null;
+        if (!customerId && src.phone) {
+            customerId = await lookupCustomerIdByPhone(pool, src.phone);
+        }
 
         const r = await pool.query(
             `INSERT INTO fast_sale_orders (
@@ -658,7 +709,8 @@ router.post('/from-native-order', async (req, res) => {
                 live_campaign_id, live_campaign_name,
                 warehouse_id, warehouse_name, company_id, company_name,
                 crm_team_id, assigned_user_id, assigned_user_name,
-                comment, tags, created_by, created_by_name
+                comment, tags, created_by, created_by_name,
+                customer_id
             ) VALUES (
                 $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
                 COALESCE($2::timestamptz, NOW()),
@@ -672,7 +724,8 @@ router.post('/from-native-order', async (req, res) => {
                 $28, $29,
                 $30, $31, $32, $33,
                 $34, $35, $36,
-                $37, $38::jsonb, $39, $40
+                $37, $38::jsonb, $39, $40,
+                $41
             ) RETURNING *`,
             [
                 number,
@@ -715,6 +768,7 @@ router.post('/from-native-order', async (req, res) => {
                 JSON.stringify(src.tags || []),
                 b.createdBy || src.created_by,
                 b.createdByName || src.created_by_name,
+                customerId,
             ]
         );
 
@@ -814,6 +868,12 @@ router.patch('/:number', async (req, res) => {
             sets.push(`residual = $${params.length}`);
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });
+        // Phase 12: when partnerPhone is updated, re-link customer_id
+        if (b.partnerPhone !== undefined) {
+            const cid = b.partnerPhone ? await lookupCustomerIdByPhone(pool, b.partnerPhone) : null;
+            params.push(cid);
+            sets.push(`customer_id = $${params.length}`);
+        }
         sets.push(`date_updated = NOW()`);
         params.push(req.params.number);
         const r = await pool.query(
