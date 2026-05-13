@@ -25,6 +25,16 @@
 
 ## 2026-05-13
 
+### [orders][kpi] Đồng bộ thứ tự dropdown "Tất cả campaign" trong tab KPI giống tab1
+
+**File**: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js#L700-L760)
+
+**Vấn đề**: Dropdown campaign filter trong KPI tab sort alphabet (COMEBACK → NGÀN ĐƠN → T1 → T10 → T2…), khác hẳn dropdown "Cài Đặt Chiến Dịch" của tab1 vốn sort theo ngày tạo desc (T7 DEAL HOT → T6 DEAL XINH → T5 CHỐT ĐƠN → … → COMEBACK).
+
+**Fix**: Bỏ `[...campaigns].sort()` (set alphabet). Dùng insertion order: API `/api/campaigns` (render.com/routes/campaigns.js:96) trả `ORDER BY created_at DESC` — chính nguồn dùng cho dropdown tab1. Bổ sung campaign từ `statsData` append cuối list để vẫn filter được campaign đã xóa khỏi DB nhưng còn KPI history.
+
+**Status**: ✅ Done
+
 ### [pbh][delivery][refund] Phase 4-5: delivery_invoices + refunds + QA 35/35 PASS
 
 **Phase 4** — Backend ([render.com/routes/delivery-invoices.js](../render.com/routes/delivery-invoices.js), [refunds.js](../render.com/routes/refunds.js)):
