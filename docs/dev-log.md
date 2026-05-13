@@ -25,6 +25,32 @@
 
 ## 2026-05-13
 
+### [pbh][realtime][merge] Phase 6-7: WS realtime sync + comment-merge by campaign — QA 40/40
+
+**User**: "1/ tạo đơn ở tpos-pancake → realtime update native-orders bảng / 2/ khách đã có đơn trong chiến dịch → bấm tạo nữa thì thêm comment vào đơn cũ".
+
+**Phase 6 — Comment-merge by campaign** ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js)):
+
+- Migration 073: `ADD COLUMN comment_ids JSONB DEFAULT '[]'`, `comment_count INT DEFAULT 1`.
+- `POST /from-comment`: trước khi tạo đơn mới, check có draft/confirmed order nào của cùng `fb_user_id + live_campaign_id` không. Nếu có → **APPEND** comment_id + message vào note + tăng commentCount + messageCount. Return `{ merged: true, order }`.
+- Idempotency mở rộng match cả `comment_ids @> [fbCommentId]`.
+
+**Phase 7 — Realtime WS sync**:
+
+- [server.js](../render.com/server.js): expose `broadcastToClients` lên `app.locals`.
+- 4 routes (native-orders, fast-sale-orders, delivery-invoices, refunds) emit WS events sau create/update/state-change/delete: `native_order:*`, `pbh:*`, `delivery:*`, `refund:*`.
+- [web2-shared/pbh-realtime.js](../web2-shared/pbh-realtime.js): shared WS client + debounce 500ms + auto-reconnect exponential backoff (max 30s).
+- 4 UI pages subscribe + auto reload list + show notify "🆕 mới" cho user.
+
+**QA iter 4** ([pbh-qa-test.js](../scripts/pbh-qa-test.js)): **40/40 PASS**
+
+- Phase 6 (4 tests): create #1 no-merge, create #2 same campaign → MERGE, create #3 different campaign → NEW, idempotency.
+- Phase 7 (1 test): WS connect `wss://n2store-fallback.onrender.com` → POST `/from-comment` → verify `native_order:created` event received trong 3s.
+
+Status: ✅ deploy live commit `f81d9542`.
+
+---
+
 ### [issue-tracking][fix] Nhận hàng RETURN_SHIPPER không trigger được — DELETE OrderLine + alreadyRefunded fallback
 
 **File**: [shared/js/api-service.js](../shared/js/api-service.js) (processRefund step 2.5)
