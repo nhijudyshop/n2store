@@ -332,6 +332,85 @@ const KPICommission = {
     // ========================================
     // INIT (12.2)
     // ========================================
+    // ========================================
+    // KPI INBOX (don-inbox social orders — phân riêng)
+    // ========================================
+
+    _inboxKpiByUser: new Map(), // userId → { userName, orderCount, totalQty, totalKPI }
+    _inboxKpiLoadedAt: 0,
+    _inboxKpiTotals: { orderCount: 0, totalQty: 0, totalKPI: 0 },
+
+    /**
+     * Load KPI inbox từ social_orders qua Render API.
+     * KPI = total_quantity × 5.000đ flat. Attribute theo created_by.
+     * Filter theo date range của KPI tab hiện tại.
+     */
+    async loadInboxKpiStats() {
+        try {
+            const { dateFrom, dateTo } = this.state.filters || {};
+            const params = new URLSearchParams();
+            if (dateFrom) {
+                params.set('from', new Date(dateFrom + 'T00:00:00').getTime());
+            }
+            if (dateTo) {
+                params.set('to', new Date(dateTo + 'T23:59:59').getTime());
+            }
+            const WORKER =
+                window.API_CONFIG?.WORKER_URL ||
+                window.parent?.API_CONFIG?.WORKER_URL ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const url = `${WORKER}/api/social-orders/kpi-stats${params.toString() ? '?' + params.toString() : ''}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'kpi-stats failed');
+
+            this._inboxKpiByUser = new Map();
+            for (const [uid, v] of Object.entries(data.perUser || {})) {
+                this._inboxKpiByUser.set(uid, v);
+            }
+            this._inboxKpiTotals = data.totals || { orderCount: 0, totalQty: 0, totalKPI: 0 };
+            this._inboxKpiLoadedAt = Date.now();
+            console.log(
+                `[KPI Inbox] Loaded ${this._inboxKpiByUser.size} users, total KPI=${this._inboxKpiTotals.totalKPI}đ`
+            );
+        } catch (e) {
+            console.warn('[KPI Inbox] load failed:', e?.message);
+            this._inboxKpiByUser = new Map();
+            this._inboxKpiTotals = { orderCount: 0, totalQty: 0, totalKPI: 0 };
+        }
+    },
+
+    /**
+     * Lookup KPI inbox cho 1 user — tries multiple id forms (userId, username,
+     * displayName) vì created_by của social_orders có thể là userId hoặc
+     * username tùy thời điểm tạo.
+     */
+    _getInboxKpiForUser(emp) {
+        if (!this._inboxKpiByUser || this._inboxKpiByUser.size === 0) {
+            return { orderCount: 0, totalQty: 0, totalKPI: 0 };
+        }
+        const candidates = [
+            emp.userId,
+            emp.resolvedName,
+            emp.userName,
+            (emp.userId || '').toLowerCase(),
+            (emp.resolvedName || '').toLowerCase(),
+        ].filter(Boolean);
+        // Tìm theo exact key
+        for (const k of candidates) {
+            if (this._inboxKpiByUser.has(k)) return this._inboxKpiByUser.get(k);
+        }
+        // Fallback: case-insensitive match userName
+        const empNameLower = (emp.resolvedName || emp.userName || '').toLowerCase();
+        if (empNameLower) {
+            for (const v of this._inboxKpiByUser.values()) {
+                if ((v.userName || '').toLowerCase() === empNameLower) return v;
+            }
+        }
+        return { orderCount: 0, totalQty: 0, totalKPI: 0 };
+    },
+
     async init() {
         try {
             this.state.isLoading = true;
@@ -339,8 +418,12 @@ const KPICommission = {
             this.hideEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
 
-            // Load invoice status + KPI stats in parallel from Render API
-            await Promise.all([this.loadInvoiceStatusData(), this.loadAllStatistics()]);
+            // Load invoice status + KPI stats + Inbox KPI in parallel from Render API
+            await Promise.all([
+                this.loadInvoiceStatusData(),
+                this.loadAllStatistics(),
+                this.loadInboxKpiStats(),
+            ]);
             // Derive filters from loaded data
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
@@ -632,6 +715,12 @@ const KPICommission = {
         }
 
         this.state.filteredData = filtered;
+
+        // Reload Inbox KPI khi date range đổi (KPI inbox phân riêng, phụ thuộc
+        // dateFrom/dateTo). Fire-and-forget — table sẽ tự re-render khi xong.
+        this.loadInboxKpiStats()
+            .then(() => this.renderKPITable(this.state.filteredData))
+            .catch((e) => console.warn('[KPI] reload inbox KPI failed:', e?.message));
 
         // Update UI
         this.updateSummaryCards(filtered);
@@ -1316,6 +1405,13 @@ const KPICommission = {
                     ? `<span class="lb-emp-refund-badge"><i data-lucide="undo-2"></i>${lossInfo.refundCount} hoàn</span>`
                     : '';
 
+            // KPI Inbox badge (phân riêng) — chỉ hiện khi user có đơn inbox
+            const inboxStats = this._getInboxKpiForUser(emp);
+            const inboxBadge =
+                inboxStats.totalKPI > 0
+                    ? `<span class="lb-emp-inbox-badge" title="${inboxStats.orderCount} đơn inbox · ${inboxStats.totalQty} SP"><i data-lucide="inbox"></i>${this.formatCurrency(inboxStats.totalKPI)} inbox</span>`
+                    : '';
+
             html += `<div class="lb-row" onclick="window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')" tabindex="0" role="button">
                 <div class="lb-rank ${rankCls}" title="Hạng ${rank}">${rankIcon}</div>
                 <div class="lb-employee">
@@ -1325,6 +1421,7 @@ const KPICommission = {
                             <span class="lb-emp-meta-item"><i data-lucide="package"></i>${orderCount} đơn</span>
                             <span class="lb-emp-meta-item"><i data-lucide="layers"></i>${emp.totalNetProducts} SP NET</span>
                             ${refundBadge}
+                            ${inboxBadge}
                         </div>
                     </div>
                 </div>
@@ -1518,6 +1615,14 @@ const KPICommission = {
 
             const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? lossTitle : 'Không có đơn hoàn'}">${this.formatCurrency(kpiNet)}</td>`;
 
+            // KPI Inbox cell (phân riêng — không cộng vào KPI thực)
+            const inboxStats = this._getInboxKpiForUser(emp);
+            const inboxKpi = inboxStats.totalKPI || 0;
+            const inboxCellHtml =
+                inboxKpi > 0
+                    ? `<td class="col-kpi-inbox has-inbox" title="${inboxStats.orderCount} đơn inbox · ${inboxStats.totalQty} SP × 5.000đ">${this.formatCurrency(inboxKpi)}<div class="col-kpi-inbox-sub">${inboxStats.orderCount} đơn · ${inboxStats.totalQty} SP</div></td>`
+                    : '<td class="col-kpi-inbox is-zero" title="Chưa có đơn inbox trong khoảng lọc">—</td>';
+
             html += `<tr>
                 <td>${idx + 1}</td>
                 <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
@@ -1526,6 +1631,7 @@ const KPICommission = {
                 ${grossCellHtml}
                 ${refundCellHtml}
                 ${netCellHtml}
+                ${inboxCellHtml}
                 <td>${invoiceSummaryHtml}</td>
             </tr>`;
         });

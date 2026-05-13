@@ -2877,3 +2877,44 @@ body {
 .inbox-msg-sender {
     font-weight: 600;
 }
+
+/* ============================================
+   KPI INBOX (đơn từ don-inbox — phân riêng)
+   ============================================ */
+.col-kpi-inbox {
+    font-weight: 600;
+    color: #6366f1;
+    text-align: right;
+    min-width: 110px;
+}
+.col-kpi-inbox.has-inbox {
+    background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.06) 100%);
+}
+.col-kpi-inbox.is-zero {
+    color: #cbd5e1;
+    font-weight: 400;
+    text-align: center;
+}
+.col-kpi-inbox-sub {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.lb-emp-inbox-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    color: #5b21b6;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #c4b5fd;
+}
+.lb-emp-inbox-badge svg {
+    width: 12px;
+    height: 12px;
+}

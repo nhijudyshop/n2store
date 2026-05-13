@@ -235,6 +235,33 @@ function _setupSellingPriceTotalsOverride() {
     observer.observe(tbody, { childList: true });
 }
 
+/**
+ * Lấy thông tin attribution (userId + userName) của user hiện tại để gắn vào
+ * social order khi create. Trước đây hardcoded 'admin' → KPI tab gộp tất cả
+ * vào 1 user. Giờ lấy từ window.authManager để mỗi NV được tính KPI riêng.
+ *
+ * @returns {{ createdBy: string, createdByName: string }}
+ */
+function _getCurrentSocialUserAttribution() {
+    try {
+        const auth = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+        if (auth) {
+            const username = auth.username || auth.email || 'unknown';
+            const userId =
+                auth.userId ||
+                auth.id ||
+                auth.Id ||
+                (username !== 'unknown' ? `user_${username}` : 'unknown');
+            const userName =
+                auth.displayName || window.currentUserIdentifier || username || 'Unknown';
+            return { createdBy: String(userId), createdByName: String(userName) };
+        }
+    } catch (e) {
+        console.warn('[Tab Social] _getCurrentSocialUserAttribution failed:', e?.message);
+    }
+    return { createdBy: 'unknown', createdByName: 'Unknown' };
+}
+
 function _collectSocialProducts() {
     if (!window.purchaseOrderFormModal) return [];
     window.purchaseOrderFormModal.collectFormData();
@@ -407,8 +434,9 @@ async function _saveOrderImpl() {
             conversationId: '',
             assignedUserId: '',
             assignedUserName: '',
-            createdBy: 'admin',
-            createdByName: 'Admin',
+            // 2026-05-13: dùng thông tin user thực để KPI tab attribute đúng
+            // (trước đây hardcoded 'admin' → mọi đơn dồn vào 1 user).
+            ..._getCurrentSocialUserAttribution(),
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };

@@ -128,7 +128,9 @@ router.get('/load', async (req, res) => {
         if (search) {
             params.push(`%${search}%`);
             const searchIdx = params.length;
-            conditions.push(`(customer_name ILIKE $${searchIdx} OR phone ILIKE $${searchIdx} OR note ILIKE $${searchIdx})`);
+            conditions.push(
+                `(customer_name ILIKE $${searchIdx} OR phone ILIKE $${searchIdx} OR note ILIKE $${searchIdx})`
+            );
         }
 
         if (conditions.length > 0) {
@@ -158,10 +160,112 @@ router.get('/load', async (req, res) => {
             total,
             page: pageNum,
             limit: limitNum,
-            hasMore: offset + orders.length < total
+            hasMore: offset + orders.length < total,
         });
     } catch (error) {
         console.error('[SOCIAL-ORDERS] GET /load error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// KPI STATS - AGGREGATE BY USER (don-inbox)
+// =====================================================
+
+/**
+ * GET /api/social-orders/kpi-stats
+ *
+ * Aggregate KPI từ social_orders (don-inbox) GROUP BY created_by.
+ * Đơn inbox được tính riêng khỏi KPI tab1-orders (cross-campaign,
+ * không thuộc STT-range). KPI = total_quantity × 5000đ flat.
+ *
+ * Query params:
+ *   - from: timestamp ms (inclusive). Default: 30 ngày trước.
+ *   - to:   timestamp ms (inclusive). Default: now.
+ *   - includeAll: '1' = bao gồm cả status cancelled (mặc định loại).
+ *
+ * Response: { success, perUser: { userId: { userName, orderCount, totalQty, totalKPI } }, totals }
+ */
+router.get('/kpi-stats', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const KPI_PER_UNIT = 5000; // đồng bộ với KPI_AMOUNT_PER_DIFFERENCE (tab1 KPI manager)
+        const now = Date.now();
+        const defaultFrom = now - 30 * 24 * 60 * 60 * 1000;
+        const fromMs = parseInt(req.query.from) || defaultFrom;
+        const toMs = parseInt(req.query.to) || now;
+        const includeCancelled = req.query.includeAll === '1';
+
+        const params = [fromMs, toMs];
+        let whereClause = 'WHERE created_at >= $1 AND created_at <= $2';
+        if (!includeCancelled) {
+            whereClause += " AND COALESCE(status, 'draft') <> 'cancelled'";
+        }
+
+        const result = await pool.query(
+            `SELECT
+                created_by,
+                created_by_name,
+                COUNT(*)::int AS order_count,
+                COALESCE(SUM(total_quantity), 0)::int AS total_qty,
+                COALESCE(SUM(total_amount), 0)::numeric AS total_amount
+             FROM social_orders
+             ${whereClause}
+             GROUP BY created_by, created_by_name
+             ORDER BY total_qty DESC`,
+            params
+        );
+
+        const perUser = {};
+        let grandOrders = 0;
+        let grandQty = 0;
+        let grandKpi = 0;
+        for (const row of result.rows) {
+            const userId = row.created_by || 'unknown';
+            const userName = row.created_by_name || userId;
+            const qty = parseInt(row.total_qty) || 0;
+            const kpi = qty * KPI_PER_UNIT;
+            const oc = parseInt(row.order_count) || 0;
+
+            // Merge nếu cùng userId xuất hiện 2 dòng (vì created_by_name có thể khác nhau)
+            if (perUser[userId]) {
+                perUser[userId].orderCount += oc;
+                perUser[userId].totalQty += qty;
+                perUser[userId].totalKPI += kpi;
+                perUser[userId].totalAmount += Number(row.total_amount) || 0;
+            } else {
+                perUser[userId] = {
+                    userId,
+                    userName,
+                    orderCount: oc,
+                    totalQty: qty,
+                    totalKPI: kpi,
+                    totalAmount: Number(row.total_amount) || 0,
+                };
+            }
+
+            grandOrders += oc;
+            grandQty += qty;
+            grandKpi += kpi;
+        }
+
+        res.json({
+            success: true,
+            from: fromMs,
+            to: toMs,
+            kpiPerUnit: KPI_PER_UNIT,
+            perUser,
+            totals: {
+                orderCount: grandOrders,
+                totalQty: grandQty,
+                totalKPI: grandKpi,
+            },
+        });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] GET /kpi-stats error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -218,21 +322,35 @@ router.put('/entries/:id', async (req, res) => {
         const params = [];
 
         const fieldMap = {
-            stt: 'stt', customerName: 'customer_name', phone: 'phone',
-            address: 'address', postUrl: 'post_url', postLabel: 'post_label',
-            source: 'source', products: 'products', totalQuantity: 'total_quantity',
-            totalAmount: 'total_amount', tags: 'tags', status: 'status',
-            note: 'note', noteImages: 'note_images', tposPartnerId: 'tpos_partner_id',
-            pageId: 'page_id', psid: 'psid', conversationId: 'conversation_id',
-            assignedUserId: 'assigned_user_id', assignedUserName: 'assigned_user_name',
-            createdBy: 'created_by', createdByName: 'created_by_name',
-            updatedAt: 'updated_at'
+            stt: 'stt',
+            customerName: 'customer_name',
+            phone: 'phone',
+            address: 'address',
+            postUrl: 'post_url',
+            postLabel: 'post_label',
+            source: 'source',
+            products: 'products',
+            totalQuantity: 'total_quantity',
+            totalAmount: 'total_amount',
+            tags: 'tags',
+            status: 'status',
+            note: 'note',
+            noteImages: 'note_images',
+            tposPartnerId: 'tpos_partner_id',
+            pageId: 'page_id',
+            psid: 'psid',
+            conversationId: 'conversation_id',
+            assignedUserId: 'assigned_user_id',
+            assignedUserName: 'assigned_user_name',
+            createdBy: 'created_by',
+            createdByName: 'created_by_name',
+            updatedAt: 'updated_at',
         };
 
         for (const [jsKey, dbCol] of Object.entries(fieldMap)) {
             if (updates[jsKey] !== undefined) {
                 params.push(
-                    (dbCol === 'products' || dbCol === 'tags' || dbCol === 'note_images')
+                    dbCol === 'products' || dbCol === 'tags' || dbCol === 'note_images'
                         ? JSON.stringify(updates[jsKey])
                         : updates[jsKey]
                 );
@@ -277,10 +395,9 @@ router.delete('/entries/:id', async (req, res) => {
         await ensureTables(pool);
 
         const { id } = req.params;
-        const result = await pool.query(
-            'DELETE FROM social_orders WHERE id = $1 RETURNING id',
-            [id]
-        );
+        const result = await pool.query('DELETE FROM social_orders WHERE id = $1 RETURNING id', [
+            id,
+        ]);
 
         res.json({ success: true, deleted: result.rowCount > 0 });
     } catch (error) {
@@ -339,7 +456,7 @@ router.post('/cleanup-cancelled', async (req, res) => {
         await ensureTables(pool);
 
         const RETENTION_DAYS = 60;
-        const cutoff = Date.now() - (RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        const cutoff = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
         const result = await pool.query(
             `DELETE FROM social_orders
@@ -359,7 +476,7 @@ router.post('/cleanup-cancelled', async (req, res) => {
                         `Tự động xóa ${result.rowCount} đơn đã hủy cũ hơn ${RETENTION_DAYS} ngày`,
                         JSON.stringify(result.rows),
                         'system@cron',
-                        Date.now()
+                        Date.now(),
                     ]
                 );
             } catch (logErr) {
@@ -373,7 +490,7 @@ router.post('/cleanup-cancelled', async (req, res) => {
             deletedCount: result.rowCount,
             retentionDays: RETENTION_DAYS,
             cutoff,
-            ids: result.rows.map((r) => r.id)
+            ids: result.rows.map((r) => r.id),
         });
     } catch (error) {
         console.error('[SOCIAL-ORDERS] POST /cleanup-cancelled error:', error);
@@ -489,7 +606,12 @@ router.post('/migrate', async (req, res) => {
             client.release();
         }
 
-        res.json({ success: true, migrated: successCount, failed: failCount, total: orders.length });
+        res.json({
+            success: true,
+            migrated: successCount,
+            failed: failCount,
+            total: orders.length,
+        });
     } catch (error) {
         console.error('[SOCIAL-ORDERS] POST /migrate error:', error);
         res.status(500).json({ error: error.message });
@@ -504,7 +626,8 @@ router.post('/migrate', async (req, res) => {
  * Upsert a single order using pool
  */
 async function upsertOrder(pool, order) {
-    return pool.query(`
+    return pool.query(
+        `
         INSERT INTO social_orders (
             id, stt, customer_name, phone, address, post_url, post_label, source,
             products, total_quantity, total_amount, tags, status, note, note_images,
@@ -542,41 +665,44 @@ async function upsertOrder(pool, order) {
             created_by = EXCLUDED.created_by,
             created_by_name = EXCLUDED.created_by_name,
             updated_at = EXCLUDED.updated_at
-    `, [
-        order.id,
-        order.stt || null,
-        order.customerName || order.customer_name || null,
-        order.phone || null,
-        order.address || null,
-        order.postUrl || order.post_url || null,
-        order.postLabel || order.post_label || null,
-        order.source || 'manual',
-        JSON.stringify(order.products || []),
-        order.totalQuantity || order.total_quantity || 0,
-        order.totalAmount || order.total_amount || 0,
-        JSON.stringify(order.tags || []),
-        order.status || 'draft',
-        order.note || null,
-        JSON.stringify(order.noteImages || order.note_images || []),
-        order.tposPartnerId || order.tpos_partner_id || null,
-        order.pageId || order.page_id || '',
-        order.psid || '',
-        order.conversationId || order.conversation_id || '',
-        order.assignedUserId || order.assigned_user_id || '',
-        order.assignedUserName || order.assigned_user_name || '',
-        order.createdBy || order.created_by || 'admin',
-        order.createdByName || order.created_by_name || 'Admin',
-        order.createdAt || order.created_at || Date.now(),
-        order.updatedAt || order.updated_at || Date.now(),
-        order.username || 'default'
-    ]);
+    `,
+        [
+            order.id,
+            order.stt || null,
+            order.customerName || order.customer_name || null,
+            order.phone || null,
+            order.address || null,
+            order.postUrl || order.post_url || null,
+            order.postLabel || order.post_label || null,
+            order.source || 'manual',
+            JSON.stringify(order.products || []),
+            order.totalQuantity || order.total_quantity || 0,
+            order.totalAmount || order.total_amount || 0,
+            JSON.stringify(order.tags || []),
+            order.status || 'draft',
+            order.note || null,
+            JSON.stringify(order.noteImages || order.note_images || []),
+            order.tposPartnerId || order.tpos_partner_id || null,
+            order.pageId || order.page_id || '',
+            order.psid || '',
+            order.conversationId || order.conversation_id || '',
+            order.assignedUserId || order.assigned_user_id || '',
+            order.assignedUserName || order.assigned_user_name || '',
+            order.createdBy || order.created_by || 'admin',
+            order.createdByName || order.created_by_name || 'Admin',
+            order.createdAt || order.created_at || Date.now(),
+            order.updatedAt || order.updated_at || Date.now(),
+            order.username || 'default',
+        ]
+    );
 }
 
 /**
  * Upsert a single order using a transaction client
  */
 async function upsertOrderWithClient(client, order) {
-    return client.query(`
+    return client.query(
+        `
         INSERT INTO social_orders (
             id, stt, customer_name, phone, address, post_url, post_label, source,
             products, total_quantity, total_amount, tags, status, note, note_images,
@@ -614,34 +740,36 @@ async function upsertOrderWithClient(client, order) {
             created_by = EXCLUDED.created_by,
             created_by_name = EXCLUDED.created_by_name,
             updated_at = EXCLUDED.updated_at
-    `, [
-        order.id,
-        order.stt || null,
-        order.customerName || order.customer_name || null,
-        order.phone || null,
-        order.address || null,
-        order.postUrl || order.post_url || null,
-        order.postLabel || order.post_label || null,
-        order.source || 'manual',
-        JSON.stringify(order.products || []),
-        order.totalQuantity || order.total_quantity || 0,
-        order.totalAmount || order.total_amount || 0,
-        JSON.stringify(order.tags || []),
-        order.status || 'draft',
-        order.note || null,
-        JSON.stringify(order.noteImages || order.note_images || []),
-        order.tposPartnerId || order.tpos_partner_id || null,
-        order.pageId || order.page_id || '',
-        order.psid || '',
-        order.conversationId || order.conversation_id || '',
-        order.assignedUserId || order.assigned_user_id || '',
-        order.assignedUserName || order.assigned_user_name || '',
-        order.createdBy || order.created_by || 'admin',
-        order.createdByName || order.created_by_name || 'Admin',
-        order.createdAt || order.created_at || Date.now(),
-        order.updatedAt || order.updated_at || Date.now(),
-        order.username || 'default'
-    ]);
+    `,
+        [
+            order.id,
+            order.stt || null,
+            order.customerName || order.customer_name || null,
+            order.phone || null,
+            order.address || null,
+            order.postUrl || order.post_url || null,
+            order.postLabel || order.post_label || null,
+            order.source || 'manual',
+            JSON.stringify(order.products || []),
+            order.totalQuantity || order.total_quantity || 0,
+            order.totalAmount || order.total_amount || 0,
+            JSON.stringify(order.tags || []),
+            order.status || 'draft',
+            order.note || null,
+            JSON.stringify(order.noteImages || order.note_images || []),
+            order.tposPartnerId || order.tpos_partner_id || null,
+            order.pageId || order.page_id || '',
+            order.psid || '',
+            order.conversationId || order.conversation_id || '',
+            order.assignedUserId || order.assigned_user_id || '',
+            order.assignedUserName || order.assigned_user_name || '',
+            order.createdBy || order.created_by || 'admin',
+            order.createdByName || order.created_by_name || 'Admin',
+            order.createdAt || order.created_at || Date.now(),
+            order.updatedAt || order.updated_at || Date.now(),
+            order.username || 'default',
+        ]
+    );
 }
 
 /**
@@ -674,7 +802,7 @@ function mapRowToOrder(row) {
         createdByName: row.created_by_name,
         createdAt: parseInt(row.created_at) || 0,
         updatedAt: parseInt(row.updated_at) || 0,
-        _source: 'render' // Mark source for hybrid loading
+        _source: 'render', // Mark source for hybrid loading
     };
 }
 
@@ -707,7 +835,9 @@ router.get('/history', async (req, res) => {
         if (search) {
             params.push(`%${search}%`);
             const idx = params.length;
-            conditions.push(`(customer_name ILIKE $${idx} OR phone ILIKE $${idx} OR order_id ILIKE $${idx} OR details ILIKE $${idx})`);
+            conditions.push(
+                `(customer_name ILIKE $${idx} OR phone ILIKE $${idx} OR order_id ILIKE $${idx} OR details ILIKE $${idx})`
+            );
         }
 
         const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
@@ -726,7 +856,7 @@ router.get('/history', async (req, res) => {
 
         res.json({
             success: true,
-            entries: result.rows.map(row => ({
+            entries: result.rows.map((row) => ({
                 id: row.id,
                 action: row.action,
                 orderId: row.order_id,
@@ -736,10 +866,10 @@ router.get('/history', async (req, res) => {
                 details: row.details,
                 snapshot: row.snapshot,
                 userEmail: row.user_email,
-                timestamp: parseInt(row.created_at) || 0
+                timestamp: parseInt(row.created_at) || 0,
             })),
             total,
-            hasMore: offsetNum + result.rows.length < total
+            hasMore: offsetNum + result.rows.length < total,
         });
     } catch (error) {
         console.error('[SOCIAL-ORDERS] GET /history error:', error);
@@ -757,13 +887,24 @@ router.post('/history', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const { action, orderId, orderStt, customerName, phone, details, snapshot, userEmail } = req.body;
+        const { action, orderId, orderStt, customerName, phone, details, snapshot, userEmail } =
+            req.body;
         if (!action) return res.status(400).json({ error: 'action required' });
 
         await pool.query(
             `INSERT INTO social_orders_history (action, order_id, order_stt, customer_name, phone, details, snapshot, user_email, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [action, orderId || null, orderStt || null, customerName || null, phone || null, details || null, snapshot ? JSON.stringify(snapshot) : null, userEmail || null, Date.now()]
+            [
+                action,
+                orderId || null,
+                orderStt || null,
+                customerName || null,
+                phone || null,
+                details || null,
+                snapshot ? JSON.stringify(snapshot) : null,
+                userEmail || null,
+                Date.now(),
+            ]
         );
 
         res.json({ success: true });
