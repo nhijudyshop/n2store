@@ -518,66 +518,81 @@ async function main() {
     // ---- Phase 12: Customer 360 cross-system FK ----
     console.log('\n▶ STEP 12: Phase 12 — Customer 360 link');
 
-    // Test customer per CLAUDE.md memory: Huỳnh Thành Đạt — 0123456788 (test default).
-    // We use this phone so the auto-link can find an existing customer row.
-    const TEST_CUSTOMER_PHONE = '0123456788';
-    let testCustomerId = null;
+    // We use unique fake phones (not in customers table) so we control both
+    // sides of the link: first verify lookup-only returns null, then create a
+    // customer with this phone, then verify subsequent orders auto-link.
+    // (Live customers DB has duplicates of common phones; the test must own
+    // both the customer record and the phone to make assertions stable.)
+    const PHASE12_PHONE = `09${String(Date.now()).slice(-9)}`; // unique per run
+    const UNLINKED_PHONE = `08${String(Date.now() + 1).slice(-9)}`;
+    let phase12CustomerId = null;
+    let phase12NativeCode = null;
+    let phase12PbhNumber = null;
 
-    await step('Lookup test customer (Huỳnh Thành Đạt)', async () => {
-        const r = await api('GET', `/api/v2/customers/by-phone/${TEST_CUSTOMER_PHONE}`);
-        if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
-        // Endpoint can return {success:true, data:null} if customer doesn't exist
-        // In live system the test customer should exist; if not, we'll skip downstream
-        if (!r.data?.success) throw new Error(`response not success: ${JSON.stringify(r.data)}`);
-        // Fetch numeric id via /load search by phone
-        const lr = await api('GET', `/api/v2/customers?phone=${TEST_CUSTOMER_PHONE}&limit=1`);
-        if (lr.data?.data?.length > 0) {
-            testCustomerId = Number(lr.data.data[0].id);
-            ok(`test customer id=${testCustomerId}`);
-        } else {
-            ok('test customer not in DB — downstream tests will exercise null path');
-        }
+    await step('Create NW with unlinked phone → customerId is null', async () => {
+        const r = await api('POST', '/api/native-orders/from-comment', {
+            fbUserId: `qa-phase12a-${Date.now()}`,
+            fbUserName: 'Phase12 Test (unlinked)',
+            phone: UNLINKED_PHONE,
+            customerName: 'Phase12 unlinked',
+        });
+        if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
+        if (r.data.order.customerId !== null)
+            throw new Error(
+                `expected null customerId for unlinked phone, got ${r.data.order.customerId}`
+            );
+        ok(`NW ${r.data.order.code} customerId=null (phone not in customers table)`);
+        await fetch(`${WORKER}/api/native-orders/${r.data.order.code}`, { method: 'DELETE' });
     });
 
-    let phase12NativeCode = null;
-    await step('Create NW with test phone → auto-link customer_id', async () => {
+    await step('Create test customer (TEST-Phase12-*)', async () => {
+        const r = await api('POST', '/api/v2/customers', {
+            phone: PHASE12_PHONE,
+            name: `TEST-Phase12-${Date.now()}`,
+        });
+        const data = r.data?.data || r.data;
+        phase12CustomerId = Number(data?.id);
+        if (!phase12CustomerId)
+            throw new Error(`no id returned: ${JSON.stringify(r.data).slice(0, 200)}`);
+        ok(`customer id=${phase12CustomerId} phone=${PHASE12_PHONE}`);
+    });
+
+    await step('Create NW with linked phone → auto-link customer_id', async () => {
         const r = await api('POST', '/api/native-orders/from-comment', {
-            fbUserId: `qa-phase12-${Date.now()}`,
-            fbUserName: 'Phase12 Test',
-            phone: TEST_CUSTOMER_PHONE,
-            customerName: 'Phase12 Test',
+            fbUserId: `qa-phase12b-${Date.now()}`,
+            fbUserName: 'Phase12 Test (linked)',
+            phone: PHASE12_PHONE,
+            customerName: 'TEST-Phase12-Linked',
         });
         if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
         phase12NativeCode = r.data.order.code;
-        if (testCustomerId && r.data.order.customerId !== testCustomerId) {
-            throw new Error(`customerId=${r.data.order.customerId}, expected ${testCustomerId}`);
-        }
-        ok(
-            `NW ${phase12NativeCode}, customerId=${r.data.order.customerId} (matched=${
-                testCustomerId === r.data.order.customerId
-            })`
-        );
+        if (r.data.order.customerId !== phase12CustomerId)
+            throw new Error(`customerId=${r.data.order.customerId}, expected ${phase12CustomerId}`);
+        ok(`NW ${phase12NativeCode} auto-linked → customer_id=${phase12CustomerId}`);
     });
 
     await step('PATCH NW phone → re-links customer_id', async () => {
         if (!phase12NativeCode) return ok('skipped — no NW created');
-        // Change phone to a non-existent one → customer_id should become null
+        // Swap to unlinked phone → customer_id should null out
         const r = await api('PATCH', `/api/native-orders/${phase12NativeCode}`, {
-            phone: '0900000000',
+            phone: UNLINKED_PHONE,
         });
         if (!r.data?.success) throw new Error(`HTTP ${r.status}`);
         if (r.data.order.customerId !== null)
             throw new Error(
                 `customer_id=${r.data.order.customerId}, expected null after phone swap`
             );
-        ok('phone swap unlinks customer_id (null)');
-        // Restore to test phone for cleanup
-        await api('PATCH', `/api/native-orders/${phase12NativeCode}`, {
-            phone: TEST_CUSTOMER_PHONE,
+        // Swap back to linked phone → should re-link
+        const r2 = await api('PATCH', `/api/native-orders/${phase12NativeCode}`, {
+            phone: PHASE12_PHONE,
         });
+        if (r2.data.order.customerId !== phase12CustomerId)
+            throw new Error(
+                `after restore: customer_id=${r2.data.order.customerId}, expected ${phase12CustomerId}`
+            );
+        ok('phone swap nulls + restore re-links customer_id');
     });
 
-    let phase12PbhNumber = null;
     await step('Convert NW → PBH → inherits customer_id', async () => {
         if (!phase12NativeCode) return ok('skipped — no NW created');
         const r = await api('POST', '/api/fast-sale-orders/from-native-order', {
@@ -585,12 +600,11 @@ async function main() {
         });
         if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
         phase12PbhNumber = r.data.order.number;
-        if (testCustomerId && r.data.order.customerId !== testCustomerId) {
+        if (r.data.order.customerId !== phase12CustomerId)
             throw new Error(
-                `PBH customerId=${r.data.order.customerId}, expected ${testCustomerId}`
+                `PBH customerId=${r.data.order.customerId}, expected ${phase12CustomerId}`
             );
-        }
-        ok(`PBH ${phase12PbhNumber} customerId=${r.data.order.customerId}`);
+        ok(`PBH ${phase12PbhNumber} inherits customer_id=${phase12CustomerId}`);
     });
 
     await step('POST /api/native-orders/backfill-customer-links idempotent', async () => {
@@ -606,12 +620,11 @@ async function main() {
     });
 
     await step('GET /api/v2/customers/:id/orders aggregation', async () => {
-        if (!testCustomerId) return ok('skipped — test customer not in DB');
-        const r = await api('GET', `/api/v2/customers/${testCustomerId}/orders`);
+        if (!phase12CustomerId) return ok('skipped — no customer created');
+        const r = await api('GET', `/api/v2/customers/${phase12CustomerId}/orders`);
         if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
         const { native, pbh, summary } = r.data;
         if (!Array.isArray(native) || !Array.isArray(pbh)) throw new Error('native/pbh not arrays');
-        // Our test NW + PBH must appear in the result
         const foundNw = native.some((o) => o.code === phase12NativeCode);
         const foundPbh = pbh.some((o) => o.number === phase12PbhNumber);
         if (!foundNw) throw new Error(`test NW ${phase12NativeCode} not in aggregation`);
@@ -622,10 +635,12 @@ async function main() {
     });
 
     await step('GET /api/v2/customers/<phone>/orders also works', async () => {
-        const r = await api('GET', `/api/v2/customers/${TEST_CUSTOMER_PHONE}/orders`);
+        const r = await api('GET', `/api/v2/customers/${PHASE12_PHONE}/orders`);
         if (!r.data?.success) throw new Error(`HTTP ${r.status}`);
         if (!Array.isArray(r.data.native) || !Array.isArray(r.data.pbh))
             throw new Error('native/pbh not arrays');
+        const foundNw = r.data.native.some((o) => o.code === phase12NativeCode);
+        if (!foundNw) throw new Error(`NW ${phase12NativeCode} missing from by-phone aggregation`);
         ok(`phone-as-id works (${r.data.native.length} NW + ${r.data.pbh.length} PBH)`);
     });
 
@@ -815,6 +830,15 @@ async function main() {
         const data = await r.json();
         if (!data.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(data)}`);
         ok(`deleted ${phase12NativeCode}`);
+    });
+    await step('DELETE Phase12 customer', async () => {
+        if (!phase12CustomerId) return;
+        const r = await fetch(`${WORKER}/api/v2/customers/${phase12CustomerId}`, {
+            method: 'DELETE',
+        });
+        // Customer DELETE may return 200 success or 404 if already gone
+        if (!r.ok && r.status !== 404) throw new Error(`HTTP ${r.status}`);
+        ok(`deleted customer ${phase12CustomerId}`);
     });
 
     // ---- Summary ----

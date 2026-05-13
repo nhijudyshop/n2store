@@ -65,9 +65,11 @@
 
 **Cloudflare Worker**: không cần đổi — `/api/native-orders/*` + `/api/fast-sale-orders/*` + `/api/v2/customers/*` đã wildcard sẵn.
 
-**QA tests** ([scripts/pbh-qa-test.js](../scripts/pbh-qa-test.js)): thêm 7 test steps cho Phase 12 — auto-link NW, PATCH re-link, NW→PBH inherit, backfill idempotent, aggregation by-id, aggregation by-phone. Dùng test customer mặc định "Huỳnh Thành Đạt — 0123456788" (per memory rule).
+**QA tests** ([scripts/pbh-qa-test.js](../scripts/pbh-qa-test.js)): 9 test steps Phase 12 — auto-link NW (linked + unlinked phone), PATCH re-link (null + restore), NW→PBH inherit, backfill idempotent (NW + PBH), aggregation by-id, aggregation by-phone. Test tự tạo customer với phone unique mỗi run (tránh duplicate phone trong live DB — `0123456788` tồn tại nhiều rows id=1, 14202, …, lookup `LIMIT 1` không deterministic). Cleanup hoàn toàn (`TEST-Phase12-*` prefix customer + DELETE NW/PBH).
 
-**Status**: 🔄 Deploying — đợi Render auto-deploy + run QA suite live verify.
+**Status**: ✅ Deployed (Render `dep-d826q3r7uimc73c57570`) + QA **60/60 pass** live worker.
+
+**UI follow-up** (next commit): nút 👤 mỗi row PBH + Native → modal mini hiện aggregation (count + totals + last 5 orders) qua endpoint mới. Backend đã sẵn sàng.
 
 ### [tpos-pancake][native-orders][ui] Tạo đơn lặp lại cho cùng 1 khách — count badge + merge UX
 
