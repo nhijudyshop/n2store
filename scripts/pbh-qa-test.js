@@ -400,7 +400,9 @@ async function main() {
     // ---- PHASE 7: Realtime WebSocket events ----
     console.log('\n▶ STEP 10d: PHASE 7 — Realtime WS broadcast');
     await step('WS connect + receive native_order:created event', async () => {
-        const WebSocket = require('ws');
+        const WebSocket = require(
+            require('path').resolve(__dirname, '..', 'render.com', 'node_modules', 'ws')
+        );
         const ws = new WebSocket('wss://n2store-fallback.onrender.com');
         await new Promise((res, rej) => {
             const timeout = setTimeout(() => rej(new Error('WS connect timeout')), 5000);
