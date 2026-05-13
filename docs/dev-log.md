@@ -8,6 +8,44 @@
 
 ## 2026-05-13
 
+### [orders][kpi] Tab "Tin nhắn" KPI — render inline messages thật (Pancake API)
+
+**Trigger user**: "tại sao không lấy được tin nhắn mà phải mở pancake? bạn coi tab1 order cách hiển thị tin nhắn đi" — MVP trước chỉ render meta + deep link, user muốn inline messages như tab1-orders chat modal.
+
+**Fix**: Load đầy đủ Pancake stack vào KPI iframe, copy flow từ `tab1-chat-core.js`:
+
+- HTML `orders-report/tab-kpi-commission.html`: thêm 2 script trước `tab-kpi-commission.js`:
+    ```html
+    <script src="../shared/js/pancake-token-manager.js"></script>
+    <script src="js/managers/pancake-data-manager.js"></script>
+    ```
+    → `window.pancakeTokenManager` + `window.pancakeDataManager` available trong iframe.
+- JS `renderInboxTab`: thay vì gọi `fetchInboxPreview` / fallback `/api/pancake/.../by-psid/...` (route worker không tồn tại) → dùng 2 bước:
+    1. `pdm.fetchConversationsByCustomerFbId(pageId, psid)` → lấy conversations list, prefer type=INBOX.
+    2. Nếu pageId derived sai → `pdm.fetchConversationsByCustomerIdMultiPage(psid)` để search across all pages, lấy `usedPageId` từ conv.page_id.
+    3. `pdm.fetchMessages(usedPageId, convId, null, customerId)` → messages array.
+- `_renderInboxMessages`: parse Pancake Public API v1 shape — `original_message` (raw) ưu tiên hơn `message` (HTML), strip HTML qua `_stripHtml`. Distinguish image/video/file attachments. Sort theo `inserted_at` ASC. Auto scroll bottom.
+
+**Test localhost** (order `260501516` của Hạnh, khách Thanh Vân · 0915555178):
+
+- PDM loaded: `hasPdm=true`, `hasTm=true`, `pdmTmReady=true`, JWT trong localStorage ✓.
+- Click tab "Tin nhắn" → render đầy đủ 6 messages thật trong bubble layout:
+    - Customer bubbles (trắng trái): "Áo yếm bữa trước 169 còn đen...", "Ok", "Ok e"
+    - Page bubbles (tím phải): "dạ để e báo bạn thêm vào đơn cho c ạ NV.Bo", "dạ mẫu áo yếm e nhận về hàng tầm 2 ngày...", "dạ e nhận đơn c ạ Nv. Hạnh"
+    - Mỗi bubble có sender name + timestamp ([downloads/n2store-session/kpi-inbox-real-1.png](downloads/n2store-session/kpi-inbox-real-1.png)).
+
+**Cơ chế hoạt động**:
+
+- Pancake JWT đã có sẵn trong localStorage (do user login từ tab1 hoặc inbox cùng origin) → `pancakeTokenManager` đọc instant.
+- Page Access Token cache trong `pancake_page_access_tokens` (negative-cache 15 phút cho page subscription expired).
+- Tab1 và KPI share cùng PDM cache (`_messagesCache`) → mở chat từ tab1 trước thì KPI load instant SWR.
+
+Files: `orders-report/tab-kpi-commission.html` (+5), `orders-report/js/tab-kpi-commission.js` (~+50 thay logic fetch).
+
+Status: ✅ inline messages production-ready.
+
+---
+
 ### [orders][kpi] Tab "Tin nhắn" trong modal chi tiết đơn — meta + Pancake link
 
 **Trigger user**: "bấm vào đơn modal có tab hiển thị tin nhắn inbox" — click 1 đơn ở modal L1 → modal L2 mở ra → cần tab xem messages của khách đặt đơn.
