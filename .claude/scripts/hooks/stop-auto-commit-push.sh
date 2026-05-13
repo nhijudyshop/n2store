@@ -68,10 +68,26 @@ TOKEN="$(echo "$RESUME_OUTPUT" | grep -oE 'RESUME:[0-9]{8}-[0-9]{6}-[a-f0-9]{7}'
 SESSION_FILE="$(echo "$RESUME_OUTPUT" | grep -oE 'docs/sessions/[0-9]{8}-[0-9]{6}-[a-f0-9]{7}\.md' | head -1)"
 
 if [[ -n "$TOKEN" ]]; then
+  # 1) In stdout (hiển thị trong Hook output block — verbose log)
   echo ""
-  echo "🔗 Resume token (paste vào chat mới để tiếp tục):"
+  echo "════════════════════════════════════════════════════════"
+  echo "🔗 SESSION RESUME TOKEN — copy paste vào chat mới:"
+  echo ""
   echo "    $TOKEN"
-  [[ -n "$SESSION_FILE" ]] && echo "📄 $SESSION_FILE"
+  echo ""
+  [[ -n "$SESSION_FILE" ]] && echo "📄 File: $SESSION_FILE"
+  echo "════════════════════════════════════════════════════════"
+
+  # 2) Đẩy vào systemMessage JSON để hiển thị PROMINENT cho user (không bị ẩn trong hook block)
+  # Stop hook JSON output: { "decision": "block" | "approve", "reason": "...", ... }
+  # Hoặc { "additionalContext": "...", "suppressOutput": false }
+  printf '{"systemMessage":"🔗 RESUME TOKEN: %s\\n📄 File: %s\\nCopy token này paste vào chat mới để Claude tiếp tục từ chỗ cũ."}\n' \
+    "$TOKEN" "${SESSION_FILE:-}"
+
+  # 3) Copy to macOS clipboard if pbcopy available (convenience — auto sẵn sàng paste)
+  if command -v pbcopy >/dev/null 2>&1; then
+    echo -n "$TOKEN" | pbcopy 2>/dev/null && echo "📋 Token đã copy vào clipboard (Cmd+V để paste)"
+  fi
 fi
 
 exit 0
