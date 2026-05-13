@@ -89,10 +89,11 @@ if (page > 1 && prevPageEndBalance !== undefined) {
     - 01/05–12/05: `apiFirstBegin=5.749.000` ❌ / `sumDerivedBegin=5.029.000` ✓ → last End `apiBegin=18.188.000` ❌ vs `sumDerived=17.468.000` ✓ (match summary).
     - 30/04–12/05: `apiFirstBegin=4.613.000` ✓ / `sumDerivedBegin=4.613.000` ✓ → last End 17.468.000 ✓ (cả hai phương án đều đúng — không regression).
 - UI smoke 4 filter × 10 supplier = **40 pass / 0 fail** (`lastEnd === summary.End` ở mọi case).
+- **Verify online** sau push commit `54de02e4` + GH Pages deploy: smoke lặp lại trên `https://nhijudyshop.github.io/n2store/supplier-debt/index.html` = **40 pass / 0 fail** (cùng benchmark localhost, không regression production).
 
 **Files**: [supplier-debt/js/main.js:1618-1641](supplier-debt/js/main.js) (~+13 net, comment dài giải thích quirk TPOS).
 
-Status: ✅ Fixed — detail running balance luôn khớp summary End bất kể DateFrom.
+Status: ✅ Fixed + verified online — detail running balance luôn khớp summary End bất kể DateFrom.
 
 ---
 
