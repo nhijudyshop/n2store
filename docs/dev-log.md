@@ -21,6 +21,38 @@
 
 ## 2026-05-13
 
+### [orders][kpi] Đơn Hủy bỏ → ẩn HOÀN TOÀN khỏi modal KPI (không tính, không hiển thị)
+
+**Trigger user**: "phần kpi đơn nào trạng thái 'HỦY' thì không tính vào và không cần hiển thị" — fix trước chỉ exclude khỏi KPI gross nhưng VẪN hiển thị với pill "✗ Hủy bỏ" trong tab "Đơn loại". User muốn tàng hình hoàn toàn.
+
+**Fix**: filter cancelled invoices NGAY TỪ `applyFilters` → không order nào với invoice cancelled lọt vào `state.filteredData.orders`:
+
+```js
+const inv = this._invoiceCache?.get(order.orderId);
+if (this._isInvoiceCancelled(inv)) continue;
+```
+
+→ Mọi downstream code (summary cards, main table, modal L1, recon) không thấy chúng. Cleanup theo cascading:
+
+- Remove `_getKpiExclusionKind` (không còn 'cancel' branch).
+- `renderEmployeeOrdersTable`: revert về isRefunded only, bỏ pill "✗ Hủy bỏ".
+- `renderKPITable`: remove pre-compute cancelledKpi (emp.totalKPI đã đúng).
+- `_indexReconResults` + `_applyL1ReconCache` + `_hydrateL1ReconCachesForEmployees`: bỏ `_isInvoiceCancelled` check (orders đã filter).
+- HTML labels revert: "Đơn loại" → "Đơn hoàn", "Loại" col → "Hoàn".
+
+`_isInvoiceCancelled` giữ làm helper detect.
+
+**Test localhost** (Hạnh 30 ngày):
+
+- Trước fix v1 (no exclude): Tổng 25 / OK 25 / Gross 150k / Net 150k ❌
+- Sau fix v2 (exclude nhưng hiển thị): Tổng 26 / OK 24 / Đơn loại 2 / Gross 150k / Loại 5k / Net 145k
+- Sau fix v3 (filter source): **Tổng 24 / OK 24 / Đơn hoàn 0 / Gross 145k / Net 145k** ✓
+- `hasHuyBo: false` — không còn text "Hủy bỏ" ở bất kỳ đâu trong modal ✓ ([downloads/n2store-session/kpi-no-cancel-1.png](downloads/n2store-session/kpi-no-cancel-1.png)).
+
+Status: ✅ đơn Hủy bỏ tàng hình hoàn toàn khỏi KPI modal.
+
+---
+
 ### [supplier-debt] Fix running balance lệch theo filter — opening balance từ summary
 
 **Trigger user**: So sánh 2 filter B9 Diễm My — DateFrom=01/05/2026 vs 30/04/2026 → tổng "Phát sinh" và "Nợ cuối kỳ" detail table khác nhau (lệch 720.000), trong khi summary row B9 hiển thị End=17.468.000 ổn cả hai. "Web lấy dữ liệu từ tpos nhưng có hệ thống tính toán riêng".
