@@ -803,6 +803,13 @@
         <script src="../shared/js/warehouse-api.js"></script>
         <script src="js/managers/kpi-manager.js"></script>
         <script src="js/managers/kpi-audit-logger.js"></script>
+
+        <!-- Pancake stack for tab "Tin nhắn" trong modal L2.
+             pancake-token-manager: đọc JWT từ localStorage (đã login từ tab1).
+             pancake-data-manager: fetchConversationsByCustomerFbId + fetchMessages. -->
+        <script src="../shared/js/pancake-token-manager.js"></script>
+        <script src="js/managers/pancake-data-manager.js"></script>
+
         <script src="js/tab-kpi-commission.js"></script>
     </body>
 </html>

@@ -2756,44 +2756,74 @@ const KPICommission = {
                     </div>`;
             }
 
-            // Fetch messages via PDM if available
+            // Fetch messages via PDM — flow giống tab1-chat-core:
+            //   1) fetchConversationsByCustomerFbId(pageId, psid) → conversationId
+            //   2) fetchMessages(pageId, convId, null, customerId) → messages[]
             const pdm =
                 window.pancakeDataManager ||
                 window.parent?.pancakeDataManager ||
-                window.top?.pancakeDataManager ||
-                window.pdm;
+                window.top?.pancakeDataManager;
 
             let messages = [];
-            if (pdm?.fetchInboxPreview) {
-                try {
-                    const customerId = order?.Partner?.Id || order?.PartnerId || '';
-                    const preview = await pdm.fetchInboxPreview(pageId, customerId);
-                    messages = preview?.messages || [];
-                } catch (e) {
-                    console.warn('[KPI Inbox] fetchInboxPreview failed:', e?.message);
-                }
-            }
+            let conversationId = null;
+            let usedPageId = pageId;
+            let fetchError = null;
 
-            // Fallback: direct fetch via worker (Pancake official endpoint)
-            if (messages.length === 0 && channelId) {
+            if (pdm?.fetchConversationsByCustomerFbId && pdm?.fetchMessages) {
                 try {
-                    const WORKER =
-                        window.API_CONFIG?.WORKER_URL ||
-                        'https://chatomni-proxy.nhijudyshop.workers.dev';
-                    // Pancake endpoint via worker proxy — depends on existing route
-                    const res = await fetch(
-                        `${WORKER}/api/pancake/pages/${pageId}/conversations/by-psid/${psid}/messages?limit=30`
-                    );
-                    if (res.ok) {
-                        const j = await res.json();
-                        messages = j?.messages || j?.data || [];
+                    // Ensure pancakeTokenManager initialized (đọc JWT từ localStorage
+                    // — đã login qua tab1 thì cùng origin → token sẵn sàng).
+                    if (pdm.tm?.initialize) {
+                        await pdm.tm.initialize().catch(() => {});
+                    }
+
+                    // 1) Resolve conversation từ pageId + psid
+                    let convRes = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+                    let convs = convRes?.conversations || [];
+                    let conv = convs.find((c) => c.type === 'INBOX') || convs[0];
+
+                    // 2) Nếu pageId derive sai → multi-page search
+                    if (!conv && pdm.fetchConversationsByCustomerIdMultiPage) {
+                        const mpRes = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+                        const mpConvs = mpRes?.conversations || [];
+                        conv = mpConvs.find((c) => c.type === 'INBOX') || mpConvs[0];
+                        if (conv) {
+                            usedPageId = conv.page_id || conv.from_psid_page || pageId;
+                        }
+                    }
+
+                    // 3) Fetch messages
+                    if (conv?.id) {
+                        conversationId = conv.id;
+                        const customerId = conv.from?.id || conv.from_id || psid;
+                        const msgRes = await pdm.fetchMessages(
+                            usedPageId,
+                            conversationId,
+                            null,
+                            customerId
+                        );
+                        messages = msgRes?.messages || [];
+                    } else {
+                        fetchError =
+                            'Không tìm thấy conversation cho PSID này (có thể đã bị xóa hoặc subscription page đã hết hạn).';
                     }
                 } catch (e) {
-                    console.warn('[KPI Inbox] worker fallback failed:', e?.message);
+                    console.warn('[KPI Inbox] PDM fetch failed:', e?.message || e);
+                    fetchError = e?.message || 'Lỗi không xác định';
                 }
+            } else {
+                fetchError =
+                    'Pancake stack chưa load (cần shared/js/pancake-token-manager.js + pancake-data-manager.js).';
             }
 
-            this._renderInboxMessages(messages, { pageId, psid, pancakeInboxUrl });
+            this._renderInboxMessages(messages, {
+                pageId: usedPageId,
+                psid,
+                pancakeInboxUrl,
+                conversationId,
+                hasPdm: !!pdm,
+                error: fetchError,
+            });
             this.hideEl('inboxLoading');
             this.showEl('inboxContent');
             this.reinitIcons();
@@ -2813,9 +2843,12 @@ const KPICommission = {
         if (!wrap) return;
 
         if (!messages || messages.length === 0) {
+            const errText = ctx.error
+                ? `<p class="inbox-err">${this.escapeHtml(ctx.error)}</p>`
+                : '<p>Conversation rỗng (chưa có tin nhắn nào).</p>';
             wrap.innerHTML = `
                 <div class="inbox-empty-list">
-                    <p>Chưa lấy được tin nhắn — có thể conversation chưa được sync vào Pancake.</p>
+                    ${errText}
                     <p><a href="${ctx.pancakeInboxUrl}" target="_blank" rel="noopener">Mở trực tiếp trên Pancake</a> để xem full lịch sử.</p>
                 </div>`;
             return;
@@ -2834,7 +2867,8 @@ const KPICommission = {
             const fromId = msg?.from?.id || msg.from_id || '';
             const isFromPage = String(fromId) === pageId;
             const side = isFromPage ? 'page' : 'customer';
-            const text = msg.message || msg.text || '';
+            // Pancake Public API v1 messages có `original_message` (raw text) + `message` (HTML)
+            const text = msg.original_message || this._stripHtml(msg.message || msg.text || '');
             const senderName = msg?.from?.name || (isFromPage ? 'Page' : 'Khách') || 'Unknown';
             const t = msg.inserted_at || msg.created_time || msg.timestamp || '';
             const tStr = t ? new Date(t).toLocaleString('vi-VN') : '';
@@ -2842,10 +2876,13 @@ const KPICommission = {
 
             let attachHtml = '';
             for (const a of attachments) {
-                const url = a.url || a.image_url || a.payload?.url || '';
+                const url = a.url || a.image_url || a.payload?.url || a.thumbnail_url || '';
                 if (!url) continue;
-                if (a.type === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(url)) {
-                    attachHtml += `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener"><img src="${this.escapeHtml(url)}" class="inbox-attach-img" alt="" /></a>`;
+                const typeStr = String(a.type || '').toLowerCase();
+                if (typeStr === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(url)) {
+                    attachHtml += `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener"><img src="${this.escapeHtml(url)}" class="inbox-attach-img" alt="" loading="lazy" /></a>`;
+                } else if (typeStr === 'video' || /\.(mp4|webm|mov)$/i.test(url)) {
+                    attachHtml += `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener" class="inbox-attach-file">🎬 Video</a>`;
                 } else {
                     attachHtml += `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener" class="inbox-attach-file">📎 ${this.escapeHtml(a.name || 'Tệp đính kèm')}</a>`;
                 }
@@ -2865,8 +2902,15 @@ const KPICommission = {
         }
 
         wrap.innerHTML = html;
-        // Scroll to bottom
+        // Scroll to bottom (latest message visible)
         wrap.scrollTop = wrap.scrollHeight;
+    },
+
+    _stripHtml(html) {
+        if (!html) return '';
+        const tmp = document.createElement('div');
+        tmp.innerHTML = String(html);
+        return tmp.textContent || tmp.innerText || '';
     },
 
     // ========================================
