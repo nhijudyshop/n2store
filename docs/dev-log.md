@@ -6,6 +6,19 @@
 
 ---
 
+## 🔗 Session Resume Protocol (BẮT BUỘC)
+
+> Sau mỗi commit+push xong, Claude phải tạo session resume để chat mới có thể tiếp tục seamless.
+
+- **Tạo**: `bash scripts/save-session-resume.sh "<1-dòng summary>"` → sinh `docs/sessions/<YYYYMMDD-HHMMSS>-<sha7>.md` + commit/push tự động.
+- **Token in cuối turn**: `🔗 RESUME:<YYYYMMDD-HHMMSS>-<sha7>` (ví dụ `RESUME:20260513-094400-2f8a169`). User copy paste vào chat mới.
+- **Khi chat mới nhận token** match `RESUME:[0-9]{8}-[0-9]{6}-[a-f0-9]{7}` → Claude `Read` file `docs/sessions/<token>.md` → tóm tắt 2-3 câu → tiếp tục từ "Next Steps".
+- **Sau script** mở file vừa sinh, điền chi tiết các mục Key Decisions / Next Steps / Context Pointers (script chỉ fill metadata + file list).
+- Quy ước đầy đủ: [`docs/sessions/README.md`](sessions/README.md). Template: [`docs/sessions/_TEMPLATE.md`](sessions/_TEMPLATE.md).
+- **Vì sao không base64/hash thô**: hash 1-chiều không recover; base64 transcript đầy đủ vài MB không paste nổi → token ngắn + file md trong git là balance tốt nhất.
+
+---
+
 ## 2026-05-13
 
 ### [supplier-debt] Fix running balance lệch theo filter — opening balance từ summary

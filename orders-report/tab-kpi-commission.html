@@ -262,13 +262,17 @@
                                 <th>Tên nhân viên</th>
                                 <th>Số đơn</th>
                                 <th>SP NET</th>
-                                <th title="KPI tổng (chưa trừ đơn hoàn/hủy)">KPI gross</th>
                                 <th
-                                    title="Đơn loại: đơn hoàn (refund excel) + đơn có phiếu Hủy bỏ trên TPOS. Cancelled detect tự động từ invoice cache; refund cần chạy đối soát."
+                                    title="KPI tổng (chưa trừ đơn hoàn). Đơn Hủy bỏ đã bị loại hoàn toàn từ trước."
                                 >
-                                    <i data-lucide="undo-2"></i> Loại
+                                    KPI gross
                                 </th>
-                                <th title="KPI thực = KPI gross - KPI bị loại do hoàn/hủy">
+                                <th
+                                    title="Đơn hoàn (refund excel) — cần chạy đối soát mới biết. Đơn Hủy bỏ đã bị loại hoàn toàn khỏi KPI."
+                                >
+                                    <i data-lucide="undo-2"></i> Hoàn
+                                </th>
+                                <th title="KPI thực = KPI gross - KPI bị loại do hoàn">
                                     KPI thực (VNĐ)
                                 </th>
                                 <th style="min-width: 200px">Phiếu bán hàng</th>
@@ -505,9 +509,9 @@
                         class="modalL1-tab"
                         data-l1-tab="refunds"
                         type="button"
-                        title="Đơn bị loại khỏi KPI: đơn hoàn (refund excel) hoặc đơn có phiếu Hủy bỏ trên TPOS"
+                        title="Đơn hoàn (refund excel) — đơn Hủy bỏ đã bị loại hoàn toàn khỏi danh sách"
                     >
-                        <i data-lucide="undo-2"></i> Đơn loại
+                        <i data-lucide="undo-2"></i> Đơn hoàn
                         <span class="modalL1-tab-count l1-tab-refund-count" id="l1TabCountRefund"
                             >0</span
                         >
@@ -535,9 +539,9 @@
                         </div>
                         <div
                             class="l1-sum-item l1-sum-refund"
-                            title="Đơn hoàn (refund excel) + đơn có phiếu Hủy bỏ trên TPOS"
+                            title="Đơn hoàn (refund excel) — đơn Hủy bỏ đã bị loại hoàn toàn"
                         >
-                            <div class="l1-sum-label">Đơn loại</div>
+                            <div class="l1-sum-label">Đơn hoàn</div>
                             <div class="l1-sum-value" id="l1SumRefundOrders">0</div>
                         </div>
                         <div class="l1-sum-item l1-sum-kpi">

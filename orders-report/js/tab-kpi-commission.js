@@ -605,6 +605,12 @@ const KPICommission = {
                     // Filter by campaign
                     if (campaign && order.campaignName !== campaign) continue;
 
+                    // Loại đơn có phiếu Hủy bỏ HOÀN TOÀN khỏi KPI — không
+                    // tính, không hiển thị. User chốt: "đơn nào trạng thái HỦY
+                    // thì không tính vào và không cần hiển thị".
+                    const inv = this._invoiceCache?.get(order.orderId);
+                    if (this._isInvoiceCancelled(inv)) continue;
+
                     // Filter by status
                     if (status === 'ok' && order.hasDiscrepancy) continue;
                     if (status === 'discrepancy' && !order.hasDiscrepancy) continue;
@@ -785,18 +791,6 @@ const KPICommission = {
             showState === 'Huỷ bỏ' ||
             showState === 'Hủy bỏ'
         );
-    },
-
-    /**
-     * Đơn có bị loại khỏi KPI không? Trả về 'refund' | 'cancel' | null.
-     * Truyền vào `recon` từ _reconByOrder (có thể null khi chưa chạy đối soát).
-     * Đối với 'cancel' — phát hiện ngay từ invoice cache, không cần recon.
-     */
-    _getKpiExclusionKind(orderId, recon) {
-        if (recon?.isRefunded) return 'refund';
-        const invoice = this._invoiceCache?.get(orderId);
-        if (this._isInvoiceCancelled(invoice)) return 'cancel';
-        return null;
     },
 
     /**
@@ -1503,50 +1497,26 @@ const KPICommission = {
                 return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
             }).length;
 
-            // Đếm cancelled trực tiếp từ invoice cache — KHÔNG cần chờ recon.
-            // Đơn có phiếu Hủy bỏ phải bị loại khỏi KPI gross ngay.
-            let cancelledKpi = 0;
-            let cancelledCount = 0;
-            for (const order of emp.orders || []) {
-                if (order._stale) continue;
-                const inv = this._invoiceCache?.get(order.orderId);
-                if (this._isInvoiceCancelled(inv)) {
-                    cancelledKpi += order.kpi || 0;
-                    cancelledCount++;
-                }
-            }
-
-            const reconLoss = this._reconKpiLossByUser?.get(emp.userId) || {
+            // Đơn cancelled đã bị filter khỏi emp.orders từ applyFilters →
+            // emp.totalKPI đã là KPI sau khi loại cancelled. lossInfo chỉ
+            // còn refund excel (cần recon mới biết).
+            const lossInfo = this._reconKpiLossByUser?.get(emp.userId) || {
                 kpiLost: 0,
                 refundCount: 0,
             };
-            // Tránh đếm trùng: nếu recon đã mark đơn cancelled là refund thì
-            // reconLoss đã bao gồm chúng. Lấy max cho an toàn (cancelled luôn
-            // được detect độc lập từ invoice cache).
-            const lossInfo = {
-                kpiLost: Math.max(reconLoss.kpiLost, cancelledKpi),
-                refundCount: Math.max(reconLoss.refundCount, cancelledCount),
-                cancelledCount,
-                cancelledKpi,
-            };
             const kpiNet = emp.totalKPI - lossInfo.kpiLost;
             const hasLoss = lossInfo.kpiLost > 0;
-            const lossTitle =
-                cancelledCount > 0 && reconLoss.kpiLost === 0
-                    ? `${cancelledCount} phiếu hủy — bị loại ${this.formatCurrency(cancelledKpi)}`
-                    : `${lossInfo.refundCount} đơn loại (hoàn/hủy) — bị loại ${this.formatCurrency(lossInfo.kpiLost)}`;
+            const lossTitle = `${lossInfo.refundCount} đơn hoàn — bị loại ${this.formatCurrency(lossInfo.kpiLost)}`;
 
             const grossCellHtml = hasLoss
-                ? `<td class="col-kpi-gross" title="Tổng KPI trước khi loại đơn hoàn/hủy">${this.formatCurrency(emp.totalKPI)}</td>`
+                ? `<td class="col-kpi-gross" title="Tổng KPI trước khi loại đơn hoàn">${this.formatCurrency(emp.totalKPI)}</td>`
                 : `<td class="col-kpi-gross" style="text-decoration:none;color:inherit;">${this.formatCurrency(emp.totalKPI)}</td>`;
 
-            // Hiển thị refund cell khi recon đã chạy HOẶC có cancelled detect được
-            const showRefundCell = reconRan || cancelledCount > 0;
-            const refundCellHtml = showRefundCell
+            const refundCellHtml = reconRan
                 ? `<td class="col-refund-count"><span class="refund-badge ${lossInfo.refundCount === 0 ? 'is-zero' : ''}" title="${lossTitle}">↩ ${lossInfo.refundCount}</span></td>`
                 : `<td class="col-refund-count" style="color:#9ca3af;font-size:11px;" title="Chưa chạy đối soát">—</td>`;
 
-            const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? lossTitle : 'Không có đơn hoàn/hủy'}">${this.formatCurrency(kpiNet)}</td>`;
+            const netCellHtml = `<td class="col-kpi-net ${hasLoss ? 'has-loss' : ''}" title="${hasLoss ? lossTitle : 'Không có đơn hoàn'}">${this.formatCurrency(kpiNet)}</td>`;
 
             html += `<tr>
                 <td>${idx + 1}</td>
@@ -1698,37 +1668,33 @@ const KPICommission = {
 
         orders.forEach((order) => {
             if (order._stale) return;
+            // Đơn cancelled đã filter ở applyFilters → mọi order ở đây
+            // đều còn hiệu lực. isRefunded chỉ còn refund excel.
             const recon = this._reconByOrder?.get(order.orderId);
-            const exclusionKind = this._getKpiExclusionKind(order.orderId, recon);
-            const isRefunded = exclusionKind === 'refund';
-            const isCancelled = exclusionKind === 'cancel';
-            const isExcluded = !!exclusionKind;
-            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện đơn loại (refund/cancel)
-            // để user thấy lý do "không tính KPI" dù KPI=0
-            if (simpleMode && !isExcluded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
+            const isRefunded = !!recon?.isRefunded;
+            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện refunded để user thấy
+            // lý do "đã hoàn — không tính KPI" dù KPI=0.
+            if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
                 return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
-            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isExcluded;
+            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isRefunded;
             const invNumber =
                 recon?.invoiceNumber || this._invoiceCache?.get(order.orderId)?.Number || '';
 
             totalOrders++;
             kpiGross += order.kpi || 0;
-            if (isExcluded) {
+            if (isRefunded) {
                 refundOrders++;
                 kpiLost += order.kpi || 0;
             } else {
                 okOrders++;
             }
 
-            const rowClass = isExcluded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
+            const rowClass = isRefunded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
 
             let statusPill;
-            if (isCancelled) {
-                statusPill =
-                    '<span class="kpi-status-pill pill-refund" title="Phiếu đã hủy trên TPOS — không tính KPI">✗ Hủy bỏ</span>';
-            } else if (isRefunded) {
+            if (isRefunded) {
                 statusPill = '<span class="kpi-status-pill pill-refund">↩ Đã hoàn</span>';
             } else if (hasDiscrepancy) {
                 statusPill = '<span class="kpi-status-pill pill-discrepancy">⚠ Sai lệch</span>';
@@ -1898,9 +1864,7 @@ const KPICommission = {
             let refundCount = 0;
             for (const order of emp?.orders || []) {
                 const r = this._reconByOrder.get(order.orderId);
-                const inv = this._invoiceCache?.get(order.orderId);
-                const isCancelled = this._isInvoiceCancelled(inv);
-                if (r?.isRefunded || isCancelled) {
+                if (r?.isRefunded) {
                     lossSum += order.kpi || 0;
                     refundCount++;
                 }
@@ -1947,9 +1911,7 @@ const KPICommission = {
         }
         for (const order of orders) {
             const r = this._reconByOrder.get(order.orderId);
-            const inv = this._invoiceCache?.get(order.orderId);
-            const isCancelled = this._isInvoiceCancelled(inv);
-            if (r?.isRefunded || isCancelled) {
+            if (r?.isRefunded) {
                 lossSum += order.kpi || 0;
                 refundCount++;
             }
@@ -3463,16 +3425,14 @@ const KPICommission = {
         for (const r of results) {
             this._reconByOrder.set(r.orderId, r);
         }
-        // Aggregate KPI loss per user via this.state.filteredData.
-        // Loại đơn = đơn refund (từ excel) HOẶC đơn có phiếu Hủy bỏ trên TPOS.
+        // Aggregate KPI loss per user. Cancelled đã filter ở applyFilters
+        // nên emp.orders không có. Chỉ còn refund excel cần đối soát.
         const refundedSet = new Set(results.filter((r) => r.isRefunded).map((r) => r.orderId));
         for (const emp of this.state.filteredData || []) {
             let lossSum = 0;
             let refundCount = 0;
             for (const order of emp.orders || []) {
-                const inv = this._invoiceCache?.get(order.orderId);
-                const isCancelled = this._isInvoiceCancelled(inv);
-                if (refundedSet.has(order.orderId) || isCancelled) {
+                if (refundedSet.has(order.orderId)) {
                     lossSum += order.kpi || 0;
                     refundCount++;
                 }
