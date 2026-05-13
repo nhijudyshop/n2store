@@ -45,7 +45,9 @@
         CHUA_PHAN_HOI: 'ĐƠN CHƯA PHẢN HỒI',
         BAN_HANG: 'BÁN HÀNG',
         // Cat 3 — KHÔNG CẦN CHỐT  (⚠ bidirectional REMOVE)
-        DA_GOP_KHONG_CHOT: 'ĐÃ GỘP KO CHỐT',
+        // 2026-05-13: đổi từ 'ĐÃ GỘP KO CHỐT' (viết tắt) → 'ĐÃ GỘP KHÔNG CHỐT'
+        // (đúng nguyên văn XL label). Legacy tag được nhận dạng qua TPOS_ALIASES.
+        DA_GOP_KHONG_CHOT: 'ĐÃ GỘP KHÔNG CHỐT',
         // Cat 4 — KHÁCH XÃ SAU CHỐT  (⚠ bidirectional REMOVE: NCC_HET_HANG)
         NCC_HET_HANG: 'NCC HẾT HÀNG',
         KHACH_HUY_DON: 'KHÁCH HỦY NGUYÊN ĐƠN',
@@ -80,6 +82,10 @@
         'TRỪ THU VỀ': 'flag:TRU_CONG_NO',
         'KHÁCH CK': 'flag:CHUYEN_KHOAN',
         CK: 'flag:CHUYEN_KHOAN',
+        // Legacy alias 2026-05-13: tag cũ "ĐÃ GỘP KO CHỐT" vẫn map về subtag
+        // DA_GOP_KHONG_CHOT (canonical TPOS tag giờ là "ĐÃ GỘP KHÔNG CHỐT").
+        // Đơn cũ merge bằng tên viết tắt vẫn được nhận dạng reverse-sync.
+        'ĐÃ GỘP KO CHỐT': 'subtag:DA_GOP_KHONG_CHOT',
     };
 
     // Pattern aliases — match TPOS tag bằng regex thay vì exact name.

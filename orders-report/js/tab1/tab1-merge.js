@@ -622,7 +622,7 @@ async function executeBulkMergeOrderProducts() {
             `Hành động này sẽ:\n` +
             `- Gộp sản phẩm từ đơn STT nhỏ → đơn STT lớn\n` +
             `- Xóa sản phẩm khỏi ${totalSourceOrders} đơn nguồn\n` +
-            `- Gán tag "ĐÃ GỘP KO CHỐT" cho đơn nguồn, tag "Gộp X Y Z" cho đơn đích`;
+            `- Gán tag "ĐÃ GỘP KHÔNG CHỐT" cho đơn nguồn, tag "Gộp X Y Z" cho đơn đích`;
 
         const confirmed = await window.notificationManager.confirm(
             confirmMsg,
@@ -1426,7 +1426,7 @@ async function confirmMergeSelectedClusters() {
 
         // Assign tags trong 2 trường hợp:
         // 1) success=true: gán tag đầy đủ cho target + tất cả source
-        // 2) partial=true: target đã có đủ products → vẫn cần tag target, CHỈ gán "ĐÃ GỘP KO CHỐT"
+        // 2) partial=true: target đã có đủ products → vẫn cần tag target, CHỈ gán "ĐÃ GỘP KHÔNG CHỐT"
         //    cho các source đã clear thành công (source chưa clear giữ nguyên tag cũ để user retry)
         const clusterForTagging = result.success
             ? cluster
@@ -1978,7 +1978,11 @@ const escapeHtml = _escMerge;
 // =====================================================
 
 const MERGE_TAG_COLOR = '#E3A21A';
-const MERGED_ORDER_TAG_NAME = 'ĐÃ GỘP KO CHỐT';
+// 2026-05-13: đổi sang 'ĐÃ GỘP KHÔNG CHỐT' (đầy đủ) — đồng bộ với XL label
+// và với SUBTAG_TO_TPOS map. Legacy 'ĐÃ GỘP KO CHỐT' vẫn được match bởi
+// MERGED_ORDER_LEGACY_TAG_NAMES để không xoá oan đơn merge cũ.
+const MERGED_ORDER_TAG_NAME = 'ĐÃ GỘP KHÔNG CHỐT';
+const MERGED_ORDER_LEGACY_TAG_NAMES = new Set(['ĐÃ GỘP KO CHỐT', 'ĐÃ GỘP KHÔNG CHỐT']);
 
 /**
  * Get tags array from order object
@@ -2025,10 +2029,11 @@ function calculateMergedTagsPreview(cluster) {
 
     const allTags = new Map(); // dedup by tag.Id
 
-    // Filter giống hệt assignTagsAfterMerge — KHÔNG được lệch
+    // Filter giống hệt assignTagsAfterMerge — KHÔNG được lệch.
+    // Match cả tên mới ('ĐÃ GỘP KHÔNG CHỐT') lẫn legacy ('ĐÃ GỘP KO CHỐT').
     const shouldExcludeTag = (tagName) => {
         if (!tagName) return false;
-        if (tagName === MERGED_ORDER_TAG_NAME) return true; // 'ĐÃ GỘP KO CHỐT'
+        if (MERGED_ORDER_LEGACY_TAG_NAMES.has(tagName)) return true;
         if (tagName.startsWith('Gộp ')) return true; // tag merge group cũ
         return false;
     };
@@ -2079,7 +2084,7 @@ function calculateMergedTagsPreview(cluster) {
 function calculateSourceTagsPreview(sourceOrder, cluster) {
     const shouldExcludeTag = (tagName) => {
         if (!tagName) return false;
-        if (tagName === MERGED_ORDER_TAG_NAME) return true;
+        if (MERGED_ORDER_LEGACY_TAG_NAMES.has(tagName)) return true;
         if (tagName.startsWith('Gộp ')) return true;
         return false;
     };

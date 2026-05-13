@@ -4735,7 +4735,7 @@
 
                     if (!normalizedPhone) {
                         console.warn(
-                            `${PTAG_LOG} Order ${order.Code} has "ĐÃ GỘP KO CHỐT" but no phone number`
+                            `${PTAG_LOG} Order ${order.Code} has "ĐÃ GỘP KHÔNG CHỐT" but no phone number`
                         );
                         failedSTT.push(stt);
                         continue;

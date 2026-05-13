@@ -780,11 +780,14 @@ async function executeBulkTagModalAssignment() {
                         Color: t.Color,
                     }));
 
-                    // Check if order has "ĐÃ GỘP KO CHỐT" tag (exact match)
-                    const hasBlockedTag = currentTags.some((t) => t.Name === 'ĐÃ GỘP KO CHỐT');
+                    // Check if order has "ĐÃ GỘP KHÔNG CHỐT" tag (mới) hoặc
+                    // "ĐÃ GỘP KO CHỐT" tag (legacy đơn merge cũ).
+                    const hasBlockedTag = currentTags.some(
+                        (t) => t.Name === 'ĐÃ GỘP KHÔNG CHỐT' || t.Name === 'ĐÃ GỘP KO CHỐT'
+                    );
                     if (hasBlockedTag) {
                         console.log(
-                            `[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KO CHỐT", finding replacement...`
+                            `[BULK-TAG-MODAL] Order ${order.Code} has blocked tag "ĐÃ GỘP KHÔNG CHỐT", finding replacement...`
                         );
 
                         // Get normalized phone number
@@ -794,7 +797,7 @@ async function executeBulkTagModalAssignment() {
                         if (!normalizedPhone) {
                             console.log(`[BULK-TAG-MODAL] Order ${order.Code} has no phone number`);
                             failedSTT.push(order.SessionIndex);
-                            failReason = 'Đơn có tag "ĐÃ GỘP KO CHỐT" và không có SĐT';
+                            failReason = 'Đơn có tag "ĐÃ GỘP KHÔNG CHỐT" và không có SĐT';
                             continue;
                         }
 
