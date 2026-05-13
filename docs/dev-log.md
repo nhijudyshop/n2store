@@ -25,6 +25,40 @@
 
 ## 2026-05-13
 
+### [orders][customer-360] Phase 14: Filter list theo Customer 360 id
+
+**Mục tiêu**: từ modal Khách hàng 360°, user bấm 1 nút → list NW/PBH thu hẹp về chỉ đơn của khách đó. Mỗi filter có URL riêng để share/bookmark.
+
+**Backend** ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js) + [render.com/routes/fast-sale-orders.js](../render.com/routes/fast-sale-orders.js)):
+
+- `GET /api/native-orders/load?customerId=N`
+- `GET /api/fast-sale-orders/load?customerId=N`
+- Cả 2 `/export` endpoints cũng inherit filter để CSV chỉ chứa đơn của khách đó
+- Input validation: `Number.isFinite(parseInt(customerId, 10))` — bad input bị ignore, không throw (verified `?customerId=abc` → trả full 23 rows)
+
+**API client** ([native-orders/js/native-orders-api.js](../native-orders/js/native-orders-api.js)): `NativeOrdersApi.list({ customerId })` truyền xuống worker.
+
+**UI** (cả 2 trang [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) + [web2/fastsaleorder-invoice/pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js)):
+
+- Modal header thêm button "🔍 Lọc đơn" (purple, `filter` icon) → `STATE.customerId = N`, `history.replaceState` URL `?customerId=N`, reload list, đóng modal
+- Purple chip "Đang lọc theo Khách hàng #N — ×" hiện trên cùng (trước `.search-info`)
+- Click `×` → clear filter + URL
+- Init parse `?customerId=` từ URL → deep-link/share/bookmark hoạt động
+- CSV export cũng inherit filter
+
+**Test live** (commit `060e83da`, Render deploy live):
+
+- NW `?customerId=6820`: chip "Đang lọc theo Khách hàng #6820 ×", filter còn 1 row (NW-20260424-0002), `clearCustomerFilter()` → chip removed + URL cleaned + 23 rows back
+- PBH `?customerId=14202`: chip hiện, 0 rows (khách chưa có PBH), clear OK
+- Bad input `?customerId=abc`: filter ignored gracefully → 23 rows
+- Export: `Content-Disposition` đúng filename, filter pass qua
+
+**Workflow user**: Top customers 360 → click 👤 mở modal → "🔍 Lọc đơn" → bay sang trang list scope theo customer → chip × để clear → hoặc share URL có `?customerId=N`.
+
+**Cache bump**: `pbh-app.js?v=20260513c`, `native-orders-api.js?v=20260513b`, `native-orders-app.js?v=20260513b`.
+
+**Status**: ✅ Live + verified end-to-end.
+
 ### [reports][customer-360] Phase 13: Top khách hàng 360° unified report
 
 **Mục tiêu**: tận dụng `customer_id` FK của Phase 12 để rank khách hàng theo doanh thu hợp nhất (NW + PBH), thay vì group theo `partner_phone + partner_name` (V1 chỉ có PBH, dễ duplicate nếu cùng khách có nhiều variant phone/name).
