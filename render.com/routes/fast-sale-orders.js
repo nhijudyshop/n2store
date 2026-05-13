@@ -305,7 +305,7 @@ router.get('/export', async (req, res) => {
     if (!pool) return res.status(500).send('DB unavailable');
     try {
         await ensureTables(pool);
-        const { state, search } = req.query;
+        const { state, search, customerId } = req.query;
         const conds = [];
         const params = [];
         if (state) {
@@ -318,6 +318,13 @@ router.get('/export', async (req, res) => {
             conds.push(
                 `(partner_name ILIKE $${i} OR partner_phone ILIKE $${i} OR number ILIKE $${i} OR source_code ILIKE $${i})`
             );
+        }
+        if (customerId) {
+            const cid = parseInt(customerId, 10);
+            if (Number.isFinite(cid)) {
+                params.push(cid);
+                conds.push(`customer_id = $${params.length}`);
+            }
         }
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
         const r = await pool.query(
@@ -459,7 +466,7 @@ router.get('/load', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const { state, search, limit, page } = req.query;
+        const { state, search, limit, page, customerId } = req.query;
         const limitNum = Math.min(Math.max(parseInt(limit, 10) || 200, 1), 1000);
         const pageNum = Math.max(parseInt(page, 10) || 1, 1);
         const offset = (pageNum - 1) * limitNum;
@@ -476,6 +483,14 @@ router.get('/load', async (req, res) => {
             conds.push(
                 `(partner_name ILIKE $${i} OR partner_phone ILIKE $${i} OR number ILIKE $${i} OR source_code ILIKE $${i})`
             );
+        }
+        // Phase 14: filter by Customer 360 link
+        if (customerId) {
+            const cid = parseInt(customerId, 10);
+            if (Number.isFinite(cid)) {
+                params.push(cid);
+                conds.push(`customer_id = $${params.length}`);
+            }
         }
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 

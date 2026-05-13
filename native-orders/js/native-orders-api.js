@@ -41,10 +41,19 @@
          * @param {string} [params.search]
          * @param {string} [params.fbPostId]
          * @param {string[]} [params.campaignIds]  use '__no_campaign__' for orders without a campaign
+         * @param {number} [params.customerId]  Phase 14 — filter to Customer 360 id
          * @param {number} [params.page=1]
          * @param {number} [params.limit=200]
          */
-        async list({ status, search, fbPostId, campaignIds, page = 1, limit = 200 } = {}) {
+        async list({
+            status,
+            search,
+            fbPostId,
+            campaignIds,
+            customerId,
+            page = 1,
+            limit = 200,
+        } = {}) {
             const qs = new URLSearchParams();
             if (status && status !== 'all') qs.set('status', status);
             if (search) qs.set('search', search);
@@ -52,6 +61,7 @@
             if (Array.isArray(campaignIds) && campaignIds.length) {
                 qs.set('campaignIds', campaignIds.join(','));
             }
+            if (customerId) qs.set('customerId', String(customerId));
             qs.set('page', String(page));
             qs.set('limit', String(limit));
             return _fetchJson(`${BASE}/load?${qs}`);

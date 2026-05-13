@@ -565,7 +565,7 @@ router.get('/export', async (req, res) => {
     if (!pool) return res.status(500).send('DB unavailable');
     try {
         await ensureTables(pool);
-        const { status, search, campaignIds } = req.query;
+        const { status, search, campaignIds, customerId } = req.query;
         const conds = [];
         const params = [];
         if (status && status !== 'all') {
@@ -591,6 +591,13 @@ router.get('/export', async (req, res) => {
             if (ids.length) {
                 params.push(ids);
                 conds.push(`live_campaign_id = ANY($${params.length}::text[])`);
+            }
+        }
+        if (customerId) {
+            const cid = parseInt(customerId, 10);
+            if (Number.isFinite(cid)) {
+                params.push(cid);
+                conds.push(`customer_id = $${params.length}`);
             }
         }
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
@@ -677,7 +684,15 @@ router.get('/load', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const { status, page = 1, limit = 200, search, fbPostId, campaignIds } = req.query;
+        const {
+            status,
+            page = 1,
+            limit = 200,
+            search,
+            fbPostId,
+            campaignIds,
+            customerId,
+        } = req.query;
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(1000, Math.max(1, parseInt(limit)));
         const offset = (pageNum - 1) * limitNum;
@@ -698,6 +713,14 @@ router.get('/load', async (req, res) => {
             conds.push(
                 `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i})`
             );
+        }
+        // Phase 14: filter by customer_id (link to Customer 360)
+        if (customerId) {
+            const cid = parseInt(customerId, 10);
+            if (Number.isFinite(cid)) {
+                params.push(cid);
+                conds.push(`customer_id = $${params.length}`);
+            }
         }
         // campaignIds=id1,id2,...  → match orders that belong to ANY of the chosen campaigns.
         // Special token __no_campaign__ matches orders WITHOUT a campaign (NULL/empty).

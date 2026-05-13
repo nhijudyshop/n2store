@@ -6,7 +6,16 @@
     'use strict';
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const STATE = { orders: [], total: 0, page: 1, limit: 200, state: '', search: '' };
+    const STATE = {
+        orders: [],
+        total: 0,
+        page: 1,
+        limit: 200,
+        state: '',
+        search: '',
+        // Phase 14: scope list to a single Customer 360 record (parsed from URL on init)
+        customerId: null,
+    };
 
     const $ = (s) => document.querySelector(s);
     const tbody = () => $('#pbhTbody');
@@ -47,6 +56,7 @@
         const params = new URLSearchParams();
         if (STATE.search) params.set('search', STATE.search);
         if (STATE.state) params.set('state', STATE.state);
+        if (STATE.customerId) params.set('customerId', String(STATE.customerId));
         params.set('page', STATE.page);
         params.set('limit', STATE.limit);
         try {
@@ -57,6 +67,7 @@
             STATE.total = data.total || 0;
             renderRows();
             renderCounters();
+            renderCustomerChip();
             renderPagination();
         } catch (e) {
             tbody().innerHTML = `<tr><td colspan="11" class="empty-row"><div class="empty-state empty-state-error"><i data-lucide="alert-triangle" class="empty-state-icon"></i><div class="empty-state-title">Lỗi tải dữ liệu</div><div class="empty-state-hint">${escapeHtml(e.message)}</div></div></td></tr>`;
@@ -68,6 +79,52 @@
     function renderCounters() {
         $('#pbhCounter').textContent = `${STATE.total} PBH`;
         $('#pbhResultCount').textContent = STATE.total;
+    }
+
+    // Phase 14: show a chip when filtering by Customer 360 id; click X to clear.
+    function renderCustomerChip() {
+        let chip = document.getElementById('pbhCustomerChip');
+        if (!STATE.customerId) {
+            if (chip) chip.remove();
+            return;
+        }
+        if (!chip) {
+            chip = document.createElement('div');
+            chip.id = 'pbhCustomerChip';
+            chip.style.cssText =
+                'display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;font-size:12px;font-weight:600;margin:8px 0 12px 0;';
+            const infoEl =
+                document.querySelector('.search-info') || document.querySelector('.search-section');
+            infoEl?.parentNode?.insertBefore(chip, infoEl);
+        }
+        chip.innerHTML = `
+            <i data-lucide="user-circle" style="width:14px;height:14px;color:#7c3aed;"></i>
+            Đang lọc theo Khách hàng #${STATE.customerId}
+            <button onclick="PbhApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#5b21b6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function filterByCustomer(customerId) {
+        if (!customerId) return;
+        STATE.customerId = Number(customerId);
+        STATE.page = 1;
+        // Persist in URL so reload keeps the filter
+        const url = new URL(location.href);
+        url.searchParams.set('customerId', String(customerId));
+        history.replaceState(null, '', url.toString());
+        // Close modal if open
+        const modal = document.getElementById('customer360Modal');
+        if (modal) modal.style.display = 'none';
+        load();
+    }
+
+    function clearCustomerFilter() {
+        STATE.customerId = null;
+        STATE.page = 1;
+        const url = new URL(location.href);
+        url.searchParams.delete('customerId');
+        history.replaceState(null, '', url.toString());
+        load();
     }
 
     function renderRows() {
@@ -240,8 +297,11 @@
                 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
             modal.innerHTML = `
                 <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
-                    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
-                        <strong id="c360Title" style="font-size:14px;color:#1f2937;">Khách hàng 360°</strong>
+                    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <strong id="c360Title" style="font-size:14px;color:#1f2937;flex:1;">Khách hàng 360°</strong>
+                        <button id="c360FilterBtn" class="tpos-btn tpos-btn-default tpos-btn-sm" style="color:#7c3aed;" title="Lọc tất cả PBH của khách này">
+                            <i data-lucide="filter" style="width:12px;height:12px;"></i> Lọc PBH
+                        </button>
                         <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
                     </div>
                     <div id="c360Body" style="padding:16px;font-size:13px;color:#374151;">Đang tải…</div>
@@ -253,6 +313,11 @@
             modal.querySelector('#c360Close').addEventListener('click', () => {
                 modal.style.display = 'none';
             });
+        }
+        // Wire/refresh filter button to current customerId
+        const filterBtn = modal.querySelector('#c360FilterBtn');
+        if (filterBtn) {
+            filterBtn.onclick = () => filterByCustomer(customerId);
         }
         modal.style.display = 'flex';
         const body = modal.querySelector('#c360Body');
@@ -337,6 +402,7 @@
         const p = new URLSearchParams();
         if (STATE.search) p.set('search', STATE.search);
         if (STATE.state) p.set('state', STATE.state);
+        if (STATE.customerId) p.set('customerId', String(STATE.customerId));
         const url = `${WORKER}/api/fast-sale-orders/export?${p}`;
         const a = document.createElement('a');
         a.href = url;
@@ -440,6 +506,10 @@
 
     function init() {
         if (window.lucide) lucide.createIcons();
+        // Phase 14: read customerId from URL search params on load
+        const urlParams = new URLSearchParams(location.search);
+        const urlCid = parseInt(urlParams.get('customerId'), 10);
+        if (Number.isFinite(urlCid)) STATE.customerId = urlCid;
         // Realtime auto-refresh khi có PBH mới hoặc state đổi
         if (window.PbhRealtime) {
             window.PbhRealtime.subscribe({
@@ -506,5 +576,7 @@
         createDelivery,
         createRefund,
         openCustomer,
+        filterByCustomer,
+        clearCustomerFilter,
     };
 })();

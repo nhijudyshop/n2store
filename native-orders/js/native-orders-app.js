@@ -24,6 +24,8 @@
         // On boot, restored from localStorage `tpos_selected_campaigns` (set by tpos-pancake).
         selectedCampaignIds: [],
         availableCampaigns: [], // [{id, name, count, lastOrderAt}]
+        // Phase 14: scope list to a single Customer 360 record (parsed from URL).
+        customerId: null,
     };
 
     // ---------- DOM ----------
@@ -410,6 +412,50 @@
         searchCount().textContent = totalStr;
     }
 
+    // Phase 14: filter chip when scoping to a Customer 360 id
+    function renderCustomerChip() {
+        let chip = document.getElementById('nativeOrdersCustomerChip');
+        if (!STATE.customerId) {
+            if (chip) chip.remove();
+            return;
+        }
+        if (!chip) {
+            chip = document.createElement('div');
+            chip.id = 'nativeOrdersCustomerChip';
+            chip.style.cssText =
+                'display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;font-size:12px;font-weight:600;margin:8px 0 12px 0;';
+            const anchor = $('#searchInfo') || controlBar() || tbody()?.closest('table');
+            if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(chip, anchor);
+            else document.body.appendChild(chip);
+        }
+        chip.innerHTML = `
+            <i data-lucide="user-circle" style="width:14px;height:14px;color:#7c3aed;"></i>
+            Đang lọc theo Khách hàng #${STATE.customerId}
+            <button onclick="NativeOrdersApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#5b21b6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function filterByCustomer(customerId) {
+        if (!customerId) return;
+        STATE.customerId = Number(customerId);
+        STATE.page = 1;
+        const url = new URL(location.href);
+        url.searchParams.set('customerId', String(customerId));
+        history.replaceState(null, '', url.toString());
+        const modalEl = document.getElementById('customer360Modal');
+        if (modalEl) modalEl.style.display = 'none';
+        load();
+    }
+
+    function clearCustomerFilter() {
+        STATE.customerId = null;
+        STATE.page = 1;
+        const url = new URL(location.href);
+        url.searchParams.delete('customerId');
+        history.replaceState(null, '', url.toString());
+        load();
+    }
+
     // ---------- Data load ----------
     async function load() {
         if (STATE.loading) return;
@@ -426,12 +472,14 @@
                 campaignIds: STATE.selectedCampaignIds.length
                     ? STATE.selectedCampaignIds
                     : undefined,
+                customerId: STATE.customerId || undefined,
             });
             STATE.orders = resp.orders || [];
             STATE.total = resp.total || 0;
             renderRows();
             renderPagination();
             renderCounters();
+            renderCustomerChip();
         } catch (e) {
             console.error(e);
             tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
@@ -1101,6 +1149,10 @@
     // ---------- Init ----------
     function init() {
         if (window.lucide) lucide.createIcons();
+        // Phase 14: hydrate customerId filter from URL
+        const urlParams = new URLSearchParams(location.search);
+        const urlCid = parseInt(urlParams.get('customerId'), 10);
+        if (Number.isFinite(urlCid)) STATE.customerId = urlCid;
         rtConnect();
 
         $('#btnApplyFilter')?.addEventListener('click', applyFilters);
@@ -1113,6 +1165,7 @@
             if (STATE.status && STATE.status !== 'all') p.set('status', STATE.status);
             if (STATE.selectedCampaignIds?.length)
                 p.set('campaignIds', STATE.selectedCampaignIds.join(','));
+            if (STATE.customerId) p.set('customerId', String(STATE.customerId));
             const a = document.createElement('a');
             a.href = `${WORKER_URL}/api/native-orders/export?${p}`;
             a.download = '';
@@ -1223,8 +1276,11 @@
                 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
             modal.innerHTML = `
                 <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
-                    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
-                        <strong id="c360Title" style="font-size:14px;color:#1f2937;">Khách hàng 360°</strong>
+                    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <strong id="c360Title" style="font-size:14px;color:#1f2937;flex:1;">Khách hàng 360°</strong>
+                        <button id="c360FilterBtn" class="tpos-btn tpos-btn-default tpos-btn-sm" style="color:#7c3aed;" title="Lọc tất cả đơn web của khách này">
+                            <i data-lucide="filter" style="width:12px;height:12px;"></i> Lọc đơn
+                        </button>
                         <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
                     </div>
                     <div id="c360Body" style="padding:16px;font-size:13px;color:#374151;">Đang tải…</div>
@@ -1237,6 +1293,8 @@
                 modal.style.display = 'none';
             });
         }
+        const filterBtn = modal.querySelector('#c360FilterBtn');
+        if (filterBtn) filterBtn.onclick = () => filterByCustomer(customerId);
         modal.style.display = 'flex';
         const body = modal.querySelector('#c360Body');
         const title = modal.querySelector('#c360Title');
@@ -1310,6 +1368,8 @@
         toggleFilter,
         toggleExpand,
         openCustomer,
+        filterByCustomer,
+        clearCustomerFilter,
         // Product picker + line management (inline onclicks)
         addLineFromPicker,
         changeLineQty,
