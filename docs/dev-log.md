@@ -21,6 +21,31 @@
 
 ## 2026-05-13
 
+### [issue-tracking] Tra cứu nhanh tất cả đơn hàng của khách (SĐT/tên)
+
+**Trigger user**: "cho 1 input nhập sđt hoặc tên khách hàng (không phân biệt tiếng việt không dấu, có dấu) -> mở modal coi được tất cả đơn hàng của khách đó, bấm vào đơn sẽ expand coi được chi tiết bên trong".
+
+**Implement**:
+
+- [issue-tracking/index.html](../issue-tracking/index.html): thêm `customer-lookup-bar` (input + button "Tra cứu") ngay dưới header + modal `modal-customer-orders` với stats pills, filter tabs (Tất cả/Mở/Đã TT/Hủy-Nháp), range select (60/180/365/730 ngày).
+- [issue-tracking/js/customer-orders-lookup.js](../issue-tracking/js/customer-orders-lookup.js) **(file mới, IIFE)**: gọi TPOS OData `/FastSaleOrder/ODataService.GetView` qua `window.tokenManager.authenticatedFetch` — phone dùng `contains(Phone,...)`, tên dùng `contains(PartnerNameNoSign,...)` (đã strip diacritics + `đ→d`). Detect mode tự động: digit-only → phone, else → name. Click row expand load chi tiết qua `ApiService.getOrderDetails(orderId)` (cache trong Map, không re-fetch).
+- [issue-tracking/css/style.css](../issue-tracking/css/style.css): thêm 230 dòng style cho lookup bar + modal grid layout + status pills (open/paid/cancel/draft) + chevron rotate animation + responsive grid-area cho mobile <800px.
+
+**Verify (local Playwright)**:
+
+- ✅ Search SĐT `0123456788` → 142 đơn, modal show, subtitle đúng "180 ngày gần nhất".
+- ✅ Search tên `Huỳnh Thành Đạt` (có dấu) → 141 đơn. Search `huynh thanh dat` (không dấu) → 141 đơn (cùng kết quả).
+- ✅ Search SĐT không tồn tại `0999999999` → "Không tìm thấy đơn nào".
+- ✅ Click expand row → load 8 row sản phẩm + grid info + totals row. Click lại → collapse.
+- ✅ Filter tabs: All=142, Open=0 (empty msg), Cancel=142.
+- ✅ Range change 180→60 → re-search auto, 60 ngày = 132 đơn.
+- ✅ ESC đóng modal.
+- ✅ Visual: modal căn giữa, stat pills color-coded, status pills semantic (HỦY = đỏ).
+
+**Status**: ✅ Done
+
+---
+
 ### [tpos-pancake] Bỏ Confirm/Cancel đơn TPOS — trang này không cần
 
 **Trigger user**: "bỏ luôn phần Confirm/Cancel đơn TPOS đi vì đâu có cần" — trang `tpos-pancake/` đã chuyển tạo đơn sang NATIVE_WEB (Postgres Render), 2 action TPOS này còn sót lại.
