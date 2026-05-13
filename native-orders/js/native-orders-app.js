@@ -270,6 +270,14 @@
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>
+                            ${
+                                o.customerId
+                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
+                                onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
+                                <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
+                            </button>`
+                                    : ''
+                            }
                             <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa"
                                 onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
@@ -1205,6 +1213,93 @@
         load();
     }
 
+    async function openCustomer(customerId) {
+        if (!customerId) return;
+        let modal = document.getElementById('customer360Modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'customer360Modal';
+            modal.style.cssText =
+                'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+            modal.innerHTML = `
+                <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
+                    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                        <strong id="c360Title" style="font-size:14px;color:#1f2937;">Khách hàng 360°</strong>
+                        <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
+                    </div>
+                    <div id="c360Body" style="padding:16px;font-size:13px;color:#374151;">Đang tải…</div>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.style.display = 'none';
+            });
+            modal.querySelector('#c360Close').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+        modal.style.display = 'flex';
+        const body = modal.querySelector('#c360Body');
+        const title = modal.querySelector('#c360Title');
+        title.textContent = `Khách hàng #${customerId} — Đơn web + PBH`;
+        body.innerHTML = '<div style="color:#6b7280;">Đang tải aggregation…</div>';
+        const money = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+        try {
+            const r = await fetch(`${WORKER_URL}/api/v2/customers/${customerId}/orders?limit=20`);
+            const data = await r.json();
+            if (!data?.success) throw new Error(data?.error || `HTTP ${r.status}`);
+            const { native, pbh, summary } = data;
+            const renderRow = (label, items, codeKey, totalKey, stateKey) => `
+                <div style="margin-bottom:14px;">
+                    <div style="font-weight:600;margin-bottom:6px;color:#111827;">${label} (${items.length})</div>
+                    ${
+                        items.length === 0
+                            ? '<div style="color:#9ca3af;font-style:italic;">Không có đơn</div>'
+                            : `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                                <thead><tr style="background:#f9fafb;text-align:left;">
+                                    <th style="padding:6px 8px;">Mã</th>
+                                    <th style="padding:6px 8px;">SL</th>
+                                    <th style="padding:6px 8px;text-align:right;">Tổng</th>
+                                    <th style="padding:6px 8px;">Trạng thái</th>
+                                    <th style="padding:6px 8px;">Chiến dịch</th>
+                                </tr></thead>
+                                <tbody>
+                                ${items
+                                    .slice(0, 10)
+                                    .map(
+                                        (it) => `<tr style="border-top:1px solid #e5e7eb;">
+                                            <td style="padding:6px 8px;font-weight:600;">${escapeHtml(it[codeKey])}</td>
+                                            <td style="padding:6px 8px;">${it.totalQuantity ?? '—'}</td>
+                                            <td style="padding:6px 8px;text-align:right;">${money(it[totalKey])}</td>
+                                            <td style="padding:6px 8px;">${escapeHtml(it[stateKey] || '—')}</td>
+                                            <td style="padding:6px 8px;color:#6b7280;">${escapeHtml(it.liveCampaign?.name || '—')}</td>
+                                        </tr>`
+                                    )
+                                    .join('')}
+                                </tbody>
+                            </table>`
+                    }
+                </div>`;
+            body.innerHTML = `
+                <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
+                    <div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web (NW)</div>
+                        <div style="font-size:18px;font-weight:700;">${summary.native.count}</div>
+                        <div style="font-size:11px;">${money(summary.native.totalAmount)}</div>
+                    </div>
+                    <div style="background:#dbeafe;color:#1e40af;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Phiếu bán hàng (HD)</div>
+                        <div style="font-size:18px;font-weight:700;">${summary.pbh.count}</div>
+                        <div style="font-size:11px;">${money(summary.pbh.totalAmount)}</div>
+                    </div>
+                </div>
+                ${renderRow('Đơn web', native, 'code', 'totalAmount', 'status')}
+                ${renderRow('PBH', pbh, 'number', 'amountTotal', 'state')}
+            `;
+        } catch (e) {
+            body.innerHTML = `<div style="color:#dc2626;">Lỗi tải dữ liệu: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+
     window.NativeOrdersApp = {
         openEdit,
         quickStatus,
@@ -1214,6 +1309,7 @@
         goPage,
         toggleFilter,
         toggleExpand,
+        openCustomer,
         // Product picker + line management (inline onclicks)
         addLineFromPicker,
         changeLineQty,

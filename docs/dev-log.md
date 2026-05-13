@@ -69,7 +69,14 @@
 
 **Status**: ✅ Deployed (Render `dep-d826q3r7uimc73c57570`) + QA **60/60 pass** live worker.
 
-**UI follow-up** (next commit): nút 👤 mỗi row PBH + Native → modal mini hiện aggregation (count + totals + last 5 orders) qua endpoint mới. Backend đã sẵn sàng.
+**UI** ([web2/fastsaleorder-invoice/pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js) + [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js)):
+
+- Mỗi row có `customerId != null` hiện thêm nút 👤 (lucide `user-circle`, tím) ngay sau "Tạo PBH"
+- Click → mở `#customer360Modal` (lazy create, body-anchored, click-outside close)
+- Modal hiện 2 KPI card (NW count + total / PBH count + total) + 2 bảng top-10 orders với mã/SL/tổng/trạng thái/chiến dịch
+- Gọi `GET /api/v2/customers/:id/orders?limit=20` (endpoint Phase 12)
+- Test live: cả 2 trang render đúng modal với title "Khách hàng #14202 — Đơn web + PBH"; 0 console errors
+- Cache: `pbh-app.js?v=20260513b`, `native-orders-app.js?v=20260513`
 
 ### [tpos-pancake][native-orders][ui] Tạo đơn lặp lại cho cùng 1 khách — count badge + merge UX
 
