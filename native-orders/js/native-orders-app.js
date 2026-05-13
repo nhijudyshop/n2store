@@ -1099,6 +1099,20 @@
         $('#btnClearFilter')?.addEventListener('click', clearFilters);
         $('#btnRefresh')?.addEventListener('click', load);
         $('#btnResetStt')?.addEventListener('click', resetStt);
+        $('#btnExportCsv')?.addEventListener('click', () => {
+            const p = new URLSearchParams();
+            if (STATE.search) p.set('search', STATE.search);
+            if (STATE.status && STATE.status !== 'all') p.set('status', STATE.status);
+            if (STATE.selectedCampaignIds?.length)
+                p.set('campaignIds', STATE.selectedCampaignIds.join(','));
+            const a = document.createElement('a');
+            a.href = `${WORKER_URL}/api/native-orders/export?${p}`;
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            notify('Đang tải Excel...', 'info');
+        });
         $('#filterSearch')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') applyFilters();
         });
