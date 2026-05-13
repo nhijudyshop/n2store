@@ -1035,9 +1035,65 @@
         load();
     }
 
+    // ---------- Realtime WebSocket — auto refresh khi có đơn mới/update ----------
+    const RT = { ws: null, reconnectAttempts: 0, debouncedReload: null };
+    function rtConnect() {
+        if (RT.ws && RT.ws.readyState <= 1) return;
+        try {
+            RT.ws = new WebSocket('wss://n2store-fallback.onrender.com');
+        } catch (e) {
+            console.warn('[NativeOrders-RT] WS create failed:', e.message);
+            return setTimeout(rtConnect, 5000);
+        }
+        RT.ws.onopen = () => {
+            RT.reconnectAttempts = 0;
+            console.log('[NativeOrders-RT] ✓ connected');
+        };
+        RT.ws.onclose = () => {
+            const delay = Math.min(30000, 1000 * Math.pow(2, RT.reconnectAttempts++));
+            setTimeout(rtConnect, delay);
+        };
+        RT.ws.onerror = (e) => console.warn('[NativeOrders-RT] error', e);
+        RT.ws.onmessage = (evt) => {
+            let msg;
+            try {
+                msg = JSON.parse(evt.data);
+            } catch {
+                return;
+            }
+            if (!msg.type) return;
+            // Events that affect this page: native_order:* + fast_sale_order:created (auto-promote)
+            if (
+                msg.type === 'native_order:created' ||
+                msg.type === 'native_order:updated' ||
+                msg.type === 'native_order:deleted'
+            ) {
+                rtScheduleReload(msg);
+            }
+        };
+    }
+    function rtScheduleReload(msg) {
+        // Debounce 500ms — many events trong burst → reload 1 lần
+        if (RT.debouncedReload) clearTimeout(RT.debouncedReload);
+        RT.debouncedReload = setTimeout(() => {
+            console.log('[NativeOrders-RT] reload triggered by', msg.type, msg.action || '');
+            load();
+            // Visual notification
+            if (msg.action === 'comment-merged' && msg.order) {
+                notify(
+                    `📝 Đã gộp comment vào đơn ${msg.order.code} (${msg.order.commentCount} comments)`,
+                    'info'
+                );
+            } else if (msg.action === 'created' && msg.order) {
+                notify(`🆕 Đơn mới ${msg.order.code} (${msg.order.customerName})`, 'info');
+            }
+        }, 500);
+    }
+
     // ---------- Init ----------
     function init() {
         if (window.lucide) lucide.createIcons();
+        rtConnect();
 
         $('#btnApplyFilter')?.addEventListener('click', applyFilters);
         $('#btnClearFilter')?.addEventListener('click', clearFilters);

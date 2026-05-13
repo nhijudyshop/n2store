@@ -657,7 +657,15 @@ router.patch('/:code', async (req, res) => {
             params
         );
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        res.json({ success: true, order: mapRowToOrder(r.rows[0]) });
+        const order = mapRowToOrder(r.rows[0]);
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:updated',
+                action: 'patched',
+                order,
+            });
+        }
+        res.json({ success: true, order });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -675,6 +683,13 @@ router.delete('/:code', async (req, res) => {
             req.params.code,
         ]);
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:deleted',
+                action: 'deleted',
+                code: req.params.code,
+            });
+        }
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

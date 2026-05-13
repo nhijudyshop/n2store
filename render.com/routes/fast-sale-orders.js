@@ -431,7 +431,10 @@ router.post('/', async (req, res) => {
                 b.createdByName || null,
             ]
         );
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        if (req.app.locals.broadcastToClients)
+            req.app.locals.broadcastToClients({ type: 'pbh:created', order: o, manual: true });
+        res.json({ success: true, order: o });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] create error:', e.message);
         res.status(500).json({ error: e.message });
@@ -569,7 +572,21 @@ router.post('/from-native-order', async (req, res) => {
             );
         }
 
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'pbh:created',
+                order: o,
+                sourceNativeCode: src.code,
+            });
+            // Cũng emit native_order:updated cho native-orders page biết source status đã đổi
+            req.app.locals.broadcastToClients({
+                type: 'native_order:updated',
+                action: 'promoted-to-confirmed',
+                code: src.code,
+            });
+        }
+        res.json({ success: true, order: o });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] from-native-order error:', e.message);
         res.status(500).json({ error: e.message });
@@ -665,13 +682,20 @@ async function _stateChange(pool, number, newState) {
         [newState, number]
     );
 }
+function _wsEmit(req, type, order) {
+    if (req.app.locals.broadcastToClients) {
+        req.app.locals.broadcastToClients({ type, order });
+    }
+}
 router.post('/:number/cancel', async (req, res) => {
     const pool = req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const r = await _stateChange(pool, req.params.number, 'cancel');
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        _wsEmit(req, 'pbh:cancelled', o);
+        res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -682,7 +706,9 @@ router.post('/:number/confirm', async (req, res) => {
         await ensureTables(pool);
         const r = await _stateChange(pool, req.params.number, 'done');
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        _wsEmit(req, 'pbh:confirmed', o);
+        res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -696,7 +722,9 @@ router.post('/:number/print', async (req, res) => {
             [req.params.number]
         );
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        _wsEmit(req, 'pbh:printed', o);
+        res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
