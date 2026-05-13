@@ -25,6 +25,16 @@
 
 ## 2026-05-13
 
+### [orders][kpi] Dọn header doc + remove dead code Firestore trong tab KPI Hoa Hồng
+
+**File**: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js)
+
+- Header comment cũ liệt kê 4 Firestore collection (`kpi_statistics`, `kpi_audit_log`, `kpi_base`, `report_order_details`) — 3/4 đã migrate sang Render PG từ lâu, chỉ `report_order_details` + `settings/employee_ranges` còn dùng. Cập nhật lại header thành "Data sources" thực tế: Render PG (via CF Worker) + Firestore (2 collection còn dùng).
+- Remove `const db = this.getDb(); if (!db) throw new Error('Firestore not available');` trong recon function — `db` không dùng ở đâu sau đó, recon đi qua `window.kpiManager.reconcileKPI` (Render PG).
+- Giữ `getDb()` + `waitForFirebase()` vì còn cần cho `employee_ranges` (employee name fallback) + `report_order_details` (cache modal sản phẩm).
+
+**Status**: ✅ Done
+
 ### [orders][kpi] Đồng bộ thứ tự dropdown "Tất cả campaign" trong tab KPI giống tab1
 
 **File**: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js#L700-L760)

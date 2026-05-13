@@ -5,13 +5,18 @@
  *
  * Runs inside iframe (tab-kpi-commission.html)
  * Uses namespace pattern to avoid conflicts
- * Firebase initialized via firebase-config.js in HTML
  *
- * Firestore Collections:
- * - kpi_statistics/{userId}/dates/{date}
- * - kpi_audit_log/{auto-id}
- * - kpi_base/{orderId}
- * - report_order_details/{campaignName}
+ * Data sources:
+ * - Render PostgreSQL via Cloudflare Worker `chatomni-proxy.nhijudyshop.workers.dev`:
+ *   - GET  /api/realtime/kpi-statistics         → bảng kpi_statistics (leaderboard chính)
+ *   - POST /api/realtime/kpi-base/check-exists  → bảng kpi_base (detect stale)
+ *   - GET  /api/social-orders/kpi-stats         → bảng social_orders (sub-tab KPI Đơn Inbox)
+ *   - GET  /api/campaigns                       → bảng campaigns (dropdown filter)
+ *   - kpi_audit_log: gọi qua window.kpiAuditLogger (managers/kpi-audit-logger.js)
+ *   - TPOS proxy: /api/odata/FastSaleOrder, /api/FastSaleOrder/ExportFileRefund, /api/token
+ * - Firestore (firebase-config.js):
+ *   - settings/employee_ranges          → fallback map userId → userName
+ *   - report_order_details/{campaign}   → cache chi tiết đơn cho modal "Sản phẩm"
  */
 
 const KPICommission = {
@@ -3541,9 +3546,6 @@ const KPICommission = {
         };
 
         try {
-            const db = this.getDb();
-            if (!db) throw new Error('Firestore not available');
-
             // Collect all orders from filtered data
             const allOrders = [];
             for (const emp of this.state.filteredData) {
