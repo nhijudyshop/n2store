@@ -25,6 +25,31 @@
 
 ## 2026-05-13
 
+### [pbh][export][bulk] Phase 10-11: Excel CSV export + bulk actions
+
+**Phase 10 — CSV export (Excel-compatible, UTF-8 BOM)**:
+
+- `GET /api/fast-sale-orders/export?state&search` → 24 cột: STT, số HĐ, ngày HĐ, KH, SĐT, địa chỉ chi tiết (city/district/ward), tổng SL, tổng tiền, đã thanh toán, đặt cọc, còn nợ, phí giao, COD, hãng VC, tracking, trạng thái, lần in, đơn nguồn, chiến dịch, kho, NV bán.
+- `GET /api/native-orders/export?status&search&campaignIds` → 18 cột tương tự cho Đơn Web.
+- UTF-8 BOM (`﻿`) prefix giúp Excel hiển thị tiếng Việt đúng không cần convert.
+- Filename `pbh-export-YYYY-MM-DD.csv` / `donweb-export-YYYY-MM-DD.csv`.
+- Auto inherit filter hiện tại (search/state/campaign).
+- UI: "Xuất Excel" button cả 2 trang ([fastsaleorder-invoice](../web2/fastsaleorder-invoice) + [native-orders](../native-orders)) — create `<a download>` trigger download.
+
+**Phase 11 — Bulk actions (multi-select)**:
+
+- `POST /api/fast-sale-orders/bulk-confirm` + `/bulk-cancel`: body `{ numbers: [] }`, UPDATE batch với state guard (confirm chỉ từ draft, cancel chỉ ≠ cancel). Return `{ changed, requested, orders }`.
+- Broadcast WS event `pbh:bulk-confirmed` | `pbh:bulk-cancelled` với count + numbers array.
+- UI: bulk action bar (purple background `#ede9fe`) auto hiện khi check ≥1 row, ẩn khi 0 row. Hiện count + nút: **Xác nhận tất cả** (green) / **Hủy tất cả** (warning) / **Bỏ chọn**.
+- Check-all checkbox `#pbhCheckAll` → toggle tất cả `.row-check` + update bulk bar.
+- Per-row check event delegation: bất kỳ change → recompute bulk bar.
+
+Verify live: `curl /api/fast-sale-orders/export` trả CSV với header `Content-Type: text/csv` + `Content-Disposition: attachment; filename="pbh-export-2026-05-13.csv"`. Bulk-confirm với fake number → `{ changed: 0, requested: 1 }` (graceful no-op).
+
+Status: ✅ Deploy live commits `7422f7f1` + `7ffcab32`.
+
+---
+
 ### [pbh][print][reports] Phase 8-9: Print HTML + Reports dashboard
 
 **Phase 8 — Print PBH** ([web2/fastsaleorder-invoice/print.html](../web2/fastsaleorder-invoice/print.html)):
