@@ -8,6 +8,49 @@
 
 ## 2026-05-13
 
+### [supplier-debt] Fix running balance lệch theo filter — opening balance từ summary
+
+**Trigger user**: So sánh 2 filter B9 Diễm My — DateFrom=01/05/2026 vs 30/04/2026 → tổng "Phát sinh" và "Nợ cuối kỳ" detail table khác nhau (lệch 720.000), trong khi summary row B9 hiển thị End=17.468.000 ổn cả hai. "Web lấy dữ liệu từ tpos nhưng có hệ thống tính toán riêng".
+
+**Root cause** (xác minh qua API direct + UI test):
+
+- `renderCongNoTab` trong [supplier-debt/js/main.js](supplier-debt/js/main.js) khởi tạo `runningBalance` cho page 1 = `congNo[0].Begin` (Begin của row đầu từ TPOS `Report/PartnerDebtReportDetail`).
+- TPOS API trả `Begin` **không nhất quán** khi DateFrom rơi mid-period: filter 01/05 → 5.749.000 (sai, đáng lẽ 5.029.000); filter 30/04 → 4.613.000 (đúng).
+- Hệ quả: cuối row cuối cùng detail = 18.188.000 thay vì 17.468.000 (lệch 720k, không khớp summary End).
+
+**Fix**: Thay vì tin `congNo[0].Begin`, tính opening balance từ summary row (`Report/PartnerDebtReport`):
+
+```
+Opening = Summary.End − Summary.Debit + Summary.Credit
+```
+
+Công thức đúng vì summary End là authoritative; Debit/Credit là tổng phát sinh trong kỳ.
+
+```js
+// supplier-debt/js/main.js — renderCongNoTab (page 1 init)
+if (page > 1 && prevPageEndBalance !== undefined) {
+    runningBalance = prevPageEndBalance;
+} else {
+    const summaryEnd = Number(partnerData.End) || 0;
+    const summaryDebit = Number(partnerData.Debit) || 0;
+    const summaryCredit = Number(partnerData.Credit) || 0;
+    runningBalance = summaryEnd - summaryDebit + summaryCredit;
+}
+```
+
+**Test localhost** (`http://localhost:8080/supplier-debt/index.html` qua persistent browser session):
+
+- Direct API probe B9 (PartnerId=568371) cả 2 filter:
+    - 01/05–12/05: `apiFirstBegin=5.749.000` ❌ / `sumDerivedBegin=5.029.000` ✓ → last End `apiBegin=18.188.000` ❌ vs `sumDerived=17.468.000` ✓ (match summary).
+    - 30/04–12/05: `apiFirstBegin=4.613.000` ✓ / `sumDerivedBegin=4.613.000` ✓ → last End 17.468.000 ✓ (cả hai phương án đều đúng — không regression).
+- UI smoke 4 filter × 10 supplier = **40 pass / 0 fail** (`lastEnd === summary.End` ở mọi case).
+
+**Files**: [supplier-debt/js/main.js:1618-1641](supplier-debt/js/main.js) (~+13 net, comment dài giải thích quirk TPOS).
+
+Status: ✅ Fixed — detail running balance luôn khớp summary End bất kể DateFrom.
+
+---
+
 ### [orders][kpi] Tab "Tin nhắn" KPI — render inline messages thật (Pancake API)
 
 **Trigger user**: "tại sao không lấy được tin nhắn mà phải mở pancake? bạn coi tab1 order cách hiển thị tin nhắn đi" — MVP trước chỉ render meta + deep link, user muốn inline messages như tab1-orders chat modal.

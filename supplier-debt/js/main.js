@@ -1615,16 +1615,27 @@ function renderCongNoTab(partnerId) {
             <tbody>
     `;
 
-    // Calculate running balance ourselves since API returns inconsistent Begin values when sorted by date
-    // For page 1: use first row's Begin from API
-    // For page 2+: use stored end balance from previous page
+    // Calculate running balance ourselves since API returns inconsistent Begin values.
+    //
+    // For page 1: derive opening balance from the summary row (Report/PartnerDebtReport)
+    //   instead of trusting API per-row Begin. Summary's End is the authoritative ending
+    //   balance for the period, and Debit/Credit are the period totals. Therefore:
+    //     Opening = End − ΣDebit + ΣCredit
+    //   This stays consistent across different DateFrom filters and avoids a quirk where
+    //   PartnerDebtReportDetail returns an off-by-N Begin for the first row when DateFrom
+    //   sits mid-period (e.g. 01/05 → 5.749 instead of 5.029, off by 720k).
+    //
+    // For page 2+: keep the stored end balance from the previous page.
     const prevPageEndBalance = rowState?.congNoEndBalances?.get(page - 1);
-    let runningBalance =
-        page > 1 && prevPageEndBalance !== undefined
-            ? prevPageEndBalance
-            : congNo.length > 0
-              ? congNo[0].Begin || 0
-              : 0;
+    let runningBalance;
+    if (page > 1 && prevPageEndBalance !== undefined) {
+        runningBalance = prevPageEndBalance;
+    } else {
+        const summaryEnd = Number(partnerData.End) || 0;
+        const summaryDebit = Number(partnerData.Debit) || 0;
+        const summaryCredit = Number(partnerData.Credit) || 0;
+        runningBalance = summaryEnd - summaryDebit + summaryCredit;
+    }
 
     sortedCongNo.forEach((item, index) => {
         const moveName = item.MoveName || '';
