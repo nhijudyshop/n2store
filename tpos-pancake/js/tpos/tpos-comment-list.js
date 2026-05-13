@@ -1002,10 +1002,19 @@ const TposCommentList = {
 
             if (typeof lucide !== 'undefined') lucide.createIcons();
             if (window.notificationManager) {
-                const label = resp.idempotent ? 'Đơn web đã tồn tại' : 'Đã tạo đơn web';
+                let label,
+                    type = 'success';
+                if (resp.idempotent) {
+                    label = 'Đơn web đã tồn tại';
+                } else if (resp.merged) {
+                    label = `📝 Đã gộp comment vào đơn (${order.commentCount} comments)`;
+                    type = 'info';
+                } else {
+                    label = '🆕 Đã tạo đơn web';
+                }
                 window.notificationManager.show(
-                    `${label} ${order.code} (STT: ${order.sessionIndex})`,
-                    'success'
+                    `${label}: ${order.code} (STT: ${order.displayStt ?? order.sessionIndex})`,
+                    type
                 );
             }
         } catch (error) {
