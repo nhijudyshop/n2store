@@ -463,6 +463,8 @@ const TposColumnManager = {
                     index: o.sessionIndex || '?',
                     code: o.code,
                     source: 'NATIVE_WEB',
+                    commentCount: Number(o.commentCount || 1),
+                    commentIds: Array.isArray(o.commentIds) ? o.commentIds : [],
                 });
             }
             if (orders.length > 0 && state.comments.length > 0) {

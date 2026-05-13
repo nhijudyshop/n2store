@@ -397,9 +397,21 @@ const TposCommentList = {
         const sessionIndexBadge = sessionInfo
             ? `<span class="session-index-badge" title="STT: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
             : '';
+        // Comment-count badge — số comment đã gộp vào đơn (chỉ cho NATIVE_WEB)
+        const commentCount =
+            sessionInfo?.source === 'NATIVE_WEB' ? Number(sessionInfo.commentCount || 1) : 0;
+        const commentCountBadge =
+            commentCount > 1
+                ? `<span class="comment-count-badge" title="${commentCount} comments trong đơn này" style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">📝 ${commentCount}</span>`
+                : '';
+        // Comment đã được merge vào đơn này chưa?
+        const isCommentInOrder =
+            sessionInfo?.source === 'NATIVE_WEB' &&
+            Array.isArray(sessionInfo.commentIds) &&
+            sessionInfo.commentIds.includes(id);
         const orderBadge = sessionInfo?.code
             ? sessionInfo.source === 'NATIVE_WEB'
-                ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
+                ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>${commentCountBadge}`
                 : `<span class="order-code-badge" title="Đơn TPOS ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
             : '';
 
@@ -507,15 +519,36 @@ const TposCommentList = {
 
                 <!-- Actions — show on hover -->
                 <div class="tpos-conv-actions">
-                    ${
-                        sessionInfo?.source === 'NATIVE_WEB'
-                            ? `<span title="Đơn web: ${sessionInfo.code}" style="color:#7c3aed;padding:4px;">
-                                   <i data-lucide="package-open" style="width:13px;height:13px;"></i>
-                               </span>`
-                            : `<button class="tpos-action-btn" id="create-order-${fromId}" title="Tạo đơn web${sessionInfo?.code ? ' (đã có đơn TPOS ' + sessionInfo.code + ')' : ''}" style="color:#7c3aed;" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
-                                   <i data-lucide="shopping-cart" style="width:13px;height:13px;"></i>
-                               </button>${sessionInfo?.code ? `<span title="Đơn TPOS cũ: ${sessionInfo.code}" style="color:#10b981;padding:4px;"><i data-lucide="package-check" style="width:13px;height:13px;"></i></span>` : ''}`
-                    }
+                    ${(() => {
+                        // Button title + icon depend on state of customer's existing order:
+                        //  - NO order yet → "Tạo đơn web" (shopping-cart)
+                        //  - HAS order, this comment NOT yet merged → "Thêm comment vào đơn" (plus-square)
+                        //  - HAS order, this comment ALREADY in it → "Comment đã có trong đơn" (check-square)
+                        let btnTitle, btnIcon, btnColor;
+                        if (!sessionInfo) {
+                            btnTitle = 'Tạo đơn web';
+                            btnIcon = 'shopping-cart';
+                            btnColor = '#7c3aed';
+                        } else if (sessionInfo.source === 'NATIVE_WEB') {
+                            if (isCommentInOrder) {
+                                btnTitle = `Comment đã thêm vào đơn ${sessionInfo.code} (${commentCount} comments)`;
+                                btnIcon = 'check-square';
+                                btnColor = '#10b981';
+                            } else {
+                                btnTitle = `Thêm comment vào đơn ${sessionInfo.code} (${commentCount} comments)`;
+                                btnIcon = 'plus-square';
+                                btnColor = '#7c3aed';
+                            }
+                        } else {
+                            // Has TPOS order (legacy)
+                            btnTitle = `Tạo đơn web (đã có đơn TPOS ${sessionInfo.code})`;
+                            btnIcon = 'shopping-cart';
+                            btnColor = '#7c3aed';
+                        }
+                        return `<button class="tpos-action-btn" id="create-order-${fromId}-${id}" title="${btnTitle}" style="color:${btnColor};" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
+                                   <i data-lucide="${btnIcon}" style="width:13px;height:13px;"></i>
+                               </button>${sessionInfo?.source !== 'NATIVE_WEB' && sessionInfo?.code ? `<span title="Đơn TPOS cũ: ${sessionInfo.code}" style="color:#10b981;padding:4px;"><i data-lucide="package-check" style="width:13px;height:13px;"></i></span>` : ''}`;
+                    })()}
                     <button class="tpos-action-btn" title="Xem info" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
                         <i data-lucide="user" style="width:13px;height:13px;"></i>
                     </button>
@@ -942,7 +975,9 @@ const TposCommentList = {
         const phone = phoneEl ? phoneEl.value.trim() : '';
         const address = addrEl ? addrEl.value.trim() : '';
 
-        const btn = document.getElementById(`create-order-${fromId}`);
+        const btn = document.getElementById(`create-order-${fromId}-${commentId}`);
+        const previousIcon =
+            btn?.querySelector('i')?.getAttribute('data-lucide') || 'shopping-cart';
         if (btn) {
             btn.innerHTML =
                 '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px;"></i>';
@@ -978,36 +1013,28 @@ const TposCommentList = {
                 throw new Error('Server did not return an order');
             }
 
+            // Update sessionIndexMap with commentCount + commentIds so next
+            // render reflects merge state correctly.
             state.sessionIndexMap.set(fromId, {
                 index: order.sessionIndex || '?',
                 code: order.code,
                 source: 'NATIVE_WEB',
+                commentCount: Number(order.commentCount || 1),
+                commentIds: Array.isArray(order.commentIds) ? order.commentIds : [],
             });
 
-            if (btn) {
-                btn.outerHTML = `<span title="Đơn web: ${order.code} (STT ${order.sessionIndex})" style="color:#7c3aed;padding:4px;">
-                    <i data-lucide="package-open" style="width:14px;height:14px;"></i>
-                </span>`;
-            }
+            // Re-render only this comment item so its button icon + count badge
+            // refresh without redrawing the whole list.
+            this.refreshCommentItem(commentId);
 
-            const header = btn
-                ?.closest('.tpos-conversation-item')
-                ?.querySelector('.tpos-conv-header');
-            if (header && !header.querySelector('.order-code-badge')) {
-                header.insertAdjacentHTML(
-                    'beforeend',
-                    `<span class="order-code-badge" title="Đơn web ${order.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;">${order.code}</span>`
-                );
-            }
-
-            if (typeof lucide !== 'undefined') lucide.createIcons();
             if (window.notificationManager) {
                 let label,
                     type = 'success';
                 if (resp.idempotent) {
-                    label = 'Đơn web đã tồn tại';
+                    label = `✓ Comment đã có trong đơn (${order.commentCount} comments)`;
+                    type = 'info';
                 } else if (resp.merged) {
-                    label = `📝 Đã gộp comment vào đơn (${order.commentCount} comments)`;
+                    label = `📝 Đã thêm comment vào đơn (${order.commentCount} comments)`;
                     type = 'info';
                 } else {
                     label = '🆕 Đã tạo đơn web';
@@ -1018,15 +1045,58 @@ const TposCommentList = {
                 );
             }
         } catch (error) {
-            if (btn) {
-                btn.innerHTML =
-                    '<i data-lucide="shopping-cart" style="width:14px;height:14px;"></i>';
-                btn.disabled = false;
+            // Restore button to clickable state with the previous icon
+            const restoreBtn = document.getElementById(`create-order-${fromId}-${commentId}`);
+            if (restoreBtn) {
+                restoreBtn.innerHTML = `<i data-lucide="${previousIcon}" style="width:14px;height:14px;"></i>`;
+                restoreBtn.disabled = false;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
             if (window.notificationManager)
                 window.notificationManager.show('Lỗi tạo đơn web: ' + error.message, 'error');
         }
+    },
+
+    /**
+     * Re-render a single comment item by id (used after createOrder to refresh
+     * button icon + count badge without redrawing the whole list).
+     * @param {string} commentId
+     */
+    refreshCommentItem(commentId) {
+        const state = window.TposState;
+        const item = document.querySelector(
+            `.tpos-conversation-item[data-comment-id="${commentId}"]`
+        );
+        if (!item) return;
+        const comment = state.comments.find((c) => c.id === commentId);
+        if (!comment) return;
+        const html = this.renderCommentItem(comment);
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html.trim();
+        const newItem = tmp.firstElementChild;
+        if (!newItem) return;
+        item.replaceWith(newItem);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Also refresh other comment items for the same customer so their
+        // count badges & button states update (e.g. when merge changes count
+        // from 1→2, other rows for same fromId should now show "2 comments").
+        const fromId = comment.from?.id;
+        if (!fromId) return;
+        for (const c of state.comments) {
+            if (c.id === commentId) continue;
+            if (c.from?.id !== fromId) continue;
+            const otherItem = document.querySelector(
+                `.tpos-conversation-item[data-comment-id="${c.id}"]`
+            );
+            if (!otherItem) continue;
+            const otherHtml = this.renderCommentItem(c);
+            const otherTmp = document.createElement('div');
+            otherTmp.innerHTML = otherHtml.trim();
+            const otherNewItem = otherTmp.firstElementChild;
+            if (otherNewItem) otherItem.replaceWith(otherNewItem);
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
     /**

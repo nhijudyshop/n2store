@@ -25,6 +25,37 @@
 
 ## 2026-05-13
 
+### [tpos-pancake][native-orders][ui] Tạo đơn lặp lại cho cùng 1 khách — count badge + merge UX
+
+**Vấn đề trước đó**: khi khách bình luận nhiều lần trong cùng campaign, sau khi tạo đơn cho comment đầu, nút "Tạo đơn" bị thay bằng icon khóa `package-open` → user KHÔNG bấm được comment khác của cùng khách để gộp vào đơn cũ (dù backend Phase 6 đã hỗ trợ merge).
+
+**Files**:
+
+- `tpos-pancake/js/tpos/tpos-comment-list.js` — nút luôn hiện trên mọi comment; ID đổi từ `create-order-{fromId}` → `create-order-{fromId}-{commentId}` (unique per row); icon động (shopping-cart / plus-square / check-square) theo trạng thái; thêm count badge `📝 N`; thêm `refreshCommentItem(commentId)` re-render row hiện tại + mọi comment khác cùng `fromId` để badge cập nhật đồng loạt khi merge thành công.
+- `tpos-pancake/js/tpos/tpos-init.js` — `loadNativeOrdersForPost()` lưu thêm `commentCount` + `commentIds` vào `sessionIndexMap` (trước chỉ lưu `index/code/source`).
+- `tpos-pancake/index.html` — bump cache: `tpos-comment-list.js?v=20260513c`, `tpos-init.js?v=20260513`.
+
+**Behavior**:
+
+- Chưa có order → button `shopping-cart`, title "Tạo đơn web"
+- Đã có order, comment này CHƯA trong order → button `plus-square` (tím), title "Thêm comment vào đơn NW-... (N comments)" — click để merge
+- Đã có order, comment này ĐÃ merged → button `check-square` (xanh lá), title "Comment đã thêm vào đơn..."
+- Badge `📝 N` hiện cạnh order-code-badge khi `commentCount > 1`
+
+**Notification 3-case** (theo backend response field):
+
+- `idempotent: true` → "✓ Comment đã có trong đơn (N comments)" (info)
+- `merged: true` → "📝 Đã thêm comment vào đơn (N comments)" (info)
+- Mới hoàn toàn → "🆕 Đã tạo đơn web" (success)
+
+**Test live** (localhost:8080, persistent browser session):
+
+- 73 comments / 44 customers (5 customer có ≥2 comment trong campaign Loan Amy live)
+- Simulate `sessionIndexMap[fromId] = { commentCount:2, commentIds:[c0] }` → `refreshCommentItem(c0)` → cả 2 row của cùng customer cập nhật badge `📝 2`; row c0 hiện `check-square` "Comment đã thêm…", row c1 hiện `plus-square` "Thêm comment…" → đúng spec
+- 0 console errors, 0 fetch fails
+
+**Status**: ✅ Done — ready for Phase 12 (Partner reference → Customer 360 cross-system FK)
+
 ### [pbh][export][bulk] Phase 10-11: Excel CSV export + bulk actions
 
 **Phase 10 — CSV export (Excel-compatible, UTF-8 BOM)**:
