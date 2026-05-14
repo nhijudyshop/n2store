@@ -422,6 +422,8 @@
                 const sttValue = o.displayStt ?? o.sessionIndex ?? '';
                 const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
+                    data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
+                    data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
                     onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">
                     <td class="col-check" onclick="event.stopPropagation();">
                         <div class="tpos-check-stt">
@@ -518,6 +520,8 @@
             })
             .join('');
         if (window.lucide) lucide.createIcons();
+        // Re-apply new-message badges idempotently after every render
+        if (window.Web2NewMsgBadge?.reapply) window.Web2NewMsgBadge.reapply();
     }
 
     function toggleExpand(code) {
@@ -2457,6 +2461,9 @@
                     input.value = '';
                     notify('Đã gửi qua N2 Extension (bypass 24h)', 'success');
                     setTimeout(() => _loadAndRenderThread(order), 1500);
+                    if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
+                        window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
+                    }
                     input.disabled = false;
                     input.focus();
                     return;
@@ -2497,6 +2504,9 @@
             input.value = '';
             notify('Đã gửi tin nhắn', 'success');
             _loadAndRenderThread(order);
+            if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
+                window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
+            }
         } else {
             notify('Lỗi gửi tin nhắn: ' + (sendRes.reason || 'unknown'), 'error');
         }

@@ -25,6 +25,49 @@
 
 ## 2026-05-14
 
+### [web2-shared][native-orders] Realtime WS + badge "tin mới" cho Web 2.0 (module 2+3/5)
+
+**Goal**: Web 2.0 phải có realtime — modal chat không tự refresh khi có tin mới, bảng đơn không hiện badge "N MỚI" → user phải reload trang thủ công. Port pattern này từ web 1.0 (`new-messages-notifier.js`) sang Web 2.0 hoàn toàn độc lập.
+
+**Mới**:
+
+- `web2-shared/web2-realtime.js` (~200 lines) — `window.Web2Realtime`:
+    - `subscribe({ types, onEvent, debounceMs })` — pattern y hệt `PbhRealtime`
+    - `start({ pageIds })` — POST `/api/realtime/start` với JWT + userId từ JWT decode (chỉ cần khi server lần đầu setup)
+    - `fetchPendingCustomers(limit)` — GET `/api/realtime/pending-customers`
+    - `markReplied(psid, pageId)` — POST `/api/realtime/mark-replied`
+    - WS connect `wss://n2store-realtime.onrender.com` với exponential backoff reconnect
+    - Zero code shared với `tpos-pancake/js/realtime-manager.js`
+- `web2-shared/web2-new-msg-badge.js` (~280 lines) — `window.Web2NewMsgBadge`:
+    - `init()` — load từ localStorage instant + subscribe WS + fetch initial + reconcile 5 phút
+    - `reapply()` — idempotent DOM update (chỉ toggle class khi state thật đổi), gọi sau mọi `renderRows()`
+    - `onIncomingMessage(payload)` — bump count khi có `pages:new_message`, skip echo từ page
+    - `clearPendingForCustomer(psid)` — xoá pending + add vào 24h suppression map (`web2_recently_replied_v1`) → tránh WS echo re-add
+    - `setPendingCustomers(arr)` — REPLACE (not merge) cho fresh server fetch
+    - CSS injected: `.w2-pending-row` highlight cam, `.w2-new-msg-badge` đỏ pulse animation
+- `native-orders/`:
+    - `<tr>` thêm `data-fb-user-id` + `data-fb-page-id` để badge module locate row
+    - `renderRows()` cuối hàm gọi `Web2NewMsgBadge.reapply()`
+    - Sau send message thành công (qua extension OR qua Web2Chat) → gọi `clearPendingForCustomer(order.fbUserId)`
+    - index.html load 2 module mới + init khi DOMContentLoaded
+
+**Architecture**: Render `n2store-realtime` đã chạy 24/7 (server giữ WS với Pancake nhờ auto-reconnect từ DB-saved credentials). Web 2.0 client chỉ cần connect WS broker, nhận event broadcast. Nếu fresh install → call `Web2Realtime.start()` để push credentials.
+
+**Verify** (live test):
+
+- 3 modules load đúng (`hasWeb2Chat:true, hasWeb2Realtime:true, hasWeb2NewMsgBadge:true`) ✅
+- WS connect ✅ (`wsConnected:true`)
+- Initial fetch trả 14 pending customers, 1 trong 17 đơn hiển thị match → 1 badge render ✅
+- Badge visible "3 MỚI" trên row Nguyễn Trâm (cam pulse) ✅
+- Simulate WS event → count 1→2, badge "1 MỚI" render instant ✅
+- `clearPendingForCustomer` → count 2→1, suppression map có entry ✅
+
+Cache bumps: `native-orders-app.js` v=20260514s → t; new files v=20260514a.
+
+Roadmap: module 1/5 ✅, **2+3/5 ✅** done. Tiếp theo: 4/ quick reply, 5/ bulk campaign.
+
+Status: ✅ Done
+
 ### [web2][pancake-settings] Page cấu hình token Pancake riêng cho Web 2.0 (module 1/5)
 
 **Goal**: Tách Web 2.0 hoàn toàn khỏi web 1.0. Bước đầu — cho user setup JWT + page_access_tokens trực tiếp trong Web 2.0, không cần mở `tpos-pancake/`.
