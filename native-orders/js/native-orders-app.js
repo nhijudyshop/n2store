@@ -2584,6 +2584,61 @@
         return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;padding:6px 10px;background:rgba(0,0,0,0.05);border-radius:6px;font-size:11px;color:inherit;text-decoration:none;">📄 ${escapeHtml(name)}</a>`;
     }
 
+    function _renderAddress(att) {
+        const full = att.full_address || att.address || '';
+        if (!full) return '';
+        return `<div style="background:rgba(0,0,0,0.06);padding:6px 10px;border-radius:8px;margin-top:4px;font-size:12px;display:flex;align-items:flex-start;gap:6px;">
+            <span>📍</span>
+            <span style="flex:1;line-height:1.42;">${escapeHtml(full)}</span>
+        </div>`;
+    }
+
+    function _renderAdClick(att) {
+        const post = att.post_attachments?.[0];
+        const thumb = post?.url || '';
+        const desc = post?.description || '';
+        const adUrl = att.url || '';
+        return `<a href="${escapeHtml(adUrl)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;text-decoration:none;color:inherit;background:rgba(0,0,0,0.05);border-radius:8px;padding:6px;max-width:240px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:4px;">
+                <span>📣 Click từ Quảng cáo</span>
+            </div>
+            ${thumb ? `<img src="${escapeHtml(_workerProxy(thumb))}" style="width:100%;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />` : ''}
+            ${desc ? `<div style="font-size:11px;margin-top:4px;color:#475569;line-height:1.35;">${escapeHtml(desc.slice(0, 100))}${desc.length > 100 ? '…' : ''}</div>` : ''}
+        </a>`;
+    }
+
+    function _renderLinkPreview(att) {
+        const post = att.post_attachments?.[0];
+        const thumb = att.url || post?.url || '';
+        const title = att.name || post?.title || 'Link';
+        return `<div style="margin-top:4px;background:rgba(0,0,0,0.05);border-radius:8px;padding:6px;max-width:240px;">
+            ${thumb ? `<img src="${escapeHtml(_workerProxy(thumb))}" style="width:100%;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />` : ''}
+            <div style="font-size:12px;margin-top:4px;font-weight:600;line-height:1.35;">${escapeHtml(title.slice(0, 80))}</div>
+        </div>`;
+    }
+
+    function _renderTemplate() {
+        return `<div style="background:rgba(0,0,0,0.06);padding:5px 10px;border-radius:8px;margin-top:4px;font-size:11px;display:inline-flex;align-items:center;gap:5px;">
+            <span>📋</span><span>Tin nhắn dạng template</span>
+        </div>`;
+    }
+
+    function _renderAudioCall(att) {
+        const dur = Number(att.duration) || 0;
+        const min = Math.floor(dur / 60);
+        const sec = dur % 60;
+        const durStr = min > 0 ? `${min}p ${sec}s` : `${sec}s`;
+        return `<div style="background:rgba(0,0,0,0.06);padding:6px 10px;border-radius:8px;margin-top:4px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">
+            <span>📞</span>
+            <span>Cuộc gọi audio${dur > 0 ? ' · ' + durStr : ''}</span>
+        </div>`;
+    }
+
+    function _renderSystemMessage(att) {
+        const msg = att.message || '';
+        return `<div style="font-size:11px;color:#94a3b8;font-style:italic;text-align:center;padding:4px 0;">— ${escapeHtml(msg)} —</div>`;
+    }
+
     function _renderAttachment(att) {
         const type = (att.type || '').toLowerCase();
         const url = att.url || att.file_url || att.preview_url || att.payload?.url || att.src || '';
@@ -2591,6 +2646,12 @@
         if (type === 'reaction') return ''; // handled separately
         if (type === 'like' || type === 'thumbsup')
             return `<div style="font-size:32px;margin-top:2px;">👍</div>`;
+        if (type === 'address') return _renderAddress(att);
+        if (type === 'ad_click') return _renderAdClick(att);
+        if (type === 'link') return _renderLinkPreview(att);
+        if (type === 'template') return _renderTemplate();
+        if (type === 'fb_audio_call') return _renderAudioCall(att);
+        if (type === 'system_message') return _renderSystemMessage(att);
         if (!url) return '';
         if (type === 'sticker' || att.sticker_id || type === 'animated_image_url')
             return _renderSticker(att, url);
@@ -2652,6 +2713,14 @@
         const txt = _msgPlain(m.message || m.text || m.content || '');
         const time = m.inserted_at || m.created_time || m.timestamp;
         const atts = Array.isArray(m.attachments) ? m.attachments : [];
+        const isRemoved = !!m.is_removed;
+        const isHidden = !!m.is_hidden;
+
+        // System message: render as centered note instead of bubble
+        const sysAtt = atts.find((a) => (a.type || '').toLowerCase() === 'system_message');
+        if (sysAtt && !txt && atts.length === 1) {
+            return `<div class="w2-chat-row is-system" style="align-self:center;margin:4px 0;">${_renderSystemMessage(sysAtt)}</div>`;
+        }
 
         // Find quoted reply (rendered above the bubble content)
         const replyAtt = atts.find((a) => (a.type || '').toLowerCase() === 'replied_message');
@@ -2675,11 +2744,21 @@
                     ) || a.sticker_id
             );
 
-        const inner = txt
-            ? `<div style="white-space:pre-wrap;word-break:break-word;line-height:1.42;">${escapeHtml(txt)}</div>`
-            : mediaHtml || replyHtml
-              ? ''
-              : `<div style="opacity:0.6;font-style:italic;font-size:11px;">(không có nội dung)</div>`;
+        const removedBadge = isRemoved
+            ? `<div style="font-size:11px;font-style:italic;opacity:0.7;padding:2px 0;">🗑 Tin nhắn đã được thu hồi</div>`
+            : '';
+        const hiddenBadge =
+            isHidden && !isRemoved
+                ? `<div style="font-size:10px;opacity:0.65;padding:2px 0;">🙈 Tin nhắn đã ẩn</div>`
+                : '';
+
+        const inner = isRemoved
+            ? removedBadge
+            : txt
+              ? `<div style="white-space:pre-wrap;word-break:break-word;line-height:1.42;">${escapeHtml(txt)}</div>${hiddenBadge}`
+              : mediaHtml || replyHtml
+                ? hiddenBadge
+                : `<div style="opacity:0.6;font-style:italic;font-size:11px;">(không có nội dung)</div>`;
 
         const timeStr = time
             ? new Date(time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
