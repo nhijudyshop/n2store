@@ -442,15 +442,15 @@ window.BarcodeLabelDialog = (function () {
                 const foundCodes = [];
 
                 // ---------- STRATEGY A: Direct variant DefaultCode lookup ----------
-                // Works khi TPOS variant có DefaultCode trùng mã n2store. Trường hợp
-                // variant không gán DefaultCode riêng (vd MM139A2 — biến thể của
-                // template MM139) thì strategy A miss → tiếp Strategy B.
+                // Works khi TPOS variant có DefaultCode trùng mã n2store (vd MM139A2
+                // — variant của template MM139 — vẫn có DefaultCode riêng).
+                // QUAN TRỌNG: KHÔNG dùng $select — combined với filter có nhiều `or`
+                // gây 502 Bad Gateway từ TPOS origin (test 2026-05-14). Trả về full
+                // payload, parse field cần thiết.
                 if (safeCodes.length > 0) {
                     setStatus(`Đang tra trực tiếp TPOS Product cho ${safeCodes.length} mã…`);
                     const filter = safeCodes.map((c) => `DefaultCode eq '${c}'`).join(' or ');
-                    const select =
-                        'Id,DefaultCode,NameTemplate,NameGet,Barcode,ProductTmplId,PriceVariant,StandardPrice,PurchasePrice,UOMName,ImageUrl,Active';
-                    const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$select=${encodeURIComponent(select)}&$top=${safeCodes.length}`;
+                    const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$top=${safeCodes.length}`;
                     console.log('[Barcode][Recheck] Strategy A query:', { codes: safeCodes, url });
                     const resp = await tposFetch(url, {
                         headers: { Accept: 'application/json' },
@@ -496,11 +496,37 @@ window.BarcodeLabelDialog = (function () {
 
                     for (const [parentCode, parentItems] of byParent.entries()) {
                         try {
+                            // 2-step query — combined $filter + $expand=ProductVariants
+                            // gây 502 từ TPOS origin (verified 2026-05-14). Tách:
+                            //   1) ProductTemplate?$filter=DefaultCode eq '<parent>'&$top=1 → Id
+                            //   2) ProductTemplate(<id>)?$expand=ProductVariants(...)  → variants
                             const tmplFilter = `DefaultCode eq '${parentCode}'`;
-                            const expand = 'ProductVariants($expand=AttributeValues)';
-                            const tmplUrl = `${PROXY}/api/odata/ProductTemplate?$filter=${encodeURIComponent(tmplFilter)}&$expand=${encodeURIComponent(expand)}&$top=1`;
+                            const findUrl = `${PROXY}/api/odata/ProductTemplate?$filter=${encodeURIComponent(tmplFilter)}&$top=1`;
                             console.log(
-                                `[Barcode][Recheck] Strategy B query for parent "${parentCode}":`,
+                                `[Barcode][Recheck] Strategy B step1 (find tmplId) for "${parentCode}":`,
+                                findUrl
+                            );
+                            const findResp = await tposFetch(findUrl, {
+                                headers: { Accept: 'application/json' },
+                            });
+                            if (!findResp.ok) {
+                                console.warn(
+                                    `[Barcode][Recheck] Template find HTTP ${findResp.status} for "${parentCode}"`
+                                );
+                                continue;
+                            }
+                            const findData = await findResp.json();
+                            const tmplHeader = findData.value?.[0];
+                            if (!tmplHeader?.Id) {
+                                console.warn(
+                                    `[Barcode][Recheck] Template "${parentCode}" not found on TPOS`
+                                );
+                                continue;
+                            }
+                            // Step 2: expand variants by template ID
+                            const tmplUrl = `${PROXY}/api/odata/ProductTemplate(${tmplHeader.Id})?$expand=${encodeURIComponent('ProductVariants($expand=AttributeValues)')}`;
+                            console.log(
+                                `[Barcode][Recheck] Strategy B step2 (expand variants) tmplId=${tmplHeader.Id}:`,
                                 tmplUrl
                             );
                             const tmplResp = await tposFetch(tmplUrl, {
@@ -508,14 +534,11 @@ window.BarcodeLabelDialog = (function () {
                             });
                             if (!tmplResp.ok) {
                                 console.warn(
-                                    `[Barcode][Recheck] Template HTTP ${tmplResp.status} for "${parentCode}"`
+                                    `[Barcode][Recheck] Template expand HTTP ${tmplResp.status} for "${parentCode}"`
                                 );
                                 continue;
                             }
-                            const tmplData = await tmplResp.json();
-                            const tmpl = Array.isArray(tmplData.value)
-                                ? tmplData.value[0]
-                                : tmplData.value || tmplData;
+                            const tmpl = await tmplResp.json();
                             const variants = tmpl?.ProductVariants || [];
                             console.log(`[Barcode][Recheck] Strategy B template "${parentCode}":`, {
                                 tmplId: tmpl?.Id,

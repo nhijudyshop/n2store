@@ -25,6 +25,35 @@
 
 ## 2026-05-14
 
+### [orders][barcode] Fix 502 bug — bỏ $select trong Strategy A, 2-step query Strategy B
+
+**Vấn đề user báo**: dialog flag toàn bộ 6 mã (kể cả MM139A1/A2/A3, B1561A34, B1559A36, …) là "Không có trên TPOS" dù TPOS có. User yêu cầu test trực tiếp trên TPOS UI (port mới, login tay).
+
+**Root cause** (test qua Playwright session tại tomato.tpos.vn, log [downloads/n2store-session/tpos-direct/](downloads/n2store-session/tpos-direct/)):
+
+- `GET /odata/Product?$filter=DefaultCode eq 'A' or 'B' or 'C'&$select=Id,DefaultCode,NameTemplate,…&$top=N` → **502 Bad Gateway** (TPOS origin overloaded khi combined nhiều `or` với `$select` chứa nhiều fields).
+- `GET /odata/Product?$filter=DefaultCode eq 'A' or 'B' or 'C'&$top=N` (KHÔNG `$select`) → **200**, trả về đủ 3 mã.
+- `GET /odata/ProductTemplate?$filter=DefaultCode eq 'MM139'&$expand=ProductVariants(...)` → **502** (combined filter + expand cũng gây bad gateway).
+- `GET /odata/ProductTemplate(113931)?$expand=ProductVariants($expand=AttributeValues)` → **200**, trả về template với 3 variants kèm AttributeValues.
+
+→ Hậu quả: cả Strategy A và B trước đây luôn fail → tất cả mã bị flag "Không có trên TPOS" → user không in được dù TPOS có.
+
+**Thay đổi**:
+
+- **Strategy A**: bỏ `$select` clause. Trả full payload (heavier nhưng work). Variant như MM139A2 có `DefaultCode = MM139A2` trên TPOS → Strategy A hit trực tiếp, không cần Strategy B.
+- **Strategy B**: tách thành 2-step:
+    1. `ProductTemplate?$filter=DefaultCode eq '<parent>'&$top=1` → lấy `tmpl.Id`
+    2. `ProductTemplate(<tmpl.Id>)?$expand=ProductVariants($expand=AttributeValues)` → lấy danh sách variants kèm AttributeValues
+       Match variant theo DefaultCode/Barcode/AttributeValues (như cũ).
+- Verified live trên tomato.tpos.vn: query trả về MM139 với 3 variants {148791:MM139A1, 148792:MM139A2, 148793:MM139A3}, attrs = ["1"]/["2"]/["3"].
+
+**Files**:
+
+- [purchase-orders/js/lib/barcode-label-dialog.js](purchase-orders/js/lib/barcode-label-dialog.js) — Strategy A bỏ $select, Strategy B 2-step.
+- [scripts/tpos-direct-session.js](scripts/tpos-direct-session.js) — Playwright session pointed at tomato.tpos.vn (no auto-login, FIFO REPL, network capture) để test OData trực tiếp khi cần debug TPOS API quirks.
+
+**Status**: ✅ Done
+
 ### [orders][barcode] Bỏ hoàn toàn local web_warehouse — chỉ lấy data từ TPOS OData trực tiếp
 
 **Yêu cầu user**: "cho lấy dữ liệu qua kho tpos đi đừng lấy kho local". Local web_warehouse cache không đáng tin (miss mapping) → đổi sang query TPOS trực tiếp.
