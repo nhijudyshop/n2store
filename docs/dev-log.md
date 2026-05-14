@@ -25,6 +25,46 @@
 
 ## 2026-05-14
 
+### [web2][native-orders][sidebar] 6 yêu cầu UX: sidebar collapse, save FB data, gọn cell, STT vào checkbox, action 2x2
+
+**Y/c 1 — Toggle ẩn/hiện sidebar** ([web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) + [.css](../web2-shared/tpos-sidebar.css)):
+
+- Button `#web2SidebarToggle` (icon `panel-left-close`) trong `.web2-brand`
+- Click → toggle `body.web2-sidebar-collapsed` → sidebar 260px → 56px (chỉ icons)
+- Persist `localStorage.web2SidebarCollapsed`, restore lúc mount
+- Verified: 260 → 56 → 260, ls = "1"
+
+**Y/c 2 — Lưu FB data của khách khi tạo đơn** ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js) `upsertCustomerFromOrder`):
+
+- Sau `POST /from-comment` insert → background upsert `customers` (non-blocking)
+- 3 strategies: match by phone → fill missing fb*id/name/address; match by fb_id → fill phone; tạo mới với `phone || fb*<id>` pseudo-phone, name, fb_id, pancake_data JSON
+- Bảo toàn dữ liệu hiện hữu (`COALESCE`, `NULLIF`) — không ghi đè non-null
+- Sau upsert: nếu order chưa có `customer_id` → UPDATE backfill
+
+**Y/c 3 — Bỏ 2 mini icon** phone + person trong customer cell (đã xóa span + ẩn class CSS)
+
+**Y/c 4 — UI cell Khách hàng** ([css/tpos-theme.css](../native-orders/css/tpos-theme.css)):
+
+- `.tpos-customer-name-row` = name + status pill inline gap 8px
+- Name font-weight 600, merged phone (mergeNameSdt) dạng tel link 11px dưới name
+
+**Y/c 5 — STT vào cột checkbox**:
+
+- Cell `.tpos-check-stt` = `<input> + <span>STT</span>`
+- Header tương tự
+- Cột `.col-stt` standalone hidden mặc định (đã merge); bump localStorage key `colVisibility v1 → v2`
+
+**Y/c 6 — Action icons 2x2 grid**:
+
+- `.tpos-row-actions-grid` = grid 2 cột, mỗi button 26x26
+- Order: [Sửa][Tạo PBH] / [KH 360°][Xóa]; placeholder giữ chỗ nếu không có customerId
+
+**Verified live** (port 8089): check cell có input+STT, col-stt hidden, action grid `26px 26px`, 0 mini icons, sidebar toggle "Ẩn/hiện menu", collapse 260→56px + localStorage persist, customer-name-row layout active.
+
+**Cache**: `tpos-sidebar.{js,css}?v=20260514e`, `tpos-theme.css?v=20260514e`, `native-orders-app.js?v=20260514j`. 11 HTML bumped.
+
+**Status**: ✅ Frontend live, backend customer upsert sẽ live sau Render redeploy.
+
 ### [orders][barcode] Auto-recheck TPOS ngay sau pre-fetch + console logs để debug
 
 **Phản hồi user (sau commit ProductTemplate fallback)**: kèm screenshots TPOS UI cho thấy `MM139A1/A2/A3` đều có trên TPOS và in được trực tiếp từ TPOS. Local web_warehouse miss mapping (`tpos_product_id = NULL`) nên flag bật, nhưng user không muốn phải bấm "Kiểm lại TPOS" tay mỗi lần.
