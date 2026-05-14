@@ -2708,7 +2708,40 @@
         return `<div class="w2-chat-reactions">${emojis}${summaryHtml}</div>`;
     }
 
-    function _bubbleHtml(m, pageId) {
+    function _avatarUrl(fbId, pageId) {
+        if (!fbId || !pageId) return '';
+        const base =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const jwt = window.Web2Chat?.getJwt() || '';
+        const params = new URLSearchParams({ id: fbId, page: pageId });
+        if (jwt) params.set('token', jwt);
+        return `${base}/api/fb-avatar?${params.toString()}`;
+    }
+
+    function _avatarInitial(name) {
+        const s = String(name || '?').trim();
+        return s ? s.split(/\s+/).slice(-1)[0].charAt(0).toUpperCase() : '?';
+    }
+
+    /**
+     * Render small 28px avatar — shown only when `show` is true (last of
+     * a consecutive incoming group, Messenger-style). When false, returns
+     * an empty placeholder so subsequent messages in the group align.
+     */
+    function _avatarHtml(m, pageId, show) {
+        if (!show) return `<div style="width:28px;flex-shrink:0;"></div>`;
+        const fbId = m.from?.id;
+        const name = m.from?.name || '';
+        const url = _avatarUrl(fbId, pageId);
+        const initial = _avatarInitial(name);
+        if (!url) {
+            return `<div style="width:28px;height:28px;border-radius:50%;background:#e2e8f0;color:#475569;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${escapeHtml(initial)}</div>`;
+        }
+        const onerrFallback = `this.outerHTML='<div style=\\'width:28px;height:28px;border-radius:50%;background:#e2e8f0;color:#475569;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;\\'>${escapeHtml(initial).replace(/'/g, '&#39;')}</div>'`;
+        return `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#e2e8f0;" loading="lazy" onerror="${onerrFallback}" />`;
+    }
+
+    function _bubbleHtml(m, pageId, opts = {}) {
         const isOutgoing = m.from?.id === pageId || m.from_admin || m.is_admin;
         const txt = _msgPlain(m.message || m.text || m.content || '');
         const time = m.inserted_at || m.created_time || m.timestamp;
@@ -2773,13 +2806,21 @@
             ? `background:transparent;border:0;padding:0;box-shadow:none;`
             : `background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:7px 11px;border-radius:${isOutgoing ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};`;
 
+        // Avatar for incoming bubbles only (Messenger style — show on the
+        // last of a consecutive group of same-sender messages).
+        const showAvatar = !isOutgoing && opts.showAvatar !== false;
+        const avatarHtml = !isOutgoing
+            ? `<div class="w2-chat-avatar-slot" style="align-self:flex-end;">${_avatarHtml(m, pageId, showAvatar)}</div>`
+            : '';
+
         return `<div class="w2-chat-row ${isOutgoing ? 'is-out' : 'is-in'}" data-msg-id="${escapeHtml(m.id || '')}" style="display:flex;flex-direction:column;align-items:${isOutgoing ? 'flex-end' : 'flex-start'};margin:2px 0;position:relative;">
             <div class="w2-chat-bubble-wrap" style="display:flex;align-items:flex-end;gap:6px;${isOutgoing ? 'flex-direction:row-reverse;' : ''}max-width:80%;">
+                ${avatarHtml}
                 <div class="w2-chat-bubble" data-msg-id="${escapeHtml(m.id || '')}" style="${bubbleStyle}font-size:13px;">${replyHtml}${inner}${mediaHtml}</div>
                 ${replyBtn}
             </div>
             ${reactionsHtml}
-            ${timeStr ? `<div class="w2-chat-time" style="font-size:10px;color:#94a3b8;margin-top:2px;${isOutgoing ? 'padding-right:8px;' : 'padding-left:8px;'}">${escapeHtml(timeStr)}</div>` : ''}
+            ${timeStr ? `<div class="w2-chat-time" style="font-size:10px;color:#94a3b8;margin-top:2px;${isOutgoing ? 'padding-right:8px;' : 'padding-left:38px;'}">${escapeHtml(timeStr)}</div>` : ''}
         </div>`;
     }
 
@@ -2949,14 +2990,25 @@
             );
         }
         let lastLabel = '';
-        for (const m of msgs) {
+        for (let i = 0; i < msgs.length; i++) {
+            const m = msgs[i];
             const ts = _msgTimestamp(m);
             const label = _dateLabel(ts);
             if (label && label !== lastLabel) {
                 parts.push(_dateSeparatorHtml(label));
                 lastLabel = label;
             }
-            parts.push(_bubbleHtml(m, pageId));
+            // Avatar shows ONLY on the last message of a consecutive
+            // incoming group from the same sender (Messenger style). Look
+            // at the NEXT message — if it's outgoing or from a different
+            // sender, this is the group's tail → show avatar.
+            const next = msgs[i + 1];
+            const isOutgoing = m.from?.id === pageId || m.from_admin || m.is_admin;
+            const nextOutgoing =
+                next && (next.from?.id === pageId || next.from_admin || next.is_admin);
+            const sameSenderNext = next && !nextOutgoing && next.from?.id === m.from?.id;
+            const showAvatar = !isOutgoing && !sameSenderNext;
+            parts.push(_bubbleHtml(m, pageId, { showAvatar }));
         }
         threadEl.innerHTML = parts.join('');
         if (anchor === 'top') {
