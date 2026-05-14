@@ -2289,12 +2289,13 @@
         const pancakeUrl = `../tpos-pancake/index.html?focusFbUserId=${encodeURIComponent(order.fbUserId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}${order.liveCampaignId ? '&focusCampaign=' + encodeURIComponent(order.liveCampaignId) : ''}`;
         return `
             <div style="display:flex;flex-direction:column;gap:10px;min-height:280px;">
-                <div id="msgThread" class="w2p-scroll-area" style="flex:1;min-height:200px;max-height:300px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#475569;">
+                <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:200px;max-height:340px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#475569;">
                     <div style="color:#94a3b8;font-style:italic;text-align:center;padding:30px 0;">
                         <i data-lucide="loader" style="width:18px;height:18px;display:block;margin:0 auto 6px;animation:spin 1s linear infinite;"></i>
                         Đang tải hội thoại…
                     </div>
                 </div>
+                <button type="button" id="msgJumpBottom" style="display:none;align-self:center;background:#7c3aed;color:#fff;border:none;font-size:11px;font-weight:600;padding:4px 12px;border-radius:999px;cursor:pointer;box-shadow:0 2px 6px rgba(124,58,237,0.25);margin-top:-6px;">↓ <span id="msgJumpCount">0</span> tin mới</button>
                 <div style="display:flex;gap:6px;align-items:flex-end;">
                     <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" style="flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;max-height:140px;"></textarea>
                     <button type="button" class="w2-qr-fab" data-action="open-quick-reply" title="Trả lời nhanh">
@@ -2315,6 +2316,226 @@
             </div>`;
     }
 
+    // -----------------------------------------------------
+    // Chat thread state + rendering helpers (shared by initial
+    // load, scroll-up load older, and WS auto-append paths).
+    // -----------------------------------------------------
+
+    let _chatState = null; // { order, pageId, convId, customerId, msgIds:Set, msgs:[], cursor, loadingOlder, hasMore, wsSub, missedSince }
+
+    function _msgPlain(raw) {
+        if (!raw) return '';
+        const tmp = document.createElement('div');
+        tmp.innerHTML = String(raw).replace(/<br\s*\/?>/gi, '\n');
+        return (tmp.textContent || tmp.innerText || '').trim();
+    }
+
+    function _msgTimestamp(m) {
+        const t = m.inserted_at || m.created_time || m.timestamp;
+        if (!t) return 0;
+        const d = new Date(t);
+        return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+
+    function _dateLabel(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        const today = new Date();
+        const yest = new Date();
+        yest.setDate(today.getDate() - 1);
+        const same = (a, b) =>
+            a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate();
+        if (same(d, today)) return 'HÔM NAY';
+        if (same(d, yest)) return 'HÔM QUA';
+        return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function _bubbleHtml(m, pageId) {
+        const isOutgoing = m.from?.id === pageId || m.from_admin || m.is_admin;
+        const txt = _msgPlain(m.message || m.text || m.content || '');
+        const time = m.inserted_at || m.created_time || m.timestamp;
+        const atts = Array.isArray(m.attachments) ? m.attachments : [];
+        const imgs = atts
+            .filter((a) => ['photo', 'image', 'sticker'].includes((a.type || '').toLowerCase()))
+            .map((a) => a.url || a.preview_url || a.thumb_url)
+            .filter(Boolean);
+        const imgHtml = imgs
+            .slice(0, 4)
+            .map(
+                (u) =>
+                    `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;"><img src="${escapeHtml(u)}" style="max-width:180px;max-height:240px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);display:block;" loading="lazy" /></a>`
+            )
+            .join('');
+        const fileAtts = atts
+            .filter((a) => !['photo', 'image', 'sticker'].includes((a.type || '').toLowerCase()))
+            .map(
+                (a) =>
+                    `<div style="font-size:11px;opacity:0.8;margin-top:3px;">📎 ${escapeHtml(a.name || a.type || 'attachment')}</div>`
+            )
+            .join('');
+        const inner = txt
+            ? `<div style="white-space:pre-wrap;word-break:break-word;">${escapeHtml(txt)}</div>`
+            : imgs.length === 0 && atts.length === 0
+              ? `<div style="opacity:0.6;font-style:italic;">(không có nội dung)</div>`
+              : '';
+        const timeStr = time ? new Date(time).toLocaleString('vi-VN') : '';
+        return `<div class="w2-chat-bubble" data-msg-id="${escapeHtml(m.id || '')}" style="align-self:${isOutgoing ? 'flex-end' : 'flex-start'};max-width:80%;background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:6px 10px;border-radius:${isOutgoing ? '10px 10px 2px 10px' : '10px 10px 10px 2px'};font-size:12px;border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};">${inner}${imgHtml}${fileAtts}${timeStr ? `<div style="font-size:9px;opacity:0.65;margin-top:3px;">${escapeHtml(timeStr)}</div>` : ''}</div>`;
+    }
+
+    function _dateSeparatorHtml(label) {
+        return `<div class="w2-chat-daysep" style="align-self:center;margin:6px 0;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.5px;background:#fff;padding:2px 10px;border-radius:999px;border:1px solid #e5e7eb;">${escapeHtml(label)}</div>`;
+    }
+
+    /**
+     * Render the cached message list into the thread element with date
+     * separators. Preserves scroll-from-bottom behaviour: pass
+     * `anchor: 'bottom'` for initial / new message; pass `anchor: 'top'`
+     * for prepend after scroll-load-older.
+     */
+    function _renderChatThread(anchor) {
+        const threadEl = document.getElementById('msgThread');
+        if (!threadEl || !_chatState) return;
+        const { msgs, pageId } = _chatState;
+        if (!msgs.length) {
+            threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Hội thoại trống. Gõ tin nhắn để bắt đầu.</div>`;
+            return;
+        }
+        // Capture scroll anchor BEFORE re-render so prepend keeps the user's
+        // visible position stable.
+        const prevScrollHeight = threadEl.scrollHeight;
+        const prevScrollTop = threadEl.scrollTop;
+        const parts = [];
+        if (_chatState.hasMore) {
+            parts.push(
+                `<div id="msgLoadOlder" style="align-self:center;font-size:11px;color:#7c3aed;padding:4px 0;cursor:pointer;">↑ Cuộn lên để tải tin cũ hơn</div>`
+            );
+        }
+        let lastLabel = '';
+        for (const m of msgs) {
+            const ts = _msgTimestamp(m);
+            const label = _dateLabel(ts);
+            if (label && label !== lastLabel) {
+                parts.push(_dateSeparatorHtml(label));
+                lastLabel = label;
+            }
+            parts.push(_bubbleHtml(m, pageId));
+        }
+        threadEl.innerHTML = parts.join('');
+        if (anchor === 'top') {
+            // After prepend, restore so the previously-visible bubble stays
+            // anchored under the user's cursor.
+            requestAnimationFrame(() => {
+                threadEl.scrollTop = threadEl.scrollHeight - prevScrollHeight + prevScrollTop;
+            });
+        } else {
+            requestAnimationFrame(() => {
+                threadEl.scrollTop = threadEl.scrollHeight;
+                requestAnimationFrame(() => {
+                    threadEl.scrollTop = threadEl.scrollHeight;
+                });
+            });
+        }
+    }
+
+    function _attachScrollLoader() {
+        const threadEl = document.getElementById('msgThread');
+        if (!threadEl || !_chatState) return;
+        threadEl.addEventListener('scroll', _onChatScroll, { passive: true });
+    }
+
+    async function _onChatScroll() {
+        const threadEl = document.getElementById('msgThread');
+        if (!threadEl || !_chatState) return;
+        // Load older when within 80px of top
+        if (threadEl.scrollTop < 80 && _chatState.hasMore && !_chatState.loadingOlder) {
+            await _loadOlderMessages();
+        }
+        // Hide jump-bottom button when user scrolls back to bottom
+        const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 40;
+        const jump = document.getElementById('msgJumpBottom');
+        if (jump && nearBottom) {
+            jump.style.display = 'none';
+            _chatState.missedSince = 0;
+        }
+    }
+
+    async function _loadOlderMessages() {
+        if (!_chatState || _chatState.loadingOlder) return;
+        _chatState.loadingOlder = true;
+        const indicator = document.getElementById('msgLoadOlder');
+        if (indicator)
+            indicator.innerHTML = `<span style="color:#7c3aed;">⏳ Đang tải tin cũ…</span>`;
+        try {
+            const cursor = _chatState.cursor || _chatState.msgs.length;
+            const r = await window.Web2Chat.fetchMessages(
+                _chatState.pageId,
+                _chatState.convId,
+                _chatState.customerId,
+                { currentCount: cursor }
+            );
+            if (!r.ok) {
+                _chatState.hasMore = false;
+                _renderChatThread('top');
+                return;
+            }
+            const incoming = r.messages || [];
+            // Pancake returns oldest first; we have a flat array oldest→newest in msgs
+            const fresh = incoming.filter((m) => m.id && !_chatState.msgIds.has(m.id));
+            if (!fresh.length) {
+                _chatState.hasMore = false;
+                _renderChatThread('top');
+                return;
+            }
+            for (const m of fresh) _chatState.msgIds.add(m.id);
+            _chatState.msgs = [...fresh, ..._chatState.msgs];
+            _chatState.cursor = cursor + fresh.length;
+            _renderChatThread('top');
+        } catch (e) {
+            console.warn('[NativeOrders] loadOlder failed:', e.message);
+        } finally {
+            _chatState.loadingOlder = false;
+        }
+    }
+
+    function _onIncomingWsMessage(payload) {
+        if (!_chatState) return;
+        const m = payload?.message || payload;
+        if (!m) return;
+        // Match against the open conversation
+        const convId = m.conversation_id || m.conversationId;
+        if (convId && String(convId) !== String(_chatState.convId)) return;
+        if (m.id && _chatState.msgIds.has(m.id)) return;
+        if (m.id) _chatState.msgIds.add(m.id);
+        _chatState.msgs.push(m);
+        const threadEl = document.getElementById('msgThread');
+        if (!threadEl) return;
+        // If user is near bottom, render & stay at bottom; else show jump pill
+        const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 80;
+        _renderChatThread(nearBottom ? 'bottom' : 'top');
+        if (!nearBottom) {
+            _chatState.missedSince = (_chatState.missedSince || 0) + 1;
+            const jump = document.getElementById('msgJumpBottom');
+            const cnt = document.getElementById('msgJumpCount');
+            if (jump && cnt) {
+                cnt.textContent = String(_chatState.missedSince);
+                jump.style.display = '';
+            }
+        }
+    }
+
+    function _teardownChatState() {
+        if (_chatState?.wsSub?.unsubscribe) {
+            try {
+                _chatState.wsSub.unsubscribe();
+            } catch {
+                /* ignore */
+            }
+        }
+        _chatState = null;
+    }
+
     /**
      * After Messages tab renders, lazy-load Pancake API + fetch conversation history.
      * Stores conversationId/customerId on #msgInput for the Send button.
@@ -2329,7 +2550,7 @@
         if (!window.Web2Chat.hasTokensFor(order.fbPageId)) {
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;line-height:1.5;">
                 Chưa cấu hình token Pancake cho page <code>${escapeHtml(order.fbPageId)}</code>.<br>
-                <a href="../tpos-pancake/index.html" target="_blank" style="color:#7c3aed;">Mở TPOS × Pancake để đăng nhập + lấy token →</a>
+                <a href="../web2/pancake-settings/index.html" target="_blank" style="color:#7c3aed;">Mở Cấu hình Pancake (Web 2.0) →</a>
             </div>`;
             return;
         }
@@ -2344,9 +2565,6 @@
                 threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Chưa có hội thoại với khách${reason}. Gõ tin nhắn để bắt đầu.</div>`;
                 return;
             }
-            // Pancake returns BOTH inbox conversations and comment "conversations"
-            // mixed together. The messages endpoint only returns content for INBOX
-            // type; COMMENT type rows are placeholders for comment threads.
             const inboxConvs = conversations.filter(
                 (c) => (c.type || '').toUpperCase() === 'INBOX'
             );
@@ -2360,7 +2578,7 @@
                 if (window.lucide?.createIcons) window.lucide.createIcons();
                 return;
             }
-            const conv = inboxConvs[0]; // most recent inbox thread
+            const conv = inboxConvs[0];
             const customerId = convRes.customerUuid || conv?.customers?.[0]?.id || null;
             const input = document.getElementById('msgInput');
             if (input) {
@@ -2373,60 +2591,40 @@
                 threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Lỗi tải tin nhắn: ${escapeHtml(msgRes.reason || 'unknown')}</div>`;
                 return;
             }
-            const messages = (msgRes.messages || []).slice(-30);
-            if (!messages.length) {
-                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Hội thoại trống. Gõ tin nhắn để bắt đầu.</div>`;
-                return;
-            }
-            // Pancake stores message text with HTML wrappers (<div>, <br />, …).
-            // Render as plain text — turn <br> into newlines, drop other tags.
-            const _msgPlain = (raw) => {
-                if (!raw) return '';
-                const tmp = document.createElement('div');
-                tmp.innerHTML = String(raw).replace(/<br\s*\/?>/gi, '\n');
-                return (tmp.textContent || tmp.innerText || '').trim();
+            // Init shared state. Pancake returns oldest-first within a page.
+            _teardownChatState();
+            const msgs = msgRes.messages || [];
+            const ids = new Set();
+            for (const m of msgs) if (m.id) ids.add(m.id);
+            _chatState = {
+                order,
+                pageId: order.fbPageId,
+                convId: conv.id,
+                customerId,
+                msgs,
+                msgIds: ids,
+                cursor: msgs.length, // next page-load uses current_count = msgs.length
+                hasMore: msgs.length > 0, // assume more until server returns nothing
+                loadingOlder: false,
+                missedSince: 0,
             };
-            threadEl.innerHTML = messages
-                .map((m) => {
-                    const isOutgoing = m.from?.id === order.fbPageId || m.from_admin || m.is_admin;
-                    const txt = _msgPlain(m.message || m.text || m.content || '');
-                    const time = m.inserted_at || m.created_time || m.timestamp;
-                    const atts = Array.isArray(m.attachments) ? m.attachments : [];
-                    const imgs = atts
-                        .filter((a) => {
-                            const t = (a.type || '').toLowerCase();
-                            return t === 'photo' || t === 'image' || t === 'sticker';
-                        })
-                        .map((a) => a.url || a.preview_url || a.thumb_url)
-                        .filter(Boolean);
-                    const imgHtml = imgs
-                        .slice(0, 4)
-                        .map(
-                            (u) =>
-                                `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;"><img src="${escapeHtml(u)}" style="max-width:180px;max-height:240px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);display:block;" loading="lazy" /></a>`
-                        )
-                        .join('');
-                    const fileAtts = atts
-                        .filter(
-                            (a) =>
-                                !['photo', 'image', 'sticker'].includes(
-                                    (a.type || '').toLowerCase()
-                                )
-                        )
-                        .map(
-                            (a) =>
-                                `<div style="font-size:11px;opacity:0.8;margin-top:3px;">📎 ${escapeHtml(a.name || a.type || 'attachment')}</div>`
-                        )
-                        .join('');
-                    const inner = txt
-                        ? `<div style="white-space:pre-wrap;">${escapeHtml(txt)}</div>`
-                        : imgs.length === 0 && atts.length === 0
-                          ? `<div style="opacity:0.6;font-style:italic;">(không có nội dung)</div>`
-                          : '';
-                    return `<div style="align-self:${isOutgoing ? 'flex-end' : 'flex-start'};max-width:80%;background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:6px 10px;border-radius:${isOutgoing ? '10px 10px 2px 10px' : '10px 10px 10px 2px'};font-size:12px;border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};">${inner}${imgHtml}${fileAtts}${time ? `<div style="font-size:9px;opacity:0.65;margin-top:3px;">${new Date(time).toLocaleString('vi-VN')}</div>` : ''}</div>`;
-                })
-                .join('');
-            threadEl.scrollTop = threadEl.scrollHeight;
+            _renderChatThread('bottom');
+            _attachScrollLoader();
+            // Live update: WS append for the open conversation
+            if (window.Web2Realtime?.subscribe) {
+                _chatState.wsSub = window.Web2Realtime.subscribe({
+                    types: ['pages:new_message'],
+                    onEvent: (m) => _onIncomingWsMessage(m.payload),
+                    debounceMs: 0,
+                });
+            }
+            const jumpBtn = document.getElementById('msgJumpBottom');
+            jumpBtn?.addEventListener('click', () => {
+                const t = document.getElementById('msgThread');
+                if (t) t.scrollTop = t.scrollHeight;
+                jumpBtn.style.display = 'none';
+                if (_chatState) _chatState.missedSince = 0;
+            });
         } catch (e) {
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;">Lỗi tải hội thoại: ${escapeHtml(e.message)}</div>`;
         }
@@ -2673,6 +2871,7 @@
         const modal = document.getElementById('orderInteractionsModal');
         if (modal) modal.style.display = 'none';
         _interactionsState = null;
+        _teardownChatState();
     }
 
     // Hook for realtime refresh — called from WS event handler

@@ -134,10 +134,20 @@
         }
     }
 
-    async function fetchMessages(pageId, conversationId, customerId) {
+    /**
+     * Fetch messages for a conversation.
+     * @param {string} pageId
+     * @param {string} conversationId
+     * @param {string|null} customerId
+     * @param {{ currentCount?: number }} [opts] — when set, asks the server
+     *   for the page of older messages BEFORE the index `currentCount`.
+     */
+    async function fetchMessages(pageId, conversationId, customerId, opts = {}) {
         if (!pageId || !conversationId) return { ok: false, reason: 'missing_ids', messages: [] };
         if (_isInstagram(pageId))
             return { ok: false, reason: 'instagram_unsupported', messages: [] };
+
+        const currentCount = Number.isFinite(opts.currentCount) ? opts.currentCount : null;
 
         // Prefer the JWT-based "direct" endpoint — Pancake's Public API
         // requires per-page subscription and returns empty for personal use.
@@ -151,6 +161,7 @@
                 access_token: jwt,
             });
             if (customerId) directParams.set('customer_id', customerId);
+            if (currentCount !== null) directParams.set('current_count', String(currentCount));
             const directUrl = `${WORKER_URL}/api/pancake-direct/pages/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(conversationId)}/messages?${directParams.toString()}`;
             try {
                 const data = await _fetchJson(directUrl, { method: 'GET' });
@@ -178,6 +189,7 @@
         if (pat) {
             const params = new URLSearchParams({ page_access_token: pat });
             if (customerId) params.set('customer_id', customerId);
+            if (currentCount !== null) params.set('current_count', String(currentCount));
             const url = `${WORKER_URL}/api/pancake-official/pages/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`;
             try {
                 const data = await _fetchJson(url, { method: 'GET' });

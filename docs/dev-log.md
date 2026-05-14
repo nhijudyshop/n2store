@@ -25,6 +25,37 @@
 
 ## 2026-05-14
 
+### [native-orders][chat] Chat modal feature parity với tab1 web 1.0
+
+**User feedback**: "browser test vào orders-report/main.html → coi giao diện, chức năng modal tin nhắn, bình luận → làm giống (kiểu như chức năng scroll load thêm,...) → tùy biến thông minh tùy bạn".
+
+**Đã thêm vào modal chat của native-orders**:
+
+1. **Scroll-load tin cũ hơn**: kéo lên đầu thread → tự fetch 30 tin cũ tiếp theo qua `Web2Chat.fetchMessages(..., {currentCount})` (mới thêm support pagination). Có indicator "↑ Cuộn lên để tải tin cũ hơn" + spinner khi đang load. Preserve scroll position bằng scrollHeight diff sau khi prepend (user không bị giật).
+2. **Date separators**: chèn pill "HÔM NAY" / "HÔM QUA" / "DD/MM/YYYY" giữa các nhóm tin theo ngày, format consistent web 1.0.
+3. **Auto-scroll bottom on init**: rAF 2 lần để đảm bảo chính xác sau khi images loaded.
+4. **WS auto-append**: subscribe `pages:new_message` cho conversation đang mở → append bubble realtime; ID dedup tránh double-render.
+5. **"↓ N tin mới" jump pill**: khi user scroll lên đọc cũ và có tin mới đến, hiện pill tím floating; click → jump xuống bottom + reset counter. Nếu user đã ở bottom → auto-scroll luôn (không pill).
+6. **Tear-down sạch**: WS sub unsubscribe khi đóng modal hoặc mở đơn khác.
+
+**Web2Chat extension**: `fetchMessages(pageId, convId, customerId, { currentCount })` — pass `current_count` xuống cả `pancake-direct` và `pancake-official` endpoint.
+
+**Đổi link "Cấu hình"** trong empty-state từ `tpos-pancake/` (web 1.0) → `web2/pancake-settings/` (Web 2.0 native) → giữ nguyên triết lý độc lập.
+
+**Files**:
+
+- `web2-shared/web2-chat-client.js` — `fetchMessages` ký thêm `opts.currentCount`
+- `native-orders/js/native-orders-app.js` — `_chatState` module-scope state, `_msgPlain/_dateLabel/_bubbleHtml/_dateSeparatorHtml/_renderChatThread/_attachScrollLoader/_onChatScroll/_loadOlderMessages/_onIncomingWsMessage/_teardownChatState` helpers, refactor `_loadAndRenderThread` + `_renderMessagesPanel`, hook teardown trong `_closeInteractions`
+- `native-orders/index.html` — `v=20260514v` (app), `v=20260514d` (chat-client)
+
+**Verify**:
+
+- Open NW-20260513-0016 → 25 bubbles + 4 date separators + "↑ Cuộn lên" indicator ✅
+- Scroll to top → load 30 tin cũ hơn (25 → 55 bubbles), preserve position ✅
+- Screenshot xác nhận date separator "10/05/2026" hiển thị đẹp giữa bubble groups ✅
+
+Status: ✅ Done
+
 ### [web2-shared][native-orders] Realtime WS + badge "tin mới" cho Web 2.0 (module 2+3/5)
 
 **Goal**: Web 2.0 phải có realtime — modal chat không tự refresh khi có tin mới, bảng đơn không hiện badge "N MỚI" → user phải reload trang thủ công. Port pattern này từ web 1.0 (`new-messages-notifier.js`) sang Web 2.0 hoàn toàn độc lập.
