@@ -25,6 +25,71 @@
 
 ## 2026-05-14
 
+### [native-orders] Chat: smooth wheel scroll qua Lenis library
+
+**User**: "kéo chuột rồi dừng lại → nó bị giựt đứng lại không mượt → thêm hiệu ứng vào scroll đi" → sau đó: "revert lại đi, coi trên github, google có hiệu ứng scroll nào không?"
+
+**Research GitHub** (smooth-scroll JS libs sorted by stars):
+
+| Lib                               | ⭐        | Bundle     | Note                                                                                     |
+| --------------------------------- | --------- | ---------- | ---------------------------------------------------------------------------------------- |
+| iscroll                           | 12.8k     | —          | old (2017), mobile-first                                                                 |
+| **darkroomengineering/lenis**     | **13.9k** | **5KB gz** | **active (commit 8h trước), MIT, designed for nested wrapper, used by Awwwards winners** |
+| locomotive-scroll                 | 8.8k      | bigger     | parallax-heavy                                                                           |
+| smooth-scrollbar                  | 8k        | bigger     | custom scrollbar overlay                                                                 |
+| cferdinandi/smooth-scroll         | 5.4k      | tiny       | chỉ anchor links                                                                         |
+| gblazex/smoothscroll-for-websites | 0.9k      | 5KB        | old nhưng proven                                                                         |
+
+→ Chọn **Lenis**: active maintenance, có `wrapper` option để bind vào container cụ thể (msgThread), `syncTouch:false` để Mac trackpad giữ momentum native, `scrollTo()` API cho jump-bottom mượt.
+
+**Implementation** ([native-orders-app.js:3196-3228](../native-orders/js/native-orders-app.js#L3196-L3228)):
+
+```js
+const lenis = new Lenis({
+    wrapper: threadEl,
+    content: threadEl,
+    smoothWheel: true,
+    syncTouch: false,
+    lerp: 0.12,
+    autoRaf: true,
+    autoResize: true,
+});
+_chatState.lenis = lenis;
+```
+
+- Load qua unpkg CDN: `<script src="https://unpkg.com/lenis@1.3.23/dist/lenis.min.js">` (CF cached, 17KB raw / 5KB gz).
+- Init trong `_attachScrollLoader` khi modal mở.
+- Destroy trong `_teardownChatState` khi modal đóng.
+- Jump-bottom button + WS-new-msg badge dùng `lenis.scrollTo('bottom', { duration: 0.4 })` cho smooth animate.
+- Fallback: nếu CDN fail load (`typeof Lenis !== 'function'`), code rơi về native scroll, không vỡ.
+
+**Đo curve trên wheel +600px (lerp 0.12)**:
+
+| t (ms) | scrollTop delta | % của target           |
+| ------ | --------------- | ---------------------- |
+| 15     | +65             | 11% (initial response) |
+| 49     | +174            | 29%                    |
+| 98     | +292            | 49%                    |
+| 182    | +418            | 70%                    |
+| 265    | +486            | 81%                    |
+| 349    | +524            | 87%                    |
+| 515    | +555            | 92%                    |
+| 666    | +565            | 94% (asymptotic tail)  |
+
+Smoother feel hơn hand-rolled 0.22 lerp trước (settle nhanh hơn nhưng cảm giác abrupt). Lenis cho ramp dài, dễ chịu kiểu Apple.
+
+**Verify**:
+
+- ✅ Scroll events vẫn fire → load-older trigger còn hoạt động
+- ✅ Direct `scrollTop = X` vẫn work (scrollbar drag, init scroll-to-bottom)
+- ✅ Jump-bottom button → smooth animate 400ms thay vì snap
+
+**Files**: [native-orders/index.html](../native-orders/index.html) (CDN script), [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) (`_attachLenis` + teardown + jump-bottom rewire), cache `v=20260514ai`.
+
+**Status**: ✅ Done.
+
+---
+
 ### [native-orders] Chat: preserve line breaks trong bubble + giảm scroll lag thêm 2×
 
 **User báo**: tin nhắn dài của shop hiển thị 1 đoạn liền dù raw text có xuống dòng; scroll vẫn không mượt.

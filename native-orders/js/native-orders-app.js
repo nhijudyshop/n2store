@@ -2279,7 +2279,9 @@
                 ?.addEventListener('click', () => _loadAndRenderThread(order));
             modal.querySelector('[data-action="scroll-bottom"]')?.addEventListener('click', () => {
                 const t = document.getElementById('msgThread');
-                if (t) t.scrollTop = t.scrollHeight;
+                if (!t) return;
+                if (_chatState?.lenis) _chatState.lenis.scrollTo('bottom', { duration: 0.4 });
+                else t.scrollTop = t.scrollHeight;
                 const jb = document.getElementById('msgJumpBottom');
                 if (jb) jb.style.display = 'none';
                 if (_chatState) _chatState.missedSince = 0;
@@ -3190,6 +3192,50 @@
         const threadEl = document.getElementById('msgThread');
         if (!threadEl || !_chatState) return;
         threadEl.addEventListener('scroll', _onScrollRaw, { passive: true });
+        _attachLenis(threadEl);
+    }
+
+    /**
+     * Wheel-event smoothing via Lenis (darkroomengineering/lenis, MIT,
+     * 13.8k★). Lenis intercepts the wheel events on the thread, queues
+     * a target scrollTop, and lerps `wrapper.scrollTop = X` per
+     * requestAnimationFrame frame with our chosen easing.
+     *
+     * Why a library instead of hand-rolled:
+     *   - Battle-tested across thousands of sites (Awwwards winners,
+     *     Studio Freight's own portfolio, lusion.co, etc.)
+     *   - Handles the awkward cases we don't want to maintain: multi-
+     *     axis trackpad gestures, syncTouch off so iOS/Mac trackpad's
+     *     native momentum still works, deltaMode line/page normalisation,
+     *     auto re-measure on resize, idempotent destroy.
+     *   - `scrollTo()` lets us replace the abrupt jump-bottom button
+     *     with a smooth animated scroll for free.
+     *
+     * The instance is bound to `_chatState.lenis` so `_teardownChatState`
+     * can destroy it when the modal closes.
+     */
+    function _attachLenis(threadEl) {
+        if (!_chatState || _chatState.lenis) return;
+        const Lenis = window.Lenis;
+        if (typeof Lenis !== 'function') return; // CDN didn't load; fall back to native scroll.
+        const lenis = new Lenis({
+            wrapper: threadEl,
+            content: threadEl,
+            smoothWheel: true,
+            // Mac/iOS already give kinetic momentum on touch — leave that
+            // path native so Lenis's lerp doesn't fight it.
+            syncTouch: false,
+            // 0.12 ≈ snappy: noticeable smoothing without feeling laggy.
+            lerp: 0.12,
+            wheelMultiplier: 1,
+            // Lenis runs its own raf loop; we don't need to drive it from
+            // GSAP/ScrollTrigger here.
+            autoRaf: true,
+            // Bubble-row sizes drive scrollHeight; use a ResizeObserver so
+            // load-older grows the limit without manual `.resize()` calls.
+            autoResize: true,
+        });
+        _chatState.lenis = lenis;
     }
     function _onScrollRaw() {
         if (_scrollRafPending) return;
@@ -3313,6 +3359,13 @@
                 /* ignore */
             }
         }
+        if (_chatState?.lenis?.destroy) {
+            try {
+                _chatState.lenis.destroy();
+            } catch {
+                /* ignore */
+            }
+        }
         _chatState = null;
     }
 
@@ -3401,7 +3454,9 @@
             const jumpBtn = document.getElementById('msgJumpBottom');
             jumpBtn?.addEventListener('click', () => {
                 const t = document.getElementById('msgThread');
-                if (t) t.scrollTop = t.scrollHeight;
+                if (!t) return;
+                if (_chatState?.lenis) _chatState.lenis.scrollTo('bottom', { duration: 0.4 });
+                else t.scrollTop = t.scrollHeight;
                 jumpBtn.style.display = 'none';
                 if (_chatState) _chatState.missedSince = 0;
             });
