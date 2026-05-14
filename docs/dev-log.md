@@ -25,6 +25,55 @@
 
 ## 2026-05-14
 
+### [web2][packaging] Đóng gói Web 2.0 thành bundle độc lập copy-able
+
+**Yêu cầu user**: các thư mục/file/CSS thuộc Web 2.0 → muốn có suffix `web2-*` hoặc tốt nhất gom hết vào 1 folder để mai mốt copy → upload thành web mới + note lại những thứ đang share chung.
+
+**Quyết định**: không rename folder (sẽ break 92 HTML hard-coded paths + GitHub Pages URLs đang share với khách). Thay vào đó:
+
+- Script đóng gói `scripts/pack-web2.sh` tạo `dist/web2-bundle/` self-contained
+- Doc inventory + dep map `docs/web2-packaging.md`
+- Nguồn gốc giữ nguyên — bundle chỉ là output có thể regen bất cứ lúc nào
+
+**5 thư mục thuộc Web 2.0**:
+
+- `web2/` (504 KB, ~80 module pages)
+- `web2-products/` (36 KB)
+- `web2-shared/` (136 KB — sidebar, popup, page-builder, delivery picker, …)
+- `native-orders/` (176 KB)
+- `tpos-pancake/` (1.3 MB)
+
+**Shared deps bundled**: `shared/{js, browser, universal, css, esm, images}` (`shared/node/` không cần — server-side). 11 file `shared/js/*` được Web 2.0 reference (firebase-config, shared-auth-manager, shared-cache-manager, notification-system, navigation-modern, api-config, pancake-data-manager, shop-config, storage-migration, esm/compat, css/typography).
+
+**External CDN (không bundle, version pinned)**: Firebase v10.14.1, Lucide v0.294.0, Google Fonts Inter+Manrope.
+
+**Backend (deployment-specific)**: Cloudflare Worker `chatomni-proxy.nhijudyshop.workers.dev` → Render `n2store-fallback.onrender.com`. Doc liệt kê customisation hook (`grep -r chatomni-proxy` để thay).
+
+**Script** ([scripts/pack-web2.sh](../scripts/pack-web2.sh)):
+
+- `rm -rf dist/web2-bundle && cp -R` 5 folder + `shared/`
+- Tạo `index.html` redirect tới native-orders, `README.md` mô tả layout + deploy targets (GitHub Pages, CF Pages, Netlify) + customisation hooks
+- Output: **249 files / 3.9 MB**
+
+**Doc** ([docs/web2-packaging.md](web2-packaging.md)):
+
+- TL;DR + 5 folder inventory + shared deps table + external CDN table + backend swap procedure
+- File tree visualization (tree -L 2)
+- Customisation hooks table (brand, worker URL, Firebase project, delivery zones, sidebar routes, popup theme)
+- CI hook example (GitHub Actions upload-artifact)
+- Lý do không rename thành `web2-` suffix
+
+**Verified live**: serve bundle qua `python3 -m http.server 8090` từ `dist/web2-bundle/` → load `http://localhost:8090/native-orders/` → 4 globals OK (`Popup, DeliveryMethodPicker, NativeOrdersApp, Web2Sidebar`), sidebar mounted, 23 rows rendered, column style injected, 0 console errors, 0 fetch fails. Bundle fully self-contained.
+
+**Workflow user mới**:
+
+```bash
+bash scripts/pack-web2.sh                    # regen bundle
+cp -R dist/web2-bundle/ ~/my-new-site/       # copy đi đâu cũng được
+cd ~/my-new-site && python3 -m http.server   # serve ngay
+# hoặc deploy GitHub Pages / CF Pages / Netlify
+```
+
 ### [orders][barcode] "Kiểm lại TPOS" — fallback ProductTemplate cho variants không có DefaultCode riêng
 
 **Phản hồi user (sau commit trước)**: MM139A2 / MM139A3 vẫn không match được vì chúng là **biến thể** — TPOS không gán DefaultCode riêng cho variant, mà chỉ có DefaultCode trên template cha (`MM139`). Strategy A (`Product?$filter=DefaultCode eq 'MM139A2'`) → 0 row.
