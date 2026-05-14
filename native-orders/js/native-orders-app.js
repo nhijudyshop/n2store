@@ -2177,6 +2177,24 @@
                     _handleSendMessage(order);
                 }
             });
+            // Quick reply: button opens picker, `/shortcut` triggers autocomplete
+            const qrBtn = modal.querySelector('[data-action="open-quick-reply"]');
+            qrBtn?.addEventListener('click', () => {
+                window.Web2QuickReply?.openModal({
+                    onSelect: (reply) => {
+                        const ta = document.getElementById('msgInput');
+                        if (!ta) return;
+                        ta.value =
+                            (reply.message || '') + (window.Web2QuickReply?.signature() || '');
+                        ta.focus();
+                    },
+                });
+            });
+            if (input && window.Web2QuickReply?.attachAutocomplete) {
+                window.Web2QuickReply.attachAutocomplete(input, {
+                    onAutoSend: () => _handleSendMessage(order),
+                });
+            }
         } else if (tab === 'comments') {
             modal.querySelectorAll('[data-action="reply-comment"]').forEach((btn) => {
                 btn.addEventListener('click', () =>
@@ -2278,7 +2296,10 @@
                     </div>
                 </div>
                 <div style="display:flex;gap:6px;align-items:flex-end;">
-                    <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, Shift+Enter xuống dòng)" style="flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;max-height:140px;"></textarea>
+                    <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" style="flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;max-height:140px;"></textarea>
+                    <button type="button" class="w2-qr-fab" data-action="open-quick-reply" title="Trả lời nhanh">
+                        <i data-lucide="zap" style="width:13px;height:13px;"></i>
+                    </button>
                     <button class="tpos-btn tpos-btn-primary tpos-btn-sm" data-action="send-message" title="Gửi tin nhắn (reply_inbox)" style="height:38px;">
                         <i data-lucide="send" style="width:13px;height:13px;"></i> Gửi
                     </button>
