@@ -1420,8 +1420,15 @@
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
             if (result.success && result.data) {
+                // API trả { assignments, scannedNumbers, hiddenNumbers, ... } sau commit 81e5b3d6.
+                // Map flat {num→group} cũ nằm ở result.data.assignments; fallback cho server cũ.
+                const assignments =
+                    result.data.assignments && typeof result.data.assignments === 'object'
+                        ? result.data.assignments
+                        : result.data;
                 let newCount = 0;
-                for (const [num, group] of Object.entries(result.data)) {
+                for (const [num, group] of Object.entries(assignments)) {
+                    if (typeof group !== 'string') continue;
                     if (_deliveryGroups.data[num] !== group) {
                         _deliveryGroups.data[num] = group;
                         newCount++;

@@ -25,6 +25,16 @@
 
 ## 2026-05-14
 
+### [orders] Fix badge NAP/TOMATO mất ở cột PHIẾU BÁN HÀNG khi "Hoàn thành đối soát"
+
+**Vấn đề**: cell PHIẾU BÁN HÀNG mất badge NAP/TOMATO khi đơn đã đối soát. Badge THÀNH PHỐ vẫn hiện vì có fallback theo `CarrierName`, NAP/TOMATO không có fallback nên mất hẳn.
+
+**Root cause**: commit `81e5b3d6` (11/05) đổi response `POST /api/v2/delivery-assignments/lookup-batch` từ flat map `{num:group}` sang nested `{ assignments:{num:group}, scannedNumbers, hiddenNumbers, ... }`. Client Tab1 vẫn `Object.entries(result.data)` → ghi nhầm vào `_deliveryGroups.data` các key `"assignments"`, `"scannedNumbers"`, … thay vì order numbers thực. `delivery-report.js` đã sync rồi, chỉ sót Tab1.
+
+**Files**: [orders-report/js/tab1/tab1-fast-sale-invoice-status.js](orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — đọc `result.data.assignments`, có fallback flat-map cho server cũ + type guard.
+
+**Status**: ✅ Done.
+
 ### [orders][barcode] Fix 502 bug — bỏ $select trong Strategy A, 2-step query Strategy B
 
 **Vấn đề user báo**: dialog flag toàn bộ 6 mã (kể cả MM139A1/A2/A3, B1561A34, B1559A36, …) là "Không có trên TPOS" dù TPOS có. User yêu cầu test trực tiếp trên TPOS UI (port mới, login tay).
