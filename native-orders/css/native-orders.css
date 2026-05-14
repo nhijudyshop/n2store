@@ -580,30 +580,40 @@ body {
     color: #2b3a45;
     font-size: 13px;
     background: var(--tpos-bg-cell-head);
-    border-bottom: 1px solid var(--tpos-border);
+    border-bottom: 1px solid #c8ced3;
+    border-right: 1px solid #d9dde0;
     white-space: nowrap;
 }
-.data-table th:not(:last-child) {
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+.data-table th:last-child {
+    border-right: none;
 }
 .data-table td {
     padding: 8px 10px;
-    border-bottom: 1px solid #e7eaec;
+    border-bottom: 1px solid #d9dde0;
+    border-right: 1px solid #e5e8ea;
     color: var(--tpos-text);
     vertical-align: middle;
     background: #fff;
     transition: background-color 80ms ease;
 }
-/* Flat all-white rows (no zebra striping) — subtle hover */
-.data-table tbody tr.order-row:hover > td {
-    background: #f5f8fb;
+.data-table td:last-child {
+    border-right: none;
 }
-.data-table tbody tr.order-row.is-expanded > td {
-    background: #f3f6fa;
+/* Zebra striping — subtle alternating row colors */
+.data-table tbody tr.order-row:nth-child(even) > td {
+    background: #f7f9fb;
+}
+.data-table tbody tr.order-row:hover > td,
+.data-table tbody tr.order-row:nth-child(even):hover > td {
+    background: #eaf2fb;
+}
+.data-table tbody tr.order-row.is-expanded > td,
+.data-table tbody tr.order-row.is-expanded:nth-child(even) > td {
+    background: #eef3f8;
     border-bottom-color: transparent;
 }
 .data-table tbody tr.expand-row > td {
-    background: #fafbfc;
+    background: #f8fafc;
     border-top: 0;
 }
 
