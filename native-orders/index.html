@@ -245,6 +245,38 @@
                     </div>
                 </section>
 
+                <!-- Bulk action bar — visible when any row checked -->
+                <div
+                    id="ordersBulkBar"
+                    style="
+                        display: none;
+                        margin: 0 20px 12px 20px;
+                        padding: 10px 14px;
+                        background: #ede9fe;
+                        border: 1px solid #c4b5fd;
+                        border-radius: 8px;
+                        align-items: center;
+                        gap: 12px;
+                    "
+                >
+                    <span><strong id="ordersBulkCount">0</strong> đơn được chọn</span>
+                    <button
+                        class="tpos-btn tpos-btn-success tpos-btn-sm"
+                        id="ordersBulkPbh"
+                        title="Tạo PBH cho tất cả đơn được chọn"
+                    >
+                        <i data-lucide="receipt" style="width: 12px; height: 12px"></i>
+                        Tạo PBH hàng loạt
+                    </button>
+                    <button
+                        class="tpos-btn tpos-btn-default tpos-btn-sm"
+                        id="ordersBulkUnselect"
+                        style="margin-left: auto"
+                    >
+                        <i data-lucide="x" style="width: 12px; height: 12px"></i> Bỏ chọn
+                    </button>
+                </div>
+
                 <!-- Table -->
                 <section class="table-section">
                     <div class="table-scroll">
@@ -328,6 +360,6 @@
 
         <!-- App Scripts -->
         <script src="js/native-orders-api.js?v=20260513b"></script>
-        <script src="js/native-orders-app.js?v=20260514c"></script>
+        <script src="js/native-orders-app.js?v=20260514d"></script>
     </body>
 </html>

@@ -25,6 +25,38 @@
 
 ## 2026-05-14
 
+### [web2][orders] Tạo PBH hàng loạt + validate SĐT/Địa chỉ + modal quản lý chung
+
+**Yêu cầu user**: (a) không có SĐT hoặc địa chỉ → chặn tạo PBH; (b) checkbox nhiều đơn → tạo PBH hàng loạt; (c) modal quản lý chung để tương tác.
+
+**Validation single** ([native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) `validateOrderForPbh`):
+
+- Check `phone` + `address` không trống → `createPbh()` nếu invalid `→ Popup.error("Đơn X chưa có SĐT và Địa chỉ. Vui lòng bổ sung…")` rồi return, form không mở
+- Verified: NW-20260513-0012 (thiếu phone+address) → popup "Thiếu thông tin" hiện, form KHÔNG mở
+
+**Bulk bar** ([native-orders/index.html](../native-orders/index.html)):
+
+- Purple bar `#ordersBulkBar` hiện khi ≥1 row checked, ẩn khi 0
+- Count + button "Tạo PBH hàng loạt" + "Bỏ chọn"
+- `#checkAll` toggle tất cả; per-row event delegation trên `#ordersTbody`
+
+**Modal quản lý chung** (`bulkCreatePbh`):
+
+- Tiêu đề "Tạo PBH hàng loạt — N đơn", icon `layers`
+- Badge `✓ N sẵn sàng` (green-pill) + `⚠ M thiếu SĐT/địa chỉ` (red-pill, ẩn nếu M=0)
+- Bảng cuộn 280px liệt kê mọi đơn: Mã, Khách, SĐT (đỏ nếu thiếu), Địa chỉ (đỏ nếu thiếu, truncate + tooltip), Tổng, Trạng thái. Row invalid: background `#fef2f2`
+- Fieldset "Cài đặt áp dụng cho TẤT CẢ":
+    - Dropdown PT giao hàng (default `""` = per-row auto-pick theo địa chỉ từng đơn)
+    - Ngày HĐ + Ghi chú chung
+- OK button "Tạo N PBH" — disabled (grey, cursor not-allowed) khi `validCount === 0`
+- Submit → progress modal mới: bar 0→100%, label "i / N", list log `✓ NW → HD` (xanh) hoặc `✗ ... — error` (đỏ); cuối summary `Đã tạo X/N PBH …`, auto unselect + reload
+
+**openCustomFormPopup**: thêm `okDisabled` option → render disabled button
+
+**Verified live** (localhost): check-all 23 đơn → modal "8 sẵn sàng / 15 thiếu", OK="Tạo 8 PBH" enabled, dropdown 8 options, 0 console errors
+
+**Cache**: `native-orders-app.js?v=20260514d`
+
 ### [web2][orders] Tạo PBH — dropdown Phương thức giao hàng + auto-pick theo địa chỉ
 
 **Mục tiêu**: thay nhập tay phí giao hàng bằng dropdown TPOS-style. Phân tích địa chỉ khách → tự chọn đúng khu vực + tự fill phí.

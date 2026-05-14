@@ -1055,11 +1055,34 @@
         }
     }
 
+    // Phase 15: validate that an order has the minimum data to convert to PBH.
+    // Returns { ok: true } or { ok: false, missing: ['SĐT','Địa chỉ',...] }
+    function validateOrderForPbh(o) {
+        const missing = [];
+        if (!o?.phone || !String(o.phone).trim()) missing.push('SĐT');
+        if (!o?.address || !String(o.address).trim()) missing.push('Địa chỉ');
+        return { ok: missing.length === 0, missing };
+    }
+
     async function createPbh(code) {
         // Custom popup: show order summary + optional deposit/delivery overrides
         const src = STATE.orders.find((o) => o.code === code);
         if (!src) {
             notify('Không tìm thấy đơn ' + code, 'error');
+            return;
+        }
+        // Phase 15: block creation when phone or address is missing — user must
+        // fill these via the Edit modal first.
+        const v = validateOrderForPbh(src);
+        if (!v.ok) {
+            if (window.Popup) {
+                await window.Popup.error(
+                    `Đơn ${code} chưa có ${v.missing.join(' và ')}. Vui lòng bổ sung trước khi tạo PBH.`,
+                    { title: 'Thiếu thông tin', okText: 'Đã hiểu' }
+                );
+            } else {
+                alert(`Đơn ${code} thiếu ${v.missing.join(' và ')} — không thể tạo PBH.`);
+            }
             return;
         }
         const totals = (src.products || []).reduce(
@@ -1212,7 +1235,7 @@
                     <div class="w2p-form-body" style="padding:16px 20px;">${opts.html}</div>
                     <div style="padding:12px 20px 18px;display:flex;justify-content:flex-end;gap:8px;">
                         <button type="button" data-action="cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">${escapeHtml(opts.cancelText || 'Huỷ')}</button>
-                        <button type="button" data-action="ok" style="padding:8px 16px;border-radius:8px;border:1px solid transparent;background:#7c3aed;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">${escapeHtml(opts.okText || 'OK')}</button>
+                        <button type="button" data-action="ok" ${opts.okDisabled ? 'disabled' : ''} style="padding:8px 16px;border-radius:8px;border:1px solid transparent;background:${opts.okDisabled ? '#cbd5e1' : '#7c3aed'};color:#fff;font-size:13px;font-weight:600;cursor:${opts.okDisabled ? 'not-allowed' : 'pointer'};font-family:inherit;">${escapeHtml(opts.okText || 'OK')}</button>
                     </div>
                 </div>`;
             document.body.appendChild(root);
@@ -1261,6 +1284,256 @@
                 if (first) first.focus();
             }, 30);
         });
+    }
+
+    // Phase 15: bulk action bar — toggle visibility + count based on checked rows.
+    function getSelectedCodes() {
+        return Array.from(document.querySelectorAll('#ordersTbody .row-check:checked')).map(
+            (c) => c.value
+        );
+    }
+    function updateBulkBar() {
+        const codes = getSelectedCodes();
+        const bar = $('#ordersBulkBar');
+        if (!bar) return;
+        if (codes.length === 0) {
+            bar.style.display = 'none';
+        } else {
+            bar.style.display = 'flex';
+            const countEl = $('#ordersBulkCount');
+            if (countEl) countEl.textContent = String(codes.length);
+        }
+    }
+    function unselectAllOrders() {
+        document.querySelectorAll('#ordersTbody .row-check:checked').forEach((c) => {
+            c.checked = false;
+        });
+        const ca = $('#checkAll');
+        if (ca) ca.checked = false;
+        updateBulkBar();
+    }
+
+    // Phase 15: bulk-create PBH. Opens a management modal that lists every
+    // selected order with its readiness status; user can apply shared
+    // delivery / date / note OR per-row override (just delivery for now),
+    // then submit creates PBH sequentially with a live progress bar.
+    async function bulkCreatePbh() {
+        const codes = getSelectedCodes();
+        if (codes.length === 0) {
+            notify('Chưa chọn đơn nào', 'warning');
+            return;
+        }
+        const orders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
+        if (orders.length === 0) {
+            notify('Không tìm thấy đơn', 'error');
+            return;
+        }
+        const DMP = window.DeliveryMethodPicker;
+
+        // Compute per-row validation + auto-picked delivery option
+        const rows = orders.map((o) => {
+            const v = validateOrderForPbh(o);
+            const pick = DMP ? DMP.pick(o.address || '') : null;
+            const totalQty = (o.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
+            const totalAmt = (o.products || []).reduce(
+                (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0),
+                0
+            );
+            return {
+                code: o.code,
+                customerName: o.customerName || '—',
+                phone: o.phone || '',
+                address: o.address || '',
+                totalQty,
+                totalAmt,
+                valid: v.ok,
+                missing: v.missing,
+                pickedValue: pick?.option?.value || '',
+                pickedLabel: pick?.option?.label || '',
+                pickedPrice: pick?.option?.price || 0,
+            };
+        });
+        const validCount = rows.filter((r) => r.valid).length;
+        const invalidCount = rows.length - validCount;
+
+        const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
+        const deliveryOpts = DMP ? DMP.OPTIONS : [];
+        const today = new Date().toISOString().slice(0, 10);
+
+        const rowsHtml = rows
+            .map(
+                (r) => `
+            <tr style="border-top:1px solid #f1f5f9;${r.valid ? '' : 'background:#fef2f2;'}">
+                <td style="padding:8px 6px;font-weight:600;">${escapeHtml(r.code)}</td>
+                <td style="padding:8px 6px;">${escapeHtml(r.customerName)}</td>
+                <td style="padding:8px 6px;color:${r.phone ? '#0f172a' : '#dc2626'};">${escapeHtml(r.phone || '⚠ thiếu')}</td>
+                <td style="padding:8px 6px;color:${r.address ? '#0f172a' : '#dc2626'};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.address || '')}">${escapeHtml(r.address || '⚠ thiếu')}</td>
+                <td style="padding:8px 6px;text-align:right;color:#10b981;font-weight:600;">${fmt(r.totalAmt)}đ</td>
+                <td style="padding:8px 6px;text-align:center;">
+                    ${r.valid ? '<span style="color:#10b981;">✓ Sẵn sàng</span>' : `<span style="color:#dc2626;">⚠ Thiếu ${escapeHtml(r.missing.join(', '))}</span>`}
+                </td>
+            </tr>`
+            )
+            .join('');
+
+        const html = `
+            <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:#334155;">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">✓ ${validCount} sẵn sàng</span>
+                    ${invalidCount > 0 ? `<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">⚠ ${invalidCount} thiếu SĐT/địa chỉ</span>` : ''}
+                </div>
+                <div style="max-height:280px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead style="background:#f8fafc;position:sticky;top:0;">
+                            <tr>
+                                <th style="padding:8px 6px;text-align:left;">Mã</th>
+                                <th style="padding:8px 6px;text-align:left;">Khách</th>
+                                <th style="padding:8px 6px;text-align:left;">SĐT</th>
+                                <th style="padding:8px 6px;text-align:left;">Địa chỉ</th>
+                                <th style="padding:8px 6px;text-align:right;">Tổng</th>
+                                <th style="padding:8px 6px;text-align:center;">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+                <fieldset style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin:0;">
+                    <legend style="padding:0 8px;font-weight:700;color:#475569;font-size:12px;">Cài đặt áp dụng cho TẤT CẢ đơn hợp lệ</legend>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
+                        <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;grid-column:1/-1;">
+                            <span style="display:flex;align-items:center;gap:6px;">
+                                Phương thức giao hàng
+                                <small style="color:#64748b;font-weight:400;">(mặc định: auto-pick theo từng đơn)</small>
+                            </span>
+                            <select id="bulkDeliveryMethod"
+                                style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;background:#fff;">
+                                <option value="" selected>— Auto-pick theo địa chỉ từng đơn —</option>
+                                ${deliveryOpts
+                                    .map(
+                                        (o) =>
+                                            `<option value="${escapeHtml(o.value)}" data-price="${o.price || 0}">${escapeHtml(o.label)}${o.price ? ' — ' + fmt(o.price) + 'đ' : ''}</option>`
+                                    )
+                                    .join('')}
+                            </select>
+                        </label>
+                        <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                            Ngày HĐ
+                            <input id="bulkDateInvoice" type="date" value="${today}"
+                                style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                        </label>
+                        <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                            Ghi chú chung (áp cho tất cả)
+                            <input id="bulkComment" type="text" placeholder="Tuỳ chọn"
+                                style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                        </label>
+                    </div>
+                </fieldset>
+                <div id="bulkProgress" style="display:none;font-size:12px;color:#475569;">
+                    <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div id="bulkProgressBar" style="height:100%;background:#7c3aed;width:0;transition:width 200ms;"></div>
+                    </div>
+                    <div id="bulkProgressLabel" style="margin-top:6px;"></div>
+                </div>
+            </div>`;
+
+        const submit = await openCustomFormPopup({
+            title: `Tạo PBH hàng loạt — ${codes.length} đơn`,
+            iconName: 'layers',
+            html,
+            okText: validCount > 0 ? `Tạo ${validCount} PBH` : 'Không có đơn hợp lệ',
+            cancelText: 'Đóng',
+            okDisabled: validCount === 0,
+            collect: (root) => {
+                const sel = root.querySelector('#bulkDeliveryMethod');
+                const selectedOpt = sel?.options?.[sel.selectedIndex];
+                return {
+                    sharedDeliveryValue: sel?.value || '',
+                    sharedDeliveryLabel: selectedOpt
+                        ? selectedOpt.textContent.replace(/\s*—\s*[\d.,]+đ\s*$/, '').trim()
+                        : '',
+                    sharedDeliveryPrice: Number(selectedOpt?.dataset?.price || 0),
+                    dateInvoice: root.querySelector('#bulkDateInvoice').value || null,
+                    comment: root.querySelector('#bulkComment').value.trim() || null,
+                };
+            },
+        });
+        if (!submit || validCount === 0) return;
+
+        // Submit sequentially with live progress (modal stays open showing progress)
+        // We re-open a simple progress popup since the form is dismissed
+        const progressModal = document.createElement('div');
+        progressModal.style.cssText =
+            'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;';
+        progressModal.innerHTML = `
+            <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;padding:22px 26px;box-shadow:0 24px 64px rgba(0,0,0,0.25);font-family:Inter,sans-serif;">
+                <strong style="font-size:15px;color:#0f172a;display:block;margin-bottom:12px;">Đang tạo PBH…</strong>
+                <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                    <div id="pgBar" style="height:100%;background:#7c3aed;width:0;transition:width 200ms;"></div>
+                </div>
+                <div id="pgLabel" style="margin-top:8px;font-size:12px;color:#475569;">0 / ${validCount}</div>
+                <ul id="pgList" style="margin:10px 0 0;padding:0;list-style:none;max-height:180px;overflow:auto;font-size:12px;"></ul>
+            </div>`;
+        document.body.appendChild(progressModal);
+
+        const validRows = rows.filter((r) => r.valid);
+        const results = [];
+        for (let i = 0; i < validRows.length; i++) {
+            const r = validRows[i];
+            const extras = {
+                deposit: 0,
+                paymentAmount: 0,
+                dateInvoice: submit.dateInvoice,
+                comment: submit.comment,
+            };
+            // Resolve delivery: shared override OR per-row auto-pick
+            if (submit.sharedDeliveryValue) {
+                extras.deliveryPrice = submit.sharedDeliveryPrice;
+                extras.carrierName = submit.sharedDeliveryLabel;
+            } else {
+                extras.deliveryPrice = r.pickedPrice;
+                extras.carrierName = r.pickedLabel
+                    ? r.pickedLabel.replace(/\s*—\s*[\d.,]+đ\s*$/, '').trim()
+                    : null;
+            }
+            try {
+                const resp = await fetch(`${WORKER_URL}/api/fast-sale-orders/from-native-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nativeOrderCode: r.code, ...extras }),
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.success) throw new Error(data.error || `HTTP ${resp.status}`);
+                results.push({ code: r.code, pbh: data.order.number, ok: true });
+                progressModal
+                    .querySelector('#pgList')
+                    .insertAdjacentHTML(
+                        'beforeend',
+                        `<li style="color:#065f46;padding:2px 0;">✓ ${escapeHtml(r.code)} → ${escapeHtml(data.order.number)}</li>`
+                    );
+            } catch (e) {
+                results.push({ code: r.code, ok: false, error: e.message });
+                progressModal
+                    .querySelector('#pgList')
+                    .insertAdjacentHTML(
+                        'beforeend',
+                        `<li style="color:#991b1b;padding:2px 0;">✗ ${escapeHtml(r.code)} — ${escapeHtml(e.message)}</li>`
+                    );
+            }
+            const done = i + 1;
+            const pct = Math.round((done / validRows.length) * 100);
+            progressModal.querySelector('#pgBar').style.width = pct + '%';
+            progressModal.querySelector('#pgLabel').textContent = `${done} / ${validRows.length}`;
+        }
+
+        const okCount = results.filter((r) => r.ok).length;
+        const failCount = results.length - okCount;
+        progressModal.remove();
+        notify(
+            `Đã tạo ${okCount}/${validRows.length} PBH${failCount ? ` (${failCount} lỗi)` : ''}${invalidCount ? ` — ${invalidCount} đơn bỏ qua (thiếu data)` : ''}`,
+            failCount ? 'warning' : 'success'
+        );
+        unselectAllOrders();
+        await load();
     }
 
     async function _doCreatePbh(code, extras) {
@@ -1476,12 +1749,19 @@
             }
         });
 
-        // Check-all
+        // Check-all + per-row check + bulk bar
         $('#checkAll')?.addEventListener('change', (e) => {
-            document.querySelectorAll('.row-check').forEach((c) => {
+            document.querySelectorAll('#ordersTbody .row-check').forEach((c) => {
                 c.checked = e.target.checked;
             });
+            updateBulkBar();
         });
+        // Per-row checkbox event delegation
+        $('#ordersTbody')?.addEventListener('change', (e) => {
+            if (e.target?.classList?.contains('row-check')) updateBulkBar();
+        });
+        $('#ordersBulkPbh')?.addEventListener('click', bulkCreatePbh);
+        $('#ordersBulkUnselect')?.addEventListener('click', unselectAllOrders);
 
         // Modal — click overlay KHÔNG đóng modal (tránh mất data khi nhập dở).
         // Chỉ X / Hủy / ESC mới đóng.
@@ -1593,6 +1873,8 @@
         quickStatus,
         removeOrder,
         createPbh,
+        bulkCreatePbh,
+        unselectAllOrders,
         copyCode,
         goPage,
         toggleFilter,
