@@ -59,6 +59,10 @@
         editingCode: null,
         loading: false,
         filterVisible: true,
+        // Soft-delete view: 'active' (default) shows non-deleted orders;
+        // 'deleted' shows the trash bin.
+        viewMode: 'active',
+        trashCount: 0,
         expandedOrders: new Set(), // codes of rows currently expanded
         // Campaign filter (multi-select). Empty array = "all"; explicit array of campaign IDs
         // = filter to those (use '__no_campaign__' for orders without a campaign).
@@ -433,26 +437,41 @@
                     </td>
                     <td class="col-actions" onclick="event.stopPropagation();">
                         <div class="tpos-row-actions tpos-row-actions-grid">
-                            <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa"
-                                onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
-                                <i data-lucide="pencil" style="width:12px;height:12px;"></i>
-                            </button>
-                            <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
-                                onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
-                                <i data-lucide="receipt" style="width:12px;height:12px;"></i>
-                            </button>
                             ${
-                                o.customerId
-                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
-                                onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
-                                <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
-                            </button>`
-                                    : '<span class="tpos-action-placeholder"></span>'
+                                STATE.viewMode === 'deleted'
+                                    ? `
+                                <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Khôi phục — mang đơn về danh sách hoạt động"
+                                    onclick="event.stopPropagation();NativeOrdersApp.restoreOrder('${escapeHtml(o.code)}')">
+                                    <i data-lucide="undo-2" style="width:12px;height:12px;"></i>
+                                </button>
+                                <span class="tpos-action-placeholder"></span>
+                                <span class="tpos-action-placeholder"></span>
+                                <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xoá vĩnh viễn (không thể hoàn tác)"
+                                    onclick="event.stopPropagation();NativeOrdersApp.permanentRemoveOrder('${escapeHtml(o.code)}')">
+                                    <i data-lucide="x" style="width:12px;height:12px;"></i>
+                                </button>`
+                                    : `
+                                <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa"
+                                    onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
+                                    <i data-lucide="pencil" style="width:12px;height:12px;"></i>
+                                </button>
+                                <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
+                                    onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
+                                    <i data-lucide="receipt" style="width:12px;height:12px;"></i>
+                                </button>
+                                ${
+                                    o.customerId
+                                        ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
+                                    onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
+                                    <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
+                                </button>`
+                                        : '<span class="tpos-action-placeholder"></span>'
+                                }
+                                <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa (đưa vào Đã xóa)"
+                                    onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
+                                    <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                                </button>`
                             }
-                            <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa"
-                                onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
-                                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-                            </button>
                         </div>
                     </td>
                     <td class="col-stt tpos-cell-center"><strong>${sttValue}</strong></td>
@@ -660,6 +679,7 @@
                     ? STATE.selectedCampaignIds
                     : undefined,
                 customerId: STATE.customerId || undefined,
+                deleted: STATE.viewMode === 'deleted' ? 'only' : undefined,
             });
             STATE.orders = resp.orders || [];
             STATE.total = resp.total || 0;
@@ -667,6 +687,8 @@
             renderPagination();
             renderCounters();
             renderCustomerChip();
+            // Refresh trash count badge in the background (cheap — page=1 limit=1)
+            _refreshTrashCount();
         } catch (e) {
             console.error(e);
             tbody().innerHTML = `<tr><td colspan="16" class="empty-row" style="color:#ef4444;">
@@ -675,6 +697,97 @@
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
         } finally {
             STATE.loading = false;
+        }
+    }
+
+    async function _refreshTrashCount() {
+        try {
+            const r = await window.NativeOrdersApi.list({
+                deleted: 'only',
+                page: 1,
+                limit: 1,
+            });
+            STATE.trashCount = Number(r.total || 0);
+            const badge = document.getElementById('trashCount');
+            const btn = document.getElementById('btnTrashTab');
+            if (badge) {
+                if (STATE.trashCount > 0) {
+                    badge.textContent = String(STATE.trashCount);
+                    badge.style.display = '';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+            if (btn) {
+                btn.classList.toggle('btn-active', STATE.viewMode === 'deleted');
+                btn.style.background = STATE.viewMode === 'deleted' ? '#fee2e2' : '';
+                btn.style.color = STATE.viewMode === 'deleted' ? '#b91c1c' : '';
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+
+    function toggleTrashView() {
+        STATE.viewMode = STATE.viewMode === 'deleted' ? 'active' : 'deleted';
+        STATE.page = 1;
+        // Reset other filters when entering trash so the user actually sees deleted rows
+        if (STATE.viewMode === 'deleted') {
+            STATE.search = '';
+            STATE.status = 'all';
+            const s = $('#filterSearch');
+            if (s) s.value = '';
+            const st = $('#filterStatus');
+            if (st) st.value = 'all';
+        }
+        load();
+    }
+
+    async function restoreOrder(code) {
+        if (
+            !(await w2pConfirm(`Đơn ${code} sẽ trở về danh sách hoạt động.`, {
+                title: 'Khôi phục đơn?',
+                okText: 'Khôi phục',
+                cancelText: 'Đóng',
+                type: 'info',
+            }))
+        )
+            return;
+        try {
+            await window.NativeOrdersApi.restore(code);
+            STATE.orders = STATE.orders.filter((x) => x.code !== code);
+            STATE.total = Math.max(0, STATE.total - 1);
+            renderRows();
+            renderPagination();
+            renderCounters();
+            _refreshTrashCount();
+            notify(`Đã khôi phục ${code}`, 'success');
+        } catch (e) {
+            notify('Lỗi khôi phục: ' + e.message, 'error');
+        }
+    }
+
+    async function permanentRemoveOrder(code) {
+        if (
+            !(await w2pConfirm(`Đơn ${code} sẽ bị XOÁ VĨNH VIỄN khỏi DB. Không thể khôi phục.`, {
+                title: 'Xoá vĩnh viễn?',
+                okText: 'Xoá vĩnh viễn',
+                cancelText: 'Đóng',
+                type: 'error',
+            }))
+        )
+            return;
+        try {
+            await window.NativeOrdersApi.remove(code, { permanent: true });
+            STATE.orders = STATE.orders.filter((x) => x.code !== code);
+            STATE.total = Math.max(0, STATE.total - 1);
+            renderRows();
+            renderPagination();
+            renderCounters();
+            _refreshTrashCount();
+            notify(`Đã xoá vĩnh viễn ${code}`, 'success');
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
         }
     }
 
@@ -1758,22 +1871,27 @@
 
     async function removeOrder(code) {
         if (
-            !(await w2pConfirm(`Hành động không thể hoàn tác.`, {
+            !(await w2pConfirm(`Đơn sẽ vào mục "Đã xóa" — bấm "Khôi phục" để mang trở lại.`, {
                 title: `Xóa đơn ${code}?`,
-                okText: 'Xoá đơn',
+                okText: 'Đưa vào Đã xóa',
                 cancelText: 'Đóng',
-                type: 'error',
+                type: 'warning',
             }))
         )
             return;
         try {
-            await window.NativeOrdersApi.remove(code);
+            const user = window.authManager?.getUserInfo?.() || {};
+            await window.NativeOrdersApi.remove(code, {
+                deletedBy: user.uid || user.id,
+                deletedByName: user.displayName,
+            });
             STATE.orders = STATE.orders.filter((x) => x.code !== code);
             STATE.total = Math.max(0, STATE.total - 1);
             renderRows();
             renderPagination();
             renderCounters();
-            notify(`Đã xóa ${code}`, 'success');
+            _refreshTrashCount();
+            notify(`Đã chuyển ${code} vào mục Đã xóa`, 'success');
         } catch (e) {
             notify('Lỗi xóa: ' + e.message, 'error');
         }
@@ -1822,7 +1940,8 @@
             if (
                 msg.type === 'native_order:created' ||
                 msg.type === 'native_order:updated' ||
-                msg.type === 'native_order:deleted'
+                msg.type === 'native_order:deleted' ||
+                msg.type === 'native_order:restored'
             ) {
                 rtScheduleReload(msg);
                 // Phase 18: if the interactions modal is open for this order,
@@ -1867,6 +1986,7 @@
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
         // filters now auto-apply on change (debounced for search input).
         $('#btnResetStt')?.addEventListener('click', resetStt);
+        $('#btnTrashTab')?.addEventListener('click', toggleTrashView);
         let searchDebounce = null;
         $('#filterSearch')?.addEventListener('input', () => {
             clearTimeout(searchDebounce);
@@ -3502,6 +3622,9 @@
         openEdit,
         quickStatus,
         removeOrder,
+        restoreOrder,
+        permanentRemoveOrder,
+        toggleTrashView,
         createPbh,
         bulkCreatePbh,
         unselectAllOrders,
