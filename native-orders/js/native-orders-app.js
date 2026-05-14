@@ -449,10 +449,6 @@
                             </button>`
                                     : '<span class="tpos-action-placeholder"></span>'
                             }
-                            <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa"
-                                onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
-                                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-                            </button>
                         </div>
                     </td>
                     <td class="col-stt tpos-cell-center"><strong>${sttValue}</strong></td>
@@ -3501,7 +3497,6 @@
     window.NativeOrdersApp = {
         openEdit,
         quickStatus,
-        removeOrder,
         createPbh,
         bulkCreatePbh,
         unselectAllOrders,
