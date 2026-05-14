@@ -110,11 +110,24 @@
         return data;
     }
 
+    // Short-lived in-memory cache for fetchConversations: the (pageId, fbId)
+    // pair returns the same INBOX conversation across the session, so re-
+    // opening the chat modal for the same customer goes from ~150ms to ~0.
+    // 5 min TTL is long enough for typical inspection flows but short enough
+    // to refresh if the user keeps the page open for an hour.
+    const _convCache = new Map();
+    const CONV_CACHE_TTL = 5 * 60 * 1000;
+
     async function fetchConversations(pageId, fbId) {
         if (!pageId || !fbId)
             return { ok: false, reason: 'missing_pageId_or_fbId', conversations: [] };
         if (_isInstagram(pageId))
             return { ok: false, reason: 'instagram_unsupported', conversations: [] };
+        const cacheKey = `${pageId}::${fbId}`;
+        const cached = _convCache.get(cacheKey);
+        if (cached && Date.now() - cached.ts < CONV_CACHE_TTL && cached.result.ok) {
+            return cached.result;
+        }
         const jwt = getJwt();
         if (!jwt) return { ok: false, reason: 'no_jwt', conversations: [] };
         const url =
@@ -127,7 +140,9 @@
             if (conversations[0]?.customers?.[0]?.id) {
                 customerUuid = conversations[0].customers[0].id;
             }
-            return { ok: true, conversations, customerUuid, raw: data };
+            const result = { ok: true, conversations, customerUuid, raw: data };
+            _convCache.set(cacheKey, { ts: Date.now(), result });
+            return result;
         } catch (e) {
             console.warn('[Web2Chat] fetchConversations failed:', e.message);
             return { ok: false, reason: e.message, conversations: [] };

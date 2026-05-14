@@ -25,7 +25,47 @@
 
 ## 2026-05-14
 
-### [native-orders] Chat: smooth wheel scroll qua Lenis library
+### [native-orders] Chat: revert Lenis + content-visibility, học từ Pancake admin inbox
+
+**User báo**: "mở modal load response tin nhắn vào modal nó hơi lag", "scroll mắt nhìn không được mượt", sau đó: "vào https://pancake.vn/NhiJudyStore bằng cookies → coi css đoạn hội thoại".
+
+**Research Pancake admin inbox** (qua persistent Playwright session [`scripts/pancake-browser-session.js`](../scripts/pancake-browser-session.js) với JWT cookies từ `serect_dont_push.txt`):
+
+Pancake DÙNG:
+
+- `rc-virtual-list` (Ant Design virtualization) — chỉ render bubble visible, DOM nhỏ kể cả với 1000+ tin nhắn.
+- IndexedDB: `PancakeOffline`, `ComCakeDatabase`, `fb_meta_data`, `geo`, `keyval-store` — offline cache layer.
+
+Pancake KHÔNG dùng (kiểm chứng `getComputedStyle` trên `.message-list.virtual-scroll`):
+
+- ❌ Smooth-scroll lib (Lenis/GSAP/Locomotive/iScroll/SmoothScrollbar/FramerMotion).
+- ❌ `scroll-behavior: smooth`, `overscroll-behavior: contain`, `scrollbar-gutter: stable`.
+- ❌ `contain`, `will-change`, `content-visibility`, `transform` trên scroll container.
+- ❌ Service Worker.
+
+→ Native scroll trên DOM nhỏ (nhờ virtualization). Đo perf: worst 20.5ms, avg 16.5ms, p95 18.6ms — ngang n2store của ta.
+
+**Revert toàn bộ over-engineering** trong [native-orders-app.js](../native-orders/js/native-orders-app.js):
+
+- Bỏ Lenis (script tag + `_attachLenis` + `_chatState.lenis`).
+- Bỏ `content-visibility: auto` + `contain-intrinsic-size` trên `.w2-chat-row`.
+- Bỏ `contain: layout style paint` trên `.w2-chat-bubble`.
+- Bỏ `overscroll-behavior: contain` + `scrollbar-gutter: stable` trên `#msgThread`.
+- Bỏ inline `threadEl.style.contain` + `willChange` trong `_renderChatThread`.
+- **Giữ duy nhất** `#msgThread { scroll-behavior: smooth }` — chỉ apply cho programmatic scrollTo, không slow wheel.
+
+**Thêm 2 win nhỏ**:
+
+1. **In-memory cache `fetchConversations`** ([web2-chat-client.js:113-135](../web2-shared/web2-chat-client.js#L113-L135)): cache theo `(pageId, fbId)` TTL 5 min. Re-open modal cho cùng customer: 150ms → ~0ms.
+2. **Skeleton shimmer** ([native-orders-app.js:3328-3340](../native-orders/js/native-orders-app.js#L3328-L3340)): 5 placeholder bubbles với CSS animation `w2ChatShimmer` hiển thị ngay khi modal mở, replace bằng real bubbles khi fetch xong. Feedback ngay thay vì màn trắng 335ms.
+
+**Files**: cache bump `native-orders-app.js v=20260514aj`, `web2-chat-client.js v=20260514f`. Thêm [scripts/pancake-browser-session.js](../scripts/pancake-browser-session.js) persistent session cho inspect Pancake admin UI với JWT cookies.
+
+**Status**: ✅ Done.
+
+---
+
+### [native-orders] Chat: smooth wheel scroll qua Lenis library (REVERTED — xem entry trên)
 
 **User**: "kéo chuột rồi dừng lại → nó bị giựt đứng lại không mượt → thêm hiệu ứng vào scroll đi" → sau đó: "revert lại đi, coi trên github, google có hiệu ứng scroll nào không?"
 

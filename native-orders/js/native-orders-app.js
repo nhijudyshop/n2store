@@ -2280,8 +2280,7 @@
             modal.querySelector('[data-action="scroll-bottom"]')?.addEventListener('click', () => {
                 const t = document.getElementById('msgThread');
                 if (!t) return;
-                if (_chatState?.lenis) _chatState.lenis.scrollTo('bottom', { duration: 0.4 });
-                else t.scrollTop = t.scrollHeight;
+                t.scrollTop = t.scrollHeight;
                 const jb = document.getElementById('msgJumpBottom');
                 if (jb) jb.style.display = 'none';
                 if (_chatState) _chatState.missedSince = 0;
@@ -2887,31 +2886,34 @@
             .w2-chat-phone { cursor: pointer; user-select: none; transition: color 0.15s; }
             .w2-chat-phone:hover { color: #7c3aed; }
 
-            /* Thread container — own scroll layer, no chaining, stable gutter */
-            #msgThread {
-                overscroll-behavior: contain;
-                scrollbar-gutter: stable;
-                scroll-padding-bottom: 16px;
-            }
+            /* Thread container — keep native scroll behaviour. Inspected
+               Pancake.vn's own admin inbox (rc-virtual-list backed) and they
+               run plain overflow:auto with zero containment, zero smooth-
+               scroll lib, zero content-visibility. Native scroll on a
+               small DOM (~25–60 bubbles) lands at 60 FPS without any of
+               those, and the previous heavier rules were actually causing
+               the "không mượt mắt nhìn" feel (content-visibility's
+               measure-as-you-scroll, contain: paint repaint scope, etc.).
+               scroll-behavior: smooth only applies to programmatic
+               scrollTo()/scrollIntoView() so it does not slow wheel input. */
+            #msgThread { scroll-behavior: smooth; }
+            .w2-chat-row { flex-shrink: 0; }
 
-            /* Rows: opt-in to content-visibility so Chrome/Edge skip layout
-               + paint for bubbles that are far off-screen. Cuts scroll cost
-               dramatically once the thread holds 80+ messages. The intrinsic
-               size hint keeps the scrollbar honest (rough avg bubble height).
-               flex-shrink:0 so the placeholder height doesn't collapse. */
-            .w2-chat-row {
-                content-visibility: auto;
-                contain-intrinsic-size: auto 56px;
-                flex-shrink: 0;
-            }
-
-            /* Bubbles — isolate paint so a hover/transition on one bubble
-               can't invalidate the whole thread. */
             .w2-chat-bubble {
                 box-shadow: 0 1px 2px rgba(15,23,42,0.06);
                 line-height: 1.42;
                 word-break: break-word;
-                contain: layout style paint;
+            }
+
+            /* Skeleton bubbles shown while Pancake API is in flight */
+            .w2-chat-skeleton-bubble {
+                background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 50%, #eef2f7 100%);
+                background-size: 200% 100%;
+                animation: w2ChatShimmer 1.2s linear infinite;
+            }
+            @keyframes w2ChatShimmer {
+                0%   { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
             }
             .w2-chat-bubble img { display: block; }
             .w2-chat-bubble audio { width: 240px; }
@@ -3065,8 +3067,9 @@
         if (!threadEl || !_chatState) return;
         // Enable layout/paint containment so scrolling doesn't repaint
         // the surrounding modal chrome.
-        threadEl.style.contain = 'layout paint style';
-        threadEl.style.willChange = 'scroll-position';
+        // Removed inline `contain` + `will-change` — see _ensureChatModalCss
+        // header note. Native scroll on a small DOM doesn't need them and
+        // they were contributing to the visual jank the user reported.
         const { msgs, pageId } = _chatState;
         if (!msgs.length) {
             threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Hội thoại trống. Gõ tin nhắn để bắt đầu.</div>`;
@@ -3192,50 +3195,31 @@
         const threadEl = document.getElementById('msgThread');
         if (!threadEl || !_chatState) return;
         threadEl.addEventListener('scroll', _onScrollRaw, { passive: true });
-        _attachLenis(threadEl);
     }
 
     /**
-     * Wheel-event smoothing via Lenis (darkroomengineering/lenis, MIT,
-     * 13.8k★). Lenis intercepts the wheel events on the thread, queues
-     * a target scrollTop, and lerps `wrapper.scrollTop = X` per
-     * requestAnimationFrame frame with our chosen easing.
-     *
-     * Why a library instead of hand-rolled:
-     *   - Battle-tested across thousands of sites (Awwwards winners,
-     *     Studio Freight's own portfolio, lusion.co, etc.)
-     *   - Handles the awkward cases we don't want to maintain: multi-
-     *     axis trackpad gestures, syncTouch off so iOS/Mac trackpad's
-     *     native momentum still works, deltaMode line/page normalisation,
-     *     auto re-measure on resize, idempotent destroy.
-     *   - `scrollTo()` lets us replace the abrupt jump-bottom button
-     *     with a smooth animated scroll for free.
-     *
-     * The instance is bound to `_chatState.lenis` so `_teardownChatState`
-     * can destroy it when the modal closes.
+     * Cheap pre-fetch skeleton. Renders 5 alternating-side placeholder
+     * bubbles with the shimmer animation already defined on `.w2-chat-
+     * skeleton-bubble`. Keeps the same flex column layout as the real
+     * thread so swapping in the real messages doesn't reflow the modal.
      */
-    function _attachLenis(threadEl) {
-        if (!_chatState || _chatState.lenis) return;
-        const Lenis = window.Lenis;
-        if (typeof Lenis !== 'function') return; // CDN didn't load; fall back to native scroll.
-        const lenis = new Lenis({
-            wrapper: threadEl,
-            content: threadEl,
-            smoothWheel: true,
-            // Mac/iOS already give kinetic momentum on touch — leave that
-            // path native so Lenis's lerp doesn't fight it.
-            syncTouch: false,
-            // 0.12 ≈ snappy: noticeable smoothing without feeling laggy.
-            lerp: 0.12,
-            wheelMultiplier: 1,
-            // Lenis runs its own raf loop; we don't need to drive it from
-            // GSAP/ScrollTrigger here.
-            autoRaf: true,
-            // Bubble-row sizes drive scrollHeight; use a ResizeObserver so
-            // load-older grows the limit without manual `.resize()` calls.
-            autoResize: true,
-        });
-        _chatState.lenis = lenis;
+    function _skeletonThreadHtml() {
+        const rows = [
+            { side: 'in', w: '62%' },
+            { side: 'out', w: '48%' },
+            { side: 'in', w: '75%' },
+            { side: 'out', w: '40%' },
+            { side: 'in', w: '55%' },
+        ];
+        return rows
+            .map((r) => {
+                const align = r.side === 'in' ? 'flex-start' : 'flex-end';
+                const radius = r.side === 'in' ? '14px 14px 14px 4px' : '14px 14px 4px 14px';
+                return `<div style="display:flex;justify-content:${align};margin:2px 0;">
+                    <div class="w2-chat-skeleton-bubble" style="width:${r.w};max-width:80%;height:32px;border-radius:${radius};"></div>
+                </div>`;
+            })
+            .join('');
     }
     function _onScrollRaw() {
         if (_scrollRafPending) return;
@@ -3359,13 +3343,6 @@
                 /* ignore */
             }
         }
-        if (_chatState?.lenis?.destroy) {
-            try {
-                _chatState.lenis.destroy();
-            } catch {
-                /* ignore */
-            }
-        }
         _chatState = null;
     }
 
@@ -3380,6 +3357,11 @@
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Web2Chat client chưa load.</div>`;
             return;
         }
+        // Skeleton: show shimmering placeholder bubbles immediately so the
+        // modal doesn't feel empty during the ~150–350ms it takes for
+        // fetchConversations + fetchMessages to round-trip the Pancake
+        // proxy. Replaced as soon as the real thread is rendered.
+        threadEl.innerHTML = _skeletonThreadHtml();
         if (!window.Web2Chat.hasTokensFor(order.fbPageId)) {
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;line-height:1.5;">
                 Chưa cấu hình token Pancake cho page <code>${escapeHtml(order.fbPageId)}</code>.<br>
@@ -3455,8 +3437,7 @@
             jumpBtn?.addEventListener('click', () => {
                 const t = document.getElementById('msgThread');
                 if (!t) return;
-                if (_chatState?.lenis) _chatState.lenis.scrollTo('bottom', { duration: 0.4 });
-                else t.scrollTop = t.scrollHeight;
+                t.scrollTop = t.scrollHeight;
                 jumpBtn.style.display = 'none';
                 if (_chatState) _chatState.missedSince = 0;
             });
