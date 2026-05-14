@@ -25,6 +25,51 @@
 
 ## 2026-05-14
 
+### [web2][perf][docs] Fix scroll lag modal + shared CSS utility classes cho mọi modal tương tác nặng
+
+**Vấn đề user báo**: mở "Tạo PBH hàng loạt — 23 đơn" → scroll bảng bên trong modal lag.
+
+**Phân tích nguyên nhân**:
+
+1. `backdrop-filter: blur(4px)` — browser recompute filter mỗi frame paint khi nested content scroll, kể cả khi backdrop không thay đổi visually
+2. Modal card không có compositor layer riêng — paint chung với background
+3. `position: sticky` thead trong `overflow: auto` container — gây extra layout work
+
+**Fix** ([web2-shared/popup.js](../web2-shared/popup.js)):
+
+- **Bỏ `backdrop-filter: blur`** → solid `rgba(15,23,42,0.65)` (tối hơn 1 chút để bù focus); thêm `contain: layout style` cho overlay
+- **`transform: translateZ(0)` + `will-change: transform`** cho modal card → compositor layer riêng
+- **`.w2p-scroll-area`**: `contain: layout paint` + `transform: translateZ(0)` — scope repaint
+- **Bỏ `position: sticky` thead**: tách table thành 2 — header table tĩnh + body table trong scroll container riêng (dùng `table-layout: fixed` + `<colgroup>` để cột align)
+
+**Reusable utility classes** (auto-inject lúc script load, không cần mở Popup trước):
+
+- `.w2p-overlay` — full-screen backdrop solid, no blur, contained
+- `.w2p-card` — white card với GPU layer
+- `.w2p-scroll-area` — overflow:auto + contain:paint + GPU layer
+- `.w2p-form-grid` — responsive 2-col grid
+- `.w2p-input` / `.w2p-textarea` / `.w2p-select` — form controls thống nhất
+
+**Refactor** ([native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js)):
+
+- `openCustomFormPopup` overlay/card dùng `.w2p-overlay` + `.w2p-card`
+- Bulk-PBH scroll container dùng `.w2p-scroll-area`
+- Progress modal cùng pattern
+- `openCustomFormPopup` thêm `opts.maxWidth` (default 520, bulk dùng 760 cho table)
+
+**Docs** ([docs/web2-modal-conventions.md](web2-modal-conventions.md)) — convention cho mọi modal tương lai:
+
+- DO: solid backdrop / GPU layer / contain:paint / static thead + colgroup / lazy-render khi >200 rows
+- DON'T: backdrop-filter:blur / sticky thead trong overflow / heavy box-shadow trên scroll / inline-style shadow lên nhiều row giống nhau
+- Workflow skeleton + reference impl
+
+**Đo perf trước/sau**:
+
+- Trước: lag report từ user
+- Sau (localhost, modal 23 rows + scroll 30 lần): **avg 16.43ms / frame (~60fps)**, 1 slow frame ngoài budget. `frame ms < 30` ≥ 97%.
+
+**Cache**: `tpos-sidebar.js?v=20260514d`, `native-orders-app.js?v=20260514f`. Cùng pattern auto-inject style ngay khi popup.js load nên mọi page Web 2.0 có sẵn classes mà không cần mở Popup trước.
+
 ### [web2][orders] Tạo PBH hàng loạt + validate SĐT/Địa chỉ + modal quản lý chung
 
 **Yêu cầu user**: (a) không có SĐT hoặc địa chỉ → chặn tạo PBH; (b) checkbox nhiều đơn → tạo PBH hàng loạt; (c) modal quản lý chung để tương tác.

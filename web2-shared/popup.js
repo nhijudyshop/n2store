@@ -66,10 +66,12 @@
         style.textContent = `
             #web2-popup-root .w2p-backdrop {
                 position: fixed; inset: 0; z-index: 99999;
-                background: rgba(15, 23, 42, 0.55);
-                backdrop-filter: blur(4px);
+                /* Solid rgba — no backdrop-filter blur: blur recomputes per paint frame
+                   when inner content scrolls, making nested-scroll modals feel laggy. */
+                background: rgba(15, 23, 42, 0.65);
                 display: flex; align-items: center; justify-content: center;
                 padding: 16px;
+                contain: layout style;
                 animation: w2pFadeIn 120ms ease-out;
             }
             #web2-popup-root .w2p-modal {
@@ -80,6 +82,8 @@
                 overflow: hidden;
                 font-family: Inter, system-ui, -apple-system, sans-serif;
                 animation: w2pPop 180ms cubic-bezier(0.16, 1, 0.3, 1);
+                transform: translateZ(0); /* own compositor layer */
+                will-change: transform;
             }
             #web2-popup-root .w2p-header {
                 display: flex; align-items: center; gap: 12px;
@@ -152,6 +156,76 @@
                 to   { opacity: 1; transform: translateY(0)     scale(1); }
             }
             #web2-popup-root.is-closing .w2p-backdrop { animation: w2pFadeIn 100ms ease-in reverse; }
+
+            /* =====================================================
+             * Reusable utility classes for ANY heavy / interactive modal
+             * (not just Popup.alert/confirm/prompt). Use these instead of
+             * inline styles when building custom popup forms so we keep
+             * GPU-friendly layering everywhere.
+             *
+             *   .w2p-overlay        — full-screen backdrop (solid, no blur)
+             *   .w2p-card           — white card on its own compositor layer
+             *   .w2p-scroll-area    — overflow:auto container, contained paint
+             *   .w2p-form-grid      — auto-responsive 2-col input grid
+             *   .w2p-input          — standard input style
+             *   .w2p-textarea       — standard textarea style
+             *   .w2p-btn / -primary / -secondary  — buttons
+             *
+             * Why no backdrop-filter:blur:
+             *   Blur recomputes on every paint frame when nested content
+             *   scrolls — that's what made bulk-PBH modal feel laggy. A
+             *   solid rgba background gives the same focus at near-zero cost.
+             *   See docs/web2-modal-conventions.md for the full convention.
+             * ===================================================== */
+            .w2p-overlay {
+                position: fixed; inset: 0; z-index: 99999;
+                background: rgba(15, 23, 42, 0.65);
+                display: flex; align-items: center; justify-content: center;
+                padding: 16px;
+                contain: layout style;
+                animation: w2pFadeIn 120ms ease-out;
+            }
+            .w2p-card {
+                background: #fff;
+                border-radius: 12px;
+                width: 100%;
+                box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+                overflow: hidden;
+                font-family: Inter, system-ui, -apple-system, sans-serif;
+                transform: translateZ(0);
+                will-change: transform;
+            }
+            .w2p-scroll-area {
+                overflow-y: auto;
+                overflow-x: hidden;
+                contain: layout paint;
+                transform: translateZ(0);
+                -webkit-overflow-scrolling: touch;
+            }
+            .w2p-form-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 10px;
+            }
+            .w2p-input,
+            .w2p-textarea,
+            .w2p-select {
+                width: 100%;
+                padding: 8px 10px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: inherit;
+                background: #fff;
+                box-sizing: border-box;
+                outline: none;
+                transition: border-color 120ms, background 120ms;
+            }
+            .w2p-textarea { resize: vertical; min-height: 80px; }
+            .w2p-input:focus, .w2p-textarea:focus, .w2p-select:focus {
+                border-color: #7c3aed;
+                box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+            }
         `;
         document.head.appendChild(style);
     }
@@ -273,5 +347,17 @@
         error: (msg, opts) => open('alert', msg, { ...opts, type: 'error' }),
         success: (msg, opts) => open('alert', msg, { ...opts, type: 'success' }),
         warning: (msg, opts) => open('alert', msg, { ...opts, type: 'warning' }),
+        // Expose helper so custom modals can ensure utility classes are ready
+        // before they render their own markup.
+        ensureStyles,
     };
+
+    // Inject utility classes immediately so any modal (even ones built outside
+    // the Popup.* API) can use .w2p-overlay / .w2p-card / .w2p-scroll-area
+    // without waiting for the first Popup call.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ensureStyles, { once: true });
+    } else {
+        ensureStyles();
+    }
 })();

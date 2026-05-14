@@ -1222,10 +1222,11 @@
     async function openCustomFormPopup(opts) {
         return new Promise((resolve) => {
             const root = document.createElement('div');
-            root.style.cssText =
-                'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;';
+            // Uses shared .w2p-overlay class (no backdrop blur — see
+            // docs/web2-modal-conventions.md for why).
+            root.className = 'w2p-overlay';
             root.innerHTML = `
-                <div style="background:#fff;border-radius:12px;max-width:520px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.25);overflow:hidden;font-family:Inter,system-ui,sans-serif;">
+                <div class="w2p-card" style="max-width:${opts.maxWidth || 520}px;">
                     <div style="padding:18px 20px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px;">
                         <div style="width:40px;height:40px;border-radius:50%;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                             <i data-lucide="${opts.iconName || 'edit-3'}" style="width:22px;height:22px;"></i>
@@ -1382,20 +1383,34 @@
                     <span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">✓ ${validCount} sẵn sàng</span>
                     ${invalidCount > 0 ? `<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">⚠ ${invalidCount} thiếu SĐT/địa chỉ</span>` : ''}
                 </div>
-                <div style="max-height:280px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;">
-                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                        <thead style="background:#f8fafc;position:sticky;top:0;">
+                <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+                        <thead style="background:#f8fafc;">
                             <tr>
-                                <th style="padding:8px 6px;text-align:left;">Mã</th>
-                                <th style="padding:8px 6px;text-align:left;">Khách</th>
-                                <th style="padding:8px 6px;text-align:left;">SĐT</th>
+                                <th style="padding:8px 6px;text-align:left;width:130px;">Mã</th>
+                                <th style="padding:8px 6px;text-align:left;width:110px;">Khách</th>
+                                <th style="padding:8px 6px;text-align:left;width:100px;">SĐT</th>
                                 <th style="padding:8px 6px;text-align:left;">Địa chỉ</th>
-                                <th style="padding:8px 6px;text-align:right;">Tổng</th>
-                                <th style="padding:8px 6px;text-align:center;">Trạng thái</th>
+                                <th style="padding:8px 6px;text-align:right;width:90px;">Tổng</th>
+                                <th style="padding:8px 6px;text-align:center;width:110px;">Trạng thái</th>
                             </tr>
                         </thead>
-                        <tbody>${rowsHtml}</tbody>
                     </table>
+                    <!-- Body in own .w2p-scroll-area (GPU layer + contain:paint).
+                         See docs/web2-modal-conventions.md. -->
+                    <div class="w2p-scroll-area" style="max-height:240px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+                            <colgroup>
+                                <col style="width:130px;">
+                                <col style="width:110px;">
+                                <col style="width:100px;">
+                                <col>
+                                <col style="width:90px;">
+                                <col style="width:110px;">
+                            </colgroup>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
                 </div>
                 <fieldset style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin:0;">
                     <legend style="padding:0 8px;font-weight:700;color:#475569;font-size:12px;">Cài đặt áp dụng cho TẤT CẢ đơn hợp lệ</legend>
@@ -1443,6 +1458,7 @@
             okText: validCount > 0 ? `Tạo ${validCount} PBH` : 'Không có đơn hợp lệ',
             cancelText: 'Đóng',
             okDisabled: validCount === 0,
+            maxWidth: 760,
             collect: (root) => {
                 const sel = root.querySelector('#bulkDeliveryMethod');
                 const selectedOpt = sel?.options?.[sel.selectedIndex];
@@ -1462,10 +1478,9 @@
         // Submit sequentially with live progress (modal stays open showing progress)
         // We re-open a simple progress popup since the form is dismissed
         const progressModal = document.createElement('div');
-        progressModal.style.cssText =
-            'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;';
+        progressModal.className = 'w2p-overlay';
         progressModal.innerHTML = `
-            <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;padding:22px 26px;box-shadow:0 24px 64px rgba(0,0,0,0.25);font-family:Inter,sans-serif;">
+            <div class="w2p-card" style="max-width:480px;padding:22px 26px;">
                 <strong style="font-size:15px;color:#0f172a;display:block;margin-bottom:12px;">Đang tạo PBH…</strong>
                 <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
                     <div id="pgBar" style="height:100%;background:#7c3aed;width:0;transition:width 200ms;"></div>
