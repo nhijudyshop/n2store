@@ -2993,49 +2993,55 @@
      * `anchor: 'bottom'` for initial / new message; pass `anchor: 'top'`
      * for prepend after scroll-load-older.
      */
+    // Build HTML for one logical message slot (date separator if needed +
+    // bubble). `prevMsg` and `nextMsg` are siblings used to decide whether
+    // to emit a new date separator + whether to show the avatar.
+    function _bubbleSlotHtml(m, prevMsg, nextMsg, pageId) {
+        const parts = [];
+        const ts = _msgTimestamp(m);
+        const label = _dateLabel(ts);
+        const prevLabel = prevMsg ? _dateLabel(_msgTimestamp(prevMsg)) : '';
+        if (label && label !== prevLabel) parts.push(_dateSeparatorHtml(label));
+        const isOutgoing = m.from?.id === pageId || m.from_admin || m.is_admin;
+        const nextOutgoing =
+            nextMsg && (nextMsg.from?.id === pageId || nextMsg.from_admin || nextMsg.is_admin);
+        const sameSenderNext = nextMsg && !nextOutgoing && nextMsg.from?.id === m.from?.id;
+        const showAvatar = !isOutgoing && !sameSenderNext;
+        parts.push(_bubbleHtml(m, pageId, { showAvatar }));
+        return parts.join('');
+    }
+
+    function _loadOlderIndicatorHtml() {
+        return `<div id="msgLoadOlder" style="align-self:center;font-size:11px;color:#7c3aed;padding:4px 0;cursor:pointer;">↑ Cuộn lên để tải tin cũ hơn</div>`;
+    }
+
+    /**
+     * Initial render only — wipes the thread and rebuilds it from
+     * `_chatState.msgs`. Avoid calling for incremental updates; use
+     * `_appendBubbleDom` / `_prependBubblesDom` instead which only
+     * touch the new DOM nodes and don't reflow the existing thread.
+     */
     function _renderChatThread(anchor) {
         const threadEl = document.getElementById('msgThread');
         if (!threadEl || !_chatState) return;
+        // Enable layout/paint containment so scrolling doesn't repaint
+        // the surrounding modal chrome.
+        threadEl.style.contain = 'layout paint style';
+        threadEl.style.willChange = 'scroll-position';
         const { msgs, pageId } = _chatState;
         if (!msgs.length) {
             threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Hội thoại trống. Gõ tin nhắn để bắt đầu.</div>`;
             return;
         }
-        // Capture scroll anchor BEFORE re-render so prepend keeps the user's
-        // visible position stable.
         const prevScrollHeight = threadEl.scrollHeight;
         const prevScrollTop = threadEl.scrollTop;
         const parts = [];
-        if (_chatState.hasMore) {
-            parts.push(
-                `<div id="msgLoadOlder" style="align-self:center;font-size:11px;color:#7c3aed;padding:4px 0;cursor:pointer;">↑ Cuộn lên để tải tin cũ hơn</div>`
-            );
-        }
-        let lastLabel = '';
+        if (_chatState.hasMore) parts.push(_loadOlderIndicatorHtml());
         for (let i = 0; i < msgs.length; i++) {
-            const m = msgs[i];
-            const ts = _msgTimestamp(m);
-            const label = _dateLabel(ts);
-            if (label && label !== lastLabel) {
-                parts.push(_dateSeparatorHtml(label));
-                lastLabel = label;
-            }
-            // Avatar shows ONLY on the last message of a consecutive
-            // incoming group from the same sender (Messenger style). Look
-            // at the NEXT message — if it's outgoing or from a different
-            // sender, this is the group's tail → show avatar.
-            const next = msgs[i + 1];
-            const isOutgoing = m.from?.id === pageId || m.from_admin || m.is_admin;
-            const nextOutgoing =
-                next && (next.from?.id === pageId || next.from_admin || next.is_admin);
-            const sameSenderNext = next && !nextOutgoing && next.from?.id === m.from?.id;
-            const showAvatar = !isOutgoing && !sameSenderNext;
-            parts.push(_bubbleHtml(m, pageId, { showAvatar }));
+            parts.push(_bubbleSlotHtml(msgs[i], msgs[i - 1], msgs[i + 1], pageId));
         }
         threadEl.innerHTML = parts.join('');
         if (anchor === 'top') {
-            // After prepend, restore so the previously-visible bubble stays
-            // anchored under the user's cursor.
             requestAnimationFrame(() => {
                 threadEl.scrollTop = threadEl.scrollHeight - prevScrollHeight + prevScrollTop;
             });
@@ -3049,23 +3055,122 @@
         }
     }
 
+    /**
+     * Append a single new (or just-arrived) message bubble without
+     * touching the existing DOM. Re-evaluates the last bubble's avatar
+     * state so consecutive-group collapsing stays consistent.
+     */
+    function _appendBubbleDom(msg) {
+        const threadEl = document.getElementById('msgThread');
+        if (!threadEl || !_chatState) return;
+        const { msgs, pageId } = _chatState;
+        const idx = msgs.indexOf(msg);
+        if (idx < 0) return;
+        const prev = msgs[idx - 1];
+        const html = _bubbleSlotHtml(msg, prev, null, pageId);
+
+        // If the previously-last visible bubble was an incoming row showing
+        // an avatar but the new bubble is from the same sender, hide its
+        // avatar (it's no longer the group's tail).
+        if (prev && !(prev.from?.id === pageId || prev.from_admin || prev.is_admin)) {
+            const sameSender = prev.from?.id === msg.from?.id;
+            if (sameSender) {
+                const prevRow = threadEl.querySelector(
+                    `.w2-chat-row[data-msg-id="${CSS.escape(String(prev.id || ''))}"]`
+                );
+                const slot = prevRow?.querySelector('.w2-chat-avatar-slot');
+                if (slot) slot.innerHTML = '<div style="width:28px;flex-shrink:0;"></div>';
+            }
+        }
+
+        threadEl.insertAdjacentHTML('beforeend', html);
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    /**
+     * Prepend N older messages without rebuilding the thread. Preserves
+     * the user's visible scroll position by adjusting scrollTop by the
+     * inserted block's height.
+     */
+    function _prependBubblesDom(olderMsgs) {
+        const threadEl = document.getElementById('msgThread');
+        if (!threadEl || !_chatState || !olderMsgs?.length) return;
+        const { msgs, pageId } = _chatState;
+        // olderMsgs are already merged at the head of msgs[]
+        const prevScrollHeight = threadEl.scrollHeight;
+        const prevScrollTop = threadEl.scrollTop;
+        const parts = [];
+        for (let i = 0; i < olderMsgs.length; i++) {
+            const m = olderMsgs[i];
+            // prevMsg here = msgs[i-1] (i.e. one older than current m); for
+            // the very first message it's null.
+            const prev = i > 0 ? olderMsgs[i - 1] : null;
+            // nextMsg here = the message that comes AFTER m in the merged
+            // list, which is olderMsgs[i+1] OR (if last older) the first
+            // existing msg before the merge, found at msgs[olderMsgs.length]
+            const next = i + 1 < olderMsgs.length ? olderMsgs[i + 1] : msgs[olderMsgs.length];
+            parts.push(_bubbleSlotHtml(m, prev, next, pageId));
+        }
+
+        // Update the first existing bubble's avatar visibility if its
+        // sender now has an older sibling in the same group.
+        const firstExisting = msgs[olderMsgs.length];
+        const lastOlder = olderMsgs[olderMsgs.length - 1];
+        if (
+            firstExisting &&
+            lastOlder &&
+            !(firstExisting.from?.id === pageId || firstExisting.from_admin) &&
+            lastOlder.from?.id === firstExisting.from?.id
+        ) {
+            // firstExisting is no longer the head of its group — but we
+            // already render avatar only on the tail, so no DOM change
+            // needed for it. The tail-rule already covered this.
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = parts.join('');
+        // Remove the existing "load older" indicator (we'll re-insert at top
+        // afterward if more remain).
+        const oldIndicator = document.getElementById('msgLoadOlder');
+        if (oldIndicator) oldIndicator.remove();
+
+        const frag = document.createDocumentFragment();
+        while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
+        threadEl.insertBefore(frag, threadEl.firstChild);
+        if (_chatState.hasMore) {
+            threadEl.insertAdjacentHTML('afterbegin', _loadOlderIndicatorHtml());
+        }
+        // Restore scroll so the previously-visible bubble stays where the
+        // user's eye was.
+        requestAnimationFrame(() => {
+            threadEl.scrollTop = threadEl.scrollHeight - prevScrollHeight + prevScrollTop;
+        });
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    let _scrollRafPending = false;
     function _attachScrollLoader() {
         const threadEl = document.getElementById('msgThread');
         if (!threadEl || !_chatState) return;
-        threadEl.addEventListener('scroll', _onChatScroll, { passive: true });
+        threadEl.addEventListener('scroll', _onScrollRaw, { passive: true });
     }
-
-    async function _onChatScroll() {
+    function _onScrollRaw() {
+        if (_scrollRafPending) return;
+        _scrollRafPending = true;
+        requestAnimationFrame(() => {
+            _scrollRafPending = false;
+            _onChatScroll();
+        });
+    }
+    function _onChatScroll() {
         const threadEl = document.getElementById('msgThread');
         if (!threadEl || !_chatState) return;
-        // Load older when within 80px of top
         if (threadEl.scrollTop < 80 && _chatState.hasMore && !_chatState.loadingOlder) {
-            await _loadOlderMessages();
+            _loadOlderMessages();
         }
-        // Hide jump-bottom button when user scrolls back to bottom
         const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 40;
         const jump = document.getElementById('msgJumpBottom');
-        if (jump && nearBottom) {
+        if (jump && nearBottom && jump.style.display !== 'none') {
             jump.style.display = 'none';
             _chatState.missedSince = 0;
         }
@@ -3087,21 +3192,22 @@
             );
             if (!r.ok) {
                 _chatState.hasMore = false;
-                _renderChatThread('top');
+                indicator?.remove();
                 return;
             }
             const incoming = r.messages || [];
-            // Pancake returns oldest first; we have a flat array oldest→newest in msgs
             const fresh = incoming.filter((m) => m.id && !_chatState.msgIds.has(m.id));
             if (!fresh.length) {
                 _chatState.hasMore = false;
-                _renderChatThread('top');
+                indicator?.remove();
                 return;
             }
             for (const m of fresh) _chatState.msgIds.add(m.id);
             _chatState.msgs = [...fresh, ..._chatState.msgs];
             _chatState.cursor = cursor + fresh.length;
-            _renderChatThread('top');
+            // Incremental DOM prepend — keeps the existing 25-55 bubbles
+            // untouched (no reflow), inserts only the N new ones.
+            _prependBubblesDom(fresh);
         } catch (e) {
             console.warn('[NativeOrders] loadOlder failed:', e.message);
         } finally {
@@ -3127,14 +3233,16 @@
         };
         _chatState.msgs.push(fake);
         _chatState.msgIds.add(fake.id);
-        _renderChatThread('bottom');
+        // Append only the new bubble (no full re-render)
+        _appendBubbleDom(fake);
+        const t = document.getElementById('msgThread');
+        if (t) t.scrollTop = t.scrollHeight;
     }
 
     function _onIncomingWsMessage(payload) {
         if (!_chatState) return;
         const m = payload?.message || payload;
         if (!m) return;
-        // Match against the open conversation
         const convId = m.conversation_id || m.conversationId;
         if (convId && String(convId) !== String(_chatState.convId)) return;
         if (m.id && _chatState.msgIds.has(m.id)) return;
@@ -3142,10 +3250,14 @@
         _chatState.msgs.push(m);
         const threadEl = document.getElementById('msgThread');
         if (!threadEl) return;
-        // If user is near bottom, render & stay at bottom; else show jump pill
         const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 80;
-        _renderChatThread(nearBottom ? 'bottom' : 'top');
-        if (!nearBottom) {
+        // Append-only DOM patch (no full re-render of existing thread)
+        _appendBubbleDom(m);
+        if (nearBottom) {
+            requestAnimationFrame(() => {
+                threadEl.scrollTop = threadEl.scrollHeight;
+            });
+        } else {
             _chatState.missedSince = (_chatState.missedSince || 0) + 1;
             const jump = document.getElementById('msgJumpBottom');
             const cnt = document.getElementById('msgJumpCount');
