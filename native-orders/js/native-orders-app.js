@@ -2085,63 +2085,14 @@
     // Realtime-aware: subscribes to native_order:updated and refreshes the
     // open modal when the same order changes.
     let _interactionsState = null; // { code, tab, scrollY }
-    let _pancakeApiPromise = null;
 
     /**
-     * Lazy-load Pancake API scripts on first chat/reply action.
-     * Pulls in ~5K lines (~150KB) — only when user actually needs to chat.
-     * Returns true if pancakeDataManager is ready, false otherwise.
+     * Web2Chat client is loaded via index.html (`web2-shared/web2-chat-client.js`).
+     * No shared code with Web 1.0 — token config is read directly from
+     * localStorage keys that the user already configured in tpos-pancake.
      */
-    async function _ensurePancakeApi() {
-        if (window.pancakeDataManager && window.pancakeTokenManager) return true;
-        if (_pancakeApiPromise) return _pancakeApiPromise;
-        _pancakeApiPromise = (async () => {
-            try {
-                // Need Firebase Database compat for token storage
-                if (!window.firebase?.database) {
-                    await _loadScript(
-                        'https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js'
-                    );
-                }
-                // API config (constants used by pancake-data-manager)
-                if (!window.API_CONFIG) {
-                    await _loadScript('../shared/js/api-config.js');
-                }
-                // Pancake token manager (project-local in tpos-pancake folder)
-                if (!window.PancakeTokenManager) {
-                    await _loadScript('../tpos-pancake/js/pancake/pancake-token-manager.js');
-                }
-                if (!window.pancakeTokenManager) {
-                    window.pancakeTokenManager = new window.PancakeTokenManager();
-                }
-                // Main Pancake data manager
-                if (!window.pancakeDataManager) {
-                    await _loadScript('../shared/js/pancake-data-manager.js');
-                }
-                if (!window.pancakeDataManager && typeof PancakeDataManager !== 'undefined') {
-                    window.pancakeDataManager = new PancakeDataManager();
-                }
-                // Initialize token manager (loads from localStorage or Firestore)
-                if (window.pancakeTokenManager?.init) {
-                    await window.pancakeTokenManager.init().catch(() => {});
-                }
-                return !!(window.pancakeDataManager && window.pancakeTokenManager);
-            } catch (e) {
-                console.error('[NativeOrders] Lazy-load Pancake API failed:', e);
-                return false;
-            }
-        })();
-        return _pancakeApiPromise;
-    }
-
-    function _loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = src;
-            s.onload = resolve;
-            s.onerror = () => reject(new Error('Load failed: ' + src));
-            document.head.appendChild(s);
-        });
+    function _hasChatClient() {
+        return !!window.Web2Chat;
     }
 
     async function openInteractions(code, initialTab = 'messages') {
@@ -2346,43 +2297,108 @@
     async function _loadAndRenderThread(order) {
         const threadEl = document.getElementById('msgThread');
         if (!threadEl) return;
-        const ok = await _ensurePancakeApi();
-        if (!ok) {
-            threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Không tải được Pancake API. Mở TPOS × Pancake để chat.</div>`;
+        if (!_hasChatClient()) {
+            threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Web2Chat client chưa load.</div>`;
+            return;
+        }
+        if (!window.Web2Chat.hasTokensFor(order.fbPageId)) {
+            threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;line-height:1.5;">
+                Chưa cấu hình token Pancake cho page <code>${escapeHtml(order.fbPageId)}</code>.<br>
+                <a href="../tpos-pancake/index.html" target="_blank" style="color:#7c3aed;">Mở TPOS × Pancake để đăng nhập + lấy token →</a>
+            </div>`;
             return;
         }
         try {
-            const dm = window.pancakeDataManager;
-            // fetchConversationsByCustomerFbId returns { conversations, customerUuid, success }
-            const r = await dm.fetchConversationsByCustomerFbId(order.fbPageId, order.fbUserId);
-            const conversations = Array.isArray(r?.conversations)
-                ? r.conversations
-                : Array.isArray(r)
-                  ? r
-                  : [];
-            if (conversations.length === 0) {
-                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Chưa có hội thoại với khách. Gõ tin nhắn để bắt đầu.</div>`;
+            const convRes = await window.Web2Chat.fetchConversations(
+                order.fbPageId,
+                order.fbUserId
+            );
+            const conversations = convRes.conversations || [];
+            if (!convRes.ok || conversations.length === 0) {
+                const reason = convRes.reason ? ` (${convRes.reason})` : '';
+                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Chưa có hội thoại với khách${reason}. Gõ tin nhắn để bắt đầu.</div>`;
                 return;
             }
-            const conv = conversations[0]; // most recent
+            // Pancake returns BOTH inbox conversations and comment "conversations"
+            // mixed together. The messages endpoint only returns content for INBOX
+            // type; COMMENT type rows are placeholders for comment threads.
+            const inboxConvs = conversations.filter(
+                (c) => (c.type || '').toUpperCase() === 'INBOX'
+            );
+            if (inboxConvs.length === 0) {
+                const commentCount = conversations.length;
+                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:24px 12px;text-align:center;line-height:1.5;">
+                    <i data-lucide="message-square-off" style="width:28px;height:28px;display:block;margin:0 auto 6px;color:#cbd5e1;"></i>
+                    Khách chưa có tin nhắn inbox với page này.<br>
+                    <span style="font-size:11px;">Có ${commentCount} comment trên các post — chuyển sang tab <strong>Bình luận</strong> để trả lời.</span>
+                </div>`;
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+                return;
+            }
+            const conv = inboxConvs[0]; // most recent inbox thread
+            const customerId = convRes.customerUuid || conv?.customers?.[0]?.id || null;
             const input = document.getElementById('msgInput');
             if (input) {
                 input.dataset.conversationId = conv.id;
-                input.dataset.customerId = r?.customerUuid || conv?.customers?.[0]?.id || '';
+                input.dataset.customerId = customerId || '';
                 input.dataset.threadId = conv?.thread_id || conv?.threadId || '';
             }
-            const result = await dm.fetchMessagesForConversation(order.fbPageId, conv.id);
-            const messages = (result?.messages || result || []).slice(-30);
+            const msgRes = await window.Web2Chat.fetchMessages(order.fbPageId, conv.id, customerId);
+            if (!msgRes.ok) {
+                threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Lỗi tải tin nhắn: ${escapeHtml(msgRes.reason || 'unknown')}</div>`;
+                return;
+            }
+            const messages = (msgRes.messages || []).slice(-30);
             if (!messages.length) {
                 threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Hội thoại trống. Gõ tin nhắn để bắt đầu.</div>`;
                 return;
             }
+            // Pancake stores message text with HTML wrappers (<div>, <br />, …).
+            // Render as plain text — turn <br> into newlines, drop other tags.
+            const _msgPlain = (raw) => {
+                if (!raw) return '';
+                const tmp = document.createElement('div');
+                tmp.innerHTML = String(raw).replace(/<br\s*\/?>/gi, '\n');
+                return (tmp.textContent || tmp.innerText || '').trim();
+            };
             threadEl.innerHTML = messages
                 .map((m) => {
                     const isOutgoing = m.from?.id === order.fbPageId || m.from_admin || m.is_admin;
-                    const txt = m.message || m.text || m.content || '';
+                    const txt = _msgPlain(m.message || m.text || m.content || '');
                     const time = m.inserted_at || m.created_time || m.timestamp;
-                    return `<div style="align-self:${isOutgoing ? 'flex-end' : 'flex-start'};max-width:80%;background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:6px 10px;border-radius:${isOutgoing ? '10px 10px 2px 10px' : '10px 10px 10px 2px'};font-size:12px;border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};">${escapeHtml(txt)}${time ? `<div style="font-size:9px;opacity:0.65;margin-top:3px;">${new Date(time).toLocaleString('vi-VN')}</div>` : ''}</div>`;
+                    const atts = Array.isArray(m.attachments) ? m.attachments : [];
+                    const imgs = atts
+                        .filter((a) => {
+                            const t = (a.type || '').toLowerCase();
+                            return t === 'photo' || t === 'image' || t === 'sticker';
+                        })
+                        .map((a) => a.url || a.preview_url || a.thumb_url)
+                        .filter(Boolean);
+                    const imgHtml = imgs
+                        .slice(0, 4)
+                        .map(
+                            (u) =>
+                                `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;"><img src="${escapeHtml(u)}" style="max-width:180px;max-height:240px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);display:block;" loading="lazy" /></a>`
+                        )
+                        .join('');
+                    const fileAtts = atts
+                        .filter(
+                            (a) =>
+                                !['photo', 'image', 'sticker'].includes(
+                                    (a.type || '').toLowerCase()
+                                )
+                        )
+                        .map(
+                            (a) =>
+                                `<div style="font-size:11px;opacity:0.8;margin-top:3px;">📎 ${escapeHtml(a.name || a.type || 'attachment')}</div>`
+                        )
+                        .join('');
+                    const inner = txt
+                        ? `<div style="white-space:pre-wrap;">${escapeHtml(txt)}</div>`
+                        : imgs.length === 0 && atts.length === 0
+                          ? `<div style="opacity:0.6;font-style:italic;">(không có nội dung)</div>`
+                          : '';
+                    return `<div style="align-self:${isOutgoing ? 'flex-end' : 'flex-start'};max-width:80%;background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:6px 10px;border-radius:${isOutgoing ? '10px 10px 2px 10px' : '10px 10px 10px 2px'};font-size:12px;border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};">${inner}${imgHtml}${fileAtts}${time ? `<div style="font-size:9px;opacity:0.65;margin-top:3px;">${new Date(time).toLocaleString('vi-VN')}</div>` : ''}</div>`;
                 })
                 .join('');
             threadEl.scrollTop = threadEl.scrollHeight;
@@ -2451,51 +2467,41 @@
             }
         }
 
-        // Fallback: Pancake API (standard, subject to 24h rule)
-        const ok = await _ensurePancakeApi();
-        if (!ok) {
+        // Fallback: Web2Chat client (Pancake Public API, subject to 24h rule)
+        if (!_hasChatClient() || !window.Web2Chat.hasTokensFor(order.fbPageId)) {
             input.disabled = false;
-            notify('Không tải được Pancake API + không có Extension', 'error');
+            notify('Chưa có Extension và chưa cấu hình token Pancake cho page này.', 'error');
             return;
         }
         let conversationId = input.dataset.conversationId;
-        const customerId = input.dataset.customerId || null;
+        let customerId = input.dataset.customerId || null;
         if (!conversationId) {
-            try {
-                const r = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
-                    order.fbPageId,
-                    order.fbUserId
-                );
-                const list = Array.isArray(r?.conversations)
-                    ? r.conversations
-                    : Array.isArray(r)
-                      ? r
-                      : [];
-                if (list[0]) conversationId = list[0].id;
-            } catch {
-                /* ignore */
+            const r = await window.Web2Chat.fetchConversations(order.fbPageId, order.fbUserId);
+            const list = r.conversations || [];
+            if (list[0]) {
+                conversationId = list[0].id;
+                customerId = r.customerUuid || list[0]?.customers?.[0]?.id || customerId;
             }
         }
         if (!conversationId) {
             input.disabled = false;
-            notify('Chưa tìm thấy hội thoại với khách. Hãy mở TPOS × Pancake.', 'error');
+            notify('Chưa tìm thấy hội thoại với khách.', 'error');
             return;
         }
-        try {
-            await window.pancakeDataManager.sendMessage(order.fbPageId, conversationId, {
-                text,
-                action: 'reply_inbox',
-                customerId,
-            });
+        const sendRes = await window.Web2Chat.sendMessage(order.fbPageId, conversationId, {
+            text,
+            action: 'reply_inbox',
+            customerId,
+        });
+        if (sendRes.ok) {
             input.value = '';
             notify('Đã gửi tin nhắn', 'success');
             _loadAndRenderThread(order);
-        } catch (e) {
-            notify('Lỗi gửi tin nhắn: ' + (e.message || 'unknown'), 'error');
-        } finally {
-            input.disabled = false;
-            input.focus();
+        } else {
+            notify('Lỗi gửi tin nhắn: ' + (sendRes.reason || 'unknown'), 'error');
         }
+        input.disabled = false;
+        input.focus();
     }
 
     async function _handleReplyComment(order, commentId, inputId, mode) {
@@ -2535,32 +2541,28 @@
             }
         }
 
-        // Fallback: Pancake API
-        const ok = await _ensurePancakeApi();
-        if (!ok) {
+        // Fallback: Web2Chat client → /pages/:id/comments/:id/replies (Public API)
+        if (!_hasChatClient() || !window.Web2Chat.hasTokensFor(order.fbPageId)) {
             input.disabled = false;
-            notify('Không tải được Pancake API + không có Extension', 'error');
+            notify('Chưa có Extension và chưa cấu hình token Pancake cho page này.', 'error');
             return;
         }
-        try {
-            const action = mode === 'private' ? 'private_replies' : 'reply_comment';
-            await window.pancakeDataManager.sendMessage(order.fbPageId, commentId, {
-                text,
-                action,
-                customerId: order.fbUserId,
-            });
+        const replyRes = await window.Web2Chat.replyComment(order.fbPageId, commentId, {
+            text,
+            mode: mode === 'private' ? 'private' : 'public',
+        });
+        if (replyRes.ok) {
             input.value = '';
             notify(
                 mode === 'private'
-                    ? 'Đã gửi tin nhắn riêng (Pancake)'
-                    : 'Đã trả lời bình luận (Pancake)',
+                    ? 'Đã gửi tin nhắn riêng (Web2Chat)'
+                    : 'Đã trả lời bình luận (Web2Chat)',
                 'success'
             );
-        } catch (e) {
-            notify('Lỗi: ' + (e.message || 'unknown'), 'error');
-        } finally {
-            input.disabled = false;
+        } else {
+            notify('Lỗi: ' + (replyRes.reason || 'unknown'), 'error');
         }
+        input.disabled = false;
     }
 
     function _renderCommentsPanel(order) {

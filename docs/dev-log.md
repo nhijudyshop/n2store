@@ -25,6 +25,47 @@
 
 ## 2026-05-14
 
+### [web2-shared][native-orders][chat] Web2Chat client độc lập — không dùng chung pancakeDataManager với web 1.0
+
+**User feedback**: "không load được đoạn hội thoại -> web 2.0 này đừng dùng chung với web 1.0 -> code mới đi" — modal chat hiển thị "Hội thoại trống" dù `messageCount=2`; user yêu cầu code chat riêng cho web 2.0, không reuse web 1.0.
+
+**Root causes**:
+
+1. **Mix conversation types**: Pancake `/conversations/customer/:fbId` trả về cả `INBOX` lẫn `COMMENT` type. Cũ pick `[0]` luôn → trúng comment thread (24/25 là COMMENT) → messages endpoint trả empty.
+2. **Wrong API endpoint**: Pancake Public API (`/pancake-official`) cần page subscription để trả messages. Personal account → empty. Phải dùng JWT-based `/pancake-direct/` endpoint.
+3. **HTML wrapped text**: Pancake message field chứa `<div>...</div>` + `<br />` → escapeHtml hiển thị raw HTML literal.
+
+**Fix**:
+
+1. Tạo `web2-shared/web2-chat-client.js` — module standalone, expose `window.Web2Chat`:
+    - `fetchConversations(pageId, fbId)` — `/api/pancake/conversations/customer/:fbId`
+    - `fetchMessages(pageId, convId, customerId?)` — ưu tiên `/api/pancake-direct/` (JWT), fallback `/api/pancake-official/`
+    - `sendMessage(pageId, convId, opts)` — `/api/pancake-official/.../messages` (page_access_token)
+    - `replyComment(pageId, commentId, opts)` — `/api/pancake-official/.../comments/:id/replies`
+    - `getJwt()`, `getPageAccessToken(pageId)`, `hasTokensFor(pageId)` — đọc localStorage trực tiếp (`pancake_jwt_token`, `pancake_page_access_tokens`)
+    - KHÔNG import `pancakeDataManager` / `pancakeTokenManager` / `API_CONFIG` từ web 1.0.
+
+2. `native-orders/js/native-orders-app.js`:
+    - Xóa `_ensurePancakeApi()` + `_loadScript()` (eager lazy-loader cho web 1.0 scripts).
+    - `_loadAndRenderThread`: filter `type === 'INBOX'` trước khi dùng convs; show clarifying message khi chỉ có comment ("Khách chưa có tin nhắn inbox, có N comment — chuyển sang tab Bình luận").
+    - `_handleSendMessage` + `_handleReplyComment`: fallback Pancake giờ qua `Web2Chat.sendMessage` / `Web2Chat.replyComment`.
+    - Render messages: parse HTML wrapper trong `m.message` → `textContent` thuần, `<br>` → `\n`, `white-space:pre-wrap`. Show attachment thumbnails inline.
+
+**Files**:
+
+- `web2-shared/web2-chat-client.js` (NEW, ~290 lines)
+- `native-orders/index.html` — load `web2-chat-client.js` trước `native-orders-app.js`; bump cache `v=20260514s`
+- `native-orders/js/native-orders-app.js` — xóa pancake loader, swap call sites
+
+**Verify**: Live test `NW-20260513-0016` (Thế Hoàng, INBOX 611 messages):
+
+- `Web2Chat.fetchConversations` → 25 convs (1 INBOX + 24 COMMENT)
+- Filter INBOX → conv `117267091364524_30591284287137740`
+- `Web2Chat.fetchMessages` → via `direct` → **25 message bubbles render**, real text + image attachment ✅
+- `hasOldPancake: false` confirmed.
+
+Status: ✅ Done
+
 ### [native-orders][chat] Pre-resolve globalUserId trước khi gửi REPLY_INBOX_PHOTO qua extension
 
 **Vấn đề**: FB Business Suite dùng `globalUserId` khác `fbUserId` thường. Extension `REPLY_INBOX_PHOTO` cần đúng `globalUserId`, nếu pass nhầm `fbUserId` thì gửi có thể fail trong context Business.
