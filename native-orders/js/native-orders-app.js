@@ -2143,9 +2143,11 @@
         modal.innerHTML = `
             <div class="w2p-card" style="max-width:1080px;width:96vw;height:88vh;max-height:760px;display:flex;flex-direction:column;">
                 <div style="padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#faf5ff 0%,#fdfaff 100%);">
-                    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:16px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(124,58,237,0.25);">
-                        ${escapeHtml(initials)}
-                    </div>
+                    ${
+                        order.fbUserId && order.fbPageId
+                            ? `<img src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);box-shadow:0 4px 12px rgba(124,58,237,0.25);" loading="eager" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:16px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(124,58,237,0.25);&quot;>${escapeHtml(initials).replace(/'/g, '&#39;')}</div>'" />`
+                            : `<div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:16px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(124,58,237,0.25);">${escapeHtml(initials)}</div>`
+                    }
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
                             <strong style="font-size:16px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
