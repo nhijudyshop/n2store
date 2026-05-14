@@ -1056,11 +1056,14 @@
     }
 
     // Phase 15: validate that an order has the minimum data to convert to PBH.
-    // Returns { ok: true } or { ok: false, missing: ['SĐT','Địa chỉ',...] }
+    // Returns { ok: true } or { ok: false, missing: ['SĐT','Địa chỉ','Sản phẩm',...] }
     function validateOrderForPbh(o) {
         const missing = [];
         if (!o?.phone || !String(o.phone).trim()) missing.push('SĐT');
         if (!o?.address || !String(o.address).trim()) missing.push('Địa chỉ');
+        const products = Array.isArray(o?.products) ? o.products : [];
+        const totalQty = products.reduce((s, p) => s + (Number(p.quantity) || 0), 0);
+        if (products.length === 0 || totalQty === 0) missing.push('Sản phẩm');
         return { ok: missing.length === 0, missing };
     }
 
@@ -1085,6 +1088,8 @@
             }
             return;
         }
+        // validateOrderForPbh already blocked empty-products orders above —
+        // here products are guaranteed non-empty so totals will be > 0.
         const totals = (src.products || []).reduce(
             (acc, p) => {
                 const q = Number(p.quantity) || 0;
@@ -1095,14 +1100,6 @@
             },
             { qty: 0, amount: 0 }
         );
-        if (totals.qty === 0) {
-            const ok = await w2pConfirm('Đơn chưa có sản phẩm. Tạo PBH rỗng (totals = 0)?', {
-                title: `Cảnh báo`,
-                okText: 'Vẫn tạo',
-                type: 'warning',
-            });
-            if (!ok) return;
-        }
         if (!window.Popup) {
             // Fallback for any environment without popup loaded yet
             if (!confirm(`Tạo Phiếu Bán Hàng (PBH) từ đơn ${code}?`)) return;
@@ -1368,7 +1365,8 @@
                 <td style="padding:8px 6px;font-weight:600;">${escapeHtml(r.code)}</td>
                 <td style="padding:8px 6px;">${escapeHtml(r.customerName)}</td>
                 <td style="padding:8px 6px;color:${r.phone ? '#0f172a' : '#dc2626'};">${escapeHtml(r.phone || '⚠ thiếu')}</td>
-                <td style="padding:8px 6px;color:${r.address ? '#0f172a' : '#dc2626'};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.address || '')}">${escapeHtml(r.address || '⚠ thiếu')}</td>
+                <td style="padding:8px 6px;color:${r.address ? '#0f172a' : '#dc2626'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.address || '')}">${escapeHtml(r.address || '⚠ thiếu')}</td>
+                <td style="padding:8px 6px;text-align:center;color:${r.totalQty > 0 ? '#0f172a' : '#dc2626'};">${r.totalQty > 0 ? r.totalQty : '⚠ 0'}</td>
                 <td style="padding:8px 6px;text-align:right;color:#10b981;font-weight:600;">${fmt(r.totalAmt)}đ</td>
                 <td style="padding:8px 6px;text-align:center;">
                     ${r.valid ? '<span style="color:#10b981;">✓ Sẵn sàng</span>' : `<span style="color:#dc2626;">⚠ Thiếu ${escapeHtml(r.missing.join(', '))}</span>`}
@@ -1381,7 +1379,7 @@
             <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:#334155;">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                     <span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">✓ ${validCount} sẵn sàng</span>
-                    ${invalidCount > 0 ? `<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">⚠ ${invalidCount} thiếu SĐT/địa chỉ</span>` : ''}
+                    ${invalidCount > 0 ? `<span style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px;">⚠ ${invalidCount} thiếu SĐT / địa chỉ / sản phẩm</span>` : ''}
                 </div>
                 <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
                     <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
@@ -1391,8 +1389,9 @@
                                 <th style="padding:8px 6px;text-align:left;width:110px;">Khách</th>
                                 <th style="padding:8px 6px;text-align:left;width:100px;">SĐT</th>
                                 <th style="padding:8px 6px;text-align:left;">Địa chỉ</th>
+                                <th style="padding:8px 6px;text-align:center;width:50px;">SL</th>
                                 <th style="padding:8px 6px;text-align:right;width:90px;">Tổng</th>
-                                <th style="padding:8px 6px;text-align:center;width:110px;">Trạng thái</th>
+                                <th style="padding:8px 6px;text-align:center;width:130px;">Trạng thái</th>
                             </tr>
                         </thead>
                     </table>
@@ -1405,8 +1404,9 @@
                                 <col style="width:110px;">
                                 <col style="width:100px;">
                                 <col>
+                                <col style="width:50px;">
                                 <col style="width:90px;">
-                                <col style="width:110px;">
+                                <col style="width:130px;">
                             </colgroup>
                             <tbody>${rowsHtml}</tbody>
                         </table>
