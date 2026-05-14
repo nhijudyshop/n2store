@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260514e" />
         <link rel="stylesheet" href="css/native-orders.css?v=20260514i" />
-        <link rel="stylesheet" href="css/tpos-theme.css?v=20260514g" />
+        <link rel="stylesheet" href="css/tpos-theme.css?v=20260514i" />
 
         <!-- Lucide icons -->
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
@@ -318,6 +318,13 @@
                                     <th class="col-status" style="width: 110px; text-align: left">
                                         Trạng thái
                                     </th>
+                                    <th class="col-message" style="width: 80px; text-align: center">
+                                        Tin nhắn
+                                    </th>
+                                    <th class="col-comment" style="width: 80px; text-align: center">
+                                        Bình luận
+                                    </th>
+                                    <th class="col-note" style="min-width: 180px">Ghi chú</th>
                                     <th class="col-employee" style="width: 120px">Nhân viên</th>
                                     <th class="col-time" style="width: 120px; text-align: center">
                                         Ngày tạo
@@ -326,7 +333,7 @@
                             </thead>
                             <tbody id="ordersTbody">
                                 <tr>
-                                    <td colspan="13" class="loading-row">
+                                    <td colspan="16" class="loading-row">
                                         <div class="spinner"></div>
                                         Đang tải dữ liệu...
                                     </td>
@@ -370,6 +377,6 @@
 
         <!-- App Scripts -->
         <script src="js/native-orders-api.js?v=20260513b"></script>
-        <script src="js/native-orders-app.js?v=20260514k"></script>
+        <script src="js/native-orders-app.js?v=20260514l"></script>
     </body>
 </html>

@@ -13,7 +13,7 @@
     // read COL_DEFAULT without hitting TDZ.
     const COL_KEYS = [
         { key: 'actions', label: 'Thao tác' },
-        { key: 'stt', label: 'STT' },
+        { key: 'stt', label: 'STT (cột riêng)' },
         { key: 'code', label: 'Mã đơn' },
         { key: 'channel', label: 'Kênh' },
         { key: 'customer', label: 'Tên khách' },
@@ -22,6 +22,9 @@
         { key: 'money', label: 'Tổng tiền' },
         { key: 'qty', label: 'SL (cột riêng)' },
         { key: 'status', label: 'Trạng thái' },
+        { key: 'message', label: 'Tin nhắn' },
+        { key: 'comment', label: 'Bình luận' },
+        { key: 'note', label: 'Ghi chú' },
         { key: 'employee', label: 'Nhân viên' },
         { key: 'time', label: 'Ngày tạo' },
     ];
@@ -35,7 +38,10 @@
         address: true,
         money: true,
         qty: false, // merged into money
-        status: false,
+        status: true,
+        message: true,
+        comment: true,
+        note: true,
         employee: false,
         time: false,
         // Merge flags
@@ -69,7 +75,7 @@
     };
     function loadColVisibility() {
         try {
-            const raw = localStorage.getItem('nativeOrdersColVisibility_v2');
+            const raw = localStorage.getItem('nativeOrdersColVisibility_v3');
             if (raw) {
                 const parsed = JSON.parse(raw);
                 return { ...COL_DEFAULT, ...parsed };
@@ -82,7 +88,7 @@
     function saveColVisibility() {
         try {
             localStorage.setItem(
-                'nativeOrdersColVisibility_v2',
+                'nativeOrdersColVisibility_v3',
                 JSON.stringify(STATE.colVisibility)
             );
         } catch {
@@ -270,7 +276,7 @@
         if (!lines.length) {
             return `
                 <tr class="expand-row" data-for="${escapeHtml(o.code)}">
-                    <td colspan="13">
+                    <td colspan="16">
                         <div class="expand-empty">
                             <i data-lucide="package-x"></i>
                             Đơn chưa có sản phẩm —
@@ -309,7 +315,7 @@
             .join('');
         return `
             <tr class="expand-row" data-for="${escapeHtml(o.code)}">
-                <td colspan="13">
+                <td colspan="16">
                     <div class="expand-wrap">
                         <div class="expand-header">
                             <span class="expand-title"><i data-lucide="package"></i>Sản phẩm trong đơn ${escapeHtml(o.code)}</span>
@@ -366,7 +372,7 @@
     function renderRows() {
         const orders = STATE.orders;
         if (!orders.length) {
-            tbody().innerHTML = `<tr><td colspan="13" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="16" class="empty-row">
                 Không có đơn nào khớp bộ lọc
             </td></tr>`;
             return;
@@ -486,6 +492,23 @@
                     <td class="col-money tpos-cell-money">${total}${mergedQtyHtml}</td>
                     <td class="col-qty tpos-cell-center">${qty || ''}</td>
                     <td class="col-status">${tposStatusText(o.status)}</td>
+                    <td class="col-message tpos-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','messages')">
+                        <span class="tpos-count-pill tpos-count-msg ${Number(o.messageCount) > 0 ? '' : 'is-empty'}" title="Mở tin nhắn">
+                            <i data-lucide="message-circle" style="width:11px;height:11px;"></i>
+                            ${Number(o.messageCount) > 0 ? o.messageCount : '0'}
+                        </span>
+                    </td>
+                    <td class="col-comment tpos-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','comments')">
+                        <span class="tpos-count-pill tpos-count-cmt ${Number(o.commentCount) > 0 ? '' : 'is-empty'}" title="${o.commentCount || 0} bình luận">
+                            <i data-lucide="message-square" style="width:11px;height:11px;"></i>
+                            ${o.commentCount || 0}
+                        </span>
+                    </td>
+                    <td class="col-note">${
+                        o.note
+                            ? `<div class="tpos-note-cell" title="${escapeHtml(o.note)}">${escapeHtml(o.note)}</div>`
+                            : '<span class="tpos-count-empty">—</span>'
+                    }</td>
                     <td class="col-employee">${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
                     <td class="col-time tpos-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
                         ${time.date}/${new Date(Number(o.createdAt)).getFullYear()}<br>${time.hour}
@@ -620,7 +643,7 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="11" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="16" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -642,7 +665,7 @@
             renderCustomerChip();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="16" class="empty-row" style="color:#ef4444;">
                 Lỗi tải dữ liệu: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -1798,6 +1821,15 @@
                 msg.type === 'native_order:deleted'
             ) {
                 rtScheduleReload(msg);
+                // Phase 18: if the interactions modal is open for this order,
+                // refresh its content live (no need to wait for table reload).
+                if (msg.order && msg.type === 'native_order:updated') {
+                    try {
+                        _refreshInteractionsIfOpen(msg.order);
+                    } catch (e) {
+                        console.warn('[NativeOrders-RT] refresh interactions failed:', e.message);
+                    }
+                }
             }
         };
     }
@@ -2048,6 +2080,183 @@
         }
     }
 
+    // ---------- Interactions modal: Tin nhắn + Bình luận ----------
+    // Realtime-aware: subscribes to native_order:updated and refreshes the
+    // open modal when the same order changes. Click a comment row → opens
+    // Facebook permalink. Messages tab deep-links to tpos-pancake for chat.
+    let _interactionsState = null; // { code, tab, scrollY }
+
+    async function openInteractions(code, initialTab = 'messages') {
+        const order = STATE.orders.find((o) => o.code === code);
+        if (!order) {
+            notify('Không tìm thấy đơn ' + code, 'error');
+            return;
+        }
+        _interactionsState = { code, tab: initialTab };
+        _renderInteractionsModal(order, initialTab);
+    }
+
+    function _renderInteractionsModal(order, tab) {
+        let modal = document.getElementById('orderInteractionsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'orderInteractionsModal';
+            modal.className = 'w2p-overlay';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) _closeInteractions();
+            });
+        }
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="w2p-card" style="max-width:720px;">
+                <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;">
+                    <div style="width:40px;height:40px;border-radius:50%;background:#ede9fe;color:#5b21b6;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i data-lucide="messages-square" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <strong style="font-size:14px;color:#0f172a;display:block;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
+                        <div style="font-size:11px;color:#6b7280;">
+                            ${escapeHtml(order.code)} · ${order.phone ? '📞 ' + escapeHtml(order.phone) : 'không SĐT'}
+                            ${order.fbUserId ? ' · 👤 ' + escapeHtml(String(order.fbUserId).slice(-12)) : ''}
+                        </div>
+                    </div>
+                    <button onclick="NativeOrdersApp._closeInteractions()" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;line-height:1;">×</button>
+                </div>
+                <div style="display:flex;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
+                    <button class="interactions-tab ${tab === 'messages' ? 'is-active' : ''}" data-tab="messages" style="flex:1;padding:10px 14px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'messages' ? '#7c3aed' : '#475569'};border-bottom:2px solid ${tab === 'messages' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                        <i data-lucide="message-circle" style="width:14px;height:14px;"></i> Tin nhắn
+                        ${Number(order.messageCount) > 0 ? `<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:9px;font-size:11px;font-weight:700;">${order.messageCount}</span>` : ''}
+                    </button>
+                    <button class="interactions-tab ${tab === 'comments' ? 'is-active' : ''}" data-tab="comments" style="flex:1;padding:10px 14px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'comments' ? '#7c3aed' : '#475569'};border-bottom:2px solid ${tab === 'comments' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                        <i data-lucide="message-square" style="width:14px;height:14px;"></i> Bình luận
+                        ${Number(order.commentCount) > 0 ? `<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:9px;font-size:11px;font-weight:700;">${order.commentCount}</span>` : ''}
+                    </button>
+                </div>
+                <div id="interactionsBody" class="w2p-scroll-area" style="max-height:480px;padding:14px 18px;">${
+                    tab === 'messages' ? _renderMessagesPanel(order) : _renderCommentsPanel(order)
+                }</div>
+            </div>`;
+
+        // Wire tab clicks
+        modal.querySelectorAll('.interactions-tab').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const newTab = btn.dataset.tab;
+                if (newTab === _interactionsState.tab) return;
+                _interactionsState.tab = newTab;
+                _renderInteractionsModal(order, newTab);
+            });
+        });
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function _renderMessagesPanel(order) {
+        if (!order.fbUserId) {
+            return `<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">
+                <i data-lucide="user-x" style="width:32px;height:32px;display:block;margin:0 auto 8px;color:#cbd5e1;"></i>
+                Đơn không có Facebook user ID — không thể mở chat.
+            </div>`;
+        }
+        // Build deep-link to tpos-pancake page with this customer focused
+        const pancakeUrl = `../tpos-pancake/index.html?focusFbUserId=${encodeURIComponent(order.fbUserId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}${order.liveCampaignId ? '&focusCampaign=' + encodeURIComponent(order.liveCampaignId) : ''}`;
+        const lastComment = order.note ? order.note.split('---').pop().trim().slice(0, 200) : '';
+        return `
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <div style="background:#f1f5f9;border-left:3px solid #7c3aed;border-radius:0 6px 6px 0;padding:10px 14px;font-size:12px;color:#475569;">
+                    Đơn này gắn với <strong>${escapeHtml(order.messageCount || 0)} tin nhắn</strong> + <strong>${escapeHtml(order.commentCount || 0)} bình luận</strong> trong campaign <strong>${escapeHtml(order.liveCampaignName || '(không có campaign)')}</strong>.
+                </div>
+                ${
+                    lastComment
+                        ? `<div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;font-weight:700;margin-bottom:6px;">Bình luận / ghi chú gần nhất</div>
+                    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;font-size:13px;color:#334155;line-height:1.5;white-space:pre-wrap;">${escapeHtml(lastComment)}</div>
+                </div>`
+                        : ''
+                }
+                <a href="${pancakeUrl}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">
+                    <i data-lucide="external-link" style="width:16px;height:16px;"></i>
+                    Mở chat với khách trong TPOS × Pancake
+                </a>
+                <div style="font-size:11px;color:#94a3b8;line-height:1.5;">
+                    Trang TPOS × Pancake sẽ tự filter danh sách comments theo Facebook ID của khách. Từ đó bấm vào tin nhắn để chat.
+                </div>
+            </div>`;
+    }
+
+    function _renderCommentsPanel(order) {
+        const ids = Array.isArray(order.commentIds) ? order.commentIds : [];
+        if (ids.length === 0) {
+            return `<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">
+                <i data-lucide="message-square-off" style="width:32px;height:32px;display:block;margin:0 auto 8px;color:#cbd5e1;"></i>
+                Chưa có bình luận nào trong đơn.
+            </div>`;
+        }
+        // Parse comment lines from `note` (each merge appends "[timestamp] message")
+        const noteLines = order.note
+            ? order.note
+                  .split('---')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+            : [];
+        const pancakeUrl = (commentId) =>
+            `../tpos-pancake/index.html?focusCommentId=${encodeURIComponent(commentId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}`;
+        const fbPermalink = (commentId) => {
+            // Best-effort permalink — fb_post_id may be "pageId_postId" or just postId
+            const postId = order.fbPostId || '';
+            const postShort = postId.includes('_') ? postId.split('_').pop() : postId;
+            const cmtShort = String(commentId).includes('_')
+                ? String(commentId).split('_').pop()
+                : commentId;
+            if (postShort && cmtShort) {
+                return `https://www.facebook.com/${order.fbPageId || ''}/posts/${postShort}?comment_id=${cmtShort}`;
+            }
+            return `https://www.facebook.com/${commentId}`;
+        };
+        return `
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                ${ids
+                    .map((cid, i) => {
+                        const noteLine = noteLines[i] || '';
+                        return `
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
+                        <code style="font-size:11px;color:#6b7280;font-family:'JetBrains Mono',Menlo,monospace;">#${escapeHtml(String(cid).slice(-16))}</code>
+                        <div style="display:inline-flex;gap:6px;">
+                            <a href="${fbPermalink(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#3b82f6;text-decoration:none;padding:4px 8px;border:1px solid #dbeafe;border-radius:4px;">
+                                <i data-lucide="facebook" style="width:11px;height:11px;"></i> Facebook
+                            </a>
+                            <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#7c3aed;text-decoration:none;padding:4px 8px;border:1px solid #ede9fe;border-radius:4px;">
+                                <i data-lucide="external-link" style="width:11px;height:11px;"></i> TPOS Pancake
+                            </a>
+                        </div>
+                    </div>
+                    ${
+                        noteLine
+                            ? `<div style="font-size:13px;color:#334155;line-height:1.5;white-space:pre-wrap;">${escapeHtml(noteLine)}</div>`
+                            : '<div style="font-size:11px;color:#94a3b8;font-style:italic;">(chưa có nội dung trong note)</div>'
+                    }
+                </div>`;
+                    })
+                    .join('')}
+            </div>`;
+    }
+
+    function _closeInteractions() {
+        const modal = document.getElementById('orderInteractionsModal');
+        if (modal) modal.style.display = 'none';
+        _interactionsState = null;
+    }
+
+    // Hook for realtime refresh — called from WS event handler
+    function _refreshInteractionsIfOpen(updatedOrder) {
+        if (!_interactionsState || _interactionsState.code !== updatedOrder.code) return;
+        // Merge updated fields into the live STATE entry (broadcast may carry newer data)
+        const idx = STATE.orders.findIndex((o) => o.code === updatedOrder.code);
+        if (idx !== -1) STATE.orders[idx] = { ...STATE.orders[idx], ...updatedOrder };
+        _renderInteractionsModal(STATE.orders[idx] || updatedOrder, _interactionsState.tab);
+    }
+
     window.NativeOrdersApp = {
         openEdit,
         quickStatus,
@@ -2062,6 +2271,10 @@
         openCustomer,
         filterByCustomer,
         clearCustomerFilter,
+        // Phase 18: interactions modal (Tin nhắn + Bình luận)
+        openInteractions,
+        _closeInteractions,
+        _refreshInteractionsIfOpen,
         // Product picker + line management (inline onclicks)
         addLineFromPicker,
         changeLineQty,
