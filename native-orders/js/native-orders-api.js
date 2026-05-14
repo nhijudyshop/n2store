@@ -53,6 +53,7 @@
             customerId,
             page = 1,
             limit = 200,
+            deleted, // 'only' | 'with' | undefined → exclude deleted by default
         } = {}) {
             const qs = new URLSearchParams();
             if (status && status !== 'all') qs.set('status', status);
@@ -62,6 +63,7 @@
                 qs.set('campaignIds', campaignIds.join(','));
             }
             if (customerId) qs.set('customerId', String(customerId));
+            if (deleted) qs.set('deleted', deleted);
             qs.set('page', String(page));
             qs.set('limit', String(limit));
             return _fetchJson(`${BASE}/load?${qs}`);
@@ -94,8 +96,28 @@
             });
         },
 
-        async remove(code) {
-            return _fetchJson(`${BASE}/${encodeURIComponent(code)}`, { method: 'DELETE' });
+        /**
+         * Soft delete by default — sets deleted_at. Pass {permanent: true}
+         * to hard-delete.
+         */
+        async remove(code, opts = {}) {
+            const qs = opts.permanent ? '?permanent=true' : '';
+            return _fetchJson(`${BASE}/${encodeURIComponent(code)}${qs}`, {
+                method: 'DELETE',
+                headers: opts.permanent ? {} : { 'Content-Type': 'application/json' },
+                body: opts.permanent
+                    ? undefined
+                    : JSON.stringify({
+                          deletedBy: opts.deletedBy,
+                          deletedByName: opts.deletedByName,
+                      }),
+            });
+        },
+
+        async restore(code) {
+            return _fetchJson(`${BASE}/${encodeURIComponent(code)}/restore`, {
+                method: 'POST',
+            });
         },
 
         // ===== Product picker helper (hits web2-products API) =====

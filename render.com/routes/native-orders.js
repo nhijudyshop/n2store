@@ -122,6 +122,15 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_native_orders_partner_id ON native_orders(partner_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_company_id ON native_orders(company_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_customer_id ON native_orders(customer_id);
+
+            -- Migration 080: soft-delete — orders go to "Đã xóa" section instead
+            -- of being removed. Hard delete still available via ?permanent=true.
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS deleted_at      BIGINT,
+                ADD COLUMN IF NOT EXISTS deleted_by      VARCHAR(100),
+                ADD COLUMN IF NOT EXISTS deleted_by_name VARCHAR(255);
+            CREATE INDEX IF NOT EXISTS idx_native_orders_deleted_at
+                ON native_orders(deleted_at DESC) WHERE deleted_at IS NOT NULL;
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -175,6 +184,10 @@ function mapRowToOrder(row) {
         createdByName: row.created_by_name,
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
+        // Migration 080 — soft delete
+        deletedAt: row.deleted_at ? Number(row.deleted_at) : null,
+        deletedBy: row.deleted_by || null,
+        deletedByName: row.deleted_by_name || null,
         // Migration 067 — TPOS-style fields
         assignedEmployeeId: row.assigned_employee_id,
         assignedEmployeeName: row.assigned_employee_name,
@@ -824,6 +837,7 @@ router.get('/load', async (req, res) => {
             fbPostId,
             campaignIds,
             customerId,
+            deleted, // 'only' → just deleted, 'with' → both, default → exclude deleted
         } = req.query;
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(1000, Math.max(1, parseInt(limit)));
@@ -831,6 +845,13 @@ router.get('/load', async (req, res) => {
 
         const conds = [];
         const params = [];
+        // Soft-delete scope
+        const deletedScope = String(deleted || '').toLowerCase();
+        if (deletedScope === 'only') {
+            conds.push('deleted_at IS NOT NULL');
+        } else if (deletedScope !== 'with') {
+            conds.push('deleted_at IS NULL');
+        }
         if (status && status !== 'all') {
             params.push(status);
             conds.push(`status = $${params.length}`);
@@ -1016,18 +1037,62 @@ router.delete('/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const r = await pool.query(`DELETE FROM native_orders WHERE code = $1 RETURNING code`, [
-            req.params.code,
-        ]);
+        const code = req.params.code;
+        const permanent =
+            String(req.query.permanent || '').toLowerCase() === 'true' ||
+            req.query.permanent === '1';
+        const { deletedBy, deletedByName } = req.body || {};
+
+        let r;
+        if (permanent) {
+            r = await pool.query(`DELETE FROM native_orders WHERE code = $1 RETURNING code`, [
+                code,
+            ]);
+        } else {
+            r = await pool.query(
+                `UPDATE native_orders
+                 SET deleted_at = $1, deleted_by = $2, deleted_by_name = $3
+                 WHERE code = $4 AND deleted_at IS NULL
+                 RETURNING code`,
+                [Date.now(), deletedBy || null, deletedByName || null, code]
+            );
+        }
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         if (req.app.locals.broadcastToClients) {
             req.app.locals.broadcastToClients({
                 type: 'native_order:deleted',
-                action: 'deleted',
+                action: permanent ? 'deleted' : 'soft-deleted',
+                code,
+            });
+        }
+        res.json({ success: true, permanent });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /:code/restore — bring an order back from "Đã xóa" section
+router.post('/:code/restore', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `UPDATE native_orders
+             SET deleted_at = NULL, deleted_by = NULL, deleted_by_name = NULL
+             WHERE code = $1 AND deleted_at IS NOT NULL
+             RETURNING *`,
+            [req.params.code]
+        );
+        if (r.rows.length === 0) return res.status(404).json({ error: 'Not found or not deleted' });
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:restored',
+                action: 'restored',
                 code: req.params.code,
             });
         }
-        res.json({ success: true });
+        res.json({ success: true, order: mapRowToOrder(r.rows[0]) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
