@@ -25,6 +25,47 @@
 
 ## 2026-05-14
 
+### [delivery-report] Fix "Đã kiểm tra" không lưu sau F5 + thêm modal Lịch sử KT
+
+**User báo**:
+1. Bấm "Đã kiểm tra" trên modal đơn → row tô xám OK, nhưng F5 lại thì mất, không persist.
+2. Thêm nút icon "Lịch sử đã kiểm tra" cạnh nút "Ẩn hiện cột" để xem lại lịch sử bấm KT.
+
+**Root cause (#1)**: `OrderCheckStore.markChecked()` gọi `col.doc(number).set(...)` với `number = "NJD/2026/67403"`. Firestore JS SDK **coi `/` là path separator** → write thực tế đẩy doc xuống path lồng sâu `delivery_report/data/order_checks/NJD/2026/67403`, KHÔNG phải doc trực tiếp trong collection `order_checks`. Khi load lại, `col.get()` chỉ trả về immediate children → không thấy data đã ghi → `_data.clear()` rồi `saveToLocal()` ghi đè localStorage = rỗng → mất luôn.
+
+**Fix**:
+
+- `delivery-report/js/delivery-report.js`
+    - Thêm `sanitizeDocId(number)`: thay `/` bằng `__`. Giữ `number` gốc trong payload để dùng làm in-memory key.
+    - `markChecked()`: dùng `col.doc(sanitizeDocId(number))`.
+    - `setupListener()` + `init()`: dùng `payload.number` làm Map key (không dùng `doc.id` nữa).
+    - `init()`: trước khi clear `_data`, snapshot các entry local-only (có trong localStorage nhưng vắng mặt trên Firestore) → backfill lên Firestore với sanitized ID → migrate data cũ tự động.
+    - Thêm `getAllSortedDesc()` cho modal lịch sử.
+
+**Feature #2 — Modal Lịch sử KT**:
+
+- `delivery-report/index.html`: thêm button `#drCheckHistoryBtn` ngay cạnh `Ẩn hiện cột` (nhóm trong wrapper flex chung phía phải).
+- `delivery-report/js/delivery-report.js`: thêm `openCheckHistory()`, `ensureCheckHistoryModal()`, `renderCheckHistoryBody()`. Modal hiển thị table: STT, Số đơn, Khách hàng, SĐT, Người kiểm, Thời gian. Search realtime theo số đơn / tên / SĐT / người kiểm. Sort newest first theo `checkedAt`.
+- Export `openCheckHistory` trên `window.DeliveryReport`.
+
+**Verified bằng Playwright** ([scripts/test-delivery-check-persistence.js](../scripts/test-delivery-check-persistence.js)):
+
+- ✅ Mark order → F5 → row vẫn `dr-row-checked`
+- ✅ Lịch sử KT modal chứa order vừa kiểm
+- ✅ Search box trong modal filter đúng
+- ✅ Cleanup Firestore xong, prod data sạch (test xóa entry mới ghi + bất kỳ entry `checkedBy=admin` trong 10 phút cuối)
+
+**Files changed**:
+
+- `delivery-report/js/delivery-report.js` (OrderCheckStore + history modal)
+- `delivery-report/index.html` (nút Lịch sử KT)
+- `scripts/test-delivery-check-persistence.js` (Playwright test, mới)
+- `docs/dev-log.md` (entry này)
+
+**Status**: ✅ Done.
+
+---
+
 ### [render][worker][balance-history-home] BE `/api/sepay-home/*` — đấu SePay account #2 (Home)
 
 **User request**: "browser test vào my.sepay.vn/login → tôi đăng nhập manual → đọc trong trang sepay đó để tích hợp vào balance-history-home → trang mới không liên quan trang cũ và sepay trang cũ".

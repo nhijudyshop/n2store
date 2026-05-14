@@ -133,6 +133,12 @@
             return db.collection('delivery_report').doc('data').collection('order_checks');
         }
 
+        // Firestore document IDs cannot contain '/'. Số HĐ "NJD/2026/67403" must be
+        // encoded for storage; the original number is preserved inside the payload.
+        function sanitizeDocId(number) {
+            return String(number).replace(/\//g, '__');
+        }
+
         function loadFromLocal() {
             try {
                 const raw = localStorage.getItem('drOrderChecks_v1');
@@ -153,13 +159,26 @@
             }
         }
 
+        function ingestSnapshot(snap) {
+            const remoteKeys = new Set();
+            snap.forEach((doc) => {
+                const data = doc.data() || {};
+                const key = data.number || doc.id;
+                remoteKeys.add(key);
+                _data.set(key, data);
+            });
+            return remoteKeys;
+        }
+
         function setupListener() {
             const col = getCollection();
             if (!col) return;
             _listener = col.onSnapshot(
                 (snap) => {
+                    // Replace with Firestore state (SoT). Local writes that succeeded
+                    // are echoed back through this listener so nothing is lost.
                     _data.clear();
-                    snap.forEach((doc) => _data.set(doc.id, doc.data() || {}));
+                    ingestSnapshot(snap);
                     saveToLocal();
                     applyCheckedStylesToTable();
                 },
@@ -176,8 +195,35 @@
             if (!col) return;
             try {
                 const snap = await col.get();
+                // Snapshot of local-only entries BEFORE we accept the remote state,
+                // so we can backfill anything that never reached Firestore (e.g.
+                // older writes that hit the broken slash path).
+                const localOnly = [];
+                const remoteKeys = new Set();
+                snap.forEach((doc) => {
+                    const data = doc.data() || {};
+                    const key = data.number || doc.id;
+                    remoteKeys.add(key);
+                });
+                for (const [key, payload] of _data) {
+                    if (!remoteKeys.has(key) && payload && payload.number) {
+                        localOnly.push(payload);
+                    }
+                }
                 _data.clear();
-                snap.forEach((doc) => _data.set(doc.id, doc.data() || {}));
+                ingestSnapshot(snap);
+                // Backfill local-only entries with sanitized doc IDs.
+                await Promise.all(
+                    localOnly.map((payload) => {
+                        _data.set(payload.number, payload);
+                        return col
+                            .doc(sanitizeDocId(payload.number))
+                            .set(payload, { merge: true })
+                            .catch((e) =>
+                                console.warn('[ORDER-CHECK] backfill failed:', e)
+                            );
+                    })
+                );
                 saveToLocal();
                 applyCheckedStylesToTable();
             } catch (e) {
@@ -192,6 +238,12 @@
 
         function getInfo(number) {
             return _data.get(number) || null;
+        }
+
+        function getAllSortedDesc() {
+            return Array.from(_data.values())
+                .filter((v) => v && v.number)
+                .sort((a, b) => (b.checkedAt || 0) - (a.checkedAt || 0));
         }
 
         async function markChecked(number, meta) {
@@ -211,13 +263,13 @@
             const col = getCollection();
             if (!col) return;
             try {
-                await col.doc(number).set(payload, { merge: true });
+                await col.doc(sanitizeDocId(number)).set(payload, { merge: true });
             } catch (e) {
                 console.warn('[ORDER-CHECK] save failed:', e);
             }
         }
 
-        return { init, isChecked, getInfo, markChecked };
+        return { init, isChecked, getInfo, getAllSortedDesc, markChecked };
     })();
 
     function applyCheckedStylesToTable() {
@@ -233,6 +285,125 @@
                 tr.classList.remove('dr-row-checked');
             }
         });
+    }
+
+    // =====================================================
+    // CHECK-HISTORY MODAL — danh sách đơn đã bấm "Đã kiểm tra"
+    // =====================================================
+    let _checkHistoryEl = null;
+
+    function ensureCheckHistoryModal() {
+        if (_checkHistoryEl) return _checkHistoryEl;
+        const el = document.createElement('div');
+        el.id = 'dr-check-history-modal';
+        el.style.cssText =
+            'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10020;align-items:center;justify-content:center;padding:20px;';
+        el.innerHTML = `
+            <div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;font-family:inherit;">
+                <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <h3 style="margin:0;font-size:16px;font-weight:600;color:#111827;">
+                        <i class="fas fa-clipboard-check" style="color:#10b981;"></i>
+                        Lịch sử đã kiểm tra
+                        <span id="dr-check-history-count" style="font-size:12px;font-weight:500;color:#6b7280;margin-left:6px;"></span>
+                    </h3>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" id="dr-check-history-search"
+                            placeholder="Tìm số đơn / khách / SĐT / người kiểm…"
+                            style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:240px;" />
+                        <button type="button" id="dr-check-history-close"
+                            style="background:transparent;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px 10px;line-height:1;">&times;</button>
+                    </div>
+                </div>
+                <div style="overflow:auto;flex:1;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead style="position:sticky;top:0;background:#f9fafb;z-index:1;">
+                            <tr>
+                                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;width:40px;">#</th>
+                                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Số đơn</th>
+                                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Khách hàng</th>
+                                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">SĐT</th>
+                                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Người kiểm</th>
+                                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Thời gian</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dr-check-history-body"></tbody>
+                    </table>
+                </div>
+            </div>`;
+        document.body.appendChild(el);
+
+        const hide = () => { el.style.display = 'none'; };
+        el.querySelector('#dr-check-history-close').addEventListener('click', hide);
+        el.addEventListener('click', (e) => {
+            if (e.target === el) hide();
+        });
+        el.querySelector('#dr-check-history-search').addEventListener('input', () => {
+            renderCheckHistoryBody();
+        });
+
+        _checkHistoryEl = el;
+        return el;
+    }
+
+    function renderCheckHistoryBody() {
+        const el = _checkHistoryEl;
+        if (!el) return;
+        const body = el.querySelector('#dr-check-history-body');
+        const countEl = el.querySelector('#dr-check-history-count');
+        const search = (el.querySelector('#dr-check-history-search')?.value || '')
+            .trim()
+            .toLowerCase();
+        const all = OrderCheckStore.getAllSortedDesc();
+        const filtered = !search
+            ? all
+            : all.filter((entry) => {
+                  const blob = [
+                      entry.number,
+                      entry.customerName,
+                      entry.phone,
+                      entry.checkedBy,
+                  ]
+                      .filter(Boolean)
+                      .join(' ')
+                      .toLowerCase();
+                  return blob.includes(search);
+              });
+
+        countEl.textContent = search
+            ? `(${filtered.length}/${all.length})`
+            : `(${all.length} đơn)`;
+
+        if (!filtered.length) {
+            body.innerHTML = `
+                <tr><td colspan="6" style="padding:24px;text-align:center;color:#9ca3af;">
+                    ${all.length === 0 ? 'Chưa có đơn nào được đánh dấu kiểm tra.' : 'Không có kết quả phù hợp.'}
+                </td></tr>`;
+            return;
+        }
+
+        body.innerHTML = filtered
+            .map((entry, idx) => {
+                const ts = entry.checkedAt
+                    ? new Date(entry.checkedAt).toLocaleString('vi-VN')
+                    : '';
+                return `<tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:8px 10px;color:#6b7280;">${idx + 1}</td>
+                    <td style="padding:8px 10px;font-weight:600;color:#111827;">${escapeHtml(entry.number || '')}</td>
+                    <td style="padding:8px 10px;color:#374151;">${escapeHtml(entry.customerName || '')}</td>
+                    <td style="padding:8px 10px;color:#374151;">${escapeHtml(entry.phone || '')}</td>
+                    <td style="padding:8px 10px;color:#374151;">${escapeHtml(entry.checkedBy || '')}</td>
+                    <td style="padding:8px 10px;color:#6b7280;white-space:nowrap;">${escapeHtml(ts)}</td>
+                </tr>`;
+            })
+            .join('');
+    }
+
+    function openCheckHistory() {
+        const el = ensureCheckHistoryModal();
+        const searchInput = el.querySelector('#dr-check-history-search');
+        if (searchInput) searchInput.value = '';
+        renderCheckHistoryBody();
+        el.style.display = 'flex';
     }
 
     function toLocalDateStr(d) {
@@ -4143,6 +4314,7 @@
         hideOrder: hideOrder,
         printView: printView,
         confirmPrint: confirmPrint,
+        openCheckHistory: openCheckHistory,
         getState: () => DeliveryReportState,
     };
 })();

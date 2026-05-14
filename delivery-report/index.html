@@ -251,8 +251,19 @@
                         </button>
                     </div>
 
+                    <!-- Right-side action group: history + column toggle -->
+                    <div style="display: flex; gap: 8px; align-items: center; margin-left: auto">
+                        <button
+                            class="dr-btn"
+                            id="drCheckHistoryBtn"
+                            onclick="DeliveryReport.openCheckHistory()"
+                            style="background: #e5e7eb; color: #374151"
+                            title="Lịch sử đã kiểm tra"
+                        >
+                            <i class="fas fa-clipboard-check"></i> Lịch sử KT
+                        </button>
                     <!-- Column Toggle -->
-                    <div class="dr-column-toggle-wrapper">
+                    <div class="dr-column-toggle-wrapper" style="margin-left: 0">
                         <button
                             class="dr-btn"
                             id="drColumnToggleBtn"
@@ -306,6 +317,7 @@
                                 GH</label
                             >
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
