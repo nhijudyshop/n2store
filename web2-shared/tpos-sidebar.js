@@ -19,6 +19,24 @@
 (function (global) {
     'use strict';
 
+    // Auto-load the shared Web 2.0 popup module (custom alert/confirm/prompt).
+    // Resolves the URL relative to this script so it works regardless of which
+    // depth the host page sits at (/web2/foo/, /native-orders/, /tpos-pancake/, etc.).
+    (function autoLoadPopup() {
+        if (global.Popup) return;
+        const here = document.currentScript;
+        if (!here) return; // legacy IE / inline mode — page should include popup.js manually
+        try {
+            const url = new URL('./popup.js?v=20260514', here.src);
+            const s = document.createElement('script');
+            s.src = url.toString();
+            s.async = false; // preserve load order with other shared scripts
+            (document.head || document.documentElement).appendChild(s);
+        } catch {
+            /* ignore — Popup falls back to native alert via alertSoon */
+        }
+    })();
+
     // Group definitions matching TPOS sidebar structure.
     // For routes already implemented in our project: `our` field points to the URL.
     // Routes not yet implemented (placeholder): `our: null` — clicking shows "Coming soon".
@@ -626,6 +644,7 @@
         alertSoon(label, tpos) {
             const msg = `"${label}" — chưa làm.\nTPOS gốc: ${tpos || '(không rõ)'}\nSẽ port qua Web 2.0 ở phase tiếp.`;
             if (window.notificationManager?.show) window.notificationManager.show(msg, 'info');
+            else if (window.Popup) window.Popup.alert(msg, { type: 'info' });
             else alert(msg);
         },
     };

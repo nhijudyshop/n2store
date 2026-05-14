@@ -36,8 +36,22 @@
     }
     function notify(msg, type) {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type || 'info');
+        else if (type === 'error' && window.Popup) window.Popup.error(msg);
         else if (type === 'error') alert(msg);
         else console.log('[pbh]', msg);
+    }
+    // Promise-based confirm/alert/prompt helpers (graceful fallback to native).
+    function w2pConfirm(msg, opts) {
+        return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
+    }
+    function w2pAlert(msg, opts) {
+        if (window.Popup) return window.Popup.alert(msg, opts);
+        alert(msg);
+        return Promise.resolve();
+    }
+    function w2pPrompt(msg, opts) {
+        if (window.Popup) return window.Popup.prompt(msg, opts);
+        return Promise.resolve(prompt(msg, opts?.defaultValue || ''));
     }
 
     const STATE_META = {
@@ -222,9 +236,8 @@
                     .join('') ||
                 '<tr><td colspan="6" style="text-align:center;color:#9ca3af">Không có dòng nào</td></tr>';
 
-            alert(
-                `PBH ${o.number}\n\n` +
-                    `KH: ${o.partner.name} — ${o.partner.phone}\n` +
+            await w2pAlert(
+                `KH: ${o.partner.name} — ${o.partner.phone}\n` +
                     `Địa chỉ: ${o.partner.address || '—'}\n` +
                     `Trạng thái: ${o.state}\n\n` +
                     `Tổng SL: ${o.totals.quantity}\n` +
@@ -233,7 +246,8 @@
                     `Còn nợ: ${fmtMoney(o.payment.residual)}\n\n` +
                     `Số dòng SP: ${(o.orderLines || []).length}\n` +
                     `In: ${o.printCount} lần\n` +
-                    `Đơn nguồn: ${o.sourceLink.code || '(Manual)'}`
+                    `Đơn nguồn: ${o.sourceLink.code || '(Manual)'}`,
+                { title: `Phiếu bán hàng ${o.number}`, type: 'info' }
             );
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
@@ -241,7 +255,7 @@
     }
 
     async function confirmOrder(number) {
-        if (!confirm(`Xác nhận PBH ${number}?`)) return;
+        if (!(await w2pConfirm(`Xác nhận PBH ${number}?`, { okText: 'Xác nhận' }))) return;
         const r = await fetch(
             `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/confirm`,
             { method: 'POST' }
@@ -252,7 +266,14 @@
         load();
     }
     async function cancelOrder(number) {
-        if (!confirm(`Hủy PBH ${number}?`)) return;
+        if (
+            !(await w2pConfirm(`Hủy PBH ${number}?`, {
+                type: 'warning',
+                okText: 'Hủy đơn',
+                cancelText: 'Đóng',
+            }))
+        )
+            return;
         const r = await fetch(
             `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/cancel`,
             { method: 'POST' }
@@ -272,7 +293,13 @@
     }
 
     async function createDelivery(number) {
-        if (!confirm(`Tạo Phiếu Giao Hàng từ ${number}?`)) return;
+        if (
+            !(await w2pConfirm(`Tạo Phiếu Giao Hàng từ ${number}?`, {
+                okText: 'Tạo phiếu giao',
+                type: 'info',
+            }))
+        )
+            return;
         try {
             const r = await fetch(`${WORKER}/api/delivery-invoices/from-pbh`, {
                 method: 'POST',
@@ -382,7 +409,13 @@
     }
 
     async function createRefund(number) {
-        const reason = prompt(`Tạo phiếu trả hàng từ ${number}\n\nLý do trả?`, 'Khách đổi/trả');
+        const reason = await w2pPrompt(`Lý do trả hàng?`, {
+            title: `Tạo phiếu trả từ ${number}`,
+            defaultValue: 'Khách đổi/trả',
+            placeholder: 'Nhập lý do (vd: hàng lỗi, sai size)',
+            okText: 'Tạo refund',
+            type: 'warning',
+        });
         if (!reason) return;
         try {
             const r = await fetch(`${WORKER}/api/refunds/from-pbh`, {
@@ -432,7 +465,14 @@
     async function bulkAction(endpoint, label) {
         const numbers = getSelectedNumbers();
         if (!numbers.length) return;
-        if (!confirm(`${label} ${numbers.length} đơn?`)) return;
+        const isCancel = /hủy/i.test(label);
+        if (
+            !(await w2pConfirm(`${label} ${numbers.length} đơn?`, {
+                okText: label,
+                type: isCancel ? 'warning' : 'question',
+            }))
+        )
+            return;
         try {
             const r = await fetch(`${WORKER}/api/fast-sale-orders/${endpoint}`, {
                 method: 'POST',
@@ -461,8 +501,14 @@
     }
 
     async function resetStt() {
-        const renumber = confirm(
-            'Reset STT — OK để renumber tất cả PBH theo ngày HĐ. Cancel để chỉ reset bộ đếm.'
+        const renumber = await w2pConfirm(
+            'OK để renumber TẤT CẢ PBH theo ngày HĐ.\nHuỷ để chỉ reset bộ đếm (PBH cũ giữ STT).',
+            {
+                title: 'Reset STT',
+                type: 'warning',
+                okText: 'Renumber tất cả',
+                cancelText: 'Chỉ reset bộ đếm',
+            }
         );
         try {
             const r = await fetch(`${WORKER}/api/fast-sale-orders/reset-stt`, {

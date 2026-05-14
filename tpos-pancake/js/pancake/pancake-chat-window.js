@@ -320,7 +320,9 @@ const PancakeChatWindow = {
         } catch (error) {
             state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
             this.renderMessages();
-            alert(`Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`);
+            const errMsg = `Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`;
+            if (window.Popup) window.Popup.error(errMsg);
+            else alert(errMsg);
         } finally {
             if (sendBtn) {
                 sendBtn.disabled = false;

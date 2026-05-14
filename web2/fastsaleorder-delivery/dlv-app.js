@@ -18,7 +18,16 @@
     }
     function notify(msg, type) {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type || 'info');
+        else if (type === 'error' && window.Popup) window.Popup.error(msg);
         else if (type === 'error') alert(msg);
+    }
+    function w2pConfirm(msg, opts) {
+        return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
+    }
+    function w2pAlert(msg, opts) {
+        if (window.Popup) return window.Popup.alert(msg, opts);
+        alert(msg);
+        return Promise.resolve();
     }
 
     const STATE_META = {
@@ -124,12 +133,19 @@
         const d = await r.json();
         if (!d.success) return notify('Lỗi: ' + d.error, 'error');
         const o = d.order;
-        alert(
-            `Phiếu ${o.number}\nPBH: ${o.fso.number}\nKH: ${o.partner.name} — ${o.partner.phone}\nĐịa chỉ: ${o.partner.address || '—'}\nVận chuyển: ${o.carrier.name || '—'}\nTracking: ${o.carrier.trackingRef || '—'}\nSL: ${o.totalQuantity}\nCOD: ${o.cashOnDelivery}đ\nState: ${o.state}\nHistory:\n${(o.stateHistory || []).map((h) => `  ${h.from || '∅'} → ${h.to} @ ${new Date(h.at).toLocaleString('vi-VN')}`).join('\n')}`
+        await w2pAlert(
+            `PBH: ${o.fso.number}\nKH: ${o.partner.name} — ${o.partner.phone}\nĐịa chỉ: ${o.partner.address || '—'}\nVận chuyển: ${o.carrier.name || '—'}\nTracking: ${o.carrier.trackingRef || '—'}\nSL: ${o.totalQuantity}\nCOD: ${o.cashOnDelivery}đ\nState: ${o.state}\n\nHistory:\n${(o.stateHistory || []).map((h) => `  ${h.from || '∅'} → ${h.to} @ ${new Date(h.at).toLocaleString('vi-VN')}`).join('\n')}`,
+            { title: `Phiếu giao ${o.number}`, type: 'info' }
         );
     }
     async function changeState(number, path, label) {
-        if (!confirm(`${label} phiếu ${number}?`)) return;
+        if (
+            !(await w2pConfirm(`${label} phiếu ${number}?`, {
+                okText: label,
+                type: /hủy/i.test(label) ? 'warning' : 'question',
+            }))
+        )
+            return;
         const r = await fetch(
             `${WORKER}/api/delivery-invoices/${encodeURIComponent(number)}/${path}`,
             {

@@ -176,8 +176,15 @@ const SettingsManager = (() => {
         }
     }
 
-    function deleteAccount(accountId) {
-        if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) return;
+    async function deleteAccount(accountId) {
+        const ok = window.Popup
+            ? await window.Popup.confirm('Bạn có chắc muốn xoá tài khoản này?', {
+                  title: 'Xoá tài khoản',
+                  okText: 'Xoá',
+                  type: 'error',
+              })
+            : confirm('Bạn có chắc muốn xóa tài khoản này?');
+        if (!ok) return;
         if (window.pancakeTokenManager?.deleteAccount) {
             window.pancakeTokenManager.deleteAccount(accountId);
             _loadPancakeAccounts();

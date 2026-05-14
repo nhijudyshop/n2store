@@ -118,7 +118,16 @@
 
     function notify(msg, type = 'info') {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type);
+        else if (type === 'error' && window.Popup) window.Popup.error(msg);
         else console.log(`[${type}]`, msg);
+    }
+    function w2pConfirm(msg, opts) {
+        return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
+    }
+    function w2pAlert(msg, opts) {
+        if (window.Popup) return window.Popup.alert(msg, opts);
+        alert(msg);
+        return Promise.resolve();
     }
 
     // ---------- Render ----------
@@ -515,9 +524,15 @@
     }
 
     async function resetStt() {
-        const renumber = confirm(
-            'Reset STT — chọn OK để RENUMBER toàn bộ đơn hiện có (1, 2, 3...) theo thứ tự ngày tạo.\n\n' +
-                'Chọn Cancel để chỉ reset bộ đếm — đơn cũ giữ STT, đơn MỚI tiếp theo bắt đầu từ 1.'
+        const renumber = await w2pConfirm(
+            'Đồng ý để RENUMBER toàn bộ đơn hiện có (1, 2, 3...) theo thứ tự ngày tạo.\n' +
+                'Huỷ để chỉ reset bộ đếm — đơn cũ giữ STT, đơn MỚI tiếp theo bắt đầu từ 1.',
+            {
+                title: 'Reset STT',
+                type: 'warning',
+                okText: 'Renumber tất cả',
+                cancelText: 'Chỉ reset bộ đếm',
+            }
         );
         try {
             const r = await fetch(`${WORKER_URL}/api/native-orders/reset-stt`, {
@@ -531,11 +546,11 @@
                 data.mode === 'renumber'
                     ? `Đã renumber ${data.renumbered} đơn — STT 1..${data.renumbered}`
                     : 'Đã reset bộ đếm — đơn mới sẽ có STT từ 1';
-            alert(msg);
+            await w2pAlert(msg, { type: 'success' });
             load();
         } catch (err) {
             console.error('[NativeOrders] resetStt error:', err);
-            alert('Lỗi reset STT: ' + err.message);
+            await w2pAlert('Lỗi reset STT: ' + err.message, { type: 'error' });
         }
     }
 
@@ -1041,12 +1056,165 @@
     }
 
     async function createPbh(code) {
-        if (!confirm(`Tạo Phiếu Bán Hàng (PBH) từ đơn ${code}?`)) return;
+        // Custom popup: show order summary + optional deposit/delivery overrides
+        const src = STATE.orders.find((o) => o.code === code);
+        if (!src) {
+            notify('Không tìm thấy đơn ' + code, 'error');
+            return;
+        }
+        const totals = (src.products || []).reduce(
+            (acc, p) => {
+                const q = Number(p.quantity) || 0;
+                const price = Number(p.price) || 0;
+                acc.qty += q;
+                acc.amount += q * price;
+                return acc;
+            },
+            { qty: 0, amount: 0 }
+        );
+        if (totals.qty === 0) {
+            const ok = await w2pConfirm('Đơn chưa có sản phẩm. Tạo PBH rỗng (totals = 0)?', {
+                title: `Cảnh báo`,
+                okText: 'Vẫn tạo',
+                type: 'warning',
+            });
+            if (!ok) return;
+        }
+        if (!window.Popup) {
+            // Fallback for any environment without popup loaded yet
+            if (!confirm(`Tạo Phiếu Bán Hàng (PBH) từ đơn ${code}?`)) return;
+            return _doCreatePbh(code, {});
+        }
+        // Build a custom modal with form fields (deposit, deliveryPrice, paymentAmount, comment)
+        const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
+        const html = `
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#334155;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:#f8fafc;border-radius:8px;padding:12px;">
+                    <div><strong>Đơn nguồn:</strong> ${escapeHtml(src.code)}</div>
+                    <div><strong>STT:</strong> ${src.displayStt ?? '—'}</div>
+                    <div><strong>Khách:</strong> ${escapeHtml(src.customerName || '—')}</div>
+                    <div><strong>SĐT:</strong> ${escapeHtml(src.phone || '—')}</div>
+                    <div style="grid-column:1/-1;"><strong>Địa chỉ:</strong> ${escapeHtml(src.address || '—')}</div>
+                    <div><strong>SL sản phẩm:</strong> ${totals.qty}</div>
+                    <div style="text-align:right;color:#10b981;font-weight:700;">${fmt(totals.amount)}đ</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                        Đặt cọc
+                        <input id="pbhDeposit" type="number" min="0" step="1000" value="${Number(src.deposit) || 0}"
+                            style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                        Phí giao hàng
+                        <input id="pbhDeliveryPrice" type="number" min="0" step="1000" value="0"
+                            style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                        Đã thanh toán
+                        <input id="pbhPaymentAmount" type="number" min="0" step="1000" value="0"
+                            style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                        Ngày HĐ
+                        <input id="pbhDateInvoice" type="date" value="${new Date().toISOString().slice(0, 10)}"
+                            style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                    </label>
+                </div>
+                <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
+                    Ghi chú
+                    <textarea id="pbhComment" rows="2" placeholder="Ghi chú nội bộ (tùy chọn)"
+                        style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+                </label>
+            </div>
+        `;
+        const submit = await openCustomFormPopup({
+            title: `Tạo PBH từ ${code}`,
+            iconType: 'info',
+            iconName: 'receipt',
+            html,
+            okText: 'Tạo PBH',
+            cancelText: 'Huỷ',
+            collect: (root) => ({
+                deposit: Number(root.querySelector('#pbhDeposit').value) || 0,
+                deliveryPrice: Number(root.querySelector('#pbhDeliveryPrice').value) || 0,
+                paymentAmount: Number(root.querySelector('#pbhPaymentAmount').value) || 0,
+                dateInvoice: root.querySelector('#pbhDateInvoice').value || null,
+                comment: root.querySelector('#pbhComment').value.trim() || null,
+            }),
+        });
+        if (!submit) return;
+        await _doCreatePbh(code, submit);
+    }
+
+    // Renders a form-style popup matching Popup styling. Returns the
+    // result of `opts.collect(rootEl)` on OK, or null on cancel/Escape.
+    async function openCustomFormPopup(opts) {
+        return new Promise((resolve) => {
+            const root = document.createElement('div');
+            root.style.cssText =
+                'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;';
+            root.innerHTML = `
+                <div style="background:#fff;border-radius:12px;max-width:520px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.25);overflow:hidden;font-family:Inter,system-ui,sans-serif;">
+                    <div style="padding:18px 20px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px;">
+                        <div style="width:40px;height:40px;border-radius:50%;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i data-lucide="${opts.iconName || 'edit-3'}" style="width:22px;height:22px;"></i>
+                        </div>
+                        <strong style="font-size:15px;color:#0f172a;line-height:1.3;">${escapeHtml(opts.title)}</strong>
+                    </div>
+                    <div class="w2p-form-body" style="padding:16px 20px;">${opts.html}</div>
+                    <div style="padding:12px 20px 18px;display:flex;justify-content:flex-end;gap:8px;">
+                        <button type="button" data-action="cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">${escapeHtml(opts.cancelText || 'Huỷ')}</button>
+                        <button type="button" data-action="ok" style="padding:8px 16px;border-radius:8px;border:1px solid transparent;background:#7c3aed;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">${escapeHtml(opts.okText || 'OK')}</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(root);
+            if (window.lucide) lucide.createIcons();
+            const cleanup = () => {
+                root.remove();
+                document.removeEventListener('keydown', onKey);
+            };
+            const onKey = (e) => {
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(null);
+                }
+            };
+            document.addEventListener('keydown', onKey);
+            root.addEventListener('click', (e) => {
+                if (e.target === root) {
+                    cleanup();
+                    resolve(null);
+                }
+            });
+            root.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+                cleanup();
+                resolve(null);
+            });
+            root.querySelector('[data-action="ok"]').addEventListener('click', () => {
+                let result = null;
+                try {
+                    result = opts.collect ? opts.collect(root) : true;
+                } catch (e) {
+                    console.warn('[customFormPopup] collect failed', e);
+                }
+                cleanup();
+                resolve(result);
+            });
+            // Focus first input/select/textarea
+            setTimeout(() => {
+                const first = root.querySelector('input, textarea, select');
+                if (first) first.focus();
+            }, 30);
+        });
+    }
+
+    async function _doCreatePbh(code, extras) {
         try {
+            const body = { nativeOrderCode: code, ...extras };
             const r = await fetch(`${WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nativeOrderCode: code }),
+                body: JSON.stringify(body),
             });
             const data = await r.json();
             if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
@@ -1056,7 +1224,6 @@
                 `${isIdempotent ? 'PBH đã tồn tại' : 'Đã tạo PBH'}: ${pbh.number} (STT ${pbh.displayStt})`,
                 'success'
             );
-            // Reload để show new status (draft → confirmed)
             await load();
         } catch (e) {
             notify('Lỗi tạo PBH: ' + e.message, 'error');
@@ -1065,7 +1232,15 @@
     }
 
     async function removeOrder(code) {
-        if (!confirm(`Xóa đơn ${code}? Hành động không thể hoàn tác.`)) return;
+        if (
+            !(await w2pConfirm(`Hành động không thể hoàn tác.`, {
+                title: `Xóa đơn ${code}?`,
+                okText: 'Xoá đơn',
+                cancelText: 'Đóng',
+                type: 'error',
+            }))
+        )
+            return;
         try {
             await window.NativeOrdersApi.remove(code);
             STATE.orders = STATE.orders.filter((x) => x.code !== code);

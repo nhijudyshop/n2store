@@ -23,6 +23,64 @@
 
 ---
 
+## 2026-05-14
+
+### [web2][ux] Custom Popup module — thay thế native alert/confirm/prompt + form "Tạo PBH" riêng
+
+**Mục tiêu**: bỏ native `alert/confirm/prompt` xấu, không đồng nhất style cho toàn Web 2.0 (PBH, Native Orders, refund, delivery, tpos-pancake, web2-products, page-builder, …). Thêm 1 popup tuỳ chỉnh có icon/màu theo type, animation, keyboard nav, form input.
+
+**Module** ([web2-shared/popup.js](../web2-shared/popup.js)):
+
+- API Promise-based: `Popup.alert(msg, opts)` → void, `Popup.confirm(msg, opts)` → boolean, `Popup.prompt(msg, opts)` → string|null
+- Convenience: `Popup.success/error/warning/info(msg)` — alert có type pre-set
+- Options: `title`, `type` ('info'|'success'|'warning'|'error'|'question'), `okText`, `cancelText`, `defaultValue`, `placeholder`, `multiline`
+- Lucide icon theo type (info/check-circle/alert-triangle/alert-octagon/help-circle)
+- Keyboard: Enter = OK (Ctrl+Enter trong multiline), Escape = Cancel, click backdrop = Cancel
+- Animation: fade-in backdrop 120ms + pop 180ms (cubic-bezier expo-out)
+- Idempotent (`if (window.Popup) return;`)
+
+**Auto-load** ([web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js)):
+
+- Top of IIFE: `autoLoadPopup()` resolves `./popup.js` relative to `document.currentScript.src` → inject `<script>` vào `<head>` async=false
+- Mọi trang Web 2.0 đã include `tpos-sidebar.js` (qua `page-shell.js` hoặc trực tiếp) tự động có `window.Popup` sẵn sàng — không cần sửa từng HTML
+- Fallback: nếu Popup chưa load (mạng chậm), mọi callsite có pattern `window.Popup ? Popup.confirm(...) : Promise.resolve(confirm(...))`
+
+**Callsites đã migrate** (~25 chỗ):
+
+- `web2/fastsaleorder-invoice/pbh-app.js` — detail alert, confirm/cancel/delivery/refund/bulk action/resetStt + `w2pConfirm/w2pAlert/w2pPrompt` helpers
+- `web2/fastsaleorder-refund/rf-app.js` — detail alert + changeState confirm
+- `web2/fastsaleorder-delivery/dlv-app.js` — detail alert + changeState confirm
+- `native-orders/js/native-orders-app.js` — resetStt confirm/alert, removeOrder confirm, createPbh (custom form, xem dưới)
+- `web2-products/js/web2-products-app.js` — remove SP confirm
+- `web2-shared/page-builder.js` — generic record delete confirm
+- `web2-shared/tpos-sidebar.js` — `alertSoon` fallback
+- `tpos-pancake/js/layout/settings-manager.js` — delete account confirm
+- `tpos-pancake/js/pancake/pancake-context-menu.js` + `pancake-chat.js` — add-note prompt + success/error alert
+- `tpos-pancake/js/pancake/pancake-chat-window.js` + `pancake-chat.js` — image select + send-message + private-reply error/confirm
+
+**Form popup riêng "Tạo PBH"** ([native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) `openCustomFormPopup`):
+
+- Trước: `confirm('Tạo PBH từ X?')` — không cho user edit gì
+- Sau: modal full form 520px:
+    - Block tóm tắt đơn nguồn: code, STT, KH, SĐT, địa chỉ, SL, tổng tiền (highlight xanh)
+    - 4 inputs grid 2×2: Đặt cọc, Phí giao hàng, Đã thanh toán, Ngày HĐ
+    - Textarea ghi chú
+    - OK/Huỷ buttons (Escape + click outside = cancel)
+- Submit truyền `{ deposit, deliveryPrice, paymentAmount, dateInvoice, comment }` xuống `POST /api/fast-sale-orders/from-native-order` (backend đã hỗ trợ các field này)
+
+**Test live** (localhost persistent browser session):
+
+- `Popup.confirm({okText:'Đồng ý', type:'question'})` → modal hiện, click OK → resolve `true`
+- `Popup.prompt({defaultValue:'hello'})` → input có value 'hello', modify → resolve string mới
+- `createPbh(NW-20260513-0016)`: empty-order warning fires đúng → click "Vẫn tạo" → form modal hiện đủ 5 fields (pbhDeposit, pbhDeliveryPrice, pbhPaymentAmount, pbhDateInvoice, pbhComment), title "Tạo PBH từ NW-20260513-0016", cancel removes modal
+- 0 console errors
+
+**Cache bump**: `tpos-sidebar.js?v=20260514`, `native-orders-app.js?v=20260514`, plus 11 HTML pages có hard-coded sidebar version.
+
+**Status**: ✅ Live. Native alert/confirm/prompt giờ chỉ dùng làm fallback an toàn — mọi user-facing popup đều dùng custom UI.
+
+---
+
 ## 2026-05-13
 
 ### [orders][customer-360] Phase 14: Filter list theo Customer 360 id

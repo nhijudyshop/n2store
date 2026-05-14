@@ -596,7 +596,14 @@
             }
         }
         async function removeRecord(code) {
-            if (!confirm(`Xóa "${code}"?`)) return;
+            const ok = window.Popup
+                ? await window.Popup.confirm(`Hành động không thể hoàn tác.`, {
+                      title: `Xoá "${code}"?`,
+                      okText: 'Xoá',
+                      type: 'error',
+                  })
+                : confirm(`Xóa "${code}"?`);
+            if (!ok) return;
             try {
                 await api.remove(code);
                 notify(`Đã xóa ${code}`, 'success');

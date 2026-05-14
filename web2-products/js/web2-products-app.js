@@ -281,7 +281,15 @@
     }
 
     async function remove(code) {
-        if (!confirm(`Xóa SP ${code}? Không thể hoàn tác.`)) return;
+        const ok = window.Popup
+            ? await window.Popup.confirm(`Không thể hoàn tác.`, {
+                  title: `Xoá SP ${code}?`,
+                  okText: 'Xoá sản phẩm',
+                  cancelText: 'Đóng',
+                  type: 'error',
+              })
+            : confirm(`Xóa SP ${code}? Không thể hoàn tác.`);
+        if (!ok) return;
         try {
             await window.Web2ProductsApi.remove(code);
             STATE.products = STATE.products.filter((x) => x.code !== code);

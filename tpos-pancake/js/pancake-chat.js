@@ -27,7 +27,7 @@ class PancakeChatManager {
         this.debtCache = new Map();
         this.debtCacheConfig = {
             maxSize: 200,
-            ttl: 10 * 60 * 1000  // 10 minutes
+            ttl: 10 * 60 * 1000, // 10 minutes
         };
 
         // Debt display settings
@@ -82,7 +82,7 @@ class PancakeChatManager {
             { label: 'XU LY BC', color: 'purple', template: '' },
             { label: 'BOOM', color: 'red', template: '' },
             { label: 'CHECK IB', color: 'green', template: '' },
-            { label: 'Nv My', color: 'blue', template: '' }
+            { label: 'Nv My', color: 'blue', template: '' },
         ];
 
         // DOM Elements
@@ -402,27 +402,30 @@ class PancakeChatManager {
         // Filter by selected page (only when not searching via API)
         if (this.selectedPageId && this.searchResults === null) {
             // Find the selected page to get all possible IDs
-            const selectedPage = this.pages.find(p => p.id === this.selectedPageId);
+            const selectedPage = this.pages.find((p) => p.id === this.selectedPageId);
             const pageIdsToMatch = selectedPage
                 ? [selectedPage.id, selectedPage.fb_page_id, selectedPage.page_id].filter(Boolean)
                 : [this.selectedPageId];
 
-            filtered = filtered.filter(conv =>
-                pageIdsToMatch.includes(conv.page_id)
-            );
+            filtered = filtered.filter((conv) => pageIdsToMatch.includes(conv.page_id));
         }
 
         // Local filtering by search query (for additional client-side filter)
         // Skip if we already have API search results
         if (this.searchQuery && this.searchResults === null) {
             const query = this.searchQuery.toLowerCase();
-            filtered = filtered.filter(conv => {
+            filtered = filtered.filter((conv) => {
                 const customer = conv.customers?.[0] || {};
                 const name = (conv.from?.name || customer.name || '').toLowerCase();
                 const phone = (customer.phone || customer.phone_number || '').toLowerCase();
                 const snippet = (conv.snippet || '').toLowerCase();
                 const fbId = (customer.fb_id || conv.from?.id || '').toLowerCase();
-                return name.includes(query) || snippet.includes(query) || phone.includes(query) || fbId.includes(query);
+                return (
+                    name.includes(query) ||
+                    snippet.includes(query) ||
+                    phone.includes(query) ||
+                    fbId.includes(query)
+                );
             });
         }
 
@@ -434,33 +437,37 @@ class PancakeChatManager {
             if (filtered.length > 0) {
                 console.log('[TPOS-SAVED-FILTER] Sample conv[0] IDs:', {
                     'from.id': filtered[0].from?.id,
-                    'from_psid': filtered[0].from_psid,
+                    from_psid: filtered[0].from_psid,
                     'customer.psid': filtered[0].customers?.[0]?.psid,
-                    'customer.id': filtered[0].customers?.[0]?.id
+                    'customer.id': filtered[0].customers?.[0]?.id,
                 });
             }
 
             // Filter by saved customer IDs - check ALL possible ID fields
-            filtered = filtered.filter(conv => {
+            filtered = filtered.filter((conv) => {
                 const customer = conv.customers?.[0] || {};
                 // Check all possible ID fields - any match = include
                 const possibleIds = [
                     conv.from?.id,
                     conv.from_psid,
                     customer.psid,
-                    customer.id
+                    customer.id,
                 ].filter(Boolean);
-                return possibleIds.some(id => this.tposSavedCustomerIds.has(id));
+                return possibleIds.some((id) => this.tposSavedCustomerIds.has(id));
             });
-            console.log('[TPOS-SAVED-FILTER] After filter:', filtered.length, 'conversations match');
+            console.log(
+                '[TPOS-SAVED-FILTER] After filter:',
+                filtered.length,
+                'conversations match'
+            );
         } else if (this.filterType === 'inbox') {
-            filtered = filtered.filter(conv => conv.type === 'INBOX');
+            filtered = filtered.filter((conv) => conv.type === 'INBOX');
         } else if (this.filterType === 'comment') {
-            filtered = filtered.filter(conv => conv.type === 'COMMENT');
+            filtered = filtered.filter((conv) => conv.type === 'COMMENT');
         }
 
         if (filtered.length === 0) {
-            const selectedPage = this.pages.find(p => p.id === this.selectedPageId);
+            const selectedPage = this.pages.find((p) => p.id === this.selectedPageId);
             const pageName = selectedPage?.name || 'page này';
             container.innerHTML = `
                 <div class="pk-empty-state" style="padding: 40px 20px;">
@@ -473,7 +480,7 @@ class PancakeChatManager {
             return;
         }
 
-        container.innerHTML = filtered.map(conv => this.renderConversationItem(conv)).join('');
+        container.innerHTML = filtered.map((conv) => this.renderConversationItem(conv)).join('');
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -497,7 +504,8 @@ class PancakeChatManager {
 
         // Check if customer has phone number
         const customer = conv.customers?.[0] || conv.from || {};
-        const hasPhone = customer.phone_numbers?.length > 0 ||
+        const hasPhone =
+            customer.phone_numbers?.length > 0 ||
             customer.phone ||
             conv.recent_phone_numbers?.length > 0 ||
             conv.has_phone === true;
@@ -506,10 +514,10 @@ class PancakeChatManager {
         const phone = this.getPhoneFromConversation(conv);
         const debt = phone ? this.getDebtCache(phone) : null;
         // Respect debt display settings
-        const hasDebt = this.showDebt && (
-            (debt && debt > 0) || // Has positive debt
-            (this.showZeroDebt && debt !== null && debt !== undefined) // Show zero debt if enabled
-        );
+        const hasDebt =
+            this.showDebt &&
+            ((debt && debt > 0) || // Has positive debt
+                (this.showZeroDebt && debt !== null && debt !== undefined)); // Show zero debt if enabled
         const debtDisplay = hasDebt ? this.formatDebt(debt) : '';
 
         return `
@@ -532,28 +540,35 @@ class PancakeChatManager {
                 <div class="pk-conversation-actions">
                     <div class="pk-action-icons">
                         <!-- Phone indicator - only show if has phone -->
-                        ${hasPhone ? `
+                        ${
+                            hasPhone
+                                ? `
                         <span class="pk-icon-indicator has-phone" title="Có SĐT">
                             <i data-lucide="phone"></i>
                         </span>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                         <!-- Conversation type indicator -->
                         <span class="pk-icon-indicator ${isInbox ? 'inbox' : 'comment'}" title="${isInbox ? 'Tin nhắn' : 'Bình luận'}">
                             <i data-lucide="${isInbox ? 'message-circle' : 'message-square'}"></i>
                         </span>
                         <!-- Remove from Tpos saved button - only show in tpos-saved filter -->
-                        ${this.filterType === 'tpos-saved' ? `
+                        ${
+                            this.filterType === 'tpos-saved'
+                                ? `
                         <button class="pk-remove-tpos-btn" title="Xóa khỏi Lưu Tpos" onclick="event.stopPropagation(); window.pancakeChatManager.removeFromTposSaved('${conv.from?.id || conv.from_psid || customer.psid || customer.id || ''}')">
                             <i data-lucide="minus"></i>
                         </button>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                     </div>
                 </div>
 
             </div>
         `;
     }
-
 
     renderChatWindow(conv) {
         const chatWindow = document.getElementById('pkChatWindow');
@@ -566,8 +581,14 @@ class PancakeChatManager {
 
         // Check if this is a comment conversation (for Private Reply button)
         const isComment = conv.type === 'COMMENT' || /^\d+_\d+$/.test(conv.id);
-        const commentId = isComment ? (conv.id.includes('_') ? conv.id.split('_')[1] : conv.id) : null;
-        const privateReplyStatus = commentId ? window.pancakeDataManager?.getPrivateReplyStatus(commentId) : null;
+        const commentId = isComment
+            ? conv.id.includes('_')
+                ? conv.id.split('_')[1]
+                : conv.id
+            : null;
+        const privateReplyStatus = commentId
+            ? window.pancakeDataManager?.getPrivateReplyStatus(commentId)
+            : null;
 
         chatWindow.innerHTML = `
             <!-- Chat Header -->
@@ -583,7 +604,9 @@ class PancakeChatManager {
                     </div>
                 </div>
                 <div class="pk-chat-header-right">
-                    ${isComment && this.serverMode === 'n2store' ? `
+                    ${
+                        isComment && this.serverMode === 'n2store'
+                            ? `
                     <button class="pk-header-btn pk-private-reply-btn ${privateReplyStatus ? 'replied' : ''}"
                             id="pkPrivateReplyBtn"
                             title="${privateReplyStatus ? 'Đã gửi Private Reply' : 'Gửi tin nhắn riêng (Private Reply)'}"
@@ -592,7 +615,9 @@ class PancakeChatManager {
                         <i data-lucide="mail"></i>
                         <span class="pk-btn-label">${privateReplyStatus ? 'Đã gửi' : 'Private Reply'}</span>
                     </button>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                     <button class="pk-header-btn" title="Liên kết">
                         <i data-lucide="link"></i>
                     </button>
@@ -675,7 +700,6 @@ class PancakeChatManager {
             </div>
         `;
 
-
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -695,7 +719,8 @@ class PancakeChatManager {
         const customer = conv.customers?.[0] || conv.from || {};
 
         // Phone number - ensure it's a string
-        let phoneNumber = customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || '';
+        let phoneNumber =
+            customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || '';
         if (typeof phoneNumber !== 'string') phoneNumber = '';
         const hasPhone = !!phoneNumber;
 
@@ -726,7 +751,9 @@ class PancakeChatManager {
         // Build phone+ad badge
         let phoneBadge = '';
         if (hasPhone || hasAdId) {
-            const displayText = hasAdId ? `Ad ${adId.slice(0, 16)}${adId.length > 16 ? '...' : ''}` : phoneNumber;
+            const displayText = hasAdId
+                ? `Ad ${adId.slice(0, 16)}${adId.length > 16 ? '...' : ''}`
+                : phoneNumber;
             const fullText = hasAdId ? adId : phoneNumber;
             phoneBadge = `
                 <span class="pk-phone-ad-badge ${hasPhone ? 'has-phone' : ''}" 
@@ -744,9 +771,10 @@ class PancakeChatManager {
             : `Khách hàng này đã bình luận trên trang ${commentCount} lần`;
 
         // Build order tooltip
-        const orderTooltip = returnedOrders > 0
-            ? `Khách hàng này có ${successOrders} đơn hàng thành công, ${returnedOrders} đơn hoàn, tỉ lệ đơn thành công ${successRate}%`
-            : `Khách hàng này có ${successOrders} đơn hàng thành công`;
+        const orderTooltip =
+            returnedOrders > 0
+                ? `Khách hàng này có ${successOrders} đơn hàng thành công, ${returnedOrders} đơn hoàn, tỉ lệ đơn thành công ${successRate}%`
+                : `Khách hàng này có ${successOrders} đơn hàng thành công`;
 
         return `
             <div class="pk-customer-stats-bar">
@@ -766,11 +794,15 @@ class PancakeChatManager {
                         <i data-lucide="undo-2"></i>
                         <span>${returnedOrders}</span>
                     </span>
-                    ${isWarning ? `
+                    ${
+                        isWarning
+                            ? `
                         <span class="pk-stat-badge warning" title="Cảnh báo: Tỉ lệ hoàn hàng cao (${returnRate}%)">
                             <i data-lucide="alert-triangle"></i>
                         </span>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
@@ -784,14 +816,22 @@ class PancakeChatManager {
 
         return `
             <div class="pk-quick-reply-row">
-                ${row1.map(qr => `
+                ${row1
+                    .map(
+                        (qr) => `
                     <button class="pk-quick-reply-btn ${qr.color}" data-template="${this.escapeHtml(qr.template)}">${this.escapeHtml(qr.label)}</button>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
             <div class="pk-quick-reply-row">
-                ${row2.map(qr => `
+                ${row2
+                    .map(
+                        (qr) => `
                     <button class="pk-quick-reply-btn ${qr.color}" data-template="${this.escapeHtml(qr.template)}">${this.escapeHtml(qr.label)}</button>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         `;
     }
@@ -829,7 +869,7 @@ class PancakeChatManager {
                     <span>${date}</span>
                 </div>
             `;
-            html += msgs.map(msg => this.renderMessage(msg)).join('');
+            html += msgs.map((msg) => this.renderMessage(msg)).join('');
         }
 
         container.innerHTML = html;
@@ -856,82 +896,88 @@ class PancakeChatManager {
         const attachments = msg.attachments || [];
 
         // Filter out reactions from attachments (they're displayed separately)
-        const reactions = attachments.filter(att => att.type === 'reaction');
-        const mediaAttachments = attachments.filter(att => att.type !== 'reaction');
+        const reactions = attachments.filter((att) => att.type === 'reaction');
+        const mediaAttachments = attachments.filter((att) => att.type !== 'reaction');
 
         let attachmentHtml = '';
         if (mediaAttachments.length > 0) {
-            attachmentHtml = mediaAttachments.map(att => {
-                // ========== IMAGE ==========
-                if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
-                    const imgUrl = att.url || att.file_url || att.preview_url || att.image_data?.url;
-                    if (imgUrl) {
-                        return `
+            attachmentHtml = mediaAttachments
+                .map((att) => {
+                    // ========== IMAGE ==========
+                    if (
+                        att.type === 'image' ||
+                        att.type === 'photo' ||
+                        att.mime_type?.startsWith('image/')
+                    ) {
+                        const imgUrl =
+                            att.url || att.file_url || att.preview_url || att.image_data?.url;
+                        if (imgUrl) {
+                            return `
                             <div class="pk-message-image">
                                 <img src="${imgUrl}" alt="Image" onclick="window.open('${imgUrl}', '_blank')" loading="lazy">
                             </div>
                         `;
+                        }
                     }
-                }
 
-                // ========== STICKER ==========
-                if (att.type === 'sticker' || att.sticker_id) {
-                    const stickerUrl = att.url || att.file_url || att.preview_url;
-                    if (stickerUrl) {
-                        return `
+                    // ========== STICKER ==========
+                    if (att.type === 'sticker' || att.sticker_id) {
+                        const stickerUrl = att.url || att.file_url || att.preview_url;
+                        if (stickerUrl) {
+                            return `
                             <div class="pk-message-sticker">
                                 <img src="${stickerUrl}" alt="Sticker" loading="lazy">
                             </div>
                         `;
+                        }
                     }
-                }
 
-                // ========== ANIMATED STICKER / GIF ==========
-                if (att.type === 'animated_image_url' || att.type === 'animated_image_share') {
-                    const gifUrl = att.url || att.file_url;
-                    if (gifUrl) {
-                        return `
+                    // ========== ANIMATED STICKER / GIF ==========
+                    if (att.type === 'animated_image_url' || att.type === 'animated_image_share') {
+                        const gifUrl = att.url || att.file_url;
+                        if (gifUrl) {
+                            return `
                             <div class="pk-message-sticker">
                                 <img src="${gifUrl}" alt="GIF" loading="lazy">
                             </div>
                         `;
+                        }
                     }
-                }
 
-                // ========== VIDEO ==========
-                if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
-                    const videoUrl = att.url || att.file_url;
-                    if (videoUrl) {
-                        return `
+                    // ========== VIDEO ==========
+                    if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
+                        const videoUrl = att.url || att.file_url;
+                        if (videoUrl) {
+                            return `
                             <div class="pk-message-video">
                                 <video controls src="${videoUrl}" preload="metadata">
                                     Trình duyệt không hỗ trợ video.
                                 </video>
                             </div>
                         `;
+                        }
                     }
-                }
 
-                // ========== AUDIO / VOICE ==========
-                if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
-                    const audioUrl = att.url || att.file_url;
-                    if (audioUrl) {
-                        return `
+                    // ========== AUDIO / VOICE ==========
+                    if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
+                        const audioUrl = att.url || att.file_url;
+                        if (audioUrl) {
+                            return `
                             <div class="pk-message-audio">
                                 <audio controls src="${audioUrl}" preload="metadata">
                                     Trình duyệt không hỗ trợ audio.
                                 </audio>
                             </div>
                         `;
+                        }
                     }
-                }
 
-                // ========== FILE / DOCUMENT ==========
-                if (att.type === 'file' || att.type === 'document') {
-                    const fileUrl = att.url || att.file_url;
-                    const fileName = att.name || att.filename || 'Tệp đính kèm';
-                    if (fileUrl) {
-                        return `
+                    // ========== FILE / DOCUMENT ==========
+                    if (att.type === 'file' || att.type === 'document') {
+                        const fileUrl = att.url || att.file_url;
+                        const fileName = att.name || att.filename || 'Tệp đính kèm';
+                        if (fileUrl) {
+                            return `
                             <div class="pk-message-file">
                                 <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">
                                     <i data-lucide="file-text"></i>
@@ -939,51 +985,61 @@ class PancakeChatManager {
                                 </a>
                             </div>
                         `;
+                        }
                     }
-                }
 
-                // ========== LIKE/THUMBS UP (Facebook's big like button) ==========
-                if (att.type === 'like' || att.type === 'thumbsup') {
-                    return `
+                    // ========== LIKE/THUMBS UP (Facebook's big like button) ==========
+                    if (att.type === 'like' || att.type === 'thumbsup') {
+                        return `
                         <div class="pk-message-like">
                             <span class="pk-like-icon">👍</span>
                         </div>
                     `;
-                }
+                    }
 
-                return '';
-            }).join('');
+                    return '';
+                })
+                .join('');
         }
 
         // Reactions HTML (displayed as badge on message)
         let reactionsHtml = '';
         if (reactions.length > 0) {
-            const reactionEmojis = reactions.map(r => r.emoji || '❤️').join('');
+            const reactionEmojis = reactions.map((r) => r.emoji || '❤️').join('');
             reactionsHtml = `<span class="pk-message-reactions">${reactionEmojis}</span>`;
         }
 
         return `
             <div class="pk-message ${isOutgoing ? 'outgoing' : 'incoming'}">
                 ${attachmentHtml}
-                ${text ? `
+                ${
+                    text
+                        ? `
                     <div class="pk-message-bubble">
                         <div class="pk-message-text">${this.escapeHtml(this.parseMessageHtml(text))}</div>
                         ${reactionsHtml}
                     </div>
-                ` : (reactionsHtml ? `<div class="pk-message-bubble">${reactionsHtml}</div>` : '')}
+                `
+                        : reactionsHtml
+                          ? `<div class="pk-message-bubble">${reactionsHtml}</div>`
+                          : ''
+                }
                 <div class="pk-message-meta">
                     <span class="pk-message-time">${time}</span>
                     ${sender ? `<span class="pk-message-sender">${this.escapeHtml(sender)}</span>` : ''}
-                    ${isOutgoing ? `
+                    ${
+                        isOutgoing
+                            ? `
                         <span class="pk-message-status">
                             <i data-lucide="check-check"></i>
                         </span>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             </div>
         `;
     }
-
 
     // =====================================================
     // REALTIME UPDATE (Like Messenger/Zalo/Telegram)
@@ -999,16 +1055,16 @@ class PancakeChatManager {
         console.log('[PANCAKE-CHAT] 📨 Realtime update for conversation:', updatedConv.id);
 
         // Find existing conversation in our list
-        const existingIndex = this.conversations.findIndex(c =>
-            c.id === updatedConv.id ||
-            c.id === updatedConv.conversation?.id
+        const existingIndex = this.conversations.findIndex(
+            (c) => c.id === updatedConv.id || c.id === updatedConv.conversation?.id
         );
 
         const convData = updatedConv.conversation || updatedConv;
         const convId = convData.id || updatedConv.id;
 
         // Check if this is the currently active conversation
-        const isActiveConversation = this.activeConversation &&
+        const isActiveConversation =
+            this.activeConversation &&
             (this.activeConversation.id === convId ||
                 this.activeConversation.id === updatedConv.id);
 
@@ -1022,7 +1078,7 @@ class PancakeChatManager {
                 snippet: convData.snippet || existingConv.snippet,
                 updated_at: convData.updated_at || new Date().toISOString(),
                 unread_count: isActiveConversation ? 0 : (existingConv.unread_count || 0) + 1,
-                last_message: convData.last_message || existingConv.last_message
+                last_message: convData.last_message || existingConv.last_message,
             });
 
             // Move to top of list (like Messenger)
@@ -1044,7 +1100,7 @@ class PancakeChatManager {
                 from: convData.from || convData.customers?.[0] || {},
                 customers: convData.customers || [],
                 type: convData.type || 'INBOX',
-                ...convData
+                ...convData,
             };
 
             this.conversations.unshift(newConv);
@@ -1086,10 +1142,12 @@ class PancakeChatManager {
 
             if (result && result.messages) {
                 // Get current message IDs
-                const existingIds = new Set(this.messages.map(m => m.id));
+                const existingIds = new Set(this.messages.map((m) => m.id));
 
                 // Find new messages (not already in our list)
-                const newMessages = result.messages.filter(m => !existingIds.has(m.id) && !m._temp);
+                const newMessages = result.messages.filter(
+                    (m) => !existingIds.has(m.id) && !m._temp
+                );
 
                 if (newMessages.length > 0) {
                     console.log(`[PANCAKE-CHAT] 📥 Found ${newMessages.length} new message(s)`);
@@ -1197,11 +1255,12 @@ class PancakeChatManager {
             console.log('[PANCAKE-CHAT] Loading pages...');
 
             // Fetch pages list
-            this.pages = await window.pancakeDataManager.fetchPages(false) || [];
+            this.pages = (await window.pancakeDataManager.fetchPages(false)) || [];
             console.log('[PANCAKE-CHAT] Loaded pages:', this.pages.length);
 
             // Fetch unread counts
-            this.pagesWithUnread = await window.pancakeDataManager.fetchPagesWithUnreadCount() || [];
+            this.pagesWithUnread =
+                (await window.pancakeDataManager.fetchPagesWithUnreadCount()) || [];
             console.log('[PANCAKE-CHAT] Loaded pages with unread:', this.pagesWithUnread.length);
 
             // Load saved page selection from localStorage
@@ -1212,7 +1271,6 @@ class PancakeChatManager {
 
             // Update selected page display
             this.updateSelectedPageDisplay();
-
         } catch (error) {
             console.error('[PANCAKE-CHAT] Error loading pages:', error);
         }
@@ -1223,7 +1281,10 @@ class PancakeChatManager {
         if (!container) return;
 
         // Calculate total unread
-        const totalUnread = this.pagesWithUnread.reduce((sum, p) => sum + (p.unread_conv_count || 0), 0);
+        const totalUnread = this.pagesWithUnread.reduce(
+            (sum, p) => sum + (p.unread_conv_count || 0),
+            0
+        );
 
         let html = `
             <!-- All Pages Option -->
@@ -1246,10 +1307,11 @@ class PancakeChatManager {
             const isActive = this.selectedPageId === pageId;
 
             // Find unread count for this page
-            const pageUnread = this.pagesWithUnread.find(p =>
-                p.page_id === pageId ||
-                p.page_id === page.fb_page_id ||
-                p.page_id === page.page_id
+            const pageUnread = this.pagesWithUnread.find(
+                (p) =>
+                    p.page_id === pageId ||
+                    p.page_id === page.fb_page_id ||
+                    p.page_id === page.page_id
             );
             const unreadCount = pageUnread?.unread_conv_count || 0;
 
@@ -1288,7 +1350,7 @@ class PancakeChatManager {
 
         if (this.selectedPageId) {
             // Find selected page
-            const page = this.pages.find(p => p.id === this.selectedPageId);
+            const page = this.pages.find((p) => p.id === this.selectedPageId);
             if (page) {
                 nameEl.textContent = page.name || page.page_name || 'Page';
                 hintEl.textContent = `ID: ${page.fb_page_id || page.id}`;
@@ -1303,9 +1365,8 @@ class PancakeChatManager {
                 }
 
                 // Update unread badge
-                const pageUnread = this.pagesWithUnread.find(p =>
-                    p.page_id === this.selectedPageId ||
-                    p.page_id === page.fb_page_id
+                const pageUnread = this.pagesWithUnread.find(
+                    (p) => p.page_id === this.selectedPageId || p.page_id === page.fb_page_id
                 );
                 const unreadCount = pageUnread?.unread_conv_count || 0;
                 if (unreadCount > 0) {
@@ -1323,7 +1384,10 @@ class PancakeChatManager {
             avatarEl.className = 'pk-page-avatar-placeholder';
 
             // Show total unread
-            const totalUnread = this.pagesWithUnread.reduce((sum, p) => sum + (p.unread_conv_count || 0), 0);
+            const totalUnread = this.pagesWithUnread.reduce(
+                (sum, p) => sum + (p.unread_conv_count || 0),
+                0
+            );
             if (totalUnread > 0) {
                 badgeEl.textContent = totalUnread;
                 badgeEl.style.display = 'flex';
@@ -1365,7 +1429,10 @@ class PancakeChatManager {
     }
 
     togglePageDropdown() {
-        console.log('[PANCAKE-CHAT] togglePageDropdown called, current state:', this.isPageDropdownOpen);
+        console.log(
+            '[PANCAKE-CHAT] togglePageDropdown called, current state:',
+            this.isPageDropdownOpen
+        );
         this.isPageDropdownOpen = !this.isPageDropdownOpen;
 
         const dropdown = document.getElementById('pkPageDropdown');
@@ -1382,7 +1449,6 @@ class PancakeChatManager {
             btn.classList.toggle('active', this.isPageDropdownOpen);
         }
     }
-
 
     saveSelectedPage() {
         try {
@@ -1401,7 +1467,7 @@ class PancakeChatManager {
             const savedPageId = localStorage.getItem('tpos_pancake_selected_page');
             if (savedPageId) {
                 // Verify page still exists
-                const pageExists = this.pages.some(p => p.id === savedPageId);
+                const pageExists = this.pages.some((p) => p.id === savedPageId);
                 if (pageExists) {
                     this.selectedPageId = savedPageId;
                     console.log('[PANCAKE-CHAT] Loaded saved page:', savedPageId);
@@ -1429,7 +1495,9 @@ class PancakeChatManager {
             // Conversations always from Pancake (N2Store mode only affects messages)
             const conversations = await window.pancakeDataManager.fetchConversations(true);
             this.conversations = conversations || [];
-            console.log(`[PANCAKE-CHAT] Loaded ${this.conversations.length} conversations (messages mode: ${this.serverMode})`);
+            console.log(
+                `[PANCAKE-CHAT] Loaded ${this.conversations.length} conversations (messages mode: ${this.serverMode})`
+            );
 
             // Render conversation list
             this.renderConversationList();
@@ -1453,19 +1521,31 @@ class PancakeChatManager {
 
         try {
             // Get unique page IDs from conversations
-            const pageIds = [...new Set(this.conversations.map(conv => conv.page_id).filter(Boolean))];
-            console.log('[PANCAKE-CHAT] Pre-loading page access tokens for', pageIds.length, 'pages...');
+            const pageIds = [
+                ...new Set(this.conversations.map((conv) => conv.page_id).filter(Boolean)),
+            ];
+            console.log(
+                '[PANCAKE-CHAT] Pre-loading page access tokens for',
+                pageIds.length,
+                'pages...'
+            );
 
             // Load tokens in parallel (don't await each one)
-            const promises = pageIds.map(pageId =>
-                window.pancakeTokenManager.getOrGeneratePageAccessToken(pageId)
-                    .catch(err => console.warn(`[PANCAKE-CHAT] Failed to pre-load token for page ${pageId}:`, err))
+            const promises = pageIds.map((pageId) =>
+                window.pancakeTokenManager
+                    .getOrGeneratePageAccessToken(pageId)
+                    .catch((err) =>
+                        console.warn(
+                            `[PANCAKE-CHAT] Failed to pre-load token for page ${pageId}:`,
+                            err
+                        )
+                    )
             );
 
             // Wait for all with timeout
             await Promise.race([
                 Promise.all(promises),
-                new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout
+                new Promise((resolve) => setTimeout(resolve, 5000)), // 5s timeout
             ]);
 
             console.log('[PANCAKE-CHAT] Page access tokens pre-loaded');
@@ -1492,7 +1572,11 @@ class PancakeChatManager {
             const convId = conv.id;
             const customerId = conv.customers?.[0]?.id || null;
 
-            console.log(`[PANCAKE-CHAT] Loading messages (mode: ${this.serverMode}):`, { pageId, convId, customerId });
+            console.log(`[PANCAKE-CHAT] Loading messages (mode: ${this.serverMode}):`, {
+                pageId,
+                convId,
+                customerId,
+            });
 
             // Create a timeout promise (10 seconds)
             const timeoutPromise = new Promise((_, reject) => {
@@ -1517,7 +1601,11 @@ class PancakeChatManager {
             const result = await Promise.race([fetchPromise, timeoutPromise]);
 
             this.messages = (result.messages || []).reverse(); // Reverse to show oldest first
-            console.log('[PANCAKE-CHAT] Loaded messages:', this.messages.length, result.fromCache ? '(from cache)' : '(from API)');
+            console.log(
+                '[PANCAKE-CHAT] Loaded messages:',
+                this.messages.length,
+                result.fromCache ? '(from cache)' : '(from API)'
+            );
 
             // Reset pagination state for new conversation
             this.messageCurrentCount = this.messages.length;
@@ -1534,11 +1622,14 @@ class PancakeChatManager {
 
             // Mark as read (don't await to not block UI)
             if (conv.unread_count > 0) {
-                window.pancakeDataManager.markConversationAsRead(pageId, convId).then(() => {
-                    conv.unread_count = 0;
-                    conv.seen = true;
-                    this.renderConversationList();
-                }).catch(err => console.warn('[PANCAKE-CHAT] Could not mark as read:', err));
+                window.pancakeDataManager
+                    .markConversationAsRead(pageId, convId)
+                    .then(() => {
+                        conv.unread_count = 0;
+                        conv.seen = true;
+                        this.renderConversationList();
+                    })
+                    .catch((err) => console.warn('[PANCAKE-CHAT] Could not mark as read:', err));
             }
         } catch (error) {
             console.error('[PANCAKE-CHAT] Error loading messages:', error);
@@ -1592,7 +1683,7 @@ class PancakeChatManager {
     bindEvents() {
         // Header Tabs
         const headerTabs = document.querySelectorAll('.pk-header-tab');
-        headerTabs.forEach(tab => {
+        headerTabs.forEach((tab) => {
             tab.addEventListener('click', (e) => {
                 const tabName = e.currentTarget.dataset.tab;
                 this.switchTab(tabName);
@@ -1643,13 +1734,13 @@ class PancakeChatManager {
 
         // Filter Tabs
         const filterTabs = document.querySelectorAll('.pk-filter-tab');
-        filterTabs.forEach(tab => {
+        filterTabs.forEach((tab) => {
             tab.addEventListener('click', (e) => {
                 const filterType = e.target.dataset.filter;
                 this.setFilterType(filterType);
 
                 // Update active state
-                filterTabs.forEach(t => t.classList.remove('active'));
+                filterTabs.forEach((t) => t.classList.remove('active'));
                 e.target.classList.add('active');
             });
         });
@@ -1712,13 +1803,19 @@ class PancakeChatManager {
             // Infinite scroll for conversations
             conversationsContainer.addEventListener('scroll', () => {
                 const threshold = 100; // pixels from bottom
-                const isNearBottom = conversationsContainer.scrollHeight - conversationsContainer.scrollTop - conversationsContainer.clientHeight < threshold;
+                const isNearBottom =
+                    conversationsContainer.scrollHeight -
+                        conversationsContainer.scrollTop -
+                        conversationsContainer.clientHeight <
+                    threshold;
 
-                if (isNearBottom &&
+                if (
+                    isNearBottom &&
                     this.hasMoreConversations &&
                     !this.isLoadingMoreConversations &&
                     !this.searchResults && // Don't load more during search
-                    this.conversations.length > 0) {
+                    this.conversations.length > 0
+                ) {
                     this.loadMoreConversations();
                 }
             });
@@ -1822,7 +1919,7 @@ class PancakeChatManager {
             if (action === 'mark-unread') {
                 await window.pancakeDataManager.markConversationAsUnread(pageId, convId);
                 // Update local state
-                const conv = this.conversations.find(c => c.id === convId);
+                const conv = this.conversations.find((c) => c.id === convId);
                 if (conv) {
                     conv.seen = false;
                     conv.unread_count = conv.unread_count || 1;
@@ -1832,7 +1929,7 @@ class PancakeChatManager {
             } else if (action === 'mark-read') {
                 await window.pancakeDataManager.markConversationAsRead(pageId, convId);
                 // Update local state
-                const conv = this.conversations.find(c => c.id === convId);
+                const conv = this.conversations.find((c) => c.id === convId);
                 if (conv) {
                     conv.seen = true;
                     conv.unread_count = 0;
@@ -1841,19 +1938,28 @@ class PancakeChatManager {
                 console.log('[PANCAKE-CHAT] Marked as read:', convId);
             } else if (action === 'add-note') {
                 // Prompt for note
-                const note = prompt('Nhập ghi chú cho khách hàng:');
+                const note = window.Popup
+                    ? await window.Popup.prompt('Nhập ghi chú cho khách hàng:', {
+                          title: 'Thêm ghi chú',
+                          multiline: true,
+                          placeholder: 'VD: Khách quen, hay đổi size…',
+                      })
+                    : prompt('Nhập ghi chú cho khách hàng:');
                 if (note && note.trim()) {
-                    const conv = this.conversations.find(c => c.id === convId);
+                    const conv = this.conversations.find((c) => c.id === convId);
                     const customerId = conv?.customers?.[0]?.id;
                     if (customerId) {
-                        const success = await window.pancakeDataManager.addCustomerNote(pageId, customerId, note.trim());
-                        if (success) {
-                            alert('Đã thêm ghi chú thành công!');
-                        } else {
-                            alert('Lỗi thêm ghi chú');
-                        }
+                        const success = await window.pancakeDataManager.addCustomerNote(
+                            pageId,
+                            customerId,
+                            note.trim()
+                        );
+                        const msg = success ? 'Đã thêm ghi chú thành công!' : 'Lỗi thêm ghi chú';
+                        if (window.Popup) window.Popup[success ? 'success' : 'error'](msg);
+                        else alert(msg);
                     } else {
-                        alert('Không tìm thấy thông tin khách hàng');
+                        if (window.Popup) window.Popup.error('Không tìm thấy thông tin khách hàng');
+                        else alert('Không tìm thấy thông tin khách hàng');
                     }
                 }
             } else if (action === 'manage-tags') {
@@ -1862,9 +1968,10 @@ class PancakeChatManager {
                 return; // Don't hide menu
             } else if (action === 'remove-tpos-saved') {
                 // Remove from TPOS saved list - use from.id first
-                const conv = this.conversations.find(c => c.id === convId);
+                const conv = this.conversations.find((c) => c.id === convId);
                 const customer = conv?.customers?.[0] || {};
-                const customerId = conv?.from?.id || conv?.from_psid || customer.psid || customer.id;
+                const customerId =
+                    conv?.from?.id || conv?.from_psid || customer.psid || customer.id;
                 if (customerId) {
                     this.removeFromTposSaved(customerId);
                 }
@@ -1891,22 +1998,24 @@ class PancakeChatManager {
         tagsMenu.style.top = `${rect.top}px`;
 
         // Show loading
-        tagsList.innerHTML = '<div class="pk-loading-spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div>';
+        tagsList.innerHTML =
+            '<div class="pk-loading-spinner" style="width: 20px; height: 20px; margin: 10px auto;"></div>';
 
         // Fetch tags
         const tags = await window.pancakeDataManager.fetchTags(pageId);
 
         // Get conversation's current tags
-        const conv = this.conversations.find(c => c.id === convId);
+        const conv = this.conversations.find((c) => c.id === convId);
         const convTags = conv?.tags || [];
 
         // Render tags
         if (tags.length === 0) {
             tagsList.innerHTML = '<div class="pk-no-tags">Không có nhãn</div>';
         } else {
-            tagsList.innerHTML = tags.map(tag => {
-                const isActive = convTags.includes(tag.id) || convTags.includes(String(tag.id));
-                return `
+            tagsList.innerHTML = tags
+                .map((tag) => {
+                    const isActive = convTags.includes(tag.id) || convTags.includes(String(tag.id));
+                    return `
                     <button class="pk-tag-item ${isActive ? 'active' : ''}" 
                             data-tag-id="${tag.id}" 
                             style="--tag-color: ${tag.color}">
@@ -1915,17 +2024,23 @@ class PancakeChatManager {
                         ${isActive ? '<i data-lucide="check" style="width: 14px; height: 14px;"></i>' : ''}
                     </button>
                 `;
-            }).join('');
+                })
+                .join('');
 
             // Add click handlers
-            tagsList.querySelectorAll('.pk-tag-item').forEach(btn => {
+            tagsList.querySelectorAll('.pk-tag-item').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const tagId = btn.dataset.tagId;
                     const isActive = btn.classList.contains('active');
                     const action = isActive ? 'remove' : 'add';
 
                     // Toggle tag
-                    const success = await window.pancakeDataManager.addRemoveConversationTag(pageId, convId, tagId, action);
+                    const success = await window.pancakeDataManager.addRemoveConversationTag(
+                        pageId,
+                        convId,
+                        tagId,
+                        action
+                    );
                     if (success) {
                         btn.classList.toggle('active');
                         // Update local conversation tags
@@ -1933,7 +2048,9 @@ class PancakeChatManager {
                             if (action === 'add') {
                                 conv.tags = [...(conv.tags || []), tagId];
                             } else {
-                                conv.tags = (conv.tags || []).filter(t => t !== tagId && t !== String(tagId));
+                                conv.tags = (conv.tags || []).filter(
+                                    (t) => t !== tagId && t !== String(tagId)
+                                );
                             }
                             this.renderConversationList();
                         }
@@ -1960,7 +2077,10 @@ class PancakeChatManager {
         this.lastConversationId = lastConv.id;
         this.isLoadingMoreConversations = true;
 
-        console.log('[PANCAKE-CHAT] Loading more conversations... lastId:', this.lastConversationId);
+        console.log(
+            '[PANCAKE-CHAT] Loading more conversations... lastId:',
+            this.lastConversationId
+        );
 
         // Show loading indicator at bottom
         const container = document.getElementById('pkConversations');
@@ -1976,7 +2096,9 @@ class PancakeChatManager {
 
         try {
             // Call the data manager to fetch more conversations
-            const moreConversations = await window.pancakeDataManager.fetchMoreConversations(this.lastConversationId);
+            const moreConversations = await window.pancakeDataManager.fetchMoreConversations(
+                this.lastConversationId
+            );
 
             loadingDiv.remove();
 
@@ -1984,7 +2106,11 @@ class PancakeChatManager {
                 this.hasMoreConversations = false;
                 console.log('[PANCAKE-CHAT] No more conversations');
             } else {
-                console.log('[PANCAKE-CHAT] Loaded', moreConversations.length, 'more conversations');
+                console.log(
+                    '[PANCAKE-CHAT] Loaded',
+                    moreConversations.length,
+                    'more conversations'
+                );
 
                 // Append to existing conversations
                 this.conversations = [...this.conversations, ...moreConversations];
@@ -1992,7 +2118,6 @@ class PancakeChatManager {
                 // Re-render
                 this.renderConversationList();
             }
-
         } catch (error) {
             console.error('[PANCAKE-CHAT] Error loading more conversations:', error);
             loadingDiv.remove();
@@ -2038,7 +2163,6 @@ class PancakeChatManager {
 
             // Render results
             this.renderConversationList();
-
         } catch (error) {
             console.error('[PANCAKE-CHAT] Search error:', error);
             this.searchResults = [];
@@ -2093,7 +2217,7 @@ class PancakeChatManager {
 
         // Update tab buttons
         const headerTabs = document.querySelectorAll('.pk-header-tab');
-        headerTabs.forEach(tab => {
+        headerTabs.forEach((tab) => {
             if (tab.dataset.tab === tabName) {
                 tab.classList.add('active');
             } else {
@@ -2104,14 +2228,14 @@ class PancakeChatManager {
         // Update tab content
         const tabContents = document.querySelectorAll('.pk-tab-content');
         const tabContentMap = {
-            'conversations': 'pkTabConversations',
-            'orders': 'pkTabOrders',
-            'posts': 'pkTabPosts',
-            'stats': 'pkTabStats',
-            'settings': 'pkTabSettings'
+            conversations: 'pkTabConversations',
+            orders: 'pkTabOrders',
+            posts: 'pkTabPosts',
+            stats: 'pkTabStats',
+            settings: 'pkTabSettings',
         };
 
-        tabContents.forEach(content => {
+        tabContents.forEach((content) => {
             content.classList.remove('active');
         });
 
@@ -2174,16 +2298,21 @@ class PancakeChatManager {
                 if (badge) {
                     const textToCopy = badge.dataset.copy;
                     if (textToCopy) {
-                        navigator.clipboard.writeText(textToCopy).then(() => {
-                            // Show feedback
-                            const originalText = badge.querySelector('.pk-badge-text').textContent;
-                            badge.querySelector('.pk-badge-text').textContent = 'Đã copy!';
-                            setTimeout(() => {
-                                badge.querySelector('.pk-badge-text').textContent = originalText;
-                            }, 1500);
-                        }).catch(err => {
-                            console.error('[PANCAKE-CHAT] Failed to copy:', err);
-                        });
+                        navigator.clipboard
+                            .writeText(textToCopy)
+                            .then(() => {
+                                // Show feedback
+                                const originalText =
+                                    badge.querySelector('.pk-badge-text').textContent;
+                                badge.querySelector('.pk-badge-text').textContent = 'Đã copy!';
+                                setTimeout(() => {
+                                    badge.querySelector('.pk-badge-text').textContent =
+                                        originalText;
+                                }, 1500);
+                            })
+                            .catch((err) => {
+                                console.error('[PANCAKE-CHAT] Failed to copy:', err);
+                            });
                     }
                 }
             });
@@ -2282,8 +2411,12 @@ class PancakeChatManager {
         }
 
         // Bind events
-        document.getElementById('pkClosePrivateReplyModal').addEventListener('click', () => modal.remove());
-        document.getElementById('pkCancelPrivateReply').addEventListener('click', () => modal.remove());
+        document
+            .getElementById('pkClosePrivateReplyModal')
+            .addEventListener('click', () => modal.remove());
+        document
+            .getElementById('pkCancelPrivateReply')
+            .addEventListener('click', () => modal.remove());
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
@@ -2291,7 +2424,8 @@ class PancakeChatManager {
         document.getElementById('pkSendPrivateReply').addEventListener('click', async () => {
             const message = document.getElementById('pkPrivateReplyMessage').value.trim();
             if (!message) {
-                alert('Vui lòng nhập tin nhắn');
+                if (window.Popup) await window.Popup.warning('Vui lòng nhập tin nhắn');
+                else alert('Vui lòng nhập tin nhắn');
                 return;
             }
 
@@ -2301,7 +2435,11 @@ class PancakeChatManager {
 
             try {
                 const pageId = conv.page_id;
-                const result = await window.pancakeDataManager.privateReplyN2Store(pageId, commentId, message);
+                const result = await window.pancakeDataManager.privateReplyN2Store(
+                    pageId,
+                    commentId,
+                    message
+                );
 
                 if (result.success) {
                     modal.remove();
@@ -2320,7 +2458,19 @@ class PancakeChatManager {
 
                     // Ask if user wants to go to the new conversation
                     if (result.recipient_id) {
-                        const goToConv = confirm('Private Reply đã gửi thành công!\\n\\nBạn có muốn chuyển đến cuộc hội thoại Messenger mới không?');
+                        const goToConv = window.Popup
+                            ? await window.Popup.confirm(
+                                  'Bạn có muốn chuyển đến cuộc hội thoại Messenger mới không?',
+                                  {
+                                      title: 'Private Reply đã gửi',
+                                      type: 'success',
+                                      okText: 'Mở hội thoại',
+                                      cancelText: 'Ở lại',
+                                  }
+                              )
+                            : confirm(
+                                  'Private Reply đã gửi thành công!\n\nBạn có muốn chuyển đến cuộc hội thoại Messenger mới không?'
+                              );
                         if (goToConv) {
                             this.navigateToConversationByPsid(pageId, result.recipient_id);
                         }
@@ -2328,7 +2478,8 @@ class PancakeChatManager {
                 }
             } catch (error) {
                 console.error('[PANCAKE-CHAT] Private Reply error:', error);
-                alert('Lỗi: ' + error.message);
+                if (window.Popup) await window.Popup.error('Lỗi: ' + error.message);
+                else alert('Lỗi: ' + error.message);
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '<i data-lucide="send"></i> Gửi Private Reply';
             }
@@ -2345,14 +2496,17 @@ class PancakeChatManager {
         try {
             this.showToast('Đang tìm cuộc hội thoại...', 'info');
 
-            const result = await window.pancakeDataManager.findConversationByPsidN2Store(pageId, psid);
+            const result = await window.pancakeDataManager.findConversationByPsidN2Store(
+                pageId,
+                psid
+            );
 
             if (result.success && result.conversation) {
                 // Refresh conversations and select the new one
                 await this.loadConversations();
 
                 // Find and select the conversation
-                const conv = this.conversations.find(c => c.id === result.conversation.id);
+                const conv = this.conversations.find((c) => c.id === result.conversation.id);
                 if (conv) {
                     this.selectConversation(conv);
                     this.showToast('Đã chuyển đến cuộc hội thoại mới', 'success');
@@ -2401,12 +2555,288 @@ class PancakeChatManager {
         // Emoji data by category
         this.emojiData = {
             recent: ['😊', '👍', '❤️', '😂', '🙏', '😍', '🔥', '✨'],
-            smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '😮‍💨', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐'],
-            gestures: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪'],
-            hearts: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '❤️‍🔥', '❤️‍🩹', '♥️'],
-            animals: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪱', '🐛', '🦋', '🐌', '🐞'],
-            food: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝'],
-            objects: ['💡', '🔦', '🏮', '🪔', '📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💎', '⚙️', '🔧', '🔨', '🛠️', '⛏️', '🔩', '🪛', '🔑', '🗝️', '🔒', '🔓', '🔏', '🔐']
+            smileys: [
+                '😀',
+                '😃',
+                '😄',
+                '😁',
+                '😆',
+                '😅',
+                '🤣',
+                '😂',
+                '🙂',
+                '😊',
+                '😇',
+                '🥰',
+                '😍',
+                '🤩',
+                '😘',
+                '😗',
+                '😚',
+                '😙',
+                '🥲',
+                '😋',
+                '😛',
+                '😜',
+                '🤪',
+                '😝',
+                '🤑',
+                '🤗',
+                '🤭',
+                '🤫',
+                '🤔',
+                '🤐',
+                '🤨',
+                '😐',
+                '😑',
+                '😶',
+                '😏',
+                '😒',
+                '🙄',
+                '😬',
+                '😮‍💨',
+                '🤥',
+                '😌',
+                '😔',
+                '😪',
+                '🤤',
+                '😴',
+                '😷',
+                '🤒',
+                '🤕',
+                '🤢',
+                '🤮',
+                '🤧',
+                '🥵',
+                '🥶',
+                '🥴',
+                '😵',
+                '🤯',
+                '🤠',
+                '🥳',
+                '🥸',
+                '😎',
+                '🤓',
+                '🧐',
+            ],
+            gestures: [
+                '👋',
+                '🤚',
+                '🖐️',
+                '✋',
+                '🖖',
+                '👌',
+                '🤌',
+                '🤏',
+                '✌️',
+                '🤞',
+                '🤟',
+                '🤘',
+                '🤙',
+                '👈',
+                '👉',
+                '👆',
+                '🖕',
+                '👇',
+                '☝️',
+                '👍',
+                '👎',
+                '✊',
+                '👊',
+                '🤛',
+                '🤜',
+                '👏',
+                '🙌',
+                '👐',
+                '🤲',
+                '🤝',
+                '🙏',
+                '✍️',
+                '💅',
+                '🤳',
+                '💪',
+            ],
+            hearts: [
+                '❤️',
+                '🧡',
+                '💛',
+                '💚',
+                '💙',
+                '💜',
+                '🖤',
+                '🤍',
+                '🤎',
+                '💔',
+                '❣️',
+                '💕',
+                '💞',
+                '💓',
+                '💗',
+                '💖',
+                '💘',
+                '💝',
+                '💟',
+                '❤️‍🔥',
+                '❤️‍🩹',
+                '♥️',
+            ],
+            animals: [
+                '🐶',
+                '🐱',
+                '🐭',
+                '🐹',
+                '🐰',
+                '🦊',
+                '🐻',
+                '🐼',
+                '🐻‍❄️',
+                '🐨',
+                '🐯',
+                '🦁',
+                '🐮',
+                '🐷',
+                '🐸',
+                '🐵',
+                '🐔',
+                '🐧',
+                '🐦',
+                '🐤',
+                '🐣',
+                '🐥',
+                '🦆',
+                '🦅',
+                '🦉',
+                '🦇',
+                '🐺',
+                '🐗',
+                '🐴',
+                '🦄',
+                '🐝',
+                '🪱',
+                '🐛',
+                '🦋',
+                '🐌',
+                '🐞',
+            ],
+            food: [
+                '🍎',
+                '🍐',
+                '🍊',
+                '🍋',
+                '🍌',
+                '🍉',
+                '🍇',
+                '🍓',
+                '🫐',
+                '🍈',
+                '🍒',
+                '🍑',
+                '🥭',
+                '🍍',
+                '🥥',
+                '🥝',
+                '🍅',
+                '🍆',
+                '🥑',
+                '🥦',
+                '🥬',
+                '🥒',
+                '🌶️',
+                '🫑',
+                '🌽',
+                '🥕',
+                '🧄',
+                '🧅',
+                '🥔',
+                '🍠',
+                '🥐',
+                '🥯',
+                '🍞',
+                '🥖',
+                '🥨',
+                '🧀',
+                '🥚',
+                '🍳',
+                '🧈',
+                '🥞',
+                '🧇',
+                '🥓',
+                '🥩',
+                '🍗',
+                '🍖',
+                '🌭',
+                '🍔',
+                '🍟',
+                '🍕',
+                '🫓',
+                '🥪',
+                '🥙',
+                '🧆',
+                '🌮',
+                '🌯',
+                '🫔',
+                '🥗',
+                '🥘',
+                '🫕',
+                '🥫',
+                '🍝',
+            ],
+            objects: [
+                '💡',
+                '🔦',
+                '🏮',
+                '🪔',
+                '📱',
+                '💻',
+                '⌨️',
+                '🖥️',
+                '🖨️',
+                '🖱️',
+                '💽',
+                '💾',
+                '💿',
+                '📀',
+                '📼',
+                '📷',
+                '📸',
+                '📹',
+                '🎥',
+                '📽️',
+                '🎞️',
+                '📞',
+                '☎️',
+                '📟',
+                '📠',
+                '📺',
+                '📻',
+                '🎙️',
+                '🎚️',
+                '🎛️',
+                '🧭',
+                '⏱️',
+                '⏲️',
+                '⏰',
+                '🕰️',
+                '⌛',
+                '⏳',
+                '📡',
+                '🔋',
+                '🔌',
+                '💎',
+                '⚙️',
+                '🔧',
+                '🔨',
+                '🛠️',
+                '⛏️',
+                '🔩',
+                '🪛',
+                '🔑',
+                '🗝️',
+                '🔒',
+                '🔓',
+                '🔏',
+                '🔐',
+            ],
         };
 
         // Load recent emojis from localStorage
@@ -2414,7 +2844,7 @@ class PancakeChatManager {
         if (savedRecent) {
             try {
                 this.emojiData.recent = JSON.parse(savedRecent);
-            } catch (e) { }
+            } catch (e) {}
         }
 
         // Toggle emoji picker
@@ -2435,9 +2865,11 @@ class PancakeChatManager {
         });
 
         // Category switching
-        emojiPicker.querySelectorAll('.pk-emoji-cat').forEach(cat => {
+        emojiPicker.querySelectorAll('.pk-emoji-cat').forEach((cat) => {
             cat.addEventListener('click', () => {
-                emojiPicker.querySelectorAll('.pk-emoji-cat').forEach(c => c.classList.remove('active'));
+                emojiPicker
+                    .querySelectorAll('.pk-emoji-cat')
+                    .forEach((c) => c.classList.remove('active'));
                 cat.classList.add('active');
                 this.renderEmojiGrid(cat.dataset.category);
             });
@@ -2452,7 +2884,8 @@ class PancakeChatManager {
                 // Insert emoji at cursor position
                 const start = chatInput.selectionStart;
                 const end = chatInput.selectionEnd;
-                chatInput.value = chatInput.value.substring(0, start) + emoji + chatInput.value.substring(end);
+                chatInput.value =
+                    chatInput.value.substring(0, start) + emoji + chatInput.value.substring(end);
                 chatInput.selectionStart = chatInput.selectionEnd = start + emoji.length;
                 chatInput.focus();
 
@@ -2469,9 +2902,9 @@ class PancakeChatManager {
         const grid = document.getElementById('pkEmojiGrid');
         if (!grid || !this.emojiData[category]) return;
 
-        grid.innerHTML = this.emojiData[category].map(emoji =>
-            `<button class="pk-emoji-item" title="${emoji}">${emoji}</button>`
-        ).join('');
+        grid.innerHTML = this.emojiData[category]
+            .map((emoji) => `<button class="pk-emoji-item" title="${emoji}">${emoji}</button>`)
+            .join('');
     }
 
     /**
@@ -2536,7 +2969,8 @@ class PancakeChatManager {
      */
     handleImageSelect(file) {
         if (!file.type.startsWith('image/')) {
-            alert('Vui lòng chọn file ảnh');
+            if (window.Popup) window.Popup.warning('Vui lòng chọn file ảnh');
+            else alert('Vui lòng chọn file ảnh');
             return;
         }
 
@@ -2591,7 +3025,8 @@ class PancakeChatManager {
         // Track scroll position
         container.addEventListener('scroll', () => {
             const threshold = 100; // pixels from bottom to consider "at bottom"
-            const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+            const isAtBottom =
+                container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
 
             this.isScrolledToBottom = isAtBottom;
 
@@ -2607,10 +3042,12 @@ class PancakeChatManager {
 
             // Detect scroll near top to load more messages
             const scrollTopThreshold = 100; // pixels from top
-            if (container.scrollTop < scrollTopThreshold &&
+            if (
+                container.scrollTop < scrollTopThreshold &&
                 this.hasMoreMessages &&
                 !this.isLoadingMoreMessages &&
-                this.messages.length > 0) {
+                this.messages.length > 0
+            ) {
                 this.loadMoreMessages();
             }
         });
@@ -2630,7 +3067,10 @@ class PancakeChatManager {
         }
 
         this.isLoadingMoreMessages = true;
-        console.log('[PANCAKE-CHAT] Loading more messages... currentCount:', this.messageCurrentCount);
+        console.log(
+            '[PANCAKE-CHAT] Loading more messages... currentCount:',
+            this.messageCurrentCount
+        );
 
         // Save scroll position to maintain after loading
         const container = document.getElementById('pkChatMessages');
@@ -2691,7 +3131,6 @@ class PancakeChatManager {
                     container.scrollTop = scrollDelta;
                 }
             }
-
         } catch (error) {
             console.error('[PANCAKE-CHAT] Error loading more messages:', error);
             loadMoreIndicator.remove();
@@ -2709,7 +3148,7 @@ class PancakeChatManager {
 
         container.scrollTo({
             top: container.scrollHeight,
-            behavior: 'smooth'
+            behavior: 'smooth',
         });
 
         // Reset state
@@ -2750,11 +3189,11 @@ class PancakeChatManager {
 
     selectConversation(convId) {
         // Look in both regular conversations and search results
-        let conv = this.conversations.find(c => c.id === convId);
+        let conv = this.conversations.find((c) => c.id === convId);
 
         // If not found in conversations, check search results
         if (!conv && this.searchResults) {
-            conv = this.searchResults.find(c => c.id === convId);
+            conv = this.searchResults.find((c) => c.id === convId);
         }
 
         if (!conv) {
@@ -2795,7 +3234,7 @@ class PancakeChatManager {
             message: text || '[Hình ảnh]',
             from: { id: this.activeConversation.page_id, name: 'You' },
             inserted_at: new Date().toISOString(),
-            _temp: true
+            _temp: true,
         };
         this.messages.push(tempMessage);
         this.isScrolledToBottom = true; // Force scroll for own message
@@ -2806,7 +3245,8 @@ class PancakeChatManager {
             const pageId = this.activeConversation.page_id;
             const convId = this.activeConversation.id;
             const customerId = this.activeConversation.customers?.[0]?.id || null;
-            const action = this.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
+            const action =
+                this.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
             let contentIds = [];
             let attachmentId = null;
@@ -2819,7 +3259,10 @@ class PancakeChatManager {
                 let uploadResult;
                 if (this.serverMode === 'n2store') {
                     // N2Store mode - upload via Facebook Graph API
-                    uploadResult = await window.pancakeDataManager.uploadMediaN2Store(pageId, this.selectedImage);
+                    uploadResult = await window.pancakeDataManager.uploadMediaN2Store(
+                        pageId,
+                        this.selectedImage
+                    );
                     if (uploadResult.success && uploadResult.attachment_id) {
                         attachmentId = uploadResult.attachment_id;
                         attachmentType = uploadResult.attachment_type;
@@ -2829,7 +3272,10 @@ class PancakeChatManager {
                     }
                 } else {
                     // Pancake mode - upload via Pancake API
-                    uploadResult = await window.pancakeDataManager.uploadMedia(pageId, this.selectedImage);
+                    uploadResult = await window.pancakeDataManager.uploadMedia(
+                        pageId,
+                        this.selectedImage
+                    );
                     if (uploadResult.success && uploadResult.id) {
                         contentIds = [uploadResult.id];
                         attachmentType = uploadResult.attachment_type;
@@ -2843,12 +3289,26 @@ class PancakeChatManager {
                 this.clearImagePreview();
             }
 
-            console.log(`[PANCAKE-CHAT] Sending message (mode: ${this.serverMode}):`, { pageId, convId, text, action, attachmentId, contentIds });
+            console.log(`[PANCAKE-CHAT] Sending message (mode: ${this.serverMode}):`, {
+                pageId,
+                convId,
+                text,
+                action,
+                attachmentId,
+                contentIds,
+            });
 
             let sentMessage;
             if (this.serverMode === 'n2store') {
                 // N2Store mode - send via Facebook Graph API (100%)
-                sentMessage = await window.pancakeDataManager.sendMessageN2Store(pageId, convId, text, action, attachmentId, attachmentType);
+                sentMessage = await window.pancakeDataManager.sendMessageN2Store(
+                    pageId,
+                    convId,
+                    text,
+                    action,
+                    attachmentId,
+                    attachmentType
+                );
             } else {
                 // Pancake mode - send via Pancake API
                 sentMessage = await window.pancakeDataManager.sendMessage(pageId, convId, {
@@ -2856,14 +3316,14 @@ class PancakeChatManager {
                     action: action,
                     customerId: customerId,
                     content_ids: contentIds,
-                    attachment_type: attachmentType
+                    attachment_type: attachmentType,
                 });
             }
 
             console.log('[PANCAKE-CHAT] ✅ Message sent successfully:', sentMessage);
 
             // Replace temp message with real message
-            this.messages = this.messages.filter(m => m.id !== tempMessage.id);
+            this.messages = this.messages.filter((m) => m.id !== tempMessage.id);
             if (sentMessage) {
                 this.messages.push(sentMessage);
             }
@@ -2879,17 +3339,17 @@ class PancakeChatManager {
                 this.activeConversation.updated_at = new Date().toISOString();
                 this.renderConversationList();
             }
-
         } catch (error) {
             console.error('[PANCAKE-CHAT] ❌ Error sending message:', error);
 
             // Remove temp message on error
-            this.messages = this.messages.filter(m => m.id !== tempMessage.id);
+            this.messages = this.messages.filter((m) => m.id !== tempMessage.id);
             this.renderMessages();
 
             // Show error notification
-            alert(`Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`);
-
+            const errMsg = `Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`;
+            if (window.Popup) window.Popup.error(errMsg);
+            else alert(errMsg);
         } finally {
             // Re-enable send button
             if (sendBtn) {
@@ -2908,7 +3368,9 @@ class PancakeChatManager {
         // Stop any existing interval
         this.stopAutoRefresh();
 
-        console.log(`[PANCAKE-CHAT] Starting auto-refresh (every ${this.AUTO_REFRESH_INTERVAL / 1000}s)`);
+        console.log(
+            `[PANCAKE-CHAT] Starting auto-refresh (every ${this.AUTO_REFRESH_INTERVAL / 1000}s)`
+        );
 
         // Set up periodic refresh
         this.autoRefreshInterval = setInterval(async () => {
@@ -2917,7 +3379,8 @@ class PancakeChatManager {
 
                 // Refresh pages with unread counts
                 if (window.pancakeDataManager) {
-                    this.pagesWithUnread = await window.pancakeDataManager.fetchPagesWithUnreadCount() || [];
+                    this.pagesWithUnread =
+                        (await window.pancakeDataManager.fetchPagesWithUnreadCount()) || [];
                     this.updateSelectedPageDisplay();
                 }
 
@@ -2931,9 +3394,12 @@ class PancakeChatManager {
                         this.conversations = conversations;
 
                         // Re-render if count changed or has unread
-                        const hasNewUnread = conversations.some(c => c.unread_count > 0);
+                        const hasNewUnread = conversations.some((c) => c.unread_count > 0);
                         if (conversations.length !== oldCount || hasNewUnread) {
-                            console.log('[PANCAKE-CHAT] ✅ Conversations updated:', conversations.length);
+                            console.log(
+                                '[PANCAKE-CHAT] ✅ Conversations updated:',
+                                conversations.length
+                            );
                             this.renderConversationList();
                         }
                     }
@@ -2959,7 +3425,7 @@ class PancakeChatManager {
     /**
      * Initialize WebSocket connection for realtime updates
      * Uses Phoenix Protocol v2.0.0 (Pancake's socket server)
-     * 
+     *
      * NOTE: When using server mode (via realtime-manager.js), this function
      * skips browser WebSocket since the server handles it via proxy.
      */
@@ -2970,7 +3436,9 @@ class PancakeChatManager {
             // which proxies Pancake WebSocket events. No need for browser WebSocket.
             if (window.chatAPISettings && window.chatAPISettings.getRealtimeMode() === 'server') {
                 console.log('[PANCAKE-SOCKET] Server mode enabled, skipping browser WebSocket');
-                console.log('[PANCAKE-SOCKET] ✅ Using realtime-manager.js for WebSocket via wss://n2store-realtime.onrender.com');
+                console.log(
+                    '[PANCAKE-SOCKET] ✅ Using realtime-manager.js for WebSocket via wss://n2store-realtime.onrender.com'
+                );
                 // Start auto-refresh as backup
                 this.startAutoRefresh();
                 return true;
@@ -3037,7 +3505,6 @@ class PancakeChatManager {
         }
     }
 
-
     /**
      * Handle WebSocket open event
      */
@@ -3090,14 +3557,21 @@ class PancakeChatManager {
         // Attempt reconnection with exponential backoff
         if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
             this.socketReconnectAttempts++;
-            const delay = Math.min(this.socketReconnectDelay * Math.pow(1.5, this.socketReconnectAttempts - 1), 30000);
-            console.log(`[PANCAKE-SOCKET] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts}/${this.socketMaxReconnectAttempts})`);
+            const delay = Math.min(
+                this.socketReconnectDelay * Math.pow(1.5, this.socketReconnectAttempts - 1),
+                30000
+            );
+            console.log(
+                `[PANCAKE-SOCKET] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts}/${this.socketMaxReconnectAttempts})`
+            );
 
             this.socketReconnectTimer = setTimeout(() => {
                 this.initializeWebSocket();
             }, delay);
         } else {
-            console.warn('[PANCAKE-SOCKET] Max reconnection attempts reached, falling back to polling');
+            console.warn(
+                '[PANCAKE-SOCKET] Max reconnection attempts reached, falling back to polling'
+            );
             // Fallback to polling
             this.startAutoRefresh();
         }
@@ -3197,7 +3671,7 @@ class PancakeChatManager {
             this.socketMsgRef.toString(),
             topic,
             event,
-            payload
+            payload,
         ];
 
         this.socket.send(JSON.stringify(message));
@@ -3224,7 +3698,7 @@ class PancakeChatManager {
         if (!conversation || !conversation.id) return;
 
         // Find and update conversation in list
-        const index = this.conversations.findIndex(c => c.id === conversation.id);
+        const index = this.conversations.findIndex((c) => c.id === conversation.id);
 
         if (index >= 0) {
             // Update existing conversation
@@ -3270,7 +3744,7 @@ class PancakeChatManager {
         // If this is the active conversation, add message to list
         if (this.activeConversation?.id === conversationId) {
             // Add message if not already exists
-            if (!this.messages.find(m => m.id === message.id)) {
+            if (!this.messages.find((m) => m.id === message.id)) {
                 this.messages.push(message);
                 this.renderMessages();
             }
@@ -3281,7 +3755,7 @@ class PancakeChatManager {
             id: conversationId,
             snippet: message.message || message.text,
             updated_at: message.inserted_at || new Date().toISOString(),
-            unread_count: (this.activeConversation?.id === conversationId) ? 0 : 1
+            unread_count: this.activeConversation?.id === conversationId ? 0 : 1,
         });
     }
 
@@ -3295,7 +3769,7 @@ class PancakeChatManager {
         const tags = payload.tags;
 
         // Find and update conversation tags
-        const conv = this.conversations.find(c => c.id === conversationId);
+        const conv = this.conversations.find((c) => c.id === conversationId);
         if (conv) {
             conv.tags = tags;
             this.renderConversationList();
@@ -3361,7 +3835,8 @@ class PancakeChatManager {
             statusEl.innerHTML = '<i data-lucide="wifi" class="pk-socket-icon connected"></i>';
             statusEl.title = 'Realtime: Đã kết nối';
         } else {
-            statusEl.innerHTML = '<i data-lucide="wifi-off" class="pk-socket-icon disconnected"></i>';
+            statusEl.innerHTML =
+                '<i data-lucide="wifi-off" class="pk-socket-icon disconnected"></i>';
             statusEl.title = 'Realtime: Mất kết nối';
         }
 
@@ -3375,7 +3850,8 @@ class PancakeChatManager {
      */
     async updateUnreadCounts() {
         if (window.pancakeDataManager) {
-            this.pagesWithUnread = await window.pancakeDataManager.fetchPagesWithUnreadCount() || [];
+            this.pagesWithUnread =
+                (await window.pancakeDataManager.fetchPagesWithUnreadCount()) || [];
             this.updateSelectedPageDisplay();
         }
     }
@@ -3392,7 +3868,7 @@ class PancakeChatManager {
             new Notification(name, {
                 body: snippet.substring(0, 100),
                 icon: '/favicon.ico',
-                tag: conversation.id
+                tag: conversation.id,
             });
         }
 
@@ -3412,7 +3888,8 @@ class PancakeChatManager {
         const fbId = customer?.fb_id || customer?.id || conv.from?.id;
 
         // Try multiple avatar fields (different API responses use different field names)
-        let directAvatarUrl = customer?.avatar ||
+        let directAvatarUrl =
+            customer?.avatar ||
             customer?.picture?.data?.url ||
             customer?.profile_pic ||
             customer?.image_url ||
@@ -3435,7 +3912,7 @@ class PancakeChatManager {
             'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
             'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
             'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-            'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'
+            'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
         ];
         const colorIndex = name.charCodeAt(0) % colors.length;
         const gradientColor = colors[colorIndex];
@@ -3463,11 +3940,14 @@ class PancakeChatManager {
         // Map tag colors (use tag.color if available, otherwise assign from palette)
         const colorPalette = ['red', 'green', 'blue', 'orange', 'purple', 'pink', 'teal'];
 
-        return tags.map((tag, index) => {
-            const tagName = tag.name || tag.tag_name || tag;
-            const tagColor = tag.color || tag.tag_color || colorPalette[index % colorPalette.length];
-            return `<span class="pk-tag-badge ${tagColor}">${this.escapeHtml(tagName)}</span>`;
-        }).join('');
+        return tags
+            .map((tag, index) => {
+                const tagName = tag.name || tag.tag_name || tag;
+                const tagColor =
+                    tag.color || tag.tag_color || colorPalette[index % colorPalette.length];
+                return `<span class="pk-tag-badge ${tagColor}">${this.escapeHtml(tagName)}</span>`;
+            })
+            .join('');
     }
 
     getChatStatus(conv) {
@@ -3497,7 +3977,6 @@ class PancakeChatManager {
 
             const now = new Date();
 
-
             // Use Intl.DateTimeFormat to get date parts in Vietnam timezone
             const vnFormatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Ho_Chi_Minh',
@@ -3506,14 +3985,15 @@ class PancakeChatManager {
                 day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-                hour12: false
+                hour12: false,
             });
 
             // Get date parts for comparison
             const dateParts = vnFormatter.formatToParts(date);
             const nowParts = vnFormatter.formatToParts(now);
 
-            const getPartValue = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+            const getPartValue = (parts, type) =>
+                parseInt(parts.find((p) => p.type === type)?.value || '0');
 
             const dateYear = getPartValue(dateParts, 'year');
             const dateMonth = getPartValue(dateParts, 'month');
@@ -3532,7 +4012,7 @@ class PancakeChatManager {
                     hour: '2-digit',
                     minute: '2-digit',
                     timeZone: 'Asia/Ho_Chi_Minh',
-                    hour12: false
+                    hour12: false,
                 }).format(date);
             }
 
@@ -3545,9 +4025,17 @@ class PancakeChatManager {
             if (diffDays > 0 && diffDays < 7) {
                 const dayOfWeek = new Intl.DateTimeFormat('en-US', {
                     timeZone: 'Asia/Ho_Chi_Minh',
-                    weekday: 'short'
+                    weekday: 'short',
                 }).format(date);
-                const days = { 'Sun': 'CN', 'Mon': 'T2', 'Tue': 'T3', 'Wed': 'T4', 'Thu': 'T5', 'Fri': 'T6', 'Sat': 'T7' };
+                const days = {
+                    Sun: 'CN',
+                    Mon: 'T2',
+                    Tue: 'T3',
+                    Wed: 'T4',
+                    Thu: 'T5',
+                    Fri: 'T6',
+                    Sat: 'T7',
+                };
                 return days[dayOfWeek] || dayOfWeek;
             }
 
@@ -3555,7 +4043,7 @@ class PancakeChatManager {
             return new Intl.DateTimeFormat('vi-VN', {
                 day: '2-digit',
                 month: '2-digit',
-                timeZone: 'Asia/Ho_Chi_Minh'
+                timeZone: 'Asia/Ho_Chi_Minh',
             }).format(date);
         } catch (error) {
             console.warn('[PANCAKE-CHAT] Error formatting time:', error);
@@ -3575,7 +4063,11 @@ class PancakeChatManager {
 
             if (data.success) {
                 this.tposSavedCustomerIds = new Set(data.data);
-                console.log('[PANCAKE-CHAT] Loaded', this.tposSavedCustomerIds.size, 'saved customer IDs');
+                console.log(
+                    '[PANCAKE-CHAT] Loaded',
+                    this.tposSavedCustomerIds.size,
+                    'saved customer IDs'
+                );
             } else {
                 console.error('[PANCAKE-CHAT] API error:', data.message);
                 this.tposSavedCustomerIds = new Set();
@@ -3599,9 +4091,12 @@ class PancakeChatManager {
         }
 
         try {
-            const response = await fetch(`${this.tposPancakeUrl}/api/tpos-saved/${encodeURIComponent(customerId)}`, {
-                method: 'DELETE'
-            });
+            const response = await fetch(
+                `${this.tposPancakeUrl}/api/tpos-saved/${encodeURIComponent(customerId)}`,
+                {
+                    method: 'DELETE',
+                }
+            );
             const data = await response.json();
 
             if (data.success) {
@@ -3647,15 +4142,13 @@ class PancakeChatManager {
                 hour: '2-digit',
                 minute: '2-digit',
                 timeZone: 'Asia/Ho_Chi_Minh',
-                hour12: false
+                hour12: false,
             }).format(date);
         } catch (error) {
             console.warn('[PANCAKE-CHAT] Error formatting message time:', error);
             return '';
         }
     }
-
-
 
     groupMessagesByDate(messages) {
         const groups = {};
@@ -3666,18 +4159,19 @@ class PancakeChatManager {
             timeZone: 'Asia/Ho_Chi_Minh',
             year: 'numeric',
             month: '2-digit',
-            day: '2-digit'
+            day: '2-digit',
         });
 
         const nowParts = vnFormatter.formatToParts(now);
-        const getPartValue = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+        const getPartValue = (parts, type) =>
+            parseInt(parts.find((p) => p.type === type)?.value || '0');
 
         const todayYear = getPartValue(nowParts, 'year');
         const todayMonth = getPartValue(nowParts, 'month');
         const todayDay = getPartValue(nowParts, 'day');
         const todayKey = `${todayYear}-${todayMonth}-${todayDay}`;
 
-        messages.forEach(msg => {
+        messages.forEach((msg) => {
             const timestamp = msg.inserted_at || msg.created_time;
             const date = this.parseTimestamp(timestamp);
             if (!date) return;
@@ -3698,7 +4192,7 @@ class PancakeChatManager {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
-                    timeZone: 'Asia/Ho_Chi_Minh'
+                    timeZone: 'Asia/Ho_Chi_Minh',
                 }).format(date);
             }
 
@@ -3722,7 +4216,11 @@ class PancakeChatManager {
             let date;
             if (typeof timestamp === 'string') {
                 // If timestamp doesn't have timezone info, assume it's UTC and add 'Z'
-                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                if (
+                    !timestamp.includes('Z') &&
+                    !timestamp.includes('+') &&
+                    !timestamp.includes('-', 10)
+                ) {
                     date = new Date(timestamp + 'Z');
                 } else {
                     date = new Date(timestamp);
@@ -3739,7 +4237,6 @@ class PancakeChatManager {
             return null;
         }
     }
-
 
     escapeHtml(text) {
         if (!text) return '';
@@ -3785,10 +4282,12 @@ class PancakeChatManager {
         } catch (error) {
             console.warn('[PANCAKE-CHAT] Error parsing message HTML:', error);
             // Fallback: strip all HTML tags with regex
-            return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            return html
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
         }
     }
-
 
     renderLoadingState() {
         const container = document.getElementById('pkConversations');
@@ -3877,7 +4376,8 @@ class PancakeChatManager {
         if (!phone) return '';
         let normalized = phone.toString().trim().replace(/[\s-]/g, '');
         if (normalized.startsWith('+84')) normalized = '0' + normalized.slice(3);
-        if (normalized.startsWith('84') && normalized.length > 9) normalized = '0' + normalized.slice(2);
+        if (normalized.startsWith('84') && normalized.length > 9)
+            normalized = '0' + normalized.slice(2);
         return normalized;
     }
 
@@ -3886,10 +4386,8 @@ class PancakeChatManager {
      */
     getPhoneFromConversation(conv) {
         const customer = conv.customers?.[0] || conv.from || {};
-        const phone = customer.phone_numbers?.[0] ||
-                      customer.phone ||
-                      conv.recent_phone_numbers?.[0] ||
-                      null;
+        const phone =
+            customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || null;
         return phone ? this.normalizePhone(phone) : null;
     }
 
@@ -3898,9 +4396,11 @@ class PancakeChatManager {
      */
     setDebtCache(phone, amount) {
         if (this.debtCache.size >= this.debtCacheConfig.maxSize) {
-            const entries = Array.from(this.debtCache.entries())
-                .sort((a, b) => a[1].timestamp - b[1].timestamp);
-            entries.slice(0, Math.floor(this.debtCacheConfig.maxSize * 0.2))
+            const entries = Array.from(this.debtCache.entries()).sort(
+                (a, b) => a[1].timestamp - b[1].timestamp
+            );
+            entries
+                .slice(0, Math.floor(this.debtCacheConfig.maxSize * 0.2))
                 .forEach(([key]) => this.debtCache.delete(key));
         }
         this.debtCache.set(phone, { amount, timestamp: Date.now() });
@@ -3960,7 +4460,7 @@ class PancakeChatManager {
             const response = await fetch(`${this.proxyBaseUrl}/api/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phones: uniquePhones })
+                body: JSON.stringify({ phones: uniquePhones }),
             });
 
             if (!response.ok) {
@@ -3973,7 +4473,11 @@ class PancakeChatManager {
                 for (const [phone, walletData] of Object.entries(result.data)) {
                     this.setDebtCache(this.normalizePhone(phone), walletData.total || 0);
                 }
-                console.log('[PANCAKE-CHAT] Loaded wallet balance for', Object.keys(result.data).length, 'phones');
+                console.log(
+                    '[PANCAKE-CHAT] Loaded wallet balance for',
+                    Object.keys(result.data).length,
+                    'phones'
+                );
                 this.renderConversationList();
             }
         } catch (error) {
