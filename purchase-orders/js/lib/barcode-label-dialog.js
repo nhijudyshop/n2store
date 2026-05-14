@@ -111,6 +111,12 @@ window.BarcodeLabelDialog = (function () {
         // ngay khi dialog mở. Items không trong set sẽ bị TPOS print drop silent
         // → ta show warning trong dialog để user biết trước.
         let tposCodeSet = null; // null = chưa fetch, Set = fetched
+        // Cache product data fetched trực tiếp từ TPOS OData khi user click
+        // "Kiểm lại TPOS". Dùng để in TPOS template cho các mã KHÔNG có trong
+        // local web_warehouse nhưng có thật trên TPOS (mapping local bị thiếu).
+        // Key = product_code (DefaultCode), value = mapped product row.
+        let liveTposCache = new Map();
+        let recheckInFlight = false;
 
         const withBarcode = items.filter((i) => i.code);
         const withoutBarcode = items.filter((i) => !i.code);
@@ -162,6 +168,12 @@ window.BarcodeLabelDialog = (function () {
 /* Warning */
 .bld-warning{color:#8a6d3b;background:#fcf8e3;border:1px solid #faebcc;padding:8px 12px;border-radius:4px;margin-top:8px;font-size:12px}
 .bld-warning-icon{margin-right:4px}
+.bld-recheck-btn{display:inline-block;margin-left:8px;padding:3px 10px;font-size:12px;color:#fff;background:#8a6d3b;border:1px solid #6e552a;border-radius:3px;cursor:pointer;line-height:1.4}
+.bld-recheck-btn:hover{background:#6e552a}
+.bld-recheck-btn:disabled{opacity:.6;cursor:wait}
+.bld-recheck-result{display:block;margin-top:6px;font-size:12px}
+.bld-recheck-result.ok{color:#3c763d}
+.bld-recheck-result.err{color:#a94442}
 /* Tabs — uib-tabset (Bootstrap nav-tabs) */
 .bld-tabs{border-bottom:1px solid #ddd;margin-bottom:0;padding-left:0;list-style:none;display:flex}
 .bld-tabs li{margin-bottom:-1px}
@@ -393,6 +405,116 @@ window.BarcodeLabelDialog = (function () {
             master.checked = selectedCount === rows.length;
             master.indeterminate = selectedCount > 0 && selectedCount < rows.length;
         }
+
+        // Kiểm tra trực tiếp trên TPOS các mã đang bị flag "Chưa sync TPOS"
+        // (nghĩa là local web_warehouse không có row hoặc row có tpos_product_id=null).
+        // Query OData /Product?$filter=DefaultCode eq 'X' or DefaultCode eq 'Y' …
+        // Nếu TPOS có sản phẩm → add code vào tposCodeSet + cache full row data
+        // vào liveTposCache để printViaTPOS dùng được mà không cần phụ thuộc local DB.
+        async function recheckTposForMissingCodes() {
+            if (recheckInFlight) return;
+            const checked = items.filter((i) => i.selected && i.code && i.quantity > 0);
+            const missingCodes = [
+                ...new Set(
+                    checked
+                        .filter((it) => !tposCodeSet || !tposCodeSet.has(it.code))
+                        .map((it) => it.code)
+                ),
+            ];
+            if (missingCodes.length === 0) return;
+
+            recheckInFlight = true;
+            updateTposWarning();
+            const resultEl = overlay.querySelector('#bld-recheck-result');
+            if (resultEl) {
+                resultEl.className = 'bld-recheck-result';
+                resultEl.textContent = `Đang query TPOS cho ${missingCodes.length} mã…`;
+            }
+
+            try {
+                if (!window.TPOSClient?.authenticatedFetch) {
+                    throw new Error('TPOSClient chưa sẵn sàng');
+                }
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
+
+                // Batch OData query: $filter=DefaultCode eq 'A' or DefaultCode eq 'B'
+                // Code chỉ gồm chữ + số nên không cần escape special chars phức tạp,
+                // nhưng vẫn whitelist [A-Za-z0-9_-] để chắc chắn không inject quote.
+                const safeCodes = missingCodes.filter((c) => /^[A-Za-z0-9_-]+$/.test(c));
+                if (safeCodes.length === 0) {
+                    throw new Error('Không có mã hợp lệ để kiểm tra');
+                }
+                const filter = safeCodes.map((c) => `DefaultCode eq '${c}'`).join(' or ');
+                const select =
+                    'Id,DefaultCode,NameTemplate,NameGet,Barcode,ProductTmplId,PriceVariant,StandardPrice,PurchasePrice,UOMName,ImageUrl,Active';
+                const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$select=${encodeURIComponent(select)}&$top=${safeCodes.length}`;
+
+                const resp = await tposFetch(url, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!resp.ok) throw new Error('TPOS OData HTTP ' + resp.status);
+                const data = await resp.json();
+                const found = Array.isArray(data.value) ? data.value : [];
+
+                // Map shape giống web_warehouse row để printViaTPOS dùng được
+                // mà không cần thêm code chuyên biệt.
+                const foundCodes = [];
+                for (const p of found) {
+                    if (!p?.Id || !p?.DefaultCode) continue;
+                    liveTposCache.set(p.DefaultCode, {
+                        product_code: p.DefaultCode,
+                        product_name: p.NameTemplate || p.NameGet || p.DefaultCode,
+                        name_get: p.NameGet || `[${p.DefaultCode}] ${p.NameTemplate || ''}`.trim(),
+                        barcode: p.Barcode || p.DefaultCode,
+                        uom_name: p.UOMName || 'Cái',
+                        image_url: p.ImageUrl || null,
+                        selling_price: p.PriceVariant || 0,
+                        standard_price: p.StandardPrice || 0,
+                        purchase_price: p.PurchasePrice || 0,
+                        tpos_product_id: p.Id,
+                        tpos_template_id: p.ProductTmplId || 0,
+                    });
+                    foundCodes.push(p.DefaultCode);
+                }
+
+                if (foundCodes.length > 0) {
+                    if (!tposCodeSet) tposCodeSet = new Set();
+                    foundCodes.forEach((c) => tposCodeSet.add(c));
+                }
+
+                const notFound = missingCodes.filter((c) => !foundCodes.includes(c));
+
+                renderTableRows();
+                updateCount();
+
+                const resultEl2 = overlay.querySelector('#bld-recheck-result');
+                if (resultEl2) {
+                    if (foundCodes.length > 0 && notFound.length === 0) {
+                        resultEl2.className = 'bld-recheck-result ok';
+                        resultEl2.textContent = `✓ Tất cả ${foundCodes.length} mã có trên TPOS — đã sẵn sàng in.`;
+                    } else if (foundCodes.length > 0) {
+                        resultEl2.className = 'bld-recheck-result ok';
+                        resultEl2.innerHTML = `✓ ${foundCodes.length} mã có trên TPOS: <strong>${foundCodes.join(', ')}</strong>. <span class="err">✗ ${notFound.length} mã KHÔNG tồn tại trên TPOS: <strong>${notFound.join(', ')}</strong></span> (cần tạo SP trên TPOS hoặc bỏ tick).`;
+                    } else {
+                        resultEl2.className = 'bld-recheck-result err';
+                        resultEl2.textContent = `✗ Không tìm thấy mã nào trên TPOS: ${notFound.join(', ')}. Cần tạo SP trên TPOS trước.`;
+                    }
+                }
+            } catch (err) {
+                console.warn('[Barcode] Recheck TPOS failed:', err);
+                const resultEl3 = overlay.querySelector('#bld-recheck-result');
+                if (resultEl3) {
+                    resultEl3.className = 'bld-recheck-result err';
+                    resultEl3.textContent = `Lỗi kiểm tra TPOS: ${err.message || err}`;
+                }
+            } finally {
+                recheckInFlight = false;
+                // Re-render warning để bỏ disabled trên button (nếu nó còn hiển thị).
+                updateTposWarning();
+            }
+        }
+
         renderTableRows();
 
         // Update print button count + TPOS warning visibility
@@ -428,7 +550,9 @@ window.BarcodeLabelDialog = (function () {
                 missingCodes.slice(0, 8).join(', ') +
                 (missingCodes.length > 8 ? `, +${missingCodes.length - 8} mã khác` : '');
             el.style.display = '';
-            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm CHƯA sync TPOS, sẽ KHÔNG in qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả, hoặc bỏ tick các sản phẩm này.`;
+            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm CHƯA sync TPOS (trong kho local), sẽ KHÔNG in qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local, bỏ tick, hoặc bấm nút bên để kiểm tra trực tiếp trên TPOS.
+                <button class="bld-recheck-btn" id="bld-recheck-tpos" ${recheckInFlight ? 'disabled' : ''}>${recheckInFlight ? 'Đang kiểm...' : '🔄 Kiểm lại TPOS'}</button>
+                <span class="bld-recheck-result" id="bld-recheck-result"></span>`;
         }
         updateCount();
 
@@ -472,6 +596,15 @@ window.BarcodeLabelDialog = (function () {
                 li.className = i === activeTab ? 'active' : '';
             });
             renderTableRows();
+        });
+
+        // "Kiểm lại TPOS" — query TPOS OData trực tiếp cho các mã đang bị flag
+        // "Chưa sync TPOS" (theo local web_warehouse). Đây là escape hatch khi
+        // local sync bị thiếu nhưng TPOS thực sự có sản phẩm.
+        overlay.addEventListener('click', async (e) => {
+            const btn = e.target.closest('#bld-recheck-tpos');
+            if (!btn || recheckInFlight) return;
+            await recheckTposForMissingCodes();
         });
 
         // Settings events
@@ -624,7 +757,8 @@ window.BarcodeLabelDialog = (function () {
                         showBold,
                         showCurrency,
                         showProductName,
-                        hideBarcode
+                        hideBarcode,
+                        liveTposCache
                     );
                     closeModal();
                     return;
@@ -704,7 +838,8 @@ window.BarcodeLabelDialog = (function () {
         showBold,
         showCurrency,
         showProductName,
-        hideBarcode
+        hideBarcode,
+        liveTposCache
     ) {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
@@ -722,11 +857,20 @@ window.BarcodeLabelDialog = (function () {
         const whData = await whResp.json();
         const whProducts = whData.success ? whData.data : [];
 
-        if (!whProducts.length) throw new Error('No products found in warehouse');
-
-        // Map product_code → warehouse row
+        // Map product_code → warehouse row (web_warehouse priority).
         const codeMap = new Map();
         for (const p of whProducts) codeMap.set(p.product_code, p);
+        // Fallback: items mà user đã "Kiểm lại TPOS" — local DB miss nhưng
+        // TPOS xác nhận có. liveTposCache có shape giống web_warehouse row.
+        if (liveTposCache && liveTposCache.size > 0) {
+            for (const [code, row] of liveTposCache.entries()) {
+                if (!codeMap.has(code) || !codeMap.get(code)?.tpos_product_id) {
+                    codeMap.set(code, row);
+                }
+            }
+        }
+
+        if (codeMap.size === 0) throw new Error('No products found in warehouse');
 
         // Build Lines + BarcodeTemplateIds
         const tmplIdSet = new Set();

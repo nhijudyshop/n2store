@@ -25,6 +25,28 @@
 
 ## 2026-05-14
 
+### [orders][barcode] Nút "Kiểm lại TPOS" — query OData trực tiếp khi local web_warehouse thiếu mapping
+
+**Vấn đề user báo (sau commit checkbox)**: MM139A2 / MM139A3 đã có trên TPOS thật, nhưng dialog vẫn flag "Chưa sync TPOS". User hỏi tại sao và muốn có cách kiểm lại trước khi in.
+
+**Phân tích**: cờ "Chưa sync TPOS" được build từ `tposCodeSet` = pre-fetch `/api/v2/web-warehouse/batch-lookup` rồi filter `tpos_product_id != null`. Đây là **local Postgres web_warehouse cache**, không phải TPOS thật. Khi sync local bị thiếu (row chưa được populate hoặc `tpos_product_id` null) thì flag bật, dù TPOS thực sự có sản phẩm. Trước đây giải pháp duy nhất là tắt "In theo mẫu TPOS" → fallback HTML local.
+
+**Thay đổi**:
+
+- Thêm nút "🔄 Kiểm lại TPOS" trong warning panel khi có items missing.
+- Click → query trực tiếp TPOS OData: `GET /api/odata/Product?$filter=DefaultCode eq 'A' or DefaultCode eq 'B'&$select=Id,DefaultCode,NameTemplate,NameGet,Barcode,ProductTmplId,PriceVariant,StandardPrice,PurchasePrice,UOMName,ImageUrl` qua `TPOSClient.authenticatedFetch`.
+- Whitelist mã `^[A-Za-z0-9_-]+$` để chặn OData injection.
+- Mã TPOS xác nhận có → add vào `tposCodeSet` + cache full row vào `liveTposCache` (Map<code, row-shape>). Re-render: badge "Chưa sync" biến mất, row hết highlight vàng, nút In count tăng.
+- Mã KHÔNG tồn tại trên TPOS → hiển thị rõ "✗ Cần tạo SP trên TPOS hoặc bỏ tick" — không thể workaround bằng client.
+- `printViaTPOS` nhận thêm param `liveTposCache`; khi web-warehouse batch-lookup miss mã nào → fallback dùng `liveTposCache` để build Lines payload TPOS PDF.
+- Result text: ✓ xanh khi tất cả tìm thấy, hỗn hợp khi partial, ✗ đỏ khi không tìm thấy mã nào / lỗi network.
+
+**Files**:
+
+- [purchase-orders/js/lib/barcode-label-dialog.js](purchase-orders/js/lib/barcode-label-dialog.js) — add `liveTposCache`, `recheckTposForMissingCodes()`, button + result UI, `printViaTPOS` fallback.
+
+**Status**: ✅ Done
+
 ### [orders] Chặn tạo PBH khi thiếu Sản phẩm + Toggle Hiện/ẩn cột bảng
 
 **Yêu cầu user**:
