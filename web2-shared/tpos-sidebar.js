@@ -626,6 +626,23 @@
             </div>`;
     }
 
+    const COLLAPSE_KEY = 'web2SidebarCollapsed';
+    function isCollapsed() {
+        try {
+            return localStorage.getItem(COLLAPSE_KEY) === '1';
+        } catch {
+            return false;
+        }
+    }
+    function setCollapsed(v) {
+        document.body.classList.toggle('web2-sidebar-collapsed', !!v);
+        try {
+            localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0');
+        } catch {
+            /* ignore */
+        }
+    }
+
     const Web2Sidebar = {
         NAV,
         mount(selector, opts = {}) {
@@ -637,11 +654,21 @@
                     <span class="web2-brand-logo">N2</span>
                     <span class="web2-brand-text">Web 2.0</span>
                     <span class="web2-brand-sub">v${opts.version || '1.0'}</span>
+                    <button class="web2-sidebar-toggle" id="web2SidebarToggle" type="button" title="Ẩn/hiện menu">
+                        <i data-lucide="panel-left-close"></i>
+                    </button>
                 </div>
                 <nav class="web2-nav">
                     ${NAV.map((g) => renderGroup(g, activeUrl)).join('')}
                 </nav>
             `;
+            // Restore collapsed state from localStorage on mount
+            setCollapsed(isCollapsed());
+            const toggle = el.querySelector('#web2SidebarToggle');
+            toggle?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setCollapsed(!isCollapsed());
+            });
             if (window.lucide) lucide.createIcons();
         },
         alertSoon(label, tpos) {
@@ -650,6 +677,9 @@
             else if (window.Popup) window.Popup.alert(msg, { type: 'info' });
             else alert(msg);
         },
+        toggleCollapse: () => setCollapsed(!isCollapsed()),
+        setCollapsed,
+        isCollapsed,
     };
 
     global.Web2Sidebar = Web2Sidebar;

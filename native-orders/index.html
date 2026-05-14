@@ -14,9 +14,9 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260425h" />
+        <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260514e" />
         <link rel="stylesheet" href="css/native-orders.css?v=20260425h" />
-        <link rel="stylesheet" href="css/tpos-theme.css?v=20260425h" />
+        <link rel="stylesheet" href="css/tpos-theme.css?v=20260514e" />
 
         <!-- Lucide icons -->
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
@@ -310,10 +310,21 @@
                         <table class="data-table" id="ordersTable">
                             <thead>
                                 <tr>
-                                    <th class="col-check" style="width: 30px">
-                                        <input type="checkbox" id="checkAll" />
+                                    <th class="col-check" style="width: 70px; text-align: left">
+                                        <div class="tpos-check-stt">
+                                            <input type="checkbox" id="checkAll" />
+                                            <span
+                                                style="
+                                                    font-size: 11px;
+                                                    color: #6b7280;
+                                                    font-weight: 700;
+                                                    text-transform: uppercase;
+                                                "
+                                                >STT</span
+                                            >
+                                        </div>
                                     </th>
-                                    <th class="col-actions" style="width: 90px">Thao tác</th>
+                                    <th class="col-actions" style="width: 70px">Thao tác</th>
                                     <th class="col-stt" style="width: 50px; text-align: center">
                                         STT
                                     </th>
@@ -358,7 +369,7 @@
         </div>
         <!-- /.web2-shell -->
 
-        <script src="../web2-shared/tpos-sidebar.js?v=20260514d"></script>
+        <script src="../web2-shared/tpos-sidebar.js?v=20260514e"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
         </script>
@@ -387,6 +398,6 @@
 
         <!-- App Scripts -->
         <script src="js/native-orders-api.js?v=20260513b"></script>
-        <script src="js/native-orders-app.js?v=20260514i"></script>
+        <script src="js/native-orders-app.js?v=20260514j"></script>
     </body>
 </html>

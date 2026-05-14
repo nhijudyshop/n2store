@@ -22,14 +22,31 @@
     text-transform: none;
     letter-spacing: 0;
 }
-.tpos-label-default { background: var(--tpos-text-3); }
-.tpos-label-success { background: var(--tpos-label-success); }    /* Bình thường */
-.tpos-label-info    { background: var(--tpos-info); }
-.tpos-label-warning { background: var(--tpos-label-warning); color: #fff; }   /* Cảnh báo */
-.tpos-label-danger  { background: var(--tpos-label-danger); }    /* Bom hàng */
-.tpos-label-primary { background: var(--tpos-link); }            /* Mobifone/Viettel/Vinaphone */
-.tpos-label-coc     { background: var(--tpos-label-tag-coc); }   /* CỌC 200K */
-.tpos-label-boom    { background: var(--tpos-label-tag-boom); }  /* KHÁCH BOOM */
+.tpos-label-default {
+    background: var(--tpos-text-3);
+}
+.tpos-label-success {
+    background: var(--tpos-label-success);
+} /* Bình thường */
+.tpos-label-info {
+    background: var(--tpos-info);
+}
+.tpos-label-warning {
+    background: var(--tpos-label-warning);
+    color: #fff;
+} /* Cảnh báo */
+.tpos-label-danger {
+    background: var(--tpos-label-danger);
+} /* Bom hàng */
+.tpos-label-primary {
+    background: var(--tpos-link);
+} /* Mobifone/Viettel/Vinaphone */
+.tpos-label-coc {
+    background: var(--tpos-label-tag-coc);
+} /* CỌC 200K */
+.tpos-label-boom {
+    background: var(--tpos-label-tag-boom);
+} /* KHÁCH BOOM */
 
 /* TPOS .label-cs override: bigger label used for carriers + status pills.
  * Crawled values: fs 12px, padding 5px, radius 3px. */
@@ -40,15 +57,19 @@
 }
 
 /* Margin helper used by TPOS to space adjacent labels */
-.m-r-xs { margin-right: 5px; }
-.m-l-xs { margin-left: 5px; }
+.m-r-xs {
+    margin-right: 5px;
+}
+.m-l-xs {
+    margin-left: 5px;
+}
 
 /* ------- Bootstrap 3 .btn clone (toolbar buttons) ------- */
 .tpos-btn {
     display: inline-block;
     padding: 5px 10px;
     font-size: 12px;
-    font-family: inherit;             /* MUST inherit Segoe UI from body */
+    font-family: inherit; /* MUST inherit Segoe UI from body */
     font-weight: 500;
     line-height: 1.42857;
     color: var(--tpos-text-3);
@@ -59,7 +80,10 @@
     background: #fff;
     border: 1px solid var(--tpos-border-btn);
     border-radius: 2px;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
     text-decoration: none;
     user-select: none;
 }
@@ -68,19 +92,62 @@
     border-color: #b0bcc1;
     color: var(--tpos-text);
 }
-.tpos-btn:active { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08); }
-.tpos-btn:disabled { opacity: 0.65; cursor: not-allowed; }
-.tpos-btn i { margin-right: 4px; }
+.tpos-btn:active {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.tpos-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+.tpos-btn i {
+    margin-right: 4px;
+}
 
-.tpos-btn-default { background: #fff; color: var(--tpos-text-3); border-color: var(--tpos-border-btn); }
-.tpos-btn-primary { background: var(--tpos-primary); color: #fff; border-color: var(--tpos-primary); }
-.tpos-btn-primary:hover { background: var(--tpos-primary-hover); border-color: var(--tpos-primary-hover); color: #fff; }
-.tpos-btn-success { background: var(--tpos-success); color: #fff; border-color: var(--tpos-success); }
-.tpos-btn-success:hover { background: var(--tpos-success-hover); border-color: var(--tpos-success-hover); color: #fff; }
-.tpos-btn-info    { background: var(--tpos-info); color: #fff; border-color: var(--tpos-info); }
-.tpos-btn-info:hover { background: var(--tpos-info-hover); border-color: var(--tpos-info-hover); color: #fff; }
-.tpos-btn-danger  { background: var(--tpos-danger); color: #fff; border-color: var(--tpos-danger); }
-.tpos-btn-danger:hover { background: var(--tpos-danger-hover); border-color: var(--tpos-danger-hover); color: #fff; }
+.tpos-btn-default {
+    background: #fff;
+    color: var(--tpos-text-3);
+    border-color: var(--tpos-border-btn);
+}
+.tpos-btn-primary {
+    background: var(--tpos-primary);
+    color: #fff;
+    border-color: var(--tpos-primary);
+}
+.tpos-btn-primary:hover {
+    background: var(--tpos-primary-hover);
+    border-color: var(--tpos-primary-hover);
+    color: #fff;
+}
+.tpos-btn-success {
+    background: var(--tpos-success);
+    color: #fff;
+    border-color: var(--tpos-success);
+}
+.tpos-btn-success:hover {
+    background: var(--tpos-success-hover);
+    border-color: var(--tpos-success-hover);
+    color: #fff;
+}
+.tpos-btn-info {
+    background: var(--tpos-info);
+    color: #fff;
+    border-color: var(--tpos-info);
+}
+.tpos-btn-info:hover {
+    background: var(--tpos-info-hover);
+    border-color: var(--tpos-info-hover);
+    color: #fff;
+}
+.tpos-btn-danger {
+    background: var(--tpos-danger);
+    color: #fff;
+    border-color: var(--tpos-danger);
+}
+.tpos-btn-danger:hover {
+    background: var(--tpos-danger-hover);
+    border-color: var(--tpos-danger-hover);
+    color: #fff;
+}
 
 /* btn-xs (used for action buttons in row) — TPOS spec: padding 1px 5px, size ~25x22 */
 .tpos-btn-xs {
@@ -94,32 +161,59 @@
     align-items: center;
     justify-content: center;
 }
-.tpos-btn-xs i { margin: 0; }
+.tpos-btn-xs i {
+    margin: 0;
+}
 
 /* btn-sm */
-.tpos-btn-sm { padding: 5px 10px; font-size: 12px; line-height: 1.5; border-radius: 2px; }
+.tpos-btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 2px;
+}
 
 /* ------- Text utilities ------- */
-.tpos-text-primary { color: var(--tpos-link); }
-.tpos-text-muted   { color: var(--tpos-text-3); }
-.tpos-text-faded   { color: var(--tpos-text-faded); }
-.tpos-text-binhluan { color: var(--tpos-binhluan); font-weight: 600; cursor: pointer; }
-.tpos-text-binhluan:hover { text-decoration: underline; }
-.tpos-text-bold    { font-weight: 700; }
+.tpos-text-primary {
+    color: var(--tpos-link);
+}
+.tpos-text-muted {
+    color: var(--tpos-text-3);
+}
+.tpos-text-faded {
+    color: var(--tpos-text-faded);
+}
+.tpos-text-binhluan {
+    color: var(--tpos-binhluan);
+    font-weight: 600;
+    cursor: pointer;
+}
+.tpos-text-binhluan:hover {
+    text-decoration: underline;
+}
+.tpos-text-bold {
+    font-weight: 700;
+}
 
 /* ------- Phone link (text-primary in TPOS) ------- */
-.data-table a[href^="tel:"],
+.data-table a[href^='tel:'],
 .data-table .tpos-phone {
     color: var(--tpos-link);
     text-decoration: none;
     font-weight: 400;
     cursor: pointer;
 }
-.data-table a[href^="tel:"]:hover { text-decoration: underline; }
+.data-table a[href^='tel:']:hover {
+    text-decoration: underline;
+}
 
 /* ------- Table cell helpers used by TPOS template ------- */
-.tpos-cell-center  { text-align: center; }
-.tpos-cell-right   { text-align: right; }
+.tpos-cell-center {
+    text-align: center;
+}
+.tpos-cell-right {
+    text-align: right;
+}
 .tpos-cell-money {
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -139,7 +233,9 @@
     outline: none;
     width: 100%;
 }
-.tpos-search-input:focus { background: #fff; }
+.tpos-search-input:focus {
+    background: #fff;
+}
 
 .tpos-magnifier-btn {
     background: var(--tpos-bg-light);
@@ -151,7 +247,9 @@
     height: 30px;
     cursor: pointer;
 }
-.tpos-magnifier-btn:hover { background: #dde3e5; }
+.tpos-magnifier-btn:hover {
+    background: #dde3e5;
+}
 
 /* ------- Row action bar (TPOS uses btn-info cyan + btn-danger red) ------- */
 .tpos-row-actions {
@@ -161,14 +259,22 @@
 }
 
 /* ------- Code cell (mã đơn + campaign subtitle + tag bar) ------- */
-.tpos-code-cell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.tpos-code-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+}
 .tpos-code-main {
     font-weight: 700;
     color: var(--tpos-text);
     font-size: 14px;
     cursor: pointer;
 }
-.tpos-code-main:hover { color: var(--tpos-link); text-decoration: underline; }
+.tpos-code-main:hover {
+    color: var(--tpos-link);
+    text-decoration: underline;
+}
 .tpos-code-sub {
     color: var(--tpos-text-3);
     font-size: 12px;
@@ -193,20 +299,90 @@
     border: none;
     cursor: pointer;
 }
-.tpos-tag-trigger i { font-size: 11px; }
+.tpos-tag-trigger i {
+    font-size: 11px;
+}
 
 /* ------- Channel cell ------- */
-.tpos-channel-cell { display: flex; flex-direction: column; gap: 2px; }
-.tpos-channel-name { color: var(--tpos-text); font-weight: 400; font-size: 14px; }
-.tpos-channel-link { color: var(--tpos-binhluan); font-weight: 600; cursor: pointer; font-size: 14px; text-align: start; }
+.tpos-channel-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tpos-channel-name {
+    color: var(--tpos-text);
+    font-weight: 400;
+    font-size: 14px;
+}
+.tpos-channel-link {
+    color: var(--tpos-binhluan);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: start;
+}
 
-/* ------- Customer name cell (name + small icons + status pill) ------- */
-.tpos-customer-cell { display: flex; flex-direction: column; gap: 4px; }
-.tpos-customer-name { color: var(--tpos-text); font-weight: 400; font-size: 14px; }
-.tpos-customer-row2 {
+/* ------- Customer name cell (clean: name + status pill on one row, merged phone below) ------- */
+.tpos-customer-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+    justify-content: center;
+}
+.tpos-customer-name-row {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.tpos-customer-name {
+    color: var(--tpos-text);
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.3;
+}
+/* legacy class kept so old refs don't break, but now hidden */
+.tpos-customer-row2 {
+    display: none;
+}
+
+/* ------- Checkbox + STT combined column ------- */
+.tpos-check-stt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px;
+}
+.tpos-check-stt .row-check {
+    cursor: pointer;
+}
+.tpos-row-stt {
+    font-weight: 700;
+    color: var(--tpos-text);
+    font-size: 13px;
+    min-width: 22px;
+    text-align: center;
+}
+
+/* ------- Action column: 2x2 grid of icon buttons ------- */
+.tpos-row-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    width: max-content;
+}
+.tpos-row-actions-grid .tpos-btn,
+.tpos-row-actions-grid .tpos-action-placeholder {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.tpos-row-actions-grid .tpos-action-placeholder {
+    background: transparent;
 }
 
 /* Phone/Person icon bubbles (small green + small purple from TPOS) */
@@ -221,29 +397,47 @@
     font-size: 9px;
     cursor: pointer;
 }
-.tpos-mini-phone   { background: var(--tpos-success); }
-.tpos-mini-person  { background: var(--tpos-primary); }
+.tpos-mini-phone {
+    background: var(--tpos-success);
+}
+.tpos-mini-person {
+    background: var(--tpos-primary);
+}
 
 /* ------- Phone column ------- */
-.tpos-phone-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; }
+.tpos-phone-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+    text-align: left;
+}
 .tpos-phone-link {
     color: var(--tpos-link);
     font-size: 14px;
     text-decoration: none;
     font-weight: 400;
-    text-align: center;        /* TPOS spec: phone cell text centered */
+    text-align: center; /* TPOS spec: phone cell text centered */
 }
-.tpos-phone-link:hover { text-decoration: underline; }
+.tpos-phone-link:hover {
+    text-decoration: underline;
+}
 .tpos-carrier {
     color: var(--tpos-link);
     font-size: 14px;
     font-weight: 400;
-    text-align: center;        /* TPOS spec: carrier centered under phone */
+    text-align: center; /* TPOS spec: carrier centered under phone */
 }
 
 /* ------- Date cell ------- */
-.tpos-date-cell { font-size: 14px; color: var(--tpos-text); white-space: nowrap; }
-.tpos-date-cell.center { text-align: center; }
+.tpos-date-cell {
+    font-size: 14px;
+    color: var(--tpos-text);
+    white-space: nowrap;
+}
+.tpos-date-cell.center {
+    text-align: center;
+}
 
 /* ------- Status text in column (e.g. "Nháp" gray bold) ------- */
 .tpos-status-text {
@@ -251,14 +445,20 @@
     color: var(--tpos-text-faded);
     font-size: 14px;
 }
-.tpos-status-text.confirmed { color: var(--tpos-link); }
-.tpos-status-text.cancelled { color: var(--tpos-danger); }
-.tpos-status-text.delivered { color: var(--tpos-success); }
+.tpos-status-text.confirmed {
+    color: var(--tpos-link);
+}
+.tpos-status-text.cancelled {
+    color: var(--tpos-danger);
+}
+.tpos-status-text.delivered {
+    color: var(--tpos-success);
+}
 
 /* Body baseline override — applies to whole native-orders page */
 body.tpos-theme,
 body.tpos-theme .data-table,
 body.tpos-theme .data-table td,
 body.tpos-theme .data-table th {
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }

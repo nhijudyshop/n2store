@@ -483,6 +483,33 @@ router.post('/from-comment', async (req, res) => {
         );
 
         const order = mapRowToOrder(insert.rows[0]);
+
+        // Phase 17: Auto-upsert Customer 360 record with all available Facebook
+        // data so future orders/customer queries can find them. Non-blocking —
+        // wrap in IIFE so any error doesn't kill the create-order response.
+        upsertCustomerFromOrder(pool, {
+            phone: b.phone,
+            customerName: b.customerName || b.fbUserName,
+            fbUserId: b.fbUserId,
+            fbPageId: b.fbPageId,
+            address: b.address,
+            email: b.email,
+        })
+            .then((cid) => {
+                // If we now have a linked customer_id but the just-inserted row
+                // doesn't yet, backfill it asynchronously so the link is in DB
+                // for the next /load.
+                if (cid && !order.customerId) {
+                    pool.query(
+                        `UPDATE native_orders SET customer_id = $1 WHERE id = $2 AND customer_id IS NULL`,
+                        [cid, order.id]
+                    ).catch(() => {});
+                }
+            })
+            .catch((e) => {
+                console.warn('[NATIVE-ORDERS] customer upsert failed (non-fatal):', e.message);
+            });
+
         // Broadcast WS event để các trang khác auto-refresh (native-orders list, etc.)
         if (req.app.locals.broadcastToClients) {
             req.app.locals.broadcastToClients({
@@ -497,6 +524,111 @@ router.post('/from-comment', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+/**
+ * Phase 17: upsert a customer record with Facebook data.
+ * - If phone matches an existing customer: fill in missing fb_id / name / address
+ * - If no customer with this phone: create a new one with all known fields
+ * - If no phone: try fb_id match; if no fb_id match either, create minimal record
+ *   only when fb_id is present (don't pollute customers table with anonymous orders)
+ *
+ * Returns the customer.id (existing or new), or null if nothing was upserted.
+ */
+async function upsertCustomerFromOrder(
+    pool,
+    { phone, customerName, fbUserId, fbPageId, address, email }
+) {
+    if (!pool) return null;
+    const name = (customerName || '').trim();
+    const trimmedPhone = phone ? String(phone).replace(/\s/g, '') : null;
+    try {
+        // 1. Try to find existing customer by phone first
+        if (trimmedPhone) {
+            const r = await pool.query(
+                `SELECT id, fb_id, name, address FROM customers WHERE phone = $1 LIMIT 1`,
+                [trimmedPhone]
+            );
+            if (r.rows.length > 0) {
+                const existing = r.rows[0];
+                // Fill in missing fields without overwriting non-null values
+                const updates = [];
+                const params = [];
+                if (!existing.fb_id && fbUserId) {
+                    params.push(fbUserId);
+                    updates.push(`fb_id = $${params.length}`);
+                }
+                if ((!existing.name || existing.name === 'Khách hàng mới') && name) {
+                    params.push(name);
+                    updates.push(`name = $${params.length}`);
+                }
+                if (!existing.address && address) {
+                    params.push(address);
+                    updates.push(`address = $${params.length}`);
+                }
+                if (updates.length > 0) {
+                    params.push(existing.id);
+                    await pool.query(
+                        `UPDATE customers SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`,
+                        params
+                    );
+                }
+                return existing.id;
+            }
+        }
+
+        // 2. If no phone-match, try fb_id match
+        if (fbUserId) {
+            const r = await pool.query(`SELECT id FROM customers WHERE fb_id = $1 LIMIT 1`, [
+                fbUserId,
+            ]);
+            if (r.rows.length > 0) {
+                // Fill in phone if we have one and customer doesn't
+                if (trimmedPhone) {
+                    await pool
+                        .query(
+                            `UPDATE customers SET phone = COALESCE(NULLIF(phone, ''), $1), updated_at = NOW() WHERE id = $2`,
+                            [trimmedPhone, r.rows[0].id]
+                        )
+                        .catch(() => {});
+                }
+                return r.rows[0].id;
+            }
+        }
+
+        // 3. Create new customer if we have at least phone+name OR fb_id+name
+        if ((trimmedPhone && name) || (fbUserId && name)) {
+            const ins = await pool.query(
+                `INSERT INTO customers (phone, name, address, email, fb_id, pancake_data, status, tier, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'Bình thường', 'new', NOW(), NOW())
+                 ON CONFLICT (phone) DO UPDATE SET
+                    fb_id = COALESCE(customers.fb_id, EXCLUDED.fb_id),
+                    name = CASE WHEN customers.name IN ('', 'Khách hàng mới') THEN EXCLUDED.name ELSE customers.name END,
+                    address = COALESCE(NULLIF(customers.address, ''), EXCLUDED.address),
+                    updated_at = NOW()
+                 RETURNING id`,
+                [
+                    trimmedPhone || `fb_${fbUserId}`, // phone is NOT NULL — fall back to fb_-prefixed pseudo-phone
+                    name,
+                    address || null,
+                    email || null,
+                    fbUserId || null,
+                    fbPageId
+                        ? JSON.stringify({
+                              fb_page_id: fbPageId,
+                              source: 'tpos-pancake-create-order',
+                          })
+                        : null,
+                ]
+            );
+            return ins.rows[0]?.id || null;
+        }
+
+        return null;
+    } catch (e) {
+        // Silent fail — caller logs the warning
+        throw e;
+    }
+}
 
 // -----------------------------------------------------
 // GET /api/native-orders/by-user/:fbUserId — latest order

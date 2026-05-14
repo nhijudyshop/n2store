@@ -27,7 +27,7 @@
     ];
     const COL_DEFAULT = {
         actions: true,
-        stt: true,
+        stt: false, // STT đã hợp nhất vào cột check
         code: false,
         channel: false,
         customer: true,
@@ -69,7 +69,7 @@
     };
     function loadColVisibility() {
         try {
-            const raw = localStorage.getItem('nativeOrdersColVisibility_v1');
+            const raw = localStorage.getItem('nativeOrdersColVisibility_v2');
             if (raw) {
                 const parsed = JSON.parse(raw);
                 return { ...COL_DEFAULT, ...parsed };
@@ -82,7 +82,7 @@
     function saveColVisibility() {
         try {
             localStorage.setItem(
-                'nativeOrdersColVisibility_v1',
+                'nativeOrdersColVisibility_v2',
                 JSON.stringify(STATE.colVisibility)
             );
         } catch {
@@ -413,12 +413,18 @@
                     mergeTotalQty && qty
                         ? `<div style="font-size:11px;color:#6b7280;font-weight:500;">SL: ${qty}</div>`
                         : '';
+                const sttValue = o.displayStt ?? o.sessionIndex ?? '';
                 const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
                     onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">
-                    <td class="col-check" onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
+                    <td class="col-check" onclick="event.stopPropagation();">
+                        <div class="tpos-check-stt">
+                            <input type="checkbox" class="row-check" value="${escapeHtml(o.code)}">
+                            <span class="tpos-row-stt">${sttValue}</span>
+                        </div>
+                    </td>
                     <td class="col-actions" onclick="event.stopPropagation();">
-                        <div class="tpos-row-actions">
+                        <div class="tpos-row-actions tpos-row-actions-grid">
                             <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa"
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
@@ -433,7 +439,7 @@
                                 onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
                                 <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                             </button>`
-                                    : ''
+                                    : '<span class="tpos-action-placeholder"></span>'
                             }
                             <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa"
                                 onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
@@ -441,7 +447,7 @@
                             </button>
                         </div>
                     </td>
-                    <td class="col-stt tpos-cell-center"><strong>${o.displayStt ?? o.sessionIndex ?? ''}</strong></td>
+                    <td class="col-stt tpos-cell-center"><strong>${sttValue}</strong></td>
                     <td class="col-code tpos-cell-center">
                         <div class="tpos-code-cell" style="align-items:center;">
                             <span class="tpos-code-main" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">${escapeHtml(o.code)}</span>
@@ -457,10 +463,8 @@
                     </td>
                     <td class="col-customer">
                         <div class="tpos-customer-cell">
-                            <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
-                            <div class="tpos-customer-row2">
-                                ${o.phone ? `<span class="tpos-mini-icon tpos-mini-phone" title="${escapeHtml(o.phone)}"><i data-lucide="phone" style="width:9px;height:9px;"></i></span>` : ''}
-                                <span class="tpos-mini-icon tpos-mini-person" title="Khách"><i data-lucide="user" style="width:9px;height:9px;"></i></span>
+                            <div class="tpos-customer-name-row">
+                                <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
                                 ${statusPill}
                             </div>
                             ${mergedPhoneHtml}
