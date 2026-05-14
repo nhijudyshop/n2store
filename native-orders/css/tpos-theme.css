@@ -351,38 +351,81 @@
 .tpos-check-stt {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     padding: 0 4px;
 }
 .tpos-check-stt .row-check {
     cursor: pointer;
+    width: 14px;
+    height: 14px;
+    accent-color: var(--tpos-primary);
+    margin: 0;
 }
 .tpos-row-stt {
     font-weight: 700;
-    color: var(--tpos-text);
-    font-size: 13px;
+    color: var(--tpos-primary);
+    font-size: 12px;
     min-width: 22px;
     text-align: center;
+    background: rgba(114, 102, 186, 0.1);
+    border-radius: 3px;
+    padding: 2px 6px;
+    line-height: 1.4;
 }
 
-/* ------- Action column: 2x2 grid of icon buttons ------- */
+/* ------- Action column: 2x2 grid of icon buttons (compact dashboard) ------- */
 .tpos-row-actions-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 3px;
+    gap: 4px;
     width: max-content;
 }
 .tpos-row-actions-grid .tpos-btn,
 .tpos-row-actions-grid .tpos-action-placeholder {
     width: 26px;
-    height: 26px;
+    height: 24px;
     padding: 0;
+    min-width: 0;
+    border-radius: 3px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
+.tpos-row-actions-grid .tpos-btn i {
+    margin: 0;
+}
 .tpos-row-actions-grid .tpos-action-placeholder {
     background: transparent;
+    box-shadow: none;
+}
+
+/* ------- Customer name cell typography polish ------- */
+.tpos-customer-name {
+    font-size: 13px;
+    line-height: 1.35;
+}
+.tpos-customer-cell .tpos-phone-link {
+    text-decoration: none;
+    font-feature-settings: 'tnum';
+}
+.tpos-customer-cell .tpos-phone-link:hover {
+    text-decoration: underline;
+    color: var(--tpos-link);
+}
+
+/* Code cell: tighter typography */
+.tpos-code-main {
+    font-size: 13px;
+}
+.tpos-code-sub {
+    font-size: 11px;
+}
+
+/* Money cell: tabular numerals */
+.tpos-cell-money {
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Phone/Person icon bubbles (small green + small purple from TPOS) */
