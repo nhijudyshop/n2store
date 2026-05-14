@@ -2273,6 +2273,21 @@
                     ta.focus();
                     ta.setSelectionRange(ta.value.length, ta.value.length);
                 });
+            // Delegate "↩ trả lời" button on bubbles (rendered dynamically)
+            modal.addEventListener('click', (e) => {
+                const replyBtn = e.target.closest('[data-action="reply-to"]');
+                if (replyBtn) {
+                    e.stopPropagation();
+                    _setReplyTarget(replyBtn.dataset.msgId);
+                }
+            });
+            // Escape clears reply target
+            input?.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && _chatState?.replyTo) {
+                    e.preventDefault();
+                    _setReplyTarget(null);
+                }
+            });
         } else if (tab === 'comments') {
             modal.querySelectorAll('[data-action="reply-comment"]').forEach((btn) => {
                 btn.addEventListener('click', () =>
@@ -2374,6 +2389,7 @@
                 </div>
                 <button type="button" id="msgJumpBottom" style="display:none;position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#7c3aed;color:#fff;border:none;font-size:11px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(124,58,237,0.35);z-index:5;">↓ <span id="msgJumpCount">0</span> tin mới</button>
                 <div style="border-top:1px solid #e5e7eb;background:#fff;padding:10px 18px 12px;">
+                    <div id="msgReplyBar" style="display:none;"></div>
                     <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
                         <button type="button" class="w2-chat-tool" data-action="refresh-thread" title="Tải lại hội thoại">
                             <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
@@ -2407,7 +2423,65 @@
     // load, scroll-up load older, and WS auto-append paths).
     // -----------------------------------------------------
 
-    let _chatState = null; // { order, pageId, convId, customerId, msgIds:Set, msgs:[], cursor, loadingOlder, hasMore, wsSub, missedSince }
+    let _chatState = null; // { order, pageId, convId, customerId, msgIds:Set, msgs:[], cursor, loadingOlder, hasMore, wsSub, missedSince, replyTo }
+
+    /**
+     * Set the "replying to" target. Pass null to clear.
+     * Highlights the source bubble briefly and renders the reply bar
+     * above the input.
+     */
+    function _setReplyTarget(msgId) {
+        if (!_chatState) return;
+        if (!msgId) {
+            _chatState.replyTo = null;
+            _renderReplyBar();
+            return;
+        }
+        const m = _chatState.msgs.find((x) => String(x.id) === String(msgId));
+        if (!m) return;
+        _chatState.replyTo = {
+            id: m.id,
+            from: m.from?.name || (m.from_admin ? 'Tôi' : 'Khách'),
+            text: _msgPlain(m.message || m.text || '').slice(0, 80),
+            hasMedia: Array.isArray(m.attachments) && m.attachments.length > 0,
+        };
+        _renderReplyBar();
+        // Highlight source bubble briefly
+        document
+            .querySelectorAll('.w2-chat-row.is-replying-target')
+            .forEach((el) => el.classList.remove('is-replying-target'));
+        const row = document.querySelector(
+            `.w2-chat-row[data-msg-id="${CSS.escape(String(m.id))}"]`
+        );
+        if (row) {
+            row.classList.add('is-replying-target');
+            row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            setTimeout(() => row.classList.remove('is-replying-target'), 1800);
+        }
+        document.getElementById('msgInput')?.focus();
+    }
+
+    function _renderReplyBar() {
+        const host = document.getElementById('msgReplyBar');
+        if (!host) return;
+        const r = _chatState?.replyTo;
+        if (!r) {
+            host.innerHTML = '';
+            host.style.display = 'none';
+            return;
+        }
+        host.style.display = '';
+        const preview = r.text || (r.hasMedia ? '[Đính kèm]' : '[Tin nhắn]');
+        host.innerHTML = `<div class="w2-chat-reply-bar">
+            <i data-lucide="corner-up-left" style="width:14px;height:14px;color:#7c3aed;"></i>
+            <span class="preview">Trả lời <strong>${escapeHtml(r.from)}</strong>${escapeHtml(preview)}</span>
+            <button type="button" data-action="cancel-reply" title="Huỷ trả lời">×</button>
+        </div>`;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        host.querySelector('[data-action="cancel-reply"]')?.addEventListener('click', () =>
+            _setReplyTarget(null)
+        );
+    }
 
     function _msgPlain(raw) {
         if (!raw) return '';
@@ -2438,36 +2512,196 @@
         return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
+    const _NON_CORS_MEDIA =
+        /(?:scontent|video)[\w.-]*\.fbcdn\.net|content\.pancake\.vn|firebasestorage\.googleapis\.com/i;
+
+    function _workerProxy(url) {
+        const base =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        return _NON_CORS_MEDIA.test(url)
+            ? `${base}/api/image-proxy?url=${encodeURIComponent(url)}`
+            : url;
+    }
+
+    function _renderQuotedReply(att) {
+        const fromName = att.from?.name || att.from?.admin_name || 'Tin nhắn';
+        const text = _msgPlain(att.message || '');
+        let preview = '';
+        const qAtt = att.attachments?.[0];
+        if (qAtt) {
+            const qUrl = qAtt.url || qAtt.file_url || qAtt.preview_url || '';
+            const qType = (qAtt.type || '').toLowerCase();
+            if (qType === 'photo' || qType === 'image' || qAtt.mime_type?.startsWith('image/')) {
+                preview = `<img src="${escapeHtml(qUrl)}" style="max-width:48px;max-height:48px;border-radius:4px;object-fit:cover;margin-top:3px;display:block;" loading="lazy" />`;
+            } else if (qType === 'video') {
+                preview = `<span style="font-size:10px;opacity:0.7;">🎬 Video</span>`;
+            } else if (qType === 'audio') {
+                preview = `<span style="font-size:10px;opacity:0.7;">🎙 Audio</span>`;
+            }
+        }
+        const body = text
+            ? `<div style="font-size:11px;opacity:0.85;line-height:1.35;max-height:32px;overflow:hidden;white-space:pre-wrap;">${escapeHtml(text.slice(0, 120))}</div>`
+            : preview ||
+              `<span style="font-size:10px;opacity:0.6;font-style:italic;">[Tin nhắn]</span>`;
+        return `<div class="w2-chat-quoted">
+            <div class="w2-chat-quoted-from">↩ ${escapeHtml(fromName)}</div>
+            ${body}
+        </div>`;
+    }
+
+    function _renderImage(att, url) {
+        const safe = escapeHtml(_workerProxy(url));
+        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;"><img src="${safe}" style="max-width:240px;max-height:300px;border-radius:8px;display:block;object-fit:cover;cursor:zoom-in;" loading="lazy" /></a>`;
+    }
+
+    function _renderSticker(att, url) {
+        const safe = escapeHtml(_workerProxy(url));
+        return `<img src="${safe}" alt="Sticker" style="width:120px;height:120px;margin-top:2px;display:block;" loading="lazy" onerror="this.outerHTML='<span style=&quot;font-size:42px;display:inline-block;padding:6px;&quot;>🎨</span>'" />`;
+    }
+
+    function _renderVideo(att) {
+        // Pancake: { type:'video', url:<thumbnail>, video_data:{ url:<real .mp4> } }
+        const videoUrl = att.video_data?.url || att.video_url || '';
+        const poster = att.thumbnail_url || att.preview_url || att.url || '';
+        if (!videoUrl) return '';
+        const play = escapeHtml(_workerProxy(videoUrl));
+        const orig = escapeHtml(videoUrl);
+        const posterAttr = poster ? ` poster="${escapeHtml(_workerProxy(poster))}"` : '';
+        const mime = att.mime_type || 'video/mp4';
+        return `<video controls playsinline preload="metadata"${posterAttr} style="max-width:280px;max-height:360px;border-radius:8px;display:block;background:#000;margin-top:4px;">
+            <source src="${play}" type="${mime}">
+            <source src="${orig}" type="${mime}">
+        </video>`;
+    }
+
+    function _renderAudio(att, url) {
+        const safe = escapeHtml(_workerProxy(url));
+        return `<audio controls preload="metadata" style="margin-top:4px;max-width:260px;display:block;height:34px;"><source src="${safe}" type="${escapeHtml(att.mime_type || 'audio/mpeg')}"></audio>`;
+    }
+
+    function _renderFile(att, url) {
+        const name = att.name || att.filename || 'Tệp đính kèm';
+        return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;padding:6px 10px;background:rgba(0,0,0,0.05);border-radius:6px;font-size:11px;color:inherit;text-decoration:none;">📄 ${escapeHtml(name)}</a>`;
+    }
+
+    function _renderAttachment(att) {
+        const type = (att.type || '').toLowerCase();
+        const url = att.url || att.file_url || att.preview_url || att.payload?.url || att.src || '';
+        if (type === 'replied_message') return _renderQuotedReply(att);
+        if (type === 'reaction') return ''; // handled separately
+        if (type === 'like' || type === 'thumbsup')
+            return `<div style="font-size:32px;margin-top:2px;">👍</div>`;
+        if (!url) return '';
+        if (type === 'sticker' || att.sticker_id || type === 'animated_image_url')
+            return _renderSticker(att, url);
+        if (type === 'photo' || type === 'image' || att.mime_type?.startsWith('image/'))
+            return _renderImage(att, url);
+        if (type === 'video' || att.mime_type?.startsWith('video/')) return _renderVideo(att);
+        if (type === 'audio' || att.mime_type?.startsWith('audio/')) return _renderAudio(att, url);
+        if (type === 'file' || type === 'document') return _renderFile(att, url);
+        return '';
+    }
+
+    const REACTION_EMOJIS = {
+        LIKE: '👍',
+        LOVE: '❤️',
+        HAHA: '😆',
+        WOW: '😮',
+        SAD: '😢',
+        ANGRY: '😠',
+        CARE: '🤗',
+    };
+
+    function _renderReactions(m) {
+        // Pancake puts reactions either as a top-level `reactions[]` array
+        // or as attachments[type=reaction], or as a reaction_summary object.
+        const list = [];
+        if (Array.isArray(m.reactions)) {
+            for (const r of m.reactions) {
+                const e = r.emoji || r.reaction || REACTION_EMOJIS[r.type] || '❤️';
+                list.push(e);
+            }
+        }
+        if (Array.isArray(m.attachments)) {
+            for (const a of m.attachments) {
+                if ((a.type || '').toLowerCase() === 'reaction') {
+                    list.push(a.emoji || a.reaction || '❤️');
+                }
+            }
+        }
+        const summary =
+            m.reaction_summary ||
+            (typeof m.reactions === 'object' && !Array.isArray(m.reactions) ? m.reactions : null);
+        let summaryHtml = '';
+        if (summary && typeof summary === 'object') {
+            const parts = Object.entries(summary)
+                .filter(([, c]) => Number(c) > 0)
+                .map(
+                    ([type, c]) =>
+                        `<span style="font-size:11px;">${REACTION_EMOJIS[type] || '👍'}${Number(c) > 1 ? ' ' + c : ''}</span>`
+                );
+            if (parts.length) summaryHtml = parts.join('');
+        }
+        if (!list.length && !summaryHtml) return '';
+        const emojis = list.slice(0, 5).join('');
+        return `<div class="w2-chat-reactions">${emojis}${summaryHtml}</div>`;
+    }
+
     function _bubbleHtml(m, pageId) {
         const isOutgoing = m.from?.id === pageId || m.from_admin || m.is_admin;
         const txt = _msgPlain(m.message || m.text || m.content || '');
         const time = m.inserted_at || m.created_time || m.timestamp;
         const atts = Array.isArray(m.attachments) ? m.attachments : [];
-        const imgs = atts
-            .filter((a) => ['photo', 'image', 'sticker'].includes((a.type || '').toLowerCase()))
-            .map((a) => a.url || a.preview_url || a.thumb_url)
-            .filter(Boolean);
-        const imgHtml = imgs
-            .slice(0, 4)
-            .map(
-                (u) =>
-                    `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;"><img src="${escapeHtml(u)}" style="max-width:180px;max-height:240px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);display:block;" loading="lazy" /></a>`
-            )
+
+        // Find quoted reply (rendered above the bubble content)
+        const replyAtt = atts.find((a) => (a.type || '').toLowerCase() === 'replied_message');
+        const replyHtml = replyAtt ? _renderQuotedReply(replyAtt) : '';
+
+        // Render every non-reply, non-reaction attachment
+        const mediaHtml = atts
+            .filter((a) => !['replied_message', 'reaction'].includes((a.type || '').toLowerCase()))
+            .map(_renderAttachment)
+            .filter(Boolean)
             .join('');
-        const fileAtts = atts
-            .filter((a) => !['photo', 'image', 'sticker'].includes((a.type || '').toLowerCase()))
-            .map(
+
+        // Detect sticker-only bubble — strip background to look like Messenger
+        const stickerOnly =
+            mediaHtml &&
+            !txt &&
+            atts.every(
                 (a) =>
-                    `<div style="font-size:11px;opacity:0.8;margin-top:3px;">📎 ${escapeHtml(a.name || a.type || 'attachment')}</div>`
-            )
-            .join('');
+                    ['sticker', 'animated_image_url', 'reaction'].includes(
+                        (a.type || '').toLowerCase()
+                    ) || a.sticker_id
+            );
+
         const inner = txt
-            ? `<div style="white-space:pre-wrap;word-break:break-word;">${escapeHtml(txt)}</div>`
-            : imgs.length === 0 && atts.length === 0
-              ? `<div style="opacity:0.6;font-style:italic;">(không có nội dung)</div>`
-              : '';
-        const timeStr = time ? new Date(time).toLocaleString('vi-VN') : '';
-        return `<div class="w2-chat-bubble" data-msg-id="${escapeHtml(m.id || '')}" style="align-self:${isOutgoing ? 'flex-end' : 'flex-start'};max-width:80%;background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:6px 10px;border-radius:${isOutgoing ? '10px 10px 2px 10px' : '10px 10px 10px 2px'};font-size:12px;border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};">${inner}${imgHtml}${fileAtts}${timeStr ? `<div style="font-size:9px;opacity:0.65;margin-top:3px;">${escapeHtml(timeStr)}</div>` : ''}</div>`;
+            ? `<div style="white-space:pre-wrap;word-break:break-word;line-height:1.42;">${escapeHtml(txt)}</div>`
+            : mediaHtml || replyHtml
+              ? ''
+              : `<div style="opacity:0.6;font-style:italic;font-size:11px;">(không có nội dung)</div>`;
+
+        const timeStr = time
+            ? new Date(time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            : '';
+
+        const reactionsHtml = _renderReactions(m);
+        const replyBtn = m.id
+            ? `<button class="w2-chat-reply-btn" data-action="reply-to" data-msg-id="${escapeHtml(m.id)}" title="Trả lời tin này"><i data-lucide="corner-up-left" style="width:11px;height:11px;"></i></button>`
+            : '';
+
+        const bubbleStyle = stickerOnly
+            ? `background:transparent;border:0;padding:0;box-shadow:none;`
+            : `background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:7px 11px;border-radius:${isOutgoing ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};`;
+
+        return `<div class="w2-chat-row ${isOutgoing ? 'is-out' : 'is-in'}" data-msg-id="${escapeHtml(m.id || '')}" style="display:flex;flex-direction:column;align-items:${isOutgoing ? 'flex-end' : 'flex-start'};margin:2px 0;position:relative;">
+            <div class="w2-chat-bubble-wrap" style="display:flex;align-items:flex-end;gap:6px;${isOutgoing ? 'flex-direction:row-reverse;' : ''}max-width:80%;">
+                <div class="w2-chat-bubble" data-msg-id="${escapeHtml(m.id || '')}" style="${bubbleStyle}font-size:13px;">${replyHtml}${inner}${mediaHtml}</div>
+                ${replyBtn}
+            </div>
+            ${reactionsHtml}
+            ${timeStr ? `<div class="w2-chat-time" style="font-size:10px;color:#94a3b8;margin-top:2px;${isOutgoing ? 'padding-right:8px;' : 'padding-left:8px;'}">${escapeHtml(timeStr)}</div>` : ''}
+        </div>`;
     }
 
     function _dateSeparatorHtml(label) {
@@ -2491,11 +2725,113 @@
             .w2-chat-tool:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
             .w2-chat-phone { cursor: pointer; user-select: none; transition: color 0.15s; }
             .w2-chat-phone:hover { color: #7c3aed; }
+
+            /* Bubbles */
             .w2-chat-bubble {
                 box-shadow: 0 1px 2px rgba(15,23,42,0.06);
                 line-height: 1.42;
+                word-break: break-word;
             }
             .w2-chat-bubble img { display: block; }
+            .w2-chat-bubble audio { width: 240px; }
+
+            /* Quoted reply preview inside bubble */
+            .w2-chat-quoted {
+                background: rgba(0,0,0,0.06);
+                border-left: 3px solid rgba(255,255,255,0.55);
+                padding: 5px 8px;
+                border-radius: 6px;
+                margin-bottom: 5px;
+                opacity: 0.92;
+            }
+            .w2-chat-row.is-in .w2-chat-quoted {
+                border-left-color: #7c3aed;
+                background: #f1f5f9;
+            }
+            .w2-chat-quoted-from {
+                font-size: 10px;
+                font-weight: 700;
+                margin-bottom: 2px;
+                opacity: 0.85;
+            }
+
+            /* Floating reactions strip below bubble */
+            .w2-chat-reactions {
+                display: inline-flex;
+                gap: 2px;
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 999px;
+                padding: 1px 6px;
+                margin-top: -8px;
+                margin-bottom: 2px;
+                box-shadow: 0 2px 6px rgba(15,23,42,0.1);
+                font-size: 12px;
+                z-index: 2;
+                align-self: flex-end;
+            }
+            .w2-chat-row.is-in .w2-chat-reactions { align-self: flex-start; }
+
+            /* Hover reply button */
+            .w2-chat-reply-btn {
+                opacity: 0;
+                width: 22px; height: 22px;
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 50%;
+                color: #64748b;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: opacity 0.15s, color 0.15s, background 0.15s;
+                flex-shrink: 0;
+            }
+            .w2-chat-row:hover .w2-chat-reply-btn { opacity: 1; }
+            .w2-chat-reply-btn:hover { background: #ede9fe; color: #7c3aed; }
+
+            /* "Replying to X" bar above input */
+            .w2-chat-reply-bar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #f1f5f9;
+                border-left: 3px solid #7c3aed;
+                padding: 6px 10px;
+                border-radius: 6px;
+                margin-bottom: 6px;
+                font-size: 12px;
+                color: #475569;
+            }
+            .w2-chat-reply-bar .preview {
+                flex: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .w2-chat-reply-bar .preview strong { color: #7c3aed; margin-right: 6px; }
+            .w2-chat-reply-bar button {
+                width: 22px; height: 22px;
+                background: transparent;
+                border: 0;
+                cursor: pointer;
+                color: #94a3b8;
+                font-size: 16px;
+                line-height: 1;
+            }
+            .w2-chat-reply-bar button:hover { color: #b91c1c; }
+
+            /* Highlighted message when being replied to */
+            .w2-chat-row.is-replying-target .w2-chat-bubble {
+                outline: 2px solid #fbbf24;
+                outline-offset: 2px;
+                animation: w2ChatHighlight 0.7s ease-in-out;
+            }
+            @keyframes w2ChatHighlight {
+                0%, 100% { outline-color: #fbbf24; }
+                50%      { outline-color: #f59e0b; }
+            }
+
             #orderInteractionsModal .w2p-card { background:#fff; }
             #msgInput:focus {
                 outline: none;
@@ -2817,10 +3153,12 @@
                     attachmentType: 'SEND_TEXT_ONLY',
                     platform: 'facebook',
                     isBusiness: true,
+                    repliedMessageId: _chatState?.replyTo?.id || undefined,
                 });
                 if (r.ok) {
                     _appendOutgoing(text);
                     input.value = '';
+                    _setReplyTarget(null);
                     notify('Đã gửi qua N2 Extension (bypass 24h)', 'success');
                     if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
                         window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
@@ -2860,10 +3198,12 @@
             text,
             action: 'reply_inbox',
             customerId,
+            repliedMessageId: _chatState?.replyTo?.id || undefined,
         });
         if (sendRes.ok) {
             _appendOutgoing(text);
             input.value = '';
+            _setReplyTarget(null);
             notify('Đã gửi tin nhắn', 'success');
             if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
                 window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);

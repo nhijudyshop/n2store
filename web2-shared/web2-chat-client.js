@@ -231,6 +231,7 @@
             conversation_id: conversationId,
         };
         if (opts.customerId) payload.customer_id = opts.customerId;
+        if (opts.repliedMessageId) payload.replied_message_id = opts.repliedMessageId;
         if (attachments.length > 0) {
             const ids = attachments.map((a) => a.content_id || a.id).filter(Boolean);
             if (ids.length) payload.content_ids = ids;
