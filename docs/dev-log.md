@@ -25,6 +25,36 @@
 
 ## 2026-05-14
 
+### [native-orders][chat] Polish UI modal chat — đồng bộ visual với orders-report tab1
+
+**User feedback**: "tinh chỉnh giao diện cho giống orders-report nữa".
+
+**Đã thay đổi**:
+
+1. **Modal rộng + cao hơn**: `max-width:1080px width:96vw height:88vh` (trước: 720px × auto). Cảm giác như app fullscreen chứ không phải popup nhỏ.
+2. **Customer header redesign**:
+    - Avatar 48px gradient tím (initials viết tắt từ tên thay vì icon generic)
+    - Tên to 16px bold + code pill xanh tím + tags pill xanh lá nếu có
+    - SĐT clickable copy (hover → tím + tooltip), FB user ID truncated, page badge
+    - Header background gradient nhẹ → "premium" feel
+    - Pancake button (external-link) + close button bố cục rõ ràng
+3. **Tabs polish**: pill số đếm đổi màu theo state (active = tím đậm, inactive = xám), border-bottom 3px, padding rộng hơn. Bên phải tabs hiện "Tổng đơn: X.000đ" nếu có amount.
+4. **Thread to 60vh** (~520px) thay vì fixed 340px → user thấy nhiều tin hơn cùng lúc.
+5. **Date separator** style "đường ngang fade + pill ở giữa" thay vì pill rời (giống Messenger): `<span line>—— 10/05/2026 ——<span line>`
+6. **Bubble polish**: shadow nhẹ, line-height 1.42, font 13px. Outgoing tím gradient feel.
+7. **Toolbar icon row mới** trên input: 4 icon button (refresh thread / scroll-bottom / ⚡ quick-reply / chèn chữ ký) + extension status text bên phải.
+8. **Input bigger**: padding 9x12, border-radius 8px, focus ring tím; min-height 42, max-height 180.
+9. **Gửi button rộng hơn**: padding 0×18, icon + chữ "Gửi" (trước chỉ icon).
+10. **Optimistic append**: send thành công (qua extension hoặc Web2Chat) → đẩy bubble vào thread ngay lập tức bằng `_appendOutgoing(text)` (id `local_<ts>`) thay vì refetch toàn bộ. Khi WS event thật về sau, id-dedup tránh double-render.
+11. **Inject CSS module-scope** (`#w2-chat-modal-css` style tag): `.w2-chat-tool`, `.w2-chat-phone:hover`, `.w2-chat-bubble shadow`, `#msgInput:focus ring` — tránh inline style verbose.
+12. Fix lucide icon `signature` (không tồn tại trong v0.294) → `user-check`.
+
+**Verify**: Screenshot xác nhận tất cả render đúng. Modal 1080×760, thread 524px, bubbles width 134-199px (80% max constraint working). 4 toolbar buttons present.
+
+Files: `native-orders/js/native-orders-app.js` (modal HTML + helpers + send paths), `native-orders/index.html` (cache w → x).
+
+Status: ✅ Done
+
 ### [native-orders][chat] Chat modal feature parity với tab1 web 1.0
 
 **User feedback**: "browser test vào orders-report/main.html → coi giao diện, chức năng modal tin nhắn, bình luận → làm giống (kiểu như chức năng scroll load thêm,...) → tùy biến thông minh tùy bạn".

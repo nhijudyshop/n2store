@@ -2121,32 +2121,67 @@
             });
         }
         modal.style.display = 'flex';
+        const initials = (order.customerName || order.fbUserName || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(-2)
+            .map((s) => s.charAt(0).toUpperCase())
+            .join('');
+        const phoneHtml = order.phone
+            ? `<span class="w2-chat-phone" data-phone="${escapeHtml(order.phone)}" title="Click để copy SĐT">📞 ${escapeHtml(order.phone)} <i data-lucide="copy" style="width:11px;height:11px;display:inline;margin-left:2px;vertical-align:middle;opacity:0.55;"></i></span>`
+            : `<span style="color:#cbd5e1;">không SĐT</span>`;
+        const tagsHtml =
+            Array.isArray(order.tags) && order.tags.length
+                ? order.tags
+                      .slice(0, 4)
+                      .map(
+                          (t) =>
+                              `<span style="background:#f0fdf4;color:#166534;font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid #bbf7d0;">${escapeHtml(t)}</span>`
+                      )
+                      .join('')
+                : '';
         modal.innerHTML = `
-            <div class="w2p-card" style="max-width:720px;">
-                <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;">
-                    <div style="width:40px;height:40px;border-radius:50%;background:#ede9fe;color:#5b21b6;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i data-lucide="messages-square" style="width:20px;height:20px;"></i>
+            <div class="w2p-card" style="max-width:1080px;width:96vw;height:88vh;max-height:760px;display:flex;flex-direction:column;">
+                <div style="padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#faf5ff 0%,#fdfaff 100%);">
+                    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:16px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(124,58,237,0.25);">
+                        ${escapeHtml(initials)}
                     </div>
                     <div style="flex:1;min-width:0;">
-                        <strong style="font-size:14px;color:#0f172a;display:block;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
-                        <div style="font-size:11px;color:#6b7280;">
-                            ${escapeHtml(order.code)} · ${order.phone ? '📞 ' + escapeHtml(order.phone) : 'không SĐT'}
-                            ${order.fbUserId ? ' · 👤 ' + escapeHtml(String(order.fbUserId).slice(-12)) : ''}
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                            <strong style="font-size:16px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
+                            <span style="background:#e0e7ff;color:#4338ca;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:0.3px;">${escapeHtml(order.code)}</span>
+                            ${tagsHtml}
+                        </div>
+                        <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            ${phoneHtml}
+                            ${order.fbUserId ? `<span>👤 …${escapeHtml(String(order.fbUserId).slice(-10))}</span>` : ''}
+                            ${order.fbPageId ? `<span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px;">Page …${escapeHtml(String(order.fbPageId).slice(-6))}</span>` : ''}
                         </div>
                     </div>
-                    <button onclick="NativeOrdersApp._closeInteractions()" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;line-height:1;">×</button>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button type="button" data-action="open-pancake" title="Mở đầy đủ trong TPOS × Pancake" style="padding:6px 11px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;color:#475569;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                            <i data-lucide="external-link" style="width:13px;height:13px;"></i> Pancake
+                        </button>
+                        <button onclick="NativeOrdersApp._closeInteractions()" title="Đóng" style="width:32px;height:32px;background:transparent;border:1px solid transparent;font-size:20px;cursor:pointer;color:#94a3b8;line-height:1;border-radius:6px;">×</button>
+                    </div>
                 </div>
-                <div style="display:flex;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
-                    <button class="interactions-tab ${tab === 'messages' ? 'is-active' : ''}" data-tab="messages" style="flex:1;padding:10px 14px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'messages' ? '#7c3aed' : '#475569'};border-bottom:2px solid ${tab === 'messages' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                <div style="display:flex;border-bottom:1px solid #e5e7eb;background:#fff;padding:0 12px;">
+                    <button class="interactions-tab ${tab === 'messages' ? 'is-active' : ''}" data-tab="messages" style="padding:11px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'messages' ? '#7c3aed' : '#64748b'};border-bottom:3px solid ${tab === 'messages' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-bottom:-1px;">
                         <i data-lucide="message-circle" style="width:14px;height:14px;"></i> Tin nhắn
-                        ${Number(order.messageCount) > 0 ? `<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:9px;font-size:11px;font-weight:700;">${order.messageCount}</span>` : ''}
+                        ${Number(order.messageCount) > 0 ? `<span style="background:${tab === 'messages' ? '#7c3aed' : '#cbd5e1'};color:#fff;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${order.messageCount}</span>` : ''}
                     </button>
-                    <button class="interactions-tab ${tab === 'comments' ? 'is-active' : ''}" data-tab="comments" style="flex:1;padding:10px 14px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'comments' ? '#7c3aed' : '#475569'};border-bottom:2px solid ${tab === 'comments' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                    <button class="interactions-tab ${tab === 'comments' ? 'is-active' : ''}" data-tab="comments" style="padding:11px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'comments' ? '#7c3aed' : '#64748b'};border-bottom:3px solid ${tab === 'comments' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-bottom:-1px;">
                         <i data-lucide="message-square" style="width:14px;height:14px;"></i> Bình luận
-                        ${Number(order.commentCount) > 0 ? `<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:9px;font-size:11px;font-weight:700;">${order.commentCount}</span>` : ''}
+                        ${Number(order.commentCount) > 0 ? `<span style="background:${tab === 'comments' ? '#7c3aed' : '#cbd5e1'};color:#fff;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${order.commentCount}</span>` : ''}
                     </button>
+                    <div style="flex:1;"></div>
+                    ${
+                        order.amountTotal || order.total
+                            ? `<div style="align-self:center;font-size:12px;color:#64748b;margin-right:6px;">Tổng đơn: <strong style="color:#15803d;font-size:13px;">${(Number(order.amountTotal || order.total) || 0).toLocaleString('vi-VN')}đ</strong></div>`
+                            : ''
+                    }
                 </div>
-                <div id="interactionsBody" class="w2p-scroll-area" style="max-height:480px;padding:14px 18px;">${
+                <div id="interactionsBody" class="w2p-scroll-area" style="flex:1;min-height:0;padding:0;background:#f8fafc;">${
                     tab === 'messages' ? _renderMessagesPanel(order) : _renderCommentsPanel(order)
                 }</div>
             </div>`;
@@ -2161,7 +2196,28 @@
             });
         });
 
+        _ensureChatModalCss();
         if (window.lucide) lucide.createIcons();
+
+        // Wire header buttons (always present)
+        const phoneEl = modal.querySelector('.w2-chat-phone');
+        phoneEl?.addEventListener('click', () => {
+            const phone = phoneEl.dataset.phone || '';
+            if (!phone) return;
+            navigator.clipboard?.writeText(phone).then(
+                () => notify('Đã copy SĐT: ' + phone, 'success'),
+                () => notify('Không copy được', 'error')
+            );
+        });
+        const pancakeBtn = modal.querySelector('[data-action="open-pancake"]');
+        pancakeBtn?.addEventListener('click', () => {
+            if (!order.fbUserId || !order.fbPageId) {
+                notify('Đơn không có Facebook user/page ID', 'warning');
+                return;
+            }
+            const url = `../tpos-pancake/index.html?focusFbUserId=${encodeURIComponent(order.fbUserId)}&focusPageId=${encodeURIComponent(order.fbPageId)}${order.liveCampaignId ? '&focusCampaign=' + encodeURIComponent(order.liveCampaignId) : ''}`;
+            window.open(url, '_blank', 'noopener');
+        });
 
         // Wire send + reply button handlers per current tab
         if (tab === 'messages') {
@@ -2195,6 +2251,28 @@
                     onAutoSend: () => _handleSendMessage(order),
                 });
             }
+            // Toolbar actions
+            modal
+                .querySelector('[data-action="refresh-thread"]')
+                ?.addEventListener('click', () => _loadAndRenderThread(order));
+            modal.querySelector('[data-action="scroll-bottom"]')?.addEventListener('click', () => {
+                const t = document.getElementById('msgThread');
+                if (t) t.scrollTop = t.scrollHeight;
+                const jb = document.getElementById('msgJumpBottom');
+                if (jb) jb.style.display = 'none';
+                if (_chatState) _chatState.missedSince = 0;
+            });
+            modal
+                .querySelector('[data-action="insert-signature"]')
+                ?.addEventListener('click', () => {
+                    const ta = document.getElementById('msgInput');
+                    if (!ta) return;
+                    const sig = window.Web2QuickReply?.signature?.() || '\nNv. ';
+                    const before = ta.value;
+                    ta.value = (before + sig).trimStart();
+                    ta.focus();
+                    ta.setSelectionRange(ta.value.length, ta.value.length);
+                });
         } else if (tab === 'comments') {
             modal.querySelectorAll('[data-action="reply-comment"]').forEach((btn) => {
                 btn.addEventListener('click', () =>
@@ -2281,37 +2359,45 @@
 
     function _renderMessagesPanel(order) {
         if (!order.fbUserId || !order.fbPageId) {
-            return `<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">
-                <i data-lucide="user-x" style="width:32px;height:32px;display:block;margin:0 auto 8px;color:#cbd5e1;"></i>
+            return `<div style="color:#94a3b8;font-style:italic;padding:60px 24px;text-align:center;">
+                <i data-lucide="user-x" style="width:40px;height:40px;display:block;margin:0 auto 12px;color:#cbd5e1;"></i>
                 Đơn không có Facebook user ID hoặc page ID — không thể chat.
             </div>`;
         }
-        const pancakeUrl = `../tpos-pancake/index.html?focusFbUserId=${encodeURIComponent(order.fbUserId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}${order.liveCampaignId ? '&focusCampaign=' + encodeURIComponent(order.liveCampaignId) : ''}`;
         return `
-            <div style="display:flex;flex-direction:column;gap:10px;min-height:280px;">
-                <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:200px;max-height:340px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#475569;">
-                    <div style="color:#94a3b8;font-style:italic;text-align:center;padding:30px 0;">
-                        <i data-lucide="loader" style="width:18px;height:18px;display:block;margin:0 auto 6px;animation:spin 1s linear infinite;"></i>
+            <div style="display:flex;flex-direction:column;height:100%;position:relative;">
+                <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:0;background:#f8fafc;padding:18px 28px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#475569;">
+                    <div style="color:#94a3b8;font-style:italic;text-align:center;padding:60px 0;">
+                        <i data-lucide="loader" style="width:24px;height:24px;display:block;margin:0 auto 10px;animation:spin 1s linear infinite;"></i>
                         Đang tải hội thoại…
                     </div>
                 </div>
-                <button type="button" id="msgJumpBottom" style="display:none;align-self:center;background:#7c3aed;color:#fff;border:none;font-size:11px;font-weight:600;padding:4px 12px;border-radius:999px;cursor:pointer;box-shadow:0 2px 6px rgba(124,58,237,0.25);margin-top:-6px;">↓ <span id="msgJumpCount">0</span> tin mới</button>
-                <div style="display:flex;gap:6px;align-items:flex-end;">
-                    <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" style="flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;max-height:140px;"></textarea>
-                    <button type="button" class="w2-qr-fab" data-action="open-quick-reply" title="Trả lời nhanh">
-                        <i data-lucide="zap" style="width:13px;height:13px;"></i>
-                    </button>
-                    <button class="tpos-btn tpos-btn-primary tpos-btn-sm" data-action="send-message" title="Gửi tin nhắn (reply_inbox)" style="height:38px;">
-                        <i data-lucide="send" style="width:13px;height:13px;"></i> Gửi
-                    </button>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                    <small style="color:#94a3b8;font-size:11px;">
-                        ${_hasExtension() ? `🚀 <strong style="color:#7c3aed;">N2 Extension v${_extensionVersion}</strong> sẽ gửi (bypass rule 24h)` : 'Gửi qua Pancake API → Messenger của khách'}
-                    </small>
-                    <a href="${pancakeUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#7c3aed;text-decoration:none;">
-                        Mở đầy đủ trong TPOS × Pancake →
-                    </a>
+                <button type="button" id="msgJumpBottom" style="display:none;position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#7c3aed;color:#fff;border:none;font-size:11px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(124,58,237,0.35);z-index:5;">↓ <span id="msgJumpCount">0</span> tin mới</button>
+                <div style="border-top:1px solid #e5e7eb;background:#fff;padding:10px 18px 12px;">
+                    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
+                        <button type="button" class="w2-chat-tool" data-action="refresh-thread" title="Tải lại hội thoại">
+                            <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+                        </button>
+                        <button type="button" class="w2-chat-tool" data-action="scroll-bottom" title="Cuộn xuống cuối">
+                            <i data-lucide="arrow-down" style="width:14px;height:14px;"></i>
+                        </button>
+                        <button type="button" class="w2-chat-tool" data-action="open-quick-reply" title="Mở danh sách mẫu trả lời">
+                            <i data-lucide="zap" style="width:14px;height:14px;color:#7c3aed;"></i>
+                        </button>
+                        <button type="button" class="w2-chat-tool" data-action="insert-signature" title="Chèn chữ ký nhân viên">
+                            <i data-lucide="user-check" style="width:14px;height:14px;"></i>
+                        </button>
+                        <div style="flex:1;"></div>
+                        <small style="color:#94a3b8;font-size:11px;">
+                            ${_hasExtension() ? `🚀 <strong style="color:#7c3aed;">N2 Extension v${_extensionVersion}</strong> (bypass 24h)` : 'Gửi qua Pancake API'}
+                        </small>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:flex-end;">
+                        <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" style="flex:1;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;resize:none;min-height:42px;max-height:180px;line-height:1.45;"></textarea>
+                        <button class="tpos-btn tpos-btn-primary" data-action="send-message" title="Gửi tin nhắn (Enter)" style="height:42px;padding:0 18px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+                            <i data-lucide="send" style="width:14px;height:14px;"></i> Gửi
+                        </button>
+                    </div>
                 </div>
             </div>`;
     }
@@ -2385,7 +2471,42 @@
     }
 
     function _dateSeparatorHtml(label) {
-        return `<div class="w2-chat-daysep" style="align-self:center;margin:6px 0;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.5px;background:#fff;padding:2px 10px;border-radius:999px;border:1px solid #e5e7eb;">${escapeHtml(label)}</div>`;
+        return `<div class="w2-chat-daysep" style="display:flex;align-items:center;gap:10px;align-self:stretch;margin:10px 0 4px;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.8px;">
+            <span style="flex:1;height:1px;background:linear-gradient(to right,transparent,#e5e7eb);"></span>
+            <span style="background:#fff;padding:3px 12px;border-radius:999px;border:1px solid #e5e7eb;">${escapeHtml(label)}</span>
+            <span style="flex:1;height:1px;background:linear-gradient(to left,transparent,#e5e7eb);"></span>
+        </div>`;
+    }
+
+    // Inject reusable chat styles on first render
+    function _ensureChatModalCss() {
+        if (document.getElementById('w2-chat-modal-css')) return;
+        const css = `
+            .w2-chat-tool {
+                width: 30px; height: 30px; border-radius: 6px; border: 1px solid #e2e8f0;
+                background: #fff; cursor: pointer; color: #64748b;
+                display: inline-flex; align-items: center; justify-content: center;
+                transition: all 0.15s ease;
+            }
+            .w2-chat-tool:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+            .w2-chat-phone { cursor: pointer; user-select: none; transition: color 0.15s; }
+            .w2-chat-phone:hover { color: #7c3aed; }
+            .w2-chat-bubble {
+                box-shadow: 0 1px 2px rgba(15,23,42,0.06);
+                line-height: 1.42;
+            }
+            .w2-chat-bubble img { display: block; }
+            #orderInteractionsModal .w2p-card { background:#fff; }
+            #msgInput:focus {
+                outline: none;
+                border-color: #7c3aed !important;
+                box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+            }
+        `;
+        const el = document.createElement('style');
+        el.id = 'w2-chat-modal-css';
+        el.textContent = css;
+        document.head.appendChild(el);
     }
 
     /**
@@ -2497,6 +2618,27 @@
         } finally {
             _chatState.loadingOlder = false;
         }
+    }
+
+    /**
+     * Optimistically append a just-sent outgoing message to the thread so
+     * the user sees their bubble instantly without waiting for the next
+     * fetchMessages round-trip. Marked with a temp id; if a real WS event
+     * later carries the same content, the id-dedup map prevents double-render.
+     */
+    function _appendOutgoing(text) {
+        if (!_chatState) return;
+        const fake = {
+            id: 'local_' + Date.now(),
+            from: { id: _chatState.pageId, name: 'You' },
+            from_admin: true,
+            message: text,
+            inserted_at: new Date().toISOString(),
+            attachments: [],
+        };
+        _chatState.msgs.push(fake);
+        _chatState.msgIds.add(fake.id);
+        _renderChatThread('bottom');
     }
 
     function _onIncomingWsMessage(payload) {
@@ -2677,9 +2819,9 @@
                     isBusiness: true,
                 });
                 if (r.ok) {
+                    _appendOutgoing(text);
                     input.value = '';
                     notify('Đã gửi qua N2 Extension (bypass 24h)', 'success');
-                    setTimeout(() => _loadAndRenderThread(order), 1500);
                     if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
                         window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
                     }
@@ -2720,9 +2862,9 @@
             customerId,
         });
         if (sendRes.ok) {
+            _appendOutgoing(text);
             input.value = '';
             notify('Đã gửi tin nhắn', 'success');
-            _loadAndRenderThread(order);
             if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
                 window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
             }
