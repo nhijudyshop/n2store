@@ -2247,6 +2247,65 @@
         }
     }
 
+    // ---- n2store-extension bridge: bypass 24h rule via FB Business Suite ----
+    // Extension content script (manifest: nhijudyshop.github.io + *.workers.dev)
+    // listens on window.postMessage with type matching INBOUND_TYPES, forwards
+    // to its service worker which calls Facebook Business GraphQL (REPLY_INBOX_PHOTO,
+    // SEND_COMMENT, SEND_PRIVATE_REPLY). FB Business rules differ from Pancake's
+    // 24h policy — extension can send outside the standard window.
+    let _extensionReady = false;
+    let _extensionVersion = null;
+    window.addEventListener('message', (e) => {
+        const m = e.data;
+        if (!m || typeof m !== 'object') return;
+        if (m.type === 'EXTENSION_LOADED' || m.type === 'EXTENSION_VERSION') {
+            _extensionReady = true;
+            _extensionVersion = m.version || m.payload?.version || 'unknown';
+            console.log('[NativeOrders] n2store-extension ready v' + _extensionVersion);
+        }
+    });
+    function _hasExtension() {
+        return _extensionReady;
+    }
+
+    /**
+     * Send a request to the extension via window.postMessage bridge.
+     * @param {string} type  — e.g. 'REPLY_INBOX_PHOTO', 'SEND_COMMENT', 'SEND_PRIVATE_REPLY'
+     * @param {object} data  — payload (pageId, globalUserId, message, ...)
+     * @param {number} timeoutMs
+     * @returns {Promise<{ok:boolean, data?, error?}>}
+     */
+    function _extensionRequest(type, data, timeoutMs = 30000) {
+        return new Promise((resolve) => {
+            const taskId = `nw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const SUCCESS = type + '_SUCCESS';
+            const FAILURE = type + '_FAILURE';
+            let done = false;
+            const onMsg = (e) => {
+                const m = e.data;
+                if (!m || typeof m !== 'object') return;
+                if (m.taskId && m.taskId !== taskId) return;
+                if (m.type === SUCCESS) {
+                    done = true;
+                    window.removeEventListener('message', onMsg);
+                    resolve({ ok: true, data: m });
+                } else if (m.type === FAILURE) {
+                    done = true;
+                    window.removeEventListener('message', onMsg);
+                    resolve({ ok: false, error: m.error || 'Extension reported failure' });
+                }
+            };
+            window.addEventListener('message', onMsg);
+            window.postMessage({ ...data, type, taskId }, '*');
+            setTimeout(() => {
+                if (!done) {
+                    window.removeEventListener('message', onMsg);
+                    resolve({ ok: false, error: 'Extension timeout' });
+                }
+            }, timeoutMs);
+        });
+    }
+
     function _renderMessagesPanel(order) {
         if (!order.fbUserId || !order.fbPageId) {
             return `<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">
@@ -2270,7 +2329,9 @@
                     </button>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                    <small style="color:#94a3b8;font-size:11px;">Gửi qua Pancake API → Messenger của khách</small>
+                    <small style="color:#94a3b8;font-size:11px;">
+                        ${_hasExtension() ? `🚀 <strong style="color:#7c3aed;">N2 Extension v${_extensionVersion}</strong> sẽ gửi (bypass rule 24h)` : 'Gửi qua Pancake API → Messenger của khách'}
+                    </small>
                     <a href="${pancakeUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#7c3aed;text-decoration:none;">
                         Mở đầy đủ trong TPOS × Pancake →
                     </a>
@@ -2292,16 +2353,23 @@
         }
         try {
             const dm = window.pancakeDataManager;
-            const convs = await dm.fetchConversationsByCustomerFbId(order.fbPageId, order.fbUserId);
-            if (!convs || convs.length === 0) {
-                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Chưa có hội thoại. Gõ tin nhắn để bắt đầu.</div>`;
+            // fetchConversationsByCustomerFbId returns { conversations, customerUuid, success }
+            const r = await dm.fetchConversationsByCustomerFbId(order.fbPageId, order.fbUserId);
+            const conversations = Array.isArray(r?.conversations)
+                ? r.conversations
+                : Array.isArray(r)
+                  ? r
+                  : [];
+            if (conversations.length === 0) {
+                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Chưa có hội thoại với khách. Gõ tin nhắn để bắt đầu.</div>`;
                 return;
             }
-            const conv = convs[0]; // most recent
+            const conv = conversations[0]; // most recent
             const input = document.getElementById('msgInput');
             if (input) {
                 input.dataset.conversationId = conv.id;
-                input.dataset.customerId = conv?.customers?.[0]?.id || '';
+                input.dataset.customerId = r?.customerUuid || conv?.customers?.[0]?.id || '';
+                input.dataset.threadId = conv?.thread_id || conv?.threadId || '';
             }
             const result = await dm.fetchMessagesForConversation(order.fbPageId, conv.id);
             const messages = (result?.messages || result || []).slice(-30);
@@ -2331,29 +2399,65 @@
             notify('Vui lòng nhập tin nhắn', 'warning');
             return;
         }
+        input.disabled = true;
+
+        // Try extension bridge first (bypasses Pancake 24h rule via FB Business)
+        if (_hasExtension()) {
+            try {
+                const r = await _extensionRequest('REPLY_INBOX_PHOTO', {
+                    pageId: order.fbPageId,
+                    globalUserId: order.fbUserId,
+                    threadId: input.dataset.threadId || '',
+                    convId: input.dataset.conversationId || '',
+                    message: text,
+                    attachmentType: 'SEND_TEXT_ONLY',
+                    platform: 'facebook',
+                    isBusiness: true,
+                });
+                if (r.ok) {
+                    input.value = '';
+                    notify('Đã gửi qua N2 Extension (bypass 24h)', 'success');
+                    setTimeout(() => _loadAndRenderThread(order), 1500);
+                    input.disabled = false;
+                    input.focus();
+                    return;
+                }
+                console.warn('[NativeOrders] Extension send failed, fallback Pancake:', r.error);
+            } catch (e) {
+                console.warn('[NativeOrders] Extension bridge error, fallback Pancake:', e.message);
+            }
+        }
+
+        // Fallback: Pancake API (standard, subject to 24h rule)
         const ok = await _ensurePancakeApi();
         if (!ok) {
-            notify('Không tải được Pancake API', 'error');
+            input.disabled = false;
+            notify('Không tải được Pancake API + không có Extension', 'error');
             return;
         }
         let conversationId = input.dataset.conversationId;
         const customerId = input.dataset.customerId || null;
         if (!conversationId) {
             try {
-                const convs = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
+                const r = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
                     order.fbPageId,
                     order.fbUserId
                 );
-                if (convs && convs[0]) conversationId = convs[0].id;
+                const list = Array.isArray(r?.conversations)
+                    ? r.conversations
+                    : Array.isArray(r)
+                      ? r
+                      : [];
+                if (list[0]) conversationId = list[0].id;
             } catch {
                 /* ignore */
             }
         }
         if (!conversationId) {
+            input.disabled = false;
             notify('Chưa tìm thấy hội thoại với khách. Hãy mở TPOS × Pancake.', 'error');
             return;
         }
-        input.disabled = true;
         try {
             await window.pancakeDataManager.sendMessage(order.fbPageId, conversationId, {
                 text,
@@ -2379,12 +2483,42 @@
             notify('Vui lòng nhập nội dung trả lời', 'warning');
             return;
         }
+        input.disabled = true;
+
+        // Try extension first (bypasses 24h via FB Business)
+        if (_hasExtension()) {
+            try {
+                const extType = mode === 'private' ? 'SEND_PRIVATE_REPLY' : 'SEND_COMMENT';
+                const r = await _extensionRequest(extType, {
+                    pageId: order.fbPageId,
+                    postId: order.fbPostId,
+                    commentId,
+                    message: text,
+                    globalUserId: order.fbUserId,
+                });
+                if (r.ok) {
+                    input.value = '';
+                    notify(
+                        (mode === 'private' ? '📨 Đã gửi DM ' : '💬 Đã trả lời comment ') +
+                            'qua N2 Extension',
+                        'success'
+                    );
+                    input.disabled = false;
+                    return;
+                }
+                console.warn('[NativeOrders] Extension reply failed, fallback Pancake:', r.error);
+            } catch (e) {
+                console.warn('[NativeOrders] Extension bridge error, fallback Pancake:', e.message);
+            }
+        }
+
+        // Fallback: Pancake API
         const ok = await _ensurePancakeApi();
         if (!ok) {
-            notify('Không tải được Pancake API', 'error');
+            input.disabled = false;
+            notify('Không tải được Pancake API + không có Extension', 'error');
             return;
         }
-        input.disabled = true;
         try {
             const action = mode === 'private' ? 'private_replies' : 'reply_comment';
             await window.pancakeDataManager.sendMessage(order.fbPageId, commentId, {
@@ -2395,8 +2529,8 @@
             input.value = '';
             notify(
                 mode === 'private'
-                    ? 'Đã gửi tin nhắn riêng cho khách'
-                    : 'Đã trả lời bình luận công khai',
+                    ? 'Đã gửi tin nhắn riêng (Pancake)'
+                    : 'Đã trả lời bình luận (Pancake)',
                 'success'
             );
         } catch (e) {
