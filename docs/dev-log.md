@@ -3314,6 +3314,45 @@ gentle smile, professional portrait, photorealistic
 
 **Status**: ✅ Done. Production-ready cho TikTok public channels.
 
+### [balance-history-home] Page mới "Lịch Sử Biến Động Số Dư Home" — scaffold UI, chờ đấu SePay account thứ 2
+
+- **Why**: User chuẩn bị đấu thêm 1 SePay account riêng (Home — sổ thu/chi nội bộ theo phòng), cần sẵn 1 trang FE độc lập trỏ về endpoint mới `/api/sepay-home/*`. Backend chưa có → trang sẽ 404 ban đầu, đó là expected (append-only, KHÔNG động endpoint `/api/sepay/*` cũ).
+- **What**:
+    - Tạo folder mới [balance-history-home/](../balance-history-home/) isolated hoàn toàn (không share script/CSS với folder `balance-history/` cũ).
+    - **UI khác biệt so với balance-history gốc**:
+        - 1 màn hình duy nhất (bỏ 4 tab Live Mode / Lịch Sử / Thống Kê / Kế Toán).
+        - Header chỉ có heading + badge "Home" tím (bỏ button "Tạo QR" / "Làm mới" / input SĐT).
+        - Bảng 7 cột: Ngày giờ / **Loại (badge In/Out)** / Số tiền / **Số dư sau GD (running balance)** / Nội dung / Mã tham chiếu / **Mã phòng (dropdown)**. Bỏ 4 cột: Tên KH / SĐT / Nguồn / QR Code.
+        - 3 filter chip type: Tất cả / Tiền vào / Tiền ra (thay 6 verification chip cũ).
+        - Không có modal nào (bỏ pending match / customer edit / phone data / QR / detail GD).
+    - **Dropdown "Mã phòng"**: data từ [room-codes.js](../balance-history-home/js/room-codes.js) — placeholder `window.ROOM_CODES = []`. User tự bổ sung sau khi sẵn sàng. PUT về `/api/sepay-home/transaction/:id/room`.
+    - **Endpoint isolation**: tất cả fetch trong page Home dùng prefix `/api/sepay-home/*`. Cache localStorage key prefix `bh_home_cache_*` + `balanceHistoryHome_view_mode` (tách hoàn toàn với `bh_cache_*` của trang cũ).
+    - **Realtime SSE**: tự connect `/api/sepay-home/stream` sau 1s. Listener cho event `connected` + `new-transaction` (bỏ `customer-info-updated` + `pending-match-created` vì không quản lý khách).
+    - **Navigation**: thêm entry "Số Dư Home" (`shortText: 'SD Home'`, `adminOnly: true`, share `permissionRequired: 'balance-history'`) vào [shared/js/navigation-modern.js:224-232](../shared/js/navigation-modern.js#L224-L232) — ngay sau entry "Lịch Sử Biến Động Số Dư" cũ.
+- **Approach**: Copy isolated (KHÔNG share JS/CSS với folder cũ). Trade-off: duplicate ~3.8K dòng CSS + ~1.4K dòng JS, đổi lại an toàn (zero risk break trang cũ) + dễ destroy/divergent UI sau này. Tuân thủ memory `feedback_api_scope.md`: feature mới → endpoint riêng, append only.
+- **State backend**: backend `/api/sepay-home/*` CHƯA CÓ → frontend sẽ 404 ở mọi call, page render UI rỗng. User sẽ làm backend (history, statistics, stream, transaction/:id/room) khi sẵn sàng đấu SePay account mới.
+
+**Files NEW (10)**:
+
+- [balance-history-home/index.html](../balance-history-home/index.html) — 7-column table + filter bar + collapsible date filters + pagination.
+- [balance-history-home/js/config.js](../balance-history-home/js/config.js) — CONFIG + `SEPAY_PREFIX: '/api/sepay-home'`.
+- [balance-history-home/js/room-codes.js](../balance-history-home/js/room-codes.js) — placeholder `window.ROOM_CODES = []` + helper `renderRoomOptions()`.
+- [balance-history-home/js/balance-core.js](../balance-history-home/js/balance-core.js) — state + data loading + SSE realtime (lược từ 1089 → 700 dòng).
+- [balance-history-home/js/balance-filters.js](../balance-history-home/js/balance-filters.js) — filter system + type chips (In/Out).
+- [balance-history-home/js/balance-table.js](../balance-history-home/js/balance-table.js) — table render mới với badge In/Out + running balance + room dropdown handler.
+- [balance-history-home/js/main.js](../balance-history-home/js/main.js) — init + event wiring (đơn giản hoá).
+- [balance-history-home/css/home.css](../balance-history-home/css/home.css) — custom styles: badge "Home" tím, badge In/Out xanh/đỏ, running balance monospace, room dropdown, type chips.
+- [balance-history-home/css/modern.css](../balance-history-home/css/modern.css) — copy nguyên từ balance-history/.
+- [balance-history-home/css/styles.css](../balance-history-home/css/styles.css) — copy nguyên từ balance-history/.
+
+**Files MODIFIED (1)**:
+
+- [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — append nav entry "Số Dư Home" sau entry balance-history.
+
+**Status**: ✅ FE scaffold done. ⏳ Chờ backend `/api/sepay-home/*` + danh sách `ROOM_CODES`.
+
+---
+
 ## 2026-05-07
 
 ### [aikol][clips] Import cả kênh TikTok: yt-dlp primary + scraper fallback (KHÔNG cần cookie)

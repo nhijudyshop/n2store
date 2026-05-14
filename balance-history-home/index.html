@@ -1,0 +1,236 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Lịch sử biến động số dư — Home (SePay)</title>
+
+        <!-- Core Loader -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
+
+        <!-- Storage Migration -->
+        <script src="../shared/js/storage-migration.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.StorageMigration) {
+                    window.StorageMigration.migrateModuleStorage('balanceHistoryHome');
+                }
+            });
+        </script>
+
+        <!-- Lucide Icons -->
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <!-- CSS -->
+        <link rel="stylesheet" href="css/modern.css" />
+        <link rel="stylesheet" href="css/styles.css" />
+        <link rel="stylesheet" href="css/home.css" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css" />
+    </head>
+
+    <body>
+        <div class="main-content" id="mainContent">
+            <div class="container">
+                <!-- Header: chỉ heading, không button -->
+                <header class="page-header">
+                    <h1>
+                        <i data-lucide="wallet"></i>
+                        Lịch sử biến động số dư
+                        <span class="badge-home">Home</span>
+                    </h1>
+                    <!-- Realtime status badge auto-injected by balance-core.js -->
+                </header>
+
+                <!-- Filter bar (search + type chips + toggle button) -->
+                <section class="filter-bar">
+                    <input
+                        type="text"
+                        id="filterSearch"
+                        class="filter-input"
+                        placeholder="Tìm theo nội dung hoặc mã tham chiếu..."
+                    />
+
+                    <div class="type-chips">
+                        <button class="chip active" data-type="all">Tất cả</button>
+                        <button class="chip" data-type="in">Tiền vào</button>
+                        <button class="chip" data-type="out">Tiền ra</button>
+                    </div>
+
+                    <button id="toggleFiltersBtn" class="btn btn-secondary">
+                        <i data-lucide="filter"></i>
+                        Hiện bộ lọc
+                    </button>
+                </section>
+
+                <!-- Collapsible filters (quick date + range + amount) -->
+                <div id="filtersContainer" hidden>
+                    <div class="quick-filters">
+                        <label><i data-lucide="calendar-clock"></i> Bộ lọc nhanh:</label>
+                        <div class="quick-filter-buttons">
+                            <button class="btn-quick-filter" data-filter="today">
+                                <i data-lucide="calendar-days"></i> Hôm nay
+                            </button>
+                            <button class="btn-quick-filter" data-filter="yesterday">
+                                <i data-lucide="calendar-minus"></i> Hôm qua
+                            </button>
+                            <button class="btn-quick-filter" data-filter="thisWeek">
+                                <i data-lucide="calendar-range"></i> Tuần này
+                            </button>
+                            <button class="btn-quick-filter" data-filter="lastWeek">
+                                <i data-lucide="calendar-range"></i> Tuần trước
+                            </button>
+                            <button class="btn-quick-filter" data-filter="thisMonth">
+                                <i data-lucide="calendar"></i> Tháng này
+                            </button>
+                            <button class="btn-quick-filter" data-filter="lastMonth">
+                                <i data-lucide="calendar"></i> Tháng trước
+                            </button>
+                            <button class="btn-quick-filter" data-filter="last7days">
+                                <i data-lucide="calendar-clock"></i> 7 ngày qua
+                            </button>
+                            <button class="btn-quick-filter active" data-filter="last30days">
+                                <i data-lucide="calendar-clock"></i> 30 ngày qua
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label><i data-lucide="calendar"></i> Từ ngày:</label>
+                            <div class="date-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="filterStartDateDisplay"
+                                    class="filter-input date-display"
+                                    placeholder="dd/mm/yyyy"
+                                    maxlength="10"
+                                />
+                                <input type="date" id="filterStartDate" class="date-input-hidden" />
+                                <i data-lucide="calendar" class="date-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <label><i data-lucide="calendar"></i> Đến ngày:</label>
+                            <div class="date-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="filterEndDateDisplay"
+                                    class="filter-input date-display"
+                                    placeholder="dd/mm/yyyy"
+                                    maxlength="10"
+                                />
+                                <input type="date" id="filterEndDate" class="date-input-hidden" />
+                                <i data-lucide="calendar" class="date-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <label><i data-lucide="banknote"></i> Số tiền:</label>
+                            <input
+                                type="text"
+                                id="filterAmount"
+                                class="filter-input"
+                                placeholder="VD: 100000 hoặc 100k"
+                            />
+                        </div>
+
+                        <button id="applyFiltersBtn" class="btn btn-success">
+                            <i data-lucide="check"></i> Áp dụng
+                        </button>
+                        <button id="resetFiltersBtn" class="btn btn-secondary">
+                            <i data-lucide="rotate-ccw"></i> Đặt lại
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="loadingIndicator" class="loading" style="display: none">
+                    <i data-lucide="loader-2"></i> Đang tải dữ liệu...
+                </div>
+
+                <!-- Data table (7 columns) -->
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ngày giờ</th>
+                                <th>Loại</th>
+                                <th>Số tiền</th>
+                                <th>Số dư sau GD</th>
+                                <th>Nội dung</th>
+                                <th>Mã tham chiếu</th>
+                                <th>Mã phòng</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Rows injected by balance-table.js -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination" id="pagination">
+                    <button id="prevPageBtn" class="btn btn-secondary" disabled>
+                        <i data-lucide="chevron-left"></i> Trước
+                    </button>
+                    <span id="pageInfo">Trang 1 / 1</span>
+                    <button id="nextPageBtn" class="btn btn-secondary" disabled>
+                        Sau <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Firebase SDK (for shared auth/notification system) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js"></script>
+
+        <!-- Shop config + token manager -->
+        <script src="../shared/js/shop-config.js"></script>
+        <script src="../shared/js/token-manager.js"></script>
+
+        <!-- Navigation + notification -->
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script src="../shared/js/notification-system.js"></script>
+
+        <!-- Permission helpers -->
+        <script>
+            window.hasPermission = (level) => window.authManager?.hasPermission?.(level) ?? false;
+            window.hasDetailedPermission = (pageId, action) =>
+                window.authManager?.hasDetailedPermission?.(pageId, action) ?? false;
+        </script>
+
+        <!-- Page scripts (load order matters!) -->
+        <script src="js/config.js"></script>
+        <script src="js/room-codes.js"></script>
+        <script src="js/balance-core.js"></script>
+        <script src="js/balance-filters.js"></script>
+        <script src="js/balance-table.js"></script>
+        <script src="js/main.js"></script>
+
+        <!-- Init Lucide icons -->
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.lucide) lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>

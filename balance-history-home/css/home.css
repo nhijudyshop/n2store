@@ -1,0 +1,210 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+/* =====================================================
+ * BALANCE HISTORY HOME — Custom styles
+ * Badge "Home" + In/Out badges + running balance column + room dropdown + type chips
+ * ===================================================== */
+
+/* "Home" indicator on page heading */
+.badge-home {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* Page header layout */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* In / Out badges */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.badge-in {
+    background: #d1fae5;
+    color: #065f46;
+}
+.badge-out {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Amount color by transfer type */
+.amount-in {
+    color: #10b981;
+    font-weight: 600;
+}
+.amount-out {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+/* Running balance column (số dư sau GD) */
+.col-balance.running-balance {
+    font-family: ui-monospace, 'SF Mono', 'Courier New', monospace;
+    text-align: right;
+    color: #111827;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.col-amount {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.col-ref code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #374151;
+}
+
+.col-content {
+    max-width: 360px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Room code dropdown */
+.room-code-select {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    font-size: 13px;
+    min-width: 140px;
+    color: #111827;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.room-code-select:hover {
+    border-color: #9ca3af;
+}
+.room-code-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.room-code-select:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* Type filter chips (Tất cả / Tiền vào / Tiền ra) */
+.type-chips {
+    display: inline-flex;
+    gap: 6px;
+    margin-left: 12px;
+}
+.type-chips .chip {
+    padding: 6px 14px;
+    border-radius: 18px;
+    background: #f3f4f6;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+.type-chips .chip:hover {
+    background: #e5e7eb;
+}
+.type-chips .chip.active {
+    background: #6366f1;
+    color: #ffffff;
+}
+
+/* Filter bar layout */
+.filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    flex-wrap: wrap;
+}
+.filter-bar #filterSearch {
+    flex: 1;
+    min-width: 240px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+.filter-bar #filterSearch:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+#toggleFiltersBtn {
+    padding: 8px 14px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+}
+#toggleFiltersBtn:hover {
+    background: #e5e7eb;
+}
+
+/* Empty state in table */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6b7280;
+}
+.empty-state i {
+    width: 48px;
+    height: 48px;
+    color: #d1d5db;
+    margin-bottom: 12px;
+}
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Hidden row visual cue */
+.is-hidden-row {
+    opacity: 0.55;
+    background: #f9fafb;
+}

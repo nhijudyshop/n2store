@@ -231,6 +231,15 @@ const MENU_CONFIG = [
         permissionRequired: 'balance-history',
     },
     {
+        href: '../balance-history-home/index.html',
+        icon: 'wallet',
+        text: 'Số Dư Home',
+        shortText: 'SD Home',
+        pageIdentifier: 'balance-history-home',
+        adminOnly: true,
+        permissionRequired: 'balance-history',
+    },
+    {
         href: '../supplier-debt/index.html',
         icon: 'receipt',
         text: 'NCC',
