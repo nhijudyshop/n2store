@@ -50,6 +50,7 @@ import {
 import {
     handleGenericProxy,
     handleSepayProxy,
+    handleSepayHomeProxy,
     handleUploadProxy,
     handleRealtimeProxy,
     handleChatProxy,
@@ -195,6 +196,8 @@ async function routeRequest(request, env, ctx) {
                 return handleUploadProxy(request, url, pathname);
             case 'SEPAY':
                 return handleSepayProxy(request, url, pathname);
+            case 'SEPAY_HOME':
+                return handleSepayHomeProxy(request, url, pathname);
             case 'INVOICE_STATUS':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'INVOICE_MAPPING':

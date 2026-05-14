@@ -21,7 +21,7 @@ export async function handleGenericProxy(request, url) {
 
     if (!targetUrl) {
         return errorResponse('Missing url parameter', 400, {
-            usage: '/api/proxy?url=<encoded_url>'
+            usage: '/api/proxy?url=<encoded_url>',
         });
     }
 
@@ -29,16 +29,17 @@ export async function handleGenericProxy(request, url) {
 
     try {
         // Read body first
-        const requestBody = request.method !== 'GET' && request.method !== 'HEAD'
-            ? await request.arrayBuffer()
-            : null;
+        const requestBody =
+            request.method !== 'GET' && request.method !== 'HEAD'
+                ? await request.arrayBuffer()
+                : null;
 
         // Build fetch options
         const fetchOptions = {
             method: request.method,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json, text/plain, */*',
+                Accept: 'application/json, text/plain, */*',
             },
             body: requestBody,
         };
@@ -67,7 +68,6 @@ export async function handleGenericProxy(request, url) {
         console.log('[PROXY] Response status:', proxyResponse.status);
 
         return proxyResponseWithCors(proxyResponse);
-
     } catch (error) {
         console.error('[PROXY] Error:', error.message);
         return errorResponse('Failed to proxy request: ' + error.message, 500);
@@ -110,20 +110,93 @@ export async function handleSepayProxy(request, url, pathname) {
             console.log('[SEPAY-PROXY] Request body size:', requestBody.byteLength, 'bytes');
         }
 
-        const sepayResponse = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: sepayHeaders,
-            body: requestBody,
-        }, 3, 1000, 15000);
+        const sepayResponse = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: sepayHeaders,
+                body: requestBody,
+            },
+            3,
+            1000,
+            15000
+        );
 
         console.log('[SEPAY-PROXY] Response status:', sepayResponse.status);
         console.log('[SEPAY-PROXY] ========================================');
 
         return proxyResponseWithCors(sepayResponse);
-
     } catch (error) {
         console.error('[SEPAY-PROXY] Error:', error.message);
         return errorResponse('SePay proxy failed: ' + error.message, 502, { target: targetUrl });
+    }
+}
+
+/**
+ * Handle /api/sepay-home/*
+ * SePay Home (account #2) webhook proxy — độc lập với /api/sepay/*
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleSepayHomeProxy(request, url, pathname) {
+    const homePath = pathname.replace(/^\/api\/sepay-home\//, '');
+    const targetUrl = `https://n2store-fallback.onrender.com/api/sepay-home/${homePath}${url.search}`;
+
+    console.log('[SEPAY-HOME-PROXY] ========================================');
+    console.log('[SEPAY-HOME-PROXY] Forwarding to:', targetUrl);
+    console.log('[SEPAY-HOME-PROXY] Method:', request.method);
+
+    const sepayHeaders = new Headers();
+    sepayHeaders.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+    sepayHeaders.set('Accept', 'application/json');
+    sepayHeaders.set('User-Agent', 'Cloudflare-Worker-SePay-Home-Proxy/1.0');
+
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader) {
+        sepayHeaders.set('Authorization', authHeader);
+        console.log('[SEPAY-HOME-PROXY] Authorization header forwarded');
+    }
+
+    // SSE: forward Accept: text/event-stream and stream response
+    const acceptHeader = request.headers.get('Accept');
+    const isSse =
+        pathname.endsWith('/stream') ||
+        (acceptHeader && acceptHeader.includes('text/event-stream'));
+    if (isSse) {
+        sepayHeaders.set('Accept', 'text/event-stream');
+        sepayHeaders.set('Cache-Control', 'no-cache');
+    }
+
+    try {
+        let requestBody = null;
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+            requestBody = await request.arrayBuffer();
+            console.log('[SEPAY-HOME-PROXY] Request body size:', requestBody.byteLength, 'bytes');
+        }
+
+        const sepayResponse = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: sepayHeaders,
+                body: requestBody,
+            },
+            3,
+            1000,
+            isSse ? 0 : 15000
+        );
+
+        console.log('[SEPAY-HOME-PROXY] Response status:', sepayResponse.status);
+        console.log('[SEPAY-HOME-PROXY] ========================================');
+
+        return proxyResponseWithCors(sepayResponse);
+    } catch (error) {
+        console.error('[SEPAY-HOME-PROXY] Error:', error.message);
+        return errorResponse('SePay Home proxy failed: ' + error.message, 502, {
+            target: targetUrl,
+        });
     }
 }
 
@@ -162,17 +235,22 @@ export async function handleUploadProxy(request, url, pathname) {
             console.log('[UPLOAD-PROXY] Request body size:', requestBody.byteLength, 'bytes');
         }
 
-        const uploadResponse = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: uploadHeaders,
-            body: requestBody,
-        }, 3, 1000, 30000); // 30s timeout for uploads
+        const uploadResponse = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: uploadHeaders,
+                body: requestBody,
+            },
+            3,
+            1000,
+            30000
+        ); // 30s timeout for uploads
 
         console.log('[UPLOAD-PROXY] Response status:', uploadResponse.status);
         console.log('[UPLOAD-PROXY] ========================================');
 
         return proxyResponseWithCors(uploadResponse);
-
     } catch (error) {
         console.error('[UPLOAD-PROXY] Error:', error.message);
         return errorResponse('Upload proxy failed: ' + error.message, 502, { target: targetUrl });
@@ -269,7 +347,7 @@ export async function handleRenderV2FallbackProxy(request, url, pathname) {
  */
 export async function handleRenderMiscProxy(request, url, pathname) {
     // Tag extracted from pathname so logs remain useful (e.g. ATTENDANCE-PROXY, GEMINI-PROXY)
-    const segment = (pathname.match(/^\/api\/([a-z0-9-]+)/i) || [,'RENDER-MISC'])[1];
+    const segment = (pathname.match(/^\/api\/([a-z0-9-]+)/i) || [, 'RENDER-MISC'])[1];
     return handleRenderFallbackProxy(request, url, pathname, `${segment.toUpperCase()}-PROXY`);
 }
 
@@ -300,9 +378,10 @@ async function handleRenderFallbackProxy(request, url, pathname, tag) {
         forwardHeaders.delete('cf-connecting-ip');
         forwardHeaders.delete('cf-ray');
 
-        const body = request.method !== 'GET' && request.method !== 'HEAD'
-            ? await request.arrayBuffer()
-            : null;
+        const body =
+            request.method !== 'GET' && request.method !== 'HEAD'
+                ? await request.arrayBuffer()
+                : null;
 
         let response;
         if (isSSE) {
@@ -313,15 +392,20 @@ async function handleRenderFallbackProxy(request, url, pathname, tag) {
                 body,
             });
         } else {
-            response = await fetchWithRetry(targetUrl, {
-                method: request.method,
-                headers: forwardHeaders,
-                body,
-            }, 3, 1000, 15000);
+            response = await fetchWithRetry(
+                targetUrl,
+                {
+                    method: request.method,
+                    headers: forwardHeaders,
+                    body,
+                },
+                3,
+                1000,
+                15000
+            );
         }
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error(`[${tag}] Error:`, error.message);
         // CRITICAL: return JSON with CORS headers so browser-side code sees a consistent
@@ -346,16 +430,22 @@ export async function handleChatProxy(request, url, pathname) {
     console.log('[CHAT-PROXY] Forwarding to:', targetUrl);
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: new Headers(request.headers),
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: new Headers(request.headers),
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[CHAT-PROXY] Error:', error.message);
         return errorResponse('Chat proxy failed: ' + error.message, 502);
@@ -377,16 +467,22 @@ export async function handleCustomersProxy(request, url, pathname) {
     console.log('[CUSTOMERS-PROXY] Forwarding to:', targetUrl);
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: new Headers(request.headers),
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: new Headers(request.headers),
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[CUSTOMERS-PROXY] Error:', error.message);
         return errorResponse('Customers proxy failed: ' + error.message, 502);
@@ -413,16 +509,22 @@ export async function handleCustomer360Proxy(request, url, pathname) {
     console.log('[CUSTOMER360] Proxying to:', targetUrl);
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: new Headers(request.headers),
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: new Headers(request.headers),
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[CUSTOMER360] Error:', error.message);
         return errorResponse('Customer 360 proxy failed: ' + error.message, 502);

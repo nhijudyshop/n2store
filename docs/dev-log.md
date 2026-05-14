@@ -25,6 +25,62 @@
 
 ## 2026-05-14
 
+### [render][worker][balance-history-home] BE `/api/sepay-home/*` — đấu SePay account #2 (Home)
+
+**User request**: "browser test vào my.sepay.vn/login → tôi đăng nhập manual → đọc trong trang sepay đó để tích hợp vào balance-history-home → trang mới không liên quan trang cũ và sepay trang cũ".
+
+**Đã làm**:
+
+1. **Migration** [070_balance_history_home.sql](../render.com/migrations/070_balance_history_home.sql) — table `balance_history_home` + `sepay_home_webhook_logs`. Schema clone từ `balance_history` nhưng:
+    - **Không có** customer linking / debt / wallet (Home là sổ thu/chi nội bộ theo phòng, không quản lý khách).
+    - **Có** cột `room_code VARCHAR(50)` + `is_hidden BOOLEAN`.
+    - Index riêng cho `room_code`, `is_hidden`, `transaction_date`, `transfer_type`.
+
+2. **Route mới** [sepay-home-webhook.js](../render.com/routes/sepay-home-webhook.js) — minimal single-file (không split sub-modules như sepay-webhook). 7 endpoints:
+    - `POST /webhook` — nhận webhook SePay, validate, auth qua `SEPAY_HOME_API_KEY` env, INSERT vào `balance_history_home`, broadcast SSE `new-transaction`. Đúng schema SePay (camelCase: `id, gateway, transactionDate, accountNumber, transferType, transferAmount, accumulated, ...`).
+    - `GET /history` — list + filter (`type, gateway, startDate, endDate, search, amount, showHidden`) + paginate. Trả về `data[]` có `amount` + `running_balance` đã map từ `transfer_amount` + `accumulated`.
+    - `GET /statistics` — total_in/out + counts + net_change + latest_balance.
+    - `GET /stream` — SSE realtime, broadcast bucket `app.locals.balanceHomeSseClients` (TÁCH BIỆT với `balanceSseClients` của account #1).
+    - `PUT /transaction/:id/room` — gán `room_code`, broadcast `room-code-updated`.
+    - `PUT /transaction/:id/hidden` — ẩn/hiện giao dịch, broadcast `visibility-updated`.
+    - `GET /ping` — health check.
+    - **Schema auto-bootstrap**: `ensureSchema(db)` chạy 1 lần khi request đầu — đọc migration file + execute (CREATE TABLE IF NOT EXISTS, idempotent). Không cần chạy migrate.sh thủ công khi deploy.
+
+3. **server.js wire** — `app.use('/api/sepay-home', sepayHomeWebhookRoutes)` ngay sau `/api/sepay`.
+
+4. **Cloudflare Worker** — thêm route `SEPAY_HOME: '/api/sepay-home/*'` + handler `handleSepayHomeProxy()` mirror `handleSepayProxy()` nhưng có **SSE forwarding** (Accept: text/event-stream + timeout 0 cho `/stream`). Đăng ký case `SEPAY_HOME` trong worker.js dispatch.
+
+**Endpoint isolation đảm bảo**:
+
+- DB table: `balance_history_home` (khác `balance_history`).
+- Env var: `SEPAY_HOME_API_KEY` (khác `SEPAY_API_KEY`).
+- SSE bucket: `app.locals.balanceHomeSseClients` (khác `balanceSseClients`).
+- Webhook logs: `sepay_home_webhook_logs` (khác `sepay_webhook_logs`).
+- FE prefix: `/api/sepay-home/*` (khác `/api/sepay/*`).
+
+**State**: ✅ FE scaffolded + ✅ BE built + ✅ CF Worker route. ⏳ Chờ user config SePay account #2 → tạo webhook → set `SEPAY_HOME_API_KEY` env trên Render.
+
+**Next steps cho user (trên https://my.sepay.vn account #2)**:
+
+1. Vào **Ngân hàng** → thêm tài khoản ngân hàng thật (SePay không gửi webhook nếu chưa có bank).
+2. Vào **Cấu hình Công ty → API Access → Thêm API** → tạo API key → copy.
+3. Vào **Tích hợp WebHooks → Tạo webhook đầu tiên** với:
+    - URL: `https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay-home/webhook`
+    - Authorization header: `Apikey <KEY_VỪA_TẠO>`
+4. Báo Claude key đó → set `SEPAY_HOME_API_KEY` vào Render service (`srv-d4e5pd3gk3sc73bgv600`).
+5. Test bằng transfer thật (hoặc dùng Test mode trên SePay) → verify `balance-history-home/` hiển thị giao dịch realtime.
+
+**Files**:
+
+- [render.com/migrations/070_balance_history_home.sql](../render.com/migrations/070_balance_history_home.sql)
+- [render.com/routes/sepay-home-webhook.js](../render.com/routes/sepay-home-webhook.js)
+- [render.com/server.js](../render.com/server.js) — line 305, 413 (mount route)
+- [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) — SEPAY_HOME pattern
+- [cloudflare-worker/modules/handlers/proxy-handler.js](../cloudflare-worker/modules/handlers/proxy-handler.js) — `handleSepayHomeProxy()`
+- [cloudflare-worker/worker.js](../cloudflare-worker/worker.js) — case SEPAY_HOME
+
+---
+
 ### [native-orders][chat] Polish UI modal chat — đồng bộ visual với orders-report tab1
 
 **User feedback**: "tinh chỉnh giao diện cho giống orders-report nữa".

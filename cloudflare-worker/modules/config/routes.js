@@ -65,6 +65,7 @@ export const ROUTES = {
     // Proxy
     GENERIC_PROXY: { pattern: '/api/proxy' },
     SEPAY: { pattern: '/api/sepay/*' },
+    SEPAY_HOME: { pattern: '/api/sepay-home/*' },
     REALTIME: { pattern: '/api/realtime/*' },
     CHAT: { pattern: '/api/chat/*' },
     CUSTOMERS: { pattern: '/api/customers/*' },
@@ -211,6 +212,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
+    if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
     if (pathname.startsWith('/api/chat/')) return 'CHAT';
     if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') return 'CUSTOMERS';
