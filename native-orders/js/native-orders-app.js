@@ -589,10 +589,18 @@
         pag().innerHTML = html.join('');
     }
 
+    let _prevTotal = 0;
     function renderCounters() {
         const totalStr = STATE.total.toLocaleString('vi-VN');
         counter().textContent = `${totalStr} đơn`;
-        searchCount().textContent = totalStr;
+        // Count-up animation on the searchCount pill (numeric-only — keeps the
+        // suffix safe). Only when delta exists and not the first render.
+        if (window.Web2Effects?.countUp && _prevTotal > 0 && _prevTotal !== STATE.total) {
+            window.Web2Effects.countUp(searchCount(), _prevTotal, STATE.total, 600);
+        } else {
+            searchCount().textContent = totalStr;
+        }
+        _prevTotal = STATE.total;
     }
 
     // Phase 14: filter chip when scoping to a Customer 360 id
@@ -1745,6 +1753,10 @@
                 `${isIdempotent ? 'PBH đã tồn tại' : 'Đã tạo PBH'}: ${pbh.number} (STT ${pbh.displayStt})`,
                 'success'
             );
+            // Celebrate fresh PBH creations (skip on idempotent — was already created)
+            if (!isIdempotent && window.Web2Effects?.confetti) {
+                window.Web2Effects.confetti({ particleCount: 80, spread: 70 });
+            }
             await load();
         } catch (e) {
             notify('Lỗi tạo PBH: ' + e.message, 'error');
@@ -1828,6 +1840,16 @@
                         _refreshInteractionsIfOpen(msg.order);
                     } catch (e) {
                         console.warn('[NativeOrders-RT] refresh interactions failed:', e.message);
+                    }
+                    // Yellow-flash the row so user notices the live update
+                    if (window.Web2Effects?.highlightRow) {
+                        const code = msg.order.code || msg.code;
+                        const row = code
+                            ? document.querySelector(
+                                  `tr.order-row[data-code="${CSS.escape(code)}"]`
+                              )
+                            : null;
+                        if (row) window.Web2Effects.highlightRow(row);
                     }
                 }
             }
@@ -2117,6 +2139,8 @@
             });
         }
         modal.style.display = 'flex';
+        // Apply pop entrance to overlay + card (only on first open of this modal session)
+        modal.classList.add('w2fx-backdrop');
         const initials = (order.customerName || order.fbUserName || '?')
             .trim()
             .split(/\s+/)
@@ -2137,7 +2161,7 @@
                       .join('')
                 : '';
         modal.innerHTML = `
-            <div class="w2p-card" style="max-width:1080px;width:96vw;height:88vh;max-height:760px;display:flex;flex-direction:column;">
+            <div class="w2p-card w2fx-pop" style="max-width:1080px;width:96vw;height:88vh;max-height:760px;display:flex;flex-direction:column;">
                 <div style="padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#faf5ff 0%,#fdfaff 100%);">
                     ${
                         order.fbUserId && order.fbPageId

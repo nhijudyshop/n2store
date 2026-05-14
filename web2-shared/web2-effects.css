@@ -1,0 +1,297 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. */
+/* =====================================================
+   Web 2.0 — Effects / animations stylesheet
+   =====================================================
+
+   Companion to web2-effects.js. Provides declarative
+   utility classes for the most common micro-interactions,
+   plus the keyframes that web2-effects.js triggers via
+   `.animate()` calls.
+
+   Catalogue: see docs/web2-effects.md.
+
+   Honor user's prefers-reduced-motion — all animations
+   are clamped to 0.01ms when the OS setting is on. */
+
+@media (prefers-reduced-motion: reduce) {
+    .w2fx-fade-in,
+    .w2fx-slide-in-top,
+    .w2fx-slide-in-bottom,
+    .w2fx-slide-in-left,
+    .w2fx-slide-in-right,
+    .w2fx-pop,
+    .w2fx-shimmer,
+    .w2fx-pulse-soft,
+    .w2fx-spin {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* ---------- One-shot entrance effects ---------- */
+
+@keyframes w2fxFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes w2fxSlideInTop {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -20px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+@keyframes w2fxSlideInBottom {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 20px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+@keyframes w2fxSlideInLeft {
+    from {
+        opacity: 0;
+        transform: translate3d(-20px, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+@keyframes w2fxSlideInRight {
+    from {
+        opacity: 0;
+        transform: translate3d(20px, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.w2fx-fade-in {
+    animation: w2fxFadeIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.w2fx-slide-in-top {
+    animation: w2fxSlideInTop 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.w2fx-slide-in-bottom {
+    animation: w2fxSlideInBottom 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.w2fx-slide-in-left {
+    animation: w2fxSlideInLeft 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.w2fx-slide-in-right {
+    animation: w2fxSlideInRight 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Pop (modal entrance with slight overshoot) */
+@keyframes w2fxPop {
+    0% {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+.w2fx-pop {
+    animation: w2fxPop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Backdrop fade (modal overlay) */
+@keyframes w2fxBackdrop {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(2px);
+    }
+}
+.w2fx-backdrop {
+    animation: w2fxBackdrop 200ms ease-out both;
+}
+
+/* ---------- Looping / attention effects ---------- */
+
+@keyframes w2fxPulseSoft {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(124, 58, 237, 0);
+    }
+}
+.w2fx-pulse-soft {
+    animation: w2fxPulseSoft 1.6s ease-in-out infinite;
+}
+
+@keyframes w2fxSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+.w2fx-spin {
+    animation: w2fxSpin 1s linear infinite;
+}
+
+/* Yellow flash — for table row updates */
+@keyframes w2fxFlash {
+    0% {
+        background-color: rgba(254, 240, 138, 0.55);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+.w2fx-flash {
+    animation: w2fxFlash 1.2s ease-out both;
+}
+
+/* ---------- Skeleton shimmer (loading placeholder) ---------- */
+
+@keyframes w2fxShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+.w2fx-skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(226, 232, 240, 0.4) 0%,
+        rgba(241, 245, 249, 0.9) 50%,
+        rgba(226, 232, 240, 0.4) 100%
+    );
+    background-size: 200% 100%;
+    animation: w2fxShimmer 1.6s ease-in-out infinite;
+    border-radius: 4px;
+    display: inline-block;
+    min-height: 12px;
+    min-width: 80px;
+    color: transparent;
+}
+
+/* ---------- Hover micro-interactions (no JS needed) ---------- */
+
+.w2fx-hover-lift {
+    transition:
+        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.18s ease-out;
+}
+.w2fx-hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.w2fx-hover-scale {
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.w2fx-hover-scale:hover {
+    transform: scale(1.04);
+}
+
+.w2fx-hover-glow {
+    transition:
+        box-shadow 0.2s ease-out,
+        border-color 0.2s ease-out;
+}
+.w2fx-hover-glow:hover {
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    border-color: #7c3aed;
+}
+
+/* Press-down feedback */
+.w2fx-press {
+    transition: transform 0.08s ease-out;
+}
+.w2fx-press:active {
+    transform: scale(0.97);
+}
+
+/* Underline-slide on hover (for nav links) */
+.w2fx-underline {
+    position: relative;
+}
+.w2fx-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.w2fx-underline:hover::after,
+.w2fx-underline.is-active::after {
+    transform: scaleX(1);
+}
+
+/* ---------- Stagger helper — apply to a parent, children fade-in sequentially.
+   Note: only the first 12 children get explicit delays; for longer lists call
+   Web2Effects.staggerIn() instead. */
+
+.w2fx-stagger > * {
+    opacity: 0;
+    animation: w2fxFadeIn 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.w2fx-stagger > *:nth-child(1) {
+    animation-delay: 20ms;
+}
+.w2fx-stagger > *:nth-child(2) {
+    animation-delay: 60ms;
+}
+.w2fx-stagger > *:nth-child(3) {
+    animation-delay: 100ms;
+}
+.w2fx-stagger > *:nth-child(4) {
+    animation-delay: 140ms;
+}
+.w2fx-stagger > *:nth-child(5) {
+    animation-delay: 180ms;
+}
+.w2fx-stagger > *:nth-child(6) {
+    animation-delay: 220ms;
+}
+.w2fx-stagger > *:nth-child(7) {
+    animation-delay: 260ms;
+}
+.w2fx-stagger > *:nth-child(8) {
+    animation-delay: 300ms;
+}
+.w2fx-stagger > *:nth-child(9) {
+    animation-delay: 340ms;
+}
+.w2fx-stagger > *:nth-child(10) {
+    animation-delay: 380ms;
+}
+.w2fx-stagger > *:nth-child(11) {
+    animation-delay: 420ms;
+}
+.w2fx-stagger > *:nth-child(12) {
+    animation-delay: 460ms;
+}

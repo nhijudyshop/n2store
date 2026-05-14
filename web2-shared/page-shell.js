@@ -28,7 +28,7 @@
 (function (global) {
     'use strict';
 
-    const ASSET_VERSION = 'v=20260425n';
+    const ASSET_VERSION = 'v=20260514a';
 
     // CSS files cần load
     const CSS_FILES = [
@@ -36,6 +36,7 @@
         '../../native-orders/css/native-orders.css',
         '../../native-orders/css/tpos-theme.css',
         '../../web2-shared/page-builder-tpos.css',
+        '../../web2-shared/web2-effects.css',
     ];
 
     // Script tags cần load TRƯỚC khi mount (theo thứ tự)
@@ -47,6 +48,7 @@
         '../../shared/js/firebase-config.js',
         '../../shared/js/shared-auth-manager.js',
         '../../shared/js/notification-system.js',
+        '../../web2-shared/web2-effects.js',
     ];
 
     // Scripts mount sidebar + page-builder
