@@ -25,6 +25,27 @@
 
 ## 2026-05-14
 
+### [native-orders][chat] Pre-resolve globalUserId trước khi gửi REPLY_INBOX_PHOTO qua extension
+
+**Vấn đề**: FB Business Suite dùng `globalUserId` khác `fbUserId` thường. Extension `REPLY_INBOX_PHOTO` cần đúng `globalUserId`, nếu pass nhầm `fbUserId` thì gửi có thể fail trong context Business.
+
+**Fix**: Trong `_handleSendMessage` (`native-orders/js/native-orders-app.js`), trước khi gọi `REPLY_INBOX_PHOTO`:
+
+1. Check cache `order._fbGlobalUserId` — nếu đã có → dùng luôn.
+2. Nếu chưa và có `fbPageId` + `conversationId` → gọi `GET_GLOBAL_ID_FOR_CONV` (timeout 8s) để resolve.
+3. Đọc `globalUserId | globalId | payload.globalUserId` từ response (extension trả khác form tùy version).
+4. Cache lại trên `order._fbGlobalUserId` cho lần gửi sau.
+5. Fallback `order.fbUserId` nếu resolve fail.
+
+**Files**:
+
+- `native-orders/js/native-orders-app.js` — `_handleSendMessage` (lines ~2404-2440)
+- `native-orders/index.html` — bump cache `v=20260514n` → `v=20260514o`
+
+**Verify**: `eval` fetch JS live → `hasGetGlobalId:true, hasFbGlobalCache:true, size:132017, hasApp:true` ✅
+
+Status: ✅ Done
+
 ### [orders] Fix badge NAP/TOMATO mất ở cột PHIẾU BÁN HÀNG khi "Hoàn thành đối soát"
 
 **Vấn đề**: cell PHIẾU BÁN HÀNG mất badge NAP/TOMATO khi đơn đã đối soát. Badge THÀNH PHỐ vẫn hiện vì có fallback theo `CarrierName`, NAP/TOMATO không có fallback nên mất hẳn.

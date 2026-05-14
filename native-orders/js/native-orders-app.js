@@ -2404,9 +2404,32 @@
         // Try extension bridge first (bypasses Pancake 24h rule via FB Business)
         if (_hasExtension()) {
             try {
+                // FB Business Suite uses a "global" user id distinct from the regular
+                // fbUserId in some flows; resolve once per order then cache on the order.
+                let globalUserId = order._fbGlobalUserId;
+                if (!globalUserId && order.fbPageId && input.dataset.conversationId) {
+                    try {
+                        const gidResp = await _extensionRequest(
+                            'GET_GLOBAL_ID_FOR_CONV',
+                            {
+                                pageId: order.fbPageId,
+                                convId: input.dataset.conversationId,
+                                fbUserId: order.fbUserId,
+                            },
+                            8000
+                        );
+                        globalUserId =
+                            gidResp?.data?.globalUserId ||
+                            gidResp?.data?.globalId ||
+                            gidResp?.data?.payload?.globalUserId;
+                        if (globalUserId) order._fbGlobalUserId = globalUserId;
+                    } catch {
+                        /* fall back to fbUserId below */
+                    }
+                }
                 const r = await _extensionRequest('REPLY_INBOX_PHOTO', {
                     pageId: order.fbPageId,
-                    globalUserId: order.fbUserId,
+                    globalUserId: globalUserId || order.fbUserId,
                     threadId: input.dataset.threadId || '',
                     convId: input.dataset.conversationId || '',
                     message: text,
