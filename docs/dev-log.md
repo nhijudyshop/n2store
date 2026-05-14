@@ -25,6 +25,22 @@
 
 ## 2026-05-14
 
+### [orders][barcode] Auto-recheck TPOS ngay sau pre-fetch + console logs để debug
+
+**Phản hồi user (sau commit ProductTemplate fallback)**: kèm screenshots TPOS UI cho thấy `MM139A1/A2/A3` đều có trên TPOS và in được trực tiếp từ TPOS. Local web_warehouse miss mapping (`tpos_product_id = NULL`) nên flag bật, nhưng user không muốn phải bấm "Kiểm lại TPOS" tay mỗi lần.
+
+**Thay đổi**:
+
+- Sau khi pre-fetch local web_warehouse trả về và populate `tposCodeSet` lần đầu, **auto-trigger** `recheckTposForMissingCodes()` trong background (không await, không block dialog) nếu vẫn còn item missing và toggle "In theo mẫu TPOS" đang bật. User thấy badge "Chưa sync" trong ~1s rồi biến mất khi TPOS xác nhận có.
+- Thêm console logs chi tiết ở mọi nhánh recheck (`[Barcode][Recheck]` prefix): URL query, codes input, số match return, danh sách variants khi Strategy B, variant nào match được và variant nào miss — giúp debug nhanh khi user báo lại "vẫn không tìm thấy".
+- Nút "Kiểm lại TPOS" tay vẫn còn nếu auto-recheck fail (network error / TPOS token expired).
+
+**Files**:
+
+- [purchase-orders/js/lib/barcode-label-dialog.js](purchase-orders/js/lib/barcode-label-dialog.js) — auto-trigger recheck sau pre-fetch, console logging Strategy A + B.
+
+**Status**: ✅ Done
+
 ### [web2][packaging] Đóng gói Web 2.0 thành bundle độc lập copy-able
 
 **Yêu cầu user**: các thư mục/file/CSS thuộc Web 2.0 → muốn có suffix `web2-*` hoặc tốt nhất gom hết vào 1 folder để mai mốt copy → upload thành web mới + note lại những thứ đang share chung.

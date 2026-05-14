@@ -451,12 +451,21 @@ window.BarcodeLabelDialog = (function () {
                     const select =
                         'Id,DefaultCode,NameTemplate,NameGet,Barcode,ProductTmplId,PriceVariant,StandardPrice,PurchasePrice,UOMName,ImageUrl,Active';
                     const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$select=${encodeURIComponent(select)}&$top=${safeCodes.length}`;
+                    console.log('[Barcode][Recheck] Strategy A query:', { codes: safeCodes, url });
                     const resp = await tposFetch(url, {
                         headers: { Accept: 'application/json' },
                     });
                     if (!resp.ok) throw new Error('TPOS OData HTTP ' + resp.status);
                     const data = await resp.json();
                     const found = Array.isArray(data.value) ? data.value : [];
+                    console.log(
+                        `[Barcode][Recheck] Strategy A returned ${found.length} matches:`,
+                        found.map((p) => ({
+                            code: p.DefaultCode,
+                            id: p.Id,
+                            tmplId: p.ProductTmplId,
+                        }))
+                    );
                     for (const p of found) {
                         if (!p?.Id || !p?.DefaultCode) continue;
                         cacheLiveProduct(p);
@@ -490,20 +499,46 @@ window.BarcodeLabelDialog = (function () {
                             const tmplFilter = `DefaultCode eq '${parentCode}'`;
                             const expand = 'ProductVariants($expand=AttributeValues)';
                             const tmplUrl = `${PROXY}/api/odata/ProductTemplate?$filter=${encodeURIComponent(tmplFilter)}&$expand=${encodeURIComponent(expand)}&$top=1`;
+                            console.log(
+                                `[Barcode][Recheck] Strategy B query for parent "${parentCode}":`,
+                                tmplUrl
+                            );
                             const tmplResp = await tposFetch(tmplUrl, {
                                 headers: { Accept: 'application/json' },
                             });
-                            if (!tmplResp.ok) continue;
+                            if (!tmplResp.ok) {
+                                console.warn(
+                                    `[Barcode][Recheck] Template HTTP ${tmplResp.status} for "${parentCode}"`
+                                );
+                                continue;
+                            }
                             const tmplData = await tmplResp.json();
                             const tmpl = Array.isArray(tmplData.value)
                                 ? tmplData.value[0]
                                 : tmplData.value || tmplData;
                             const variants = tmpl?.ProductVariants || [];
+                            console.log(`[Barcode][Recheck] Strategy B template "${parentCode}":`, {
+                                tmplId: tmpl?.Id,
+                                variantsCount: variants.length,
+                                variantCodes: variants.map((v) => v.DefaultCode),
+                            });
                             if (!tmpl?.Id || variants.length === 0) continue;
 
                             for (const it of parentItems) {
                                 const v = matchTposVariant(it, variants);
-                                if (!v) continue;
+                                if (!v) {
+                                    console.warn(
+                                        `[Barcode][Recheck] No variant match for "${it.code}" under template "${parentCode}". Variants:`,
+                                        variants.map((vv) => ({
+                                            code: vv.DefaultCode,
+                                            name: vv.NameGet,
+                                        }))
+                                    );
+                                    continue;
+                                }
+                                console.log(
+                                    `[Barcode][Recheck] ✓ Matched "${it.code}" → variant Id=${v.Id} DefaultCode=${v.DefaultCode} NameGet=${v.NameGet}`
+                                );
                                 cacheLiveProduct({
                                     Id: v.Id,
                                     // QUAN TRỌNG: dùng mã n2store làm DefaultCode để
@@ -683,6 +718,24 @@ window.BarcodeLabelDialog = (function () {
                 // Re-render để hiện badge "Chưa sync TPOS" cho các hàng thiếu sync.
                 renderTableRows();
                 updateCount();
+
+                // Auto-recheck: nếu local web_warehouse miss mapping cho mã nào
+                // mà TPOS thực sự có (thường gặp với variants), chạy luôn 2-stage
+                // recheck (Product → ProductTemplate) trong background, không cần
+                // user click "Kiểm lại TPOS". Update tposCodeSet + cache để badge
+                // tự biến mất khi mã được TPOS xác nhận.
+                if (useTposTemplate) {
+                    const stillMissingCount = items.filter(
+                        (it) =>
+                            it.selected && it.code && it.quantity > 0 && !tposCodeSet.has(it.code)
+                    ).length;
+                    if (stillMissingCount > 0 && window.TPOSClient?.authenticatedFetch) {
+                        // Không await — chạy nền để dialog responsive.
+                        recheckTposForMissingCodes().catch((e) =>
+                            console.warn('[Barcode] Auto-recheck TPOS failed:', e)
+                        );
+                    }
+                }
             } catch (err) {
                 console.warn('[Barcode] TPOS pre-fetch failed:', err.message);
             }
