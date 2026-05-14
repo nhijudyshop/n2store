@@ -270,14 +270,124 @@
         }
     }
 
+    // =====================================================
+    // Token management (write side)
+    // =====================================================
+
+    function decodeJwt(token) {
+        try {
+            const parts = String(token).split('.');
+            if (parts.length !== 3) return null;
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return payload;
+        } catch {
+            return null;
+        }
+    }
+
+    function setJwt(token, expiry) {
+        if (!token) {
+            localStorage.removeItem(LS.JWT);
+            localStorage.removeItem(LS.JWT_EXP);
+            return { ok: true, cleared: true };
+        }
+        const decoded = decodeJwt(token);
+        const exp = expiry || decoded?.exp || null;
+        localStorage.setItem(LS.JWT, token);
+        if (exp) localStorage.setItem(LS.JWT_EXP, String(exp));
+        return { ok: true, decoded, expiry: exp };
+    }
+
+    function setPageAccessToken(pageId, token, meta) {
+        if (!pageId || !token) return { ok: false, reason: 'missing_args' };
+        const raw = localStorage.getItem(LS.PAGE_TOKENS);
+        const map = raw ? JSON.parse(raw) : {};
+        map[pageId] = {
+            token,
+            pageId,
+            pageName: meta?.pageName,
+            timestamp: Date.now(),
+            ...meta,
+        };
+        localStorage.setItem(LS.PAGE_TOKENS, JSON.stringify(map));
+        return { ok: true };
+    }
+
+    function getAllPageAccessTokens() {
+        try {
+            const raw = localStorage.getItem(LS.PAGE_TOKENS);
+            return raw ? JSON.parse(raw) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function clearAllTokens() {
+        localStorage.removeItem(LS.JWT);
+        localStorage.removeItem(LS.JWT_EXP);
+        localStorage.removeItem(LS.PAGE_TOKENS);
+        return { ok: true };
+    }
+
+    async function listPages() {
+        const jwt = getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt', pages: [] };
+        const url = `${WORKER_URL}/api/pancake/pages?access_token=${encodeURIComponent(jwt)}`;
+        try {
+            const data = await _fetchJson(url, { method: 'GET' });
+            // Pancake responses: { success, categorized:{activated:[]} } or { pages:[] }
+            const pages =
+                data?.categorized?.activated ||
+                data?.pages ||
+                (Array.isArray(data) ? data : []) ||
+                [];
+            return { ok: true, pages, raw: data };
+        } catch (e) {
+            return { ok: false, reason: e.message, pages: [] };
+        }
+    }
+
+    async function generatePageAccessToken(pageId) {
+        if (!pageId) return { ok: false, reason: 'missing_pageId' };
+        const jwt = getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt' };
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/generate_page_access_token?access_token=${encodeURIComponent(jwt)}`;
+        try {
+            const data = await _fetchJson(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (data?.success && data?.page_access_token) {
+                setPageAccessToken(pageId, data.page_access_token);
+                return { ok: true, token: data.page_access_token };
+            }
+            return {
+                ok: false,
+                reason: data?.message || 'unknown_failure',
+                raw: data,
+            };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    }
+
     window.Web2Chat = {
+        // Read
         fetchConversations,
         fetchMessages,
         sendMessage,
         replyComment,
         getJwt,
         getPageAccessToken,
+        getAllPageAccessTokens,
         hasTokensFor,
+        decodeJwt,
+        // Write / admin
+        setJwt,
+        setPageAccessToken,
+        clearAllTokens,
+        listPages,
+        generatePageAccessToken,
         _internal: { WORKER_URL, LS },
     };
 })();

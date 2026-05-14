@@ -1,0 +1,371 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Cấu hình Pancake — Web 2.0</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2-shared/tpos-sidebar.css?v=20260514e" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260514i" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js"></script>
+    </head>
+    <body class="tpos-theme">
+        <style>
+            body {
+                font-family: 'Inter', system-ui, sans-serif;
+                background: #f5f7fb;
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+            }
+            .web2-aside {
+                width: 260px;
+                flex-shrink: 0;
+            }
+            .main-content {
+                flex: 1;
+                overflow: auto;
+                height: 100vh;
+                padding: 24px 32px;
+            }
+            .ps-h1 {
+                font-size: 22px;
+                font-weight: 700;
+                color: #0f172a;
+                margin: 0 0 6px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .ps-sub {
+                color: #64748b;
+                font-size: 13px;
+                margin-bottom: 24px;
+            }
+            .ps-card {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                padding: 18px 20px;
+                margin-bottom: 16px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            }
+            .ps-card h2 {
+                font-size: 14px;
+                font-weight: 600;
+                color: #0f172a;
+                margin: 0 0 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .ps-card h2 .badge {
+                margin-left: auto;
+                font-size: 11px;
+                padding: 2px 8px;
+                border-radius: 999px;
+                font-weight: 600;
+            }
+            .ps-card h2 .badge.ok {
+                background: #dcfce7;
+                color: #15803d;
+            }
+            .ps-card h2 .badge.warn {
+                background: #fef3c7;
+                color: #b45309;
+            }
+            .ps-card h2 .badge.err {
+                background: #fee2e2;
+                color: #b91c1c;
+            }
+            .ps-row {
+                display: grid;
+                grid-template-columns: 140px 1fr;
+                gap: 8px;
+                padding: 6px 0;
+                font-size: 13px;
+            }
+            .ps-row .label {
+                color: #64748b;
+            }
+            .ps-row .val {
+                color: #0f172a;
+                font-family: ui-monospace, monospace;
+                word-break: break-all;
+            }
+            .ps-row .val.muted {
+                color: #94a3b8;
+                font-style: italic;
+            }
+            .ps-actions {
+                display: flex;
+                gap: 8px;
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+            .ps-btn {
+                padding: 7px 14px;
+                font-size: 13px;
+                font-weight: 500;
+                border: 1px solid #e2e8f0;
+                background: #fff;
+                color: #0f172a;
+                border-radius: 6px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .ps-btn:hover {
+                background: #f8fafc;
+            }
+            .ps-btn.primary {
+                background: #7c3aed;
+                color: #fff;
+                border-color: #7c3aed;
+            }
+            .ps-btn.primary:hover {
+                background: #6d28d9;
+            }
+            .ps-btn.danger {
+                background: #fff;
+                color: #b91c1c;
+                border-color: #fecaca;
+            }
+            .ps-btn.danger:hover {
+                background: #fef2f2;
+            }
+            .ps-btn[disabled] {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .ps-input,
+            .ps-textarea {
+                width: 100%;
+                padding: 8px 10px;
+                font-size: 13px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                font-family: ui-monospace, monospace;
+                box-sizing: border-box;
+            }
+            .ps-input:focus,
+            .ps-textarea:focus {
+                outline: none;
+                border-color: #7c3aed;
+                box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+            }
+            .ps-textarea {
+                min-height: 76px;
+                resize: vertical;
+                word-break: break-all;
+            }
+            .ps-page-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .ps-page-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 12px;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+            }
+            .ps-page-item img {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: #e2e8f0;
+                flex-shrink: 0;
+            }
+            .ps-page-item .info {
+                flex: 1;
+                min-width: 0;
+            }
+            .ps-page-item .info .name {
+                font-weight: 600;
+                color: #0f172a;
+                font-size: 13px;
+            }
+            .ps-page-item .info .meta {
+                font-size: 11px;
+                color: #64748b;
+                margin-top: 2px;
+            }
+            .ps-page-item .status {
+                font-size: 11px;
+                padding: 3px 8px;
+                border-radius: 999px;
+                font-weight: 600;
+                white-space: nowrap;
+            }
+            .ps-page-item .status.has {
+                background: #dcfce7;
+                color: #15803d;
+            }
+            .ps-page-item .status.no {
+                background: #fee2e2;
+                color: #b91c1c;
+            }
+            .ps-help {
+                background: #f0f9ff;
+                border-left: 3px solid #0ea5e9;
+                padding: 10px 14px;
+                font-size: 12px;
+                color: #075985;
+                border-radius: 4px;
+                margin-bottom: 12px;
+                line-height: 1.55;
+            }
+            .ps-help code {
+                background: rgba(7, 89, 133, 0.1);
+                padding: 1px 5px;
+                border-radius: 3px;
+                font-size: 11px;
+            }
+            .ps-loading {
+                color: #64748b;
+                font-style: italic;
+                font-size: 12px;
+                padding: 10px;
+                text-align: center;
+            }
+        </style>
+
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <h1 class="ps-h1">
+                    <i
+                        data-lucide="key-round"
+                        style="width: 22px; height: 22px; color: #7c3aed"
+                    ></i>
+                    Cấu hình Pancake (Web 2.0)
+                </h1>
+                <p class="ps-sub">
+                    Quản lý token Pancake riêng cho Web 2.0 — độc lập với module
+                    <code>tpos-pancake/</code> cũ. Token lưu localStorage, không gửi lên server.
+                </p>
+
+                <!-- JWT Token Card -->
+                <div class="ps-card">
+                    <h2>
+                        <i data-lucide="shield-check" style="width: 16px; height: 16px"></i>
+                        JWT Token (Pancake login)
+                        <span id="jwtBadge" class="badge err">Chưa có</span>
+                    </h2>
+                    <div class="ps-help">
+                        Vào
+                        <a
+                            href="https://pancake.vn"
+                            target="_blank"
+                            rel="noopener"
+                            style="color: #0369a1; font-weight: 600"
+                            >pancake.vn</a
+                        >
+                        đăng nhập → F12 → Application → Cookies → copy giá trị cookie
+                        <code>token</code> → dán vào ô bên dưới.
+                    </div>
+                    <div id="jwtInfo">
+                        <div class="ps-row">
+                            <span class="label">Trạng thái</span
+                            ><span class="val muted" id="jwtStatus">Chưa có token</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px">
+                        <textarea
+                            class="ps-textarea"
+                            id="jwtInput"
+                            placeholder="Paste JWT token vào đây..."
+                        ></textarea>
+                    </div>
+                    <div class="ps-actions">
+                        <button class="ps-btn primary" id="btnSaveJwt">
+                            <i data-lucide="save" style="width: 14px; height: 14px"></i> Lưu token
+                        </button>
+                        <button class="ps-btn" id="btnTestJwt">
+                            <i data-lucide="zap" style="width: 14px; height: 14px"></i> Test (gọi
+                            /pages)
+                        </button>
+                        <button class="ps-btn danger" id="btnClearJwt">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px"></i> Xoá JWT
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pages Card -->
+                <div class="ps-card">
+                    <h2>
+                        <i data-lucide="layers" style="width: 16px; height: 16px"></i>
+                        Pages &amp; access tokens
+                        <span id="pagesBadge" class="badge warn">—</span>
+                    </h2>
+                    <div class="ps-help">
+                        Mỗi page cần có <code>page_access_token</code> riêng để gửi tin/comment qua
+                        Public API. Click <strong>Generate</strong> để Pancake cấp token cho page
+                        (cần JWT hợp lệ).
+                    </div>
+                    <div id="pageList" class="ps-page-list">
+                        <div class="ps-loading">Cần JWT token trước khi load pages.</div>
+                    </div>
+                    <div class="ps-actions">
+                        <button class="ps-btn" id="btnRefreshPages">
+                            <i data-lucide="refresh-ccw" style="width: 14px; height: 14px"></i> Tải
+                            lại danh sách
+                        </button>
+                        <button class="ps-btn" id="btnGenerateAll">
+                            <i data-lucide="key" style="width: 14px; height: 14px"></i> Generate tất
+                            cả
+                        </button>
+                        <button class="ps-btn danger" id="btnClearPageTokens">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px"></i> Xoá page
+                            tokens
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Danger zone -->
+                <div class="ps-card">
+                    <h2>
+                        <i
+                            data-lucide="alert-triangle"
+                            style="width: 16px; height: 16px; color: #dc2626"
+                        ></i>
+                        Vùng nguy hiểm
+                    </h2>
+                    <p style="font-size: 12px; color: #64748b; margin: 0 0 10px">
+                        Xoá toàn bộ token (JWT + tất cả page tokens). Tab1 + native-orders sẽ mất
+                        chat cho tới khi cấu hình lại.
+                    </p>
+                    <div class="ps-actions">
+                        <button class="ps-btn danger" id="btnNuke">
+                            <i data-lucide="zap-off" style="width: 14px; height: 14px"></i> Xoá toàn
+                            bộ token
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../web2-shared/tpos-sidebar.js?v=20260514f"></script>
+        <script src="../../web2-shared/web2-chat-client.js?v=20260514c"></script>
+        <script src="js/pancake-settings.js?v=20260514a"></script>
+    </body>
+</html>

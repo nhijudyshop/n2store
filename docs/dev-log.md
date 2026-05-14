@@ -25,6 +25,42 @@
 
 ## 2026-05-14
 
+### [web2][pancake-settings] Page cấu hình token Pancake riêng cho Web 2.0 (module 1/5)
+
+**Goal**: Tách Web 2.0 hoàn toàn khỏi web 1.0. Bước đầu — cho user setup JWT + page_access_tokens trực tiếp trong Web 2.0, không cần mở `tpos-pancake/`.
+
+**Mới**:
+
+- `web2/pancake-settings/index.html` + `js/pancake-settings.js` — bespoke UI 3 card:
+    - **JWT card**: paste token, decode JWT (account_id, iat, exp + ngày còn lại), test bằng cách gọi `/pages`, clear button.
+    - **Pages card**: list pages của tài khoản, status pill "✓ Có token" / "Chưa có" per page, Generate + Refresh button per page, "Generate tất cả" bulk, clear page tokens.
+    - **Danger zone**: nuke toàn bộ token.
+- `web2-shared/web2-chat-client.js` mở rộng — thêm token-write API:
+    - `setJwt(token, expiry?)`, `decodeJwt(token)`
+    - `setPageAccessToken(pageId, token, meta?)`, `getAllPageAccessTokens()`
+    - `clearAllTokens()`
+    - `listPages()` — gọi `/api/pancake/pages?access_token=<jwt>`
+    - `generatePageAccessToken(pageId)` — gọi `/api/pancake/pages/{id}/generate_page_access_token`
+- `web2-shared/tpos-sidebar.js` — thêm menu item "Pancake (Token)" trong group "Cấu hình" (Web 2.0-only, không có TPOS counterpart).
+
+**Cache bumps**:
+
+- `tpos-sidebar.js` v=20260514e → v=20260514f (site-wide, 12 HTML files)
+- `web2-chat-client.js` v=20260514b → v=20260514c
+
+**Verify** (live test trên localhost:8089):
+
+- JWT card hiện token rút gọn + "còn 18 ngày" ✅
+- listPages → 4 pages facebook load ✅
+- 3/4 page đã có token; "Generate" cho Nhi Judy Ơi → Pancake trả "Thiếu quyền Admin" (đúng — JWT không có admin trên page đó), UI surface error rõ ràng ✅
+- Sidebar mount đúng, group "Cấu hình" có entry mới ✅
+
+**Tradeoff**: Page dùng inline CSS thay vì shared component vì spec UI rất khác CRUD pages khác (3 card sections, không phải list/form). Có thể refactor sau khi build thêm 2-3 settings pages khác.
+
+Roadmap: module 1/5 ✅ done. Tiếp theo: 2/ realtime WS, 3/ new-msg badge, 4/ quick reply, 5/ bulk campaign.
+
+Status: ✅ Done
+
 ### [web2-shared][native-orders][chat] Web2Chat client độc lập — không dùng chung pancakeDataManager với web 1.0
 
 **User feedback**: "không load được đoạn hội thoại -> web 2.0 này đừng dùng chung với web 1.0 -> code mới đi" — modal chat hiển thị "Hội thoại trống" dù `messageCount=2`; user yêu cầu code chat riêng cho web 2.0, không reuse web 1.0.

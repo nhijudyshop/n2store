@@ -546,6 +546,12 @@
                     tpos: '#/app/callcenter/config',
                     our: '../web2/callcenter-config/index.html',
                 },
+                {
+                    label: 'Pancake (Token)',
+                    icon: 'key-round',
+                    our: '../web2/pancake-settings/index.html',
+                    // Web 2.0-only page — no TPOS counterpart.
+                },
             ],
         },
     ];
