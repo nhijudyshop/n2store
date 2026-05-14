@@ -2507,9 +2507,26 @@
 
     function _msgPlain(raw) {
         if (!raw) return '';
+        // Pancake/FB messages arrive as either plain text or partial HTML.
+        // We need to preserve visual line breaks coming from any of:
+        //   - real \n / \r\n / \r / U+2028 / U+2029 line separators
+        //   - <br> tags
+        //   - block-level boundaries (</p>, </div>, </li>, </h*>) — closing
+        //     tag carries the break; opening tag of a non-first sibling also
+        //     starts a new line.
+        const normalized = String(raw)
+            .replace(/\r\n?/g, '\n')
+            .replace(/[\u2028\u2029]/g, '\n')
+            // Pancake often emits `<br key='n_0' />`, `<br key="..." />`, etc.
+            // — match any attributes after `<br`.
+            .replace(/<br\b[^>]*>/gi, '\n')
+            .replace(/<\/(p|div|li|h[1-6])\s*>/gi, '\n')
+            .replace(/<(p|div|li|h[1-6])(\s[^>]*)?>/gi, '\n');
         const tmp = document.createElement('div');
-        tmp.innerHTML = String(raw).replace(/<br\s*\/?>/gi, '\n');
-        return (tmp.textContent || tmp.innerText || '').trim();
+        tmp.innerHTML = normalized;
+        const text = tmp.textContent || tmp.innerText || '';
+        // Collapse runs of 3+ blank lines to a single blank line; trim ends.
+        return text.replace(/\n{3,}/g, '\n\n').trim();
     }
 
     function _msgTimestamp(m) {
@@ -2868,11 +2885,31 @@
             .w2-chat-phone { cursor: pointer; user-select: none; transition: color 0.15s; }
             .w2-chat-phone:hover { color: #7c3aed; }
 
-            /* Bubbles */
+            /* Thread container — own scroll layer, no chaining, stable gutter */
+            #msgThread {
+                overscroll-behavior: contain;
+                scrollbar-gutter: stable;
+                scroll-padding-bottom: 16px;
+            }
+
+            /* Rows: opt-in to content-visibility so Chrome/Edge skip layout
+               + paint for bubbles that are far off-screen. Cuts scroll cost
+               dramatically once the thread holds 80+ messages. The intrinsic
+               size hint keeps the scrollbar honest (rough avg bubble height).
+               flex-shrink:0 so the placeholder height doesn't collapse. */
+            .w2-chat-row {
+                content-visibility: auto;
+                contain-intrinsic-size: auto 56px;
+                flex-shrink: 0;
+            }
+
+            /* Bubbles — isolate paint so a hover/transition on one bubble
+               can't invalidate the whole thread. */
             .w2-chat-bubble {
                 box-shadow: 0 1px 2px rgba(15,23,42,0.06);
                 line-height: 1.42;
                 word-break: break-word;
+                contain: layout style paint;
             }
             .w2-chat-bubble img { display: block; }
             .w2-chat-bubble audio { width: 240px; }

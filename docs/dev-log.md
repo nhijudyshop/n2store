@@ -25,9 +25,46 @@
 
 ## 2026-05-14
 
+### [native-orders] Chat: preserve line breaks trong bubble + giảm scroll lag thêm 2×
+
+**User báo**: tin nhắn dài của shop hiển thị 1 đoạn liền dù raw text có xuống dòng; scroll vẫn không mượt.
+
+**Root cause line break**: Pancake API trả về HTML dạng `<div>...<br key='n_0' />...<br key='n_1' />...</div>` (có attribute `key`). Regex cũ `<br\s*\/?>` không match khi có attribute giữa `<br` và `>` → tất cả `<br key=...>` bị strip thành text liền nhau.
+
+**Fix `_msgPlain` ([native-orders-app.js:2508-2528](../native-orders/js/native-orders-app.js#L2508-L2528))**:
+
+- `<br\b[^>]*>` — match br với mọi attribute (`key='n_0'`, etc.)
+- `</p>`, `</div>`, `</li>`, `</h1-6>` → `\n` (block boundary)
+- `<p>`, `<div>` (non-first sibling) → `\n`
+- `\r\n`, `\r`, `U+2028`, `U+2029` → `\n`
+- Collapse `\n{3,}` → `\n\n`
+
+Verified live NW-20260513-0016: 27 newlines render đúng, NW-20260513-0015: 35 newlines.
+
+**Scroll lag — thêm CSS containment**:
+
+- `#msgThread`: `overscroll-behavior: contain` (no scroll-chaining) + `scrollbar-gutter: stable` (no jump khi gutter xuất hiện).
+- `.w2-chat-row`: **`content-visibility: auto` + `contain-intrinsic-size: auto 56px`** — Chrome/Edge skip layout/paint cho bubble offscreen. Đây là win lớn nhất.
+- `.w2-chat-bubble`: `contain: layout style paint` — isolate per-bubble repaint khi hover/transition.
+
+**Perf đo trên 145 bubbles** (80-frame scroll up, 120-frame stress up→down→up):
+| Metric | Before (6ba7dc7) | After |
+|--------|------------------|-------|
+| Worst frame | 36ms | **17.7ms (stress: 17.9ms)** |
+| Avg frame | 16.8ms | **16.4ms** |
+| p95 frame | — | **17.4ms** |
+| Verdict | OK | **GOOD (60 FPS)** |
+
+**Files**: [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js), [native-orders/index.html](../native-orders/index.html) (cache bump `v=20260514ag`).
+
+**Status**: ✅ Done — verified live trên 2 đơn (NW-20260513-0016, NW-20260513-0015).
+
+---
+
 ### [delivery-report] Fix "Đã kiểm tra" không lưu sau F5 + thêm modal Lịch sử KT
 
 **User báo**:
+
 1. Bấm "Đã kiểm tra" trên modal đơn → row tô xám OK, nhưng F5 lại thì mất, không persist.
 2. Thêm nút icon "Lịch sử đã kiểm tra" cạnh nút "Ẩn hiện cột" để xem lại lịch sử bấm KT.
 
