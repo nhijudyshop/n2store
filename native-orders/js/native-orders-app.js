@@ -1824,28 +1824,23 @@
         if (Number.isFinite(urlCid)) STATE.customerId = urlCid;
         rtConnect();
 
-        $('#btnApplyFilter')?.addEventListener('click', applyFilters);
-        $('#btnClearFilter')?.addEventListener('click', clearFilters);
-        $('#btnRefresh')?.addEventListener('click', load);
+        // Apply/Clear/Refresh/Export buttons removed in single-row layout —
+        // filters now auto-apply on change (debounced for search input).
         $('#btnResetStt')?.addEventListener('click', resetStt);
-        $('#btnExportCsv')?.addEventListener('click', () => {
-            const p = new URLSearchParams();
-            if (STATE.search) p.set('search', STATE.search);
-            if (STATE.status && STATE.status !== 'all') p.set('status', STATE.status);
-            if (STATE.selectedCampaignIds?.length)
-                p.set('campaignIds', STATE.selectedCampaignIds.join(','));
-            if (STATE.customerId) p.set('customerId', String(STATE.customerId));
-            const a = document.createElement('a');
-            a.href = `${WORKER_URL}/api/native-orders/export?${p}`;
-            a.download = '';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            notify('Đang tải Excel...', 'info');
+        let searchDebounce = null;
+        $('#filterSearch')?.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => applyFilters(), 350);
         });
         $('#filterSearch')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') applyFilters();
+            if (e.key === 'Enter') {
+                clearTimeout(searchDebounce);
+                applyFilters();
+            }
         });
+        // Auto-apply when Status / Limit dropdowns change
+        $('#filterStatus')?.addEventListener('change', applyFilters);
+        $('#filterLimit')?.addEventListener('change', applyFilters);
         $('#filterSearchClear')?.addEventListener('click', () => {
             const el = $('#filterSearch');
             if (el) {

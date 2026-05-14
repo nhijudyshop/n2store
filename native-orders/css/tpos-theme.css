@@ -363,13 +363,10 @@
 }
 .tpos-row-stt {
     font-weight: 700;
-    color: var(--tpos-primary);
-    font-size: 12px;
+    color: var(--tpos-text);
+    font-size: 13px;
     min-width: 22px;
     text-align: center;
-    background: rgba(114, 102, 186, 0.1);
-    border-radius: 3px;
-    padding: 2px 6px;
     line-height: 1.4;
 }
 

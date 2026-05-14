@@ -15,8 +15,8 @@
         />
 
         <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260514e" />
-        <link rel="stylesheet" href="css/native-orders.css?v=20260514f" />
-        <link rel="stylesheet" href="css/tpos-theme.css?v=20260514f" />
+        <link rel="stylesheet" href="css/native-orders.css?v=20260514h" />
+        <link rel="stylesheet" href="css/tpos-theme.css?v=20260514g" />
 
         <!-- Lucide icons -->
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
@@ -66,19 +66,7 @@
                     </div>
                 </div>
 
-                <!-- Filter Toggle -->
-                <div style="padding: 10px 20px 0 20px">
-                    <button
-                        id="toggleControlBarBtn"
-                        class="btn-gray"
-                        onclick="NativeOrdersApp.toggleFilter()"
-                    >
-                        <i data-lucide="sliders-horizontal"></i>
-                        <span id="toggleControlBarLabel">Hiển thị bộ lọc</span>
-                    </button>
-                </div>
-
-                <!-- Filter Section -->
+                <!-- Filter Section (always visible — toggle button removed) -->
                 <section class="search-section" id="controlBar">
                     <div class="filter-row">
                         <div class="search-wrapper">
@@ -212,28 +200,12 @@
                                 <i data-lucide="chevron-down" class="chip-caret"></i>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Search info / stats row -->
-                    <div class="search-info">
-                        <div class="search-info-left">
-                            <span class="search-result-count" id="searchResultCount">0</span>
-                            <span class="search-result-label">kết quả</span>
-                        </div>
-                        <div class="search-info-right">
-                            <div class="search-tips">💡 Gõ Enter để tìm nhanh</div>
-                            <button class="btn-reload" id="btnRefresh" title="Tải lại">
-                                <i data-lucide="refresh-cw"></i> Tải lại
-                            </button>
-                            <button class="btn-settings" id="btnApplyFilter" title="Áp dụng bộ lọc">
-                                <i data-lucide="filter"></i> Áp dụng
-                            </button>
-                            <button class="btn-ghost" id="btnClearFilter" title="Xóa tất cả bộ lọc">
-                                <i data-lucide="x"></i> Xóa lọc
-                            </button>
-                            <button class="btn-ghost" id="btnExportCsv" title="Xuất Excel CSV">
-                                <i data-lucide="download"></i> Xuất Excel
-                            </button>
+                        <!-- Inline result count + Reset STT + Hiện/ẩn cột (consolidated into one row) -->
+                        <div class="filter-row-inline-actions">
+                            <span class="filter-inline-count">
+                                <strong id="searchResultCount">0</strong> kết quả
+                            </span>
                             <button
                                 class="btn-ghost"
                                 id="btnResetStt"

@@ -248,6 +248,23 @@ body {
     align-items: center;
     flex-wrap: wrap;
 }
+/* Inline actions group (right side of filter row): result count + Reset STT + Hiện/ẩn cột */
+.filter-row-inline-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+.filter-inline-count {
+    font-size: 13px;
+    color: var(--gray-600);
+    padding: 0 4px;
+    white-space: nowrap;
+}
+.filter-inline-count strong {
+    color: var(--tpos-primary);
+    font-weight: 700;
+}
 
 /* Search input with icon */
 .search-wrapper {
@@ -558,18 +575,16 @@ body {
 }
 .data-table th {
     text-align: left;
-    padding: 9px 10px;
+    padding: 8px 10px;
     font-weight: 700;
     color: #2b3a45;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-size: 13px;
     background: var(--tpos-bg-cell-head);
-    border-bottom: 2px solid #d7dde0;
+    border-bottom: 1px solid var(--tpos-border);
     white-space: nowrap;
 }
 .data-table th:not(:last-child) {
-    border-right: 1px solid rgba(0, 0, 0, 0.05);
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
 }
 .data-table td {
     padding: 8px 10px;
@@ -579,13 +594,9 @@ body {
     background: #fff;
     transition: background-color 80ms ease;
 }
-/* Zebra striping for easier row scanning */
-.data-table tbody tr.order-row:nth-child(even) > td {
-    background: #f9fafb;
-}
-.data-table tbody tr.order-row:hover > td,
-.data-table tbody tr.order-row:nth-child(even):hover > td {
-    background: #eef5ff;
+/* Flat all-white rows (no zebra striping) — subtle hover */
+.data-table tbody tr.order-row:hover > td {
+    background: #f5f8fb;
 }
 .data-table tbody tr.order-row.is-expanded > td {
     background: #f3f6fa;
@@ -594,16 +605,6 @@ body {
 .data-table tbody tr.expand-row > td {
     background: #fafbfc;
     border-top: 0;
-}
-.data-table thead th:first-child {
-    border-radius: 4px 0 0 0;
-}
-.data-table thead th:last-child {
-    border-radius: 0 4px 0 0;
-}
-/* Row vertical rhythm — keep rows compact like TPOS list */
-.data-table tbody tr.order-row > td {
-    height: 44px;
 }
 
 /* Column widths */
