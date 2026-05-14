@@ -78,6 +78,9 @@ window.BarcodeLabelDialog = (function () {
             id: item.id || idx,
             name: item.productName || '',
             code: item.productCode || '',
+            // Parent template code — cần cho recheck TPOS variants
+            // (variants nhiều khi không có DefaultCode riêng → phải tra Template).
+            parentCode: item.parentProductCode || item.productCode || '',
             variant: item.variant || '',
             quantity: item.quantity || 1,
             price: item.sellingPrice || 0,
@@ -414,22 +417,18 @@ window.BarcodeLabelDialog = (function () {
         async function recheckTposForMissingCodes() {
             if (recheckInFlight) return;
             const checked = items.filter((i) => i.selected && i.code && i.quantity > 0);
-            const missingCodes = [
-                ...new Set(
-                    checked
-                        .filter((it) => !tposCodeSet || !tposCodeSet.has(it.code))
-                        .map((it) => it.code)
-                ),
-            ];
-            if (missingCodes.length === 0) return;
+            const missingItems = checked.filter((it) => !tposCodeSet || !tposCodeSet.has(it.code));
+            if (missingItems.length === 0) return;
 
             recheckInFlight = true;
             updateTposWarning();
-            const resultEl = overlay.querySelector('#bld-recheck-result');
-            if (resultEl) {
-                resultEl.className = 'bld-recheck-result';
-                resultEl.textContent = `Đang query TPOS cho ${missingCodes.length} mã…`;
-            }
+            const setStatus = (text, cls = '') => {
+                const el = overlay.querySelector('#bld-recheck-result');
+                if (!el) return;
+                el.className = 'bld-recheck-result' + (cls ? ' ' + cls : '');
+                if (text.startsWith('<')) el.innerHTML = text;
+                else el.textContent = text;
+            };
 
             try {
                 if (!window.TPOSClient?.authenticatedFetch) {
@@ -438,81 +437,184 @@ window.BarcodeLabelDialog = (function () {
                 const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
                 const tposFetch = window.TPOSClient.authenticatedFetch.bind(window.TPOSClient);
 
-                // Batch OData query: $filter=DefaultCode eq 'A' or DefaultCode eq 'B'
-                // Code chỉ gồm chữ + số nên không cần escape special chars phức tạp,
-                // nhưng vẫn whitelist [A-Za-z0-9_-] để chắc chắn không inject quote.
+                const missingCodes = [...new Set(missingItems.map((it) => it.code))];
                 const safeCodes = missingCodes.filter((c) => /^[A-Za-z0-9_-]+$/.test(c));
-                if (safeCodes.length === 0) {
-                    throw new Error('Không có mã hợp lệ để kiểm tra');
-                }
-                const filter = safeCodes.map((c) => `DefaultCode eq '${c}'`).join(' or ');
-                const select =
-                    'Id,DefaultCode,NameTemplate,NameGet,Barcode,ProductTmplId,PriceVariant,StandardPrice,PurchasePrice,UOMName,ImageUrl,Active';
-                const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$select=${encodeURIComponent(select)}&$top=${safeCodes.length}`;
-
-                const resp = await tposFetch(url, {
-                    headers: { Accept: 'application/json' },
-                });
-                if (!resp.ok) throw new Error('TPOS OData HTTP ' + resp.status);
-                const data = await resp.json();
-                const found = Array.isArray(data.value) ? data.value : [];
-
-                // Map shape giống web_warehouse row để printViaTPOS dùng được
-                // mà không cần thêm code chuyên biệt.
                 const foundCodes = [];
-                for (const p of found) {
-                    if (!p?.Id || !p?.DefaultCode) continue;
-                    liveTposCache.set(p.DefaultCode, {
-                        product_code: p.DefaultCode,
-                        product_name: p.NameTemplate || p.NameGet || p.DefaultCode,
-                        name_get: p.NameGet || `[${p.DefaultCode}] ${p.NameTemplate || ''}`.trim(),
-                        barcode: p.Barcode || p.DefaultCode,
-                        uom_name: p.UOMName || 'Cái',
-                        image_url: p.ImageUrl || null,
-                        selling_price: p.PriceVariant || 0,
-                        standard_price: p.StandardPrice || 0,
-                        purchase_price: p.PurchasePrice || 0,
-                        tpos_product_id: p.Id,
-                        tpos_template_id: p.ProductTmplId || 0,
+
+                // ---------- STRATEGY A: Direct variant DefaultCode lookup ----------
+                // Works khi TPOS variant có DefaultCode trùng mã n2store. Trường hợp
+                // variant không gán DefaultCode riêng (vd MM139A2 — biến thể của
+                // template MM139) thì strategy A miss → tiếp Strategy B.
+                if (safeCodes.length > 0) {
+                    setStatus(`Đang tra trực tiếp TPOS Product cho ${safeCodes.length} mã…`);
+                    const filter = safeCodes.map((c) => `DefaultCode eq '${c}'`).join(' or ');
+                    const select =
+                        'Id,DefaultCode,NameTemplate,NameGet,Barcode,ProductTmplId,PriceVariant,StandardPrice,PurchasePrice,UOMName,ImageUrl,Active';
+                    const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$select=${encodeURIComponent(select)}&$top=${safeCodes.length}`;
+                    const resp = await tposFetch(url, {
+                        headers: { Accept: 'application/json' },
                     });
-                    foundCodes.push(p.DefaultCode);
+                    if (!resp.ok) throw new Error('TPOS OData HTTP ' + resp.status);
+                    const data = await resp.json();
+                    const found = Array.isArray(data.value) ? data.value : [];
+                    for (const p of found) {
+                        if (!p?.Id || !p?.DefaultCode) continue;
+                        cacheLiveProduct(p);
+                        foundCodes.push(p.DefaultCode);
+                    }
+                }
+
+                // ---------- STRATEGY B: ProductTemplate by parentCode + variant match ----------
+                // Cho các mã variants không có DefaultCode riêng trên TPOS.
+                // Query ProductTemplate by parentCode (item.parentProductCode), expand
+                // ProductVariants, rồi match từng variant theo DefaultCode / Barcode /
+                // tên thuộc tính so với item.variant.
+                const stillMissing = missingItems.filter((it) => !foundCodes.includes(it.code));
+                if (stillMissing.length > 0) {
+                    const byParent = new Map();
+                    for (const it of stillMissing) {
+                        const parent = (it.parentCode || it.code || '').trim();
+                        if (!parent || !/^[A-Za-z0-9_-]+$/.test(parent)) continue;
+                        if (!byParent.has(parent)) byParent.set(parent, []);
+                        byParent.get(parent).push(it);
+                    }
+
+                    if (byParent.size > 0) {
+                        setStatus(
+                            `Strategy A xong (${foundCodes.length}/${safeCodes.length}). Đang tra ProductTemplate cho ${byParent.size} mã cha…`
+                        );
+                    }
+
+                    for (const [parentCode, parentItems] of byParent.entries()) {
+                        try {
+                            const tmplFilter = `DefaultCode eq '${parentCode}'`;
+                            const expand = 'ProductVariants($expand=AttributeValues)';
+                            const tmplUrl = `${PROXY}/api/odata/ProductTemplate?$filter=${encodeURIComponent(tmplFilter)}&$expand=${encodeURIComponent(expand)}&$top=1`;
+                            const tmplResp = await tposFetch(tmplUrl, {
+                                headers: { Accept: 'application/json' },
+                            });
+                            if (!tmplResp.ok) continue;
+                            const tmplData = await tmplResp.json();
+                            const tmpl = Array.isArray(tmplData.value)
+                                ? tmplData.value[0]
+                                : tmplData.value || tmplData;
+                            const variants = tmpl?.ProductVariants || [];
+                            if (!tmpl?.Id || variants.length === 0) continue;
+
+                            for (const it of parentItems) {
+                                const v = matchTposVariant(it, variants);
+                                if (!v) continue;
+                                cacheLiveProduct({
+                                    Id: v.Id,
+                                    // QUAN TRỌNG: dùng mã n2store làm DefaultCode để
+                                    // codeMap[code] trong printViaTPOS hit. Variant
+                                    // TPOS có thể có DefaultCode rỗng hoặc khác.
+                                    DefaultCode: it.code,
+                                    NameTemplate: tmpl.Name || tmpl.NameGet,
+                                    NameGet: v.NameGet || tmpl.NameGet,
+                                    Barcode: v.Barcode || v.DefaultCode || it.code,
+                                    ProductTmplId: tmpl.Id,
+                                    PriceVariant: v.PriceVariant || tmpl.ListPrice || 0,
+                                    StandardPrice: v.StandardPrice || tmpl.StandardPrice || 0,
+                                    PurchasePrice: v.PurchasePrice || tmpl.PurchasePrice || 0,
+                                    UOMName: v.UOMName || tmpl.UOMName || 'Cái',
+                                    ImageUrl: v.ImageUrl || tmpl.ImageUrl || null,
+                                });
+                                foundCodes.push(it.code);
+                            }
+                        } catch (e) {
+                            console.warn(
+                                `[Barcode] Template lookup failed for ${parentCode}:`,
+                                e.message
+                            );
+                        }
+                    }
                 }
 
                 if (foundCodes.length > 0) {
                     if (!tposCodeSet) tposCodeSet = new Set();
                     foundCodes.forEach((c) => tposCodeSet.add(c));
                 }
-
                 const notFound = missingCodes.filter((c) => !foundCodes.includes(c));
 
                 renderTableRows();
                 updateCount();
 
-                const resultEl2 = overlay.querySelector('#bld-recheck-result');
-                if (resultEl2) {
-                    if (foundCodes.length > 0 && notFound.length === 0) {
-                        resultEl2.className = 'bld-recheck-result ok';
-                        resultEl2.textContent = `✓ Tất cả ${foundCodes.length} mã có trên TPOS — đã sẵn sàng in.`;
-                    } else if (foundCodes.length > 0) {
-                        resultEl2.className = 'bld-recheck-result ok';
-                        resultEl2.innerHTML = `✓ ${foundCodes.length} mã có trên TPOS: <strong>${foundCodes.join(', ')}</strong>. <span class="err">✗ ${notFound.length} mã KHÔNG tồn tại trên TPOS: <strong>${notFound.join(', ')}</strong></span> (cần tạo SP trên TPOS hoặc bỏ tick).`;
-                    } else {
-                        resultEl2.className = 'bld-recheck-result err';
-                        resultEl2.textContent = `✗ Không tìm thấy mã nào trên TPOS: ${notFound.join(', ')}. Cần tạo SP trên TPOS trước.`;
-                    }
+                if (foundCodes.length > 0 && notFound.length === 0) {
+                    setStatus(
+                        `✓ Tất cả ${foundCodes.length} mã đã có trên TPOS — đã sẵn sàng in.`,
+                        'ok'
+                    );
+                } else if (foundCodes.length > 0) {
+                    setStatus(
+                        `✓ ${foundCodes.length} mã có trên TPOS: <strong>${foundCodes.join(', ')}</strong>. ✗ ${notFound.length} mã không tìm thấy (cả Product lẫn ProductTemplate): <strong>${notFound.join(', ')}</strong> — cần tạo SP trên TPOS hoặc bỏ tick.`,
+                        'ok'
+                    );
+                } else {
+                    setStatus(
+                        `✗ Không tìm thấy mã nào trên TPOS (đã thử cả mã cha): ${notFound.join(', ')}. Cần tạo SP trên TPOS trước.`,
+                        'err'
+                    );
                 }
             } catch (err) {
                 console.warn('[Barcode] Recheck TPOS failed:', err);
-                const resultEl3 = overlay.querySelector('#bld-recheck-result');
-                if (resultEl3) {
-                    resultEl3.className = 'bld-recheck-result err';
-                    resultEl3.textContent = `Lỗi kiểm tra TPOS: ${err.message || err}`;
-                }
+                setStatus(`Lỗi kiểm tra TPOS: ${err.message || err}`, 'err');
             } finally {
                 recheckInFlight = false;
-                // Re-render warning để bỏ disabled trên button (nếu nó còn hiển thị).
                 updateTposWarning();
             }
+        }
+
+        // Cache TPOS Product/Variant data vào liveTposCache theo shape của
+        // web_warehouse row (để printViaTPOS dùng đồng nhất với batch-lookup).
+        function cacheLiveProduct(p) {
+            const code = p.DefaultCode;
+            liveTposCache.set(code, {
+                product_code: code,
+                product_name: p.NameTemplate || p.NameGet || code,
+                name_get: p.NameGet || `[${code}] ${p.NameTemplate || ''}`.trim(),
+                barcode: p.Barcode || code,
+                uom_name: p.UOMName || 'Cái',
+                image_url: p.ImageUrl || null,
+                selling_price: p.PriceVariant || 0,
+                standard_price: p.StandardPrice || 0,
+                purchase_price: p.PurchasePrice || 0,
+                tpos_product_id: p.Id,
+                tpos_template_id: p.ProductTmplId || 0,
+            });
+        }
+
+        // Match 1 item missing với mảng variants từ ProductTemplate.ProductVariants.
+        // Ưu tiên: DefaultCode → Barcode → tên thuộc tính so với item.variant →
+        // single-variant fallback. Trả về variant matched hoặc null.
+        function matchTposVariant(it, variants) {
+            const code = it.code;
+            let m = variants.find((v) => v.DefaultCode && v.DefaultCode === code);
+            if (m) return m;
+            m = variants.find((v) => v.Barcode && v.Barcode === code);
+            if (m) return m;
+            const variantText = stripDiacritics((it.variant || it.name || '').toLowerCase());
+            if (variantText) {
+                m = variants.find((v) => {
+                    const nameGet = stripDiacritics((v.NameGet || '').toLowerCase());
+                    if (nameGet && nameGet.includes(variantText)) return true;
+                    const attrs = (v.AttributeValues || [])
+                        .map((a) => stripDiacritics((a.Name || a.NameGet || '').toLowerCase()))
+                        .filter(Boolean);
+                    return attrs.length > 0 && attrs.every((a) => variantText.includes(a));
+                });
+                if (m) return m;
+            }
+            if (variants.length === 1) return variants[0];
+            return null;
+        }
+
+        function stripDiacritics(s) {
+            return (s || '')
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .replace(/đ/g, 'd')
+                .replace(/Đ/g, 'D');
         }
 
         renderTableRows();

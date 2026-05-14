@@ -25,6 +25,25 @@
 
 ## 2026-05-14
 
+### [orders][barcode] "Kiểm lại TPOS" — fallback ProductTemplate cho variants không có DefaultCode riêng
+
+**Phản hồi user (sau commit trước)**: MM139A2 / MM139A3 vẫn không match được vì chúng là **biến thể** — TPOS không gán DefaultCode riêng cho variant, mà chỉ có DefaultCode trên template cha (`MM139`). Strategy A (`Product?$filter=DefaultCode eq 'MM139A2'`) → 0 row.
+
+**Thay đổi**:
+
+- Items giờ giữ thêm `parentCode` (= `item.parentProductCode || item.productCode`) để Strategy B dùng được.
+- Recheck flow giờ chạy 2-stage:
+    - **Strategy A**: query `Product?$filter=DefaultCode eq '<code>' or …` (giữ nguyên — cho các SP có DefaultCode riêng trên TPOS).
+    - **Strategy B (fallback)**: với các mã still missing → group by `parentCode` → query `ProductTemplate?$filter=DefaultCode eq '<parent>'&$expand=ProductVariants($expand=AttributeValues)` → match variant trong `tmpl.ProductVariants[]` bằng `matchTposVariant()` với thứ tự ưu tiên: `v.DefaultCode === code` → `v.Barcode === code` → tên thuộc tính (`AttributeValues[].Name` / `NameGet`) so với `item.variant` (đã bỏ dấu, lowercase) → fallback nếu template chỉ có 1 variant.
+- Variant matched → cache vào `liveTposCache` với `DefaultCode` được override = mã n2store (để `codeMap[code]` trong `printViaTPOS` hit), `tpos_product_id = variant.Id`, `tpos_template_id = template.Id`. PrintViaTPOS dùng cache fallback khi web-warehouse batch-lookup miss.
+- Result text phân biệt rõ "đã thử cả mã cha" → user biết mã thực sự không tồn tại trên TPOS, không phải bug local cache.
+
+**Files**:
+
+- [purchase-orders/js/lib/barcode-label-dialog.js](purchase-orders/js/lib/barcode-label-dialog.js) — `parentCode` field, 2-stage recheck, `matchTposVariant()`, `cacheLiveProduct()`, `stripDiacritics()`.
+
+**Status**: ✅ Done
+
 ### [orders][barcode] Nút "Kiểm lại TPOS" — query OData trực tiếp khi local web_warehouse thiếu mapping
 
 **Vấn đề user báo (sau commit checkbox)**: MM139A2 / MM139A3 đã có trên TPOS thật, nhưng dialog vẫn flag "Chưa sync TPOS". User hỏi tại sao và muốn có cách kiểm lại trước khi in.
