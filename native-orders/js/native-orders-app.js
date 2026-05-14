@@ -1087,6 +1087,33 @@
         }
         // Build a custom modal with form fields (deposit, deliveryPrice, paymentAmount, comment)
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
+
+        // Resolve delivery option list + auto-pick by address.
+        const DMP = window.DeliveryMethodPicker;
+        const deliveryOpts = DMP ? DMP.OPTIONS : [];
+        const picked = DMP ? DMP.pick(src.address || '') : null;
+        const pickedValue = picked?.option?.value || '';
+        const pickedHint = picked
+            ? picked.hits > 0
+                ? `🎯 Tự chọn theo địa chỉ — khớp khu vực: <strong>${escapeHtml(picked.matched.slice(0, 4).join(', '))}</strong>`
+                : `📦 Không khớp khu vực HCM — mặc định <strong>SHIP TỈNH</strong>`
+            : '';
+        const deliveryDropdownHtml = DMP
+            ? `<label style="display:flex;flex-direction:column;gap:4px;font-weight:600;grid-column:1/-1;">
+                Phương thức giao hàng
+                <select id="pbhDeliveryMethod"
+                    style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;background:#fff;">
+                    ${deliveryOpts
+                        .map(
+                            (o) =>
+                                `<option value="${escapeHtml(o.value)}" data-price="${o.price || 0}" ${o.value === pickedValue ? 'selected' : ''}>${escapeHtml(o.label)}${o.price ? ' — ' + fmt(o.price) + 'đ' : ''}</option>`
+                        )
+                        .join('')}
+                </select>
+                ${pickedHint ? `<small style="color:#64748b;font-weight:500;font-size:11px;line-height:1.4;">${pickedHint}</small>` : ''}
+            </label>`
+            : '';
+
         const html = `
             <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#334155;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:#f8fafc;border-radius:8px;padding:12px;">
@@ -1098,6 +1125,7 @@
                     <div><strong>SL sản phẩm:</strong> ${totals.qty}</div>
                     <div style="text-align:right;color:#10b981;font-weight:700;">${fmt(totals.amount)}đ</div>
                 </div>
+                ${deliveryDropdownHtml}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
                         Đặt cọc
@@ -1106,7 +1134,7 @@
                     </label>
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
                         Phí giao hàng
-                        <input id="pbhDeliveryPrice" type="number" min="0" step="1000" value="0"
+                        <input id="pbhDeliveryPrice" type="number" min="0" step="1000" value="${picked?.option?.price || 0}"
                             style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
                     </label>
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
@@ -1134,13 +1162,33 @@
             html,
             okText: 'Tạo PBH',
             cancelText: 'Huỷ',
-            collect: (root) => ({
-                deposit: Number(root.querySelector('#pbhDeposit').value) || 0,
-                deliveryPrice: Number(root.querySelector('#pbhDeliveryPrice').value) || 0,
-                paymentAmount: Number(root.querySelector('#pbhPaymentAmount').value) || 0,
-                dateInvoice: root.querySelector('#pbhDateInvoice').value || null,
-                comment: root.querySelector('#pbhComment').value.trim() || null,
-            }),
+            // Wire dropdown change → auto-fill Phí giao hàng so user sees price react live.
+            onMount: (root) => {
+                const sel = root.querySelector('#pbhDeliveryMethod');
+                const priceInput = root.querySelector('#pbhDeliveryPrice');
+                if (sel && priceInput) {
+                    sel.addEventListener('change', () => {
+                        const opt = sel.options[sel.selectedIndex];
+                        const price = Number(opt.dataset.price || 0);
+                        priceInput.value = price;
+                    });
+                }
+            },
+            collect: (root) => {
+                const sel = root.querySelector('#pbhDeliveryMethod');
+                const selectedOpt = sel ? sel.options[sel.selectedIndex] : null;
+                return {
+                    deposit: Number(root.querySelector('#pbhDeposit').value) || 0,
+                    deliveryPrice: Number(root.querySelector('#pbhDeliveryPrice').value) || 0,
+                    paymentAmount: Number(root.querySelector('#pbhPaymentAmount').value) || 0,
+                    dateInvoice: root.querySelector('#pbhDateInvoice').value || null,
+                    comment: root.querySelector('#pbhComment').value.trim() || null,
+                    // Carrier name = label without trailing price part, used by PBH print/delivery flow
+                    carrierName: selectedOpt
+                        ? selectedOpt.textContent.replace(/\s*—\s*[\d.,]+đ\s*$/, '').trim()
+                        : null,
+                };
+            },
         });
         if (!submit) return;
         await _doCreatePbh(code, submit);
@@ -1169,6 +1217,13 @@
                 </div>`;
             document.body.appendChild(root);
             if (window.lucide) lucide.createIcons();
+            if (typeof opts.onMount === 'function') {
+                try {
+                    opts.onMount(root);
+                } catch (e) {
+                    console.warn('[customFormPopup] onMount failed', e);
+                }
+            }
             const cleanup = () => {
                 root.remove();
                 document.removeEventListener('keydown', onKey);

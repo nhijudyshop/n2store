@@ -25,6 +25,34 @@
 
 ## 2026-05-14
 
+### [web2][orders] Tạo PBH — dropdown Phương thức giao hàng + auto-pick theo địa chỉ
+
+**Mục tiêu**: thay nhập tay phí giao hàng bằng dropdown TPOS-style. Phân tích địa chỉ khách → tự chọn đúng khu vực + tự fill phí.
+
+**Module mới** ([web2-shared/delivery-method-picker.js](../web2-shared/delivery-method-picker.js)):
+
+- `window.DeliveryMethodPicker.{OPTIONS, pick(address), normalize(s)}`
+- Default OPTIONS (match TPOS dropdown): 3 thủ công (THÀNH PHỐ GỘP, TỈNH GỘP, BÁN HÀNG SHOP) + 3 vùng HCM tự động + SHIP TỈNH fallback
+- `normalize()`: lowercase + strip diacritics (`Bình Chánh` → `binh chanh`) + expand abbreviations (`Q.12` → `quan 12 q12`, `P.5` → `phuong 5`, `TP HCM` → `tphcm`) + punctuation → whitespace
+- `pick(address)`: token-window match (tránh false-positive "q1" inside "q10"), trả option có nhiều keyword match nhất + fallback SHIP TỈNH
+- **Bên thứ 3**: file ghi chú integration Goong Maps (https://goong.io free 100k req/day VN-localised) cho geocoding nâng cao — chỉ cần feed result vào `pick(address)` là dùng được
+
+**Auto-load** (tpos-sidebar.js): inject `popup.js` + `delivery-method-picker.js` qua `document.currentScript.src` — mọi trang Web 2.0 có sẵn `window.DeliveryMethodPicker`
+
+**UI** ([native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) `createPbh`):
+
+- Dropdown "Phương thức giao hàng" full-width sau phần tóm tắt đơn nguồn
+- Option đầu = auto-pick (selected), label kèm price (`THÀNH PHỐ (...) — 35.000đ`)
+- Hint phía dưới: `🎯 Tự chọn theo địa chỉ — khớp khu vực: q9, hoc mon` (hiển thị tối đa 4 keyword khớp), hoặc `📦 Không khớp khu vực HCM — mặc định SHIP TỈNH`
+- Change dropdown → input `Phí giao hàng` tự update theo `data-price`
+- Submit payload thêm `carrierName` (= label dropdown đã chọn, đã strip price suffix)
+
+**Unit test** (`node`): 13/13 case pass — address HCM Q1/Q2/Q.12/Hốc Môn/Bình Chánh/Phú Nhuận/Thủ Đức + tỉnh khác (Đà Nẵng/Cần Thơ/Hà Nội) + empty string → đều chọn đúng
+
+**Live test** (localhost): popup `createPbh` cho NW có địa chỉ Q9 → auto-select "tp-bien" (Bình Chánh-Q9-Nhà Bè-Hốc Môn) 35.000đ, hint hiển thị "khớp khu vực: quan 9". Đổi sang "tp-q2-12-bt-tdu" → Phí giao hàng tự nhảy về 30.000đ. 0 console errors.
+
+**Cache bump**: `tpos-sidebar.js?v=20260514b`, `native-orders-app.js?v=20260514c`.
+
 ### [web2][ux] Custom Popup module — thay thế native alert/confirm/prompt + form "Tạo PBH" riêng
 
 **Mục tiêu**: bỏ native `alert/confirm/prompt` xấu, không đồng nhất style cho toàn Web 2.0 (PBH, Native Orders, refund, delivery, tpos-pancake, web2-products, page-builder, …). Thêm 1 popup tuỳ chỉnh có icon/màu theo type, animation, keyboard nav, form input.

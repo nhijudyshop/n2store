@@ -19,22 +19,25 @@
 (function (global) {
     'use strict';
 
-    // Auto-load the shared Web 2.0 popup module (custom alert/confirm/prompt).
-    // Resolves the URL relative to this script so it works regardless of which
+    // Auto-load shared Web 2.0 modules (popup + delivery picker).
+    // Resolves URLs relative to this script so it works regardless of which
     // depth the host page sits at (/web2/foo/, /native-orders/, /tpos-pancake/, etc.).
-    (function autoLoadPopup() {
-        if (global.Popup) return;
+    (function autoLoadSharedModules() {
         const here = document.currentScript;
-        if (!here) return; // legacy IE / inline mode — page should include popup.js manually
-        try {
-            const url = new URL('./popup.js?v=20260514', here.src);
-            const s = document.createElement('script');
-            s.src = url.toString();
-            s.async = false; // preserve load order with other shared scripts
-            (document.head || document.documentElement).appendChild(s);
-        } catch {
-            /* ignore — Popup falls back to native alert via alertSoon */
-        }
+        if (!here) return;
+        const inject = (relPath, version) => {
+            try {
+                const url = new URL(`./${relPath}?v=${version}`, here.src);
+                const s = document.createElement('script');
+                s.src = url.toString();
+                s.async = false; // preserve load order
+                (document.head || document.documentElement).appendChild(s);
+            } catch {
+                /* ignore */
+            }
+        };
+        if (!global.Popup) inject('popup.js', '20260514');
+        if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260514');
     })();
 
     // Group definitions matching TPOS sidebar structure.
