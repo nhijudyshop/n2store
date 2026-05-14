@@ -25,6 +25,45 @@
 
 ## 2026-05-14
 
+### [orders] Chặn tạo PBH khi thiếu Sản phẩm + Toggle Hiện/ẩn cột bảng
+
+**Yêu cầu user**:
+
+1. Đơn không có sản phẩm cũng không cho tạo PBH (giống thiếu SĐT/Địa chỉ)
+2. Cho tuỳ chọn ẩn/hiện cột; mặc định: Thao tác + STT + Tên (gộp SĐT) + Địa chỉ + Tổng tiền (gộp SL); ẩn các cột khác
+3. Nếu cần test → dùng local port riêng (8089)
+
+**Validation Sản phẩm** ([native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) `validateOrderForPbh`):
+
+- Check thêm `products.length > 0 && Σ quantity > 0` → nếu fail thì `missing.push('Sản phẩm')`
+- Single `createPbh()`: nay block luôn (trước có warning "Vẫn tạo" — đã xoá vì user muốn strict)
+- Bulk modal: bảng hiện thêm cột "SL" (red+⚠ 0 nếu thiếu), badge invalid đổi thành "thiếu SĐT / địa chỉ / sản phẩm"
+- Verified: NW-20260513-0016 (có phone+addr nhưng products=[]) → popup "Đơn ... chưa có Sản phẩm. Vui lòng bổ sung trước khi tạo PBH.", form KHÔNG mở
+
+**Column toggle (Phase 16)**:
+
+- Mỗi `<td>` trong row được gán class `col-actions/col-stt/col-code/col-channel/col-customer/col-phone/col-address/col-money/col-qty/col-status/col-employee/col-time` (THs đã có sẵn)
+- `STATE.colVisibility` — object boolean per column + 2 merge flag, persisted `localStorage[nativeOrdersColVisibility_v1]`
+- `applyColumnVisibility()` inject `<style id="nativeOrdersColStyle">` ẩn các `.col-X` không tích
+- **Defaults theo user**:
+    - Visible: `actions, stt, customer, address, money` (5 cột data + check)
+    - Hidden: `code, channel, phone, qty, status, employee, time`
+    - Merge ON: `mergeNameSdt` (SĐT show dưới tên trong cột Customer), `mergeTotalQty` (SL show dưới Tổng tiền)
+- Button "Hiện/ẩn cột" mở popover với 12 checkbox cột + 2 checkbox merge + "Khôi phục mặc định"
+- Click ngoài popover → đóng. `e.stopPropagation()` trên button để click chính nó không tự close
+
+**Bug fix giữa chừng**: `STATE = { colVisibility: loadColVisibility() }` gọi function dùng `COL_DEFAULT` (const) chưa init → TDZ throw → toàn IIFE fail → `NativeOrdersApp = undefined`. Fix: di chuyển `COL_KEYS` + `COL_DEFAULT` lên TRƯỚC `STATE`.
+
+**Verified live** (localhost:8089, port riêng cho test):
+
+- 6 visible TH (`col-check, col-actions, col-stt, col-customer, col-address, col-money`)
+- 7 hidden TH (`col-code, col-channel, col-phone, col-qty, col-status, col-employee, col-time`)
+- 9 rows có phone merged vào customer cell; 2 rows có qty merged vào money cell
+- Popover mở/đóng đúng, 14 checkbox (12 cột + 2 merge), 7 checked theo defaults
+- Toggle phone → cột hiện lại + localStorage update
+
+**Cache**: `native-orders-app.js?v=20260514i`
+
 ### [orders][barcode] Thêm checkbox chọn mã trong dialog In mã vạch + giải thích "Chưa sync TPOS"
 
 **Vấn đề user báo (purchase-orders > In mã vạch)**:

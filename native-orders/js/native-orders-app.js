@@ -8,6 +8,41 @@
 (function () {
     'use strict';
 
+    // Phase 16: column visibility config — declared BEFORE STATE so the
+    // STATE.colVisibility initializer (which calls loadColVisibility()) can
+    // read COL_DEFAULT without hitting TDZ.
+    const COL_KEYS = [
+        { key: 'actions', label: 'Thao tác' },
+        { key: 'stt', label: 'STT' },
+        { key: 'code', label: 'Mã đơn' },
+        { key: 'channel', label: 'Kênh' },
+        { key: 'customer', label: 'Tên khách' },
+        { key: 'phone', label: 'SĐT (cột riêng)' },
+        { key: 'address', label: 'Địa chỉ' },
+        { key: 'money', label: 'Tổng tiền' },
+        { key: 'qty', label: 'SL (cột riêng)' },
+        { key: 'status', label: 'Trạng thái' },
+        { key: 'employee', label: 'Nhân viên' },
+        { key: 'time', label: 'Ngày tạo' },
+    ];
+    const COL_DEFAULT = {
+        actions: true,
+        stt: true,
+        code: false,
+        channel: false,
+        customer: true,
+        phone: false, // merged into customer
+        address: true,
+        money: true,
+        qty: false, // merged into money
+        status: false,
+        employee: false,
+        time: false,
+        // Merge flags
+        mergeNameSdt: true,
+        mergeTotalQty: true,
+    };
+
     const STATE = {
         orders: [],
         total: 0,
@@ -26,7 +61,106 @@
         availableCampaigns: [], // [{id, name, count, lastOrderAt}]
         // Phase 14: scope list to a single Customer 360 record (parsed from URL).
         customerId: null,
+        // Phase 16: per-column visibility + merge flags (persisted in localStorage).
+        // Defaults per user request:
+        //   show: actions, stt, customer (with merged phone), address, money (with merged qty)
+        //   hide: code, channel, phone, qty, status, employee, time
+        colVisibility: loadColVisibility(),
     };
+    function loadColVisibility() {
+        try {
+            const raw = localStorage.getItem('nativeOrdersColVisibility_v1');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return { ...COL_DEFAULT, ...parsed };
+            }
+        } catch {
+            /* fallthrough to default */
+        }
+        return { ...COL_DEFAULT };
+    }
+    function saveColVisibility() {
+        try {
+            localStorage.setItem(
+                'nativeOrdersColVisibility_v1',
+                JSON.stringify(STATE.colVisibility)
+            );
+        } catch {
+            /* ignore quota */
+        }
+    }
+    function applyColumnVisibility() {
+        // Inject (or replace) a <style> block that hides th/td matching hidden cols.
+        let styleEl = document.getElementById('nativeOrdersColStyle');
+        if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'nativeOrdersColStyle';
+            document.head.appendChild(styleEl);
+        }
+        const hidden = COL_KEYS.filter((c) => !STATE.colVisibility[c.key]).map(
+            (c) => `.col-${c.key}`
+        );
+        styleEl.textContent = hidden.length
+            ? `${hidden.join(', ')} { display: none !important; }`
+            : '';
+    }
+    function renderColumnTogglePanel() {
+        const panel = document.getElementById('columnTogglePanel');
+        if (!panel) return;
+        const colList = COL_KEYS.map(
+            (c) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;">
+                <input type="checkbox" data-col="${c.key}" ${STATE.colVisibility[c.key] ? 'checked' : ''}>
+                <span>${escapeHtml(c.label)}</span>
+            </label>`
+        ).join('');
+        panel.innerHTML = `
+            <div style="font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Cột</div>
+            ${colList}
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0;">
+            <div style="font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Gộp cột</div>
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;">
+                <input type="checkbox" data-merge="mergeNameSdt" ${STATE.colVisibility.mergeNameSdt ? 'checked' : ''}>
+                <span>Hiện SĐT trong cột Tên khách</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;">
+                <input type="checkbox" data-merge="mergeTotalQty" ${STATE.colVisibility.mergeTotalQty ? 'checked' : ''}>
+                <span>Hiện SL trong cột Tổng tiền</span>
+            </label>
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0;">
+            <button type="button" id="colResetDefaults" style="font-size:11px;background:transparent;border:1px solid #e5e7eb;color:#475569;padding:4px 10px;border-radius:6px;cursor:pointer;">Khôi phục mặc định</button>`;
+
+        // Wire checkboxes
+        panel.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            cb.addEventListener('change', () => {
+                const colKey = cb.dataset.col;
+                const mergeKey = cb.dataset.merge;
+                if (colKey) STATE.colVisibility[colKey] = cb.checked;
+                if (mergeKey) STATE.colVisibility[mergeKey] = cb.checked;
+                saveColVisibility();
+                applyColumnVisibility();
+                if (mergeKey) renderRows(); // merge requires re-render to inject phone/qty
+            });
+        });
+        panel.querySelector('#colResetDefaults')?.addEventListener('click', () => {
+            STATE.colVisibility = { ...COL_DEFAULT };
+            saveColVisibility();
+            applyColumnVisibility();
+            renderRows();
+            renderColumnTogglePanel(); // re-render the panel itself
+        });
+    }
+    function toggleColumnPanel() {
+        const panel = document.getElementById('columnTogglePanel');
+        if (!panel) return;
+        const visible = panel.style.display !== 'none';
+        if (visible) {
+            panel.style.display = 'none';
+        } else {
+            renderColumnTogglePanel();
+            panel.style.display = 'block';
+        }
+    }
 
     // ---------- DOM ----------
     const $ = (sel) => document.querySelector(sel);
@@ -267,11 +401,23 @@
                 const qty = Number(o.totalQuantity || 0);
                 const campaignName = o.liveCampaignName || '';
 
+                // When merge mode is on, embed the merged sibling info inside the
+                // primary cell so user still sees it even though sibling column is hidden.
+                const mergeNameSdt = STATE.colVisibility.mergeNameSdt;
+                const mergeTotalQty = STATE.colVisibility.mergeTotalQty;
+                const mergedPhoneHtml =
+                    mergeNameSdt && o.phone
+                        ? `<a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link" style="font-size:11px;color:#6b7280;font-weight:500;" onclick="event.stopPropagation();">${escapeHtml(o.phone)}</a>`
+                        : '';
+                const mergedQtyHtml =
+                    mergeTotalQty && qty
+                        ? `<div style="font-size:11px;color:#6b7280;font-weight:500;">SL: ${qty}</div>`
+                        : '';
                 const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
                     onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">
-                    <td onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
-                    <td onclick="event.stopPropagation();">
+                    <td class="col-check" onclick="event.stopPropagation();"><input type="checkbox" class="row-check" value="${escapeHtml(o.code)}"></td>
+                    <td class="col-actions" onclick="event.stopPropagation();">
                         <div class="tpos-row-actions">
                             <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa"
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
@@ -295,21 +441,21 @@
                             </button>
                         </div>
                     </td>
-                    <td class="tpos-cell-center"><strong>${o.displayStt ?? o.sessionIndex ?? ''}</strong></td>
-                    <td class="tpos-cell-center">
+                    <td class="col-stt tpos-cell-center"><strong>${o.displayStt ?? o.sessionIndex ?? ''}</strong></td>
+                    <td class="col-code tpos-cell-center">
                         <div class="tpos-code-cell" style="align-items:center;">
                             <span class="tpos-code-main" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">${escapeHtml(o.code)}</span>
                             ${campaignName ? `<span class="tpos-code-sub">${escapeHtml(campaignName)}</span>` : ''}
                             ${tagBadges ? `<div class="tpos-code-tags">${tagBadges}</div>` : `<div class="tpos-code-tags"><button class="tpos-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
-                    <td class="tpos-cell-center">
+                    <td class="col-channel tpos-cell-center">
                         <div class="tpos-channel-cell" style="align-items:center;">
                             <span class="tpos-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
                             ${o.fbCommentId ? `<span class="tpos-channel-link">Bình luận</span>` : ''}
                         </div>
                     </td>
-                    <td>
+                    <td class="col-customer">
                         <div class="tpos-customer-cell">
                             <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
                             <div class="tpos-customer-row2">
@@ -317,9 +463,10 @@
                                 <span class="tpos-mini-icon tpos-mini-person" title="Khách"><i data-lucide="user" style="width:9px;height:9px;"></i></span>
                                 ${statusPill}
                             </div>
+                            ${mergedPhoneHtml}
                         </div>
                     </td>
-                    <td class="tpos-cell-center" onclick="event.stopPropagation();">
+                    <td class="col-phone tpos-cell-center" onclick="event.stopPropagation();">
                         ${
                             o.phone
                                 ? `
@@ -331,12 +478,12 @@
                                 : '—'
                         }
                     </td>
-                    <td>${escapeHtml(o.address || '')}</td>
-                    <td class="tpos-cell-money">${total}</td>
-                    <td class="tpos-cell-center">${qty || ''}</td>
-                    <td>${tposStatusText(o.status)}</td>
-                    <td>${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
-                    <td class="tpos-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
+                    <td class="col-address">${escapeHtml(o.address || '')}</td>
+                    <td class="col-money tpos-cell-money">${total}${mergedQtyHtml}</td>
+                    <td class="col-qty tpos-cell-center">${qty || ''}</td>
+                    <td class="col-status">${tposStatusText(o.status)}</td>
+                    <td class="col-employee">${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
+                    <td class="col-time tpos-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
                         ${time.date}/${new Date(Number(o.createdAt)).getFullYear()}<br>${time.hour}
                     </td>
                 </tr>`;
@@ -1777,6 +1924,21 @@
         });
         $('#ordersBulkPbh')?.addEventListener('click', bulkCreatePbh);
         $('#ordersBulkUnselect')?.addEventListener('click', unselectAllOrders);
+
+        // Phase 16: column show/hide toggle
+        applyColumnVisibility();
+        $('#btnColumnToggle')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleColumnPanel();
+        });
+        // Click outside the panel → close it
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('columnTogglePanel');
+            if (!panel || panel.style.display === 'none') return;
+            if (!panel.contains(e.target) && e.target?.id !== 'btnColumnToggle') {
+                panel.style.display = 'none';
+            }
+        });
 
         // Modal — click overlay KHÔNG đóng modal (tránh mất data khi nhập dở).
         // Chỉ X / Hủy / ESC mới đóng.

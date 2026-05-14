@@ -241,6 +241,33 @@
                             >
                                 <i data-lucide="rotate-ccw"></i> Reset STT
                             </button>
+                            <div style="position: relative; display: inline-flex">
+                                <button
+                                    class="btn-ghost"
+                                    id="btnColumnToggle"
+                                    title="Hiện/ẩn cột bảng"
+                                    type="button"
+                                >
+                                    <i data-lucide="columns-3"></i> Hiện/ẩn cột
+                                </button>
+                                <div
+                                    id="columnTogglePanel"
+                                    style="
+                                        display: none;
+                                        position: absolute;
+                                        top: calc(100% + 4px);
+                                        right: 0;
+                                        z-index: 100;
+                                        min-width: 240px;
+                                        background: #fff;
+                                        border: 1px solid #e5e7eb;
+                                        border-radius: 8px;
+                                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+                                        padding: 10px 12px;
+                                        font-size: 13px;
+                                    "
+                                ></div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -360,6 +387,6 @@
 
         <!-- App Scripts -->
         <script src="js/native-orders-api.js?v=20260513b"></script>
-        <script src="js/native-orders-app.js?v=20260514h"></script>
+        <script src="js/native-orders-app.js?v=20260514i"></script>
     </body>
 </html>
