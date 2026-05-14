@@ -157,5 +157,85 @@
         return fallback ? { option: fallback, hits: 0, matched: [] } : null;
     }
 
-    window.DeliveryMethodPicker = { OPTIONS, pick, normalize };
+    // Backend-loaded options (replaces hardcoded OPTIONS when fetch succeeds).
+    // Single source of truth = /api/web2/deliverycarrier/list, so admin can
+    // manage zones + prices + keywords from web2/delivery-carrier/ UI.
+    let _liveOptions = null; // set on successful fetch
+    let _liveOptionsPromise = null;
+
+    function _normalizeFromRecord(rec) {
+        const d = rec.data || {};
+        return {
+            value: rec.code,
+            label: rec.name || d.Name || rec.code,
+            price: Number(d.fee || 0),
+            keywords: Array.isArray(d.keywords) ? d.keywords : [],
+            manual: !!d.manual,
+            isFallback: !!d.isFallback,
+        };
+    }
+
+    async function fetchFromBackend(workerUrl) {
+        if (_liveOptions) return _liveOptions;
+        if (_liveOptionsPromise) return _liveOptionsPromise;
+        const base =
+            workerUrl ||
+            window.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        _liveOptionsPromise = (async () => {
+            try {
+                const r = await fetch(
+                    `${base}/api/web2/deliverycarrier/list?limit=100&activeOnly=true`
+                );
+                const data = await r.json();
+                if (!data?.success || !Array.isArray(data.records)) return null;
+                // Filter rows that have any price/keyword/manual/isFallback hint
+                // (skips legacy rows that never got seeded with fee). Records
+                // are returned newest-first; sort by Id ASC for deterministic order.
+                const opts = data.records
+                    .map(_normalizeFromRecord)
+                    .filter(
+                        (o) =>
+                            o.label &&
+                            (o.price > 0 || o.manual || o.isFallback || o.keywords.length)
+                    )
+                    .sort((a, b) => {
+                        // manuals first, then zones by price asc, then fallback last
+                        if (a.manual !== b.manual) return a.manual ? -1 : 1;
+                        if (a.isFallback !== b.isFallback) return a.isFallback ? 1 : -1;
+                        return a.price - b.price;
+                    });
+                _liveOptions = opts.length ? opts : null;
+                return _liveOptions;
+            } catch (e) {
+                console.warn('[DeliveryMethodPicker] backend fetch failed:', e.message);
+                return null;
+            }
+        })();
+        return _liveOptionsPromise;
+    }
+
+    // Async variant: tries backend first, falls back to hardcoded OPTIONS.
+    async function pickAsync(address) {
+        const backend = await fetchFromBackend();
+        const opts = backend && backend.length ? backend : OPTIONS;
+        return pick(address, opts);
+    }
+
+    // Async variant: returns the live options list (or fallback).
+    async function getOptionsAsync() {
+        const backend = await fetchFromBackend();
+        return backend && backend.length ? backend : OPTIONS;
+    }
+
+    window.DeliveryMethodPicker = {
+        OPTIONS,
+        pick,
+        normalize,
+        // Phase 17: backend-driven options (fetches from
+        // /api/web2/deliverycarrier/list — single source of truth)
+        fetchFromBackend,
+        pickAsync,
+        getOptionsAsync,
+    };
 })();

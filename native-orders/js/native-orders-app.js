@@ -1260,9 +1260,12 @@
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
         // Resolve delivery option list + auto-pick by address.
+        // Phase 17: prefer backend-driven options (single source of truth =
+        // /api/web2/deliverycarrier/list). Falls back to hardcoded OPTIONS
+        // if API fails — both pick() + getOptionsAsync() handle this safely.
         const DMP = window.DeliveryMethodPicker;
-        const deliveryOpts = DMP ? DMP.OPTIONS : [];
-        const picked = DMP ? DMP.pick(src.address || '') : null;
+        const deliveryOpts = DMP ? await DMP.getOptionsAsync() : [];
+        const picked = DMP ? DMP.pick(src.address || '', deliveryOpts) : null;
         const pickedValue = picked?.option?.value || '';
         const pickedHint = picked
             ? picked.hits > 0
@@ -1478,11 +1481,13 @@
             return;
         }
         const DMP = window.DeliveryMethodPicker;
+        // Phase 17: load backend options once for both per-row pick + dropdown
+        const deliveryOpts = DMP ? await DMP.getOptionsAsync() : [];
 
         // Compute per-row validation + auto-picked delivery option
         const rows = orders.map((o) => {
             const v = validateOrderForPbh(o);
-            const pick = DMP ? DMP.pick(o.address || '') : null;
+            const pick = DMP ? DMP.pick(o.address || '', deliveryOpts) : null;
             const totalQty = (o.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
             const totalAmt = (o.products || []).reduce(
                 (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0),
@@ -1506,7 +1511,6 @@
         const invalidCount = rows.length - validCount;
 
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
-        const deliveryOpts = DMP ? DMP.OPTIONS : [];
         const today = new Date().toISOString().slice(0, 10);
 
         const rowsHtml = rows
