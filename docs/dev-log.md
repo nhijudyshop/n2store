@@ -25,6 +25,36 @@
 
 ## 2026-05-14
 
+### [native-orders] Chat: smooth wheel scroll với ease-out momentum
+
+**User báo**: "kéo chuột rồi dừng lại → nó bị giựt đứng lại không mượt → thêm hiệu ứng vào scroll đi".
+
+Native browser wheel scroll dừng đột ngột khi user thả tay. User muốn deceleration mượt.
+
+**Implementation**: `_attachSmoothWheel(threadEl)` trong [native-orders-app.js:3196-3265](../native-orders/js/native-orders-app.js#L3196-L3265).
+
+- Intercept `wheel` event với `passive:false` (cần preventDefault).
+- Mỗi wheel: accumulate `target = clamp(target + deltaY)` (normalize deltaMode line/page → pixel).
+- rAF loop lerp `scrollTop += (target - scrollTop) * 0.22` — settle sau ~23 frame (~380ms).
+- **Skip nếu**: `ctrlKey` (zoom), `shiftKey`, `deltaX !== 0` (horizontal/multi-axis trackpad) → để native xử lý.
+- **Sync target**: scroll listener cập nhật `target = scrollTop` khi không easing (cho scrollbar drag, keyboard PgUp/PgDn, programmatic).
+- **Cancel**: `pointerdown` trên thread cancel raf đang chạy → tránh fight với user khi drag scrollbar.
+
+**Đo curve trên wheel +600px**:
+
+| t (ms) | scrollTop delta | % của target             |
+| ------ | --------------- | ------------------------ |
+| 0      | +88             | 15% (immediate response) |
+| 80     | +428            | 71%                      |
+| 230    | +583            | 97%                      |
+| 380    | +600            | 100% (settled)           |
+
+**Files**: [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js), cache `v=20260514ah`.
+
+**Status**: ✅ Done. Real wheel input có deceleration mượt, scrollbar drag và programmatic scroll vẫn direct.
+
+---
+
 ### [native-orders] Chat: preserve line breaks trong bubble + giảm scroll lag thêm 2×
 
 **User báo**: tin nhắn dài của shop hiển thị 1 đoạn liền dù raw text có xuống dòng; scroll vẫn không mượt.

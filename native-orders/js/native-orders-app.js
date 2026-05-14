@@ -3190,6 +3190,77 @@
         const threadEl = document.getElementById('msgThread');
         if (!threadEl || !_chatState) return;
         threadEl.addEventListener('scroll', _onScrollRaw, { passive: true });
+        _attachSmoothWheel(threadEl);
+    }
+
+    /**
+     * Wheel-event smoother: hijacks `wheel` on the chat thread and lerps
+     * `scrollTop` toward an accumulated target with ease-out (~0.22 per
+     * frame ≈ 250–400ms to settle). This gives a gentle deceleration when
+     * the user spins the wheel and stops — instead of the native abrupt
+     * stop. Scrollbar drag, keyboard PgUp/PgDn, touch and programmatic
+     * `scrollTop = X` are not affected: a `pointerdown` cancels the active
+     * easing and a `scroll` event resyncs the target whenever no easing
+     * is in flight.
+     */
+    function _attachSmoothWheel(threadEl) {
+        if (threadEl.dataset.smoothWheelAttached === '1') return;
+        threadEl.dataset.smoothWheelAttached = '1';
+
+        let target = threadEl.scrollTop;
+        let raf = null;
+        let easing = false;
+
+        const tick = () => {
+            const diff = target - threadEl.scrollTop;
+            if (Math.abs(diff) < 0.5) {
+                threadEl.scrollTop = target;
+                raf = null;
+                easing = false;
+                return;
+            }
+            threadEl.scrollTop += diff * 0.22;
+            raf = requestAnimationFrame(tick);
+        };
+
+        threadEl.addEventListener(
+            'wheel',
+            (e) => {
+                // Don't intercept zoom (Ctrl+wheel), horizontal scroll, or
+                // multi-axis trackpad gestures — let the browser handle.
+                if (e.ctrlKey || e.shiftKey || e.deltaX !== 0) return;
+                e.preventDefault();
+                let delta = e.deltaY;
+                if (e.deltaMode === 1) delta *= 16;
+                else if (e.deltaMode === 2) delta *= threadEl.clientHeight;
+                const max = threadEl.scrollHeight - threadEl.clientHeight;
+                target = Math.max(0, Math.min(max, target + delta));
+                easing = true;
+                if (raf === null) raf = requestAnimationFrame(tick);
+            },
+            { passive: false }
+        );
+
+        threadEl.addEventListener(
+            'scroll',
+            () => {
+                if (!easing) target = threadEl.scrollTop;
+            },
+            { passive: true }
+        );
+
+        threadEl.addEventListener(
+            'pointerdown',
+            () => {
+                if (raf !== null) {
+                    cancelAnimationFrame(raf);
+                    raf = null;
+                }
+                easing = false;
+                target = threadEl.scrollTop;
+            },
+            { passive: true }
+        );
     }
     function _onScrollRaw() {
         if (_scrollRafPending) return;
