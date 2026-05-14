@@ -25,6 +25,26 @@
 
 ## 2026-05-14
 
+### [orders][barcode] Bỏ hoàn toàn local web_warehouse — chỉ lấy data từ TPOS OData trực tiếp
+
+**Yêu cầu user**: "cho lấy dữ liệu qua kho tpos đi đừng lấy kho local". Local web_warehouse cache không đáng tin (miss mapping) → đổi sang query TPOS trực tiếp.
+
+**Thay đổi**:
+
+- **Pre-fetch (khi mở dialog)**: bỏ `POST /api/v2/web-warehouse/batch-lookup`. Thay bằng gọi luôn `recheckTposForMissingCodes()` với `tposCodeSet = new Set()` rỗng → tất cả items được coi là missing → 2-stage query trực tiếp TPOS:
+    - Strategy A: `Product?$filter=DefaultCode eq '<code>' or …`
+    - Strategy B: `ProductTemplate?$filter=DefaultCode eq '<parent>'&$expand=ProductVariants($expand=AttributeValues)` cho mã còn miss
+- **printViaTPOS**: bỏ luôn batch-lookup local. `codeMap` build hoàn toàn từ `liveTposCache` (đã được populate ở step trên). Nếu cache rỗng → throw `Không có dữ liệu TPOS` và gợi user tắt toggle.
+- Xoá hàm `preflightTposItems()` (dead code — chỉ dùng batch-lookup local).
+- Đổi text badge/warning: "Chưa sync TPOS (trong kho local)" → "Không có trên TPOS" (chính xác hơn vì giờ tra trực tiếp TPOS).
+- Click "In bằng pdf" khi pre-fetch chưa xong → chạy `recheckTposForMissingCodes()` sync trước, mới print.
+
+**Files**:
+
+- [purchase-orders/js/lib/barcode-label-dialog.js](purchase-orders/js/lib/barcode-label-dialog.js) — bỏ hết web-warehouse calls, dùng TPOS OData làm single source of truth.
+
+**Status**: ✅ Done
+
 ### [web2][native-orders][sidebar] 6 yêu cầu UX: sidebar collapse, save FB data, gọn cell, STT vào checkbox, action 2x2
 
 **Y/c 1 — Toggle ẩn/hiện sidebar** ([web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) + [.css](../web2-shared/tpos-sidebar.css)):

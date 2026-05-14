@@ -350,7 +350,7 @@ window.BarcodeLabelDialog = (function () {
                     // tất cả đều in được qua HTML local → không cần badge.
                     const unsync = useTposTemplate && tposCodeSet && !tposCodeSet.has(item.code);
                     const badge = unsync
-                        ? '<span class="bld-unsync-badge" title="Chưa sync TPOS — sẽ KHÔNG in qua mẫu TPOS. Bỏ tick hoặc tắt &quot;In theo mẫu TPOS&quot; để in HTML local.">Chưa sync TPOS</span>'
+                        ? '<span class="bld-unsync-badge" title="Không tìm thấy trên TPOS — sẽ KHÔNG in được qua mẫu TPOS. Bỏ tick hoặc tắt &quot;In theo mẫu TPOS&quot; để in HTML local.">Không có trên TPOS</span>'
                         : '';
                     const tr = document.createElement('tr');
                     if (unsync) tr.className = 'bld-row-unsync';
@@ -687,57 +687,34 @@ window.BarcodeLabelDialog = (function () {
                 missingCodes.slice(0, 8).join(', ') +
                 (missingCodes.length > 8 ? `, +${missingCodes.length - 8} mã khác` : '');
             el.style.display = '';
-            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm CHƯA sync TPOS (trong kho local), sẽ KHÔNG in qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local, bỏ tick, hoặc bấm nút bên để kiểm tra trực tiếp trên TPOS.
-                <button class="bld-recheck-btn" id="bld-recheck-tpos" ${recheckInFlight ? 'disabled' : ''}>${recheckInFlight ? 'Đang kiểm...' : '🔄 Kiểm lại TPOS'}</button>
+            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm KHÔNG tìm thấy trên TPOS, sẽ KHÔNG in được qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local, bỏ tick, hoặc bấm nút bên để kiểm tra lại.
+                <button class="bld-recheck-btn" id="bld-recheck-tpos" ${recheckInFlight ? 'disabled' : ''}>${recheckInFlight ? 'Đang kiểm…' : '🔄 Kiểm lại TPOS'}</button>
                 <span class="bld-recheck-result" id="bld-recheck-result"></span>`;
         }
         updateCount();
 
-        // Pre-fetch TPOS warehouse trong background — populate tposCodeSet để
-        // hiển thị warning + filter print items khi user click In.
+        // Pre-fetch: query TRỰC TIẾP TPOS (không qua local web_warehouse) để
+        // populate tposCodeSet + liveTposCache. Strategy 2-stage:
+        //   A) Product?$filter=DefaultCode eq … cho từng mã item
+        //   B) ProductTemplate?$filter=DefaultCode eq <parent>&$expand=ProductVariants
+        //      cho các mã còn miss (variants không có DefaultCode riêng)
+        // Items có code đều set tposCodeSet = empty Set ngay → renderTableRows
+        // hiển thị badge "Đang kiểm TPOS" loading. Khi recheck xong update.
         (async function preFetchTpos() {
+            const checkedItems = items.filter((it) => it.code && it.quantity > 0);
+            if (checkedItems.length === 0) return;
+            if (!window.TPOSClient?.authenticatedFetch) {
+                console.warn('[Barcode] TPOSClient chưa sẵn sàng — bỏ qua pre-fetch TPOS');
+                return;
+            }
+            // Khởi tạo tposCodeSet rỗng — sẽ populate khi recheck xong.
+            tposCodeSet = new Set();
+            renderTableRows();
+            updateCount();
             try {
-                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-                const codes = [
-                    ...new Set(
-                        items.filter((it) => it.code && it.quantity > 0).map((it) => it.code)
-                    ),
-                ];
-                if (codes.length === 0) return;
-                const r = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codes }),
-                });
-                if (!r.ok) return;
-                const data = await r.json();
-                const products = data.success ? data.data : [];
-                tposCodeSet = new Set(
-                    products.filter((p) => p && p.tpos_product_id).map((p) => p.product_code)
-                );
-                // Re-render để hiện badge "Chưa sync TPOS" cho các hàng thiếu sync.
-                renderTableRows();
-                updateCount();
-
-                // Auto-recheck: nếu local web_warehouse miss mapping cho mã nào
-                // mà TPOS thực sự có (thường gặp với variants), chạy luôn 2-stage
-                // recheck (Product → ProductTemplate) trong background, không cần
-                // user click "Kiểm lại TPOS". Update tposCodeSet + cache để badge
-                // tự biến mất khi mã được TPOS xác nhận.
-                if (useTposTemplate) {
-                    const stillMissingCount = items.filter(
-                        (it) =>
-                            it.selected && it.code && it.quantity > 0 && !tposCodeSet.has(it.code)
-                    ).length;
-                    if (stillMissingCount > 0 && window.TPOSClient?.authenticatedFetch) {
-                        // Không await — chạy nền để dialog responsive.
-                        recheckTposForMissingCodes().catch((e) =>
-                            console.warn('[Barcode] Auto-recheck TPOS failed:', e)
-                        );
-                    }
-                }
+                await recheckTposForMissingCodes();
             } catch (err) {
-                console.warn('[Barcode] TPOS pre-fetch failed:', err.message);
+                console.warn('[Barcode] TPOS pre-fetch failed:', err);
             }
         })();
 
@@ -881,27 +858,21 @@ window.BarcodeLabelDialog = (function () {
             const printItems = items.filter((it) => it.selected && it.code && it.quantity > 0);
             if (!printItems.length) return;
 
-            // Path 1: TPOS template — items đã sync in qua mẫu PDF của TPOS,
-            // items chưa sync silently dropped (đã được warning trong dialog).
+            // Path 1: TPOS template — chỉ in items đã xác nhận trên TPOS qua
+            // liveTposCache (đã được populate từ pre-fetch / recheck trực tiếp
+            // tới TPOS OData). Item nào tposCodeSet không có → drop và báo user.
             if (useTposTemplate && window.TPOSClient?.authenticatedFetch) {
                 btnPrint.disabled = true;
                 btnPrint.textContent = 'Đang tạo PDF...';
                 try {
-                    // Filter chỉ items đã sync TPOS. Nếu chưa pre-fetched, fetch giờ
-                    // để đảm bảo printViaTPOS không drop silently.
-                    let matched;
-                    if (tposCodeSet) {
-                        matched = printItems.filter((it) => tposCodeSet.has(it.code));
-                    } else {
-                        const pf = await preflightTposItems(printItems);
-                        tposCodeSet = new Set(pf.matched.map((it) => it.code));
-                        matched = pf.matched;
-                        updateTposWarning();
+                    // Nếu pre-fetch chưa xong (race rare) → chạy recheck sync ngay
+                    if (!tposCodeSet || tposCodeSet.size === 0) {
+                        await recheckTposForMissingCodes();
                     }
+                    const matched = printItems.filter((it) => tposCodeSet.has(it.code));
                     if (matched.length === 0) {
-                        // Không có gì để in qua TPOS — báo user, gợi ý tắt toggle.
                         window.notificationManager?.warning?.(
-                            'Không có sản phẩm nào đã sync TPOS. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả.'
+                            'Không có sản phẩm nào tìm thấy trên TPOS. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả.'
                         );
                         return;
                     }
@@ -942,43 +913,6 @@ window.BarcodeLabelDialog = (function () {
     }
 
     /**
-     * Pre-flight check: query TPOS warehouse for the given item codes,
-     * return { matched, missing } where matched items are confirmed in TPOS
-     * (have valid tpos_product_id) and missing items would be silently dropped
-     * by `printViaTPOS`.
-     *
-     * Throws if the warehouse API call itself fails — caller catches and falls
-     * back to local print.
-     */
-    async function preflightTposItems(printItems) {
-        const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const codes = [...new Set(printItems.map((it) => it.code))];
-        const resp = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codes }),
-        });
-        if (!resp.ok) throw new Error('Warehouse lookup HTTP ' + resp.status);
-        const data = await resp.json();
-        const products = data.success ? data.data : [];
-        const validCodes = new Set(
-            products.filter((p) => p && p.tpos_product_id).map((p) => p.product_code)
-        );
-        const matched = printItems.filter((it) => validCodes.has(it.code));
-        const missing = printItems.filter((it) => !validCodes.has(it.code));
-        console.log(
-            `[Barcode] Pre-flight: ${matched.length} matched, ${missing.length} missing in TPOS warehouse`,
-            { missingCodes: missing.map((it) => it.code) }
-        );
-        return { matched, missing };
-    }
-
-    /**
-     * Print via TPOS API — exact same PDF output as TPOS.
-     * Flow: POST /odata/BarcodeProductLabel (full payload) → GET /BarcodeProductLabel/PrintBarcodePDF?id=N → PDF
-     * Payload matched from TPOS network capture (2026-04-15).
-     */
-    /**
      * Print via TPOS API — exact same PDF output as TPOS.
      * Flow: POST /odata/BarcodeProductLabel → GET /BarcodeProductLabel/PrintBarcodePDF?id=N
      *
@@ -1002,30 +936,21 @@ window.BarcodeLabelDialog = (function () {
         const validItems = items.filter((it) => it.code);
         if (!validItems.length) throw new Error('No items with product code');
 
-        // Step 1: Batch lookup from web-warehouse (has real TPOS product data)
-        const uniqueCodes = [...new Set(validItems.map((it) => it.code))];
-        const whResp = await fetch(`${PROXY}/api/v2/web-warehouse/batch-lookup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codes: uniqueCodes }),
-        });
-        const whData = await whResp.json();
-        const whProducts = whData.success ? whData.data : [];
-
-        // Map product_code → warehouse row (web_warehouse priority).
+        // Data source: chỉ dùng liveTposCache (đã được populate từ TPOS OData
+        // trực tiếp khi pre-fetch + recheck). KHÔNG dùng local web_warehouse
+        // batch-lookup nữa — đảm bảo data luôn tươi từ TPOS, không phụ thuộc
+        // local sync.
         const codeMap = new Map();
-        for (const p of whProducts) codeMap.set(p.product_code, p);
-        // Fallback: items mà user đã "Kiểm lại TPOS" — local DB miss nhưng
-        // TPOS xác nhận có. liveTposCache có shape giống web_warehouse row.
         if (liveTposCache && liveTposCache.size > 0) {
             for (const [code, row] of liveTposCache.entries()) {
-                if (!codeMap.has(code) || !codeMap.get(code)?.tpos_product_id) {
-                    codeMap.set(code, row);
-                }
+                codeMap.set(code, row);
             }
         }
-
-        if (codeMap.size === 0) throw new Error('No products found in warehouse');
+        if (codeMap.size === 0) {
+            throw new Error(
+                'Không có dữ liệu TPOS cho các mã đã chọn. Tắt "In theo mẫu TPOS" để in HTML local.'
+            );
+        }
 
         // Build Lines + BarcodeTemplateIds
         const tmplIdSet = new Set();
