@@ -25,6 +25,29 @@
 
 ## 2026-05-14
 
+### [orders][barcode] Thêm checkbox chọn mã trong dialog In mã vạch + giải thích "Chưa sync TPOS"
+
+**Vấn đề user báo (purchase-orders > In mã vạch)**:
+
+1. Modal hiện 6 sản phẩm, nhưng PDF chỉ in 4 → user muốn chủ động chọn từng mã để in.
+2. Cảnh báo "2/6 sản phẩm CHƯA sync TPOS: MM139A2, MM139A3" — user hỏi tại sao 2 mã này KHÔNG in được.
+
+**Nguyên nhân (đã phân tích cho user)**: Khi toggle "In theo mẫu TPOS" bật, code gọi `POST /odata/BarcodeProductLabel` của TPOS để render PDF. API này chỉ render được sản phẩm đã có `tpos_product_id` trong web-warehouse (đã sync TPOS). Pre-fetch `/api/v2/web-warehouse/batch-lookup` lúc mở dialog đã build `tposCodeSet`. Print path filter theo set này → MM139A2/MM139A3 chưa sync ⇒ silently dropped. Cách workaround đã có: tắt "In theo mẫu TPOS" → fallback in HTML local (JsBarcode + tpos.vn/Web/Barcode img) cho tất cả mã.
+
+**Thay đổi**:
+
+- Thêm cột checkbox đầu tiên trong table tab "Sản phẩm có mã vạch" + master "Chọn tất cả" trong header (`indeterminate` khi mixed).
+- Hàng nào chưa sync TPOS (chỉ khi TPOS toggle bật + pre-fetched xong) → highlight row vàng + badge "Chưa sync TPOS" cạnh tên SP + tooltip giải thích.
+- Print path filter thêm `it.selected` → user bỏ tick → không in.
+- Re-render table khi TPOS pre-fetch hoàn tất hoặc khi user toggle "In theo mẫu TPOS" → badge xuất hiện/biến mất kịp thời.
+- Warning text bổ sung gợi ý "hoặc bỏ tick các sản phẩm này".
+
+**Files**:
+
+- [purchase-orders/js/lib/barcode-label-dialog.js](purchase-orders/js/lib/barcode-label-dialog.js) — add `selected` field, checkbox column, master toggle, badge, filter logic.
+
+**Status**: ✅ Done
+
 ### [web2][perf][docs] Fix scroll lag modal + shared CSS utility classes cho mọi modal tương tác nặng
 
 **Vấn đề user báo**: mở "Tạo PBH hàng loạt — 23 đơn" → scroll bảng bên trong modal lag.

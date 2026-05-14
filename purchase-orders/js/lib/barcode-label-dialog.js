@@ -85,6 +85,10 @@ window.BarcodeLabelDialog = (function () {
             tposProductId: item.tposProductId || null,
             tposProductTmplId: item.tposProductTmplId || null,
             checked: true,
+            // Mặc định tick chọn để in. User có thể bỏ tick row hoặc dùng
+            // "Chọn tất cả" trong header để bỏ chọn hàng loạt. Print path chỉ
+            // in những item `selected = true` + `quantity > 0`.
+            selected: true,
         }));
 
         showSelectionModal(order, items);
@@ -174,6 +178,11 @@ window.BarcodeLabelDialog = (function () {
 .bld-table .bld-barcode-input{width:100%;height:28px;padding:2px 8px;border:1px solid #ccc;font-size:13px;box-shadow:inset 0 1px 1px rgba(0,0,0,.075)}
 .bld-table .bld-delete-btn{background:none;border:1px solid #ccc;border-radius:3px;padding:4px 8px;cursor:pointer;color:#666;font-size:12px;line-height:1}
 .bld-table .bld-delete-btn:hover{background:#e6e6e6;border-color:#adadad}
+.bld-table td.bld-check-cell{text-align:center}
+.bld-table td.bld-check-cell input[type=checkbox]{cursor:pointer;margin:0}
+.bld-row-unsync td{background:#fcf8e3 !important}
+.bld-row-unsync td:first-child{border-left:3px solid #faebcc}
+.bld-unsync-badge{display:inline-block;background:#f0ad4e;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-left:6px;vertical-align:middle}
 .bld-add-row{color:#2a6496;cursor:pointer;font-size:13px;text-decoration:none}
 .bld-add-row:hover{text-decoration:underline}
 /* Footer — .modal-footer */
@@ -269,6 +278,9 @@ window.BarcodeLabelDialog = (function () {
                     <table class="bld-table">
                         <thead>
                             <tr>
+                                <th id="bld-col-check" style="width:40px;text-align:center">
+                                    <input type="checkbox" id="bld-select-all" checked title="Chọn tất cả">
+                                </th>
                                 <th>Sản phẩm</th>
                                 <th id="bld-col2-header" style="width:140px">Số lượng</th>
                                 <th style="width:40px"></th>
@@ -277,7 +289,7 @@ window.BarcodeLabelDialog = (function () {
                         <tbody id="bld-items-body"></tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="3" style="padding:8px 5px;">
+                                <td colspan="4" style="padding:8px 5px;">
                                     <a class="bld-add-row" id="bld-add-link">Thêm sản phẩm</a>
                                 </td>
                             </tr>
@@ -306,19 +318,30 @@ window.BarcodeLabelDialog = (function () {
             const tbody = overlay.querySelector('#bld-items-body');
             const col2Header = overlay.querySelector('#bld-col2-header');
             const addLink = overlay.querySelector('#bld-add-link');
+            const checkCol = overlay.querySelector('#bld-col-check');
             tbody.innerHTML = '';
 
             if (activeTab === 0) {
-                // Tab: Sản phẩm có mã vạch — columns: Sản phẩm | Số lượng | delete
+                // Tab: Sản phẩm có mã vạch — Check | SP | Số lượng | Xoá
                 col2Header.textContent = 'Số lượng';
                 col2Header.style.width = '140px';
                 addLink.textContent = 'Thêm sản phẩm';
+                if (checkCol) checkCol.style.display = '';
                 withBarcode.forEach((item) => {
                     const origIdx = items.indexOf(item);
                     const variantText = item.variant ? ` (${item.variant})` : '';
+                    // Hàng chưa sync TPOS chỉ được đánh dấu khi TPOS mode bật
+                    // VÀ pre-fetch đã xong (tposCodeSet ≠ null). Khi TPOS off,
+                    // tất cả đều in được qua HTML local → không cần badge.
+                    const unsync = useTposTemplate && tposCodeSet && !tposCodeSet.has(item.code);
+                    const badge = unsync
+                        ? '<span class="bld-unsync-badge" title="Chưa sync TPOS — sẽ KHÔNG in qua mẫu TPOS. Bỏ tick hoặc tắt &quot;In theo mẫu TPOS&quot; để in HTML local.">Chưa sync TPOS</span>'
+                        : '';
                     const tr = document.createElement('tr');
+                    if (unsync) tr.className = 'bld-row-unsync';
                     tr.innerHTML = `
-                        <td>${escapeHtml(item.code ? `[${item.code}] ` : '')}${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}</td>
+                        <td class="bld-check-cell"><input type="checkbox" class="bld-select" data-index="${origIdx}" ${item.selected ? 'checked' : ''}></td>
+                        <td>${escapeHtml(item.code ? `[${item.code}] ` : '')}${escapeHtml(stripBrackets(item.name))}${escapeHtml(variantText)}${badge}</td>
                         <td><input type="number" class="bld-qty-input bld-qty" data-index="${origIdx}" value="${item.quantity}" min="0" max="999"></td>
                         <td><button class="bld-delete-btn bld-remove" data-index="${origIdx}"><span>🗑</span></button></td>
                     `;
@@ -326,13 +349,15 @@ window.BarcodeLabelDialog = (function () {
                 });
                 if (withBarcode.length === 0) {
                     tbody.innerHTML =
-                        '<tr><td colspan="3" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
+                        '<tr><td colspan="4" style="padding:12px;text-align:center;color:#999;">Không có sản phẩm</td></tr>';
                 }
+                updateSelectAllState();
             } else {
-                // Tab: Sản phẩm không có mã vạch — columns: Sản phẩm | Mã vạch (input) | (empty)
+                // Tab: Sản phẩm không có mã vạch — SP | Mã vạch (input) | (empty)
                 col2Header.textContent = 'Mã vạch';
                 col2Header.style.width = '200px';
                 addLink.textContent = 'Cập nhật mã vạch';
+                if (checkCol) checkCol.style.display = 'none';
                 withoutBarcode.forEach((item) => {
                     const origIdx = items.indexOf(item);
                     const variantText = item.variant ? ` (${item.variant})` : '';
@@ -350,11 +375,30 @@ window.BarcodeLabelDialog = (function () {
                 }
             }
         }
+
+        // Đồng bộ trạng thái checkbox "Chọn tất cả" theo các row hiện tại:
+        // - all checked → checked
+        // - mixed → indeterminate
+        // - all unchecked → unchecked
+        function updateSelectAllState() {
+            const master = overlay.querySelector('#bld-select-all');
+            if (!master || activeTab !== 0) return;
+            const rows = withBarcode;
+            if (rows.length === 0) {
+                master.checked = false;
+                master.indeterminate = false;
+                return;
+            }
+            const selectedCount = rows.filter((it) => it.selected).length;
+            master.checked = selectedCount === rows.length;
+            master.indeterminate = selectedCount > 0 && selectedCount < rows.length;
+        }
         renderTableRows();
 
         // Update print button count + TPOS warning visibility
         function updateCount() {
-            const checked = items.filter((i) => i.code && i.quantity > 0);
+            // Chỉ tính items đã được user tick + có code + qty > 0
+            const checked = items.filter((i) => i.selected && i.code && i.quantity > 0);
             // Khi TPOS mode + đã pre-fetched → chỉ đếm items có trong TPOS warehouse
             const printable =
                 useTposTemplate && tposCodeSet
@@ -368,12 +412,12 @@ window.BarcodeLabelDialog = (function () {
         function updateTposWarning() {
             const el = overlay.querySelector('#bld-warning-tpos');
             if (!el) return;
-            // Chỉ hiển thị khi: TPOS mode + đã pre-fetched + có items thiếu
+            // Chỉ hiển thị khi: TPOS mode + đã pre-fetched + có items selected mà thiếu sync
             if (!useTposTemplate || !tposCodeSet) {
                 el.style.display = 'none';
                 return;
             }
-            const checked = items.filter((i) => i.code && i.quantity > 0);
+            const checked = items.filter((i) => i.selected && i.code && i.quantity > 0);
             const missing = checked.filter((it) => !tposCodeSet.has(it.code));
             if (missing.length === 0) {
                 el.style.display = 'none';
@@ -384,7 +428,7 @@ window.BarcodeLabelDialog = (function () {
                 missingCodes.slice(0, 8).join(', ') +
                 (missingCodes.length > 8 ? `, +${missingCodes.length - 8} mã khác` : '');
             el.style.display = '';
-            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm CHƯA sync TPOS, sẽ KHÔNG in qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả.`;
+            el.innerHTML = `<span class="bld-warning-icon">⚠</span> ${missing.length}/${checked.length} sản phẩm CHƯA sync TPOS, sẽ KHÔNG in qua mẫu TPOS: <strong>${list}</strong>. Tắt "In theo mẫu TPOS" để in HTML local cho tất cả, hoặc bỏ tick các sản phẩm này.`;
         }
         updateCount();
 
@@ -410,6 +454,8 @@ window.BarcodeLabelDialog = (function () {
                 tposCodeSet = new Set(
                     products.filter((p) => p && p.tpos_product_id).map((p) => p.product_code)
                 );
+                // Re-render để hiện badge "Chưa sync TPOS" cho các hàng thiếu sync.
+                renderTableRows();
                 updateCount();
             } catch (err) {
                 console.warn('[Barcode] TPOS pre-fetch failed:', err.message);
@@ -449,6 +495,22 @@ window.BarcodeLabelDialog = (function () {
         });
         overlay.querySelector('#bld-use-tpos').addEventListener('change', (e) => {
             useTposTemplate = e.target.checked;
+            // Re-render để show/hide badge "Chưa sync TPOS" theo trạng thái toggle.
+            renderTableRows();
+            updateCount();
+        });
+
+        // Master "Chọn tất cả" — bulk toggle tất cả row trong tab "có mã vạch"
+        overlay.querySelector('#bld-select-all').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            withBarcode.forEach((it) => {
+                it.selected = checked;
+            });
+            // Refresh checkbox states trong row mà không re-render full table.
+            overlay.querySelectorAll('.bld-select').forEach((cb) => {
+                cb.checked = checked;
+            });
+            e.target.indeterminate = false;
             updateCount();
         });
 
@@ -462,7 +524,7 @@ window.BarcodeLabelDialog = (function () {
             updateCount();
         });
 
-        // Qty change, remove, barcode edit in table
+        // Qty change, remove, barcode edit, row-select trong table
         overlay.querySelector('.bld-modal-body').addEventListener('change', (e) => {
             if (e.target.classList.contains('bld-qty')) {
                 const idx = parseInt(e.target.dataset.index);
@@ -472,6 +534,12 @@ window.BarcodeLabelDialog = (function () {
             if (e.target.classList.contains('bld-barcode-edit')) {
                 const idx = parseInt(e.target.dataset.index);
                 items[idx].code = e.target.value.trim();
+            }
+            if (e.target.classList.contains('bld-select')) {
+                const idx = parseInt(e.target.dataset.index);
+                items[idx].selected = e.target.checked;
+                updateSelectAllState();
+                updateCount();
             }
         });
         overlay.querySelector('.bld-modal-body').addEventListener('click', (e) => {
@@ -520,8 +588,9 @@ window.BarcodeLabelDialog = (function () {
         });
 
         // Print: TPOS PDF (đẹp, cần đã sync) hoặc HTML local — chọn theo checkbox.
+        // Chỉ in các item được user tick (it.selected) + có code + qty > 0.
         btnPrint.addEventListener('click', async () => {
-            const printItems = items.filter((it) => it.code && it.quantity > 0);
+            const printItems = items.filter((it) => it.selected && it.code && it.quantity > 0);
             if (!printItems.length) return;
 
             // Path 1: TPOS template — items đã sync in qua mẫu PDF của TPOS,
