@@ -34,6 +34,7 @@
 
     const PANCAKE_WS_URL = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
     const PROXY_WS_URL = 'wss://n2store-realtime.onrender.com';
+    const PROXY_HTTP_URL = 'https://n2store-realtime.onrender.com'; // direct broker (CORS open)
     const WORKER_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // Subscriber list is mode-agnostic — both modes funnel events here.
@@ -412,7 +413,11 @@
             .join('|');
         if (key === _lastMultiKey) return { ok: true, alreadyStarted: true };
         try {
-            const r = await fetch(`${WORKER_BASE}/api/realtime/start-multi`, {
+            // POST direct to broker — Cloudflare worker proxies
+            // /api/realtime/* to the OTHER render service (n2store-fallback)
+            // which doesn't have this endpoint. Broker (n2store-realtime)
+            // has CORS open for all origins so direct hit works.
+            const r = await fetch(`${PROXY_HTTP_URL}/api/realtime/start-multi`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ accounts: payload }),

@@ -973,8 +973,13 @@ class RealtimeClientPool {
 
     /**
      * Replace the entire pool with N new clients, one per account.
-     * Deduplicates pages so each FB page is only joined ONCE across
-     * the pool (avoids duplicate events / wasted Pancake quota).
+     * Each account joins ALL its pages — Pancake's `multiple_pages`
+     * channel rejects pages the account doesn't have permission for,
+     * so a single account can't reliably cover even its own list
+     * (one bad page triggers retry-remove). With multiple accounts
+     * each holding the same page, the pool maximises coverage:
+     * whoever can join wins. Broker dedupes broadcast events by
+     * conversation+message id so subscribers don't see echoes.
      *
      * @param {Array<{accountId,token,userId,pageIds,cookie,name?}>} accounts
      */
@@ -995,28 +1000,19 @@ class RealtimeClientPool {
                 this.clients.delete(oldId);
             }
         }
-        // Deduplicate pages: first account in the list that owns a page wins.
-        const claimed = new Set();
-        const plan = [];
-        for (const acc of accounts) {
-            if (!acc.token || !acc.userId || !Array.isArray(acc.pageIds)) continue;
-            const myPages = [];
-            for (const pid of acc.pageIds) {
-                const s = String(pid);
-                if (!claimed.has(s)) {
-                    claimed.add(s);
-                    myPages.push(s);
-                }
-            }
-            if (!myPages.length) {
-                console.log(
-                    `[POOL] Account ${acc.name || acc.accountId?.slice(0, 8)} → 0 unique pages, skip`
-                );
-                continue;
-            }
-            plan.push({ ...acc, pageIds: myPages });
-        }
-        // Start clients for the deduped plan
+        // No page dedup — each account opens its own Pancake WS and
+        // joins all its pages. Broker-level event dedup handles echoes.
+        const plan = accounts.filter(
+            (acc) =>
+                acc &&
+                acc.token &&
+                acc.userId &&
+                Array.isArray(acc.pageIds) &&
+                acc.pageIds.length > 0
+        );
+        const allPages = new Set();
+        for (const acc of plan) for (const pid of acc.pageIds) allPages.add(String(pid));
+        // Start clients
         for (const acc of plan) {
             const accId = String(acc.accountId);
             let client = this.clients.get(accId);
@@ -1040,7 +1036,7 @@ class RealtimeClientPool {
         return {
             ok: true,
             poolSize: this.clients.size,
-            totalPages: claimed.size,
+            totalPages: allPages.size,
             plan: plan.map((p) => ({
                 accountId: p.accountId,
                 name: p.name,
@@ -1864,7 +1860,42 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // Broadcast to all connected frontend clients
+// Dedup window: when multiple pool clients are joined to the same
+// Pancake page (different accounts), Pancake emits the same event to
+// each — we'd otherwise broadcast it N times to every browser. Track
+// recent event keys for ~30s and skip echoes.
+const _broadcastSeen = new Map(); // key → timestamp
+const _BROADCAST_DEDUP_MS = 30_000;
+function _broadcastDedupKey(data) {
+    const t = data?.type;
+    const p = data?.payload;
+    if (!t || !p) return null;
+    if (t === 'pages:new_message') {
+        const m = p.message || {};
+        if (m.id) return `nm:${m.id}`;
+    }
+    if (t === 'pages:update_conversation') {
+        const conv = p.conversation || {};
+        const lmId = conv.last_message?.id;
+        if (conv.id && lmId) return `uc:${conv.id}:${lmId}`;
+        if (conv.id) return `uc:${conv.id}:${conv.updated_at || conv.last_sent_at || ''}`;
+    }
+    return null;
+}
 const broadcastToClients = (data) => {
+    const dedupKey = _broadcastDedupKey(data);
+    if (dedupKey) {
+        const now = Date.now();
+        const lastSeen = _broadcastSeen.get(dedupKey);
+        if (lastSeen && now - lastSeen < _BROADCAST_DEDUP_MS) return; // echo, skip
+        _broadcastSeen.set(dedupKey, now);
+        // GC old entries (lazy, every ~100 inserts)
+        if (_broadcastSeen.size > 500) {
+            for (const [k, t] of _broadcastSeen) {
+                if (now - t > _BROADCAST_DEDUP_MS) _broadcastSeen.delete(k);
+            }
+        }
+    }
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(data));
