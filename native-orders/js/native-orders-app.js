@@ -2209,7 +2209,7 @@
                             <div style="flex:1;"></div>
                             ${totalHtml}
                         </div>
-                        <div id="interactionsBody" class="w2p-scroll-area" style="flex:1;min-height:0;padding:0;background:#f8fafc;">${
+                        <div id="interactionsBody" class="w2p-scroll-area" style="flex:1;min-height:0;padding:0;background:#ebebeb;">${
                             tab === 'messages'
                                 ? _renderMessagesPanel(order)
                                 : _renderCommentsPanel(order)
@@ -2442,16 +2442,13 @@
             </div>`;
     }
 
-    function _renderInboxRightPanel(order, defaultTab = 'info') {
-        // Tạo-đơn pane intentionally not implemented here — web 2.0's
-        // native order system already handles order creation. The right
-        // panel just shows customer info + past orders for context.
+    function _renderInboxRightPanel(order, _defaultTab = 'info') {
+        // Right panel shows customer + current-order context only.
+        // Order creation lives in web 2.0's tpos-pancake page — not
+        // re-implemented here per user direction.
         return `
             <div class="w2-inbox-right-tabs">
                 <button class="w2-inbox-right-tab is-active" data-rtab="info">Thông tin</button>
-                <a class="w2-inbox-right-tab" data-rtab="create" href="../tpos-pancake/index.html?phone=${encodeURIComponent(order.phone || '')}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-                    Tạo đơn <i data-lucide="external-link" style="width:11px;height:11px;"></i>
-                </a>
             </div>
             <div class="w2-inbox-right-body" id="w2InboxRightBody">
                 ${_renderInfoTab(order)}
@@ -2645,8 +2642,14 @@
                     const cName = row.dataset.cName;
                     if (!fbId) return;
                     _switchChatToCustomer(order, fbId, cName);
+                    // Mark row read locally
+                    row.classList.remove('is-unread');
+                    row.querySelector('.w2-inbox-conv-badge')?.remove();
                 });
             });
+            // Subscribe to page-wide WS so the sidebar updates without a
+            // full re-fetch when new messages arrive in other conversations.
+            _wireSidebarRealtime(order);
         } catch (e) {
             console.warn('[NativeOrders] sidebar load failed:', e.message);
             list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#dc2626;font-size:12px;text-align:center;">Lỗi tải: ${escapeHtml(e.message)}</div>`;
@@ -2679,17 +2682,112 @@
         const avatarHtml = avatarUrl
             ? `<img class="w2-inbox-conv-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(cName)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-inbox-conv-avatar&quot; style=&quot;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;&quot;>${escapeHtml(initial)}</div>'" />`
             : `<div class="w2-inbox-conv-avatar" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">${escapeHtml(initial)}</div>`;
-        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}">
+        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}">
             ${avatarHtml}
             <div class="w2-inbox-conv-body">
                 <div class="w2-inbox-conv-top">
-                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(cName)}</span>
+                    <span class="w2-inbox-conv-name">${escapeHtml(cName)}</span>
                     <span class="w2-inbox-conv-time">${escapeHtml(time)}</span>
                 </div>
                 <div class="w2-inbox-conv-preview">${escapeHtml(lastMsg)}</div>
             </div>
             ${unread ? `<span class="w2-inbox-conv-badge" title="${unread} chưa đọc"></span>` : ''}
         </div>`;
+    }
+
+    /**
+     * Sidebar real-time: when a new message lands in any conversation on
+     * this page, find the matching `.w2-inbox-conv` row, refresh its
+     * preview/time, bump it to the top, and increment the unread badge
+     * (unless that conversation is the one currently open in the chat
+     * panel — that one is being read live so it stays read).
+     */
+    let _sidebarWsSub = null;
+    function _wireSidebarRealtime(order) {
+        if (_sidebarWsSub?.unsubscribe) {
+            try {
+                _sidebarWsSub.unsubscribe();
+            } catch {
+                /* ignore */
+            }
+        }
+        if (!window.Web2Realtime?.subscribe) return;
+        _sidebarWsSub = window.Web2Realtime.subscribe({
+            types: ['pages:new_message'],
+            onEvent: (evt) => _handleSidebarWsEvent(evt, order),
+            debounceMs: 80,
+        });
+    }
+
+    function _handleSidebarWsEvent(evt, order) {
+        const list = document.getElementById('w2InboxConvList');
+        if (!list) return;
+        const m = evt.payload?.message || evt.payload || {};
+        const convId = String(m.conversation_id || m.conversationId || '');
+        const fromCustomer = m.from?.id || m.customer?.id || m.from_customer_id;
+        const fbId = String(fromCustomer || '');
+        const lastText = (m.message || m.text || m.snippet || '').slice(0, 120) || '(media)';
+        const time = new Date(
+            m.inserted_at || m.created_time || m.timestamp || Date.now()
+        ).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+        // Find row by convId first, else by fbId
+        let row =
+            (convId &&
+                list.querySelector(`.w2-inbox-conv[data-conv-id="${CSS.escape(convId)}"]`)) ||
+            (fbId && list.querySelector(`.w2-inbox-conv[data-fb-id="${CSS.escape(fbId)}"]`));
+
+        // Detect outgoing (staff) vs incoming
+        const isOutgoing = !!(m.from_admin || m.is_admin || m.from?.admin_id);
+        const isCurrentlyOpen = _chatState?.convId && String(_chatState.convId) === convId;
+
+        if (row) {
+            // Update preview + time
+            const preview = row.querySelector('.w2-inbox-conv-preview');
+            const timeEl = row.querySelector('.w2-inbox-conv-time');
+            if (preview) preview.textContent = lastText;
+            if (timeEl) timeEl.textContent = time;
+            // Mark unread for incoming messages on conversations NOT
+            // currently being viewed
+            if (!isOutgoing && !isCurrentlyOpen) {
+                row.classList.add('is-unread');
+                if (!row.querySelector('.w2-inbox-conv-badge')) {
+                    const dot = document.createElement('span');
+                    dot.className = 'w2-inbox-conv-badge';
+                    dot.title = 'Tin nhắn mới';
+                    row.appendChild(dot);
+                }
+            }
+            // Bump to top of list
+            if (list.firstChild !== row) list.prepend(row);
+        } else if (fbId) {
+            // First-time-seen conversation on this page — prepend a
+            // minimal row. Falls back to fetching the full sidebar
+            // again if rendering ad-hoc gets out of sync.
+            const synthetic = {
+                id: convId,
+                customers: [{ fb_id: fbId, name: m.from?.name || 'Khách' }],
+                from: m.from,
+                last_message: { message: lastText },
+                updated_at: m.inserted_at || Date.now(),
+                page_id: order.fbPageId,
+                unread_count: isOutgoing ? 0 : 1,
+            };
+            const tmp = document.createElement('div');
+            tmp.innerHTML = _convRowHtml(synthetic, order);
+            const newRow = tmp.firstElementChild;
+            if (newRow) {
+                newRow.addEventListener('click', () => {
+                    const customerId = newRow.dataset.fbId;
+                    const cName = newRow.dataset.cName;
+                    if (!customerId) return;
+                    _switchChatToCustomer(order, customerId, cName);
+                    newRow.classList.remove('is-unread');
+                    newRow.querySelector('.w2-inbox-conv-badge')?.remove();
+                });
+                list.prepend(newRow);
+            }
+        }
     }
 
     /**
@@ -2724,7 +2822,7 @@
         }
         return `
             <div style="display:flex;flex-direction:column;height:100%;position:relative;">
-                <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:0;background:#f8fafc;padding:18px 28px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#475569;">
+                <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:0;background:#ebebeb;padding:14px 22px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#1d2939;font-family:Roboto,Helvetica,Arial,sans-serif;">
                     <div style="color:#94a3b8;font-style:italic;text-align:center;padding:60px 0;">
                         <i data-lucide="loader" style="width:24px;height:24px;display:block;margin:0 auto 10px;animation:spin 1s linear infinite;"></i>
                         Đang tải hội thoại…
@@ -3163,9 +3261,12 @@
             ? `<button class="w2-chat-reply-btn" data-action="reply-to" data-msg-id="${escapeHtml(m.id)}" title="Trả lời tin này"><i data-lucide="corner-up-left" style="width:11px;height:11px;"></i></button>`
             : '';
 
+        // Pancake colour scheme (live-inspected): outgoing is light-green
+        // #dcf8c6 with black text and a uniform 12px radius; incoming is
+        // pure white with asymmetric 12/12/12/4 radius (Messenger style).
         const bubbleStyle = stickerOnly
             ? `background:transparent;border:0;padding:0;box-shadow:none;`
-            : `background:${isOutgoing ? '#7c3aed' : '#fff'};color:${isOutgoing ? '#fff' : '#0f172a'};padding:7px 11px;border-radius:${isOutgoing ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};border:1px solid ${isOutgoing ? '#7c3aed' : '#e5e7eb'};`;
+            : `background:${isOutgoing ? '#dcf8c6' : '#ffffff'};color:#1d2939;padding:6px 12px;border-radius:${isOutgoing ? '12px' : '12px 12px 12px 4px'};border:1px solid ${isOutgoing ? '#cdebb5' : '#ececec'};`;
 
         // Avatar for incoming bubbles only (Messenger style — show on the
         // last of a consecutive group of same-sender messages).
@@ -3226,8 +3327,24 @@
                 word-break: break-word;
             }
 
-            /* ─── INBOX 3-COL SHELL ─────────────────────────────── */
-            .w2-inbox-card { background: #fff; }
+            /* ─── INBOX 3-COL SHELL — Pancake palette ─────────────
+               Tokens captured live from pancake.vn admin inbox:
+                 font-family   Roboto, Helvetica, Arial, sans-serif
+                 body          14px / #1d2939 on #fff
+                 conv-row      86px tall, unread bg #dde1e7
+                 search input  14px, transparent inside #f5f6f8 capsule
+                 filter btn    #eaecf0 bg, #344054 text, 32px height
+                 chat header   68px, white, border-bottom 1px #ddd
+                 incoming bub  #fff, radius 12 12 12 4
+                 outgoing bub  #dcf8c6 (light-green), radius 12px
+                 day separator centered pill
+            */
+            .w2-inbox-card {
+                background: #fff;
+                font-family: Roboto, Helvetica, Arial, sans-serif;
+                color: #1d2939;
+                font-size: 14px;
+            }
             .w2-inbox-grid {
                 flex: 1;
                 display: grid;
@@ -3235,17 +3352,17 @@
                 min-height: 0;
             }
             .w2-inbox-sidebar {
-                border-right: 1px solid #e5e7eb;
+                border-right: 1px solid #dddddd;
                 display: flex;
                 flex-direction: column;
                 min-height: 0;
                 background: #fff;
             }
             .w2-inbox-sb-head {
-                padding: 10px 12px;
-                border-bottom: 1px solid #e5e7eb;
+                padding: 12px;
+                border-bottom: 1px solid #dddddd;
                 display: flex;
-                gap: 6px;
+                gap: 8px;
                 align-items: center;
                 flex-shrink: 0;
                 background: #fff;
@@ -3255,95 +3372,119 @@
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                background: #f1f5f9;
-                border: 1px solid #e2e8f0;
+                background: #f5f6f8;
+                border: 1px solid #e6e8ed;
                 border-radius: 6px;
-                padding: 5px 9px;
+                padding: 0 10px;
+                height: 32px;
+                box-sizing: border-box;
             }
             .w2-inbox-sb-search input {
                 flex: 1;
                 background: transparent;
                 border: 0;
                 outline: 0;
-                font-size: 12px;
-                color: #0f172a;
+                font-size: 14px;
+                color: #1d2939;
                 min-width: 0;
+                font-family: inherit;
+                height: 100%;
             }
+            .w2-inbox-sb-search input::placeholder { color: #98a2b3; }
             .w2-inbox-sb-filter {
-                border: 1px solid #e2e8f0;
-                background: #fff;
-                color: #475569;
-                font-size: 11px;
-                font-weight: 600;
-                padding: 6px 10px;
+                border: 0;
+                background: #eaecf0;
+                color: #344054;
+                font-size: 14px;
+                font-weight: 500;
+                padding: 0 12px;
+                height: 32px;
                 border-radius: 6px;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
-                gap: 4px;
+                gap: 5px;
                 flex-shrink: 0;
+                font-family: inherit;
             }
-            .w2-inbox-sb-filter:hover { background: #f1f5f9; color: #0f172a; }
+            .w2-inbox-sb-filter:hover { background: #dfe2e7; color: #1d2939; }
             .w2-inbox-sb-list {
                 flex: 1;
                 min-height: 0;
                 overflow-y: auto;
                 overflow-x: hidden;
-                padding: 4px 0;
+                padding: 0;
+                background: #fff;
             }
             .w2-inbox-sb-empty { padding: 6px 0; }
             .w2-inbox-conv {
                 display: flex;
                 gap: 10px;
-                padding: 10px 12px;
+                padding: 12px;
                 cursor: pointer;
-                border-bottom: 1px solid #f1f5f9;
                 position: relative;
+                background: #fff;
+                transition: background 0.12s ease;
+                min-height: 86px;
+                box-sizing: border-box;
+                align-items: center;
             }
-            .w2-inbox-conv:hover { background: #f8fafc; }
-            .w2-inbox-conv.is-active { background: #f3e8ff; }
-            .w2-inbox-conv.is-unread { background: #fefce8; }
+            .w2-inbox-conv:hover { background: #f5f6f8; }
+            .w2-inbox-conv.is-active { background: #e6f7ff; }
+            .w2-inbox-conv.is-active:hover { background: #d3efff; }
+            .w2-inbox-conv.is-unread { background: #dde1e7; }
+            .w2-inbox-conv.is-unread:hover { background: #d2d7df; }
+            .w2-inbox-conv.is-unread .w2-inbox-conv-name { font-weight: 600; }
+            .w2-inbox-conv.is-unread .w2-inbox-conv-preview { color: #1d2939; font-weight: 500; }
             .w2-inbox-conv-avatar {
-                width: 40px; height: 40px;
+                width: 48px; height: 48px;
                 border-radius: 50%;
                 object-fit: cover;
                 flex-shrink: 0;
-                background: #e2e8f0;
+                background: #e6e8ed;
             }
             .w2-inbox-conv-body { flex: 1; min-width: 0; }
             .w2-inbox-conv-top {
                 display: flex; align-items: center; justify-content: space-between;
-                font-size: 12px; font-weight: 600; color: #0f172a;
-                margin-bottom: 2px;
+                font-size: 14px; font-weight: 400; color: #1d2939;
+                margin-bottom: 4px;
+                gap: 6px;
             }
-            .w2-inbox-conv-time { font-size: 10px; color: #94a3b8; font-weight: 500; }
-            .w2-inbox-conv-preview {
-                font-size: 11px; color: #64748b;
+            .w2-inbox-conv-name {
                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                min-width: 0;
+            }
+            .w2-inbox-conv-time { font-size: 12px; color: #98a2b3; font-weight: 400; flex-shrink: 0; }
+            .w2-inbox-conv-preview {
+                font-size: 13px; color: #667085;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                line-height: 1.35;
             }
             .w2-inbox-conv-badge {
                 position: absolute;
-                top: 8px; right: 12px;
-                width: 7px; height: 7px;
+                top: 14px; right: 14px;
+                width: 8px; height: 8px;
                 border-radius: 50%;
-                background: #ef4444;
+                background: #f04438;
             }
 
-            /* ─── INBOX CENTRE (chat panel) ─────────────────────── */
+            /* ─── INBOX CENTRE (chat panel) — Pancake palette ───── */
             .w2-inbox-center {
                 display: flex;
                 flex-direction: column;
                 min-height: 0;
-                background: #f8fafc;
+                background: #ebebeb; /* Pancake's chat-area neutral gray */
             }
             .w2-inbox-header {
-                padding: 10px 16px;
-                border-bottom: 1px solid #e5e7eb;
+                padding: 4px 12px 6px;
+                border-bottom: 1px solid #dddddd;
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                background: linear-gradient(135deg, #faf5ff 0%, #fdfaff 100%);
+                background: #ffffff;
                 flex-shrink: 0;
+                height: 68px;
+                box-sizing: border-box;
             }
             .w2-inbox-icon-btn {
                 width: 30px; height: 30px;
@@ -4048,6 +4189,14 @@
             } catch {
                 /* ignore */
             }
+        }
+        if (_sidebarWsSub?.unsubscribe) {
+            try {
+                _sidebarWsSub.unsubscribe();
+            } catch {
+                /* ignore */
+            }
+            _sidebarWsSub = null;
         }
         _chatState = null;
     }
