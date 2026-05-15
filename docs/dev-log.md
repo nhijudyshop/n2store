@@ -25,6 +25,37 @@
 
 ## 2026-05-15
 
+### [so-order] Bỏ toast sync + Tổng HĐ luôn render theo tab.currency
+
+**User**: "Bỏ cái toast thông báo 'Đồng bộ dữ liệu từ thiết bị khác' và HÀ NỘI thiết lập tiền tệ VND mà sao có CNY ở bảng?"
+
+**Files**: `so-order/js/so-order-app.js`
+
+**Fix 1 — Toast**: Bỏ `notify('Đồng bộ dữ liệu từ thiết bị khác', 'info')` trong `remoteHandler` ([so-order-app.js:861-864](../so-order/js/so-order-app.js#L861-L864)). Remote sync vẫn re-render qua `renderAll()`, chỉ ngắt notification ồn ào.
+
+**Fix 2 — Currency mismatch ở Tổng HĐ**: Shipment có field `contractCurrency` per-shipment, lệch với `tab.currency`. Khi user tạo Đợt 2 trong tab HÀ NỘI (VND) với contractCurrency=CNY, display ra `25.000,00 CNY (87.500.000₫)` — mâu thuẫn với badge tab.
+
+**Root cause**: `shipmentHeaderHtml` cố tình render dual (raw + converted): comment cũ ghi "contractCurrency is independent of tab currency". Khi tab=VND mà shipment=CNY thì raw=CNY xuất hiện đầu, VND ở dấu ngoặc.
+
+**Fix**: Đổi sang single display theo `tab.currency`. Convert raw → VND trung gian → tab.currency:
+
+```js
+const rawVnd = contractRaw * currencyToVndRate(contractCur, tab);
+const tabToVnd = currencyToVndRate(tab.currency, tab) || 1;
+const displayAmount = rawVnd / tabToVnd;
+const contractDisplayText = fmtCurrency(displayAmount, tab.currency || 'VND');
+```
+
+Bỏ block `${contractCur !== 'VND' ? ... : ''}` trong HTML, chỉ giữ 1 span.
+
+**Data**: Không migrate. Shipment vẫn lưu `contractCurrency` + `contractAmount` raw. Chỉ display thay đổi → user có thể switch tab VND↔CNY, mỗi tab tự convert ra currency của mình.
+
+**Verify live**: `localhost:8089/so-order/` HÀ NỘI: Đợt 2 hiển thị `Tổng HĐ: 87.500.000₫` (single, không còn CNY raw); Đợt 1 vẫn `13.504₫`. HƯƠNG CHÂU rỗng (chưa có shipment) → logic CNY chưa render-test nhưng formula symmetric.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders] Fix auto-generate product code: jump B2246 → B19752 vì query Product variants
 
 **User**: "tìm nguyên nhân ở hình sao tự động tạo mã lại tạo ra B19752 và mã B19751 hiện tại đang ở đâu".

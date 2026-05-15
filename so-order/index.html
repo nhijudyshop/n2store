@@ -1,0 +1,390 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Sổ Order — N2Store</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260515a" />
+        <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260515a" />
+        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260515a" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260515a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <!-- Firebase compat (Firestore sync for cross-device column visibility + data) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/notification-system.js"></script>
+        <script src="../web2-shared/web2-effects.js?v=20260515a"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content" style="overflow: auto; height: 100vh">
+                <!-- Page header — title + counters + column settings -->
+                <header class="so-page-head">
+                    <div class="so-page-title">
+                        <i data-lucide="book-marked"></i>
+                        <h1>Sổ Order</h1>
+                    </div>
+                    <div class="so-page-counters">
+                        <span class="counter-pill" id="soTotalRows">— dòng</span>
+                        <span class="counter-pill" id="soTotalQty">SL: 0</span>
+                        <button id="soColumnSettingsBtn" class="btn-secondary" type="button">
+                            <i data-lucide="settings-2"></i>
+                            Ẩn/Hiện cột
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Country tab strip — HÀ NỘI, HƯƠNG CHÂU, + add -->
+                <section class="so-tab-strip-wrap">
+                    <div class="so-tab-strip" id="soTabStrip">
+                        <!-- Tabs injected by JS -->
+                    </div>
+                    <button id="soAddTabBtn" class="so-tab-add" type="button" title="Thêm tab mới">
+                        <i data-lucide="plus"></i>
+                    </button>
+                    <div class="so-tab-actions">
+                        <button
+                            id="soTabSettingsBtn"
+                            class="btn-secondary"
+                            type="button"
+                            title="Cài đặt tab (tiền tệ, tỉ giá)"
+                        >
+                            <i data-lucide="cog"></i>
+                            <span id="soActiveTabLabel">—</span>
+                        </button>
+                        <button id="soCreateOrderBtn" class="btn-primary" type="button">
+                            <i data-lucide="plus-square"></i>
+                            Tạo Đơn Hàng
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Table -->
+                <section class="so-table-wrap">
+                    <div class="so-table-scroll">
+                        <table class="so-table data-table" id="soTable">
+                            <thead>
+                                <tr id="soTableHeadRow">
+                                    <!-- columns injected -->
+                                </tr>
+                            </thead>
+                            <tbody id="soTableBody">
+                                <!-- rows injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="so-empty-state" id="soEmptyState" hidden>
+                        <i data-lucide="inbox"></i>
+                        <p>Chưa có order nào trong tab này.</p>
+                        <p class="so-empty-hint">
+                            Bấm <strong>Tạo Đơn Hàng</strong> để thêm dòng đầu tiên.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Footer totals -->
+                <section class="so-totals">
+                    <div class="so-total-pill">
+                        <span class="so-total-label">Tổng SL:</span>
+                        <span class="so-total-value" id="soFootTotalQty">0</span>
+                    </div>
+                    <div class="so-total-pill so-total-pill-input">
+                        <label for="soFootDiscount" class="so-total-label">Giảm Giá (VNĐ):</label>
+                        <input
+                            type="number"
+                            id="soFootDiscount"
+                            min="0"
+                            step="1000"
+                            value="0"
+                            class="so-total-input"
+                        />
+                    </div>
+                    <div class="so-total-pill so-total-pill-input">
+                        <label for="soFootShipping" class="so-total-label">Phí Ship (VNĐ):</label>
+                        <input
+                            type="number"
+                            id="soFootShipping"
+                            min="0"
+                            step="1000"
+                            value="0"
+                            class="so-total-input"
+                        />
+                    </div>
+                    <div class="so-total-pill so-total-pill-strong">
+                        <span class="so-total-label">Tổng tiền (VNĐ):</span>
+                        <span class="so-total-value" id="soFootGrandTotal">0₫</span>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Create / Edit Order modal -->
+        <div class="so-modal" id="soOrderModal" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <div class="so-modal-panel">
+                <header class="so-modal-head">
+                    <h2 id="soModalTitle">Tạo Đơn Hàng</h2>
+                    <button class="so-modal-close" type="button" data-so-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <form id="soOrderForm" class="so-modal-body" autocomplete="off">
+                    <fieldset class="so-form-fieldset">
+                        <legend>Thông tin lô (gộp theo Ngày + Đợt)</legend>
+                        <div class="so-form-grid">
+                            <label class="so-field">
+                                <span>Ngày giao</span>
+                                <input type="date" name="shipDate" required />
+                            </label>
+                            <label class="so-field">
+                                <span>Đợt</span>
+                                <input type="text" name="shipBatch" placeholder="vd: 1, 2A…" />
+                            </label>
+                            <label class="so-field">
+                                <span>Số Kiện</span>
+                                <input type="number" name="shipCaseCount" min="0" value="0" />
+                            </label>
+                            <label class="so-field">
+                                <span>Tổng KG</span>
+                                <input
+                                    type="number"
+                                    name="shipWeightKg"
+                                    min="0"
+                                    step="any"
+                                    value="0"
+                                />
+                            </label>
+                            <label class="so-field">
+                                <span
+                                    >Tiền hợp đồng
+                                    <span class="so-currency-hint" id="soContractCurHint"></span>
+                                </span>
+                                <input
+                                    type="number"
+                                    name="shipContractAmount"
+                                    min="0"
+                                    step="any"
+                                    value="0"
+                                />
+                            </label>
+                            <label class="so-field">
+                                <span>Tiền tệ HĐ</span>
+                                <select name="shipContractCurrency">
+                                    <option value="VND">VND</option>
+                                    <option value="CNY">CNY</option>
+                                    <option value="USD">USD</option>
+                                    <option value="KRW">KRW</option>
+                                    <option value="JPY">JPY</option>
+                                    <option value="THB">THB</option>
+                                    <option value="EUR">EUR</option>
+                                </select>
+                            </label>
+                        </div>
+                    </fieldset>
+                    <fieldset class="so-form-fieldset">
+                        <legend>Thông tin dòng order</legend>
+                        <div class="so-form-grid">
+                            <label class="so-field">
+                                <span>NCC</span>
+                                <input type="text" name="supplier" placeholder="Tên NCC" />
+                            </label>
+                            <label class="so-field">
+                                <span>Tên SP</span>
+                                <input type="text" name="productName" required />
+                            </label>
+                            <label class="so-field">
+                                <span>Biến Thể</span>
+                                <input type="text" name="variant" placeholder="Size, màu…" />
+                            </label>
+                            <label class="so-field so-field-small">
+                                <span>SL</span>
+                                <input type="number" name="qty" min="0" value="1" required />
+                            </label>
+                            <label class="so-field">
+                                <span
+                                    >Giá Bán
+                                    <span class="so-currency-hint" id="soSellCurHint"></span>
+                                </span>
+                                <input
+                                    type="number"
+                                    name="sellPrice"
+                                    min="0"
+                                    step="any"
+                                    value="0"
+                                />
+                            </label>
+                            <label class="so-field">
+                                <span
+                                    >Giá Nhập
+                                    <span class="so-currency-hint" id="soCostCurHint"></span>
+                                </span>
+                                <input
+                                    type="number"
+                                    name="costPrice"
+                                    min="0"
+                                    step="any"
+                                    value="0"
+                                />
+                            </label>
+                            <label class="so-field so-field-wide">
+                                <span>Ảnh SP (URL hoặc tải lên)</span>
+                                <div class="so-img-input">
+                                    <input
+                                        type="url"
+                                        name="productImage"
+                                        placeholder="https://..."
+                                    />
+                                    <button
+                                        type="button"
+                                        class="btn-secondary"
+                                        data-upload="productImage"
+                                    >
+                                        <i data-lucide="upload"></i> Tải
+                                    </button>
+                                </div>
+                                <div class="so-img-preview" data-preview-for="productImage"></div>
+                            </label>
+                            <label class="so-field so-field-wide">
+                                <span>Ảnh Hóa Đơn</span>
+                                <div class="so-img-input">
+                                    <input
+                                        type="url"
+                                        name="invoiceImage"
+                                        placeholder="https://..."
+                                    />
+                                    <button
+                                        type="button"
+                                        class="btn-secondary"
+                                        data-upload="invoiceImage"
+                                    >
+                                        <i data-lucide="upload"></i> Tải
+                                    </button>
+                                </div>
+                                <div class="so-img-preview" data-preview-for="invoiceImage"></div>
+                            </label>
+                            <label class="so-field so-field-wide">
+                                <span>Ghi chú</span>
+                                <textarea name="note" rows="2"></textarea>
+                            </label>
+                            <label class="so-field so-field-wide">
+                                <span>Ghi chú CP (chi phí / nội bộ)</span>
+                                <textarea name="costNote" rows="2"></textarea>
+                            </label>
+                            <label class="so-field">
+                                <span>Trạng Thái</span>
+                                <select name="status">
+                                    <option value="draft">Nháp</option>
+                                    <option value="ordered">Đã Đặt</option>
+                                    <option value="received">Đã Nhận</option>
+                                    <option value="cancelled">Đã Hủy</option>
+                                </select>
+                            </label>
+                        </div>
+                    </fieldset>
+                </form>
+                <footer class="so-modal-foot">
+                    <button class="btn-secondary" type="button" data-so-close>Hủy</button>
+                    <button class="btn-primary" type="submit" form="soOrderForm">
+                        <i data-lucide="save"></i> Lưu (Nháp)
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Tab Settings modal (currency + rate) -->
+        <div class="so-modal" id="soTabSettingsModal" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <div class="so-modal-panel so-modal-panel-narrow">
+                <header class="so-modal-head">
+                    <h2>Cài đặt tab</h2>
+                    <button class="so-modal-close" type="button" data-so-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <form id="soTabSettingsForm" class="so-modal-body">
+                    <label class="so-field">
+                        <span>Tên tab</span>
+                        <input type="text" name="label" required />
+                    </label>
+                    <label class="so-field">
+                        <span>Tiền tệ</span>
+                        <select name="currency">
+                            <option value="VND">VND – Đồng</option>
+                            <option value="CNY">CNY – Nhân dân tệ</option>
+                            <option value="USD">USD – Đô la Mỹ</option>
+                            <option value="KRW">KRW – Won</option>
+                            <option value="JPY">JPY – Yên</option>
+                            <option value="THB">THB – Baht</option>
+                            <option value="EUR">EUR – Euro</option>
+                        </select>
+                    </label>
+                    <label class="so-field">
+                        <span>Tỉ giá → VNĐ (1 đơn vị tiền tệ = ? VNĐ)</span>
+                        <input type="number" name="rate" min="0" step="any" required />
+                    </label>
+                </form>
+                <footer class="so-modal-foot">
+                    <button class="btn-danger" type="button" id="soTabDeleteBtn">
+                        <i data-lucide="trash-2"></i> Xóa tab
+                    </button>
+                    <div class="so-modal-foot-spacer"></div>
+                    <button class="btn-secondary" type="button" data-so-close>Hủy</button>
+                    <button class="btn-primary" type="submit" form="soTabSettingsForm">
+                        <i data-lucide="save"></i> Lưu
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Column visibility modal -->
+        <div class="so-modal" id="soColumnModal" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <div class="so-modal-panel so-modal-panel-narrow">
+                <header class="so-modal-head">
+                    <h2>Ẩn / hiện cột</h2>
+                    <button class="so-modal-close" type="button" data-so-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="so-modal-body" id="soColumnList">
+                    <!-- column toggles injected -->
+                </div>
+                <footer class="so-modal-foot">
+                    <button class="btn-secondary" type="button" data-so-close>Đóng</button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Image lightbox -->
+        <div class="so-lightbox" id="soLightbox" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <img id="soLightboxImg" alt="" />
+        </div>
+
+        <script src="../web2-shared/tpos-sidebar.js?v=20260515a"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () =>
+                window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
+            );
+        </script>
+
+        <script src="js/so-order-storage.js?v=20260515a"></script>
+        <script src="js/so-order-app.js?v=20260515a"></script>
+    </body>
+</html>
