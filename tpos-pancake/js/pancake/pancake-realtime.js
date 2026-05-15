@@ -94,53 +94,135 @@ const PancakeRealtime = {
             return;
         }
 
+        // Mode picks broker base. start-multi must hit the broker directly
+        // (CF worker proxies /api/realtime/* to n2store-fallback which has
+        // no start-multi route — see commit 28303f6).
+        var mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'server';
+        var brokerHttp =
+            mode === 'localhost'
+                ? 'http://localhost:3000'
+                : 'https://n2store-realtime.onrender.com';
+        var brokerWs =
+            mode === 'localhost' ? 'ws://localhost:3000' : 'wss://n2store-realtime.onrender.com';
+
+        try {
+            // Prefer multi-account so every page user has saved (House +
+            // Store ở nhiều account) đều có WS cover, không phụ thuộc 1
+            // JWT đang hoạt động.
+            var startResult = await this._startMultiAccount(brokerHttp);
+            if (!startResult.ok) {
+                console.warn(
+                    '[PK-RT] start-multi failed:',
+                    startResult.reason,
+                    '→ fallback single'
+                );
+                startResult = await this._startSingleAccount(brokerHttp);
+            }
+
+            if (startResult.ok) {
+                this._connectToProxy(brokerWs);
+                if (window.notificationManager) {
+                    var msg = startResult.poolSize
+                        ? 'Realtime online (' +
+                          startResult.poolSize +
+                          ' account, ' +
+                          startResult.totalPages +
+                          ' pages)'
+                        : 'Server đã bắt đầu nhận tin nhắn 24/7';
+                    window.notificationManager.show(msg, 'success');
+                }
+            } else {
+                console.error('[PK-RT] All server-mode starts failed:', startResult.reason);
+            }
+        } catch (error) {
+            console.error('[PK-RT] Server mode error:', error);
+        } finally {
+            this.isConnecting = false;
+        }
+    },
+
+    async _startMultiAccount(brokerHttp) {
+        // pancakeTokenManager.getAllAccounts() only keeps {token, uid, exp, name}
+        // — `pages` lives in localStorage `pancake_all_accounts`. Đọc trực tiếp.
+        var accounts = null;
+        try {
+            accounts = JSON.parse(localStorage.getItem('pancake_all_accounts') || '{}');
+        } catch (_) {
+            accounts = null;
+        }
+        if (!accounts || typeof accounts !== 'object') return { ok: false, reason: 'no_accounts' };
+        var entries = Object.entries(accounts);
+        if (!entries.length) return { ok: false, reason: 'no_accounts' };
+        var nowSec = Math.floor(Date.now() / 1000);
+        var payload = entries
+            .map(function (pair) {
+                var k = pair[0];
+                var v = pair[1];
+                if (!v || !v.token) return null;
+                if (v.exp && v.exp < nowSec) return null; // skip expired
+                var pageIds = (Array.isArray(v.pages) ? v.pages : [])
+                    .map(function (p) {
+                        return String((p && (p.id || p.page_id || p.pageId)) || '');
+                    })
+                    .filter(Boolean);
+                if (!pageIds.length) return null;
+                return {
+                    accountId: String(v.uid || k),
+                    name: v.name || v.fbName || null,
+                    token: v.token,
+                    userId: v.uid,
+                    pageIds: pageIds,
+                    cookie: 'jwt=' + v.token,
+                };
+            })
+            .filter(Boolean);
+        if (!payload.length) return { ok: false, reason: 'no_valid_accounts' };
+        try {
+            var r = await fetch(brokerHttp + '/api/realtime/start-multi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accounts: payload }),
+            });
+            if (!r.ok) {
+                var t = await r.text();
+                return { ok: false, reason: 'HTTP ' + r.status + ': ' + t.slice(0, 120) };
+            }
+            var data = await r.json();
+            return {
+                ok: true,
+                poolSize: data.poolSize,
+                totalPages: data.totalPages,
+                plan: data.plan,
+            };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    },
+
+    async _startSingleAccount(brokerHttp) {
         var token = await window.pancakeTokenManager.getToken();
         var tokenInfo = window.pancakeTokenManager.getTokenInfo();
         var userId = tokenInfo ? tokenInfo.uid : null;
         var state = window.PancakeState;
         if (state.pageIds.length === 0) await window.PancakeAPI.fetchPages();
         var pageIds = state.pageIds;
-
-        if (!token || !userId) {
-            this.isConnecting = false;
-            return;
-        }
-
-        var cookie = 'jwt=' + token;
-        var serverBaseUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        var mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'server';
-        if (mode === 'localhost') serverBaseUrl = 'http://localhost:3000';
-
+        if (!token || !userId) return { ok: false, reason: 'no_token_or_uid' };
         try {
-            var response = await fetch(serverBaseUrl + '/api/realtime/start', {
+            var r = await fetch(brokerHttp + '/api/realtime/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     token: token,
                     userId: userId,
                     pageIds: pageIds,
-                    cookie: cookie,
+                    cookie: 'jwt=' + token,
                 }),
             });
-            var data = await response.json();
-            if (data.success) {
-                var wsUrl =
-                    mode === 'localhost'
-                        ? 'ws://localhost:3000'
-                        : 'wss://n2store-realtime.onrender.com';
-                this._connectToProxy(wsUrl);
-                if (window.notificationManager)
-                    window.notificationManager.show(
-                        'Server đã bắt đầu nhận tin nhắn 24/7',
-                        'success'
-                    );
-            } else {
-                console.error('[PK-RT] Server start failed:', data.error);
-            }
-        } catch (error) {
-            console.error('[PK-RT] Server mode error:', error);
-        } finally {
-            this.isConnecting = false;
+            var data = await r.json();
+            if (data.success) return { ok: true };
+            return { ok: false, reason: data.error || 'unknown' };
+        } catch (e) {
+            return { ok: false, reason: e.message };
         }
     },
 
