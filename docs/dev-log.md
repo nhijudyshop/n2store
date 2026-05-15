@@ -25,6 +25,21 @@
 
 ## 2026-05-15
 
+### [issue-tracking] Nút copy bên cạnh mọi SĐT 10 số
+
+**User**: "tất cả định dạng sđt 10 số trang này có nút copy"
+
+**Approach**: Thêm 1 file enhancer auto-scan DOM, không cần sửa từng render site (script.js có 5+ chỗ render SĐT khác nhau).
+
+- New: [`issue-tracking/js/phone-copy.js`](../issue-tracking/js/phone-copy.js) — IIFE: TreeWalker quét text nodes match `\b0\d{9}\b`, wrap thành `<span class="phone-with-copy"><span class="phone-num">SĐT</span><button class="phone-copy-btn">📋</button></span>`. MutationObserver (debounce qua `requestAnimationFrame`) bắt cả nội dung render sau (ticket list, modal đơn khách, history). Skip `SCRIPT/STYLE/INPUT/TEXTAREA/BUTTON/OPTION/SELECT` + nested `.phone-with-copy`. Click delegated capture-phase → `navigator.clipboard.writeText` (fallback `execCommand('copy')` cho non-secure context) → flash dấu `✓` 1.1s.
+- CSS append: [`issue-tracking/css/style.css`](../issue-tracking/css/style.css) — `.phone-with-copy` (inline-flex gap 4px, no-wrap, tabular-nums) + `.phone-copy-btn` (18×18, opacity 0.65 → 1 hover, 12×12 SVG clipboard icon, focus-visible outline primary, `.copied` state xanh `#10b981`).
+- Wire: [`issue-tracking/index.html`](../issue-tracking/index.html) thêm `<script src="js/phone-copy.js">` sau `customer-orders-lookup.js`.
+- Verify Playwright (`localhost:8089/issue-tracking/index.html`): 95 tickets render → 96 `.phone-with-copy` wrappers (95 customer cells + 1 trong modal đơn khách), `scriptLoaded:true`, sample `["0944307373","0906306019","0977188680"]`.
+
+**Status**: ✅ Done
+
+---
+
 ### [native-orders] Chat modal — Pancake-faithful styling + realtime sidebar (Phase 1.5)
 
 **User**: (1) "Làm giao diện giống pancake — màu sắc, cỡ chữ, font, hover, tương tác, read/unread"; (2) "Realtime đoạn hội thoại bên trái và realtime tin nhắn ở giữa"; (3) "Bỏ nút tạo đơn bên phải".
