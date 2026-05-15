@@ -25,6 +25,36 @@
 
 ## 2026-05-15
 
+### [native-orders][web2-shared] Realtime — direct-WS-first (học tpos-pancake) + poll thành true fallback
+
+**User**: "hình 1 pancake nhận dữ liệu đoạn hội thoại liên tục — hình 2 không thấy nhận liên tục → được thì học bên tpos-pancake đi" + "polling chỉ là fallback khi realtime không dùng được — nếu socket realtime kết nối thì không cần polling".
+
+**Port browser-direct mode** ([web2-realtime.js](../web2-shared/web2-realtime.js)):
+
+- Rewrite thành **dual-mode**: `_connectDirect()` WS thẳng `wss://pancake.vn/socket/websocket?vsn=2.0.0` join Phoenix channels `users:{uid}` + `multiple_pages:{uid}` + `pages:{pageId}` (mỗi page). Heartbeat 30s. Forward `pages:new_message`/`update_conversation`/`order:tags_updated`. `_connectProxy()` Render broker fallback.
+- Public API giữ `subscribe/start/isConnected` + `mode()` returns `'direct'|'proxy'|'disconnected'`.
+- **Direct bị Pancake reject** từ non-pancake.vn origin (code 1006). Cần extension/reverse proxy mới spoof Origin được. Fallback proxy hoạt động → mode = `'proxy'`. Khi extension proxy có sẵn, direct sẽ tự takeover.
+
+**Polling = true fallback** ([\_startSidebarPoll](../native-orders/js/native-orders-app.js)):
+
+- Trước: `setInterval(poll, 12000)` chạy luôn dù WS up.
+- Sau: watchdog tick 5s check `isConnected()`. WS up → 0 poll. WS down >12s → fire 1 fallback. WS recover → ngừng.
+- Net: WS-connected steady state = **0 polls** (Playwright monkey-patched fetch, 60s, pollCount=0).
+
+**Verify**:
+
+- Direct WS readyState=3 (Pancake Origin policy block localhost) → proxy auto-active, `isConnected=true mode=proxy`.
+- Broker `/health/detailed`: connected=true, wsReadyState=1, refCounter=368, 0 reconnects.
+- 0 sidebar poll fetches trong 60s WS-connected window.
+
+**Limitation**: Render broker shared single Pancake user creds (Thu Huyền `c2177f20-...`) → chỉ join page `117267091364524` (NhiJudy House). Pages khác yêu cầu different creds → fallback poll-only. Broker multi-user là Phase 2 (ngoài scope).
+
+Bump: `web2-realtime.js?v=20260515b`, `native-orders-app.js?v=20260515r`.
+
+Status: ✅ Realtime cho NhiJudy House, 0 poll waste. Direct-WS attempt code-ready cho khi extension proxy có sẵn.
+
+---
+
 ### [native-orders][web2-shared] Realtime chat — subscribe `pages:update_conversation` cho chat thread (fix cảm-giác polling)
 
 **User**: "socket pancake hiện tại đang ở render hả → kiểm lại xem realtime trực tiếp → hiện tại hình như nó polling".

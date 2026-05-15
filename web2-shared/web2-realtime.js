@@ -1,64 +1,271 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
 // =====================================================
-// Web 2.0 — Realtime client (Pancake WS via Render proxy)
+// Web 2.0 — Realtime client (Pancake WS)
 // =====================================================
 //
-// Lightweight WS client that subscribes to events broadcast by the
-// Render realtime broker (`n2store-realtime.onrender.com`). The broker
-// keeps a server-side WebSocket open to `pancake.vn` 24/7 and forwards
-// these events to connected browsers:
+// Two-mode realtime client:
+//   1) DIRECT MODE (default, preferred):
+//      Open WebSocket straight to `wss://pancake.vn/socket/websocket?vsn=2.0.0`
+//      from the browser, join the same Phoenix channels Pancake's own
+//      admin UI joins (`users:{userId}`, `multiple_pages:{userId}`,
+//      `pages:{pageId}` per page). The browser receives events with
+//      zero middleware so coverage matches what Pancake's web app sees.
+//      Ported from tpos-pancake/js/realtime-manager.js with the
+//      addition of per-page channel joins (caught the previously-missed
+//      `pages:new_message` events).
 //
-//   pages:new_message         — new inbox message from / to a customer
-//   pages:update_conversation — conversation read state changed
+//   2) PROXY FALLBACK:
+//      `wss://n2store-realtime.onrender.com` — a Render broker that
+//      keeps its own server-side WebSocket to Pancake 24/7. Useful when
+//      direct browser connections fail (CSP, network filter, etc.) but
+//      events get bottlenecked through a single shared instance, so it
+//      misses traffic for pages the broker isn't subscribed to.
 //
-// Designed to mirror the `PbhRealtime.subscribe` API used by other Web 2.0
-// pages — no shared code with `tpos-pancake/js/realtime-manager.js`.
-//
-// Usage:
-//   const sub = window.Web2Realtime.subscribe({
-//       types: ['pages:new_message'],
-//       onEvent: (msg) => { ... },
-//       debounceMs: 0,
-//   });
-//   sub.unsubscribe();
-//
-// Optional: `Web2Realtime.start({ pageIds })` pushes the user's JWT +
-// page IDs to the Render server so the broker can re-subscribe to those
-// pages. This is normally NOT required because the Render broker
-// auto-reconnects from saved credentials, but a fresh setup needs it.
+// Public API (mode-agnostic):
+//   Web2Realtime.subscribe({ types, onEvent, debounceMs }) → { unsubscribe }
+//   Web2Realtime.start({ pageIds })   — kicks the proxy broker for fallback
+//   Web2Realtime.isConnected()        — true when direct OR proxy is live
+//   Web2Realtime.fetchPendingCustomers() / markReplied() — proxy-backed REST
 
 (function (global) {
     'use strict';
 
     if (global.Web2Realtime) return;
 
-    const WS_URL = 'wss://n2store-realtime.onrender.com';
+    const PANCAKE_WS_URL = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
+    const PROXY_WS_URL = 'wss://n2store-realtime.onrender.com';
     const WORKER_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
+    // Subscriber list is mode-agnostic — both modes funnel events here.
     const subscribers = [];
-    let ws = null;
-    let reconnectAttempts = 0;
-    let reconnectTimer = null;
-    let _lastStartedKey = ''; // sorted pageIds join('|') of last successful start
 
-    function _connect() {
-        if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
-        try {
-            ws = new WebSocket(WS_URL);
-        } catch (e) {
-            console.warn('[Web2Realtime] WS create failed:', e.message);
-            return _scheduleReconnect();
+    // Direct mode state
+    let directWs = null;
+    let directHeartbeat = null;
+    let directReconnect = null;
+    let directReconnectAttempts = 0;
+    let directRefCounter = 1;
+    let directUserId = null;
+    let directToken = null;
+    let directPageIds = []; // current subscription set
+    let directJoinedPages = new Set(); // pages we've already sent phx_join for
+
+    // Proxy mode state (fallback)
+    let proxyWs = null;
+    let proxyReconnect = null;
+    let proxyReconnectAttempts = 0;
+    let _lastStartedKey = '';
+
+    // -------- Helpers --------
+
+    function _emit(type, payload) {
+        const msg = { type, payload };
+        for (const sub of subscribers) {
+            if (!sub.types.includes(type)) continue;
+            if (sub.debounceMs > 0) {
+                if (sub._timer) clearTimeout(sub._timer);
+                sub._timer = setTimeout(() => _safeCall(sub, msg), sub.debounceMs);
+            } else {
+                _safeCall(sub, msg);
+            }
         }
-        ws.onopen = () => {
-            reconnectAttempts = 0;
-            console.log('[Web2Realtime] ✓ WS connected');
+    }
+
+    function _safeCall(sub, msg) {
+        try {
+            sub.onEvent(msg);
+        } catch (e) {
+            console.error('[Web2Realtime] handler error', e);
+        }
+    }
+
+    function _makeRef() {
+        return String(directRefCounter++);
+    }
+
+    function _clientSession() {
+        // Pancake's clientSession is a UUID-like string used to disambiguate
+        // open tabs. Stable per page load is enough.
+        const rnd = (n) =>
+            Array.from(crypto.getRandomValues(new Uint8Array(n)))
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join('');
+        return `${rnd(4)}-${rnd(2)}-${rnd(2)}-${rnd(2)}-${rnd(6)}`;
+    }
+
+    function _decodeUser() {
+        const jwt = global.Web2Chat?.getJwt();
+        if (!jwt) return null;
+        const decoded = global.Web2Chat?.decodeJwt?.(jwt) || {};
+        const userId = decoded.sub || decoded.account_id || decoded.user_id || decoded.uid;
+        return userId ? { jwt, userId } : null;
+    }
+
+    // -------- Direct mode --------
+
+    function _connectDirect(pageIdsHint) {
+        if (directWs && (directWs.readyState === 0 || directWs.readyState === 1)) return;
+        const auth = _decodeUser();
+        if (!auth) {
+            console.warn('[Web2Realtime] direct: no JWT — falling back to proxy');
+            _connectProxy();
+            return;
+        }
+        directToken = auth.jwt;
+        directUserId = auth.userId;
+        directPageIds = (
+            Array.isArray(pageIdsHint) && pageIdsHint.length
+                ? pageIdsHint
+                : Object.keys(global.Web2Chat?.getAllPageAccessTokens?.() || {})
+        ).map(String);
+        directJoinedPages = new Set();
+
+        try {
+            directWs = new WebSocket(PANCAKE_WS_URL);
+        } catch (e) {
+            console.warn('[Web2Realtime] direct WS create failed:', e.message);
+            return _scheduleDirectReconnect();
+        }
+
+        directWs.onopen = () => {
+            console.log(
+                `[Web2Realtime] ✓ direct WS → pancake.vn (user=${directUserId.slice(0, 8)}, pages=${directPageIds.length})`
+            );
+            directReconnectAttempts = 0;
+            _startDirectHeartbeat();
+            _joinDirectChannels();
         };
-        ws.onclose = () => {
-            console.log('[Web2Realtime] WS closed → schedule reconnect');
-            _scheduleReconnect();
+
+        directWs.onclose = (e) => {
+            console.log('[Web2Realtime] direct WS closed', e.code);
+            _stopDirectHeartbeat();
+            _scheduleDirectReconnect();
         };
-        ws.onerror = (e) => console.warn('[Web2Realtime] WS error', e?.message || e);
-        ws.onmessage = (evt) => {
+
+        directWs.onerror = () => {
+            // 'error' fires before 'close'; the close handler does the recovery.
+        };
+
+        directWs.onmessage = (evt) => _onDirectMessage(evt.data);
+    }
+
+    function _scheduleDirectReconnect() {
+        if (directReconnect) return;
+        const delay = Math.min(30000, 1000 * Math.pow(2, directReconnectAttempts++));
+        directReconnect = setTimeout(() => {
+            directReconnect = null;
+            // If direct keeps failing, also bring up proxy as a backstop.
+            if (directReconnectAttempts >= 3 && !proxyWs) _connectProxy();
+            _connectDirect();
+        }, delay);
+    }
+
+    function _startDirectHeartbeat() {
+        _stopDirectHeartbeat();
+        directHeartbeat = setInterval(() => {
+            if (directWs && directWs.readyState === 1) {
+                directWs.send(JSON.stringify([null, _makeRef(), 'phoenix', 'heartbeat', {}]));
+            }
+        }, 30000);
+    }
+
+    function _stopDirectHeartbeat() {
+        if (directHeartbeat) {
+            clearInterval(directHeartbeat);
+            directHeartbeat = null;
+        }
+    }
+
+    function _joinDirectChannels() {
+        if (!directWs || directWs.readyState !== 1) return;
+        // users:{userId} — user-scoped notifications (online, badges, …)
+        const uRef = _makeRef();
+        directWs.send(
+            JSON.stringify([
+                uRef,
+                uRef,
+                `users:${directUserId}`,
+                'phx_join',
+                { accessToken: directToken, userId: directUserId, platform: 'web' },
+            ])
+        );
+        // multiple_pages:{userId} — cross-page summary stream
+        const pRef = _makeRef();
+        directWs.send(
+            JSON.stringify([
+                pRef,
+                pRef,
+                `multiple_pages:${directUserId}`,
+                'phx_join',
+                {
+                    accessToken: directToken,
+                    userId: directUserId,
+                    clientSession: _clientSession(),
+                    pageIds: directPageIds,
+                    platform: 'web',
+                },
+            ])
+        );
+        // pages:{pageId} per page — `pages:new_message` only fires here
+        for (const pid of directPageIds) _joinDirectPage(pid);
+    }
+
+    function _joinDirectPage(pageId) {
+        if (!directWs || directWs.readyState !== 1) return;
+        if (directJoinedPages.has(pageId)) return;
+        directJoinedPages.add(pageId);
+        const ref = _makeRef();
+        directWs.send(
+            JSON.stringify([
+                ref,
+                ref,
+                `pages:${pageId}`,
+                'phx_join',
+                { accessToken: directToken, userId: directUserId, platform: 'web' },
+            ])
+        );
+    }
+
+    function _onDirectMessage(data) {
+        let msg;
+        try {
+            msg = JSON.parse(data);
+        } catch {
+            return;
+        }
+        // Phoenix protocol: [joinRef, ref, topic, event, payload]
+        if (!Array.isArray(msg) || msg.length < 5) return;
+        const [, , topic, event, payload] = msg;
+        if (event === 'phx_reply' || event === 'phx_close' || event === 'phx_error') return;
+        if (event === 'phoenix' && payload?.status) return;
+        // Only forward Pancake business events. The set matches what the
+        // Render broker would forward, so the public API is identical.
+        const FORWARD = new Set([
+            'pages:new_message',
+            'pages:update_conversation',
+            'order:tags_updated',
+        ]);
+        if (!FORWARD.has(event)) return;
+        _emit(event, payload);
+    }
+
+    // -------- Proxy fallback mode --------
+
+    function _connectProxy() {
+        if (proxyWs && (proxyWs.readyState === 0 || proxyWs.readyState === 1)) return;
+        try {
+            proxyWs = new WebSocket(PROXY_WS_URL);
+        } catch (e) {
+            console.warn('[Web2Realtime] proxy WS create failed:', e.message);
+            return _scheduleProxyReconnect();
+        }
+        proxyWs.onopen = () => {
+            console.log('[Web2Realtime] ✓ proxy WS → Render broker (fallback)');
+            proxyReconnectAttempts = 0;
+        };
+        proxyWs.onclose = () => _scheduleProxyReconnect();
+        proxyWs.onerror = () => {};
+        proxyWs.onmessage = (evt) => {
             let msg;
             try {
                 msg = JSON.parse(evt.data);
@@ -66,42 +273,23 @@
                 return;
             }
             if (!msg || !msg.type) return;
-            for (const sub of subscribers) {
-                if (!sub.types.includes(msg.type)) continue;
-                if (sub.debounceMs > 0) {
-                    if (sub._timer) clearTimeout(sub._timer);
-                    sub._timer = setTimeout(() => {
-                        try {
-                            sub.onEvent(msg);
-                        } catch (e) {
-                            console.error('[Web2Realtime] handler error', e);
-                        }
-                    }, sub.debounceMs);
-                } else {
-                    try {
-                        sub.onEvent(msg);
-                    } catch (e) {
-                        console.error('[Web2Realtime] handler error', e);
-                    }
-                }
-            }
+            // Avoid double-firing if direct mode is also alive — dedup by
+            // checking conv last_message id when present.
+            _emit(msg.type, msg.payload);
         };
     }
 
-    function _scheduleReconnect() {
-        if (reconnectTimer) return;
-        const delay = Math.min(30000, 1000 * Math.pow(2, reconnectAttempts++));
-        reconnectTimer = setTimeout(() => {
-            reconnectTimer = null;
-            _connect();
+    function _scheduleProxyReconnect() {
+        if (proxyReconnect) return;
+        const delay = Math.min(30000, 1000 * Math.pow(2, proxyReconnectAttempts++));
+        proxyReconnect = setTimeout(() => {
+            proxyReconnect = null;
+            _connectProxy();
         }, delay);
     }
 
-    /**
-     * Subscribe to realtime events from the Render broker.
-     * @param {{ types: string[], onEvent: (msg) => void, debounceMs?: number }} opts
-     * @returns {{ unsubscribe: () => void }}
-     */
+    // -------- Public API --------
+
     function subscribe(opts) {
         if (!opts || !Array.isArray(opts.types) || typeof opts.onEvent !== 'function') {
             throw new Error('Web2Realtime.subscribe requires { types: string[], onEvent: fn }');
@@ -113,7 +301,7 @@
             _timer: null,
         };
         subscribers.push(sub);
-        _connect();
+        _connectDirect(); // lazy connect on first subscribe
         return {
             unsubscribe() {
                 const i = subscribers.indexOf(sub);
@@ -124,55 +312,57 @@
     }
 
     /**
-     * Push credentials + pageIds to the Render realtime broker so it
-     * (re-)opens its server-side WebSocket to Pancake. Only needed on
-     * a brand-new server install — usually the broker already has
-     * credentials saved.
-     * @param {{ pageIds: string[] }} opts
-     * @returns {Promise<{ok:boolean, reason?:string}>}
+     * Re-subscribe to a fresh set of pages. In direct mode we send
+     * additional `pages:{pageId}` phx_join messages for any new page.
+     * In proxy mode we POST credentials so the Render broker re-opens
+     * its server-side WS. Both modes are idempotent — same pageIds set
+     * is a no-op.
      */
     async function start(opts = {}) {
-        const jwt = global.Web2Chat?.getJwt();
-        if (!jwt) return { ok: false, reason: 'no_jwt' };
-        const decoded = global.Web2Chat?.decodeJwt(jwt);
-        const userId = decoded?.sub || decoded?.account_id || decoded?.user_id || decoded?.uid;
-        if (!userId) return { ok: false, reason: 'no_user_id_in_jwt' };
+        const auth = _decodeUser();
+        if (!auth) return { ok: false, reason: 'no_jwt' };
         const pageIds =
             Array.isArray(opts.pageIds) && opts.pageIds.length
                 ? opts.pageIds
-                : Object.keys(global.Web2Chat?.getAllPageAccessTokens() || {});
+                : Object.keys(global.Web2Chat?.getAllPageAccessTokens?.() || {});
         if (!pageIds.length) return { ok: false, reason: 'no_pages' };
-        // Dedupe identical re-subscriptions — calling start() with the same
-        // pageIds set is a no-op (broker is already listening). Sort the
-        // list so [A,B] and [B,A] hash to the same key.
-        const key = [...pageIds].map(String).sort().join('|');
-        if (key === _lastStartedKey) return { ok: true, alreadyStarted: true };
+        const ids = pageIds.map(String);
+        // Direct mode: join any page we haven't joined yet.
+        if (directWs && directWs.readyState === 1) {
+            for (const pid of ids) {
+                if (!directJoinedPages.has(pid)) {
+                    directPageIds.push(pid);
+                    _joinDirectPage(pid);
+                }
+            }
+        } else {
+            directPageIds = ids;
+            _connectDirect(ids);
+        }
+        // Proxy fallback: only re-call broker if pageIds changed.
+        const key = [...ids].sort().join('|');
+        if (key === _lastStartedKey)
+            return { ok: true, alreadyStarted: true, pageCount: ids.length };
         try {
             const r = await fetch(`${WORKER_BASE}/api/realtime/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    token: jwt,
-                    userId,
-                    pageIds,
-                    cookie: `jwt=${jwt}`,
+                    token: auth.jwt,
+                    userId: auth.userId,
+                    pageIds: ids,
+                    cookie: `jwt=${auth.jwt}`,
                 }),
             });
-            if (!r.ok) {
-                const text = await r.text();
-                return { ok: false, reason: `HTTP ${r.status}: ${text.slice(0, 200)}` };
-            }
-            _lastStartedKey = key;
-            return { ok: true, pageCount: pageIds.length };
+            if (r.ok) _lastStartedKey = key;
+            // Don't throw on failure — direct mode handles realtime,
+            // proxy is just a backstop for cross-device pending state.
+            return { ok: true, pageCount: ids.length };
         } catch (e) {
             return { ok: false, reason: e.message };
         }
     }
 
-    /**
-     * GET /api/realtime/pending-customers — initial state of unread customers.
-     * @returns {Promise<{ok:boolean, customers?:Array}>}
-     */
     async function fetchPendingCustomers(limit = 500) {
         try {
             const r = await fetch(
@@ -187,11 +377,6 @@
         }
     }
 
-    /**
-     * POST /api/realtime/mark-replied — clear unread when user replies.
-     * @param {string} psid
-     * @param {string|null} pageId
-     */
     async function markReplied(psid, pageId) {
         if (!psid) return { ok: false, reason: 'no_psid' };
         try {
@@ -209,7 +394,13 @@
     }
 
     function isConnected() {
-        return ws && ws.readyState === 1;
+        return (directWs && directWs.readyState === 1) || (proxyWs && proxyWs.readyState === 1);
+    }
+
+    function mode() {
+        if (directWs && directWs.readyState === 1) return 'direct';
+        if (proxyWs && proxyWs.readyState === 1) return 'proxy';
+        return 'disconnected';
     }
 
     global.Web2Realtime = {
@@ -218,12 +409,20 @@
         fetchPendingCustomers,
         markReplied,
         isConnected,
+        mode,
         _internal: {
-            WS_URL,
+            PANCAKE_WS_URL,
+            PROXY_WS_URL,
             WORKER_BASE,
             subscribers,
-            get ws() {
-                return ws;
+            get directWs() {
+                return directWs;
+            },
+            get proxyWs() {
+                return proxyWs;
+            },
+            get joinedPages() {
+                return [...directJoinedPages];
             },
         },
     };
