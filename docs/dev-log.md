@@ -25,6 +25,20 @@
 
 ## 2026-05-15
 
+### [orders] Barcode print recheck: TPOS OData 400 khi filter >20 `or` → toàn bộ 38/38 báo missing
+
+**User**: "các mã này đều có trên tpos rồi" — dialog In mã vạch (purchase-orders) báo 38/38 sản phẩm KHÔNG tìm thấy trên TPOS (B2247, B2248, ..., +30 mã khác) dù tất cả CÓ thật.
+
+**Files**: `purchase-orders/js/lib/barcode-label-dialog.js`
+
+**Root cause**: `recheckTposForMissingCodes` Strategy A build 1 query với toàn bộ codes nối bằng `or`: `DefaultCode eq 'B2247' or DefaultCode eq 'B2248' or ... (38 lần)`. TPOS OData reject filter >~20 `or` clauses với HTTP 400 (test 2026-05-15: N=20 OK, N=25 fail). Code chỉ `throw` ở `!resp.ok` (sau đó catch ngoài cùng bỏ qua) → `foundCodes=[]` → tất cả vào nhóm "not found" → 38/38 missing.
+
+**Fix**: Batch theo `BATCH_SIZE = 20`, mỗi batch fetch độc lập, try/catch per-batch (1 batch fail không kill các batch khác), accumulate `foundCodes` cross batches.
+
+**Verified qua curl**: N=10/15/20 trả 200 + data; N=25 trả 400. Batch 20 đủ margin an toàn.
+
+**Status**: ✅ Done.
+
 ### [orders-report] Tab3 suggestions thiếu template không có active variant (B1976, B1977)
 
 **User**: "mã B1976, B1977 tpos có mà trang hình 3 không suggestion".

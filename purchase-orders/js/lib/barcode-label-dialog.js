@@ -444,32 +444,61 @@ window.BarcodeLabelDialog = (function () {
                 // ---------- STRATEGY A: Direct variant DefaultCode lookup ----------
                 // Works khi TPOS variant có DefaultCode trùng mã n2store (vd MM139A2
                 // — variant của template MM139 — vẫn có DefaultCode riêng).
-                // QUAN TRỌNG: KHÔNG dùng $select — combined với filter có nhiều `or`
-                // gây 502 Bad Gateway từ TPOS origin (test 2026-05-14). Trả về full
-                // payload, parse field cần thiết.
+                // QUAN TRỌNG:
+                //   - KHÔNG dùng $select — combined với filter có nhiều `or`
+                //     gây 502 Bad Gateway từ TPOS origin (test 2026-05-14).
+                //   - BATCH 20 mã/query — filter với >20 `or DefaultCode eq ...`
+                //     làm TPOS OData trả 400 Bad Request (test 2026-05-15, fail
+                //     ở N=25, ok ở N=20). Trước đó 1-query-all với 38 codes
+                //     khiến toàn bộ recheck báo "0 found" → 38/38 missing.
                 if (safeCodes.length > 0) {
-                    setStatus(`Đang tra trực tiếp TPOS Product cho ${safeCodes.length} mã…`);
-                    const filter = safeCodes.map((c) => `DefaultCode eq '${c}'`).join(' or ');
-                    const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$top=${safeCodes.length}`;
-                    console.log('[Barcode][Recheck] Strategy A query:', { codes: safeCodes, url });
-                    const resp = await tposFetch(url, {
-                        headers: { Accept: 'application/json' },
-                    });
-                    if (!resp.ok) throw new Error('TPOS OData HTTP ' + resp.status);
-                    const data = await resp.json();
-                    const found = Array.isArray(data.value) ? data.value : [];
-                    console.log(
-                        `[Barcode][Recheck] Strategy A returned ${found.length} matches:`,
-                        found.map((p) => ({
-                            code: p.DefaultCode,
-                            id: p.Id,
-                            tmplId: p.ProductTmplId,
-                        }))
+                    const BATCH_SIZE = 20;
+                    const batches = [];
+                    for (let i = 0; i < safeCodes.length; i += BATCH_SIZE) {
+                        batches.push(safeCodes.slice(i, i + BATCH_SIZE));
+                    }
+                    setStatus(
+                        `Đang tra trực tiếp TPOS Product cho ${safeCodes.length} mã (${batches.length} batch × ≤${BATCH_SIZE})…`
                     );
-                    for (const p of found) {
-                        if (!p?.Id || !p?.DefaultCode) continue;
-                        cacheLiveProduct(p);
-                        foundCodes.push(p.DefaultCode);
+                    for (let bi = 0; bi < batches.length; bi++) {
+                        const batch = batches[bi];
+                        const filter = batch.map((c) => `DefaultCode eq '${c}'`).join(' or ');
+                        const url = `${PROXY}/api/odata/Product?$filter=${encodeURIComponent(filter)}&$top=${batch.length}`;
+                        console.log(
+                            `[Barcode][Recheck] Strategy A batch ${bi + 1}/${batches.length}:`,
+                            { codes: batch, url }
+                        );
+                        try {
+                            const resp = await tposFetch(url, {
+                                headers: { Accept: 'application/json' },
+                            });
+                            if (!resp.ok) {
+                                console.warn(
+                                    `[Barcode][Recheck] Strategy A batch ${bi + 1} HTTP ${resp.status}`
+                                );
+                                continue;
+                            }
+                            const data = await resp.json();
+                            const found = Array.isArray(data.value) ? data.value : [];
+                            console.log(
+                                `[Barcode][Recheck] Strategy A batch ${bi + 1} returned ${found.length}/${batch.length}:`,
+                                found.map((p) => ({
+                                    code: p.DefaultCode,
+                                    id: p.Id,
+                                    tmplId: p.ProductTmplId,
+                                }))
+                            );
+                            for (const p of found) {
+                                if (!p?.Id || !p?.DefaultCode) continue;
+                                cacheLiveProduct(p);
+                                foundCodes.push(p.DefaultCode);
+                            }
+                        } catch (err) {
+                            console.warn(
+                                `[Barcode][Recheck] Strategy A batch ${bi + 1} threw:`,
+                                err?.message || err
+                            );
+                        }
                     }
                 }
 
