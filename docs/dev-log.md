@@ -25,6 +25,56 @@
 
 ## 2026-05-15
 
+### [so-order] Schema shipments + 2 cột Ghi Chú / Ghi Chú CP + header expandable theo ngày+đợt
+
+**User**:
+
+1. "Thêm cột GHI CHÚ, GHI CHÚ CP trước cột TRẠNG THÁI".
+2. "Thêm hàng thông tin NGÀY, ĐỢT, KIỆN, KG, tiền hợp đồng 2 mệnh giá → hàng này expand ra gồm bảng đã có NCC ở trong → thêm dữ liệu trùng NGÀY thì gộp vào expand luôn".
+
+**Schema thay đổi** ([so-order-storage.js](../so-order/js/so-order-storage.js)):
+
+- `tab.rows[]` → `tab.shipments[]`, mỗi shipment: `{id, date, batch, caseCount, weightKg, contractAmount, contractCurrency, collapsed, rows[]}`.
+- Migration `_migrateTab()` tự convert legacy `rows[]` → 1 synthetic shipment (không mất data).
+- Helper `findShipment(tab, {date, batch})` → khi user thêm dòng mới với cùng ngày+đợt, gộp vào shipment có sẵn thay vì tạo mới.
+- Methods mới: `addShipment / updateShipment / deleteShipment / moveRow`. Methods cũ `addRow/updateRow/deleteRow` nhận thêm param `shipmentId`.
+
+**Form modal** ([so-order/index.html](../so-order/index.html)):
+
+- Chia 2 fieldset: "Thông tin lô (gộp theo Ngày + Đợt)" + "Thông tin dòng order".
+- Shipment fields: Ngày giao (date input), Đợt, Số Kiện, Tổng KG, Tiền hợp đồng + dropdown tiền tệ HĐ (VND/CNY/USD/KRW/JPY/THB/EUR).
+- Row fields thêm 2 textarea: GHI CHÚ + GHI CHÚ CP (xám/cam highlight).
+- Hint tỉ giá HĐ live: "[CNY (≈ 3.500 ₫)]".
+
+**Render** ([so-order-app.js](../so-order/js/so-order-app.js)):
+
+- `renderTableBody` sort shipments by date desc, mỗi shipment = 1 header row (`<tr.so-shipment-head>` colspan=full) + N data rows.
+- Header text: "Ngày giao: 7/5/2026 — Đợt 1 — 1 Kiện : 67 KG | Tổng 67 KG | Tổng HĐ: 13.504,00 CNY (47.264.000₫)" — match format screenshot user.
+- Click header (caret chevron-down/right) → toggle `collapsed`, lưu state.
+- Mỗi header có 3 button action: thêm dòng vào lô, sửa thông tin lô, xóa lô.
+- `currencyToVndRate(currency, tab)` với fallback rate table (CNY 3500, USD 26000, EUR 28000, JPY 170, KRW 18, THB 720) — Tiền HĐ độc lập với tab currency.
+
+**Columns** thêm 2 key vào `DEFAULT_COLUMNS` + `COLUMNS` array, đặt giữa `invoiceImage` và `status`:
+
+- `note` (Ghi Chú) — màu xám
+- `costNote` (Ghi Chú CP) — màu cam, nền vàng nhạt
+
+**Submit logic**:
+
+- Edit row + đổi ngày/đợt → `findShipment` ở shipment khác → `moveRow` sang đó.
+- Cùng shipment → `updateRow` + `updateShipment` (mutate metadata in place).
+- Add row → `findShipment` → gộp / hoặc `addShipment` mới → `addRow`.
+
+**Verify live** ([so-order-two-shipments.png](../downloads/n2store-session/so-order-two-shipments.png)):
+
+- Lô 1: ngày 9/5 Đợt 2, 2 Kiện 120KG, HĐ 25.000 CNY (87.500.000₫) — 1 row Shenzhen.
+- Lô 2: ngày 7/5 Đợt 1, 1 Kiện 67KG, HĐ 13.504 CNY — 2 rows gộp đúng (Quảng Châu A + Hồng Châu B cùng nhập với ngày 7/5 đợt 1).
+- Counter: "2 lô · 3 dòng SL: 35".
+
+**Status**: ✅ Done.
+
+---
+
 ### [so-order] Trang Sổ Order mới + bỏ thanh `.tab-navigation` ở mọi trang
 
 **User**:
