@@ -25,6 +25,45 @@
 
 ## 2026-05-15
 
+### [native-orders][web2-shared] "Lọc theo" — rebuild Pancake-style 2-cột với tag include/exclude từ page settings
+
+**User**: gửi screenshot Pancake "Lọc theo" dropdown 2-cột (Thẻ hội thoại / Điều kiện) với tag chips multi-select kèm màu thật. Yêu cầu "coi pancake có gì làm giống vậy" → "bên pancake".
+
+**Phase 1 thay flat dropdown** (4-7 option) thành Pancake-style 2-col popover:
+
+- [web2-chat-client.js](../web2-shared/web2-chat-client.js): thêm `fetchPageSettings(pageId, opts)` route `${WORKER_URL}/api/pancake/pages/{pageId}/settings?access_token=${jwt}`. Cache 5 phút trong `_pageSettingsCache` Map. Trả `{ ok, settings: { tags: [{id, text, color}], quick_replies, page_access_token, … } }`.
+- [native-orders-app.js](../native-orders/js/native-orders-app.js):
+    - Markup `_renderInboxSidebarShell`: replace single-list menu bằng `.w2-fm-pancake` flex layout. Left col 240w (Thẻ hội thoại → Có chứa thẻ / Loại trừ thẻ + Điều kiện), right col 280-360w (sub-content dynamic).
+    - CSS: popover 540-640px wide, shadow lg, 10px radius. Sub-list scroll, tag chip pill style với color từ settings. Search input ở mỗi tag panel.
+    - State `_filter = { includeTags: Set, excludeTags: Set, conditions: Set }`. "Không gắn thẻ" model như pseudo-tag id `__untagged` để AND logic uniform. Filter combine AND giữa các nhóm; trong nhóm tag include là OR (row pass nếu có ≥1 tag được tick).
+    - `_rowMatchesFilter`: parse `data-tag-ids` từ row (đã bake `tagIdsStr` trong `_convRowHtml`), check include/exclude intersection + conditions.
+    - `_renderFilterSub(cat)`: render sub-panel theo cat. Tags panel có search input filter client-side; conditions panel 5 checkbox (Chưa đọc / Đã đọc / Chưa trả lời / Có SĐT / Có đơn livestream).
+    - `_loadPageTagsForFilter(pageId)`: lazy load `Web2Chat.fetchPageSettings` lần đầu mở popup → cập nhật `_pageTagDict` Map. Seed trước bằng tag IDs từ DOM rows nên không-có-API vẫn show "Thẻ #{id}" placeholder.
+    - Button hiển thị count badge khi ≥1 filter active; categories show count riêng. "Xoá bộ lọc" reset cả 3 set.
+    - Position popup `left: 0` (popup extends rightward into chat area) — `right: 0` ban đầu khiến popup `left=-204px` off-screen.
+    - Anchor `left: 0` của `.w2-inbox-sb-filter-wrap`.
+- [index.html](../native-orders/index.html): bump `web2-chat-client.js?v=20260515a` + `native-orders-app.js?v=20260515l`.
+
+**Verify** (Playwright localhost:8089):
+
+- Open NW-20260513-0016 → click Lọc theo → menu width 540, position left=241 right=781 ✓.
+- Click Có chứa thẻ → settings load 16 tags với màu thật: BOOM (red), CHECK IB (orange), NHẮC KHÁCH (pink), NJD ƠI (purple), NV. BO (cyan), Nv My (blue), NV My CK + Gấp (blue), NV My KH đặt (blue), Nv. Duyên (teal), NV. Hạnh (green), ... khớp screenshot Pancake user gửi.
+- Tick BOOM (id=201) → 2 conv visible, badge button "1", cat count "1" ✓.
+- Click Điều kiện → tick Chưa đọc → combined visible 0 (no BOOM+unread overlap), badge "2".
+- Click Xoá bộ lọc → 50 visible, badge hidden, button inactive ✓.
+
+Screenshot: [filter-pancake-final.png](../downloads/n2store-session/filter-pancake-final.png).
+
+**Phase 2 todo** (chưa làm):
+
+- HOẶC/VÀ logic combinator (Pancake có Điều kiện | HOẶC).
+- Lưu filter state vào localStorage để persist qua reload.
+- Wire filter qua Pancake server-side endpoint `tags[]` param thay vì DOM filter (nếu user muốn thật-time-fetch theo filter).
+
+Status: ✅ Phase 1 done.
+
+---
+
 ### [native-orders] "Lọc theo" — wire dropdown filter (Tất cả / Chưa đọc / Đã đọc / Có gắn nhãn)
 
 **User**: "Lọc theo này chưa có chức năng". Button bên sidebar trái tồn tại nhưng không bind click.

@@ -2465,13 +2465,39 @@
                 </div>
                 <div class="w2-inbox-sb-filter-wrap">
                     <button class="w2-inbox-sb-filter" type="button" id="w2InboxFilterBtn" title="Bộ lọc">
-                        <i data-lucide="sliders-horizontal" style="width:12px;height:12px;"></i> <span id="w2InboxFilterLabel">Lọc theo</span>
+                        <i data-lucide="sliders-horizontal" style="width:12px;height:12px;"></i>
+                        <span id="w2InboxFilterLabel">Lọc theo</span>
+                        <span class="w2-inbox-sb-filter-count" id="w2InboxFilterCount" hidden></span>
                     </button>
-                    <div class="w2-inbox-sb-filter-menu" id="w2InboxFilterMenu" hidden>
-                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="all">Tất cả hội thoại</button>
-                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="unread">Chưa đọc</button>
-                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="read">Đã đọc</button>
-                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="tagged">Có gắn nhãn</button>
+                    <div class="w2-inbox-sb-filter-menu w2-fm-pancake" id="w2InboxFilterMenu" hidden>
+                        <div class="w2-fm-col w2-fm-col-cats">
+                            <div class="w2-fm-section">Thẻ hội thoại</div>
+                            <button type="button" class="w2-fm-cat" data-cat="include-tags">
+                                <i data-lucide="tag" style="width:13px;height:13px;color:#7c3aed;"></i>
+                                <span class="w2-fm-cat-label">Có chứa thẻ</span>
+                                <span class="w2-fm-cat-count" data-for="include-tags"></span>
+                                <i data-lucide="chevron-right" style="width:13px;height:13px;color:#94a3b8;"></i>
+                            </button>
+                            <button type="button" class="w2-fm-cat" data-cat="exclude-tags">
+                                <i data-lucide="tag" style="width:13px;height:13px;color:#94a3b8;"></i>
+                                <span class="w2-fm-cat-label">Loại trừ thẻ</span>
+                                <span class="w2-fm-cat-count" data-for="exclude-tags"></span>
+                                <i data-lucide="chevron-right" style="width:13px;height:13px;color:#94a3b8;"></i>
+                            </button>
+                            <div class="w2-fm-divider"></div>
+                            <div class="w2-fm-section">Điều kiện</div>
+                            <button type="button" class="w2-fm-cat" data-cat="conditions">
+                                <i data-lucide="puzzle" style="width:13px;height:13px;color:#7c3aed;"></i>
+                                <span class="w2-fm-cat-label">Điều kiện</span>
+                                <span class="w2-fm-cat-count" data-for="conditions"></span>
+                                <i data-lucide="chevron-right" style="width:13px;height:13px;color:#94a3b8;"></i>
+                            </button>
+                            <div class="w2-fm-divider"></div>
+                            <button type="button" class="w2-fm-reset" id="w2InboxFilterReset">
+                                <i data-lucide="rotate-ccw" style="width:12px;height:12px;"></i> Xoá bộ lọc
+                            </button>
+                        </div>
+                        <div class="w2-fm-col w2-fm-col-sub" id="w2InboxFilterSub"></div>
                     </div>
                 </div>
             </div>
@@ -2707,7 +2733,7 @@
             // Pancake's POST /api/v1/pages/{pageId}/conversations/search.
             _wireSidebarSearch(order, res.conversations);
             // Wire the "Lọc theo" dropdown + apply current filter.
-            _wireSidebarFilter();
+            _wireSidebarFilter(order);
             _applySidebarFilter();
         } catch (e) {
             console.warn('[NativeOrders] sidebar load failed:', e.message);
@@ -2790,13 +2816,87 @@
     // `#w2InboxConvList` (initial load, search results, or merged poll
     // updates). Decoupled from search so a user can search "0123" then
     // narrow to unread, or filter unread and then search.
-    let _sidebarFilter = 'all'; // 'all' | 'unread' | 'read' | 'tagged'
-    const _SIDEBAR_FILTER_LABELS = {
-        all: 'Lọc theo',
+    // Pancake-style filter state: tag include/exclude + conditions, all AND-combined.
+    // Untagged is modelled as a pseudo-tag id "__untagged" inside the
+    // include/exclude sets so the existing AND logic handles it uniformly.
+    const UNTAGGED = '__untagged';
+    const _filter = {
+        includeTags: new Set(), // tag IDs (or UNTAGGED) — pass if row has ANY
+        excludeTags: new Set(), // tag IDs (or UNTAGGED) — pass if row has NONE
+        conditions: new Set(), // 'unread'|'read'|'unreplied'|'has-phone'|'has-live'
+    };
+    const _CONDITION_LABELS = {
         unread: 'Chưa đọc',
         read: 'Đã đọc',
-        tagged: 'Có gắn nhãn',
+        unreplied: 'Chưa trả lời',
+        'has-phone': 'Có SĐT',
+        'has-live': 'Có đơn livestream',
     };
+    // Tag dictionary from Pancake page settings: { [id]: { id, text, color } }.
+    // Populated lazily on first filter-menu open per page.
+    const _pageTagDict = new Map(); // pageId → Map<id, tagObj>
+    let _activeSubCat = null; // 'include-tags'|'exclude-tags'|'conditions'|null
+    let _currentPageId = null;
+
+    function _filterActiveCount() {
+        return _filter.includeTags.size + _filter.excludeTags.size + _filter.conditions.size;
+    }
+
+    function _rowMatchesFilter(row) {
+        const unread = row.classList.contains('is-unread');
+        const tagged = Number(row.dataset.tagCount || 0) > 0;
+        const hasPhone = row.dataset.hasPhone === '1';
+        const hasLive = row.dataset.hasLive === '1';
+        const replied = row.dataset.replied === '1';
+        const rowTagIds = (row.dataset.tagIds || '').split(',').filter(Boolean);
+
+        // Tag include: pass if includeTags empty, else row must have at least
+        // one of the included tags (or UNTAGGED matches if row has no tags).
+        if (_filter.includeTags.size > 0) {
+            let ok = false;
+            if (_filter.includeTags.has(UNTAGGED) && rowTagIds.length === 0) ok = true;
+            if (!ok) {
+                for (const id of rowTagIds) {
+                    if (_filter.includeTags.has(id)) {
+                        ok = true;
+                        break;
+                    }
+                }
+            }
+            if (!ok) return false;
+        }
+        // Tag exclude: pass if row has none of the excluded tags.
+        if (_filter.excludeTags.size > 0) {
+            if (_filter.excludeTags.has(UNTAGGED) && rowTagIds.length === 0) return false;
+            for (const id of rowTagIds) {
+                if (_filter.excludeTags.has(id)) return false;
+            }
+        }
+        // Conditions AND-combined.
+        for (const cond of _filter.conditions) {
+            switch (cond) {
+                case 'unread':
+                    if (!unread) return false;
+                    break;
+                case 'read':
+                    if (unread) return false;
+                    break;
+                case 'unreplied':
+                    if (replied) return false;
+                    break;
+                case 'tagged':
+                    if (!tagged) return false;
+                    break;
+                case 'has-phone':
+                    if (!hasPhone) return false;
+                    break;
+                case 'has-live':
+                    if (!hasLive) return false;
+                    break;
+            }
+        }
+        return true;
+    }
 
     function _applySidebarFilter() {
         const list = document.getElementById('w2InboxConvList');
@@ -2804,62 +2904,250 @@
         const rows = list.querySelectorAll('.w2-inbox-conv');
         let visible = 0;
         rows.forEach((row) => {
-            const unread = row.classList.contains('is-unread');
-            const tagged = Number(row.dataset.tagCount || 0) > 0;
-            let show = true;
-            if (_sidebarFilter === 'unread') show = unread;
-            else if (_sidebarFilter === 'read') show = !unread;
-            else if (_sidebarFilter === 'tagged') show = tagged;
+            const show = _rowMatchesFilter(row);
             row.style.display = show ? '' : 'none';
             if (show) visible += 1;
         });
-        // Empty-state hint when nothing matches the filter (only if the
-        // list actually has rows; skeleton/empty-from-server states have
-        // no .w2-inbox-conv at all and should be left alone).
         const existingHint = list.querySelector('[data-filter-empty]');
         if (existingHint) existingHint.remove();
-        if (rows.length > 0 && visible === 0 && _sidebarFilter !== 'all') {
+        if (rows.length > 0 && visible === 0 && _filterActiveCount() > 0) {
             const empty = document.createElement('div');
             empty.dataset.filterEmpty = '1';
             empty.style.cssText =
                 'padding:24px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;';
-            empty.textContent = `Không có hội thoại nào "${_SIDEBAR_FILTER_LABELS[_sidebarFilter]}"`;
+            empty.textContent = 'Không có hội thoại nào khớp bộ lọc';
             list.appendChild(empty);
+        }
+        _updateFilterButtonVisual();
+        _updateFilterCatCounts();
+    }
+
+    function _updateFilterButtonVisual() {
+        const btn = document.getElementById('w2InboxFilterBtn');
+        const countEl = document.getElementById('w2InboxFilterCount');
+        if (!btn || !countEl) return;
+        const n = _filterActiveCount();
+        btn.classList.toggle('is-active', n > 0);
+        if (n > 0) {
+            countEl.removeAttribute('hidden');
+            countEl.textContent = String(n);
+        } else {
+            countEl.setAttribute('hidden', '');
+            countEl.textContent = '';
         }
     }
 
-    function _wireSidebarFilter() {
+    function _updateFilterCatCounts() {
+        const menu = document.getElementById('w2InboxFilterMenu');
+        if (!menu) return;
+        const map = {
+            'include-tags': _filter.includeTags.size,
+            'exclude-tags': _filter.excludeTags.size,
+            conditions: _filter.conditions.size,
+        };
+        menu.querySelectorAll('.w2-fm-cat-count').forEach((el) => {
+            const key = el.dataset.for;
+            const n = map[key] || 0;
+            el.textContent = n > 0 ? String(n) : '';
+        });
+    }
+
+    /**
+     * Render the right-hand sub-panel content based on which category the
+     * user clicked. Tag pickers (include/exclude) share a list renderer.
+     */
+    function _renderFilterSub(cat) {
+        const sub = document.getElementById('w2InboxFilterSub');
+        if (!sub) return;
+        _activeSubCat = cat;
+        document
+            .querySelectorAll('#w2InboxFilterMenu .w2-fm-cat')
+            .forEach((b) => b.classList.toggle('is-active', b.dataset.cat === cat));
+        if (cat === 'include-tags' || cat === 'exclude-tags') {
+            sub.innerHTML = _renderFilterSubTags(cat);
+            _wireFilterSubTags(cat);
+        } else if (cat === 'conditions') {
+            sub.innerHTML = _renderFilterSubConditions();
+            _wireFilterSubConditions();
+        } else {
+            sub.innerHTML =
+                '<div class="w2-fm-sub-placeholder">Chọn nhóm điều kiện bên trái để xem tuỳ chọn.</div>';
+        }
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function _tagDictForCurrentPage() {
+        return _pageTagDict.get(_currentPageId) || new Map();
+    }
+
+    function _renderFilterSubTags(cat) {
+        const set = cat === 'include-tags' ? _filter.includeTags : _filter.excludeTags;
+        const dict = _tagDictForCurrentPage();
+        const tags = Array.from(dict.values()).sort((a, b) =>
+            String(a.text || '').localeCompare(String(b.text || ''), 'vi')
+        );
+        const untaggedChecked = set.has(UNTAGGED);
+        const rows = [
+            `<label class="w2-fm-row" data-tagid="${UNTAGGED}">
+                <input type="checkbox" ${untaggedChecked ? 'checked' : ''} />
+                <span class="w2-fm-tag-chip w2-fm-tag-chip-empty">Không gắn thẻ</span>
+            </label>`,
+        ];
+        for (const tag of tags) {
+            const id = String(tag.id);
+            const checked = set.has(id);
+            const color = tag.color || '#94a3b8';
+            const text = escapeHtml(tag.text || `Thẻ #${id}`);
+            rows.push(
+                `<label class="w2-fm-row" data-tagid="${escapeHtml(id)}">
+                    <input type="checkbox" ${checked ? 'checked' : ''} />
+                    <span class="w2-fm-tag-chip" style="background:${escapeHtml(color)};">${text}</span>
+                </label>`
+            );
+        }
+        const body = tags.length
+            ? rows.join('')
+            : `<div class="w2-fm-sub-empty">Đang tải danh sách thẻ…</div>`;
+        return `
+            <div class="w2-fm-sub-search">
+                <i class="w2-fm-sub-search-icon" data-lucide="search" style="width:13px;height:13px;"></i>
+                <input type="text" placeholder="Tìm kiếm thẻ" data-tag-search />
+            </div>
+            <div class="w2-fm-sub-list" data-tag-list>${body}</div>`;
+    }
+
+    function _wireFilterSubTags(cat) {
+        const sub = document.getElementById('w2InboxFilterSub');
+        if (!sub) return;
+        const set = cat === 'include-tags' ? _filter.includeTags : _filter.excludeTags;
+        const list = sub.querySelector('[data-tag-list]');
+        const search = sub.querySelector('[data-tag-search]');
+        list?.addEventListener('change', (e) => {
+            const row = e.target.closest('.w2-fm-row');
+            if (!row) return;
+            const id = row.dataset.tagid;
+            if (e.target.checked) set.add(id);
+            else set.delete(id);
+            _applySidebarFilter();
+        });
+        search?.addEventListener('input', () => {
+            const q = (search.value || '').trim().toLowerCase();
+            list.querySelectorAll('.w2-fm-row').forEach((row) => {
+                const txt = row.textContent.toLowerCase();
+                row.style.display = !q || txt.includes(q) ? '' : 'none';
+            });
+        });
+    }
+
+    function _renderFilterSubConditions() {
+        const items = Object.entries(_CONDITION_LABELS)
+            .map(([key, label]) => {
+                const checked = _filter.conditions.has(key);
+                return `<label class="w2-fm-row" data-cond="${escapeHtml(key)}">
+                    <input type="checkbox" ${checked ? 'checked' : ''} />
+                    <span>${escapeHtml(label)}</span>
+                </label>`;
+            })
+            .join('');
+        return `<div class="w2-fm-sub-list">${items}</div>`;
+    }
+
+    function _wireFilterSubConditions() {
+        const sub = document.getElementById('w2InboxFilterSub');
+        sub?.addEventListener('change', (e) => {
+            const row = e.target.closest('.w2-fm-row[data-cond]');
+            if (!row) return;
+            const key = row.dataset.cond;
+            if (e.target.checked) _filter.conditions.add(key);
+            else _filter.conditions.delete(key);
+            _applySidebarFilter();
+        });
+    }
+
+    /**
+     * Load page tag definitions via Web2Chat.fetchPageSettings + merge any
+     * tag IDs seen on rendered convs (so we still show numeric placeholders
+     * if the settings call fails). Re-renders the open sub-panel.
+     */
+    async function _loadPageTagsForFilter(pageId) {
+        if (!pageId) return;
+        _currentPageId = pageId;
+        // Seed dictionary with IDs collected from rendered rows — covers
+        // the case where settings call later fails / is slow.
+        if (!_pageTagDict.has(pageId)) _pageTagDict.set(pageId, new Map());
+        const dict = _pageTagDict.get(pageId);
+        document.querySelectorAll('#w2InboxConvList .w2-inbox-conv').forEach((row) => {
+            (row.dataset.tagIds || '')
+                .split(',')
+                .filter(Boolean)
+                .forEach((id) => {
+                    if (!dict.has(id)) dict.set(id, { id, text: `Thẻ #${id}`, color: '#94a3b8' });
+                });
+        });
+        if (!window.Web2Chat?.fetchPageSettings) return;
+        try {
+            const res = await window.Web2Chat.fetchPageSettings(pageId);
+            if (!res.ok) return;
+            const tags = res.settings?.tags;
+            if (!Array.isArray(tags)) return;
+            for (const t of tags) {
+                if (t && t.id != null) {
+                    dict.set(String(t.id), {
+                        id: String(t.id),
+                        text: t.text || `Thẻ #${t.id}`,
+                        color: t.color || '#94a3b8',
+                    });
+                }
+            }
+            // Refresh open sub-panel so newly-loaded names/colors show.
+            if (_activeSubCat === 'include-tags' || _activeSubCat === 'exclude-tags') {
+                _renderFilterSub(_activeSubCat);
+            }
+        } catch (e) {
+            console.warn('[NativeOrders] loadPageTagsForFilter failed:', e.message);
+        }
+    }
+
+    function _wireSidebarFilter(order) {
         const btn = document.getElementById('w2InboxFilterBtn');
         const menu = document.getElementById('w2InboxFilterMenu');
-        const label = document.getElementById('w2InboxFilterLabel');
-        if (!btn || !menu || !label) return;
+        if (!btn || !menu) return;
         if (btn.dataset.filterWired === '1') return;
         btn.dataset.filterWired = '1';
+        _currentPageId = order?.fbPageId || null;
 
         const close = () => menu.setAttribute('hidden', '');
-        const updateBtnVisual = () => {
-            label.textContent = _SIDEBAR_FILTER_LABELS[_sidebarFilter];
-            btn.classList.toggle('is-active', _sidebarFilter !== 'all');
-            menu.querySelectorAll('.w2-inbox-sb-filter-item').forEach((it) => {
-                it.classList.toggle('is-active', it.dataset.filter === _sidebarFilter);
-            });
+        const open = () => {
+            menu.removeAttribute('hidden');
+            // Default to the most useful panel: conditions list.
+            if (!_activeSubCat) _renderFilterSub('conditions');
+            else _renderFilterSub(_activeSubCat);
+            // Lazy-load page tags for the tag pickers.
+            _loadPageTagsForFilter(_currentPageId);
         };
-        updateBtnVisual();
 
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (menu.hasAttribute('hidden')) menu.removeAttribute('hidden');
+            if (menu.hasAttribute('hidden')) open();
             else close();
         });
         menu.addEventListener('click', (e) => {
-            const item = e.target.closest('.w2-inbox-sb-filter-item');
-            if (!item) return;
-            _sidebarFilter = item.dataset.filter || 'all';
-            updateBtnVisual();
-            _applySidebarFilter();
-            close();
+            const cat = e.target.closest('.w2-fm-cat');
+            if (cat) {
+                e.stopPropagation();
+                _renderFilterSub(cat.dataset.cat);
+                return;
+            }
+            const reset = e.target.closest('#w2InboxFilterReset');
+            if (reset) {
+                _filter.includeTags.clear();
+                _filter.excludeTags.clear();
+                _filter.conditions.clear();
+                _applySidebarFilter();
+                if (_activeSubCat) _renderFilterSub(_activeSubCat);
+            }
         });
-        // Close when clicking outside the wrap
+        // Close on outside click (capture so popup-internal clicks reach handlers first)
         document.addEventListener(
             'click',
             (e) => {
@@ -2867,6 +3155,8 @@
             },
             { capture: true }
         );
+        _updateFilterButtonVisual();
+        _updateFilterCatCounts();
     }
 
     /**
@@ -2931,7 +3221,18 @@
             String(currentOrder.fbUserId || '') === fbId &&
             String(currentOrder.fbPageId || '') === String(c.page_id || c.fb_page_id || '');
         const unread = c.unread_count || c.unread || 0;
-        const tagCount = Array.isArray(c.tags) ? c.tags.length : 0;
+        const tagList = Array.isArray(c.tags) ? c.tags : [];
+        const tagCount = tagList.length;
+        const tagIdsStr = tagList.map((t) => String(t)).join(',');
+        const hasPhone = c.has_phone === true ? 1 : 0;
+        const hasLive = c.has_livestream_order === true ? 1 : 0;
+        // "Đã trả lời" = tin cuối do admin/page gửi. Pancake lưu
+        // last_sent_by.admin_name khi admin reply; fallback so sánh id với
+        // page_id (admin gửi qua page-level token, id sẽ là page_id).
+        const lsb = c.last_sent_by || {};
+        const repliedByAdmin =
+            !!lsb.admin_name || (lsb.id && String(lsb.id) === String(c.page_id || ''));
+        const replied = repliedByAdmin ? 1 : 0;
         const avatarUrl =
             c.from?.avatar_url ||
             cust.avatar_url ||
@@ -2940,7 +3241,7 @@
         const avatarHtml = avatarUrl
             ? `<img class="w2-inbox-conv-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(cName)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-inbox-conv-avatar&quot; style=&quot;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;&quot;>${escapeHtml(initial)}</div>'" />`
             : `<div class="w2-inbox-conv-avatar" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">${escapeHtml(initial)}</div>`;
-        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}" data-tag-count="${tagCount}">
+        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}" data-tag-count="${tagCount}" data-tag-ids="${escapeHtml(tagIdsStr)}" data-has-phone="${hasPhone}" data-has-live="${hasLive}" data-replied="${replied}">
             ${avatarHtml}
             <div class="w2-inbox-conv-body">
                 <div class="w2-inbox-conv-top">
@@ -3875,27 +4176,77 @@
                 color: #6d28d9;
                 font-weight: 600;
             }
+            .w2-inbox-sb-filter-count {
+                background: #7c3aed;
+                color: #fff;
+                font-size: 11px;
+                font-weight: 700;
+                min-width: 16px;
+                height: 16px;
+                padding: 0 5px;
+                border-radius: 999px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .w2-inbox-sb-filter-count[hidden] { display: none; }
             .w2-inbox-sb-filter-wrap { position: relative; flex-shrink: 0; }
-            .w2-inbox-sb-filter-menu {
+            /* Pancake-style 2-column filter popover — anchored to the
+               filter button. Pancake floats the popup to the right of
+               the sidebar so it doesn't get clipped; we mirror that by
+               anchoring left: 0 of the button (popup extends rightward
+               into the chat area). */
+            .w2-fm-pancake {
                 position: absolute;
                 top: calc(100% + 6px);
-                right: 0;
-                min-width: 180px;
+                left: 0;
                 background: #fff;
                 border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-                padding: 4px;
+                border-radius: 10px;
+                box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
                 z-index: 30;
                 display: flex;
-                flex-direction: column;
+                min-width: 540px;
+                max-width: 640px;
+                overflow: hidden;
             }
-            .w2-inbox-sb-filter-menu[hidden] { display: none; }
-            .w2-inbox-sb-filter-item {
+            .w2-fm-pancake[hidden] { display: none; }
+            .w2-fm-col-cats {
+                width: 240px;
+                flex-shrink: 0;
+                padding: 6px 4px;
+                background: #fafafa;
+                border-right: 1px solid #eef2f6;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .w2-fm-col-sub {
+                flex: 1;
+                min-width: 280px;
+                max-height: 420px;
+                display: flex;
+                flex-direction: column;
+                background: #fff;
+            }
+            .w2-fm-section {
+                padding: 8px 10px 4px;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: #94a3b8;
+            }
+            .w2-fm-divider {
+                height: 1px;
+                background: #e2e8f0;
+                margin: 4px 6px;
+            }
+            .w2-fm-cat {
                 border: 0;
                 background: transparent;
                 text-align: left;
-                padding: 8px 10px;
+                padding: 9px 10px;
                 font-size: 13px;
                 font-family: inherit;
                 color: #1d2939;
@@ -3905,16 +4256,107 @@
                 align-items: center;
                 gap: 8px;
             }
-            .w2-inbox-sb-filter-item:hover { background: #f1f5f9; }
-            .w2-inbox-sb-filter-item.is-active {
-                background: #ede9fe;
-                color: #6d28d9;
-                font-weight: 600;
-            }
-            .w2-inbox-sb-filter-item.is-active::before {
-                content: '✓';
-                color: #7c3aed;
+            .w2-fm-cat:hover { background: #eef2f6; }
+            .w2-fm-cat.is-active { background: #ede9fe; color: #6d28d9; font-weight: 600; }
+            .w2-fm-cat-label { flex: 1; }
+            .w2-fm-cat-count {
+                background: #e0e7ff;
+                color: #4338ca;
+                font-size: 10px;
                 font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 999px;
+                min-width: 18px;
+                text-align: center;
+            }
+            .w2-fm-cat-count:empty { display: none; }
+            .w2-fm-reset {
+                border: 0;
+                background: transparent;
+                text-align: left;
+                padding: 8px 10px;
+                font-size: 12px;
+                font-family: inherit;
+                color: #64748b;
+                cursor: pointer;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .w2-fm-reset:hover { background: #f1f5f9; color: #1d2939; }
+            .w2-fm-sub-search {
+                padding: 10px;
+                border-bottom: 1px solid #eef2f6;
+                position: relative;
+            }
+            .w2-fm-sub-search input {
+                width: 100%;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 6px 10px 6px 28px;
+                font-size: 12px;
+                font-family: inherit;
+                outline: none;
+                background: #fff;
+            }
+            .w2-fm-sub-search input:focus { border-color: #c4b5fd; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
+            .w2-fm-sub-search-icon {
+                position: absolute;
+                left: 18px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #94a3b8;
+                pointer-events: none;
+            }
+            .w2-fm-sub-list {
+                flex: 1;
+                overflow-y: auto;
+                padding: 4px 6px;
+            }
+            .w2-fm-sub-empty {
+                padding: 24px 12px;
+                font-size: 12px;
+                color: #94a3b8;
+                text-align: center;
+                font-style: italic;
+            }
+            .w2-fm-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 8px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+            }
+            .w2-fm-row:hover { background: #f8fafc; }
+            .w2-fm-row input[type="checkbox"] {
+                width: 14px;
+                height: 14px;
+                accent-color: #7c3aed;
+                cursor: pointer;
+            }
+            .w2-fm-tag-chip {
+                display: inline-block;
+                padding: 3px 10px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #fff;
+                line-height: 1.4;
+            }
+            .w2-fm-tag-chip-empty {
+                background: transparent;
+                color: #64748b;
+                border: 1px dashed #cbd5e1;
+            }
+            .w2-fm-sub-placeholder {
+                padding: 60px 16px;
+                color: #94a3b8;
+                font-size: 12px;
+                text-align: center;
+                font-style: italic;
             }
             .w2-inbox-sb-list {
                 flex: 1;

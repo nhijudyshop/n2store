@@ -632,12 +632,44 @@
         return { ok: false, reason: lastReason || 'all_accounts_failed' };
     }
 
+    // --------- Page settings (tag definitions, quick replies, ...) ---------
+    // Pancake stores per-page tags as { id, text, color } in
+    // pages/{pageId}/settings.settings.tags. Used by the inbox sidebar
+    // "Lọc theo → Có chứa thẻ" tag picker so we can render real labels +
+    // page colors instead of raw numeric tag IDs from conv.tags.
+    const _pageSettingsCache = new Map(); // pageId → { fetchedAt, settings }
+    const _PAGE_SETTINGS_TTL_MS = 5 * 60 * 1000;
+
+    async function fetchPageSettings(pageId, opts = {}) {
+        if (!pageId) return { ok: false, reason: 'missing_pageId' };
+        if (_isInstagram(pageId)) return { ok: false, reason: 'instagram_unsupported' };
+        const cached = _pageSettingsCache.get(pageId);
+        if (!opts.force && cached && Date.now() - cached.fetchedAt < _PAGE_SETTINGS_TTL_MS) {
+            return { ok: true, settings: cached.settings, cached: true };
+        }
+        const jwt = getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt' };
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/settings?access_token=${encodeURIComponent(jwt)}`;
+        try {
+            const data = await _fetchJson(url, { method: 'GET' });
+            if (!data?.success || !data.settings) {
+                return { ok: false, reason: data?.message || 'no_settings' };
+            }
+            _pageSettingsCache.set(pageId, { fetchedAt: Date.now(), settings: data.settings });
+            return { ok: true, settings: data.settings };
+        } catch (e) {
+            console.warn('[Web2Chat] fetchPageSettings failed:', e.message);
+            return { ok: false, reason: e.message };
+        }
+    }
+
     window.Web2Chat = {
         // Read
         fetchConversations,
         fetchConversationsByPage,
         searchConversations,
         fetchMessages,
+        fetchPageSettings,
         sendMessage,
         replyComment,
         getJwt,
