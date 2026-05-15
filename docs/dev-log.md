@@ -25,6 +25,35 @@
 
 ## 2026-05-15
 
+### [native-orders] Sidebar đoạn hội thoại — độc lập với order, học theo tpos-pancake/pancake.vn
+
+**User**: "panel trái đoạn hội thoại → này đừng lấy thông tin từ đơn hàng → làm theo tpos-pancake phần pancake hoặc như pancake.vn → nó độc lập để không bị hạn chế và lấy được tất cả đoạn hội thoại realtime".
+
+**Trước**:
+
+- `_loadInboxSidebar` early-return nếu `!order.fbPageId` → modal mở từ đơn không Facebook → sidebar trống.
+- `_switchChatToCustomer(originalOrder, fbId, cName)` chỉ override `fbUserId` → click conv Store khi modal mở từ order House → chat thread fetch sai page → load fail.
+- Avatar dùng `currentOrder.fbPageId` cho tất cả rows → cross-page rows mất avatar (đã fix turn trước, nhưng còn click handler).
+- Synthetic prepend WS dùng `order.fbPageId` cho conv mới → khách mới ping từ Store sẽ render với page House.
+
+**Sau** ([native-orders-app.js](../native-orders/js/native-orders-app.js)):
+
+- Bỏ guard `!order.fbPageId` ở `_loadInboxSidebar` → sidebar luôn load đa-page từ `pancake_all_accounts`.
+- `_convRowHtml` thêm `data-page-id="<rowPageId>"` → click handler đọc đúng page của conv.
+- `_switchChatToCustomer(order, fbId, cName, clickedPageId)` — thêm param `clickedPageId`, synthetic order set `fbPageId: clickedPageId || originalOrder.fbPageId` → chat thread fetch từ đúng page Pancake.
+- `_bindConvRowClicks` + WS-prepend click handler + initial render click handler đều pass `row.dataset.pageId`.
+- WS synthetic prepend dùng `pageId` từ event thay vì `order.fbPageId` → conv mới đúng page.
+
+**Verify live** (port 8089, modal mở từ order House `NW-20260513-0016`):
+
+- 50 sidebar rows, mix House (`pg:117267091364524`) + Store (`pg:270136663390370`).
+- Click Pandora Kim (Store) → chat thread load 96 bubbles, `msgInput.dataset.conversationId = 270136663390370_2148317755276377` (Store conv), no error → ✅ cross-page chat hoạt động.
+- Architecture giờ giống `tpos-pancake/js/pancake/pancake-init.js` (`PancakeColumnManager`) — sidebar là standalone conversation list, không bind cứng vào 1 order/page.
+
+**Status**: ✅ Done.
+
+---
+
 ### [render][tpos-pancake][web2-shared] Lưu page names cùng IDs ở `realtime_accounts.proposed_pages`
 
 **User**: "lúc lưu key socket ở render db thì bạn lưu id page và tên page để dùng".

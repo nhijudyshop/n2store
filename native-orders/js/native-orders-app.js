@@ -2753,7 +2753,11 @@
 
     async function _loadInboxSidebar(order) {
         const list = document.getElementById('w2InboxConvList');
-        if (!list || !order.fbPageId) return;
+        if (!list) return;
+        // Sidebar is independent of the order's page — like tpos-pancake's
+        // PancakeColumnManager + pancake.vn merge mode, it loads ALL pages
+        // the user has access to so any customer chat is reachable even
+        // when modal was opened from a single-page order.
         if (!window.Web2Chat?.fetchConversationsByPage) {
             list.innerHTML =
                 '<div class="w2-inbox-sb-empty" style="padding:24px;color:#94a3b8;font-size:12px;text-align:center;">Web2Chat chưa hỗ trợ list theo page</div>';
@@ -2788,8 +2792,9 @@
                 row.addEventListener('click', () => {
                     const fbId = row.dataset.fbId;
                     const cName = row.dataset.cName;
+                    const rowPage = row.dataset.pageId || '';
                     if (!fbId) return;
-                    _switchChatToCustomer(order, fbId, cName);
+                    _switchChatToCustomer(order, fbId, cName, rowPage);
                     // Mark row read locally
                     row.classList.remove('is-unread');
                     row.querySelector('.w2-inbox-conv-badge')?.remove();
@@ -3294,8 +3299,9 @@
             row.addEventListener('click', () => {
                 const fbId = row.dataset.fbId;
                 const cName = row.dataset.cName;
+                const rowPage = row.dataset.pageId || '';
                 if (!fbId) return;
-                _switchChatToCustomer(order, fbId, cName);
+                _switchChatToCustomer(order, fbId, cName, rowPage);
                 row.classList.remove('is-unread');
                 row.querySelector('.w2-inbox-conv-badge')?.remove();
             });
@@ -3371,7 +3377,7 @@
         const avatarHtml = avatarUrl
             ? `<img class="w2-inbox-conv-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(cName)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-inbox-conv-avatar&quot; style=&quot;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;&quot;>${escapeHtml(initial)}</div>'" />`
             : `<div class="w2-inbox-conv-avatar" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">${escapeHtml(initial)}</div>`;
-        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}" data-tag-count="${tagCount}" data-tag-ids="${escapeHtml(tagIdsStr)}" data-has-phone="${hasPhone}" data-has-live="${hasLive}" data-replied="${replied}">
+        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}" data-page-id="${escapeHtml(rowPageId)}" data-tag-count="${tagCount}" data-tag-ids="${escapeHtml(tagIdsStr)}" data-has-phone="${hasPhone}" data-has-live="${hasLive}" data-replied="${replied}">
             ${avatarHtml}
             <div class="w2-inbox-conv-body">
                 <div class="w2-inbox-conv-top">
@@ -3671,8 +3677,9 @@
                 newRow.addEventListener('click', () => {
                     const customerId = newRow.dataset.fbId;
                     const cName = newRow.dataset.cName;
+                    const rowPage = newRow.dataset.pageId || '';
                     if (!customerId) return;
-                    _switchChatToCustomer(order, customerId, cName);
+                    _switchChatToCustomer(order, customerId, cName, rowPage);
                     newRow.classList.remove('is-unread');
                     newRow.querySelector('.w2-inbox-conv-badge')?.remove();
                 });
@@ -3690,13 +3697,19 @@
      * re-skin the header + right-panel in place. Same customer click is
      * treated as a "refresh thread" no-rebuild.
      */
-    async function _switchChatToCustomer(originalOrder, fbId, customerName) {
+    async function _switchChatToCustomer(originalOrder, fbId, customerName, clickedPageId) {
         const isSameCustomer = String(originalOrder.fbUserId || '') === String(fbId);
+        // Cross-page click: sidebar is multi-page, so a customer row may
+        // belong to a different page than the order's. Honour the row's
+        // own page so the chat panel fetches messages from the right
+        // place (Pancake `/api/v1/pages/{pageId}/...`).
+        const effectivePageId = clickedPageId || originalOrder.fbPageId || '';
         const synthetic = isSameCustomer
-            ? originalOrder
+            ? { ...originalOrder, fbPageId: effectivePageId || originalOrder.fbPageId }
             : {
                   ...originalOrder,
                   fbUserId: fbId,
+                  fbPageId: effectivePageId,
                   customerName: customerName || '',
                   fbUserName: customerName || '',
                   // Different customer — clear order-bound context so the
