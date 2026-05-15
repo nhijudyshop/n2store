@@ -165,9 +165,27 @@ try {
                 fs.writeFileSync(READY_FILE, ts());
                 log('✓ Ready signal written to', READY_FILE);
                 break;
+            case 'savecookies':
+                await safe(async () => {
+                    const cookies = await ctx.cookies();
+                    const outPath = arg || path.join(OUT_DIR, 'tpos-cookies.json');
+                    fs.writeFileSync(outPath, JSON.stringify(cookies, null, 2));
+                    return { ok: true, path: outPath, count: cookies.length };
+                }, `savecookies ${arg}`);
+                break;
+            case 'dumpcookies':
+                await safe(async () => {
+                    const cookies = await ctx.cookies();
+                    return cookies.map((c) => ({
+                        name: c.name,
+                        domain: c.domain,
+                        expires: c.expires,
+                    }));
+                }, 'dumpcookies');
+                break;
             case 'help':
                 log(
-                    'Commands: nav <url> | eval <js> | click <sel> | netlast [N] | netfilter <regex> | clearnet | shot <path> | done | quit'
+                    'Commands: nav <url> | eval <js> | click <sel> | netlast [N] | netfilter <regex> | clearnet | shot <path> | done | savecookies [path] | dumpcookies | quit'
                 );
                 break;
             case 'quit':
