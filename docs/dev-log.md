@@ -25,6 +25,42 @@
 
 ## 2026-05-15
 
+### [native-orders] Chat modal — Pancake-style 3-col inbox layout (Phase 1)
+
+**User**: gửi screenshot Pancake admin inbox + "làm tất cả để giống hình". Sau đó: "không cần làm phần tạo đơn pancake order đâu vì web 2.0 có hệ thông tạo đơn rồi".
+
+**Scope Phase 1** (xem plan tại [`docs/plans/native-orders-pancake-inbox.md`](plans/native-orders-pancake-inbox.md)):
+
+- Modal mở rộng 96vw × 92vh, CSS Grid 3 cột `320px 1fr 380px`.
+- **Trái — Sidebar**: search "Tìm kiếm" + filter "Lọc theo" + list 50 conv mới nhất của page (fetch qua `Web2Chat.fetchConversationsByPage` mới). Click row → swap chat sang khách đó (giữ modal mở).
+- **Giữa — Chat**: header avatar + tên + 5 icon button (history, user, package, external-link, ×). Tabs Tin nhắn/Bình luận + badge. Thread bubble giữ nguyên. **Quick-reply tag bar 14 chip nhiều màu** (rgba 0.4 opacity, white text shadow) match Pancake `.btn-tag-item` palette. Click chip → paste template + signature vào input.
+- **Phải — Right panel**: tab Thông tin (active) + tab Tạo đơn là `<a target=_blank>` link sang `tpos-pancake/index.html?phone=…` (web 2.0 đã có hệ tạo đơn riêng — KHÔNG dựng lại). Thông tin tab: Khách hàng card, Đơn hiện tại (mã/trạng thái/tổng tiền/tags), Ghi chú nội bộ, Lịch sử đơn (placeholder).
+
+**Files**:
+
+- [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) — rewrite `_renderInteractionsModal` markup; thêm `_renderInboxSidebarShell`, `_renderInboxRightPanel`, `_renderInfoTab`, `_renderQuickReplyTags`, `_wireQuickReplyTags`, `_loadInboxSidebar`, `_convRowHtml`, `_switchChatToCustomer`; ~350 dòng CSS trong `_ensureChatModalCss`. Sidebar `await Web2Chat.syncFromRenderDB()` trước fetch để có JWT.
+- [web2-shared/web2-chat-client.js](../web2-shared/web2-chat-client.js) — thêm `fetchConversationsByPage(pageId, opts)`.
+
+**Verify live trên NW-20260513-0016**:
+
+| Metric            | Result                    |
+| ----------------- | ------------------------- |
+| Grid columns      | `320px 682.398px 380px` ✓ |
+| Sidebar conv rows | 50 ✓                      |
+| Chat bubbles      | 55 ✓                      |
+| Quick reply tags  | 14 ✓                      |
+| Right panel       | Thông tin rendered ✓      |
+
+**Bug đã fix khi build**: Stray backtick trong CSS comment (`.w2-inbox-right-foot`) làm template literal đóng sớm → toàn bộ CSS không inject → grid không apply. Sửa bằng bỏ backticks trong comment.
+
+**Cache bump**: `native-orders-app.js v=20260515d`, `web2-chat-client.js v=20260514h`.
+
+**Phase tiếp theo (chưa code)**: P4 composer enhancements (attach image/file/sticker), P5 polish (virtualization nếu >500 conv, real-time WS update cho sidebar, responsive). Xem plan doc.
+
+**Status**: ✅ Done Phase 1.
+
+---
+
 ### [native-orders][web2-shared] Web 2.0 dùng chung Pancake account pool với Web 1.0
 
 **User**: "coi bên web 1.0 render db lưu account pancake ở đâu -> copy các account và cách refresh token qua web 2.0".

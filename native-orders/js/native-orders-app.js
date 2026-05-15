@@ -2160,52 +2160,65 @@
                       )
                       .join('')
                 : '';
+        const totalEarn = order.amountTotal || order.total;
+        const totalHtml = totalEarn
+            ? `<div style="align-self:center;font-size:12px;color:#64748b;margin-right:6px;">Tổng đơn: <strong style="color:#15803d;font-size:13px;">${(Number(totalEarn) || 0).toLocaleString('vi-VN')}đ</strong></div>`
+            : '';
+        const avatarHtml =
+            order.fbUserId && order.fbPageId
+                ? `<img src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);" loading="eager" onerror="this.outerHTML='<div style=&quot;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;&quot;>${escapeHtml(initials).replace(/'/g, '&#39;')}</div>'" />`
+                : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;">${escapeHtml(initials)}</div>`;
+
         modal.innerHTML = `
-            <div class="w2p-card w2fx-pop" style="max-width:1080px;width:96vw;height:88vh;max-height:760px;display:flex;flex-direction:column;">
-                <div style="padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#faf5ff 0%,#fdfaff 100%);">
-                    ${
-                        order.fbUserId && order.fbPageId
-                            ? `<img src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);box-shadow:0 4px 12px rgba(124,58,237,0.25);" loading="eager" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:16px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(124,58,237,0.25);&quot;>${escapeHtml(initials).replace(/'/g, '&#39;')}</div>'" />`
-                            : `<div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:16px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(124,58,237,0.25);">${escapeHtml(initials)}</div>`
-                    }
-                    <div style="flex:1;min-width:0;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                            <strong style="font-size:16px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
-                            <span style="background:#e0e7ff;color:#4338ca;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:0.3px;">${escapeHtml(order.code)}</span>
-                            ${tagsHtml}
+            <div class="w2p-card w2fx-pop w2-inbox-card" style="width:96vw;height:92vh;max-width:1600px;display:flex;flex-direction:column;overflow:hidden;">
+                <div class="w2-inbox-grid">
+                    <aside class="w2-inbox-sidebar" id="w2InboxSidebar">
+                        ${_renderInboxSidebarShell()}
+                    </aside>
+                    <main class="w2-inbox-center">
+                        <div class="w2-inbox-header">
+                            ${avatarHtml}
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                                    <strong style="font-size:15px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
+                                    <span style="background:#e0e7ff;color:#4338ca;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">${escapeHtml(order.code)}</span>
+                                    ${tagsHtml}
+                                </div>
+                                <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                    ${phoneHtml}
+                                    ${order.fbPageId ? `<span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;">Page …${escapeHtml(String(order.fbPageId).slice(-6))}</span>` : ''}
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
+                                <button type="button" class="w2-inbox-icon-btn" title="Lịch sử mua" data-action="open-history"><i data-lucide="history" style="width:14px;height:14px;"></i></button>
+                                <button type="button" class="w2-inbox-icon-btn" title="Thông tin khách" data-action="toggle-info"><i data-lucide="user" style="width:14px;height:14px;"></i></button>
+                                <button type="button" class="w2-inbox-icon-btn" title="Đơn liên quan" data-action="open-orders"><i data-lucide="package" style="width:14px;height:14px;"></i></button>
+                                <button type="button" class="w2-inbox-icon-btn" data-action="open-pancake" title="Mở đầy đủ trong TPOS × Pancake"><i data-lucide="external-link" style="width:14px;height:14px;"></i></button>
+                                <button onclick="NativeOrdersApp._closeInteractions()" title="Đóng" style="width:30px;height:30px;background:transparent;border:1px solid transparent;font-size:18px;cursor:pointer;color:#94a3b8;line-height:1;border-radius:6px;margin-left:4px;">×</button>
+                            </div>
                         </div>
-                        <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                            ${phoneHtml}
-                            ${order.fbUserId ? `<span>👤 …${escapeHtml(String(order.fbUserId).slice(-10))}</span>` : ''}
-                            ${order.fbPageId ? `<span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px;">Page …${escapeHtml(String(order.fbPageId).slice(-6))}</span>` : ''}
+                        <div class="w2-inbox-tabs">
+                            <button class="interactions-tab ${tab === 'messages' ? 'is-active' : ''}" data-tab="messages">
+                                <i data-lucide="message-circle" style="width:14px;height:14px;"></i> Tin nhắn
+                                ${Number(order.messageCount) > 0 ? `<span class="w2-inbox-tab-badge ${tab === 'messages' ? 'is-active' : ''}">${order.messageCount}</span>` : ''}
+                            </button>
+                            <button class="interactions-tab ${tab === 'comments' ? 'is-active' : ''}" data-tab="comments">
+                                <i data-lucide="message-square" style="width:14px;height:14px;"></i> Bình luận
+                                ${Number(order.commentCount) > 0 ? `<span class="w2-inbox-tab-badge ${tab === 'comments' ? 'is-active' : ''}">${order.commentCount}</span>` : ''}
+                            </button>
+                            <div style="flex:1;"></div>
+                            ${totalHtml}
                         </div>
-                    </div>
-                    <div style="display:flex;gap:6px;flex-shrink:0;">
-                        <button type="button" data-action="open-pancake" title="Mở đầy đủ trong TPOS × Pancake" style="padding:6px 11px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;color:#475569;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
-                            <i data-lucide="external-link" style="width:13px;height:13px;"></i> Pancake
-                        </button>
-                        <button onclick="NativeOrdersApp._closeInteractions()" title="Đóng" style="width:32px;height:32px;background:transparent;border:1px solid transparent;font-size:20px;cursor:pointer;color:#94a3b8;line-height:1;border-radius:6px;">×</button>
-                    </div>
+                        <div id="interactionsBody" class="w2p-scroll-area" style="flex:1;min-height:0;padding:0;background:#f8fafc;">${
+                            tab === 'messages'
+                                ? _renderMessagesPanel(order)
+                                : _renderCommentsPanel(order)
+                        }</div>
+                    </main>
+                    <aside class="w2-inbox-right" id="w2InboxRight">
+                        ${_renderInboxRightPanel(order, 'create')}
+                    </aside>
                 </div>
-                <div style="display:flex;border-bottom:1px solid #e5e7eb;background:#fff;padding:0 12px;">
-                    <button class="interactions-tab ${tab === 'messages' ? 'is-active' : ''}" data-tab="messages" style="padding:11px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'messages' ? '#7c3aed' : '#64748b'};border-bottom:3px solid ${tab === 'messages' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-bottom:-1px;">
-                        <i data-lucide="message-circle" style="width:14px;height:14px;"></i> Tin nhắn
-                        ${Number(order.messageCount) > 0 ? `<span style="background:${tab === 'messages' ? '#7c3aed' : '#cbd5e1'};color:#fff;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${order.messageCount}</span>` : ''}
-                    </button>
-                    <button class="interactions-tab ${tab === 'comments' ? 'is-active' : ''}" data-tab="comments" style="padding:11px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:${tab === 'comments' ? '#7c3aed' : '#64748b'};border-bottom:3px solid ${tab === 'comments' ? '#7c3aed' : 'transparent'};display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-bottom:-1px;">
-                        <i data-lucide="message-square" style="width:14px;height:14px;"></i> Bình luận
-                        ${Number(order.commentCount) > 0 ? `<span style="background:${tab === 'comments' ? '#7c3aed' : '#cbd5e1'};color:#fff;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${order.commentCount}</span>` : ''}
-                    </button>
-                    <div style="flex:1;"></div>
-                    ${
-                        order.amountTotal || order.total
-                            ? `<div style="align-self:center;font-size:12px;color:#64748b;margin-right:6px;">Tổng đơn: <strong style="color:#15803d;font-size:13px;">${(Number(order.amountTotal || order.total) || 0).toLocaleString('vi-VN')}đ</strong></div>`
-                            : ''
-                    }
-                </div>
-                <div id="interactionsBody" class="w2p-scroll-area" style="flex:1;min-height:0;padding:0;background:#f8fafc;">${
-                    tab === 'messages' ? _renderMessagesPanel(order) : _renderCommentsPanel(order)
-                }</div>
             </div>`;
 
         // Wire tab clicks
@@ -2245,6 +2258,10 @@
         if (tab === 'messages') {
             // Lazy-load conversation thread (async, non-blocking)
             _loadAndRenderThread(order);
+            // Lazy-load the left sidebar conversation list for this page.
+            _loadInboxSidebar(order);
+            _wireQuickReplyTags();
+            _wireRightPanelTabs(order);
             const sendBtn = modal.querySelector('[data-action="send-message"]');
             sendBtn?.addEventListener('click', () => _handleSendMessage(order));
             // Enter to send (Shift+Enter for newline)
@@ -2395,6 +2412,309 @@
         });
     }
 
+    // ─── INBOX SIDEBAR + RIGHT PANEL (Pancake-style 3-col layout) ───
+    //
+    // The chat modal is now a full inbox shell: left column lists every
+    // conversation for the order's page (real-time via WS), centre column
+    // hosts the existing chat thread, right column holds customer info +
+    // a Pancake-style create-order form. See
+    // `docs/plans/native-orders-pancake-inbox.md` for the phased spec
+    // mapped from the live Pancake admin inbox DOM.
+
+    function _renderInboxSidebarShell() {
+        return `
+            <div class="w2-inbox-sb-head">
+                <div class="w2-inbox-sb-search">
+                    <i data-lucide="search" style="width:13px;height:13px;color:#94a3b8;"></i>
+                    <input type="text" id="w2InboxSearch" placeholder="Tìm kiếm" autocomplete="off" />
+                </div>
+                <button class="w2-inbox-sb-filter" type="button" title="Bộ lọc">
+                    <i data-lucide="sliders-horizontal" style="width:12px;height:12px;"></i> Lọc theo
+                </button>
+            </div>
+            <div class="w2-inbox-sb-list" id="w2InboxConvList">
+                <div class="w2-inbox-sb-empty">
+                    <div class="w2-chat-skeleton-bubble" style="height:60px;border-radius:8px;margin:4px 8px;"></div>
+                    <div class="w2-chat-skeleton-bubble" style="height:60px;border-radius:8px;margin:4px 8px;"></div>
+                    <div class="w2-chat-skeleton-bubble" style="height:60px;border-radius:8px;margin:4px 8px;"></div>
+                    <div class="w2-chat-skeleton-bubble" style="height:60px;border-radius:8px;margin:4px 8px;"></div>
+                </div>
+            </div>`;
+    }
+
+    function _renderInboxRightPanel(order, defaultTab = 'info') {
+        // Tạo-đơn pane intentionally not implemented here — web 2.0's
+        // native order system already handles order creation. The right
+        // panel just shows customer info + past orders for context.
+        return `
+            <div class="w2-inbox-right-tabs">
+                <button class="w2-inbox-right-tab is-active" data-rtab="info">Thông tin</button>
+                <a class="w2-inbox-right-tab" data-rtab="create" href="../tpos-pancake/index.html?phone=${encodeURIComponent(order.phone || '')}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+                    Tạo đơn <i data-lucide="external-link" style="width:11px;height:11px;"></i>
+                </a>
+            </div>
+            <div class="w2-inbox-right-body" id="w2InboxRightBody">
+                ${_renderInfoTab(order)}
+            </div>`;
+    }
+
+    function _renderInfoTab(order) {
+        const phone = order.phone || '';
+        const initial = (order.customerName || order.fbUserName || '?')
+            .trim()
+            .charAt(0)
+            .toUpperCase();
+        return `
+            <div class="w2-section">
+                <div class="w2-section-title-row">
+                    <span class="w2-section-title"><i data-lucide="user" style="width:13px;height:13px;"></i> Khách hàng</span>
+                    <div style="display:flex;gap:4px;">
+                        <button class="w2-inbox-icon-btn" title="Sửa khách"><i data-lucide="pen" style="width:12px;height:12px;"></i></button>
+                    </div>
+                </div>
+                <div class="w2-form-row w2-form-row-2col">
+                    <input class="w2-input" type="text" placeholder="Tên khách" value="${escapeHtml(order.customerName || order.fbUserName || '')}" readonly />
+                    <input class="w2-input" type="text" placeholder="SĐT" value="${escapeHtml(phone)}" readonly />
+                </div>
+                <input class="w2-input" type="text" placeholder="Địa chỉ" value="${escapeHtml(order.address || '')}" readonly />
+                <div class="w2-customer-card">
+                    <div class="w2-customer-card-avatar">${escapeHtml(initial)}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:12px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</div>
+                        <div style="font-size:11px;color:#64748b;">${escapeHtml(phone || '—')} ${phone ? '<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:3px;">Mobifone</span>' : ''}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w2-section">
+                <div class="w2-section-title"><i data-lucide="receipt" style="width:13px;height:13px;"></i> Đơn hiện tại</div>
+                <div class="w2-info-row"><span class="w2-info-label">Mã đơn</span><span class="w2-info-val"><strong>${escapeHtml(order.code)}</strong></span></div>
+                <div class="w2-info-row"><span class="w2-info-label">Trạng thái</span><span class="w2-info-val">${escapeHtml(order.status || '—')}</span></div>
+                <div class="w2-info-row"><span class="w2-info-label">Tổng tiền</span><span class="w2-info-val"><strong style="color:#15803d;">${(Number(order.amountTotal || order.total) || 0).toLocaleString('vi-VN')}đ</strong></span></div>
+                <div class="w2-info-row"><span class="w2-info-label">Tags</span><span class="w2-info-val">${(order.tags || []).map((t) => `<span style="background:#f0fdf4;color:#166534;font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid #bbf7d0;margin-right:3px;">${escapeHtml(t)}</span>`).join('') || '—'}</span></div>
+            </div>
+
+            <div class="w2-section">
+                <div class="w2-section-title"><i data-lucide="sticky-note" style="width:13px;height:13px;"></i> Ghi chú nội bộ</div>
+                <textarea class="w2-info-note" placeholder="Thêm ghi chú..." rows="3">${escapeHtml(order.note || '')}</textarea>
+            </div>
+
+            <div class="w2-section">
+                <div class="w2-section-title"><i data-lucide="history" style="width:13px;height:13px;"></i> Lịch sử đơn</div>
+                <div id="w2PastOrdersList" style="font-size:12px;color:#94a3b8;text-align:center;padding:14px 0;">
+                    (chưa kết nối — sẽ load đơn cũ của SĐT này)
+                </div>
+            </div>`;
+    }
+
+    /**
+     * Quick-reply colour-coded tag chips rendered just above the input.
+     * Tags come from the user's saved set (Pancake stores them in localStorage
+     * keyed by page_id; for now we read whatever Web 1.0 wrote there. The
+     * Phase 4 work is to manage these via the settings page).
+     */
+    const W2_DEFAULT_QUICK_TAGS = [
+        {
+            label: 'NV My KH đặt',
+            tpl: 'Dạ shop xác nhận đơn của mình ạ. Nv.My',
+            color: 'rgba(33, 68, 247, 0.4)',
+        },
+        {
+            label: 'NV My CK + Gấp',
+            tpl: 'Dạ ck giúp shop để gửi gấp nha ạ. Nv.My',
+            color: 'rgba(33, 68, 247, 0.4)',
+        },
+        {
+            label: 'NHẮC KHÁCH',
+            tpl: 'Dạ mình nhắc nhẹ khách iu ơi 💕',
+            color: 'rgba(241, 71, 255, 0.4)',
+        },
+        {
+            label: 'XIN ĐỊA CHỈ',
+            tpl: 'Dạ chị iu xác nhận giúp e địa chỉ + sđt nha ạ 🌷',
+            color: 'rgba(18, 101, 10, 0.4)',
+        },
+        { label: 'NV . BO', tpl: '', color: 'rgba(10, 241, 238, 0.4)' },
+        { label: 'NJD ƠI', tpl: '', color: 'rgba(146, 84, 222, 0.4)' },
+        { label: 'NV. Lài', tpl: '', color: 'rgba(244, 241, 24, 0.4)' },
+        { label: 'NV. Hạnh 🌷', tpl: '', color: 'rgba(75, 147, 68, 0.4)' },
+        { label: 'Nv.Huyền 🐣', tpl: '', color: 'rgba(247, 200, 33, 0.4)' },
+        { label: 'Nv. Duyên', tpl: '', color: 'rgba(33, 200, 247, 0.4)' },
+        { label: 'XỬ LÝ BC', tpl: '', color: 'rgba(244, 80, 24, 0.4)' },
+        { label: 'BOOM', tpl: '', color: 'rgba(247, 33, 33, 0.4)' },
+        { label: 'CHECK IB', tpl: '', color: 'rgba(140, 84, 33, 0.4)' },
+        { label: 'Nv My', tpl: 'Nv.My', color: 'rgba(33, 68, 247, 0.4)' },
+    ];
+
+    function _loadQuickTags() {
+        try {
+            const raw = localStorage.getItem('w2_quick_reply_tags');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length) return parsed;
+            }
+        } catch {
+            /* ignore */
+        }
+        return W2_DEFAULT_QUICK_TAGS;
+    }
+
+    function _renderQuickReplyTags() {
+        const tags = _loadQuickTags();
+        return `<div class="w2-quick-reply-row">
+            ${tags
+                .map(
+                    (t) =>
+                        `<button class="w2-quick-tag" data-tpl="${escapeHtml(t.tpl || t.label)}" style="background:${t.color};">${escapeHtml(t.label)}</button>`
+                )
+                .join('')}
+        </div>`;
+    }
+
+    /**
+     * Bind clicks on the quick-reply tag chips so a single click pastes the
+     * template + employee signature into #msgInput and focuses it.
+     */
+    function _wireQuickReplyTags() {
+        document.querySelectorAll('.w2-quick-tag').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const ta = document.getElementById('msgInput');
+                if (!ta) return;
+                const tpl = btn.getAttribute('data-tpl') || '';
+                const sig = window.Web2QuickReply?.signature?.() || '';
+                ta.value = (tpl + (tpl.endsWith(sig) || !sig ? '' : '\n' + sig)).trim();
+                ta.focus();
+                // Cursor at end so the user can edit
+                ta.selectionStart = ta.selectionEnd = ta.value.length;
+            });
+        });
+    }
+
+    /**
+     * Right column currently only has a single rendered tab (Thông tin);
+     * the Tạo đơn slot is an external link to web 2.0's order-creation
+     * page since web 2.0 already owns that flow. Kept the helper so a
+     * future "Lịch sử" or "Ghi chú dài" tab can drop in easily.
+     */
+    function _wireRightPanelTabs(_order) {
+        // No-op for now. The Thông tin tab is rendered by default and the
+        // Tạo đơn link is a plain <a target=_blank>.
+    }
+
+    /**
+     * Pull the page's conversation list and render rows into the sidebar.
+     * Highlights the row that matches the currently-open order's customer.
+     */
+    async function _loadInboxSidebar(order) {
+        const list = document.getElementById('w2InboxConvList');
+        if (!list || !order.fbPageId) return;
+        if (!window.Web2Chat?.fetchConversationsByPage) {
+            list.innerHTML =
+                '<div class="w2-inbox-sb-empty" style="padding:24px;color:#94a3b8;font-size:12px;text-align:center;">Web2Chat chưa hỗ trợ list theo page</div>';
+            return;
+        }
+        // Wait for the account sync that the chat panel kicks off — without
+        // a JWT this list call would 401. The sync is cached so this is a
+        // single-flight Promise the second caller awaits.
+        if (window.Web2Chat.syncFromRenderDB) {
+            try {
+                await window.Web2Chat.syncFromRenderDB();
+            } catch {
+                /* tolerate; sidebar will show no_jwt error if it really is missing */
+            }
+        }
+        try {
+            const res = await window.Web2Chat.fetchConversationsByPage(order.fbPageId, {
+                limit: 50,
+            });
+            if (!res.ok || !res.conversations.length) {
+                list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#94a3b8;font-size:12px;text-align:center;">Chưa có hội thoại${res.reason ? ` (${escapeHtml(res.reason)})` : ''}</div>`;
+                return;
+            }
+            list.innerHTML = res.conversations.map((c) => _convRowHtml(c, order)).join('');
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            // Auto-scroll to active row
+            const active = list.querySelector('.w2-inbox-conv.is-active');
+            if (active) active.scrollIntoView({ block: 'center' });
+            // Wire row clicks — switch chat to that customer (and stay in
+            // the same modal; we re-trigger _loadAndRenderThread with a
+            // synthetic order-like object containing the customer info).
+            list.querySelectorAll('.w2-inbox-conv').forEach((row) => {
+                row.addEventListener('click', () => {
+                    const fbId = row.dataset.fbId;
+                    const cName = row.dataset.cName;
+                    if (!fbId) return;
+                    _switchChatToCustomer(order, fbId, cName);
+                });
+            });
+        } catch (e) {
+            console.warn('[NativeOrders] sidebar load failed:', e.message);
+            list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#dc2626;font-size:12px;text-align:center;">Lỗi tải: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+
+    function _convRowHtml(c, currentOrder) {
+        const cust = c.customers?.[0] || c.from || {};
+        const fbId = String(cust.fb_id || cust.id || c.from_customer_id || '');
+        const cName = cust.name || cust.full_name || 'Khách';
+        const lastMsg =
+            (c.last_message?.message || c.last_message_text || c.snippet || '').slice(0, 120) ||
+            '(không có nội dung)';
+        const updated = c.updated_at || c.last_sent_at || c.inserted_at;
+        const time = updated
+            ? new Date(updated).toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+              })
+            : '';
+        const isActive =
+            String(currentOrder.fbUserId || '') === fbId &&
+            String(currentOrder.fbPageId || '') === String(c.page_id || c.fb_page_id || '');
+        const unread = c.unread_count || c.unread || 0;
+        const avatarUrl =
+            c.from?.avatar_url ||
+            cust.avatar_url ||
+            (fbId && currentOrder.fbPageId ? _avatarUrl(fbId, currentOrder.fbPageId) : '');
+        const initial = (cName || '?').trim().charAt(0).toUpperCase();
+        const avatarHtml = avatarUrl
+            ? `<img class="w2-inbox-conv-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(cName)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-inbox-conv-avatar&quot; style=&quot;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;&quot;>${escapeHtml(initial)}</div>'" />`
+            : `<div class="w2-inbox-conv-avatar" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">${escapeHtml(initial)}</div>`;
+        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}">
+            ${avatarHtml}
+            <div class="w2-inbox-conv-body">
+                <div class="w2-inbox-conv-top">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(cName)}</span>
+                    <span class="w2-inbox-conv-time">${escapeHtml(time)}</span>
+                </div>
+                <div class="w2-inbox-conv-preview">${escapeHtml(lastMsg)}</div>
+            </div>
+            ${unread ? `<span class="w2-inbox-conv-badge" title="${unread} chưa đọc"></span>` : ''}
+        </div>`;
+    }
+
+    /**
+     * When user clicks a sidebar row, swap the chat to that conversation.
+     * Keeps the modal open. We synthesise a minimal "order" object so
+     * `_loadAndRenderThread` can resolve the conversation; the rest of
+     * the right-panel (current-order data) stays pointing at the
+     * originally-opened order.
+     */
+    async function _switchChatToCustomer(originalOrder, fbId, customerName) {
+        const synthetic = {
+            ...originalOrder,
+            fbUserId: fbId,
+            customerName: customerName || originalOrder.customerName,
+            fbUserName: customerName || originalOrder.fbUserName,
+            code: originalOrder.code, // keep current order code
+        };
+        // Highlight clicked row
+        document
+            .querySelectorAll('.w2-inbox-conv')
+            .forEach((r) => r.classList.toggle('is-active', r.dataset.fbId === fbId));
+        // Re-render the message panel by re-calling load
+        await _loadAndRenderThread(synthetic);
+    }
+
     function _renderMessagesPanel(order) {
         if (!order.fbUserId || !order.fbPageId) {
             return `<div style="color:#94a3b8;font-style:italic;padding:60px 24px;text-align:center;">
@@ -2411,6 +2731,7 @@
                     </div>
                 </div>
                 <button type="button" id="msgJumpBottom" style="display:none;position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#7c3aed;color:#fff;border:none;font-size:11px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(124,58,237,0.35);z-index:5;">↓ <span id="msgJumpCount">0</span> tin mới</button>
+                ${_renderQuickReplyTags()}
                 <div style="border-top:1px solid #e5e7eb;background:#fff;padding:10px 18px 12px;">
                     <div id="msgReplyBar" style="display:none;"></div>
                     <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
@@ -2904,6 +3225,391 @@
                 line-height: 1.42;
                 word-break: break-word;
             }
+
+            /* ─── INBOX 3-COL SHELL ─────────────────────────────── */
+            .w2-inbox-card { background: #fff; }
+            .w2-inbox-grid {
+                flex: 1;
+                display: grid;
+                grid-template-columns: 320px 1fr 380px;
+                min-height: 0;
+            }
+            .w2-inbox-sidebar {
+                border-right: 1px solid #e5e7eb;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                background: #fff;
+            }
+            .w2-inbox-sb-head {
+                padding: 10px 12px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                gap: 6px;
+                align-items: center;
+                flex-shrink: 0;
+                background: #fff;
+            }
+            .w2-inbox-sb-search {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background: #f1f5f9;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 5px 9px;
+            }
+            .w2-inbox-sb-search input {
+                flex: 1;
+                background: transparent;
+                border: 0;
+                outline: 0;
+                font-size: 12px;
+                color: #0f172a;
+                min-width: 0;
+            }
+            .w2-inbox-sb-filter {
+                border: 1px solid #e2e8f0;
+                background: #fff;
+                color: #475569;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            .w2-inbox-sb-filter:hover { background: #f1f5f9; color: #0f172a; }
+            .w2-inbox-sb-list {
+                flex: 1;
+                min-height: 0;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 4px 0;
+            }
+            .w2-inbox-sb-empty { padding: 6px 0; }
+            .w2-inbox-conv {
+                display: flex;
+                gap: 10px;
+                padding: 10px 12px;
+                cursor: pointer;
+                border-bottom: 1px solid #f1f5f9;
+                position: relative;
+            }
+            .w2-inbox-conv:hover { background: #f8fafc; }
+            .w2-inbox-conv.is-active { background: #f3e8ff; }
+            .w2-inbox-conv.is-unread { background: #fefce8; }
+            .w2-inbox-conv-avatar {
+                width: 40px; height: 40px;
+                border-radius: 50%;
+                object-fit: cover;
+                flex-shrink: 0;
+                background: #e2e8f0;
+            }
+            .w2-inbox-conv-body { flex: 1; min-width: 0; }
+            .w2-inbox-conv-top {
+                display: flex; align-items: center; justify-content: space-between;
+                font-size: 12px; font-weight: 600; color: #0f172a;
+                margin-bottom: 2px;
+            }
+            .w2-inbox-conv-time { font-size: 10px; color: #94a3b8; font-weight: 500; }
+            .w2-inbox-conv-preview {
+                font-size: 11px; color: #64748b;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            }
+            .w2-inbox-conv-badge {
+                position: absolute;
+                top: 8px; right: 12px;
+                width: 7px; height: 7px;
+                border-radius: 50%;
+                background: #ef4444;
+            }
+
+            /* ─── INBOX CENTRE (chat panel) ─────────────────────── */
+            .w2-inbox-center {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                background: #f8fafc;
+            }
+            .w2-inbox-header {
+                padding: 10px 16px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #faf5ff 0%, #fdfaff 100%);
+                flex-shrink: 0;
+            }
+            .w2-inbox-icon-btn {
+                width: 30px; height: 30px;
+                border: 1px solid #e2e8f0;
+                background: #fff;
+                color: #475569;
+                cursor: pointer;
+                border-radius: 6px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.15s ease;
+            }
+            .w2-inbox-icon-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+            .w2-inbox-tabs {
+                display: flex;
+                border-bottom: 1px solid #e5e7eb;
+                background: #fff;
+                padding: 0 12px;
+                flex-shrink: 0;
+            }
+            .interactions-tab {
+                padding: 10px 16px;
+                border: none;
+                background: transparent;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 600;
+                color: #64748b;
+                border-bottom: 3px solid transparent;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                margin-bottom: -1px;
+            }
+            .interactions-tab.is-active { color: #7c3aed; border-bottom-color: #7c3aed; }
+            .w2-inbox-tab-badge {
+                background: #cbd5e1;
+                color: #fff;
+                padding: 1px 7px;
+                border-radius: 9px;
+                font-size: 10px;
+                font-weight: 700;
+                min-width: 18px;
+                text-align: center;
+            }
+            .w2-inbox-tab-badge.is-active { background: #7c3aed; }
+
+            /* ─── INBOX RIGHT PANEL ─────────────────────────────── */
+            .w2-inbox-right {
+                border-left: 1px solid #e5e7eb;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                background: #fff;
+            }
+            .w2-inbox-right-tabs {
+                display: flex;
+                border-bottom: 1px solid #e5e7eb;
+                background: #fff;
+                padding: 0 16px;
+                flex-shrink: 0;
+            }
+            .w2-inbox-right-tab {
+                padding: 12px 14px;
+                background: transparent;
+                border: none;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 600;
+                color: #64748b;
+                border-bottom: 3px solid transparent;
+                margin-bottom: -1px;
+            }
+            .w2-inbox-right-tab.is-active { color: #7c3aed; border-bottom-color: #7c3aed; }
+            .w2-inbox-right-body {
+                flex: 1;
+                min-height: 0;
+                overflow-y: auto;
+                padding: 4px 0 80px;
+                background: #fff;
+            }
+            .w2-section {
+                padding: 12px 16px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .w2-section-title {
+                font-size: 11px;
+                font-weight: 700;
+                color: #475569;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .w2-section-title-row {
+                display: flex; align-items: center; justify-content: space-between;
+                margin-bottom: 8px;
+            }
+            .w2-section-action {
+                font-size: 11px; color: #7c3aed; text-decoration: none; font-weight: 600;
+            }
+            .w2-section-action:hover { text-decoration: underline; }
+            .w2-info-row {
+                display: flex; gap: 10px; font-size: 12px;
+                padding: 4px 0;
+                color: #0f172a;
+            }
+            .w2-info-label { width: 72px; color: #64748b; flex-shrink: 0; }
+            .w2-info-val { flex: 1; min-width: 0; word-break: break-word; }
+            .w2-info-note {
+                width: 100%; box-sizing: border-box;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 6px 8px;
+                font-size: 12px;
+                font-family: inherit;
+                resize: vertical;
+                margin-top: 6px;
+            }
+            .w2-input {
+                width: 100%; box-sizing: border-box;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 7px 9px;
+                font-size: 12px;
+                color: #0f172a;
+                outline: 0;
+                font-family: inherit;
+            }
+            .w2-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+            .w2-form-row { margin-top: 6px; }
+            .w2-form-row-2col {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+            }
+            .w2-select-trigger {
+                width: 100%; box-sizing: border-box;
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 7px 9px;
+                font-size: 12px;
+                color: #94a3b8;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 6px;
+            }
+            .w2-customer-card {
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 10px;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                cursor: pointer;
+            }
+            .w2-customer-card-avatar {
+                width: 32px; height: 32px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+                color: #fff;
+                font-size: 13px;
+                font-weight: 700;
+                display: flex; align-items: center; justify-content: center;
+                flex-shrink: 0;
+            }
+            .w2-line-table-head {
+                display: flex; gap: 6px;
+                font-size: 10px; color: #64748b;
+                text-transform: uppercase; letter-spacing: 0.3px;
+                font-weight: 700;
+                padding: 6px 0;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .w2-line-table-body { min-height: 80px; padding: 8px 0; }
+            .w2-line-empty {
+                text-align: center;
+                color: #94a3b8;
+                font-size: 12px;
+                padding: 24px 0;
+            }
+            .w2-product-add {
+                display: flex; gap: 6px;
+                margin-top: 6px;
+            }
+            .w2-product-search {
+                flex: 1; display: flex; align-items: center; gap: 6px;
+                background: #f1f5f9;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 6px 9px;
+            }
+            .w2-product-search input {
+                flex: 1; background: transparent; border: 0; outline: 0;
+                font-size: 12px;
+            }
+            .w2-btn {
+                border: 1px solid #e2e8f0; background: #fff; color: #475569;
+                font-size: 12px; font-weight: 600;
+                padding: 6px 12px; border-radius: 6px;
+                cursor: pointer;
+                display: inline-flex; align-items: center; gap: 4px;
+            }
+            .w2-btn-light:hover { background: #f1f5f9; }
+            .w2-btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+            .w2-btn-primary:hover { background: #1d4ed8; }
+            .w2-btn-primary-lg {
+                background: #2563eb; color: #fff; border-color: #2563eb;
+                font-size: 13px; padding: 8px 16px;
+            }
+            .w2-btn-primary-lg:hover { background: #1d4ed8; }
+            .w2-checkbox {
+                display: inline-flex; align-items: center; gap: 5px;
+                font-size: 12px; cursor: pointer; user-select: none;
+            }
+            .w2-totals {
+                margin-top: 10px;
+                display: flex; flex-direction: column; gap: 4px;
+            }
+            .w2-total-row {
+                display: flex; justify-content: space-between;
+                font-size: 12px; color: #475569;
+            }
+            .w2-total-row strong { color: #0f172a; }
+            .w2-inbox-right-foot {
+                position: absolute;
+                bottom: 0; left: 0; right: 0;
+                padding: 10px 16px;
+                background: #fff;
+                border-top: 1px solid #e5e7eb;
+                display: flex; align-items: center; justify-content: space-between;
+                font-size: 14px;
+            }
+
+            /* ─── QUICK REPLY TAG ROW ───────────────────────────── */
+            .w2-quick-reply-row {
+                display: flex; flex-wrap: wrap; gap: 3px;
+                padding: 6px 10px;
+                background: #fff;
+                border-top: 1px solid #f1f5f9;
+                flex-shrink: 0;
+            }
+            .w2-quick-tag {
+                color: #fff;
+                font-size: 10px;
+                font-weight: 600;
+                padding: 3px 9px;
+                border-radius: 3px;
+                border: 0;
+                cursor: pointer;
+                text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+                line-height: 1.2;
+            }
+            .w2-quick-tag:hover { filter: brightness(0.92); }
+
+            /* Make the right panel scroll container relative so the
+               sticky footer (.w2-inbox-right-foot) can anchor inside it. */
+            .w2-inbox-right { position: relative; }
 
             /* Skeleton bubbles shown while Pancake API is in flight */
             .w2-chat-skeleton-bubble {

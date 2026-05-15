@@ -242,6 +242,38 @@
     const _convCache = new Map();
     const CONV_CACHE_TTL = 5 * 60 * 1000;
 
+    /**
+     * Fetch the conversation list for a whole page (the left sidebar in
+     * Pancake admin inbox). Used by the inbox modal sidebar.
+     *
+     * @param {string} pageId
+     * @param {{ tagId?:string, since?:number, limit?:number }} [opts]
+     */
+    async function fetchConversationsByPage(pageId, opts = {}) {
+        if (!pageId) return { ok: false, reason: 'missing_pageId', conversations: [] };
+        if (_isInstagram(pageId))
+            return { ok: false, reason: 'instagram_unsupported', conversations: [] };
+        const jwt = getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt', conversations: [] };
+        const params = new URLSearchParams({
+            access_token: jwt,
+            page_id: pageId,
+            type: 'INBOX',
+        });
+        if (opts.tagId) params.set('tag_id', opts.tagId);
+        if (opts.since) params.set('since', String(opts.since));
+        if (opts.limit) params.set('limit', String(opts.limit));
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/conversations?${params.toString()}`;
+        try {
+            const data = await _fetchJson(url, { method: 'GET' });
+            const conversations = Array.isArray(data?.conversations) ? data.conversations : [];
+            return { ok: true, conversations, raw: data };
+        } catch (e) {
+            console.warn('[Web2Chat] fetchConversationsByPage failed:', e.message);
+            return { ok: false, reason: e.message, conversations: [] };
+        }
+    }
+
     async function fetchConversations(pageId, fbId) {
         if (!pageId || !fbId)
             return { ok: false, reason: 'missing_pageId_or_fbId', conversations: [] };
@@ -563,6 +595,7 @@
     window.Web2Chat = {
         // Read
         fetchConversations,
+        fetchConversationsByPage,
         fetchMessages,
         sendMessage,
         replyComment,
