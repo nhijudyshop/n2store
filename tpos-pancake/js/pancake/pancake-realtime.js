@@ -160,11 +160,20 @@ const PancakeRealtime = {
                 var v = pair[1];
                 if (!v || !v.token) return null;
                 if (v.exp && v.exp < nowSec) return null; // skip expired
-                var pageIds = (Array.isArray(v.pages) ? v.pages : [])
+                var rawPages = Array.isArray(v.pages) ? v.pages : [];
+                // {id, name} pairs — broker persists names alongside ids
+                // so pool-status/log can show "Nhi Judy House" instead
+                // of bare numeric ids.
+                var pages = rawPages
                     .map(function (p) {
-                        return String((p && (p.id || p.page_id || p.pageId)) || '');
+                        var id = String((p && (p.id || p.page_id || p.pageId)) || '');
+                        if (!id) return null;
+                        return { id: id, name: (p && (p.name || p.page_name)) || null };
                     })
                     .filter(Boolean);
+                var pageIds = pages.map(function (p) {
+                    return p.id;
+                });
                 if (!pageIds.length) return null;
                 return {
                     accountId: String(v.uid || k),
@@ -172,6 +181,7 @@ const PancakeRealtime = {
                     token: v.token,
                     userId: v.uid,
                     pageIds: pageIds,
+                    pages: pages,
                     cookie: 'jwt=' + v.token,
                 };
             })

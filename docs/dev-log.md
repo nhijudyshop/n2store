@@ -25,6 +25,32 @@
 
 ## 2026-05-15
 
+### [render][tpos-pancake][web2-shared] Lưu page names cùng IDs ở `realtime_accounts.proposed_pages`
+
+**User**: "lúc lưu key socket ở render db thì bạn lưu id page và tên page để dùng".
+
+**Trước**: `proposed_pages` JSONB lưu mảng ID strings `["117267091364524","270136663390370",...]` → pool-status / log chỉ show số, không biết "Nhi Judy House".
+
+**Sau**:
+
+- **Server** ([n2store-realtime/server.js](../n2store-realtime/server.js)):
+    - `saveRealtimeAccount` chấp nhận thêm `acc.pages: [{id, name}, ...]`, persist JSONB array of `{id, name}` objects. Fallback bare ID strings cho legacy callers.
+    - `_normalisePagesField()` helper đọc cả 2 shapes (legacy string + new object) → uniform `[{id, name}]`.
+    - `loadActiveAccounts()` trả thêm `pages: [{id, name}]` bên cạnh `pageIds`. Verified_pages merge với name lookup từ proposed_pages.
+    - `RealtimeClient.pageLabels {id → name}` set bởi `RealtimePool.startAll()`. `getStatus()` trả `pages: [{id, name}]` thay vì chỉ pageIds.
+    - Log pool start: `[POOL] ▶ Thu Huyền → 4 pages: [Nhi Judy House, NhiJudy Store, ...]` thay vì numeric ids.
+- **Client** ([tpos-pancake/js/pancake/pancake-realtime.js:144-200](../tpos-pancake/js/pancake/pancake-realtime.js#L144-L200), [web2-shared/web2-realtime.js:390-415](../web2-shared/web2-realtime.js#L390-L415)):
+    - `_startMultiAccount` + `startMulti` gửi cả `pages: [{id, name}, ...]` cùng `pageIds` trong payload start-multi.
+    - Nguồn dữ liệu: `localStorage.pancake_all_accounts.{accId}.pages` đã có sẵn `{id, name}`.
+
+**Migration**: `_normalisePagesField` đọc back-compat, nên rows cũ trong DB (chỉ id) vẫn load OK. Sau khi client gọi start-multi lần kế, rows tự upsert sang shape mới.
+
+**Verify**: client `_startMultiAccount` vẫn return `{ok:true, poolSize:5}` (broker hiện đang chạy code cũ, ignore `pages` field, không break). Sau khi Render redeploy → pool-status sẽ trả `pages: [{id:"117...", name:"Nhi Judy House"}, ...]`.
+
+**Status**: ✅ Done client + server code; pending Render deploy.
+
+---
+
 ### [native-orders] Sidebar inbox modal — multi-page (House + Store), không lock theo `order.fbPageId`
 
 **User**: "hình 2 nó filter theo gì hay nó đang chọn page cố định vậy? → cho hình 2 realtime 2 page đi".

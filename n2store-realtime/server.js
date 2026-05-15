@@ -362,6 +362,21 @@ async function disableRealtimeCredentials(clientType) {
 async function saveRealtimeAccount(acc) {
     if (!dbPool) return;
     try {
+        // Prefer the richer `pages: [{id, name}, ...]` shape when the
+        // client sent it (labels are useful for the pool-status UI and
+        // for human-readable logs). Fall back to bare ID array for
+        // legacy callers that only push pageIds.
+        let proposed;
+        if (Array.isArray(acc.pages) && acc.pages.length) {
+            proposed = acc.pages
+                .map((p) => ({
+                    id: String((p && (p.id || p.page_id || p.pageId)) || ''),
+                    name: (p && (p.name || p.page_name)) || null,
+                }))
+                .filter((p) => p.id);
+        } else {
+            proposed = (acc.pageIds || []).map((id) => ({ id: String(id), name: null }));
+        }
         await dbPool.query(
             `INSERT INTO realtime_accounts (account_id, name, token, user_id, cookie, proposed_pages, is_active, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6::jsonb, TRUE, NOW())
@@ -380,12 +395,33 @@ async function saveRealtimeAccount(acc) {
                 acc.token,
                 acc.userId || null,
                 acc.cookie || null,
-                JSON.stringify(acc.pageIds || []),
+                JSON.stringify(proposed),
             ]
         );
     } catch (e) {
         console.error('[DATABASE] saveRealtimeAccount error:', e.message);
     }
+}
+
+/**
+ * Read helper: normalise `proposed_pages` / `verified_pages` JSONB into a
+ * uniform `[{id, name}, ...]` regardless of which shape was written.
+ * Legacy rows stored bare ID strings; new rows store the richer object
+ * form. Returns [] for null/empty.
+ */
+function _normalisePagesField(raw) {
+    if (!Array.isArray(raw) || !raw.length) return [];
+    return raw
+        .map((p) => {
+            if (typeof p === 'string') return { id: p, name: null };
+            if (p && typeof p === 'object') {
+                const id = String(p.id || p.page_id || p.pageId || '');
+                if (!id) return null;
+                return { id, name: p.name || p.page_name || null };
+            }
+            return null;
+        })
+        .filter(Boolean);
 }
 
 /**
@@ -424,19 +460,27 @@ async function loadActiveAccounts() {
              WHERE is_active = TRUE AND token IS NOT NULL
              ORDER BY last_seen_at DESC`
         );
-        return r.rows.map((row) => ({
-            accountId: row.account_id,
-            name: row.name,
-            token: row.token,
-            userId: row.user_id,
-            cookie: row.cookie,
-            // Prefer verified pages; fall back to proposed when nothing is verified
-            // yet (e.g. brand-new account that hasn't completed a join cycle).
-            pageIds:
-                (row.verified_pages && row.verified_pages.length
-                    ? row.verified_pages
-                    : row.proposed_pages) || [],
-        }));
+        return r.rows.map((row) => {
+            const proposed = _normalisePagesField(row.proposed_pages);
+            const verifiedIds = new Set(_normalisePagesField(row.verified_pages).map((p) => p.id));
+            // Names live on `proposed` (what client sent). Re-stamp every
+            // verified id with the name it had in proposed so downstream
+            // code never has to chase labels separately.
+            const nameById = new Map(proposed.map((p) => [p.id, p.name]));
+            const pages =
+                verifiedIds.size > 0
+                    ? [...verifiedIds].map((id) => ({ id, name: nameById.get(id) || null }))
+                    : proposed;
+            return {
+                accountId: row.account_id,
+                name: row.name,
+                token: row.token,
+                userId: row.user_id,
+                cookie: row.cookie,
+                pages, // [{id, name}, ...]
+                pageIds: pages.map((p) => p.id), // back-compat with pool.startAll
+            };
+        });
     } catch (e) {
         console.error('[DATABASE] loadActiveAccounts error:', e.message);
         return [];
@@ -931,6 +975,14 @@ class RealtimeClient {
     }
 
     getStatus() {
+        // `pageLabels` (set by RealtimeClientPool.startAll) carries the
+        // {id, name} pairs so status output can show "Nhi Judy House"
+        // instead of bare numeric page ids.
+        const labels = this.pageLabels || {};
+        const pages = (this.pageIds || []).map((id) => ({
+            id: String(id),
+            name: labels[String(id)] || null,
+        }));
         return {
             connected: this.isConnected,
             wsReadyState: this.ws?.readyState ?? 'no_ws', // 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
@@ -938,6 +990,7 @@ class RealtimeClient {
             tokenFirst20: this.token?.substring(0, 20) || null,
             userId: this.userId,
             pageIds: this.pageIds || [],
+            pages, // [{id, name}, ...] — preferred for UI display
             pageCount: this.pageIds?.length || 0,
             hasCookie: !!this.cookie,
             cookieLength: this.cookie?.length || 0,
@@ -1024,8 +1077,21 @@ class RealtimeClientPool {
             } else {
                 client.accountName = acc.name || client.accountName;
             }
+            // Stash {id → name} so status/log output shows page names
+            // alongside ids. Source of truth: `acc.pages` (richer form
+            // pushed by browser) — fall back to whatever names we got
+            // from DB on auto-reconnect.
+            const labels = {};
+            if (Array.isArray(acc.pages)) {
+                for (const p of acc.pages) {
+                    const id = String((p && (p.id || p.page_id || p.pageId)) || '');
+                    if (id) labels[id] = (p && (p.name || p.page_name)) || null;
+                }
+            }
+            client.pageLabels = { ...(client.pageLabels || {}), ...labels };
+            const labelStr = acc.pageIds.map((id) => labels[String(id)] || id).join(', ');
             console.log(
-                `[POOL] ▶ ${acc.name || accId.slice(0, 8)} → ${acc.pageIds.length} pages: [${acc.pageIds.join(', ')}]`
+                `[POOL] ▶ ${acc.name || accId.slice(0, 8)} → ${acc.pageIds.length} pages: [${labelStr}]`
             );
             await client.start(acc.token, acc.userId, acc.pageIds, acc.cookie, false);
             // Persist creds + proposed pages so a broker restart can
@@ -1069,6 +1135,7 @@ class RealtimeClientPool {
                 wsReadyState: s.wsReadyState,
                 userId: s.userId,
                 pageIds: s.pageIds,
+                pages: s.pages, // [{id, name}, ...] — RealtimeClient.getStatus stamps names
                 pageCount: s.pageCount,
                 reconnectAttempts: s.reconnectAttempts,
             });

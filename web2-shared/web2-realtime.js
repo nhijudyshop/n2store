@@ -392,15 +392,25 @@
             .map((a) => {
                 const tokenInfo = global.Web2Chat?.decodeJwt?.(a.token) || {};
                 const userId = tokenInfo.sub || tokenInfo.uid || tokenInfo.user_id || a.uid;
-                const pageIds = (Array.isArray(a.pages) ? a.pages : [])
-                    .map((p) => String(p?.id || p?.page_id || p?.pageId || p || ''))
+                const rawPages = Array.isArray(a.pages) ? a.pages : [];
+                // Carry {id, name} pairs so the broker can persist labels
+                // — pool-status response then shows "Nhi Judy House"
+                // alongside the bare page id.
+                const pages = rawPages
+                    .map((p) => {
+                        const id = String(p?.id || p?.page_id || p?.pageId || p || '');
+                        if (!id) return null;
+                        return { id, name: p?.name || p?.page_name || null };
+                    })
                     .filter(Boolean);
+                const pageIds = pages.map((p) => p.id);
                 return {
                     accountId: String(a.account_id || a.id || userId),
                     name: a.name || tokenInfo.fb_name || null,
                     token: a.token,
                     userId,
                     pageIds,
+                    pages,
                     cookie: `jwt=${a.token}`,
                 };
             })
