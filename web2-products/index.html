@@ -34,36 +34,17 @@
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content" style="overflow: auto; height: 100vh">
-                <!-- Tab Navigation -->
-                <div class="tab-navigation">
-                    <div class="tab-nav-content">
-                        <a
-                            class="tab-button"
-                            data-tab="native-orders"
-                            href="../native-orders/index.html"
-                        >
-                            <i data-lucide="package-open" class="tab-icon"></i>
-                            Đơn Web
-                        </a>
-                        <a
-                            class="tab-button"
-                            data-tab="tpos-pancake"
-                            href="../tpos-pancake/index.html"
-                        >
-                            <i data-lucide="shopping-cart" class="tab-icon"></i>
-                            TPOS × Pancake
-                        </a>
-                        <a class="tab-button active" data-tab="web2-products" href="#">
-                            <i data-lucide="box" class="tab-icon"></i>
-                            Kho Sản Phẩm
-                        </a>
-                        <div class="tab-spacer"></div>
-                        <div class="topbar-actions">
-                            <span class="counter-pill" id="totalCounter">— sản phẩm</span>
-                            <span class="source-pill">web2_products</span>
-                        </div>
+                <!-- Page head — counter + source badge (tab strip removed; nav lives in sidebar). -->
+                <header class="page-head-mini">
+                    <h1 class="page-head-title">
+                        <i data-lucide="box"></i>
+                        Kho Sản Phẩm
+                    </h1>
+                    <div class="page-head-counters">
+                        <span class="counter-pill" id="totalCounter">— sản phẩm</span>
+                        <span class="source-pill">web2_products</span>
                     </div>
-                </div>
+                </header>
 
                 <!-- Toolbar / actions -->
                 <section class="search-section">

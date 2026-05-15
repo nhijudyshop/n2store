@@ -295,3 +295,66 @@
 .w2fx-stagger > *:nth-child(12) {
     animation-delay: 460ms;
 }
+
+/* ------------------------------------------------------------ */
+/* Page head mini — replaces the legacy .tab-navigation bar.    */
+/* Used by native-orders, web2-products, so-order, etc.         */
+/* ------------------------------------------------------------ */
+
+.page-head-mini {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 22px;
+    background: #fff;
+    border-bottom: 1px solid #e3e8ee;
+    flex-wrap: wrap;
+}
+
+.page-head-title {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font:
+        700 16px/1.2 Manrope,
+        Inter,
+        system-ui,
+        sans-serif;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.page-head-title i {
+    width: 20px;
+    height: 20px;
+    color: #6d28d9;
+}
+
+.page-head-counters {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.page-head-counters .counter-pill,
+.page-head-counters .source-pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.page-head-counters .counter-pill {
+    background: #eef2ff;
+    color: #6d28d9;
+}
+
+.page-head-counters .source-pill {
+    background: #f1f5f9;
+    color: #64748b;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    font-size: 11px;
+}

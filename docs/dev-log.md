@@ -25,6 +25,49 @@
 
 ## 2026-05-15
 
+### [so-order] Trang Sổ Order mới + bỏ thanh `.tab-navigation` ở mọi trang
+
+**User**:
+
+1. "Tạo 1 trang 'Sổ Order' — giao diện như native-orders — gồm tab HÀ NỘI, HƯƠNG CHÂU, có + để thêm → bảng NCC, STT, Tên SP, Biến Thể, SL, Giá Bán (tiền tệ theo tab + tỉ giá VNĐ), Giá Nhập, Ảnh SP, Ảnh HĐ, Trạng Thái, Thao Tác → Tổng SL, Giảm Giá, Phí Ship → nút Tạo Đơn Hàng lưu trạng thái Nháp → có cài đặt ẩn hiện cột."
+2. "Hình 2 là css riêng hả? bỏ đi" → "trang nào cũng có thanh hình 2 → bỏ thanh hình 2".
+
+**Tạo trang Sổ Order** (~1200 dòng):
+
+- [so-order/index.html](../so-order/index.html) — shell + 3 modals (form order, tab settings, column visibility) + lightbox ảnh.
+- [so-order/css/so-order.css](../so-order/css/so-order.css) — table + tabs + modal + status pills (vàng/xanh/lá/đỏ cho Nháp/Đã Đặt/Đã Nhận/Hủy).
+- [so-order/js/so-order-storage.js](../so-order/js/so-order-storage.js) — localStorage CRUD (key `soOrder_v1`); schema `{tabs:[{id,label,currency,rate,footer,rows}], activeTabId, columnVisibility}`.
+- [so-order/js/so-order-app.js](../so-order/js/so-order-app.js) — controller: render tab strip, table head/body (cột filter qua `columnVisibility`), form modal, FX hint per-tab (`[CNY (≈ 3.500 ₫)]`), image upload base64.
+- Sidebar: thêm "Sổ Order" trong group Sale Online ở [web2-shared/tpos-sidebar.js:139](../web2-shared/tpos-sidebar.js#L139).
+
+**Tính năng**:
+
+- Default 2 tab: HÀ NỘI (VND), HƯƠNG CHÂU (CNY rate 3500). User add thêm: TOKYO/JPY, USD, KRW, THB, EUR.
+- Giá Bán/Nhập tab non-VND → hiển thị 2 dòng: raw (vd "50,00 CNY") + quy đổi (vd "≈ 175.000₫").
+- Footer: Tổng SL auto, Giảm Giá + Phí Ship input (lưu per-tab), Tổng tiền VNĐ = Σ(sellPrice × qty × rate) − discount + shipping.
+- Trạng thái 4 giá trị, default Nháp khi tạo mới.
+- Click ảnh → lightbox; ESC đóng modal; image upload soft cap 2MB.
+
+**Bỏ thanh `.tab-navigation`**:
+
+User shot rằng thanh tab top "Đơn Web / TPOS × Pancake / Kho SP" rendering xấu (link mặc định không có style) và trùng chức năng sidebar trái. Bỏ trên các trang dùng cross-page navigation:
+
+- [native-orders/index.html:40-69](../native-orders/index.html#L40-L69) → thay bằng `<header class="page-head-mini">` giữ `#totalCounter` (JS line 174 ref) + source pill.
+- [web2-products/index.html:37-66](../web2-products/index.html#L37-L66) → tương tự.
+- [orders-report/main.html:590](../orders-report/main.html#L590) — **KHÔNG đụng**, đó là feature tabs nội bộ (`switchTab('orders'|'product-assignment'|'overview'|'pending-delete'|'kpi-commission')`), không phải cross-page navigation.
+
+**Add CSS shared** ở [web2-shared/web2-effects.css](../web2-shared/web2-effects.css) (cuối file): `.page-head-mini`, `.page-head-title`, `.page-head-counters` — dùng chung mọi trang.
+
+**Verify live**:
+
+- so-order test: thêm row CNY tab → "5 × 50 CNY × 3500" = 875.000₫ tổng tiền ✓.
+- Add tab JPY 170₫ thành công.
+- Reload sau khi bỏ thanh tab nav: cả 2 screenshot (`so-order-no-tabbar.png` + `native-orders-no-tabbar.png`) trang sạch, sidebar trái còn nguyên là cách duy nhất navigate.
+
+**Status**: ✅ Done.
+
+---
+
 ### [native-orders] Sidebar đoạn hội thoại — độc lập với order, học theo tpos-pancake/pancake.vn
 
 **User**: "panel trái đoạn hội thoại → này đừng lấy thông tin từ đơn hàng → làm theo tpos-pancake phần pancake hoặc như pancake.vn → nó độc lập để không bị hạn chế và lấy được tất cả đoạn hội thoại realtime".
