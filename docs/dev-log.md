@@ -25,6 +25,33 @@
 
 ## 2026-05-15
 
+### [so-order] Auto-collapse cũ + expand newest on first visit + persist cache
+
+**User**: "NGÀY tự cộng collapse lại, hàng NGÀY đầu tiên (ngày mới nhất) tự động expand khi vào lần đầu (các lần sau lấy theo cache)".
+
+**Logic** ([so-order-storage.js:87-138](../so-order/js/so-order-storage.js#L87-L138)):
+
+- Thêm flag `tab.uiInitialized` (boolean). `_migrateTab(tab, ...)` lần đầu thấy flag missing → sort shipments by date desc → set `collapsed: id !== newestId` → mark `uiInitialized: true`.
+- `_read()` track mutation, nếu `_migrateTab` đổi gì thì auto `_write` ngay → persist cache lần đầu để các lần sau không re-default.
+- Tab mới (chưa có shipment): flip flag ngay để shipment đầu tiên user add không bị retroactive collapse.
+
+**Bug fix**:
+
+1. Remote snapshot handler clobber state với raw FB data (không qua migration). Fix: `remoteHandler = () => { state = SoOrderStorage.load(); renderAll(); }` thay vì gán trực tiếp `state = remoteState`.
+2. Toggle shipment-header (`[data-toggle-shipment]`) thiếu `pushSync()` → state mới không sync lên Firestore. Fix: thêm `pushSync()` sau `updateShipment(collapsed)`.
+3. Sau Sync.init xong: `pushSync()` để migrated state (uiInitialized=true, collapsed defaults) đẩy lên Firestore — mọi thiết bị fresh không bị reset.
+
+**Verify live**:
+
+- Clear localStorage → reload → newest (9/5 Đợt 2) expanded, older (7/5 Đợt 1) **collapsed**, `uiInitialized: true` persist.
+- Click expand older → reload → cả 2 expanded (cache giữ).
+- Click collapse newest → reload → newest collapsed, older expanded (user choice giữ).
+- Firestore doc đã có `uiInitialized: true` + per-shipment collapsed state.
+
+**Status**: ✅ Done.
+
+---
+
 ### [so-order] Column header vào trong shipment expand + per-tab columnVisibility + Firestore sync
 
 **User**:
