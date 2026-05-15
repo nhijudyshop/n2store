@@ -25,6 +25,28 @@
 
 ## 2026-05-15
 
+### [native-orders] Fix sidebar trống trên Bình luận tab + auto-switch sang Tin nhắn khi click conv
+
+**User**: "phần bình luận bị bug đoạn hội thoại bên trái".
+
+**Root cause** ([native-orders-app.js:2366](../native-orders/js/native-orders-app.js)): branch `tab === 'comments'` trong `_renderInteractionsModal` chỉ wire reply handlers — KHÔNG gọi `_loadInboxSidebar(order)`. Tin nhắn gọi đầy đủ; Bình luận miss → sidebar stuck ở skeleton.
+
+**Fix**:
+
+1. Gọi `_loadInboxSidebar(order)` cũng trong nhánh comments.
+2. `_switchChatToCustomer`: khi user click conv mà tab hiện tại ≠ messages → set `_interactionsState.tab='messages'` + `_renderInteractionsModal(synthetic, 'messages')`. Comments tied to specific order's post (`fbCommentId/fbPostId`) nên không hợp lý load comments cho khách khác.
+
+**Verify** (Playwright localhost:8089):
+
+- `openInteractions(...,"comments")` → sidebar 50 rows, không skeleton ✓.
+- Click Kitty Thảo trên Bình luận tab → auto switch Tin nhắn, header = "Kitty Thảo", `#msgThread` load chat của Kitty Thảo. Screenshot: [comments-tab-fixed.png](../downloads/n2store-session/comments-tab-fixed.png).
+
+Bump cache: `native-orders-app.js?v=20260515n`.
+
+Status: ✅ Done.
+
+---
+
 ### [native-orders][web2-shared] Pancake-style cache — persist page settings + filter state qua localStorage
 
 **User**: "tiếp tục coi pancake lưu gì ở local và cache làm theo luôn".

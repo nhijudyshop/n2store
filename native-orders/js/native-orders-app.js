@@ -2364,6 +2364,10 @@
                 }
             });
         } else if (tab === 'comments') {
+            // Sidebar shows page-wide conv list regardless of which tab is
+            // active — load it here too. Without this the sidebar stayed
+            // as the loading skeleton when the user opened comments first.
+            _loadInboxSidebar(order);
             modal.querySelectorAll('[data-action="reply-comment"]').forEach((btn) => {
                 btn.addEventListener('click', () =>
                     _handleReplyComment(order, btn.dataset.cid, btn.dataset.input, 'public')
@@ -3607,6 +3611,17 @@
         document
             .querySelectorAll('.w2-inbox-conv')
             .forEach((r) => r.classList.toggle('is-active', r.dataset.fbId === fbId));
+        // If user clicked a conv while on the Bình luận tab, jump back to
+        // Tin nhắn — comments are tied to the original order's post, not
+        // page-wide per customer, so loading the conv's messages is the
+        // sensible action. _renderInteractionsModal re-renders the body
+        // and re-calls _loadAndRenderThread for us; bail out early to
+        // avoid double-loading.
+        if (_interactionsState && _interactionsState.tab !== 'messages') {
+            _interactionsState.tab = 'messages';
+            _renderInteractionsModal(synthetic, 'messages');
+            return;
+        }
         // Update middle chat header to match the clicked customer.
         _applyChatHeaderForOrder(synthetic);
         // Update right panel info — only when actually switching customers.
