@@ -25,6 +25,20 @@
 
 ## 2026-05-15
 
+### [orders] Fix auto-generate product code: jump B2246 → B19752 vì query Product variants
+
+**User**: "tìm nguyên nhân ở hình sao tự động tạo mã lại tạo ra B19752 và mã B19751 hiện tại đang ở đâu".
+
+**Files**: `purchase-orders/js/lib/tpos-search.js`
+
+**Root cause**: `getMaxProductCode()` query `/odata/Product` (= biến thể), kết hợp greedy regex `^B(\d+)` ăn hết digits của `B19751` (variant của template `B1975` với attribute value `1`) → parse thành `19751` → max = 19751 → next = **B19752**. Thực tế template max là `B2246` (Id 119001, tạo 2026-05-15). DB n2store đúng (max = 2246), TPOS query mới sai.
+
+**Where is B19751**: Variant Id `157038`, ProductTmplId `118722` (template `B1975` — "0905 B14 QUẦN SHORT LƯNG THUN TRƠN 9003 HỒNG"), 1 trong 4 variants (3 S/M/L inactive, B19751 active).
+
+**Fix**: Đổi URL từ `/api/odata/Product` → `/api/odata/ProductTemplate` ở `getMaxProductCode` ([tpos-search.js:463](../purchase-orders/js/lib/tpos-search.js#L463)). Templates không có variant suffix → regex parse đúng template counter.
+
+**Status**: ✅ Done (chỉ sửa main path, fallback `getMaxProductCodeFallback` vẫn dùng `Product/OdataService.GetViewV2` — chấp nhận khi main fail thì fallback may have skew, nhưng main almost always succeeds).
+
 ### [so-order] Auto-collapse cũ + expand newest on first visit + persist cache
 
 **User**: "NGÀY tự cộng collapse lại, hàng NGÀY đầu tiên (ngày mới nhất) tự động expand khi vào lần đầu (các lần sau lấy theo cache)".

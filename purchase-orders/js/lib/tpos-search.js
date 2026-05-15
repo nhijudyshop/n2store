@@ -449,9 +449,16 @@ window.TPOSClient = (function () {
     }
 
     /**
-     * Get max product code number from TPOS for a category prefix
-     * Uses Product entity with OData $filter for prefix search
-     * @param {string} category - 'N', 'P', or 'Q'
+     * Get max product code number from TPOS for a category prefix.
+     *
+     * Uses ProductTemplate (NOT Product) — Product entity returns variants whose
+     * DefaultCode includes attribute suffixes (e.g. template "B1975" → variant
+     * "B19751" when its attribute value is "1"). A greedy `^B(\d+)` regex would
+     * parse "B19751" as 19751 and inflate the max far past the real template
+     * counter, causing the auto-generator to skip ahead (e.g. jumping from
+     * B2246 → B19752 instead of B2247).
+     *
+     * @param {string} category - 'N', 'P', 'Q', 'B', ...
      * @returns {Promise<number>} - max number found (0 if none)
      */
     async function getMaxProductCode(category) {
@@ -460,7 +467,7 @@ window.TPOSClient = (function () {
 
         try {
             const url =
-                `${PROXY_URL}/api/odata/Product` +
+                `${PROXY_URL}/api/odata/ProductTemplate` +
                 `?$filter=Active eq true and startswith(DefaultCode,'${prefix}')` +
                 `&$orderby=Id desc` +
                 `&$top=100` +
