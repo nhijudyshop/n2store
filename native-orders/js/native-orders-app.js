@@ -2729,6 +2729,117 @@
      * panel — that one is being read live so it stays read).
      */
     let _sidebarWsSub = null;
+    let _sidebarPollTimer = null;
+    const _SIDEBAR_POLL_MS = 12_000;
+
+    /**
+     * Pancake's admin inbox realtime runs over **MQTT mediated by their
+     * browser extension** — confirmed live: `window.MqttSocket`,
+     * `window.MqttChannel`, and an `initSocket()` that calls
+     * `l.Z.checkConnection()` (the extension presence check). Without the
+     * extension the admin web UI itself falls back to no-realtime. We
+     * can't replicate that channel without shipping our own extension.
+     *
+     * Our Render broker reliably forwards `pages:update_conversation`
+     * but `pages:new_message` rarely fires because that path needs FB
+     * socket credentials we don't have.
+     *
+     * Backstop: poll `fetchConversationsByPage` every 12s while the
+     * modal is open. ~50 rows, ~100-200ms RTT, merge-update in place so
+     * scroll/hover/unread state survives the refresh.
+     */
+    function _startSidebarPoll(order) {
+        if (_sidebarPollTimer) clearInterval(_sidebarPollTimer);
+        if (!order?.fbPageId || !window.Web2Chat?.fetchConversationsByPage) return;
+        _sidebarPollTimer = setInterval(() => _pollSidebarOnce(order), _SIDEBAR_POLL_MS);
+    }
+
+    async function _pollSidebarOnce(order) {
+        const list = document.getElementById('w2InboxConvList');
+        if (!list) return; // modal closed → next interval no-ops (cleared in _teardownChatState)
+        try {
+            const res = await window.Web2Chat.fetchConversationsByPage(order.fbPageId, {
+                limit: 50,
+            });
+            if (!res.ok || !res.conversations?.length) return;
+            _mergeSidebarConvs(res.conversations, order);
+        } catch (e) {
+            console.warn('[NativeOrders] sidebar poll failed:', e.message);
+        }
+    }
+
+    /**
+     * Merge a fresh conversation list into the existing sidebar DOM:
+     *   - update preview + time on existing rows
+     *   - mark `.is-unread` (+ spawn badge) when last_message changed
+     *     AND the row isn't the conversation currently open
+     *   - render brand-new conversation rows + bind their click handler
+     *   - reorder to match server order via documentFragment append
+     *     (existing DOM nodes are MOVED, not recreated — scroll +
+     *     hover survive)
+     */
+    function _mergeSidebarConvs(serverConvs, order) {
+        const list = document.getElementById('w2InboxConvList');
+        if (!list) return;
+        const existing = new Map();
+        list.querySelectorAll('.w2-inbox-conv').forEach((el) => {
+            const key = el.dataset.convId || el.dataset.fbId;
+            if (key) existing.set(key, el);
+        });
+
+        const orderedRows = [];
+        for (const c of serverConvs) {
+            const convId = String(c.id || '');
+            const cust = c.customers?.[0] || c.from || {};
+            const fbId = String(cust.fb_id || cust.id || c.from_customer_id || '');
+            const key = convId || fbId;
+            if (!key) continue;
+            let row = existing.get(key);
+            const newPreview =
+                (c.last_message?.message || c.last_message_text || c.snippet || '').slice(0, 120) ||
+                '(không có nội dung)';
+            const newTime = _fmtVnTime(c.updated_at || c.last_sent_at || c.inserted_at);
+            const isOpenConv = _chatState?.convId && String(_chatState.convId) === convId;
+
+            if (row) {
+                const previewEl = row.querySelector('.w2-inbox-conv-preview');
+                const timeEl = row.querySelector('.w2-inbox-conv-time');
+                const oldPreview = previewEl?.textContent || '';
+                if (oldPreview !== newPreview) {
+                    if (previewEl) previewEl.textContent = newPreview;
+                    if (!isOpenConv) {
+                        row.classList.add('is-unread');
+                        if (!row.querySelector('.w2-inbox-conv-badge')) {
+                            const dot = document.createElement('span');
+                            dot.className = 'w2-inbox-conv-badge';
+                            dot.title = 'Tin nhắn mới';
+                            row.appendChild(dot);
+                        }
+                    }
+                }
+                if (timeEl && timeEl.textContent !== newTime) timeEl.textContent = newTime;
+            } else {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = _convRowHtml(c, order);
+                row = tmp.firstElementChild;
+                row?.addEventListener('click', () => {
+                    const customerId = row.dataset.fbId;
+                    const cName = row.dataset.cName;
+                    if (!customerId) return;
+                    _switchChatToCustomer(order, customerId, cName);
+                    row.classList.remove('is-unread');
+                    row.querySelector('.w2-inbox-conv-badge')?.remove();
+                });
+            }
+            if (row) orderedRows.push(row);
+        }
+
+        // DocumentFragment.appendChild moves existing nodes — no rebuild.
+        const frag = document.createDocumentFragment();
+        for (const r of orderedRows) frag.appendChild(r);
+        list.appendChild(frag);
+    }
+
     function _wireSidebarRealtime(order) {
         if (_sidebarWsSub?.unsubscribe) {
             try {
@@ -2737,8 +2848,12 @@
                 /* ignore */
             }
         }
+        // Always run the polling backstop — runs alongside any WS sub
+        // so the sidebar refreshes even when broker events are missing.
+        _startSidebarPoll(order);
+
         if (!window.Web2Realtime?.subscribe) {
-            console.warn('[NativeOrders] Web2Realtime not loaded → sidebar will not be realtime');
+            console.warn('[NativeOrders] Web2Realtime not loaded → polling-only');
             return;
         }
         _sidebarWsSub = window.Web2Realtime.subscribe({
@@ -4253,6 +4368,10 @@
                 /* ignore */
             }
             _sidebarWsSub = null;
+        }
+        if (_sidebarPollTimer) {
+            clearInterval(_sidebarPollTimer);
+            _sidebarPollTimer = null;
         }
         _chatState = null;
     }
