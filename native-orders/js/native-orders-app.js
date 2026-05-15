@@ -3358,10 +3358,15 @@
         const repliedByAdmin =
             !!lsb.admin_name || (lsb.id && String(lsb.id) === String(c.page_id || ''));
         const replied = repliedByAdmin ? 1 : 0;
+        // Avatar fetch needs the conv's OWN page id — sidebar is now
+        // multi-page so House/Store rows coexist. Hardcoding
+        // currentOrder.fbPageId (the modal opener) breaks the avatar
+        // for every row coming from a different page.
+        const rowPageId = String(c.page_id || c.fb_page_id || currentOrder.fbPageId || '');
         const avatarUrl =
             c.from?.avatar_url ||
             cust.avatar_url ||
-            (fbId && currentOrder.fbPageId ? _avatarUrl(fbId, currentOrder.fbPageId) : '');
+            (fbId && rowPageId ? _avatarUrl(fbId, rowPageId) : '');
         const initial = (cName || '?').trim().charAt(0).toUpperCase();
         const avatarHtml = avatarUrl
             ? `<img class="w2-inbox-conv-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(cName)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-inbox-conv-avatar&quot; style=&quot;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;&quot;>${escapeHtml(initial)}</div>'" />`
