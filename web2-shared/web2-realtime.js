@@ -39,7 +39,7 @@
     let ws = null;
     let reconnectAttempts = 0;
     let reconnectTimer = null;
-    let _started = false;
+    let _lastStartedKey = ''; // sorted pageIds join('|') of last successful start
 
     function _connect() {
         if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
@@ -132,7 +132,6 @@
      * @returns {Promise<{ok:boolean, reason?:string}>}
      */
     async function start(opts = {}) {
-        if (_started) return { ok: true, alreadyStarted: true };
         const jwt = global.Web2Chat?.getJwt();
         if (!jwt) return { ok: false, reason: 'no_jwt' };
         const decoded = global.Web2Chat?.decodeJwt(jwt);
@@ -143,6 +142,11 @@
                 ? opts.pageIds
                 : Object.keys(global.Web2Chat?.getAllPageAccessTokens() || {});
         if (!pageIds.length) return { ok: false, reason: 'no_pages' };
+        // Dedupe identical re-subscriptions — calling start() with the same
+        // pageIds set is a no-op (broker is already listening). Sort the
+        // list so [A,B] and [B,A] hash to the same key.
+        const key = [...pageIds].map(String).sort().join('|');
+        if (key === _lastStartedKey) return { ok: true, alreadyStarted: true };
         try {
             const r = await fetch(`${WORKER_BASE}/api/realtime/start`, {
                 method: 'POST',
@@ -158,8 +162,8 @@
                 const text = await r.text();
                 return { ok: false, reason: `HTTP ${r.status}: ${text.slice(0, 200)}` };
             }
-            _started = true;
-            return { ok: true };
+            _lastStartedKey = key;
+            return { ok: true, pageCount: pageIds.length };
         } catch (e) {
             return { ok: false, reason: e.message };
         }
@@ -214,6 +218,13 @@
         fetchPendingCustomers,
         markReplied,
         isConnected,
-        _internal: { WS_URL, WORKER_BASE },
+        _internal: {
+            WS_URL,
+            WORKER_BASE,
+            subscribers,
+            get ws() {
+                return ws;
+            },
+        },
     };
 })(window);

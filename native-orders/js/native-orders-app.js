@@ -3457,19 +3457,35 @@
             debounceMs: 80,
         });
         // Ask the Render broker to (re)subscribe its server-side socket
-        // to Pancake for this page. The broker is usually sticky already
-        // but a freshly-restarted broker needs this ping to start
-        // forwarding new_message events for this page.
-        if (window.Web2Realtime.start && order.fbPageId) {
-            window.Web2Realtime.start({ pageIds: [order.fbPageId] })
-                .then((r) => {
-                    if (r && !r.ok && r.reason !== 'no_pages') {
-                        console.warn('[NativeOrders] Web2Realtime.start →', r.reason || 'unknown');
-                    } else {
-                        console.log('[NativeOrders] ✓ broker subscribed to page', order.fbPageId);
-                    }
-                })
-                .catch((e) => console.warn('[NativeOrders] Web2Realtime.start err:', e.message));
+        // to Pancake. Include EVERY page the user has a PAT for —
+        // calling start() with just the current page replaces the
+        // broker's subscription list, so events for other pages stop
+        // flowing. Union of all known PATs + current order's page
+        // covers the typical case where the user juggles multiple
+        // shop pages.
+        if (window.Web2Realtime.start) {
+            const known = Object.keys(window.Web2Chat?.getAllPageAccessTokens?.() || {});
+            const all = Array.from(new Set([order.fbPageId, ...known].filter(Boolean).map(String)));
+            if (all.length) {
+                window.Web2Realtime.start({ pageIds: all })
+                    .then((r) => {
+                        if (r && !r.ok && r.reason !== 'no_pages') {
+                            console.warn(
+                                '[NativeOrders] Web2Realtime.start →',
+                                r.reason || 'unknown'
+                            );
+                        } else {
+                            console.log(
+                                '[NativeOrders] ✓ broker subscribed to',
+                                all.length,
+                                'page(s)'
+                            );
+                        }
+                    })
+                    .catch((e) =>
+                        console.warn('[NativeOrders] Web2Realtime.start err:', e.message)
+                    );
+            }
         }
     }
 
@@ -5183,9 +5199,23 @@
 
     function _onIncomingWsMessage(payload) {
         if (!_chatState) return;
-        const m = payload?.message || payload;
+        // Pancake broker forwards two distinct WS event shapes; normalise:
+        //   pages:new_message        → payload.message = { id, conversation_id, message, from, … }
+        //   pages:update_conversation → payload.conversation = { id, last_message: { id, message, from, … } }
+        // Last_message often lacks conversation_id — inject it. The
+        // sidebar handler does the same dance in _handleSidebarWsEvent.
+        let m;
+        let convId;
+        if (payload?.message) {
+            m = payload.message;
+            convId = m.conversation_id || m.conversationId;
+        } else if (payload?.conversation?.last_message) {
+            convId = payload.conversation.id;
+            m = { ...payload.conversation.last_message, conversation_id: convId };
+        } else {
+            return;
+        }
         if (!m) return;
-        const convId = m.conversation_id || m.conversationId;
         if (convId && String(convId) !== String(_chatState.convId)) return;
         if (m.id && _chatState.msgIds.has(m.id)) return;
         if (m.id) _chatState.msgIds.add(m.id);
@@ -5339,10 +5369,16 @@
             };
             _renderChatThread('bottom');
             _attachScrollLoader();
-            // Live update: WS append for the open conversation
+            // Live update: WS append for the open conversation. Subscribe
+            // to BOTH event types — `pages:update_conversation` fires
+            // reliably from Pancake's Phoenix channel (broker captures
+            // it 24/7) and carries `conversation.last_message`, whereas
+            // `pages:new_message` rarely fires without FB socket creds.
+            // Both flow through `_onIncomingWsMessage` which de-dupes by
+            // message id, so subscribing twice is harmless.
             if (window.Web2Realtime?.subscribe) {
                 _chatState.wsSub = window.Web2Realtime.subscribe({
-                    types: ['pages:new_message'],
+                    types: ['pages:new_message', 'pages:update_conversation'],
                     onEvent: (m) => _onIncomingWsMessage(m.payload),
                     debounceMs: 0,
                 });
@@ -5639,6 +5675,37 @@
         changeLineQty,
         setLineQty,
         removeLine,
+        // Debug surface — inspect realtime + chat state from devtools.
+        // Verify realtime is WS-driven (not polling): open chat then run
+        // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
+        // should appear instantly; if not, WS path is broken.
+        _debug: {
+            get chatState() {
+                return _chatState;
+            },
+            get realtimeStatus() {
+                return {
+                    wsConnected: !!window.Web2Realtime?.isConnected(),
+                    wsUrl: window.Web2Realtime?._internal?.WS_URL,
+                    subscriberCount: window.Web2Realtime?._internal?.subscribers?.length,
+                };
+            },
+            injectFakeMessage(text) {
+                if (!_chatState) return { ok: false, reason: 'no_chat_open' };
+                _onIncomingWsMessage({
+                    conversation: {
+                        id: _chatState.convId,
+                        last_message: {
+                            id: 'fake_' + Date.now(),
+                            message: text || 'fake realtime test',
+                            inserted_at: new Date().toISOString().replace('Z', ''),
+                            from: { id: _chatState.customerId, name: 'Test Khách' },
+                        },
+                    },
+                });
+                return { ok: true, convId: _chatState.convId };
+            },
+        },
     };
 
     if (document.readyState === 'loading') {

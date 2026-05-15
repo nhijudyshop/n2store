@@ -25,6 +25,37 @@
 
 ## 2026-05-15
 
+### [native-orders][web2-shared] Realtime chat — subscribe `pages:update_conversation` cho chat thread (fix cảm-giác polling)
+
+**User**: "socket pancake hiện tại đang ở render hả → kiểm lại xem realtime trực tiếp → hiện tại hình như nó polling".
+
+**Recon**: WS `wss://n2store-realtime.onrender.com` connected (Render broker giữ Phoenix WS to pancake.vn 24/7), 6 clients, ref 354. Broker join `multiple_pages:{userId}` + `pages:{pageId}` per page → forward `pages:update_conversation`, `pages:new_message`, `order:tags_updated` về browser.
+
+**Gap phát hiện**:
+
+1. Chat thread `_chatState.wsSub` chỉ subscribe `['pages:new_message']`. Pancake **rarely fires new_message** (cần FB socket creds đặc biệt) — documented in [server.js comment](../n2store-realtime/server.js). Event chính reliable là `pages:update_conversation` chứa `conversation.last_message` (đủ data cho bubble). Sidebar subscribe đúng cả 2 → tự cập, nhưng thread giữa miss → cảm giác polling.
+2. `_loadInboxSidebar` gọi `Web2Realtime.start({pageIds:[order.fbPageId]})` chỉ 1 page → broker `_lastStartedKey` cache thì rồi mở order page khác cũng không re-subscribe.
+
+**Fix**:
+
+- [\_onIncomingWsMessage](../native-orders/js/native-orders-app.js): normalise 2 payload shapes (`payload.message` vs `payload.conversation.last_message`), inject `conversation_id` vào `last_message`. Dedupe by msg.id giữ nguyên.
+- Chat WS sub: subscribe **cả 2 type** `['pages:new_message', 'pages:update_conversation']`. De-dupe nên double-fire vô hại.
+- `_wireSidebarRealtime`: `start({pageIds: <union current + all PATs>})` thay vì 1 page (broker tự retry-remove pages thiếu permission, còn lại là expected).
+- [web2-realtime.start()](../web2-shared/web2-realtime.js): drop `_started` flag, dùng `_lastStartedKey = sorted(pageIds).join('|')` — sub-set khác → re-call broker; sub-set giống → no-op.
+- Expose `Web2Realtime._internal.subscribers` + `NativeOrdersApp._debug.{chatState, realtimeStatus, injectFakeMessage}` để verify từ devtools.
+
+**Verify** (Playwright):
+
+- WS connected, 3 subscribers (sidebar new_msg/update_conv + chat combined).
+- `NativeOrdersApp._debug.injectFakeMessage("⚡ TEST")` → bubble xuất hiện instant, 55→56 rows ✓ → WS handler path đúng.
+- Broker `/health/detailed`: connected=true, wsReadyState=1, refCounter tăng đều (heartbeat OK).
+
+Bump cache: `web2-realtime.js?v=20260515a`, `native-orders-app.js?v=20260515p`.
+
+Status: ✅ Realtime WS-driven (không polling). Debug helper `NativeOrdersApp._debug.injectFakeMessage()` test instant.
+
+---
+
 ### [native-orders] Fix link-preview broken image — dùng post_attachments[0].url thay vì att.url (FB permalink)
 
 **User**: "sao hình nó không hiển thị?". 10/16 IMG broken — src dạng `https://facebook.com/{pageId}_{postId}` (FB post permalink, không phải ảnh CDN).
