@@ -1998,8 +1998,15 @@ class PurchaseOrderFormModal {
                                 item.tposProductId = product.tposProductId;
                                 item.tposSynced = true;
                             }
-                            if (product.tposProductTmplId)
+                            if (product.tposProductTmplId) {
                                 item.tposProductTmplId = product.tposProductTmplId;
+                                // Template-only picks (no active variants) — template
+                                // already exists on TPOS, mark synced to avoid duplicate
+                                // create during purchase-order sync.
+                                if (product.isTemplate) {
+                                    item.tposSynced = true;
+                                }
+                            }
                             // Handle image - convert single image to array format
                             if (product.image) {
                                 item.productImages = [product.image];
@@ -2757,8 +2764,12 @@ class PurchaseOrderFormModal {
                                     item.tposProductId = first.tposProductId;
                                     item.tposSynced = true;
                                 }
-                                if (first.tposProductTmplId)
+                                if (first.tposProductTmplId) {
                                     item.tposProductTmplId = first.tposProductTmplId;
+                                    if (first.isTemplate) {
+                                        item.tposSynced = true;
+                                    }
+                                }
 
                                 // Remaining products add new rows
                                 for (let i = 1; i < products.length; i++) {
@@ -2780,8 +2791,12 @@ class PurchaseOrderFormModal {
                                         newItem.tposProductId = product.tposProductId;
                                         newItem.tposSynced = true;
                                     }
-                                    if (product.tposProductTmplId)
+                                    if (product.tposProductTmplId) {
                                         newItem.tposProductTmplId = product.tposProductTmplId;
+                                        if (product.isTemplate) {
+                                            newItem.tposSynced = true;
+                                        }
+                                    }
                                 }
 
                                 formModal.refreshItemsTable();

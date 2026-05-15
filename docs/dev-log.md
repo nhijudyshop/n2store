@@ -25,6 +25,24 @@
 
 ## 2026-05-15
 
+### [orders] InventoryPicker "Chọn từ Kho SP" thiếu template không có active variant
+
+**User**: "bên trang này mấy mã B1976 cũng không tìm được" (purchase-orders/index.html).
+
+**Files**: `purchase-orders/js/dialogs.js`, `purchase-orders/js/form-modal.js`
+
+**Root cause**: Cùng nguyên nhân với tab3 orders-report fix trước đó. `InventoryPicker.loadProductsFromTPOS` ([dialogs.js:1588](../purchase-orders/js/dialogs.js#L1588)) gọi `Product/ExportFileWithVariantPrice` hoặc `ExportFileWithStandardPriceV2` với `{model: {Active: 'true'}}` → TPOS filter trên variant Active → templates có 0 active variants (vd B1976, B1977 — cả 4 size variants S/M/L inactive) → mất khỏi Excel → mất khỏi picker.
+
+**Fix**:
+
+1. `dialogs.js:loadProductsFromTPOS` — sau parse Excel, fetch `/ProductTemplate?$filter=Active eq true&$select=Id,DefaultCode,Name,ImageUrl,ListPrice,PurchasePrice`. Supplement template chưa có code, mark `id: 'tmpl-<Id>'`, `isTemplate: true`.
+2. `dialogs.js:fetchProductDetails` — thêm nhánh đầu: nếu productId bắt đầu `tmpl-` → fetch `/ProductTemplate(id)` trực tiếp, synthesize Product-shaped payload.
+3. `form-modal.js`: 2 chỗ callback `onSelect` — nếu `product.isTemplate`, set `item.tposSynced = true` để sync skip create-duplicate.
+
+**Caveat**: User cần bấm "Tải lại" trên modal để invalidate localStorage cache.
+
+**Status**: ✅ Done.
+
 ### [so-order] Redesign modal "Tạo Đơn Hàng" theo layout purchase-orders
 
 **User**: "giao diện tạo đơn hàng làm giống cái giao diện này đi, giao diện thôi chứ chức năng giữ nguyên như hiện tại" (kèm screenshot purchase-orders modal).

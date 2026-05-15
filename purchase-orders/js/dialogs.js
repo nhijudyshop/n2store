@@ -1701,6 +1701,45 @@ class InventoryPickerDialog {
                     .filter((p) => p.id);
             }
 
+            // Supplement: Templates with NO active variants are missing from Excel
+            // (Active="true" filters on variant level). Fetch active ProductTemplates
+            // and add any whose code is not in products. Mark id as 'tmpl-<Id>' so
+            // fetchProductDetails detects and queries /ProductTemplate directly.
+            try {
+                const tmplRes = await window.TPOSClient.authenticatedFetch(
+                    `${this.proxyUrl}/api/odata/ProductTemplate?$filter=Active eq true&$top=10000&$select=Id,DefaultCode,Name,ImageUrl,ListPrice,PurchasePrice`
+                );
+                if (tmplRes.ok) {
+                    const tmplJson = await tmplRes.json();
+                    const existingCodes = new Set(
+                        this.products.map((p) => String(p.code || '').toUpperCase()).filter(Boolean)
+                    );
+                    let supplemented = 0;
+                    for (const t of tmplJson.value || []) {
+                        const code = (t.DefaultCode || '').toUpperCase();
+                        if (!code || existingCodes.has(code)) continue;
+                        this.products.push({
+                            id: `tmpl-${t.Id}`,
+                            code: t.DefaultCode,
+                            name: `[${t.DefaultCode}] ${t.Name || ''}`,
+                            purchasePrice: parseFloat(t.PurchasePrice) || 0,
+                            sellingPrice: parseFloat(t.ListPrice) || 0,
+                            isTemplate: true,
+                            templateId: t.Id,
+                        });
+                        existingCodes.add(code);
+                        supplemented++;
+                    }
+                    if (supplemented > 0) {
+                        console.log(
+                            `[InventoryPicker] Supplemented ${supplemented} templates without active variants`
+                        );
+                    }
+                }
+            } catch (err) {
+                console.warn('[InventoryPicker] Failed to supplement templates:', err);
+            }
+
             this.filteredProducts = [...this.products];
 
             // Save to localStorage cache
@@ -1902,6 +1941,37 @@ class InventoryPickerDialog {
      */
     async fetchProductDetails(productId) {
         try {
+            // Template-only marker (no active variants): fetch ProductTemplate
+            // directly and synthesize a Product-shaped payload so downstream
+            // code (image/price/code mapping) works identically.
+            if (typeof productId === 'string' && productId.startsWith('tmpl-')) {
+                const tmplId = productId.slice(5);
+                const tmplResp = await window.TPOSClient.authenticatedFetch(
+                    `${this.proxyUrl}/api/odata/ProductTemplate(${tmplId})?$select=Id,DefaultCode,Name,NameGet,ImageUrl,Thumbnails,ListPrice,PurchasePrice,StandardPrice,UOMName,Barcode`
+                );
+                if (!tmplResp.ok) {
+                    throw new Error(`TPOS ProductTemplate(${tmplId}) HTTP ${tmplResp.status}`);
+                }
+                const tmplData = await tmplResp.json();
+                const image =
+                    tmplData.ImageUrl || (tmplData.Thumbnails && tmplData.Thumbnails[2]) || '';
+                return {
+                    id: productId,
+                    code: tmplData.DefaultCode || '',
+                    name: tmplData.Name || tmplData.NameGet || '',
+                    image,
+                    qtyAvailable: 0,
+                    purchasePrice: parseFloat(tmplData.PurchasePrice) || 0,
+                    sellingPrice:
+                        parseFloat(tmplData.ListPrice) || parseFloat(tmplData.PriceVariant) || 0,
+                    variant: '',
+                    tposProductId: null,
+                    tposProductTmplId: tmplData.Id || null,
+                    isTemplate: true,
+                    _raw: tmplData,
+                };
+            }
+
             const response = await window.TPOSClient.authenticatedFetch(
                 `${this.proxyUrl}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
             );
