@@ -24,14 +24,14 @@ if (missingEnv.length) {
 // Global safety net — prevent process exit on unhandled rejection / exception.
 const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    const stack = reason && reason.stack || String(reason);
+    const stack = (reason && reason.stack) || String(reason);
     console.error('[PROCESS] Unhandled Rejection:', stack);
     sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    const stack = err && err.stack || String(err);
+    const stack = (err && err.stack) || String(err);
     console.error('[PROCESS] Uncaught Exception:', stack);
-    sendAlert('uncaughtException', err && err.message || String(err), stack);
+    sendAlert('uncaughtException', (err && err.message) || String(err), stack);
 });
 
 const app = express();
@@ -58,7 +58,7 @@ async function initDatabase() {
             idleTimeoutMillis: 30000,
             connectionTimeoutMillis: 10000,
             statement_timeout: 30000,
-            idle_in_transaction_session_timeout: 60000
+            idle_in_transaction_session_timeout: 60000,
         });
 
         // Without this listener, pg.Pool 'error' on idle clients crashes Node.
@@ -147,9 +147,13 @@ async function ensureTablesExist() {
             )
         `);
         // Add post_name column if missing (for existing tables)
-        await dbPool.query(`ALTER TABLE livestream_conversations ADD COLUMN IF NOT EXISTS post_name TEXT`).catch(() => {});
+        await dbPool
+            .query(`ALTER TABLE livestream_conversations ADD COLUMN IF NOT EXISTS post_name TEXT`)
+            .catch(() => {});
         // Widen label column from VARCHAR(50) to TEXT (supports JSON arrays of multiple labels)
-        await dbPool.query(`ALTER TABLE livestream_conversations ALTER COLUMN label TYPE TEXT`).catch(() => {});
+        await dbPool
+            .query(`ALTER TABLE livestream_conversations ALTER COLUMN label TYPE TEXT`)
+            .catch(() => {});
         await dbPool.query(`
             CREATE INDEX IF NOT EXISTS idx_livestream_conv_post ON livestream_conversations(post_id);
         `);
@@ -170,15 +174,21 @@ async function ensureTablesExist() {
         `);
 
         // One-time migration: copy labels from livestream_conversations to conversation_labels
-        await dbPool.query(`
+        await dbPool
+            .query(
+                `
             INSERT INTO conversation_labels (conv_id, labels, updated_at)
             SELECT conv_id, label, updated_at FROM livestream_conversations
             WHERE label IS NOT NULL AND label != 'new' AND label != '["new"]'
             ON CONFLICT (conv_id) DO NOTHING
-        `).catch(() => {});
+        `
+            )
+            .catch(() => {});
 
         // Clean up: remove fake 'inbox' rows from livestream_conversations (created by old label upsert)
-        await dbPool.query(`DELETE FROM livestream_conversations WHERE post_id = 'inbox'`).catch(() => {});
+        await dbPool
+            .query(`DELETE FROM livestream_conversations WHERE post_id = 'inbox'`)
+            .catch(() => {});
 
         // Create inbox_groups table (group definitions synced across devices)
         await dbPool.query(`
@@ -225,7 +235,7 @@ async function upsertPendingCustomer(data) {
             data.pageId,
             data.customerName,
             data.snippet?.substring(0, 200),
-            data.type || 'INBOX'
+            data.type || 'INBOX',
         ]);
 
         console.log(`[DATABASE] ✅ Upserted pending customer: ${data.psid} (${data.type})`);
@@ -247,7 +257,9 @@ async function cleanupExpiredPendingCustomers() {
         `);
 
         if (result.rowCount > 0) {
-            console.log(`[DATABASE] 🧹 Cleaned up ${result.rowCount} expired pending customers (>30 days)`);
+            console.log(
+                `[DATABASE] 🧹 Cleaned up ${result.rowCount} expired pending customers (>30 days)`
+            );
         }
     } catch (error) {
         console.error('[DATABASE] Error cleaning up expired customers:', error.message);
@@ -278,7 +290,7 @@ async function saveRealtimeCredentials(clientType, credentials) {
             credentials.userId || null,
             credentials.pageIds ? JSON.stringify(credentials.pageIds) : null,
             credentials.cookie || null,
-            credentials.room || null
+            credentials.room || null,
         ]);
 
         console.log(`[DATABASE] ✅ Saved ${clientType} credentials for auto-reconnect`);
@@ -329,13 +341,15 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false,
-    maxAge: 86400 // Cache CORS preflight 24h → cắt ~50% requests (OPTIONS)
-}));
+app.use(
+    cors({
+        origin: '*',
+        methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: false,
+        maxAge: 86400, // Cache CORS preflight 24h → cắt ~50% requests (OPTIONS)
+    })
+);
 
 app.use(express.json());
 
@@ -352,7 +366,7 @@ app.use((req, res, next) => {
 class RealtimeClient {
     constructor() {
         this.ws = null;
-        this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
+        this.url = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
         this.isConnected = false;
         this.refCounter = 1;
         this.heartbeatInterval = null;
@@ -394,7 +408,7 @@ class RealtimeClient {
 
         this.token = token;
         this.userId = userId;
-        this.pageIds = pageIds.map(id => String(id));
+        this.pageIds = pageIds.map((id) => String(id));
         this.cookie = cookie;
         this.reconnectAttempts = 0;
 
@@ -404,7 +418,7 @@ class RealtimeClient {
                 token,
                 userId,
                 pageIds: this.pageIds,
-                cookie
+                cookie,
             });
         }
 
@@ -416,11 +430,12 @@ class RealtimeClient {
 
         console.log('[PANCAKE-WS] Connecting to Pancake...');
         const headers = {
-            'Origin': 'https://pancake.vn',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Origin: 'https://pancake.vn',
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            Pragma: 'no-cache',
         };
 
         if (this.cookie) {
@@ -446,16 +461,23 @@ class RealtimeClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(1.5, this.reconnectAttempts), 300000);
                 this.reconnectAttempts++;
-                console.log(`[PANCAKE-WS] Reconnecting in ${Math.round(delay/1000)}s (attempt ${this.reconnectAttempts})...`);
+                console.log(
+                    `[PANCAKE-WS] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`
+                );
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[PANCAKE-WS] ❌ Max reconnect attempts reached. Will try again in 30 minutes.');
+                console.error(
+                    '[PANCAKE-WS] ❌ Max reconnect attempts reached. Will try again in 30 minutes.'
+                );
                 // Reset and try again after 30 minutes
-                setTimeout(() => {
-                    this.reconnectAttempts = 0;
-                    this.connect();
-                }, 30 * 60 * 1000);
+                setTimeout(
+                    () => {
+                        this.reconnectAttempts = 0;
+                        this.connect();
+                    },
+                    30 * 60 * 1000
+                );
             }
         });
 
@@ -469,7 +491,12 @@ class RealtimeClient {
                 const msg = JSON.parse(raw);
                 this.handleMessage(msg);
             } catch (e) {
-                console.error('[PANCAKE-WS] Parse error:', e, 'raw:', data?.toString?.()?.substring(0, 200));
+                console.error(
+                    '[PANCAKE-WS] Parse error:',
+                    e,
+                    'raw:',
+                    data?.toString?.()?.substring(0, 200)
+                );
             }
         });
     }
@@ -479,7 +506,7 @@ class RealtimeClient {
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const ref = this.makeRef();
-                this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
+                this.ws.send(JSON.stringify([null, ref, 'phoenix', 'heartbeat', {}]));
             }
         }, 30000);
     }
@@ -497,8 +524,11 @@ class RealtimeClient {
         // 1. Join User Channel
         const userRef = this.makeRef();
         const userJoinMsg = [
-            userRef, userRef, `users:${this.userId}`, "phx_join",
-            { accessToken: this.token, userId: this.userId, platform: "web" }
+            userRef,
+            userRef,
+            `users:${this.userId}`,
+            'phx_join',
+            { accessToken: this.token, userId: this.userId, platform: 'web' },
         ];
         this.ws.send(JSON.stringify(userJoinMsg));
         console.log(`[PANCAKE-WS] Joining users:${this.userId} channel...`);
@@ -511,12 +541,28 @@ class RealtimeClient {
         this._clientSession = this.generateClientSession();
         this._joinMultiplePages(this.pageIds);
 
+        // 2b. Join the individual `pages:{pageId}` channel for each page.
+        //     Verified live in pancake.vn/NhiJudyStore — admin browsers join
+        //     ONE `pages:{pageId}` channel per page they have open. The
+        //     `multiple_pages:{userId}` channel carries cross-page summary
+        //     traffic, but `pages:new_message` and `pages:update_conversation`
+        //     are emitted on the per-page channel. Without this we only see
+        //     update_conversation (which Pancake also bounces through
+        //     multiple_pages) and lose every real new_message event.
+        this.pageIds.forEach((pid) => {
+            this._joinPageChannel(pid);
+        });
+
         // 3. Get Online Status
         setTimeout(() => {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
-                null, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
+                null,
+                statusRef,
+                `multiple_pages:${this.userId}`,
+                'get_online_status',
+                {},
             ];
             this.ws.send(JSON.stringify(statusMsg));
         }, 2000);
@@ -525,17 +571,47 @@ class RealtimeClient {
     _joinMultiplePages(pageIds) {
         const pagesRef = this.makeRef();
         const pagesJoinMsg = [
-            pagesRef, pagesRef, `multiple_pages:${this.userId}`, "phx_join",
+            pagesRef,
+            pagesRef,
+            `multiple_pages:${this.userId}`,
+            'phx_join',
             {
                 accessToken: this.token,
                 userId: this.userId,
                 clientSession: this._clientSession,
                 pageIds: pageIds,
-                platform: "web"
-            }
+                platform: 'web',
+            },
         ];
         this.ws.send(JSON.stringify(pagesJoinMsg));
-        console.log(`[PANCAKE-WS] Joining multiple_pages:${this.userId} with ${pageIds.length} pages: [${pageIds.join(', ')}]`);
+        console.log(
+            `[PANCAKE-WS] Joining multiple_pages:${this.userId} with ${pageIds.length} pages: [${pageIds.join(', ')}]`
+        );
+    }
+
+    /**
+     * Join the per-page Phoenix channel `pages:{pageId}` — this is the
+     * channel Pancake's own admin browser joins for each page open in
+     * the inbox tab. Captured in live WS trace: the join payload is
+     * `{ accessToken, userId, platform: "web" }` with the page id
+     * embedded in the topic.
+     */
+    _joinPageChannel(pageId) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+        const ref = this.makeRef();
+        const joinMsg = [
+            ref,
+            ref,
+            `pages:${pageId}`,
+            'phx_join',
+            {
+                accessToken: this.token,
+                userId: this.userId,
+                platform: 'web',
+            },
+        ];
+        this.ws.send(JSON.stringify(joinMsg));
+        console.log(`[PANCAKE-WS] Joining pages:${pageId} channel...`);
     }
 
     handleMessage(msg) {
@@ -545,49 +621,75 @@ class RealtimeClient {
         if (event === 'phx_reply') {
             const status = payload?.status || 'unknown';
             const resp = payload?.response;
-            console.log(`[PANCAKE-WS] 📋 phx_reply [${topic}] status=${status}`, resp ? JSON.stringify(resp).substring(0, 200) : '');
+            console.log(
+                `[PANCAKE-WS] 📋 phx_reply [${topic}] status=${status}`,
+                resp ? JSON.stringify(resp).substring(0, 200) : ''
+            );
             if (status === 'error') {
-                console.error(`[PANCAKE-WS] ❌ Channel join FAILED: ${topic}`, JSON.stringify(resp));
+                console.error(
+                    `[PANCAKE-WS] ❌ Channel join FAILED: ${topic}`,
+                    JSON.stringify(resp)
+                );
 
                 // Retry multiple_pages by removing one page at a time
-                if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
+                if (
+                    topic.startsWith('multiple_pages:') &&
+                    this._allPageIds &&
+                    !this._retryExhausted
+                ) {
                     this._retryIndex = (this._retryIndex || 0) + 1;
                     if (this._retryIndex <= this._allPageIds.length) {
                         const skipIdx = this._retryIndex - 1;
                         const retryPages = this._allPageIds.filter((_, i) => i !== skipIdx);
-                        console.warn(`[PANCAKE-WS] 🔄 Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`);
+                        console.warn(
+                            `[PANCAKE-WS] 🔄 Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`
+                        );
                         this.pageIds = retryPages;
                         this._joinMultiplePages(retryPages);
                     } else {
                         this._retryExhausted = true;
-                        console.error('[PANCAKE-WS] ❌ All page combinations failed for multiple_pages channel.');
+                        console.error(
+                            '[PANCAKE-WS] ❌ All page combinations failed for multiple_pages channel.'
+                        );
                     }
                 }
             }
         } else if (event === 'phx_error') {
-            console.error(`[PANCAKE-WS] ❌ phx_error [${topic}]`, JSON.stringify(payload).substring(0, 300));
+            console.error(
+                `[PANCAKE-WS] ❌ phx_error [${topic}]`,
+                JSON.stringify(payload).substring(0, 300)
+            );
         } else if (event === 'phx_close') {
             console.warn(`[PANCAKE-WS] ⚠️ phx_close [${topic}]`);
         } else if (event !== 'pages:update_conversation' && event !== 'order:tags_updated') {
             // Log mọi event khác để debug
-            console.log(`[PANCAKE-WS] 📨 Event: ${event} [${topic}]`, JSON.stringify(payload).substring(0, 300));
+            console.log(
+                `[PANCAKE-WS] 📨 Event: ${event} [${topic}]`,
+                JSON.stringify(payload).substring(0, 300)
+            );
         }
 
         if (event === 'pages:update_conversation') {
             const conversation = payload.conversation;
-            console.log('[PANCAKE-WS] 📩 New Message:', conversation?.id, '- Type:', conversation?.type);
+            console.log(
+                '[PANCAKE-WS] 📩 New Message:',
+                conversation?.id,
+                '- Type:',
+                conversation?.type
+            );
 
             // 1. Broadcast to connected frontend clients
             broadcastToClients({
                 type: 'pages:update_conversation',
-                payload: payload
+                payload: payload,
             });
 
             // 2. Save to database for persistence
             if (conversation) {
-                const customerPsid = conversation.from_psid ||
-                                    conversation.customers?.[0]?.fb_id ||
-                                    conversation.from?.id;
+                const customerPsid =
+                    conversation.from_psid ||
+                    conversation.customers?.[0]?.fb_id ||
+                    conversation.from?.id;
 
                 if (customerPsid && conversation.type !== 'COMMENT') {
                     upsertPendingCustomer({
@@ -595,13 +697,16 @@ class RealtimeClient {
                         pageId: conversation.page_id,
                         customerName: conversation.from?.name || conversation.customers?.[0]?.name,
                         snippet: conversation.snippet || conversation.last_message?.message,
-                        type: conversation.type || 'INBOX'
+                        type: conversation.type || 'INBOX',
                     });
                 }
 
                 // 3. Livestream detection for COMMENT conversations
                 const postType = conversation.post?.type;
-                const isLivestream = postType === 'livestream' || conversation.post?.live_video_status === 'vod' || conversation.post?.live_video_status === 'live';
+                const isLivestream =
+                    postType === 'livestream' ||
+                    conversation.post?.live_video_status === 'vod' ||
+                    conversation.post?.live_video_status === 'live';
 
                 if (conversation.type === 'COMMENT' && isLivestream && customerPsid) {
                     // Save to livestream_conversations table (single source of truth)
@@ -612,44 +717,60 @@ class RealtimeClient {
                         type: conversation.type,
                         pageId: conversation.page_id,
                         psid: customerPsid,
-                        customerId: conversation.customers?.[0]?.id
+                        customerId: conversation.customers?.[0]?.id,
                     });
 
                     // WS payload often lacks post.message — fetch from API and update DB
                     if (!postName) {
-                        fetchAndSavePostName(conversation.id, conversation.page_id, conversation.post_id);
+                        fetchAndSavePostName(
+                            conversation.id,
+                            conversation.page_id,
+                            conversation.post_id
+                        );
                     }
                 }
 
                 if (conversation.type === 'COMMENT' && conversation.post_id) {
                     if (postType) {
                         // Cache known post type in memory
-                        postTypeCache.set(conversation.post_id, { postType, liveVideoStatus: conversation.post?.live_video_status || null, postMessage: conversation.post?.message || null });
+                        postTypeCache.set(conversation.post_id, {
+                            postType,
+                            liveVideoStatus: conversation.post?.live_video_status || null,
+                            postMessage: conversation.post?.message || null,
+                        });
                     } else {
                         // No post data in payload — fallback to cache + Pancake API
                         lookupPostType(conversation.id, conversation.page_id, conversation.post_id)
-                            .then(result => {
+                            .then((result) => {
                                 if (result) {
                                     broadcastToClients({
                                         type: 'post_type_detected',
                                         conversationId: conversation.id,
                                         postId: conversation.post_id,
                                         postType: result.postType,
-                                        liveVideoStatus: result.liveVideoStatus
+                                        liveVideoStatus: result.liveVideoStatus,
                                     });
                                     if (result.postType === 'livestream' && customerPsid) {
-                                        saveLivestreamConversation(conversation.id, conversation.post_id, {
-                                            postName: result.postMessage || null,
-                                            name: conversation.from?.name || conversation.customers?.[0]?.name,
-                                            type: conversation.type,
-                                            pageId: conversation.page_id,
-                                            psid: customerPsid,
-                                            customerId: conversation.customers?.[0]?.id
-                                        });
+                                        saveLivestreamConversation(
+                                            conversation.id,
+                                            conversation.post_id,
+                                            {
+                                                postName: result.postMessage || null,
+                                                name:
+                                                    conversation.from?.name ||
+                                                    conversation.customers?.[0]?.name,
+                                                type: conversation.type,
+                                                pageId: conversation.page_id,
+                                                psid: customerPsid,
+                                                customerId: conversation.customers?.[0]?.id,
+                                            }
+                                        );
                                     }
                                 }
                             })
-                            .catch(err => console.error('[LIVESTREAM] Detection error:', err.message));
+                            .catch((err) =>
+                                console.error('[LIVESTREAM] Detection error:', err.message)
+                            );
                     }
                 }
             }
@@ -657,7 +778,7 @@ class RealtimeClient {
             console.log('[PANCAKE-WS] 🏷️ Tags Updated:', payload);
             broadcastToClients({
                 type: 'order:tags_updated',
-                payload: payload
+                payload: payload,
             });
         }
 
@@ -666,7 +787,7 @@ class RealtimeClient {
             console.log('[PANCAKE-WS] 💬 New Message event → forwarding to clients');
             broadcastToClients({
                 type: 'pages:new_message',
-                payload: payload
+                payload: payload,
             });
         }
     }
@@ -716,10 +837,10 @@ const realtimeClient = new RealtimeClient();
 // LIVESTREAM DETECTION (server-side, per post_id)
 // =====================================================
 
-const postTypeCache = new Map();          // post_id → { postType, liveVideoStatus } (in-memory only)
-const pageAccessTokenCache = new Map();   // page_id → { token, cachedAt }
+const postTypeCache = new Map(); // post_id → { postType, liveVideoStatus } (in-memory only)
+const pageAccessTokenCache = new Map(); // page_id → { token, cachedAt }
 const postTypeLookupInFlight = new Set(); // dedupe concurrent lookups for same post_id
-const PAGE_TOKEN_TTL = 3600000;           // 1 hour
+const PAGE_TOKEN_TTL = 3600000; // 1 hour
 
 /**
  * Save a conversation to livestream_conversations table (single source of truth)
@@ -727,7 +848,8 @@ const PAGE_TOKEN_TTL = 3600000;           // 1 hour
 async function saveLivestreamConversation(convId, postId, data) {
     if (!dbPool || !convId || !postId) return;
     try {
-        await dbPool.query(`
+        await dbPool.query(
+            `
             INSERT INTO livestream_conversations (conv_id, post_id, post_name, name, type, page_id, psid, customer_id, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
             ON CONFLICT (conv_id) DO UPDATE SET
@@ -739,21 +861,23 @@ async function saveLivestreamConversation(convId, postId, data) {
                 psid = COALESCE(EXCLUDED.psid, livestream_conversations.psid),
                 customer_id = COALESCE(EXCLUDED.customer_id, livestream_conversations.customer_id),
                 updated_at = CURRENT_TIMESTAMP
-        `, [
-            convId, postId,
-            data.postName || null,
-            data.name || null,
-            data.type || null,
-            data.pageId || null,
-            data.psid || null,
-            data.customerId || null
-        ]);
+        `,
+            [
+                convId,
+                postId,
+                data.postName || null,
+                data.name || null,
+                data.type || null,
+                data.pageId || null,
+                data.psid || null,
+                data.customerId || null,
+            ]
+        );
         console.log(`[LIVESTREAM] ✅ Saved livestream conversation: ${convId} → post ${postId}`);
     } catch (error) {
         console.error('[LIVESTREAM] Error saving livestream conversation:', error.message);
     }
 }
-
 
 /**
  * Fetch post name from Pancake messages API and update DB
@@ -779,8 +903,10 @@ async function fetchAndSavePostName(conversationId, pageId, postId) {
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
-            signal: controller.signal
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            },
+            signal: controller.signal,
         });
         clearTimeout(timeoutId);
 
@@ -789,9 +915,12 @@ async function fetchAndSavePostName(conversationId, pageId, postId) {
         const data = await response.json();
         const post = data.post || data.conversation?.post;
         // Livestream posts have message=null, fallback to story or date+admin
-        const postName = post?.message
-            || post?.story
-            || (post?.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
+        const postName =
+            post?.message ||
+            post?.story ||
+            (post?.inserted_at
+                ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}`
+                : null);
 
         if (postName && dbPool) {
             await dbPool.query(
@@ -799,7 +928,9 @@ async function fetchAndSavePostName(conversationId, pageId, postId) {
                 [postName, postId]
             );
             if (cached) cached.postMessage = postName;
-            console.log(`[LIVESTREAM] ✅ Fetched & saved post name for ${postId}: "${postName.substring(0, 50)}"`);
+            console.log(
+                `[LIVESTREAM] ✅ Fetched & saved post name for ${postId}: "${postName.substring(0, 50)}"`
+            );
         }
     } catch (error) {
         console.error(`[LIVESTREAM] Error fetching post name for ${postId}:`, error.message);
@@ -811,7 +942,7 @@ async function fetchAndSavePostName(conversationId, pageId, postId) {
  */
 async function getOrFetchPageAccessToken(pageId) {
     const cached = pageAccessTokenCache.get(pageId);
-    if (cached && (Date.now() - cached.cachedAt) < PAGE_TOKEN_TTL) {
+    if (cached && Date.now() - cached.cachedAt < PAGE_TOKEN_TTL) {
         return cached.token;
     }
 
@@ -829,29 +960,40 @@ async function getOrFetchPageAccessToken(pageId) {
             method: 'POST',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
             },
-            signal: controller.signal
+            signal: controller.signal,
         });
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.error(`[LIVESTREAM] Failed to get page_access_token for ${pageId}: HTTP ${response.status}`);
+            console.error(
+                `[LIVESTREAM] Failed to get page_access_token for ${pageId}: HTTP ${response.status}`
+            );
             return null;
         }
 
         const data = await response.json();
         if (data.success && data.page_access_token) {
-            pageAccessTokenCache.set(pageId, { token: data.page_access_token, cachedAt: Date.now() });
+            pageAccessTokenCache.set(pageId, {
+                token: data.page_access_token,
+                cachedAt: Date.now(),
+            });
             console.log(`[LIVESTREAM] ✅ Cached page_access_token for page ${pageId}`);
             return data.page_access_token;
         }
 
-        console.warn(`[LIVESTREAM] No page_access_token in response for ${pageId}:`, data.message || '');
+        console.warn(
+            `[LIVESTREAM] No page_access_token in response for ${pageId}:`,
+            data.message || ''
+        );
         return null;
     } catch (error) {
-        console.error(`[LIVESTREAM] Error fetching page_access_token for ${pageId}:`, error.message);
+        console.error(
+            `[LIVESTREAM] Error fetching page_access_token for ${pageId}:`,
+            error.message
+        );
         return null;
     }
 }
@@ -880,8 +1022,10 @@ async function lookupPostType(conversationId, pageId, postId) {
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
-            signal: controller.signal
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            },
+            signal: controller.signal,
         });
         clearTimeout(timeoutId);
 
@@ -891,10 +1035,21 @@ async function lookupPostType(conversationId, pageId, postId) {
         const post = data.post || data.conversation?.post;
 
         if (post && post.type) {
-            const postMessage = post.message || post.story || (post.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
-            const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null, postMessage };
+            const postMessage =
+                post.message ||
+                post.story ||
+                (post.inserted_at
+                    ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}`
+                    : null);
+            const entry = {
+                postType: post.type,
+                liveVideoStatus: post.live_video_status || null,
+                postMessage,
+            };
             postTypeCache.set(postId, entry);
-            console.log(`[LIVESTREAM] ✅ API detected post ${postId}: ${entry.postType} (${entry.liveVideoStatus || 'n/a'})`);
+            console.log(
+                `[LIVESTREAM] ✅ API detected post ${postId}: ${entry.postType} (${entry.liveVideoStatus || 'n/a'})`
+            );
             return entry;
         }
 
@@ -929,7 +1084,6 @@ async function autoConnectClients() {
     } else {
         console.log('[AUTO-CONNECT] No Pancake credentials found');
     }
-
 }
 
 // =====================================================
@@ -945,8 +1099,8 @@ app.get('/health', (req, res) => {
         uptime: process.uptime(),
         database: dbPool ? 'connected' : 'not configured',
         clients: {
-            pancake: realtimeClient.getStatus()
-        }
+            pancake: realtimeClient.getStatus(),
+        },
     });
 });
 
@@ -960,15 +1114,21 @@ app.get('/health/detailed', (req, res) => {
         memory_mb: {
             rss: Math.round(mem.rss / 1024 / 1024),
             heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
         },
-        db: dbPool ? {
-            pool: { total: dbPool.totalCount, idle: dbPool.idleCount, waiting: dbPool.waitingCount }
-        } : null,
+        db: dbPool
+            ? {
+                  pool: {
+                      total: dbPool.totalCount,
+                      idle: dbPool.idleCount,
+                      waiting: dbPool.waitingCount,
+                  },
+              }
+            : null,
         pancake_ws: realtimeClient.getStatus(),
         node_version: process.version,
         pid: process.pid,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
@@ -983,16 +1143,14 @@ app.get('/', (req, res) => {
             pancake: [
                 'POST /api/realtime/start - Start Pancake WebSocket',
                 'POST /api/realtime/stop - Stop Pancake WebSocket',
-                'GET /api/realtime/status - Get Pancake status'
+                'GET /api/realtime/status - Get Pancake status',
             ],
             pendingCustomers: [
                 'GET /api/realtime/pending-customers - Get pending customers',
-                'POST /api/realtime/mark-replied - Mark customer as replied'
+                'POST /api/realtime/mark-replied - Mark customer as replied',
             ],
-            health: [
-                'GET /health - Server health check'
-            ]
-        }
+            health: ['GET /health - Server health check'],
+        },
     });
 });
 
@@ -1001,13 +1159,15 @@ app.get('/', (req, res) => {
 app.post('/api/realtime/start', async (req, res) => {
     const { token, userId, pageIds, cookie } = req.body;
     if (!token || !userId || !pageIds) {
-        return res.status(400).json({ error: 'Missing parameters: token, userId, pageIds required' });
+        return res
+            .status(400)
+            .json({ error: 'Missing parameters: token, userId, pageIds required' });
     }
 
     await realtimeClient.start(token, userId, pageIds, cookie);
     res.json({
         success: true,
-        message: 'Pancake Realtime client started (credentials saved for auto-reconnect)'
+        message: 'Pancake Realtime client started (credentials saved for auto-reconnect)',
     });
 });
 
@@ -1039,14 +1199,15 @@ app.get('/api/realtime/pending-customers', async (req, res) => {
     if (!dbPool) {
         return res.status(503).json({
             error: 'Database not available',
-            message: 'DATABASE_URL not configured'
+            message: 'DATABASE_URL not configured',
         });
     }
 
     try {
         const limit = Math.min(parseInt(req.query.limit) || 500, 1500);
 
-        const result = await dbPool.query(`
+        const result = await dbPool.query(
+            `
             SELECT
                 psid,
                 page_id,
@@ -1058,12 +1219,14 @@ app.get('/api/realtime/pending-customers', async (req, res) => {
             FROM pending_customers
             ORDER BY last_message_time DESC
             LIMIT $1
-        `, [limit]);
+        `,
+            [limit]
+        );
 
         res.json({
             success: true,
             count: result.rows.length,
-            customers: result.rows
+            customers: result.rows,
         });
     } catch (error) {
         console.error('[API] Error fetching pending customers:', error);
@@ -1075,7 +1238,7 @@ app.post('/api/realtime/mark-replied', async (req, res) => {
     if (!dbPool) {
         return res.status(503).json({
             error: 'Database not available',
-            message: 'DATABASE_URL not configured'
+            message: 'DATABASE_URL not configured',
         });
     }
 
@@ -1101,7 +1264,7 @@ app.post('/api/realtime/mark-replied', async (req, res) => {
 
         res.json({
             success: true,
-            removed: result.rowCount
+            removed: result.rowCount,
         });
     } catch (error) {
         console.error('[API] Error marking replied:', error);
@@ -1130,8 +1293,6 @@ app.post('/api/realtime/clear-pending', async (req, res) => {
     }
 });
 
-
-
 // =====================================================
 // LIVESTREAM CONVERSATIONS ROUTES (single source of truth)
 // =====================================================
@@ -1159,7 +1320,7 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
                 psid: row.psid,
                 customer_id: row.customer_id,
                 label: row.label,
-                updated_at: row.updated_at
+                updated_at: row.updated_at,
             });
             // First non-null post_name wins per post_id
             if (row.post_name && !postNames[row.post_id]) {
@@ -1171,7 +1332,7 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
             success: true,
             posts,
             postNames,
-            totalConversations: result.rows.length
+            totalConversations: result.rows.length,
         });
     } catch (error) {
         console.error('[API] Error getting livestream conversations:', error);
@@ -1191,12 +1352,20 @@ app.put('/api/realtime/livestream-conversation', async (req, res) => {
         }
 
         await saveLivestreamConversation(convId, postId, {
-            postName, name, type, pageId, psid, customerId
+            postName,
+            name,
+            type,
+            pageId,
+            psid,
+            customerId,
         });
 
         // Update label if provided
         if (label) {
-            await dbPool.query('UPDATE livestream_conversations SET label = $2 WHERE conv_id = $1', [convId, label]);
+            await dbPool.query(
+                'UPDATE livestream_conversations SET label = $2 WHERE conv_id = $1',
+                [convId, label]
+            );
         }
 
         res.json({ success: true });
@@ -1216,9 +1385,13 @@ app.delete('/api/realtime/livestream-conversations', async (req, res) => {
         const convId = req.query.conv_id;
         let result;
         if (convId) {
-            result = await dbPool.query('DELETE FROM livestream_conversations WHERE conv_id = $1', [convId]);
+            result = await dbPool.query('DELETE FROM livestream_conversations WHERE conv_id = $1', [
+                convId,
+            ]);
         } else if (postId) {
-            result = await dbPool.query('DELETE FROM livestream_conversations WHERE post_id = $1', [postId]);
+            result = await dbPool.query('DELETE FROM livestream_conversations WHERE post_id = $1', [
+                postId,
+            ]);
         } else {
             result = await dbPool.query('DELETE FROM livestream_conversations');
         }
@@ -1256,12 +1429,16 @@ app.put('/api/realtime/conversation-label', async (req, res) => {
         const { convId, labels } = req.body;
         // Support both old format {convId, label} and new format {convId, labels}
         const labelsStr = labels || req.body.label;
-        if (!convId || !labelsStr) return res.status(400).json({ error: 'convId and labels required' });
-        const result = await dbPool.query(`
+        if (!convId || !labelsStr)
+            return res.status(400).json({ error: 'convId and labels required' });
+        const result = await dbPool.query(
+            `
             INSERT INTO conversation_labels (conv_id, labels, updated_at)
             VALUES ($1, $2, NOW())
             ON CONFLICT (conv_id) DO UPDATE SET labels = $2, updated_at = NOW()
-        `, [convId, labelsStr]);
+        `,
+            [convId, labelsStr]
+        );
         res.json({ success: true, upserted: result.rowCount });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1273,16 +1450,20 @@ app.put('/api/realtime/conversation-labels/bulk', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
         const { labelMap } = req.body;
-        if (!labelMap || typeof labelMap !== 'object') return res.status(400).json({ error: 'labelMap required' });
+        if (!labelMap || typeof labelMap !== 'object')
+            return res.status(400).json({ error: 'labelMap required' });
         let upserted = 0;
         for (const [convId, labels] of Object.entries(labelMap)) {
             const labelsStr = typeof labels === 'string' ? labels : JSON.stringify(labels);
             if (labelsStr === '["new"]' || labelsStr === 'new') continue;
-            await dbPool.query(`
+            await dbPool.query(
+                `
                 INSERT INTO conversation_labels (conv_id, labels, updated_at)
                 VALUES ($1, $2, NOW())
                 ON CONFLICT (conv_id) DO UPDATE SET labels = $2, updated_at = NOW()
-            `, [convId, labelsStr]);
+            `,
+                [convId, labelsStr]
+            );
             upserted++;
         }
         res.json({ success: true, upserted });
@@ -1295,7 +1476,9 @@ app.put('/api/realtime/conversation-labels/bulk', async (req, res) => {
 app.get('/api/realtime/inbox-groups', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
-        const result = await dbPool.query('SELECT id, name, color, note, sort_order FROM inbox_groups ORDER BY sort_order ASC');
+        const result = await dbPool.query(
+            'SELECT id, name, color, note, sort_order FROM inbox_groups ORDER BY sort_order ASC'
+        );
         res.json({ success: true, groups: result.rows });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1314,7 +1497,7 @@ app.put('/api/realtime/inbox-groups', async (req, res) => {
             await client.query('BEGIN');
 
             // Get current group IDs
-            const incomingIds = groups.map(g => g.id).filter(Boolean);
+            const incomingIds = groups.map((g) => g.id).filter(Boolean);
 
             // Delete groups not in the new list
             if (incomingIds.length > 0) {
@@ -1330,7 +1513,8 @@ app.put('/api/realtime/inbox-groups', async (req, res) => {
             for (let i = 0; i < groups.length; i++) {
                 const g = groups[i];
                 if (!g.id || !g.name) continue;
-                await client.query(`
+                await client.query(
+                    `
                     INSERT INTO inbox_groups (id, name, color, note, sort_order, updated_at)
                     VALUES ($1, $2, $3, $4, $5, NOW())
                     ON CONFLICT (id) DO UPDATE SET
@@ -1339,7 +1523,9 @@ app.put('/api/realtime/inbox-groups', async (req, res) => {
                         note = EXCLUDED.note,
                         sort_order = EXCLUDED.sort_order,
                         updated_at = NOW()
-                `, [g.id, g.name, g.color || '#3b82f6', g.note || '', g.sort_order ?? i]);
+                `,
+                    [g.id, g.name, g.color || '#3b82f6', g.note || '', g.sort_order ?? i]
+                );
             }
 
             await client.query('COMMIT');
@@ -1467,13 +1653,17 @@ async function gracefulShutdown(signal) {
             await new Promise((resolve) => server.close(resolve));
             console.log('[SHUTDOWN] HTTP server closed');
         }
-    } catch (e) { console.warn('[SHUTDOWN] HTTP close error:', e.message); }
+    } catch (e) {
+        console.warn('[SHUTDOWN] HTTP close error:', e.message);
+    }
     try {
         if (dbPool && typeof dbPool.end === 'function') {
             await Promise.race([dbPool.end(), new Promise((r) => setTimeout(r, 5000))]);
             console.log('[SHUTDOWN] DB pool closed');
         }
-    } catch (e) { console.warn('[SHUTDOWN] DB close error:', e.message); }
+    } catch (e) {
+        console.warn('[SHUTDOWN] DB close error:', e.message);
+    }
     console.log('[SHUTDOWN] Done, exit 0');
     process.exit(0);
 }
