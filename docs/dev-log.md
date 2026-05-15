@@ -25,6 +25,26 @@
 
 ## 2026-05-15
 
+### [native-orders] "Lọc theo" — wire dropdown filter (Tất cả / Chưa đọc / Đã đọc / Có gắn nhãn)
+
+**User**: "Lọc theo này chưa có chức năng". Button bên sidebar trái tồn tại nhưng không bind click.
+
+**Fix** ([native-orders-app.js](../native-orders/js/native-orders-app.js)):
+
+- `_renderInboxSidebarShell`: bọc button trong `.w2-inbox-sb-filter-wrap` (relative anchor) + thêm `#w2InboxFilterMenu` dropdown với 4 option (`all` / `unread` / `read` / `tagged`), `hidden` attribute mặc định.
+- CSS dropdown popover (`position:absolute`, `top:calc(100%+6px)`, `right:0`, shadow + 8px radius). Item active có ✓ tím + bg `#ede9fe`.
+- Button highlight `.is-active` (tím) khi filter ≠ `all`. Label đổi từ "Lọc theo" → tên filter đang chọn.
+- `_convRowHtml`: thêm `data-tag-count="${tags.length}"` để filter tagged.
+- `_sidebarFilter` state ('all'|'unread'|'read'|'tagged'). `_applySidebarFilter()` walk `.w2-inbox-conv` rows, `style.display='none'` các row không match. Empty-state hint khi 0 row match.
+- `_wireSidebarFilter()` bind toggle dropdown + outside click close. `data-filterWired='1'` idempotent.
+- Compose với search: filter apply tự động sau `doSearch` render, sau initial `_loadInboxSidebar`, sau `_mergeSidebarConvs` (poll-merge).
+
+**Verify** (Playwright localhost:8089): load NW-20260513-0016 → 50 rows total, 2 unread, 30 tagged. Click Chưa đọc → 2 visible, btn highlighted. Đã đọc → 48. Có gắn nhãn → 30. Tất cả → 50 + reset btn. Outside-click close ✓. Screenshots: [filter-dropdown-open.png](../downloads/n2store-session/filter-dropdown-open.png), [filter-unread-applied.png](../downloads/n2store-session/filter-unread-applied.png).
+
+Status: ✅ Done.
+
+---
+
 ### [native-orders] Right panel — avatar IMG thay vì chỉ initial
 
 **User**: "bên phải chưa có avatar". Card khách trong right panel chỉ show 1 chữ cái "H" trong tròn gradient — không lấy ảnh FB như header giữa.

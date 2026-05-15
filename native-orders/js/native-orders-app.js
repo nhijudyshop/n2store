@@ -2463,9 +2463,17 @@
                     <i data-lucide="search" style="width:13px;height:13px;color:#94a3b8;"></i>
                     <input type="text" id="w2InboxSearch" placeholder="Tìm kiếm" autocomplete="off" />
                 </div>
-                <button class="w2-inbox-sb-filter" type="button" title="Bộ lọc">
-                    <i data-lucide="sliders-horizontal" style="width:12px;height:12px;"></i> Lọc theo
-                </button>
+                <div class="w2-inbox-sb-filter-wrap">
+                    <button class="w2-inbox-sb-filter" type="button" id="w2InboxFilterBtn" title="Bộ lọc">
+                        <i data-lucide="sliders-horizontal" style="width:12px;height:12px;"></i> <span id="w2InboxFilterLabel">Lọc theo</span>
+                    </button>
+                    <div class="w2-inbox-sb-filter-menu" id="w2InboxFilterMenu" hidden>
+                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="all">Tất cả hội thoại</button>
+                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="unread">Chưa đọc</button>
+                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="read">Đã đọc</button>
+                        <button type="button" class="w2-inbox-sb-filter-item" data-filter="tagged">Có gắn nhãn</button>
+                    </div>
+                </div>
             </div>
             <div class="w2-inbox-sb-list" id="w2InboxConvList">
                 <div class="w2-inbox-sb-empty">
@@ -2698,6 +2706,9 @@
             // Wire the search input — server-side conversation search via
             // Pancake's POST /api/v1/pages/{pageId}/conversations/search.
             _wireSidebarSearch(order, res.conversations);
+            // Wire the "Lọc theo" dropdown + apply current filter.
+            _wireSidebarFilter();
+            _applySidebarFilter();
         } catch (e) {
             console.warn('[NativeOrders] sidebar load failed:', e.message);
             list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#dc2626;font-size:12px;text-align:center;">Lỗi tải: ${escapeHtml(e.message)}</div>`;
@@ -2729,6 +2740,7 @@
                 list.innerHTML = baselineConvs.map((c) => _convRowHtml(c, order)).join('');
                 _bindConvRowClicks(list, order);
                 if (window.lucide?.createIcons) window.lucide.createIcons();
+                _applySidebarFilter();
                 return;
             }
             _searchAbort = new AbortController();
@@ -2752,6 +2764,7 @@
                 list.innerHTML = res.conversations.map((c) => _convRowHtml(c, order)).join('');
                 _bindConvRowClicks(list, order);
                 if (window.lucide?.createIcons) window.lucide.createIcons();
+                _applySidebarFilter();
             } finally {
                 list.style.opacity = '';
             }
@@ -2770,6 +2783,90 @@
                 doSearch(input.value);
             }
         });
+    }
+
+    // ---------- Sidebar filter (Lọc theo) ----------
+    // Client-side row filter applied on top of whatever is currently in
+    // `#w2InboxConvList` (initial load, search results, or merged poll
+    // updates). Decoupled from search so a user can search "0123" then
+    // narrow to unread, or filter unread and then search.
+    let _sidebarFilter = 'all'; // 'all' | 'unread' | 'read' | 'tagged'
+    const _SIDEBAR_FILTER_LABELS = {
+        all: 'Lọc theo',
+        unread: 'Chưa đọc',
+        read: 'Đã đọc',
+        tagged: 'Có gắn nhãn',
+    };
+
+    function _applySidebarFilter() {
+        const list = document.getElementById('w2InboxConvList');
+        if (!list) return;
+        const rows = list.querySelectorAll('.w2-inbox-conv');
+        let visible = 0;
+        rows.forEach((row) => {
+            const unread = row.classList.contains('is-unread');
+            const tagged = Number(row.dataset.tagCount || 0) > 0;
+            let show = true;
+            if (_sidebarFilter === 'unread') show = unread;
+            else if (_sidebarFilter === 'read') show = !unread;
+            else if (_sidebarFilter === 'tagged') show = tagged;
+            row.style.display = show ? '' : 'none';
+            if (show) visible += 1;
+        });
+        // Empty-state hint when nothing matches the filter (only if the
+        // list actually has rows; skeleton/empty-from-server states have
+        // no .w2-inbox-conv at all and should be left alone).
+        const existingHint = list.querySelector('[data-filter-empty]');
+        if (existingHint) existingHint.remove();
+        if (rows.length > 0 && visible === 0 && _sidebarFilter !== 'all') {
+            const empty = document.createElement('div');
+            empty.dataset.filterEmpty = '1';
+            empty.style.cssText =
+                'padding:24px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;';
+            empty.textContent = `Không có hội thoại nào "${_SIDEBAR_FILTER_LABELS[_sidebarFilter]}"`;
+            list.appendChild(empty);
+        }
+    }
+
+    function _wireSidebarFilter() {
+        const btn = document.getElementById('w2InboxFilterBtn');
+        const menu = document.getElementById('w2InboxFilterMenu');
+        const label = document.getElementById('w2InboxFilterLabel');
+        if (!btn || !menu || !label) return;
+        if (btn.dataset.filterWired === '1') return;
+        btn.dataset.filterWired = '1';
+
+        const close = () => menu.setAttribute('hidden', '');
+        const updateBtnVisual = () => {
+            label.textContent = _SIDEBAR_FILTER_LABELS[_sidebarFilter];
+            btn.classList.toggle('is-active', _sidebarFilter !== 'all');
+            menu.querySelectorAll('.w2-inbox-sb-filter-item').forEach((it) => {
+                it.classList.toggle('is-active', it.dataset.filter === _sidebarFilter);
+            });
+        };
+        updateBtnVisual();
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (menu.hasAttribute('hidden')) menu.removeAttribute('hidden');
+            else close();
+        });
+        menu.addEventListener('click', (e) => {
+            const item = e.target.closest('.w2-inbox-sb-filter-item');
+            if (!item) return;
+            _sidebarFilter = item.dataset.filter || 'all';
+            updateBtnVisual();
+            _applySidebarFilter();
+            close();
+        });
+        // Close when clicking outside the wrap
+        document.addEventListener(
+            'click',
+            (e) => {
+                if (!menu.parentElement?.contains(e.target)) close();
+            },
+            { capture: true }
+        );
     }
 
     /**
@@ -2834,6 +2931,7 @@
             String(currentOrder.fbUserId || '') === fbId &&
             String(currentOrder.fbPageId || '') === String(c.page_id || c.fb_page_id || '');
         const unread = c.unread_count || c.unread || 0;
+        const tagCount = Array.isArray(c.tags) ? c.tags.length : 0;
         const avatarUrl =
             c.from?.avatar_url ||
             cust.avatar_url ||
@@ -2842,7 +2940,7 @@
         const avatarHtml = avatarUrl
             ? `<img class="w2-inbox-conv-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(cName)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-inbox-conv-avatar&quot; style=&quot;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;&quot;>${escapeHtml(initial)}</div>'" />`
             : `<div class="w2-inbox-conv-avatar" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;">${escapeHtml(initial)}</div>`;
-        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}">
+        return `<div class="w2-inbox-conv ${isActive ? 'is-active' : ''} ${unread ? 'is-unread' : ''}" data-fb-id="${escapeHtml(fbId)}" data-c-name="${escapeHtml(cName)}" data-conv-id="${escapeHtml(c.id || '')}" data-tag-count="${tagCount}">
             ${avatarHtml}
             <div class="w2-inbox-conv-body">
                 <div class="w2-inbox-conv-top">
@@ -2972,6 +3070,8 @@
         const frag = document.createDocumentFragment();
         for (const r of orderedRows) frag.appendChild(r);
         list.appendChild(frag);
+        // Re-apply filter so newly-arrived rows respect the user's choice.
+        _applySidebarFilter();
     }
 
     function _wireSidebarRealtime(order) {
@@ -3770,6 +3870,52 @@
                 font-family: inherit;
             }
             .w2-inbox-sb-filter:hover { background: #dfe2e7; color: #1d2939; }
+            .w2-inbox-sb-filter.is-active {
+                background: #ede9fe;
+                color: #6d28d9;
+                font-weight: 600;
+            }
+            .w2-inbox-sb-filter-wrap { position: relative; flex-shrink: 0; }
+            .w2-inbox-sb-filter-menu {
+                position: absolute;
+                top: calc(100% + 6px);
+                right: 0;
+                min-width: 180px;
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+                padding: 4px;
+                z-index: 30;
+                display: flex;
+                flex-direction: column;
+            }
+            .w2-inbox-sb-filter-menu[hidden] { display: none; }
+            .w2-inbox-sb-filter-item {
+                border: 0;
+                background: transparent;
+                text-align: left;
+                padding: 8px 10px;
+                font-size: 13px;
+                font-family: inherit;
+                color: #1d2939;
+                cursor: pointer;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .w2-inbox-sb-filter-item:hover { background: #f1f5f9; }
+            .w2-inbox-sb-filter-item.is-active {
+                background: #ede9fe;
+                color: #6d28d9;
+                font-weight: 600;
+            }
+            .w2-inbox-sb-filter-item.is-active::before {
+                content: '✓';
+                color: #7c3aed;
+                font-weight: 700;
+            }
             .w2-inbox-sb-list {
                 flex: 1;
                 min-height: 0;
