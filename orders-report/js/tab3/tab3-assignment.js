@@ -18,55 +18,94 @@
 
     async function addProductToAssignment(productId) {
         try {
-            const response = await auth.authenticatedFetch(
-                `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-            );
-
-            if (!response.ok) {
-                throw new Error('Không thể tải thông tin sản phẩm');
-            }
-
-            const productData = await response.json();
-            let imageUrl = productData.ImageUrl;
+            let productData;
             let templateData = null;
+            let imageUrl;
 
-            if (productData.ProductTmplId) {
-                try {
-                    const templateResponse = await auth.authenticatedFetch(
-                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
-                    );
+            // Template-only marker (no active variants): fetch ProductTemplate directly
+            if (typeof productId === 'string' && productId.startsWith('tmpl-')) {
+                const tmplId = productId.slice(5);
+                const templateResponse = await auth.authenticatedFetch(
+                    `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${tmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
+                );
+                if (!templateResponse.ok) {
+                    throw new Error('Không thể tải thông tin sản phẩm (template)');
+                }
+                templateData = await templateResponse.json();
+                imageUrl = templateData.ImageUrl;
+                // Synthesize a productData shape so the rest of the flow works.
+                // Use a stable marker id ('tmpl-<id>') so dedupe via productId still works.
+                productData = {
+                    Id: `tmpl-${templateData.Id}`,
+                    ProductTmplId: templateData.Id,
+                    NameGet: `[${templateData.DefaultCode}] ${templateData.Name || ''}`,
+                    DefaultCode: templateData.DefaultCode,
+                    Barcode: templateData.DefaultCode,
+                    ImageUrl: templateData.ImageUrl,
+                };
+            } else {
+                const response = await auth.authenticatedFetch(
+                    `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+                );
 
-                    if (templateResponse.ok) {
-                        templateData = await templateResponse.json();
-                        if (!imageUrl) {
-                            imageUrl = templateData.ImageUrl;
+                if (!response.ok) {
+                    throw new Error('Không thể tải thông tin sản phẩm');
+                }
+
+                productData = await response.json();
+                imageUrl = productData.ImageUrl;
+
+                if (productData.ProductTmplId) {
+                    try {
+                        const templateResponse = await auth.authenticatedFetch(
+                            `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
+                        );
+
+                        if (templateResponse.ok) {
+                            templateData = await templateResponse.json();
+                            if (!imageUrl) {
+                                imageUrl = templateData.ImageUrl;
+                            }
                         }
+                    } catch (error) {
+                        console.error('Error loading template:', error);
                     }
-                } catch (error) {
-                    console.error('Error loading template:', error);
                 }
             }
 
-            if (state.autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
-                const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
+            if (
+                state.autoAddVariants &&
+                templateData &&
+                templateData.ProductVariants &&
+                templateData.ProductVariants.length > 0
+            ) {
+                const activeVariants = templateData.ProductVariants.filter(
+                    (v) => v.Active === true
+                );
 
                 const sortedVariants = window._tab3.fn.sortVariants(activeVariants);
 
                 if (sortedVariants.length === 0) {
-                    const existingIndex = state.assignments.findIndex(a => a.productId === productData.Id);
+                    const existingIndex = state.assignments.findIndex(
+                        (a) => a.productId === productData.Id
+                    );
                     if (existingIndex !== -1) {
                         ui.showNotification('Sản phẩm đã có trong danh sách', 'error');
                         return;
                     }
 
-                    const productCode = utils.extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                    const productCode =
+                        utils.extractProductCode(productData.NameGet) ||
+                        productData.DefaultCode ||
+                        productData.Barcode ||
+                        '';
                     const assignment = {
                         id: Date.now(),
                         productId: productData.Id,
                         productName: productData.NameGet,
                         productCode: productCode,
                         imageUrl: imageUrl,
-                        sttList: []
+                        sttList: [],
                     };
 
                     state.assignments.push(assignment);
@@ -80,14 +119,20 @@
                 let skippedCount = 0;
 
                 for (const variant of sortedVariants) {
-                    const existingIndex = state.assignments.findIndex(a => a.productId === variant.Id);
+                    const existingIndex = state.assignments.findIndex(
+                        (a) => a.productId === variant.Id
+                    );
                     if (existingIndex !== -1) {
                         skippedCount++;
                         continue;
                     }
 
                     const variantImageUrl = variant.ImageUrl || imageUrl;
-                    const productCode = utils.extractProductCode(variant.NameGet) || variant.DefaultCode || variant.Barcode || '';
+                    const productCode =
+                        utils.extractProductCode(variant.NameGet) ||
+                        variant.DefaultCode ||
+                        variant.Barcode ||
+                        '';
 
                     const assignment = {
                         id: Date.now() + addedCount,
@@ -95,7 +140,7 @@
                         productName: variant.NameGet,
                         productCode: productCode,
                         imageUrl: variantImageUrl,
-                        sttList: []
+                        sttList: [],
                     };
 
                     state.assignments.push(assignment);
@@ -106,27 +151,38 @@
                 window._tab3.fn.renderAssignmentTable();
 
                 if (addedCount > 0 && skippedCount > 0) {
-                    ui.showNotification(`✅ Đã thêm ${addedCount} biến thể, bỏ qua ${skippedCount} biến thể đã tồn tại`);
+                    ui.showNotification(
+                        `✅ Đã thêm ${addedCount} biến thể, bỏ qua ${skippedCount} biến thể đã tồn tại`
+                    );
                 } else if (skippedCount > 0) {
-                    ui.showNotification(`⚠️ Tất cả ${skippedCount} biến thể đã tồn tại trong danh sách`, 'error');
+                    ui.showNotification(
+                        `⚠️ Tất cả ${skippedCount} biến thể đã tồn tại trong danh sách`,
+                        'error'
+                    );
                 } else if (addedCount > 0) {
                     ui.showNotification(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
                 }
             } else {
-                const existingIndex = state.assignments.findIndex(a => a.productId === productData.Id);
+                const existingIndex = state.assignments.findIndex(
+                    (a) => a.productId === productData.Id
+                );
                 if (existingIndex !== -1) {
                     ui.showNotification('Sản phẩm đã có trong danh sách', 'error');
                     return;
                 }
 
-                const productCode = utils.extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                const productCode =
+                    utils.extractProductCode(productData.NameGet) ||
+                    productData.DefaultCode ||
+                    productData.Barcode ||
+                    '';
                 const assignment = {
                     id: Date.now(),
                     productId: productData.Id,
                     productName: productData.NameGet,
                     productCode: productCode,
                     imageUrl: imageUrl,
-                    sttList: []
+                    sttList: [],
                 };
 
                 state.assignments.push(assignment);
@@ -145,7 +201,7 @@
     // =====================================================
 
     function addSTTToAssignment(assignmentId, stt, orderData) {
-        const assignment = state.assignments.find(a => a.id === assignmentId);
+        const assignment = state.assignments.find((a) => a.id === assignmentId);
         if (!assignment) return;
 
         if (!assignment.sttList) {
@@ -155,7 +211,7 @@
         assignment.sttList.push({
             stt: stt,
             orderInfo: orderData,
-            addedAt: Date.now()
+            addedAt: Date.now(),
         });
 
         dataFns.saveAssignments();
@@ -168,14 +224,16 @@
             }
         }, 0);
 
-        const count = assignment.sttList.filter(item => item.stt === stt).length;
+        const count = assignment.sttList.filter((item) => item.stt === stt).length;
         const countText = count > 1 ? ` (x${count})` : '';
-        ui.showNotification(`✅ Đã thêm STT ${stt}${countText} - ${orderData.customerName || 'N/A'}`);
+        ui.showNotification(
+            `✅ Đã thêm STT ${stt}${countText} - ${orderData.customerName || 'N/A'}`
+        );
         window._tab3.fn.hideOrderTooltip();
     }
 
     window.removeSTTByIndex = function (assignmentId, index) {
-        const assignment = state.assignments.find(a => a.id === assignmentId);
+        const assignment = state.assignments.find((a) => a.id === assignmentId);
         if (!assignment || !assignment.sttList) return;
 
         const stt = assignment.sttList[index].stt;
@@ -184,7 +242,7 @@
         dataFns.saveAssignments(true);
         window._tab3.fn.renderAssignmentTable();
 
-        const remainingCount = assignment.sttList.filter(item => item.stt === stt).length;
+        const remainingCount = assignment.sttList.filter((item) => item.stt === stt).length;
         const countText = remainingCount > 0 ? ` (còn ${remainingCount})` : '';
         ui.showNotification(`🗑️ Đã xóa STT ${stt}${countText}`);
     };
@@ -195,7 +253,7 @@
 
     window.removeAssignment = function (assignmentId) {
         if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-            state.assignments = state.assignments.filter(a => a.id !== assignmentId);
+            state.assignments = state.assignments.filter((a) => a.id !== assignmentId);
             dataFns.saveAssignments(true);
             window._tab3.fn.renderAssignmentTable();
             ui.showNotification('Đã xóa sản phẩm');
@@ -224,8 +282,8 @@
         console.log('[RELOAD] 🔄 Reload with cache clear requested...');
 
         if (window.cacheManager) {
-            window.cacheManager.clear("orders");
-            window.cacheManager.clear("campaigns");
+            window.cacheManager.clear('orders');
+            window.cacheManager.clear('campaigns');
             console.log('[RELOAD] ✅ Cache cleared (orders + campaigns)');
         }
 
@@ -234,9 +292,12 @@
         ui.showNotification('🔄 Đang tải lại dữ liệu từ Tab Quản Lý...', 'info');
 
         if (window.parent) {
-            window.parent.postMessage({
-                type: 'RELOAD_TAB1_ONLY'
-            }, '*');
+            window.parent.postMessage(
+                {
+                    type: 'RELOAD_TAB1_ONLY',
+                },
+                '*'
+            );
             console.log('[RELOAD] 📤 Sent RELOAD_TAB1_ONLY message to parent');
         } else {
             window.location.reload();
@@ -249,5 +310,4 @@
 
     window._tab3.fn.addProductToAssignment = addProductToAssignment;
     window._tab3.fn.addSTTToAssignment = addSTTToAssignment;
-
 })();

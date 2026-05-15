@@ -25,6 +25,18 @@
 
 ## 2026-05-15
 
+### [orders-report] Tab3 suggestions thiếu template không có active variant (B1976, B1977)
+
+**User**: "mã B1976, B1977 tpos có mà trang hình 3 không suggestion".
+
+**Files**: `orders-report/js/tab3/tab3-core.js`, `orders-report/js/tab3/tab3-assignment.js`
+
+**Root cause**: `loadProductsData()` ([tab3-core.js:333](../orders-report/js/tab3/tab3-core.js#L333)) gọi `Product/ExportFileWithVariantPrice` với `{model: {Active: "true"}, ids: ""}` — TPOS filter trên **variant** Active. Templates B1976 (TmplId 118721) và B1977 (TmplId 118720) đều Active=true nhưng cả 4 biến thể (B1977/B1977S/M/L và B1976/B1976S/M/L) đều Active=false → 0 dòng Excel → không vào `productsData` → không suggest.
+
+**Fix**: Sau khi parse Excel, fetch thêm `ProductTemplate?$filter=Active eq true&$select=Id,DefaultCode,Name,ImageUrl` → supplement templates có DefaultCode chưa tồn tại trong productsData, gắn `id: 'tmpl-<Id>'` + `isTemplate: true`. `addProductToAssignment` ([tab3-assignment.js:19](../orders-report/js/tab3/tab3-assignment.js#L19)) thêm nhánh đầu: nếu productId bắt đầu `tmpl-` → fetch `/ProductTemplate(id)?$expand=ProductVariants...` trực tiếp, synthesize productData; existing fallback "no active variants → add template as single assignment" tự động xử lý đúng.
+
+**Status**: ✅ Done. Reload Page hoặc clear cache để load lại productsData. Slice 10 vẫn đủ cho search prefix "b197" (~9 matches sau fix).
+
 ### [so-order] Bỏ toast sync + Tổng HĐ luôn render theo tab.currency
 
 **User**: "Bỏ cái toast thông báo 'Đồng bộ dữ liệu từ thiết bị khác' và HÀ NỘI thiết lập tiền tệ VND mà sao có CNY ở bảng?"

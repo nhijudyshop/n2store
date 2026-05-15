@@ -41,7 +41,9 @@
         if (!userStorageManager) {
             userStorageManager = window.userStorageManager;
         }
-        return userStorageManager ? userStorageManager.getUserFirebasePath('orders_productAssignments') : 'productAssignments/guest';
+        return userStorageManager
+            ? userStorageManager.getUserFirebasePath('orders_productAssignments')
+            : 'productAssignments/guest';
     }
 
     function removeVietnameseTones(str) {
@@ -67,7 +69,7 @@
         if (!amount) return '0đ';
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
-            currency: 'VND'
+            currency: 'VND',
         }).format(amount);
     }
 
@@ -91,12 +93,10 @@
     }
 
     function base64UrlDecode(str) {
-        const padding = '='.repeat((4 - str.length % 4) % 4);
+        const padding = '='.repeat((4 - (str.length % 4)) % 4);
         const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
         const binary = atob(base64);
-        return new TextDecoder().decode(
-            Uint8Array.from(binary, c => c.charCodeAt(0))
-        );
+        return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
     }
 
     function xorEncrypt(text, key) {
@@ -112,7 +112,7 @@
     }
 
     function xorDecrypt(encoded, key) {
-        const encrypted = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+        const encrypted = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
         const keyBytes = new TextEncoder().encode(key);
         const decrypted = new Uint8Array(encrypted.length);
 
@@ -171,9 +171,7 @@
     function buildProductNoteLines(products) {
         if (!products || products.length === 0) return '';
 
-        return products.map(p =>
-            `${p.productCode} - ${p.quantity} - ${p.price}`
-        ).join('\n');
+        return products.map((p) => `${p.productCode} - ${p.quantity} - ${p.price}`).join('\n');
     }
 
     function processNoteForUpload(currentNote, products) {
@@ -265,7 +263,7 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `grant_type=password&username=${(window.ShopConfig?.getConfig?.()?.CompanyId || 1) === 2 ? 'nvktshop1' : 'nvktlive1'}&password=Aa%4028612345678&client_id=tmtWebApp`
+                body: `grant_type=password&username=${(window.ShopConfig?.getConfig?.()?.CompanyId || 1) === 2 ? 'nvktshop1' : 'nvktlive1'}&password=Aa%4028612345678&client_id=tmtWebApp`,
             });
 
             if (!response.ok) {
@@ -275,7 +273,7 @@
             const data = await response.json();
 
             bearerToken = data.access_token;
-            tokenExpiry = Date.now() + (data.expires_in * 1000);
+            tokenExpiry = Date.now() + data.expires_in * 1000;
 
             return data.access_token;
         } catch (error) {
@@ -297,12 +295,12 @@
 
         const headers = {
             ...options.headers,
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
         };
 
         const response = await fetch(url, {
             ...options,
-            headers
+            headers,
         });
 
         if (response.status === 401) {
@@ -311,7 +309,7 @@
 
             return fetch(url, {
                 ...options,
-                headers
+                headers,
             });
         }
 
@@ -330,16 +328,19 @@
         loadingIndicator.style.display = 'block';
 
         try {
-            const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Product/ExportFileWithVariantPrice`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: { Active: "true" },
-                    ids: ""
-                })
-            });
+            const response = await authenticatedFetch(
+                `${API_CONFIG.WORKER_URL}/api/Product/ExportFileWithVariantPrice`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: { Active: 'true' },
+                        ids: '',
+                    }),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error('Không thể tải dữ liệu sản phẩm');
@@ -351,17 +352,56 @@
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-            productsData = jsonData.map(row => {
+            productsData = jsonData.map((row) => {
                 const productName = row['Tên sản phẩm'];
                 const codeFromName = extractProductCode(productName);
                 return {
                     id: row['Id sản phẩm (*)'],
                     name: productName,
                     nameNoSign: removeVietnameseTones(productName || ''),
-                    code: codeFromName || row['Mã sản phẩm']
+                    code: codeFromName || row['Mã sản phẩm'],
                 };
             });
 
+            // Supplement: Templates with NO active variants are missing from the Excel
+            // export (Active="true" filters on variant level). Fetch active templates
+            // and add any whose code is not already represented in productsData.
+            // Use 'tmpl-<Id>' marker so addProductToAssignment fetches via /ProductTemplate.
+            try {
+                const tmplRes = await authenticatedFetch(
+                    `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate?$filter=Active eq true&$top=10000&$select=Id,DefaultCode,Name,ImageUrl`
+                );
+                if (tmplRes.ok) {
+                    const tmplJson = await tmplRes.json();
+                    const existingCodes = new Set(
+                        productsData.map((p) => (p.code || '').toUpperCase()).filter(Boolean)
+                    );
+                    let supplementedCount = 0;
+                    for (const t of tmplJson.value || []) {
+                        const code = (t.DefaultCode || '').toUpperCase();
+                        if (!code || existingCodes.has(code)) continue;
+                        const fullName = `[${t.DefaultCode}] ${t.Name || ''}`;
+                        productsData.push({
+                            id: `tmpl-${t.Id}`,
+                            templateId: t.Id,
+                            name: fullName,
+                            nameNoSign: removeVietnameseTones(fullName),
+                            code: t.DefaultCode,
+                            imageUrl: t.ImageUrl || '',
+                            isTemplate: true,
+                        });
+                        existingCodes.add(code);
+                        supplementedCount++;
+                    }
+                    if (supplementedCount > 0) {
+                        console.log(
+                            `[tab3] Supplemented ${supplementedCount} templates without active variants`
+                        );
+                    }
+                }
+            } catch (err) {
+                console.warn('[tab3] Failed to supplement templates:', err);
+            }
         } catch (error) {
             console.error('Error loading products:', error);
             showNotification('Lỗi khi tải dữ liệu sản phẩm: ' + error.message, 'error');
@@ -397,9 +437,12 @@
 
     function requestOrdersDataFromTab1() {
         if (window.parent) {
-            window.parent.postMessage({
-                type: 'REQUEST_ORDERS_DATA_FROM_TAB3'
-            }, '*');
+            window.parent.postMessage(
+                {
+                    type: 'REQUEST_ORDERS_DATA_FROM_TAB3',
+                },
+                '*'
+            );
         }
     }
 
@@ -409,11 +452,11 @@
 
     function saveAssignments(immediate = false) {
         try {
-            const sanitizedAssignments = assignments.map(a => {
+            const sanitizedAssignments = assignments.map((a) => {
                 const cleanAssignment = { ...a };
 
                 if (cleanAssignment.sttList && Array.isArray(cleanAssignment.sttList)) {
-                    cleanAssignment.sttList = cleanAssignment.sttList.map(s => {
+                    cleanAssignment.sttList = cleanAssignment.sttList.map((s) => {
                         const cleanSTT = { ...s };
                         if (cleanSTT.orderInfo) {
                             cleanSTT.orderInfo = { ...cleanSTT.orderInfo };
@@ -430,12 +473,15 @@
             const dataWithTimestamp = {
                 assignments: sanitizedAssignments,
                 _timestamp: Date.now(),
-                _version: 1
+                _version: 1,
             };
 
             const performSave = () => {
                 try {
-                    localStorage.setItem('orders_productAssignments', JSON.stringify(dataWithTimestamp));
+                    localStorage.setItem(
+                        'orders_productAssignments',
+                        JSON.stringify(dataWithTimestamp)
+                    );
 
                     window.dispatchEvent(new Event('storage'));
                 } catch (error) {
@@ -519,7 +565,7 @@
                 console.warn('[INIT] ⚠️ UserStorageManager not available, creating fallback');
                 userStorageManager = {
                     getUserFirebasePath: (path) => `${path}/guest`,
-                    getUserIdentifier: () => 'guest'
+                    getUserIdentifier: () => 'guest',
                 };
             }
 
@@ -540,7 +586,10 @@
 
     // Listen for orders data updates from parent window
     window.addEventListener('message', (event) => {
-        if (event.data.type === 'ORDERS_DATA_UPDATE' || event.data.type === 'ORDERS_DATA_RESPONSE_TAB3') {
+        if (
+            event.data.type === 'ORDERS_DATA_UPDATE' ||
+            event.data.type === 'ORDERS_DATA_RESPONSE_TAB3'
+        ) {
             ordersData = event.data.orders;
             ordersDataRequestAttempts = 0;
 
@@ -564,30 +613,78 @@
         // Mutable state - accessed directly by other modules
         get state() {
             return {
-                get productsData() { return productsData; },
-                set productsData(v) { productsData = v; },
-                get ordersData() { return ordersData; },
-                set ordersData(v) { ordersData = v; },
-                get ordersDataRequestAttempts() { return ordersDataRequestAttempts; },
-                set ordersDataRequestAttempts(v) { ordersDataRequestAttempts = v; },
-                get assignments() { return assignments; },
-                set assignments(v) { assignments = v; },
-                get isLoadingProducts() { return isLoadingProducts; },
-                set isLoadingProducts(v) { isLoadingProducts = v; },
-                get bearerToken() { return bearerToken; },
-                set bearerToken(v) { bearerToken = v; },
-                get tokenExpiry() { return tokenExpiry; },
-                set tokenExpiry(v) { tokenExpiry = v; },
-                get saveDebounceTimer() { return saveDebounceTimer; },
-                set saveDebounceTimer(v) { saveDebounceTimer = v; },
-                get userStorageManager() { return userStorageManager; },
-                set userStorageManager(v) { userStorageManager = v; },
-                get autoAddVariants() { return autoAddVariants; },
-                set autoAddVariants(v) { autoAddVariants = v; },
-                get productNotes() { return productNotes; },
-                set productNotes(v) { productNotes = v; },
-                get activeCampaignNames() { return activeCampaignNames; },
-                set activeCampaignNames(v) { activeCampaignNames = v; },
+                get productsData() {
+                    return productsData;
+                },
+                set productsData(v) {
+                    productsData = v;
+                },
+                get ordersData() {
+                    return ordersData;
+                },
+                set ordersData(v) {
+                    ordersData = v;
+                },
+                get ordersDataRequestAttempts() {
+                    return ordersDataRequestAttempts;
+                },
+                set ordersDataRequestAttempts(v) {
+                    ordersDataRequestAttempts = v;
+                },
+                get assignments() {
+                    return assignments;
+                },
+                set assignments(v) {
+                    assignments = v;
+                },
+                get isLoadingProducts() {
+                    return isLoadingProducts;
+                },
+                set isLoadingProducts(v) {
+                    isLoadingProducts = v;
+                },
+                get bearerToken() {
+                    return bearerToken;
+                },
+                set bearerToken(v) {
+                    bearerToken = v;
+                },
+                get tokenExpiry() {
+                    return tokenExpiry;
+                },
+                set tokenExpiry(v) {
+                    tokenExpiry = v;
+                },
+                get saveDebounceTimer() {
+                    return saveDebounceTimer;
+                },
+                set saveDebounceTimer(v) {
+                    saveDebounceTimer = v;
+                },
+                get userStorageManager() {
+                    return userStorageManager;
+                },
+                set userStorageManager(v) {
+                    userStorageManager = v;
+                },
+                get autoAddVariants() {
+                    return autoAddVariants;
+                },
+                set autoAddVariants(v) {
+                    autoAddVariants = v;
+                },
+                get productNotes() {
+                    return productNotes;
+                },
+                set productNotes(v) {
+                    productNotes = v;
+                },
+                get activeCampaignNames() {
+                    return activeCampaignNames;
+                },
+                set activeCampaignNames(v) {
+                    activeCampaignNames = v;
+                },
             };
         },
 
@@ -642,5 +739,4 @@
         // Functions registered by other modules (filled in later)
         fn: {},
     };
-
 })();
