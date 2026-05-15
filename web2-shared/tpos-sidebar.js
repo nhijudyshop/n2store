@@ -136,6 +136,10 @@
                     our: '../native-orders/index.html',
                     tpos: '#/app/saleOnline/order/list',
                 },
+                {
+                    label: 'Sổ Order',
+                    our: '../so-order/index.html',
+                },
                 { label: 'TPOS × Pancake', our: '../tpos-pancake/index.html' },
                 {
                     label: 'Facebook',
