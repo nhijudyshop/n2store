@@ -3323,28 +3323,47 @@
      */
     let _sidebarWsSub = null;
     let _sidebarPollTimer = null;
+    let _sidebarPollOrder = null; // kept so we can resume polling if WS drops
     const _SIDEBAR_POLL_MS = 12_000;
+    const _SIDEBAR_POLL_CHECK_MS = 5_000;
 
     /**
-     * Pancake's admin inbox realtime runs over **MQTT mediated by their
-     * browser extension** — confirmed live: `window.MqttSocket`,
-     * `window.MqttChannel`, and an `initSocket()` that calls
-     * `l.Z.checkConnection()` (the extension presence check). Without the
-     * extension the admin web UI itself falls back to no-realtime. We
-     * can't replicate that channel without shipping our own extension.
+     * Polling vs realtime philosophy:
+     *   • Render broker keeps a WS to pancake.vn and forwards
+     *     `pages:update_conversation` (reliable) + `pages:new_message`
+     *     (when FB socket creds available).
+     *   • When `Web2Realtime.isConnected()` is true the sidebar is fed
+     *     LIVE from those events — `_handleSidebarWsEvent` already
+     *     bumps rows, marks unread, prepends new conv rows. Running a
+     *     12s poll on top of that is wasted bandwidth + Pancake quota.
+     *   • Polling becomes useful ONLY when WS is down (broker
+     *     restarting, network blip, etc.). We monitor connection
+     *     state every 5s and flip polling on/off accordingly.
      *
-     * Our Render broker reliably forwards `pages:update_conversation`
-     * but `pages:new_message` rarely fires because that path needs FB
-     * socket credentials we don't have.
-     *
-     * Backstop: poll `fetchConversationsByPage` every 12s while the
-     * modal is open. ~50 rows, ~100-200ms RTT, merge-update in place so
-     * scroll/hover/unread state survives the refresh.
+     * Net result: in the steady-state happy path zero polls fire —
+     * pure realtime. The poll loop self-activates only as fallback.
      */
     function _startSidebarPoll(order) {
         if (_sidebarPollTimer) clearInterval(_sidebarPollTimer);
         if (!order?.fbPageId || !window.Web2Chat?.fetchConversationsByPage) return;
-        _sidebarPollTimer = setInterval(() => _pollSidebarOnce(order), _SIDEBAR_POLL_MS);
+        _sidebarPollOrder = order;
+        // Watchdog: every 5s, decide whether to poll now. If WS is up
+        // OR Web2Realtime hasn't loaded, skip (event-driven). If WS
+        // dropped, fire a single poll to keep the sidebar fresh.
+        // Tracks last-poll timestamp so even when WS bounces we don't
+        // hammer the API faster than _SIDEBAR_POLL_MS.
+        let lastPollAt = 0;
+        _sidebarPollTimer = setInterval(() => {
+            const list = document.getElementById('w2InboxConvList');
+            if (!list) return; // modal closed (teardown clears interval anyway)
+            const wsUp = !!window.Web2Realtime?.isConnected?.();
+            if (wsUp) return; // realtime is feeding the sidebar — no poll needed
+            const now = Date.now();
+            if (now - lastPollAt < _SIDEBAR_POLL_MS) return; // throttle fallback polls
+            lastPollAt = now;
+            console.log('[NativeOrders] WS down → fallback poll');
+            _pollSidebarOnce(_sidebarPollOrder);
+        }, _SIDEBAR_POLL_CHECK_MS);
     }
 
     async function _pollSidebarOnce(order) {
@@ -3443,8 +3462,9 @@
                 /* ignore */
             }
         }
-        // Always run the polling backstop — runs alongside any WS sub
-        // so the sidebar refreshes even when broker events are missing.
+        // Polling backstop — self-deactivates while WS is connected
+        // (see _startSidebarPoll's watchdog). When WS drops it kicks
+        // in automatically; when WS recovers it goes quiet again.
         _startSidebarPoll(order);
 
         if (!window.Web2Realtime?.subscribe) {
