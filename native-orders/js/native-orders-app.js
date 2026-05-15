@@ -2127,20 +2127,12 @@
         _renderInteractionsModal(order, initialTab);
     }
 
-    function _renderInteractionsModal(order, tab) {
-        let modal = document.getElementById('orderInteractionsModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'orderInteractionsModal';
-            modal.className = 'w2p-overlay';
-            document.body.appendChild(modal);
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) _closeInteractions();
-            });
-        }
-        modal.style.display = 'flex';
-        // Apply pop entrance to overlay + card (only on first open of this modal session)
-        modal.classList.add('w2fx-backdrop');
+    /**
+     * Build the avatar + info HTML used inside `.w2-inbox-header`. Extracted
+     * so we can re-render only the header when the user clicks a different
+     * conversation in the sidebar (see `_applyChatHeaderForOrder`).
+     */
+    function _renderChatHeaderInner(order) {
         const initials = (order.customerName || order.fbUserName || '?')
             .trim()
             .split(/\s+/)
@@ -2160,14 +2152,63 @@
                       )
                       .join('')
                 : '';
-        const totalEarn = order.amountTotal || order.total;
-        const totalHtml = totalEarn
-            ? `<div style="align-self:center;font-size:12px;color:#64748b;margin-right:6px;">Tổng đơn: <strong style="color:#15803d;font-size:13px;">${(Number(totalEarn) || 0).toLocaleString('vi-VN')}đ</strong></div>`
-            : '';
         const avatarHtml =
             order.fbUserId && order.fbPageId
                 ? `<img src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);" loading="eager" onerror="this.outerHTML='<div style=&quot;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;&quot;>${escapeHtml(initials).replace(/'/g, '&#39;')}</div>'" />`
                 : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;">${escapeHtml(initials)}</div>`;
+        const codeBadge = order.code
+            ? `<span style="background:#e0e7ff;color:#4338ca;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">${escapeHtml(order.code)}</span>`
+            : '';
+        const pageBadge = order.fbPageId
+            ? `<span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;">Page …${escapeHtml(String(order.fbPageId).slice(-6))}</span>`
+            : '';
+        const infoHtml = `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                <strong style="font-size:15px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
+                ${codeBadge}
+                ${tagsHtml}
+            </div>
+            <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                ${phoneHtml}
+                ${pageBadge}
+            </div>`;
+        return { avatarHtml, infoHtml };
+    }
+
+    /**
+     * Swap the avatar + info section of the open chat modal in-place to
+     * reflect a different customer/order. Sidebar, message thread and
+     * action buttons stay mounted — only the header content changes, so
+     * scroll position, search input, and WebSocket subscriptions survive.
+     */
+    function _applyChatHeaderForOrder(order) {
+        const { avatarHtml, infoHtml } = _renderChatHeaderInner(order);
+        const av = document.getElementById('w2ChatHeaderAvatar');
+        const info = document.getElementById('w2ChatHeaderInfo');
+        if (av) av.innerHTML = avatarHtml;
+        if (info) info.innerHTML = infoHtml;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function _renderInteractionsModal(order, tab) {
+        let modal = document.getElementById('orderInteractionsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'orderInteractionsModal';
+            modal.className = 'w2p-overlay';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) _closeInteractions();
+            });
+        }
+        modal.style.display = 'flex';
+        // Apply pop entrance to overlay + card (only on first open of this modal session)
+        modal.classList.add('w2fx-backdrop');
+        const { avatarHtml, infoHtml } = _renderChatHeaderInner(order);
+        const totalEarn = order.amountTotal || order.total;
+        const totalHtml = totalEarn
+            ? `<div style="align-self:center;font-size:12px;color:#64748b;margin-right:6px;">Tổng đơn: <strong style="color:#15803d;font-size:13px;">${(Number(totalEarn) || 0).toLocaleString('vi-VN')}đ</strong></div>`
+            : '';
 
         modal.innerHTML = `
             <div class="w2p-card w2fx-pop w2-inbox-card" style="width:96vw;height:92vh;max-width:1600px;display:flex;flex-direction:column;overflow:hidden;">
@@ -2177,18 +2218,8 @@
                     </aside>
                     <main class="w2-inbox-center">
                         <div class="w2-inbox-header">
-                            ${avatarHtml}
-                            <div style="flex:1;min-width:0;">
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-                                    <strong style="font-size:15px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</strong>
-                                    <span style="background:#e0e7ff;color:#4338ca;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">${escapeHtml(order.code)}</span>
-                                    ${tagsHtml}
-                                </div>
-                                <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                                    ${phoneHtml}
-                                    ${order.fbPageId ? `<span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;">Page …${escapeHtml(String(order.fbPageId).slice(-6))}</span>` : ''}
-                                </div>
-                            </div>
+                            <div id="w2ChatHeaderAvatar" style="flex-shrink:0;display:flex;align-items:center;">${avatarHtml}</div>
+                            <div id="w2ChatHeaderInfo" style="flex:1;min-width:0;">${infoHtml}</div>
                             <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
                                 <button type="button" class="w2-inbox-icon-btn" title="Lịch sử mua" data-action="open-history"><i data-lucide="history" style="width:14px;height:14px;"></i></button>
                                 <button type="button" class="w2-inbox-icon-btn" title="Thông tin khách" data-action="toggle-info"><i data-lucide="user" style="width:14px;height:14px;"></i></button>
@@ -2234,9 +2265,13 @@
         _ensureChatModalCss();
         if (window.lucide) lucide.createIcons();
 
-        // Wire header buttons (always present)
-        const phoneEl = modal.querySelector('.w2-chat-phone');
-        phoneEl?.addEventListener('click', () => {
+        // Wire header buttons (always present). Phone click uses delegation
+        // because the header info DOM is re-built when user switches to a
+        // different conversation via _switchChatToCustomer.
+        const headerInfo = modal.querySelector('#w2ChatHeaderInfo');
+        headerInfo?.addEventListener('click', (e) => {
+            const phoneEl = e.target.closest('.w2-chat-phone');
+            if (!phoneEl) return;
             const phone = phoneEl.dataset.phone || '';
             if (!phone) return;
             navigator.clipboard?.writeText(phone).then(
@@ -3071,23 +3106,55 @@
 
     /**
      * When user clicks a sidebar row, swap the chat to that conversation.
-     * Keeps the modal open. We synthesise a minimal "order" object so
-     * `_loadAndRenderThread` can resolve the conversation; the rest of
-     * the right-panel (current-order data) stays pointing at the
-     * originally-opened order.
+     * Keeps the modal + sidebar mounted. We synthesise an order-shaped
+     * object so the existing render path can reuse — when the clicked row
+     * is a different customer, we clear order-specific fields (code,
+     * phone, tags, totals) because we don't have an order for them, and
+     * re-skin the header + right-panel in place. Same customer click is
+     * treated as a "refresh thread" no-rebuild.
      */
     async function _switchChatToCustomer(originalOrder, fbId, customerName) {
-        const synthetic = {
-            ...originalOrder,
-            fbUserId: fbId,
-            customerName: customerName || originalOrder.customerName,
-            fbUserName: customerName || originalOrder.fbUserName,
-            code: originalOrder.code, // keep current order code
-        };
+        const isSameCustomer = String(originalOrder.fbUserId || '') === String(fbId);
+        const synthetic = isSameCustomer
+            ? originalOrder
+            : {
+                  ...originalOrder,
+                  fbUserId: fbId,
+                  customerName: customerName || '',
+                  fbUserName: customerName || '',
+                  // Different customer — clear order-bound context so the
+                  // header/right-panel reflect "khách lẻ, chưa có đơn"
+                  // instead of misleadingly showing the original order.
+                  phone: '',
+                  code: '',
+                  amountTotal: 0,
+                  total: 0,
+                  status: '',
+                  tags: [],
+                  address: '',
+                  note: '',
+                  messageCount: 0,
+                  commentCount: 0,
+              };
         // Highlight clicked row
         document
             .querySelectorAll('.w2-inbox-conv')
             .forEach((r) => r.classList.toggle('is-active', r.dataset.fbId === fbId));
+        // Update middle chat header to match the clicked customer.
+        _applyChatHeaderForOrder(synthetic);
+        // Update right panel info — only when actually switching customers.
+        if (!isSameCustomer) {
+            const rightBody = document.getElementById('w2InboxRightBody');
+            if (rightBody) {
+                rightBody.innerHTML = _renderInfoTab(synthetic);
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            }
+            // Strip tab badges (Tin nhắn/Bình luận count) — they belong
+            // to the original order and don't apply to a different customer.
+            document
+                .querySelectorAll('#orderInteractionsModal .interactions-tab .w2-inbox-tab-badge')
+                .forEach((el) => el.remove());
+        }
         // Re-render the message panel by re-calling load
         await _loadAndRenderThread(synthetic);
     }

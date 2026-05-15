@@ -25,6 +25,36 @@
 
 ## 2026-05-15
 
+### [native-orders] Fix conv-switch — header + right panel update khi click sang khách khác
+
+**User bug**: search "0123456788" → click "Huỳnh Thành Đạt" trong sidebar → middle chat header vẫn show "Thế Hoàng / NW-20260513-0016" + Page badge cũ, right panel cũng giữ nguyên thông tin Thế Hoàng. Chỉ messages thread đổi. Sidebar `is-active` highlight đúng nhưng header inconsistent.
+
+**Root cause**: `_switchChatToCustomer` chỉ gọi `_loadAndRenderThread(synthetic)` để load thread mới. Header (avatar/name/code/phone/tags) + right panel info được render lần đầu trong `_renderInteractionsModal` rồi không bao giờ update — không có ID trên DOM để target.
+
+**Fix** ([native-orders-app.js](../native-orders/js/native-orders-app.js)):
+
+1. Tách helper `_renderChatHeaderInner(order) → { avatarHtml, infoHtml }` để dùng chung giữa lần render đầu + lần switch.
+2. Bọc avatar vào `<div id="w2ChatHeaderAvatar">` và info section vào `<div id="w2ChatHeaderInfo">` để target nhanh.
+3. Thêm `_applyChatHeaderForOrder(order)` swap innerHTML 2 slot trên + re-init lucide icons.
+4. Phone copy click chuyển sang **delegation** trên `#w2ChatHeaderInfo` (vì element con sẽ bị thay khi switch).
+5. `_switchChatToCustomer` giờ:
+    - Detect `isSameCustomer = originalOrder.fbUserId === fbId` → no-op clear nếu same.
+    - Khác khách → synthetic clear `phone/code/tags/amountTotal/status/address/note/messageCount/commentCount` (vì không có đơn cho khách này) → header hiện "Huỳnh Thành Đạt" + Page badge, KHÔNG còn order code.
+    - Re-render `#w2InboxRightBody = _renderInfoTab(synthetic)` → right panel hiện khách mới với "Mã đơn —", "Trạng thái —", "Tổng tiền 0đ".
+    - Strip badges `.interactions-tab .w2-inbox-tab-badge` (cũ là của Thế Hoàng, vô nghĩa cho khách khác).
+6. Sidebar / search input / scroll / WS sub đều **giữ nguyên** vì không re-render modal toàn bộ.
+
+**Verify** (Playwright localhost:8089):
+
+- `openInteractions("NW-20260513-0016")` → header "Thế Hoàng" + code "NW-20260513-0016".
+- Type "0123456788" → 2 results: Nguyễn Tâm, Huỳnh Thành Đạt.
+- Click Huỳnh Thành Đạt row → header đổi "Huỳnh Thành Đạt" + Page …364524, NO code badge, "không SĐT" placeholder. Right panel: input "Tên khách"=Huỳnh Thành Đạt, "Mã đơn —". Tab badges `[]`. Chat thread load đúng messages của Huỳnh Thành Đạt.
+- Screenshot: [downloads/n2store-session/native-conv-switch-fix-v2.png](../downloads/n2store-session/native-conv-switch-fix-v2.png).
+
+Status: ✅ Done.
+
+---
+
 ### [native-orders][web2-shared] Search sidebar — wire Pancake server-side conv search
 
 **User**: "chức năng tìm kiếm chưa hoạt động → bạn browser test vào pancake.vn/NhiJudyStore coi chi tiết hết đi, các js, hàm ẩn, network, console,...".
