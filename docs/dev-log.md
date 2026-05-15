@@ -25,6 +25,36 @@
 
 ## 2026-05-15
 
+### [tpos-pancake] Migrate Pancake realtime → multi-account broker (`/api/realtime/start-multi`)
+
+**User**: "quan trọng nhất là 2 page house, store" → "Browser test api server realtime mới → nếu hoạt động chính xác → cho tpos-pancake dùng luôn (tpos-pancake có 2 server, 1 tpos đừng đụng, 2 pancake thay bằng server multi mới)".
+
+**Trước migration**: `PancakeRealtime.connectServerMode()` POST `chatomni-proxy.../api/realtime/start` (single-account) → broker pool chỉ có 1 account (Thu Huyền) cover House+Store. Nếu JWT Thu Huyền expire → mất realtime hoàn toàn 2 page chính.
+
+**Sau migration** ([tpos-pancake/js/pancake/pancake-realtime.js:88-200](../tpos-pancake/js/pancake/pancake-realtime.js#L88-L200)):
+
+- `connectServerMode()` ưu tiên `_startMultiAccount()` → POST direct `https://n2store-realtime.onrender.com/api/realtime/start-multi` với mọi account từ localStorage `pancake_all_accounts`. Fallback `_startSingleAccount()` nếu fail.
+- Bypass Cloudflare worker (`/api/realtime/*` proxy → n2store-fallback, không có start-multi route — đã verify từ commit `28303f6` cho native-orders).
+- Đọc `pages` trực tiếp localStorage vì `pancakeTokenManager.getAllAccounts()` chỉ lưu `{token, uid, exp, name}`, không có `pages`.
+- Skip account expired (`v.exp < nowSec`).
+- Notification report: "Realtime online (N account, M pages)".
+
+**Verify live (port 8089)**:
+
+- Broker `/health/detailed`: pool 1→5 accounts (Thu Huyền + Huyền Nhi + Thu Lai + Chloe Duongg + Con Nhoc), totalPages 3→14.
+- Multi-account result: `{ok:true, poolSize:5, totalPages:4 unique}`.
+- Spy WS message: cả House (117267091364524) + Store (270136663390370) đều join qua nhiều account → broker dedup 30s window tránh echo.
+- TPOS side ([tpos-pancake/js/tpos/](../tpos-pancake/js/tpos/)) KHÔNG đụng — theo dặn user.
+
+**Trả lời câu hỏi 24/7**:
+
+- Broker auto-respawn pool từ DB `realtime_accounts` table khi restart (`autoConnectClients()` ở [n2store-realtime/server.js:1327](../n2store-realtime/server.js#L1327)) → KHÔNG cần web client mở.
+- Cần mở browser CHỈ khi JWT expire (~7 ngày) — bất kỳ trang Web 2.0 (native-orders, tpos-pancake, web2-shared) cũng push start-multi mới được.
+
+**Status**: ✅ Done — commit `be6cd96` (114+ lines).
+
+---
+
 ### [native-orders][web2-shared] Realtime — direct-WS-first (học tpos-pancake) + poll thành true fallback
 
 **User**: "hình 1 pancake nhận dữ liệu đoạn hội thoại liên tục — hình 2 không thấy nhận liên tục → được thì học bên tpos-pancake đi" + "polling chỉ là fallback khi realtime không dùng được — nếu socket realtime kết nối thì không cần polling".
