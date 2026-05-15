@@ -3651,16 +3651,17 @@
             // Bump to top of list
             if (list.firstChild !== row) list.prepend(row);
         } else if (fbId) {
-            // First-time-seen conversation on this page — prepend a
-            // minimal row. Falls back to fetching the full sidebar
-            // again if rendering ad-hoc gets out of sync.
+            // First-time-seen conversation — prepend a minimal row.
+            // Use the event's page_id (sidebar is now multi-page so a
+            // new Store conv must NOT inherit the modal-opener's House
+            // page_id, otherwise avatar URL + filter mismatch).
             const synthetic = {
                 id: convId,
                 customers: [{ fb_id: fbId, name: m.from?.name || 'Khách' }],
                 from: m.from,
                 last_message: { message: lastText },
                 updated_at: m.inserted_at || Date.now(),
-                page_id: order.fbPageId,
+                page_id: pageId || order.fbPageId,
                 unread_count: isOutgoing ? 0 : 1,
             };
             const tmp = document.createElement('div');
