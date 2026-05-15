@@ -2650,10 +2650,99 @@
             // Subscribe to page-wide WS so the sidebar updates without a
             // full re-fetch when new messages arrive in other conversations.
             _wireSidebarRealtime(order);
+            // Wire the search input — server-side conversation search via
+            // Pancake's POST /api/v1/pages/{pageId}/conversations/search.
+            _wireSidebarSearch(order, res.conversations);
         } catch (e) {
             console.warn('[NativeOrders] sidebar load failed:', e.message);
             list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#dc2626;font-size:12px;text-align:center;">Lỗi tải: ${escapeHtml(e.message)}</div>`;
         }
+    }
+
+    /**
+     * Sidebar search: debounce 300ms after the user stops typing, then
+     * hit `Web2Chat.searchConversations(pageId, query)` and rebuild the
+     * list with the results. Empty query → restore the original page
+     * list. AbortController cancels an in-flight request when a newer
+     * keystroke arrives so we never render stale data on top of fresh.
+     */
+    let _searchAbort = null;
+    let _searchTimer = null;
+    function _wireSidebarSearch(order, baselineConvs) {
+        const input = document.getElementById('w2InboxSearch');
+        if (!input || !window.Web2Chat?.searchConversations) return;
+        // Idempotent — bail if already wired.
+        if (input.dataset.searchWired === '1') return;
+        input.dataset.searchWired = '1';
+
+        const doSearch = async (query) => {
+            const list = document.getElementById('w2InboxConvList');
+            if (!list) return;
+            if (_searchAbort) _searchAbort.abort();
+            if (!query.trim()) {
+                // Empty query → restore baseline page list
+                list.innerHTML = baselineConvs.map((c) => _convRowHtml(c, order)).join('');
+                _bindConvRowClicks(list, order);
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+                return;
+            }
+            _searchAbort = new AbortController();
+            // Visual hint: dim the list while we wait
+            list.style.opacity = '0.55';
+            try {
+                const res = await window.Web2Chat.searchConversations(
+                    order.fbPageId,
+                    query.trim(),
+                    { signal: _searchAbort.signal }
+                );
+                if (res.reason === 'aborted') return; // newer keystroke superseded
+                if (!res.ok) {
+                    list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#dc2626;font-size:12px;text-align:center;">Lỗi tìm: ${escapeHtml(res.reason || 'unknown')}</div>`;
+                    return;
+                }
+                if (!res.conversations.length) {
+                    list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#94a3b8;font-size:12px;text-align:center;">Không có kết quả cho "${escapeHtml(query)}"</div>`;
+                    return;
+                }
+                list.innerHTML = res.conversations.map((c) => _convRowHtml(c, order)).join('');
+                _bindConvRowClicks(list, order);
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            } finally {
+                list.style.opacity = '';
+            }
+        };
+
+        input.addEventListener('input', () => {
+            const v = input.value;
+            if (_searchTimer) clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(() => doSearch(v), 300);
+        });
+        // Enter triggers immediate fire (no wait for debounce)
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (_searchTimer) clearTimeout(_searchTimer);
+                doSearch(input.value);
+            }
+        });
+    }
+
+    /**
+     * Shared click binding for sidebar rows — extracted so both initial
+     * render and search-result render reuse the same handler instead of
+     * duplicating the logic.
+     */
+    function _bindConvRowClicks(list, order) {
+        list.querySelectorAll('.w2-inbox-conv').forEach((row) => {
+            row.addEventListener('click', () => {
+                const fbId = row.dataset.fbId;
+                const cName = row.dataset.cName;
+                if (!fbId) return;
+                _switchChatToCustomer(order, fbId, cName);
+                row.classList.remove('is-unread');
+                row.querySelector('.w2-inbox-conv-badge')?.remove();
+            });
+        });
     }
 
     /**

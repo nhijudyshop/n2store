@@ -25,6 +25,45 @@
 
 ## 2026-05-15
 
+### [native-orders][web2-shared] Search sidebar — wire Pancake server-side conv search
+
+**User**: "chức năng tìm kiếm chưa hoạt động → bạn browser test vào pancake.vn/NhiJudyStore coi chi tiết hết đi, các js, hàm ẩn, network, console,...".
+
+**Reverse-engineer endpoint** ([scripts/pancake-search-trace.js](../scripts/pancake-search-trace.js) — one-shot Playwright trace mở Pancake admin với JWT cookies, dùng `page.keyboard.type(query)` để gõ thật, capture `request`/`response`/WS frames + hook Redux dispatch):
+
+```
+POST https://pancake.vn/api/v1/pages/{pageId}/conversations/search
+     ?q={query}&access_token={jwt}
+Body: empty (server reads q from querystring)
+Response: { conversations: [ { id, customers, from, last_message,
+            snippet, type:'INBOX'|'COMMENT', tags, updated_at, ... } ] }
+```
+
+Same shape như `fetchConversationsByPage` → sidebar row renderer dùng lại được.
+
+**Test query "Huynh Thanh Dat"** → 2 matched customers (`Huỳnh Thành Đạt29.01` + `Huỳnh Thành Đạt03.12`). Search match theo customer name, không match theo SĐT (Pancake không search số).
+
+**Implementation**:
+
+1. [web2-chat-client.js:`searchConversations(pageId, query, opts)`](../web2-shared/web2-chat-client.js) — POST proxy qua CF Worker `/api/pancake/...`. Body bỏ luôn + bỏ `Content-Type` để tránh CORS preflight trên `multipart/form-data` (browser cross-origin từ localhost → CF Worker required preflight). Hỗ trợ `AbortSignal` để cancel keystroke cũ khi gõ tiếp.
+
+2. [native-orders-app.js:`_wireSidebarSearch(order, baselineConvs)`](../native-orders/js/native-orders-app.js) — listen `input` event, debounce 300ms, fire search. `Enter` skip debounce. Empty query → restore `baselineConvs` (50 page-list rows ban đầu). `AbortController` cancel inflight khi có keystroke mới. Dim list `opacity: 0.55` khi đang chờ.
+
+3. `_bindConvRowClicks(list, order)` extracted helper — gắn click handler cho cả initial render lẫn search-result render.
+
+**Verify live trên page `117267091364524`** (NJD Store):
+| Query | Rows | Sample |
+|-------|------|--------|
+| (empty) | 50 | baseline page list |
+| `huynh thanh dat` | **9** | tất cả "Huỳnh Thành Đạt" — match perfectly |
+| `0788730969` | 0 | Pancake không search by phone |
+
+**Cache bump**: `web2-chat-client.js v=20260514j`, `native-orders-app.js v=20260515k`.
+
+**Status**: ✅ Search hoạt động đúng — gõ vào ô "Tìm kiếm" sẽ filter list ngay (300ms debounce), giống Pancake admin.
+
+---
+
 ### [realtime-broker][native-orders] Per-page Phoenix channel join — verified
 
 **User**: "tôi thấy bên pancake có socket trực tiếp mà? được thì bạn build lên render đi". Đúng — Pancake admin browser join thẳng `wss://pancake.vn/socket/websocket?vsn=2.0.0` (Phoenix Channels v2.0, KHÔNG cần extension).

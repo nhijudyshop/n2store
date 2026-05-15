@@ -274,6 +274,46 @@
         }
     }
 
+    /**
+     * Server-side conversation search for the sidebar's "Tìm kiếm" input.
+     *
+     * Endpoint reverse-engineered from live trace of pancake.vn admin:
+     *   POST https://pancake.vn/api/v1/pages/{pageId}/conversations/search
+     *        ?q={query}&access_token={jwt}
+     *   Content-Type: multipart/form-data (body is essentially empty)
+     *
+     * Response shape: { conversations: [ { id, customers, from,
+     * last_message, snippet, type:'INBOX'|'COMMENT', tags, updated_at,
+     * ... } ], … } — same as `fetchConversationsByPage` so the sidebar
+     * row renderer can reuse it.
+     *
+     * @param {string} pageId
+     * @param {string} query — what user typed (name, phone, message text)
+     * @param {{ signal?: AbortSignal }} [opts]
+     */
+    async function searchConversations(pageId, query, opts = {}) {
+        if (!pageId || !query) return { ok: false, reason: 'missing_args', conversations: [] };
+        if (_isInstagram(pageId))
+            return { ok: false, reason: 'instagram_unsupported', conversations: [] };
+        const jwt = getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt', conversations: [] };
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/conversations/search?q=${encodeURIComponent(query)}&access_token=${encodeURIComponent(jwt)}`;
+        try {
+            // Server reads `q` from the querystring; the body is irrelevant.
+            // Pancake's own admin sends `multipart/form-data` with an empty
+            // boundary, but that's a non-simple Content-Type which forces a
+            // CORS preflight from a cross-origin browser. Drop the body and
+            // header entirely → simple POST request, no preflight, faster.
+            const data = await _fetchJson(url, { method: 'POST', signal: opts.signal });
+            const conversations = Array.isArray(data?.conversations) ? data.conversations : [];
+            return { ok: true, conversations, raw: data };
+        } catch (e) {
+            if (e.name === 'AbortError') return { ok: false, reason: 'aborted', conversations: [] };
+            console.warn('[Web2Chat] searchConversations failed:', e.message);
+            return { ok: false, reason: e.message, conversations: [] };
+        }
+    }
+
     async function fetchConversations(pageId, fbId) {
         if (!pageId || !fbId)
             return { ok: false, reason: 'missing_pageId_or_fbId', conversations: [] };
@@ -596,6 +636,7 @@
         // Read
         fetchConversations,
         fetchConversationsByPage,
+        searchConversations,
         fetchMessages,
         sendMessage,
         replyComment,
