@@ -25,6 +25,36 @@
 
 ## 2026-05-15
 
+### [realtime-broker][native-orders] Per-page Phoenix channel join — verified
+
+**User**: "tôi thấy bên pancake có socket trực tiếp mà? được thì bạn build lên render đi". Đúng — Pancake admin browser join thẳng `wss://pancake.vn/socket/websocket?vsn=2.0.0` (Phoenix Channels v2.0, KHÔNG cần extension).
+
+**Trace**: [`scripts/pancake-ws-trace.js`](../scripts/pancake-ws-trace.js) dùng Playwright `page.on('websocket')` (bắt frames trước khi WS object tồn tại). 35s trace: admin join 2 channels — `users:{userId}` và **`pages:{pageId}`** (per-page) — chỗ flow `pages:new_message`, `update_conversation`, `tag_conversations`, `seen_conversation`, etc.
+
+**Bug broker**: chỉ join `users:{userId}` + `multiple_pages:{userId}` (cross-page summary, không carry per-page events đầy đủ).
+
+**Fix** trong [n2store-realtime/server.js](../n2store-realtime/server.js): thêm `_joinPageChannel(pageId)`, gọi cho mỗi page sau `multiple_pages`. Payload match live trace `{ accessToken, userId, platform: "web" }`. Commit `4dbd5576`, Render deploy `dep-d839euqp8t4c73aqsffg` live 03:49:35Z.
+
+**Verify từ Render logs**:
+
+| Check                                         | Result                                                                                                                  |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Joining pages:117267091364524 channel`       | ✓ 03:49:35                                                                                                              |
+| `phx_reply [pages:117267091364524] status=ok` | ✓ 03:49:36                                                                                                              |
+| Per-page events arriving                      | ✓ `tag_conversations`, `seen_conversation`, `recent_contents:add`, `messages:mark_as_deleted`, `viewing_conversation:*` |
+| Broker → browser WS                           | ✓ direct WS test: 5 frames `pages:update_conversation` page=`117267091364524` trong 30s                                 |
+| Web2Realtime client                           | ✓ 4 events qua `subscribe()` trong 25s                                                                                  |
+
+**Bonus bug fixed**: `_handleSidebarWsEvent` chỉ đọc `payload.message` (cho `new_message`) — `update_conversation` lưu data ở `payload.conversation` (id at `.conversation.id`, last text at `.conversation.last_message.message`). Trước fix, conv ID lookup thất bại → sidebar không update. Sau fix: normalize cả 2 shape vào 1 object trước khi extract.
+
+Thêm `console.log('[NativeOrders][RT] {type} conv=… page=…')` trong handler làm breadcrumb.
+
+**Cache bump**: `native-orders-app.js v=20260515j`.
+
+**Status**: ✅ Infrastructure end-to-end. Khi customer gửi tin INBOX mới → sidebar bump tức thời. Polling 12s vẫn chạy song song làm backstop.
+
+---
+
 ### [issue-tracking] Nút copy bên cạnh mọi SĐT 10 số
 
 **User**: "tất cả định dạng sđt 10 số trang này có nút copy"

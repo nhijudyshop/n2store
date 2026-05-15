@@ -2881,9 +2881,34 @@
     function _handleSidebarWsEvent(evt, order) {
         const list = document.getElementById('w2InboxConvList');
         if (!list) return;
-        const m = evt.payload?.message || evt.payload || {};
-        const convId = String(m.conversation_id || m.conversationId || '');
+        // The broker forwards two distinct payload shapes:
+        //   pages:new_message        → payload.message = { conversation_id, from, message, ... }
+        //   pages:update_conversation → payload.conversation = { id, from, last_message, customers, ... }
+        //                              + payload.page_id
+        // Normalise to a single "msg-like" object so the rest of this
+        // handler doesn't have to care which event fired.
+        const conv = evt.payload?.conversation;
+        const m =
+            evt.payload?.message ||
+            (conv
+                ? {
+                      conversation_id: conv.id,
+                      from: conv.from || conv.last_message?.from,
+                      page_id: evt.payload?.page_id,
+                      message: conv.last_message?.message || conv.snippet || conv.last_message_text,
+                      inserted_at:
+                          conv.last_sent_at || conv.last_message?.inserted_at || conv.updated_at,
+                      customer: conv.customers?.[0],
+                      to: conv.customers?.[0] ? { id: conv.customers[0].fb_id } : undefined,
+                  }
+                : evt.payload || {});
+        const convId = String(m.conversation_id || m.conversationId || conv?.id || '');
         const pageId = String(m.page_id || evt.payload?.page_id || order.fbPageId || '');
+        // Visible breadcrumb so the browser console makes it obvious that
+        // the realtime path is alive when a customer event lands.
+        console.log(
+            `[NativeOrders][RT] ${evt.type} conv=${convId.slice(-12)} page=${pageId.slice(-6)}`
+        );
         // For incoming, `from.id` is the customer's PSID. For outgoing
         // (admin staff replying), `from.id` equals the page id.
         const fromId = String(m.from?.id || '');
