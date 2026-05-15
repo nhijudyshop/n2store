@@ -47,10 +47,14 @@
     const WORKER_URL =
         window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
+    // Same localStorage keys web 1.0's PancakeTokenManager uses, so accounts
+    // saved by either app are immediately visible to the other.
     const LS = {
         JWT: 'pancake_jwt_token',
         JWT_EXP: 'pancake_jwt_token_expiry',
         PAGE_TOKENS: 'pancake_page_access_tokens',
+        ALL_ACCOUNTS: 'pancake_all_accounts',
+        ACTIVE_ACCOUNT_ID: 'tpos_pancake_active_account_id',
     };
 
     function _isExpired(epochSeconds) {
@@ -86,6 +90,126 @@
 
     function hasTokensFor(pageId) {
         return !!getJwt() || !!getPageAccessToken(pageId);
+    }
+
+    /**
+     * Return the full account map web 1.0 maintains. Keyed by account id;
+     * each entry has { token, exp, uid, name, fbId, fbName, savedAt, pages }.
+     * Use this for multi-account fallback when one account can't generate a
+     * PAT for a given page.
+     */
+    function getAllAccounts() {
+        try {
+            const raw = localStorage.getItem(LS.ALL_ACCOUNTS);
+            return raw ? JSON.parse(raw) || {} : {};
+        } catch {
+            return {};
+        }
+    }
+
+    /**
+     * Pull accounts + page tokens from Render DB (shared with web 1.0).
+     * Mirrors `PancakeTokenManager._loadFromRenderDB`. Runs at most once
+     * per session unless `force` is true — there's no point re-asking the
+     * DB on every modal open.
+     */
+    let _syncedThisSession = false;
+    let _syncInFlight = null;
+    async function syncFromRenderDB({ force = false } = {}) {
+        if (_syncedThisSession && !force) return { ok: true, cached: true };
+        if (_syncInFlight) return _syncInFlight;
+        _syncInFlight = (async () => {
+            const result = { ok: false, accounts: 0, pageTokens: 0 };
+            const ctrl = new AbortController();
+            const timeout = setTimeout(() => ctrl.abort(), 8000);
+            try {
+                const [accRes, ptRes] = await Promise.all([
+                    fetch(`${WORKER_URL}/api/pancake-accounts?active=true`, {
+                        signal: ctrl.signal,
+                    }).catch((e) => ({ _err: e })),
+                    fetch(`${WORKER_URL}/api/pancake-page-tokens`, {
+                        signal: ctrl.signal,
+                    }).catch((e) => ({ _err: e })),
+                ]);
+
+                if (accRes && !accRes._err && accRes.ok) {
+                    const data = await accRes.json().catch(() => null);
+                    if (data?.success && Array.isArray(data.accounts) && data.accounts.length) {
+                        const accounts = {};
+                        for (const row of data.accounts) {
+                            accounts[row.account_id] = {
+                                token: row.token,
+                                exp: Number(row.token_exp) || 0,
+                                uid: row.uid,
+                                name: row.name,
+                                savedAt: Number(row.saved_at) || 0,
+                                fbId: row.fb_id,
+                                fbName: row.fb_name,
+                                pages: row.pages || [],
+                            };
+                        }
+                        localStorage.setItem(LS.ALL_ACCOUNTS, JSON.stringify(accounts));
+
+                        // Promote one account to the active JWT slot so existing
+                        // single-token code paths (`getJwt`) still work.
+                        const preferredId = localStorage.getItem(LS.ACTIVE_ACCOUNT_ID);
+                        const ids = Object.keys(accounts);
+                        const pickId =
+                            preferredId &&
+                            accounts[preferredId] &&
+                            !_isExpired(accounts[preferredId].exp)
+                                ? preferredId
+                                : ids.find((id) => !_isExpired(accounts[id].exp));
+                        if (pickId) {
+                            const acc = accounts[pickId];
+                            localStorage.setItem(LS.JWT, acc.token);
+                            localStorage.setItem(LS.JWT_EXP, String(acc.exp));
+                            localStorage.setItem(LS.ACTIVE_ACCOUNT_ID, pickId);
+                        }
+                        result.accounts = ids.length;
+                    }
+                }
+
+                if (ptRes && !ptRes._err && ptRes.ok) {
+                    const data = await ptRes.json().catch(() => null);
+                    if (data?.success && data.tokens && typeof data.tokens === 'object') {
+                        const local = (() => {
+                            try {
+                                return JSON.parse(localStorage.getItem(LS.PAGE_TOKENS) || '{}');
+                            } catch {
+                                return {};
+                            }
+                        })();
+                        // Smart merge: keep whichever entry has the newer `savedAt`.
+                        for (const [pageId, remote] of Object.entries(data.tokens)) {
+                            const cur = local[pageId];
+                            if (
+                                !cur ||
+                                (Number(remote.savedAt) || 0) > (Number(cur.savedAt) || 0)
+                            ) {
+                                local[pageId] = remote;
+                            }
+                        }
+                        localStorage.setItem(LS.PAGE_TOKENS, JSON.stringify(local));
+                        result.pageTokens = Object.keys(data.tokens).length;
+                    }
+                }
+
+                result.ok = true;
+                _syncedThisSession = true;
+                console.log(
+                    `[Web2Chat] syncFromRenderDB: ${result.accounts} accounts, ${result.pageTokens} page tokens`
+                );
+                return result;
+            } catch (e) {
+                console.warn('[Web2Chat] syncFromRenderDB failed:', e.message);
+                return { ok: false, reason: e.message };
+            } finally {
+                clearTimeout(timeout);
+                _syncInFlight = null;
+            }
+        })();
+        return _syncInFlight;
     }
 
     function _isInstagram(pageId) {
@@ -375,28 +499,65 @@
         }
     }
 
+    /**
+     * Mint a page_access_token by trying each known account in turn until
+     * one succeeds. Mirrors web 1.0's `generatePageAccessToken` multi-
+     * account fallback — different staff accounts often have different
+     * pages they admin, so we can't assume the "active" JWT is the right
+     * one for an arbitrary `pageId`.
+     */
     async function generatePageAccessToken(pageId) {
         if (!pageId) return { ok: false, reason: 'missing_pageId' };
-        const jwt = getJwt();
-        if (!jwt) return { ok: false, reason: 'no_jwt' };
-        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/generate_page_access_token?access_token=${encodeURIComponent(jwt)}`;
-        try {
-            const data = await _fetchJson(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            });
-            if (data?.success && data?.page_access_token) {
-                setPageAccessToken(pageId, data.page_access_token);
-                return { ok: true, token: data.page_access_token };
-            }
-            return {
-                ok: false,
-                reason: data?.message || 'unknown_failure',
-                raw: data,
-            };
-        } catch (e) {
-            return { ok: false, reason: e.message };
+
+        // Build the candidate list. Prefer accounts known to admin this
+        // page (`acc.pages` carries the list from /api/pancake-accounts),
+        // then the current JWT, then any other non-expired account.
+        const accountsMap = getAllAccounts();
+        const candidates = [];
+        const seen = new Set();
+        const push = (token, id, label) => {
+            if (!token || seen.has(token)) return;
+            seen.add(token);
+            candidates.push({ token, id, label });
+        };
+        for (const [id, acc] of Object.entries(accountsMap)) {
+            if (!acc?.token) continue;
+            if (_isExpired(acc.exp)) continue;
+            const ownsPage = Array.isArray(acc.pages) && acc.pages.includes(String(pageId));
+            if (ownsPage) push(acc.token, id, acc.name || id);
         }
+        const jwt = getJwt();
+        if (jwt) push(jwt, localStorage.getItem(LS.ACTIVE_ACCOUNT_ID) || 'active', 'active');
+        for (const [id, acc] of Object.entries(accountsMap)) {
+            if (!acc?.token) continue;
+            if (_isExpired(acc.exp)) continue;
+            push(acc.token, id, acc.name || id);
+        }
+
+        if (candidates.length === 0) {
+            return { ok: false, reason: 'no_accounts' };
+        }
+
+        let lastReason = null;
+        for (const cand of candidates) {
+            const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/generate_page_access_token?access_token=${encodeURIComponent(cand.token)}`;
+            try {
+                const data = await _fetchJson(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (data?.success && data?.page_access_token) {
+                    setPageAccessToken(pageId, data.page_access_token, {
+                        account_id: cand.id,
+                    });
+                    return { ok: true, token: data.page_access_token, via: cand.label };
+                }
+                lastReason = data?.message || 'unknown_failure';
+            } catch (e) {
+                lastReason = e.message;
+            }
+        }
+        return { ok: false, reason: lastReason || 'all_accounts_failed' };
     }
 
     window.Web2Chat = {
@@ -408,8 +569,11 @@
         getJwt,
         getPageAccessToken,
         getAllPageAccessTokens,
+        getAllAccounts,
         hasTokensFor,
         decodeJwt,
+        // Sync / refresh
+        syncFromRenderDB,
         // Write / admin
         setJwt,
         setPageAccessToken,

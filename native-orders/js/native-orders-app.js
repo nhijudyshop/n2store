@@ -3362,6 +3362,33 @@
         // fetchConversations + fetchMessages to round-trip the Pancake
         // proxy. Replaced as soon as the real thread is rendered.
         threadEl.innerHTML = _skeletonThreadHtml();
+
+        // Auto-sync accounts + page tokens from Render DB once per session.
+        // Web 1.0 maintains this store; pulling it lets web 2.0 reuse the
+        // same JWT pool and page_access_tokens without re-prompting the
+        // user. Cached after first call so the cost is paid only once.
+        if (window.Web2Chat.syncFromRenderDB) {
+            try {
+                await window.Web2Chat.syncFromRenderDB();
+            } catch {
+                /* network failure — fall through to localStorage-only flow */
+            }
+        }
+        // If we still have no PAT for this specific page, try minting one
+        // from any account that admins the page. Multi-account fallback
+        // mirrors web 1.0's behaviour.
+        if (
+            order.fbPageId &&
+            !window.Web2Chat.getPageAccessToken(order.fbPageId) &&
+            window.Web2Chat.generatePageAccessToken
+        ) {
+            try {
+                await window.Web2Chat.generatePageAccessToken(order.fbPageId);
+            } catch {
+                /* will surface as "no tokens" below */
+            }
+        }
+
         if (!window.Web2Chat.hasTokensFor(order.fbPageId)) {
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;line-height:1.5;">
                 Chưa cấu hình token Pancake cho page <code>${escapeHtml(order.fbPageId)}</code>.<br>

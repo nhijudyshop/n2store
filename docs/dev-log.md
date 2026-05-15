@@ -23,6 +23,46 @@
 
 ---
 
+## 2026-05-15
+
+### [native-orders][web2-shared] Web 2.0 dùng chung Pancake account pool với Web 1.0
+
+**User**: "coi bên web 1.0 render db lưu account pancake ở đâu -> copy các account và cách refresh token qua web 2.0".
+
+**Web 1.0 store** ([shared/js/pancake-token-manager.js](../shared/js/pancake-token-manager.js)):
+
+- Render DB tables qua endpoints `/api/pancake-accounts`, `/api/pancake-page-tokens`, `/api/pancake-account-pages` (proxy qua CF Worker).
+- localStorage keys: `pancake_jwt_token`, `pancake_jwt_token_expiry`, `pancake_page_access_tokens`, `pancake_all_accounts` (object keyed by account_id), `tpos_pancake_active_account_id`.
+- Refresh PAT pattern: POST `/api/pancake/pages/{pageId}/generate_page_access_token?access_token={accountJwt}` — thử lần lượt từng account đến khi 1 cái thành công (khác account admin khác page).
+
+**Web 2.0 trước đây** chỉ đọc localStorage 1 JWT, không sync server, không multi-account. Hậu quả: vừa thấy lỗi "Chưa cấu hình token Pancake cho page 117267091364524" dù Render DB có đầy đủ 6 accounts.
+
+**Thay đổi** ([web2-shared/web2-chat-client.js](../web2-shared/web2-chat-client.js)):
+
+1. **LS keys đồng bộ với web 1.0**: thêm `ALL_ACCOUNTS = 'pancake_all_accounts'`, `ACTIVE_ACCOUNT_ID = 'tpos_pancake_active_account_id'`. Cùng schema → 2 app dùng chung storage không xung đột.
+2. **`syncFromRenderDB()`**: chạy parallel `/api/pancake-accounts?active=true` + `/api/pancake-page-tokens`, merge vào localStorage. Promote 1 account thành active JWT slot (theo preferred ID, fallback non-expired). Cached cho cả session (`_syncedThisSession` + `_syncInFlight` Promise dedup).
+3. **`getAllAccounts()`**: expose account map dạng `{ id → {token, exp, fbId, fbName, pages, ...} }`.
+4. **`generatePageAccessToken(pageId)` rewrite**: thay vì chỉ dùng active JWT, build candidate list ưu tiên (a) accounts admin page đó (`acc.pages.includes(pageId)`), (b) active JWT, (c) non-expired accounts khác. Loop đến khi 1 cái success. Match web 1.0 multi-account fallback.
+
+**Wire vào flow** ([native-orders-app.js `_loadAndRenderThread`](../native-orders/js/native-orders-app.js)):
+
+- Sau skeleton render, await `Web2Chat.syncFromRenderDB()` (cached sau lần đầu).
+- Nếu `getPageAccessToken(pageId)` vẫn null, await `generatePageAccessToken(pageId)` để auto-mint từ pool.
+- Sau đó mới fall-through tới `hasTokensFor` check → error UI chỉ hiện khi thực sự không có account nào.
+
+**Đo live trên NW-20260513-0016** (page 117267091364524 trước đây báo "chưa cấu hình"):
+
+- `accountsAfterSync`: 6
+- `pageTokensAfterSync`: 3
+- `bubbles`: 55 (load + render thành công)
+- Error "Chưa cấu hình token" KHÔNG còn xuất hiện.
+
+**Files**: cache bump `web2-chat-client.js v=20260514g`, `native-orders-app.js v=20260514ak`.
+
+**Status**: ✅ Done.
+
+---
+
 ## 2026-05-14
 
 ### [native-orders] Chat: revert Lenis + content-visibility, học từ Pancake admin inbox
