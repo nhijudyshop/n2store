@@ -1598,3 +1598,70 @@ textarea {
         transform: rotate(360deg);
     }
 }
+
+/* === Phone copy button (auto-injected by js/phone-copy.js) === */
+.phone-with-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.phone-with-copy .phone-num {
+    font-variant-numeric: tabular-nums;
+}
+
+.phone-copy-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted, #64748b);
+    padding: 1px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 18px;
+    min-width: 18px;
+    font-size: 11px;
+    font-family: inherit;
+    transition:
+        color 120ms ease,
+        background-color 120ms ease,
+        border-color 120ms ease,
+        transform 120ms ease;
+    opacity: 0.65;
+    vertical-align: middle;
+}
+
+.phone-copy-btn:hover {
+    color: var(--primary-color, #6366f1);
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.25);
+    opacity: 1;
+}
+
+.phone-copy-btn:focus-visible {
+    outline: 2px solid var(--primary-color, #6366f1);
+    outline-offset: 1px;
+    opacity: 1;
+}
+
+.phone-copy-btn:active {
+    transform: scale(0.92);
+}
+
+.phone-copy-btn.copied {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+    opacity: 1;
+    font-weight: 700;
+}
+
+.phone-copy-btn svg {
+    display: block;
+}
