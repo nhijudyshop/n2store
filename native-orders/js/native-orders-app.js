@@ -3903,13 +3903,20 @@
     }
 
     function _renderLinkPreview(att) {
+        // Pancake link attachment shape: { url: <FB post permalink>,
+        // name, post_attachments: [{ url: <real CDN image>, type, image_data }] }.
+        // `att.url` (https://facebook.com/{pageId}_{postId}) is the POST link,
+        // NOT the image — using it as <img src> renders broken. The real
+        // image lives in post_attachments[0].url on content.pancake.vn.
         const post = att.post_attachments?.[0];
-        const thumb = att.url || post?.url || '';
-        const title = att.name || post?.title || 'Link';
-        return `<div style="margin-top:4px;background:rgba(0,0,0,0.05);border-radius:8px;padding:6px;max-width:240px;">
-            ${thumb ? `<img src="${escapeHtml(_workerProxy(thumb))}" style="width:100%;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />` : ''}
-            <div style="font-size:12px;margin-top:4px;font-weight:600;line-height:1.35;">${escapeHtml(title.slice(0, 80))}</div>
-        </div>`;
+        const thumb = post?.url || '';
+        const href = att.url || post?.url || '';
+        const title = att.name || post?.title || post?.description || 'Bài viết';
+        const inner = `${thumb ? `<img src="${escapeHtml(_workerProxy(thumb))}" style="width:100%;max-height:160px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />` : ''}
+            <div style="font-size:12px;margin-top:4px;font-weight:600;line-height:1.35;color:#1d2939;">${escapeHtml(title.slice(0, 80))}${title.length > 80 ? '…' : ''}</div>`;
+        return href
+            ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;background:rgba(0,0,0,0.05);border-radius:8px;padding:6px;max-width:240px;text-decoration:none;color:inherit;">${inner}</a>`
+            : `<div style="margin-top:4px;background:rgba(0,0,0,0.05);border-radius:8px;padding:6px;max-width:240px;">${inner}</div>`;
     }
 
     function _renderTemplate() {

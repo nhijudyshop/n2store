@@ -25,6 +25,22 @@
 
 ## 2026-05-15
 
+### [native-orders] Fix link-preview broken image — dùng post_attachments[0].url thay vì att.url (FB permalink)
+
+**User**: "sao hình nó không hiển thị?". 10/16 IMG broken — src dạng `https://facebook.com/{pageId}_{postId}` (FB post permalink, không phải ảnh CDN).
+
+**Root cause** ([native-orders-app.js:\_renderLinkPreview](../native-orders/js/native-orders-app.js)): link attachment shape = `{url: <FB permalink>, name, post_attachments: [{url: <real CDN>, type:'photo', image_data}]}`. Code cũ `thumb = att.url || post?.url` → `att.url` always set → `||` short-circuit → dùng FB permalink làm `<img src>`. Trình duyệt fetch → HTML/404 → broken.
+
+**Fix**: tách `thumb` (image src = ưu tiên `post.url`) khỏi `href` (click target = `att.url`). Wrap card thành `<a target=_blank>` để click mở FB post. Title fallback `att.name → post.title → post.description → 'Bài viết'`.
+
+**Verify** (Playwright): Kitty Thảo conv 16 imgs → 0 broken (trước 10), 13/16 proxy load OK. Screenshot: [link-preview-image-fixed.png](../downloads/n2store-session/link-preview-image-fixed.png).
+
+Bump cache: `native-orders-app.js?v=20260515o`.
+
+Status: ✅ Done.
+
+---
+
 ### [native-orders] Fix sidebar trống trên Bình luận tab + auto-switch sang Tin nhắn khi click conv
 
 **User**: "phần bình luận bị bug đoạn hội thoại bên trái".
