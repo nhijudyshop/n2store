@@ -2838,6 +2838,52 @@
     let _activeSubCat = null; // 'include-tags'|'exclude-tags'|'conditions'|null
     let _currentPageId = null;
 
+    // Persisted filter state per-page so reopening the modal restores
+    // the user's selection. Pancake itself resets filteredTag/Type to
+    // ALL/false on reload (Redux memory only); we go one better.
+    const _LS_FILTER = 'n2store_native_inbox_filter_v1';
+
+    function _loadFilterStateFor(pageId) {
+        _filter.includeTags.clear();
+        _filter.excludeTags.clear();
+        _filter.conditions.clear();
+        if (!pageId) return;
+        try {
+            const raw = localStorage.getItem(_LS_FILTER);
+            if (!raw) return;
+            const obj = JSON.parse(raw);
+            const entry = obj?.[pageId];
+            if (!entry) return;
+            (entry.includeTags || []).forEach((t) => _filter.includeTags.add(String(t)));
+            (entry.excludeTags || []).forEach((t) => _filter.excludeTags.add(String(t)));
+            (entry.conditions || []).forEach((c) => _filter.conditions.add(String(c)));
+        } catch {
+            /* ignore corrupt */
+        }
+    }
+
+    function _persistFilterState() {
+        if (!_currentPageId) return;
+        try {
+            const raw = localStorage.getItem(_LS_FILTER);
+            const obj = raw ? JSON.parse(raw) || {} : {};
+            const total =
+                _filter.includeTags.size + _filter.excludeTags.size + _filter.conditions.size;
+            if (total === 0) {
+                delete obj[_currentPageId];
+            } else {
+                obj[_currentPageId] = {
+                    includeTags: Array.from(_filter.includeTags),
+                    excludeTags: Array.from(_filter.excludeTags),
+                    conditions: Array.from(_filter.conditions),
+                };
+            }
+            localStorage.setItem(_LS_FILTER, JSON.stringify(obj));
+        } catch {
+            /* quota — non-critical */
+        }
+    }
+
     function _filterActiveCount() {
         return _filter.includeTags.size + _filter.excludeTags.size + _filter.conditions.size;
     }
@@ -3029,6 +3075,7 @@
             if (e.target.checked) set.add(id);
             else set.delete(id);
             _applySidebarFilter();
+            _persistFilterState();
         });
         search?.addEventListener('input', () => {
             const q = (search.value || '').trim().toLowerCase();
@@ -3061,6 +3108,7 @@
             if (e.target.checked) _filter.conditions.add(key);
             else _filter.conditions.delete(key);
             _applySidebarFilter();
+            _persistFilterState();
         });
     }
 
@@ -3112,9 +3160,16 @@
         const btn = document.getElementById('w2InboxFilterBtn');
         const menu = document.getElementById('w2InboxFilterMenu');
         if (!btn || !menu) return;
+        // Page context refresh — runs every time a sidebar reloads even if
+        // listeners are already wired, so switching to a different page
+        // picks up that page's stored filter.
+        const nextPageId = order?.fbPageId || null;
+        if (nextPageId !== _currentPageId) {
+            _currentPageId = nextPageId;
+            _loadFilterStateFor(_currentPageId);
+        }
         if (btn.dataset.filterWired === '1') return;
         btn.dataset.filterWired = '1';
-        _currentPageId = order?.fbPageId || null;
 
         const close = () => menu.setAttribute('hidden', '');
         const open = () => {
@@ -3144,6 +3199,7 @@
                 _filter.excludeTags.clear();
                 _filter.conditions.clear();
                 _applySidebarFilter();
+                _persistFilterState();
                 if (_activeSubCat) _renderFilterSub(_activeSubCat);
             }
         });

@@ -632,35 +632,120 @@
         return { ok: false, reason: lastReason || 'all_accounts_failed' };
     }
 
-    // --------- Page settings (tag definitions, quick replies, ...) ---------
-    // Pancake stores per-page tags as { id, text, color } in
-    // pages/{pageId}/settings.settings.tags. Used by the inbox sidebar
-    // "Lọc theo → Có chứa thẻ" tag picker so we can render real labels +
-    // page colors instead of raw numeric tag IDs from conv.tags.
-    const _pageSettingsCache = new Map(); // pageId → { fetchedAt, settings }
-    const _PAGE_SETTINGS_TTL_MS = 5 * 60 * 1000;
+    // --------- Page settings cache (tags, quick replies, ...) ---------
+    // Pancake stores tag/QR definitions per-page in
+    // `GET /api/v1/pages/{pageId}/settings`. They cache these in Redux
+    // (`pageSettingTags` + `lastTagsUpdateTimestamp`) in-memory only — lost
+    // on reload. We do stale-while-revalidate via **localStorage**:
+    //   • Read instant cached copy if < TTL (settings rarely change).
+    //   • Fire revalidate in background — UI updates when fresh data lands.
+    // Sit on top of an in-memory Map so multiple concurrent callers share
+    // the same single-flight fetch promise.
+    const _pageSettingsMem = new Map(); // pageId → { fetchedAt, settings }
+    const _pageSettingsInflight = new Map(); // pageId → Promise
+    const _PAGE_SETTINGS_TTL_MS = 30 * 60 * 1000; // 30 min — tags change rarely
+    const _LS_PAGE_SETTINGS = 'web2_pancake_page_settings_v1';
+
+    function _loadPageSettingsLs() {
+        try {
+            const raw = localStorage.getItem(_LS_PAGE_SETTINGS);
+            if (!raw) return;
+            const obj = JSON.parse(raw);
+            if (!obj || typeof obj !== 'object') return;
+            for (const [pageId, entry] of Object.entries(obj)) {
+                if (entry && entry.settings && entry.fetchedAt) {
+                    _pageSettingsMem.set(pageId, entry);
+                }
+            }
+        } catch {
+            /* ignore corrupt */
+        }
+    }
+    _loadPageSettingsLs();
+
+    function _persistPageSettingsLs() {
+        try {
+            const obj = {};
+            for (const [k, v] of _pageSettingsMem.entries()) obj[k] = v;
+            localStorage.setItem(_LS_PAGE_SETTINGS, JSON.stringify(obj));
+        } catch (e) {
+            // Quota — settings can be large (quick_replies up to 100KB+).
+            // Drop oldest entry and retry once.
+            if (_pageSettingsMem.size > 1) {
+                let oldest = null;
+                let oldestT = Infinity;
+                for (const [k, v] of _pageSettingsMem.entries()) {
+                    if (v.fetchedAt < oldestT) {
+                        oldestT = v.fetchedAt;
+                        oldest = k;
+                    }
+                }
+                if (oldest) _pageSettingsMem.delete(oldest);
+                try {
+                    const obj = {};
+                    for (const [k, v] of _pageSettingsMem.entries()) obj[k] = v;
+                    localStorage.setItem(_LS_PAGE_SETTINGS, JSON.stringify(obj));
+                } catch {
+                    /* still over quota — give up persisting */
+                }
+            }
+        }
+    }
 
     async function fetchPageSettings(pageId, opts = {}) {
         if (!pageId) return { ok: false, reason: 'missing_pageId' };
         if (_isInstagram(pageId)) return { ok: false, reason: 'instagram_unsupported' };
-        const cached = _pageSettingsCache.get(pageId);
-        if (!opts.force && cached && Date.now() - cached.fetchedAt < _PAGE_SETTINGS_TTL_MS) {
+        const cached = _pageSettingsMem.get(pageId);
+        const fresh = cached && Date.now() - cached.fetchedAt < _PAGE_SETTINGS_TTL_MS;
+        if (!opts.force && fresh) {
             return { ok: true, settings: cached.settings, cached: true };
         }
-        const jwt = getJwt();
-        if (!jwt) return { ok: false, reason: 'no_jwt' };
-        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/settings?access_token=${encodeURIComponent(jwt)}`;
-        try {
-            const data = await _fetchJson(url, { method: 'GET' });
-            if (!data?.success || !data.settings) {
-                return { ok: false, reason: data?.message || 'no_settings' };
-            }
-            _pageSettingsCache.set(pageId, { fetchedAt: Date.now(), settings: data.settings });
-            return { ok: true, settings: data.settings };
-        } catch (e) {
-            console.warn('[Web2Chat] fetchPageSettings failed:', e.message);
-            return { ok: false, reason: e.message };
+        // Single-flight: dedupe concurrent calls for the same page.
+        if (_pageSettingsInflight.has(pageId)) {
+            return _pageSettingsInflight.get(pageId);
         }
+        const jwt = getJwt();
+        if (!jwt) {
+            // No JWT but we have a stale cache → return it; the caller can
+            // still render last-known tag names/colors.
+            if (cached) return { ok: true, settings: cached.settings, cached: true, stale: true };
+            return { ok: false, reason: 'no_jwt' };
+        }
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/settings?access_token=${encodeURIComponent(jwt)}`;
+        const p = (async () => {
+            try {
+                const data = await _fetchJson(url, { method: 'GET' });
+                if (!data?.success || !data.settings) {
+                    return {
+                        ok: cached ? true : false,
+                        settings: cached?.settings,
+                        cached: !!cached,
+                        stale: !!cached,
+                        reason: data?.message || 'no_settings',
+                    };
+                }
+                const entry = { fetchedAt: Date.now(), settings: data.settings };
+                _pageSettingsMem.set(pageId, entry);
+                _persistPageSettingsLs();
+                return { ok: true, settings: data.settings };
+            } catch (e) {
+                console.warn('[Web2Chat] fetchPageSettings failed:', e.message);
+                if (cached) {
+                    return {
+                        ok: true,
+                        settings: cached.settings,
+                        cached: true,
+                        stale: true,
+                        reason: e.message,
+                    };
+                }
+                return { ok: false, reason: e.message };
+            } finally {
+                _pageSettingsInflight.delete(pageId);
+            }
+        })();
+        _pageSettingsInflight.set(pageId, p);
+        return p;
     }
 
     window.Web2Chat = {

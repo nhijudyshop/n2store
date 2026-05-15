@@ -25,6 +25,52 @@
 
 ## 2026-05-15
 
+### [native-orders][web2-shared] Pancake-style cache — persist page settings + filter state qua localStorage
+
+**User**: "tiếp tục coi pancake lưu gì ở local và cache làm theo luôn".
+
+**Recon Pancake storage** (via prior pancake-inspect + fresh probe):
+
+- LS unauthenticated: chỉ 2 marketing keys (`lastExternalReferrer`, `lastExternalReferrerTime`).
+- Pancake KHÔNG persist conv/tag data ra LS — tất cả trong **Redux memory** (`window.__pancakeReduxStore__`).
+- Redux `conversations` reducer 42 keys: `filteredType`, `filteredTag`, `filteredConversationsCloneList`, `dateRangeFilter`, `filteredAdIds`, `filteredWebs`, `selectedId`, `selectedTags`, `pageSettingTags`, `lastTagsUpdateTimestamp`, `unreadConvCount`, `viewingUsers`, `usersTyping`, `data` (conv list), …
+- Cache strategy = **fetch-once-per-session + in-memory** (reset reload). `lastTagsUpdateTimestamp` cho stale check.
+- Cookies: chỉ marketing; JWT httpOnly.
+
+**Apply cho native-orders** (tốt hơn Pancake — persist qua LS để survive reload):
+
+1. **Page settings cache** ([web2-chat-client.js fetchPageSettings](../web2-shared/web2-chat-client.js)):
+    - LS key `web2_pancake_page_settings_v1` mapping `{pageId: {fetchedAt, settings}}`.
+    - TTL **30 phút**. Load LS vào memory Map khi module init.
+    - **Single-flight**: `_pageSettingsInflight` Map dedupe concurrent calls cùng pageId.
+    - **Stale-while-revalidate**: cache có nhưng stale → return ngay với `stale:true`, revalidate background. API fail → fallback stale.
+    - **Quota handling**: catch `setItem` quota exceeded → drop oldest entry + retry.
+
+2. **Filter state per page** ([native-orders-app.js \_loadFilterStateFor / \_persistFilterState](../native-orders/js/native-orders-app.js)):
+    - LS key `n2store_native_inbox_filter_v1` mapping `{[pageId]: {includeTags:[], excludeTags:[], conditions:[]}}`.
+    - Restore khi `_wireSidebarFilter` first call hoặc khi page id đổi (`nextPageId !== _currentPageId`).
+    - Persist sau mỗi mutation (tag/condition toggle, reset). Reset xoá entry hoàn toàn.
+    - **Pancake KHÔNG làm** — họ reset `filteredTag="ALL"` mỗi reload. Ta giữ filter cũ là UX tốt hơn.
+
+**Verify** (Playwright localhost:8089):
+
+- Tick BOOM (id=201) → LS `n2store_native_inbox_filter_v1` = `{"117267091364524":{"includeTags":["201"],...}}` ✓. LS `web2_pancake_page_settings_v1` = 11.5KB (cache 16 tag + quick_replies + …) ✓.
+- Reload → mở modal → click Có chứa thẻ: 16 tags hiển thị **instant** (không chờ API), BOOM checked, badge "1", filter auto-apply → 50→2 rows visible ngay.
+- Reset: badge tắt, LS entry cho page bị xoá hoàn toàn.
+
+**Pancake parity matrix**:
+
+| Cái             | Pancake                     | Native-orders trước              | Native-orders sau                 |
+| --------------- | --------------------------- | -------------------------------- | --------------------------------- |
+| Tag definitions | Redux memory (reset reload) | Memory Map 5min TTL              | LS 30min TTL, SWR, survive reload |
+| Filter state    | Redux memory (`ALL`)        | Memory only (reset reload)       | LS per-page, persist forever      |
+| Conv list       | Redux memory + WS           | Memory + WS poll                 | (same — same as Pancake)          |
+| Quick replies   | Redux memory                | LS `web2_quick_replies_cache_v1` | (same)                            |
+
+Status: ✅ Done. Phase 2 todo: conv list LS cache + SWR, persist `_chatState` selected conv.
+
+---
+
 ### [native-orders][web2-shared] "Lọc theo" — rebuild Pancake-style 2-cột với tag include/exclude từ page settings
 
 **User**: gửi screenshot Pancake "Lọc theo" dropdown 2-cột (Thẻ hội thoại / Điều kiện) với tag chips multi-select kèm màu thật. Yêu cầu "coi pancake có gì làm giống vậy" → "bên pancake".
