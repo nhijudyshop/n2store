@@ -2496,6 +2496,16 @@
             .trim()
             .charAt(0)
             .toUpperCase();
+        // Use the Pancake avatar proxy when we have both fb_user_id + fb_page_id;
+        // the <img onerror> swap falls back to the gradient+initial placeholder.
+        // The onerror string lives inside double-quoted attribute, so the inner
+        // class attribute uses &quot; (matches header avatar's escape pattern).
+        const safeInitial = escapeHtml(initial).replace(/'/g, '&#39;');
+        const avatarFallback = `<div class="w2-customer-card-avatar">${safeInitial}</div>`;
+        const avatarHtml =
+            order.fbUserId && order.fbPageId
+                ? `<img class="w2-customer-card-avatar" src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="object-fit:cover;" loading="lazy" onerror="this.outerHTML='<div class=&quot;w2-customer-card-avatar&quot;>${safeInitial}</div>'" />`
+                : avatarFallback;
         return `
             <div class="w2-section">
                 <div class="w2-section-title-row">
@@ -2510,7 +2520,7 @@
                 </div>
                 <input class="w2-input" type="text" placeholder="Địa chỉ" value="${escapeHtml(order.address || '')}" readonly />
                 <div class="w2-customer-card">
-                    <div class="w2-customer-card-avatar">${escapeHtml(initial)}</div>
+                    ${avatarHtml}
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:600;font-size:12px;color:#0f172a;">${escapeHtml(order.customerName || order.fbUserName || '—')}</div>
                         <div style="font-size:11px;color:#64748b;">${escapeHtml(phone || '—')} ${phone ? '<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:3px;">Mobifone</span>' : ''}</div>

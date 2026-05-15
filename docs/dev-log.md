@@ -25,6 +25,18 @@
 
 ## 2026-05-15
 
+### [native-orders] Right panel — avatar IMG thay vì chỉ initial
+
+**User**: "bên phải chưa có avatar". Card khách trong right panel chỉ show 1 chữ cái "H" trong tròn gradient — không lấy ảnh FB như header giữa.
+
+**Fix** ([native-orders-app.js:\_renderInfoTab](../native-orders/js/native-orders-app.js)): khi có `fbUserId + fbPageId` render `<img class="w2-customer-card-avatar" src="${_avatarUrl(...)}" onerror=...>`. Fallback `onerror` swap về `<div>` gradient + initial — match cách header dùng `&quot;` để escape inner double-quotes (lần đầu viết direct `"` trong onerror khiến parser đóng attribute sớm, 3 section sau "Khách hàng" leak ra ngoài `#w2InboxRightBody` → 7 section thay vì 4. Fix bằng `&quot;` + tách `safeInitial` để reuse).
+
+**Verify**: switch sang Huỳnh Thành Đạt → `rightChildCount=2` (tabs + body), `sectionCount=4` (đúng), avatar tag=`IMG`, `naturalWidth=100`, src đúng từ chatomni-proxy. Screenshot: [downloads/n2store-session/native-rightavatar-final.png](../downloads/n2store-session/native-rightavatar-final.png).
+
+Status: ✅ Done.
+
+---
+
 ### [native-orders] Fix conv-switch — header + right panel update khi click sang khách khác
 
 **User bug**: search "0123456788" → click "Huỳnh Thành Đạt" trong sidebar → middle chat header vẫn show "Thế Hoàng / NW-20260513-0016" + Page badge cũ, right panel cũng giữ nguyên thông tin Thế Hoàng. Chỉ messages thread đổi. Sidebar `is-active` highlight đúng nhưng header inconsistent.
