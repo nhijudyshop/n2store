@@ -2682,9 +2682,75 @@
     }
 
     /**
-     * Pull the page's conversation list and render rows into the sidebar.
+     * Pull the conversation list and render rows into the sidebar.
+     *
+     * Multi-page: fetch from EVERY page the user has a JWT for (House,
+     * Store, … in localStorage `pancake_all_accounts`) so the sidebar
+     * isn't artificially scoped to the order's page. The WS handler
+     * already accepts cross-page events, so this just brings the
+     * initial list (and fallback poll) in line with realtime coverage.
      * Highlights the row that matches the currently-open order's customer.
      */
+    function _getSidebarPageIds(order) {
+        const set = new Set();
+        if (order && order.fbPageId) set.add(String(order.fbPageId));
+        // Every page across every saved account — covers House + Store
+        // even when `Web2Chat.getAllPageAccessTokens` only has 1 page.
+        try {
+            const accs = JSON.parse(localStorage.getItem('pancake_all_accounts') || '{}');
+            for (const v of Object.values(accs)) {
+                const pages = Array.isArray(v?.pages) ? v.pages : [];
+                for (const p of pages) {
+                    const pid = p?.id || p?.page_id || p?.pageId;
+                    if (pid) set.add(String(pid));
+                }
+            }
+        } catch {
+            /* tolerate; fall back to order.fbPageId only */
+        }
+        // Page-access-token map is a useful secondary source when the
+        // multi-account JSON is empty (older installs).
+        const pat = window.Web2Chat?.getAllPageAccessTokens?.() || {};
+        for (const k of Object.keys(pat)) set.add(String(k));
+        return [...set].filter(Boolean);
+    }
+
+    async function _fetchConvsMerged(pageIds, limitPerPage) {
+        if (!pageIds.length) return { ok: false, reason: 'no_pages', conversations: [] };
+        const settled = await Promise.allSettled(
+            pageIds.map((pid) =>
+                window.Web2Chat.fetchConversationsByPage(pid, { limit: limitPerPage })
+            )
+        );
+        const all = [];
+        for (const r of settled) {
+            if (r.status !== 'fulfilled' || !r.value?.ok) continue;
+            for (const c of r.value.conversations || []) all.push(c);
+        }
+        // Dedupe by conv id (a customer might appear in multiple pages
+        // under different conv IDs — that's fine, two rows). Sort by
+        // updated_at desc, top 50 to mirror the single-page cap.
+        const byId = new Map();
+        for (const c of all) {
+            const k = String(c.id || '');
+            if (!k) continue;
+            const cur = byId.get(k);
+            if (!cur) {
+                byId.set(k, c);
+                continue;
+            }
+            const t1 = new Date(c.updated_at || c.last_sent_at || 0).getTime();
+            const t2 = new Date(cur.updated_at || cur.last_sent_at || 0).getTime();
+            if (t1 > t2) byId.set(k, c);
+        }
+        const merged = [...byId.values()].sort((a, b) => {
+            const ta = new Date(a.updated_at || a.last_sent_at || 0).getTime();
+            const tb = new Date(b.updated_at || b.last_sent_at || 0).getTime();
+            return tb - ta;
+        });
+        return { ok: true, conversations: merged.slice(0, 50) };
+    }
+
     async function _loadInboxSidebar(order) {
         const list = document.getElementById('w2InboxConvList');
         if (!list || !order.fbPageId) return;
@@ -2704,9 +2770,8 @@
             }
         }
         try {
-            const res = await window.Web2Chat.fetchConversationsByPage(order.fbPageId, {
-                limit: 50,
-            });
+            const pageIds = _getSidebarPageIds(order);
+            const res = await _fetchConvsMerged(pageIds, 50);
             if (!res.ok || !res.conversations.length) {
                 list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#94a3b8;font-size:12px;text-align:center;">Chưa có hội thoại${res.reason ? ` (${escapeHtml(res.reason)})` : ''}</div>`;
                 return;
@@ -3370,9 +3435,11 @@
         const list = document.getElementById('w2InboxConvList');
         if (!list) return; // modal closed → next interval no-ops (cleared in _teardownChatState)
         try {
-            const res = await window.Web2Chat.fetchConversationsByPage(order.fbPageId, {
-                limit: 50,
-            });
+            // Same multi-page coverage as _loadInboxSidebar — without
+            // this the fallback poll would shrink the sidebar back to
+            // a single page whenever WS drops.
+            const pageIds = _getSidebarPageIds(order);
+            const res = await _fetchConvsMerged(pageIds, 50);
             if (!res.ok || !res.conversations?.length) return;
             _mergeSidebarConvs(res.conversations, order);
         } catch (e) {

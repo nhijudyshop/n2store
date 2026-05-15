@@ -25,6 +25,29 @@
 
 ## 2026-05-15
 
+### [native-orders] Sidebar inbox modal — multi-page (House + Store), không lock theo `order.fbPageId`
+
+**User**: "hình 2 nó filter theo gì hay nó đang chọn page cố định vậy? → cho hình 2 realtime 2 page đi".
+
+**Vấn đề**: `_loadInboxSidebar` + `_pollSidebarOnce` gọi `Web2Chat.fetchConversationsByPage(order.fbPageId)` → list chỉ chứa convs của 1 page = page của order user mở. Khi mở order House → chỉ thấy convs House, Store events từ WS prepend nhưng không có baseline list.
+
+**Fix** ([native-orders-app.js:2684-2780](../native-orders/js/native-orders-app.js#L2684-L2780)):
+
+- New helper `_getSidebarPageIds(order)` gom page_ids từ `localStorage.pancake_all_accounts` (tất cả accounts) + `Web2Chat.getAllPageAccessTokens()` + `order.fbPageId` → dedup → array.
+- New helper `_fetchConvsMerged(pageIds, limit)` Promise.allSettled fetch song song mỗi page, dedupe by `conv.id` (giữ latest theo updated_at), sort desc, slice top 50.
+- `_loadInboxSidebar` + `_pollSidebarOnce` đều dùng 2 helper trên → cover tất cả pages user có quyền.
+- WS handler `_handleSidebarWsEvent` không đổi (vốn page-agnostic, đã accept cross-page events).
+
+**Verify live** (port 8089, mở order NW-20260513-0016 = page House):
+
+- Sidebar 50 rows: **House 19 + Store 31** ✓ (screenshot `sidebar-multipage-house-store.png`)
+- Top rows mix House + Store convs theo `updated_at` desc.
+- WS subscriber tiếp tục flow events cho cả 2 page (verified spy 3 phút trước: House 2 + Store 7).
+
+**Status**: ✅ Done.
+
+---
+
 ### [tpos-pancake] Migrate Pancake realtime → multi-account broker (`/api/realtime/start-multi`)
 
 **User**: "quan trọng nhất là 2 page house, store" → "Browser test api server realtime mới → nếu hoạt động chính xác → cho tpos-pancake dùng luôn (tpos-pancake có 2 server, 1 tpos đừng đụng, 2 pancake thay bằng server multi mới)".
