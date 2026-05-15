@@ -2656,6 +2656,37 @@
         }
     }
 
+    /**
+     * Format any timestamp as `HH:mm` in GMT+7 (Asia/Ho_Chi_Minh).
+     *
+     * Pancake's API returns timestamps like `"2026-05-15T03:03:57.107000"`
+     * — ISO-shaped but WITHOUT a 'Z' suffix or offset. Per the ECMAScript
+     * spec, JS parses a date-time without a timezone as **local time**, so
+     * a browser in GMT+7 would record this as 03:03 GMT+7 (= 20:03 UTC
+     * the day before). Pancake actually stores them in UTC, so we
+     * normalise by appending 'Z' when the input is a string with no
+     * explicit offset.
+     */
+    function _fmtVnTime(ts) {
+        if (!ts) return '';
+        let parseInput = ts;
+        if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(ts)) {
+            const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(ts);
+            if (!hasZone) parseInput = ts + 'Z';
+        }
+        const d = new Date(parseInput);
+        if (Number.isNaN(d.getTime())) return '';
+        try {
+            return d.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh',
+            });
+        } catch {
+            return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+    }
+
     function _convRowHtml(c, currentOrder) {
         const cust = c.customers?.[0] || c.from || {};
         const fbId = String(cust.fb_id || cust.id || c.from_customer_id || '');
@@ -2664,12 +2695,7 @@
             (c.last_message?.message || c.last_message_text || c.snippet || '').slice(0, 120) ||
             '(không có nội dung)';
         const updated = c.updated_at || c.last_sent_at || c.inserted_at;
-        const time = updated
-            ? new Date(updated).toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-              })
-            : '';
+        const time = _fmtVnTime(updated);
         const isActive =
             String(currentOrder.fbUserId || '') === fbId &&
             String(currentOrder.fbPageId || '') === String(c.page_id || c.fb_page_id || '');
@@ -2711,12 +2737,30 @@
                 /* ignore */
             }
         }
-        if (!window.Web2Realtime?.subscribe) return;
+        if (!window.Web2Realtime?.subscribe) {
+            console.warn('[NativeOrders] Web2Realtime not loaded → sidebar will not be realtime');
+            return;
+        }
         _sidebarWsSub = window.Web2Realtime.subscribe({
-            types: ['pages:new_message'],
+            types: ['pages:new_message', 'pages:update_conversation'],
             onEvent: (evt) => _handleSidebarWsEvent(evt, order),
             debounceMs: 80,
         });
+        // Ask the Render broker to (re)subscribe its server-side socket
+        // to Pancake for this page. The broker is usually sticky already
+        // but a freshly-restarted broker needs this ping to start
+        // forwarding new_message events for this page.
+        if (window.Web2Realtime.start && order.fbPageId) {
+            window.Web2Realtime.start({ pageIds: [order.fbPageId] })
+                .then((r) => {
+                    if (r && !r.ok && r.reason !== 'no_pages') {
+                        console.warn('[NativeOrders] Web2Realtime.start →', r.reason || 'unknown');
+                    } else {
+                        console.log('[NativeOrders] ✓ broker subscribed to page', order.fbPageId);
+                    }
+                })
+                .catch((e) => console.warn('[NativeOrders] Web2Realtime.start err:', e.message));
+        }
     }
 
     function _handleSidebarWsEvent(evt, order) {
@@ -2724,12 +2768,20 @@
         if (!list) return;
         const m = evt.payload?.message || evt.payload || {};
         const convId = String(m.conversation_id || m.conversationId || '');
-        const fromCustomer = m.from?.id || m.customer?.id || m.from_customer_id;
-        const fbId = String(fromCustomer || '');
+        const pageId = String(m.page_id || evt.payload?.page_id || order.fbPageId || '');
+        // For incoming, `from.id` is the customer's PSID. For outgoing
+        // (admin staff replying), `from.id` equals the page id.
+        const fromId = String(m.from?.id || '');
+        const isOutgoing =
+            !!(m.from_admin || m.is_admin || m.from?.admin_id) ||
+            (fromId && pageId && fromId === pageId);
+        // Customer PSID for the row key (sender for incoming, recipient
+        // for outgoing → fall back to to-field if available).
+        const fbId = isOutgoing
+            ? String(m.to?.id || m.customer?.fb_id || m.customer?.id || '')
+            : fromId;
         const lastText = (m.message || m.text || m.snippet || '').slice(0, 120) || '(media)';
-        const time = new Date(
-            m.inserted_at || m.created_time || m.timestamp || Date.now()
-        ).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const time = _fmtVnTime(m.inserted_at || m.created_time || m.timestamp || Date.now());
 
         // Find row by convId first, else by fbId
         let row =
@@ -2737,8 +2789,6 @@
                 list.querySelector(`.w2-inbox-conv[data-conv-id="${CSS.escape(convId)}"]`)) ||
             (fbId && list.querySelector(`.w2-inbox-conv[data-fb-id="${CSS.escape(fbId)}"]`));
 
-        // Detect outgoing (staff) vs incoming
-        const isOutgoing = !!(m.from_admin || m.is_admin || m.from?.admin_id);
         const isCurrentlyOpen = _chatState?.convId && String(_chatState.convId) === convId;
 
         if (row) {
@@ -2958,17 +3008,25 @@
 
     function _dateLabel(ts) {
         if (!ts) return '';
-        const d = new Date(ts);
-        const today = new Date();
-        const yest = new Date();
-        yest.setDate(today.getDate() - 1);
-        const same = (a, b) =>
-            a.getFullYear() === b.getFullYear() &&
-            a.getMonth() === b.getMonth() &&
-            a.getDate() === b.getDate();
-        if (same(d, today)) return 'HÔM NAY';
-        if (same(d, yest)) return 'HÔM QUA';
-        return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        let parseInput = ts;
+        if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(ts)) {
+            if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(ts)) parseInput = ts + 'Z';
+        }
+        const d = new Date(parseInput);
+        // Compare in GMT+7 explicitly so the day-boundary doesn't drift
+        // when the user's machine sits in another TZ.
+        const vnFmt = (date) => date.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const todayKey = vnFmt(new Date());
+        const yestKey = vnFmt(new Date(Date.now() - 86_400_000));
+        const dKey = vnFmt(d);
+        if (dKey === todayKey) return 'HÔM NAY';
+        if (dKey === yestKey) return 'HÔM QUA';
+        return d.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            timeZone: 'Asia/Ho_Chi_Minh',
+        });
     }
 
     const _NON_CORS_MEDIA =
@@ -3252,9 +3310,7 @@
                 ? hiddenBadge
                 : `<div style="opacity:0.6;font-style:italic;font-size:11px;">(không có nội dung)</div>`;
 
-        const timeStr = time
-            ? new Date(time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-            : '';
+        const timeStr = _fmtVnTime(time);
 
         const reactionsHtml = _renderReactions(m);
         const replyBtn = m.id
