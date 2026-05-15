@@ -898,3 +898,340 @@
     border-top: 1px dashed #ede9fe;
     white-space: nowrap;
 }
+
+/* -------------------- Modal V2 (purchase-orders look) -------------------- */
+
+.so-modal-v2 .so-modal-panel-v2 {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: min(1600px, 96vw);
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    animation: soPop 0.18s ease-out;
+}
+
+.so-modal-head-v2 {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.so-modal-head-v2 h2 {
+    margin: 0;
+    font:
+        600 20px Manrope,
+        Inter,
+        sans-serif;
+    color: #0f172a;
+}
+
+.so-modal-body-v2 {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.so-form-row-top,
+.so-form-row-note {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.so-form-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 140px;
+    min-width: 120px;
+}
+
+.so-form-cell.so-cell-narrow {
+    flex: 0 1 110px;
+    min-width: 90px;
+}
+
+.so-form-cell.so-cell-supplier-input {
+    flex: 2 1 260px;
+    min-width: 220px;
+}
+
+.so-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.so-input-v2 {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font:
+        400 14px Inter,
+        sans-serif;
+    color: #0f172a;
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+
+.so-input-v2:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+select.so-input-v2 {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+}
+
+.so-input-num {
+    text-align: right;
+}
+
+/* Modal product table */
+
+.so-modal-table-wrap {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.so-modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.so-modal-table thead tr {
+    background: #f9fafb;
+}
+
+.so-modal-table thead th {
+    padding: 12px 8px;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.so-modal-table .so-th-stt,
+.so-modal-table .so-th-variant,
+.so-modal-table .so-th-qty,
+.so-modal-table .so-th-money,
+.so-modal-table .so-th-img {
+    text-align: center;
+}
+
+.so-modal-table .so-th-product {
+    text-align: left;
+}
+
+.so-modal-table .so-th-total {
+    text-align: right;
+}
+
+.so-modal-table tbody td {
+    padding: 10px 8px;
+    border-top: 1px solid #f1f5f9;
+    vertical-align: middle;
+    background: #fff;
+}
+
+.so-modal-table .so-td-stt {
+    text-align: center;
+    color: #6b7280;
+    font-weight: 500;
+    width: 40px;
+}
+
+.so-modal-table .so-td-product {
+    min-width: 260px;
+}
+
+.so-modal-table .so-td-variant {
+    width: 160px;
+}
+
+.so-modal-table .so-td-qty {
+    width: 90px;
+}
+
+.so-modal-table .so-td-money {
+    width: 130px;
+}
+
+.so-modal-table .so-td-total {
+    text-align: right;
+    padding-right: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.so-modal-table .so-td-img {
+    width: 160px;
+    text-align: center;
+}
+
+.so-input-money {
+    /* highlighted price inputs like purchase-orders */
+    box-shadow: inset 0 0 0 1px #fee2e2;
+}
+
+.so-input-money:focus {
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.so-img-cell-v2 {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.so-img-cell-v2 .so-input-mini {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 8px;
+    font-size: 12px;
+}
+
+.so-img-upload-btn {
+    height: 34px;
+    width: 34px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    color: #6b7280;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s;
+}
+
+.so-img-upload-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #9ca3af;
+}
+
+.so-img-upload-btn i {
+    width: 14px;
+    height: 14px;
+}
+
+.so-modal-table .so-img-preview {
+    margin-top: 6px;
+}
+
+.so-modal-table .so-img-preview img {
+    max-width: 100%;
+    max-height: 80px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+/* Modal V2 footer */
+
+.so-modal-foot-v2 {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.so-foot-stats {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.so-foot-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.so-foot-stat-label {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.so-foot-stat-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.so-foot-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.so-foot-final {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 8px;
+}
+
+.so-foot-final-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.so-foot-final-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #3b82f6;
+}
+
+@media (max-width: 900px) {
+    .so-modal-table .so-td-product {
+        min-width: 180px;
+    }
+
+    .so-form-row-top {
+        gap: 12px;
+    }
+}

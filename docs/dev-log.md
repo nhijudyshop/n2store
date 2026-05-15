@@ -25,6 +25,35 @@
 
 ## 2026-05-15
 
+### [so-order] Redesign modal "Tạo Đơn Hàng" theo layout purchase-orders
+
+**User**: "giao diện tạo đơn hàng làm giống cái giao diện này đi, giao diện thôi chứ chức năng giữ nguyên như hiện tại" (kèm screenshot purchase-orders modal).
+
+**Files**: `so-order/index.html`, `so-order/css/so-order.css`, `so-order/js/so-order-app.js`
+
+**Layout mới** (giữ 100% field names cho JS handler):
+
+- **Row 1** — Nhà cung cấp | Ngày giao | Đợt | Số Kiện | Tổng KG | Tiền HĐ | Tiền tệ.
+- **Row 2** — Ghi chú | Ghi chú CP (nội bộ) | Trạng thái.
+- **Bảng sản phẩm** (1 row, giữ single-product behavior) — STT | Tên sản phẩm | Biến thể | SL | Giá Nhập | Giá Bán | **Thành tiền** (computed) | Hình ảnh sản phẩm | Hình ảnh hóa đơn.
+- **Footer** — Tổng số lượng + Tổng tiền (left), THÀNH TIỀN (big blue) + Hủy + Lưu (Nháp) (right).
+
+**CSS**: Thêm block `.so-modal-v2/.so-modal-panel-v2/.so-input-v2/.so-modal-table/.so-modal-foot-v2` ở cuối [so-order.css](../so-order/css/so-order.css). Width modal: `min(1600px, 96vw)`. Inputs cao 40px, border-radius 8px, focus violet glow. Bảng có thead `#f9fafb`, header weight 600. Footer rounded bottom, `THÀNH TIỀN` 20px bold #3b82f6 — match purchase-orders ([form-modal.js:1180+](../purchase-orders/js/form-modal.js#L1180)).
+
+**JS dynamic totals**: Thêm `wireModalTotals()` + `updateModalTotals()` ở [so-order-app.js](../so-order/js/so-order-app.js). Listen `input` trên `qty/sellPrice/costPrice` → update `#soRowThanhTien`, `#soModalTotalQty`, `#soModalTotalAmount`, `#soModalFinalAmount`. Dùng `fmtCurrency(qty*sellPrice, tab.currency)` để consistent với shipment header.
+
+**Functionality preserved**: `name="..."` attributes giữ nguyên (`supplier, shipDate, shipBatch, shipCaseCount, shipWeightKg, shipContractAmount, shipContractCurrency, productName, variant, qty, sellPrice, costPrice, productImage, invoiceImage, note, costNote, status`) → `handleOrderSubmit` không cần đổi. `data-upload` + `data-preview-for` cho ảnh giữ nguyên → `wireImageUpload()` chạy y như cũ.
+
+**Verify live**:
+
+- Mở modal → SL=5, Giá Bán=120000 → Thành tiền cell `600.000₫`, Footer Tổng tiền + THÀNH TIỀN `600.000₫`, Tổng SL `5`. ✅
+- Submit test row (NCC=TEST NCC, Tên SP=TEST V2 Modal, Đợt=TEST-V2, SL=3, Giá Bán=50000, Giá Nhập=30000) → shipment + row tạo đúng ngày 15/5/2026. ✅
+- Cleanup test data qua nút trash UI → 2 lô · 3 dòng · SL: 35 (về baseline). ✅
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders] Barcode print recheck: TPOS OData 400 khi filter >20 `or` → toàn bộ 38/38 báo missing
 
 **User**: "các mã này đều có trên tpos rồi" — dialog In mã vạch (purchase-orders) báo 38/38 sản phẩm KHÔNG tìm thấy trên TPOS (B2247, B2248, ..., +30 mã khác) dù tất cả CÓ thật.

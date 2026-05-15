@@ -455,6 +455,7 @@
         };
         updateContractHint();
         form.elements.shipContractCurrency.onchange = updateContractHint;
+        updateModalTotals();
         showModal('soOrderModal');
         setTimeout(() => form.elements.productName.focus(), 80);
     }
@@ -839,11 +840,43 @@
         });
     }
 
+    // Recompute "Thành tiền" + footer totals inside the create/edit modal
+    // whenever qty/sellPrice/contract currency change. Display amounts are
+    // converted to the active tab's currency to stay consistent with the
+    // shipment header logic.
+    function updateModalTotals() {
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        if (!tab) return;
+        const form = document.getElementById('soOrderForm');
+        if (!form) return;
+        const qty = Number(form.elements.qty?.value) || 0;
+        const sellPrice = Number(form.elements.sellPrice?.value) || 0;
+        const subtotal = qty * sellPrice;
+        const rowEl = document.getElementById('soRowThanhTien');
+        if (rowEl) rowEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
+        const qtyEl = document.getElementById('soModalTotalQty');
+        if (qtyEl) qtyEl.textContent = qty.toLocaleString('vi-VN');
+        const sumEl = document.getElementById('soModalTotalAmount');
+        if (sumEl) sumEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
+        const finalEl = document.getElementById('soModalFinalAmount');
+        if (finalEl) finalEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
+    }
+
+    function wireModalTotals() {
+        const form = document.getElementById('soOrderForm');
+        if (!form) return;
+        ['qty', 'sellPrice', 'costPrice'].forEach((name) => {
+            const input = form.elements[name];
+            if (input) input.addEventListener('input', updateModalTotals);
+        });
+    }
+
     async function init() {
         state = window.SoOrderStorage.load();
         renderAll();
         wireToolbar();
         wireImageUpload();
+        wireModalTotals();
         wireFooterInputs();
         if (window.lucide?.createIcons) window.lucide.createIcons();
 
