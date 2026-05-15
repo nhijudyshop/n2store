@@ -1108,17 +1108,68 @@ select.so-input-v2 {
 
 .so-img-cell-v2 {
     display: flex;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
+    align-items: stretch;
+    padding: 8px;
+    border: 1.5px dashed #d1d5db;
+    border-radius: 8px;
+    background: #fafafa;
+    outline: none;
+    transition:
+        border-color 0.15s,
+        background 0.15s,
+        box-shadow 0.15s;
+    cursor: copy;
+}
+
+.so-img-cell-v2:hover,
+.so-img-cell-v2:focus,
+.so-img-cell-v2:focus-within {
+    border-color: #7c3aed;
+    background: #faf5ff;
+}
+
+.so-img-cell-v2.is-dragover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.so-img-cell-hint {
+    display: flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #9ca3af;
+    pointer-events: none;
+    user-select: none;
+    padding: 2px 0;
+}
+
+.so-img-cell-hint i {
+    width: 14px;
+    height: 14px;
+}
+
+.so-img-cell-v2 .so-input-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
 }
 
 .so-img-cell-v2 .so-input-mini {
     flex: 1;
     min-width: 0;
-    height: 34px;
+    height: 30px;
     padding: 0 8px;
     font-size: 12px;
+    background: #fff;
+}
+
+.so-img-cell-v2 .so-input-url {
+    width: 100%;
 }
 
 .so-img-upload-btn {

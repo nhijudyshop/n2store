@@ -397,11 +397,140 @@
         });
     }
 
+    // -----------------------------------------------------
+    // Global hover-zoom for content images
+    // -----------------------------------------------------
+    //
+    // Floats a large preview of any hovered "content image"
+    // (product/invoice/chat/preview etc.) near the cursor.
+    // Uses a position:fixed clone so table cells / cards
+    // can't clip the preview.
+    //
+    // Opt-out: add `data-w2-no-zoom` to the <img> or any
+    // ancestor (the helper short-circuits). Avatars, icons
+    // and toolbar imagery are excluded via selector below.
+
+    const HOVER_ZOOM_INCLUDE = [
+        '.so-cell-img img',
+        '.so-img-preview img',
+        '.so-modal-table img',
+        '.expand-img',
+        '.line-img',
+        '.pick-img',
+        '.pk-image-preview img',
+        '.pk-message-image',
+        '.pk-preview-img',
+        '.product-image',
+        '.image-preview',
+        '.image-preview img',
+        '.preview img',
+        '[data-w2-zoom]',
+        'img[data-w2-zoom]',
+    ].join(',');
+
+    const HOVER_ZOOM_EXCLUDE_CONTAINER = [
+        '.tpos-sidebar',
+        '.sidebar',
+        '.so-tab-strip',
+        '[data-w2-no-zoom]',
+    ].join(',');
+
+    let _zoomPopup = null;
+    let _zoomTarget = null;
+
+    function _isZoomable(img) {
+        if (!img || img.tagName !== 'IMG') return false;
+        if (img.hasAttribute('data-w2-no-zoom')) return false;
+        if (img.closest(HOVER_ZOOM_EXCLUDE_CONTAINER)) return false;
+        if (!img.matches(HOVER_ZOOM_INCLUDE)) return false;
+        // Skip tiny icons (likely SVG masks rendered into img).
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (w && w < 28) return false;
+        if (h && h < 28) return false;
+        return true;
+    }
+
+    function _ensureZoomPopup() {
+        if (_zoomPopup) return _zoomPopup;
+        const p = document.createElement('div');
+        p.className = 'w2fx-zoom-popup';
+        p.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(p);
+        _zoomPopup = p;
+        return p;
+    }
+
+    function _positionZoomPopup(p, e) {
+        const margin = 16;
+        const rect = p.getBoundingClientRect();
+        const w = rect.width || 360;
+        const h = rect.height || 360;
+        let x = e.clientX + 20;
+        let y = e.clientY + 20;
+        if (x + w > window.innerWidth - margin) x = e.clientX - w - 20;
+        if (y + h > window.innerHeight - margin) y = e.clientY - h - 20;
+        if (x < margin) x = margin;
+        if (y < margin) y = margin;
+        p.style.left = x + 'px';
+        p.style.top = y + 'px';
+    }
+
+    function _showZoom(img, e) {
+        const p = _ensureZoomPopup();
+        const src = img.currentSrc || img.src;
+        if (!src) return;
+        // Reuse <img> child to avoid GC churn on rapid hover.
+        let child = p.firstElementChild;
+        if (!child || child.tagName !== 'IMG') {
+            child = document.createElement('img');
+            p.innerHTML = '';
+            p.appendChild(child);
+        }
+        if (child.src !== src) child.src = src;
+        p.classList.add('is-visible');
+        _positionZoomPopup(p, e);
+    }
+
+    function _hideZoom() {
+        if (_zoomPopup) _zoomPopup.classList.remove('is-visible');
+        _zoomTarget = null;
+    }
+
+    function attachHoverZoom() {
+        document.addEventListener('mouseover', (e) => {
+            const img = e.target.closest && e.target.closest('img');
+            if (!img || !_isZoomable(img)) {
+                if (_zoomTarget) _hideZoom();
+                return;
+            }
+            _zoomTarget = img;
+            _showZoom(img, e);
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (_zoomTarget && _zoomPopup && _zoomPopup.classList.contains('is-visible')) {
+                _positionZoomPopup(_zoomPopup, e);
+            }
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (!_zoomTarget) return;
+            const next = e.relatedTarget;
+            if (next && _zoomTarget.contains(next)) return;
+            _hideZoom();
+        });
+        // Scrolling while zoom open → hide (cursor position invalid).
+        window.addEventListener('scroll', _hideZoom, { passive: true, capture: true });
+    }
+
     function init() {
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => scan(document));
+            document.addEventListener('DOMContentLoaded', () => {
+                scan(document);
+                attachHoverZoom();
+            });
         } else {
             scan(document);
+            attachHoverZoom();
         }
     }
 
@@ -429,6 +558,7 @@
         animate: _animate,
         stop,
         scan,
+        attachHoverZoom,
         prefersReducedMotion,
     };
 })(window);

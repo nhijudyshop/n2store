@@ -782,6 +782,77 @@
         });
     }
 
+    // Apply an image file (from paste/drop/picker) to one of the modal's
+    // image inputs (`productImage` or `invoiceImage`). Centralises the
+    // size-warning + base64 conversion + preview refresh.
+    async function applyImageFile(name, file) {
+        if (!file) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+            notify('File không phải là ảnh', 'warning');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
+        }
+        const dataUrl = await fileToDataUrl(file);
+        const formInput = document.querySelector(`#soOrderForm [name="${name}"]`);
+        if (formInput) {
+            formInput.value = dataUrl;
+            updateImgPreview(name, dataUrl);
+        }
+    }
+
+    // Wire paste + drag-drop on the modal image cells so users can drop
+    // a screenshot from clipboard / file system without going through the
+    // upload picker. Each `.so-img-cell-v2` cell owns one image slot
+    // (resolved via its upload button's `data-upload`).
+    function wireImagePasteDrop() {
+        const cells = document.querySelectorAll('#soOrderModal .so-img-cell-v2');
+        cells.forEach((cell) => {
+            const uploadBtn = cell.querySelector('[data-upload]');
+            const name = uploadBtn?.dataset.upload;
+            if (!name) return;
+
+            // Make the cell focusable so Ctrl+V paste can target it.
+            if (!cell.hasAttribute('tabindex')) cell.setAttribute('tabindex', '0');
+
+            // Click anywhere on the cell (except inputs/buttons) focuses
+            // the cell so subsequent paste lands here.
+            cell.addEventListener('click', (e) => {
+                if (e.target === cell || e.target.classList.contains('so-img-cell-hint')) {
+                    cell.focus();
+                }
+            });
+
+            cell.addEventListener('paste', async (e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (const it of items) {
+                    if (it.kind === 'file' && it.type.startsWith('image/')) {
+                        e.preventDefault();
+                        const file = it.getAsFile();
+                        await applyImageFile(name, file);
+                        return;
+                    }
+                }
+            });
+
+            cell.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                cell.classList.add('is-dragover');
+            });
+            cell.addEventListener('dragleave', () => {
+                cell.classList.remove('is-dragover');
+            });
+            cell.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                cell.classList.remove('is-dragover');
+                const file = e.dataTransfer?.files?.[0];
+                if (file) await applyImageFile(name, file);
+            });
+        });
+    }
+
     // ---------- wiring ----------
 
     function wireFooterInputs() {
@@ -876,6 +947,7 @@
         renderAll();
         wireToolbar();
         wireImageUpload();
+        wireImagePasteDrop();
         wireModalTotals();
         wireFooterInputs();
         if (window.lucide?.createIcons) window.lucide.createIcons();

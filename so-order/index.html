@@ -15,7 +15,7 @@
         />
 
         <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260515a" />
-        <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260515a" />
+        <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260515b" />
         <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260515a" />
         <link rel="stylesheet" href="css/so-order.css?v=20260515a" />
 
@@ -28,7 +28,7 @@
 
         <script src="../shared/js/firebase-config.js"></script>
         <script src="../shared/js/notification-system.js"></script>
-        <script src="../web2-shared/web2-effects.js?v=20260515a"></script>
+        <script src="../web2-shared/web2-effects.js?v=20260515b"></script>
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -325,18 +325,22 @@
                                         <span id="soRowThanhTien">0₫</span>
                                     </td>
                                     <td class="so-td-img">
-                                        <div class="so-img-cell-v2">
+                                        <div class="so-img-cell-v2" tabindex="0">
+                                            <div class="so-img-cell-hint">
+                                                <i data-lucide="image"></i>
+                                                <span>Ctrl+V / Kéo thả</span>
+                                            </div>
                                             <input
                                                 type="url"
                                                 name="productImage"
-                                                placeholder="URL hoặc tải lên"
-                                                class="so-input-v2 so-input-mini"
+                                                placeholder="hoặc dán URL"
+                                                class="so-input-v2 so-input-mini so-input-url"
                                             />
                                             <button
                                                 type="button"
                                                 class="so-img-upload-btn"
                                                 data-upload="productImage"
-                                                title="Tải ảnh"
+                                                title="Tải ảnh từ máy"
                                             >
                                                 <i data-lucide="upload"></i>
                                             </button>
@@ -347,18 +351,22 @@
                                         ></div>
                                     </td>
                                     <td class="so-td-img">
-                                        <div class="so-img-cell-v2">
+                                        <div class="so-img-cell-v2" tabindex="0">
+                                            <div class="so-img-cell-hint">
+                                                <i data-lucide="image"></i>
+                                                <span>Ctrl+V / Kéo thả</span>
+                                            </div>
                                             <input
                                                 type="url"
                                                 name="invoiceImage"
-                                                placeholder="URL hoặc tải lên"
-                                                class="so-input-v2 so-input-mini"
+                                                placeholder="hoặc dán URL"
+                                                class="so-input-v2 so-input-mini so-input-url"
                                             />
                                             <button
                                                 type="button"
                                                 class="so-img-upload-btn"
                                                 data-upload="invoiceImage"
-                                                title="Tải ảnh"
+                                                title="Tải ảnh từ máy"
                                             >
                                                 <i data-lucide="upload"></i>
                                             </button>
