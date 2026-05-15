@@ -3476,36 +3476,33 @@
             onEvent: (evt) => _handleSidebarWsEvent(evt, order),
             debounceMs: 80,
         });
-        // Ask the Render broker to (re)subscribe its server-side socket
-        // to Pancake. Include EVERY page the user has a PAT for —
-        // calling start() with just the current page replaces the
-        // broker's subscription list, so events for other pages stop
-        // flowing. Union of all known PATs + current order's page
-        // covers the typical case where the user juggles multiple
-        // shop pages.
-        if (window.Web2Realtime.start) {
-            const known = Object.keys(window.Web2Chat?.getAllPageAccessTokens?.() || {});
-            const all = Array.from(new Set([order.fbPageId, ...known].filter(Boolean).map(String)));
-            if (all.length) {
-                window.Web2Realtime.start({ pageIds: all })
-                    .then((r) => {
-                        if (r && !r.ok && r.reason !== 'no_pages') {
-                            console.warn(
-                                '[NativeOrders] Web2Realtime.start →',
-                                r.reason || 'unknown'
-                            );
-                        } else {
-                            console.log(
-                                '[NativeOrders] ✓ broker subscribed to',
-                                all.length,
-                                'page(s)'
-                            );
-                        }
-                    })
-                    .catch((e) =>
-                        console.warn('[NativeOrders] Web2Realtime.start err:', e.message)
-                    );
-            }
+        // Multi-account pool: push every Pancake account the browser
+        // knows about (from localStorage `pancake_all_accounts`) so the
+        // Render broker can spawn one WS per account, covering ALL
+        // pages instead of just the 1 page a single account can reach.
+        // Broker deduplicates pages and persists creds in
+        // `realtime_accounts` for auto-reconnect after restarts.
+        if (window.Web2Realtime?.startMulti) {
+            window.Web2Realtime.startMulti()
+                .then((r) => {
+                    if (!r.ok) {
+                        console.warn('[NativeOrders] Web2Realtime.startMulti →', r.reason);
+                        // Fallback to single-account start with all PATs
+                        const known = Object.keys(
+                            window.Web2Chat?.getAllPageAccessTokens?.() || {}
+                        );
+                        const all = Array.from(
+                            new Set([order.fbPageId, ...known].filter(Boolean).map(String))
+                        );
+                        if (all.length) window.Web2Realtime.start({ pageIds: all });
+                    } else {
+                        console.log(
+                            `[NativeOrders] ✓ pool: ${r.poolSize} account(s), ${r.totalPages} page(s)`,
+                            r.plan
+                        );
+                    }
+                })
+                .catch((e) => console.warn('[NativeOrders] startMulti err:', e.message));
         }
     }
 

@@ -363,6 +363,77 @@
         }
     }
 
+    /**
+     * Multi-account: kick the Render broker pool with EVERY Pancake
+     * account stored in `pancake_all_accounts` localStorage. Each
+     * account spawns one server-side WS to Pancake covering the pages
+     * that account has access to. Broker dedupes pages so each FB
+     * page is only joined once across the pool.
+     *
+     * This is how we get true realtime for ALL pages (not just the
+     * 1 page that the legacy single-account `/api/realtime/start`
+     * could subscribe to).
+     */
+    let _lastMultiKey = '';
+    async function startMulti() {
+        // Web2Chat.getAllAccounts returns either a map keyed by account
+        // id (`{accId: {token, uid, name, pages, ...}}`) or an array
+        // depending on legacy. Normalise to array of entries.
+        const raw = global.Web2Chat?.getAllAccounts?.();
+        const list = Array.isArray(raw)
+            ? raw
+            : raw && typeof raw === 'object'
+              ? Object.entries(raw).map(([k, v]) => ({ ...v, account_id: v.account_id || k }))
+              : [];
+        if (!list.length) return { ok: false, reason: 'no_accounts' };
+        const payload = list
+            .filter((a) => a && a.token && (a.is_active === undefined || a.is_active))
+            .map((a) => {
+                const tokenInfo = global.Web2Chat?.decodeJwt?.(a.token) || {};
+                const userId = tokenInfo.sub || tokenInfo.uid || tokenInfo.user_id || a.uid;
+                const pageIds = (Array.isArray(a.pages) ? a.pages : [])
+                    .map((p) => String(p?.id || p?.page_id || p?.pageId || p || ''))
+                    .filter(Boolean);
+                return {
+                    accountId: String(a.account_id || a.id || userId),
+                    name: a.name || tokenInfo.fb_name || null,
+                    token: a.token,
+                    userId,
+                    pageIds,
+                    cookie: `jwt=${a.token}`,
+                };
+            })
+            .filter((a) => a.userId && a.pageIds.length);
+        if (!payload.length) return { ok: false, reason: 'no_valid_accounts' };
+        // Dedupe same set across calls (rare to actually flip)
+        const key = payload
+            .map((p) => `${p.accountId}:${p.pageIds.sort().join(',')}`)
+            .sort()
+            .join('|');
+        if (key === _lastMultiKey) return { ok: true, alreadyStarted: true };
+        try {
+            const r = await fetch(`${WORKER_BASE}/api/realtime/start-multi`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accounts: payload }),
+            });
+            if (!r.ok) {
+                const text = await r.text();
+                return { ok: false, reason: `HTTP ${r.status}: ${text.slice(0, 200)}` };
+            }
+            const data = await r.json();
+            _lastMultiKey = key;
+            return {
+                ok: true,
+                poolSize: data.poolSize,
+                totalPages: data.totalPages,
+                plan: data.plan,
+            };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    }
+
     async function fetchPendingCustomers(limit = 500) {
         try {
             const r = await fetch(
@@ -406,6 +477,7 @@
     global.Web2Realtime = {
         subscribe,
         start,
+        startMulti,
         fetchPendingCustomers,
         markReplied,
         isConnected,

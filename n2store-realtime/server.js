@@ -87,7 +87,7 @@ async function ensureTablesExist() {
     if (!dbPool) return;
 
     try {
-        // Create realtime_credentials table
+        // Create realtime_credentials table (legacy single-account)
         await dbPool.query(`
             CREATE TABLE IF NOT EXISTS realtime_credentials (
                 id SERIAL PRIMARY KEY,
@@ -97,6 +97,25 @@ async function ensureTablesExist() {
                 page_ids TEXT,
                 cookie TEXT,
                 room VARCHAR(100),
+                is_active BOOLEAN DEFAULT TRUE,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+
+        // Multi-account pool: one row per Pancake account. `verified_pages`
+        // is the subset of pageIds that have successfully joined the
+        // Pancake `pages:{pageId}` Phoenix channel — used to skip pages
+        // we know fail (permission, dead, …) on reconnect.
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS realtime_accounts (
+                account_id VARCHAR(100) PRIMARY KEY,
+                name VARCHAR(255),
+                token TEXT NOT NULL,
+                user_id VARCHAR(100),
+                cookie TEXT,
+                proposed_pages JSONB DEFAULT '[]'::jsonb,
+                verified_pages JSONB DEFAULT '[]'::jsonb,
+                last_seen_at TIMESTAMP DEFAULT NOW(),
                 is_active BOOLEAN DEFAULT TRUE,
                 updated_at TIMESTAMP DEFAULT NOW()
             )
@@ -325,6 +344,102 @@ async function disableRealtimeCredentials(clientType) {
         console.log(`[DATABASE] Disabled ${clientType} auto-connect`);
     } catch (error) {
         console.error('[DATABASE] Error disabling credentials:', error.message);
+    }
+}
+
+// =====================================================
+// Multi-account credential persistence
+// =====================================================
+
+/**
+ * Upsert an account row when the browser pushes /api/realtime/start-multi.
+ * Stores token+cookie+userId so auto-reconnect after Render restart can
+ * recreate the pool from DB without needing a browser to push again.
+ * Page lists are recorded as `proposed_pages` (what the browser wanted)
+ * and `verified_pages` (what Pancake actually accepted) — see
+ * markPageVerified() below.
+ */
+async function saveRealtimeAccount(acc) {
+    if (!dbPool) return;
+    try {
+        await dbPool.query(
+            `INSERT INTO realtime_accounts (account_id, name, token, user_id, cookie, proposed_pages, is_active, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, TRUE, NOW())
+             ON CONFLICT (account_id) DO UPDATE SET
+                name = EXCLUDED.name,
+                token = EXCLUDED.token,
+                user_id = EXCLUDED.user_id,
+                cookie = EXCLUDED.cookie,
+                proposed_pages = EXCLUDED.proposed_pages,
+                is_active = TRUE,
+                last_seen_at = NOW(),
+                updated_at = NOW()`,
+            [
+                String(acc.accountId),
+                acc.name || null,
+                acc.token,
+                acc.userId || null,
+                acc.cookie || null,
+                JSON.stringify(acc.pageIds || []),
+            ]
+        );
+    } catch (e) {
+        console.error('[DATABASE] saveRealtimeAccount error:', e.message);
+    }
+}
+
+/**
+ * When Pancake `phx_reply` confirms a `pages:{pageId}` channel join
+ * with `status: "ok"`, upsert that pageId into the account's
+ * `verified_pages` array. Stable list survives broker restarts so we
+ * only retry pages we know actually work.
+ */
+async function markPageVerified(accountId, pageId) {
+    if (!dbPool || !accountId || !pageId) return;
+    try {
+        await dbPool.query(
+            `UPDATE realtime_accounts
+             SET verified_pages = (
+                CASE
+                    WHEN verified_pages @> to_jsonb($2::text)::jsonb
+                    THEN verified_pages
+                    ELSE verified_pages || to_jsonb($2::text)
+                END
+             ),
+             last_seen_at = NOW()
+             WHERE account_id = $1`,
+            [String(accountId), String(pageId)]
+        );
+    } catch (e) {
+        console.error('[DATABASE] markPageVerified error:', e.message);
+    }
+}
+
+async function loadActiveAccounts() {
+    if (!dbPool) return [];
+    try {
+        const r = await dbPool.query(
+            `SELECT account_id, name, token, user_id, cookie, proposed_pages, verified_pages
+             FROM realtime_accounts
+             WHERE is_active = TRUE AND token IS NOT NULL
+             ORDER BY last_seen_at DESC`
+        );
+        return r.rows.map((row) => ({
+            accountId: row.account_id,
+            name: row.name,
+            token: row.token,
+            userId: row.user_id,
+            cookie: row.cookie,
+            // Prefer verified pages; fall back to proposed when nothing is verified
+            // yet (e.g. brand-new account that hasn't completed a join cycle).
+            pageIds:
+                (row.verified_pages && row.verified_pages.length
+                    ? row.verified_pages
+                    : row.proposed_pages) || [],
+        }));
+    } catch (e) {
+        console.error('[DATABASE] loadActiveAccounts error:', e.message);
+        return [];
     }
 }
 
@@ -625,6 +740,12 @@ class RealtimeClient {
                 `[PANCAKE-WS] 📋 phx_reply [${topic}] status=${status}`,
                 resp ? JSON.stringify(resp).substring(0, 200) : ''
             );
+            // Persist verified page so reboot can skip pages we know fail.
+            // Only fires when Pancake server-acks the `pages:{pageId}` join.
+            if (status === 'ok' && topic.startsWith('pages:') && this.accountId) {
+                const verifiedPageId = topic.slice('pages:'.length);
+                markPageVerified(this.accountId, verifiedPageId);
+            }
             if (status === 'error') {
                 console.error(
                     `[PANCAKE-WS] ❌ Channel join FAILED: ${topic}`,
@@ -828,10 +949,151 @@ class RealtimeClient {
 }
 
 // =====================================================
+// POOL — multi-account realtime
+// =====================================================
+//
+// Pancake has multi-user accounts (Thu Huyền, Huyền Nhi, Thu Lai, Chloe
+// Duongg, Con Nhoc...) — each JWT has access to a different subset of
+// FB pages. A single shared RealtimeClient only covers ONE user's
+// pages → events for pages owned by other accounts are missed.
+//
+// The pool spawns ONE RealtimeClient per account. Pages are deduped:
+// each FB page is owned by the FIRST account that has access (skip
+// duplicates → no event echo from multiple WS connections joining the
+// same `pages:{pageId}` channel).
+//
+// All clients forward events through the same `broadcastToClients` so
+// browser subscribers don't have to know how many backend WS exist.
+
+class RealtimeClientPool {
+    constructor() {
+        // accountId → RealtimeClient
+        this.clients = new Map();
+    }
+
+    /**
+     * Replace the entire pool with N new clients, one per account.
+     * Deduplicates pages so each FB page is only joined ONCE across
+     * the pool (avoids duplicate events / wasted Pancake quota).
+     *
+     * @param {Array<{accountId,token,userId,pageIds,cookie,name?}>} accounts
+     */
+    async startAll(accounts) {
+        if (!Array.isArray(accounts) || accounts.length === 0) {
+            return { ok: false, reason: 'no_accounts' };
+        }
+        // Stop clients that aren't in the new set
+        const newIds = new Set(accounts.map((a) => String(a.accountId)));
+        for (const [oldId, client] of this.clients) {
+            if (!newIds.has(oldId)) {
+                console.log(`[POOL] Dropping account ${oldId.slice(0, 8)} (no longer in pool)`);
+                try {
+                    await client.stop(false);
+                } catch {
+                    /* ignore */
+                }
+                this.clients.delete(oldId);
+            }
+        }
+        // Deduplicate pages: first account in the list that owns a page wins.
+        const claimed = new Set();
+        const plan = [];
+        for (const acc of accounts) {
+            if (!acc.token || !acc.userId || !Array.isArray(acc.pageIds)) continue;
+            const myPages = [];
+            for (const pid of acc.pageIds) {
+                const s = String(pid);
+                if (!claimed.has(s)) {
+                    claimed.add(s);
+                    myPages.push(s);
+                }
+            }
+            if (!myPages.length) {
+                console.log(
+                    `[POOL] Account ${acc.name || acc.accountId?.slice(0, 8)} → 0 unique pages, skip`
+                );
+                continue;
+            }
+            plan.push({ ...acc, pageIds: myPages });
+        }
+        // Start clients for the deduped plan
+        for (const acc of plan) {
+            const accId = String(acc.accountId);
+            let client = this.clients.get(accId);
+            if (!client) {
+                client = new RealtimeClient();
+                client.accountId = accId;
+                client.accountName = acc.name || null;
+                this.clients.set(accId, client);
+            } else {
+                client.accountName = acc.name || client.accountName;
+            }
+            console.log(
+                `[POOL] ▶ ${acc.name || accId.slice(0, 8)} → ${acc.pageIds.length} pages: [${acc.pageIds.join(', ')}]`
+            );
+            await client.start(acc.token, acc.userId, acc.pageIds, acc.cookie, false);
+            // Persist creds + proposed pages so a broker restart can
+            // rebuild the pool without waiting for a browser to push.
+            // verified_pages is filled in as phx_reply OKs land.
+            saveRealtimeAccount(acc);
+        }
+        return {
+            ok: true,
+            poolSize: this.clients.size,
+            totalPages: claimed.size,
+            plan: plan.map((p) => ({
+                accountId: p.accountId,
+                name: p.name,
+                pageCount: p.pageIds.length,
+            })),
+        };
+    }
+
+    async stopAll() {
+        for (const client of this.clients.values()) {
+            try {
+                await client.stop(false);
+            } catch {
+                /* ignore */
+            }
+        }
+        this.clients.clear();
+    }
+
+    getStatus() {
+        const clients = [];
+        let totalPages = 0;
+        let connectedCount = 0;
+        for (const [accId, c] of this.clients) {
+            const s = c.getStatus();
+            clients.push({
+                accountId: accId,
+                name: c.accountName || null,
+                connected: s.connected,
+                wsReadyState: s.wsReadyState,
+                userId: s.userId,
+                pageIds: s.pageIds,
+                pageCount: s.pageCount,
+                reconnectAttempts: s.reconnectAttempts,
+            });
+            totalPages += s.pageCount;
+            if (s.connected) connectedCount += 1;
+        }
+        return {
+            poolSize: this.clients.size,
+            connectedCount,
+            totalPages,
+            clients,
+        };
+    }
+}
+
+// =====================================================
 // GLOBAL INSTANCES
 // =====================================================
 
-const realtimeClient = new RealtimeClient();
+const realtimeClient = new RealtimeClient(); // legacy single-account (back-compat)
+const realtimePool = new RealtimeClientPool(); // multi-account (preferred)
 
 // =====================================================
 // LIVESTREAM DETECTION (server-side, per post_id)
@@ -1069,20 +1331,34 @@ async function lookupPostType(conversationId, pageId, postId) {
 async function autoConnectClients() {
     console.log('[AUTO-CONNECT] Checking for saved credentials...');
 
-    // Auto-connect Pancake
+    // Preferred: multi-account pool from realtime_accounts. Every account
+    // we saved via /api/realtime/start-multi gets respawned with its
+    // verified page list so the pool comes back exactly as the user left it.
+    const accounts = await loadActiveAccounts();
+    if (accounts.length) {
+        console.log(`[AUTO-CONNECT] Found ${accounts.length} account(s) → starting pool`);
+        const result = await realtimePool.startAll(accounts);
+        console.log(
+            `[AUTO-CONNECT] Pool started: ${result.poolSize} accounts, ${result.totalPages} unique pages`
+        );
+        return;
+    }
+
+    // Fallback: legacy single-account credentials (back-compat for installs
+    // that haven't migrated to /api/realtime/start-multi yet).
     const pancakeCredentials = await loadRealtimeCredentials('pancake');
     if (pancakeCredentials && pancakeCredentials.token) {
-        console.log('[AUTO-CONNECT] Found Pancake credentials, starting...');
+        console.log('[AUTO-CONNECT] Legacy single-account credentials found');
         const pageIds = pancakeCredentials.page_ids ? JSON.parse(pancakeCredentials.page_ids) : [];
         await realtimeClient.start(
             pancakeCredentials.token,
             pancakeCredentials.user_id,
             pageIds,
             pancakeCredentials.cookie,
-            false // Don't save again
+            false
         );
     } else {
-        console.log('[AUTO-CONNECT] No Pancake credentials found');
+        console.log('[AUTO-CONNECT] No credentials found — pool empty');
     }
 }
 
@@ -1126,6 +1402,7 @@ app.get('/health/detailed', (req, res) => {
               }
             : null,
         pancake_ws: realtimeClient.getStatus(),
+        pancake_pool: realtimePool.getStatus(),
         node_version: process.version,
         pid: process.pid,
         timestamp: new Date().toISOString(),
@@ -1169,6 +1446,38 @@ app.post('/api/realtime/start', async (req, res) => {
         success: true,
         message: 'Pancake Realtime client started (credentials saved for auto-reconnect)',
     });
+});
+
+/**
+ * Multi-account realtime: browser POSTs the full list of Pancake
+ * accounts it has tokens for. The pool spawns one WS per account and
+ * dedupes pages so every FB page is covered without duplicates.
+ *
+ * Body shape:
+ *   { accounts: [
+ *       { accountId, token, userId, pageIds: [...], cookie?, name? },
+ *       ...
+ *     ] }
+ *
+ * Browser caller: Web2Realtime.startMulti() — collects accounts from
+ * Web2Chat.getAllAccounts() and posts them here.
+ */
+app.post('/api/realtime/start-multi', async (req, res) => {
+    const { accounts } = req.body || {};
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+        return res.status(400).json({ error: 'Missing parameters: accounts[] required' });
+    }
+    const result = await realtimePool.startAll(accounts);
+    if (!result.ok) return res.status(400).json(result);
+    res.json({
+        success: true,
+        ...result,
+        message: `Pool started with ${result.poolSize} account(s), covering ${result.totalPages} page(s)`,
+    });
+});
+
+app.get('/api/realtime/pool-status', (req, res) => {
+    res.json(realtimePool.getStatus());
 });
 
 app.post('/api/realtime/stop', async (req, res) => {
