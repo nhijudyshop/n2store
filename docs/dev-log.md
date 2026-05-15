@@ -25,6 +25,45 @@
 
 ## 2026-05-15
 
+### [so-order] Column header vào trong shipment expand + per-tab columnVisibility + Firestore sync
+
+**User**:
+
+1. "phần như hình cho vào expand ngày" → header cột (NCC, STT, TÊN SP, …) đặt trong mỗi shipment expand.
+2. "Ẩn hiện cột sẽ là setting riêng cho từng section tab và được lưu để đồng bộ nhiều máy".
+
+**Column header move-in** ([so-order-app.js:106-128](../so-order/js/so-order-app.js#L106-L128)):
+
+- `renderTableHead()` không render global `<thead>` (CSS `display: none`).
+- `columnHeaderRowHtml()` sinh `<tr.so-shipment-colhead>`. `shipmentHtml(sh,...)` khi expanded: shipment header → column header → data rows. Collapsed: chỉ shipment header.
+
+**Per-tab column visibility**:
+
+- Schema: `columnVisibility` chuyển từ top-level state → `tab.columnVisibility`.
+- `_migrateTab(tab, globalColVis)` seed per-tab từ legacy global setting nếu có (back-compat).
+- `setColumnVisibility(state, tabId, key, visible)` + `getColumnVisibility(tab)` API mới.
+- Helper `activeColVis()` ở app.js đọc của tab đang active; mọi renderer dùng helper này.
+- Modal heading: "Ẩn / hiện cột — tab \"HÀ NỘI\"" để user biết scope per-tab.
+
+**Firestore sync** (theo `docs/architecture/DATA-SYNCHRONIZATION.md`):
+
+- Doc `so_order_v2/main` (Firestore as source of truth).
+- `SoOrderStorage.Sync.init(onRemoteUpdate)`: load FB → seed localStorage cache → attach `onSnapshot` listener.
+- `pushSync()` helper fire sau mỗi mutation (add/update/delete row/shipment/tab/footer/columnVisibility/setActiveTab).
+- Echo guard `_isListening` flag — remote snapshot fire không push lại (tránh loop).
+- Remote update handler: `renderAll()` + notify "Đồng bộ dữ liệu từ thiết bị khác".
+- Firebase scripts: `firebase-app/auth/firestore-compat` + `shared/js/firebase-config.js`.
+
+**Verify live**:
+
+- Toggle costNote off ở HÀ NỘI → `hanoiCostNote: false`.
+- Switch HƯƠNG CHÂU → `huongCostNote: true` (vẫn default, độc lập).
+- Firestore read: `{exists:true, lastUpdated:..., hanoiCostNote:false, huongCostNote:true}` → cross-device sync OK.
+
+**Status**: ✅ Done.
+
+---
+
 ### [so-order] Schema shipments + 2 cột Ghi Chú / Ghi Chú CP + header expandable theo ngày+đợt
 
 **User**:
