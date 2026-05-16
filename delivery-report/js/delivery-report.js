@@ -3336,13 +3336,27 @@
                        })
                        .join('')}</div>`;
 
+            // Rút gọn note cho giao dịch thanh toán đơn (WITHDRAW/VIRTUAL_DEBIT từ SALE_ORDER):
+            // "Thanh toán công nợ qua COD đơn hàng #ORDER — Trả từ ví: Xđ (Đơn: …)"
+            // → "TT #ORDER (Đơn: …)". Strip cả "— Trả từ ví: Xđ" để tránh trùng lặp.
+            const shortenCodPaymentNote = (note) => {
+                if (!note) return note;
+                let result = note.replace(
+                    /^(?:Thanh\s*toán\s*công\s*nợ\s*qua\s*COD\s*đơn\s*hàng|Thanh\s*Toán\s*Đơn\s*Hàng)\s*/i,
+                    'TT '
+                );
+                result = result.replace(/\s*—\s*Trả\s*từ\s*ví:\s*[\d.,]+đ/gi, '');
+                return result.trim();
+            };
+
             // Recent (processed) transactions
             const buildTxRow = (tx) => {
                 const { label, isCredit, amount } = txConfig(tx);
                 const sign = isCredit ? '+' : '';
                 const cls = isCredit ? 'credit' : 'debit';
                 const noteRaw = tx.note || '';
-                const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                const noteCleanImg = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                const note = shortenCodPaymentNote(noteCleanImg);
                 const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
                 const eye = eyeBtnHtmlForTx(tx);
                 const review = reviewBtnHtmlForTx(tx);

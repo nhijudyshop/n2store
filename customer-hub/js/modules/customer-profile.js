@@ -870,17 +870,19 @@ export class CustomerProfileModule {
                                             ));
 
                                     if (isCodPayment) {
-                                        // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu.
-                                        // Thêm "Trả từ ví: X" (= |tx.amount|) để user hiểu rõ
-                                        // wallet đóng góp bao nhiêu (vs phần COD shipper thu).
+                                        // Format ngắn: "TT #ORDER (Đơn: …)". Giữ breakdown
+                                        // "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu.
                                         const headRe =
                                             /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                                        const walletPaid = Math.abs(amount);
-                                        const walletPaidStr = `Trả từ ví: ${walletPaid.toLocaleString('vi-VN')}đ`;
-                                        const newHead = `Thanh Toán Đơn Hàng #${orderCode} — ${walletPaidStr}`;
+                                        const newHead = `TT #${orderCode}`;
                                         let rewritten = headRe.test(note)
                                             ? note.replace(headRe, newHead)
                                             : newHead;
+                                        // Strip mọi đoạn "— Trả từ ví: Xđ" có trong note nguồn
+                                        // để tránh trùng lặp (legacy + rewrite).
+                                        rewritten = rewritten
+                                            .replace(/\s*—\s*Trả\s*từ\s*ví:\s*[\d.,]+đ/gi, '')
+                                            .trim();
                                         // Sửa math nếu breakdown sai (legacy data — vd "Hàng: 1090K +
                                         // Ship: 20K - Giảm: 60K = 1110K" — sai vì 1090+20-60=1050, không
                                         // phải 1110). Recompute đúng + chú thích COD nếu khác.

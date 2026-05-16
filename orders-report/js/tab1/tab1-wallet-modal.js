@@ -328,13 +328,15 @@
             const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
 
             if (isCodPayment) {
-                // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu.
-                // Thêm "Trả từ ví: X" để user thấy wallet đóng góp bao nhiêu.
+                // Format ngắn: "TT #ORDER (Đơn: …)". Giữ breakdown
+                // "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu.
                 const headRe = /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
-                const walletPaid = Math.abs(parseFloat(tx.amount) || 0);
-                const walletPaidStr = `Trả từ ví: ${walletPaid.toLocaleString('vi-VN')}đ`;
-                const newHead = `Thanh Toán Đơn Hàng #${escapeHtml(orderCode)} — ${escapeHtml(walletPaidStr)}`;
+                const newHead = `TT #${escapeHtml(orderCode)}`;
                 let rewritten = headRe.test(note) ? note.replace(headRe, newHead) : newHead;
+                // Strip mọi đoạn "— Trả từ ví: Xđ" có trong note nguồn để tránh trùng lặp.
+                rewritten = rewritten
+                    .replace(/\s*—\s*Trả\s*từ\s*ví:\s*[\d.,]+đ/gi, '')
+                    .trim();
                 // Sửa math sai trong breakdown legacy (vd "Hàng+Ship-Giảm = X" với X
                 // không khớp công thức) — recompute và chú thích COD nếu khác.
                 const breakdownRe =

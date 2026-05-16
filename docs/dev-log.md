@@ -25,6 +25,25 @@
 
 ## 2026-05-16
 
+### [wallet] Rút gọn note "Thanh Toán Đơn Hàng" → "TT #ORDER" + bỏ "Trả từ ví" trùng lặp
+
+**User báo**: Note giao dịch trừ tiền thanh toán đơn quá dài và bị trùng lặp:
+`Thanh Toán Đơn Hàng #NJD/2026/67007 — Trả từ ví: 100.000đ — Trả từ ví: 100.000đ (Đơn: 953.000đ + 35.000đ ship…)`
+→ Mong muốn: `TT #NJD/2026/67007 (Đơn: 953.000đ + 35.000đ ship…)`
+
+**Root cause**: DB note nguồn từ [`tab1-sale.js:1415`](../orders-report/js/tab1/tab1-sale.js#L1415) đã có sẵn `— Trả từ ví: Xđ`. 3 view rewrite head note nhưng KHÔNG strip "— Trả từ ví" cũ → trùng lặp + dài.
+
+**Fix**: Đổi `newHead` thành `TT #${orderCode}` (bỏ phần `Thanh Toán Đơn Hàng — Trả từ ví: …`) và strip tất cả `— Trả từ ví: Xđ` còn lại trong note nguồn.
+
+**Files**:
+- [`customer-hub/js/modules/customer-profile.js`](../customer-hub/js/modules/customer-profile.js) — HOẠT ĐỘNG VÍ trong Customer 360 right panel
+- [`orders-report/js/tab1/tab1-wallet-modal.js`](../orders-report/js/tab1/tab1-wallet-modal.js) — Wallet history modal trong orders-report tab1
+- [`delivery-report/js/delivery-report.js`](../delivery-report/js/delivery-report.js) — thêm helper `shortenCodPaymentNote()` cho hover popover "HOẠT ĐỘNG KHÁCH HÀNG"
+
+**Status**: ✅ Done.
+
+---
+
 ### [customer-hub] Fix nạp ví luôn ghi `created_by = 'admin'`
 
 **User báo**: Trong ví khách hàng (Customer 360 → Hoạt động ví), mọi giao dịch Nạp tiền / Rút / Cấp công nợ ảo đều hiển thị "Duyệt bởi admin" dù user đăng nhập là người khác (vd "My").

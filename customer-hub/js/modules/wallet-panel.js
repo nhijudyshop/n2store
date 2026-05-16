@@ -1025,11 +1025,24 @@ export class WalletPanelModule {
     // Helpers
     _getCurrentUser() {
         try {
-            const u = JSON.parse(localStorage.getItem('n2shop_current_user') || '{}');
-            return u.email || u.displayName || 'admin';
+            const info = window.authManager?.getUserInfo?.();
+            if (info) {
+                const name = info.displayName || info.username || info.email;
+                if (name) return name;
+            }
+            const raw =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('n2shop_current_user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                const name = u.displayName || u.username || u.email;
+                if (name) return name;
+            }
         } catch {
-            return 'admin';
+            /* fallthrough */
         }
+        return 'admin';
     }
 
     _renderNoteWithImage(note) {
