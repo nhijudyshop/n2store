@@ -25,6 +25,30 @@
 
 ## 2026-05-16
 
+### [customer-hub] Fix "TPOS PBH" tab không hiển thị bill thực sự
+
+**User báo**: Trong Customer 360 → Hoạt động ví, click con mắt 👁 ở giao dịch THANH TOÁN ĐƠN HÀNG (-100K) → mở modal "Đơn NJD/.." với tab "TPOS PBH" luôn báo "Không có phiếu bán hàng (PBH) cho đơn NJD/...". Trong khi đó modal "HOẠT ĐỘNG KHÁCH HÀNG" của Thống Kê Giao Hàng → click con mắt cùng giao dịch → hiển thị BILL (phiếu bán hàng) đầy đủ với barcode, danh sách SP, tổng tiền.
+
+**Root cause**:
+1. `customer-hub/js/modules/transaction-evidence.js::_renderTposInvoices` dùng OData filter SAI: `Reference eq '${orderCode}'`. Field `Reference` của TPOS FastSaleOrder thường rỗng cho invoice chuẩn — order code `NJD/YYYY/NNNNN` nằm ở field `Number`. delivery-report dùng đúng `contains(Number,'${number}')`.
+2. Kể cả filter đúng, hàm này chỉ render summary card (Số, ngày, tổng, COD) chứ KHÔNG render bill HTML như delivery-report.
+
+**Fix**:
+
+- Đổi filter: `(Type eq 'invoice' and contains(Number,'${orderCode}'))`.
+- Sau khi tìm thấy invoice, port flow render bill từ delivery-report sang:
+    1. Lazy-load `../shared/js/api-service.js` + `../orders-report/js/utils/web-warehouse-cache.js` + `../orders-report/js/utils/bill-service.js` qua helper `_loadScriptOnce` (giống `delivery-report.js:3515`).
+    2. Fetch detail qua `/api/odata/FastSaleOrder(${id})?$expand=OrderLines,Partner,User`.
+    3. Gọi `window.generateCustomBillHTML(detail, {})` → render trong `<iframe srcdoc>` với `sandbox="allow-same-origin"`.
+    4. Fallback `${workerBase}/api/fastsaleorder/print1?ids=${id}` (TPOS HTML) nếu generate fail.
+- Header tóm tắt 1 dòng (Số + ngày + state badge) phía trên iframe để giữ context.
+
+**Files**: `customer-hub/js/modules/transaction-evidence.js`
+
+**Status**: Done — chờ verify live.
+
+---
+
 ### [wallet] Rút gọn note "Thanh Toán Đơn Hàng" → "TT #ORDER" + bỏ "Trả từ ví" trùng lặp
 
 **User báo**: Note giao dịch trừ tiền thanh toán đơn quá dài và bị trùng lặp:

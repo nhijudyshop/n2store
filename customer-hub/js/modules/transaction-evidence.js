@@ -183,6 +183,41 @@
      * Render danh sách TPOS invoice cho 1 NJD order code vào container.
      * Fetch fresh OData by Reference.
      */
+    // Lazy-load script helper (idempotent).
+    const _lazyScriptPromises = new Map();
+    function _loadScriptOnce(src, predicate) {
+        if (predicate && predicate()) return Promise.resolve();
+        if (_lazyScriptPromises.has(src)) return _lazyScriptPromises.get(src);
+        const p = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error(`Script load failed: ${src}`));
+            document.head.appendChild(s);
+        });
+        _lazyScriptPromises.set(src, p);
+        return p;
+    }
+
+    // Ensure bill-service.js + web-warehouse-cache.js (cùng helper với delivery-report).
+    async function _ensureBillService() {
+        await _loadScriptOnce(
+            '../shared/js/api-service.js',
+            () => !!(window.ApiService || window.apiService)
+        ).catch(() => {});
+        await _loadScriptOnce(
+            '../orders-report/js/utils/web-warehouse-cache.js',
+            () => !!window.WebWarehouseCache
+        ).catch(() => {});
+        await _loadScriptOnce(
+            '../orders-report/js/utils/bill-service.js',
+            () => typeof window.generateCustomBillHTML === 'function'
+        );
+        if (window.WebWarehouseCache && typeof window.WebWarehouseCache.preload === 'function') {
+            window.WebWarehouseCache.preload().catch(() => {});
+        }
+    }
+
     async function _renderTposInvoices(orderCode, container) {
         if (!container) return;
         container.innerHTML = `<div style="text-align:center;padding:30px;color:#64748b;">Đang tải dữ liệu TPOS…</div>`;
@@ -193,8 +228,11 @@
             const tposOData =
                 window.API_CONFIG?.TPOS_ODATA ||
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const workerBase = tposOData.replace(/\/api\/odata\/?$/, '');
             const headers = await window.tokenManager.getAuthHeader();
-            const filter = `(Type eq 'invoice' and Reference eq '${String(orderCode).replace(/'/g, "''")}')`;
+            // Field "Number" chứa NJD/YYYY/NNNNN; "Reference" thường rỗng cho invoice
+            // chuẩn → trước đây filter sai dẫn đến luôn "Không có PBH".
+            const filter = `(Type eq 'invoice' and contains(Number,'${String(orderCode).replace(/'/g, "''")}'))`;
             const url =
                 `${tposOData}/FastSaleOrder/ODataService.GetView` +
                 `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
@@ -208,44 +246,87 @@
                 container.innerHTML = `<div style="text-align:center;padding:30px;color:#94a3b8;">Không có phiếu bán hàng (PBH) cho đơn ${escapeAttr(orderCode)}</div>`;
                 return;
             }
-            const fmt = (v) => new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
-            const fmtDate = (d) => {
-                if (!d) return '';
-                const x = new Date(d);
-                return isNaN(x.getTime()) ? '' : x.toLocaleString('vi-VN');
-            };
-            const stateBadge = (inv) => {
-                const s = inv.ShowState || inv.State || '';
-                const isCancel =
-                    inv.State === 'cancel' || inv.IsMergeCancel || /Hu[ỷy] b[ỏo]/i.test(s);
-                const bg = isCancel ? '#fee2e2' : '#dbeafe';
-                const fg = isCancel ? '#dc2626' : '#2563eb';
-                return `<span style="background:${bg};color:${fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${escapeAttr(s)}</span>`;
-            };
-            container.innerHTML = invoices
-                .map(
-                    (inv) => `
-                <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                        <strong style="font-size:14px;color:#1e293b;">${escapeAttr(inv.Number || '?')}</strong>
-                        ${stateBadge(inv)}
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
-                        <div><span style="color:#64748b;">Ngày:</span> ${fmtDate(inv.DateInvoice)}</div>
-                        <div><span style="color:#64748b;">Khách:</span> ${escapeAttr(inv.PartnerDisplayName || '')}</div>
-                        <div><span style="color:#64748b;">Tổng tiền:</span> <strong>${fmt(inv.AmountTotal)}</strong></div>
-                        <div><span style="color:#64748b;">COD:</span> ${fmt(inv.CashOnDelivery)}</div>
-                        <div><span style="color:#64748b;">Đã thanh toán:</span> ${fmt(inv.PaymentAmount)}</div>
-                        <div><span style="color:#64748b;">Vận chuyển:</span> ${escapeAttr(inv.CarrierName || inv.Carrier?.Name || '')}</div>
-                        ${inv.TrackingRef ? `<div style="grid-column:1/-1;"><span style="color:#64748b;">Mã VĐ:</span> <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">${escapeAttr(inv.TrackingRef)}</code></div>` : ''}
-                    </div>
-                </div>
-            `
-                )
-                .join('');
+            await _renderBillForInvoice(invoices[0], workerBase, headers, container);
         } catch (e) {
             console.error('[TxEvidence] order invoice fetch failed:', e);
             container.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải phiếu: ${escapeAttr(e.message)}</div>`;
+        }
+    }
+
+    // Render full bill HTML cho 1 invoice (port từ delivery-report openRowModalByData).
+    // Ưu tiên template custom của orders-report (generateCustomBillHTML) → fallback
+    // sang TPOS print1 HTML khi bill-service.js fail / detail fetch fail.
+    async function _renderBillForInvoice(invoice, workerBase, headers, container) {
+        const fmtDate = (d) => {
+            if (!d) return '';
+            const x = new Date(d);
+            return isNaN(x.getTime()) ? '' : x.toLocaleString('vi-VN');
+        };
+        const state = invoice.ShowState || invoice.State || '';
+        const isCancel =
+            invoice.State === 'cancel' ||
+            invoice.IsMergeCancel ||
+            /Hu[ỷy] b[ỏo]/i.test(state);
+        const bg = isCancel ? '#fee2e2' : '#dbeafe';
+        const fg = isCancel ? '#dc2626' : '#2563eb';
+        container.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;">
+                    <strong style="color:#1e293b;">${escapeAttr(invoice.Number || '?')}</strong>
+                    <span>·</span>
+                    <span>${fmtDate(invoice.DateInvoice)}</span>
+                </div>
+                <span style="background:${bg};color:${fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${escapeAttr(state)}</span>
+            </div>
+            <div data-bill-mount style="height:65vh;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:white;">
+                <div style="text-align:center;padding:30px;color:#64748b;">Đang dựng bill…</div>
+            </div>
+        `;
+        const mount = container.querySelector('[data-bill-mount]');
+
+        const renderBillIframe = (html) => {
+            mount.innerHTML = '';
+            const ifr = document.createElement('iframe');
+            ifr.style.cssText =
+                'width:100%;height:100%;border:0;background:white;display:block;';
+            ifr.sandbox = 'allow-same-origin';
+            ifr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;}img{max-width:100%;height:auto;}table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}</style></head><body>${html}</body></html>`;
+            mount.appendChild(ifr);
+        };
+
+        const fetchPrint1Html = async () => {
+            const url = `${workerBase}/api/fastsaleorder/print1?ids=${encodeURIComponent(invoice.Id)}`;
+            const resp = await fetch(url, {
+                headers: { ...headers, accept: 'application/json, text/javascript, */*; q=0.01' },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            if (!json.html) throw new Error('Bill HTML rỗng');
+            return json.html;
+        };
+
+        try {
+            await _ensureBillService();
+            const detailUrl =
+                `${workerBase}/api/odata/FastSaleOrder(${encodeURIComponent(invoice.Id)})` +
+                `?$expand=OrderLines,Partner,User`;
+            const dresp = await fetch(detailUrl, {
+                headers: { ...headers, accept: 'application/json' },
+            });
+            if (!dresp.ok) throw new Error(`HTTP ${dresp.status}`);
+            const detail = await dresp.json();
+            const html = window.generateCustomBillHTML(detail, {});
+            renderBillIframe(html);
+        } catch (customErr) {
+            console.warn(
+                '[TxEvidence] custom bill failed, fallback print1:',
+                customErr
+            );
+            try {
+                renderBillIframe(await fetchPrint1Html());
+            } catch (fallbackErr) {
+                mount.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">Lỗi tải bill: ${escapeAttr(fallbackErr.message)}</div>`;
+            }
         }
     }
 
