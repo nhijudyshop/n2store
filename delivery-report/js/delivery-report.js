@@ -3299,7 +3299,13 @@
             const w = data.wallet || { balance: 0, virtual_balance: 0 };
             // recent_transactions: server đã giới hạn theo ?limit (50 cho modal,
             // 5 cho popover-mặc định). Không slice thêm ở client.
-            const txs = data.recent_transactions || [];
+            // Ẩn cặp WITHDRAW + DEPOSIT(ORDER_CANCEL_REFUND) cùng order ref + cùng amount
+            // để khớp UX với customer-hub "Hoạt động ví". Helper expect ASC, API trả DESC.
+            const rawTxs = data.recent_transactions || [];
+            const skipFn =
+                (window.WalletPairUtils && window.WalletPairUtils.skipPairedCancelRefunds) ||
+                ((arr) => arr);
+            const txs = skipFn(rawTxs.slice().reverse()).reverse();
             const pendingTxs = (data.pending_transactions || []).slice(0, 5);
             const pend = data.pending_deposits || { count: 0, total: 0 };
             const status = c.status || '';
@@ -3331,21 +3337,17 @@
                        .join('')}</div>`;
 
             // Recent (processed) transactions
-            const txHtml =
-                txs.length === 0
-                    ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
-                    : txs
-                          .map((tx) => {
-                              const { label, isCredit, amount } = txConfig(tx);
-                              const sign = isCredit ? '+' : '';
-                              const cls = isCredit ? 'credit' : 'debit';
-                              const noteRaw = tx.note || '';
-                              const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
-                              const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
-                              const eye = eyeBtnHtmlForTx(tx);
-                              const review = reviewBtnHtmlForTx(tx);
-                              const actions = [eye, review].filter(Boolean).join('');
-                              return `
+            const buildTxRow = (tx) => {
+                const { label, isCredit, amount } = txConfig(tx);
+                const sign = isCredit ? '+' : '';
+                const cls = isCredit ? 'credit' : 'debit';
+                const noteRaw = tx.note || '';
+                const note = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
+                const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
+                const eye = eyeBtnHtmlForTx(tx);
+                const review = reviewBtnHtmlForTx(tx);
+                const actions = [eye, review].filter(Boolean).join('');
+                return `
                           <div class="dr-hp-tx ${cls}">
                               <div class="dr-hp-tx-head">
                                   <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
@@ -3355,15 +3357,24 @@
                               </div>
                               ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
                           </div>`;
-                          })
-                          .join('');
+            };
+            const buildTxListHtml = (list) =>
+                list.length === 0
+                    ? '<div class="dr-hp-empty">Chưa có giao dịch</div>'
+                    : list.map(buildTxRow).join('');
+            const txHtml = buildTxListHtml(txs);
+            // "Xem toàn bộ": hiện thêm các cặp tạo+hoàn đã bị ẩn (toggle bằng nút con mắt
+            // cạnh tiêu đề). Chỉ render khi thực sự có giao dịch bị ẩn.
+            const hasHiddenTxs = rawTxs.length > txs.length;
+            const txHtmlAll = hasHiddenTxs ? buildTxListHtml(rawTxs) : '';
 
             const target = targetEl || ensurePopover();
             // Stash tx data so the review modal can look up details by uid.
+            // Dùng rawTxs để review buttons trong "all view" cũng resolve được.
             target.__reviewCtx = {
                 customerName: c.name || '',
                 phone,
-                txByUid: new Map(txs.map((tx) => [getTxUid(tx), tx]).filter(([k]) => k)),
+                txByUid: new Map(rawTxs.map((tx) => [getTxUid(tx), tx]).filter(([k]) => k)),
             };
             target.innerHTML = `
                 <div class="dr-hp-header">
@@ -3386,8 +3397,16 @@
                 </div>
                 ${pend.count > 0 && pendingTxs.length === 0 ? `<div class="dr-hp-pending"><i class="fas fa-clock"></i> ${pend.count} nạp chờ duyệt · ${fmtMoney(pend.total)}đ</div>` : ''}
                 ${pendingHtml}
-                <div class="dr-hp-section-title">Hoạt động gần đây</div>
-                <div class="dr-hp-tx-list">${txHtml}</div>
+                <div class="dr-hp-section-title" style="display:flex;align-items:center;gap:6px;">
+                    <span>Hoạt động gần đây</span>
+                    ${
+                        hasHiddenTxs
+                            ? `<button type="button" class="dr-hp-toggle-all" data-mode="filtered" title="Xem toàn bộ giao dịch (kể cả cặp tạo-hủy đơn)" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:2px 4px;font-size:12px;line-height:1;display:inline-flex;align-items:center;"><i class="fas fa-eye"></i></button>`
+                            : ''
+                    }
+                </div>
+                <div class="dr-hp-tx-list" data-tx-mode="filtered">${txHtml}</div>
+                ${hasHiddenTxs ? `<div class="dr-hp-tx-list" data-tx-mode="all" style="display:none;">${txHtmlAll}</div>` : ''}
             `;
             wirePopoverActions(phone, target);
         }
@@ -3559,6 +3578,33 @@
                     e.preventDefault();
                     e.stopPropagation();
                     reviewTransaction(btn.dataset.uid, btn);
+                });
+            });
+            // Nút con mắt cạnh "Hoạt động gần đây": toggle hiện/ẩn cặp tạo+hoàn đơn đã bị filter.
+            target.querySelectorAll('.dr-hp-toggle-all:not([data-bound])').forEach((btn) => {
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const filteredEl = target.querySelector(
+                        '.dr-hp-tx-list[data-tx-mode="filtered"]'
+                    );
+                    const allEl = target.querySelector('.dr-hp-tx-list[data-tx-mode="all"]');
+                    if (!filteredEl || !allEl) return;
+                    const icon = btn.querySelector('i');
+                    if (btn.dataset.mode === 'filtered') {
+                        filteredEl.style.display = 'none';
+                        allEl.style.display = '';
+                        btn.dataset.mode = 'all';
+                        btn.title = 'Ẩn cặp tạo-hủy đơn triệt tiêu';
+                        if (icon) icon.className = 'fas fa-eye-slash';
+                    } else {
+                        filteredEl.style.display = '';
+                        allEl.style.display = 'none';
+                        btn.dataset.mode = 'filtered';
+                        btn.title = 'Xem toàn bộ giao dịch (kể cả cặp tạo-hủy đơn)';
+                        if (icon) icon.className = 'fas fa-eye';
+                    }
                 });
             });
         }

@@ -23,6 +23,50 @@
 
 ---
 
+## 2026-05-16
+
+### [customer-hub] Fix nạp ví luôn ghi `created_by = 'admin'`
+
+**User báo**: Trong ví khách hàng (Customer 360 → Hoạt động ví), mọi giao dịch Nạp tiền / Rút / Cấp công nợ ảo đều hiển thị "Duyệt bởi admin" dù user đăng nhập là người khác (vd "My").
+
+**Root cause**: `customer-hub/js/modules/wallet-panel.js::_getCurrentUser()` đọc `localStorage.getItem('n2shop_current_user')` rồi lấy `u.email || u.displayName`. Nhưng **không nơi nào trong codebase ghi key `n2shop_current_user`** — auth thật ở `loginindex_auth` (sessionStorage/localStorage) qua `window.authManager`. Kết quả: object rỗng → fallback `'admin'` → backend lưu `customer_activities.created_by = 'admin'` → UI render "Duyệt bởi admin".
+
+**Fix**: `_getCurrentUser()` ưu tiên `window.authManager?.getUserInfo()?.displayName || .username`; fallback đọc trực tiếp `loginindex_auth` (sessionStorage rồi localStorage); cuối cùng mới fallback `'admin'`.
+
+**Files**: `customer-hub/js/modules/wallet-panel.js`
+
+**Status**: ✅ Done. Cần test: đăng nhập user khác admin → vào Customer 360 → nạp ví → check activity log hiển thị đúng user.
+
+---
+
+### [delivery-report] Ẩn cặp WITHDRAW+HOÀN trong "Hoạt động khách hàng" + nút con mắt xem toàn bộ
+
+**User báo**:
+1. Trong modal chi tiết đơn ở Thống Kê Giao Hàng, section "HOẠT ĐỘNG KHÁCH HÀNG" hiển thị tất cả giao dịch — bao gồm cả các cặp `Thanh toán đơn (-100K)` + `HOÀN từ đơn hủy (+100K)` đã triệt tiêu nhau. Khi 1 khách tạo-hủy-tạo lại đơn nhiều lần (cùng giá), list bị rối với 4-6 dòng dù chỉ có 1-2 hoạt động ý nghĩa. customer-hub "Hoạt động ví" đã có logic ẩn các cặp này — cần đồng bộ.
+2. Thêm nút con mắt cạnh chữ "Hoạt động gần đây" để khi cần xem chi tiết TOÀN BỘ giao dịch (kể cả cặp đã ẩn) thì bấm để mở rộng.
+
+**Fix #1 — Ẩn cặp tạo+hoàn**:
+
+- `delivery-report/index.html`: thêm `<script src="../shared/js/wallet-pair-utils.js">` trước `delivery-report.js`.
+- `delivery-report/js/delivery-report.js` (`renderCustomer`): filter `data.recent_transactions` qua `window.WalletPairUtils.skipPairedCancelRefunds` — match `DEPOSIT(ORDER_CANCEL_REFUND)` với `WITHDRAW` trước đó cùng order ref + cùng amount → ẩn cả 2. Helper expect ASC, API trả DESC → reverse 2 lần. Fallback no-op nếu script chưa load.
+
+**Fix #2 — Nút con mắt toggle "xem toàn bộ"**:
+
+- `delivery-report/js/delivery-report.js`:
+    - Extract per-row HTML render → closure `buildTxRow(tx)` + `buildTxListHtml(list)` để dùng được cho cả 2 mode.
+    - Render đồng thời 2 list HTML: `[data-tx-mode="filtered"]` (default visible) và `[data-tx-mode="all"]` (hidden). Chỉ render list "all" khi thực sự có giao dịch bị ẩn (`rawTxs.length > txs.length`).
+    - Section title `Hoạt động gần đây` bọc trong flex container + thêm `<button class="dr-hp-toggle-all">` với icon `fa-eye`. Click → swap visibility filtered ↔ all + đổi icon `fa-eye-slash` + đổi tooltip.
+    - `txByUid` dùng `rawTxs` (không phải `txs`) để review button trong all-view cũng resolve được uid.
+    - Wire toggle handler trong `wirePopoverActions` (dùng `:not([data-bound])` guard giống các nút khác).
+
+**Tận dụng helper có sẵn**: `shared/js/wallet-pair-utils.js` (script-tag wrapper của `shared/browser/wallet-pair-utils.js` đã chạy production cho customer-hub) — không sửa logic pairing.
+
+**Files**: `delivery-report/index.html`, `delivery-report/js/delivery-report.js`
+
+**Status**: Done — chờ verify trong browser
+
+---
+
 ## 2026-05-15
 
 ### [orders] InventoryPicker "Chọn từ Kho SP" thiếu template không có active variant
