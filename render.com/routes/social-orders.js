@@ -270,6 +270,86 @@ router.get('/kpi-stats', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/social-orders/kpi-stats/orders
+ *
+ * Trả về danh sách đơn (drill-down) cho 1 nhân viên trong khoảng thời gian.
+ * Phục vụ KPI Đơn Inbox tab — hiển thị từng đơn nào được tính KPI.
+ *
+ * Query params:
+ *   - userId: created_by — required.
+ *   - from: timestamp ms (inclusive). Default: 30 ngày trước.
+ *   - to:   timestamp ms (inclusive). Default: now.
+ *   - includeAll: '1' = bao gồm status cancelled (mặc định loại).
+ *
+ * Response: { success, userId, count, orders: [{ id, stt, status, totalQuantity, totalAmount, kpi, createdAt }] }
+ */
+router.get('/kpi-stats/orders', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const userId = (req.query.userId || '').toString().trim();
+        if (!userId) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'userId is required' });
+        }
+
+        const KPI_PER_UNIT = 5000;
+        const now = Date.now();
+        const defaultFrom = now - 30 * 24 * 60 * 60 * 1000;
+        const fromMs = parseInt(req.query.from) || defaultFrom;
+        const toMs = parseInt(req.query.to) || now;
+        const includeCancelled = req.query.includeAll === '1';
+
+        const params = [userId, fromMs, toMs];
+        let whereClause =
+            'WHERE created_by = $1 AND created_at >= $2 AND created_at <= $3';
+        if (!includeCancelled) {
+            whereClause += " AND COALESCE(status, 'draft') <> 'cancelled'";
+        }
+
+        const result = await pool.query(
+            `SELECT id, stt, status,
+                    COALESCE(total_quantity, 0)::int AS total_quantity,
+                    COALESCE(total_amount, 0)::numeric AS total_amount,
+                    created_at
+             FROM social_orders
+             ${whereClause}
+             ORDER BY stt ASC NULLS LAST, created_at ASC`,
+            params
+        );
+
+        const orders = result.rows.map((row) => {
+            const qty = parseInt(row.total_quantity) || 0;
+            return {
+                id: row.id,
+                stt: row.stt,
+                status: row.status || 'draft',
+                totalQuantity: qty,
+                totalAmount: Number(row.total_amount) || 0,
+                kpi: qty * KPI_PER_UNIT,
+                createdAt: row.created_at ? Number(row.created_at) : null,
+            };
+        });
+
+        res.json({
+            success: true,
+            userId,
+            from: fromMs,
+            to: toMs,
+            kpiPerUnit: KPI_PER_UNIT,
+            count: orders.length,
+            orders,
+        });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] GET /kpi-stats/orders error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // =====================================================
 // ORDERS - CREATE / UPSERT
 // =====================================================

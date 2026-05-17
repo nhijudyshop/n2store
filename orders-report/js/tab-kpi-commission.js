@@ -472,8 +472,22 @@ const KPICommission = {
         return fallbackName || userId;
     },
 
+    // ----- Drill-down state -----
+    // Cache đơn theo userId, key bao gồm preset để invalidate khi đổi date range
+    _inboxOrdersCache: new Map(), // `${userId}|${preset}` → { orders, loadedAt }
+    _inboxOrdersInFlight: new Map(), // userId → Promise (tránh fetch trùng)
+    _inboxExpandedUsers: new Set(), // userId đang mở
+    _INBOX_STATUS_LABELS: {
+        draft: { label: 'Nháp', cls: 'is-draft' },
+        order: { label: 'Đơn hàng', cls: 'is-order' },
+        processing: { label: 'Đang xử lý', cls: 'is-processing' },
+        completed: { label: 'Hoàn thành', cls: 'is-completed' },
+        cancelled: { label: 'Đã hủy', cls: 'is-cancelled' },
+    },
+
     /**
      * Render inbox KPI leaderboard table + summary stats.
+     * Mỗi dòng NV expandable → drill-down list đơn của NV đó.
      */
     async renderInboxKpiView() {
         const tbody = document.getElementById('kpiInboxTableBody');
@@ -500,6 +514,9 @@ const KPICommission = {
         // Build sorted user list by KPI desc
         const users = Object.values(perUser).sort((a, b) => (b.totalKPI || 0) - (a.totalKPI || 0));
 
+        // Re-render reset trạng thái expand (tránh row index lệch sau khi sort khác)
+        this._inboxExpandedUsers = new Set();
+
         if (users.length === 0) {
             tbody.innerHTML = '';
             if (wrapper) wrapper.style.display = 'none';
@@ -509,24 +526,204 @@ const KPICommission = {
         if (wrapper) wrapper.style.display = '';
         if (empty) empty.style.display = 'none';
 
+        const COLS = 7; // 1 chevron + 6 data cols
         let html = '';
         users.forEach((u, idx) => {
             const displayName = this._resolveInboxUserName(u.userId, u.userName);
-            html += `<tr>
+            const uid = u.userId || '';
+            const safeUid = this.escapeHtml(uid);
+            html += `<tr class="kpi-inbox-user-row" data-user-id="${safeUid}">
+                <td class="col-inbox-expand">
+                    <button class="kpi-inbox-expand-btn" type="button"
+                        data-action="toggle-inbox-user" data-user-id="${safeUid}"
+                        aria-expanded="false" title="Xem chi tiết đơn">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </td>
                 <td>${idx + 1}</td>
                 <td>${this.escapeHtml(displayName)}</td>
                 <td>${(u.orderCount || 0).toLocaleString('vi-VN')}</td>
                 <td>${(u.totalQty || 0).toLocaleString('vi-VN')}</td>
                 <td>${this.formatCurrency(u.totalAmount || 0)}</td>
                 <td class="col-kpi-inbox has-inbox">${this.formatCurrency(u.totalKPI || 0)}</td>
+            </tr>
+            <tr class="kpi-inbox-details-row" data-user-id="${safeUid}" hidden>
+                <td colspan="${COLS}" class="kpi-inbox-details-cell">
+                    <div class="kpi-inbox-details-placeholder">
+                        <i data-lucide="loader-2" class="kpi-inbox-spin"></i>
+                        <span>Đang tải danh sách đơn...</span>
+                    </div>
+                </td>
             </tr>`;
         });
         tbody.innerHTML = html;
+        this._bindInboxExpandHandlers();
         this.reinitIcons();
     },
 
-    /** User click "Tải lại" trong inbox tab. */
+    /**
+     * Event delegation cho nút expand. Bind 1 lần lên tbody — re-render thay
+     * tbody.innerHTML nên cần bind lại sau mỗi render.
+     */
+    _bindInboxExpandHandlers() {
+        const tbody = document.getElementById('kpiInboxTableBody');
+        if (!tbody || tbody.__inboxExpandBound) return;
+        tbody.__inboxExpandBound = true;
+        tbody.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action="toggle-inbox-user"]');
+            if (!btn) return;
+            const uid = btn.dataset.userId;
+            if (!uid) return;
+            this.toggleInboxUserExpand(uid);
+        });
+    },
+
+    /** Toggle expand 1 user row + lazy-load đơn nếu chưa cache. */
+    async toggleInboxUserExpand(userId) {
+        const tbody = document.getElementById('kpiInboxTableBody');
+        if (!tbody) return;
+        const userRow = tbody.querySelector(
+            `tr.kpi-inbox-user-row[data-user-id="${CSS.escape(userId)}"]`
+        );
+        const detailRow = tbody.querySelector(
+            `tr.kpi-inbox-details-row[data-user-id="${CSS.escape(userId)}"]`
+        );
+        if (!userRow || !detailRow) return;
+        const btn = userRow.querySelector('[data-action="toggle-inbox-user"]');
+
+        const isOpen = this._inboxExpandedUsers.has(userId);
+        if (isOpen) {
+            this._inboxExpandedUsers.delete(userId);
+            detailRow.hidden = true;
+            userRow.classList.remove('is-expanded');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+            return;
+        }
+
+        this._inboxExpandedUsers.add(userId);
+        detailRow.hidden = false;
+        userRow.classList.add('is-expanded');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+
+        const cell = detailRow.querySelector('.kpi-inbox-details-cell');
+        if (!cell) return;
+
+        const cacheKey = `${userId}|${this._inboxSubtabPreset}`;
+        const cached = this._inboxOrdersCache.get(cacheKey);
+        if (cached && Array.isArray(cached.orders)) {
+            this._renderInboxUserOrders(cell, cached.orders);
+            return;
+        }
+
+        // Hiện spinner sẵn (đã render trong HTML)
+        try {
+            const orders = await this._loadInboxOrdersForUser(userId);
+            // User đã collapse trong lúc đợi → không render
+            if (!this._inboxExpandedUsers.has(userId)) return;
+            this._renderInboxUserOrders(cell, orders);
+        } catch (e) {
+            cell.innerHTML = `<div class="kpi-inbox-details-error">
+                <i data-lucide="alert-triangle"></i>
+                <span>Lỗi tải danh sách đơn: ${this.escapeHtml(e?.message || String(e))}</span>
+            </div>`;
+            this.reinitIcons();
+        }
+    },
+
+    /**
+     * Fetch danh sách đơn cho 1 user trong khoảng thời gian hiện tại của
+     * inbox subtab. Cache + dedupe in-flight.
+     */
+    async _loadInboxOrdersForUser(userId) {
+        const cacheKey = `${userId}|${this._inboxSubtabPreset}`;
+        const cached = this._inboxOrdersCache.get(cacheKey);
+        if (cached && Array.isArray(cached.orders)) return cached.orders;
+
+        if (this._inboxOrdersInFlight.has(cacheKey)) {
+            return this._inboxOrdersInFlight.get(cacheKey);
+        }
+
+        const range = this._resolveInboxDateRange(this._inboxSubtabPreset);
+        const params = new URLSearchParams();
+        params.set('userId', userId);
+        if (range) {
+            params.set('from', String(range.from));
+            params.set('to', String(range.to));
+        }
+        const WORKER =
+            window.API_CONFIG?.WORKER_URL ||
+            window.parent?.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const url = `${WORKER}/api/social-orders/kpi-stats/orders?${params.toString()}`;
+
+        const promise = (async () => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (!data?.success) {
+                throw new Error(data?.error || 'kpi-stats/orders failed');
+            }
+            const orders = Array.isArray(data.orders) ? data.orders : [];
+            this._inboxOrdersCache.set(cacheKey, { orders, loadedAt: Date.now() });
+            return orders;
+        })();
+
+        this._inboxOrdersInFlight.set(cacheKey, promise);
+        try {
+            return await promise;
+        } finally {
+            this._inboxOrdersInFlight.delete(cacheKey);
+        }
+    },
+
+    /** Render sub-table chi tiết đơn vào cell. */
+    _renderInboxUserOrders(cell, orders) {
+        if (!cell) return;
+        if (!orders || orders.length === 0) {
+            cell.innerHTML = `<div class="kpi-inbox-details-empty">
+                <i data-lucide="inbox"></i>
+                <span>Không có đơn nào.</span>
+            </div>`;
+            this.reinitIcons();
+            return;
+        }
+        const rows = orders
+            .map((o) => {
+                const cfg =
+                    this._INBOX_STATUS_LABELS[o.status] ||
+                    this._INBOX_STATUS_LABELS.draft;
+                const sttDisp =
+                    o.stt != null && o.stt !== '' ? Number(o.stt).toLocaleString('vi-VN') : '—';
+                return `<tr>
+                    <td class="col-num">${sttDisp}</td>
+                    <td class="col-id"><code>${this.escapeHtml(o.id || '—')}</code></td>
+                    <td class="col-num">${(o.totalQuantity || 0).toLocaleString('vi-VN')}</td>
+                    <td class="col-money">${this.formatCurrency(o.kpi || 0)}</td>
+                    <td><span class="kpi-inbox-status-badge ${cfg.cls}">${cfg.label}</span></td>
+                </tr>`;
+            })
+            .join('');
+        cell.innerHTML = `
+            <div class="kpi-inbox-details-wrap">
+                <table class="kpi-inbox-details-table">
+                    <thead>
+                        <tr>
+                            <th class="col-num">STT</th>
+                            <th>Số phiếu</th>
+                            <th class="col-num">SL Món</th>
+                            <th class="col-money">KPI</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+        this.reinitIcons();
+    },
+
+    /** User click "Tải lại" trong inbox tab — clear cache đơn để fetch lại. */
     refreshInboxKpi() {
+        this._inboxOrdersCache = new Map();
         return this.renderInboxKpiView();
     },
 

@@ -3110,6 +3110,157 @@ body {
     gap: 8px;
 }
 
+/* ----- Drill-down: expandable row + chi tiết đơn ----- */
+.kpi-inbox-leaderboard .col-inbox-expand {
+    width: 36px;
+    padding-left: 8px;
+    padding-right: 0;
+    text-align: center;
+}
+.kpi-inbox-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 6px;
+    color: #475569;
+    cursor: pointer;
+    transition: transform 0.18s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.kpi-inbox-expand-btn:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+.kpi-inbox-expand-btn i {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.18s ease;
+}
+.kpi-inbox-user-row.is-expanded .kpi-inbox-expand-btn {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #ffffff;
+}
+.kpi-inbox-user-row.is-expanded .kpi-inbox-expand-btn i {
+    transform: rotate(90deg);
+}
+.kpi-inbox-user-row {
+    cursor: default;
+}
+.kpi-inbox-user-row.is-expanded > td {
+    background: #f8fafc;
+}
+
+.kpi-inbox-details-row > td.kpi-inbox-details-cell {
+    background: #f8fafc;
+    padding: 8px 16px 14px 50px;
+    border-top: none;
+}
+.kpi-inbox-details-placeholder,
+.kpi-inbox-details-empty,
+.kpi-inbox-details-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    color: #64748b;
+    font-size: 13px;
+}
+.kpi-inbox-details-error {
+    color: #b91c1c;
+}
+.kpi-inbox-spin {
+    animation: kpi-inbox-spin 1s linear infinite;
+}
+@keyframes kpi-inbox-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.kpi-inbox-details-wrap {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.kpi-inbox-details-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.kpi-inbox-details-table thead th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+.kpi-inbox-details-table tbody td {
+    padding: 7px 12px;
+    border-top: 1px solid #f1f5f9;
+    color: #1e293b;
+    vertical-align: middle;
+}
+.kpi-inbox-details-table tbody tr:hover td {
+    background: #f8fafc;
+}
+.kpi-inbox-details-table .col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.kpi-inbox-details-table .col-money {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #4338ca;
+}
+.kpi-inbox-details-table code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #334155;
+}
+.kpi-inbox-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.kpi-inbox-status-badge.is-draft {
+    background: #fef3c7;
+    color: #92400e;
+}
+.kpi-inbox-status-badge.is-order {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+.kpi-inbox-status-badge.is-processing {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.kpi-inbox-status-badge.is-completed {
+    background: #d1fae5;
+    color: #065f46;
+}
+.kpi-inbox-status-badge.is-cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
 /* ============================================================
    CHECK HISTORY VIEW — Lịch sử kiểm tra (chia sẻ với delivery-report)
    ============================================================ */

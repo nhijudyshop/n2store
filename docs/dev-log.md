@@ -25,6 +25,40 @@
 
 ## 2026-05-17
 
+### [orders-report][render] KPI Đơn Inbox: drill-down chi tiết đơn theo NV
+
+**User feedback**: "kpi đơn inbox không ghi rõ là đơn nào à? làm chi tiết giúp tôi" — leaderboard chỉ aggregate, không drill xuống đơn cụ thể.
+
+**Backend** ([render.com/routes/social-orders.js](../render.com/routes/social-orders.js)):
+- Thêm route `GET /api/social-orders/kpi-stats/orders?userId=&from=&to=&includeAll=` → trả `{ success, count, orders: [{ id, stt, status, totalQuantity, totalAmount, kpi, createdAt }] }`.
+- Order list filter theo `created_by`, ORDER BY `stt ASC NULLS LAST, created_at ASC` → đồng bộ với thứ tự hiển thị don-inbox.
+- Worker `/api/social-orders/*` wildcard auto-proxy → không cần thay đổi Worker.
+
+**Frontend**:
+- [orders-report/tab-kpi-commission.html](../orders-report/tab-kpi-commission.html): thêm cột `col-inbox-expand` (chevron) bên trái leaderboard.
+- [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js):
+    - State mới: `_inboxOrdersCache` (key `userId|preset` để invalidate theo date range), `_inboxOrdersInFlight` (dedupe fetch), `_inboxExpandedUsers`, `_INBOX_STATUS_LABELS`.
+    - `renderInboxKpiView` render mỗi NV 2 dòng: row chính + row details (hidden) với placeholder spinner.
+    - `_bindInboxExpandHandlers` event delegation lên tbody (idempotent qua flag `__inboxExpandBound`).
+    - `toggleInboxUserExpand(userId)`: lazy-load đơn khi mở, dùng cache nếu có; collapse trong lúc fetch → skip render.
+    - `_loadInboxOrdersForUser`: gọi endpoint mới, dedupe in-flight promise, cache theo `userId|preset`.
+    - `_renderInboxUserOrders`: sub-table 5 cột — STT (don-inbox), Số phiếu (id SO-xxx), SL Món, KPI (qty×5.000đ), Trạng thái (badge theo STATUS_CONFIG).
+    - `refreshInboxKpi` clear cache đơn để fetch lại sạch.
+- [orders-report/css/tab-kpi-commission.css](../orders-report/css/tab-kpi-commission.css): chevron button rotate 90° khi expand, row.is-expanded bg `#f8fafc`, sub-row 50px indent, sub-table inset card, status badges (draft/order/processing/completed/cancelled) đồng bộ palette với `tab-social-core.js`.
+
+**Smoke test localhost**:
+- Render 3 user rows (Admin/My/Bo) + 3 hidden details rows ✓
+- Click chevron → row expand, `is-expanded` class apply, chevron quay 90° (purple bg) ✓
+- Fetch fail gracefully khi endpoint chưa deploy (HTTP 404) → error UI render đúng với alert-triangle ✓
+- Click lại → collapse, hidden=true ✓
+- Screenshot: [downloads/n2store-session/kpi-inbox-expanded-error.png](../downloads/n2store-session/kpi-inbox-expanded-error.png)
+
+**Cần deploy sau commit**: Render auto-deploy từ main. Sau ~2-4 phút endpoint `/kpi-stats/orders` live → drill-down hoạt động end-to-end.
+
+**Status**: ✅ Done — chờ Render deploy verify online.
+
+---
+
 ### [orders-report] KPI strip: SSE 'kpi_base' channel thay polling + custom event
 
 **User feedback**: "Tại sao polling + custom event mà không dùng SSE Render có sẵn?". Đúng — Render đã có SSE channel `kpi_base` (docs/render/render.md:693), không cần polling.
