@@ -17,7 +17,7 @@
         <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260515a" />
         <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260515b" />
         <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260515a" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260515a" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260517a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -249,9 +249,9 @@
                         </div>
                     </div>
 
-                    <!-- Product table -->
+                    <!-- Product table — multi-row, rows injected dynamically -->
                     <div class="so-modal-table-wrap">
-                        <table class="so-modal-table">
+                        <table class="so-modal-table" id="soModalProductsTable">
                             <thead>
                                 <tr>
                                     <th class="so-th-stt">STT</th>
@@ -269,116 +269,23 @@
                                     <th class="so-th-money so-th-total">Thành tiền</th>
                                     <th class="so-th-img">Hình ảnh sản phẩm</th>
                                     <th class="so-th-img">Hình ảnh hóa đơn</th>
+                                    <th class="so-th-row-actions"></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr class="so-modal-row">
-                                    <td class="so-td-stt">1</td>
-                                    <td class="so-td-product">
-                                        <input
-                                            type="text"
-                                            name="productName"
-                                            required
-                                            placeholder="VD: 2003 B5 SET ÁO DÀI"
-                                            class="so-input-v2"
-                                        />
-                                    </td>
-                                    <td class="so-td-variant">
-                                        <input
-                                            type="text"
-                                            name="variant"
-                                            placeholder="Size, màu…"
-                                            class="so-input-v2"
-                                        />
-                                    </td>
-                                    <td class="so-td-qty">
-                                        <input
-                                            type="number"
-                                            name="qty"
-                                            min="0"
-                                            value="1"
-                                            required
-                                            class="so-input-v2 so-input-num"
-                                        />
-                                    </td>
-                                    <td class="so-td-money">
-                                        <input
-                                            type="number"
-                                            name="costPrice"
-                                            min="0"
-                                            step="any"
-                                            value="0"
-                                            class="so-input-v2 so-input-num so-input-money"
-                                        />
-                                    </td>
-                                    <td class="so-td-money">
-                                        <input
-                                            type="number"
-                                            name="sellPrice"
-                                            min="0"
-                                            step="any"
-                                            value="0"
-                                            class="so-input-v2 so-input-num so-input-money"
-                                        />
-                                    </td>
-                                    <td class="so-td-money so-td-total">
-                                        <span id="soRowThanhTien">0₫</span>
-                                    </td>
-                                    <td class="so-td-img">
-                                        <div class="so-img-cell-v2" tabindex="0">
-                                            <div class="so-img-cell-hint">
-                                                <i data-lucide="image"></i>
-                                                <span>Ctrl+V / Kéo thả</span>
-                                            </div>
-                                            <input
-                                                type="url"
-                                                name="productImage"
-                                                placeholder="hoặc dán URL"
-                                                class="so-input-v2 so-input-mini so-input-url"
-                                            />
-                                            <button
-                                                type="button"
-                                                class="so-img-upload-btn"
-                                                data-upload="productImage"
-                                                title="Tải ảnh từ máy"
-                                            >
-                                                <i data-lucide="upload"></i>
-                                            </button>
-                                        </div>
-                                        <div
-                                            class="so-img-preview"
-                                            data-preview-for="productImage"
-                                        ></div>
-                                    </td>
-                                    <td class="so-td-img">
-                                        <div class="so-img-cell-v2" tabindex="0">
-                                            <div class="so-img-cell-hint">
-                                                <i data-lucide="image"></i>
-                                                <span>Ctrl+V / Kéo thả</span>
-                                            </div>
-                                            <input
-                                                type="url"
-                                                name="invoiceImage"
-                                                placeholder="hoặc dán URL"
-                                                class="so-input-v2 so-input-mini so-input-url"
-                                            />
-                                            <button
-                                                type="button"
-                                                class="so-img-upload-btn"
-                                                data-upload="invoiceImage"
-                                                title="Tải ảnh từ máy"
-                                            >
-                                                <i data-lucide="upload"></i>
-                                            </button>
-                                        </div>
-                                        <div
-                                            class="so-img-preview"
-                                            data-preview-for="invoiceImage"
-                                        ></div>
-                                    </td>
-                                </tr>
+                            <tbody id="soModalProductsBody">
+                                <!-- rows injected by JS via renderModalRows() -->
                             </tbody>
                         </table>
+                        <div class="so-modal-add-row-wrap" id="soModalAddRowWrap">
+                            <button
+                                type="button"
+                                class="btn-secondary so-modal-add-row-btn"
+                                id="soModalAddRowBtn"
+                            >
+                                <i data-lucide="plus-circle"></i>
+                                Thêm sản phẩm
+                            </button>
+                        </div>
                     </div>
                 </form>
                 <footer class="so-modal-foot-v2">
@@ -483,7 +390,9 @@
             );
         </script>
 
-        <script src="js/so-order-storage.js?v=20260515a"></script>
-        <script src="js/so-order-app.js?v=20260515a"></script>
+        <script src="../web2-products/js/web2-products-api.js?v=20260517a"></script>
+        <script src="../web2-shared/web2-products-cache.js?v=20260517a"></script>
+        <script src="js/so-order-storage.js?v=20260517a"></script>
+        <script src="js/so-order-app.js?v=20260517a"></script>
     </body>
 </html>

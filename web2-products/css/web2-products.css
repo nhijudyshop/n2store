@@ -18,13 +18,18 @@
     justify-content: center;
     color: var(--gray-400);
 }
-.product-image-placeholder i { width: 22px; height: 22px; }
+.product-image-placeholder i {
+    width: 22px;
+    height: 22px;
+}
 
 .code-badge.code-product {
     background: #fef3c7;
     color: #92400e;
 }
-.code-badge.code-product:hover { border-color: var(--warning); }
+.code-badge.code-product:hover {
+    border-color: var(--warning);
+}
 
 .price-cell {
     font-weight: 700;
@@ -37,8 +42,12 @@
     color: var(--gray-700);
     text-align: center;
 }
-.stock-cell.low { color: var(--warning); }
-.stock-cell.zero { color: var(--danger); }
+.stock-cell.low {
+    color: var(--warning);
+}
+.stock-cell.zero {
+    color: var(--danger);
+}
 
 .active-badge {
     display: inline-flex;
@@ -50,14 +59,43 @@
     font-weight: 700;
     white-space: nowrap;
 }
-.active-badge i { width: 11px; height: 11px; }
-.active-yes { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-.active-no  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.active-badge i {
+    width: 11px;
+    height: 11px;
+}
+.active-yes {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+.active-no {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
 
 .field-row-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+.field-row-grid-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Page-head primary action — "+ Thêm SP" moved into header */
+.page-head-action {
+    margin-left: 8px;
+}
+
+/* GIÁ MUA dimmer to set hierarchy vs GIÁ BÁN */
+.price-cell.price-buy {
+    color: var(--gray-600);
+    font-weight: 600;
+}
+.price-cell.price-sell {
+    color: var(--gray-900);
+    font-weight: 700;
 }
 
 .image-preview {

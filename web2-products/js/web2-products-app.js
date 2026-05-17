@@ -42,7 +42,7 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="9" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="10" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
             return;
@@ -56,13 +56,16 @@
                       `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
                     : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
                 const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
+                const priceBuy = Number(p.originalPrice) || 0;
+                const priceSell = Number(p.price) || 0;
                 return `
                 <tr data-code="${escapeHtml(p.code)}">
                     <td>${n}</td>
                     <td>${imgHtml}</td>
                     <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(p.code)}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
                     <td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>
-                    <td class="price-cell">${fmtPrice(p.price)}</td>
+                    <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>
+                    <td class="price-cell price-sell">${fmtPrice(priceSell)}</td>
                     <td class="stock-cell ${stockClass}">${p.stock ?? 0}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
@@ -120,15 +123,17 @@
 
     function renderCounters() {
         const t = STATE.total.toLocaleString('vi-VN');
-        counter().textContent = `${t} sản phẩm`;
-        searchCount().textContent = t;
+        const c = counter();
+        if (c) c.textContent = `${t} sản phẩm`;
+        const sc = searchCount();
+        if (sc) sc.textContent = t;
     }
 
     // ---------- Data load ----------
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="9" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="10" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -145,7 +150,7 @@
             renderCounters();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="9" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="10" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -180,7 +185,8 @@
         $('#pmCode').value = '';
         $('#pmCode').disabled = false;
         $('#pmName').value = '';
-        $('#pmPrice').value = 0;
+        $('#pmPriceBuy').value = 0;
+        $('#pmPriceSell').value = 0;
         $('#pmStock').value = 0;
         $('#pmImage').value = '';
         $('#pmNote').value = '';
@@ -199,7 +205,8 @@
         $('#pmCode').value = p.code;
         $('#pmCode').disabled = true;
         $('#pmName').value = p.name || '';
-        $('#pmPrice').value = p.price || 0;
+        $('#pmPriceBuy').value = p.originalPrice || 0;
+        $('#pmPriceSell').value = p.price || 0;
         $('#pmStock').value = p.stock ?? 0;
         $('#pmImage').value = p.imageUrl || '';
         $('#pmNote').value = p.note || '';
@@ -229,7 +236,8 @@
         const fields = {
             code: $('#pmCode').value.trim(),
             name: $('#pmName').value.trim(),
-            price: Number($('#pmPrice').value) || 0,
+            price: Number($('#pmPriceSell').value) || 0,
+            originalPrice: Number($('#pmPriceBuy').value) || 0,
             stock: Number($('#pmStock').value) || 0,
             imageUrl: $('#pmImage').value.trim() || null,
             note: $('#pmNote').value.trim() || null,
@@ -243,6 +251,7 @@
                 const resp = await window.Web2ProductsApi.update(STATE.editingCode, {
                     name: fields.name,
                     price: fields.price,
+                    originalPrice: fields.originalPrice,
                     stock: fields.stock,
                     imageUrl: fields.imageUrl,
                     note: fields.note,
@@ -251,12 +260,17 @@
                 const idx = STATE.products.findIndex((x) => x.code === STATE.editingCode);
                 if (idx !== -1 && resp.product) STATE.products[idx] = resp.product;
                 notify('Đã lưu', 'success');
+                window.Web2ProductsCache?.pushTickle?.({
+                    action: 'update',
+                    code: STATE.editingCode,
+                });
             } else {
                 await window.Web2ProductsApi.create({
                     ...fields,
                     createdBy: user.uid || user.email || null,
                 });
                 notify(`Đã tạo SP ${fields.code}`, 'success');
+                window.Web2ProductsCache?.pushTickle?.({ action: 'create', code: fields.code });
                 load(); // reload to include new item at top
                 closeModal();
                 return;
@@ -275,6 +289,7 @@
             if (idx !== -1 && resp.product) STATE.products[idx] = resp.product;
             renderRows();
             notify(newState ? 'Đã bật bán' : 'Đã tạm dừng', 'success');
+            window.Web2ProductsCache?.pushTickle?.({ action: 'update', code });
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
         }
@@ -298,6 +313,7 @@
             renderPagination();
             renderCounters();
             notify(`Đã xóa ${code}`, 'success');
+            window.Web2ProductsCache?.pushTickle?.({ action: 'delete', code });
         } catch (e) {
             notify('Lỗi xóa: ' + e.message, 'error');
         }
@@ -318,9 +334,6 @@
     // ---------- Init ----------
     function init() {
         if (window.lucide) lucide.createIcons();
-        $('#btnApplyFilter')?.addEventListener('click', applyFilters);
-        $('#btnClearFilter')?.addEventListener('click', clearFilters);
-        $('#btnRefresh')?.addEventListener('click', load);
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
         $('#filterSearch')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') applyFilters();
@@ -334,6 +347,7 @@
                 load();
             }
         });
+        // Live filter — chips change áp dụng ngay, search input cũng auto khi Enter.
         $('#filterActive')?.addEventListener('change', applyFilters);
         $('#filterLimit')?.addEventListener('change', applyFilters);
 
@@ -351,6 +365,16 @@
         $('#pmImage')?.addEventListener('input', (e) => updateImagePreview(e.target.value.trim()));
 
         load();
+
+        // Realtime cross-machine sync via Firestore tickler. Khi máy khác
+        // (hoặc tab khác) thay đổi kho SP, ta auto reload list.
+        if (window.Web2ProductsCache) {
+            window.Web2ProductsCache.init().then(() => {
+                window.Web2ProductsCache.subscribe((reason) => {
+                    if (reason === 'tickle' || reason === 'refresh') load();
+                });
+            });
+        }
     }
 
     window.Web2ProductsApp = { openEdit, toggleActive, remove, copyCode, goPage };

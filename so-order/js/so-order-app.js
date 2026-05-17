@@ -31,6 +31,14 @@
     let editingRowId = null;
     let editingShipmentId = null;
     let editingTabId = null;
+    // Multi-row modal state. Each entry is { uid, productName, variant, qty,
+    // costPrice, sellPrice, productImage, invoiceImage, matchedCode }.
+    // `matchedCode` is set when the user picks a suggestion or the typed
+    // name exactly matches an existing kho SP.
+    let modalRows = [];
+    let modalRowCounter = 0;
+    let modalMode = 'create'; // 'create' (multi-row) | 'edit' (single-row)
+    let activeSuggestUid = null;
 
     // ---------- helpers ----------
 
@@ -381,16 +389,469 @@
 
     // ---------- modals ----------
 
+    // ---------- modal multi-row helpers ----------
+
+    function _newModalRow(prefill = {}) {
+        modalRowCounter += 1;
+        return {
+            uid: 'r' + modalRowCounter + '-' + Math.random().toString(36).slice(2, 7),
+            productName: prefill.productName || '',
+            variant: prefill.variant || '',
+            qty: Number.isFinite(Number(prefill.qty)) ? Number(prefill.qty) : 1,
+            costPrice: Number(prefill.costPrice) || 0,
+            sellPrice: Number(prefill.sellPrice) || 0,
+            productImage: prefill.productImage || '',
+            invoiceImage: prefill.invoiceImage || '',
+            matchedCode: prefill.matchedCode || null,
+        };
+    }
+
+    function modalRowHtml(row, idx, total) {
+        const matched = row.matchedCode
+            ? window.Web2ProductsCache?.findByCode?.(row.matchedCode) || null
+            : window.Web2ProductsCache?.findByNameExact?.(row.productName) || null;
+        const stockText = matched
+            ? `<span class="so-row-stock ${(matched.stock || 0) <= 0 ? 'is-zero' : (matched.stock || 0) < 5 ? 'is-low' : ''}">
+                   <i data-lucide="package-check"></i> Tồn: <strong>${matched.stock ?? 0}</strong>
+               </span>`
+            : '';
+        const badge = matched
+            ? `<span class="so-row-kho-badge" title="Đã có trong Kho SP Web 2.0 — mã ${escapeHtml(matched.code)}">
+                   <i data-lucide="check-circle-2"></i> Đã có ở kho
+               </span>`
+            : `<span class="so-row-kho-badge so-row-kho-new" title="Sẽ tự thêm vào Kho SP Web 2.0 khi lưu">
+                   <i data-lucide="plus-circle"></i> SP mới
+               </span>`;
+        const delBtnHtml =
+            modalMode === 'create' && total > 1
+                ? `<button type="button" class="so-action-btn so-row-del" data-action="remove-row" data-uid="${row.uid}" title="Xóa dòng">
+                       <i data-lucide="x"></i>
+                   </button>`
+                : '';
+        return `
+        <tr class="so-modal-row" data-uid="${row.uid}">
+            <td class="so-td-stt">${idx + 1}</td>
+            <td class="so-td-product">
+                <div class="so-product-input-wrap">
+                    <input
+                        type="text"
+                        data-field="productName"
+                        data-uid="${row.uid}"
+                        required
+                        placeholder="VD: 2003 B5 SET ÁO DÀI"
+                        class="so-input-v2 so-input-product-name"
+                        autocomplete="off"
+                        value="${escapeHtml(row.productName)}"
+                    />
+                    <div class="so-row-meta">
+                        ${badge}
+                        ${stockText}
+                    </div>
+                    <div class="so-suggest-dropdown" data-suggest-for="${row.uid}" hidden></div>
+                </div>
+            </td>
+            <td class="so-td-variant">
+                <input
+                    type="text"
+                    data-field="variant"
+                    data-uid="${row.uid}"
+                    placeholder="Size, màu…"
+                    class="so-input-v2"
+                    value="${escapeHtml(row.variant)}"
+                />
+            </td>
+            <td class="so-td-qty">
+                <input
+                    type="number"
+                    data-field="qty"
+                    data-uid="${row.uid}"
+                    min="0"
+                    value="${row.qty}"
+                    required
+                    class="so-input-v2 so-input-num"
+                />
+            </td>
+            <td class="so-td-money">
+                <input
+                    type="number"
+                    data-field="costPrice"
+                    data-uid="${row.uid}"
+                    min="0"
+                    step="any"
+                    value="${row.costPrice}"
+                    class="so-input-v2 so-input-num so-input-money"
+                />
+            </td>
+            <td class="so-td-money">
+                <input
+                    type="number"
+                    data-field="sellPrice"
+                    data-uid="${row.uid}"
+                    min="0"
+                    step="any"
+                    value="${row.sellPrice}"
+                    class="so-input-v2 so-input-num so-input-money"
+                />
+            </td>
+            <td class="so-td-money so-td-total">
+                <span data-total-for="${row.uid}">0₫</span>
+            </td>
+            <td class="so-td-img">
+                <div class="so-img-cell-v2" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="productImage">
+                    <div class="so-img-cell-hint">
+                        <i data-lucide="image"></i>
+                        <span>Ctrl+V / Kéo thả</span>
+                    </div>
+                    <input
+                        type="url"
+                        data-field="productImage"
+                        data-uid="${row.uid}"
+                        placeholder="hoặc dán URL"
+                        class="so-input-v2 so-input-mini so-input-url"
+                        value="${escapeHtml(row.productImage)}"
+                    />
+                    <button type="button" class="so-img-upload-btn" data-upload-uid="${row.uid}" data-img-name="productImage" title="Tải ảnh từ máy">
+                        <i data-lucide="upload"></i>
+                    </button>
+                </div>
+                <div class="so-img-preview" data-preview-uid="${row.uid}" data-img-name="productImage">${
+                    row.productImage ? `<img src="${escapeHtml(row.productImage)}" alt="" />` : ''
+                }</div>
+            </td>
+            <td class="so-td-img">
+                <div class="so-img-cell-v2" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="invoiceImage">
+                    <div class="so-img-cell-hint">
+                        <i data-lucide="image"></i>
+                        <span>Ctrl+V / Kéo thả</span>
+                    </div>
+                    <input
+                        type="url"
+                        data-field="invoiceImage"
+                        data-uid="${row.uid}"
+                        placeholder="hoặc dán URL"
+                        class="so-input-v2 so-input-mini so-input-url"
+                        value="${escapeHtml(row.invoiceImage)}"
+                    />
+                    <button type="button" class="so-img-upload-btn" data-upload-uid="${row.uid}" data-img-name="invoiceImage" title="Tải ảnh từ máy">
+                        <i data-lucide="upload"></i>
+                    </button>
+                </div>
+                <div class="so-img-preview" data-preview-uid="${row.uid}" data-img-name="invoiceImage">${
+                    row.invoiceImage ? `<img src="${escapeHtml(row.invoiceImage)}" alt="" />` : ''
+                }</div>
+            </td>
+            <td class="so-td-row-actions">${delBtnHtml}</td>
+        </tr>`;
+    }
+
+    function renderModalRows() {
+        const tbody = document.getElementById('soModalProductsBody');
+        if (!tbody) return;
+        tbody.innerHTML = modalRows.map((r, i) => modalRowHtml(r, i, modalRows.length)).join('');
+        // Show + button only in create mode
+        const addWrap = document.getElementById('soModalAddRowWrap');
+        if (addWrap) addWrap.hidden = modalMode !== 'create';
+        wireModalRowInputs();
+        wireModalImagePasteDrop();
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        updateModalTotals();
+    }
+
+    function wireModalRowInputs() {
+        const tbody = document.getElementById('soModalProductsBody');
+        if (!tbody) return;
+        // Generic field input listener — update modalRows + re-render targeted bits.
+        tbody.querySelectorAll('input[data-field]').forEach((input) => {
+            input.addEventListener('input', onModalRowFieldInput);
+            input.addEventListener('change', onModalRowFieldInput);
+        });
+        // Product name dropdown trigger
+        tbody.querySelectorAll('input[data-field="productName"]').forEach((input) => {
+            input.addEventListener('focus', () => {
+                activeSuggestUid = input.dataset.uid;
+                showSuggest(input.dataset.uid, input.value);
+            });
+            input.addEventListener('input', () => {
+                activeSuggestUid = input.dataset.uid;
+                showSuggest(input.dataset.uid, input.value);
+            });
+            input.addEventListener('blur', () => {
+                // Delay so click on suggestion item registers first
+                setTimeout(() => {
+                    if (activeSuggestUid === input.dataset.uid) hideSuggest(input.dataset.uid);
+                }, 180);
+            });
+        });
+        // + Thêm SP
+        const addBtn = document.getElementById('soModalAddRowBtn');
+        if (addBtn) {
+            addBtn.onclick = () => {
+                modalRows.push(_newModalRow());
+                renderModalRows();
+            };
+        }
+        // Delete row + image upload via event delegation
+        tbody.querySelectorAll('[data-action="remove-row"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const uid = btn.dataset.uid;
+                modalRows = modalRows.filter((r) => r.uid !== uid);
+                if (!modalRows.length) modalRows.push(_newModalRow());
+                renderModalRows();
+            });
+        });
+        tbody.querySelectorAll('[data-upload-uid]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const uid = btn.dataset.uploadUid;
+                const name = btn.dataset.imgName;
+                pickImageForRow(uid, name);
+            });
+        });
+    }
+
+    function onModalRowFieldInput(e) {
+        const input = e.currentTarget;
+        const uid = input.dataset.uid;
+        const field = input.dataset.field;
+        const row = modalRows.find((r) => r.uid === uid);
+        if (!row) return;
+        const v = input.value;
+        if (field === 'qty' || field === 'costPrice' || field === 'sellPrice') {
+            row[field] = Number(v) || 0;
+        } else {
+            row[field] = v;
+        }
+        if (field === 'productName') {
+            // Clear matched code if the typed text no longer matches.
+            const match =
+                window.Web2ProductsCache?.findByNameExact?.(v) ||
+                (row.matchedCode && window.Web2ProductsCache?.findByCode?.(row.matchedCode));
+            row.matchedCode = match?.code || null;
+            // Refresh meta inline without rebuilding entire row (to keep focus).
+            updateRowMeta(uid);
+        }
+        if (field === 'productImage' || field === 'invoiceImage') {
+            updateRowImagePreview(uid, field, v);
+        }
+        if (field === 'qty' || field === 'sellPrice') {
+            updateRowTotal(uid);
+            updateModalGrandTotals();
+        }
+    }
+
+    function updateRowMeta(uid) {
+        const row = modalRows.find((r) => r.uid === uid);
+        if (!row) return;
+        const tr = document
+            .getElementById('soModalProductsBody')
+            ?.querySelector(`tr[data-uid="${uid}"]`);
+        if (!tr) return;
+        const metaEl = tr.querySelector('.so-row-meta');
+        if (!metaEl) return;
+        const matched =
+            (row.matchedCode && window.Web2ProductsCache?.findByCode?.(row.matchedCode)) ||
+            window.Web2ProductsCache?.findByNameExact?.(row.productName) ||
+            null;
+        row.matchedCode = matched?.code || null;
+        const stockText = matched
+            ? `<span class="so-row-stock ${(matched.stock || 0) <= 0 ? 'is-zero' : (matched.stock || 0) < 5 ? 'is-low' : ''}">
+                   <i data-lucide="package-check"></i> Tồn: <strong>${matched.stock ?? 0}</strong>
+               </span>`
+            : '';
+        const badge = matched
+            ? `<span class="so-row-kho-badge" title="Đã có trong Kho SP Web 2.0 — mã ${escapeHtml(matched.code)}">
+                   <i data-lucide="check-circle-2"></i> Đã có ở kho
+               </span>`
+            : `<span class="so-row-kho-badge so-row-kho-new" title="Sẽ tự thêm vào Kho SP Web 2.0 khi lưu">
+                   <i data-lucide="plus-circle"></i> SP mới
+               </span>`;
+        metaEl.innerHTML = badge + stockText;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function updateRowImagePreview(uid, name, url) {
+        const el = document.querySelector(`[data-preview-uid="${uid}"][data-img-name="${name}"]`);
+        if (!el) return;
+        el.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="" />` : '';
+    }
+
+    function updateRowTotal(uid) {
+        const row = modalRows.find((r) => r.uid === uid);
+        if (!row) return;
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const subtotal = (Number(row.qty) || 0) * (Number(row.sellPrice) || 0);
+        const el = document.querySelector(`[data-total-for="${uid}"]`);
+        if (el) el.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
+    }
+
+    function showSuggest(uid, query) {
+        const list = document.querySelector(`.so-suggest-dropdown[data-suggest-for="${uid}"]`);
+        if (!list) return;
+        const cache = window.Web2ProductsCache;
+        if (!cache) return;
+        const q = (query || '').trim();
+        // Chỉ gợi ý khi user đã gõ ≥ 1 ký tự — tránh popup mặc định khi focus.
+        if (!q) {
+            list.hidden = true;
+            list.innerHTML = '';
+            return;
+        }
+        const items = cache.findByName(q, 8);
+        if (!items.length) {
+            list.hidden = true;
+            list.innerHTML = '';
+            return;
+        }
+        list.innerHTML = items
+            .map((p) => {
+                const img = p.imageUrl
+                    ? `<img src="${escapeHtml(p.imageUrl)}" alt="" />`
+                    : `<span class="so-suggest-img-placeholder"><i data-lucide="image"></i></span>`;
+                return `<button type="button" class="so-suggest-item" data-suggest-code="${escapeHtml(p.code)}" data-suggest-uid="${uid}">
+                    <div class="so-suggest-img">${img}</div>
+                    <div class="so-suggest-text">
+                        <div class="so-suggest-name">${escapeHtml(p.name)}</div>
+                        <div class="so-suggest-sub">
+                            <span class="so-suggest-code">${escapeHtml(p.code)}</span>
+                            <span class="so-suggest-stock">Tồn: ${p.stock ?? 0}</span>
+                            <span class="so-suggest-price">${fmtVnd(p.price || 0)}</span>
+                        </div>
+                    </div>
+                </button>`;
+            })
+            .join('');
+        list.hidden = false;
+        list.querySelectorAll('.so-suggest-item').forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep input focus
+            btn.addEventListener('click', () => {
+                const code = btn.dataset.suggestCode;
+                applySuggestionToRow(uid, code);
+                hideSuggest(uid);
+            });
+        });
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function hideSuggest(uid) {
+        const list = document.querySelector(`.so-suggest-dropdown[data-suggest-for="${uid}"]`);
+        if (list) {
+            list.hidden = true;
+            list.innerHTML = '';
+        }
+    }
+
+    function applySuggestionToRow(uid, code) {
+        const p = window.Web2ProductsCache?.findByCode?.(code);
+        if (!p) return;
+        const row = modalRows.find((r) => r.uid === uid);
+        if (!row) return;
+        row.productName = p.name || '';
+        row.matchedCode = p.code;
+        // Map giá mua → costPrice; giá bán → sellPrice (VND values). When the
+        // active tab is not VND, we leave the prices as-is so the user can
+        // convert manually — kho SP lưu VNĐ, tab có thể là CNY.
+        if (Number(p.originalPrice)) row.costPrice = Number(p.originalPrice);
+        if (Number(p.price)) row.sellPrice = Number(p.price);
+        if (p.imageUrl && !row.productImage) row.productImage = p.imageUrl;
+        renderModalRows();
+        // Re-focus name input after rerender
+        setTimeout(() => {
+            const inp = document.querySelector(
+                `#soModalProductsBody input[data-field="productName"][data-uid="${uid}"]`
+            );
+            if (inp) inp.focus();
+        }, 30);
+    }
+
+    function pickImageForRow(uid, name) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async () => {
+            const f = input.files?.[0];
+            if (!f) return;
+            if (f.size > 2 * 1024 * 1024) {
+                notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
+            }
+            const dataUrl = await fileToDataUrl(f);
+            const row = modalRows.find((r) => r.uid === uid);
+            if (!row) return;
+            row[name] = dataUrl;
+            const formInput = document.querySelector(
+                `#soModalProductsBody input[data-field="${name}"][data-uid="${uid}"]`
+            );
+            if (formInput) formInput.value = dataUrl;
+            updateRowImagePreview(uid, name, dataUrl);
+        };
+        input.click();
+    }
+
+    function wireModalImagePasteDrop() {
+        const cells = document.querySelectorAll('#soModalProductsBody [data-img-cell]');
+        cells.forEach((cell) => {
+            const uid = cell.dataset.uid;
+            const name = cell.dataset.imgName;
+            if (!uid || !name) return;
+            cell.addEventListener('click', (e) => {
+                if (e.target === cell || e.target.classList.contains('so-img-cell-hint')) {
+                    cell.focus();
+                }
+            });
+            cell.addEventListener('paste', async (e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (const it of items) {
+                    if (it.kind === 'file' && it.type.startsWith('image/')) {
+                        e.preventDefault();
+                        const file = it.getAsFile();
+                        await applyDroppedImage(uid, name, file);
+                        return;
+                    }
+                }
+            });
+            cell.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                cell.classList.add('is-dragover');
+            });
+            cell.addEventListener('dragleave', () => cell.classList.remove('is-dragover'));
+            cell.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                cell.classList.remove('is-dragover');
+                const file = e.dataTransfer?.files?.[0];
+                if (file) await applyDroppedImage(uid, name, file);
+            });
+        });
+    }
+
+    async function applyDroppedImage(uid, name, file) {
+        if (!file) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+            notify('File không phải là ảnh', 'warning');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
+        }
+        const dataUrl = await fileToDataUrl(file);
+        const row = modalRows.find((r) => r.uid === uid);
+        if (!row) return;
+        row[name] = dataUrl;
+        const formInput = document.querySelector(
+            `#soModalProductsBody input[data-field="${name}"][data-uid="${uid}"]`
+        );
+        if (formInput) formInput.value = dataUrl;
+        updateRowImagePreview(uid, name, dataUrl);
+    }
+
     function openOrderModal(rowId, shipmentId) {
         const tab = window.SoOrderStorage.getActiveTab(state);
         editingRowId = rowId || null;
         editingShipmentId = shipmentId || null;
         editingTabId = tab.id;
+        modalMode = rowId ? 'edit' : 'create';
+        modalRows = [];
         const form = document.getElementById('soOrderForm');
         const titleEl = document.getElementById('soModalTitle');
         form.reset();
-        clearImgPreview('productImage');
-        clearImgPreview('invoiceImage');
         // Defaults for shipment metadata
         form.elements.shipDate.value = new Date().toISOString().slice(0, 10);
         form.elements.shipBatch.value = '';
@@ -411,34 +872,38 @@
             form.elements.shipContractAmount.value = sh.contractAmount || 0;
             form.elements.shipContractCurrency.value = sh.contractCurrency || tab.currency || 'VND';
             form.elements.supplier.value = r.supplier || '';
-            form.elements.productName.value = r.productName || '';
-            form.elements.variant.value = r.variant || '';
-            form.elements.qty.value = r.qty;
-            form.elements.sellPrice.value = r.sellPrice;
-            form.elements.costPrice.value = r.costPrice;
-            form.elements.productImage.value = r.productImage || '';
-            form.elements.invoiceImage.value = r.invoiceImage || '';
             form.elements.status.value = r.status || 'draft';
             form.elements.note.value = r.note || '';
             form.elements.costNote.value = r.costNote || '';
-            if (r.productImage) updateImgPreview('productImage', r.productImage);
-            if (r.invoiceImage) updateImgPreview('invoiceImage', r.invoiceImage);
-        } else if (shipmentId) {
-            const sh = tab.shipments.find((s) => s.id === shipmentId);
-            if (sh) {
-                titleEl.textContent = `Thêm dòng vào ${sh.batch ? 'Đợt ' + sh.batch : formatDateVN(sh.date)}`;
-                form.elements.shipDate.value = sh.date || '';
-                form.elements.shipBatch.value = sh.batch || '';
-                form.elements.shipCaseCount.value = sh.caseCount || 0;
-                form.elements.shipWeightKg.value = sh.weightKg || 0;
-                form.elements.shipContractAmount.value = sh.contractAmount || 0;
-                form.elements.shipContractCurrency.value =
-                    sh.contractCurrency || tab.currency || 'VND';
+            modalRows = [
+                _newModalRow({
+                    productName: r.productName || '',
+                    variant: r.variant || '',
+                    qty: r.qty,
+                    sellPrice: r.sellPrice,
+                    costPrice: r.costPrice,
+                    productImage: r.productImage || '',
+                    invoiceImage: r.invoiceImage || '',
+                }),
+            ];
+        } else {
+            if (shipmentId) {
+                const sh = tab.shipments.find((s) => s.id === shipmentId);
+                if (sh) {
+                    titleEl.textContent = `Thêm SP vào ${sh.batch ? 'Đợt ' + sh.batch : formatDateVN(sh.date)}`;
+                    form.elements.shipDate.value = sh.date || '';
+                    form.elements.shipBatch.value = sh.batch || '';
+                    form.elements.shipCaseCount.value = sh.caseCount || 0;
+                    form.elements.shipWeightKg.value = sh.weightKg || 0;
+                    form.elements.shipContractAmount.value = sh.contractAmount || 0;
+                    form.elements.shipContractCurrency.value =
+                        sh.contractCurrency || tab.currency || 'VND';
+                }
+            } else {
+                titleEl.textContent = 'Tạo Đơn Hàng (Nháp)';
             }
             form.elements.status.value = 'draft';
-        } else {
-            titleEl.textContent = 'Tạo Đơn Hàng (Nháp)';
-            form.elements.status.value = 'draft';
+            modalRows = [_newModalRow()];
         }
         const curHint =
             tab.currency === 'VND'
@@ -455,20 +920,14 @@
         };
         updateContractHint();
         form.elements.shipContractCurrency.onchange = updateContractHint;
-        updateModalTotals();
+        renderModalRows();
         showModal('soOrderModal');
-        setTimeout(() => form.elements.productName.focus(), 80);
-    }
-
-    function clearImgPreview(name) {
-        const el = document.querySelector(`[data-preview-for="${name}"]`);
-        if (el) el.innerHTML = '';
-    }
-
-    function updateImgPreview(name, url) {
-        const el = document.querySelector(`[data-preview-for="${name}"]`);
-        if (!el) return;
-        el.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="" />` : '';
+        setTimeout(() => {
+            const firstNameInput = document.querySelector(
+                '#soModalProductsBody input[data-field="productName"]'
+            );
+            firstNameInput?.focus();
+        }, 80);
     }
 
     function handleOrderSubmit(e) {
@@ -483,22 +942,30 @@
             contractAmount: Number(form.elements.shipContractAmount.value) || 0,
             contractCurrency: form.elements.shipContractCurrency.value,
         };
-        const rowData = {
+        const sharedFields = {
             supplier: form.elements.supplier.value.trim(),
-            productName: form.elements.productName.value.trim(),
-            variant: form.elements.variant.value.trim(),
-            qty: Number(form.elements.qty.value) || 0,
-            sellPrice: Number(form.elements.sellPrice.value) || 0,
-            costPrice: Number(form.elements.costPrice.value) || 0,
-            productImage: form.elements.productImage.value.trim(),
-            invoiceImage: form.elements.invoiceImage.value.trim(),
             note: form.elements.note.value.trim(),
             costNote: form.elements.costNote.value.trim(),
             status: form.elements.status.value,
         };
-        if (editingRowId && editingShipmentId) {
-            // Update existing row; if shipment meta changed (date or batch),
-            // either update shipment in place or move row to matching one.
+        // Validate at least 1 row có tên SP
+        const validRows = modalRows.filter((r) => r.productName.trim());
+        if (!validRows.length) {
+            notify('Cần ít nhất 1 sản phẩm có tên', 'warning');
+            return;
+        }
+        if (modalMode === 'edit' && editingRowId && editingShipmentId) {
+            const r = validRows[0];
+            const rowData = {
+                ...sharedFields,
+                productName: r.productName.trim(),
+                variant: r.variant.trim(),
+                qty: Number(r.qty) || 0,
+                sellPrice: Number(r.sellPrice) || 0,
+                costPrice: Number(r.costPrice) || 0,
+                productImage: r.productImage.trim(),
+                invoiceImage: r.invoiceImage.trim(),
+            };
             const sh = tab.shipments.find((s) => s.id === editingShipmentId);
             const dateOrBatchChanged =
                 sh && (sh.date !== shipMeta.date || (sh.batch || '') !== shipMeta.batch);
@@ -520,8 +987,6 @@
                         rowData
                     );
                 } else {
-                    // No other shipment with this date+batch — mutate
-                    // current shipment in place
                     window.SoOrderStorage.updateShipment(
                         state,
                         tab.id,
@@ -544,19 +1009,16 @@
                     editingRowId,
                     rowData
                 );
-                // Allow editing shipment fields like caseCount, weight,
-                // contractAmount via the same form
                 window.SoOrderStorage.updateShipment(state, tab.id, editingShipmentId, shipMeta);
             }
             notify('Đã cập nhật dòng order', 'success');
+            // Sync this single row to kho if new
+            syncRowsToKho([r], tab).catch(() => {});
         } else {
-            // New row: find or create shipment by date+batch
             let sh = window.SoOrderStorage.findShipment(tab, shipMeta);
             if (!sh) {
                 sh = window.SoOrderStorage.addShipment(state, tab.id, shipMeta);
             } else {
-                // Update shipment-level fields (caseCount, weightKg, contractAmount)
-                // when user provides non-zero values on a re-entry.
                 const merged = {
                     caseCount: shipMeta.caseCount || sh.caseCount,
                     weightKg: shipMeta.weightKg || sh.weightKg,
@@ -565,12 +1027,110 @@
                 };
                 window.SoOrderStorage.updateShipment(state, tab.id, sh.id, merged);
             }
-            window.SoOrderStorage.addRow(state, tab.id, sh.id, rowData);
-            notify('Đã thêm dòng order (Nháp)', 'success');
+            for (const r of validRows) {
+                window.SoOrderStorage.addRow(state, tab.id, sh.id, {
+                    ...sharedFields,
+                    productName: r.productName.trim(),
+                    variant: r.variant.trim(),
+                    qty: Number(r.qty) || 0,
+                    sellPrice: Number(r.sellPrice) || 0,
+                    costPrice: Number(r.costPrice) || 0,
+                    productImage: r.productImage.trim(),
+                    invoiceImage: r.invoiceImage.trim(),
+                });
+            }
+            notify(`Đã thêm ${validRows.length} dòng order (Nháp)`, 'success');
+            syncRowsToKho(validRows, tab).catch(() => {});
         }
         hideModal('soOrderModal');
         pushSync();
         renderAll();
+    }
+
+    /**
+     * Đối chiếu các dòng vừa lưu với Kho SP Web 2.0:
+     *   - SP đã có (matched theo code hoặc tên chuẩn hóa) → bổ sung tab.label
+     *     vào trường `note` nếu chưa có (sticky tag), không ghi đè.
+     *   - SP chưa có → POST tạo mới với note = tab.label (HÀ NỘI / HƯƠNG CHÂU).
+     * Best-effort: lỗi network không chặn flow chính, chỉ warn.
+     */
+    async function syncRowsToKho(rows, tab) {
+        if (!window.Web2ProductsApi || !window.Web2ProductsCache) return;
+        const cache = window.Web2ProductsCache;
+        await cache.init();
+        const label = (tab && tab.label) || '';
+        const trimLabel = label.trim();
+        if (!trimLabel) return;
+        let createdCount = 0;
+        let updatedCount = 0;
+        for (const r of rows) {
+            const name = (r.productName || '').trim();
+            if (!name) continue;
+            // Convert price to VND because kho lưu VND, while tab có thể CNY/USD.
+            const sellVnd = Math.round((Number(r.sellPrice) || 0) * (Number(tab.rate) || 1));
+            const costVnd = Math.round((Number(r.costPrice) || 0) * (Number(tab.rate) || 1));
+            const matched =
+                (r.matchedCode && cache.findByCode(r.matchedCode)) || cache.findByNameExact(name);
+            try {
+                if (matched) {
+                    // Đảm bảo tab.label nằm trong note (không duplicate)
+                    const oldNote = String(matched.note || '');
+                    if (!_noteHasLabel(oldNote, trimLabel)) {
+                        const newNote = oldNote
+                            ? `${oldNote} | ${trimLabel}`.slice(0, 240)
+                            : trimLabel;
+                        await window.Web2ProductsApi.update(matched.code, { note: newNote });
+                        updatedCount += 1;
+                    }
+                } else {
+                    const code = _generateKhoCode(name);
+                    await window.Web2ProductsApi.create({
+                        code,
+                        name,
+                        price: sellVnd,
+                        originalPrice: costVnd,
+                        stock: 0,
+                        imageUrl: r.productImage || null,
+                        note: trimLabel,
+                        createdBy: 'so-order',
+                    });
+                    createdCount += 1;
+                }
+            } catch (e) {
+                console.warn('[so-order] syncRowsToKho:', name, '→', e.message);
+            }
+        }
+        if (createdCount || updatedCount) {
+            cache.pushTickle({ action: 'sync-from-so-order' });
+            if (createdCount) {
+                notify(`Đã thêm ${createdCount} SP vào Kho SP Web 2.0`, 'info');
+            }
+        }
+    }
+
+    function _noteHasLabel(note, label) {
+        if (!note || !label) return false;
+        const parts = String(note)
+            .split('|')
+            .map((s) => s.trim().toLowerCase());
+        return parts.includes(label.toLowerCase());
+    }
+
+    function _generateKhoCode(name) {
+        // Sinh mã ngắn dạng KHO-<short hash>-<timestamp36>. Mã không phụ
+        // thuộc tên (TPOS-style) — sẽ unique cao, không trùng giữa nhiều
+        // máy nhờ phần timestamp + random.
+        const base =
+            String(name || '')
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .replace(/đ/g, 'd')
+                .replace(/[^a-zA-Z0-9]/g, '')
+                .toUpperCase()
+                .slice(0, 6) || 'SP';
+        const ts = Date.now().toString(36).toUpperCase().slice(-5);
+        const rnd = Math.random().toString(36).toUpperCase().slice(2, 5);
+        return `${base}-${ts}${rnd}`;
     }
 
     function deleteRow(shipmentId, rowId) {
@@ -733,45 +1293,9 @@
     }
 
     // ---------- image upload (base64) ----------
-
-    function wireImageUpload() {
-        document.querySelectorAll('[data-upload]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const name = btn.dataset.upload;
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = async () => {
-                    const f = input.files?.[0];
-                    if (!f) return;
-                    // Soft limit 2MB to stay friendly with localStorage quota
-                    if (f.size > 2 * 1024 * 1024) {
-                        notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
-                    }
-                    const dataUrl = await fileToDataUrl(f);
-                    const formInput = document.querySelector(`#soOrderForm [name="${name}"]`);
-                    if (formInput) {
-                        formInput.value = dataUrl;
-                        updateImgPreview(name, dataUrl);
-                    }
-                };
-                input.click();
-            });
-        });
-        // Also live-preview when user pastes URL
-        ['productImage', 'invoiceImage'].forEach((name) => {
-            const input = document.querySelector(`#soOrderForm [name="${name}"]`);
-            if (input) {
-                input.addEventListener('input', () => {
-                    if (input.value && input.value.length < 4096) {
-                        updateImgPreview(name, input.value);
-                    } else {
-                        clearImgPreview(name);
-                    }
-                });
-            }
-        });
-    }
+    // Multi-row modal: image picker/paste/drop wiring now lives per-row in
+    // wireModalRowInputs() + wireModalImagePasteDrop(). The helpers below
+    // are shared between rows.
 
     function fileToDataUrl(file) {
         return new Promise((resolve, reject) => {
@@ -779,77 +1303,6 @@
             r.onload = () => resolve(r.result);
             r.onerror = reject;
             r.readAsDataURL(file);
-        });
-    }
-
-    // Apply an image file (from paste/drop/picker) to one of the modal's
-    // image inputs (`productImage` or `invoiceImage`). Centralises the
-    // size-warning + base64 conversion + preview refresh.
-    async function applyImageFile(name, file) {
-        if (!file) return;
-        if (!file.type || !file.type.startsWith('image/')) {
-            notify('File không phải là ảnh', 'warning');
-            return;
-        }
-        if (file.size > 2 * 1024 * 1024) {
-            notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
-        }
-        const dataUrl = await fileToDataUrl(file);
-        const formInput = document.querySelector(`#soOrderForm [name="${name}"]`);
-        if (formInput) {
-            formInput.value = dataUrl;
-            updateImgPreview(name, dataUrl);
-        }
-    }
-
-    // Wire paste + drag-drop on the modal image cells so users can drop
-    // a screenshot from clipboard / file system without going through the
-    // upload picker. Each `.so-img-cell-v2` cell owns one image slot
-    // (resolved via its upload button's `data-upload`).
-    function wireImagePasteDrop() {
-        const cells = document.querySelectorAll('#soOrderModal .so-img-cell-v2');
-        cells.forEach((cell) => {
-            const uploadBtn = cell.querySelector('[data-upload]');
-            const name = uploadBtn?.dataset.upload;
-            if (!name) return;
-
-            // Make the cell focusable so Ctrl+V paste can target it.
-            if (!cell.hasAttribute('tabindex')) cell.setAttribute('tabindex', '0');
-
-            // Click anywhere on the cell (except inputs/buttons) focuses
-            // the cell so subsequent paste lands here.
-            cell.addEventListener('click', (e) => {
-                if (e.target === cell || e.target.classList.contains('so-img-cell-hint')) {
-                    cell.focus();
-                }
-            });
-
-            cell.addEventListener('paste', async (e) => {
-                const items = e.clipboardData?.items;
-                if (!items) return;
-                for (const it of items) {
-                    if (it.kind === 'file' && it.type.startsWith('image/')) {
-                        e.preventDefault();
-                        const file = it.getAsFile();
-                        await applyImageFile(name, file);
-                        return;
-                    }
-                }
-            });
-
-            cell.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                cell.classList.add('is-dragover');
-            });
-            cell.addEventListener('dragleave', () => {
-                cell.classList.remove('is-dragover');
-            });
-            cell.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                cell.classList.remove('is-dragover');
-                const file = e.dataTransfer?.files?.[0];
-                if (file) await applyImageFile(name, file);
-            });
         });
     }
 
@@ -911,22 +1364,24 @@
         });
     }
 
-    // Recompute "Thành tiền" + footer totals inside the create/edit modal
-    // whenever qty/sellPrice/contract currency change. Display amounts are
-    // converted to the active tab's currency to stay consistent with the
-    // shipment header logic.
+    // Recompute per-row "Thành tiền" + footer totals for the multi-row modal.
     function updateModalTotals() {
         const tab = window.SoOrderStorage.getActiveTab(state);
         if (!tab) return;
-        const form = document.getElementById('soOrderForm');
-        if (!form) return;
-        const qty = Number(form.elements.qty?.value) || 0;
-        const sellPrice = Number(form.elements.sellPrice?.value) || 0;
-        const subtotal = qty * sellPrice;
-        const rowEl = document.getElementById('soRowThanhTien');
-        if (rowEl) rowEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
+        for (const r of modalRows) updateRowTotal(r.uid);
+        updateModalGrandTotals();
+    }
+
+    function updateModalGrandTotals() {
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        if (!tab) return;
+        const totalQty = modalRows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        const subtotal = modalRows.reduce(
+            (s, r) => s + (Number(r.qty) || 0) * (Number(r.sellPrice) || 0),
+            0
+        );
         const qtyEl = document.getElementById('soModalTotalQty');
-        if (qtyEl) qtyEl.textContent = qty.toLocaleString('vi-VN');
+        if (qtyEl) qtyEl.textContent = totalQty.toLocaleString('vi-VN');
         const sumEl = document.getElementById('soModalTotalAmount');
         if (sumEl) sumEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
         const finalEl = document.getElementById('soModalFinalAmount');
@@ -934,23 +1389,30 @@
     }
 
     function wireModalTotals() {
-        const form = document.getElementById('soOrderForm');
-        if (!form) return;
-        ['qty', 'sellPrice', 'costPrice'].forEach((name) => {
-            const input = form.elements[name];
-            if (input) input.addEventListener('input', updateModalTotals);
-        });
+        // Multi-row inputs auto-wired in wireModalRowInputs via onModalRowFieldInput.
     }
 
     async function init() {
         state = window.SoOrderStorage.load();
         renderAll();
         wireToolbar();
-        wireImageUpload();
-        wireImagePasteDrop();
         wireModalTotals();
         wireFooterInputs();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        // Web2ProductsCache — bật suggestion + badge cho modal tạo đơn.
+        // Re-render modal rows nếu cache cập nhật (kho SP của máy khác)
+        // để badge "Đã có ở kho" và tồn kho luôn đồng bộ realtime.
+        if (window.Web2ProductsCache) {
+            window.Web2ProductsCache.init().then(() => {
+                window.Web2ProductsCache.subscribe(() => {
+                    if (modalRows.length) {
+                        // Chỉ cập nhật meta để không mất focus đang nhập
+                        for (const r of modalRows) updateRowMeta(r.uid);
+                    }
+                });
+            });
+        }
 
         // Firestore sync — per CLAUDE.md DATA-SYNCHRONIZATION.md:
         //   1. Firestore = source of truth

@@ -1286,3 +1286,231 @@ select.so-input-v2 {
         gap: 12px;
     }
 }
+
+/* ===== Multi-row create modal: row delete + add-row button ===== */
+
+.so-modal-table .so-th-row-actions,
+.so-modal-table .so-td-row-actions {
+    width: 36px;
+    padding-left: 0;
+    padding-right: 8px;
+    text-align: center;
+}
+
+.so-row-del {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #94a3b8;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s;
+}
+.so-row-del:hover {
+    background: #fef2f2;
+    color: #ef4444;
+    border-color: #fecaca;
+}
+.so-row-del i {
+    width: 14px;
+    height: 14px;
+}
+
+.so-modal-add-row-wrap {
+    padding: 10px 0 4px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.so-modal-add-row-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: #f3f0ff;
+    color: #6d28d9;
+    border: 1px dashed #c4b5fd;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
+}
+.so-modal-add-row-btn:hover {
+    background: #ede9fe;
+    border-color: #a78bfa;
+}
+.so-modal-add-row-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+/* ===== Product cell: input + meta (badge + tồn) + suggestion dropdown ===== */
+
+.so-product-input-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.so-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+}
+
+.so-row-kho-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.so-row-kho-badge.so-row-kho-new {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+.so-row-kho-badge i {
+    width: 11px;
+    height: 11px;
+}
+
+.so-row-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-weight: 500;
+    line-height: 1.4;
+}
+.so-row-stock.is-low {
+    background: #fff7ed;
+    color: #b45309;
+    border-color: #fed7aa;
+}
+.so-row-stock.is-zero {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+.so-row-stock i {
+    width: 11px;
+    height: 11px;
+}
+
+/* Suggestion dropdown anchored to product-input-wrap */
+.so-suggest-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.so-suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+}
+.so-suggest-item:hover {
+    background: #f5f3ff;
+}
+.so-suggest-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f3f4f6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.so-suggest-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.so-suggest-img-placeholder {
+    color: #9ca3af;
+}
+.so-suggest-img-placeholder i {
+    width: 16px;
+    height: 16px;
+}
+.so-suggest-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.so-suggest-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.so-suggest-sub {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+    font-size: 11px;
+    color: #6b7280;
+    align-items: center;
+}
+.so-suggest-code {
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 600;
+}
+.so-suggest-stock {
+    color: #1d4ed8;
+    font-weight: 500;
+}
+.so-suggest-price {
+    color: #15803d;
+    font-weight: 600;
+    margin-left: auto;
+}

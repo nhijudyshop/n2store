@@ -18,7 +18,7 @@
         <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260514e" />
         <link rel="stylesheet" href="../native-orders/css/native-orders.css?v=20260425h" />
         <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260425h" />
-        <link rel="stylesheet" href="css/web2-products.css?v=20260425h" />
+        <link rel="stylesheet" href="css/web2-products.css?v=20260517a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -34,7 +34,7 @@
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content" style="overflow: auto; height: 100vh">
-                <!-- Page head — counter + source badge (tab strip removed; nav lives in sidebar). -->
+                <!-- Page head — title + counters + primary action (Thêm SP) -->
                 <header class="page-head-mini">
                     <h1 class="page-head-title">
                         <i data-lucide="box"></i>
@@ -43,10 +43,17 @@
                     <div class="page-head-counters">
                         <span class="counter-pill" id="totalCounter">— sản phẩm</span>
                         <span class="source-pill">web2_products</span>
+                        <button
+                            class="btn-primary page-head-action"
+                            id="btnCreateProduct"
+                            type="button"
+                        >
+                            <i data-lucide="plus"></i> Thêm SP
+                        </button>
                     </div>
                 </header>
 
-                <!-- Toolbar / actions -->
+                <!-- Toolbar / filters — chip filters only, action buttons removed -->
                 <section class="search-section">
                     <div class="filter-row">
                         <div class="search-wrapper">
@@ -91,27 +98,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="search-info">
-                        <div class="search-info-left">
-                            <span class="search-result-count" id="searchResultCount">0</span>
-                            <span class="search-result-label">sản phẩm</span>
-                        </div>
-                        <div class="search-info-right">
-                            <button class="btn-reload" id="btnRefresh">
-                                <i data-lucide="refresh-cw"></i> Tải lại
-                            </button>
-                            <button class="btn-settings" id="btnApplyFilter">
-                                <i data-lucide="filter"></i> Áp dụng
-                            </button>
-                            <button class="btn-ghost" id="btnClearFilter">
-                                <i data-lucide="x"></i> Xóa lọc
-                            </button>
-                            <button class="btn-primary" id="btnCreateProduct">
-                                <i data-lucide="plus"></i> Thêm SP
-                            </button>
-                        </div>
-                    </div>
                 </section>
 
                 <!-- Table -->
@@ -124,8 +110,9 @@
                                     <th style="width: 72px">ẢNH</th>
                                     <th style="width: 140px">MÃ SP</th>
                                     <th>TÊN SẢN PHẨM</th>
-                                    <th style="width: 120px">GIÁ</th>
-                                    <th style="width: 80px">TỒN</th>
+                                    <th style="width: 120px">GIÁ MUA</th>
+                                    <th style="width: 120px">GIÁ BÁN</th>
+                                    <th style="width: 80px">TỒN KHO</th>
                                     <th>GHI CHÚ</th>
                                     <th style="width: 110px">TRẠNG THÁI</th>
                                     <th style="width: 140px">THAO TÁC</th>
@@ -133,7 +120,7 @@
                             </thead>
                             <tbody id="productsTbody">
                                 <tr>
-                                    <td colspan="9" class="loading-row">
+                                    <td colspan="10" class="loading-row">
                                         <div class="spinner"></div>
                                         Đang tải dữ liệu...
                                     </td>
@@ -173,10 +160,14 @@
                         <label>Tên sản phẩm *</label>
                         <input id="pmName" placeholder="Tên hiển thị" autocomplete="off" />
                     </div>
-                    <div class="field-row-grid">
+                    <div class="field-row-grid field-row-grid-3">
                         <div class="field-row">
-                            <label>Giá (đ)</label>
-                            <input id="pmPrice" type="number" min="0" step="1000" value="0" />
+                            <label>Giá Mua (đ)</label>
+                            <input id="pmPriceBuy" type="number" min="0" step="1000" value="0" />
+                        </div>
+                        <div class="field-row">
+                            <label>Giá Bán (đ)</label>
+                            <input id="pmPriceSell" type="number" min="0" step="1000" value="0" />
                         </div>
                         <div class="field-row">
                             <label>Tồn kho</label>
@@ -211,7 +202,8 @@
             </div>
         </div>
 
-        <script src="js/web2-products-api.js?v=20260425h"></script>
-        <script src="js/web2-products-app.js?v=20260425h"></script>
+        <script src="js/web2-products-api.js?v=20260517a"></script>
+        <script src="../web2-shared/web2-products-cache.js?v=20260517a"></script>
+        <script src="js/web2-products-app.js?v=20260517a"></script>
     </body>
 </html>
