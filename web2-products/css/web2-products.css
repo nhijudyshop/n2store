@@ -31,6 +31,28 @@
     border-color: var(--warning);
 }
 
+.variant-cell {
+    font-size: 12px;
+    color: var(--gray-700);
+}
+.variant-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    border-radius: 6px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.variant-empty {
+    color: var(--gray-400);
+}
+
 .price-cell {
     font-weight: 700;
     color: var(--gray-900);

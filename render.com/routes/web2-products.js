@@ -43,6 +43,12 @@ async function ensureTables(pool) {
 
             CREATE INDEX IF NOT EXISTS idx_web2_products_barcode  ON web2_products(barcode);
             CREATE INDEX IF NOT EXISTS idx_web2_products_category ON web2_products(category);
+
+            -- Migration 068: dedicated variant column (size/color/spec). Trước đó
+            -- variant đi ké vào note ở so-order; tách riêng để Kho SP hiển thị
+            -- cột BIẾN THỂ độc lập với ghi chú.
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS variant TEXT;
         `);
         _tablesCreated = true;
         console.log('[WEB2-PRODUCTS] Tables created/verified');
@@ -73,6 +79,8 @@ function mapRow(row) {
         originalPrice: Number(row.original_price || 0),
         barcode: row.barcode,
         category: row.category,
+        // Migration 068
+        variant: row.variant || null,
     };
 }
 
@@ -118,7 +126,8 @@ router.get('/list', async (req, res) => {
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 
         const countR = await pool.query(
-            `SELECT COUNT(*)::int AS n FROM web2_products ${where}`, params
+            `SELECT COUNT(*)::int AS n FROM web2_products ${where}`,
+            params
         );
         const total = countR.rows[0].n;
 
@@ -151,9 +160,9 @@ router.get('/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const r = await pool.query(
-            `SELECT * FROM web2_products WHERE code = $1 LIMIT 1`, [req.params.code]
-        );
+        const r = await pool.query(`SELECT * FROM web2_products WHERE code = $1 LIMIT 1`, [
+            req.params.code,
+        ]);
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true, product: mapRow(r.rows[0]) });
     } catch (e) {
@@ -179,11 +188,11 @@ router.post('/', async (req, res) => {
             const r = await pool.query(
                 `INSERT INTO web2_products
                  (code, name, price, image_url, stock, note, tags, is_active,
-                  original_price, barcode, category,
+                  original_price, barcode, category, variant,
                   created_by, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, true,
-                         $8, $9, $10,
-                         $11, $12, $12)
+                         $8, $9, $10, $11,
+                         $12, $13, $13)
                  RETURNING *`,
                 [
                     b.code.trim(),
@@ -196,6 +205,7 @@ router.post('/', async (req, res) => {
                     Number(b.originalPrice) || 0,
                     b.barcode ? b.barcode.trim() : null,
                     b.category ? b.category.trim() : null,
+                    b.variant ? String(b.variant).trim() : null,
                     b.createdBy || null,
                     now,
                 ]
@@ -233,6 +243,8 @@ router.patch('/:code', async (req, res) => {
             originalPrice: 'original_price',
             barcode: 'barcode',
             category: 'category',
+            // Migration 068
+            variant: 'variant',
         };
         const sets = [];
         const params = [];
@@ -267,10 +279,9 @@ router.delete('/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const r = await pool.query(
-            `DELETE FROM web2_products WHERE code = $1 RETURNING code`,
-            [req.params.code]
-        );
+        const r = await pool.query(`DELETE FROM web2_products WHERE code = $1 RETURNING code`, [
+            req.params.code,
+        ]);
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true });
     } catch (e) {

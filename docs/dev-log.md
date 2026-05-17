@@ -25,6 +25,47 @@
 
 ## 2026-05-17
 
+### [web2][so-order][render] Kho SP — field BIẾN THỂ độc lập (DB column + column trong table + input modal + autofill so-order)
+
+**User**: "Kho SP web 2.0 thêm biến thể SP vào — ghi biến thể ở đây, đừng ghi vào cột ghi chú".
+
+**Background**: trước đó so-order modal có input "Biến thể" (size/màu/spec) — khi auto-add SP mới vào kho, biến thể đi chung vào field `note` cùng với label HÀ NỘI/HƯƠNG CHÂU → ghi chú bị lẫn lộn. Yêu cầu: tách biến thể thành cột/field riêng.
+
+**Implementation**:
+
+1. **Migration 068** ([render.com/routes/web2-products.js](../render.com/routes/web2-products.js)): `ALTER TABLE web2_products ADD COLUMN IF NOT EXISTS variant TEXT`. Auto-applied trong block `ensureTables` (chạy 1 lần khi /api/web2-products được gọi sau deploy). Idempotent — nếu cột đã có thì no-op. `mapRow` thêm field `variant`. POST insert + PATCH update đều bao gồm `variant` (trim, null nếu empty).
+
+2. **Kho SP table** ([web2-products/index.html](../web2-products/index.html), [js/web2-products-app.js](../web2-products/js/web2-products-app.js), [css/web2-products.css](../web2-products/css/web2-products.css)):
+    - Cột mới BIẾN THỂ chèn giữa TÊN SẢN PHẨM và GIÁ MUA (colspan = 11)
+    - Cell hiển thị `<span class="variant-pill">Size M</span>` (purple pill, ellipsis maxWidth 160px) hoặc `—` khi empty
+    - Loading/empty rows updated colspan 11
+
+3. **Kho SP modal** ([web2-products/index.html](../web2-products/index.html)):
+    - Thêm field-row "Biến thể" `#pmVariant` với placeholder "VD: Size M / Đỏ / 2003 B5" giữa Tên sản phẩm và grid Giá Mua/Bán/Tồn
+    - openCreate/openEdit clear + populate variant. saveModal gửi `variant` lên API.
+    - Update placeholder Ghi chú từ "Size/màu/tag..." → "Ghi chú nội bộ, tag nhập hàng (HÀ NỘI, HƯƠNG CHÂU)..." cho khớp nghĩa mới.
+
+4. **so-order modal** ([so-order/js/so-order-app.js](../so-order/js/so-order-app.js), [css/so-order.css](../so-order/css/so-order.css)):
+    - `applySuggestionToRow`: nếu kho có `p.variant` và row.variant đang trống → autofill. Không clobber nếu user đã gõ.
+    - Suggestion dropdown item: thêm purple pill `.so-suggest-variant` cạnh tên SP — show "AO NAU M [Size M]" trực quan.
+    - `syncRowsToKho` (sau Lưu Nháp): tách variant ra khỏi note hoàn toàn:
+        - SP đã có: `patch.note` chỉ chứa tab.label (sticky tag), `patch.variant` chỉ set nếu kho trống (không clobber)
+        - SP mới: POST với `variant` field riêng + `note: tab.label` (chỉ label, không có variant)
+
+**Files touched**:
+
+- `render.com/routes/web2-products.js` (ALTER TABLE + mapRow + POST + PATCH)
+- `web2-products/index.html`, `web2-products/css/web2-products.css`, `web2-products/js/web2-products-app.js`
+- `so-order/index.html` (version bump), `so-order/js/so-order-app.js`, `so-order/css/so-order.css`
+
+**Smoke test** (localhost:8093, browser session sống):
+
+- Kho SP: cột BIẾN THỂ render giữa TÊN SẢN PHẨM và GIÁ MUA, SP SP001 hiện "—" (vì DB chưa có data variant cho row cũ). Modal Thêm SP hiện input "Biến thể" placeholder "VD: Size M / Đỏ / 2003 B5".
+
+**Deploy note**: backend changes cần Render deploy push lên prod để ALTER TABLE chạy. Frontend đã graceful nếu chưa deploy (variant field undefined → cell "—" + dropdown không show pill).
+
+**Status**: ✅ Done. Cần Render deploy + smoke test online.
+
 ### [web2] Hover-zoom catch-all + Web2Effects.attachImageDropTarget — Kho SP modal Ctrl+V upload
 
 **User**: "toàn bộ dự án web 2.0 liên quan tới ảnh là hover zoom lên + nếu upload thì cho ctrl V vào area".

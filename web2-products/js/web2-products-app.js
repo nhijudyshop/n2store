@@ -42,7 +42,7 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="10" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="11" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
             return;
@@ -58,12 +58,18 @@
                 const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
                 const priceBuy = Number(p.originalPrice) || 0;
                 const priceSell = Number(p.price) || 0;
+                const variantText = (p.variant || '').trim();
                 return `
                 <tr data-code="${escapeHtml(p.code)}">
                     <td>${n}</td>
                     <td>${imgHtml}</td>
                     <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(p.code)}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
                     <td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>
+                    <td class="variant-cell">${
+                        variantText
+                            ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
+                            : '<span class="variant-empty">—</span>'
+                    }</td>
                     <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>
                     <td class="price-cell price-sell">${fmtPrice(priceSell)}</td>
                     <td class="stock-cell ${stockClass}">${p.stock ?? 0}</td>
@@ -133,7 +139,7 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="10" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="11" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -150,7 +156,7 @@
             renderCounters();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="10" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -185,6 +191,7 @@
         $('#pmCode').value = '';
         $('#pmCode').disabled = false;
         $('#pmName').value = '';
+        $('#pmVariant').value = '';
         $('#pmPriceBuy').value = 0;
         $('#pmPriceSell').value = 0;
         $('#pmStock').value = 0;
@@ -205,6 +212,7 @@
         $('#pmCode').value = p.code;
         $('#pmCode').disabled = true;
         $('#pmName').value = p.name || '';
+        $('#pmVariant').value = p.variant || '';
         $('#pmPriceBuy').value = p.originalPrice || 0;
         $('#pmPriceSell').value = p.price || 0;
         $('#pmStock').value = p.stock ?? 0;
@@ -236,6 +244,7 @@
         const fields = {
             code: $('#pmCode').value.trim(),
             name: $('#pmName').value.trim(),
+            variant: $('#pmVariant').value.trim() || null,
             price: Number($('#pmPriceSell').value) || 0,
             originalPrice: Number($('#pmPriceBuy').value) || 0,
             stock: Number($('#pmStock').value) || 0,
@@ -250,6 +259,7 @@
             if (STATE.editingCode) {
                 const resp = await window.Web2ProductsApi.update(STATE.editingCode, {
                     name: fields.name,
+                    variant: fields.variant,
                     price: fields.price,
                     originalPrice: fields.originalPrice,
                     stock: fields.stock,

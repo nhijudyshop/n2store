@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260517b" />
         <link rel="stylesheet" href="../native-orders/css/native-orders.css?v=20260425h" />
         <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260425h" />
-        <link rel="stylesheet" href="css/web2-products.css?v=20260517b" />
+        <link rel="stylesheet" href="css/web2-products.css?v=20260517c" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -111,6 +111,7 @@
                                     <th style="width: 72px">ẢNH</th>
                                     <th style="width: 140px">MÃ SP</th>
                                     <th>TÊN SẢN PHẨM</th>
+                                    <th style="width: 160px">BIẾN THỂ</th>
                                     <th style="width: 120px">GIÁ MUA</th>
                                     <th style="width: 120px">GIÁ BÁN</th>
                                     <th style="width: 80px">TỒN KHO</th>
@@ -121,7 +122,7 @@
                             </thead>
                             <tbody id="productsTbody">
                                 <tr>
-                                    <td colspan="10" class="loading-row">
+                                    <td colspan="11" class="loading-row">
                                         <div class="spinner"></div>
                                         Đang tải dữ liệu...
                                     </td>
@@ -161,6 +162,14 @@
                         <label>Tên sản phẩm *</label>
                         <input id="pmName" placeholder="Tên hiển thị" autocomplete="off" />
                     </div>
+                    <div class="field-row">
+                        <label>Biến thể</label>
+                        <input
+                            id="pmVariant"
+                            placeholder="VD: Size M / Đỏ / 2003 B5"
+                            autocomplete="off"
+                        />
+                    </div>
                     <div class="field-row-grid field-row-grid-3">
                         <div class="field-row">
                             <label>Giá Mua (đ)</label>
@@ -198,7 +207,10 @@
                     </div>
                     <div class="field-row">
                         <label>Ghi chú</label>
-                        <textarea id="pmNote" placeholder="Size/màu/tag..."></textarea>
+                        <textarea
+                            id="pmNote"
+                            placeholder="Ghi chú nội bộ, tag nhập hàng (HÀ NỘI, HƯƠNG CHÂU)..."
+                        ></textarea>
                     </div>
                     <div class="field-row">
                         <label>Trạng thái</label>
@@ -220,6 +232,6 @@
         <script src="../web2-shared/web2-effects.js?v=20260517b"></script>
         <script src="js/web2-products-api.js?v=20260517a"></script>
         <script src="../web2-shared/web2-products-cache.js?v=20260517a"></script>
-        <script src="js/web2-products-app.js?v=20260517b"></script>
+        <script src="js/web2-products-app.js?v=20260517c"></script>
     </body>
 </html>

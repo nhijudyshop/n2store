@@ -706,10 +706,13 @@
                 const img = p.imageUrl
                     ? `<img src="${escapeHtml(p.imageUrl)}" alt="" />`
                     : `<span class="so-suggest-img-placeholder"><i data-lucide="image"></i></span>`;
+                const variantBadge = p.variant
+                    ? `<span class="so-suggest-variant">${escapeHtml(p.variant)}</span>`
+                    : '';
                 return `<button type="button" class="so-suggest-item" data-suggest-code="${escapeHtml(p.code)}" data-suggest-uid="${uid}">
                     <div class="so-suggest-img">${img}</div>
                     <div class="so-suggest-text">
-                        <div class="so-suggest-name">${escapeHtml(p.name)}</div>
+                        <div class="so-suggest-name">${escapeHtml(p.name)}${variantBadge}</div>
                         <div class="so-suggest-sub">
                             <span class="so-suggest-code">${escapeHtml(p.code)}</span>
                             <span class="so-suggest-stock">Tồn: ${p.stock ?? 0}</span>
@@ -746,6 +749,9 @@
         if (!row) return;
         row.productName = p.name || '';
         row.matchedCode = p.code;
+        // Autofill variant từ Kho SP (field độc lập, không lấy từ note).
+        // Chỉ ghi đè nếu user chưa nhập variant — tránh nuốt input đang gõ.
+        if (p.variant && !row.variant) row.variant = p.variant;
         // Map giá mua → costPrice; giá bán → sellPrice (VND values). When the
         // active tab is not VND, we leave the prices as-is so the user can
         // convert manually — kho SP lưu VNĐ, tab có thể là CNY.
@@ -1043,6 +1049,7 @@
         for (const r of rows) {
             const name = (r.productName || '').trim();
             if (!name) continue;
+            const variant = (r.variant || '').trim();
             // Convert price to VND because kho lưu VND, while tab có thể CNY/USD.
             const sellVnd = Math.round((Number(r.sellPrice) || 0) * (Number(tab.rate) || 1));
             const costVnd = Math.round((Number(r.costPrice) || 0) * (Number(tab.rate) || 1));
@@ -1050,13 +1057,21 @@
                 (r.matchedCode && cache.findByCode(r.matchedCode)) || cache.findByNameExact(name);
             try {
                 if (matched) {
-                    // Đảm bảo tab.label nằm trong note (không duplicate)
+                    const patch = {};
+                    // note chỉ chứa labels HÀ NỘI / HƯƠNG CHÂU / … (sticky tag),
+                    // KHÔNG còn nhét variant. Variant đi vào field riêng.
                     const oldNote = String(matched.note || '');
                     if (!_noteHasLabel(oldNote, trimLabel)) {
-                        const newNote = oldNote
+                        patch.note = oldNote
                             ? `${oldNote} | ${trimLabel}`.slice(0, 240)
                             : trimLabel;
-                        await window.Web2ProductsApi.update(matched.code, { note: newNote });
+                    }
+                    // variant: chỉ điền nếu kho đang trống — không clobber
+                    // variant user đã set sẵn (vd "Size M" trong kho ≠ "Size L"
+                    // trong đơn này).
+                    if (variant && !matched.variant) patch.variant = variant;
+                    if (Object.keys(patch).length) {
+                        await window.Web2ProductsApi.update(matched.code, patch);
                         updatedCount += 1;
                     }
                 } else {
@@ -1064,6 +1079,7 @@
                     await window.Web2ProductsApi.create({
                         code,
                         name,
+                        variant: variant || null,
                         price: sellVnd,
                         originalPrice: costVnd,
                         stock: 0,
