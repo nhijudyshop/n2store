@@ -331,13 +331,6 @@ window.WEB2_MODULES_MANIFEST = [
         icon: 'settings',
     },
     {
-        dir: 'product-template',
-        title: 'Sản phẩm',
-        slug: 'producttemplate',
-        category: 'Sản phẩm',
-        icon: 'box',
-    },
-    {
         dir: 'product-uom',
         title: 'Đơn vị tính',
         slug: 'productuom',
@@ -348,13 +341,6 @@ window.WEB2_MODULES_MANIFEST = [
         dir: 'product-uom-categ',
         title: 'Nhóm đơn vị tính',
         slug: 'productuomcateg',
-        category: 'Sản phẩm',
-        icon: 'box',
-    },
-    {
-        dir: 'product-variant',
-        title: 'Biến thể sản phẩm',
-        slug: 'product',
         category: 'Sản phẩm',
         icon: 'box',
     },

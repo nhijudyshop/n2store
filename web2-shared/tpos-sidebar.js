@@ -295,16 +295,6 @@
                     our: '../web2/product-category/index.html',
                 },
                 {
-                    label: 'Sản phẩm',
-                    tpos: '#/app/producttemplate/list',
-                    our: '../web2/product-template/index.html',
-                },
-                {
-                    label: 'Biến thể SP',
-                    tpos: '#/app/product/list',
-                    our: '../web2/product-variant/index.html',
-                },
-                {
                     label: 'In mã vạch',
                     tpos: '#/app/barcodeproductlabel/printbarcode',
                     our: '../web2/barcode-product-label/index.html',

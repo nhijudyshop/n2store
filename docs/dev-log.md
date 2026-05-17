@@ -25,6 +25,37 @@
 
 ## 2026-05-17
 
+### [web2] Xóa 2 trang TPOS-clone `product-template` + `product-variant` (đã có Kho SP Web 2.0 thay thế)
+
+**User**: "đã có Kho SP Web 2.0 nên bỏ 2 trang trên đi" (đối tượng: `web2/product-template/`, `web2/product-variant/` — TPOS-clone schema-driven CRUD, dữ liệu mock trong `web2_records`).
+
+**Why**: [web2-products/](../web2-products/) là Kho SP riêng (UI riêng + bảng `web2_products`), đã cover use case "Sản phẩm" + "Biến thể SP" rồi. 2 trang `producttemplate`/`product` thuộc page-builder generic chỉ là placeholder TPOS-clone — không ai dùng.
+
+**Đã xóa**:
+
+- `web2/product-template/index.html` + `web2/product-variant/index.html` (qua `git rm -r`).
+
+**Đã dọn tham chiếu**:
+
+- [web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js) — bỏ 2 entry "Sản phẩm" + "Biến thể SP" trong `children` của menu "Sản phẩm" (giữ Kho SP Web 2.0 + Nhóm sản phẩm + In mã vạch + Thuộc tính…).
+- [web2/modules-manifest.js](../web2/modules-manifest.js) — bỏ entry `dir: 'product-template' slug: 'producttemplate'` + `dir: 'product-variant' slug: 'product'`.
+- [shared/js/navigation-modern.js](../shared/js/navigation-modern.js) — bỏ 2 href item `web2-product-template` + `web2-product-variant` trong WEB2 nav + bỏ 2 ID khỏi `WEB2_GROUP_ITEMS`.
+- [web2/stock-inventory/index.html](../web2/stock-inventory/index.html) + [web2/stock-move/index.html](../web2/stock-move/index.html) — bỏ `link: 'product-template'` ở column + field `productCode` (cell trở về plain text, tránh 404 click-through). Field vẫn giữ `type: 'ref' ref: 'producttemplate'` cho autocomplete — slug-based API vẫn trỏ về PostgreSQL `web2_records` (hiện trống vì đã xóa data scope cũ, nhưng API vẫn alive).
+
+**Giữ nguyên**:
+
+- [web2-shared/tpos-menu.json:200](../web2-shared/tpos-menu.json#L200) — `#/app/producttemplate/list` là deep-link vào TPOS thật, không phải trang nội bộ.
+
+**Verify live**:
+
+- `/web2/product-template/index.html` → 404 ✅
+- `/web2-products/index.html` → load OK, render "Kho Sản Phẩm" với data thật (`SP001 AO NAU M`) ✅
+- JS syntax: `node -c` qua tpos-sidebar.js, navigation-modern.js, modules-manifest.js → OK.
+
+**Status**: ✅ Done.
+
+---
+
 ### [inbox][render] Fix STT trùng — atomic counter `inbox_counters` thay cho `orders.length+1`
 
 **Bug**: STT đơn inbox bị trùng (vd 501, 504 lặp 2 lần) do `tab-social-modal.js` cũ tính `stt = SocialOrderState.orders.length + 1` khi tạo đơn. Khi hủy/xóa đơn → length giảm → STT cũ được tái sử dụng. Multi-tab/multi-device race → 2 đơn cùng STT.
@@ -51,11 +82,13 @@
 **User feedback**: "kpi đơn inbox không ghi rõ là đơn nào à? làm chi tiết giúp tôi" — leaderboard chỉ aggregate, không drill xuống đơn cụ thể.
 
 **Backend** ([render.com/routes/social-orders.js](../render.com/routes/social-orders.js)):
+
 - Thêm route `GET /api/social-orders/kpi-stats/orders?userId=&from=&to=&includeAll=` → trả `{ success, count, orders: [{ id, stt, status, totalQuantity, totalAmount, kpi, createdAt }] }`.
 - Order list filter theo `created_by`, ORDER BY `stt ASC NULLS LAST, created_at ASC` → đồng bộ với thứ tự hiển thị don-inbox.
 - Worker `/api/social-orders/*` wildcard auto-proxy → không cần thay đổi Worker.
 
 **Frontend**:
+
 - [orders-report/tab-kpi-commission.html](../orders-report/tab-kpi-commission.html): thêm cột `col-inbox-expand` (chevron) bên trái leaderboard.
 - [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js):
     - State mới: `_inboxOrdersCache` (key `userId|preset` để invalidate theo date range), `_inboxOrdersInFlight` (dedupe fetch), `_inboxExpandedUsers`, `_INBOX_STATUS_LABELS`.
@@ -68,6 +101,7 @@
 - [orders-report/css/tab-kpi-commission.css](../orders-report/css/tab-kpi-commission.css): chevron button rotate 90° khi expand, row.is-expanded bg `#f8fafc`, sub-row 50px indent, sub-table inset card, status badges (draft/order/processing/completed/cancelled) đồng bộ palette với `tab-social-core.js`.
 
 **Smoke test localhost**:
+
 - Render 3 user rows (Admin/My/Bo) + 3 hidden details rows ✓
 - Click chevron → row expand, `is-expanded` class apply, chevron quay 90° (purple bg) ✓
 - Fetch fail gracefully khi endpoint chưa deploy (HTTP 404) → error UI render đúng với alert-triangle ✓
@@ -100,7 +134,8 @@
 - Đồng bộ cross-browser: cùng push event → cùng debounce window → toast fire gần như đồng thời ở mọi browser.
 - Tận dụng infra hiện có: `kpi_base` SSE channel đã có sẵn (docs/render/render.md line 693), không cần thêm endpoint.
 
-**Verify**: 
+**Verify**:
+
 - Probe `GET /api/realtime/sse/stats` → `keyStats.kpi_base === 1` xác nhận strip subscribed.
 - Strip render đúng 3 cards (Huyền/Hạnh/Hồng), top-1 có gradient xanh + star.
 - Toast logic không đổi: vẫn fire khi diff snapshot phát hiện delta soMon / đổi top.
@@ -133,6 +168,7 @@
 - XSS: `userName` luôn escapeHtml; `<b>` chỉ wrap số nguyên + uppercased name đã escape.
 
 **Verify**: Playwright smoke — set T7 campaign, seed snapshot, monkey-patch fetch để boost Hồng (#3 → #1) → cả 2 toasts fire đúng:
+
 - "Hồng bán thêm <b>55</b> món" (dur=4000)
 - "🎉 CHÚC MỪNG <b>HỒNG</b> ĐỨNG TOP SALE!" (dur=8000, title="TOP SALE")
 
@@ -175,6 +211,7 @@
 - Tab "Lịch sử kiểm tra" trong KPI giờ chỉ chứa check từ KPI → bỏ cột "Nguồn" (luôn là KPI, không còn ý nghĩa). Header → 8 cột.
 
 **Tác dụng**:
+
 - Bấm "Đã kiểm tra" ở Modal L2 KPI → chỉ ảnh hưởng row trong Modal L1 KPI + history KPI. Không ảnh hưởng delivery-report.
 - Bấm ở delivery-report row → chỉ ảnh hưởng table delivery-report. Không xuất hiện trong history KPI.
 - 2 luồng hoàn toàn độc lập, không trùng lặp.
@@ -190,6 +227,7 @@
 ### [permissions + orders-report + delivery-report] Permission `canMarkOrderChecked` + tab "Lịch sử kiểm tra"
 
 **User yêu cầu**:
+
 1. Bổ sung 1 detail permission để chọn user nào được thấy + bấm dialog "Xác nhận kiểm tra đơn" (đánh dấu đã kiểm tra).
 2. Thêm tab "Lịch sử kiểm tra" lưu toàn bộ thao tác: ai kiểm tra, thời gian, đơn nào, campaign nào, KPI của ai.
 
@@ -279,6 +317,7 @@
 **User báo**: Trong Customer 360 → Hoạt động ví, click con mắt 👁 ở giao dịch THANH TOÁN ĐƠN HÀNG (-100K) → mở modal "Đơn NJD/.." với tab "TPOS PBH" luôn báo "Không có phiếu bán hàng (PBH) cho đơn NJD/...". Trong khi đó modal "HOẠT ĐỘNG KHÁCH HÀNG" của Thống Kê Giao Hàng → click con mắt cùng giao dịch → hiển thị BILL (phiếu bán hàng) đầy đủ với barcode, danh sách SP, tổng tiền.
 
 **Root cause**:
+
 1. `customer-hub/js/modules/transaction-evidence.js::_renderTposInvoices` dùng OData filter SAI: `Reference eq '${orderCode}'`. Field `Reference` của TPOS FastSaleOrder thường rỗng cho invoice chuẩn — order code `NJD/YYYY/NNNNN` nằm ở field `Number`. delivery-report dùng đúng `contains(Number,'${number}')`.
 2. Kể cả filter đúng, hàm này chỉ render summary card (Số, ngày, tổng, COD) chứ KHÔNG render bill HTML như delivery-report.
 
@@ -309,6 +348,7 @@
 **Fix**: Đổi `newHead` thành `TT #${orderCode}` (bỏ phần `Thanh Toán Đơn Hàng — Trả từ ví: …`) và strip tất cả `— Trả từ ví: Xđ` còn lại trong note nguồn.
 
 **Files**:
+
 - [`customer-hub/js/modules/customer-profile.js`](../customer-hub/js/modules/customer-profile.js) — HOẠT ĐỘNG VÍ trong Customer 360 right panel
 - [`orders-report/js/tab1/tab1-wallet-modal.js`](../orders-report/js/tab1/tab1-wallet-modal.js) — Wallet history modal trong orders-report tab1
 - [`delivery-report/js/delivery-report.js`](../delivery-report/js/delivery-report.js) — thêm helper `shortenCodPaymentNote()` cho hover popover "HOẠT ĐỘNG KHÁCH HÀNG"
@@ -334,6 +374,7 @@
 ### [delivery-report] Ẩn cặp WITHDRAW+HOÀN trong "Hoạt động khách hàng" + nút con mắt xem toàn bộ
 
 **User báo**:
+
 1. Trong modal chi tiết đơn ở Thống Kê Giao Hàng, section "HOẠT ĐỘNG KHÁCH HÀNG" hiển thị tất cả giao dịch — bao gồm cả các cặp `Thanh toán đơn (-100K)` + `HOÀN từ đơn hủy (+100K)` đã triệt tiêu nhau. Khi 1 khách tạo-hủy-tạo lại đơn nhiều lần (cùng giá), list bị rối với 4-6 dòng dù chỉ có 1-2 hoạt động ý nghĩa. customer-hub "Hoạt động ví" đã có logic ẩn các cặp này — cần đồng bộ.
 2. Thêm nút con mắt cạnh chữ "Hoạt động gần đây" để khi cần xem chi tiết TOÀN BỘ giao dịch (kể cả cặp đã ẩn) thì bấm để mở rộng.
 
