@@ -2024,7 +2024,15 @@ const KPICommission = {
                 okOrders++;
             }
 
-            const rowClass = isRefunded ? 'is-refunded' : hasDiscrepancy ? 'is-discrepancy' : '';
+            const baseClass = isRefunded
+                ? 'is-refunded'
+                : hasDiscrepancy
+                  ? 'is-discrepancy'
+                  : '';
+            const isChecked = !!invNumber && this._orderCheckStore.isChecked(invNumber);
+            const rowClass = [baseClass, isChecked ? 'kpi-l1-row-checked' : '']
+                .filter(Boolean)
+                .join(' ');
 
             let statusPill;
             if (isRefunded) {
@@ -2047,8 +2055,8 @@ const KPICommission = {
                 ? `<button class="recon-toggle-btn l1-toggle-btn" onclick="window.KPICommission._toggleL1OrderDetail('${this.escapeHtml(order.orderId)}')" title="Xem món trả + lý do"><i data-lucide="chevron-right"></i></button>`
                 : '';
 
-            html += `<tr class="${rowClass}" data-l1-order="${this.escapeHtml(order.orderId)}">
-                <td>${toggleBtn}${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
+            html += `<tr class="${rowClass}" data-l1-order="${this.escapeHtml(order.orderId)}" data-l1-number="${this.escapeHtml(invNumber)}">
+                <td data-col="stt">${toggleBtn}${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
                 <td><a class="order-link" onclick="KPICommission.showOrderDetails('${this.escapeHtml(order.orderId)}')">${this.escapeHtml(order.orderCode || order.orderId)}</a></td>
                 <td>${invHtml}</td>
                 <td>${this.escapeHtml(order.campaignName || '---')}</td>
@@ -2496,6 +2504,16 @@ const KPICommission = {
         this._pendingCheckCtx = null;
     },
 
+    _applyL1CheckedStyles() {
+        const tbody = document.getElementById('modalL1TableBody');
+        if (!tbody) return;
+        tbody.querySelectorAll('tr[data-l1-number]').forEach((tr) => {
+            const number = tr.getAttribute('data-l1-number') || '';
+            const shouldBe = !!number && this._orderCheckStore.isChecked(number);
+            tr.classList.toggle('kpi-l1-row-checked', shouldBe);
+        });
+    },
+
     _getInvoiceNumberForOrder(orderId) {
         const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
         const recon = this._reconByOrder?.get(orderId);
@@ -2595,6 +2613,7 @@ const KPICommission = {
                         const key = data.number || doc.id;
                         this._data.set(key, data);
                     });
+                    window.KPICommission?._applyL1CheckedStyles?.();
                 } catch (e) {
                     console.warn('[KPI-ORDER-CHECK] initial load failed:', e?.message);
                 }
@@ -2607,6 +2626,7 @@ const KPICommission = {
                                 const key = data.number || doc.id;
                                 this._data.set(key, data);
                             });
+                            window.KPICommission?._applyL1CheckedStyles?.();
                         },
                         (err) => console.warn('[KPI-ORDER-CHECK] listener error:', err?.message)
                     );
@@ -2636,6 +2656,7 @@ const KPICommission = {
                 source: 'kpi-commission',
             };
             this._data.set(number, payload);
+            window.KPICommission?._applyL1CheckedStyles?.();
             const col = this._getCol();
             if (!col) return;
             try {

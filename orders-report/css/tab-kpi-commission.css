@@ -1506,6 +1506,25 @@ body {
     font-size: 19px;
 }
 
+/* Đơn đã được kiểm tra — tô xám nhẹ + dấu ✓ ở cột STT.
+   Không dùng !important nặng, nhường ưu tiên cho refunded/discrepancy
+   khi đơn vừa bị hoàn vừa được kiểm tra. */
+.modalL1-table tbody tr.kpi-l1-row-checked {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.modalL1-table tbody tr.kpi-l1-row-checked td {
+    color: #6b7280;
+}
+.modalL1-table tbody tr.kpi-l1-row-checked td[data-col='stt']::after {
+    content: ' ✓';
+    color: #10b981;
+    font-weight: 700;
+}
+.modalL1-table tbody tr.kpi-l1-row-checked:hover {
+    background: #e5e7eb;
+}
+
 .modalL1-table tbody tr.is-refunded {
     background: #fef2f2;
     color: #7f1d1d;

@@ -25,6 +25,26 @@
 
 ## 2026-05-17
 
+### [orders-report] KPI - HOA HỒNG: row "đã kiểm tra" hiển thị xám nhẹ + dấu ✓ ở STT
+
+**User yêu cầu**: Đơn nào đánh "đã kiểm tra" → tô xám nhẹ + thêm dấu check nhỏ ở cột STT để dễ phân biệt với đơn chưa check.
+
+**Implementation**:
+
+- CSS [orders-report/css/tab-kpi-commission.css](orders-report/css/tab-kpi-commission.css): thêm `.modalL1-table tbody tr.kpi-l1-row-checked` với `background:#f3f4f6`, `color:#6b7280`, và pseudo `td[data-col='stt']::after { content:' ✓'; color:#10b981; }`. Pattern y hệt `.dr-row-checked` của delivery-report nhưng scope vào `modalL1-table` để không đụng `.kpi-row-checked` (đã dùng cho SP có KPI > 0 trong tab So sánh KPI L2).
+- JS [orders-report/js/tab-kpi-commission.js](orders-report/js/tab-kpi-commission.js):
+    - `renderEmployeeOrdersTable`: thêm class `kpi-l1-row-checked` vào row khi `_orderCheckStore.isChecked(invNumber)`; gắn `data-l1-number="<invNumber>"` lên `<tr>` và `data-col="stt"` lên TD đầu (để CSS `::after` chèn dấu ✓).
+    - Thêm helper `_applyL1CheckedStyles()` quét tbody, toggle class theo `data-l1-number` — không full re-render, hiệu năng tốt.
+    - Wire helper vào: (1) sau `markChecked` ghi local map, (2) trong `onSnapshot` listener của `_orderCheckStore`, (3) sau initial `col.get()`. Đảm bảo style luôn sync với Firestore: bấm "Đã kiểm tra" ở L2 → quay lại L1 row xám + ✓ ngay; user khác check ở delivery-report cũng cập nhật realtime nếu L1 đang mở.
+
+**Edge case**: đơn vừa `is-refunded` vừa `kpi-l1-row-checked` → giữ ưu tiên trực quan cho refunded (background đỏ nhạt) bằng cách đặt rule `kpi-l1-row-checked` TRƯỚC rule `is-refunded` trong file CSS (source order quyết định khi specificity bằng nhau).
+
+**Files**: `orders-report/css/tab-kpi-commission.css`, `orders-report/js/tab-kpi-commission.js`
+
+**Status**: Done.
+
+---
+
 ### [orders-report] KPI - HOA HỒNG: dialog "Xác nhận kiểm tra đơn" khi đóng modal chi tiết
 
 **User yêu cầu**: Trong tab "KPI - HOA HỒNG" → mở modal "Chi tiết đơn hàng" của 1 đơn → khi bấm tắt (X), hiển thị dialog xác nhận kiểm tra giống delivery-report image 3 ("Đơn xxx đã được kiểm tra chưa?" + nút "Chưa duyệt" / "✓ Đã kiểm tra"), để đánh dấu đơn đã kiểm tra hay chưa.
