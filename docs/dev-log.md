@@ -25,6 +25,47 @@
 
 ## 2026-05-17
 
+### [permissions + orders-report + delivery-report] Permission `canMarkOrderChecked` + tab "Lịch sử kiểm tra"
+
+**User yêu cầu**:
+1. Bổ sung 1 detail permission để chọn user nào được thấy + bấm dialog "Xác nhận kiểm tra đơn" (đánh dấu đã kiểm tra).
+2. Thêm tab "Lịch sử kiểm tra" lưu toàn bộ thao tác: ai kiểm tra, thời gian, đơn nào, campaign nào, KPI của ai.
+
+**Implementation — Permission**:
+
+- `user-management/js/permissions-registry.js`:
+    - Thêm `canMarkOrderChecked` vào `baocaosaleonline.detailedPermissions` (cho KPI - HOA HỒNG).
+    - Thêm `canMarkOrderChecked` vào `delivery-report.detailedPermissions` (cho Thống Kê Giao Hàng).
+    - 2 permission RIÊNG cho 2 page → admin có thể grant từng page hoặc cả 2 độc lập.
+- `orders-report/js/tab-kpi-commission.js::_canMarkOrderChecked()`: inline check đọc `loginindex_auth` từ sessionStorage/localStorage, bypass cho admin, check `detailedPermissions.baocaosaleonline.canMarkOrderChecked === true`. Mirror pattern `PermissionHelper.hasPermission` để khỏi thêm script tag.
+- `delivery-report/js/delivery-report.js::canMarkOrderChecked()`: cùng pattern, check `detailedPermissions['delivery-report'].canMarkOrderChecked`.
+- `closeOrderDetails` (KPI) và `requestCloseRowModal` (delivery-report) đều check quyền TRƯỚC khi show confirm. Không có quyền → đóng modal thẳng, không hỏi popup.
+
+**Implementation — Tab "Lịch sử kiểm tra"**:
+
+- HTML [orders-report/tab-kpi-commission.html](orders-report/tab-kpi-commission.html): thêm sub-tab thứ 3 "Lịch sử kiểm tra" cạnh "KPI Đơn Hàng" / "KPI Đơn Inbox"; container `#kpiCheckHistoryView` chứa toolbar (info text + search input + count) và table với 9 cột: STT, Số phiếu, Mã ĐH, Campaign, KPI của NV, KPI (VNĐ), Người kiểm, Thời gian, Nguồn (pill KPI/Giao hàng).
+- JS:
+    - `switchKpiSubTab` refactor sang map `{orders, inbox, 'check-history'}` thay vì if/else. Khi switch sang `check-history` → gọi `_orderCheckStore.init()` (idempotent) rồi `_renderCheckHistory()`.
+    - `_renderCheckHistory()` đọc trực tiếp `_orderCheckStore._data.values()` (đã được Firestore listener sync realtime), sort `checkedAt` DESC, filter theo search input (match số phiếu / mã ĐH / campaign / NV / người kiểm / khách / SĐT). Format giờ kiểu `dd/MM/YYYY HH:mm`. Source pill: KPI (tím) / Giao hàng (xanh) / — (xám).
+    - `_renderCheckHistory` được gọi tự động sau: (1) `markChecked` local set, (2) Firestore `onSnapshot` listener, (3) initial `col.get()` xong → đảm bảo realtime sync.
+- CSS [orders-report/css/tab-kpi-commission.css](orders-report/css/tab-kpi-commission.css): thêm `.kpi-check-history-toolbar` (flex toolbar) + `.kpi-check-history-controls input` (search box focus ring) + `.kpi-src-pill` (3 màu theo source).
+
+**Implementation — Enrich payload**:
+
+- `tab-kpi-commission.js`:
+    - `state.currentEmployeeName` mới — set khi mở Modal L1 (resolved name của nhân viên KPI).
+    - `closeOrderDetails` enrich `_pendingCheckCtx` với `campaignName, kpiOwnerUserId, kpiOwnerUserName, kpiAmount, netProducts` từ order + state.
+    - `_orderCheckStore.markChecked` save full payload + `checkedByDisplayName` (display name của người kiểm) + `source: 'kpi-commission'`.
+- `delivery-report.js::OrderCheckStore.markChecked` cũng update: thêm `checkedByDisplayName` + `source: 'delivery-report'` để history tab phân biệt nguồn.
+
+**Backward compat**: Đơn check cũ (trước thay đổi) thiếu các field mới → hiện "—" trong bảng. Không break gì.
+
+**Files**: `user-management/js/permissions-registry.js`, `orders-report/tab-kpi-commission.html`, `orders-report/js/tab-kpi-commission.js`, `orders-report/css/tab-kpi-commission.css`, `delivery-report/js/delivery-report.js`
+
+**Status**: Done — admin grant quyền `canMarkOrderChecked` cho user nào trong user-management → user đó mới thấy popup khi đóng modal chi tiết đơn.
+
+---
+
 ### [orders-report] KPI - HOA HỒNG: row "đã kiểm tra" hiển thị xám nhẹ + dấu ✓ ở STT
 
 **User yêu cầu**: Đơn nào đánh "đã kiểm tra" → tô xám nhẹ + thêm dấu check nhỏ ở cột STT để dễ phân biệt với đơn chưa check.

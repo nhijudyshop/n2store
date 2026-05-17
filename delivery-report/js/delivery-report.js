@@ -248,14 +248,18 @@
 
         async function markChecked(number, meta) {
             if (!number) return;
-            const username = window.authManager?.getUserInfo?.()?.username || 'unknown';
+            const info = window.authManager?.getUserInfo?.() || {};
+            const username = info.username || 'unknown';
+            const displayName = info.displayName || info.fullName || '';
             const payload = {
                 number,
                 checkedBy: username,
+                checkedByDisplayName: displayName,
                 checkedAt: Date.now(),
                 customerName: meta?.customerName || '',
                 phone: meta?.phone || '',
                 invoiceId: meta?.id || '',
+                source: 'delivery-report',
             };
             _data.set(number, payload);
             saveToLocal();
@@ -4083,10 +4087,35 @@
             currentRowCtx = null;
         }
 
-        // Yêu cầu đóng — nếu đơn chưa được kiểm tra thì hỏi popup, ngược lại đóng luôn.
+        // Quyền "canMarkOrderChecked" trên page delivery-report. Mirror pattern
+        // PermissionHelper.hasPermission để khỏi thêm script tag mới.
+        function canMarkOrderChecked() {
+            try {
+                const raw =
+                    sessionStorage.getItem('loginindex_auth') ||
+                    localStorage.getItem('loginindex_auth');
+                if (!raw) return false;
+                const auth = JSON.parse(raw);
+                if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true;
+                return (
+                    auth?.detailedPermissions?.['delivery-report']?.canMarkOrderChecked ===
+                    true
+                );
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Yêu cầu đóng — nếu không có quyền / không có số phiếu / đã kiểm tra rồi
+        // → đóng thẳng. Ngược lại show popup xác nhận.
         function requestCloseRowModal() {
             const ctx = currentRowCtx;
-            if (!ctx || !ctx.number || OrderCheckStore.isChecked(ctx.number)) {
+            if (
+                !ctx ||
+                !ctx.number ||
+                !canMarkOrderChecked() ||
+                OrderCheckStore.isChecked(ctx.number)
+            ) {
                 closeRowModal();
                 return;
             }

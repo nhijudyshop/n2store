@@ -3109,3 +3109,80 @@ body {
     align-items: center;
     gap: 8px;
 }
+
+/* ============================================================
+   CHECK HISTORY VIEW — Lịch sử kiểm tra (chia sẻ với delivery-report)
+   ============================================================ */
+.kpi-check-history-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+.kpi-check-history-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6b7280;
+}
+.kpi-check-history-info i {
+    color: #6366f1;
+    width: 16px;
+    height: 16px;
+}
+.kpi-check-history-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.kpi-check-history-controls input {
+    padding: 7px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    min-width: 280px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.kpi-check-history-controls input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.kpi-check-history-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-check-history-table tbody td {
+    font-size: 13px;
+    vertical-align: middle;
+}
+.kpi-src-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.kpi-src-pill.kpi-src-kpi {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+.kpi-src-pill.kpi-src-dr {
+    background: #d1fae5;
+    color: #047857;
+}
+.kpi-src-pill.kpi-src-other {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+

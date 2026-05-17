@@ -105,6 +105,16 @@
                 >
                     <i data-lucide="inbox"></i> KPI Đơn Inbox
                 </button>
+                <button
+                    class="kpi-subtab"
+                    data-kpi-subtab="check-history"
+                    type="button"
+                    role="tab"
+                    onclick="KPICommission.switchKpiSubTab('check-history')"
+                    title="Lịch sử các đơn đã được đánh dấu 'Đã kiểm tra' (chia sẻ với Thống Kê Giao Hàng)"
+                >
+                    <i data-lucide="clipboard-check"></i> Lịch sử kiểm tra
+                </button>
             </nav>
 
             <!-- ===== VIEW: KPI ĐƠN HÀNG (existing — campaign-driven) ===== -->
@@ -579,6 +589,53 @@
                 </div>
             </div>
             <!-- /#kpiInboxView -->
+
+            <!-- ===== VIEW: LỊCH SỬ KIỂM TRA ===== -->
+            <div id="kpiCheckHistoryView" class="kpi-subtab-view" style="display: none">
+                <div class="kpi-check-history-toolbar">
+                    <div class="kpi-check-history-info">
+                        <i data-lucide="info"></i>
+                        <span>
+                            Lưu lại toàn bộ thao tác đánh dấu "Đã kiểm tra" — share với
+                            Thống Kê Giao Hàng.
+                        </span>
+                    </div>
+                    <div class="kpi-check-history-controls">
+                        <input
+                            type="text"
+                            id="kpiCheckHistorySearch"
+                            placeholder="Tìm số đơn / Mã ĐH / NV / KPI nhân viên / Campaign…"
+                            oninput="KPICommission._renderCheckHistory()"
+                        />
+                        <span id="kpiCheckHistoryCount" class="kpi-check-history-count"></span>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="kpi-main-table kpi-check-history-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 48px">#</th>
+                                <th>Số phiếu</th>
+                                <th>Mã ĐH</th>
+                                <th>Campaign</th>
+                                <th>KPI của NV</th>
+                                <th style="text-align: right">KPI (VNĐ)</th>
+                                <th>Người kiểm</th>
+                                <th>Thời gian</th>
+                                <th>Nguồn</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kpiCheckHistoryBody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; padding: 24px; color: #9ca3af;">
+                                    Đang tải lịch sử kiểm tra...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- /#kpiCheckHistoryView -->
         </div>
 
         <!-- ===== MODAL LEVEL 1: Employee Orders (11.6) ===== -->

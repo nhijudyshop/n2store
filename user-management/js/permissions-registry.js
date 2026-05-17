@@ -291,7 +291,8 @@ const PAGES_REGISTRY = {
             export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo" },
             compare: { name: "So sánh", icon: "git-compare", description: "So sánh các kỳ báo cáo" },
             viewAnalysis: { name: "Xem Phân tích hiệu quả", icon: "trending-up", description: "Truy cập tab Phân tích hiệu quả" },
-            editAnalysis: { name: "Chỉnh sửa Phân tích", icon: "edit", description: "Chỉnh sửa thông số trong tab Phân tích" }
+            editAnalysis: { name: "Chỉnh sửa Phân tích", icon: "edit", description: "Chỉnh sửa thông số trong tab Phân tích" },
+            canMarkOrderChecked: { name: "Xác nhận kiểm tra đơn (KPI)", icon: "check-circle", description: "Thấy và bấm xác nhận 'Đã kiểm tra' khi đóng modal Chi tiết đơn trong tab KPI - HOA HỒNG" }
         }
     },
 
@@ -325,7 +326,8 @@ const PAGES_REGISTRY = {
         detailedPermissions: {
             view: { name: "Xem thống kê", icon: "eye", description: "Xem báo cáo giao hàng" },
             export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo giao hàng" },
-            manage: { name: "Quản lý", icon: "settings", description: "Quản lý cấu hình giao hàng" }
+            manage: { name: "Quản lý", icon: "settings", description: "Quản lý cấu hình giao hàng" },
+            canMarkOrderChecked: { name: "Xác nhận kiểm tra đơn", icon: "check-circle", description: "Thấy và bấm xác nhận 'Đã kiểm tra' khi đóng modal chi tiết đơn" }
         }
     },
 

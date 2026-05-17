@@ -36,6 +36,7 @@ const KPICommission = {
         currentEmployeeOrders: [], // Orders for Modal L1
         currentOrderId: null, // Current order in Modal L2
         currentEmployeeUserId: null,
+        currentEmployeeName: '',
         isLoading: false,
         employeeNameCache: {}, // Cache for resolved employee names (Bug #4 fix)
         // 'simple' = chỉ hiển thị đơn/user có KPI > 0 (default, hành vi cũ).
@@ -540,19 +541,23 @@ const KPICommission = {
             b.classList.toggle('is-active', b.dataset.kpiSubtab === name);
         });
         // Toggle view containers
-        const ordersView = document.getElementById('kpiOrdersView');
-        const inboxView = document.getElementById('kpiInboxView');
-        if (ordersView) {
-            ordersView.classList.toggle('is-active', name === 'orders');
-            ordersView.style.display = name === 'orders' ? '' : 'none';
-        }
-        if (inboxView) {
-            inboxView.classList.toggle('is-active', name === 'inbox');
-            inboxView.style.display = name === 'inbox' ? '' : 'none';
-        }
+        const views = {
+            orders: document.getElementById('kpiOrdersView'),
+            inbox: document.getElementById('kpiInboxView'),
+            'check-history': document.getElementById('kpiCheckHistoryView'),
+        };
+        Object.entries(views).forEach(([key, el]) => {
+            if (!el) return;
+            const isActive = key === name;
+            el.classList.toggle('is-active', isActive);
+            el.style.display = isActive ? '' : 'none';
+        });
         if (name === 'inbox') {
-            // Lazy-load inbox view khi click lần đầu
             this.renderInboxKpiView();
+        } else if (name === 'check-history') {
+            // Đảm bảo store đã init (idempotent — promise reused)
+            this._orderCheckStore.init().catch(() => {});
+            this._renderCheckHistory();
         }
     },
 
@@ -1916,12 +1921,14 @@ const KPICommission = {
 
         this.state.currentEmployeeUserId = userId;
         this.state.currentEmployeeOrders = emp.orders || [];
+        this.state.currentEmployeeName = emp.resolvedName || emp.userName || '';
 
         // Set header - use resolved name (Bug #4 fix)
         const nameEl = document.getElementById('modalL1EmployeeName');
         if (nameEl) {
             const resolvedName = await this.resolveEmployeeName(userId);
             nameEl.textContent = resolvedName;
+            this.state.currentEmployeeName = resolvedName;
         }
 
         // Reset filters
@@ -2480,7 +2487,12 @@ const KPICommission = {
     closeOrderDetails() {
         const orderId = this.state.currentOrderId;
         const number = orderId ? this._getInvoiceNumberForOrder(orderId) : '';
-        if (!number || this._orderCheckStore.isChecked(number)) {
+        // No permission OR no số phiếu OR already checked → close ngay, không hỏi.
+        if (
+            !number ||
+            !this._canMarkOrderChecked() ||
+            this._orderCheckStore.isChecked(number)
+        ) {
             this._doCloseOrderDetails();
             return;
         }
@@ -2490,12 +2502,38 @@ const KPICommission = {
             number,
             invoiceId,
             orderCode: order?.orderCode || '',
+            campaignName: order?.campaignName || '',
+            kpiOwnerUserId: this.state.currentEmployeeUserId || '',
+            kpiOwnerUserName: this.state.currentEmployeeName || '',
+            kpiAmount: order?.kpi || 0,
+            netProducts: order?.netProducts || 0,
         };
         const el = this._ensureCheckConfirmModal();
         el.querySelector('#kpi-confirm-number').textContent = number;
         const secondary = order?.orderCode ? `Mã ĐH: ${order.orderCode}` : '';
         el.querySelector('#kpi-confirm-secondary').textContent = secondary;
         el.style.display = 'flex';
+    },
+
+    // Kiểm tra quyền "canMarkOrderChecked" trong page baocaosaleonline (orders-report).
+    // Inline check (không phụ thuộc PermissionHelper.js) để không thêm script dependency
+    // vào tab-kpi-commission.html. Pattern mirror PermissionHelper.hasPermission:
+    //   admin (isAdmin === true | roleTemplate === 'admin') → bypass.
+    //   non-admin → check detailedPermissions.baocaosaleonline.canMarkOrderChecked === true.
+    _canMarkOrderChecked() {
+        try {
+            const raw =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth');
+            if (!raw) return false;
+            const auth = JSON.parse(raw);
+            if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true;
+            return (
+                auth?.detailedPermissions?.baocaosaleonline?.canMarkOrderChecked === true
+            );
+        } catch (e) {
+            return false;
+        }
     },
 
     _doCloseOrderDetails() {
@@ -2512,6 +2550,84 @@ const KPICommission = {
             const shouldBe = !!number && this._orderCheckStore.isChecked(number);
             tr.classList.toggle('kpi-l1-row-checked', shouldBe);
         });
+    },
+
+    // Render bảng "Lịch sử kiểm tra" — đọc từ _orderCheckStore._data (đã được
+    // listener Firestore đồng bộ realtime). Sort theo checkedAt DESC.
+    _renderCheckHistory() {
+        const tbody = document.getElementById('kpiCheckHistoryBody');
+        const countEl = document.getElementById('kpiCheckHistoryCount');
+        if (!tbody) return;
+        const search = (document.getElementById('kpiCheckHistorySearch')?.value || '')
+            .trim()
+            .toLowerCase();
+        const all = Array.from(this._orderCheckStore._data.values())
+            .filter((v) => v && v.number)
+            .sort((a, b) => (b.checkedAt || 0) - (a.checkedAt || 0));
+        const filtered = !search
+            ? all
+            : all.filter((entry) => {
+                  const blob = [
+                      entry.number,
+                      entry.orderCode,
+                      entry.campaignName,
+                      entry.kpiOwnerUserName,
+                      entry.checkedBy,
+                      entry.checkedByDisplayName,
+                      entry.customerName,
+                      entry.phone,
+                  ]
+                      .filter(Boolean)
+                      .join(' ')
+                      .toLowerCase();
+                  return blob.includes(search);
+              });
+
+        if (countEl) {
+            countEl.textContent = search
+                ? `(${filtered.length}/${all.length})`
+                : `${all.length} đơn`;
+        }
+
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af;">${
+                all.length === 0
+                    ? 'Chưa có đơn nào được đánh dấu kiểm tra.'
+                    : 'Không có kết quả phù hợp.'
+            }</td></tr>`;
+            return;
+        }
+
+        const fmtTime = (ts) => {
+            if (!ts) return '---';
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '---';
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        const srcLabel = (s) =>
+            s === 'kpi-commission'
+                ? '<span class="kpi-src-pill kpi-src-kpi">KPI</span>'
+                : s === 'delivery-report'
+                  ? '<span class="kpi-src-pill kpi-src-dr">Giao hàng</span>'
+                  : '<span class="kpi-src-pill kpi-src-other">—</span>';
+
+        let html = '';
+        filtered.forEach((entry, idx) => {
+            const checker = entry.checkedByDisplayName || entry.checkedBy || '—';
+            html += `<tr>
+                <td>${idx + 1}</td>
+                <td><strong>${this.escapeHtml(entry.number)}</strong></td>
+                <td>${this.escapeHtml(entry.orderCode || '—')}</td>
+                <td>${this.escapeHtml(entry.campaignName || '—')}</td>
+                <td>${this.escapeHtml(entry.kpiOwnerUserName || '—')}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums;">${entry.kpiAmount ? this.formatCurrency(entry.kpiAmount) : '—'}</td>
+                <td>${this.escapeHtml(checker)}</td>
+                <td>${fmtTime(entry.checkedAt)}</td>
+                <td>${srcLabel(entry.source)}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
     },
 
     _getInvoiceNumberForOrder(orderId) {
@@ -2614,6 +2730,7 @@ const KPICommission = {
                         this._data.set(key, data);
                     });
                     window.KPICommission?._applyL1CheckedStyles?.();
+                    window.KPICommission?._renderCheckHistory?.();
                 } catch (e) {
                     console.warn('[KPI-ORDER-CHECK] initial load failed:', e?.message);
                 }
@@ -2627,6 +2744,7 @@ const KPICommission = {
                                 this._data.set(key, data);
                             });
                             window.KPICommission?._applyL1CheckedStyles?.();
+                            window.KPICommission?._renderCheckHistory?.();
                         },
                         (err) => console.warn('[KPI-ORDER-CHECK] listener error:', err?.message)
                     );
@@ -2644,19 +2762,28 @@ const KPICommission = {
 
         async markChecked(number, meta) {
             if (!number) return;
-            const username = window.authManager?.getUserInfo?.()?.username || 'unknown';
+            const info = window.authManager?.getUserInfo?.() || {};
+            const username = info.username || 'unknown';
+            const displayName = info.displayName || info.fullName || '';
             const payload = {
                 number,
                 checkedBy: username,
+                checkedByDisplayName: displayName,
                 checkedAt: Date.now(),
                 customerName: meta?.customerName || '',
                 phone: meta?.phone || '',
                 invoiceId: meta?.invoiceId || '',
                 orderCode: meta?.orderCode || '',
+                campaignName: meta?.campaignName || '',
+                kpiOwnerUserId: meta?.kpiOwnerUserId || '',
+                kpiOwnerUserName: meta?.kpiOwnerUserName || '',
+                kpiAmount: meta?.kpiAmount || 0,
+                netProducts: meta?.netProducts || 0,
                 source: 'kpi-commission',
             };
             this._data.set(number, payload);
             window.KPICommission?._applyL1CheckedStyles?.();
+            window.KPICommission?._renderCheckHistory?.();
             const col = this._getCol();
             if (!col) return;
             try {
