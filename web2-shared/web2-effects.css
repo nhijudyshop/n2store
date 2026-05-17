@@ -401,3 +401,43 @@
         transition: none;
     }
 }
+
+/* ---------- Image drop target (Web2Effects.attachImageDropTarget) ---------- */
+
+.w2fx-drop-target {
+    position: relative;
+    outline: none;
+    transition:
+        border-color 0.15s ease-out,
+        background 0.15s ease-out,
+        box-shadow 0.15s ease-out;
+    cursor: copy;
+}
+
+.w2fx-drop-target:focus,
+.w2fx-drop-target:focus-within {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+}
+
+.w2fx-drop-target.is-dragover {
+    border-color: #3b82f6 !important;
+    background: #eff6ff !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
+
+/* Hint inside the drop target — caller markup typically uses these. */
+.w2fx-drop-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+    pointer-events: none;
+    user-select: none;
+    padding: 2px 0;
+}
+.w2fx-drop-hint i {
+    width: 14px;
+    height: 14px;
+}

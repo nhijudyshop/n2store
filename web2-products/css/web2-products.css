@@ -112,3 +112,26 @@
     border-radius: 6px;
     display: inline-block;
 }
+
+/* Upload area cho ảnh sản phẩm trong modal — click/Ctrl+V/drag-drop */
+.pm-image-drop {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    background: #fafafa;
+    border: 1.5px dashed #d1d5db;
+    border-radius: 10px;
+    outline: none;
+}
+.pm-image-drop:hover {
+    border-color: #c4b5fd;
+    background: #faf5ff;
+}
+.pm-image-drop .w2fx-drop-hint {
+    justify-content: center;
+    font-size: 12px;
+}
+.pm-image-drop input[type='url'] {
+    width: 100%;
+}

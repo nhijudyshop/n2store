@@ -406,11 +406,21 @@
     // Uses a position:fixed clone so table cells / cards
     // can't clip the preview.
     //
-    // Opt-out: add `data-w2-no-zoom` to the <img> or any
-    // ancestor (the helper short-circuits). Avatars, icons
-    // and toolbar imagery are excluded via selector below.
+    // **Catch-all behavior** (2026-05-17): every <img> inside a
+    // Web 2.0 container (`.web2-shell`, `body.tpos-theme`,
+    // `body.tpos-clone`) auto-zooms unless explicitly excluded.
+    // The previous opt-in selector list (`.product-image`,
+    // `.so-cell-img img`, …) is kept as legacy whitelist for
+    // pages without the Web 2.0 container wrapper.
+    //
+    // Exclusions:
+    //   - data-w2-no-zoom on the <img> OR ancestor
+    //   - inside .tpos-sidebar / .sidebar / .so-tab-strip /
+    //     button / a / nav (icon-only contexts)
+    //   - intrinsic size < 32 px (likely an icon/avatar)
+    //   - parent is a button/anchor (treat as icon)
 
-    const HOVER_ZOOM_INCLUDE = [
+    const HOVER_ZOOM_INCLUDE_LEGACY = [
         '.so-cell-img img',
         '.so-img-preview img',
         '.so-modal-table img',
@@ -428,11 +438,21 @@
         'img[data-w2-zoom]',
     ].join(',');
 
+    const HOVER_ZOOM_CONTAINER = '.web2-shell, body.tpos-theme, body.tpos-clone';
+
     const HOVER_ZOOM_EXCLUDE_CONTAINER = [
         '.tpos-sidebar',
         '.sidebar',
+        '.web2-aside',
         '.so-tab-strip',
         '[data-w2-no-zoom]',
+        // Buttons/anchors/avatars — treat as icon
+        'button',
+        'a',
+        '.btn-icon-round',
+        '.w2-avatar',
+        '.avatar',
+        '.icon',
     ].join(',');
 
     let _zoomPopup = null;
@@ -442,13 +462,16 @@
         if (!img || img.tagName !== 'IMG') return false;
         if (img.hasAttribute('data-w2-no-zoom')) return false;
         if (img.closest(HOVER_ZOOM_EXCLUDE_CONTAINER)) return false;
-        if (!img.matches(HOVER_ZOOM_INCLUDE)) return false;
-        // Skip tiny icons (likely SVG masks rendered into img).
+        // Skip too-small (icons, mini badges)
         const w = img.naturalWidth || img.width;
         const h = img.naturalHeight || img.height;
-        if (w && w < 28) return false;
-        if (h && h < 28) return false;
-        return true;
+        if (w && w < 32) return false;
+        if (h && h < 32) return false;
+        // Either: matches legacy include OR sits inside a Web 2.0 container.
+        const inWeb2 = img.closest(HOVER_ZOOM_CONTAINER);
+        if (inWeb2) return true;
+        if (img.matches(HOVER_ZOOM_INCLUDE_LEGACY)) return true;
+        return false;
     }
 
     function _ensureZoomPopup() {
@@ -522,6 +545,155 @@
         window.addEventListener('scroll', _hideZoom, { passive: true, capture: true });
     }
 
+    // -----------------------------------------------------
+    // attachImageDropTarget — reusable upload-area helper
+    // -----------------------------------------------------
+    //
+    // Bật khả năng nhận ảnh cho 1 element trong toàn bộ Web 2.0:
+    //   - Click → mở file picker
+    //   - Ctrl+V khi focus → paste ảnh từ clipboard
+    //   - Kéo thả file ảnh → drop
+    //
+    // Result trả về dataURL (base64). Caller tự quyết định lưu vào input,
+    // upload CDN, hay đưa vào preview.
+    //
+    // opts:
+    //   onResult(url, file): callback bắt buộc
+    //   maxSizeMB: cảnh báo (không reject) khi vượt — mặc định 2
+    //   noClickPicker: bỏ qua wiring click → file picker (khi caller có
+    //     button riêng đã wire). Mặc định false.
+    //   accept: accept attr cho input file, mặc định 'image/*'
+    //   notify: fn(msg, type) — không bắt buộc, fallback console.warn
+    //
+    // Trả về {detach} để có thể tháo listeners khi destroy element.
+
+    function _w2Notify(notifyFn, msg, type) {
+        if (typeof notifyFn === 'function') {
+            try {
+                notifyFn(msg, type);
+                return;
+            } catch {
+                /* fall through */
+            }
+        }
+        if (global.notificationManager?.show) {
+            try {
+                global.notificationManager.show(msg, type || 'info');
+                return;
+            } catch {
+                /* fall through */
+            }
+        }
+        // eslint-disable-next-line no-console
+        console.warn('[Web2Effects]', msg);
+    }
+
+    function _fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+        });
+    }
+
+    function attachImageDropTarget(element, opts = {}) {
+        const el = typeof element === 'string' ? document.querySelector(element) : element;
+        if (!el) return { detach() {} };
+        if (el.__w2DropAttached) return el.__w2DropAttached;
+
+        const maxMB = opts.maxSizeMB ?? 2;
+        const accept = opts.accept || 'image/*';
+        const onResult = opts.onResult || (() => {});
+        const notify = (msg, type) => _w2Notify(opts.notify, msg, type);
+
+        if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+        el.classList.add('w2fx-drop-target');
+
+        const apply = async (file) => {
+            if (!file) return;
+            if (!file.type || !file.type.startsWith('image/')) {
+                notify('File không phải là ảnh', 'warning');
+                return;
+            }
+            if (file.size > maxMB * 1024 * 1024) {
+                notify(`Ảnh > ${maxMB}MB — nên paste URL CDN thay vì upload base64`, 'warning');
+            }
+            try {
+                const url = await _fileToDataUrl(file);
+                onResult(url, file);
+            } catch (e) {
+                notify('Đọc file lỗi: ' + e.message, 'error');
+            }
+        };
+
+        const onClick = (e) => {
+            // Cho phép click target nguyên area → mở file picker (trừ khi
+            // click trúng input/button con của caller).
+            if (opts.noClickPicker) return;
+            const tag = (e.target && e.target.tagName) || '';
+            if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA' || tag === 'A') return;
+            // Focus trước, để sau khi đóng picker user có thể paste tiếp.
+            el.focus();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = accept;
+            input.style.display = 'none';
+            input.onchange = async () => {
+                const f = input.files?.[0];
+                if (f) await apply(f);
+                input.remove();
+            };
+            document.body.appendChild(input);
+            input.click();
+        };
+
+        const onPaste = async (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const it of items) {
+                if (it.kind === 'file' && it.type.startsWith('image/')) {
+                    e.preventDefault();
+                    await apply(it.getAsFile());
+                    return;
+                }
+            }
+        };
+
+        const onDragover = (e) => {
+            e.preventDefault();
+            el.classList.add('is-dragover');
+        };
+        const onDragleave = () => el.classList.remove('is-dragover');
+        const onDrop = async (e) => {
+            e.preventDefault();
+            el.classList.remove('is-dragover');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) await apply(file);
+        };
+
+        el.addEventListener('click', onClick);
+        el.addEventListener('paste', onPaste);
+        el.addEventListener('dragover', onDragover);
+        el.addEventListener('dragleave', onDragleave);
+        el.addEventListener('drop', onDrop);
+
+        const handle = {
+            detach() {
+                el.removeEventListener('click', onClick);
+                el.removeEventListener('paste', onPaste);
+                el.removeEventListener('dragover', onDragover);
+                el.removeEventListener('dragleave', onDragleave);
+                el.removeEventListener('drop', onDrop);
+                el.classList.remove('w2fx-drop-target');
+                delete el.__w2DropAttached;
+            },
+            apply, // expose for programmatic call
+        };
+        el.__w2DropAttached = handle;
+        return handle;
+    }
+
     function init() {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
@@ -559,6 +731,7 @@
         stop,
         scan,
         attachHoverZoom,
+        attachImageDropTarget,
         prefersReducedMotion,
     };
 })(window);

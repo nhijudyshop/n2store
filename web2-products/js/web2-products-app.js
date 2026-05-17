@@ -335,6 +335,20 @@
     function init() {
         if (window.lucide) lucide.createIcons();
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
+
+        // Upload + Ctrl+V paste + drag-drop cho field ảnh trong modal.
+        // Khi nhận ảnh → ghi base64 vào input #pmImage + cập nhật preview.
+        if (window.Web2Effects?.attachImageDropTarget) {
+            window.Web2Effects.attachImageDropTarget('#pmImageDrop', {
+                noClickPicker: false,
+                onResult(url) {
+                    const inp = $('#pmImage');
+                    if (inp) inp.value = url;
+                    updateImagePreview(url);
+                },
+                notify,
+            });
+        }
         $('#filterSearch')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') applyFilters();
         });

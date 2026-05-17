@@ -762,7 +762,27 @@
         }, 30);
     }
 
+    function _applyImageToRow(uid, name, dataUrl) {
+        const row = modalRows.find((r) => r.uid === uid);
+        if (!row) return;
+        row[name] = dataUrl;
+        const formInput = document.querySelector(
+            `#soModalProductsBody input[data-field="${name}"][data-uid="${uid}"]`
+        );
+        if (formInput) formInput.value = dataUrl;
+        updateRowImagePreview(uid, name, dataUrl);
+    }
+
     function pickImageForRow(uid, name) {
+        if (window.Web2Effects?.attachImageDropTarget) {
+            const cell = document.querySelector(
+                `#soModalProductsBody [data-img-cell][data-uid="${uid}"][data-img-name="${name}"]`
+            );
+            const handle = cell?.__w2DropAttached;
+            if (handle && typeof handle.apply !== 'function') {
+                // attachImageDropTarget exposes .apply for programmatic file pass.
+            }
+        }
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
@@ -773,14 +793,7 @@
                 notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
             }
             const dataUrl = await fileToDataUrl(f);
-            const row = modalRows.find((r) => r.uid === uid);
-            if (!row) return;
-            row[name] = dataUrl;
-            const formInput = document.querySelector(
-                `#soModalProductsBody input[data-field="${name}"][data-uid="${uid}"]`
-            );
-            if (formInput) formInput.value = dataUrl;
-            updateRowImagePreview(uid, name, dataUrl);
+            _applyImageToRow(uid, name, dataUrl);
         };
         input.click();
     }
@@ -791,55 +804,19 @@
             const uid = cell.dataset.uid;
             const name = cell.dataset.imgName;
             if (!uid || !name) return;
-            cell.addEventListener('click', (e) => {
-                if (e.target === cell || e.target.classList.contains('so-img-cell-hint')) {
-                    cell.focus();
-                }
-            });
-            cell.addEventListener('paste', async (e) => {
-                const items = e.clipboardData?.items;
-                if (!items) return;
-                for (const it of items) {
-                    if (it.kind === 'file' && it.type.startsWith('image/')) {
-                        e.preventDefault();
-                        const file = it.getAsFile();
-                        await applyDroppedImage(uid, name, file);
-                        return;
-                    }
-                }
-            });
-            cell.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                cell.classList.add('is-dragover');
-            });
-            cell.addEventListener('dragleave', () => cell.classList.remove('is-dragover'));
-            cell.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                cell.classList.remove('is-dragover');
-                const file = e.dataTransfer?.files?.[0];
-                if (file) await applyDroppedImage(uid, name, file);
-            });
+            // Click vào cell (vùng trống, không phải input/button con) → focus
+            // để Ctrl+V land vào đây. Còn click → mở file picker được bỏ qua
+            // (`noClickPicker`) vì caller đã có nút upload riêng.
+            if (window.Web2Effects?.attachImageDropTarget) {
+                window.Web2Effects.attachImageDropTarget(cell, {
+                    noClickPicker: true,
+                    onResult(dataUrl) {
+                        _applyImageToRow(uid, name, dataUrl);
+                    },
+                    notify,
+                });
+            }
         });
-    }
-
-    async function applyDroppedImage(uid, name, file) {
-        if (!file) return;
-        if (!file.type || !file.type.startsWith('image/')) {
-            notify('File không phải là ảnh', 'warning');
-            return;
-        }
-        if (file.size > 2 * 1024 * 1024) {
-            notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
-        }
-        const dataUrl = await fileToDataUrl(file);
-        const row = modalRows.find((r) => r.uid === uid);
-        if (!row) return;
-        row[name] = dataUrl;
-        const formInput = document.querySelector(
-            `#soModalProductsBody input[data-field="${name}"][data-uid="${uid}"]`
-        );
-        if (formInput) formInput.value = dataUrl;
-        updateRowImagePreview(uid, name, dataUrl);
     }
 
     function openOrderModal(rowId, shipmentId) {

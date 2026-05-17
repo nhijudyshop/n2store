@@ -25,6 +25,31 @@
 
 ## 2026-05-17
 
+### [web2] Hover-zoom catch-all + Web2Effects.attachImageDropTarget — Kho SP modal Ctrl+V upload
+
+**User**: "toàn bộ dự án web 2.0 liên quan tới ảnh là hover zoom lên + nếu upload thì cho ctrl V vào area".
+
+**Implementation**:
+
+1. **Hover-zoom catch-all** ([web2-shared/web2-effects.js](../web2-shared/web2-effects.js)): bổ sung container-based detection — mọi `<img>` nằm trong `.web2-shell`, `body.tpos-theme`, hoặc `body.tpos-clone` tự động được zoom khi hover, không cần selector cụ thể. Legacy whitelist (`.product-image`, `.so-cell-img img`, …) vẫn giữ làm fallback cho pages chưa có Web 2.0 container. Exclusions: `data-w2-no-zoom`, sidebar/aside/nav, `button`/`a`/`.btn-icon-round`/avatar/icon, ảnh < 32 px.
+
+2. **Web2Effects.attachImageDropTarget(el, opts)** — helper dùng chung tách ra từ pattern so-order:
+    - `onResult(url, file)` callback bắt buộc, trả về dataURL base64
+    - 3 cách input: click → file picker; Ctrl+V khi focus → paste; kéo thả file → drop
+    - `noClickPicker: true` khi caller đã có nút upload riêng (so-order)
+    - Auto thêm `tabindex="0"` để Ctrl+V land được; auto-toggle `.is-dragover` class
+    - Idempotent: gọi 2 lần cùng el → reuse handle. Expose `.detach()` programmatic
+    - Default `maxSizeMB = 2`, cảnh báo (không reject) khi vượt
+    - Notify fallback chain: opts.notify → `window.notificationManager` → console.warn
+
+3. **Kho SP Web 2.0**: field "Link ảnh" → "Ảnh sản phẩm" là drop target `#pmImageDrop` với hint "Click chọn file · Ctrl+V để dán ảnh · Kéo thả file · hoặc dán URL bên dưới". URL input vẫn giữ; wire `Web2Effects.attachImageDropTarget` trong `init()` → ghi base64 vào `#pmImage` + update preview. Trang nay load thêm `web2-shared/web2-effects.{js,css}` (trước thiếu).
+
+4. **so-order DRY**: `wireModalImagePasteDrop()` cũ → 1 dòng gọi `Web2Effects.attachImageDropTarget(cell, { noClickPicker: true, onResult, notify })`. Tách `_applyImageToRow()` reusable.
+
+**CSS**: thêm `.w2fx-drop-target` + `.w2fx-drop-hint` chung trong `web2-effects.css` để page chỉ cần markup div + apply class, framework lo focus/hover/drag-over visuals.
+
+**Status**: ✅ Done.
+
 ### [web2][so-order] Kho SP Web 2.0 — split Giá Mua/Giá Bán, realtime Firestore, so-order multi-row + suggestion + auto-add
 
 **User**: redesign trang Kho SP Web 2.0 với cột mới (ẢNH/MÃ/TÊN/GIÁ MUA/GIÁ BÁN/TỒN/GHI CHÚ/TRẠNG THÁI), gộp "Thêm SP" lên header (bỏ Tải lại/Áp dụng/Xóa lọc), realtime cross-machine. Trang `so-order/index.html` modal Tạo Đơn Hàng cần: badge "Đã có ở kho", suggestion khi gõ tên/mã, hiện tồn kho, nút "+" thêm hàng, lưu nháp xong auto-thêm SP mới vào kho với note = tab name (HÀ NỘI / HƯƠNG CHÂU).
