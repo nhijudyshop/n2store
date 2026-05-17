@@ -267,6 +267,24 @@ function getNextSTT() {
     return maxSTT + 1;
 }
 
+/**
+ * Lấy STT độc nhất từ server (atomic counter).
+ * Multi-device safe — không trùng kể cả khi nhiều tab/thiết bị cùng tạo đơn.
+ * Fallback về max(stt)+1 client-side nếu server lỗi.
+ */
+async function getNextSocialOrderSTTFromServer() {
+    try {
+        const data = await _apiFetch('/next-stt', { method: 'POST' });
+        if (data && data.success && Number.isFinite(data.stt)) {
+            return data.stt;
+        }
+        throw new Error('Invalid /next-stt response');
+    } catch (e) {
+        console.warn('[SocialAPI] /next-stt failed, fallback to local max+1:', e.message);
+        return getNextSTT();
+    }
+}
+
 function orderIdExists(orderId) {
     return SocialOrderState.orders.some(o => o.id === orderId);
 }
@@ -284,4 +302,5 @@ window.bulkUpdateSocialOrderTags = bulkUpdateSocialOrderTags;
 window.bulkUpdateSocialOrderTagsData = bulkUpdateSocialOrderTagsData;
 window.getSocialOrderById = getSocialOrderById;
 window.getNextSTT = getNextSTT;
+window.getNextSocialOrderSTTFromServer = getNextSocialOrderSTTFromServer;
 window.orderIdExists = orderIdExists;

@@ -89,6 +89,16 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_soh_created ON social_orders_history(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_soh_action ON social_orders_history(action);
             CREATE INDEX IF NOT EXISTS idx_soh_order ON social_orders_history(order_id);
+
+            -- 2026-05-17: counter atomic để cấp STT độc nhất cho đơn inbox mới.
+            -- Lý do tách bảng: tránh race condition khi nhiều thiết bị/tab cùng tạo đơn
+            -- (cách cũ stt = orders.length+1 ở client bị trùng khi xóa/hủy đơn hoặc tạo song song).
+            -- Đơn cũ KHÔNG bị đụng — counter chỉ áp dụng cho đơn tạo từ giờ.
+            CREATE TABLE IF NOT EXISTS inbox_counters (
+                name TEXT PRIMARY KEY,
+                value BIGINT NOT NULL DEFAULT 0,
+                updated_at BIGINT
+            );
         `);
         _tablesCreated = true;
         console.log('[SOCIAL-ORDERS] Tables created/verified');
@@ -373,6 +383,47 @@ router.post('/entries', async (req, res) => {
         res.json({ success: true, id: order.id });
     } catch (error) {
         console.error('[SOCIAL-ORDERS] POST /entries error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// ORDERS - NEXT STT (atomic counter)
+// =====================================================
+
+/**
+ * POST /api/social-orders/next-stt
+ *
+ * Cấp STT độc nhất cho đơn inbox mới qua atomic UPSERT.
+ * Lần đầu: seed = MAX(stt) hiện có trong social_orders + 1 (không trùng đơn cũ).
+ * Các lần sau: tăng counter +1.
+ *
+ * Response: { success: true, stt: <number> }
+ */
+router.post('/next-stt', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const result = await pool.query(
+            `INSERT INTO inbox_counters (name, value, updated_at)
+             VALUES (
+                 'stt',
+                 (SELECT COALESCE(MAX(stt), 0) FROM social_orders) + 1,
+                 $1
+             )
+             ON CONFLICT (name) DO UPDATE
+             SET value = inbox_counters.value + 1,
+                 updated_at = EXCLUDED.updated_at
+             RETURNING value`,
+            [Date.now()]
+        );
+
+        const stt = parseInt(result.rows[0].value, 10);
+        res.json({ success: true, stt });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] POST /next-stt error:', error);
         res.status(500).json({ error: error.message });
     }
 });

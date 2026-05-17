@@ -411,10 +411,12 @@ async function _saveOrderImpl() {
             }
         }
     } else {
-        // Create new order
+        // Create new order — STT lấy atomic từ server (multi-device safe, không trùng khi xóa đơn).
+        // Fallback về max(stt)+1 client-side nếu API lỗi.
+        const newStt = await getNextSocialOrderSTTFromServer();
         const newOrder = {
             id: generateOrderId(),
-            stt: SocialOrderState.orders.length + 1,
+            stt: newStt,
             customerName,
             phone,
             address,

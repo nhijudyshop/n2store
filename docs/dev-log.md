@@ -25,6 +25,27 @@
 
 ## 2026-05-17
 
+### [inbox][render] Fix STT trùng — atomic counter `inbox_counters` thay cho `orders.length+1`
+
+**Bug**: STT đơn inbox bị trùng (vd 501, 504 lặp 2 lần) do `tab-social-modal.js` cũ tính `stt = SocialOrderState.orders.length + 1` khi tạo đơn. Khi hủy/xóa đơn → length giảm → STT cũ được tái sử dụng. Multi-tab/multi-device race → 2 đơn cùng STT.
+
+**Fix (hướng B — không đụng đơn cũ)**:
+
+1. **Backend** [render.com/routes/social-orders.js](render.com/routes/social-orders.js):
+    - Thêm table `inbox_counters(name PK, value BIGINT, updated_at)` trong `ensureTables`.
+    - Endpoint `POST /api/social-orders/next-stt` — atomic UPSERT: lần đầu seed value = `MAX(stt) FROM social_orders + 1` (đảm bảo không trùng đơn cũ), các lần sau `value + 1`. 1 statement Postgres → race-safe.
+
+2. **Frontend API** [don-inbox/js/tab-social-firebase.js](don-inbox/js/tab-social-firebase.js):
+    - `getNextSocialOrderSTTFromServer()` async, fallback `getNextSTT()` local (max+1) nếu API lỗi.
+
+3. **Frontend modal** [don-inbox/js/tab-social-modal.js](don-inbox/js/tab-social-modal.js):
+    - Nhánh "Create new order" giờ `await getNextSocialOrderSTTFromServer()` trước khi build `newOrder`.
+    - Đơn cũ giữ nguyên STT — chỉ đơn tạo mới từ giờ dùng counter.
+
+**Status**: ✅ DONE. Cần Render auto-deploy ~2-3 phút sau push để endpoint mới active.
+
+---
+
 ### [orders-report][render] KPI Đơn Inbox: drill-down chi tiết đơn theo NV
 
 **User feedback**: "kpi đơn inbox không ghi rõ là đơn nào à? làm chi tiết giúp tôi" — leaderboard chỉ aggregate, không drill xuống đơn cụ thể.
