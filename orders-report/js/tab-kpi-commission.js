@@ -2757,9 +2757,32 @@ const KPICommission = {
 
         async markChecked(number, meta) {
             if (!number) return;
-            const info = window.authManager?.getUserInfo?.() || {};
-            const username = info.username || 'unknown';
-            const displayName = info.displayName || info.fullName || '';
+            // Iframe `tab-kpi-commission.html` không load shared-auth-manager
+            // (parent main.html mới load) → `window.authManager` thường undefined
+            // trong iframe. Đọc thẳng `loginindex_auth` từ storage (same-origin
+            // → storage chia sẻ giữa iframe và parent). Fallback authManager nếu có.
+            let username = 'unknown';
+            let displayName = '';
+            try {
+                const raw =
+                    sessionStorage.getItem('loginindex_auth') ||
+                    localStorage.getItem('loginindex_auth');
+                if (raw) {
+                    const auth = JSON.parse(raw);
+                    username = auth.username || username;
+                    displayName = auth.displayName || auth.fullName || '';
+                }
+            } catch (e) {
+                // ignore parse errors → keep defaults
+            }
+            if (username === 'unknown') {
+                const info =
+                    window.authManager?.getUserInfo?.() ||
+                    window.parent?.authManager?.getUserInfo?.() ||
+                    {};
+                username = info.username || username;
+                displayName = displayName || info.displayName || info.fullName || '';
+            }
             const payload = {
                 number,
                 checkedBy: username,
