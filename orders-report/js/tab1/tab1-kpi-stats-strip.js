@@ -20,19 +20,21 @@
    Refresh triggers:
    - Khi tab1 init + active campaign sẵn sàng (lần đầu, không toast)
    - Khi user đổi Chiến Dịch (reset snapshot, không toast)
-   - Khi WebSocket bắn 'n2:order-added' → delay 6s rồi refresh (toast)
-   - Polling 30s fallback (toast)
+   - Khi SSE 'kpi_base' bắn update/created/deleted → debounce 2.5s rồi refresh (toast).
+     Backend Render đã push qua channel này khi kpi_base / kpi_statistics thay đổi.
+   - Fallback polling 60s nếu SSE disconnect ngay từ đầu.
    ===================================================== */
 (function () {
     'use strict';
 
     const HOST_ID = 'kpiStatsStrip';
     const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
+    const SSE_URL = `${API_BASE}/sse?keys=${encodeURIComponent('kpi_base')}`;
+    const SSE_DEBOUNCE_MS = 2500;
+    const POLL_FALLBACK_MS = 60000;
     const READY_POLL_MS = 500;
     const READY_MAX_TRIES = 30;
     const CAMPAIGN_WATCH_MS = 2000;
-    const POLL_INTERVAL_MS = 30000;
-    const ORDER_ADDED_DEBOUNCE_MS = 6000;
     const TOAST_SALE_DURATION_MS = 4000;
     const TOAST_TOP_DURATION_MS = 8000;
 
@@ -257,25 +259,68 @@
         }, CAMPAIGN_WATCH_MS);
     }
 
-    function startPolling() {
-        setInterval(() => {
-            if (!getActiveCampaignName()) return;
+    // SSE realtime subscription — Render đã có channel 'kpi_base' (push khi
+    // kpi_base / kpi_statistics thay đổi). Debounce 2.5s để gộp burst push
+    // và chờ kpi_statistics ghi xong sau kpi_base.
+    let sseSource = null;
+    let sseDebounceTimer = null;
+    let sseConnected = false;
+    let pollFallbackTimer = null;
+
+    function debouncedRefresh() {
+        if (!getActiveCampaignName()) return;
+        clearTimeout(sseDebounceTimer);
+        sseDebounceTimer = setTimeout(() => {
+            sseDebounceTimer = null;
             refresh();
-        }, POLL_INTERVAL_MS);
+        }, SSE_DEBOUNCE_MS);
     }
 
-    // Debounce order-added event — backend KPI computation lag ~5-8s,
-    // gộp burst nhiều order trong ngắn thành 1 refresh.
-    let orderAddedTimer = null;
-    function subscribeOrderAdded() {
-        window.addEventListener('n2:order-added', () => {
+    function startPollingFallback() {
+        if (pollFallbackTimer) return;
+        pollFallbackTimer = setInterval(() => {
             if (!getActiveCampaignName()) return;
-            clearTimeout(orderAddedTimer);
-            orderAddedTimer = setTimeout(() => {
-                orderAddedTimer = null;
-                refresh();
-            }, ORDER_ADDED_DEBOUNCE_MS);
-        });
+            refresh();
+        }, POLL_FALLBACK_MS);
+    }
+
+    function teardownSSE() {
+        if (sseSource) {
+            try {
+                sseSource.close();
+            } catch (_) {}
+            sseSource = null;
+        }
+        sseConnected = false;
+    }
+
+    function subscribeRealtime() {
+        if (typeof EventSource === 'undefined') {
+            startPollingFallback();
+            return;
+        }
+        try {
+            sseSource = new EventSource(SSE_URL);
+            sseSource.addEventListener('connected', () => {
+                sseConnected = true;
+            });
+            sseSource.addEventListener('update', debouncedRefresh);
+            sseSource.addEventListener('created', debouncedRefresh);
+            sseSource.addEventListener('deleted', debouncedRefresh);
+            sseSource.onerror = () => {
+                // EventSource auto-reconnects. Chỉ fallback polling khi
+                // chưa từng connect được (initial connect fail) → tránh kép
+                // nhau khi mạng chập chờn.
+                if (!sseConnected) {
+                    console.warn('[KPIStatsStrip] SSE connect failed, polling fallback');
+                    teardownSSE();
+                    startPollingFallback();
+                }
+            };
+        } catch (err) {
+            console.warn('[KPIStatsStrip] SSE setup failed:', err && err.message);
+            startPollingFallback();
+        }
     }
 
     async function waitForActiveCampaignThenRefresh() {
@@ -295,8 +340,7 @@
         started = true;
         await waitForActiveCampaignThenRefresh();
         watchCampaignChange();
-        startPolling();
-        subscribeOrderAdded();
+        subscribeRealtime();
     }
 
     window.KPIStatsStrip = {

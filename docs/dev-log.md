@@ -25,6 +25,33 @@
 
 ## 2026-05-17
 
+### [orders-report] KPI strip: SSE 'kpi_base' channel thay polling + custom event
+
+**User feedback**: "Tại sao polling + custom event mà không dùng SSE Render có sẵn?". Đúng — Render đã có SSE channel `kpi_base` (docs/render/render.md:693), không cần polling.
+
+**Refactor**:
+
+- EDIT [orders-report/js/tab1/tab1-kpi-stats-strip.js](../orders-report/js/tab1/tab1-kpi-stats-strip.js):
+    - REPLACE `subscribeOrderAdded()` + `startPolling()` → `subscribeRealtime()` dùng `new EventSource('${API_BASE}/sse?keys=kpi_base')`.
+    - Listen 3 events: `update`, `created`, `deleted` (theo pattern held-products-manager.js).
+    - Debounce 2.5s gộp burst push + chờ kpi_statistics ghi xong sau kpi_base.
+    - Fallback polling **60s** chỉ khi `onerror` fire trước `connected` (initial connect fail). Sau khi đã connect 1 lần → EventSource tự reconnect, không kép.
+- REVERT [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js): xóa `window.dispatchEvent(new CustomEvent('n2:order-added', ...))` — không cần nữa vì SSE handle trực tiếp.
+
+**Vì sao SSE > polling**:
+
+- Latency thấp hơn: realtime push thay vì chờ 30s polling.
+- Tiết kiệm: 1 request mở SSE connection vs 1 request mỗi 30s × số browser × số tab1 open.
+- Đồng bộ cross-browser: cùng push event → cùng debounce window → toast fire gần như đồng thời ở mọi browser.
+- Tận dụng infra hiện có: `kpi_base` SSE channel đã có sẵn (docs/render/render.md line 693), không cần thêm endpoint.
+
+**Verify**: 
+- Probe `GET /api/realtime/sse/stats` → `keyStats.kpi_base === 1` xác nhận strip subscribed.
+- Strip render đúng 3 cards (Huyền/Hạnh/Hồng), top-1 có gradient xanh + star.
+- Toast logic không đổi: vẫn fire khi diff snapshot phát hiện delta soMon / đổi top.
+
+**Status**: DONE.
+
 ### [orders-report] Toast realtime cho KPI strip — "X bán thêm N" + "TOP SALE"
 
 **User request**: Khi 1 user tăng thêm KPI → toast "Hạnh bán X" cho mọi người thấy; khi user vượt mặt leader → toast "CHÚC MỪNG HẠNH ĐỨNG TOP SALE".

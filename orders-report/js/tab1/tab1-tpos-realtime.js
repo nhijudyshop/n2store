@@ -130,11 +130,6 @@
         const nv = extractEmployeeName(eventData?.Message);
         showNewOrderToast(code, customerName, nv, order.SessionIndex);
 
-        // Notify KPI stats strip — debounced refresh sẽ check delta + fire
-        // toast "X bán Y món" / "TOP SALE". Backend mất ~5-8s tính KPI nên
-        // strip tự delay trước khi fetch.
-        window.dispatchEvent(new CustomEvent('n2:order-added', { detail: { code } }));
-
         // STT gap detection: if newSTT > lastSTT + 1, fetch missing orders
         const newSTT = order.SessionIndex || eventData?.Data?.SessionIndex;
         if (newSTT && lastReceivedSTT > 0 && newSTT > lastReceivedSTT + 1) {
