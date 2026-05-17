@@ -1,0 +1,124 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+/* =====================================================
+   TAB1 KPI STATS STRIP — Toolbar strip hiển thị KPI realtime
+   per nhân viên theo Chiến Dịch đang chọn. Đặt giữa nhóm
+   trái (RT/Auto T) và nhóm phải (Tải lại/Cài đặt cột/Chốt Đơn)
+   trong .search-info.
+
+   Data: GET /api/realtime/kpi-statistics (same as tab KPI-HOA HỒNG)
+   Filter: order.campaignName === window.campaignManager.activeCampaign.name
+   ===================================================== */
+
+.kpi-stats-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 55vw;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+    padding: 0 8px;
+}
+
+.kpi-stats-strip:empty {
+    display: none;
+}
+
+.kpi-stats-strip::-webkit-scrollbar {
+    height: 4px;
+}
+.kpi-stats-strip::-webkit-scrollbar-track {
+    background: transparent;
+}
+.kpi-stats-strip::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+}
+
+.kpi-stat-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 3px 10px;
+    border-radius: 14px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+    line-height: 1.5;
+    white-space: nowrap;
+    user-select: none;
+    transition:
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.kpi-stat-card__star {
+    display: none;
+    color: #fbbf24;
+    font-size: 11px;
+    margin-right: 1px;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.2));
+}
+
+.kpi-stat-card__rank {
+    color: #6b7280;
+    font-weight: 700;
+}
+
+.kpi-stat-card__name {
+    color: #111827;
+    font-weight: 600;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi-stat-card__sep {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.kpi-stat-card__mon {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.kpi-stat-card__tien {
+    color: #059669;
+    font-weight: 700;
+}
+
+/* Top-1 ─ winner styling */
+.kpi-stat-card--top {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: #059669;
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
+}
+
+.kpi-stat-card--top .kpi-stat-card__star {
+    display: inline;
+}
+
+.kpi-stat-card--top .kpi-stat-card__rank,
+.kpi-stat-card--top .kpi-stat-card__name,
+.kpi-stat-card--top .kpi-stat-card__sep,
+.kpi-stat-card--top .kpi-stat-card__mon,
+.kpi-stat-card--top .kpi-stat-card__tien {
+    color: #ffffff;
+}
+
+/* Responsive: mobile xuống dòng riêng */
+@media (max-width: 768px) {
+    .kpi-stats-strip {
+        max-width: 100%;
+        flex-basis: 100%;
+        order: 99;
+        padding: 4px 0;
+    }
+}

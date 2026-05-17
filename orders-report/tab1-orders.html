@@ -39,6 +39,7 @@
         <link rel="stylesheet" href="css/order-history.css" />
 
         <link rel="stylesheet" href="css/tab1-stock-status.css" />
+        <link rel="stylesheet" href="css/tab1-kpi-stats-strip.css" />
 
         <!-- TPOSImageProxy hooks phải load SỚM NHẤT để rewrite innerHTML / img.src trước khi
          bất kỳ code nào render <img src="https://vn.img1.tpos.vn/...">. Nếu load muộn,
@@ -1123,6 +1124,7 @@
                             ></span>
                         </button>
                     </div>
+                    <div id="kpiStatsStrip" class="kpi-stats-strip"></div>
                     <div style="display: flex; align-items: center; gap: 12px">
                         <div class="search-tips">💡 Gõ để tìm kiếm nhanh</div>
                         <button
@@ -2802,6 +2804,8 @@
 
         <!-- 8.3 KPI stats — counter + tooltip cạnh KPI filter dropdown -->
         <script src="js/tab1/tab1-kpi-stats.js"></script>
+
+        <script src="js/tab1/tab1-kpi-stats-strip.js"></script>
 
         <!-- 8a. Chat Cache Warmer — P6 preload inbox map top 20 visible orders -->
         <script src="js/tab1/tab1-chat-cache-warmer.js"></script>

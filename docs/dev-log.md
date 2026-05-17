@@ -25,6 +25,29 @@
 
 ## 2026-05-17
 
+### [orders-report] KPI stats strip theo Chiến Dịch ở toolbar tab1
+
+**User request**: Hiển thị stat KPI realtime của từng nhân viên giữa nút "Tải lại" và toggle "Auto T", scope theo Chiến Dịch đang chọn. Mỗi nhân viên = 1 ô. Top-1: xanh lá + ngôi sao vàng. Sort desc theo KPI.
+
+**Files**:
+
+- NEW [orders-report/css/tab1-kpi-stats-strip.css](../orders-report/css/tab1-kpi-stats-strip.css) — styles: pill cards, top-1 gradient xanh + star, mobile xuống dòng.
+- NEW [orders-report/js/tab1/tab1-kpi-stats-strip.js](../orders-report/js/tab1/tab1-kpi-stats-strip.js) — IIFE module `window.KPIStatsStrip = { init, refresh }`. Fetch `/api/realtime/kpi-statistics` (REUSE endpoint của tab KPI-HOA HỒNG, không tạo mới), filter `order.campaignName === window.campaignManager.activeCampaign.name`, sum per user, render cards.
+- EDIT [orders-report/tab1-orders.html](../orders-report/tab1-orders.html) — thêm `<link>` CSS, `<div id="kpiStatsStrip">` ở giữa nhóm trái/phải của `.search-info`, `<script>` JS sau `tab1-kpi-stats.js`.
+
+**Hành vi**:
+
+- Auto-init khi DOM ready, poll `campaignManager.activeCampaign.name` (500ms × 30 lần) → fetch lần đầu.
+- Watcher polling `activeCampaignId` mỗi 2s → đổi campaign tự refresh.
+- Edge cases: chưa chọn campaign → strip ẩn; API fail → strip ẩn + console.error; 0 user có KPI → strip ẩn (`:empty` CSS).
+- Format: số món = `${n}m`, số tiền = compact K/M (`15K`, `1.5M`).
+
+**Reuse strict**: chỉ READ endpoint hiện có. KHÔNG modify `tab-kpi-commission.js`, `kpi-manager.js`, hay `campaignManager`. Per feedback memory `feedback_api_scope.md`.
+
+**Verify**: Smoke-tested với Playwright MCP — load main.html, set active campaign T7, refresh → 3 cards render đúng (Top-1: Huyền 🐰 7m·35K với star vàng + nền xanh; 2: Hạnh ฅ ฅ 6m·30K; 3: Hồng 3m·15K). Sort desc theo soTien khớp.
+
+**Status**: DONE.
+
 ### [orders-report] Tách hoàn toàn KPI check store khỏi delivery-report
 
 **User clarify**: "việc kiểm tra ở 2 trang kpi và thống kê giao hàng là riêng biệt hoàn toàn" và "việc kiểm tra ở page cũng là riêng biệt nhau không trùng lặp".
