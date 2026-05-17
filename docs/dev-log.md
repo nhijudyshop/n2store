@@ -25,6 +25,37 @@
 
 ## 2026-05-17
 
+### [orders-report] Toast realtime cho KPI strip — "X bán thêm N" + "TOP SALE"
+
+**User request**: Khi 1 user tăng thêm KPI → toast "Hạnh bán X" cho mọi người thấy; khi user vượt mặt leader → toast "CHÚC MỪNG HẠNH ĐỨNG TOP SALE".
+
+**Approach**: Mỗi browser tự diff snapshot (cùng data nguồn `/api/realtime/kpi-statistics` → cùng toast cho mọi user xem tab1). Không cần broadcast layer.
+
+**Files**:
+
+- EDIT [orders-report/js/tab1/tab1-kpi-stats-strip.js](../orders-report/js/tab1/tab1-kpi-stats-strip.js):
+    - `prevSnapshot: Map<userId, {soMon,soTien,userName}>` + `prevTopUserId` state.
+    - `diffAndToast(stats)`: với mỗi user có `soMon` tăng so prev → `notificationManager.success("X bán thêm <b>N</b> món", 4s)`. Nếu `stats[0].userId !== prevTopUserId` và prev top tồn tại + có ≥2 user + top mới có KPI > 0 → `notificationManager.success("🎉 CHÚC MỪNG <b>X</b> ĐỨNG TOP SALE!", 8s, title="TOP SALE")`.
+    - `isFirstRefreshForCampaign` flag: lần đầu seed snapshot không fire toast. Reset khi đổi campaign.
+    - Refresh triggers mới: polling 30s + listen `window.addEventListener('n2:order-added', ...)` debounced 6s (chờ backend tính KPI).
+- EDIT [orders-report/js/tab1/tab1-tpos-realtime.js](../orders-report/js/tab1/tab1-tpos-realtime.js) line 132+: dispatch `window.dispatchEvent(new CustomEvent('n2:order-added', { detail: { code } }))` sau `addOrderToTable(order)` thành công.
+
+**Edge cases**:
+
+- Lần refresh đầu sau khi chọn campaign → seed snapshot, không toast.
+- Đổi campaign → `resetSnapshot()` → snapshot mới, không toast.
+- `prevTopUserId === null` → skip TOP SALE (lần đầu seed).
+- `stats.length < 2` → skip TOP SALE (1 user không gọi là "vượt mặt").
+- API fail → `console.error`, không toast (snapshot không cập nhật).
+- Burst orders → debounce 6s gộp thành 1 refresh + toasts cho mỗi user có delta.
+- XSS: `userName` luôn escapeHtml; `<b>` chỉ wrap số nguyên + uppercased name đã escape.
+
+**Verify**: Playwright smoke — set T7 campaign, seed snapshot, monkey-patch fetch để boost Hồng (#3 → #1) → cả 2 toasts fire đúng:
+- "Hồng bán thêm <b>55</b> món" (dur=4000)
+- "🎉 CHÚC MỪNG <b>HỒNG</b> ĐỨNG TOP SALE!" (dur=8000, title="TOP SALE")
+
+**Status**: DONE.
+
 ### [orders-report] KPI stats strip theo Chiến Dịch ở toolbar tab1
 
 **User request**: Hiển thị stat KPI realtime của từng nhân viên giữa nút "Tải lại" và toggle "Auto T", scope theo Chiến Dịch đang chọn. Mỗi nhân viên = 1 ô. Top-1: xanh lá + ngôi sao vàng. Sort desc theo KPI.

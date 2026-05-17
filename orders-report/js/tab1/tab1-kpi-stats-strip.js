@@ -4,11 +4,24 @@
    đang chọn. Mỗi nhân viên = 1 card. Top-1 có nền xanh + ngôi
    sao vàng. Card sort theo totalKPI giảm dần.
 
+   Toast notifications (diff snapshot mỗi lần refresh):
+   - "X bán thêm N món" khi soMon của user tăng
+   - "🎉 CHÚC MỪNG X ĐỨNG TOP SALE!" khi user vượt mặt leader cũ
+
+   Mỗi browser tự diff → "cho mọi người thấy" tự nhiên vì cùng
+   data nguồn (Render PostgreSQL via Cloudflare worker). Không
+   cần broadcast layer.
+
    Data source: /api/realtime/kpi-statistics (REUSE — endpoint
    đã có sẵn ở tab "KPI - HOA HỒNG", không tạo mới).
 
    Filter: order.campaignName === window.campaignManager.activeCampaign.name
-   Refresh: khi tab1 init lần đầu + khi user đổi Chiến Dịch.
+
+   Refresh triggers:
+   - Khi tab1 init + active campaign sẵn sàng (lần đầu, không toast)
+   - Khi user đổi Chiến Dịch (reset snapshot, không toast)
+   - Khi WebSocket bắn 'n2:order-added' → delay 6s rồi refresh (toast)
+   - Polling 30s fallback (toast)
    ===================================================== */
 (function () {
     'use strict';
@@ -18,29 +31,24 @@
     const READY_POLL_MS = 500;
     const READY_MAX_TRIES = 30;
     const CAMPAIGN_WATCH_MS = 2000;
+    const POLL_INTERVAL_MS = 30000;
+    const ORDER_ADDED_DEBOUNCE_MS = 6000;
+    const TOAST_SALE_DURATION_MS = 4000;
+    const TOAST_TOP_DURATION_MS = 8000;
 
     /**
      * @typedef {Object} EmployeeStat
      * @property {string} userId
      * @property {string} userName
-     * @property {number} soMon   Sum netProducts qua tất cả orders match campaign
-     * @property {number} soTien  Sum kpi (VNĐ) qua tất cả orders match campaign
+     * @property {number} soMon
+     * @property {number} soTien
      */
 
-    /**
-     * @param {number} n
-     * @returns {string}
-     */
     function formatSoMon(n) {
         if (!Number.isFinite(n) || n <= 0) return '0m';
         return `${Math.round(n)}m`;
     }
 
-    /**
-     * Compact VND: <1K → "500", <1M → "15K", ≥1M → "1.5M" (round 1 chữ số)
-     * @param {number} n
-     * @returns {string}
-     */
     function formatSoTien(n) {
         if (!Number.isFinite(n) || n <= 0) return '0';
         if (n >= 1_000_000) {
@@ -61,10 +69,6 @@
             .replace(/'/g, '&#39;');
     }
 
-    /**
-     * Get active campaign name from tab1 campaign manager.
-     * @returns {string|null}
-     */
     function getActiveCampaignName() {
         const cm = window.campaignManager;
         return cm && cm.activeCampaign && cm.activeCampaign.name ? cm.activeCampaign.name : null;
@@ -76,7 +80,6 @@
     }
 
     /**
-     * Fetch + aggregate by employee filtered by active campaign.
      * @param {string} campaignName
      * @returns {Promise<EmployeeStat[]>}
      */
@@ -144,9 +147,80 @@
         return document.getElementById(HOST_ID);
     }
 
-    function clearStrip() {
-        const host = getHost();
-        if (host) host.innerHTML = '';
+    // ─── Toast state ────────────────────────────────────
+    /** @type {Map<string, { userName: string, soMon: number, soTien: number }>} */
+    const prevSnapshot = new Map();
+    let prevTopUserId = null;
+    let isFirstRefreshForCampaign = true;
+    let lastSeenCampaignId = null;
+
+    function getToaster() {
+        return window.notificationManager || null;
+    }
+
+    /**
+     * @param {EmployeeStat[]} stats
+     */
+    function diffAndToast(stats) {
+        const toaster = getToaster();
+        if (!toaster) return;
+
+        // Per-user delta toasts — chỉ fire khi soMon tăng so với snapshot.
+        for (const s of stats) {
+            const old = prevSnapshot.get(s.userId);
+            if (!old) continue;
+            const deltaMon = s.soMon - old.soMon;
+            if (deltaMon > 0) {
+                const message = `${escapeHtml(s.userName)} bán thêm <b>${deltaMon}</b> món`;
+                try {
+                    toaster.success(message, TOAST_SALE_DURATION_MS);
+                } catch (err) {
+                    console.error('[KPIStatsStrip] toast sale failed:', err);
+                }
+            }
+        }
+
+        // TOP SALE toast — fire khi user vượt mặt leader cũ.
+        const newTop = stats[0];
+        const newTopId = newTop ? newTop.userId : null;
+        const newTopHasKPI = newTop && (newTop.soTien > 0 || newTop.soMon > 0);
+        const overtook =
+            newTopId &&
+            prevTopUserId &&
+            newTopId !== prevTopUserId &&
+            newTopHasKPI &&
+            stats.length >= 2;
+
+        if (overtook) {
+            const name = String(newTop.userName || '').toUpperCase();
+            const message = `🎉 CHÚC MỪNG <b>${escapeHtml(name)}</b> ĐỨNG TOP SALE!`;
+            try {
+                toaster.success(message, TOAST_TOP_DURATION_MS, 'TOP SALE');
+            } catch (err) {
+                console.error('[KPIStatsStrip] toast top sale failed:', err);
+            }
+        }
+    }
+
+    /**
+     * @param {EmployeeStat[]} stats
+     */
+    function updateSnapshot(stats) {
+        prevSnapshot.clear();
+        for (const s of stats) {
+            prevSnapshot.set(s.userId, {
+                userName: s.userName,
+                soMon: s.soMon,
+                soTien: s.soTien,
+            });
+        }
+        prevTopUserId = stats[0] ? stats[0].userId : null;
+    }
+
+    function resetSnapshot() {
+        prevSnapshot.clear();
+        prevTopUserId = null;
+        isFirstRefreshForCampaign = true;
     }
 
     async function refresh() {
@@ -160,32 +234,50 @@
         try {
             const stats = await fetchAndAggregate(campaignName);
             host.innerHTML = buildHtml(stats);
+            if (!isFirstRefreshForCampaign) {
+                diffAndToast(stats);
+            }
+            updateSnapshot(stats);
+            isFirstRefreshForCampaign = false;
         } catch (err) {
             console.error('[KPIStatsStrip] refresh failed:', err);
             host.innerHTML = '';
         }
     }
 
-    /**
-     * Watch for campaign change. Lightweight polling (2s) — không
-     * có hook nào exposed từ campaignManager để subscribe.
-     */
     function watchCampaignChange() {
-        let lastId = getActiveCampaignId();
+        lastSeenCampaignId = getActiveCampaignId();
         setInterval(() => {
             const currentId = getActiveCampaignId();
-            if (currentId !== lastId) {
-                lastId = currentId;
+            if (currentId !== lastSeenCampaignId) {
+                lastSeenCampaignId = currentId;
+                resetSnapshot();
                 refresh();
             }
         }, CAMPAIGN_WATCH_MS);
     }
 
-    /**
-     * Wait for campaignManager.activeCampaign to be populated, then
-     * trigger first refresh. Returns even if timed out so we never
-     * leave the strip in an indeterminate state.
-     */
+    function startPolling() {
+        setInterval(() => {
+            if (!getActiveCampaignName()) return;
+            refresh();
+        }, POLL_INTERVAL_MS);
+    }
+
+    // Debounce order-added event — backend KPI computation lag ~5-8s,
+    // gộp burst nhiều order trong ngắn thành 1 refresh.
+    let orderAddedTimer = null;
+    function subscribeOrderAdded() {
+        window.addEventListener('n2:order-added', () => {
+            if (!getActiveCampaignName()) return;
+            clearTimeout(orderAddedTimer);
+            orderAddedTimer = setTimeout(() => {
+                orderAddedTimer = null;
+                refresh();
+            }, ORDER_ADDED_DEBOUNCE_MS);
+        });
+    }
+
     async function waitForActiveCampaignThenRefresh() {
         for (let i = 0; i < READY_MAX_TRIES; i++) {
             if (getActiveCampaignName()) {
@@ -194,8 +286,6 @@
             }
             await new Promise((r) => setTimeout(r, READY_POLL_MS));
         }
-        // Timeout — strip stays empty, will populate later via watcher
-        // when campaign gets selected.
     }
 
     let started = false;
@@ -205,15 +295,16 @@
         started = true;
         await waitForActiveCampaignThenRefresh();
         watchCampaignChange();
+        startPolling();
+        subscribeOrderAdded();
     }
 
-    // Public API
     window.KPIStatsStrip = {
         init,
         refresh,
+        _resetSnapshot: resetSnapshot,
     };
 
-    // Auto-init on DOM ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {
