@@ -23,6 +23,32 @@
 
 ---
 
+## 2026-05-17
+
+### [orders-report] KPI - HOA HỒNG: dialog "Xác nhận kiểm tra đơn" khi đóng modal chi tiết
+
+**User yêu cầu**: Trong tab "KPI - HOA HỒNG" → mở modal "Chi tiết đơn hàng" của 1 đơn → khi bấm tắt (X), hiển thị dialog xác nhận kiểm tra giống delivery-report image 3 ("Đơn xxx đã được kiểm tra chưa?" + nút "Chưa duyệt" / "✓ Đã kiểm tra"), để đánh dấu đơn đã kiểm tra hay chưa.
+
+**Implementation**:
+
+- Thêm `_orderCheckStore` IIFE-style sub-object trong `KPICommission` (tab-kpi-commission.js) — dùng **chung Firestore collection** `delivery_report/data/order_checks/{sanitizeDocId(number)}` với delivery-report. Encode `/` → `__` cùng pattern. Listener `onSnapshot` giữ cache đồng bộ realtime.
+- Fire-and-forget `this._orderCheckStore.init()` trong `KPICommission.init()` để load sẵn map đơn đã check khi user vào tab.
+- `closeOrderDetails()` refactor: nếu đã check rồi (`isChecked(number)`) hoặc không lấy được số phiếu → close ngay (giữ behavior cũ); ngược lại show confirm modal.
+- Confirm modal `kpi-check-confirm-modal` build dynamic 1 lần qua `_ensureCheckConfirmModal()`, style inline match delivery-report (overlay đen 0.45 + dialog 420px + 2 button "Chưa duyệt" / "✓ Đã kiểm tra").
+    - "Chưa duyệt" / backdrop click → close cả 2 modal, không lưu.
+    - "✓ Đã kiểm tra" → close cả 2 modal + `markChecked(number, ctx)` ghi Firestore với payload `{number, checkedBy, checkedAt, customerName, phone, invoiceId, orderCode, source:'kpi-commission'}`.
+- Body dialog: dòng 1 hiện số phiếu (NJD/YYYY/xxxxx), dòng 2 hiện `Mã ĐH: <orderCode>` (TPOS code). KPI tab không có customerName/phone trực tiếp như delivery-report nên thay bằng orderCode cho user nhận diện.
+
+**Source phiếu**: ưu tiên `recon?.invoiceNumber` → `_invoiceCache.get(orderId).Number` → `order.invoiceNumber` (same fallback chain dùng trong `renderEmployeeOrdersTable`).
+
+**Vì sao chia sẻ collection**: đánh dấu đơn 1 lần ở đâu cũng tính, tránh user phải confirm 2 lần ở 2 báo cáo khác nhau cho cùng 1 đơn. Source field phân biệt nguồn ghi.
+
+**Files**: `orders-report/js/tab-kpi-commission.js`
+
+**Status**: Done — chờ verify live (cần GH Pages deploy ~3 min sau push).
+
+---
+
 ## 2026-05-16
 
 ### [customer-hub] Fix "TPOS PBH" tab không hiển thị bill thực sự

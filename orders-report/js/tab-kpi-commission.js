@@ -607,6 +607,8 @@ const KPICommission = {
             this.hideEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
 
+            this._orderCheckStore.init().catch(() => {});
+
             // Load invoice status + KPI stats + Inbox KPI in parallel from Render API
             await Promise.all([
                 this.loadInvoiceStatusData(),
@@ -2468,8 +2470,180 @@ const KPICommission = {
     },
 
     closeOrderDetails() {
+        const orderId = this.state.currentOrderId;
+        const number = orderId ? this._getInvoiceNumberForOrder(orderId) : '';
+        if (!number || this._orderCheckStore.isChecked(number)) {
+            this._doCloseOrderDetails();
+            return;
+        }
+        const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
+        const invoiceId = this._invoiceCache?.get(orderId)?.Id || '';
+        this._pendingCheckCtx = {
+            number,
+            invoiceId,
+            orderCode: order?.orderCode || '',
+        };
+        const el = this._ensureCheckConfirmModal();
+        el.querySelector('#kpi-confirm-number').textContent = number;
+        const secondary = order?.orderCode ? `Mã ĐH: ${order.orderCode}` : '';
+        el.querySelector('#kpi-confirm-secondary').textContent = secondary;
+        el.style.display = 'flex';
+    },
+
+    _doCloseOrderDetails() {
         this.hideEl('modalOrderDetails');
         this.state.currentOrderId = null;
+        this._pendingCheckCtx = null;
+    },
+
+    _getInvoiceNumberForOrder(orderId) {
+        const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
+        const recon = this._reconByOrder?.get(orderId);
+        return (
+            recon?.invoiceNumber ||
+            this._invoiceCache?.get(orderId)?.Number ||
+            order?.invoiceNumber ||
+            ''
+        );
+    },
+
+    // Confirm dialog "Xác nhận kiểm tra đơn" — mirrored từ delivery-report
+    // để 2 báo cáo share cùng trạng thái kiểm tra qua Firestore.
+    _ensureCheckConfirmModal() {
+        let el = document.getElementById('kpi-check-confirm-modal');
+        if (el) return el;
+        el = document.createElement('div');
+        el.id = 'kpi-check-confirm-modal';
+        el.style.cssText =
+            'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10010;align-items:center;justify-content:center;padding:20px;';
+        el.innerHTML = `
+            <div style="background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);width:100%;max-width:420px;overflow:hidden;font-family:inherit;">
+                <div style="padding:16px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
+                    <h3 style="margin:0;font-size:16px;font-weight:600;color:#111827;">Xác nhận kiểm tra đơn</h3>
+                </div>
+                <div style="padding:16px 18px;font-size:13px;color:#374151;line-height:1.55;">
+                    <div>Đơn <strong id="kpi-confirm-number" style="color:#111827;"></strong> đã được kiểm tra chưa?</div>
+                    <div id="kpi-confirm-secondary" style="color:#6b7280;margin-top:4px;"></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e5e7eb;background:#f8fafc;">
+                    <button type="button" id="kpi-confirm-skip" style="padding:8px 14px;border:1px solid #d1d5db;background:white;color:#374151;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;">Chưa duyệt</button>
+                    <button type="button" id="kpi-confirm-yes" style="padding:8px 14px;background:#10b981;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">✓ Đã kiểm tra</button>
+                </div>
+            </div>`;
+        document.body.appendChild(el);
+
+        const self = this;
+        const hide = () => {
+            el.style.display = 'none';
+        };
+        el.querySelector('#kpi-confirm-skip').addEventListener('click', () => {
+            hide();
+            self._doCloseOrderDetails();
+        });
+        el.querySelector('#kpi-confirm-yes').addEventListener('click', async () => {
+            const ctx = self._pendingCheckCtx;
+            hide();
+            self._doCloseOrderDetails();
+            if (ctx?.number) {
+                await self._orderCheckStore.markChecked(ctx.number, ctx);
+            }
+        });
+        el.addEventListener('click', (e) => {
+            if (e.target === el) {
+                hide();
+                self._doCloseOrderDetails();
+            }
+        });
+        return el;
+    },
+
+    // Firestore collection 'delivery_report/data/order_checks' — chia sẻ với delivery-report.
+    // Document ID encode '/' → '__' để hợp lệ (số phiếu dạng NJD/2026/xxxxx).
+    _orderCheckStore: {
+        _data: new Map(),
+        _initialized: false,
+        _initPromise: null,
+        _listener: null,
+
+        _getCol() {
+            if (!window.firebase?.firestore) return null;
+            try {
+                return firebase
+                    .firestore()
+                    .collection('delivery_report')
+                    .doc('data')
+                    .collection('order_checks');
+            } catch (e) {
+                return null;
+            }
+        },
+
+        _sanitizeDocId(number) {
+            return String(number).replace(/\//g, '__');
+        },
+
+        init() {
+            if (this._initPromise) return this._initPromise;
+            this._initPromise = (async () => {
+                const col = this._getCol();
+                if (!col) return;
+                try {
+                    const snap = await col.get();
+                    this._data.clear();
+                    snap.forEach((doc) => {
+                        const data = doc.data() || {};
+                        const key = data.number || doc.id;
+                        this._data.set(key, data);
+                    });
+                } catch (e) {
+                    console.warn('[KPI-ORDER-CHECK] initial load failed:', e?.message);
+                }
+                try {
+                    this._listener = col.onSnapshot(
+                        (snap) => {
+                            this._data.clear();
+                            snap.forEach((doc) => {
+                                const data = doc.data() || {};
+                                const key = data.number || doc.id;
+                                this._data.set(key, data);
+                            });
+                        },
+                        (err) => console.warn('[KPI-ORDER-CHECK] listener error:', err?.message)
+                    );
+                } catch (e) {
+                    console.warn('[KPI-ORDER-CHECK] listener setup failed:', e?.message);
+                }
+                this._initialized = true;
+            })();
+            return this._initPromise;
+        },
+
+        isChecked(number) {
+            return !!number && this._data.has(number);
+        },
+
+        async markChecked(number, meta) {
+            if (!number) return;
+            const username = window.authManager?.getUserInfo?.()?.username || 'unknown';
+            const payload = {
+                number,
+                checkedBy: username,
+                checkedAt: Date.now(),
+                customerName: meta?.customerName || '',
+                phone: meta?.phone || '',
+                invoiceId: meta?.invoiceId || '',
+                orderCode: meta?.orderCode || '',
+                source: 'kpi-commission',
+            };
+            this._data.set(number, payload);
+            const col = this._getCol();
+            if (!col) return;
+            try {
+                await col.doc(this._sanitizeDocId(number)).set(payload, { merge: true });
+            } catch (e) {
+                console.warn('[KPI-ORDER-CHECK] save failed:', e?.message);
+            }
+        },
     },
 
     // ========================================
