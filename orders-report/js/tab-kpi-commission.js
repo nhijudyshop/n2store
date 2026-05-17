@@ -2590,7 +2590,7 @@ const KPICommission = {
         }
 
         if (!filtered.length) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af;">${
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af;">${
                 all.length === 0
                     ? 'Chưa có đơn nào được đánh dấu kiểm tra.'
                     : 'Không có kết quả phù hợp.'
@@ -2605,12 +2605,6 @@ const KPICommission = {
             const pad = (n) => String(n).padStart(2, '0');
             return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
         };
-        const srcLabel = (s) =>
-            s === 'kpi-commission'
-                ? '<span class="kpi-src-pill kpi-src-kpi">KPI</span>'
-                : s === 'delivery-report'
-                  ? '<span class="kpi-src-pill kpi-src-dr">Giao hàng</span>'
-                  : '<span class="kpi-src-pill kpi-src-other">—</span>';
 
         let html = '';
         filtered.forEach((entry, idx) => {
@@ -2624,7 +2618,6 @@ const KPICommission = {
                 <td style="text-align:right;font-variant-numeric:tabular-nums;">${entry.kpiAmount ? this.formatCurrency(entry.kpiAmount) : '—'}</td>
                 <td>${this.escapeHtml(checker)}</td>
                 <td>${fmtTime(entry.checkedAt)}</td>
-                <td>${srcLabel(entry.source)}</td>
             </tr>`;
         });
         tbody.innerHTML = html;
@@ -2691,7 +2684,9 @@ const KPICommission = {
         return el;
     },
 
-    // Firestore collection 'delivery_report/data/order_checks' — chia sẻ với delivery-report.
+    // Firestore collection 'kpi_commission/data/order_checks' — RIÊNG cho tab KPI
+    // (không chia sẻ với delivery-report). Mỗi báo cáo có check store độc lập:
+    // đánh dấu đã kiểm tra ở KPI KHÔNG ảnh hưởng tới Thống Kê Giao Hàng và ngược lại.
     // Document ID encode '/' → '__' để hợp lệ (số phiếu dạng NJD/2026/xxxxx).
     _orderCheckStore: {
         _data: new Map(),
@@ -2704,7 +2699,7 @@ const KPICommission = {
             try {
                 return firebase
                     .firestore()
-                    .collection('delivery_report')
+                    .collection('kpi_commission')
                     .doc('data')
                     .collection('order_checks');
             } catch (e) {

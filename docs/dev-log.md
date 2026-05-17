@@ -25,6 +25,32 @@
 
 ## 2026-05-17
 
+### [orders-report] Tách hoàn toàn KPI check store khỏi delivery-report
+
+**User clarify**: "việc kiểm tra ở 2 trang kpi và thống kê giao hàng là riêng biệt hoàn toàn" và "việc kiểm tra ở page cũng là riêng biệt nhau không trùng lặp".
+
+**Vấn đề trước fix**: KPI tab và delivery-report cùng đọc/ghi vào Firestore collection `delivery_report/data/order_checks` → check ở 1 page → page kia cũng thấy đơn xám + ✓. Sai design, user muốn 2 luồng kiểm tra hoàn toàn độc lập.
+
+**Fix**:
+
+- `_orderCheckStore._getCol()` trong tab-kpi-commission.js đổi từ `delivery_report/data/order_checks` → **`kpi_commission/data/order_checks`** (collection RIÊNG cho KPI tab).
+- Delivery-report giữ nguyên `delivery_report/data/order_checks` (không đụng).
+- Không có code cross-reference giữa 2 store (verified bằng grep). Mỗi store có listener Firestore riêng cho collection riêng.
+- Tab "Lịch sử kiểm tra" trong KPI giờ chỉ chứa check từ KPI → bỏ cột "Nguồn" (luôn là KPI, không còn ý nghĩa). Header → 8 cột.
+
+**Tác dụng**:
+- Bấm "Đã kiểm tra" ở Modal L2 KPI → chỉ ảnh hưởng row trong Modal L1 KPI + history KPI. Không ảnh hưởng delivery-report.
+- Bấm ở delivery-report row → chỉ ảnh hưởng table delivery-report. Không xuất hiện trong history KPI.
+- 2 luồng hoàn toàn độc lập, không trùng lặp.
+
+**Lưu ý**: Các check đã thực hiện trước fix này (trong khoảng test) nằm ở collection `delivery_report/data/order_checks` → sau fix, KPI không còn thấy chúng nữa (đúng design). Nếu cần dữ liệu test cũ thì check lại từ đầu trong KPI.
+
+**Files**: `orders-report/js/tab-kpi-commission.js`, `orders-report/tab-kpi-commission.html`
+
+**Status**: Done.
+
+---
+
 ### [permissions + orders-report + delivery-report] Permission `canMarkOrderChecked` + tab "Lịch sử kiểm tra"
 
 **User yêu cầu**:
