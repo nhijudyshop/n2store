@@ -361,6 +361,35 @@
 
 ## 2026-05-15
 
+### [so-order][web2] Paste/drop ảnh vào image cell + hover-zoom popup toàn cục Web 2.0
+
+**User**: "Hình copy paste vào phần area của riêng của ảnh -> đưa chuột hover vào các ảnh của web 2.0 đều zoom lên".
+
+**Files**: `so-order/index.html`, `so-order/css/so-order.css`, `so-order/js/so-order-app.js`, `web2-shared/web2-effects.js`, `web2-shared/web2-effects.css`, `native-orders/index.html`.
+
+**Task 1 — Image paste/drop cell (so-order modal)**:
+
+- HTML: Mỗi image cell trong bảng modal đổi thành dropzone — `.so-img-cell-v2` (tabindex=0) wrap `.so-img-cell-hint` (icon + "Ctrl+V / Kéo thả") + URL input (`hoặc dán URL`) + upload button. 2 cell cho `productImage` + `invoiceImage`.
+- CSS: `.so-img-cell-v2` thành dashed-border zone với hover/focus/dragover state (violet-purple, blue-blue tương ứng).
+- JS [so-order-app.js](../so-order/js/so-order-app.js): Thêm `applyImageFile(name, file)` (centralise base64 + 2MB warn + preview refresh) + `wireImagePasteDrop()` gắn listener paste/dragover/dragleave/drop trên từng cell. Paste/drop ảnh → trích `File` từ `clipboardData.items` hoặc `dataTransfer.files` → applyImageFile → input.value = data URL → updateImgPreview render `<img>`.
+
+**Task 2 — Hover-zoom popup global Web 2.0** ([web2-effects.js](../web2-shared/web2-effects.js)):
+
+- Thêm `attachHoverZoom()` — singleton `.w2fx-zoom-popup` floating gắn cursor. Mouseover img matching whitelist → clone `src` vào popup → position bên cạnh chuột (auto-flip khi gần biên). Mouseout → hide.
+- Whitelist selector: `.so-cell-img img, .so-img-preview img, .so-modal-table img, .expand-img, .line-img, .pick-img, .pk-image-preview img, .pk-message-image, .pk-preview-img, .product-image, .image-preview, .image-preview img, .preview img, [data-w2-zoom], img[data-w2-zoom]`.
+- Exclude (avoid avatar/sidebar): `.tpos-sidebar, .sidebar, .so-tab-strip, [data-w2-no-zoom]`. Skip tiny img < 28×28px.
+- CSS [web2-effects.css](../web2-shared/web2-effects.css): popup `position:fixed`, `box-shadow` deep, opacity transition 0.12s, max-size `min(420px,60vw) × min(420px,70vh)`. Reduced-motion → no transition.
+- Reposition theo mouse move; auto-hide khi scroll (cursor stale).
+- Cache-bust: `web2-effects.{css,js}?v=20260515b` ở [so-order/index.html](../so-order/index.html), [native-orders/index.html](../native-orders/index.html).
+
+**Functionality**: Field `name` không đổi → handleOrderSubmit y nguyên. `data-upload` attr giữ → wireImageUpload (file picker click) song song với paste/drop.
+
+**Verify live**: Mở modal so-order → 2 image cell có dashed border + "Ctrl+V / Kéo thả" label. Code path đã trace (paste listener gọi applyImageFile → input + preview update). JS syntax OK qua `node -c`. Visual zoom popup chưa test được do data prod hiện không có `<img>` thực tế (chỉ placeholder boxes `.so-cell-img-missing`); cơ chế trigger đã verify qua code review + DOM-event wiring.
+
+**Status**: ✅ Done.
+
+---
+
 ### [orders] InventoryPicker "Chọn từ Kho SP" thiếu template không có active variant
 
 **User**: "bên trang này mấy mã B1976 cũng không tìm được" (purchase-orders/index.html).
