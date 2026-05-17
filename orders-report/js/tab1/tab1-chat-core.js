@@ -535,6 +535,15 @@ function _wireConvPickerEmptyState(pageId, byFbIdMap, loadToken, type) {
             window.currentConversationId = conv.id;
             window.currentConversationData = conv;
 
+            // Sync conversation type toggle to the actually-picked conv (may
+            // differ from the original request when only the other type
+            // exists for this fb_id).
+            const resolvedType = conv.type === 'COMMENT' ? 'COMMENT' : 'INBOX';
+            if (resolvedType !== window.currentConversationType) {
+                window.currentConversationType = resolvedType;
+                _updateTypeToggle(resolvedType);
+            }
+
             // Sync page-scoped PSID to the picked fb_id (page-scoped fb_id IS the PSID).
             const convPSID = conv.from_psid || conv.from?.id || fbId;
             if (convPSID) window.currentChatPSID = String(convPSID);
@@ -1747,6 +1756,18 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
 
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
+
+    // Sync conversation type toggle to the ACTUALLY loaded conv. When the
+    // requested `type` doesn't exist for this customer/page (e.g. user clicks
+    // TIN NHẮN column but customer only has COMMENT conv), `_doFindAndLoadConversation`
+    // falls back to whichever conv is available. Without this sync, toggle UI
+    // says INBOX active but data is COMMENT → user must toggle Bình luận ↔ Tin
+    // nhắn to "fix" the UI. Owner repro 2026-05-17.
+    const resolvedType = conv.type === 'COMMENT' ? 'COMMENT' : 'INBOX';
+    if (resolvedType !== window.currentConversationType) {
+        window.currentConversationType = resolvedType;
+        _updateTypeToggle(resolvedType);
+    }
 
     // Sync currentChatPSID to the page-scoped PSID of the resolved conv. PSIDs are
     // FB-page-specific — same human = different PSID per page. After cross-page
