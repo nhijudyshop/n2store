@@ -1,4 +1,4 @@
-# Latest Snapshot — `so-order/`
+# Latest Snapshot — `native-orders/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-18 09:31:35 +07
 **Summary**: fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che
 
-## Files changed in this commit (`so-order/`)
+## Files changed in this commit (`native-orders/`)
 
-- `so-order/index.html`
+- `native-orders/index.html`
 
-## Last 5 commits touching `so-order/`
+## Last 5 commits touching `native-orders/`
 
 - `5922ea4d` fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che _(2026-05-18)_
-- `58d75515` feat(so-order): wire toggle 'Chỉnh sửa bảng' + bulk edit mode UI _(2026-05-18)_
-- `6827d1a6` auto: session update _(2026-05-18)_
-- `68f274d1` auto: session update _(2026-05-18)_
-- `3fdec916` fix(so-order): bỏ duplicate web2-effects.css link + dev-log entry cho dblclick edit _(2026-05-18)_
+- `3c0c7d19` auto: session update _(2026-05-15)_
+- `549cc00b` auto: session update _(2026-05-15)_
+- `4d4ee10d` auto: session update _(2026-05-15)_
+- `22e13153` auto: session update _(2026-05-15)_
 
 ---
 

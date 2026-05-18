@@ -1,4 +1,4 @@
-# Latest Snapshot — `so-order/`
+# Latest Snapshot — `web2-shared/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-18 09:31:35 +07
 **Summary**: fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che
 
-## Files changed in this commit (`so-order/`)
+## Files changed in this commit (`web2-shared/`)
 
-- `so-order/index.html`
+- `web2-shared/tpos-sidebar.css`
 
-## Last 5 commits touching `so-order/`
+## Last 5 commits touching `web2-shared/`
 
 - `5922ea4d` fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che _(2026-05-18)_
-- `58d75515` feat(so-order): wire toggle 'Chỉnh sửa bảng' + bulk edit mode UI _(2026-05-18)_
-- `6827d1a6` auto: session update _(2026-05-18)_
-- `68f274d1` auto: session update _(2026-05-18)_
-- `3fdec916` fix(so-order): bỏ duplicate web2-effects.css link + dev-log entry cho dblclick edit _(2026-05-18)_
+- `9c8a37db` feat(web2): Kho Biến Thể riêng — picker dropdown thay free-text variant _(2026-05-18)_
+- `723f55f5` feat(web2): hover-zoom catch-all + Web2Effects.attachImageDropTarget — Ctrl+V upload area _(2026-05-17)_
+- `775d5ceb` feat(web2,so-order): split Giá Mua/Bán, realtime kho SP, so-order multi-row + suggestion + auto-add _(2026-05-17)_
+- `034b2608` chore(web2): xóa 2 trang TPOS-clone product-template + product-variant _(2026-05-17)_
 
 ---
 
