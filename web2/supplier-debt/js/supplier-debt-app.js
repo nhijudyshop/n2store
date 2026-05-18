@@ -446,6 +446,8 @@
                 } else if (isInPeriod(txDate, from, to)) {
                     row.credit += amount;
                     row.txInPeriod.push({
+                        id: tx.id || '',
+                        moveName: tx.moveName || '',
                         ts,
                         type: tx.type,
                         amount,
@@ -455,6 +457,8 @@
                     // No period filter → all → put in period
                     row.credit += amount;
                     row.txInPeriod.push({
+                        id: tx.id || '',
+                        moveName: tx.moveName || '',
                         ts,
                         type: tx.type,
                         amount,
@@ -931,15 +935,14 @@
                 ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                 : '';
             const lbl = t.type === 'return' ? 'Trả hàng' : 'Thanh toán';
-            // Prefer tx.moveName (assigned at save time); fallback to derived suffix.
+            // Prefer tx.moveName (assigned at save time); fallback to stable derived suffix.
             let moveName = t.moveName;
             if (!moveName) {
                 const year = dateIso.slice(0, 4) || String(new Date().getFullYear());
                 const prefix = t.type === 'return' ? 'RET' : 'PAY';
-                const idSuf =
-                    String(t.id || '')
-                        .slice(-6)
-                        .toUpperCase() || '----';
+                // Stable suffix from id or ts (alnum only, last 6 chars).
+                const stable = String(t.id || t.ts || '').replace(/[^A-Za-z0-9]/g, '');
+                const idSuf = (stable.slice(-6) || stable.slice(0, 6) || 'XXXXXX').toUpperCase();
                 moveName = `${prefix}/${year}/${idSuf}`;
             }
             entries.push({
