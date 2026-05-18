@@ -771,9 +771,8 @@
 .po-suggest-line1 {
     font-size: 13px;
     color: #111827;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .po-suggest-line2 {

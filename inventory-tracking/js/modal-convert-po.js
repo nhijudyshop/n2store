@@ -578,6 +578,8 @@ async function _runSuggest(key, q, drop) {
 }
 
 // Position dropdown bằng `position: fixed` để không bị overflow:auto của modal cắt.
+// Width = từ mép trái input đến mép phải của items-table (hoặc modal body), không
+// giới hạn trong cột "Tên sản phẩm" — để hiển thị đầy đủ tên SP dài.
 function _positionSuggestDropdown(drop) {
     const wrap = drop.closest('.po-name-wrap');
     const input = wrap?.querySelector('.po-it-name');
@@ -587,9 +589,14 @@ function _positionSuggestDropdown(drop) {
     const spaceBelow = vh - rect.bottom;
     const spaceAbove = rect.top;
     const desiredHeight = Math.min(520, drop.scrollHeight || 520);
+    const tableWrap = drop.closest('.po-items-wrap');
+    const modalBody = document.getElementById('modalConvertPOBody');
+    const rightAnchor = tableWrap || modalBody;
+    const rightEdge = rightAnchor ? rightAnchor.getBoundingClientRect().right - 8 : rect.right;
+    const width = Math.max(rect.width, rightEdge - rect.left);
     drop.style.position = 'fixed';
     drop.style.left = rect.left + 'px';
-    drop.style.width = rect.width + 'px';
+    drop.style.width = width + 'px';
     if (spaceBelow >= desiredHeight + 8 || spaceBelow >= spaceAbove) {
         drop.style.top = rect.bottom + 4 + 'px';
         drop.style.bottom = '';
