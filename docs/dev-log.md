@@ -25,6 +25,32 @@
 
 ## 2026-05-18
 
+### [orders-report] Fix miss auto-tag XL "ĐÃ RA ĐƠN" sau tạo PBH (single + bulk)
+
+**User báo**: lâu lâu sau khi tạo phiếu bán hàng lẻ hoặc bán hàng hàng loạt, đơn ra thành công nhưng không tự động đánh tag XL "ĐÃ RA ĐƠN" → kẹt ở "CHỜ ĐI ĐƠN".
+
+**Constraint cứng**: chỉ sửa phần đánh tag, không động flow tạo đơn / modal.
+
+**Root cause** (4 nguyên nhân chồng):
+1. `storeFromApiResult` gọi `window.onPtagBillCreated(soId, source)` trong `forEach` không await → fire-and-forget ([tab1-fast-sale-invoice-status.js:879](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js#L879)).
+2. `onPtagBillCreated` skip im lặng khi `ProcessingTagState._isLoaded === false` → race: F5 → tạo đơn ngay → miss vĩnh viễn ([tab1-processing-tags.js:1462](../orders-report/js/tab1/tab1-processing-tags.js#L1462)).
+3. `saveProcessingTagToAPI` catch chỉ log, không retry → network thoáng qua = memory có tag, DB không → F5 mất tag.
+4. Reconciliation chỉ chạy 1 lần khi load page → user phải F5 mới fix.
+
+**Fix** (3 layer, ZERO impact lên flow tạo đơn / modal):
+
+- **Fix A** — Đợi `_isLoaded` thay vì skip ([tab1-processing-tags.js:1452-1515](../orders-report/js/tab1/tab1-processing-tags.js#L1452-L1515)): thêm helper `_waitForPtagLoaded(timeoutMs)` poll 100ms timeout 10s + queue `_ptagBillCreatedRetryQueue` cho reconcile catch khi timeout.
+- **Fix B** — Retry `saveProcessingTagToAPI` với exponential backoff 3 lần (500ms / 1500ms / 4500ms) ([tab1-processing-tags.js:696-729](../orders-report/js/tab1/tab1-processing-tags.js#L696-L729)). Thua hết retry → queue cho reconcile.
+- **Fix C** — `setTimeout 3s` sau `storeFromApiResult` gọi `window.reconcileTagsWithInvoices()` fire-and-forget ([tab1-fast-sale-invoice-status.js:929-945](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js#L929-L945)) — catch các đơn lỡ miss tag mà không cần user F5.
+
+**Không đụng**: caller `storeFromApiResult` (tab1-sale.js:1314 / tab1-fast-sale-invoice-status.js:4092), forEach loop, modal timing (`closeSaleButtonModal`, `setTimeout 500ms`), TPOS API, schema DB.
+
+**Files**: `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`.
+
+**Status**: ✅ DONE — syntax check pass. Cần user test thực tế với bulk 5-10 đơn để confirm.
+
+---
+
 ### [render][orders-report] KPI strip → SSE-only, bỏ polling
 
 **User feedback (sau test prod 2 user hong+hanh)**: "bỏ polling hoàn toàn chỉ dùng kpi thôi". Test prod confirmed: mọi update đều rơi đúng nhịp polling 60s, không có SSE push nào fire — SSE channel `kpi_base` chỉ fire khi bảng `kpi_base` bị ghi (BASE INSERT cho order mới), KHÔNG fire khi `kpi_statistics` được PATCH (tick "SP bán hàng").

@@ -693,7 +693,12 @@
         console.log(`${PTAG_LOG} Loaded tags by code for ${orderCodes.length} orders`);
     }
 
-    async function saveProcessingTagToAPI(orderCode, data) {
+    // Retry với exponential backoff: tránh mất tag khi network thoáng qua
+    // (Cloudflare proxy / Render timeout vài giây). Memory state có thể đã chuyển
+    // sang HOAN_TAT nhưng DB chưa → F5 là mất → đơn kẹt "CHỜ ĐI ĐƠN".
+    async function saveProcessingTagToAPI(orderCode, data, retryCount = 0) {
+        const MAX_RETRY = 3;
+        const DELAYS_MS = [500, 1500, 4500];
         try {
             const userName = window.authManager?.getAuthState()?.username || '';
             // Gắn history từ _historyStore vào data trước khi gửi lên server
@@ -707,7 +712,19 @@
                 }),
             });
         } catch (e) {
-            console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);
+            if (retryCount < MAX_RETRY) {
+                console.warn(
+                    `${PTAG_LOG} saveProcessingTagToAPI retry ${retryCount + 1}/${MAX_RETRY} for ${orderCode}: ${e?.message || e}`
+                );
+                await new Promise((r) => setTimeout(r, DELAYS_MS[retryCount]));
+                return saveProcessingTagToAPI(orderCode, data, retryCount + 1);
+            }
+            console.error(
+                `${PTAG_LOG} saveProcessingTagToAPI giving up for ${orderCode} after ${MAX_RETRY} retries:`,
+                e
+            );
+            // Queue cho reconcile catch lần sau (page F5 hoặc post-create reconcile)
+            _queueRetryBillCreated(orderCode);
         }
     }
 
@@ -1432,6 +1449,33 @@
         };
     }
 
+    // Đợi ProcessingTagState load xong (poll 100ms, timeout mặc định 10s).
+    // Race cũ: user F5 → tạo đơn ngay → _isLoaded === false → skip vĩnh viễn → miss tag.
+    function _waitForPtagLoaded(timeoutMs = 10_000) {
+        return new Promise((resolve) => {
+            if (ProcessingTagState._isLoaded) return resolve(true);
+            const start = Date.now();
+            const tick = setInterval(() => {
+                if (ProcessingTagState._isLoaded) {
+                    clearInterval(tick);
+                    resolve(true);
+                } else if (Date.now() - start >= timeoutMs) {
+                    clearInterval(tick);
+                    resolve(false);
+                }
+            }, 100);
+        });
+    }
+
+    // Queue các đơn lỡ miss tag (timeout chờ load, hoặc saveProcessingTagToAPI thua sau retry).
+    // Reconcile catch lần sau (page F5 hoặc post-create reconcile fire ở Fix C).
+    const _ptagBillCreatedRetryQueue = new Set();
+    function _queueRetryBillCreated(saleOnlineIdOrCode) {
+        if (saleOnlineIdOrCode != null) {
+            _ptagBillCreatedRetryQueue.add(String(saleOnlineIdOrCode));
+        }
+    }
+
     // Auto transition: bill created → ĐÃ RA ĐƠN
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     // source = 'single' | 'bulk' (logging only — luôn auto-tag, không gate)
@@ -1443,20 +1487,31 @@
 
         if (!data) {
             if (!ProcessingTagState._isLoaded) {
-                console.warn(
-                    `${PTAG_LOG} Skip onPtagBillCreated(${orderCode}) — data not loaded yet`
-                );
-                return;
+                // Đợi tối đa 10s thay vì skip im lặng (fix race: F5 → tạo đơn ngay)
+                const ok = await _waitForPtagLoaded(10_000);
+                if (!ok) {
+                    console.error(
+                        `${PTAG_LOG} onPtagBillCreated(${orderCode}) — timeout chờ XL state, queue retry`
+                    );
+                    _queueRetryBillCreated(saleOnlineId);
+                    return;
+                }
+                // Re-fetch sau khi đã load
+                data =
+                    ProcessingTagState.getOrderData(orderCode) ||
+                    ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
             }
-            data = {
-                category: null,
-                subTag: null,
-                subState: null,
-                flags: [],
-                tTags: [],
-                note: '',
-                assignedAt: Date.now(),
-            };
+            if (!data) {
+                data = {
+                    category: null,
+                    subTag: null,
+                    subState: null,
+                    flags: [],
+                    tTags: [],
+                    note: '',
+                    assignedAt: Date.now(),
+                };
+            }
         }
 
         // Idempotency guard: nếu onPtagBillCreated được gọi 2 lần liên tiếp cùng saleOnlineId

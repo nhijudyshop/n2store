@@ -925,6 +925,24 @@
             // Batch save all entries to API
             this._batchMode = false;
             this._saveBatchToAPI(Array.from(this._myKeys));
+
+            // Defensive: re-run reconcile sau 3s để catch các đơn lỡ miss auto-tag
+            // ĐÃ RA ĐƠN (race với ProcessingTagState load, network thoáng qua, v.v.).
+            // Fire-and-forget — không block flow tạo đơn, không touch modal.
+            if (typeof window.reconcileTagsWithInvoices === 'function') {
+                setTimeout(() => {
+                    try {
+                        const p = window.reconcileTagsWithInvoices();
+                        if (p && typeof p.catch === 'function') {
+                            p.catch((e) =>
+                                console.warn('[PTAG] post-create reconcile failed:', e)
+                            );
+                        }
+                    } catch (e) {
+                        console.warn('[PTAG] post-create reconcile threw:', e);
+                    }
+                }, 3000);
+            }
         },
 
         /**
