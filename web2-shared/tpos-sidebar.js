@@ -164,11 +164,6 @@
             icon: 'shopping-cart',
             children: [
                 {
-                    label: 'Mua hàng',
-                    tpos: '#/app/fastpurchaseorder/invoicelist',
-                    our: '../web2/fastpurchaseorder-invoice/index.html',
-                },
-                {
                     label: 'Trả hàng mua',
                     tpos: '#/app/fastpurchaseorder/refundlist',
                     our: '../web2/fastpurchaseorder-refund/index.html',

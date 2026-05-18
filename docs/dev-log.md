@@ -25,6 +25,19 @@
 
 ## 2026-05-18
 
+### [web2][sidebar] Xóa trang `fastpurchaseorder-invoice` placeholder
+
+**User**: hỏi data source trang "Mua hàng" (`web2/fastpurchaseorder-invoice/`) → chỉ là TPOS-clone generic CRUD (table `web2_records` ở Render), không phải module shop dùng thật. Shop dùng `so-order/` (Sổ Order) + ví NCC vừa làm. → "xóa đi".
+
+**Removed**:
+
+- `web2/fastpurchaseorder-invoice/` folder
+- Sidebar entry "Mua hàng" trong nhóm "Mua hàng" ([web2-shared/tpos-sidebar.js](../web2-shared/tpos-sidebar.js))
+
+Nhóm "Mua hàng" còn lại: "Trả hàng mua" (cũng placeholder, có thể xóa sau nếu không dùng) + "Ví NCC". Sidebar "Sale Online" vẫn có "Sổ Order" (không bị ảnh hưởng).
+
+**Status**: ✅ Done.
+
 ### [web2/supplier-wallet][web2/customer-wallet] Ví NCC + Ví KH — công nợ + lịch sử 30 ngày
 
 **User**: shop cần 2 trang ví: NCC (từ Sổ Order) + KH (từ PBH native-orders). Modal trả hàng → chọn SP → tính lại tiền. 30-day auto-cleanup. SePay webhook sẽ tích hợp sau.
