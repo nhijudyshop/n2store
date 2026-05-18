@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ac0034c` — feat(web2/supplier-debt): Mã NCC + sort natural A1-A10-B1 + nút Tạo NCC
-**Last updated**: 2026-05-18 13:28:55 +07
-**Latest session**: [`RESUME:20260518-132855-ac0034c`](../20260518-132855-ac0034c.md)
-**Summary**: feat(web2/supplier-debt): Mã NCC + sort natural A1-A10-B1 + nút Tạo NCC
+**Latest commit**: `f129cc2` — feat(web2/supplier-debt): ghi chú NCC + nút thanh toán per row
+**Last updated**: 2026-05-18 13:33:50 +07
+**Latest session**: [`RESUME:20260518-133350-f129cc2`](../20260518-133350-f129cc2.md)
+**Summary**: feat(web2/supplier-debt): ghi chú NCC + nút thanh toán per row
 
 ## Folders affected in this commit
 
@@ -28,4 +28,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-18 13:28
+- [`web2/`](./web2.md) — updated 2026-05-18 13:33
