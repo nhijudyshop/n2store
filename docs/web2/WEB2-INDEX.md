@@ -16,7 +16,7 @@
 | [`web2/supplier-wallet/`](../../web2/supplier-wallet/) | Ví NCC (công nợ)                                   | `/web2/supplier-wallet/index.html` |
 | [`web2/customer-wallet/`](../../web2/customer-wallet/) | Ví KH (công nợ)                                    | `/web2/customer-wallet/index.html` |
 | [`web2/`](../../web2/)                                 | TPOS-clone pages khác (placeholder Web2Shell)      | `/web2/<slug>/index.html`          |
-| [`web2-shared/`](../../web2-shared/)                   | Sidebar, page-shell, api client, caches dùng chung | —                                  |
+| [`web2/shared/`](../../web2/shared/)                   | Sidebar, page-shell, api client, caches dùng chung | —                                  |
 
 ## Backend routes (Render)
 
@@ -54,12 +54,12 @@ Cloudflare Worker proxy: `https://chatomni-proxy.nhijudyshop.workers.dev` forwar
 
 | Lib                 | File                                                                                   | Vai trò                                  |
 | ------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `Web2Sidebar`       | [`web2-shared/tpos-sidebar.js`](../../web2-shared/tpos-sidebar.js)                     | Sidebar NAV mount                        |
-| `Web2Shell`         | [`web2-shared/page-shell.js`](../../web2-shared/page-shell.js)                         | Bootstrap cho TPOS-clone pages           |
-| `Web2Api`           | [`web2-shared/web2-api.js`](../../web2-shared/web2-api.js)                             | Generic API client (`/api/web2/:entity`) |
+| `Web2Sidebar`       | [`web2/shared/tpos-sidebar.js`](../../web2/shared/tpos-sidebar.js)                     | Sidebar NAV mount                        |
+| `Web2Shell`         | [`web2/shared/page-shell.js`](../../web2/shared/page-shell.js)                         | Bootstrap cho TPOS-clone pages           |
+| `Web2Api`           | [`web2/shared/web2-api.js`](../../web2/shared/web2-api.js)                             | Generic API client (`/api/web2/:entity`) |
 | `Web2ProductsApi`   | [`web2-products/js/web2-products-api.js`](../../web2-products/js/web2-products-api.js) | Kho SP API client                        |
-| `Web2ProductsCache` | [`web2-shared/web2-products-cache.js`](../../web2-shared/web2-products-cache.js)       | Realtime cache kho SP                    |
-| `Web2VariantsCache` | [`web2-shared/web2-variants-cache.js`](../../web2-shared/web2-variants-cache.js)       | Realtime cache biến thể                  |
+| `Web2ProductsCache` | [`web2/shared/web2-products-cache.js`](../../web2/shared/web2-products-cache.js)       | Realtime cache kho SP                    |
+| `Web2VariantsCache` | [`web2/shared/web2-variants-cache.js`](../../web2/shared/web2-variants-cache.js)       | Realtime cache biến thể                  |
 
 ## Data flow (xem dev-log 2026-05-18 audit)
 

@@ -7,6 +7,7 @@
 ## Bước 1 — Crawl spec từ TPOS (tùy chọn)
 
 Mở `https://tomato.tpos.vn/#/app/productuom/list`. Ghi lại:
+
 - Title bar / breadcrumb cha
 - Cột bảng (header thứ tự + width approx)
 - Filter bar (search box, dropdown nào)
@@ -27,55 +28,72 @@ mkdir -p web2/product-uom
 <!DOCTYPE html>
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. -->
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Đơn vị tính — Web 2.0</title>
-    <link rel="stylesheet" href="../../web2-shared/tpos-sidebar.css">
-    <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css">
-    <link rel="stylesheet" href="../../native-orders/css/native-orders.css">
-    <style>
-        body { margin: 0; display: flex; min-height: 100vh; background: #ecf0f5; }
-        #web2-sidebar-root { flex-shrink: 0; }
-        main#main { flex: 1; padding: 12px 16px; overflow: auto; }
-    </style>
-</head>
-<body class="has-web2-shell">
-    <div id="web2-sidebar-root"></div>
-    <main id="main"></main>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Đơn vị tính — Web 2.0</title>
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css" />
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                min-height: 100vh;
+                background: #ecf0f5;
+            }
+            #web2-sidebar-root {
+                flex-shrink: 0;
+            }
+            main#main {
+                flex: 1;
+                padding: 12px 16px;
+                overflow: auto;
+            }
+        </style>
+    </head>
+    <body class="has-web2-shell">
+        <div id="web2-sidebar-root"></div>
+        <main id="main"></main>
 
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="../../web2-shared/tpos-sidebar.js"></script>
-    <script src="../../web2-shared/web2-api.js"></script>
-    <script src="../../web2-shared/page-builder.js"></script>
-    <script>
-        Web2Sidebar.mount('#web2-sidebar-root', { active: 'productuom' });
-        Web2Page.mount('#main', {
-            slug: 'productuom',
-            title: 'Đơn vị tính',
-            breadcrumb: ['App', 'Sản phẩm'],
-            columns: [
-                { key: 'code',          label: 'Mã',          width: 120, align: 'center' },
-                { key: 'name',          label: 'Tên đơn vị',  align: 'left' },
-                { key: 'data.factor',   label: 'Hệ số',       width: 100, align: 'right' },
-                { key: 'data.uomCateg', label: 'Nhóm ĐVT',    width: 160 },
-                { key: 'data.note',     label: 'Ghi chú' },
-            ],
-            fields: [
-                { key: 'code',          label: 'Mã',         type: 'text',     required: true,  placeholder: 'Cái, Hộp, Chai...' },
-                { key: 'name',          label: 'Tên đơn vị', type: 'text',     required: true },
-                { key: 'data.factor',   label: 'Hệ số',      type: 'number',   placeholder: '1' },
-                { key: 'data.uomCateg', label: 'Nhóm ĐVT',   type: 'text' },
-                { key: 'data.note',     label: 'Ghi chú',    type: 'textarea' },
-            ],
-        });
-    </script>
-</body>
+        <script src="https://unpkg.com/lucide@latest"></script>
+        <script src="../../web2/shared/tpos-sidebar.js"></script>
+        <script src="../../web2/shared/web2-api.js"></script>
+        <script src="../../web2/shared/page-builder.js"></script>
+        <script>
+            Web2Sidebar.mount('#web2-sidebar-root', { active: 'productuom' });
+            Web2Page.mount('#main', {
+                slug: 'productuom',
+                title: 'Đơn vị tính',
+                breadcrumb: ['App', 'Sản phẩm'],
+                columns: [
+                    { key: 'code', label: 'Mã', width: 120, align: 'center' },
+                    { key: 'name', label: 'Tên đơn vị', align: 'left' },
+                    { key: 'data.factor', label: 'Hệ số', width: 100, align: 'right' },
+                    { key: 'data.uomCateg', label: 'Nhóm ĐVT', width: 160 },
+                    { key: 'data.note', label: 'Ghi chú' },
+                ],
+                fields: [
+                    {
+                        key: 'code',
+                        label: 'Mã',
+                        type: 'text',
+                        required: true,
+                        placeholder: 'Cái, Hộp, Chai...',
+                    },
+                    { key: 'name', label: 'Tên đơn vị', type: 'text', required: true },
+                    { key: 'data.factor', label: 'Hệ số', type: 'number', placeholder: '1' },
+                    { key: 'data.uomCateg', label: 'Nhóm ĐVT', type: 'text' },
+                    { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
+                ],
+            });
+        </script>
+    </body>
 </html>
 ```
 
 ## Bước 3 — Đăng ký vào sidebar
 
-Mở `web2-shared/tpos-sidebar.js`, tìm group "Sản phẩm" → set `our` field cho item:
+Mở `web2/shared/tpos-sidebar.js`, tìm group "Sản phẩm" → set `our` field cho item:
 
 ```js
 {
@@ -97,6 +115,7 @@ python3 -m http.server 5500
 ```
 
 Kiểm tra:
+
 - ✅ Sidebar render, item "Đơn vị tính" highlight active
 - ✅ Bảng hiện loading rồi "Chưa có dữ liệu"
 - ✅ Bấm "Thêm mới" → modal mở, điền form, lưu → row xuất hiện
@@ -107,7 +126,7 @@ Kiểm tra:
 ## Bước 5 — Commit + push
 
 ```bash
-git add web2/product-uom/ web2-shared/tpos-sidebar.js
+git add web2/product-uom/ web2/shared/tpos-sidebar.js
 git commit -m "feat(web2): add product-uom page (Phase C.2)"
 git push
 ```
@@ -133,12 +152,15 @@ node /tmp/tpos-crawl-manual/compare.js productuom
 Nếu page cần:
 
 ### Custom column render
+
 Tạm thời clone `page-builder.js` → tạo `page-builder-custom.js` riêng cho trang đó. Hoặc thêm prop `column.render` (todo).
 
 ### Bảng chính có liên quan tới bảng phụ (vd. invoice → invoice_line)
+
 → KHÔNG dùng generic. Tạo bảng riêng + route riêng (xem `native-orders` làm mẫu).
 
 ### Logic workflow (vd. duyệt đơn, hủy đơn)
+
 → Tạo route action riêng: `POST /api/web2/:entity/action/approve/:code` (mở rộng `web2-generic.js`).
 
 ## Checklist khi thêm page

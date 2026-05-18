@@ -1,6 +1,6 @@
 # Web 2.0 — Modal performance conventions
 
-> **TL;DR**: dùng các class shared trong [`web2-shared/popup.js`](../web2-shared/popup.js). KHÔNG dùng `backdrop-filter: blur(…)` cho modal có nội dung scroll/tương tác nhiều. Cho mỗi card + scroll container dùng `transform: translateZ(0)` để promote thành GPU layer riêng.
+> **TL;DR**: dùng các class shared trong [`web2/shared/popup.js`](../web2/shared/popup.js). KHÔNG dùng `backdrop-filter: blur(…)` cho modal có nội dung scroll/tương tác nhiều. Cho mỗi card + scroll container dùng `transform: translateZ(0)` để promote thành GPU layer riêng.
 
 ## Bối cảnh
 
@@ -14,7 +14,7 @@ Sau fix: avg frame **16.28ms** (~60fps), 0 slow frames.
 
 ## Class utility shared (auto-load mọi trang Web 2.0)
 
-Định nghĩa trong [`web2-shared/popup.js`](../web2-shared/popup.js), inject vào `<head>` lúc script load:
+Định nghĩa trong [`web2/shared/popup.js`](../web2/shared/popup.js), inject vào `<head>` lúc script load:
 
 | Class                                          | Mục đích                                                                                          |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -87,7 +87,7 @@ Sau fix: avg frame **16.28ms** (~60fps), 0 slow frames.
 
 ## References
 
-- [`web2-shared/popup.js`](../web2-shared/popup.js) — source of truth
+- [`web2/shared/popup.js`](../web2/shared/popup.js) — source of truth
 - [`native-orders/js/native-orders-app.js`](../native-orders/js/native-orders-app.js) → `bulkCreatePbh` + `openCustomFormPopup` — reference implementation
 - MDN: [CSS Containment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment)
 - MDN: [will-change](https://developer.mozilla.org/en-US/docs/Web/CSS/will-change)

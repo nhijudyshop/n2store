@@ -17,13 +17,13 @@ Tất cả class TPOS-clone prefix `tpos-` để không đụng class khác tron
 <button class="tpos-btn tpos-btn-default tpos-btn-sm">Tải lại</button>
 ```
 
-| Class | Màu | Dùng cho |
-|-------|-----|---------|
-| `tpos-btn-primary` | xanh #3c8dbc | Lưu / Áp dụng |
-| `tpos-btn-success` | xanh lá #43a047 | Thêm mới / Tạo |
-| `tpos-btn-danger` | đỏ #f05050 | Xóa |
-| `tpos-btn-warning` | cam | Sửa quan trọng |
-| `tpos-btn-default` | trắng viền xám | Tải lại / Hủy / Filter |
+| Class              | Màu             | Dùng cho               |
+| ------------------ | --------------- | ---------------------- |
+| `tpos-btn-primary` | xanh #3c8dbc    | Lưu / Áp dụng          |
+| `tpos-btn-success` | xanh lá #43a047 | Thêm mới / Tạo         |
+| `tpos-btn-danger`  | đỏ #f05050      | Xóa                    |
+| `tpos-btn-warning` | cam             | Sửa quan trọng         |
+| `tpos-btn-default` | trắng viền xám  | Tải lại / Hủy / Filter |
 
 Size: `tpos-btn-xs` (24px), `tpos-btn-sm` (28px), default (32px).
 
@@ -47,6 +47,7 @@ Size: `tpos-btn-xs` (24px), `tpos-btn-sm` (28px), default (32px).
 ## Table
 
 Dùng class chuẩn của project (không cần TPOS-specific):
+
 - `.data-table` (header xám, border 1px)
 - `.table-scroll` (overflow-x scroll)
 - `.search-section`, `.filter-row`, `.search-wrapper`, `.search-input`
@@ -57,9 +58,10 @@ Các class này có sẵn trong `native-orders/css/native-orders.css` + `web2-pr
 
 ## Sidebar (Web 2.0 group)
 
-File: `web2-shared/tpos-sidebar.css` — dark rail #1c2b36, collapsible groups.
+File: `web2/shared/tpos-sidebar.css` — dark rail #1c2b36, collapsible groups.
 
 12 groups:
+
 1. App / Dashboard
 2. Sản phẩm (productcategory, productuom, attributes, ...)
 3. Đối tác (customer, supplier, partnercategory)
@@ -70,8 +72,8 @@ File: `web2-shared/tpos-sidebar.css` — dark rail #1c2b36, collapsible groups.
 8. Live (liveCampaign)
 9. Tài chính (account*, payment*)
 10. Khuyến mãi (promotion, coupon, loyalty)
-11. Báo cáo (report/*)
-12. Cấu hình (configs/*, applicationuser, company, ...)
+11. Báo cáo (report/\*)
+12. Cấu hình (configs/\*, applicationuser, company, ...)
 
 Total 87 link (chuẩn TPOS sidebar).
 
@@ -79,23 +81,23 @@ Total 87 link (chuẩn TPOS sidebar).
 
 ```css
 :root {
-    --tpos-bg-rail:        #1c2b36;
-    --tpos-bg-rail-hover:  #2c3b46;
-    --tpos-bg-page:        #ecf0f5;
-    --tpos-bg-card:        #ffffff;
-    --tpos-text-primary:   #444444;
-    --tpos-text-muted:     #777777;
-    --tpos-border:         #d2d6de;
+    --tpos-bg-rail: #1c2b36;
+    --tpos-bg-rail-hover: #2c3b46;
+    --tpos-bg-page: #ecf0f5;
+    --tpos-bg-card: #ffffff;
+    --tpos-text-primary: #444444;
+    --tpos-text-muted: #777777;
+    --tpos-border: #d2d6de;
 
-    --tpos-primary:        #3c8dbc;
-    --tpos-primary-hover:  #357ca5;
-    --tpos-success:        #43a047;
-    --tpos-success-hover:  #388e3c;
-    --tpos-danger:         #f05050;
-    --tpos-warning:        #f39c12;
+    --tpos-primary: #3c8dbc;
+    --tpos-primary-hover: #357ca5;
+    --tpos-success: #43a047;
+    --tpos-success-hover: #388e3c;
+    --tpos-danger: #f05050;
+    --tpos-warning: #f39c12;
 
     --tpos-status-confirmed: #00a65a;
-    --tpos-status-draft:     #f39c12;
+    --tpos-status-draft: #f39c12;
     --tpos-status-cancelled: #dd4b39;
 }
 ```

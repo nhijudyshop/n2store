@@ -3,7 +3,7 @@
 // PBH REALTIME — shared WS client cho PBH/delivery/refund/native-order pages
 // =====================================================
 // Usage:
-//   <script src="../../web2-shared/pbh-realtime.js"></script>
+//   <script src="../../web2/shared/pbh-realtime.js"></script>
 //   <script>
 //     PbhRealtime.subscribe({
 //       types: ['pbh:created', 'pbh:cancelled', 'pbh:confirmed', 'pbh:printed'],

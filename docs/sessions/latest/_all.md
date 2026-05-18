@@ -15,7 +15,7 @@
 - [`scripts/`](./scripts.md) — 2 file(s)
 - [`shared/`](./shared.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
-- [`web2-shared/`](./web2-shared.md) — 1 file(s)
+- [`web2/shared/`](./web2-shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,6 +28,6 @@
 - [`so-order/`](./so-order.md) — updated 2026-05-18 09:31
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-18 09:31
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 09:31
-- [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 10:47
+- [`web2/shared/`](./web2-shared.md) — updated 2026-05-18 10:47
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 09:31
 - [`web2/`](./web2.md) — updated 2026-05-18 10:47

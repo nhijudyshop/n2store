@@ -2109,7 +2109,7 @@
     let _interactionsState = null; // { code, tab, scrollY }
 
     /**
-     * Web2Chat client is loaded via index.html (`web2-shared/web2-chat-client.js`).
+     * Web2Chat client is loaded via index.html (`web2/shared/web2-chat-client.js`).
      * No shared code with Web 1.0 — token config is read directly from
      * localStorage keys that the user already configured in tpos-pancake.
      */

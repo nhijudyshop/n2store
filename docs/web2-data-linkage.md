@@ -39,7 +39,7 @@ web2/fastsaleorder-invoice/  /api/fast-sale-orders/load
        └─ click "Phiếu trả"  → POST /api/refunds/from-pbh           ──→ web2/fastsaleorder-refund/
 ```
 
-**Realtime**: mọi step có WS event `native_order:created` / `pbh:created` / `pbh:state-changed` / `delivery:created` / `refund:created` qua `web2-shared/pbh-realtime.js` — các trang list tự reload khi nhận event.
+**Realtime**: mọi step có WS event `native_order:created` / `pbh:created` / `pbh:state-changed` / `delivery:created` / `refund:created` qua `web2/shared/pbh-realtime.js` — các trang list tự reload khi nhận event.
 
 ### 2. Customer 360 (Phase 12)
 
@@ -70,7 +70,7 @@ web2_records [entity_slug='deliverycarrier']
 GET /api/web2/deliverycarrier/list
    │
    ▼
-web2-shared/delivery-method-picker.js
+web2/shared/delivery-method-picker.js
    • getOptionsAsync() — fetches list once, caches in module
    • pick(address, options) — keyword-match by address
    │

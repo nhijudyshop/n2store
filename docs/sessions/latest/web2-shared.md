@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2-shared/`
+# Latest Snapshot — `web2/shared/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,11 +9,11 @@
 **Last updated**: 2026-05-18 10:47:04 +07
 **Summary**: chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow
 
-## Files changed in this commit (`web2-shared/`)
+## Files changed in this commit (`web2/shared/`)
 
-- `web2-shared/tpos-sidebar.js`
+- `web2/shared/tpos-sidebar.js`
 
-## Last 5 commits touching `web2-shared/`
+## Last 5 commits touching `web2/shared/`
 
 - `0c3c1310` chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow _(2026-05-18)_
 - `97a325e0` chore(web2): xóa trang placeholder fastpurchaseorder-invoice _(2026-05-18)_

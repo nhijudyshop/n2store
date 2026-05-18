@@ -5,12 +5,12 @@
 
 ## Tổng quan
 
-Web 2.0 dùng **2 file shared** cho hiệu ứng — đều thuộc `web2-shared/`:
+Web 2.0 dùng **2 file shared** cho hiệu ứng — đều thuộc `web2/shared/`:
 
 | File                           | Vai trò                                                                                              | Size  |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------- | ----- |
-| `web2-shared/web2-effects.js`  | JS API (`window.Web2Effects.*`) wrap Web Animations API + lazy-load `canvas-confetti` từ CDN khi cần | ~8 KB |
-| `web2-shared/web2-effects.css` | Utility classes + keyframes (`.w2fx-*`)                                                              | ~3 KB |
+| `web2/shared/web2-effects.js`  | JS API (`window.Web2Effects.*`) wrap Web Animations API + lazy-load `canvas-confetti` từ CDN khi cần | ~8 KB |
+| `web2/shared/web2-effects.css` | Utility classes + keyframes (`.w2fx-*`)                                                              | ~3 KB |
 
 Zero 3rd-party dependency upfront. Confetti chỉ load (28 KB) khi gọi `Web2Effects.confetti()` lần đầu.
 
@@ -34,11 +34,11 @@ Native Web Animations API + 1 file CSS đủ phủ 95% use case. Khi cần motio
 Để dùng trong 1 page Web 2.0, thêm 2 dòng vào `<head>`:
 
 ```html
-<link rel="stylesheet" href="../../web2-shared/web2-effects.css?v=20260514a" />
-<script src="../../web2-shared/web2-effects.js?v=20260514a"></script>
+<link rel="stylesheet" href="../../web2/shared/web2-effects.css?v=20260514a" />
+<script src="../../web2/shared/web2-effects.js?v=20260514a"></script>
 ```
 
-Hoặc thêm vào `web2-shared/page-shell.js` (CSS_FILES + SCRIPTS_PRELOAD) → mọi page Web2 tự nhận.
+Hoặc thêm vào `web2/shared/page-shell.js` (CSS_FILES + SCRIPTS_PRELOAD) → mọi page Web2 tự nhận.
 
 ---
 
@@ -246,7 +246,7 @@ Nhiều hơn 12 con → gọi `Web2Effects.staggerIn(parent.children)` thay vì 
 | Chart entrance (sparkline animate-in)          | Khi build dashboard widgets                    |
 | Number-flip flap-board (đếm số kiểu Las Vegas) | Cho landing/marketing page                     |
 
-Khi cần thêm → mở rộng `web2-shared/web2-effects.js` thay vì pull lib mới.
+Khi cần thêm → mở rộng `web2/shared/web2-effects.js` thay vì pull lib mới.
 
 ---
 

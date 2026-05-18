@@ -8,7 +8,7 @@
  *   <head>
  *     <meta charset="UTF-8">
  *     <title>Nhóm sản phẩm — Web 2.0</title>
- *     <script src="../../web2-shared/page-shell.js"></script>
+ *     <script src="../../web2/shared/page-shell.js"></script>
  *   </head>
  *   <body>
  *     <script>
@@ -32,11 +32,11 @@
 
     // CSS files cần load
     const CSS_FILES = [
-        '../../web2-shared/tpos-sidebar.css',
+        '../../web2/shared/tpos-sidebar.css',
         '../../native-orders/css/native-orders.css',
         '../../native-orders/css/tpos-theme.css',
-        '../../web2-shared/page-builder-tpos.css',
-        '../../web2-shared/web2-effects.css',
+        '../../web2/shared/page-builder-tpos.css',
+        '../../web2/shared/web2-effects.css',
     ];
 
     // Script tags cần load TRƯỚC khi mount (theo thứ tự)
@@ -48,14 +48,14 @@
         '../../shared/js/firebase-config.js',
         '../../shared/js/shared-auth-manager.js',
         '../../shared/js/notification-system.js',
-        '../../web2-shared/web2-effects.js',
+        '../../web2/shared/web2-effects.js',
     ];
 
     // Scripts mount sidebar + page-builder
     const SCRIPTS_MOUNT = [
-        '../../web2-shared/tpos-sidebar.js',
-        '../../web2-shared/web2-api.js',
-        '../../web2-shared/page-builder.js',
+        '../../web2/shared/tpos-sidebar.js',
+        '../../web2/shared/web2-api.js',
+        '../../web2/shared/page-builder.js',
     ];
 
     function injectFontPreconnect() {

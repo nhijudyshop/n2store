@@ -18,7 +18,7 @@ Sau đó `cp -R dist/web2-bundle/ ~/my-new-site/` rồi deploy lên bất kỳ s
 | ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `web2/`          | 504 KB | TPOS-clone module pages (~80 sub-route: fastsaleorder-invoice, fastsaleorder-refund, fastsaleorder-delivery, product-category, account-payment-thu, …)                                |
 | `web2-products/` | 36 KB  | Kho sản phẩm (CRUD, search, paging)                                                                                                                                                   |
-| `web2-shared/`   | 136 KB | Shared library: `tpos-sidebar.{css,js}`, `popup.js`, `delivery-method-picker.js`, `page-builder.{css,js}`, `page-builder-tpos.css`, `page-shell.js`, `pbh-realtime.js`, `web2-api.js` |
+| `web2/shared/`   | 136 KB | Shared library: `tpos-sidebar.{css,js}`, `popup.js`, `delivery-method-picker.js`, `page-builder.{css,js}`, `page-builder-tpos.css`, `page-shell.js`, `pbh-realtime.js`, `web2-api.js` |
 | `native-orders/` | 176 KB | "Đơn Web" list page + Tạo PBH form + bulk PBH modal + column toggle                                                                                                                   |
 | `tpos-pancake/`  | 1.3 MB | TPOS × Pancake comments page (chat window, Tạo đơn từ comment, Tikreel parity)                                                                                                        |
 
@@ -106,7 +106,7 @@ web2-bundle/
 │   ├── product-category/         → Danh mục SP
 │   └── …
 ├── web2-products/                → Kho SP
-├── web2-shared/                  → 9 shared modules
+├── web2/shared/                  → 9 shared modules
 │   ├── tpos-sidebar.{css,js}    → Sidebar 87-route
 │   ├── popup.js                 → Custom alert/confirm/prompt + .w2p-* utility classes
 │   ├── delivery-method-picker.js → VN address-aware delivery picker
@@ -128,12 +128,12 @@ web2-bundle/
 
 | Customise                       | File / Pattern                                            |
 | ------------------------------- | --------------------------------------------------------- |
-| Brand text "N2 Store" / "N2"    | `grep -r "N2 Store\|N2\b" web2-shared/ web2/`             |
+| Brand text "N2 Store" / "N2"    | `grep -r "N2 Store\|N2\b" web2/shared/ web2/`             |
 | Worker URL                      | `grep -r "chatomni-proxy"`                                |
 | Firebase project                | `shared/js/firebase-config.js`                            |
-| Default delivery zones + prices | `web2-shared/delivery-method-picker.js` → `OPTIONS` array |
-| Sidebar route list              | `web2-shared/tpos-sidebar.js` → `NAV` array               |
-| Popup theme colors              | `web2-shared/popup.js` → `TYPE_COLORS` object             |
+| Default delivery zones + prices | `web2/shared/delivery-method-picker.js` → `OPTIONS` array |
+| Sidebar route list              | `web2/shared/tpos-sidebar.js` → `NAV` array               |
+| Popup theme colors              | `web2/shared/popup.js` → `TYPE_COLORS` object             |
 | PBH STT/numbering               | Backend `render.com/routes/fast-sale-orders.js`           |
 
 ## Test cục bộ trước khi deploy

@@ -4,24 +4,24 @@
 
 ## 2 module client
 
-### `web2-shared/web2-api.js`
+### `web2/shared/web2-api.js`
 
 API client thin wrapper quanh `fetch`:
 
 ```js
 const api = Web2Api.forEntity('productcategory');
 
-await api.health();                          // → {ok, count}
-await api.list({ search:'X', activeOnly:true, page:1, limit:200 });
+await api.health(); // → {ok, count}
+await api.list({ search: 'X', activeOnly: true, page: 1, limit: 200 });
 await api.get('SP001');
-await api.create({ code:'SP001', name:'Áo', data:{ note:'…' } });
-await api.update('SP001', { name:'Áo mới' });
+await api.create({ code: 'SP001', name: 'Áo', data: { note: '…' } });
+await api.update('SP001', { name: 'Áo mới' });
 await api.remove('SP001');
 ```
 
 Base URL hard-code: `https://chatomni-proxy.nhijudyshop.workers.dev`.
 
-### `web2-shared/page-builder.js`
+### `web2/shared/page-builder.js`
 
 Factory tạo full page CRUD: header + filter bar + table + pagination + modal.
 
@@ -66,12 +66,12 @@ Web2Page.mount(rootSel, config);
 
 ## Field key convention
 
-| Key | Behavior |
-|-----|----------|
-| `'code'` | Map vào cột `web2_records.code` |
-| `'name'` | Map vào cột `web2_records.name` |
-| `'data.X'` | Map vào `web2_records.data.X` (JSONB) |
-| `'data.X.Y'` | Nested: `data.X.Y` |
+| Key          | Behavior                              |
+| ------------ | ------------------------------------- |
+| `'code'`     | Map vào cột `web2_records.code`       |
+| `'name'`     | Map vào cột `web2_records.name`       |
+| `'data.X'`   | Map vào `web2_records.data.X` (JSONB) |
+| `'data.X.Y'` | Nested: `data.X.Y`                    |
 
 Page-builder dùng `getPath(obj, 'data.X')` / `setPath(obj, 'data.X', val)` để xử lý dot-path.
 
@@ -113,6 +113,7 @@ State không expose ra ngoài (ngoại trừ qua return value `mount()` để de
 ## Custom rendering (advanced)
 
 Nếu cần custom cell render (vd. status pill, link), tạm thời chỉ có 2 option:
+
 1. Sửa trực tiếp `page-builder.js` — thêm `column.render: (value, row) => string` callback.
 2. Wrap data sau khi nhận từ API → set vào `STATE.records` thủ công (cần expose method).
 

@@ -5,8 +5,8 @@
  * Ours-counterpart routes go under /web2/<slug>/index.html.
  *
  * Usage:
- *   <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css">
- *   <script src="../web2-shared/tpos-sidebar.js"></script>
+ *   <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css">
+ *   <script src="../web2/shared/tpos-sidebar.js"></script>
  *   <body>
  *     <div class="web2-shell">
  *       <aside class="web2-aside" id="web2Aside"></aside>

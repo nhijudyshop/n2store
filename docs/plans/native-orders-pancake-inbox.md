@@ -27,7 +27,7 @@ Khi user click cột "Tin nhắn" hoặc "Bình luận" của 1 đơn trong nati
 └────────────┴──────────────────────────┴──────────────────────┘
 ```
 
-**Constraint** (theo CLAUDE.md): Web 2.0 độc lập với Web 1.0 — KHÔNG import từ `orders-report/`, `inbox/`, `chat/`. Build độc lập trong `web2-shared/` + `native-orders/`.
+**Constraint** (theo CLAUDE.md): Web 2.0 độc lập với Web 1.0 — KHÔNG import từ `orders-report/`, `inbox/`, `chat/`. Build độc lập trong `web2/shared/` + `native-orders/`.
 
 ## 1. Pancake DOM/CSS map (đã crawl live)
 
@@ -116,7 +116,7 @@ Khi user click cột "Tin nhắn" hoặc "Bình luận" của 1 đơn trong nati
 
 **Files mới/sửa**:
 
-- `web2-shared/web2-chat-client.js` — thêm `fetchConversationsByPage`.
+- `web2/shared/web2-chat-client.js` — thêm `fetchConversationsByPage`.
 - `native-orders/js/native-orders-app.js` — `_renderInteractionsModal` mở rộng layout.
 - `native-orders/css/native-orders.css` — class `.w2c-sidebar`, `.w2c-conv-row`, etc.
 
@@ -128,7 +128,7 @@ Khi user click cột "Tin nhắn" hoặc "Bình luận" của 1 đơn trong nati
 
 ### **Phase 3 — Right panel Tạo đơn tab** (~3 ngày, scope lớn nhất)
 
-- Address cascader VN: province / district / ward — dùng dataset hiện có trong `web2-shared/delivery-method-picker.js`.
+- Address cascader VN: province / district / ward — dùng dataset hiện có trong `web2/shared/delivery-method-picker.js`.
 - Product search picker: gọi TPOS OData (đã wire trong `tpos-pancake/`) hoặc Pancake products API.
 - Combo modal: nhập tay 1 row free-text (workaround nếu chưa wire combo).
 - Line items table: SL, đơn giá inline edit, thành tiền auto-calc.

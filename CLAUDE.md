@@ -37,7 +37,7 @@ Trước khi `Edit`/`Write` file trong folder X, **PHẢI `Read` `docs/sessions/
 
 - Root files (CLAUDE.md, README, scripts root-level, …) → [`docs/sessions/latest/_root.md`](docs/sessions/latest/_root.md)
 - `so-order/` → [`docs/sessions/latest/so-order.md`](docs/sessions/latest/so-order.md)
-- `web2/`, `web2-shared/`, `web2-products/`, `web2-variants/` → snapshot cùng tên
+- `web2/`, `web2/shared/`, `web2-products/`, `web2-variants/` → snapshot cùng tên
 - `native-orders/`, `tpos-pancake/`, `scripts/`, `docs/` → snapshot cùng tên
 - **Index toàn bộ**: [`docs/sessions/latest/_all.md`](docs/sessions/latest/_all.md)
 
@@ -234,7 +234,7 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 **Folders** (đều thuộc Web 2.0):
 
 - `web2/` — TPOS-clone pages + 2 ví mới (`supplier-wallet/`, `customer-wallet/`)
-- `web2-shared/` — shared sidebar, page-shell, api client, caches
+- `web2/shared/` — shared sidebar, page-shell, api client, caches
 - `web2-products/` — Kho SP riêng Web 2.0
 - `web2-variants/` — Kho Biến Thể riêng
 - `so-order/` — Sổ Order shop dùng để mua hàng từ NCC
@@ -269,7 +269,7 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
     - Vd: `// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.`
 2. **Đặt tên DB table/Firestore mới**: prefix `web2_` cho Postgres, hậu tố `_v1`/`_v2` cho Firestore.
 3. **API route mới**: prefix `/api/web2-...` hoặc `/api/web2/...`. Nếu phải dùng tên trung tính (vd `wallet-deposits`) → comment đầu file `// WEB2.0 MODULE`.
-4. **Không cross-import**: legacy/orders-report KHÔNG được import code từ web2/, web2-shared/, supplier-wallet/, customer-wallet/. Ngược lại OK (web2 dùng `shared/js/...` được vì shared là chung).
+4. **Không cross-import**: legacy/orders-report KHÔNG được import code từ web2/, web2/shared/, supplier-wallet/, customer-wallet/. Ngược lại OK (web2 dùng `shared/js/...` được vì shared là chung).
 5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
 
 ### Index quick-lookup
