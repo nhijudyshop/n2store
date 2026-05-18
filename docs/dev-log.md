@@ -25,6 +25,20 @@
 
 ## 2026-05-18
 
+### [so-order] Đổi từ toggle button → dblclick-to-edit + inline image edit modal
+
+**User**: feature "Chỉnh sửa bảng" theo flow toggle gây lẫn lộn (mode bật/tắt) → đổi sang **double-click ô để sửa** trực tiếp, intuitive hơn.
+
+**Implementation** ([so-order/{index.html,css/so-order.css,js/so-order-app.js}](../so-order/)):
+
+1. **Bỏ button `#soEditTableBtn` + state `editTableMode`** — thay bằng `.so-hint-chip` "Double-click ô để sửa" ở header cho rõ ràng UX.
+2. **Cell renderers giờ dán `data-cell-field`** lên `<td>` read-only. Listen `dblclick` trên row → mở inline editor cho cell đó (qty/sellPrice/costPrice/supplier/productName/note/costNote/variant/status). Save ngay khi blur/Enter, escape khôi phục giá trị cũ.
+3. **Inline image edit modal `#soInlineImageModal`** mới — dblclick ô ảnh (`productImage` / `invoiceImage`) mở modal: paste Ctrl+V / drag-drop / chọn file / dán URL. Preview live + nút "Xóa ảnh". Lưu → update row + Firestore sync.
+4. **CSS**: dashed underline subtle khi hover cell editable, image preview box `min-height: 80px`, modal panel narrow.
+5. **Fix**: index.html đã load `web2-effects.css` 2 lần (v=20260515b + v=20260517b) → giữ lại bản mới `20260517b`.
+
+**Status**: ✅ Done.
+
 ### [so-order] Inline "Chỉnh sửa bảng" — toggle bật/tắt edit cell trực tiếp trên table
 
 **User**: "thêm chỉnh sửa bảng".
