@@ -215,6 +215,7 @@
 .so-cell-img {
     width: 56px;
     text-align: center;
+    position: relative;
 }
 
 .so-cell-img img {
@@ -241,6 +242,45 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+}
+.so-cell-img-missing:hover {
+    background: repeating-linear-gradient(45deg, #ede9fe, #ede9fe 6px, #ddd6fe 6px, #ddd6fe 12px);
+    color: #6d28d9;
+}
+
+/* Pencil overlay — góc trên-phải, hiện trên hover của cell */
+.so-cell-img-edit {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #6d28d9;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: background 0.12s;
+}
+.so-cell-img:hover .so-cell-img-edit {
+    display: inline-flex;
+}
+.so-cell-img-edit:hover {
+    background: #ede9fe;
+}
+.so-cell-img-edit i {
+    width: 12px;
+    height: 12px;
+}
+/* Khi cell trống, edit btn còn ẩn — pseudo-element trên missing đóng vai chính */
+.so-cell-img:has(.so-cell-img-missing) .so-cell-img-edit {
+    display: none;
 }
 
 .so-cell-status {

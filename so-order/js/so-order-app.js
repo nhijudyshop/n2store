@@ -239,6 +239,21 @@
         tbody.querySelectorAll('img[data-zoomable]').forEach((img) => {
             img.addEventListener('click', () => openLightbox(img.src));
         });
+        // Edit-image affordance: pencil overlay (and "—" placeholder).
+        // Click bypasses lightbox + opens inline image modal so user can
+        // replace/clear ngay cả khi cell đã có ảnh.
+        tbody.querySelectorAll('[data-img-edit]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const td = el.closest('td[data-cell-field]');
+                if (!td) return;
+                const field = td.dataset.cellField;
+                const rowId = td.dataset.rowId;
+                const shipmentId = td.dataset.shipmentId;
+                if (!field || !rowId || !shipmentId) return;
+                openInlineImageModal(rowId, shipmentId, field);
+            });
+        });
         // Inline dblclick-to-edit per cell — đăng ký 1 lần ở tbody level
         if (!tbody.__inlineEditBound) {
             tbody.addEventListener('dblclick', onCellDoubleClick);
@@ -893,10 +908,16 @@
         const attrs = meta
             ? ` data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}"`
             : '';
+        // Edit affordance: pencil button overlay top-right (always rendered;
+        // CSS shows it on hover). Click → opens inline image modal so user
+        // can replace/clear ngay cả khi cell đã có ảnh.
+        const editBtn = meta
+            ? `<button type="button" class="so-cell-img-edit" data-img-edit data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}" title="Sửa ảnh"><i data-lucide="pencil"></i></button>`
+            : '';
         if (!url) {
-            return `<td class="so-cell-img"${attrs}><span class="so-cell-img-missing">—</span></td>`;
+            return `<td class="so-cell-img"${attrs}><span class="so-cell-img-missing" data-img-edit>—</span>${editBtn}</td>`;
         }
-        return `<td class="so-cell-img"${attrs}><img src="${escapeHtml(url)}" alt="" data-zoomable loading="lazy" /></td>`;
+        return `<td class="so-cell-img"${attrs}><img src="${escapeHtml(url)}" alt="" data-zoomable loading="lazy" />${editBtn}</td>`;
     }
 
     function statusCell(status, meta) {
