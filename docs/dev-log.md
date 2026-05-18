@@ -25,6 +25,23 @@
 
 ## 2026-05-18
 
+### [so-order] Inline "Chỉnh sửa bảng" — toggle bật/tắt edit cell trực tiếp trên table
+
+**User**: "thêm chỉnh sửa bảng".
+
+**Implementation** ([so-order/{index.html,css/so-order.css,js/so-order-app.js}](../so-order/)):
+
+1. Button `#soEditTableBtn` cạnh "Ẩn/Hiện cột". State `editTableMode` persist localStorage `soOrder_editTableMode_v1`
+2. Split cell renderers: `_readCells()` (read-only) vs `_editCells()` (input/select cho field editable)
+    - qty/sellPrice/costPrice → number input | supplier/productName/note/costNote → text input | variant → input + variant picker mini từ Web2VariantsCache (validate phải có trong Kho Biến Thể, fail → revert) | status → select 4 option
+    - stt/images/actions giữ nguyên (ảnh paste/drop dùng modal)
+3. Auto-save (`wireInlineEditCells`): change event → `SoOrderStorage.updateRow` → `pushSync()` Firestore → `renderFooterTotals()`. Enter → blur. Row flash xanh `.is-saved-flash` 600ms.
+4. Visual: button `.is-active` gradient tím, body class `so-edit-table-mode` → row vàng nhạt `#fefce8` chỉ rõ mode
+
+**Smoke test**: click toggle → row chuyển input, vàng nhạt; SL 20→21 → tổng SL 35→36, tổng tiền 8.900→9.200₫ (+300 = 1×300 sellPrice); reload mode vẫn ON.
+
+**Status**: ✅ Done.
+
 ### [web2][seed] Bulk seed 108 biến thể từ `bienthe.txt` vào Kho Biến Thể
 
 **User**: "thêm 108 biến thể trong /Users/mac/Desktop/n2store/bienthe.txt vào http://localhost:8093/web2-variants/index.html".

@@ -31,6 +31,11 @@
     let editingRowId = null;
     let editingShipmentId = null;
     let editingTabId = null;
+    // Inline table edit mode — toggle qua nút "Chỉnh sửa bảng" header.
+    // Khi true: cell qty/sellPrice/costPrice/variant/note/costNote/status
+    // hiện input/select; blur/change auto-save qua SoOrderStorage.updateRow().
+    let editTableMode = false;
+    const STORAGE_EDIT_MODE_KEY = 'soOrder_editTableMode_v1';
     // Multi-row modal state. Each entry is { uid, productName, variant, qty,
     // costPrice, sellPrice, productImage, invoiceImage, matchedCode }.
     // `matchedCode` is set when the user picks a suggestion or the typed
@@ -196,7 +201,124 @@
         tbody.querySelectorAll('img[data-zoomable]').forEach((img) => {
             img.addEventListener('click', () => openLightbox(img.src));
         });
+        // Inline edit-table wiring (chỉ active khi editTableMode = true)
+        if (editTableMode) wireInlineEditCells(tbody);
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function wireInlineEditCells(tbody) {
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        // Variant picker per cell
+        tbody.querySelectorAll('input[data-edit-variant="1"]').forEach((input) => {
+            const rid = input.dataset.rowId;
+            input.addEventListener('focus', () => _showInlineVariantSuggest(rid, input.value));
+            input.addEventListener('input', () => _showInlineVariantSuggest(rid, input.value));
+            input.addEventListener('blur', () => {
+                setTimeout(() => _hideInlineVariantSuggest(rid), 180);
+            });
+        });
+        // Generic field auto-save on change
+        const persist = (input) => {
+            const field = input.dataset.editField;
+            const rowId = input.dataset.rowId;
+            const shId = input.dataset.shipmentId;
+            if (!field || !rowId || !shId) return;
+            let value = input.value;
+            if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
+                value = Number(value) || 0;
+            } else if (typeof value === 'string') {
+                value = value.trim();
+            }
+            // Variant validation: if non-empty must exist in Kho Biến Thể
+            if (field === 'variant' && value) {
+                const cache = window.Web2VariantsCache;
+                if (cache && !cache.findByValueExact(value)) {
+                    notify(
+                        `Biến thể "${value}" chưa có trong Kho Biến Thể — thêm trước rồi pick lại.`,
+                        'error'
+                    );
+                    // Revert UI to stored value
+                    const tabNow = window.SoOrderStorage.getActiveTab(state);
+                    const sh = tabNow.shipments.find((s) => s.id === shId);
+                    const r = sh?.rows.find((x) => x.id === rowId);
+                    if (r) input.value = r.variant || '';
+                    return;
+                }
+            }
+            const patch = { [field]: value };
+            window.SoOrderStorage.updateRow(state, tab.id, shId, rowId, patch);
+            pushSync();
+            renderFooterTotals();
+            // Flash row to confirm save
+            const tr = tbody.querySelector(`tr.so-data-row[data-row-id="${rowId}"]`);
+            if (tr) tr.classList.add('is-saved-flash');
+            setTimeout(() => tr?.classList.remove('is-saved-flash'), 600);
+        };
+        tbody.querySelectorAll('input[data-edit-field], select[data-edit-field]').forEach((el) => {
+            if (el.tagName === 'SELECT') {
+                el.addEventListener('change', () => persist(el));
+            } else {
+                el.addEventListener('change', () => persist(el));
+                // Save on Enter
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        el.blur();
+                    }
+                });
+            }
+        });
+    }
+
+    function _showInlineVariantSuggest(rid, query) {
+        const list = document.querySelector(
+            `.so-edit-variant-dropdown[data-edit-variant-for="${rid}"]`
+        );
+        if (!list) return;
+        const cache = window.Web2VariantsCache;
+        if (!cache) return;
+        const items = cache.findByValue((query || '').trim(), 10);
+        if (!items.length) {
+            list.innerHTML = `<div class="so-variant-empty">
+                Kho rỗng. <a href="../web2-variants/index.html" target="_blank">Thêm →</a>
+            </div>`;
+            list.hidden = false;
+            return;
+        }
+        list.innerHTML = items
+            .map((v) => {
+                const grp = v.groupName
+                    ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
+                    : '';
+                return `<button type="button" class="so-variant-item" data-rid="${rid}" data-val="${escapeHtml(v.value)}">
+                    <span class="so-variant-val">${escapeHtml(v.value)}</span>${grp}
+                </button>`;
+            })
+            .join('');
+        list.hidden = false;
+        list.querySelectorAll('.so-variant-item').forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => e.preventDefault());
+            btn.addEventListener('click', () => {
+                const input = document.querySelector(
+                    `input[data-edit-variant="1"][data-row-id="${rid}"]`
+                );
+                if (input) {
+                    input.value = btn.dataset.val;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                list.hidden = true;
+            });
+        });
+    }
+
+    function _hideInlineVariantSuggest(rid) {
+        const list = document.querySelector(
+            `.so-edit-variant-dropdown[data-edit-variant-for="${rid}"]`
+        );
+        if (list) {
+            list.hidden = true;
+            list.innerHTML = '';
+        }
     }
 
     function shipmentHtml(sh, tab, colSpan) {
@@ -265,7 +387,26 @@
     }
 
     function rowHtml(r, idx, tab, shipmentId) {
-        const cells = {
+        const rid = escapeHtml(r.id);
+        const sid = escapeHtml(shipmentId);
+        const cells = editTableMode
+            ? _editCells(r, idx, tab, shipmentId, rid, sid)
+            : _readCells(r, idx, tab, shipmentId, rid, sid);
+        return (
+            '<tr class="so-data-row" data-row-id="' +
+            rid +
+            '" data-shipment-id="' +
+            sid +
+            '">' +
+            COLUMNS.filter((c) => activeColVis()[c.key])
+                .map((c) => cells[c.key])
+                .join('') +
+            '</tr>'
+        );
+    }
+
+    function _readCells(r, idx, tab, shipmentId) {
+        return {
             supplier: `<td class="so-cell-supplier">${escapeHtml(r.supplier || '—')}</td>`,
             stt: `<td class="so-cell-stt">${idx + 1}</td>`,
             productName: `<td class="so-cell-product">${escapeHtml(r.productName || '—')}</td>`,
@@ -280,17 +421,38 @@
             status: statusCell(r.status),
             actions: actionsCell(r.id, shipmentId),
         };
-        return (
-            '<tr class="so-data-row" data-row-id="' +
-            escapeHtml(r.id) +
-            '" data-shipment-id="' +
-            escapeHtml(shipmentId) +
-            '">' +
-            COLUMNS.filter((c) => activeColVis()[c.key])
-                .map((c) => cells[c.key])
-                .join('') +
-            '</tr>'
-        );
+    }
+
+    function _editCells(r, idx, tab, shipmentId, rid, sid) {
+        const dataAttrs = `data-row-id="${rid}" data-shipment-id="${sid}"`;
+        const statusOpts = Object.entries(STATUS_LABELS)
+            .map(
+                ([val, lbl]) =>
+                    `<option value="${val}" ${val === (r.status || 'draft') ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+            )
+            .join('');
+        return {
+            supplier: `<td class="so-cell-supplier"><input class="so-edit-input" type="text" data-edit-field="supplier" ${dataAttrs} value="${escapeHtml(r.supplier || '')}" placeholder="NCC" /></td>`,
+            stt: `<td class="so-cell-stt">${idx + 1}</td>`,
+            // productName + variant + images vẫn editable nhưng productName chỉ
+            // free-text (suggestion phức tạp); variant đi dropdown picker mini.
+            productName: `<td class="so-cell-product"><input class="so-edit-input" type="text" data-edit-field="productName" ${dataAttrs} value="${escapeHtml(r.productName || '')}" placeholder="Tên SP" /></td>`,
+            variant: `<td class="so-cell-variant">
+                <div class="so-edit-variant-wrap">
+                    <input class="so-edit-input" type="text" data-edit-field="variant" data-edit-variant="1" ${dataAttrs} value="${escapeHtml(r.variant || '')}" placeholder="Pick từ kho…" autocomplete="off" />
+                    <div class="so-edit-variant-dropdown" data-edit-variant-for="${rid}" hidden></div>
+                </div>
+            </td>`,
+            qty: `<td class="so-cell-qty"><input class="so-edit-input so-edit-num" type="number" min="0" step="1" data-edit-field="qty" ${dataAttrs} value="${Number(r.qty) || 0}" /></td>`,
+            sellPrice: `<td class="so-cell-money"><input class="so-edit-input so-edit-num" type="number" min="0" step="any" data-edit-field="sellPrice" ${dataAttrs} value="${Number(r.sellPrice) || 0}" /></td>`,
+            costPrice: `<td class="so-cell-money"><input class="so-edit-input so-edit-num" type="number" min="0" step="any" data-edit-field="costPrice" ${dataAttrs} value="${Number(r.costPrice) || 0}" /></td>`,
+            productImage: imgCell(r.productImage),
+            invoiceImage: imgCell(r.invoiceImage),
+            note: `<td class="so-cell-note"><input class="so-edit-input" type="text" data-edit-field="note" ${dataAttrs} value="${escapeHtml(r.note || '')}" placeholder="Ghi chú" /></td>`,
+            costNote: `<td class="so-cell-note so-cell-note-cp"><input class="so-edit-input" type="text" data-edit-field="costNote" ${dataAttrs} value="${escapeHtml(r.costNote || '')}" placeholder="GC CP" /></td>`,
+            status: `<td class="so-cell-status"><select class="so-edit-select" data-edit-field="status" ${dataAttrs}>${statusOpts}</select></td>`,
+            actions: actionsCell(r.id, shipmentId),
+        };
     }
 
     function actionsCell(rowId, shipmentId) {
@@ -1410,6 +1572,7 @@
             .getElementById('soCreateOrderBtn')
             .addEventListener('click', () => openOrderModal(null));
         document.getElementById('soColumnSettingsBtn').addEventListener('click', openColumnModal);
+        document.getElementById('soEditTableBtn')?.addEventListener('click', toggleEditTableMode);
         document.getElementById('soTabDeleteBtn').addEventListener('click', handleTabDelete);
 
         document.getElementById('soOrderForm').addEventListener('submit', handleOrderSubmit);
@@ -1464,8 +1627,32 @@
         // Multi-row inputs auto-wired in wireModalRowInputs via onModalRowFieldInput.
     }
 
+    function toggleEditTableMode() {
+        editTableMode = !editTableMode;
+        try {
+            localStorage.setItem(STORAGE_EDIT_MODE_KEY, editTableMode ? '1' : '0');
+        } catch {
+            /* ignore quota */
+        }
+        _applyEditModeChrome();
+        renderTableBody();
+        notify(editTableMode ? 'Đã bật chỉnh sửa bảng' : 'Đã tắt chỉnh sửa bảng', 'info');
+    }
+
+    function _applyEditModeChrome() {
+        const btn = document.getElementById('soEditTableBtn');
+        if (btn) btn.classList.toggle('is-active', editTableMode);
+        document.body.classList.toggle('so-edit-table-mode', editTableMode);
+    }
+
     async function init() {
         state = window.SoOrderStorage.load();
+        try {
+            editTableMode = localStorage.getItem(STORAGE_EDIT_MODE_KEY) === '1';
+        } catch {
+            editTableMode = false;
+        }
+        _applyEditModeChrome();
         renderAll();
         wireToolbar();
         wireModalTotals();

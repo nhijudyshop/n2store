@@ -17,7 +17,7 @@
         <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260515a" />
         <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260515b" />
         <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260515a" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260517d" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260518a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -43,6 +43,15 @@
                     <div class="so-page-counters">
                         <span class="counter-pill" id="soTotalRows">— dòng</span>
                         <span class="counter-pill" id="soTotalQty">SL: 0</span>
+                        <button
+                            id="soEditTableBtn"
+                            class="btn-secondary"
+                            type="button"
+                            title="Bật/tắt chỉnh sửa trực tiếp trên bảng (SL, giá, biến thể, ghi chú, trạng thái)"
+                        >
+                            <i data-lucide="table-properties"></i>
+                            Chỉnh sửa bảng
+                        </button>
                         <button id="soColumnSettingsBtn" class="btn-secondary" type="button">
                             <i data-lucide="settings-2"></i>
                             Ẩn/Hiện cột
@@ -395,6 +404,6 @@
         <script src="../web2-shared/web2-products-cache.js?v=20260517a"></script>
         <script src="../web2-shared/web2-variants-cache.js?v=20260517a"></script>
         <script src="js/so-order-storage.js?v=20260517a"></script>
-        <script src="js/so-order-app.js?v=20260517d"></script>
+        <script src="js/so-order-app.js?v=20260518a"></script>
     </body>
 </html>
