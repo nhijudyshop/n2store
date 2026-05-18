@@ -1,0 +1,109 @@
+Màu Bạc
+Màu Beo
+Màu Bò
+Màu Cà Phê
+Màu Cam
+Màu Cam Đào
+Màu Cam Đất
+Màu Cam Lạnh
+Màu Cam Sữa
+Màu Caro
+Màu Cổ Vịt
+Màu Cốm
+Màu Đậm
+Màu Đen
+Màu Đen Bạc
+Màu Đen Vàng
+Màu Đỏ
+Màu Đỏ Đô
+Màu Đỏ Tươi
+Màu Ghi
+Màu Hồng
+Màu Hồng Đậm
+Màu Hồng Đào
+Màu Hồng Đất
+Màu Hồng Dâu
+Màu Hồng Nhạt
+Màu Hồng Ruốc
+Màu Jean Trắng
+Màu Jean Xanh
+Màu Kem
+Màu Muối Tiêu
+Màu Nâu
+Màu Nâu Đậm
+Màu Nâu Đất
+Màu Nâu Đỏ Đậm
+Màu Nâu Nhạt
+Màu Nhạt
+Màu Nude
+Màu Rêu
+Màu Sọc
+Màu Sọc Đen
+Màu SỌC ĐỎ
+Màu Sọc Hồng
+Màu SỌC NÂU
+Màu Sọc Nude
+Màu Sọc rêu
+Màu Sọc Trắng
+Màu Sọc Trắng To
+Màu Sọc Xám
+Màu Sọc Xanh
+Màu Tím
+Màu Tím Đậm
+Màu Tím Môn
+Màu Trắng
+Màu Trắng Hồng
+Màu Trắng Kem
+Màu Trắng Sáng
+Màu Trong
+Màu Vàng
+Màu Vàng Đồng
+Màu Xám
+Màu Xám Chuột
+Màu Xám Đậm
+Màu Xám Đen
+Màu Xám Khói
+Màu Xám Nhạt
+Màu Xám Trắng
+Màu Xanh
+Màu Xanh Bơ
+Màu Xanh CoBan
+Màu Xanh Đậm
+Màu Xanh Đậu
+Màu Xanh Đen
+Màu Xanh Dương
+Màu Xanh Lá
+Màu Xanh Mạ
+Màu Xanh Min
+Màu Xanh Ngọc
+Màu Xanh Nhạt
+Màu Xanh Rêu
+Size L
+Size M
+Size S
+Size XL
+Size XXL
+Size XXXL
+Size 1
+Size 2
+Size 27
+Size 28
+Size 29
+Size 3
+Size 30
+Size 31
+Size 32
+Size 33
+Size 34
+Size 35
+Size 36
+Size 37
+Size 38
+Size 39
+Size 4
+Size 40
+Size 41
+Size 42
+Size 43
+Size 44
+

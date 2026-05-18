@@ -25,6 +25,29 @@
 
 ## 2026-05-18
 
+### [web2][seed] Bulk seed 108 biến thể từ `bienthe.txt` vào Kho Biến Thể
+
+**User**: "thêm 108 biến thể trong /Users/mac/Desktop/n2store/bienthe.txt vào http://localhost:8093/web2-variants/index.html".
+
+**Implementation**:
+
+1. Verify API live: `/api/web2-variants/health` → `{ok:true, count:0}` (Render + CF Worker đã deploy variant routes)
+2. Script [`scripts/seed-web2-variants.sh`](../scripts/seed-web2-variants.sh): đọc file txt từng dòng (trim + skip empty), POST `/api/web2-variants`:
+    - `value` = raw line giữ nguyên (kể cả "SỌC ĐỎ" uppercase user cố tình)
+    - `groupName` auto: prefix "Màu " → "Màu", prefix "Size" → "Size", khác → null
+    - `sortOrder` = line number (giữ thứ tự gốc trong file)
+    - `createdBy` = "seed-script"
+3. Run → **108/108 created**, 0 duplicate, 0 fail
+
+**Verification**:
+
+- `/health` → `count: 108`
+- `/list?group=Màu` → total 80
+- `/list?group=Size` → total 28
+- Browser screenshot: purple pills value + group "Màu" pill + "Đang dùng" + sort ascending
+
+**Status**: ✅ Done.
+
 ### [docs][meta] API Keys / Secrets convention — `serect_dont_push.txt` central reference
 
 **User**: "cần key api thì vào serect dont push → thêm thông tin này vào memory, claude, dev-log → nếu chưa có file thì tạo và kêu người dùng thêm key nếu muốn".
