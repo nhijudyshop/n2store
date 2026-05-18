@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2-shared/`
+# Latest Snapshot — `render.com/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-18 10:47:04 +07
 **Summary**: chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow
 
-## Files changed in this commit (`web2-shared/`)
+## Files changed in this commit (`render.com/`)
 
-- `web2-shared/tpos-sidebar.js`
+- `render.com/services/web2-sync-worker.js`
 
-## Last 5 commits touching `web2-shared/`
+## Last 5 commits touching `render.com/`
 
 - `0c3c1310` chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow _(2026-05-18)_
-- `97a325e0` chore(web2): xóa trang placeholder fastpurchaseorder-invoice _(2026-05-18)_
-- `9f34fee9` feat(web2): Ví NCC + Ví KH — công nợ + trả hàng + 30-day cleanup _(2026-05-18)_
-- `5922ea4d` fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che _(2026-05-18)_
 - `9c8a37db` feat(web2): Kho Biến Thể riêng — picker dropdown thay free-text variant _(2026-05-18)_
+- `e0854df2` feat(web2,so-order): tách field BIẾN THỂ ra khỏi note — DB column riêng + UI cột mới _(2026-05-17)_
+- `625b797b` fix(inbox): STT độc nhất — atomic counter `inbox_counters` thay cho orders.length+1 _(2026-05-17)_
+- `932cb47d` feat(kpi-inbox): drill-down chi tiết đơn theo NV (STT, số phiếu, SL món, KPI, trạng thái) _(2026-05-17)_
 
 ---
 

@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2-shared/`
+# Latest Snapshot — `shared/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-18 10:47:04 +07
 **Summary**: chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow
 
-## Files changed in this commit (`web2-shared/`)
+## Files changed in this commit (`shared/`)
 
-- `web2-shared/tpos-sidebar.js`
+- `shared/js/navigation-modern.js`
 
-## Last 5 commits touching `web2-shared/`
+## Last 5 commits touching `shared/`
 
 - `0c3c1310` chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow _(2026-05-18)_
-- `97a325e0` chore(web2): xóa trang placeholder fastpurchaseorder-invoice _(2026-05-18)_
-- `9f34fee9` feat(web2): Ví NCC + Ví KH — công nợ + trả hàng + 30-day cleanup _(2026-05-18)_
-- `5922ea4d` fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che _(2026-05-18)_
-- `9c8a37db` feat(web2): Kho Biến Thể riêng — picker dropdown thay free-text variant _(2026-05-18)_
+- `034b2608` chore(web2): xóa 2 trang TPOS-clone product-template + product-variant _(2026-05-17)_
+- `03347d94` feat(balance-history-home): page mới scaffold UI, chờ đấu SePay account thứ 2 _(2026-05-14)_
+- `23df047d` fix(issue-tracking): Nhận hàng RETURN*SHIPPER lỗi 'thêm chi tiết hóa đơn' *(2026-05-13)\_
+- `995804b6` auto: session update _(2026-05-13)_
 
 ---
 
