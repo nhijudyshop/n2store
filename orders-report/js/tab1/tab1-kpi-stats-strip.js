@@ -17,14 +17,15 @@
 
    Filter: order.campaignName === window.campaignManager.activeCampaign.name
 
-   Refresh triggers (belt-and-suspenders):
+   Refresh triggers:
    - Khi tab1 init + active campaign sẵn sàng (lần đầu, không toast).
    - Khi user đổi Chiến Dịch (reset snapshot, không toast).
-   - Khi SSE 'kpi_base' bắn update/created/deleted → debounce 2.5s rồi refresh
-     (low-latency push; channel chỉ fire khi bảng kpi_base bị ghi, có thể bỏ sót
-     event nếu chỉ kpi_statistics update).
-   - Always-on polling 60s — safety net để mọi browser hội tụ trong tối đa 60s,
-     kể cả khi SSE không push.
+   - Khi SSE 'kpi_statistics' bắn update/created/deleted → debounce 1.5s
+     rồi refresh (toast). Backend Render đã add notifyClients() vào tất cả
+     write endpoints kpi-statistics (PUT/PATCH/DELETE/recalculate).
+   - Cũng listen 'kpi_base' để bắt new order BASE write (sự kiện hiếm hơn).
+
+   KHÔNG polling — chỉ SSE.
 
    Cache busting: fetch dùng cache:'no-store' để Cloudflare không serve từ
    browser cache cũ → mỗi refresh thực sự fetch tươi.
@@ -34,9 +35,9 @@
 
     const HOST_ID = 'kpiStatsStrip';
     const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
-    const SSE_URL = `${API_BASE}/sse?keys=${encodeURIComponent('kpi_base')}`;
-    const SSE_DEBOUNCE_MS = 2500;
-    const POLL_SAFETY_MS = 60000;
+    // Subscribe 2 channels: kpi_statistics (mọi PATCH tick KPI) + kpi_base (new order BASE)
+    const SSE_URL = `${API_BASE}/sse?keys=${encodeURIComponent('kpi_statistics,kpi_base')}`;
+    const SSE_DEBOUNCE_MS = 1500;
     const READY_POLL_MS = 500;
     const READY_MAX_TRIES = 30;
     const CAMPAIGN_WATCH_MS = 2000;
@@ -264,13 +265,12 @@
         }, CAMPAIGN_WATCH_MS);
     }
 
-    // SSE realtime subscription — Render channel 'kpi_base' chỉ chắc chắn fire
-    // khi bảng kpi_base bị ghi (new order BASE). KHÔNG đảm bảo fire khi chỉ
-    // kpi_statistics update (recompute, manual fix) → polling 60s là safety
-    // net bắt buộc để mọi browser hội tụ trong tối đa 60s.
+    // SSE realtime subscription — Render đã add notifyClients() vào tất cả
+    // write endpoints kpi-statistics (PUT/PATCH/DELETE/recalc) → push instant
+    // mỗi khi backend ghi → debounce 1.5s gộp burst → refresh.
+    // EventSource tự động reconnect khi mạng chập chờn.
     let sseSource = null;
     let sseDebounceTimer = null;
-    let pollSafetyTimer = null;
 
     function debouncedRefresh() {
         if (!getActiveCampaignName()) return;
@@ -281,14 +281,6 @@
         }, SSE_DEBOUNCE_MS);
     }
 
-    function startPollingSafety() {
-        if (pollSafetyTimer) return;
-        pollSafetyTimer = setInterval(() => {
-            if (!getActiveCampaignName()) return;
-            refresh();
-        }, POLL_SAFETY_MS);
-    }
-
     function subscribeRealtime() {
         if (typeof EventSource === 'undefined') return;
         try {
@@ -296,8 +288,6 @@
             sseSource.addEventListener('update', debouncedRefresh);
             sseSource.addEventListener('created', debouncedRefresh);
             sseSource.addEventListener('deleted', debouncedRefresh);
-            // EventSource tự reconnect khi mạng chập chờn — không cần onerror
-            // handler vì polling 60s đã là safety net độc lập với SSE.
         } catch (err) {
             console.warn('[KPIStatsStrip] SSE setup failed:', err && err.message);
         }
@@ -321,7 +311,6 @@
         await waitForActiveCampaignThenRefresh();
         watchCampaignChange();
         subscribeRealtime();
-        startPollingSafety();
     }
 
     window.KPIStatsStrip = {

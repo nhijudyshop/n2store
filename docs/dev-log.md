@@ -25,6 +25,32 @@
 
 ## 2026-05-18
 
+### [render][orders-report] KPI strip → SSE-only, bỏ polling
+
+**User feedback (sau test prod 2 user hong+hanh)**: "bỏ polling hoàn toàn chỉ dùng kpi thôi". Test prod confirmed: mọi update đều rơi đúng nhịp polling 60s, không có SSE push nào fire — SSE channel `kpi_base` chỉ fire khi bảng `kpi_base` bị ghi (BASE INSERT cho order mới), KHÔNG fire khi `kpi_statistics` được PATCH (tick "SP bán hàng").
+
+**Root fix backend** ([render.com/routes/realtime-db.js](../render.com/routes/realtime-db.js)):
+
+Thêm `notifyClients('kpi_statistics', ...)` vào TẤT CẢ write endpoints:
+
+- PUT `/kpi-statistics/:userId/:date` — eventType `update`
+- PATCH `/kpi-statistics/:userId/:date/order` — eventType `update`, sau COMMIT
+- DELETE `/kpi-statistics/order/:orderCode` — eventType `deleted`, chỉ khi rowCount > 0
+- DELETE `/kpi-statistics/:userId/:date` — eventType `deleted`, chỉ khi rowCount > 0
+- POST `/kpi-statistics/recalculate-assignments` — eventType `update`, chỉ khi moved > 0
+
+**Client** ([orders-report/js/tab1/tab1-kpi-stats-strip.js](../orders-report/js/tab1/tab1-kpi-stats-strip.js)):
+
+- SSE_URL subscribe **2 channels**: `?keys=kpi_statistics,kpi_base` (catch cả PATCH tick KPI và new order BASE).
+- `SSE_DEBOUNCE_MS`: 2500ms → **1500ms** (không cần chờ kpi_statistics ghi sau kpi_base nữa vì giờ tự push).
+- **XÓA HOÀN TOÀN** `startPollingSafety`, `POLL_SAFETY_MS`, `pollSafetyTimer`.
+- SSE-only: EventSource tự reconnect khi mạng chập chờn.
+
+**Trước**: Polling 60s gánh toàn bộ realtime → latency worst case 60s.
+**Sau**: SSE fire trên MỌI write `kpi_statistics` → latency ~1.5-3s (debounce + network). 0 polling traffic.
+
+**Status**: ✅ Code done. Cần deploy Render + GitHub Pages, sau đó re-test 2-user.
+
 ### [web2/supplier-debt] Thêm tab "Công nợ" — chronological merge + running balance per row
 
 **User**: "chức năng tính tiền giống bên supplier-debt/ chưa? Tìm hiểu kĩ chức năng bên supplier-debt/ đi".

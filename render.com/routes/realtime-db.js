@@ -1419,6 +1419,11 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
             ]
         );
 
+        // SSE broadcast → KPI strip tab1 cập nhật realtime
+        if (notifyClients) {
+            notifyClients('kpi_statistics', { userId, date, op: 'put' }, 'update');
+        }
+
         res.json({ success: true, userId, date });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-statistics error:', error);
@@ -1517,6 +1522,16 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
         );
 
         await client.query('COMMIT');
+
+        // SSE broadcast → KPI strip tab1 cập nhật realtime sau khi tick "SP bán hàng"
+        if (notifyClients) {
+            notifyClients(
+                'kpi_statistics',
+                { userId, date, orderCode, op: 'patch' },
+                'update'
+            );
+        }
+
         res.json({ success: true, userId, date, orderCode });
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
@@ -1574,6 +1589,15 @@ router.delete('/kpi-statistics/order/:orderCode', async (req, res) => {
             [orderCode, JSON.stringify([{ orderCode }])]
         );
 
+        // SSE broadcast (chỉ khi có row bị strip) → KPI strip cập nhật
+        if (notifyClients && result.rowCount > 0) {
+            notifyClients(
+                'kpi_statistics',
+                { orderCode, op: 'delete-order' },
+                'deleted'
+            );
+        }
+
         res.json({ success: true, orderCode, rowsAffected: result.rowCount });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /kpi-statistics/order error:', error);
@@ -1594,6 +1618,15 @@ router.delete('/kpi-statistics/:userId/:date', async (req, res) => {
             'DELETE FROM kpi_statistics WHERE user_id = $1 AND stat_date = $2',
             [userId, date]
         );
+
+        if (notifyClients && result.rowCount > 0) {
+            notifyClients(
+                'kpi_statistics',
+                { userId, date, op: 'delete-row' },
+                'deleted'
+            );
+        }
+
         res.json({ success: true, deleted: result.rowCount > 0 });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /kpi-statistics error:', error);
@@ -1810,6 +1843,15 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
             throw e;
         } finally {
             client.release();
+        }
+
+        // SSE broadcast → KPI strip cập nhật sau khi recalc assignments toàn bộ
+        if (notifyClients && moved > 0) {
+            notifyClients(
+                'kpi_statistics',
+                { op: 'recalc-assignments', moved },
+                'update'
+            );
         }
 
         res.json({
