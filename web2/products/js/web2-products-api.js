@@ -1,6 +1,6 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * Web2 Products API client — /api/web2-products/* qua Cloudflare Worker.
+ * Web2 Products API client — /api/web2/products/* qua Cloudflare Worker.
  */
 
 (function (global) {

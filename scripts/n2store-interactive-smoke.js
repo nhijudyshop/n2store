@@ -54,7 +54,7 @@ const PAGES = [
     '/customer-hub/index.html',
     '/inventory-tracking/index.html',
     '/tpos-pancake/index.html',
-    '/web2-products/index.html',
+    '/web2/products/index.html',
     '/balance-history/index.html',
     '/native-orders/index.html',
     '/firebase-stats/index.html',

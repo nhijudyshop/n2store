@@ -103,7 +103,7 @@ const PAGES = [
     '/supplier-debt/index.html',
     '/tpos-pancake/index.html',
     '/user-management/index.html',
-    '/web2-products/index.html',
+    '/web2/products/index.html',
     // stitch_customer
     '/stitch_customer/customer_search.html',
     '/stitch_customer/Unlinked_Bank_Transactions.html',

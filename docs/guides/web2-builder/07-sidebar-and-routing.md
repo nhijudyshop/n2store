@@ -84,7 +84,7 @@ Hiện tại dùng cách A (explicit) cho rõ ràng.
 
 - TPOS-Pancake live tool (`/tpos-pancake/`)
 - Native Orders (`/native-orders/`)
-- Kho SP (`/web2-products/`)
+- Kho SP (`/web2/products/`)
 - Các trang TPOS-clone (`/web2/<slug>/`) — sẽ thêm dần khi có
 
 Khi tạo trang mới, thêm vào cả 2:
@@ -99,7 +99,7 @@ Khi tạo trang mới, thêm vào cả 2:
 | Page               | Path                                                |
 | ------------------ | --------------------------------------------------- |
 | Native orders      | `/native-orders/`                                   |
-| Product warehouse  | `/web2-products/`                                   |
+| Product warehouse  | `/web2/products/`                                   |
 | Generic TPOS-clone | `/web2/<page-slug>/` (vd. `web2/product-category/`) |
 | TPOS-Pancake live  | `/tpos-pancake/`                                    |
 

@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2-products/`
+# Latest Snapshot — `web2/products/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,11 +9,11 @@
 **Last updated**: 2026-05-18 09:31:35 +07
 **Summary**: fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che
 
-## Files changed in this commit (`web2-products/`)
+## Files changed in this commit (`web2/products/`)
 
-- `web2-products/index.html`
+- `web2/products/index.html`
 
-## Last 5 commits touching `web2-products/`
+## Last 5 commits touching `web2/products/`
 
 - `5922ea4d` fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che _(2026-05-18)_
 - `9c8a37db` feat(web2): Kho Biến Thể riêng — picker dropdown thay free-text variant _(2026-05-18)_

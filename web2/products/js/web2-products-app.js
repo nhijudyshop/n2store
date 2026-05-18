@@ -375,7 +375,7 @@
                 hint.className = 'variant-picker-hint is-error';
                 hint.innerHTML =
                     'Giá trị này chưa có trong kho — bạn cần ' +
-                    '<a href="../web2-variants/index.html" target="_blank">thêm tại Kho Biến Thể</a> trước.';
+                    '<a href="../web2/variants/index.html" target="_blank">thêm tại Kho Biến Thể</a> trước.';
             }
         }
 
@@ -389,7 +389,7 @@
             if (!items.length) {
                 dropdown.innerHTML = `<div class="variant-suggest-empty">
                     Không tìm thấy biến thể nào.
-                    <a href="../web2-variants/index.html" target="_blank">Thêm mới ở Kho Biến Thể →</a>
+                    <a href="../web2/variants/index.html" target="_blank">Thêm mới ở Kho Biến Thể →</a>
                 </div>`;
                 dropdown.hidden = false;
                 return;

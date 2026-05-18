@@ -3,6 +3,7 @@
 # 03 — Cloudflare Worker routing
 
 CF Worker (`chatomni-proxy.nhijudyshop.workers.dev`) là proxy duy nhất giữa browser và backend. Lý do:
+
 - CORS không cần cấu hình ở Render (Worker echo `Access-Control-Allow-Origin`).
 - 1 endpoint duy nhất cho mọi backend (TPOS, Pancake, Render, Facebook, ...).
 - Edge cache (cho ảnh).
@@ -28,7 +29,7 @@ export function matchRoute(pathname) {
 }
 ```
 
-> **Thứ tự rất quan trọng**: phải đặt `'/api/web2/'` TRƯỚC `'/api/web2-products/'` vì cả 2 đều prefix-match. Hiện tại `web2-products` được check trước (specific) → ổn.
+> **Thứ tự rất quan trọng**: phải đặt `'/api/web2/'` TRƯỚC `'/api/web2/products/'` vì cả 2 đều prefix-match. Hiện tại `web2-products` được check trước (specific) → ổn.
 
 ### 3. Dispatch (file `cloudflare-worker/worker.js`)
 
@@ -55,6 +56,7 @@ curl -i https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/productcategory/
 ```
 
 Status mong đợi:
+
 - `200` + JSON `{ok:true, ...}` → OK
 - `404` + `Invalid API route` → routes.js chưa update
 - `500` + `DB unavailable` → Render server chưa deploy code mới
@@ -62,6 +64,7 @@ Status mong đợi:
 ## Trigger deploy (commit empty cho CF)
 
 Đôi khi cần force deploy CF Worker mà không sửa file:
+
 ```js
 // cuối worker.js
 // Trigger deploy 20260115153551

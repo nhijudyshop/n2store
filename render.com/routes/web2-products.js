@@ -85,7 +85,7 @@ function mapRow(row) {
 }
 
 // -----------------------------------------------------
-// GET /api/web2-products/health
+// GET /api/web2/products/health
 // -----------------------------------------------------
 router.get('/health', async (req, res) => {
     const pool = req.app.locals.chatDb;
@@ -100,7 +100,7 @@ router.get('/health', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// GET /api/web2-products/list?search&activeOnly&page&limit
+// GET /api/web2/products/list?search&activeOnly&page&limit
 // Cho cả UI quản lý kho + UI picker khi tạo đơn
 // -----------------------------------------------------
 router.get('/list', async (req, res) => {
@@ -153,7 +153,7 @@ router.get('/list', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// GET /api/web2-products/:code
+// GET /api/web2/products/:code
 // -----------------------------------------------------
 router.get('/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;
@@ -224,7 +224,7 @@ router.post('/', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// PATCH /api/web2-products/:code — update mutable fields
+// PATCH /api/web2/products/:code — update mutable fields
 // -----------------------------------------------------
 router.patch('/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;
@@ -272,7 +272,7 @@ router.patch('/:code', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// POST /api/web2-products/adjust-stock
+// POST /api/web2/products/adjust-stock
 // Body: { adjustments: [{ code, delta, reason }] }
 //   - delta > 0: nhập kho (mua từ NCC, KH trả về)
 //   - delta < 0: xuất kho (bán PBH, trả NCC)
@@ -321,7 +321,7 @@ router.post('/adjust-stock', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// DELETE /api/web2-products/:code — hard delete
+// DELETE /api/web2/products/:code — hard delete
 // -----------------------------------------------------
 router.delete('/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;

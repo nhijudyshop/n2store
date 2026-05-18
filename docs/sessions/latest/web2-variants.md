@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2-variants/`
+# Latest Snapshot — `web2/variants/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,11 +9,11 @@
 **Last updated**: 2026-05-18 09:31:35 +07
 **Summary**: fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che
 
-## Files changed in this commit (`web2-variants/`)
+## Files changed in this commit (`web2/variants/`)
 
-- `web2-variants/index.html`
+- `web2/variants/index.html`
 
-## Last 5 commits touching `web2-variants/`
+## Last 5 commits touching `web2/variants/`
 
 - `5922ea4d` fix(web2-shared): sidebar collapsed — labels bleed + toggle bị che _(2026-05-18)_
 - `9c8a37db` feat(web2): Kho Biến Thể riêng — picker dropdown thay free-text variant _(2026-05-18)_

@@ -11,8 +11,8 @@
 | [`so-order/`](../../so-order/)                         | Sổ Order — shop mua từ NCC                         | `/so-order/index.html`             |
 | [`native-orders/`](../../native-orders/)               | Đơn Web — tạo PBH                                  | `/native-orders/index.html`        |
 | [`tpos-pancake/`](../../tpos-pancake/)                 | Đối soát TPOS × Pancake                            | `/tpos-pancake/index.html`         |
-| [`web2-products/`](../../web2-products/)               | Kho SP riêng                                       | `/web2-products/index.html`        |
-| [`web2-variants/`](../../web2-variants/)               | Kho Biến Thể                                       | `/web2-variants/index.html`        |
+| [`web2/products/`](../../web2/products/)               | Kho SP riêng                                       | `/web2/products/index.html`        |
+| [`web2/variants/`](../../web2/variants/)               | Kho Biến Thể                                       | `/web2/variants/index.html`        |
 | [`web2/supplier-wallet/`](../../web2/supplier-wallet/) | Ví NCC (công nợ)                                   | `/web2/supplier-wallet/index.html` |
 | [`web2/customer-wallet/`](../../web2/customer-wallet/) | Ví KH (công nợ)                                    | `/web2/customer-wallet/index.html` |
 | [`web2/`](../../web2/)                                 | TPOS-clone pages khác (placeholder Web2Shell)      | `/web2/<slug>/index.html`          |
@@ -22,8 +22,8 @@
 
 | Mount path                | File                                                                                   | Mục đích                               |
 | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------- |
-| `/api/web2-products/*`    | [`render.com/routes/web2-products.js`](../../render.com/routes/web2-products.js)       | Kho SP CRUD + adjust-stock             |
-| `/api/web2-variants/*`    | [`render.com/routes/web2-variants.js`](../../render.com/routes/web2-variants.js)       | Kho Biến Thể CRUD                      |
+| `/api/web2/products/*`    | [`render.com/routes/web2-products.js`](../../render.com/routes/web2-products.js)       | Kho SP CRUD + adjust-stock             |
+| `/api/web2/variants/*`    | [`render.com/routes/web2-variants.js`](../../render.com/routes/web2-variants.js)       | Kho Biến Thể CRUD                      |
 | `/api/web2/:entity/*`     | [`render.com/routes/web2-generic.js`](../../render.com/routes/web2-generic.js)         | Generic CRUD cho 80+ TPOS-clone pages  |
 | `/api/native-orders/*`    | [`render.com/routes/native-orders.js`](../../render.com/routes/native-orders.js)       | Đơn Web (Web 2.0 dù không prefix web2) |
 | `/api/fast-sale-orders/*` | [`render.com/routes/fast-sale-orders.js`](../../render.com/routes/fast-sale-orders.js) | PBH — Phiếu Bán Hàng                   |
@@ -57,7 +57,7 @@ Cloudflare Worker proxy: `https://chatomni-proxy.nhijudyshop.workers.dev` forwar
 | `Web2Sidebar`       | [`web2/shared/tpos-sidebar.js`](../../web2/shared/tpos-sidebar.js)                     | Sidebar NAV mount                        |
 | `Web2Shell`         | [`web2/shared/page-shell.js`](../../web2/shared/page-shell.js)                         | Bootstrap cho TPOS-clone pages           |
 | `Web2Api`           | [`web2/shared/web2-api.js`](../../web2/shared/web2-api.js)                             | Generic API client (`/api/web2/:entity`) |
-| `Web2ProductsApi`   | [`web2-products/js/web2-products-api.js`](../../web2-products/js/web2-products-api.js) | Kho SP API client                        |
+| `Web2ProductsApi`   | [`web2/products/js/web2-products-api.js`](../../web2/products/js/web2-products-api.js) | Kho SP API client                        |
 | `Web2ProductsCache` | [`web2/shared/web2-products-cache.js`](../../web2/shared/web2-products-cache.js)       | Realtime cache kho SP                    |
 | `Web2VariantsCache` | [`web2/shared/web2-variants-cache.js`](../../web2/shared/web2-variants-cache.js)       | Realtime cache biến thể                  |
 

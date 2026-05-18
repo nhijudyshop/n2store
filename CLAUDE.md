@@ -37,7 +37,7 @@ Trước khi `Edit`/`Write` file trong folder X, **PHẢI `Read` `docs/sessions/
 
 - Root files (CLAUDE.md, README, scripts root-level, …) → [`docs/sessions/latest/_root.md`](docs/sessions/latest/_root.md)
 - `so-order/` → [`docs/sessions/latest/so-order.md`](docs/sessions/latest/so-order.md)
-- `web2/`, `web2/shared/`, `web2-products/`, `web2-variants/` → snapshot cùng tên
+- `web2/`, `web2/shared/`, `web2/products/`, `web2/variants/` → snapshot cùng tên
 - `native-orders/`, `tpos-pancake/`, `scripts/`, `docs/` → snapshot cùng tên
 - **Index toàn bộ**: [`docs/sessions/latest/_all.md`](docs/sessions/latest/_all.md)
 
@@ -235,8 +235,8 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 
 - `web2/` — TPOS-clone pages + 2 ví mới (`supplier-wallet/`, `customer-wallet/`)
 - `web2/shared/` — shared sidebar, page-shell, api client, caches
-- `web2-products/` — Kho SP riêng Web 2.0
-- `web2-variants/` — Kho Biến Thể riêng
+- `web2/products/` — Kho SP riêng Web 2.0
+- `web2/variants/` — Kho Biến Thể riêng
 - `so-order/` — Sổ Order shop dùng để mua hàng từ NCC
 - `native-orders/` — Đơn Web của shop (tạo PBH)
 - `tpos-pancake/` — TPOS × Pancake reconciliation

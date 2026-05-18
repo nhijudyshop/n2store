@@ -286,8 +286,8 @@
             label: 'Sản phẩm',
             icon: 'package',
             children: [
-                { label: 'Kho SP Web 2.0', our: '../web2-products/index.html' },
-                { label: 'Kho Biến Thể', our: '../web2-variants/index.html' },
+                { label: 'Kho SP Web 2.0', our: '../web2/products/index.html' },
+                { label: 'Kho Biến Thể', our: '../web2/variants/index.html' },
                 {
                     label: 'Nhóm sản phẩm',
                     tpos: '#/app/productcategory/list',
@@ -564,7 +564,7 @@
     /**
      * Resolve `our` path relative to current page location.
      * NAV stores paths as `../web2/X/index.html` assuming caller is at depth 1
-     * from project root (e.g. /native-orders/, /web2-products/, /tpos-pancake/).
+     * from project root (e.g. /native-orders/, /web2/products/, /tpos-pancake/).
      * For pages inside /web2/<slug>/ (depth 2), prepend an extra `../` so the
      * link resolves to /web2/X/ instead of broken /web2/web2/X/.
      */
@@ -576,7 +576,7 @@
         if (/\/web2\/[^/]+\/[^/]*$/.test(pn)) {
             return '../../' + projectRel;
         }
-        // Default: caller at depth 1 (native-orders/, web2-products/, tpos-pancake/, web2/)
+        // Default: caller at depth 1 (native-orders/, web2/products/, tpos-pancake/, web2/)
         return '../' + projectRel;
     }
 

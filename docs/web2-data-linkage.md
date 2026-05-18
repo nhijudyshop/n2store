@@ -13,7 +13,7 @@
 | `web2/fastsaleorder-refund/` (Phiếu trả)     | `refunds`                                          | (terminal)                                                      | —                                   |
 | `web2/delivery-carrier/` (Đối tác giao hàng) | `web2_records [entity=deliverycarrier]`            | **Tạo PBH dropdown** (`native-orders/createPbh`)                | one-way: cấu hình                   |
 | `web2/report-revenue/` (Báo cáo doanh thu)   | đọc `fast_sale_orders` + `customers`               | (read-only)                                                     | —                                   |
-| `web2-products/` (Kho SP)                    | `web2_records [entity=web2product]`                | (chưa link vào order tạo)                                       | —                                   |
+| `web2/products/` (Kho SP)                    | `web2_records [entity=web2product]`                | (chưa link vào order tạo)                                       | —                                   |
 | Các trang `web2/<entity>/` còn lại           | `web2_records [entity=...]` chung                  | (độc lập, CRUD generic)                                         | —                                   |
 
 ## Luồng dữ liệu chính

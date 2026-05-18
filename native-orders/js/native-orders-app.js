@@ -918,7 +918,7 @@
                                placeholder="Tìm theo mã SP hoặc tên… (gõ ≥ 2 ký tự)"
                                autocomplete="off">
                     </div>
-                    <a class="btn-ghost" href="../web2-products/index.html" target="_blank" rel="noopener"
+                    <a class="btn-ghost" href="../web2/products/index.html" target="_blank" rel="noopener"
                        title="Mở kho để thêm SP mới">
                         <i data-lucide="external-link"></i> Kho SP
                     </a>
@@ -1051,7 +1051,7 @@
             return;
         }
         if (!EDIT_PRODUCTS_CACHE.length) {
-            box.innerHTML = `<div class="picker-empty">Kho SP trống — <a href="../web2-products/index.html" target="_blank">mở kho tạo SP</a></div>`;
+            box.innerHTML = `<div class="picker-empty">Kho SP trống — <a href="../web2/products/index.html" target="_blank">mở kho tạo SP</a></div>`;
             box.style.display = 'block';
             return;
         }
@@ -1065,7 +1065,7 @@
         const items = filtered.slice(0, 20);
 
         if (!items.length) {
-            box.innerHTML = `<div class="picker-empty">Không tìm thấy SP khớp "${escapeHtml(q)}". <a href="../web2-products/index.html" target="_blank">Mở kho →</a></div>`;
+            box.innerHTML = `<div class="picker-empty">Không tìm thấy SP khớp "${escapeHtml(q)}". <a href="../web2/products/index.html" target="_blank">Mở kho →</a></div>`;
             box.style.display = 'block';
             return;
         }

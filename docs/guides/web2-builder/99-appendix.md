@@ -32,7 +32,7 @@ n2store/
 │   ├── css/native-orders.css
 │   ├── css/tpos-theme.css          # ← shared theme cho mọi web2
 │   └── js/native-orders-app.js
-├── web2-products/                  # Kho sản phẩm
+├── web2/products/                  # Kho sản phẩm
 │   └── ...
 ├── tpos-pancake/                   # Live tool (đã có sẵn từ trước)
 │   └── ...

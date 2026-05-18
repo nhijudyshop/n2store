@@ -394,7 +394,7 @@
                 const items = cache.findByValue((el.value || '').trim(), 10);
                 if (!items.length) {
                     dropdown.innerHTML = `<div class="so-variant-empty">
-                        Kho rỗng. <a href="../web2-variants/index.html" target="_blank">Thêm →</a>
+                        Kho rỗng. <a href="../web2/variants/index.html" target="_blank">Thêm →</a>
                     </div>`;
                     dropdown.hidden = false;
                     return;
@@ -664,7 +664,7 @@
             const items = cache.findByValue((input.value || '').trim(), 10);
             if (!items.length) {
                 dropdown.innerHTML = `<div class="so-variant-empty">
-                    Kho rỗng. <a href="../web2-variants/index.html" target="_blank">Thêm →</a>
+                    Kho rỗng. <a href="../web2/variants/index.html" target="_blank">Thêm →</a>
                 </div>`;
                 dropdown.hidden = false;
                 return;
@@ -1187,7 +1187,7 @@
         if (!items.length) {
             list.innerHTML = `<div class="so-variant-empty">
                 Kho Biến Thể chưa có giá trị nào khớp.
-                <a href="../web2-variants/index.html" target="_blank">Thêm mới →</a>
+                <a href="../web2/variants/index.html" target="_blank">Thêm mới →</a>
             </div>`;
             list.hidden = false;
             return;

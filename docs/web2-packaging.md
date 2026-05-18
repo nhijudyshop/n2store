@@ -17,7 +17,7 @@ Sau đó `cp -R dist/web2-bundle/ ~/my-new-site/` rồi deploy lên bất kỳ s
 | Folder           | Size   | Mô tả                                                                                                                                                                                 |
 | ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `web2/`          | 504 KB | TPOS-clone module pages (~80 sub-route: fastsaleorder-invoice, fastsaleorder-refund, fastsaleorder-delivery, product-category, account-payment-thu, …)                                |
-| `web2-products/` | 36 KB  | Kho sản phẩm (CRUD, search, paging)                                                                                                                                                   |
+| `web2/products/` | 36 KB  | Kho sản phẩm (CRUD, search, paging)                                                                                                                                                   |
 | `web2/shared/`   | 136 KB | Shared library: `tpos-sidebar.{css,js}`, `popup.js`, `delivery-method-picker.js`, `page-builder.{css,js}`, `page-builder-tpos.css`, `page-shell.js`, `pbh-realtime.js`, `web2-api.js` |
 | `native-orders/` | 176 KB | "Đơn Web" list page + Tạo PBH form + bulk PBH modal + column toggle                                                                                                                   |
 | `tpos-pancake/`  | 1.3 MB | TPOS × Pancake comments page (chat window, Tạo đơn từ comment, Tikreel parity)                                                                                                        |
@@ -105,7 +105,7 @@ web2-bundle/
 │   ├── report-order/             → Báo cáo đơn
 │   ├── product-category/         → Danh mục SP
 │   └── …
-├── web2-products/                → Kho SP
+├── web2/products/                → Kho SP
 ├── web2/shared/                  → 9 shared modules
 │   ├── tpos-sidebar.{css,js}    → Sidebar 87-route
 │   ├── popup.js                 → Custom alert/confirm/prompt + .w2p-* utility classes

@@ -54,7 +54,7 @@ Dùng class chuẩn của project (không cần TPOS-specific):
 - `.modal-overlay`, `.modal-content`, `.modal-header`, `.modal-body`, `.modal-footer`
 - `.spinner`, `.empty-row`, `.loading-row`
 
-Các class này có sẵn trong `native-orders/css/native-orders.css` + `web2-products/css/web2-products.css`. Chuẩn hóa sang shared trong tương lai.
+Các class này có sẵn trong `native-orders/css/native-orders.css` + `web2/products/css/web2-products.css`. Chuẩn hóa sang shared trong tương lai.
 
 ## Sidebar (Web 2.0 group)
 

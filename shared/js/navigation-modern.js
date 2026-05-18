@@ -152,7 +152,7 @@ const MENU_CONFIG = [
         publicAccess: true,
     },
     {
-        href: '../web2-products/index.html',
+        href: '../web2/products/index.html',
         icon: 'box',
         text: 'Kho SP Web 2.0',
         shortText: 'Kho SP',

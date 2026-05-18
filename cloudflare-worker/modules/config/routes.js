@@ -123,10 +123,10 @@ export const ROUTES = {
     PBH_REPORTS: { pattern: '/api/pbh-reports/*' },
 
     // Web 2.0 Products — kho sản phẩm cho native_orders
-    WEB2_PRODUCTS: { pattern: '/api/web2-products/*' },
+    WEB2_PRODUCTS: { pattern: '/api/web2/products/*' },
 
     // Web 2.0 Variants — kho biến thể (size/màu/spec) tách riêng
-    WEB2_VARIANTS: { pattern: '/api/web2-variants/*' },
+    WEB2_VARIANTS: { pattern: '/api/web2/variants/*' },
 
     // Web 2.0 Generic — universal entity CRUD for 87 TPOS-clone pages
     WEB2_GENERIC: { pattern: '/api/web2/*' },
@@ -210,9 +210,9 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/delivery-invoices/')) return 'DELIVERY_INVOICES';
     if (pathname.startsWith('/api/refunds/')) return 'REFUNDS';
     if (pathname.startsWith('/api/pbh-reports/')) return 'PBH_REPORTS';
-    if (pathname.startsWith('/api/web2-products/') || pathname === '/api/web2-products')
+    if (pathname.startsWith('/api/web2/products/') || pathname === '/api/web2-products')
         return 'WEB2_PRODUCTS';
-    if (pathname.startsWith('/api/web2-variants/') || pathname === '/api/web2-variants')
+    if (pathname.startsWith('/api/web2/variants/') || pathname === '/api/web2-variants')
         return 'WEB2_VARIANTS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
