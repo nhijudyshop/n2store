@@ -17,12 +17,17 @@
 
    Filter: order.campaignName === window.campaignManager.activeCampaign.name
 
-   Refresh triggers:
-   - Khi tab1 init + active campaign sẵn sàng (lần đầu, không toast)
-   - Khi user đổi Chiến Dịch (reset snapshot, không toast)
-   - Khi SSE 'kpi_base' bắn update/created/deleted → debounce 2.5s rồi refresh (toast).
-     Backend Render đã push qua channel này khi kpi_base / kpi_statistics thay đổi.
-   - Fallback polling 60s nếu SSE disconnect ngay từ đầu.
+   Refresh triggers (belt-and-suspenders):
+   - Khi tab1 init + active campaign sẵn sàng (lần đầu, không toast).
+   - Khi user đổi Chiến Dịch (reset snapshot, không toast).
+   - Khi SSE 'kpi_base' bắn update/created/deleted → debounce 2.5s rồi refresh
+     (low-latency push; channel chỉ fire khi bảng kpi_base bị ghi, có thể bỏ sót
+     event nếu chỉ kpi_statistics update).
+   - Always-on polling 60s — safety net để mọi browser hội tụ trong tối đa 60s,
+     kể cả khi SSE không push.
+
+   Cache busting: fetch dùng cache:'no-store' để Cloudflare không serve từ
+   browser cache cũ → mỗi refresh thực sự fetch tươi.
    ===================================================== */
 (function () {
     'use strict';
@@ -31,7 +36,7 @@
     const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
     const SSE_URL = `${API_BASE}/sse?keys=${encodeURIComponent('kpi_base')}`;
     const SSE_DEBOUNCE_MS = 2500;
-    const POLL_FALLBACK_MS = 60000;
+    const POLL_SAFETY_MS = 60000;
     const READY_POLL_MS = 500;
     const READY_MAX_TRIES = 30;
     const CAMPAIGN_WATCH_MS = 2000;
@@ -86,7 +91,7 @@
      * @returns {Promise<EmployeeStat[]>}
      */
     async function fetchAndAggregate(campaignName) {
-        const res = await fetch(`${API_BASE}/kpi-statistics`);
+        const res = await fetch(`${API_BASE}/kpi-statistics`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const rows = (data && data.statistics) || [];
@@ -259,13 +264,13 @@
         }, CAMPAIGN_WATCH_MS);
     }
 
-    // SSE realtime subscription — Render đã có channel 'kpi_base' (push khi
-    // kpi_base / kpi_statistics thay đổi). Debounce 2.5s để gộp burst push
-    // và chờ kpi_statistics ghi xong sau kpi_base.
+    // SSE realtime subscription — Render channel 'kpi_base' chỉ chắc chắn fire
+    // khi bảng kpi_base bị ghi (new order BASE). KHÔNG đảm bảo fire khi chỉ
+    // kpi_statistics update (recompute, manual fix) → polling 60s là safety
+    // net bắt buộc để mọi browser hội tụ trong tối đa 60s.
     let sseSource = null;
     let sseDebounceTimer = null;
-    let sseConnected = false;
-    let pollFallbackTimer = null;
+    let pollSafetyTimer = null;
 
     function debouncedRefresh() {
         if (!getActiveCampaignName()) return;
@@ -276,50 +281,25 @@
         }, SSE_DEBOUNCE_MS);
     }
 
-    function startPollingFallback() {
-        if (pollFallbackTimer) return;
-        pollFallbackTimer = setInterval(() => {
+    function startPollingSafety() {
+        if (pollSafetyTimer) return;
+        pollSafetyTimer = setInterval(() => {
             if (!getActiveCampaignName()) return;
             refresh();
-        }, POLL_FALLBACK_MS);
-    }
-
-    function teardownSSE() {
-        if (sseSource) {
-            try {
-                sseSource.close();
-            } catch (_) {}
-            sseSource = null;
-        }
-        sseConnected = false;
+        }, POLL_SAFETY_MS);
     }
 
     function subscribeRealtime() {
-        if (typeof EventSource === 'undefined') {
-            startPollingFallback();
-            return;
-        }
+        if (typeof EventSource === 'undefined') return;
         try {
             sseSource = new EventSource(SSE_URL);
-            sseSource.addEventListener('connected', () => {
-                sseConnected = true;
-            });
             sseSource.addEventListener('update', debouncedRefresh);
             sseSource.addEventListener('created', debouncedRefresh);
             sseSource.addEventListener('deleted', debouncedRefresh);
-            sseSource.onerror = () => {
-                // EventSource auto-reconnects. Chỉ fallback polling khi
-                // chưa từng connect được (initial connect fail) → tránh kép
-                // nhau khi mạng chập chờn.
-                if (!sseConnected) {
-                    console.warn('[KPIStatsStrip] SSE connect failed, polling fallback');
-                    teardownSSE();
-                    startPollingFallback();
-                }
-            };
+            // EventSource tự reconnect khi mạng chập chờn — không cần onerror
+            // handler vì polling 60s đã là safety net độc lập với SSE.
         } catch (err) {
             console.warn('[KPIStatsStrip] SSE setup failed:', err && err.message);
-            startPollingFallback();
         }
     }
 
@@ -341,6 +321,7 @@
         await waitForActiveCampaignThenRefresh();
         watchCampaignChange();
         subscribeRealtime();
+        startPollingSafety();
     }
 
     window.KPIStatsStrip = {

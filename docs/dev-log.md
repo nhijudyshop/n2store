@@ -25,6 +25,32 @@
 
 ## 2026-05-18
 
+### [orders-report] Fix divergence KPI strip giữa các browser
+
+**Bug user báo**: "kiểm tra lại realtime API hiện tại hoạt động không đúng — mỗi trang nhân viên số KPI của mọi người lại hiển thị khác nhau". Browser A và B không hội tụ — số liệu trôi khác nhau sau khi switch sang SSE-only.
+
+**Root cause**:
+
+1. SSE channel `kpi_base` chỉ chắc chắn fire khi **bảng `kpi_base` bị ghi** (BASE snapshot khi có order mới). KHÔNG fire khi chỉ `kpi_statistics` recompute độc lập (manual "Tính lại KPI", fix discrepancy, etc.). → Browser bỏ sót event → snapshot frozen tại lần fetch đầu.
+2. SSE-only không có safety net: nếu 1 push bị mất (network hiccup, server không emit), browser không bao giờ re-sync.
+3. Không có `cache: 'no-store'` → fetch có thể serve từ HTTP cache cũ (ETag fresh nhưng disk cache có thể trả stale trong cùng session).
+
+**Fix** ([orders-report/js/tab1/tab1-kpi-stats-strip.js](../orders-report/js/tab1/tab1-kpi-stats-strip.js)):
+
+- `fetchAndAggregate()` dùng `fetch(url, { cache: 'no-store' })` → bypass browser HTTP cache, mỗi refresh thực sự GET tươi.
+- `startPollingSafety()` **always-on 60s** (không còn fallback-only) → bảo đảm mọi browser hội tụ trong tối đa 60s, kể cả khi SSE không push.
+- Bỏ `sseConnected` flag + `teardownSSE` + onerror handler — EventSource tự reconnect khi mạng chập chờn, polling là safety net độc lập với SSE state.
+- SSE vẫn giữ để có low-latency push khi có order mới (BASE write trigger).
+
+**Verify**:
+
+- Endpoint consistency: 2 fetch liên tiếp → cùng 178833 bytes (endpoint OK, không phải lỗi server-side).
+- Endpoint structure: mỗi row = `(userId, date)` đã pre-aggregated với `totalNetProducts/totalKPI`; `orders[]` chứa per-order detail có `campaignName` để filter.
+- Smoke test: T7 active campaign → 3 cards render đúng (Huyền 7m·35K, Hạnh 6m·30K, Hồng 3m·15K). SSE kpi_base = 10 clients (browser đã subscribe).
+- File serve sau edit chứa cả 3 fix (`cache: 'no-store'`, `POLL_SAFETY_MS = 60000`, `startPollingSafety()`).
+
+**Status**: DONE.
+
 ### [web2][wallet][sepay][worker][render] SePay deposit poll — ví KH/NCC tự cộng payment từ webhook
 
 **User**: tiếp tục TODO từ commit `c049756e` — _"Wallet apps sẽ tích hợp poll on load (next session)"_.
@@ -487,6 +513,7 @@ Cũng sync trong [`_wireConvPickerEmptyState`](../orders-report/js/tab1/tab1-cha
 **Status**: ✅ Done.
 
 ---
+## 2026-05-17
 
 ### [inbox][render] Fix STT trùng — atomic counter `inbox_counters` thay cho `orders.length+1`
 
