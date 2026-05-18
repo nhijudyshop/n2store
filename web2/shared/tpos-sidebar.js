@@ -41,6 +41,7 @@
         };
         if (!global.Popup) inject('popup.js', '20260514');
         if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260514b');
+        if (!global.Web2Auth) inject('web2-auth.js', '20260518a');
     })();
 
     // Group definitions matching TPOS sidebar structure.
@@ -653,6 +654,40 @@
         }
     }
 
+    function renderUserFooter(el) {
+        if (!el) return;
+        const stored =
+            typeof window !== 'undefined' && window.Web2Auth ? window.Web2Auth.getStored() : null;
+        const user = stored?.user || null;
+        let footer = el.querySelector('.web2-user-footer');
+        if (!user) {
+            footer?.remove();
+            return;
+        }
+        const initial = escapeHtml(
+            (user.displayName || user.username || '?').slice(0, 1).toUpperCase()
+        );
+        const html = `<div class="web2-user-avatar">${initial}</div>
+                <div class="web2-user-info">
+                    <div class="web2-user-name">${escapeHtml(user.displayName || user.username)}</div>
+                    <div class="web2-user-role">${escapeHtml(user.role || '')}</div>
+                </div>
+                <button class="web2-user-logout" id="web2UserLogout" type="button" title="Đăng xuất">
+                    <i data-lucide="log-out"></i>
+                </button>`;
+        if (!footer) {
+            footer = document.createElement('div');
+            footer.className = 'web2-user-footer';
+            el.appendChild(footer);
+        }
+        footer.innerHTML = html;
+        footer.querySelector('#web2UserLogout')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.Web2Auth?.logout) window.Web2Auth.logout({ redirect: true });
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
     const Web2Sidebar = {
         NAV,
         mount(selector, opts = {}) {
@@ -672,6 +707,21 @@
                     ${NAV.map((g) => renderGroup(g, activeUrl)).join('')}
                 </nav>
             `;
+            // User footer: render now if Web2Auth loaded, else retry once Web2Auth available.
+            renderUserFooter(el);
+            if (!window.Web2Auth) {
+                // Poll briefly waiting for web2-auth.js to load (max 2s)
+                let attempts = 0;
+                const timer = setInterval(() => {
+                    attempts++;
+                    if (window.Web2Auth) {
+                        clearInterval(timer);
+                        renderUserFooter(el);
+                    } else if (attempts > 20) {
+                        clearInterval(timer);
+                    }
+                }, 100);
+            }
             // Restore collapsed state from localStorage on mount
             setCollapsed(isCollapsed());
             const toggle = el.querySelector('#web2SidebarToggle');
@@ -681,6 +731,7 @@
             });
             if (window.lucide) lucide.createIcons();
         },
+        renderUserFooter,
         alertSoon(label, tpos) {
             const msg = `"${label}" — chưa làm.\nTPOS gốc: ${tpos || '(không rõ)'}\nSẽ port qua Web 2.0 ở phase tiếp.`;
             if (window.notificationManager?.show) window.notificationManager.show(msg, 'info');
