@@ -668,14 +668,14 @@
         if (!user) {
             // Logged-out state: show "Chưa đăng nhập" + login button.
             footer.classList.add('is-logged-out');
-            footer.innerHTML = `<div class="web2-user-header web2-user-anon">
+            footer.innerHTML = `<div class="web2-user-header">
                     <div class="web2-user-avatar web2-user-avatar-anon" title="Chưa đăng nhập">
                         <i data-lucide="user"></i>
                     </div>
                     <div class="web2-user-info">
                         <div class="web2-user-name">Chưa đăng nhập</div>
                         <div class="web2-user-meta">
-                            <span class="web2-user-anon-hint">Đăng nhập để có session</span>
+                            <span class="web2-user-anon-hint">Bấm để đăng nhập</span>
                         </div>
                     </div>
                 </div>

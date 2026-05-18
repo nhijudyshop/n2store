@@ -43,24 +43,29 @@
     flex-shrink: 0;
 }
 
-/* User footer — pinned bottom, không scroll */
+/* User footer — pinned bottom, compact, không scroll */
 .web2-user-footer {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 8px;
-    padding: 12px 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(0, 0, 0, 0.25);
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.35);
     flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
 }
 .web2-user-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 .web2-user-avatar {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: linear-gradient(135deg, #4338ca, #7c3aed);
     color: #fff;
@@ -68,16 +73,17 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 .web2-user-info {
     flex: 1 1 auto;
     min-width: 0;
+    line-height: 1.25;
 }
 .web2-user-name {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: #f1f5f9;
     font-weight: 600;
     overflow: hidden;
@@ -85,13 +91,14 @@
     white-space: nowrap;
 }
 .web2-user-meta {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: #94a3b8;
-    margin-top: 2px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .web2-user-handle {
     color: #cbd5e1;
@@ -108,19 +115,19 @@
 }
 
 .web2-user-logout-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 12px;
-    background: rgba(239, 68, 68, 0.12);
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(239, 68, 68, 0.15);
     color: #fecaca;
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    border-radius: 6px;
-    font-size: 0.8125rem;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 5px;
+    font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
+    flex-shrink: 0;
     transition:
         background-color 120ms,
         color 120ms,
@@ -128,16 +135,16 @@
         transform 80ms;
 }
 .web2-user-logout-btn:hover {
-    background: rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.25);
     color: #fee2e2;
-    border-color: rgba(239, 68, 68, 0.5);
+    border-color: rgba(239, 68, 68, 0.6);
 }
 .web2-user-logout-btn:active {
-    transform: scale(0.98);
+    transform: scale(0.96);
 }
 .web2-user-logout-btn i {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
 }
 
 /* Anonymous / logged-out state */
@@ -149,44 +156,44 @@
     color: #cbd5e1;
 }
 .web2-user-avatar-anon i {
-    width: 18px;
-    height: 18px;
+    width: 15px;
+    height: 15px;
 }
 .web2-user-anon-hint {
     color: #94a3b8;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
 }
 
 .web2-user-login-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 12px;
+    gap: 5px;
+    padding: 6px 12px;
     background: linear-gradient(135deg, #4338ca, #7c3aed);
     color: #fff;
-    border: 1px solid rgba(124, 58, 237, 0.6);
-    border-radius: 6px;
-    font-size: 0.8125rem;
+    border: 0;
+    border-radius: 5px;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
+    flex-shrink: 0;
     transition:
         filter 120ms,
         transform 80ms,
         box-shadow 120ms;
-    box-shadow: 0 4px 10px rgba(67, 56, 202, 0.3);
+    box-shadow: 0 3px 8px rgba(67, 56, 202, 0.4);
 }
 .web2-user-login-btn:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 6px 14px rgba(67, 56, 202, 0.45);
+    filter: brightness(1.12);
+    box-shadow: 0 5px 12px rgba(67, 56, 202, 0.55);
 }
 .web2-user-login-btn:active {
-    transform: scale(0.98);
+    transform: scale(0.96);
 }
 .web2-user-login-btn i {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
 }
 
 body.web2-sidebar-collapsed .web2-user-login-text {
