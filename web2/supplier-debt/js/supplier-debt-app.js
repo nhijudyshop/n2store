@@ -158,10 +158,103 @@
             id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
             code: codeUp,
             name: name.trim(),
+            note: '',
             createdAt: Date.now(),
+            updatedAt: Date.now(),
         });
         await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
         STATE.suppliersList = list;
+    }
+
+    // Save note for a supplier. If supplier doesn't exist in suppliers_v1 yet,
+    // auto-create an entry with empty code (legacy/DEMO row).
+    async function saveSupplierNote(rowKey, code, note) {
+        const db = firebase.firestore();
+        const ref = db.collection('suppliers_v1').doc('main');
+        const snap = await ref.get();
+        const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
+        const list = Array.isArray(data.suppliers) ? data.suppliers : [];
+        let entry = code
+            ? list.find((s) => String(s.code).toUpperCase() === String(code).toUpperCase())
+            : null;
+        if (!entry) {
+            // Match by name (rowKey may be "Supplier Name" or "B5 CHIẾN NGỌC…")
+            entry = list.find(
+                (s) =>
+                    rowKey === s.name ||
+                    rowKey === `${s.code} ${s.name}` ||
+                    rowKey.toLowerCase() === String(s.name).toLowerCase()
+            );
+        }
+        if (!entry) {
+            // Auto-create entry for legacy/DEMO row with empty code, name = rowKey
+            entry = {
+                id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                code: '',
+                name: rowKey,
+                note: '',
+                createdAt: Date.now(),
+            };
+            list.push(entry);
+        }
+        entry.note = String(note || '').trim();
+        entry.updatedAt = Date.now();
+        await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
+        STATE.suppliersList = list;
+    }
+
+    function getNoteForRow(row) {
+        const list = STATE.suppliersList || [];
+        if (row.code) {
+            const byCode = list.find(
+                (s) => String(s.code).toUpperCase() === String(row.code).toUpperCase()
+            );
+            if (byCode?.note) return byCode.note;
+        }
+        const byName = list.find(
+            (s) =>
+                row.supplier === s.name ||
+                row.supplier === `${s.code} ${s.name}` ||
+                row.supplier.toLowerCase() === String(s.name).toLowerCase()
+        );
+        return byName?.note || '';
+    }
+
+    // Record a payment to a supplier: write transaction to supplier_wallet_v1.
+    // The supplier may not have a wallet yet (legacy/DEMO row) — auto-create.
+    async function recordPayment(supplierKey, amount, date, note) {
+        if (!supplierKey) throw new Error('Thiếu NCC');
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error('Số tiền không hợp lệ');
+        const db = firebase.firestore();
+        const ref = db.collection('supplier_wallet_v1').doc('main');
+        const snap = await ref.get();
+        const state = snap.exists ? snap.data()?.data || { wallets: {} } : { wallets: {} };
+        const w = state.wallets[supplierKey] || {
+            supplier: supplierKey,
+            totalPurchased: 0,
+            paidAmount: 0,
+            returnedAmount: 0,
+            balance: 0,
+            returnedRowIds: {},
+            transactions: [],
+        };
+        const ts = date ? new Date(date + 'T12:00:00+07:00').getTime() : Date.now();
+        const entry = {
+            id: 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+            ts,
+            type: 'payment',
+            amount,
+            note: note || 'Thanh toán nhà cung cấp',
+            ref: { source: 'supplier-debt' },
+        };
+        w.transactions = w.transactions || [];
+        w.transactions.push(entry);
+        w.paidAmount = (Number(w.paidAmount) || 0) + amount;
+        w.balance = (w.totalPurchased || 0) - (w.paidAmount || 0) - (w.returnedAmount || 0);
+        state.wallets[supplierKey] = w;
+        await ref.set({ data: state, lastUpdated: Date.now() }, { merge: true });
+        // Update in-memory state so next render picks it up
+        STATE.walletData = state;
     }
 
     // Lookup code for a supplier name string.
@@ -493,11 +586,20 @@
                         ? r.supplier
                         : `${r.code} ${r.supplier}`
                     : r.supplier;
+                const note = getNoteForRow(r);
+                const noteHtml = note ? `<div class="sd-row-note">${escapeHtml(note)}</div>` : '';
+                const actionBtns = `<span class="sd-row-actions">
+                    <button class="sd-action-btn sd-action-pay" type="button" data-action-pay="${escapeHtml(r.supplier)}" title="Thanh toán">💳</button>
+                    <button class="sd-action-btn sd-action-note ${note ? 'has-note' : ''}" type="button" data-action-note="${escapeHtml(r.supplier)}" title="Sửa ghi chú">✏️</button>
+                </span>`;
                 return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
                     <td class="num-stt">${stt}</td>
                     <td class="col-expand"><button class="sd-expand-btn" type="button" data-toggle-supplier="${escapeHtml(r.supplier)}">${arrow}</button></td>
-                    <td class="col-code">${codeBadge}</td>
-                    <td class="col-name">${sourceBadge}${escapeHtml(displayName)}</td>
+                    <td class="col-code">${codeBadge}${actionBtns}</td>
+                    <td class="col-name">
+                        <div class="sd-name-line">${sourceBadge}${escapeHtml(displayName)}</div>
+                        ${noteHtml}
+                    </td>
                     <td class="num">${fmtVnd(r.opening)}</td>
                     <td class="num">${fmtVnd(r.debit)}</td>
                     <td class="num">${fmtVnd(r.credit)}</td>
@@ -513,8 +615,8 @@
         // Wire row click → toggle expand
         body.querySelectorAll('tr.sd-main-row').forEach((tr) => {
             tr.addEventListener('click', (e) => {
-                // Don't intercept clicks on tab buttons (live in detail row, not main row)
-                if (e.target.closest('.sd-tab, .sd-expand-btn')) return;
+                // Don't intercept clicks on tab buttons / actions
+                if (e.target.closest('.sd-tab, .sd-expand-btn, .sd-action-btn')) return;
                 toggleExpand(tr.dataset.supplier);
             });
         });
@@ -522,6 +624,18 @@
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleExpand(btn.dataset.toggleSupplier);
+            });
+        });
+        body.querySelectorAll('[data-action-note]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openNoteModal(btn.dataset.actionNote);
+            });
+        });
+        body.querySelectorAll('[data-action-pay]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openPayModal(btn.dataset.actionPay);
             });
         });
         wireDetailTabs();
@@ -539,6 +653,80 @@
                 });
             });
         });
+    }
+
+    // ---------- Note modal ----------
+    function openNoteModal(supplierKey) {
+        const row = STATE.rows.find((r) => r.supplier === supplierKey);
+        if (!row) return;
+        const note = getNoteForRow(row);
+        document.getElementById('sdEditNoteSupplier').textContent = row.code
+            ? `[${row.code}] ${row.supplier.startsWith(row.code + ' ') ? row.supplier : row.code + ' ' + row.supplier}`
+            : row.supplier;
+        document.getElementById('sdNoteTextarea').value = note;
+        document.getElementById('sdEditNoteModal').hidden = false;
+        document.getElementById('sdEditNoteModal').dataset.supplier = supplierKey;
+        document.getElementById('sdEditNoteModal').dataset.code = row.code || '';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        setTimeout(() => document.getElementById('sdNoteTextarea')?.focus(), 30);
+    }
+
+    async function confirmNote() {
+        const modal = document.getElementById('sdEditNoteModal');
+        const supplier = modal.dataset.supplier;
+        const code = modal.dataset.code || '';
+        const note = document.getElementById('sdNoteTextarea').value || '';
+        try {
+            await saveSupplierNote(supplier, code, note);
+            notify('Đã lưu ghi chú', 'success');
+            modal.hidden = true;
+            applyFilterAndRender();
+        } catch (e) {
+            notify(e.message || 'Lỗi lưu ghi chú', 'error');
+        }
+    }
+
+    // ---------- Payment modal ----------
+    function openPayModal(supplierKey) {
+        const row = STATE.rows.find((r) => r.supplier === supplierKey);
+        if (!row) return;
+        const today = new Date().toISOString().slice(0, 10);
+        document.getElementById('sdPaySupplier').textContent = row.code
+            ? `[${row.code}] ${row.supplier.startsWith(row.code + ' ') ? row.supplier : row.code + ' ' + row.supplier}`
+            : row.supplier;
+        document.getElementById('sdPaySummary').innerHTML = `
+            <div class="sd-pay-row"><span>Tổng mua:</span><strong>${fmtVnd(row.debit + row._purchasesBefore)}</strong></div>
+            <div class="sd-pay-row"><span>Đã thanh toán:</span><strong>${fmtVnd(row.credit + row._txBefore)}</strong></div>
+            <div class="sd-pay-row sd-pay-row-strong"><span>Còn nợ:</span><strong>${fmtVnd(row.ending)}</strong></div>
+        `;
+        document.getElementById('sdPayDate').value = today;
+        document.getElementById('sdPayAmount').value = '';
+        document.getElementById('sdPayNote').value = '';
+        document.getElementById('sdPayModal').hidden = false;
+        document.getElementById('sdPayModal').dataset.supplier = supplierKey;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        setTimeout(() => document.getElementById('sdPayAmount')?.focus(), 30);
+    }
+
+    async function confirmPay() {
+        const modal = document.getElementById('sdPayModal');
+        const supplier = modal.dataset.supplier;
+        const date = document.getElementById('sdPayDate').value;
+        const amount = Number(document.getElementById('sdPayAmount').value) || 0;
+        const note = document.getElementById('sdPayNote').value || '';
+        if (amount <= 0) {
+            notify('Số tiền phải > 0', 'warning');
+            return;
+        }
+        try {
+            await recordPayment(supplier, amount, date, note);
+            notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${supplier}`, 'success');
+            modal.hidden = true;
+            STATE.tposCongNo.clear();
+            applyFilterAndRender();
+        } catch (e) {
+            notify(e.message || 'Lỗi ghi thanh toán', 'error');
+        }
     }
 
     function toggleExpand(supplier) {
@@ -966,6 +1154,8 @@
                 el.closest('.sd-modal')?.setAttribute('hidden', '');
             });
         });
+        document.getElementById('sdNoteConfirmBtn')?.addEventListener('click', confirmNote);
+        document.getElementById('sdPayConfirmBtn')?.addEventListener('click', confirmPay);
         document.getElementById('sdNccConfirmBtn')?.addEventListener('click', async () => {
             const code = (document.getElementById('sdNccCode')?.value || '').trim();
             const name = (document.getElementById('sdNccName')?.value || '').trim();

@@ -415,6 +415,113 @@
     font-weight: 400;
 }
 
+/* Row actions (pay + note) */
+.sd-row-actions {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.sd-action-btn {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 0.875rem;
+    border-radius: 3px;
+    line-height: 1;
+    transition:
+        background-color 100ms,
+        transform 80ms;
+}
+
+.sd-action-btn:hover {
+    background: #eef2ff;
+    transform: scale(1.15);
+}
+
+.sd-action-pay:hover {
+    background: #dcfce7;
+}
+
+.sd-action-note.has-note {
+    background: #fef3c7;
+}
+
+/* Name + note */
+.sd-name-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sd-row-note {
+    margin-top: 3px;
+    font-size: 0.78rem;
+    font-style: italic;
+    color: #4338ca;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Pay summary */
+.sd-pay-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.sd-pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.875rem;
+    color: #334155;
+    padding: 4px 0;
+}
+
+.sd-pay-row strong {
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+}
+
+.sd-pay-row-strong {
+    border-top: 1px solid #e2e8f0;
+    margin-top: 6px;
+    padding-top: 8px;
+    color: #4338ca;
+}
+
+.sd-pay-row-strong strong {
+    color: #4338ca;
+    font-size: 1rem;
+}
+
+/* Textarea inside modal */
+.sd-form-field textarea {
+    padding: 9px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #0f172a;
+    background: #fff;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 120ms;
+}
+
+.sd-form-field textarea:focus {
+    outline: none;
+    border-color: #4338ca;
+    box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
+}
+
 /* Modal panel narrow (for Create NCC) */
 .sd-modal-panel-narrow {
     max-width: 480px;

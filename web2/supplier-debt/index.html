@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518d" />
         <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
-        <link rel="stylesheet" href="css/styles.css?v=20260518e" />
+        <link rel="stylesheet" href="css/styles.css?v=20260518f" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -157,6 +157,82 @@
             </main>
         </div>
 
+        <!-- Edit Note modal -->
+        <div class="sd-modal" id="sdEditNoteModal" hidden>
+            <div class="sd-modal-backdrop" data-sd-modal-close></div>
+            <div class="sd-modal-panel sd-modal-panel-narrow">
+                <header class="sd-modal-head">
+                    <h2>Ghi chú NCC: <span id="sdEditNoteSupplier">—</span></h2>
+                    <button class="sd-modal-close" type="button" data-sd-modal-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sd-modal-body">
+                    <label class="sd-form-field">
+                        <span>Ghi chú</span>
+                        <textarea
+                            id="sdNoteTextarea"
+                            rows="4"
+                            placeholder="Vd: CẮT LAI >10SP - 5K / >20SP - 10K ( TÍNH 1 MẪU SP )"
+                            maxlength="500"
+                        ></textarea>
+                        <small>Lưu cùng NCC. Hiển thị dưới tên NCC (italic xanh).</small>
+                    </label>
+                </div>
+                <footer class="sd-modal-foot">
+                    <button class="btn btn-secondary" type="button" data-sd-modal-close>Hủy</button>
+                    <button class="btn btn-primary" id="sdNoteConfirmBtn" type="button">
+                        <i data-lucide="check"></i> Lưu ghi chú
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Payment modal -->
+        <div class="sd-modal" id="sdPayModal" hidden>
+            <div class="sd-modal-backdrop" data-sd-modal-close></div>
+            <div class="sd-modal-panel sd-modal-panel-narrow">
+                <header class="sd-modal-head">
+                    <h2>Thanh toán NCC: <span id="sdPaySupplier">—</span></h2>
+                    <button class="sd-modal-close" type="button" data-sd-modal-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sd-modal-body">
+                    <div class="sd-pay-summary" id="sdPaySummary"></div>
+                    <label class="sd-form-field">
+                        <span>Ngày thanh toán <em>*</em></span>
+                        <input id="sdPayDate" type="date" />
+                    </label>
+                    <label class="sd-form-field">
+                        <span>Số tiền (VND) <em>*</em></span>
+                        <input
+                            id="sdPayAmount"
+                            type="number"
+                            min="0"
+                            step="1000"
+                            placeholder="VD: 40000000"
+                        />
+                    </label>
+                    <label class="sd-form-field">
+                        <span>Ghi chú</span>
+                        <input
+                            id="sdPayNote"
+                            type="text"
+                            placeholder="VD: Chuyển khoản đợt 1, tiền mặt …"
+                            maxlength="200"
+                        />
+                    </label>
+                </div>
+                <footer class="sd-modal-foot">
+                    <button class="btn btn-secondary" type="button" data-sd-modal-close>Hủy</button>
+                    <button class="btn btn-primary" id="sdPayConfirmBtn" type="button">
+                        <i data-lucide="check"></i> Lưu thanh toán
+                    </button>
+                </footer>
+            </div>
+        </div>
+
         <!-- Create NCC modal -->
         <div class="sd-modal" id="sdCreateNccModal" hidden>
             <div class="sd-modal-backdrop" data-sd-modal-close></div>
@@ -205,7 +281,7 @@
         </div>
 
         <script src="../shared/tpos-sidebar.js?v=20260518b"></script>
-        <script src="js/supplier-debt-app.js?v=20260518f"></script>
+        <script src="js/supplier-debt-app.js?v=20260518g"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>
