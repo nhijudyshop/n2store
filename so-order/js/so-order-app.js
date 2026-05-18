@@ -2701,12 +2701,12 @@ window.addEventListener('load', () => {
             window.Web2VariantsCache.init();
         }
 
-        // Firestore sync — per CLAUDE.md DATA-SYNCHRONIZATION.md:
-        //   1. Firestore = source of truth
-        //   2. localStorage = offline fallback / warm cache
-        //   3. Real-time listener for cross-device sync
-        // The `onRemoteUpdate` callback re-reads from localStorage
-        // (which Sync just wrote) so the page reflects remote changes.
+        // Firestore sync — local-first (so-order only):
+        //   1. Init load Firestore once → seed localStorage + state
+        //   2. Mutations: pushSync() debounced 400ms (no realtime listener)
+        //   3. Pull-on-focus: visibilitychange/focus → Sync.pullOnce()
+        //   4. Flush pending push on hide/unload
+        // No onSnapshot — avoids re-render flicker on every local write.
         if (window.SoOrderStorage.Sync) {
             // Remote handler re-loads via SoOrderStorage.load() so the
             // migration (uiInitialized default-collapse, columnVisibility
@@ -2717,15 +2717,40 @@ window.addEventListener('load', () => {
                 state = window.SoOrderStorage.load();
                 renderAll();
             };
-            const ok = await window.SoOrderStorage.Sync.init(remoteHandler);
+            const conflictHandler = (loaded) => {
+                // Local push pending while a newer remote arrived. Tell user
+                // — let them choose to refresh (drop local edits) or keep
+                // typing (their flush will overwrite remote).
+                notify(
+                    'Có thay đổi từ máy khác. Refresh để xem (mất các sửa chưa lưu) hoặc giữ chỉnh sửa hiện tại.',
+                    'warning'
+                );
+            };
+            const ok = await window.SoOrderStorage.Sync.init(remoteHandler, conflictHandler);
             if (ok) {
                 state = window.SoOrderStorage.load();
                 renderAll();
                 // Push back so Firestore picks up the first-visit
-                // migration (uiInitialized = true, default collapses)
-                // — otherwise every fresh device would re-flip these.
+                // migration (uiInitialized = true, default collapses).
                 pushSync();
             }
+
+            // Pull when tab becomes visible (returning from another tab);
+            // flush pending push when tab hides (so closing doesn't drop
+            // the last debounced write).
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    window.SoOrderStorage.Sync.pullOnce();
+                } else {
+                    window.SoOrderStorage.Sync.flush();
+                }
+            });
+            window.addEventListener('focus', () => {
+                window.SoOrderStorage.Sync.pullOnce();
+            });
+            window.addEventListener('beforeunload', () => {
+                window.SoOrderStorage.Sync.flush();
+            });
         }
     }
 

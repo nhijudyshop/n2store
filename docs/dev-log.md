@@ -25,6 +25,39 @@
 
 ## 2026-05-18
 
+### [so-order] Fix TRIỆT ĐỂ "giựt lại đợi đồng bộ" — refactor sang local-first (bỏ onSnapshot)
+
+**User yêu cầu**: fix triệt để, chỉ làm trang so-order, không đụng các trang khác (web2-products, orders-report, … giữ nguyên).
+
+**Thay đổi** (`so-order/js/so-order-storage.js` — chỉ Sync layer):
+
+- **Bỏ `_setupRealtimeListener` + `_unsubscribe` + `_isListening`** — không subscribe `onSnapshot` nữa.
+- **`pullOnce()`**: load Firestore một lần, compare `payload.lastUpdated` với `_localLastUpdated`. Chỉ apply remote update khi server mới hơn.
+- **`pushToFirestore(state)` debounced 400ms** (`PUSH_DEBOUNCE_MS`): gom mutation liên tiếp thành 1 write. Lưu state vào `_pendingState`, set timeout, timeout fire → `_flushPending()` ghi.
+- **`flush()`**: clear debounce + flush ngay — gọi trước khi tab hidden / unload để không mất pending writes.
+- **`init(onRemoteUpdate, onConflict)`**: thêm param conflict handler — `pullOnce` phát hiện remote mới hơn và `_pushTimer` chưa flush (= có pending local edits) → toast cảnh báo, không tự overwrite.
+
+**Thay đổi** (`so-order/js/so-order-app.js` — chỉ phần init Sync):
+
+- Pass conflict handler vào `Sync.init` → toast "Có thay đổi từ máy khác. Refresh để xem (mất các sửa chưa lưu) hoặc giữ chỉnh sửa hiện tại."
+- Register 3 listeners:
+    - `visibilitychange`: visible → `pullOnce()`, hidden → `flush()`
+    - `focus`: `pullOnce()`
+    - `beforeunload`: `flush()`
+
+**Kết quả**:
+
+- Click toggle expand/collapse → render LOCAL ngay (~5ms), không còn round-trip Firestore. Không giật.
+- Push debounce 400ms → spam click không spam Firestore writes.
+- Cross-device: máy A sửa → máy B switch tab/focus → tự pull. Không realtime nhưng đủ tốt cho Sổ Order (tài liệu edit tuần tự).
+- Conflict toast cảnh báo user khi 2 máy edit cùng lúc thay vì silently overwrite.
+
+**Tradeoff đã chấp nhận**: máy A và B mở cùng lúc, sửa ở A → B không thấy ngay (phải switch tab hoặc focus). Đây là sự lựa chọn có ý thức — Sổ Order không phải chat realtime, UI smooth quan trọng hơn millisecond freshness.
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Fix bug "giựt lại đợi đồng bộ" — filter local pending writes trong Firestore listener
 
 **User báo**: bấm vào chức năng đồng bộ (toggle expand/collapse, edit inline, …) bị "giựt lại" đợi confirm.

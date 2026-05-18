@@ -26,12 +26,18 @@
 //
 // `note` = GHI CHÚ (sales-side); `costNote` = GHI CHÚ CP (cost/purchasing-side).
 //
-// Sync model (follows docs/architecture/DATA-SYNCHRONIZATION.md):
-//   1. Load Firestore first → seed state
-//   2. Fallback localStorage when offline
-//   3. Real-time listener (snapshot) updates state on remote change
-//   4. Every save → write both localStorage + Firestore (merge:true)
-//   5. `_isListening` flag prevents echo loops
+// Sync model — local-first (so-order only — không áp dụng cho web2-products,
+// orders-report, ...):
+//   1. Load Firestore lần đầu khi init → seed localStorage + state
+//   2. Mọi mutation → write localStorage ngay, push Firestore async (debounced)
+//   3. KHÔNG dùng onSnapshot — tránh re-render khi local writes echo về
+//   4. Cross-device pull qua `pullOnce()` được gọi trên visibilitychange/focus
+//   5. Trước khi tab ẩn / unload → flush() pending debounced write
+//
+// Tradeoff: nếu máy A và máy B cùng mở so-order, sửa ở A → B phải switch tab
+// hoặc refresh để pull. Chấp nhận được vì Sổ Order là tài liệu edit tuần tự
+// (không phải chat realtime). Lý do drop realtime: onSnapshot fire trên local
+// pending writes → mất focus input/dropdown trên mỗi mutation → UI giật.
 
 (function () {
     'use strict';
@@ -386,29 +392,30 @@
     const FIRESTORE_COLLECTION = 'so_order_v2';
     const FIRESTORE_DOC = 'main';
 
+    const PUSH_DEBOUNCE_MS = 400;
+
     const Sync = {
         _db: null,
-        _unsubscribe: null,
-        _isListening: false,
         _onRemoteUpdate: null,
+        _localLastUpdated: 0,
+        _pushTimer: null,
+        _pendingState: null,
+        _onConflict: null,
 
-        async init(onRemoteUpdate) {
-            this._onRemoteUpdate = onRemoteUpdate;
+        async init(onRemoteUpdate, onConflict) {
+            this._onRemoteUpdate = onRemoteUpdate || null;
+            this._onConflict = onConflict || null;
             try {
                 if (typeof firebase === 'undefined' || !firebase.firestore) {
                     console.warn('[SoOrderStorage.Sync] Firebase not loaded — local-only mode');
                     return false;
                 }
                 this._db = firebase.firestore();
-                // Step 1: load Firestore as source of truth
                 const loaded = await this._loadFromFirestore();
                 if (loaded) {
-                    // Seed localStorage from Firestore so we have a warm
-                    // cache for next time / offline.
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded));
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded.data));
+                    this._localLastUpdated = loaded.lastUpdated || 0;
                 }
-                // Step 2: real-time listener for cross-device sync
-                this._setupRealtimeListener();
                 return true;
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] init failed:', e.message);
@@ -424,60 +431,75 @@
                 if (!snap.exists) return null;
                 const payload = snap.data() || {};
                 if (!payload.data) return null;
-                return payload.data;
+                return { data: payload.data, lastUpdated: payload.lastUpdated || 0 };
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] load failed:', e.message);
                 return null;
             }
         },
 
-        _setupRealtimeListener() {
-            if (!this._db) return;
-            const docRef = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-            this._unsubscribe = docRef.onSnapshot(
-                (snap) => {
-                    if (!snap.exists) return;
-                    // Skip snapshots produced by this client's own pending
-                    // writes — those caused the "giựt lại" flicker: each
-                    // local mutation triggered an echo render that wiped
-                    // in-flight UI state (input focus, dropdowns, …).
-                    // Remote updates from other devices have
-                    // hasPendingWrites = false.
-                    if (snap.metadata && snap.metadata.hasPendingWrites) return;
-                    const payload = snap.data() || {};
-                    if (!payload.data) return;
-                    this._isListening = true;
-                    try {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.data));
-                        if (this._onRemoteUpdate) this._onRemoteUpdate(payload.data);
-                    } finally {
-                        setTimeout(() => {
-                            this._isListening = false;
-                        }, 50);
-                    }
-                },
-                (err) => {
-                    console.warn('[SoOrderStorage.Sync] snapshot err:', err.message);
-                }
-            );
+        // Pull latest from Firestore. Call on visibilitychange/focus.
+        // Applies update only when remote is newer than what this client
+        // last wrote (so it doesn't clobber in-flight local edits).
+        async pullOnce() {
+            const loaded = await this._loadFromFirestore();
+            if (!loaded) return false;
+            if (loaded.lastUpdated <= this._localLastUpdated) return false;
+            // Remote is newer. If user has uncommitted local changes pending
+            // a debounced push, flag a conflict instead of overwriting.
+            if (this._pushTimer && this._onConflict) {
+                this._onConflict(loaded);
+                return false;
+            }
+            this._localLastUpdated = loaded.lastUpdated;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded.data));
+            if (this._onRemoteUpdate) this._onRemoteUpdate(loaded.data);
+            return true;
         },
 
-        async pushToFirestore(state) {
+        // Debounced push — gom nhiều mutation liên tiếp thành 1 write.
+        // Called from app's pushSync() after every mutation. Safe to call
+        // repeatedly; only fires after PUSH_DEBOUNCE_MS of quiet.
+        pushToFirestore(state) {
             if (!this._db) return false;
-            if (this._isListening) return false; // echo guard
+            this._pendingState = state;
+            if (this._pushTimer) return true;
+            this._pushTimer = setTimeout(() => {
+                this._pushTimer = null;
+                this._flushPending();
+            }, PUSH_DEBOUNCE_MS);
+            return true;
+        },
+
+        async _flushPending() {
+            if (!this._db || !this._pendingState) return;
+            const stateSnapshot = this._pendingState;
+            this._pendingState = null;
+            const ts = Date.now();
             try {
                 const docRef = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-                await docRef.set({ data: state, lastUpdated: Date.now() }, { merge: true });
-                return true;
+                await docRef.set({ data: stateSnapshot, lastUpdated: ts }, { merge: true });
+                this._localLastUpdated = ts;
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] push failed:', e.message);
-                return false;
             }
         },
 
+        // Force-flush any pending debounced write immediately.
+        // Call on visibilitychange→hidden / beforeunload so user doesn't
+        // lose the last few edits when closing the tab.
+        async flush() {
+            if (!this._pushTimer) return;
+            clearTimeout(this._pushTimer);
+            this._pushTimer = null;
+            await this._flushPending();
+        },
+
         teardown() {
-            if (this._unsubscribe) this._unsubscribe();
-            this._unsubscribe = null;
+            if (this._pushTimer) {
+                clearTimeout(this._pushTimer);
+                this._pushTimer = null;
+            }
         },
     };
 
