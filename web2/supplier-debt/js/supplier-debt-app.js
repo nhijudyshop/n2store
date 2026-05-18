@@ -220,8 +220,27 @@
         return byName?.note || '';
     }
 
+    // Generate next sequential move name for a transaction type within a year.
+    // Format: PAY/2026/NNNN (zero-padded 4 digits). Scans all wallets globally.
+    function nextMoveName(state, type, year) {
+        const prefix = type === 'payment' ? 'PAY' : type === 'return' ? 'RET' : 'TX';
+        const re = new RegExp(`^${prefix}/${year}/(\\d+)$`);
+        let max = 0;
+        for (const supplier of Object.keys(state.wallets || {})) {
+            for (const tx of state.wallets[supplier].transactions || []) {
+                const m = String(tx.moveName || '').match(re);
+                if (m) {
+                    const n = parseInt(m[1], 10);
+                    if (n > max) max = n;
+                }
+            }
+        }
+        return `${prefix}/${year}/${String(max + 1).padStart(4, '0')}`;
+    }
+
     // Record a payment to a supplier: write transaction to supplier_wallet_v1.
     // The supplier may not have a wallet yet (legacy/DEMO row) — auto-create.
+    // Dedup: prevent identical (supplier+amount+date+note) trong 3s gần nhất (chống spam).
     async function recordPayment(supplierKey, amount, date, note) {
         if (!supplierKey) throw new Error('Thiếu NCC');
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Số tiền không hợp lệ');
@@ -238,16 +257,35 @@
             returnedRowIds: {},
             transactions: [],
         };
+        w.transactions = w.transactions || [];
+
+        // Dedup: trong 3s gần nhất có giao dịch giống hệt (amount + date + note)?
         const ts = date ? new Date(date + 'T12:00:00+07:00').getTime() : Date.now();
+        const noteStr = note || 'Thanh toán nhà cung cấp';
+        const recent = w.transactions.find(
+            (t) =>
+                t.type === 'payment' &&
+                Number(t.amount) === amount &&
+                Number(t.ts) === ts &&
+                String(t.note || '') === noteStr &&
+                Date.now() - (Number(t._createdAt) || Number(t.ts) || 0) < 3000
+        );
+        if (recent) {
+            throw new Error('Đã ghi giao dịch trùng — chờ vài giây trước khi thử lại');
+        }
+
+        const year = new Date(ts).getFullYear();
+        const moveName = nextMoveName(state, 'payment', year);
         const entry = {
             id: 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
             ts,
             type: 'payment',
             amount,
-            note: note || 'Thanh toán nhà cung cấp',
+            note: noteStr,
+            moveName,
             ref: { source: 'supplier-debt' },
+            _createdAt: Date.now(),
         };
-        w.transactions = w.transactions || [];
         w.transactions.push(entry);
         w.paidAmount = (Number(w.paidAmount) || 0) + amount;
         w.balance = (w.totalPurchased || 0) - (w.paidAmount || 0) - (w.returnedAmount || 0);
@@ -255,6 +293,7 @@
         await ref.set({ data: state, lastUpdated: Date.now() }, { merge: true });
         // Update in-memory state so next render picks it up
         STATE.walletData = state;
+        return moveName;
     }
 
     // Lookup code for a supplier name string.
@@ -372,6 +411,9 @@
                     } else if (isInPeriod(sh.date, from, to)) {
                         row.debit += subtotal;
                         row.purchasesInPeriod.push({
+                            id: r.id || sh.id || '',
+                            shipmentId: sh.id || '',
+                            rowId: r.id || '',
                             date: sh.date,
                             tabLabel: tab.label || '',
                             productName: r.productName || '',
@@ -710,6 +752,8 @@
 
     async function confirmPay() {
         const modal = document.getElementById('sdPayModal');
+        const btn = document.getElementById('sdPayConfirmBtn');
+        if (btn?.disabled) return; // guard: already saving
         const supplier = modal.dataset.supplier;
         const date = document.getElementById('sdPayDate').value;
         const amount = Number(document.getElementById('sdPayAmount').value) || 0;
@@ -718,14 +762,26 @@
             notify('Số tiền phải > 0', 'warning');
             return;
         }
+        const origLabel = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2"></i> Đang lưu…';
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
         try {
-            await recordPayment(supplier, amount, date, note);
-            notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${supplier}`, 'success');
+            const moveName = await recordPayment(supplier, amount, date, note);
+            notify(`Đã ghi ${moveName}: ${fmtVnd(amount)} cho ${supplier}`, 'success');
             modal.hidden = true;
             STATE.tposCongNo.clear();
             applyFilterAndRender();
         } catch (e) {
             notify(e.message || 'Lỗi ghi thanh toán', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                if (origLabel) btn.innerHTML = origLabel;
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            }
         }
     }
 
@@ -853,11 +909,17 @@
     function buildCongNoEntries(row) {
         const entries = [];
         for (const p of row.purchasesInPeriod || []) {
+            // moveName unique per shipment row: PO/<date>/<rowIdSuffix>
+            const year = String(p.date || '').slice(0, 4) || new Date().getFullYear();
+            const idSuffix =
+                String(p.rowId || p.id || '')
+                    .slice(-6)
+                    .toUpperCase() || '----';
             entries.push({
                 sortKey: String(p.date || '') + ' 00:00:00',
                 date: p.date || '',
                 desc: `Mua: ${p.productName || '—'}${p.variant ? ` (${p.variant})` : ''}`,
-                moveName: `PO/${p.tabLabel || ''}`,
+                moveName: `PO/${year}/${idSuffix}`,
                 debit: p.subtotal || 0,
                 credit: 0,
             });
@@ -869,11 +931,22 @@
                 ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                 : '';
             const lbl = t.type === 'return' ? 'Trả hàng' : 'Thanh toán';
+            // Prefer tx.moveName (assigned at save time); fallback to derived suffix.
+            let moveName = t.moveName;
+            if (!moveName) {
+                const year = dateIso.slice(0, 4) || String(new Date().getFullYear());
+                const prefix = t.type === 'return' ? 'RET' : 'PAY';
+                const idSuf =
+                    String(t.id || '')
+                        .slice(-6)
+                        .toUpperCase() || '----';
+                moveName = `${prefix}/${year}/${idSuf}`;
+            }
             entries.push({
-                sortKey: dateIso + ' ' + timeStr,
+                sortKey: dateIso + ' ' + timeStr + ' ' + moveName,
                 date: dateIso,
                 desc: lbl + (t.note ? ` — ${t.note}` : ''),
-                moveName: t.type === 'return' ? 'RETURN' : 'PAYMENT',
+                moveName,
                 debit: 0,
                 credit: t.amount || 0,
             });
