@@ -1566,25 +1566,31 @@ select.so-input-v2 {
     text-decoration: none;
 }
 
-/* ===== Inline dblclick-to-edit ===== */
+/* ===== Inline dblclick-to-edit + whole-table edit toggle ===== */
 
-/* Hint chip ở header — "Double-click ô để sửa" */
-.so-hint-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: #f5f3ff;
-    color: #6d28d9;
-    border: 1px solid #ddd6fe;
-    font-size: 11px;
-    font-weight: 600;
-    user-select: none;
+/* Toggle button "Chỉnh sửa bảng" — purple gradient khi ON */
+#soEditTableBtn.is-active {
+    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
 }
-.so-hint-chip i {
-    width: 12px;
-    height: 12px;
+#soEditTableBtn.is-active:hover {
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+/* Whole-table edit mode — row background hint nhẹ + padding chặt hơn */
+body.so-edit-table-mode .so-table tbody td.so-cell-edit {
+    padding: 4px 6px;
+    background: #fefce8;
+}
+body.so-edit-table-mode .so-data-row:hover td.so-cell-edit {
+    background: #fef9c3;
+}
+/* Trong edit mode, cells còn read-only (stt/img/actions) cũng khử hover dashed */
+body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover {
+    background: transparent;
+    box-shadow: none;
 }
 
 /* Cells có thể dblclick: subtle dashed underline khi hover */

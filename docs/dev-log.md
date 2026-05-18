@@ -25,6 +25,37 @@
 
 ## 2026-05-18
 
+### [scripts][docs] Per-folder LATEST snapshot — fallback khi session cũ chết (image limit)
+
+**User**: gặp lỗi `dimension limit for many-image requests` thì session đóng băng, không nhờ Claude tóm tắt context được nữa. Cần snapshot **đã có sẵn** trước khi lỗi xảy ra, do hook tự ghi đè sau mỗi commit. Yêu cầu chia theo folder/page để session mới chỉ cần đọc 1 file của module đang làm.
+
+**Files**:
+
+- `scripts/save-session-resume.sh` — thêm python block generate `docs/sessions/latest/<folder>.md` cho mỗi folder bị chạm trong commit + `docs/sessions/latest/_all.md` (index).
+- `CLAUDE.md` — thêm section "Folder Snapshot — fallback khi session cũ chết" mô tả khi user paste path `docs/sessions/latest/<folder>.md` Claude làm gì.
+
+**Cách dùng (session mới khi cũ chết)**: paste `đọc docs/sessions/latest/<folder>.md` (vd `orders-report.md`) → Claude Read 1 file → có pointer đến latest session + 5 commit gần nhất + files thay đổi. Cần Next Steps đầy đủ thì Read thêm session file pointer trỏ tới (1 hop, không chain walk).
+
+**Status**: ✅ Done. Tested heredoc escaping với git repo tạm trong `/tmp` — output đúng markdown (backticks render đúng).
+
+---
+
+### [so-order] Add lại toggle "Chỉnh sửa bảng" — bulk edit toàn bảng + dblclick lẻ coexist
+
+**User**: feedback — dblclick OK cho sửa lẻ, nhưng khi nhập nhiều ô liên tục thì cần BẬT một phát thành input toàn bảng. Yêu cầu: add toggle button, ON = bật input toàn bộ bảng.
+
+**Implementation** ([so-order/{index.html,css/so-order.css,js/so-order-app.js}](../so-order/)):
+
+1. **Button toggle `#soEditTableBtn`** ở header (bỏ hint chip cũ). Purple gradient khi `is-active` (giống style toggle gốc của session `9a8fad0`).
+2. **State `editTableMode`** persist `localStorage['soOrder_editTableMode_v1']` (per-device, tách khỏi Firestore sync vì là UX preference).
+3. **`rowHtml()`** giờ check `editTableMode`: khi ON gọi `editableCellHtml(field, r, rid, sid)` thay vì cell read-only. STT/ảnh/actions luôn read-only. Ảnh vẫn dùng inline image modal (dblclick) — quá phức tạp inline.
+4. **`commitBulkEditField()`** — re-use validation variant + pushSync + flashRow giống dblclick path. No-op nếu value không đổi. Số 0 fallback cho qty/price.
+5. **Delegated listeners ở tbody** (bind 1 lần): `change` → commit; `keydown` Enter → blur; `focusin` variant input → lazy-bind picker dropdown (tránh build picker cho all rows upfront).
+6. **CSS**: row bg `#fefce8` khi mode ON, hover `#fef9c3`, button purple gradient `#6d28d9 → #7c3aed`. Khử dashed hover trên cell read-only trong edit mode.
+7. **Verified Playwright**: toggle ON → input toàn bảng (NCC, Tên SP, Biến Thể, SL, Giá Bán, Giá Nhập, Ghi Chú, status); edit SL 21→25 → counter SL 36→40 + Tổng tiền 9.200→10.400₫ instant; toggle OFF → revert read-only, data giữ; dblclick lẻ trên OFF vẫn mở input đúng cell.
+
+**Status**: ✅ Done.
+
 ### [so-order] Đổi từ toggle button → dblclick-to-edit + inline image edit modal
 
 **User**: feature "Chỉnh sửa bảng" theo flow toggle gây lẫn lộn (mode bật/tắt) → đổi sang **double-click ô để sửa** trực tiếp, intuitive hơn.

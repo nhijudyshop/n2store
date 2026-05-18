@@ -235,7 +235,37 @@
             tbody.addEventListener('dblclick', onCellDoubleClick);
             tbody.__inlineEditBound = true;
         }
+        // Bulk edit mode — delegated handlers cho input/select trong table.
+        // Bound 1 lần; chỉ active khi editTableMode = true (DOM có input).
+        if (!tbody.__bulkEditBound) {
+            tbody.addEventListener('change', onBulkEditChange);
+            tbody.addEventListener('keydown', onBulkEditKeydown);
+            tbody.addEventListener('focusin', onBulkEditFocusIn);
+            tbody.__bulkEditBound = true;
+        }
+        applyEditTableModeUi();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function onBulkEditChange(e) {
+        const el = e.target.closest('[data-edit-field]');
+        if (!el) return;
+        const field = el.dataset.editField;
+        const rowId = el.dataset.rowId;
+        const shipmentId = el.dataset.shipmentId;
+        if (!field || !rowId || !shipmentId) return;
+        commitBulkEditField(rowId, shipmentId, field, el.value);
+    }
+    function onBulkEditKeydown(e) {
+        if (e.key !== 'Enter') return;
+        const el = e.target.closest('input[data-edit-field]');
+        if (!el || el.tagName !== 'INPUT') return;
+        e.preventDefault();
+        el.blur(); // triggers change
+    }
+    function onBulkEditFocusIn(e) {
+        const el = e.target.closest('input[data-edit-field="variant"]');
+        if (el) attachVariantPickerOnDemand(el);
     }
 
     function onCellDoubleClick(e) {
@@ -1801,6 +1831,13 @@
             .addEventListener('click', () => openOrderModal(null));
         document.getElementById('soColumnSettingsBtn').addEventListener('click', openColumnModal);
         document.getElementById('soTabDeleteBtn').addEventListener('click', handleTabDelete);
+        const editBtn = document.getElementById('soEditTableBtn');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                setEditTableMode(!editTableMode);
+                renderAll();
+            });
+        }
 
         document.getElementById('soOrderForm').addEventListener('submit', handleOrderSubmit);
         document
@@ -1941,6 +1978,7 @@
 
     async function init() {
         state = window.SoOrderStorage.load();
+        applyEditTableModeUi();
         renderAll();
         wireToolbar();
         wireInlineImageModal();
