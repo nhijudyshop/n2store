@@ -25,6 +25,42 @@
 
 ## 2026-05-18
 
+### [so-order] Cải thiện grid bảng (giống native-orders): vertical lines + zebra + hover rõ hơn
+
+**User yêu cầu**: kẻ đường bảng cho dễ nhìn, làm giống native-orders.
+
+**Compare**:
+
+- Native-orders: `data-table` dùng `border-collapse: separate`, có `border-right` mỗi cell, zebra `:nth-child(even)`, hover `#eaf2fb`.
+- So-order cũ: `border-collapse: collapse`, chỉ có border-bottom mờ `#eef1f5`, không vertical lines, không zebra → trông "lỏng lẻo".
+
+**Apply**:
+
+- `.so-table` → `border-collapse: separate; border-spacing: 0` (cho phép border từng cell).
+- `.so-table thead th` → background `#eef2f7` đậm hơn, `border-right: 1px solid #d9dde0`, last child không right.
+- `.so-table tbody td` → `border-right: 1px solid #d9dde0`, `border-bottom: 1px solid #d9dde0` (tăng contrast).
+- Zebra: `tr.so-data-row:nth-child(even) > td { background: #f7f9fb }`.
+- Hover: `tr.so-data-row:hover > td { background: #eaf2fb }`.
+- Shipment-head divider: thêm `border-top: 2px solid #c4b5fd` để tách rõ giữa các lô (trừ lô đầu tiên).
+- Shipment column header (`.so-shipment-colhead-cell`): style như thead chính, có border-right + border-top đậm.
+- `.so-table-scroll` border `#c8ced3` + `box-shadow` nhẹ.
+
+**Verify** (browser localhost:8093):
+
+- Bảng hiện rõ grid lines ngang + dọc giữa các cell ✅
+- Zebra striping trên data rows ✅
+- Hover xanh nhạt `#eaf2fb` ✅
+- Divider tím đậm giữa shipment groups ✅
+
+**Files**:
+
+- `so-order/css/so-order.css` — refactor `.so-table` block + zebra + shipment-head/colhead borders
+- `so-order/index.html` — bump cache `v20260518h → v20260518j`
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order + web2-products + render] Full sync 2 chiều: delete/edit qty trong đơn ⇄ pending_qty Kho
 
 **User báo**: nếu xóa SP ở Kho, hoặc chỉnh số lượng / xóa SP trong đơn mua hàng, các trường hợp bằng / nhỏ hơn / lớn hơn → kho và đơn lệch nhau (pending_qty kho không sync với qty thực của đơn).

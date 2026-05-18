@@ -106,43 +106,61 @@
 
 .so-table-scroll {
     overflow: auto;
-    border: 1px solid #e3e8ee;
+    border: 1px solid #c8ced3;
     border-radius: 10px;
     background: #fff;
     max-height: calc(100vh - 280px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .so-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 13px;
+    background: #fff;
 }
 
 .so-table thead th {
-    background: #f8fafc;
-    color: #475569;
+    background: #eef2f7;
+    color: #2b3a45;
     text-transform: uppercase;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid #e3e8ee;
+    border-bottom: 1px solid #c8ced3;
+    border-right: 1px solid #d9dde0;
     position: sticky;
     top: 0;
     z-index: 2;
     white-space: nowrap;
 }
-
-.so-table tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #eef1f5;
-    color: #0f172a;
-    vertical-align: middle;
+.so-table thead th:last-child {
+    border-right: none;
 }
 
-.so-table tbody tr:hover {
-    background: #fafaff;
+.so-table tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #d9dde0;
+    border-right: 1px solid #d9dde0;
+    color: #0f172a;
+    vertical-align: middle;
+    background: #fff;
+    transition: background-color 80ms ease;
+}
+.so-table tbody td:last-child {
+    border-right: none;
+}
+
+/* Zebra striping — chỉ data row, không apply cho shipment-head. */
+.so-table tbody tr.so-data-row:nth-child(even) > td {
+    background: #f7f9fb;
+}
+.so-table tbody tr.so-data-row:hover > td,
+.so-table tbody tr.so-data-row:nth-child(even):hover > td {
+    background: #eaf2fb;
 }
 
 .so-cell-supplier {
@@ -750,6 +768,11 @@
     padding: 0 !important;
     background: linear-gradient(90deg, #f5f3ff 0%, #ede9fe 50%, #f8fafc 100%) !important;
     border-bottom: 1px solid #c4b5fd !important;
+    border-right: none !important;
+    border-top: 2px solid #c4b5fd !important;
+}
+.so-table tbody tr.so-shipment-head:first-child td {
+    border-top: none !important;
 }
 
 .so-shipment-row {
@@ -886,17 +909,21 @@
 }
 
 .so-shipment-colhead-cell {
-    background: #fafbfc !important;
-    color: #64748b !important;
+    background: #eef2f7 !important;
+    color: #2b3a45 !important;
     text-transform: uppercase;
     font-size: 11px !important;
     font-weight: 700 !important;
     letter-spacing: 0.04em;
     padding: 8px 12px !important;
     text-align: left;
-    border-bottom: 1px solid #eef1f5;
-    border-top: 1px dashed #ede9fe;
+    border-bottom: 1px solid #c8ced3 !important;
+    border-right: 1px solid #d9dde0 !important;
+    border-top: 1px solid #d9dde0 !important;
     white-space: nowrap;
+}
+.so-shipment-colhead .so-shipment-colhead-cell:last-child {
+    border-right: none !important;
 }
 
 /* -------------------- Modal V2 (purchase-orders look) -------------------- */
