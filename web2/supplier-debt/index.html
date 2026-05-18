@@ -1,0 +1,221 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Công nợ NCC — Báo cáo — N2Store</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518d" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
+        <link rel="stylesheet" href="css/styles.css?v=20260518a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js"></script>
+        <script src="../../shared/js/notification-system.js"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content sd-main">
+                <header class="sd-page-head">
+                    <div class="sd-page-title">
+                        <i data-lucide="receipt"></i>
+                        <h1>Công nợ Nhà Cung Cấp</h1>
+                    </div>
+                    <div class="sd-page-counters">
+                        <span class="counter-pill" id="sdCountSuppliers">0 NCC</span>
+                        <span class="counter-pill" id="sdCountEnd">Nợ cuối: 0₫</span>
+                        <button
+                            id="sdRefreshBtn"
+                            class="btn btn-secondary"
+                            type="button"
+                            title="Tải lại"
+                        >
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                    </div>
+                </header>
+
+                <section class="sd-toolbar">
+                    <div class="sd-filter-row">
+                        <div class="sd-filter-group">
+                            <label>Từ ngày</label>
+                            <input id="sdDateFrom" type="date" />
+                        </div>
+                        <div class="sd-filter-group">
+                            <label>Đến ngày</label>
+                            <input id="sdDateTo" type="date" />
+                        </div>
+                        <div class="sd-filter-group sd-filter-group-search">
+                            <label>NCC</label>
+                            <input
+                                id="sdSearch"
+                                type="search"
+                                placeholder="Tìm theo tên NCC…"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="sd-filter-group sd-filter-group-radio">
+                            <label>Hiển thị</label>
+                            <div class="sd-radio-group">
+                                <label class="sd-radio-label">
+                                    <input type="radio" name="sdDisplay" value="all" checked />
+                                    <span>Tất cả</span>
+                                </label>
+                                <label class="sd-radio-label">
+                                    <input type="radio" name="sdDisplay" value="endnonzero" />
+                                    <span>Nợ cuối kỳ &ne; 0</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="sd-filter-actions">
+                            <button class="btn btn-primary" id="sdSearchBtn" type="button">
+                                <i data-lucide="search"></i> Áp dụng
+                            </button>
+                            <button class="btn btn-secondary" id="sdResetBtn" type="button">
+                                <i data-lucide="rotate-ccw"></i> Reset
+                            </button>
+                            <button class="btn btn-success" id="sdExportBtn" type="button">
+                                <i data-lucide="file-spreadsheet"></i> Xuất CSV
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="sd-table-wrap">
+                    <table class="sd-table" id="sdTable">
+                        <thead>
+                            <tr>
+                                <th class="num-stt">#</th>
+                                <th>Nhà Cung Cấp</th>
+                                <th class="num sortable" data-sort="opening">Nợ đầu kỳ</th>
+                                <th class="num sortable" data-sort="debit">Phát sinh</th>
+                                <th class="num sortable" data-sort="credit">Thanh toán</th>
+                                <th class="num sortable" data-sort="ending">Nợ cuối kỳ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sdTableBody"></tbody>
+                        <tfoot>
+                            <tr class="sd-total-row">
+                                <td colspan="2"><strong>Tổng</strong></td>
+                                <td class="num" id="sdTotalOpening">0₫</td>
+                                <td class="num" id="sdTotalDebit">0₫</td>
+                                <td class="num" id="sdTotalCredit">0₫</td>
+                                <td class="num" id="sdTotalEnding">0₫</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div class="sd-empty" id="sdEmpty" hidden>
+                        <i data-lucide="package-x"></i>
+                        <p>Không có NCC nào trong kỳ này.</p>
+                    </div>
+                </div>
+
+                <div class="sd-pagination" id="sdPagination" hidden>
+                    <button class="btn-page" id="sdPagePrev" type="button" title="Trang trước">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <span class="sd-page-info" id="sdPageInfo">Trang 1 / 1</span>
+                    <button class="btn-page" id="sdPageNext" type="button" title="Trang sau">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </main>
+        </div>
+
+        <!-- Detail drawer — expand 1 NCC -->
+        <div class="sd-modal" id="sdDetailModal" hidden>
+            <div class="sd-modal-backdrop" data-sd-close></div>
+            <div class="sd-modal-panel">
+                <header class="sd-modal-head">
+                    <div>
+                        <h2 id="sdDetailTitle">—</h2>
+                        <div class="sd-detail-sub" id="sdDetailSub"></div>
+                    </div>
+                    <button class="sd-modal-close" type="button" data-sd-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sd-modal-body">
+                    <div class="sd-detail-stats">
+                        <div class="sd-stat">
+                            <span class="sd-stat-label">Nợ đầu kỳ</span>
+                            <span class="sd-stat-value" id="sdDetailOpening">0₫</span>
+                        </div>
+                        <div class="sd-stat sd-stat-debit">
+                            <span class="sd-stat-label">Phát sinh</span>
+                            <span class="sd-stat-value" id="sdDetailDebit">0₫</span>
+                        </div>
+                        <div class="sd-stat sd-stat-credit">
+                            <span class="sd-stat-label">Thanh toán</span>
+                            <span class="sd-stat-value" id="sdDetailCredit">0₫</span>
+                        </div>
+                        <div class="sd-stat sd-stat-strong">
+                            <span class="sd-stat-label">Nợ cuối kỳ</span>
+                            <span class="sd-stat-value" id="sdDetailEnding">0₫</span>
+                        </div>
+                    </div>
+                    <div class="sd-detail-tabs">
+                        <button class="sd-tab is-active" data-detail-tab="purchases" type="button">
+                            Phiếu mua trong kỳ
+                        </button>
+                        <button class="sd-tab" data-detail-tab="transactions" type="button">
+                            Giao dịch trong kỳ
+                        </button>
+                    </div>
+                    <div class="sd-detail-content">
+                        <div class="sd-detail-panel" data-panel="purchases">
+                            <table class="sd-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ngày</th>
+                                        <th>Tab</th>
+                                        <th>Sản phẩm</th>
+                                        <th>Biến thể</th>
+                                        <th class="num">SL</th>
+                                        <th class="num">Giá</th>
+                                        <th class="num">Thành tiền (VND)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sdDetailPurchasesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="sd-detail-panel" data-panel="transactions" hidden>
+                            <table class="sd-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Loại</th>
+                                        <th class="num">Số tiền</th>
+                                        <th>Ghi chú</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sdDetailTxBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="../shared/tpos-sidebar.js?v=20260518b"></script>
+        <script src="js/supplier-debt-app.js?v=20260518a"></script>
+        <script>
+            Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+        </script>
+    </body>
+</html>

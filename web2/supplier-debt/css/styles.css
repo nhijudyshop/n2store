@@ -1,0 +1,572 @@
+/* #Note: WEB2.0 module. Báo cáo công nợ NCC theo kỳ.
+   Layout mirrors legacy /supplier-debt/ but Web2-themed. */
+
+.sd-main {
+    overflow: auto;
+    height: 100vh;
+    padding: 20px 24px;
+}
+
+.sd-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    gap: 12px;
+}
+
+.sd-page-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sd-page-title h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.sd-page-title i {
+    width: 24px;
+    height: 24px;
+    color: #4338ca;
+}
+
+.sd-page-counters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sd-page-counters .counter-pill {
+    background: #f1f5f9;
+    color: #334155;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* ----- Toolbar / filters ----- */
+.sd-toolbar {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.sd-filter-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.sd-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 130px;
+}
+
+.sd-filter-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.sd-filter-group input[type='date'],
+.sd-filter-group input[type='search'],
+.sd-filter-group input[type='text'] {
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #0f172a;
+    background: #fff;
+    transition: border-color 120ms;
+}
+
+.sd-filter-group input:focus {
+    outline: none;
+    border-color: #4338ca;
+    box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
+}
+
+.sd-filter-group-search {
+    flex: 1 1 220px;
+    min-width: 200px;
+}
+
+.sd-filter-group-radio {
+    min-width: 200px;
+}
+
+.sd-radio-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.sd-radio-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.875rem;
+    color: #334155;
+    cursor: pointer;
+}
+
+.sd-radio-label input[type='radio'] {
+    margin: 0;
+    accent-color: #4338ca;
+}
+
+.sd-filter-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition:
+        background-color 120ms,
+        transform 120ms,
+        box-shadow 120ms;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background: #4338ca;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #3730a3;
+}
+
+.btn-secondary {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: #e2e8f0;
+}
+
+.btn-success {
+    background: #059669;
+    color: #fff;
+}
+
+.btn-success:hover {
+    background: #047857;
+}
+
+.btn i {
+    width: 16px;
+    height: 16px;
+}
+
+/* ----- Table ----- */
+.sd-table-wrap {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.sd-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.sd-table thead th {
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 2px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    user-select: none;
+}
+
+.sd-table th.num,
+.sd-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.sd-table th.num-stt,
+.sd-table td.num-stt {
+    text-align: center;
+    width: 56px;
+    color: #94a3b8;
+}
+
+.sd-table th.sortable {
+    cursor: pointer;
+}
+
+.sd-table th.sortable:hover {
+    background: #eef2ff;
+}
+
+.sd-table th.sortable::after {
+    content: ' ⇅';
+    color: #cbd5e1;
+    font-size: 0.75rem;
+}
+
+.sd-table th.sortable.is-sort-asc::after {
+    content: ' ↑';
+    color: #4338ca;
+}
+
+.sd-table th.sortable.is-sort-desc::after {
+    content: ' ↓';
+    color: #4338ca;
+}
+
+.sd-table tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: background-color 80ms;
+}
+
+.sd-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.sd-table tbody td {
+    padding: 11px 14px;
+    color: #0f172a;
+}
+
+.sd-table tbody td.col-name {
+    font-weight: 500;
+}
+
+.sd-table tbody tr.is-debt td.col-ending {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.sd-table tbody tr.is-credit td.col-ending {
+    color: #065f46;
+    font-weight: 600;
+}
+
+.sd-total-row td {
+    background: #f8fafc;
+    font-weight: 600;
+    padding: 12px 14px;
+    border-top: 2px solid #e2e8f0;
+}
+
+.sd-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+}
+
+.sd-empty i {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 10px;
+}
+
+/* ----- Pagination ----- */
+.sd-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 0;
+}
+
+.sd-pagination[hidden],
+.sd-empty[hidden],
+.sd-detail-panel[hidden] {
+    display: none !important;
+}
+
+.btn-page {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: #334155;
+    transition: background-color 100ms;
+}
+
+.btn-page:hover:not(:disabled) {
+    background: #f1f5f9;
+}
+
+.btn-page:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.sd-page-info {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+/* ----- Detail Modal ----- */
+.sd-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.sd-modal[hidden] {
+    display: none;
+}
+
+.sd-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.sd-modal-panel {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    width: min(900px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+}
+
+.sd-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.sd-modal-head h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.sd-detail-sub {
+    margin-top: 4px;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.sd-modal-close {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: #64748b;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.sd-modal-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.sd-modal-body {
+    padding: 18px 20px;
+    overflow-y: auto;
+}
+
+.sd-detail-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.sd-stat {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sd-stat-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.sd-stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+.sd-stat-debit .sd-stat-value {
+    color: #b91c1c;
+}
+
+.sd-stat-credit .sd-stat-value {
+    color: #065f46;
+}
+
+.sd-stat-strong {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+.sd-stat-strong .sd-stat-value {
+    color: #4338ca;
+}
+
+.sd-detail-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+}
+
+.sd-tab {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    color: #64748b;
+    cursor: pointer;
+    font-weight: 500;
+    transition:
+        color 100ms,
+        border-color 100ms;
+}
+
+.sd-tab:hover {
+    color: #4338ca;
+}
+
+.sd-tab.is-active {
+    color: #4338ca;
+    border-bottom-color: #4338ca;
+}
+
+.sd-detail-panel[hidden] {
+    display: none;
+}
+
+.sd-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.sd-detail-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.sd-detail-table th.num,
+.sd-detail-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.sd-detail-table tbody td {
+    padding: 8px 12px;
+    color: #0f172a;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.sd-detail-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.sd-txn-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.sd-txn-type[data-type='payment'] {
+    background: #dcfce7;
+    color: #065f46;
+}
+
+.sd-txn-type[data-type='return'] {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.sd-txn-type[data-type='purchase'] {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+/* Responsive */
+@media (max-width: 920px) {
+    .sd-filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .sd-filter-actions {
+        margin-left: 0;
+        width: 100%;
+    }
+    .sd-detail-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

@@ -25,6 +25,47 @@
 
 ## 2026-05-18
 
+### [web2/supplier-debt][sidebar] Báo cáo công nợ NCC theo kỳ — clone UX legacy supplier-debt vào Web 2.0
+
+**User**: "làm 1 trang giống `n2store/supplier-debt/index.html` ở trong mục Mua hàng trên Ví NCC".
+
+**New folder**: [web2/supplier-debt/](../web2/supplier-debt/) (slug + tên route mới, độc lập với placeholder `web2/report-supplier-debt/` của Web2Shell generic).
+
+**Layout** (mirror legacy supplier-debt nhưng dùng Web 2.0 theme + data source mới):
+
+- Header: tiêu đề + counter pills (số NCC, tổng nợ cuối) + refresh button
+- Toolbar filter: từ ngày, đến ngày, search NCC, radio Tất cả / Nợ cuối kỳ ≠ 0 + 3 button (Áp dụng, Reset, Xuất CSV)
+- Bảng 6 cột: #, Tên NCC, Nợ đầu kỳ, Phát sinh, Thanh toán, Nợ cuối kỳ (sortable 4 cột số)
+- Tổng row trong tfoot
+- Pagination 50 rows/trang (auto hide khi ≤ 50)
+- Click row → detail modal: 4 stat box (đầu kỳ / phát sinh / thanh toán / cuối kỳ) + 2 tab (Phiếu mua trong kỳ / Giao dịch trong kỳ)
+- Click ngoài / Esc → đóng modal
+- Export CSV với BOM UTF-8
+
+**Data source** (KHÔNG đụng TPOS — đây là Web 2.0):
+
+- `so_order_v2/main` (Firestore) — derive purchases per supplier per shipment qua tabs[].shipments[].rows[]
+- `supplier_wallet_v1/main` (Firestore) — ledger payment + return transactions
+
+**Calc per supplier per period [from, to]**:
+
+```
+purchases_before = Σ (qty × costPrice × rate→VND) WHERE shipment.date < from
+tx_before        = Σ |amount|                     WHERE tx.ts < from
+opening          = purchases_before - tx_before
+debit            = Σ purchases WHERE shipment.date in [from, to]
+credit           = Σ |amount|  WHERE tx.ts in [from, to]
+ending           = opening + debit - credit
+```
+
+Khi không có filter date → tất cả purchases vào `debit`, tất cả tx vào `credit`, `opening = 0`.
+
+**Sidebar** ([web2/shared/tpos-sidebar.js](../web2/shared/tpos-sidebar.js)): thêm entry "Công nợ NCC" vào group "Mua hàng" TRÊN "Ví NCC" theo yêu cầu user.
+
+**Verified Playwright localhost**: 3 NCC từ so-order (Shenzhen 3.750₫, Quảng Châu A 1.000₫, Hồng Châu B 450₫, tổng 5.200₫) — match báo cáo trước. 0 HTTP 404, 0 JS error. Pagination auto-hide khi ≤ 50 rows (fix CSS `display: flex` đè `[hidden]` attr → thêm `.sd-pagination[hidden] { display: none !important }`).
+
+**Status**: ✅ Done.
+
 ### [web2][paths][worker] Fix path bể sau khi move `web2-products` + `web2-variants` vào `web2/`
 
 **User**: phát hiện URL `http://localhost:8093/web2/variants/index.html` bị sai path → yêu cầu audit toàn bộ.
@@ -542,6 +583,7 @@ Cũng sync trong [`_wireConvPickerEmptyState`](../orders-report/js/tab1/tab1-cha
 **Status**: ✅ Done.
 
 ---
+
 ## 2026-05-17
 
 ### [inbox][render] Fix STT trùng — atomic counter `inbox_counters` thay cho `orders.length+1`

@@ -167,6 +167,10 @@
             icon: 'shopping-cart',
             children: [
                 {
+                    label: 'Công nợ NCC',
+                    our: '../web2/supplier-debt/index.html',
+                },
+                {
                     label: 'Ví NCC',
                     our: '../web2/supplier-wallet/index.html',
                 },
