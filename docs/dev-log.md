@@ -25,6 +25,26 @@
 
 ## 2026-05-18
 
+### [so-order] Cho phép inline-edit Ngày giao / Đợt / Kiện / KG ở shipment header
+
+**User yêu cầu**: cho chỉnh sửa các giá trị Ngày giao, Đợt, số Kiện, KG trực tiếp ở header lô (không cần mở modal "Sửa thông tin lô").
+
+**Thay đổi**:
+
+- `so-order/js/so-order-app.js`:
+    - `shipmentHeaderHtml()`: wrap value `dateText`, `batchLabel`, `caseCount`, `weightKg` trong `<button data-shipment-edit="<field>" data-shipment-id="...">` (helper `pill()`).
+    - Wire `[data-shipment-edit]` click → `beginShipmentFieldEdit(pill)`: replace pill content thành input (`type=date` / `text` / `number`), Enter/blur commit qua `SoOrderStorage.updateShipment(...) + pushSync() + renderAll()`, Escape restore.
+- `so-order/css/so-order.css` (bump `v=20260518m`):
+    - `.so-shipment-edit-pill`: button trong header với hover effect (border dashed → solid khi hover), padding 2px 6px.
+    - `.so-shipment-edit-pill.is-editing`: border solid purple `#7c3aed`, padding 0.
+    - `.so-shipment-edit-input`: transparent input, tabular-nums khi `so-shipment-edit-num` (caseCount/weightKg).
+
+**Gotcha**: stop event propagation trên input click + keydown để không trigger shipment-toggle bên ngoài.
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Đồng bộ style bảng với native-orders: font Segoe UI + header bg + button action
 
 **User yêu cầu**: làm bảng so-order giống native-orders về font chữ, cỡ chữ, màu thead, button, màu sắc.

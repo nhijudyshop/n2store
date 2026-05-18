@@ -216,6 +216,13 @@
                 else if (action === 'add-row') openOrderModal(null, shId);
             });
         });
+        // Inline-edit pills in shipment header (date / batch / caseCount / weightKg)
+        tbody.querySelectorAll('[data-shipment-edit]').forEach((pill) => {
+            pill.addEventListener('click', (e) => {
+                e.stopPropagation();
+                beginShipmentFieldEdit(pill);
+            });
+        });
         // Row actions
         tbody.querySelectorAll('[data-row-action]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
@@ -439,6 +446,77 @@
         }
     }
 
+    function beginShipmentFieldEdit(pill) {
+        const shId = pill.dataset.shipmentId;
+        const field = pill.dataset.shipmentEdit;
+        if (!shId || !field) return;
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const sh = tab?.shipments.find((s) => s.id === shId);
+        if (!sh) return;
+        if (pill.classList.contains('is-editing')) return;
+        pill.classList.add('is-editing');
+        const origHtml = pill.innerHTML;
+
+        let inputHtml;
+        if (field === 'date') {
+            const v = sh.date || '';
+            inputHtml = `<input class="so-shipment-edit-input" type="date" value="${escapeHtml(v)}" />`;
+        } else if (field === 'batch') {
+            const v = sh.batch || '';
+            inputHtml = `<input class="so-shipment-edit-input" type="text" value="${escapeHtml(v)}" placeholder="Số đợt…" />`;
+        } else if (field === 'caseCount' || field === 'weightKg') {
+            const v = Number(sh[field]) || 0;
+            const step = field === 'weightKg' ? 'any' : '1';
+            inputHtml = `<input class="so-shipment-edit-input so-shipment-edit-num" type="number" min="0" step="${step}" value="${v}" />`;
+        } else {
+            pill.classList.remove('is-editing');
+            return;
+        }
+        pill.innerHTML = inputHtml;
+        const el = pill.querySelector('input');
+        if (!el) {
+            pill.innerHTML = origHtml;
+            pill.classList.remove('is-editing');
+            return;
+        }
+        el.focus();
+        if (typeof el.select === 'function') el.select();
+
+        let committed = false;
+        const restore = () => {
+            pill.innerHTML = origHtml;
+            pill.classList.remove('is-editing');
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        };
+        const commit = () => {
+            if (committed) return;
+            committed = true;
+            let value = el.value;
+            if (field === 'caseCount' || field === 'weightKg') value = Number(value) || 0;
+            else if (typeof value === 'string') value = value.trim();
+            window.SoOrderStorage.updateShipment(state, tab.id, shId, { [field]: value });
+            pushSync();
+            renderAll();
+        };
+        el.addEventListener('change', commit);
+        el.addEventListener('blur', () => {
+            if (!committed) commit();
+        });
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                committed = true;
+                restore();
+            }
+            e.stopPropagation();
+        });
+        // Prevent click bubbling that would trigger shipment-toggle.
+        el.addEventListener('click', (e) => e.stopPropagation());
+    }
+
     function flashRow(rowId) {
         const tr = document.querySelector(`#soTableBody tr.so-data-row[data-row-id="${rowId}"]`);
         if (!tr) return;
@@ -457,7 +535,8 @@
 
     function shipmentHeaderHtml(sh, tab, colSpan) {
         const dateText = sh.date ? formatDateVN(sh.date) : '—';
-        const batchText = sh.batch ? `Đợt ${escapeHtml(sh.batch)}` : 'Chưa đặt đợt';
+        const batchVal = sh.batch || '';
+        const batchLabel = batchVal ? `Đợt ${escapeHtml(batchVal)}` : 'Chưa đặt đợt';
         const caseCount = Number(sh.caseCount) || 0;
         const weightKg = Number(sh.weightKg) || 0;
         // Contract amount: always rendered in the tab's currency.
@@ -471,23 +550,29 @@
         const displayAmount = rawVnd / tabToVnd;
         const contractDisplayText = fmtCurrency(displayAmount, tab.currency || 'VND');
         const caret = sh.collapsed ? 'chevron-right' : 'chevron-down';
-        return `<tr class="so-shipment-head ${sh.collapsed ? 'is-collapsed' : ''}" data-shipment-id="${escapeHtml(sh.id)}">
+        const shId = escapeHtml(sh.id);
+        const pill = (field, label, title) =>
+            `<button type="button" class="so-shipment-edit-pill" data-shipment-edit="${field}" data-shipment-id="${shId}" title="${title}">${label}</button>`;
+        return `<tr class="so-shipment-head ${sh.collapsed ? 'is-collapsed' : ''}" data-shipment-id="${shId}">
             <td colspan="${colSpan}">
                 <div class="so-shipment-row">
-                    <button class="so-shipment-toggle" type="button" data-toggle-shipment="${escapeHtml(sh.id)}" title="Đóng/mở">
+                    <button class="so-shipment-toggle" type="button" data-toggle-shipment="${shId}" title="Đóng/mở">
                         <i data-lucide="${caret}"></i>
                     </button>
                     <span class="so-shipment-meta">
                         <i data-lucide="calendar"></i>
-                        <strong>Ngày giao:</strong> ${escapeHtml(dateText)}
+                        <strong>Ngày giao:</strong>
+                        ${pill('date', escapeHtml(dateText), 'Click để sửa ngày giao')}
                     </span>
                     <span class="so-shipment-sep">—</span>
-                    <span class="so-shipment-meta so-shipment-batch">${escapeHtml(batchText)}</span>
+                    <span class="so-shipment-meta so-shipment-batch">
+                        ${pill('batch', escapeHtml(batchLabel), 'Click để sửa số đợt')}
+                    </span>
                     <span class="so-shipment-sep">—</span>
                     <span class="so-shipment-meta">
                         <i data-lucide="package"></i>
-                        <strong>${caseCount} Kiện</strong> :
-                        <span class="so-shipment-kg-strike">${weightKg.toLocaleString('vi-VN')} KG</span>
+                        <strong>${pill('caseCount', `${caseCount} Kiện`, 'Click để sửa số kiện')}</strong> :
+                        <span class="so-shipment-kg-strike">${pill('weightKg', `${weightKg.toLocaleString('vi-VN')} KG`, 'Click để sửa số KG')}</span>
                     </span>
                     <span class="so-shipment-sep">|</span>
                     <span class="so-shipment-meta">Tổng <strong>${weightKg.toLocaleString('vi-VN')} KG</strong></span>

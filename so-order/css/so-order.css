@@ -895,6 +895,47 @@
     min-width: 8px;
 }
 
+/* Inline-edit pills in shipment header (Ngày giao / Đợt / Kiện / KG) */
+.so-shipment-edit-pill {
+    appearance: none;
+    background: transparent;
+    border: 1px dashed transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+    line-height: 1;
+}
+.so-shipment-edit-pill:hover {
+    background: #fff;
+    border-color: #c4b5fd;
+}
+.so-shipment-edit-pill.is-editing {
+    background: #fff;
+    border-color: #7c3aed;
+    border-style: solid;
+    padding: 0;
+}
+.so-shipment-edit-input {
+    appearance: none;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #0f172a;
+    font: inherit;
+    padding: 4px 6px;
+    min-width: 60px;
+    max-width: 140px;
+}
+.so-shipment-edit-input.so-shipment-edit-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 .so-cell-note {
     color: #475569;
     font-size: 12px;
