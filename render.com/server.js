@@ -334,6 +334,7 @@ const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
 const pbhReportsRoutes = require('./routes/pbh-reports');
 const web2ProductsRoutes = require('./routes/web2-products');
+const web2VariantsRoutes = require('./routes/web2-variants');
 const web2GenericRoutes = require('./routes/web2-generic');
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
@@ -448,6 +449,7 @@ app.use('/api/delivery-invoices', deliveryInvoicesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/pbh-reports', pbhReportsRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
+app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2', web2GenericRoutes);
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)

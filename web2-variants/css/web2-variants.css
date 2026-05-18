@@ -1,0 +1,46 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+/* Kho Biến Thể Web 2.0 — overrides on native-orders base */
+
+.variant-value-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.group-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.group-empty {
+    color: var(--gray-400);
+}
+
+.sort-cell {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: var(--gray-700);
+}
+
+.field-row-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.field-row-grid-2 {
+    grid-template-columns: 2fr 1fr;
+}
+
+.page-head-action {
+    margin-left: 8px;
+}

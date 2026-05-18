@@ -23,7 +23,43 @@
 
 ---
 
-## 2026-05-17
+## 2026-05-18
+
+### [web2][so-order][render][cf-worker] Kho Biến Thể riêng — picker dropdown thay free-text variant
+
+**User**:
+
+1. Sửa biến thể SP cũ trên Kho SP không cập nhật → cần Render deploy variant column
+2. "Thêm 1 nút là kho biến thể để quản lý tất cả biến thể — các biến thể tạo ra sẽ lấy trong danh sách của kho này, muốn thêm mới phải thêm ở kho biến thể"
+
+**Implementation**:
+
+**Backend + Worker**:
+
+- New table `web2_variants` (id, value UNIQUE, group_name, sort_order, is_active, created_by, created_at, updated_at)
+- REST CRUD route `/api/web2-variants` ([render.com/routes/web2-variants.js](../render.com/routes/web2-variants.js)): health, list, get, create (409 on duplicate), patch, delete
+- Register trong [server.js](../render.com/server.js) `app.use('/api/web2-variants', web2VariantsRoutes)`
+- CF Worker route mapping: `WEB2_VARIANTS` pattern + case → handleCustomer360Proxy ([cloudflare-worker/worker.js](../cloudflare-worker/worker.js) + [modules/config/routes.js](../cloudflare-worker/modules/config/routes.js))
+
+**Frontend**:
+
+1. **Web2VariantsApi client** ([web2-variants/js/web2-variants-api.js](../web2-variants/js/web2-variants-api.js))
+2. **Web2VariantsCache shared module** ([web2-shared/web2-variants-cache.js](../web2-shared/web2-variants-cache.js)): in-memory cache + Firestore tickler doc `web2_variants_sync/notify` (realtime cross-machine), API `getAll/findByValue/findByValueExact/has/pushTickle/subscribe`
+3. **Kho Biến Thể page** ([web2-variants/index.html](../web2-variants/index.html) + [js/web2-variants-app.js](../web2-variants/js/web2-variants-app.js) + [css/web2-variants.css](../web2-variants/css/web2-variants.css)): sidebar nav mới "Kho Biến Thể" trong group Sản phẩm; table # | BIẾN THỂ | NHÓM | THỨ TỰ | TRẠNG THÁI | THAO TÁC; filter search/active/group; modal CRUD value+group+sort+active
+4. **Kho SP picker** ([web2-products/js/web2-products-app.js](../web2-products/js/web2-products-app.js)): field "Biến thể" → input + dropdown picker từ Web2VariantsCache (focus/input → show, click → fill). Hint inline: ✓ Đã chọn từ Kho Biến Thể / lỗi đỏ nếu giá trị không tồn tại. `saveModal()` validate, block + notify nếu variant không hợp lệ. Aux link "Kho Biến Thể" mở tab mới
+5. **so-order picker** ([so-order/js/so-order-app.js](../so-order/js/so-order-app.js)): cột Biến thể mỗi row → dropdown picker giống Kho SP; `handleOrderSubmit` validate từng row variant phải có trong Kho Biến Thể trước khi save
+
+**Smoke test** (localhost:8093):
+
+- Trang Kho Biến Thể render đầy đủ UI (table + filter + modal); fetch HTTP 404 vì backend chưa deploy — expected
+- Modal Kho SP hiện field "Biến thể" với link "Kho Biến Thể" mở tab mới + input + hint dynamic
+
+**Deploy note**:
+
+- Render auto-deploy sau push (~2-4 phút). Migration `ensureTables` chạy lần đầu /api/web2-variants được gọi
+- CF Worker cần deploy thủ công qua wrangler: `cd cloudflare-worker && wrangler deploy`
+
+**Status**: ✅ Frontend Done, chờ Render + CF Worker deploy.
 
 ### [web2][so-order][render] Kho SP — field BIẾN THỂ độc lập (DB column + column trong table + input modal + autofill so-order)
 

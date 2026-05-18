@@ -254,6 +254,16 @@
         };
         if (!fields.code) return notify('Thiếu mã SP', 'error');
         if (!fields.name) return notify('Thiếu tên SP', 'error');
+        // Validate variant: nếu user đã gõ thì phải tồn tại trong kho biến thể.
+        if (fields.variant) {
+            const cache = window.Web2VariantsCache;
+            if (cache && !cache.findByValueExact(fields.variant)) {
+                return notify(
+                    `Biến thể "${fields.variant}" chưa có trong Kho Biến Thể — vui lòng thêm trước rồi chọn lại.`,
+                    'error'
+                );
+            }
+        }
 
         try {
             if (STATE.editingCode) {
@@ -341,6 +351,84 @@
         load();
     }
 
+    // Variant picker: dropdown từ Web2VariantsCache. Khóa free-text — phải
+    // pick từ kho, muốn thêm phải vào trang Kho Biến Thể.
+    function _wireVariantPicker() {
+        const input = $('#pmVariant');
+        const dropdown = $('#pmVariantSuggest');
+        const hint = $('#pmVariantHint');
+        if (!input || !dropdown) return;
+
+        function _renderHintFor(value) {
+            if (!hint) return;
+            const cache = window.Web2VariantsCache;
+            const trimmed = (value || '').trim();
+            if (!trimmed) {
+                hint.className = 'variant-picker-hint';
+                hint.textContent = 'Bỏ trống nếu SP không có biến thể.';
+                return;
+            }
+            if (cache?.findByValueExact?.(trimmed)) {
+                hint.className = 'variant-picker-hint is-ok';
+                hint.textContent = '✓ Đã chọn từ Kho Biến Thể';
+            } else {
+                hint.className = 'variant-picker-hint is-error';
+                hint.innerHTML =
+                    'Giá trị này chưa có trong kho — bạn cần ' +
+                    '<a href="../web2-variants/index.html" target="_blank">thêm tại Kho Biến Thể</a> trước.';
+            }
+        }
+
+        function _showDropdown(query) {
+            const cache = window.Web2VariantsCache;
+            if (!cache) {
+                dropdown.hidden = true;
+                return;
+            }
+            const items = cache.findByValue(query || '', 10);
+            if (!items.length) {
+                dropdown.innerHTML = `<div class="variant-suggest-empty">
+                    Không tìm thấy biến thể nào.
+                    <a href="../web2-variants/index.html" target="_blank">Thêm mới ở Kho Biến Thể →</a>
+                </div>`;
+                dropdown.hidden = false;
+                return;
+            }
+            dropdown.innerHTML = items
+                .map((v) => {
+                    const grp = v.groupName
+                        ? `<span class="variant-suggest-group">${escapeHtml(v.groupName)}</span>`
+                        : '';
+                    return `<button type="button" class="variant-suggest-item" data-val="${escapeHtml(v.value)}">
+                        <span class="variant-suggest-value">${escapeHtml(v.value)}</span>
+                        ${grp}
+                    </button>`;
+                })
+                .join('');
+            dropdown.hidden = false;
+            dropdown.querySelectorAll('.variant-suggest-item').forEach((btn) => {
+                btn.addEventListener('mousedown', (e) => e.preventDefault());
+                btn.addEventListener('click', () => {
+                    input.value = btn.dataset.val;
+                    _renderHintFor(input.value);
+                    dropdown.hidden = true;
+                });
+            });
+        }
+
+        input.addEventListener('focus', () => _showDropdown(input.value));
+        input.addEventListener('input', () => {
+            _renderHintFor(input.value);
+            _showDropdown(input.value);
+        });
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                dropdown.hidden = true;
+            }, 180);
+        });
+        _renderHintFor('');
+    }
+
     // ---------- Init ----------
     function init() {
         if (window.lucide) lucide.createIcons();
@@ -357,6 +445,21 @@
                     updateImagePreview(url);
                 },
                 notify,
+            });
+        }
+
+        // Variant picker — pick từ Kho Biến Thể, block free-text mới.
+        if (window.Web2VariantsCache) {
+            window.Web2VariantsCache.init().then(() => {
+                _wireVariantPicker();
+                // Re-render hint khi cache cập nhật từ Kho Biến Thể
+                window.Web2VariantsCache.subscribe(() => {
+                    const inp = $('#pmVariant');
+                    if (inp) {
+                        const ev = new Event('input', { bubbles: true });
+                        inp.dispatchEvent(ev);
+                    }
+                });
             });
         }
         $('#filterSearch')?.addEventListener('keydown', (e) => {

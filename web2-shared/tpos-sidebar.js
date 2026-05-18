@@ -289,6 +289,7 @@
             icon: 'package',
             children: [
                 { label: 'Kho SP Web 2.0', our: '../web2-products/index.html' },
+                { label: 'Kho Biến Thể', our: '../web2-variants/index.html' },
                 {
                     label: 'Nhóm sản phẩm',
                     tpos: '#/app/productcategory/list',

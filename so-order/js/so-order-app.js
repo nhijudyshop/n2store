@@ -451,14 +451,18 @@
                 </div>
             </td>
             <td class="so-td-variant">
-                <input
-                    type="text"
-                    data-field="variant"
-                    data-uid="${row.uid}"
-                    placeholder="Size, màu…"
-                    class="so-input-v2"
-                    value="${escapeHtml(row.variant)}"
-                />
+                <div class="so-variant-picker-wrap">
+                    <input
+                        type="text"
+                        data-field="variant"
+                        data-uid="${row.uid}"
+                        placeholder="Pick từ kho..."
+                        class="so-input-v2"
+                        value="${escapeHtml(row.variant)}"
+                        autocomplete="off"
+                    />
+                    <div class="so-variant-dropdown" data-variant-for="${row.uid}" hidden></div>
+                </div>
             </td>
             <td class="so-td-qty">
                 <input
@@ -580,6 +584,18 @@
                 setTimeout(() => {
                     if (activeSuggestUid === input.dataset.uid) hideSuggest(input.dataset.uid);
                 }, 180);
+            });
+        });
+        // Variant picker per row — pick từ Kho Biến Thể
+        tbody.querySelectorAll('input[data-field="variant"]').forEach((input) => {
+            input.addEventListener('focus', () =>
+                showVariantSuggest(input.dataset.uid, input.value)
+            );
+            input.addEventListener('input', () =>
+                showVariantSuggest(input.dataset.uid, input.value)
+            );
+            input.addEventListener('blur', () => {
+                setTimeout(() => hideVariantSuggest(input.dataset.uid), 180);
             });
         });
         // + Thêm SP
@@ -736,6 +752,55 @@
 
     function hideSuggest(uid) {
         const list = document.querySelector(`.so-suggest-dropdown[data-suggest-for="${uid}"]`);
+        if (list) {
+            list.hidden = true;
+            list.innerHTML = '';
+        }
+    }
+
+    function showVariantSuggest(uid, query) {
+        const list = document.querySelector(`.so-variant-dropdown[data-variant-for="${uid}"]`);
+        if (!list) return;
+        const cache = window.Web2VariantsCache;
+        if (!cache) return;
+        const items = cache.findByValue((query || '').trim(), 10);
+        if (!items.length) {
+            list.innerHTML = `<div class="so-variant-empty">
+                Kho Biến Thể chưa có giá trị nào khớp.
+                <a href="../web2-variants/index.html" target="_blank">Thêm mới →</a>
+            </div>`;
+            list.hidden = false;
+            return;
+        }
+        list.innerHTML = items
+            .map((v) => {
+                const grp = v.groupName
+                    ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
+                    : '';
+                return `<button type="button" class="so-variant-item" data-uid="${uid}" data-val="${escapeHtml(v.value)}">
+                    <span class="so-variant-val">${escapeHtml(v.value)}</span>
+                    ${grp}
+                </button>`;
+            })
+            .join('');
+        list.hidden = false;
+        list.querySelectorAll('.so-variant-item').forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => e.preventDefault());
+            btn.addEventListener('click', () => {
+                const row = modalRows.find((r) => r.uid === uid);
+                if (!row) return;
+                row.variant = btn.dataset.val;
+                const input = document.querySelector(
+                    `#soModalProductsBody input[data-field="variant"][data-uid="${uid}"]`
+                );
+                if (input) input.value = btn.dataset.val;
+                list.hidden = true;
+            });
+        });
+    }
+
+    function hideVariantSuggest(uid) {
+        const list = document.querySelector(`.so-variant-dropdown[data-variant-for="${uid}"]`);
         if (list) {
             list.hidden = true;
             list.innerHTML = '';
@@ -936,6 +1001,20 @@
         if (!validRows.length) {
             notify('Cần ít nhất 1 sản phẩm có tên', 'warning');
             return;
+        }
+        // Validate variant: từng row nếu có variant phải tồn tại trong Kho Biến Thể
+        const variantCache = window.Web2VariantsCache;
+        if (variantCache) {
+            for (const r of validRows) {
+                const v = (r.variant || '').trim();
+                if (v && !variantCache.findByValueExact(v)) {
+                    notify(
+                        `Biến thể "${v}" chưa có trong Kho Biến Thể — vui lòng thêm trước rồi chọn lại.`,
+                        'error'
+                    );
+                    return;
+                }
+            }
         }
         if (modalMode === 'edit' && editingRowId && editingShipmentId) {
             const r = validRows[0];
@@ -1405,6 +1484,11 @@
                     }
                 });
             });
+        }
+
+        // Web2VariantsCache — bật picker cho cột Biến Thể.
+        if (window.Web2VariantsCache) {
+            window.Web2VariantsCache.init();
         }
 
         // Firestore sync — per CLAUDE.md DATA-SYNCHRONIZATION.md:

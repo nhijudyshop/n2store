@@ -1501,6 +1501,70 @@ select.so-input-v2 {
     font-weight: 600;
     vertical-align: middle;
 }
+
+/* Variant picker (per row trong so-order modal) */
+.so-variant-picker-wrap {
+    position: relative;
+}
+.so-variant-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 80;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 200px;
+}
+.so-variant-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+}
+.so-variant-item:hover {
+    background: #f5f3ff;
+}
+.so-variant-val {
+    flex: 1;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 13px;
+}
+.so-variant-group {
+    padding: 1px 8px;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.so-variant-empty {
+    padding: 10px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+}
+.so-variant-empty a {
+    color: #6d28d9;
+    font-weight: 600;
+    text-decoration: none;
+}
 .so-suggest-sub {
     display: flex;
     gap: 8px;

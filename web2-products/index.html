@@ -163,12 +163,30 @@
                         <input id="pmName" placeholder="Tên hiển thị" autocomplete="off" />
                     </div>
                     <div class="field-row">
-                        <label>Biến thể</label>
-                        <input
-                            id="pmVariant"
-                            placeholder="VD: Size M / Đỏ / 2003 B5"
-                            autocomplete="off"
-                        />
+                        <label>
+                            Biến thể
+                            <a
+                                href="../web2-variants/index.html"
+                                target="_blank"
+                                class="field-aux-link"
+                                title="Quản lý kho biến thể (mở tab mới)"
+                            >
+                                <i data-lucide="layers"></i> Kho Biến Thể
+                            </a>
+                        </label>
+                        <div class="variant-picker-wrap">
+                            <input
+                                id="pmVariant"
+                                placeholder="Gõ để chọn biến thể từ kho..."
+                                autocomplete="off"
+                            />
+                            <div
+                                class="variant-suggest-dropdown"
+                                id="pmVariantSuggest"
+                                hidden
+                            ></div>
+                            <div class="variant-picker-hint" id="pmVariantHint"></div>
+                        </div>
                     </div>
                     <div class="field-row-grid field-row-grid-3">
                         <div class="field-row">
@@ -231,7 +249,9 @@
 
         <script src="../web2-shared/web2-effects.js?v=20260517b"></script>
         <script src="js/web2-products-api.js?v=20260517a"></script>
+        <script src="../web2-variants/js/web2-variants-api.js?v=20260517a"></script>
         <script src="../web2-shared/web2-products-cache.js?v=20260517a"></script>
-        <script src="js/web2-products-app.js?v=20260517c"></script>
+        <script src="../web2-shared/web2-variants-cache.js?v=20260517a"></script>
+        <script src="js/web2-products-app.js?v=20260517d"></script>
     </body>
 </html>

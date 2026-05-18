@@ -1,0 +1,187 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Kho Biến Thể Web 2.0 — N2Store</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../web2-shared/tpos-sidebar.css?v=20260514e" />
+        <link rel="stylesheet" href="../web2-shared/web2-effects.css?v=20260517b" />
+        <link rel="stylesheet" href="../native-orders/css/native-orders.css?v=20260425h" />
+        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260425h" />
+        <link rel="stylesheet" href="css/web2-variants.css?v=20260517a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/notification-system.js"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content" style="overflow: auto; height: 100vh">
+                <header class="page-head-mini">
+                    <h1 class="page-head-title">
+                        <i data-lucide="layers"></i>
+                        Kho Biến Thể
+                    </h1>
+                    <div class="page-head-counters">
+                        <span class="counter-pill" id="totalCounter">— biến thể</span>
+                        <span class="source-pill">web2_variants</span>
+                        <button
+                            class="btn-primary page-head-action"
+                            id="btnCreateVariant"
+                            type="button"
+                        >
+                            <i data-lucide="plus"></i> Thêm Biến Thể
+                        </button>
+                    </div>
+                </header>
+
+                <section class="search-section">
+                    <div class="filter-row">
+                        <div class="search-wrapper">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input
+                                type="text"
+                                class="search-input"
+                                id="filterSearch"
+                                placeholder="Tìm theo giá trị biến thể..."
+                                autocomplete="off"
+                            />
+                            <button class="search-clear" id="filterSearchClear" title="Xóa">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="filter-chip-group">
+                            <label class="chip-label chip-label-primary">
+                                <i data-lucide="eye"></i> Hiển thị:
+                            </label>
+                            <div class="chip-select-wrapper">
+                                <select id="filterActive" class="chip-select chip-select-primary">
+                                    <option value="true">Đang dùng</option>
+                                    <option value="all" selected>Tất cả</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="chip-caret"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-chip-group">
+                            <label class="chip-label chip-label-muted">
+                                <i data-lucide="layers"></i> Nhóm:
+                            </label>
+                            <div class="chip-select-wrapper">
+                                <select id="filterGroup" class="chip-select chip-select-muted">
+                                    <option value="">Tất cả</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="chip-caret"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="table-section">
+                    <div class="table-scroll">
+                        <table class="data-table" id="variantsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 48px">#</th>
+                                    <th>BIẾN THỂ</th>
+                                    <th style="width: 160px">NHÓM</th>
+                                    <th style="width: 100px">THỨ TỰ</th>
+                                    <th style="width: 110px">TRẠNG THÁI</th>
+                                    <th style="width: 140px">THAO TÁC</th>
+                                </tr>
+                            </thead>
+                            <tbody id="variantsTbody">
+                                <tr>
+                                    <td colspan="6" class="loading-row">
+                                        <div class="spinner"></div>
+                                        Đang tải dữ liệu...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <script src="../web2-shared/tpos-sidebar.js?v=20260514f"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
+        </script>
+
+        <!-- Create/Edit Modal -->
+        <div class="modal-overlay" id="variantModal">
+            <div class="modal-content" style="min-width: 480px; max-width: 560px">
+                <div class="modal-header">
+                    <h3 id="variantModalTitle">
+                        <i data-lucide="layers"></i>
+                        <span>Thêm biến thể</span>
+                    </h3>
+                    <button class="btn-icon-round" id="btnCloseVariantModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="field-row">
+                        <label>Giá trị biến thể *</label>
+                        <input
+                            id="vmValue"
+                            placeholder="VD: Size M / Đỏ / 2003 B5"
+                            autocomplete="off"
+                        />
+                    </div>
+                    <div class="field-row-grid field-row-grid-2">
+                        <div class="field-row">
+                            <label>Nhóm (tùy chọn)</label>
+                            <input
+                                id="vmGroup"
+                                placeholder="VD: Size / Màu / Mẫu"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="field-row">
+                            <label>Thứ tự</label>
+                            <input id="vmSortOrder" type="number" step="1" value="0" />
+                        </div>
+                    </div>
+                    <div class="field-row">
+                        <label>Trạng thái</label>
+                        <select id="vmIsActive">
+                            <option value="true" selected>Đang dùng</option>
+                            <option value="false">Đã ẩn</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" id="btnCancelVariant">Hủy</button>
+                    <button class="btn-primary" id="btnSaveVariant">
+                        <i data-lucide="save"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="../web2-shared/web2-effects.js?v=20260517b"></script>
+        <script src="js/web2-variants-api.js?v=20260517a"></script>
+        <script src="../web2-shared/web2-variants-cache.js?v=20260517a"></script>
+        <script src="js/web2-variants-app.js?v=20260517a"></script>
+    </body>
+</html>
