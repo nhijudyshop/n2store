@@ -25,17 +25,33 @@
 
 **Format & rationale**: xem [`docs/sessions/README.md`](docs/sessions/README.md). Tóm: dùng token+file md thay vì base64/hash thô vì hash 1-chiều, base64 transcript đầy đủ quá dài để paste; token ~30 ký tự + file structured có thể chứa context lớn, được git track.
 
-### Folder Snapshot — fallback khi session cũ chết (lỗi image limit, v.v.)
+### Folder Snapshot — BẮT BUỘC đọc TRƯỚC khi code phần mới
 
-Script `save-session-resume.sh` ngoài việc sinh file session token còn tự ghi đè `docs/sessions/latest/<folder>.md` cho mỗi folder bị chạm trong commit. Mục đích: khi session cũ **không gõ được nữa** (vd lỗi `dimension limit for many-image requests`), session mới chỉ cần đọc 1 file snapshot là có đủ context — không cần paste token, không cần walk chain.
+Script `save-session-resume.sh` ngoài việc sinh file session token còn tự ghi đè `docs/sessions/latest/<folder>.md` cho mỗi folder bị chạm trong commit. File snapshot chứa context cô đọng cho folder đó: latest session token, commit, files changed, 5 commits gần nhất chạm folder.
 
-**Khi user paste path `docs/sessions/latest/<folder>.md` hoặc nói "đọc latest <folder>":**
+**Khi code/edit phần mới trong folder X — BẮT BUỘC:**
 
-1. `Read` file đó → lấy: latest session token, commit, files changed, 5 commit gần nhất chạm folder.
-2. Nếu cần Next Steps đầy đủ → `Read` luôn file session được pointer trỏ tới (1 hop, không walk chain).
-3. Tổng hợp 2-3 câu → confirm hiểu → tiếp tục.
+Trước khi `Edit`/`Write` file trong folder X, **PHẢI `Read` `docs/sessions/latest/<X>.md` TRƯỚC** để hiểu folder/trang đó làm gì, tránh sửa sai logic vì thiếu context.
 
-**Index toàn bộ folder snapshots**: [`docs/sessions/latest/_all.md`](docs/sessions/latest/_all.md) — list tất cả folder đã có snapshot + folder bị chạm trong commit gần nhất.
+**Mapping folder → snapshot:**
+
+- Root files (CLAUDE.md, README, scripts root-level, …) → [`docs/sessions/latest/_root.md`](docs/sessions/latest/_root.md)
+- `so-order/` → [`docs/sessions/latest/so-order.md`](docs/sessions/latest/so-order.md)
+- `web2/`, `web2-shared/`, `web2-products/`, `web2-variants/` → snapshot cùng tên
+- `native-orders/`, `tpos-pancake/`, `scripts/`, `docs/` → snapshot cùng tên
+- **Index toàn bộ**: [`docs/sessions/latest/_all.md`](docs/sessions/latest/_all.md)
+
+**Workflow:**
+
+1. `Read` `docs/sessions/latest/<folder>.md` → lấy latest session token + commits gần nhất + files changed.
+2. Nếu cần Next Steps đầy đủ → `Read` 1 hop tới file session được pointer trỏ tới (không walk chain quá 1 level).
+3. Code tiếp với context đã hiểu.
+
+**Không áp dụng khi:** fix typo 1 dòng, user chỉ rõ file/dòng cụ thể, folder hoàn toàn mới chưa có snapshot.
+
+**Khi user paste path `docs/sessions/latest/<folder>.md` hoặc nói "đọc latest <folder>":** workflow giống trên — `Read` snapshot, tóm tắt 2-3 câu, confirm hiểu, tiếp tục.
+
+**Fallback session cũ chết** (vd lỗi `dimension limit for many-image requests`): session mới chỉ cần đọc 1 file snapshot là có đủ context — không cần paste token, không cần walk chain.
 
 File snapshot là **machine-generated, không edit thủ công** — sẽ bị ghi đè lần commit sau.
 

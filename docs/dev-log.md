@@ -25,6 +25,30 @@
 
 ## 2026-05-18
 
+### [docs] Rule mới: đọc `docs/sessions/latest/<folder>.md` trước khi code phần mới
+
+**User**: "thêm vào memory, devlog, claude khi code đoạn mới thì vào `/Users/mac/Desktop/n2store/docs/sessions/latest` đúng trang cần đọc trước để hiểu trang đó làm gì".
+
+**Thêm rule vào 3 nơi**:
+
+- Memory: `feedback_read_folder_snapshot_first.md` + entry trong `MEMORY.md`
+- CLAUDE.md: thêm section "Folder Snapshot — read before coding new section"
+- Dev-log: entry này
+
+**Mục đích**: khi code/edit phần mới trong folder X, PHẢI `Read` `docs/sessions/latest/<X>.md` trước để có context cô đọng (latest session token chạm folder + 5 commits gần nhất + files changed). Tránh sửa sai logic vì thiếu context.
+
+**Mapping**:
+
+- Root files → `_root.md`
+- `so-order/`, `native-orders/`, `tpos-pancake/`, `web2/`, `web2-shared/`, `web2-products/`, `web2-variants/`, `scripts/`, `docs/` → snapshot cùng tên
+- Index: `docs/sessions/latest/_all.md`
+
+**Không áp dụng**: fix typo 1 dòng, user chỉ rõ file/dòng, folder mới chưa có snapshot.
+
+**Status**: ✅ Done
+
+---
+
 ### [web2-shared] Fix sidebar collapsed — labels bleed-through + toggle button bị che
 
 **User**: "thanh menu đang bị lỗi giao diện" (collapsed bị bleed text "đ V", "C S", "L", "F" — chữ submenu lộ ra ngoài). Sau đó: "nút toggle khi collapsed lại bị che đi".
