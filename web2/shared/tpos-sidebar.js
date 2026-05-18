@@ -667,13 +667,23 @@
         const initial = escapeHtml(
             (user.displayName || user.username || '?').slice(0, 1).toUpperCase()
         );
-        const html = `<div class="web2-user-avatar">${initial}</div>
-                <div class="web2-user-info">
-                    <div class="web2-user-name">${escapeHtml(user.displayName || user.username)}</div>
-                    <div class="web2-user-role">${escapeHtml(user.role || '')}</div>
+        const username = escapeHtml(user.username || '');
+        const displayName = escapeHtml(user.displayName || user.username || '');
+        const role = escapeHtml(user.role || '');
+        const html = `<div class="web2-user-header">
+                    <div class="web2-user-avatar" title="${username}">${initial}</div>
+                    <div class="web2-user-info">
+                        <div class="web2-user-name" title="${displayName} (${username})">${displayName}</div>
+                        <div class="web2-user-meta">
+                            <span class="web2-user-handle">@${username}</span>
+                            <span class="web2-user-dot">·</span>
+                            <span class="web2-user-role">${role}</span>
+                        </div>
+                    </div>
                 </div>
-                <button class="web2-user-logout" id="web2UserLogout" type="button" title="Đăng xuất">
+                <button class="web2-user-logout-btn" id="web2UserLogout" type="button">
                     <i data-lucide="log-out"></i>
+                    <span class="web2-user-logout-text">Đăng xuất</span>
                 </button>`;
         if (!footer) {
             footer = document.createElement('div');
