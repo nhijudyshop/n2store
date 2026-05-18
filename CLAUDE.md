@@ -225,6 +225,57 @@ Format hiện tại: 1 key/dòng dạng `LABEL=value` hoặc block "## Service N
 
 Đây là file theo dõi liên tục — mọi thay đổi code đều phải ghi lại.
 
+## Web 2.0 vs Legacy — Quy ước phân biệt (BẮT BUỘC)
+
+Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc layer nào để KHÔNG share/conflate.
+
+### Web 2.0 — thuộc về
+
+**Folders** (đều thuộc Web 2.0):
+
+- `web2/` — TPOS-clone pages + 2 ví mới (`supplier-wallet/`, `customer-wallet/`)
+- `web2-shared/` — shared sidebar, page-shell, api client, caches
+- `web2-products/` — Kho SP riêng Web 2.0
+- `web2-variants/` — Kho Biến Thể riêng
+- `so-order/` — Sổ Order shop dùng để mua hàng từ NCC
+- `native-orders/` — Đơn Web của shop (tạo PBH)
+- `tpos-pancake/` — TPOS × Pancake reconciliation
+
+**API / Render routes**:
+
+- Có prefix `web2`: `/api/web2-products`, `/api/web2-variants`, `/api/web2/:entity` (generic)
+- Liên quan Web 2.0 nhưng KHÔNG prefix (legacy, đã có sẵn — đừng dời): `/api/native-orders`, `/api/fast-sale-orders` (PBH), `/api/wallet-deposits`
+- Bằng chứng "thuộc Web 2.0" khi không có prefix: comment `// WEB2.0 MODULE` ở đầu file route.
+
+**Postgres tables**:
+
+- Có prefix `web2_`: `web2_products`, `web2_variants`, `web2_records`, `web2_entities`
+- Liên quan Web 2.0 nhưng KHÔNG prefix (legacy): `native_orders`, `fast_sale_orders`, `balance_history` (SePay)
+
+**Firestore collections** (Web 2.0 data):
+
+- `so_order_v2/main` — Sổ Order
+- `supplier_wallet_v1/main` — Ví NCC
+- `customer_wallet_v1/main` — Ví KH
+- `web2_*` collections nếu sau này thêm
+
+### Legacy N2Store — không phải Web 2.0
+
+`orders-report/`, `inbox/`, `chat/`, `library/`, `home/`, `auth/`, `account/`, `shared/` (auth/cache/notification dùng chung), `cloudflare-worker/` (proxy chung cho cả 2 layer).
+
+### Quy tắc khi code
+
+1. **Marker bắt buộc cho file mới Web 2.0**: thêm token `WEB2.0` vào #Note header.
+    - Vd: `// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.`
+2. **Đặt tên DB table/Firestore mới**: prefix `web2_` cho Postgres, hậu tố `_v1`/`_v2` cho Firestore.
+3. **API route mới**: prefix `/api/web2-...` hoặc `/api/web2/...`. Nếu phải dùng tên trung tính (vd `wallet-deposits`) → comment đầu file `// WEB2.0 MODULE`.
+4. **Không cross-import**: legacy/orders-report KHÔNG được import code từ web2/, web2-shared/, supplier-wallet/, customer-wallet/. Ngược lại OK (web2 dùng `shared/js/...` được vì shared là chung).
+5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
+
+### Index quick-lookup
+
+Xem [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) để liệt kê đầy đủ: folder, route, table, Firestore collection.
+
 ## #Note Header Convention
 
 Mọi file `.html` và `.js` đều có comment `#Note` ở dòng đầu. Khi tạo file mới, LUÔN thêm:

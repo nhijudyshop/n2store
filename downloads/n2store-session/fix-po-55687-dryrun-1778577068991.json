@@ -1,0 +1,12 @@
+[
+    {
+        "code": "B2171",
+        "productId": 156920,
+        "lineQty": 1,
+        "excess": 1,
+        "moveIds": [935505, 935608],
+        "current": 2,
+        "target": 1,
+        "applied": false
+    }
+]

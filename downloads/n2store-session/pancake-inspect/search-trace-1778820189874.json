@@ -1,0 +1,70 @@
+{
+    "query": "huynh thanh dat",
+    "netLog": [
+        {
+            "t": 1778820184442,
+            "method": "GET",
+            "url": "https://pancake.vn/api/v1/users/avatar/56023ff1-2717-4237-afd2-9661bb36db56?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faW",
+            "postData": null
+        },
+        {
+            "t": 1778820184463,
+            "method": "GET",
+            "url": "https://content.pancake.vn/2.1-2605/avatars/3618800adea341d820a7f1bbe150e032977c148b",
+            "postData": null
+        }
+    ],
+    "wsFrames": [
+        {
+            "t": 1778820184388,
+            "dir": "IN",
+            "len": 160,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation:remove\",{\"user_id\":\"56023ff1-2717-4237-afd2-9661bb36db56\",\"conv_id\":\"270136663390370_2800261400025194\"}]"
+        },
+        {
+            "t": 1778820184394,
+            "dir": "IN",
+            "len": 262,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation:append\",{\"user\":{\"id\":\"56023ff1-2717-4237-afd2-9661bb36db56\",\"name\":\"Huyền Nhi\",\"fb_id\":\"122114482322119647\"},\"user_id\":\"56023ff1-2717-4237-afd2-9661bb36db56\",\"conv_id\":\"1690177825657641_2468627140319595\"}]"
+        },
+        {
+            "t": 1778820184484,
+            "dir": "IN",
+            "len": 1144,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"pages:seen_conversation\",{\"page_id\":\"270136663390370\",\"conversation\":{\"id\":\"1690177825657641_2468627140319595\",\"type\":\"COMMENT\",\"tags\":[],\"success\":true,\"seen\":true,\"extra_info\":{},\"from\":{\"id\":\"25117494811194845\",\"name\":\"Kim Hồng\"},\"post\":{\"type\":\"livestream\",\"status_type\":\"added_video\"},\"snippet\":\"Xanh hông\",\"inserted_at\":\"2026-05-15T04:38:11.000000\",\"updated_a"
+        },
+        {
+            "t": 1778820186859,
+            "dir": "IN",
+            "len": 161,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation:remove\",{\"user_id\":\"56023ff1-2717-4237-afd2-9661bb36db56\",\"conv_id\":\"1690177825657641_2468627140319595\"}]"
+        },
+        {
+            "t": 1778820186896,
+            "dir": "IN",
+            "len": 262,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation:append\",{\"user\":{\"id\":\"56023ff1-2717-4237-afd2-9661bb36db56\",\"name\":\"Huyền Nhi\",\"fb_id\":\"122114482322119647\"},\"user_id\":\"56023ff1-2717-4237-afd2-9661bb36db56\",\"conv_id\":\"270136663390370_25117494811194845\"}]"
+        }
+    ],
+    "actLog": [],
+    "result": {
+        "filterShopCustomers": {
+            "params": null,
+            "page": 1
+        },
+        "filteredConversationsCloneList": 0,
+        "visibleRowsCount": 11,
+        "visibleSample": [
+            "2Tuyết Vũ11:420788730969",
+            "4Tuyết Vũ11:42**********",
+            "Ruby Tuyết11:41vì bên e ckhoan hệ thống , có là báo rui ạ Nv.My",
+            "1Như Ý Ngô11:41Có quần ống loe ko e",
+            "2Trang Nguyen11:41alo den 65kg",
+            "Phạm Lành11:40dạ c",
+            "1Trang Hạnh11:38Sọc xanh",
+            "1Lan Hồ11:38Sọc đen, hồng",
+            "Kim Hồng11:38Xanh hông",
+            "1Do Thao11:38Sọc đen/nón da LV"
+        ]
+    }
+}

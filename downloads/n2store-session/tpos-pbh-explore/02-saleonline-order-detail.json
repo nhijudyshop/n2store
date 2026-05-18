@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "",
+        "message": "Property 'Tags' on type 'ODataService.SaleOnline_OrderViewModel' is not a navigation property or complex property. Only navigation properties can be expanded."
+    }
+}

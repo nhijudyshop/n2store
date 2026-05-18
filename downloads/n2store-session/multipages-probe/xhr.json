@@ -1,0 +1,121 @@
+[
+    {
+        "t": 1778833699507,
+        "method": "GET",
+        "status": 200,
+        "url": "https://pancake.vn/multi_pages",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702351,
+        "method": "GET",
+        "status": 200,
+        "url": "https://pancake.vn/api/v1/pages?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUw",
+        "ct": "application/json; charset=utf-8"
+    },
+    {
+        "t": 1778833702353,
+        "method": "GET",
+        "status": 200,
+        "url": "https://pancake.vn/api/v1/users/notifications?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faW",
+        "ct": "application/json; charset=utf-8"
+    },
+    {
+        "t": 1778833702459,
+        "method": "GET",
+        "status": 302,
+        "url": "https://pancake.vn/api/v1/pages/270136663390370/avatar?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702459,
+        "method": "GET",
+        "status": 302,
+        "url": "https://pancake.vn/api/v1/pages/193642490509664/avatar?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702462,
+        "method": "GET",
+        "status": 302,
+        "url": "https://pancake.vn/api/v1/pages/324873917372219/avatar?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702493,
+        "method": "GET",
+        "status": 302,
+        "url": "https://pancake.vn/api/v1/pages/117267091364524/avatar?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702494,
+        "method": "GET",
+        "status": 302,
+        "url": "https://pancake.vn/api/v1/pages/112678138086607/avatar?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702523,
+        "method": "POST",
+        "status": 200,
+        "url": "https://www.google-analytics.com/j/collect?v=1&_v=j102&a=2138372267&t=pageview&_s=1&dl=https%3A%2F%2Fpancake.vn%2Fmulti_pages&dp=%2Fmulti_pages&ul=en-us&dt=Pancake%20%7C%20Pancake.vn%20%7C%20The%20All-in-One%20Business%20Messaging%20Platform&sr=1440x",
+        "ct": "text/plain"
+    },
+    {
+        "t": 1778833702592,
+        "method": "GET",
+        "status": 200,
+        "url": "https://content.pancake.vn/2.1-25/avatars/051483143eadf25a81be4d10c88ef0defb75df2a",
+        "ct": "image/jpeg"
+    },
+    {
+        "t": 1778833702595,
+        "method": "GET",
+        "status": 200,
+        "url": "https://content.pancake.vn/2.1-25/avatars/0d4aae66d8c6dd05d983ec1d3371377cf95da9f8",
+        "ct": "image/jpeg"
+    },
+    {
+        "t": 1778833702620,
+        "method": "GET",
+        "status": 200,
+        "url": "https://content.pancake.vn/2.1-2603/avatars/8ed934cd24a06f8d328fb373fc1375ca99efa9e7",
+        "ct": "image/jpeg"
+    },
+    {
+        "t": 1778833702620,
+        "method": "GET",
+        "status": 200,
+        "url": "https://content.pancake.vn/2.1-2603/avatars/cff8b44c622ba43e93e1ce5f9249afba5de1b4a4",
+        "ct": "image/jpeg"
+    },
+    {
+        "t": 1778833702624,
+        "method": "GET",
+        "status": 200,
+        "url": "https://content.pancake.vn/2.1-24/avatars/eef077e21fd2f1d405709480bd7e3a976f8ef278",
+        "ct": "image/jpeg"
+    },
+    {
+        "t": 1778833702686,
+        "method": "GET",
+        "status": 302,
+        "url": "https://pancake.vn/api/v1/pages/igo_17841474211813256/avatar?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyI",
+        "ct": "text/html; charset=utf-8"
+    },
+    {
+        "t": 1778833702801,
+        "method": "POST",
+        "status": 204,
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-VG3LFY1C9R&gtm=45je65e0h2v884722063za200zd884722063&_p=1778833702219&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAAC&_prs=gs&are=1&cid=2029477588.1778833702&frm=0&pscdl=noapi&rcb=7&sr=1440x900&uaa=x86&ua",
+        "ct": "text/plain"
+    },
+    {
+        "t": 1778833707815,
+        "method": "POST",
+        "status": 204,
+        "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-VG3LFY1C9R&gtm=45je65e0h2v884722063za200zd884722063&_p=1778833702219&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQC&ae=a&are=1&cid=2029477588.1778833702&frm=0&pscdl=noapi&rcb=7&sr=1440x900&uaa=x86&uab=6",
+        "ct": "text/plain"
+    }
+]

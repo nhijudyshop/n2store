@@ -1,0 +1,130 @@
+{
+    "sockets": [
+        {
+            "id": 0,
+            "url": "wss://pancake.vn/socket/websocket?vsn=2.0.0",
+            "openedAt": "2026-05-15T03:43:55.849Z"
+        }
+    ],
+    "totalFrames": 16,
+    "framesPostNav": 6,
+    "bucket": {
+        "IN <no-topic> ": 2,
+        "IN <non-json>": 3,
+        "OUT <no-topic> ": 1
+    },
+    "frames": [
+        {
+            "t": 1778816635856,
+            "sockId": 0,
+            "dir": "OUT",
+            "len": 564,
+            "head": "[\"4\",\"4\",\"users:c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"phx_join\",{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.Uwid5cz87Ray6CbhkyegeUYoG7noud_ttQ3ea7DsFAo\",\"userId\":\"c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"platform\":\"web\"}]"
+        },
+        {
+            "t": 1778816635883,
+            "sockId": 0,
+            "dir": "OUT",
+            "len": 653,
+            "head": "[\"7\",\"7\",\"pages:270136663390370\",\"phx_join\",{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.Uwid5cz87Ray6CbhkyegeUYoG7noud_ttQ3ea7DsFAo\",\"userId\":\"c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"clientSession\":\"s25kTFMB5Sc3c6cxvsQcAeNJHTZseSYxULubccbEC8eQ5r3a588ejQhGkrNOshPf\",\"pageId\":\"270136663390370\",\"platform\":\"web\"}]"
+        },
+        {
+            "t": 1778816636050,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 96,
+            "head": "[\"4\",\"4\",\"users:c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"phx_reply\",{\"status\":\"ok\",\"response\":{}}]"
+        },
+        {
+            "t": 1778816636051,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 75,
+            "head": "[\"7\",\"7\",\"pages:270136663390370\",\"phx_reply\",{\"status\":\"ok\",\"response\":{}}]"
+        },
+        {
+            "t": 1778816636051,
+            "sockId": 0,
+            "dir": "OUT",
+            "len": 56,
+            "head": "[\"7\",\"8\",\"pages:270136663390370\",\"get_online_status\",{}]"
+        },
+        {
+            "t": 1778816636052,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 115,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"online_status\",{\"value\":\"available\",\"success\":true,\"page_id\":\"270136663390370\"}]"
+        },
+        {
+            "t": 1778816639502,
+            "sockId": 0,
+            "dir": "OUT",
+            "len": 138,
+            "head": "[\"7\",\"9\",\"pages:270136663390370\",\"viewing_conversation:start\",{\"conv_id\":\"1690177825657641_4193304060981183\",\"page_id\":\"270136663390370\"}]"
+        },
+        {
+            "t": 1778816639508,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 237,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation\",{\"users\":[{\"id\":\"c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"name\":\"Kỹ Thuật NJD\",\"fb_id\":\"130759086650522\"}],\"page_id\":\"270136663390370\",\"conv_id\":\"1690177825657641_4193304060981183\"}]"
+        },
+        {
+            "t": 1778816639539,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 262,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation:append\",{\"user\":{\"id\":\"c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"name\":\"Kỹ Thuật NJD\",\"fb_id\":\"130759086650522\"},\"user_id\":\"c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"conv_id\":\"1690177825657641_4193304060981183\"}]"
+        },
+        {
+            "t": 1778816639540,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 1141,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"pages:seen_conversation\",{\"page_id\":\"270136663390370\",\"conversation\":{\"id\":\"1690177825657641_4193304060981183\",\"type\":\"COMMENT\",\"tags\":[],\"success\":true,\"extra_info\":{},\"seen\":true,\"from\":{\"id\":\"5776139662410773\",\"name\":\"Do Thao\"},\"post\":{\"type\":\"livestream\",\"status_type\":\"added_video\"},\"snippet\":\"Tai bèo á e\",\"inserted_at\":\"2026-05-15T03:41:02.000000\",\"updated_at\":\"2026-05-15T03:42:53.000000\",\"message_count\":3,\"page_id\":\"270136663390370\",\"thread_id\":null,\"last_sent_by\":{\"id\":\"5776139662410773\",\"name\":\"Do Thao\"},\"assignee_ids\":[],\"recent_seen_users\":[{\"fb_id\":\"130759086650522\",\"fb_name\":\"Kỹ Thuật NJD\",\"seen_at\":\"2026-05-15T03:43:59.589109\"}],\"customers\":[{\"fb_id\":\"5776139662410773\",\"id\":\"a36adf99-0db9-4a75-949d-528a65334782\",\"name\":\"Do Thao\"}],\"is_combine"
+        },
+        {
+            "t": 1778816642607,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 161,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"viewing_conversation:remove\",{\"user_id\":\"c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"conv_id\":\"1690177825657641_2046451156219889\"}]"
+        },
+        {
+            "t": 1778816646993,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 1259,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"pages:update_conversation\",{\"page_id\":\"270136663390370\",\"conversation\":{\"id\":\"270136663390370_32555340030748550\",\"type\":\"INBOX\",\"tags\":[55,66],\"success\":true,\"extra_info\":{},\"seen\":false,\"from\":{\"email\":\"32555340030748550@facebook.com\",\"id\":\"32555340030748550\",\"name\":\"Lại Bích Ngọc\"},\"post\":null,\"snippet\":\"[Photo]\",\"inserted_at\":\"2025-11-01T05:30:18.730378\",\"updated_at\":\"2026-05-15T03:44:02.000000\",\"message_count\":22,\"page_id\":\"270136663390370\",\"thread_id\":\"2092819021122116\",\"last_sent_by\":{\"ai_generated\":false,\"email\":\"32555340030748550@facebook.com\",\"id\":\"32555340030748550\",\"name\":\"Lại Bích Ngọc\"},\"assignee_ids\":[],\"recent_seen_users\":[{\"fb_id\":\"122114482322119647\",\"fb_name\":\"Huyền Nhi\",\"seen_at\":\"2026-05-15T03:38:39.895959\"}],\"customers\":[{\"fb_id\":\"325"
+        },
+        {
+            "t": 1778816651000,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 1267,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"pages:update_conversation\",{\"page_id\":\"270136663390370\",\"conversation\":{\"id\":\"270136663390370_32555340030748550\",\"type\":\"INBOX\",\"tags\":[55,66],\"success\":true,\"extra_info\":{},\"seen\":false,\"from\":{\"email\":\"32555340030748550@facebook.com\",\"id\":\"32555340030748550\",\"name\":\"Lại Bích Ngọc\"},\"post\":null,\"snippet\":\"[Payment confirmed]\",\"inserted_at\":\"2025-11-01T05:30:18.730378\",\"updated_at\":\"2026-05-15T03:44:08.000000\",\"message_count\":23,\"page_id\":\"270136663390370\",\"thread_id\":\"2092819021122116\",\"last_sent_by\":{\"ai_generated\":false,\"email\":\"270136663390370@facebook.com\",\"id\":\"270136663390370\",\"name\":\"NhiJudy Store\"},\"assignee_ids\":[],\"recent_seen_users\":[{\"fb_id\":\"122114482322119647\",\"fb_name\":\"Huyền Nhi\",\"seen_at\":\"2026-05-15T03:38:39.895959\"}],\"customers\":[{\"fb_"
+        },
+        {
+            "t": 1778816665858,
+            "sockId": 0,
+            "dir": "OUT",
+            "len": 36,
+            "head": "[null,\"10\",\"phoenix\",\"heartbeat\",{}]"
+        },
+        {
+            "t": 1778816665891,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 63,
+            "head": "[null,\"10\",\"phoenix\",\"phx_reply\",{\"status\":\"ok\",\"response\":{}}]"
+        },
+        {
+            "t": 1778816669791,
+            "sockId": 0,
+            "dir": "IN",
+            "len": 1075,
+            "head": "[\"7\",null,\"pages:270136663390370\",\"pages:update_conversation\",{\"page_id\":\"270136663390370\",\"conversation\":{\"id\":\"1690177825657641_1020142703703680\",\"type\":\"COMMENT\",\"tags\":[],\"success\":true,\"extra_info\":{},\"seen\":false,\"from\":{\"id\":\"24972904252363297\",\"name\":\"NgocLoan Nguyen\"},\"post\":{\"type\":\"livestream\",\"status_type\":\"added_video\"},\"snippet\":\"240\",\"inserted_at\":\"2026-05-15T03:33:18.000000\",\"updated_at\":\"2026-05-15T03:44:22.000000\",\"message_count\":2,\"page_id\":\"270136663390370\",\"thread_id\":null,\"last_sent_by\":{\"id\":\"24972904252363297\",\"name\":\"NgocLoan Nguyen\"},\"assignee_ids\":[],\"recent_seen_users\":null,\"customers\":[{\"fb_id\":\"24972904252363297\",\"id\":\"b80f267f-f75b-4bf2-b113-8bd212840cd9\",\"name\":\"NgocLoan Nguyen\"}],\"is_combined\":true,\"post_id\":\"270136663390370_1690177825657641\",\"unread_count\""
+        }
+    ]
+}

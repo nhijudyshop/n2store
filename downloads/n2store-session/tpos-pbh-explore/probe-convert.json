@@ -1,0 +1,74 @@
+[
+    {
+        "method": "POST",
+        "path": "/odata/SaleOnline_Order/ODataService.ApplySalesOnlineOrder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/SaleOnline_Order/ODataService.ApplyDraftSaleOrder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/SaleOnline_Order/ODataService.CreateInvoice",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/SaleOnline_Order/ODataService.CreateOrder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/FastSaleOrder/ODataService.CreateFromSaleOnlineOrder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/FastSaleOrder/ODataService.CreateFromOrderOnline",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/rest/v1.0/saleonlineorder/createinvoice",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/rest/v1.0/fastsaleorder/createfromsaleonline",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/SaleOnline_Order/ODataService.CreateFastSaleOrder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/odata/SaleOnline_Order/ODataService.QuickCreateFastSaleOrder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/rest/v1.0/saleonline-order/createfastsaleorder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    {
+        "method": "POST",
+        "path": "/rest/v1.0/saleonlineorder/createfastsaleorder",
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    }
+]

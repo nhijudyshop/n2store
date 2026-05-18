@@ -1,0 +1,76 @@
+{
+    "overflows": {
+        "dashboard-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "models-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "library-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "bulk-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "campaigns-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "history-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "settings-desktop": {
+            "scrollW": 1440,
+            "clientW": 1440,
+            "bodyOverflow": false
+        },
+        "dashboard-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        },
+        "models-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        },
+        "library-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        },
+        "bulk-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        },
+        "campaigns-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        },
+        "history-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        },
+        "settings-mobile": {
+            "scrollW": 375,
+            "clientW": 375,
+            "bodyOverflow": false
+        }
+    },
+    "errsByPage": {},
+    "real": {}
+}

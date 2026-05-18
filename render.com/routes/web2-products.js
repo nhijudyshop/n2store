@@ -272,6 +272,55 @@ router.patch('/:code', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /api/web2-products/adjust-stock
+// Body: { adjustments: [{ code, delta, reason }] }
+//   - delta > 0: nhập kho (mua từ NCC, KH trả về)
+//   - delta < 0: xuất kho (bán PBH, trả NCC)
+// Atomic in a single transaction. Returns updated stocks.
+// Stock không bao giờ âm — clamp về 0 nếu tổng < 0 (warn).
+// -----------------------------------------------------
+router.post('/adjust-stock', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : null;
+    if (!adjustments || !adjustments.length) {
+        return res.status(400).json({ error: 'adjustments array required' });
+    }
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+        const results = [];
+        const warnings = [];
+        for (const adj of adjustments) {
+            const code = String(adj.code || '').trim();
+            const delta = Number(adj.delta) || 0;
+            if (!code || !Number.isFinite(delta) || delta === 0) continue;
+            // GREATEST clamps negative result to 0
+            const r = await client.query(
+                `UPDATE web2_products
+                 SET stock = GREATEST(0, stock + $1), updated_at = $2
+                 WHERE code = $3
+                 RETURNING code, stock`,
+                [delta, Date.now(), code]
+            );
+            if (!r.rows.length) {
+                warnings.push(`Code "${code}" not found, skipped`);
+                continue;
+            }
+            results.push({ code: r.rows[0].code, stock: r.rows[0].stock, delta });
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, results, warnings });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// -----------------------------------------------------
 // DELETE /api/web2-products/:code — hard delete
 // -----------------------------------------------------
 router.delete('/:code', async (req, res) => {

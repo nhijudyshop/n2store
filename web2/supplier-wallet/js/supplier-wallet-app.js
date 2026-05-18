@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // Ví NCC — app controller.
 //
 // Flow:
@@ -308,7 +308,7 @@
         document.getElementById('swReturnTotal').textContent = fmtVnd(total);
     }
 
-    function confirmReturn() {
+    async function confirmReturn() {
         const selectedRows = [];
         let total = 0;
         document.querySelectorAll('#swReturnBody tr[data-row-id]').forEach((tr) => {
@@ -327,6 +327,30 @@
         if (!selectedRows.length) {
             notify('Chưa chọn dòng nào để trả', 'warning');
             return;
+        }
+        // Stock adjust: trả NCC = xuất kho (giảm stock đã +qty khi sync).
+        // Match qua productName. Best-effort, không chặn ledger nếu fail.
+        try {
+            const agg = suppliers[activeSupplier];
+            const adjustments = [];
+            for (const sel of selectedRows) {
+                const p = agg?.purchases?.find((x) => x.rowId === sel.rowId);
+                if (!p) continue;
+                const matched = window.Web2ProductsCache?.findByNameExact?.(p.productName);
+                if (matched?.code) {
+                    adjustments.push({
+                        code: matched.code,
+                        delta: -sel.qty,
+                        reason: `Trả NCC ${activeSupplier}`,
+                    });
+                }
+            }
+            if (adjustments.length && window.Web2ProductsApi?.adjustStock) {
+                await window.Web2ProductsApi.adjustStock(adjustments);
+                window.Web2ProductsCache?.pushTickle?.({ action: 'supplier-return' });
+            }
+        } catch (e) {
+            console.warn('[supplier-wallet] stock adjust fail:', e.message);
         }
         window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
             type: 'return',
@@ -440,6 +464,11 @@
         const purged = window.SupplierWalletStorage.cleanupOldTransactions(walletState);
         if (purged) window.SupplierWalletStorage.save(walletState);
         wireUi();
+        // Web2ProductsCache để match productName → code khi adjust stock lúc trả hàng.
+        // Init async không chặn render — return modal có check optional.
+        if (window.Web2ProductsCache?.init) {
+            window.Web2ProductsCache.init().catch(() => {});
+        }
         await loadAndRender();
         // Firestore sync
         const ok = await window.SupplierWalletStorage.Sync.init((remote) => {

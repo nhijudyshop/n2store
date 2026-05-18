@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // Customer Wallet — storage + Firestore sync + PBH fetch.
 //
 // Schema (localStorage `customerWallet_v1`, Firestore `customer_wallet_v1/main`):
@@ -193,23 +193,31 @@
         },
     };
 
-    // Fetch PBH list from Render. Returns array of PBH objects.
-    async function fetchPbhList(limit = 500) {
-        try {
-            const r = await fetch(
-                `${WORKER_URL}/api/fast-sale-orders/load?limit=${limit}&offset=0`
-            );
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const data = await r.json();
-            // Endpoint trả về { data: [...], total, ... } hoặc trực tiếp array
-            if (Array.isArray(data)) return data;
-            if (Array.isArray(data.data)) return data.data;
-            if (Array.isArray(data.orders)) return data.orders;
-            return [];
-        } catch (e) {
-            console.warn('[CustomerWallet] fetchPbhList fail:', e.message);
-            return [];
+    // Fetch ALL PBH from Render with pagination loop. Mỗi page = 500 rows.
+    // Stop khi page trả về < pageSize (đã hết) hoặc gặp lỗi.
+    async function fetchPbhList(maxPages = 20, pageSize = 500) {
+        const all = [];
+        for (let page = 0; page < maxPages; page++) {
+            const offset = page * pageSize;
+            try {
+                const r = await fetch(
+                    `${WORKER_URL}/api/fast-sale-orders/load?limit=${pageSize}&offset=${offset}`
+                );
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+                let batch = [];
+                if (Array.isArray(data)) batch = data;
+                else if (Array.isArray(data.data)) batch = data.data;
+                else if (Array.isArray(data.orders)) batch = data.orders;
+                if (!batch.length) break;
+                all.push(...batch);
+                if (batch.length < pageSize) break; // hết
+            } catch (e) {
+                console.warn(`[CustomerWallet] fetchPbhList page ${page} fail:`, e.message);
+                break;
+            }
         }
+        return all;
     }
 
     global.CustomerWalletStorage = {

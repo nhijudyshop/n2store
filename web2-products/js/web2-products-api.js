@@ -56,6 +56,15 @@
         async remove(code) {
             return _fetchJson(`${BASE}/${encodeURIComponent(code)}`, { method: 'DELETE' });
         },
+        // Atomic bulk stock adjustment. adjustments = [{ code, delta, reason }].
+        // delta > 0: nhập kho; delta < 0: xuất kho. Stock clamp tại 0.
+        async adjustStock(adjustments) {
+            return _fetchJson(`${BASE}/adjust-stock`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adjustments }),
+            });
+        },
     };
 
     global.Web2ProductsApi = Web2ProductsApi;

@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // Supplier Wallet — storage + Firestore sync.
 //
 // Schema (localStorage `supplierWallet_v1`, Firestore `supplier_wallet_v1/main`):

@@ -1,0 +1,52 @@
+[
+    {
+        "code": "B2105",
+        "productId": 156831,
+        "lineQty": 4,
+        "excess": 4,
+        "moveIds": [935409, 935512],
+        "current": 9,
+        "target": 5,
+        "applied": false
+    },
+    {
+        "code": "B2068",
+        "productId": 156785,
+        "lineQty": 2,
+        "excess": 2,
+        "moveIds": [935410, 935513],
+        "current": 5,
+        "target": 3,
+        "applied": false
+    },
+    {
+        "code": "N4119",
+        "productId": 156792,
+        "lineQty": 1,
+        "excess": 1,
+        "moveIds": [935411, 935514],
+        "current": 3,
+        "target": 2,
+        "applied": false
+    },
+    {
+        "code": "B2067",
+        "productId": 156796,
+        "lineQty": 1,
+        "excess": 1,
+        "moveIds": [935412, 935515],
+        "current": 3,
+        "target": 2,
+        "applied": false
+    },
+    {
+        "code": "B2069",
+        "productId": 156797,
+        "lineQty": 3,
+        "excess": 3,
+        "moveIds": [935413, 935516],
+        "current": 7,
+        "target": 4,
+        "applied": false
+    }
+]

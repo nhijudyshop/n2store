@@ -1549,6 +1549,7 @@
             const name = (r.productName || '').trim();
             if (!name) continue;
             const variant = (r.variant || '').trim();
+            const qty = Number(r.qty) || 0;
             // Convert price to VND because kho lưu VND, while tab có thể CNY/USD.
             const sellVnd = Math.round((Number(r.sellPrice) || 0) * (Number(tab.rate) || 1));
             const costVnd = Math.round((Number(r.costPrice) || 0) * (Number(tab.rate) || 1));
@@ -1569,6 +1570,9 @@
                     // variant user đã set sẵn (vd "Size M" trong kho ≠ "Size L"
                     // trong đơn này).
                     if (variant && !matched.variant) patch.variant = variant;
+                    // Stock: SP đã có → +qty (mua thêm = nhập kho thêm).
+                    // Chỉ cộng nếu qty > 0 để tránh patch dư khi sửa note thuần túy.
+                    if (qty > 0) patch.stock = (Number(matched.stock) || 0) + qty;
                     if (Object.keys(patch).length) {
                         await window.Web2ProductsApi.update(matched.code, patch);
                         updatedCount += 1;
@@ -1581,7 +1585,8 @@
                         variant: variant || null,
                         price: sellVnd,
                         originalPrice: costVnd,
-                        stock: 0,
+                        // Stock: SP mới → khởi tạo với qty đã mua (nhập kho lần đầu).
+                        stock: qty,
                         imageUrl: r.productImage || null,
                         note: trimLabel,
                         createdBy: 'so-order',

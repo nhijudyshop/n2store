@@ -1,0 +1,382 @@
+[
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/",
+        "ts": 1778646928403,
+        "respStatus": 200
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/account/layout",
+        "ts": 1778646929207
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/account/login",
+        "ts": 1778646929213,
+        "respStatus": 200
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/account/footer",
+        "ts": 1778646929258,
+        "respStatus": 200
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "%2F%23%2Faccount%2Flogin&sdk=joey&wants_cookie_data=false",
+        "ts": 1778646929508,
+        "respStatus": 200
+    },
+    {
+        "phase": "login",
+        "method": "POST",
+        "url": "/account/login",
+        "postData": "{\"RememberMe\":true,\"Email\":\"nvkt\",\"Password\":\"Aa@123456789\"}",
+        "ts": 1778646932589,
+        "respStatus": 200,
+        "respBody": "{\"succeeded\":true,\"twoFactorEnabled\":false}"
+    },
+    {
+        "phase": "login",
+        "method": "POST",
+        "url": "/token",
+        "postData": "grant_type=password&username=nvkt&password=Aa%40123456789&client_id=tmtWebApp",
+        "ts": 1778646932639,
+        "respStatus": 200,
+        "respBody": "{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiYWU1YzcwYTEtODk4Yy00ZTlmLWIyNDgtYWNjMTBiNzAzNmJjIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52a3QiLCJEaXNwbGF5TmFtZSI6Im52a3QiLCJBdmF0YXJVcmwiOiIiLCJTZWN1cml0eVN0YW1wIjoiZmJhNWYxNTktODQ3ZC00NjcxLWE1MWMtOTkwMjEwYjcwNzU5IiwiQ29tcGFueUlkIjoiMSIsIlRlbmFudElkIjoidG9tYXRvLnRwb3Mudm4iLCJSb2xlSWRzIjoiNzMxNTQzNTgtZDUwYi00MDllLTk5ZmQtYTk4NDAxM2I0ZWE1LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZixiMmE1Mjc5ZC0zZjZkLTQ4MzQtOThmZS1hZTNmMDAzYjk5OGMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOlsiQWRtaW5pc3RyYXRvcnMiLCJDU0tIIC0gTMOgaSIsIlNBTEUiXSwianRpIjoiZTZlMjg0NzctMTIxYy00MjJjLTliNDUtMWRhNTdjNTY2MGM0IiwiaWF0IjoiMTc3ODY0NjkzMiIsIm5iZiI6MTc3ODY0NjkzMiwiZXhwIjoxNzc5OTQyOTMyLCJpc3MiOiJodHRwczovL3RvbWF0by50cG9zLnZuIiwiYXVkIjoiaHR0cHM6Ly90b21hdG8udHBvcy52bixodHRwczovL3Rwb3Mudm4ifQ.QYtdBxsPm-NvrIWqjL2VB2vEYIOTcCW-Q7tkVx6nlOk\",\"token_type\":\"bearer\",\"expires_in\":1295999,\"refresh_token\":\"d7648ab4a69d425a929cb3aa62d09cd9\",\"userName\":\"nvkt\",\"userId\":\"ae5c70a1-898c-4e9f-b248-acc10b7036bc\",\"as:client_id\":\"tmtWebApp\",\".issued\":\"Wed, 13 May 2026 04:35:32 GMT\",\".expires\":\"Thu, 28 May 2026 04:35:32 GMT\"}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/account/layout",
+        "ts": 1778646932710,
+        "respStatus": 200,
+        "respBody": "{\"logged\":true,\"user\":{\"Id\":\"ae5c70a1-898c-4e9f-b248-acc10b7036bc\",\"Avatar\":null,\"Name\":\"nvkt\",\"Email\":\"nvkt@gmail.com\",\"UserName\":\"nvkt\",\"CompanyId\":1,\"Functions\":[\"App.SaleOnline.Setting.Update\",\"App.Sale.LoyaltyProgram.Activate\",\"App.Sale.LoyaltyProgram.Edit\",\"App.Catalog.Product.UpdateVariantPrice\",\"App.SaleOnline.Order.AssignedEmployee\",\"App.SaleOnline.Order.UpdatePrice\",\"App.SaleOnline.LiveCampaign.Copy\",\"App.SaleOnline.LiveCampaign.Report\",\"App.Sale.Fast.DeliveryOrder.ViewCrossCheckingDelivery\",\"App.Catalog.ProductTemplate.ViewLog\",\"App.Sale.Fast.Order.MergeOrder\",\"App.Accounting.PaymentCustomer.Cancel\",\"App.Accounting.PaymentSupplier.Cancel\",\"App.Sale.Fast.Order.UpdateDeliveryCarrier\",\"App.Sale.Fast.Order.UpdatePackageImages\",\"App.Sale.Fast.DeliveryOrder.UpdateCOD\",\"App.Sale.Fast.Order.WiInvoiceUpdateAutomaticActionConfiguration\",\"App.Configs.User.CreateTempPassword\",\"App.Configs.User.RevokeTempPassword\",\"App.Sale.Fast.Order.HistoryCrossCheckProduct\",\"App.Reports.AuditLogFastSaleOrder.Read\",\"App.Configs.Others.UpdateTenantInvoice\",\"App.Sale.Fast.Order.CreateVAT\",\"App.Sale.Fast.Split.Order.Error.Inv\",\"App.Reports.InventoryValuation.Print\",\"App.Reports.NXT.Print\",\"App.Reports.Order.Print\",\"App.Reports.Delivery.Print\",\"App.Reports.Purchase.Print\",\"App.Reports.Dept_Customer.Print\",\"App.Reports.Dept_Supplier.Print\",\"App.Reports.AccountCashPrintJournal.Print\",\"App.Reports.ThuChi.Print\",\"App.Reports.PartnerCreate.Read\",\"App.Reports.RateInvoiceFromSaleOnline.Read\",\"App.Reports.ProductInvoice.Read\",\"App.Reports.ProductInvoice.Excel\",\"App.Catalog.RevenueBegan.Delete\",\"App.Accounting.PaymentSupplier.Insert\",\"App.MarketingOnline.PartnerGroup.Read\",\"App.Accounting.Tax.Update\",\"App.Purchase.Fast.Order.ExportExcel\",\"App.Reports.Delivery.Excel\",\"App.Sale.Quotation.PrintPdf\",\"App.Configs.IRMailServer.Delete\",\"App.Purchase.Fast.Order.Approve\",\"App.Sale.Order.UpdatePrice\",\"App.Reports.Dept_Supplier.Excel\",\"App.Sale.Pos.PriceManager.CashBoxIn\",\"App.Catalog.Others.Read\",\"App.Catalog.Partner.Customer.InsertTags\",\"App.Catalog.PromotionProgram.Delete\",\"App.Reports.AccountNotInvoice.Read\",\"App.Sale.Pos.PriceStaff.Price\",\"App.Catalog.Product.ExportExcel\",\"App.Sale.Fast.Order.Update\",\"App.Catalog.Partner.Supplier.Delete\",\"App.Reports.Order.Excel\",\"App.Sale.Fast.Refund.ExportExcel\",\"App.Accounting.AccountJournal.Update\",\"App.Accounting.Inventory.Read\",\"App.SaleOnline.Facebook.Configs\",\"App.Catalog.Others.Update\",\"App.Accounting.PhieuThu.Print\",\"App.Reports.Exported.Excel\",\"App.Accounting.Deposit.Update\",\"App.SaleOnline.Order.QuickCreateFSO\",\"App.Sale.Fast.Refund.Update\",\"App.Accounting.Tax.Read\",\"App.Reports.Purchase.Read\",\"App.SaleOnline.Facebook.SetCampaign\",\"App.SaleOnline.LiveCampaign.Insert\",\"App.Configs.User.Update\",\"App.Reports.Dept_Supplier.Read\",\"App.Configs.User.Insert\",\"App.Configs.User.Delete\",\"App.Catalog.Partner.Customer.Read\",\"App.Purchase.Fast.Refund.Update\",\"App.Catalog.Warehouse.Insert\",\"App.Accounting.PaymentCustomer.Read\",\"App.Catalog.ProductTemp"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/common/get_type_user_lang",
+        "ts": 1778646932980,
+        "respStatus": 200,
+        "respBody": "\"vi\""
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/common/getlanguage_dicts?type=vi",
+        "ts": 1778646933014,
+        "respStatus": 200,
+        "respBody": "{\"label.sales_channel\":\"Kênh bán hàng\",\"label.type\":\"Loại\",\"PromotionList\":\"Danh sách khuyến mãi\",\"overview.show_hide_search_report\":\"Ẩn hiện search báo cáo\",\"customer.list\":\"Danh sách khách hàng\",\"ProductPairing\":\"Ghép nối sản phẩm\",\"label.quantity\":\"Số lượng\",\"label.order\":\"Đơn hàng\",\"SyncUpShopee\":\"Đồng bộ lên Shopee\",\"product.name\":\"Tên sản phẩm\",\"ProductSync\":\"Đồng bộ sản phẩm\",\"CreateCampaign\":\"Tạo chiến dịch\",\"product.delete\":\"Xóa sản phẩm\",\"label.action\":\"Thao tác\",\"label.image\":\"Ảnh\",\"Action\":\"Hành động\",\"label.upselling\":\"Giao hàng vượt quá số lượng hóa đơn\",\"label.price\":\"Giá\",\"label.name\":\"Tên\",\"label.status\":\"Trạng thái\",\"SyncCategories\":\"Đồng bộ về danh mục\",\"product.edit\":\"Sửa sản phẩm\",\"label.weight\":\"Khối lượng\",\"label.amount_total\":\"Tổng tiền\",\"label.before\":\"Trước\",\"Material\":\"Chất liệu\",\"label.next\":\"Tiếp theo\",\"label.order_cancel\":\"Hủy đơn hàng\",\"product.description\":\"Mô tả sản phẩm\",\"ShippingCostsEstimated\":\"Ước tính phí vận chuyển\",\"DeliveryCost\":\"Phí vận chuyển\",\"label.create\":\"Thêm\",\"Orderer\":\"Người đặt\",\"ExpectedAmountReceived\":\"Số tiền dự kiến nhận được\",\"stockpickingtype.need_do\":\"Cần làm\",\"label.search\":\"Tìm kiếm\",\"label.other_info\":\"Thông tin khác\",\"label.close\":\"Đóng\",\"SelectSyncShopee\":\"Chọn và đồng bộ từ Shopee\",\"promotion.program\":\"Chương trình khuyến mãi\",\"stockpickingtype.move\":\"Chuyển\",\"Pattern\":\"Họa tiết\",\"ProductPrice\":\"Giá sản phẩm\",\"label.internal_transfer\":\"Dịch chuyển nội bộ\",\"label.variant\":\"Biến thể\",\"label.display\":\"Hiển thị\",\"label.skip\":\"Bỏ qua\",\"NeedToInvoice\":\"Cần tạo hóa đơn\",\"label.to_date\":\"Đến ngày\",\"menu.sale_channel_config\":\"Cấu hình kênh bán hàng\",\"fso.recipient_name\":\"Tên người nhận\",\"label.reference\":\"Tham chiếu\",\"delivery.address\":\"Địa chỉ giao hàng\",\"label.delivery\":\"Giao hàng\",\"delivery.date\":\"Ngày giao\",\"PriceQuantityUpdates\":\"Cập nhật giá và số lượng\",\"Sync\":\"Đồng bộ\",\"AmountPaidByBuyer\":\"Số tiền người mua phải trả\",\"RecipientPhoneNumber\":\"Số điện thoại người nhận\",\"label.receipts\":\"Nhận hàng\",\"stockpickingtype.need_receive\":\"Cần nhận\",\"so.order_details\":\"Chi tiết đơn hàng\",\"OrderInformation\":\"Thông tin đơn hàng\",\"label.purchaser\":\"Người mua\",\"label.warehouse\":\"Kho/Kho hàng\",\"label.confirm\":\"Xác nhận\",\"Style\":\"Phong cách\",\"promotion.name\":\"Tên chương trình\",\"Street\":\"Đường\",\"label.save\":\"Lưu\",\"label.cancel\":\"Huỷ bỏ\",\"label.expected_date\":\"Ngày dự kiến\",\"stockpicking.original_needs\":\"Nhu cầu ban đầu\",\"CreateNewPromotion\":\"Tạo chương trình khuyến mãi mới\",\"label.result\":\"Kết quả\",\"product.id\":\"Id Sản phẩm\",\"DeliveryService\":\"Dịch vụ giao hàng\",\"NumberOfDaysDelivery\":\"Số ngày giao\",\"label.city\":\"Thành phố\",\"delivery.time\":\"Giờ giao\",\"label.all\":\"Tất cả\",\"label.from_date\":\"Từ ngày\",\"ClothesType\":\"Loại trang phục\",\"label.picture\":\"Hình\",\"label.create_date\":\"Ngày tạo\",\"label.see_details\":\"Xem chi tiết\",\"BuyerChoosesPaymentMethods\":\"Người mua chọn phương thức thanh toán\",\"label.partner\":\"Đối tác\",\"CreatePromotionCampaign\":\"Tạo chiến dịch khuyến mãi\",\"FullAddress\":\"Địa chỉ đầy đủ\",\"label.act"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/account/logged",
+        "ts": 1778646933088
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/management/processupdate",
+        "ts": 1778646933090,
+        "respStatus": 200,
+        "respBody": "{\"success\":false,\"hasUpdated\":false}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/shared/app",
+        "ts": 1778646933139
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/home/dashboard",
+        "ts": 1778646933139,
+        "respStatus": 200
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/common/get_type_user_lang",
+        "ts": 1778646933195
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/totp/status",
+        "ts": 1778646933195
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/common/getsaleconfig",
+        "ts": 1778646933195
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/odata/ResCurrency?$select=Id,Name,Symbol",
+        "ts": 1778646933196
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/common/getcompanycurrent",
+        "ts": 1778646933196,
+        "respStatus": 200,
+        "respBody": "{\"CompanyId\":1,\"PartnerId\":1,\"ProductId\":null,\"CompanyName\":\"NJD Live\",\"QuantityDecimal\":0,\"DateServer\":\"2026-05-13T04:35:33.3924674Z\",\"Configs\":\"{\\\"Configs\\\":null,\\\"PhoneRegex\\\":\\\"(?:\\\\\\\\b|[^0-9])((?:o|0|84|\\\\\\\\+84)\\\\\\\\s?[1-9](?:(?:\\\\\\\\d|o)(?:\\\\\\\\s+|\\\\\\\\.)?){8})(?:\\\\\\\\b|[^0-9])\\\",\\\"NumberRouding\\\":0,\\\"StepPrice\\\":1000,\\\"StepQuantity\\\":1,\\\"TimeLock\\\":15,\\\"IsRandomColor\\\":true,\\\"PrintLimit\\\":0,\\\"Currency\\\":{\\\"Name\\\":\\\"VND\\\",\\\"Rounding\\\":1.0,\\\"Symbol\\\":\\\"đ\\\",\\\"Position\\\":\\\"after\\\"},\\\"IsEditPriceNotAllowed\\\":false,\\\"StatusOrderNotAlloweds\\\":null,\\\"DateLimit\\\":\\\"2025-05-28T00:00:00\\\",\\\"TimeZone\\\":{\\\"text\\\":\\\"(UTC+07:00) Bangkok, Hanoi, Jakarta+7:00\\\",\\\"value\\\":\\\"SE Asia Standard Time\\\"},\\\"IsEnableNotificationSocket\\\":false,\\\"IsEnableOmiCall\\\":false,\\\"DomainOmiCall\\\":null,\\\"PhoneNumberRegexes\\\":[],\\\"IsConvert\\\":null,\\\"PhoneRegexCustom\\\":\\\"(?:\\\\\\\\b|[^0-9])((?:o|0|84|\\\\\\\\+84)\\\\\\\\s?[1-9](?:(?:\\\\\\\\d|o)(?:\\\\\\\\s+|\\\\\\\\.)?){8})(?:\\\\\\\\b|[^0-9])\\\"}\",\"BaseUrlShip\":\"c2VlYWQ6Ly9sZHN0YS5lYXpkLmd5\",\"RequestLimit\":200,\"SymbolPrice\":null,\"RoundingPrice\":0.0,\"IsMultiCompany\":true,\"DefaultWarehouseId\":1,\"ShipDefault\":null,\"WeightDefault\":null,\"DefaultWarehouseName\":\"Nhi Judy Store\",\"CityCode\":\"79\",\"DistrictCode\":\"761\",\"DeliveryCarrierId\":7,\"IsCurrencyConversionEnabled\":null,\"ConvertModel\":null,\"DestinationConvertCurrencyUnit\":null,\"IsConnectWionLoyalty\":false,\"IsWiInvoice\":false}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/rest/v1.0/producttemplate/getproducttax?companyId=1&lastId=0&top=200",
+        "ts": 1778646933248
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/odata/TransportConfigs",
+        "ts": 1778646933248,
+        "respStatus": 200,
+        "respBody": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#TransportConfigs\",\"value\":[]}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/odata/DeliveryCarrier?$filter=Active%20eq%20true",
+        "ts": 1778646933283,
+        "respStatus": 200,
+        "respBody": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#DeliveryCarrier\",\"value\":[{\"IsPrintCustom\":false,\"Id\":4,\"Name\":\"TH\\u00c0NH PH\\u1ed0 (1 3 4 5 6 7 8 10 11 Ph\\u00fa Nhu\\u1eadn, B\\u00ecnh Th\\u1ea1nh, T\\u00e2n Ph\\u00fa, T\\u00e2n B\\u00ecnh, G\\u00f2 V\\u1ea5p,)\",\"SenderName\":null,\"SenderPhone\":null,\"Sequence\":null,\"Active\":true,\"DeliveryType\":\"fixed\",\"DeliveryTypeGet\":\"Gi\\u00e1 c\\u1ed1 \\u0111\\u1ecbnh\",\"ProductId\":null,\"FixedPrice\":null,\"CompanyId\":null,\"Amount\":null,\"FreeOver\":false,\"Margin\":null,\"HCMPTConfigId\":null,\"GHN_ApiKey\":null,\"GHN_ClientId\":null,\"GHN_NoteCode\":null,\"GHN_PaymentTypeId\":1,\"GHN_PackageWidth\":0,\"GHN_PackageLength\":0,\"GHN_PackageHeight\":0,\"GHN_ServiceId\":null,\"ViettelPost_UserName\":null,\"ViettelPost_Password\":null,\"ViettelPost_Token\":null,\"ViettelPost_ServiceId\":null,\"ViettelPost_ProductType\":null,\"ViettelPost_OrderPayment\":null,\"ShipChung_ServiceId\":null,\"ShipChung_PaymentTypeID\":null,\"ShipChung_ApiKey\":null,\"HCMPost_sI\":null,\"HCMPost_sK\":null,\"HCMPost_ShopID\":null,\"HCMPost_ShopName\":null,\"HCMPost_ServiceId\":null,\"TokenShip\":null,\"VNPost_ClientId\":null,\"VNPost_ServiceId\":null,\"VNPost_IsContracted\":false,\"VNPost_PickupType\":null,\"GHTK_Token\":null,\"GHTK_ClientId\":null,\"GHTK_IsFreeShip\":1,\"SuperShip_Token\":null,\"SuperShip_ClientId\":null,\"SuperShip_Config\":\"1\",\"Config_TransportId\":null,\"Config_TransportName\":null,\"EMS_Service\":null,\"EMS_Inventory\":null,\"EMS_Token\":null,\"TinToc_Service\":null,\"TinToc_ServiceCode\":null,\"NinjaVan_ClientId\":null,\"NinjaVan_ClientSecret\":null,\"NinjaVan_ServiceType\":null,\"NinjaVan_ServiceLevel\":null,\"NinjaVan_Token\":null,\"NinjaVan_BranchId\":null,\"ZTO_PickupType\":null,\"ZTO_ProductType\":null,\"ZTO_SendWayType\":null,\"ZTO_AppCode\":null,\"ZTO_SecretKey\":null,\"Config_DefaultFee\":20000.00,\"Config_DefaultWeight\":null,\"DateCreated\":\"2022-02-21T09:23:50.597+07:00\",\"ExtrasText\":\"{\\\"PickWorkShift\\\":null,\\\"PickWorkShiftName\\\":null,\\\"DeliverWorkShift\\\":null,\\\"DeliverWorkShiftName\\\":null,\\\"PaymentTypeId\\\":null,\\\"PosId\\\":null,\\\"IsDropoff\\\":false,\\\"IsInsurance\\\":false,\\\"InsuranceFee\\\":null,\\\"IsPackageViewable\\\":false,\\\"Is_Fragile\\\":false,\\\"PickupAccountId\\\":null,\\\"SoldToAccountId\\\":null,\\\"IsPartSign\\\":null,\\\"IsAllowTryout\\\":false,\\\"IsDeductCod\\\":false,\\\"IsCollectMoneyGoods\\\":false,\\\"CollectMoneyGoods\\\":null,\\\"ConfirmType\\\":null,\\\"PartialDelivery\\\":null,\\\"IsRefund\\\":null,\\\"ServiceCustoms\\\":[],\\\"IsInsuranceEqualTotalAmount\\\":false,\\\"IsReturn\\\":false,\\\"IsSenderAddress\\\":false,\\\"SenderAddress\\\":{\\\"Street\\\":null,\\\"City\\\":null,\\\"District\\\":null,\\\"Ward\\\":null},\\\"IsSenderPrint\\\":false}\",\"ExtraProperties\":\"[]\",\"ConfigId\":null,\"AuthUrl\":null,\"Extras\":null},{\"IsPrintCustom\":false,\"Id\":5,\"Name\":\"TH\\u00c0NH PH\\u1ed0 (Q2-12-B\\u00ecnh T\\u00e2n-Th\\u1ee7 \\u0110\\u1ee9c)\",\"SenderName\":null,\"SenderPhone\":null,\"Sequence\":null,\"Active\":true,\"DeliveryType\":\"fixed\",\"DeliveryTypeGet\":\"Gi\\u00e1 c\\u1ed1 \\u0111\\u1ecbnh\",\"ProductId\":null,\"FixedPrice\":null,\"CompanyId\":null,\"Amount\":null,\"FreeOver\":false,\"Margin\":null,\"HCMPTConfigId\":null,\"GHN_ApiKey\""
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/odata/ConfigShippingFee?$orderby=DateCreated%20desc&$filter=Active%20eq%20true",
+        "ts": 1778646933322,
+        "respStatus": 200,
+        "respBody": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#ConfigShippingFee\",\"value\":[]}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/rest/v1.0/common/tpos-feature",
+        "ts": 1778646933354,
+        "respStatus": 200,
+        "respBody": "{\"AddressLevel2\":{\"Enabled\":true,\"Description\":\"Sử dụng địa chỉ 2 cấp (Tỉnh/TP + Phường/xã)\"},\"ApplyDiscountOrderWiInvoice\":{\"Enabled\":true,\"Description\":\"Áp dụng tính giảm giá đơn hàng vào hóa đơn điện tử\"},\"ApplyConfigCODChange\":{\"Enabled\":true,\"Description\":\"Áp dụng logic tính COD mới theo tiền đã thanh toán (Residual)\"},\"ComfirmFSOrderStateDraft\":{\"Enabled\":true,\"Description\":\"Duyệt đơn nháp\"},\"ApplyVATPerLinesFSO\":{\"Enabled\":false,\"Description\":\"Áp dụng thuế từng dòng\"},\"ImportProductImage\":{\"Enabled\":true,\"Description\":\"Import ảnh và mô tả sản phẩm từ file Excel\"}}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/common/getsaleconfig",
+        "ts": 1778646933456
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/systemalert/getalert",
+        "ts": 1778646933456
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/Home/OptionReport?lang=null",
+        "ts": 1778646933456
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/api/v2.0/notification/not-read?type=info&limit=",
+        "ts": 1778646933456
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/odata/ApplicationUser/ODataService.ChangeCurrentCompanyGet",
+        "ts": 1778646933456
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/shared/nav",
+        "ts": 1778646933468
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/Home/GeneralDashboard?ColumChartValue=D&ColumChartText=H%C3%B4m+nay&BarChartValue=D&BarChartText=H%C3%B4m+nay&BarChartOrderValue=1&BarChartOrderText=Theo+doanh+s%E1%BB%91&LineChartValue=DT&LineChartText=H%C3%B4m+nay&OverViewValue=T&OverViewText=H%C3%B4m+nay",
+        "ts": 1778646933506,
+        "respStatus": 200,
+        "respBody": "{\"TotalSaleCC\":4149000.00,\"BarChartData\":[{\"NameProduct\":\"[Q284A1] 2304 Q40 QUẦN SUÔNG TRƠN TAP V ĐÁ 9971-1 ĐEN SIZE (1)\",\"Quantity\":390000.000000,\"Type\":null},{\"NameProduct\":\"[B1685D] 1904 Q14 SET ÁO SN XOẮN EO + Q.SUÔNG 1899 (Đen)\",\"Quantity\":341977.633902,\"Type\":null},{\"NameProduct\":\"[B2110] 1105 B5 SET BBR ÁO SN + CV TẦNG VIỀN REN\",\"Quantity\":341977.633902,\"Type\":null},{\"NameProduct\":\"[Q50T] 1604 Q17 ÁO SMI TD TÚI PRADA 9658 (Trắng)\",\"Quantity\":340000.000000,\"Type\":null},{\"NameProduct\":\"[Q264T] 2004 Q37 ÁO XOẮN KHUY EO VS THÊU 1978 (Trắng)\",\"Quantity\":340000.000000,\"Type\":null},{\"NameProduct\":\"[Q329T] 2904 Q0 ÁO THUN LOGO VS ĐÁ LỚN 8109 (Trắng)\",\"Quantity\":340000.000000,\"Type\":null},{\"NameProduct\":\"[B1689D] 2004 B5 SET ÁO KHUY VAI + Q.SUÔNG TÚI XẾP NÂU (Đen)\",\"Quantity\":340000.000000,\"Type\":null},{\"NameProduct\":\"[Q102H] 1604 Q11 ÁO LƯỚI TN FULL LV 28004 (Hồng)\",\"Quantity\":290000.000000,\"Type\":null},{\"NameProduct\":\"[Q172H] 1704 Q42 ÁO CỔ DK CHỮ M 615 (Hồng)\",\"Quantity\":290000.000000,\"Type\":null},{\"NameProduct\":\"[B1944] 0805 B28 ÁO CHRISTAN DR CHUỒN CHUỒN TRẮNG\",\"Quantity\":290000.000000,\"Type\":null}],\"DataHours\":[],\"DataDate\":[[\"8\",\"1310000,00\"],[\"9\",\"970000,00\"],[\"10\",\"1869000,00\"]],\"ListHeader\":[{\"CompanyId\":1,\"CompanyName\":\"NJD Live\"}],\"LineChartData\":[[\"11\",\"0\",\"12774000,00\"],[\"12\",\"0\",\"0\"],[\"13\",\"0\",\"0\"],[\"14\",\"0\",\"-820000,00\"],[\"15\",\"0\",\"1956000,00\"],[\"16\",\"0\",\"-4504000,00\"],[\"17\",\"0\",\"0\"],[\"18\",\"0\",\"790000,00\"],[\"19\",\"0\",\"0\"],[\"20\",\"0\",\"0\"],[\"21\",\"0\",\"0\"],[\"22\",\"0\",\"0\"],[\"23\",\"0\",\"0\"],[\"00\",\"0\",\"0\"],[\"01\",\"0\",\"0\"],[\"02\",\"0\",\"0\"],[\"03\",\"0\",\"0\"],[\"04\",\"0\",\"0\"],[\"05\",\"0\",\"0\"],[\"06\",\"0\",\"0\"],[\"07\",\"0\",\"0\"],[\"08\",\"1310000,00\",\"1180000,00\"],[\"09\",\"970000,00\",\"0\"],[\"10\",\"1869000,00\",\"0\"]],\"LineHeader\":[{\"CompanyId\":1,\"CompanyName\":\"NJD Live\"}],\"MaxValueLine\":12774000.00,\"MaxValueColumn\":1869000.00,\"OverView\":{\"TotalOrderCurrent\":5.0,\"TotalSaleCurrent\":4149000.00,\"TotalSaleBefore\":4149000.00,\"PersentSalesCurrent\":-99.99987948903350204868643047,\"TotalReturns\":0.0,\"TotalOrderReturns\":0.0,\"TotalDeposit\":0.0,\"TotalDepositCount\":0},\"InventoryMin\":0,\"InventoryMax\":0,\"InvoiceChangeCount\":0}"
+    },
+    {
+        "phase": "login",
+        "method": "GET",
+        "url": "/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=-1&lastId=0",
+        "ts": 1778646933573,
+        "respStatus": 200,
+        "respBody": "{\"Id\":0,\"Total\":5906,\"IsDelete\":false,\"Datas\":[{\"Id\":148413,\"Name\":\"MM TÚI MM HỒNG\",\"UOMId\":1,\"UOMName\":\"Cái\",\"NameGet\":\"[MM435] MM TÚI MM HỒNG\",\"Barcode\":\"MM435\",\"Price\":350000.00,\"DefaultCode\":\"MM435\",\"ProductTmplId\":113622,\"PurchaseOK\":true,\"SaleOK\":true,\"PurchasePrice\":250000.00,\"DiscountSale\":0.00,\"Weight\":0.00000,\"DiscountPurchase\":0.00,\"Version\":1,\"OldPrice\":350000.00,\"NameNoSign\":\"MM TUI MM HONG\",\"Description\":null,\"POSCategId\":null,\"ImageUrl\":null,\"AvailableInPOS\":true,\"Product_UOMId\":\"148413_1\",\"Active\":true,\"Factor\":1.00,\"CategId\":2,\"PosSalesCount\":null},{\"Id\":148414,\"Name\":\"MM TÚI KẸP NÁCH DÀI TRẮNG\",\"UOMId\":1,\"UOMName\":\"Cái\",\"NameGet\":\"[MM436] MM TÚI KẸP NÁCH DÀI TRẮNG\",\"Barcode\":\"MM436\",\"Price\":340000.00,\"DefaultCode\":\"MM436\",\"ProductTmplId\":113623,\"PurchaseOK\":true,\"SaleOK\":true,\"PurchasePrice\":230000.00,\"DiscountSale\":0.00,\"Weight\":0.00000,\"DiscountPurchase\":0.00,\"Version\":2,\"OldPrice\":340000.00,\"NameNoSign\":\"MM TUI KEP NACH DAI TRANG\",\"Description\":null,\"POSCategId\":null,\"ImageUrl\":null,\"AvailableInPOS\":true,\"Product_UOMId\":\"148414_1\",\"Active\":true,\"Factor\":1.00,\"CategId\":2,\"PosSalesCount\":null},{\"Id\":148415,\"Name\":\"MM TÚI KẸP BẠC CHỮ D\",\"UOMId\":1,\"UOMName\":\"Cái\",\"NameGet\":\"[MM437] MM TÚI KẸP BẠC CHỮ D\",\"Barcode\":\"MM437\",\"Price\":350000.00,\"DefaultCode\":\"MM437\",\"ProductTmplId\":113624,\"PurchaseOK\":true,\"SaleOK\":true,\"PurchasePrice\":250000.00,\"DiscountSale\":0.00,\"Weight\":0.00000,\"DiscountPurchase\":0.00,\"Version\":3,\"OldPrice\":350000.00,\"NameNoSign\":\"MM TUI KEP BAC CHU D\",\"Description\":null,\"POSCategId\":null,\"ImageUrl\":null,\"AvailableInPOS\":true,\"Product_UOMId\":\"148415_1\",\"Active\":true,\"Factor\":1.00,\"CategId\":2,\"PosSalesCount\":null},{\"Id\":148416,\"Name\":\"MM TÚI BL NÂU 1816\",\"UOMId\":1,\"UOMName\":\"Cái\",\"NameGet\":\"[MM438] MM TÚI BL NÂU 1816\",\"Barcode\":\"MM438\",\"Price\":290000.00,\"DefaultCode\":\"MM438\",\"ProductTmplId\":113625,\"PurchaseOK\":true,\"SaleOK\":true,\"PurchasePrice\":190000.00,\"DiscountSale\":0.00,\"Weight\":0.00000,\"DiscountPurchase\":0.00,\"Version\":4,\"OldPrice\":290000.00,\"NameNoSign\":\"MM TUI BL NAU 1816\",\"Description\":null,\"POSCategId\":null,\"ImageUrl\":null,\"AvailableInPOS\":true,\"Product_UOMId\":\"148416_1\",\"Active\":true,\"Factor\":1.00,\"CategId\":2,\"PosSalesCount\":null},{\"Id\":148418,\"Name\":\"MM TÚI DA FOREVER YOUNG ĐEN\",\"UOMId\":1,\"UOMName\":\"Cái\",\"NameGet\":\"[MM440] MM TÚI DA FOREVER YOUNG ĐEN\",\"Barcode\":\"MM440\",\"Price\":370000.00,\"DefaultCode\":\"MM440\",\"ProductTmplId\":113627,\"PurchaseOK\":true,\"SaleOK\":true,\"PurchasePrice\":270000.00,\"DiscountSale\":0.00,\"Weight\":0.00000,\"DiscountPurchase\":0.00,\"Version\":6,\"OldPrice\":370000.00,\"NameNoSign\":\"MM TUI DA FOREVER YOUNG DEN\",\"Description\":null,\"POSCategId\":null,\"ImageUrl\":null,\"AvailableInPOS\":true,\"Product_UOMId\":\"148418_1\",\"Active\":true,\"Factor\":1.00,\"CategId\":2,\"PosSalesCount\":null},{\"Id\":148419,\"Name\":\"MM TÚI KẸP NÁCH MM XANH\",\"UOMId\":1,\"UOMName\":\"Cái\",\"NameGet\":\"[MM441] MM TÚI KẸP NÁCH MM XANH\",\"Barcode\":\"MM441\",\"Price\":350000.00,\"DefaultCode\":\"MM441\",\"ProductTmplId\":113628,\"PurchaseOK\":true,\"SaleOK\":tr"
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/saleonline_order/index",
+        "ts": 1778646937669,
+        "respStatus": 200
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/rest/v1.0/common/statusTypeExt",
+        "ts": 1778646937845
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/api/common/getstylestatusorder",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/odata/Company",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/odata/StockWarehouse/ODataService.GetByCompany",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/api/common/getpartnerstatus",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/odata/CRMTeam?$filter=Active%20eq%20true",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/odata/SaleOnlineSetting/",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/odata/SaleOnline_Order/ODataService.GetView?&%24top=20&%24orderby=DateCreated+desc&%24filter=(DateCreated+ge+2026-04-12T17%3A00%3A00%2B00%3A00+and+DateCreated+le+2026-05-13T16%3A59%3A59%2B00%3A00)&%24count=true",
+        "ts": 1778646937846
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/templatehtml/formsearch",
+        "ts": 1778646937847
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/api-ms/call-center/v1/CallCenter/Provider",
+        "ts": 1778646937847,
+        "respStatus": 200,
+        "respBody": "[{\"Name\":\"Voip24h\",\"ImageUrl\":\"https://voip24h.vn/wp-content/uploads/2022/12/Thiết-kế-chưa-có-tên-8.png.webp\",\"Provider\":\"Voip24h\",\"IsConnected\":false},{\"Name\":\"OmiCall\",\"ImageUrl\":\"https://cdn.omicrm.com/web/agency/omi/logo/logo_header.png\",\"Provider\":\"OmiCall\",\"IsConnected\":false}]"
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs",
+        "ts": 1778646937897,
+        "respStatus": 200,
+        "respBody": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#CRMTeam(Childs())\",\"value\":[{\"Id\":10043,\"Name\":\"L\\u00ea Minh T\\u00fa\",\"OwnerId\":null,\"OwnerToken\":null,\"DataSetId\":null,\"OwnerAvatar\":null,\"OwnerUrl\":null,\"ChannelId\":null,\"ChannelToken\":null,\"ChannelRefreshToken\":null,\"ChannelAvatar\":null,\"ShopToken\":null,\"Active\":true,\"CompanyId\":null,\"Type\":null,\"CountPage\":2,\"CountGroup\":0,\"Facebook_UserId\":null,\"Facebook_ASUserId\":\"138914192501678\",\"Facebook_UserName\":\"L\\u00ea Minh T\\u00fa\",\"Facebook_UserAvatar\":\"https://platform-lookaside.fbsbx.com/platform/profilepic/?asid=138914192501678&height=50&width=50&ext=1781226833&hash=AftAeLPpk7B9GNfKCUD2v-BN\",\"Facebook_UserCover\":null,\"Facebook_UserToken\":\"EAAEppgm4jTEBRe169AVWxGWxCTPqofVueNIdpjOYhbfhl4qAZBnoEYSc1Ej4nL0wZAbUdTEnc5cEa480JNlMu5o8GEHZB0AiaIuI2hGIYPksdEipzwAUqodUPTGZCSToTJ42NQ1NJ0xlNK6fvIadXmhX2sXNwlhX37dvFWgZBiOD5dQgHtiWeRLKFzdxrG4lEiEj4zdfA7v3t\",\"Facebook_UserPrivateToken\":null,\"Facebook_UserPrivateToken2\":null,\"Facebook_PagePrivateToken\":null,\"Facebook_PageId\":null,\"Facebook_PageName\":null,\"Facebook_PageLogo\":null,\"Facebook_PageCover\":null,\"Facebook_PageToken\":null,\"Facebook_Link\":null,\"IsDefault\":true,\"IsConverted\":true,\"Facebook_TokenExpired\":null,\"Facebook_TypeId\":\"User\",\"ParentId\":null,\"ParentName\":null,\"ShopId\":null,\"Facebook_AccountId\":\"138914192501678\",\"DateCreated\":null,\"ChannelRefreshTokenExpiredAt\":null,\"ChannelTokenExpiredAt\":null,\"IsEnableChatbot\":null,\"Facebook_Configs\":null,\"Childs\":[{\"Id\":10037,\"Name\":\"Nhi Judy House\",\"OwnerId\":null,\"ChannelId\":null,\"ChannelAvatar\":null,\"ChannelUrl\":null,\"ChannelToken\":null,\"ZaloOAId\":null,\"ZaloSecretKey\":null,\"Active\":true,\"CompanyId\":null,\"Type\":null,\"Facebook_UserId\":null,\"Facebook_ASUserId\":\"138914192501678\",\"Facebook_UserName\":\"Y\\u1ebfn Nhi\",\"Facebook_UserAvatar\":\"https://platform-lookaside.fbsbx.com/platform/profilepic/?asid=652578432246117&height=50&width=50&ext=1686807721&hash=AeSbUic3NSaZxeAA6Bo\",\"Facebook_UserCover\":null,\"Facebook_UserToken\":\"EAAEppgm4jTEBPhq8hncWhaa8lYBEBw0MYnZB4Xk9dhhTyCHpsLeMSHXYh4mAF3ywkrTpj3l8qJ5zDPBW8JFmt0diTK09tRiuskQKKcSzbcqwaAE4uNBRFuGl6Pvx40xPszDz1Rj9EPb07ZBnuxYiQF3YSliK2HdLKZCAyFhjMNZAWN57bXgWGKZBZCv4WvbV7J7aPCKURmK5CSiTaI\",\"Facebook_UserPrivateToken\":null,\"Facebook_PageId\":\"117267091364524\",\"Facebook_PageName\":\"Nhi Judy House\",\"Facebook_PageLogo\":\"https://scontent.fsgn5-10.fna.fbcdn.net/v/t39.30808-1/648320062_122300673926072382_5833268276284562493_n.jpg?stp=cp0_dst-jpg_s50x50_tt6&_nc_cat=107&ccb=1-7&_nc_sid=f907e8&_nc_ohc=OXM_uvcbjdAQ7kNvwEfF8Hp&_nc_oc=AdmrG_SVCrzVDDHrLPe-ShP4xD_qhYKxi5tSdP_n3ayACqLjHkg1d8cn9fB2I4b5CgY&_nc_zt=24&_nc_ht=scontent.fsgn5-10.fna&edm=AGaHXAAEAAAA&_nc_gid=jGAU8CI_qTazIgVyUhMnXw&_nc_tpa=Q5bMBQHgZ0Ygj4Ujw4ssCM1BnOeQCqC3AHmoXkfvEvYujrYQqk-3m_MCFyBcsr8lJr5dQY8SjsYlmYtW&oh=00_AfzVpTrKziffsawpU8BYt_zRV2qFQxgf0FxwwkXmGXOqdg&oe=69B83444\",\"Facebook_PageCover\":null,\"Facebook_PageToken\":\"EAAEppgm4jTEBQ4uqlx9754sExZBoqowPhyVEZC75CnGuml5Jf16dwFZCjGP3H2hxODEfLhIYqPl1wcvPBZB9F3QVIBkk9ZCcGk7S5"
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "GET",
+        "url": "/api/facebook-graph/user/info?pageId=138914192501678&facebook_type=User",
+        "ts": 1778646937962
+    },
+    {
+        "phase": "nav-order-list",
+        "method": "POST",
+        "url": "/api/common/getpartnersbyid",
+        "postData": "[412151,570579,491325,16063,570578,570577,565247,123016,570576,486956,5790,567142,570490,538752,260869,570575,563573,570574,566033,490145]",
+        "ts": 1778646938059,
+        "respStatus": 200,
+        "respBody": "{\"5790\":{\"Id\":5790,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"16063\":{\"Id\":16063,\"hP\":true,\"hA\":true,\"sT\":\"Cảnh báo\",\"sS\":\"#f0ad4e\"},\"123016\":{\"Id\":123016,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"260869\":{\"Id\":260869,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"412151\":{\"Id\":412151,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"486956\":{\"Id\":486956,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"490145\":{\"Id\":490145,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"491325\":{\"Id\":491325,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"538752\":{\"Id\":538752,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"563573\":{\"Id\":563573,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"565247\":{\"Id\":565247,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"566033\":{\"Id\":566033,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"567142\":{\"Id\":567142,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570490\":{\"Id\":570490,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570574\":{\"Id\":570574,\"hP\":true,\"hA\":false,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570575\":{\"Id\":570575,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570576\":{\"Id\":570576,\"hP\":true,\"hA\":true,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570577\":{\"Id\":570577,\"hP\":true,\"hA\":false,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570578\":{\"Id\":570578,\"hP\":true,\"hA\":false,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"},\"570579\":{\"Id\":570579,\"hP\":true,\"hA\":false,\"sT\":\"Bình thường\",\"sS\":\"#5cb85c\"}}"
+    },
+    {
+        "phase": "create-pbh-modal",
+        "method": "POST",
+        "url": "/api/common/CheckPermission?function=App.SaleOnline.Order.QuickCreateFSO",
+        "ts": 1778646942419,
+        "respStatus": 200,
+        "respBody": "true"
+    },
+    {
+        "phase": "create-pbh-modal",
+        "method": "POST",
+        "url": "/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines,Partner,Carrier",
+        "postData": "{\"ids\":[\"c2060000-5d17-0015-1901-08deb0a8ac0d\"]}",
+        "ts": 1778646942450,
+        "respStatus": 400,
+        "respBody": "{\r\n  \"error\": {\r\n    \"code\": \"undefined\",\r\n    \"message\": \"Đơn hàng: 260501955 chưa có chi tiết\",\r\n    \"details\": \"BusinessException\"\r\n  }\r\n}"
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/fastsaleorder/list",
+        "ts": 1778646945542,
+        "respStatus": 200
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/odata/DeliveryCarrier?$filter=Active%20eq%20true",
+        "ts": 1778646945781
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/Json/GetCompanyOfUser",
+        "ts": 1778646945781
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/odata/CRMTeam?$filter=Active%20eq%20true&$select=Name,%20Id",
+        "ts": 1778646945781
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/odata/FastSaleOrder/ODataService.GetOrderNotExportInventory",
+        "ts": 1778646945781
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/odata/FastSaleOrder/ODataService.GetView?&%24top=20&%24orderby=DateInvoice+desc&%24filter=(Type+eq+%27invoice%27+and+DateInvoice+ge+2026-04-12T17%3A00%3A00%2B00%3A00+and+DateInvoice+le+2026-05-13T16%3A59%3A59%2B00%3A00+and+IsMergeCancel+ne+true)&%24count=true",
+        "ts": 1778646945781,
+        "respStatus": 200,
+        "respBody": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#View_FastSaleOrders\",\"@odata.count\":5690,\"value\":[{\"ShowState\":\"\\u0110\\u00e3 x\\u00e1c nh\\u1eadn\",\"ShowShipStatus\":\"Ch\\u01b0a ti\\u1ebfp nh\\u1eadn\",\"TrackingUrl\":\"\",\"FullAddress\":\"c\\u00e2y x\\u0103ng kim loan, 83 \\u1ea5p c\\u00e2y gian a, long \\u0111i\\u1ec1n, \\u0111\\u00f4ng h\\u1ea3i, b\\u1ea1c li\\u00eau\\r\\nX\\u00e3 Long \\u0110i\\u1ec1n, Huy\\u1ec7n \\u0110\\u00f4ng H\\u1ea3i, T\\u1ec9nh B\\u1ea1c Li\\u00eau\",\"Tags\":null,\"ReferenceNumber\":null,\"IsPrintPrepareGoods\":false,\"OrderMergeds\":null,\"OfferAmountOnTotal\":null,\"ShipAmount\":null,\"CrossCheckTimes\":null,\"Id\":435062,\"Name\":null,\"PartnerId\":312880,\"PartnerDisplayName\":\"Tran Kim Loan\",\"PartnerFacebookId\":null,\"Address\":\"c\\u00e2y x\\u0103ng kim loan, 83 \\u1ea5p c\\u00e2y gian a, long \\u0111i\\u1ec1n, \\u0111\\u00f4ng h\\u1ea3i, b\\u1ea1c li\\u00eau\",\"Phone\":\"0913843355\",\"PhoneReverse\":\"5533483190\",\"IsPendingApprovalCOD\":false,\"FacebookName\":\"Tran Kim Loan\",\"FacebookNameNosign\":\"Tran Kim Loan\",\"FacebookId\":\"3257503217657890\",\"DisplayFacebookName\":\"Tran Kim Loan [3257503217657890]\",\"Deliver\":null,\"AmountTotal\":340000.00,\"UserId\":\"d41e2995-d580-46a0-8eb5-6065bfb4b07b\",\"UserName\":\"MY CSKH (LIVE)\",\"DateInvoice\":\"2026-05-13T10:57:47.84+07:00\",\"State\":\"open\",\"CompanyId\":1,\"Comment\":\"\",\"Residual\":375000.00,\"Type\":\"invoice\",\"RefundOrderId\":null,\"Number\":\"NJD/2026/66896\",\"ReversedNumber\":\"69866/6202/DJN\",\"PartnerNameNoSign\":\"Tran Kim Loan\",\"DeliveryPrice\":35000.00,\"CarrierId\":7,\"CarrierName\":\"SHIP T\\u1ec8NH\",\"CashOnDelivery\":375000.00,\"TrackingRef\":null,\"ReversedTrackingRef\":null,\"ShipStatus\":\"none\",\"CarrierDeliveryType\":\"fixed\",\"WardName\":\"X\\u00e3 Long \\u0110i\\u1ec1n\",\"WardCode\":\"31981\",\"DistrictName\":\"Huy\\u1ec7n \\u0110\\u00f4ng H\\u1ea3i\",\"DistrictCode\":\"960\",\"CityName\":\"T\\u1ec9nh B\\u1ea1c Li\\u00eau\",\"CityCode\":\"95\",\"PartnerStatusText\":\"C\\u1ea3nh b\\u00e1o\",\"WeightTotal\":0.000,\"ShipWeight\":100,\"AmountTax\":0.00,\"AmountUntaxed\":340000.00,\"Discount\":0.00,\"DiscountAmount\":0.00,\"DecreaseAmount\":0.00,\"ShipPaymentStatus\":null,\"CompanyName\":\"NJD Live\",\"Ship_Receiver_Name\":\"Tran Kim Loan\",\"Ship_Receiver_Phone\":\"0913843355\",\"Ship_Receiver_Street\":\"c\\u00e2y x\\u0103ng kim loan, 83 \\u1ea5p c\\u00e2y gian a, long \\u0111i\\u1ec1n, \\u0111\\u00f4ng h\\u1ea3i, b\\u1ea1c li\\u00eau\",\"AmountDeposit\":0.00,\"CustomerDeliveryPrice\":null,\"CreatedById\":\"d41e2995-d580-46a0-8eb5-6065bfb4b07b\",\"DeliveryNote\":\"KH\\u00d4NG \\u0110\\u01af\\u1ee2C T\\u1ef0 \\u00dd HO\\u00c0N \\u0110\\u01a0N C\\u00d3 G\\u00cc LI\\u00caN H\\u1ec6 HOTLINE C\\u0168A SHOP 090 8888 674 \\u0110\\u1ec2 \\u0110\\u01af\\u1ee2C H\\u1ed6 TR\\u1ee2\\n\\nS\\u1ea3n ph\\u1ea9m nh\\u1eadn \\u0111\\u1ed5i tr\\u00e3 trong v\\u00f2ng 2-4 ng\\u00e0y k\\u1ec3 t\\u1eeb ng\\u00e0y nh\\u1eadn h\\u00e0ng , \\\"\\u0110\\u1ed0I V\\u1edaI S\\u1ea2N PH\\u1ea8M B\\u1eca L\\u1ed6I HO\\u1eb6C S\\u1ea2N PH\\u1ea8M SHOP GIAO SAI\\\" qu\\u00e1 th\\u1eddi gian shop kh\\u00f4ng nh\\u1eadn x\\u1eed l\\u00fd \\u0111\\u1ed5i tr\\u1ea3 b\\u1ea5t k\\u00ec tr\\u01b0\\u1eddng h\\u1ee3p n\\u00e0o .\",\"PartnerEmail\":\"KHACH L\\u1ea0 KO CH\\u1e"
+    },
+    {
+        "phase": "nav-invoice-list",
+        "method": "GET",
+        "url": "/templatehtml/readMoreTemplate",
+        "ts": 1778646945955,
+        "respStatus": 200
+    }
+]

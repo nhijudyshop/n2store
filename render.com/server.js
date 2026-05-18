@@ -330,6 +330,7 @@ const orderNotesRoutes = require('./routes/order-notes');
 const socialOrdersRoutes = require('./routes/social-orders');
 const nativeOrdersRoutes = require('./routes/native-orders');
 const fastSaleOrdersRoutes = require('./routes/fast-sale-orders');
+const walletDepositsRoutes = require('./routes/wallet-deposits'); // WEB2.0
 const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
 const pbhReportsRoutes = require('./routes/pbh-reports');

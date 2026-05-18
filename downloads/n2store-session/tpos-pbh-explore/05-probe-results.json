@@ -1,0 +1,18 @@
+{
+    "/odata/FastSaleOrder/ODataService.GetDefault": {
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    "/odata/SaleOnline_Order/ODataService.ConvertToInvoice": {
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    "/rest/v1.0/saleonlineorder/getsaleonlineorder": {
+        "status": 404,
+        "sample": "{\"error\":{\"code\":\"404\",\"message\":\"The requested API endpoint does not exist.\",\"details\":\"NotFound\"}}"
+    },
+    "/odata/SaleOnline_Order/ODataService.GetView": {
+        "status": 200,
+        "sample": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#View_SaleOnline_Order\",\"value\":[{\"Id\":\"c7200000-5dd4-0015-065e-08de9082d113\",\"Code\":\"260400578\",\"ReversedCode\":\"875004062\",\"Facebook_UserId\":\"1"
+    }
+}

@@ -1,0 +1,10 @@
+[
+    {
+        "code": "B2172",
+        "productId": 156919,
+        "lineQty": 1,
+        "excess": 1,
+        "moveIds": [935506, 935609],
+        "error": "getCurrentQty 156919 → 500"
+    }
+]

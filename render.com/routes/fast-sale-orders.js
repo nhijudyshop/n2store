@@ -795,6 +795,26 @@ router.post('/from-native-order', async (req, res) => {
             );
         }
 
+        // Stock deduction — atomic across all lines. Clamp tại 0 nếu over-sell.
+        // Idempotent: route đã return sớm ở line 687 nếu PBH đã tồn tại,
+        // nên chỉ deduct 1 lần lúc tạo mới. Best-effort: lỗi không chặn flow.
+        try {
+            const now = Date.now();
+            for (const line of lines) {
+                const code = line.productCode;
+                const qty = Number(line.quantity) || 0;
+                if (!code || qty <= 0) continue;
+                await pool.query(
+                    `UPDATE web2_products
+                     SET stock = GREATEST(0, stock - $1), updated_at = $2
+                     WHERE code = $3`,
+                    [qty, now, code]
+                );
+            }
+        } catch (e) {
+            console.warn('[FAST-SALE-ORDERS] stock deduction warn:', e.message);
+        }
+
         const o = mapRow(r.rows[0]);
         if (req.app.locals.broadcastToClients) {
             req.app.locals.broadcastToClients({

@@ -1,0 +1,12 @@
+[
+    {
+        "t": 1778833702357,
+        "dir": "out",
+        "payload": "[\"4\",\"4\",\"users:c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"phx_join\",{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2"
+    },
+    {
+        "t": 1778833702491,
+        "dir": "in",
+        "payload": "[\"4\",\"4\",\"users:c42ef91d-1a1d-43aa-b8af-8ac014d83d6c\",\"phx_reply\",{\"status\":\"ok\",\"response\":{}}]"
+    }
+]

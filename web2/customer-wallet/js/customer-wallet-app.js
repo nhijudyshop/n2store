@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // Ví KH — app controller.
 //
 // Flow:
@@ -80,11 +80,16 @@
         };
     }
 
+    // PBH state nào KHÔNG tính vào tổng mua + không cho phép trả hàng.
+    const EXCLUDED_PBH_STATES = new Set(['cancelled', 'cancel', 'canceled', 'huy', 'hủy']);
+
     function aggregateCustomers(orders) {
         const result = {};
         for (const raw of orders) {
             const o = normalizeOrder(raw);
             if (!o.phone) continue; // skip rows without phone (cannot dedupe)
+            // Skip cancelled PBH — không tính vào ví, không cho trả hàng
+            if (EXCLUDED_PBH_STATES.has(String(o.state).toLowerCase())) continue;
             if (!result[o.phone]) {
                 result[o.phone] = {
                     phone: o.phone,
@@ -316,7 +321,7 @@
                 .map(
                     (
                         l
-                    ) => `<tr data-key="${escapeHtml(l.key)}" data-price="${l.price}" data-qty="${l.quantity}">
+                    ) => `<tr data-key="${escapeHtml(l.key)}" data-price="${l.price}" data-qty="${l.quantity}" data-code="${escapeHtml(l.productCode || '')}">
                 <td><input type="checkbox" class="cw-return-check" /></td>
                 <td>${escapeHtml(l.productName)} <small style="color:#94a3b8">${escapeHtml(l.pbh)}</small></td>
                 <td class="num">${l.quantity}</td>
@@ -345,8 +350,9 @@
         document.getElementById('cwReturnTotal').textContent = fmtVnd(total);
     }
 
-    function confirmReturn() {
+    async function confirmReturn() {
         const selected = [];
+        const stockAdjustments = [];
         let total = 0;
         document.querySelectorAll('#cwReturnBody tr[data-key]').forEach((tr) => {
             const check = tr.querySelector('.cw-return-check');
@@ -360,10 +366,20 @@
             if (amount <= 0) return;
             selected.push({ key: tr.dataset.key, qty, amount });
             total += amount;
+            const code = (tr.dataset.code || '').trim();
+            if (code) stockAdjustments.push({ code, delta: qty, reason: `KH trả hàng` });
         });
         if (!selected.length) {
             notify('Chưa chọn dòng nào để trả', 'warning');
             return;
+        }
+        // Stock adjust: KH trả = nhập kho trở lại (+qty). Best-effort.
+        try {
+            if (stockAdjustments.length && window.Web2ProductsApi?.adjustStock) {
+                await window.Web2ProductsApi.adjustStock(stockAdjustments);
+            }
+        } catch (e) {
+            console.warn('[customer-wallet] stock adjust fail:', e.message);
         }
         const campId = document.getElementById('cwReturnCampaign').value || '';
         window.CustomerWalletStorage.addTransaction(walletState, activePhone, {
@@ -414,7 +430,8 @@
     }
 
     async function loadAndRender() {
-        const list = await window.CustomerWalletStorage.fetchPbhList(500);
+        // Pagination: loop tới khi hết (max 20 pages × 500 = 10k PBH)
+        const list = await window.CustomerWalletStorage.fetchPbhList(20, 500);
         pbhList = list;
         customers = aggregateCustomers(pbhList);
         const mutated = mergeAggregation(walletState, customers);
