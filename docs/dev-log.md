@@ -25,6 +25,46 @@
 
 ## 2026-05-18
 
+### [web2-products + so-order] Fix hiển thị trạng thái "CHỜ HÀNG" + auto ×1000 giá VND
+
+**User báo 2 vấn đề**:
+
+1. SP từ "Tạo Đơn Hàng → Lưu Nháp" phải hiển thị trạng thái "CHỜ HÀNG" ở Kho SP, sau khi Mua hàng mới chuyển "Đang bán". Logic backend đã đúng (`status='CHO_MUA'` khi upsertPending) nhưng UI vẫn show "Đang bán".
+2. Nhập giá 100, 200 trong modal tạo đơn → tự hiểu là 100.000, 200.000 (convention VND).
+
+**Root cause #1**: Frontend `web2/products/index.html` chỉ đọc `isActive` boolean để render badge ("Đang bán" / "Tạm dừng"), không xem field `status`. Verify DB qua API: `KHO-3C44-MPB1AOII` có `status: "CHO_MUA", pendingQty: 3, isActive: true` → backend đúng, frontend display thiếu.
+
+**Fix #1**: Logic badge mới:
+
+- `status === 'CHO_MUA'` → badge cam "CHỜ HÀNG (×N)" (N = pendingQty), tooltip có tên NCC
+- Else: theo `isActive` như cũ (Đang bán / Tạm dừng)
+
+**Fix #2**: Quick-input shorthand cho VND
+
+- Helper `_maybeExpandVndShorthand(value, tab)`: nếu `tab.currency === 'VND'` và `0 < v < 1000` → trả `v * 1000`.
+- Wire vào 3 chỗ:
+    - Modal "Tạo Đơn Hàng" — blur listener trên `input[data-field="costPrice|sellPrice"]`
+    - Inline edit (dblclick cell) — trong `commit()` của `beginInlineCellEdit`
+    - Bulk edit (whole table edit mode) — trong `commitBulkEditField`
+- Hint trong header: "[VNĐ · gõ 100 = 100k]"
+
+**Verify**:
+
+- Web2 Products: SP "2000 ÁO TEST NHÁP" hiện badge cam "CHỜ HÀNG (×3)" ✅
+- Modal so-order: nhập 150 → 150000, nhập 250 → 250000 ✅
+
+**Files**:
+
+- `web2/products/js/web2-products-app.js` — render badge theo `status` field
+- `web2/products/css/web2-products.css` — `.active-pending` (cam) + cache `v20260517c → v20260518b`
+- `web2/products/index.html` — bump cache `app.js v20260518a → v20260518b`
+- `so-order/js/so-order-app.js` — `_maybeExpandVndShorthand`, `onModalPriceBlur`, wire 3 chỗ, hint header
+- `so-order/index.html` — bump cache `app.js v20260518h → v20260518i`
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Sửa icon FAB toggle "Mua hàng" — dùng inline SVG thay lucide, thêm text label
 
 **User báo**: FAB toggle mua hàng ở mép phải bị "trống trơn", chỉ còn badge "3" — không thấy icon hay text.

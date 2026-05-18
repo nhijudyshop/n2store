@@ -309,6 +309,9 @@
             let value = rawValue;
             if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
                 value = Number(value) || 0;
+                if (field === 'sellPrice' || field === 'costPrice') {
+                    value = _maybeExpandVndShorthand(value, tab);
+                }
             } else if (typeof value === 'string') {
                 value = value.trim();
             }
@@ -616,6 +619,15 @@
 
     // Commit 1 field từ bulk edit mode. Re-use validation (variant) +
     // pushSync + flashRow giống dblclick path để hành vi nhất quán.
+    // Quick-input shorthand: gõ "100" cho VND tự hiểu là 100.000.
+    // Chỉ áp dụng khi tiền tệ tab là VND và giá > 0 và giá < 1000.
+    function _maybeExpandVndShorthand(value, tab) {
+        const v = Number(value) || 0;
+        if (!tab || tab.currency !== 'VND') return v;
+        if (v > 0 && v < 1000) return v * 1000;
+        return v;
+    }
+
     function commitBulkEditField(rowId, shipmentId, field, rawValue) {
         const tab = window.SoOrderStorage.getActiveTab(state);
         const sh = tab.shipments.find((s) => s.id === shipmentId);
@@ -624,6 +636,16 @@
         let value = rawValue;
         if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
             value = Number(value) || 0;
+            if (field === 'sellPrice' || field === 'costPrice') {
+                const expanded = _maybeExpandVndShorthand(value, tab);
+                if (expanded !== value) {
+                    value = expanded;
+                    const input = document.querySelector(
+                        `#soTableBody input[data-edit-field="${field}"][data-row-id="${rowId}"]`
+                    );
+                    if (input) input.value = String(value);
+                }
+            }
         } else if (typeof value === 'string') {
             value = value.trim();
         }
@@ -1506,6 +1528,12 @@ window.addEventListener('load', () => {
             input.addEventListener('input', onModalRowFieldInput);
             input.addEventListener('change', onModalRowFieldInput);
         });
+        // Price shorthand: gõ "100" tự hiểu là 100.000 cho VND khi blur.
+        tbody
+            .querySelectorAll('input[data-field="costPrice"], input[data-field="sellPrice"]')
+            .forEach((input) => {
+                input.addEventListener('blur', onModalPriceBlur);
+            });
         // Product name dropdown trigger
         tbody.querySelectorAll('input[data-field="productName"]').forEach((input) => {
             input.addEventListener('focus', () => {
@@ -1553,6 +1581,22 @@ window.addEventListener('load', () => {
             });
         });
         // (Upload button đã bỏ — chỉ dùng Ctrl+V / kéo thả)
+    }
+
+    function onModalPriceBlur(e) {
+        const input = e.currentTarget;
+        const uid = input.dataset.uid;
+        const field = input.dataset.field;
+        if (field !== 'costPrice' && field !== 'sellPrice') return;
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const raw = Number(input.value) || 0;
+        const expanded = _maybeExpandVndShorthand(raw, tab);
+        if (expanded === raw) return;
+        input.value = String(expanded);
+        const row = modalRows.find((r) => r.uid === uid);
+        if (row) row[field] = expanded;
+        updateRowTotal(uid);
+        updateModalGrandTotals();
     }
 
     function onModalRowFieldInput(e) {
@@ -1864,7 +1908,7 @@ window.addEventListener('load', () => {
         }
         const curHint =
             tab.currency === 'VND'
-                ? 'VNĐ'
+                ? 'VNĐ · gõ 100 = 100k'
                 : `${tab.currency} (≈ ${Number(tab.rate).toLocaleString('vi-VN')} ₫)`;
         document.getElementById('soSellCurHint').textContent = `[${curHint}]`;
         document.getElementById('soCostCurHint').textContent = `[${curHint}]`;

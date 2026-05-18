@@ -75,11 +75,20 @@
                     <td class="stock-cell ${stockClass}">${p.stock ?? 0}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
-                        ${
-                            p.isActive
+                        ${(() => {
+                            // Status ưu tiên hơn isActive:
+                            // - CHO_MUA → "CHỜ HÀNG" (chưa Mua hàng xong, chưa nhập kho).
+                            // - DANG_BAN + isActive → "Đang bán".
+                            // - !isActive → "Tạm dừng".
+                            if (p.status === 'CHO_MUA') {
+                                const pendingTxt =
+                                    Number(p.pendingQty) > 0 ? ` (×${p.pendingQty})` : '';
+                                return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
+                            }
+                            return p.isActive
                                 ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
-                                : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`
-                        }
+                                : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
+                        })()}
                     </td>
                     <td>
                         <div class="row-actions">
