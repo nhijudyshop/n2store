@@ -25,6 +25,26 @@
 
 ## 2026-05-18
 
+### [so-order] Fix bug "giựt lại đợi đồng bộ" — filter local pending writes trong Firestore listener
+
+**User báo**: bấm vào chức năng đồng bộ (toggle expand/collapse, edit inline, …) bị "giựt lại" đợi confirm.
+
+**Root cause**: `onSnapshot` của Firestore mặc định fire cho **mọi snapshot**, bao gồm cả local pending writes (optimistic update của chính client). Mỗi `pushToFirestore()` trigger listener → `remoteHandler` → `state = load(); renderAll()` → DOM tbody bị re-render lại → mất focus input, dropdown đóng, scroll reset. Combine với fact render local đã làm trước đó, user thấy UI thay đổi → "giựt" về.
+
+**Fix** (`so-order/js/so-order-storage.js`): trong `_setupRealtimeListener`:
+
+```js
+if (snap.metadata && snap.metadata.hasPendingWrites) return;
+```
+
+→ Bỏ qua snapshot do chính client mình write. Chỉ apply remote update khi confirmed từ server (write của máy khác).
+
+**Còn lại có thể fix sau**: (B) version timestamp guard, (C) debounce pushSync, (D) skip render khi đang focus input.
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Cho phép inline-edit Ngày giao / Đợt / Kiện / KG ở shipment header
 
 **User yêu cầu**: cho chỉnh sửa các giá trị Ngày giao, Đợt, số Kiện, KG trực tiếp ở header lô (không cần mở modal "Sửa thông tin lô").

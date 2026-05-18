@@ -437,17 +437,20 @@
             this._unsubscribe = docRef.onSnapshot(
                 (snap) => {
                     if (!snap.exists) return;
+                    // Skip snapshots produced by this client's own pending
+                    // writes — those caused the "giựt lại" flicker: each
+                    // local mutation triggered an echo render that wiped
+                    // in-flight UI state (input focus, dropdowns, …).
+                    // Remote updates from other devices have
+                    // hasPendingWrites = false.
+                    if (snap.metadata && snap.metadata.hasPendingWrites) return;
                     const payload = snap.data() || {};
                     if (!payload.data) return;
-                    // Mark listening so the next save() doesn't echo
-                    // back to Firestore (causes loop).
                     this._isListening = true;
                     try {
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.data));
                         if (this._onRemoteUpdate) this._onRemoteUpdate(payload.data);
                     } finally {
-                        // Release flag after the synchronous handler;
-                        // subsequent local edits will flush again.
                         setTimeout(() => {
                             this._isListening = false;
                         }, 50);
