@@ -166,6 +166,25 @@ Khi code phần mới (feature, module, page mới), **luôn hỏi người dùn
 
 Use environment variables or `.pgpass` file for PostgreSQL credentials. Never hardcode passwords.
 
+## API Keys / Secrets — BẮT BUỘC
+
+**File chứa toàn bộ API key local:** `/Users/mac/Desktop/n2store/serect_dont_push.txt` (gitignored, absolute path).
+
+Khi cần bất kỳ key/token/credential nào (Render, Firebase, Cloudflare, Gemini, OpenAI, TPOS, Pancake, SePay, …) → **đọc file này TRƯỚC** rồi mới hỏi user.
+
+**Rules:**
+
+- Nếu user nhắc "key", "token", "secret", "credential", "API" mà không chỉ rõ nguồn → mở `serect_dont_push.txt` trước
+- Nếu file **chưa tồn tại** → tạo file rỗng tại path trên + báo user paste key vào (không tự bịa)
+- Khi cần thêm/cập nhật key → edit file in place
+- **TUYỆT ĐỐI KHÔNG**:
+    - Echo / log / paste nội dung file vào commit, PR, chat, screenshot
+    - Commit file (đã có trong `.gitignore`)
+    - Pass key qua command line nơi có thể lộ qua process list — dùng env var hoặc stdin
+    - Hardcode key vào code source — kể cả test script
+
+Format hiện tại: 1 key/dòng dạng `LABEL=value` hoặc block "## Service Name\n key: ...". Free-form, miễn là Claude tìm được bằng grep.
+
 ## Dev Log — Theo dõi tiến trình code
 
 **BẮT BUỘC:** Sau mỗi lần sửa code (commit), cập nhật `docs/dev-log.md`:
