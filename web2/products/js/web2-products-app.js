@@ -334,8 +334,12 @@
               })
             : confirm(`Xóa SP ${code}? Không thể hoàn tác.`);
         if (!ok) return;
+        await _doRemove(code, false);
+    }
+
+    async function _doRemove(code, force) {
         try {
-            await window.Web2ProductsApi.remove(code);
+            await window.Web2ProductsApi.remove(code, { force });
             STATE.products = STATE.products.filter((x) => x.code !== code);
             STATE.total = Math.max(0, STATE.total - 1);
             renderRows();
@@ -344,6 +348,21 @@
             notify(`Đã xóa ${code}`, 'success');
             window.Web2ProductsCache?.pushTickle?.({ action: 'delete', code });
         } catch (e) {
+            // 409 = SP còn pending_qty > 0, cảnh báo user trước khi force.
+            if (e.status === 409 && e.body) {
+                const b = e.body;
+                const msg = `${b.message || ''}\n\nVẫn muốn xóa SP "${b.name}" (${b.code})?`;
+                const confirmForce = window.Popup
+                    ? await window.Popup.confirm(msg, {
+                          title: `SP còn ${b.pendingQty} cái CHỜ HÀNG`,
+                          okText: 'Vẫn xóa',
+                          cancelText: 'Hủy',
+                          type: 'warning',
+                      })
+                    : confirm(msg);
+                if (confirmForce) await _doRemove(code, true);
+                return;
+            }
             notify('Lỗi xóa: ' + e.message, 'error');
         }
     }

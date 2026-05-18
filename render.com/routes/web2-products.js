@@ -363,20 +363,149 @@ router.post('/adjust-stock', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// DELETE /api/web2/products/:code — hard delete
+// DELETE /api/web2/products/:code
+// Query: ?force=1 để bỏ qua check pending_qty > 0.
+// Trả 409 nếu pending_qty > 0 và không force (để caller cảnh báo user).
 // -----------------------------------------------------
 router.delete('/:code', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const r = await pool.query(`DELETE FROM web2_products WHERE code = $1 RETURNING code`, [
-            req.params.code,
-        ]);
-        if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        const force = req.query.force === '1' || req.query.force === 'true';
+        const r0 = await pool.query(
+            `SELECT code, name, pending_qty, supplier, stock FROM web2_products WHERE code = $1`,
+            [req.params.code]
+        );
+        if (!r0.rows.length) return res.status(404).json({ error: 'Not found' });
+        const cur = r0.rows[0];
+        const curPending = Number(cur.pending_qty) || 0;
+        if (curPending > 0 && !force) {
+            return res.status(409).json({
+                error: 'pending_qty_not_zero',
+                code: cur.code,
+                name: cur.name,
+                pendingQty: curPending,
+                stock: Number(cur.stock) || 0,
+                supplier: cur.supplier,
+                message: `SP còn ${curPending} cái chờ mua${cur.supplier ? ' từ ' + cur.supplier : ''}. Xóa sẽ mất số liệu này.`,
+            });
+        }
+        await pool.query(`DELETE FROM web2_products WHERE code = $1`, [req.params.code]);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/web2-products/adjust-pending
+// Body: { adjustments: [{ code?, name?, variant?, supplier?, delta }] }
+//   - Match SP theo code (ưu tiên) hoặc name+variant.
+//   - pending_qty = GREATEST(0, pending_qty + delta).
+//   - delta < 0: giảm pending (user xóa/giảm qty row so-order).
+//   - delta > 0: tăng pending (user tăng qty).
+// Side effects:
+//   - Nếu pending=0 AND stock=0 AND created_by='so-order' → DELETE SP (ghost cleanup).
+//   - Nếu pending=0 AND stock>0 AND status='CHO_MUA' → SET status='DANG_BAN'.
+// Atomic trong 1 transaction. Returns updated info per adjustment.
+// =====================================================
+router.post('/adjust-pending', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : null;
+    if (!adjustments || !adjustments.length) {
+        return res.status(400).json({ error: 'adjustments array required' });
+    }
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+        const results = [];
+        const warnings = [];
+        for (const adj of adjustments) {
+            const code = adj.code ? String(adj.code).trim() : null;
+            const name = adj.name ? String(adj.name).trim() : null;
+            const variant = adj.variant ? String(adj.variant).trim() : null;
+            const delta = Number(adj.delta) || 0;
+            if ((!code && !name) || !Number.isFinite(delta) || delta === 0) continue;
+
+            let r;
+            if (code) {
+                r = await client.query(`SELECT * FROM web2_products WHERE code = $1 LIMIT 1`, [
+                    code,
+                ]);
+            } else if (variant) {
+                r = await client.query(
+                    `SELECT * FROM web2_products
+                     WHERE LOWER(name) = LOWER($1)
+                       AND LOWER(COALESCE(variant, '')) = LOWER($2)
+                     ORDER BY id LIMIT 1`,
+                    [name, variant]
+                );
+            } else {
+                r = await client.query(
+                    `SELECT * FROM web2_products
+                     WHERE LOWER(name) = LOWER($1)
+                       AND (variant IS NULL OR variant = '')
+                     ORDER BY id LIMIT 1`,
+                    [name]
+                );
+            }
+            if (!r.rows.length) {
+                warnings.push(
+                    `Không tìm thấy SP "${name || code}"${variant ? ' / ' + variant : ''}`
+                );
+                continue;
+            }
+            const row = r.rows[0];
+            const curPending = Number(row.pending_qty) || 0;
+            const curStock = Number(row.stock) || 0;
+            const newPending = Math.max(0, curPending + delta);
+            const now = Date.now();
+
+            // Ghost cleanup: pending=0 + stock=0 + tạo từ so-order → DELETE.
+            if (newPending === 0 && curStock === 0 && row.created_by === 'so-order') {
+                await client.query(`DELETE FROM web2_products WHERE id = $1`, [row.id]);
+                results.push({
+                    code: row.code,
+                    name: row.name,
+                    action: 'deleted',
+                    newPendingQty: 0,
+                });
+                continue;
+            }
+            // Pending về 0 mà còn stock → status DANG_BAN.
+            const newStatus =
+                newPending === 0 && curStock > 0 && row.status === 'CHO_MUA'
+                    ? 'DANG_BAN'
+                    : row.status;
+
+            const u = await client.query(
+                `UPDATE web2_products
+                    SET pending_qty = $1, status = $2, updated_at = $3
+                  WHERE id = $4
+                  RETURNING code, name, pending_qty, status, stock`,
+                [newPending, newStatus, now, row.id]
+            );
+            const ur = u.rows[0];
+            results.push({
+                code: ur.code,
+                name: ur.name,
+                action: 'updated',
+                newPendingQty: Number(ur.pending_qty) || 0,
+                status: ur.status,
+                stock: Number(ur.stock) || 0,
+            });
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, results, warnings });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[WEB2-PRODUCTS] adjust-pending error:', e.message);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

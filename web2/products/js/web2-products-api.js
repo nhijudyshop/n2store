@@ -20,7 +20,12 @@
         } catch {
             /* non-json */
         }
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        if (!res.ok) {
+            const err = new Error(data?.error || data?.message || `HTTP ${res.status}`);
+            err.status = res.status;
+            err.body = data;
+            throw err;
+        }
         return data;
     }
 
@@ -53,8 +58,11 @@
                 body: JSON.stringify(fields || {}),
             });
         },
-        async remove(code) {
-            return _fetchJson(`${BASE}/${encodeURIComponent(code)}`, { method: 'DELETE' });
+        // Xóa SP. force=true để bỏ qua check pending_qty > 0.
+        // Nếu pending_qty > 0 và !force → throw Error với .status=409 + .body có info.
+        async remove(code, { force } = {}) {
+            const qs = force ? '?force=1' : '';
+            return _fetchJson(`${BASE}/${encodeURIComponent(code)}${qs}`, { method: 'DELETE' });
         },
         // Atomic bulk stock adjustment. adjustments = [{ code, delta, reason }].
         // delta > 0: nhập kho; delta < 0: xuất kho. Stock clamp tại 0.
@@ -87,6 +95,17 @@
         async listPending(supplier) {
             const qs = supplier ? `?supplier=${encodeURIComponent(supplier)}` : '';
             return _fetchJson(`${BASE}/pending${qs}`);
+        },
+        // Adjust pending_qty của SP theo delta (+/-).
+        // adjustments: [{ code?, name?, variant?, supplier?, delta }]
+        // Server: clamp 0, auto delete ghost (pending=0+stock=0+createdBy=so-order),
+        // auto chuyển status DANG_BAN nếu pending về 0 nhưng còn stock.
+        async adjustPending(adjustments) {
+            return _fetchJson(`${BASE}/adjust-pending`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adjustments }),
+            });
         },
     };
 

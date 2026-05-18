@@ -327,7 +327,17 @@
                     return;
                 }
             }
+            // Capture delta TRƯỚC khi update (cho qty change → sync Kho).
+            let pendingAdj = null;
+            if (field === 'qty') {
+                const oldQty = Number(r.qty) || 0;
+                const delta = (Number(value) || 0) - oldQty;
+                if (delta !== 0) {
+                    pendingAdj = { ..._rowToKhoMatch(r), delta };
+                }
+            }
             window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, { [field]: value });
+            if (pendingAdj && pendingAdj.name) adjustKhoPending([pendingAdj]);
             pushSync();
             inlineCellEditingKey = null;
             renderAll();
@@ -665,7 +675,17 @@
             }
         }
         if (r[field] === value) return; // no-op skip
+        // Capture delta cho qty change → sync Kho.
+        let pendingAdj = null;
+        if (field === 'qty') {
+            const oldQty = Number(r.qty) || 0;
+            const delta = (Number(value) || 0) - oldQty;
+            if (delta !== 0) {
+                pendingAdj = { ..._rowToKhoMatch(r), delta };
+            }
+        }
         window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, { [field]: value });
+        if (pendingAdj && pendingAdj.name) adjustKhoPending([pendingAdj]);
         pushSync();
         renderFooterTotals();
         flashRow(rowId);
@@ -1981,6 +2001,21 @@ window.addEventListener('load', () => {
                 productImage: r.productImage.trim(),
                 invoiceImage: r.invoiceImage.trim(),
             };
+            // Capture OLD row TRƯỚC khi update để tính delta sync Kho.
+            const editSh = tab.shipments.find((s) => s.id === editingShipmentId);
+            const oldRow = editSh?.rows.find((x) => x.id === editingRowId);
+            const oldMatch = oldRow ? _rowToKhoMatch(oldRow) : null;
+            const oldQty = Number(oldRow?.qty) || 0;
+            const newMatch = _rowToKhoMatch({
+                productName: rowData.productName,
+                variant: rowData.variant,
+                supplier: rowData.supplier,
+            });
+            const newQty = rowData.qty;
+            const sameSp =
+                oldMatch &&
+                oldMatch.name.toLowerCase() === newMatch.name.toLowerCase() &&
+                (oldMatch.variant || '').toLowerCase() === (newMatch.variant || '').toLowerCase();
             const sh = tab.shipments.find((s) => s.id === editingShipmentId);
             const dateOrBatchChanged =
                 sh && (sh.date !== shipMeta.date || (sh.batch || '') !== shipMeta.batch);
@@ -2027,8 +2062,20 @@ window.addEventListener('load', () => {
                 window.SoOrderStorage.updateShipment(state, tab.id, editingShipmentId, shipMeta);
             }
             notify('Đã cập nhật dòng order', 'success');
-            // Sync this single row to kho if new
-            syncRowsToKho([r], tab).catch(() => {});
+            // Sync Kho:
+            //   - SP cùng name+variant với row cũ → adjust pending delta.
+            //   - Rename → giảm pending SP cũ qty rồi upsert SP mới.
+            if (sameSp) {
+                const delta = newQty - oldQty;
+                if (delta !== 0 && newMatch.name) {
+                    adjustKhoPending([{ ...newMatch, delta }]);
+                }
+            } else {
+                if (oldMatch?.name && oldQty > 0) {
+                    adjustKhoPending([{ ...oldMatch, delta: -oldQty }]);
+                }
+                syncRowsToKho([r], tab).catch(() => {});
+            }
         } else {
             let sh = window.SoOrderStorage.findShipment(tab, shipMeta);
             if (!sh) {
@@ -2116,6 +2163,44 @@ window.addEventListener('load', () => {
         }
     }
 
+    /**
+     * Đẩy delta pending_qty về Kho khi user xóa/sửa qty của row đã từng được
+     * Lưu Nháp (đã sync vào Kho).
+     *   adjustments = [{ name, variant, supplier, delta }]
+     * Best-effort: lỗi network không chặn flow chính, chỉ warn.
+     */
+    async function adjustKhoPending(adjustments) {
+        if (!window.Web2ProductsApi || !adjustments?.length) return;
+        const items = adjustments.filter(
+            (a) => a && a.name && Number.isFinite(Number(a.delta)) && Number(a.delta) !== 0
+        );
+        if (!items.length) return;
+        try {
+            const res = await window.Web2ProductsApi.adjustPending(items);
+            if (window.Web2ProductsCache) {
+                window.Web2ProductsCache.pushTickle({ action: 'adjust-from-so-order' });
+            }
+            const deleted = (res?.results || []).filter((r) => r.action === 'deleted').length;
+            if (deleted) {
+                notify(`Đã dọn ${deleted} SP ghost (pending=0, stock=0) khỏi Kho`, 'info');
+            }
+            if (res?.warnings?.length) {
+                console.warn('[so-order] adjustKhoPending warnings:', res.warnings);
+            }
+        } catch (e) {
+            console.warn('[so-order] adjustKhoPending error:', e.message);
+            notify('Lỗi sync giảm pending về Kho: ' + e.message, 'error');
+        }
+    }
+
+    function _rowToKhoMatch(r) {
+        return {
+            name: (r.productName || '').trim(),
+            variant: (r.variant || '').trim() || null,
+            supplier: (r.supplier || '').trim() || null,
+        };
+    }
+
     function _noteHasLabel(note, label) {
         if (!note || !label) return false;
         const parts = String(note)
@@ -2144,8 +2229,13 @@ window.addEventListener('load', () => {
     function deleteRow(shipmentId, rowId) {
         if (!confirm('Xóa dòng order này?')) return;
         const tab = window.SoOrderStorage.getActiveTab(state);
+        // Capture row TRƯỚC khi xóa để sync pending về Kho.
+        const sh = tab.shipments.find((s) => s.id === shipmentId);
+        const r = sh?.rows.find((x) => x.id === rowId);
+        const adj = r ? { ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) } : null;
         window.SoOrderStorage.deleteRow(state, tab.id, shipmentId, rowId);
         notify('Đã xóa dòng', 'info');
+        if (adj && adj.name && adj.delta !== 0) adjustKhoPending([adj]);
         pushSync();
         renderAll();
     }
@@ -2156,8 +2246,13 @@ window.addEventListener('load', () => {
         if (!sh) return;
         const n = sh.rows.length;
         if (!confirm(`Xóa lô này + ${n} dòng order bên trong?`)) return;
+        // Capture rows TRƯỚC khi xóa.
+        const adjustments = (sh.rows || [])
+            .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
+            .filter((a) => a.name && a.delta !== 0);
         window.SoOrderStorage.deleteShipment(state, tab.id, shipmentId);
         notify('Đã xóa lô', 'info');
+        if (adjustments.length) adjustKhoPending(adjustments);
         pushSync();
         renderAll();
     }

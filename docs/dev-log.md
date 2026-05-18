@@ -25,6 +25,70 @@
 
 ## 2026-05-18
 
+### [so-order + web2-products + render] Full sync 2 chiều: delete/edit qty trong đơn ⇄ pending_qty Kho
+
+**User báo**: nếu xóa SP ở Kho, hoặc chỉnh số lượng / xóa SP trong đơn mua hàng, các trường hợp bằng / nhỏ hơn / lớn hơn → kho và đơn lệch nhau (pending_qty kho không sync với qty thực của đơn).
+
+**Hiện trạng cũ**:
+
+- Add row + Lưu → upsertPending cộng dồn `pending_qty += qty` ✅
+- Edit qty (inline/bulk/modal) → KHÔNG sync, kho lệch
+- Delete row / delete shipment → KHÔNG sync, kho còn ghost pending
+- Delete SP ở Kho → DELETE thẳng, mất pending không cảnh báo
+
+**Backend (render.com/routes/web2-products.js)**:
+
+1. **POST `/api/web2-products/adjust-pending`** (mới): body `{adjustments: [{code?, name?, variant?, supplier?, delta}]}`. Atomic transaction. Logic:
+    - Match SP theo code (ưu tiên) hoặc name+variant (case-insensitive, NULL/empty variant match)
+    - `pending_qty = GREATEST(0, pending_qty + delta)` (clamp 0)
+    - Auto-cleanup ghost: `pending=0 AND stock=0 AND created_by='so-order'` → DELETE SP
+    - Auto-convert status: `pending=0 AND stock>0 AND status='CHO_MUA'` → `status='DANG_BAN'`
+    - Return per-item: `{code, name, action: deleted|updated, newPendingQty, status, stock}` + warnings
+2. **DELETE `/api/web2-products/:code`** (sửa): nếu `pending_qty > 0` và không có `?force=1` → trả **409** với `{code, name, pendingQty, supplier, message}` để frontend cảnh báo. `?force=1` bypass.
+
+**Frontend API (web2/products/js/web2-products-api.js)**:
+
+- `_fetchJson` throw error với `.status` + `.body` để caller phân biệt 409 vs 500.
+- `remove(code, {force})` truyền query.
+- `adjustPending(adjustments)` mới.
+
+**Frontend so-order (so-order/js/so-order-app.js)**:
+
+- Helper `adjustKhoPending(adjustments)` — best-effort, notify nếu có SP bị auto-cleanup.
+- Helper `_rowToKhoMatch(r)` — extract `{name, variant, supplier}` từ row.
+- `deleteRow`: capture row TRƯỚC khi xóa → adjustKhoPending([{...match, delta: -qty}])
+- `deleteShipment`: batch tất cả rows của lô.
+- Inline cell edit (`beginInlineCellEdit > commit`): khi field=qty, tính `delta = newQty - oldQty`, adjust.
+- Bulk edit (`commitBulkEditField`): tương tự.
+- Modal edit save (modalMode='edit'):
+    - Nếu name+variant unchanged → adjust delta.
+    - Nếu rename → dec old qty + upsertPending new (rename case).
+
+**Frontend web2/products (delete handling)**:
+
+- `remove(code)` → `_doRemove(code, false)`. Nếu lỗi `.status === 409` → popup "SP còn N cái CHỜ HÀNG, vẫn xóa?" → confirm → `_doRemove(code, true)` (force).
+
+**Verify cases** (sẽ test sau khi Render deploy):
+
+- Sửa qty 10 → 5: kho `pending_qty -= 5` (clamp 0) ✅
+- Sửa qty 10 → 15: kho `pending_qty += 5` ✅
+- Xóa row qty=10: kho `pending_qty -= 10`, nếu = 0 + stock = 0 → SP bị auto-delete (ghost cleanup) ✅
+- Xóa lô: batch adjustment cho mọi rows ✅
+- Xóa SP ở Kho có pending > 0: hiện popup cảnh báo, force = 1 mới xóa ✅
+
+**Files**:
+
+- `render.com/routes/web2-products.js` — adjust-pending endpoint + DELETE force flag
+- `web2/products/js/web2-products-api.js` — adjustPending, remove(force), err.status/body — bump cache `v20260518a → v20260518b`
+- `web2/products/js/web2-products-app.js` — 409 handling — bump `v20260518b → v20260518c`
+- `web2/products/index.html` — bump cache
+- `so-order/js/so-order-app.js` — adjustKhoPending helper + wire 5 paths (deleteRow, deleteShipment, inline edit qty, bulk edit qty, modal edit save)
+- `so-order/index.html` — bump cache `v20260518i → v20260518j`
+
+**Status**: ✅ Done (Render deploy auto sau push, ~2 min)
+
+---
+
 ### [web2-products + so-order] Fix hiển thị trạng thái "CHỜ HÀNG" + auto ×1000 giá VND
 
 **User báo 2 vấn đề**:
