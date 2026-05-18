@@ -51,6 +51,35 @@ Thêm `notifyClients('kpi_statistics', ...)` vào TẤT CẢ write endpoints:
 
 **Status**: ✅ Code done. Cần deploy Render + GitHub Pages, sau đó re-test 2-user.
 
+### [web2/supplier-debt] Refactor modal → inline row expand giống legacy
+
+**User**: "làm chức năng expand cho web2/supplier-debt giống supplier-debt/" + answer relationship giữa các trang Web 2.0.
+
+**Logic liên kết Web 2.0 (đã trả lời chi tiết trong chat):**
+
+- **so-order** (Firestore) → derive purchases per NCC + write web2_products stock (+)
+- **supplier-wallet** (Firestore) → ledger payment/return per NCC; on return → web2_products stock (-)
+- **supplier-debt** (NEW) → READ-ONLY báo cáo, aggregate so_order + supplier_wallet
+- **native-orders** (Postgres) → tạo PBH → fast_sale_orders → web2_products stock (-)
+- **customer-wallet** (Firestore) → group PBH by phone; on return → web2_products stock (+)
+- **products** (web2_products Postgres) → SOURCE OF TRUTH cho stock, +/- bởi 4 luồng trên
+- **SePay auto-poll**: webhook → `balance_history` → `/api/wallet-deposits/load` → 2 ví match (phone cho KH, content substring cho NCC) → auto payment tx
+
+**Refactor expand**:
+
+- BỎ modal `<div class="sd-modal" id="sdDetailModal">` khỏi HTML.
+- Thay bằng pattern legacy: per main row có 1 `<tr class="sd-detail-row" hidden>` đi kèm dưới với `<td colspan="7">` chứa detail content render từ JS string.
+- Thêm cột expand (▶ / ▼) ở table header, mỗi row có button `.sd-expand-btn` (24×24, ▶ default, → ▼ khi expanded + bg purple).
+- Click expand button HOẶC click row → `toggleExpand(supplier)` toggle membership trong `STATE.expanded: Set<supplier>`.
+- Tab state per supplier: `STATE.detailTabs: Map<supplier, tab>` (default 'congno'). Click tab → `updateDetailPanel(supplier)` chỉ re-render 1 detail cell, không full re-render bảng.
+- **Multi-expand**: nhiều row có thể mở cùng lúc (legacy support this).
+- **Esc → collapse all**.
+- Bỏ `[data-sd-close]`, `Escape close modal`, modal CSS unused.
+
+**Verified Playwright**: 3 main rows → click expand row 1 → 1 detail visible với Công nợ tab + running balance đúng (Shenzhen 9/5 PO/HÀ NỘI 0₫→3.750₫). Click row 1 again → collapse. Expand 2 rows → 2 detail visible đồng thời. Tab switch (Công nợ / Phiếu mua / Giao dịch) per row độc lập.
+
+**Status**: ✅ Done.
+
 ### [web2/supplier-debt] Thêm tab "Công nợ" — chronological merge + running balance per row
 
 **User**: "chức năng tính tiền giống bên supplier-debt/ chưa? Tìm hiểu kĩ chức năng bên supplier-debt/ đi".

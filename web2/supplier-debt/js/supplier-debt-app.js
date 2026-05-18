@@ -42,8 +42,8 @@
             search: '',
             display: 'all', // 'all' | 'endnonzero'
         },
-        activeSupplier: null,
-        detailTab: 'congno',
+        expanded: new Set(), // expanded supplier names
+        detailTabs: new Map(), // supplier → active tab name (default 'congno')
     };
 
     // ---------- helpers ----------
@@ -270,24 +270,89 @@
         empty.hidden = true;
         const start = (page - 1) * pageSize;
         const slice = rows.slice(start, start + pageSize);
-        body.innerHTML = slice
+
+        // Build main row + detail row per supplier
+        const html = slice
             .map((r, i) => {
                 const stt = start + i + 1;
                 const cls = r.ending > 0.5 ? 'is-debt' : r.ending < -0.5 ? 'is-credit' : '';
-                return `<tr class="${cls}" data-supplier="${escapeHtml(r.supplier)}">
+                const isExpanded = STATE.expanded.has(r.supplier);
+                const arrow = isExpanded ? '▼' : '▶';
+                const detailContent = isExpanded ? detailPanelHtml(r) : '';
+                return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
                     <td class="num-stt">${stt}</td>
+                    <td class="col-expand"><button class="sd-expand-btn" type="button" data-toggle-supplier="${escapeHtml(r.supplier)}">${arrow}</button></td>
                     <td class="col-name">${escapeHtml(r.supplier)}</td>
                     <td class="num">${fmtVnd(r.opening)}</td>
                     <td class="num">${fmtVnd(r.debit)}</td>
                     <td class="num">${fmtVnd(r.credit)}</td>
                     <td class="num col-ending">${fmtVnd(r.ending)}</td>
+                </tr>
+                <tr class="sd-detail-row" data-detail-for="${escapeHtml(r.supplier)}" ${isExpanded ? '' : 'hidden'}>
+                    <td colspan="7" class="sd-detail-cell">${detailContent}</td>
                 </tr>`;
             })
             .join('');
-        body.querySelectorAll('tr[data-supplier]').forEach((tr) => {
-            tr.addEventListener('click', () => openDetail(tr.dataset.supplier));
+        body.innerHTML = html;
+
+        // Wire row click → toggle expand
+        body.querySelectorAll('tr.sd-main-row').forEach((tr) => {
+            tr.addEventListener('click', (e) => {
+                // Don't intercept clicks on tab buttons (live in detail row, not main row)
+                if (e.target.closest('.sd-tab, .sd-expand-btn')) return;
+                toggleExpand(tr.dataset.supplier);
+            });
         });
+        body.querySelectorAll('[data-toggle-supplier]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleExpand(btn.dataset.toggleSupplier);
+            });
+        });
+        wireDetailTabs();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function wireDetailTabs() {
+        document.querySelectorAll('.sd-detail-row[data-detail-for]').forEach((tr) => {
+            const supplier = tr.dataset.detailFor;
+            tr.querySelectorAll('.sd-tab').forEach((b) => {
+                b.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    STATE.detailTabs.set(supplier, b.dataset.detailTab);
+                    updateDetailPanel(supplier);
+                });
+            });
+        });
+    }
+
+    function toggleExpand(supplier) {
+        if (STATE.expanded.has(supplier)) {
+            STATE.expanded.delete(supplier);
+        } else {
+            STATE.expanded.add(supplier);
+            if (!STATE.detailTabs.has(supplier)) {
+                STATE.detailTabs.set(supplier, 'congno');
+            }
+        }
+        renderTable();
+    }
+
+    function updateDetailPanel(supplier) {
+        // Re-render only the detail row for this supplier (no full table re-render).
+        const detailTr = document.querySelector(
+            `tr.sd-detail-row[data-detail-for="${cssAttrEscape(supplier)}"]`
+        );
+        const row = STATE.rows.find((r) => r.supplier === supplier);
+        if (!detailTr || !row) return;
+        const cell = detailTr.querySelector('.sd-detail-cell');
+        if (cell) cell.innerHTML = detailPanelHtml(row);
+        wireDetailTabs();
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function cssAttrEscape(s) {
+        return String(s || '').replace(/(["\\])/g, '\\$1');
     }
 
     function renderTotals() {
@@ -333,42 +398,44 @@
         });
     }
 
-    // ---------- detail modal ----------
-    function openDetail(supplier) {
-        STATE.activeSupplier = supplier;
-        STATE.detailTab = 'congno';
-        const row = STATE.rows.find((r) => r.supplier === supplier);
-        if (!row) return;
-        document.getElementById('sdDetailTitle').textContent = supplier;
-        const sub = [];
-        if (STATE.filters.from) sub.push('Từ ' + fmtDateVN(STATE.filters.from));
-        if (STATE.filters.to) sub.push('Đến ' + fmtDateVN(STATE.filters.to));
-        document.getElementById('sdDetailSub').textContent = sub.join(' · ') || 'Toàn bộ thời gian';
-        document.getElementById('sdDetailOpening').textContent = fmtVnd(row.opening);
-        document.getElementById('sdDetailDebit').textContent = fmtVnd(row.debit);
-        document.getElementById('sdDetailCredit').textContent = fmtVnd(row.credit);
-        document.getElementById('sdDetailEnding').textContent = fmtVnd(row.ending);
-        renderDetailTabs();
-        document.getElementById('sdDetailModal').hidden = false;
-        if (window.lucide?.createIcons) window.lucide.createIcons();
-    }
-
-    function renderDetailTabs() {
-        document.querySelectorAll('#sdDetailModal .sd-tab').forEach((b) => {
-            b.classList.toggle('is-active', b.dataset.detailTab === STATE.detailTab);
-        });
-        document.querySelectorAll('#sdDetailModal .sd-detail-panel').forEach((p) => {
-            p.hidden = p.dataset.panel !== STATE.detailTab;
-        });
-        const row = STATE.rows.find((r) => r.supplier === STATE.activeSupplier);
-        if (!row) return;
-        if (STATE.detailTab === 'congno') {
-            renderDetailCongNo(row);
-        } else if (STATE.detailTab === 'purchases') {
-            renderDetailPurchases(row);
-        } else {
-            renderDetailTx(row);
-        }
+    // ---------- inline detail panel ----------
+    function detailPanelHtml(row) {
+        const tab = STATE.detailTabs.get(row.supplier) || 'congno';
+        const subParts = [];
+        if (STATE.filters.from) subParts.push('Từ ' + fmtDateVN(STATE.filters.from));
+        if (STATE.filters.to) subParts.push('Đến ' + fmtDateVN(STATE.filters.to));
+        const sub = subParts.join(' · ') || 'Toàn bộ thời gian';
+        return `
+            <div class="sd-detail-stats">
+                <div class="sd-stat">
+                    <span class="sd-stat-label">Nợ đầu kỳ</span>
+                    <span class="sd-stat-value">${fmtVnd(row.opening)}</span>
+                </div>
+                <div class="sd-stat sd-stat-debit">
+                    <span class="sd-stat-label">Phát sinh</span>
+                    <span class="sd-stat-value">${fmtVnd(row.debit)}</span>
+                </div>
+                <div class="sd-stat sd-stat-credit">
+                    <span class="sd-stat-label">Thanh toán</span>
+                    <span class="sd-stat-value">${fmtVnd(row.credit)}</span>
+                </div>
+                <div class="sd-stat sd-stat-strong">
+                    <span class="sd-stat-label">Nợ cuối kỳ</span>
+                    <span class="sd-stat-value">${fmtVnd(row.ending)}</span>
+                </div>
+            </div>
+            <div class="sd-detail-period">${escapeHtml(sub)}</div>
+            <div class="sd-detail-tabs">
+                <button class="sd-tab ${tab === 'congno' ? 'is-active' : ''}" type="button" data-detail-tab="congno">Công nợ</button>
+                <button class="sd-tab ${tab === 'purchases' ? 'is-active' : ''}" type="button" data-detail-tab="purchases">Phiếu mua</button>
+                <button class="sd-tab ${tab === 'transactions' ? 'is-active' : ''}" type="button" data-detail-tab="transactions">Giao dịch</button>
+            </div>
+            <div class="sd-detail-content">
+                ${tab === 'congno' ? congnoTableHtml(row) : ''}
+                ${tab === 'purchases' ? purchasesTableHtml(row) : ''}
+                ${tab === 'transactions' ? transactionsTableHtml(row) : ''}
+            </div>
+        `;
     }
 
     // Chronological merge of purchases (Debit) + transactions (Credit) with
@@ -412,12 +479,10 @@
         return entries;
     }
 
-    function renderDetailCongNo(row) {
-        const tbody = document.getElementById('sdDetailCongnoBody');
+    function congnoTableHtml(row) {
         const entries = buildCongNoEntries(row);
         if (!entries.length) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px;">Không có bút toán trong kỳ.</td></tr>`;
-            return;
+            return `<div class="sd-detail-empty">Không có bút toán trong kỳ.</div>`;
         }
         let runningBalance = row.opening;
         const rowsHtml = entries
@@ -438,19 +503,26 @@
                 </tr>`;
             })
             .join('');
-        tbody.innerHTML = rowsHtml;
+        return `<table class="sd-detail-table sd-congno-table">
+            <thead><tr>
+                <th>Ngày</th><th>Diễn giải</th><th>Bút toán</th>
+                <th class="num">Nợ đầu kỳ</th>
+                <th class="num">Phát sinh</th>
+                <th class="num">Thanh toán</th>
+                <th class="num">Nợ cuối kỳ</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>`;
     }
 
-    function renderDetailPurchases(row) {
-        const tbody = document.getElementById('sdDetailPurchasesBody');
+    function purchasesTableHtml(row) {
         if (!row.purchasesInPeriod.length) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px;">Không có phiếu mua trong kỳ.</td></tr>`;
-            return;
+            return `<div class="sd-detail-empty">Không có phiếu mua trong kỳ.</div>`;
         }
         const sorted = [...row.purchasesInPeriod].sort((a, b) =>
             String(b.date).localeCompare(String(a.date))
         );
-        tbody.innerHTML = sorted
+        const rowsHtml = sorted
             .map(
                 (p) => `<tr>
                     <td>${escapeHtml(fmtDateVN(p.date))}</td>
@@ -463,16 +535,21 @@
                 </tr>`
             )
             .join('');
+        return `<table class="sd-detail-table">
+            <thead><tr>
+                <th>Ngày</th><th>Tab</th><th>Sản phẩm</th><th>Biến thể</th>
+                <th class="num">SL</th><th class="num">Giá</th><th class="num">Thành tiền (VND)</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>`;
     }
 
-    function renderDetailTx(row) {
-        const tbody = document.getElementById('sdDetailTxBody');
+    function transactionsTableHtml(row) {
         if (!row.txInPeriod.length) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">Không có giao dịch trong kỳ.</td></tr>`;
-            return;
+            return `<div class="sd-detail-empty">Không có giao dịch trong kỳ.</div>`;
         }
         const sorted = [...row.txInPeriod].sort((a, b) => b.ts - a.ts);
-        tbody.innerHTML = sorted
+        const rowsHtml = sorted
             .map((t) => {
                 const lbl = t.type === 'return' ? 'Trả hàng' : 'Thanh toán';
                 return `<tr>
@@ -483,6 +560,12 @@
                 </tr>`;
             })
             .join('');
+        return `<table class="sd-detail-table">
+            <thead><tr>
+                <th>Thời gian</th><th>Loại</th><th class="num">Số tiền</th><th>Ghi chú</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>`;
     }
 
     // ---------- export CSV ----------
@@ -583,22 +666,11 @@
                 renderPagination();
             }
         });
-        document.querySelectorAll('#sdDetailModal .sd-tab').forEach((b) => {
-            b.addEventListener('click', () => {
-                STATE.detailTab = b.dataset.detailTab;
-                renderDetailTabs();
-            });
-        });
-        document.querySelectorAll('[data-sd-close]').forEach((el) => {
-            el.addEventListener('click', () => {
-                el.closest('.sd-modal')?.setAttribute('hidden', '');
-            });
-        });
+        // Esc → collapse all expanded rows
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                document
-                    .querySelectorAll('.sd-modal:not([hidden])')
-                    .forEach((m) => (m.hidden = true));
+            if (e.key === 'Escape' && STATE.expanded.size > 0) {
+                STATE.expanded.clear();
+                renderTable();
             }
         });
     }
