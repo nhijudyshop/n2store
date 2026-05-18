@@ -390,6 +390,93 @@
     color: #92400e;
 }
 
+.sd-table th.col-code,
+.sd-table td.col-code {
+    width: 90px;
+    white-space: nowrap;
+    padding-right: 8px;
+}
+
+.sd-code-pill {
+    display: inline-block;
+    font-family: 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #4338ca;
+    background: #eef2ff;
+    padding: 3px 9px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+
+.sd-code-pill.is-empty {
+    color: #cbd5e1;
+    background: transparent;
+    font-weight: 400;
+}
+
+/* Modal panel narrow (for Create NCC) */
+.sd-modal-panel-narrow {
+    max-width: 480px;
+}
+
+.sd-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 14px;
+}
+
+.sd-form-field > span {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.sd-form-field > span em {
+    color: #b91c1c;
+    font-style: normal;
+}
+
+.sd-form-field input {
+    padding: 9px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #0f172a;
+    background: #fff;
+    transition: border-color 120ms;
+}
+
+.sd-form-field input:focus {
+    outline: none;
+    border-color: #4338ca;
+    box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
+}
+
+.sd-form-field small {
+    color: #64748b;
+    font-size: 0.75rem;
+    line-height: 1.45;
+}
+
+.sd-form-field small code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 0.72rem;
+}
+
+.sd-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
 .sd-table tbody tr.is-debt td.col-ending {
     color: #b91c1c;
     font-weight: 600;

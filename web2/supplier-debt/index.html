@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518d" />
         <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
-        <link rel="stylesheet" href="css/styles.css?v=20260518d" />
+        <link rel="stylesheet" href="css/styles.css?v=20260518e" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -104,6 +104,9 @@
                             <button class="btn btn-secondary" id="sdResetBtn" type="button">
                                 <i data-lucide="rotate-ccw"></i> Reset
                             </button>
+                            <button class="btn btn-primary" id="sdCreateNccBtn" type="button">
+                                <i data-lucide="plus"></i> Tạo NCC
+                            </button>
                             <button class="btn btn-success" id="sdExportBtn" type="button">
                                 <i data-lucide="file-spreadsheet"></i> Xuất CSV
                             </button>
@@ -117,6 +120,7 @@
                             <tr>
                                 <th class="num-stt">#</th>
                                 <th class="col-expand"></th>
+                                <th class="col-code sortable" data-sort="code">Mã NCC</th>
                                 <th>Nhà Cung Cấp</th>
                                 <th class="num sortable" data-sort="opening">Nợ đầu kỳ</th>
                                 <th class="num sortable" data-sort="debit">Phát sinh</th>
@@ -127,7 +131,7 @@
                         <tbody id="sdTableBody"></tbody>
                         <tfoot>
                             <tr class="sd-total-row">
-                                <td colspan="3"><strong>Tổng</strong></td>
+                                <td colspan="4"><strong>Tổng</strong></td>
                                 <td class="num" id="sdTotalOpening">0₫</td>
                                 <td class="num" id="sdTotalDebit">0₫</td>
                                 <td class="num" id="sdTotalCredit">0₫</td>
@@ -153,8 +157,55 @@
             </main>
         </div>
 
+        <!-- Create NCC modal -->
+        <div class="sd-modal" id="sdCreateNccModal" hidden>
+            <div class="sd-modal-backdrop" data-sd-modal-close></div>
+            <div class="sd-modal-panel sd-modal-panel-narrow">
+                <header class="sd-modal-head">
+                    <h2>Tạo Nhà Cung Cấp</h2>
+                    <button class="sd-modal-close" type="button" data-sd-modal-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sd-modal-body">
+                    <label class="sd-form-field">
+                        <span>Mã NCC <em>*</em></span>
+                        <input
+                            id="sdNccCode"
+                            type="text"
+                            placeholder="Vd: B5, A12, MM2 …"
+                            autocomplete="off"
+                            maxlength="20"
+                        />
+                        <small>Chữ + số. Vd: B5 → hiển thị `[B5]`. Sort theo mã.</small>
+                    </label>
+                    <label class="sd-form-field">
+                        <span>Tên NCC <em>*</em></span>
+                        <input
+                            id="sdNccName"
+                            type="text"
+                            placeholder="Vd: CHIẾN NGỌC ( HÀ NỘI )"
+                            autocomplete="off"
+                            maxlength="120"
+                        />
+                        <small>
+                            Tên đầy đủ, KHÔNG cần thêm mã ở đầu — hiển thị tự động.
+                            <br />Vd: tên `CHIẾN NGỌC ( HÀ NỘI )` + mã `B5` →
+                            <code>[B5] B5 CHIẾN NGỌC ( HÀ NỘI )</code>
+                        </small>
+                    </label>
+                </div>
+                <footer class="sd-modal-foot">
+                    <button class="btn btn-secondary" type="button" data-sd-modal-close>Hủy</button>
+                    <button class="btn btn-primary" id="sdNccConfirmBtn" type="button">
+                        <i data-lucide="check"></i> Lưu NCC
+                    </button>
+                </footer>
+            </div>
+        </div>
+
         <script src="../shared/tpos-sidebar.js?v=20260518b"></script>
-        <script src="js/supplier-debt-app.js?v=20260518e"></script>
+        <script src="js/supplier-debt-app.js?v=20260518f"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

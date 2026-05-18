@@ -33,11 +33,12 @@
     const STATE = {
         soOrderData: null,
         walletData: null,
+        suppliersList: [], // [{ id, code, name, createdAt }] from Firestore suppliers_v1
         tposData: [], // raw TPOS supplier rows (from Report/PartnerDebtReport)
         tposCongNo: new Map(), // partnerId → congNo rows (lazy fetched on expand)
         rows: [], // aggregated supplier rows after filter
-        sortField: 'ending',
-        sortDir: 'desc',
+        sortField: 'code',
+        sortDir: 'asc',
         page: 1,
         pageSize: 50,
         filters: {
@@ -125,16 +126,63 @@
                 return;
             }
             const db = firebase.firestore();
-            const [soSnap, walletSnap] = await Promise.all([
+            const [soSnap, walletSnap, supSnap] = await Promise.all([
                 db.collection('so_order_v2').doc('main').get(),
                 db.collection('supplier_wallet_v1').doc('main').get(),
+                db.collection('suppliers_v1').doc('main').get(),
             ]);
             STATE.soOrderData = soSnap.exists ? soSnap.data()?.data || null : null;
             STATE.walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
+            STATE.suppliersList = supSnap.exists
+                ? Array.isArray(supSnap.data()?.data?.suppliers)
+                    ? supSnap.data().data.suppliers
+                    : []
+                : [];
         } catch (e) {
             console.warn('[supplier-debt] load Web 2.0 fail:', e.message);
             notify('Lỗi tải dữ liệu Web 2.0: ' + e.message, 'error');
         }
+    }
+
+    async function saveSupplier(code, name) {
+        const db = firebase.firestore();
+        const ref = db.collection('suppliers_v1').doc('main');
+        const snap = await ref.get();
+        const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
+        const list = Array.isArray(data.suppliers) ? data.suppliers : [];
+        const codeUp = code.trim().toUpperCase();
+        if (list.find((s) => String(s.code).toUpperCase() === codeUp)) {
+            throw new Error(`Mã NCC "${codeUp}" đã tồn tại`);
+        }
+        list.push({
+            id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            code: codeUp,
+            name: name.trim(),
+            createdAt: Date.now(),
+        });
+        await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
+        STATE.suppliersList = list;
+    }
+
+    // Lookup code for a supplier name string.
+    // Match rules (in order):
+    //   1. supplierKey starts with "<code> " (legacy/TPOS data: "B5 CHIẾN NGỌC ...")
+    //   2. supplierKey ends with " name" exactly (created via "Tạo NCC" + linked to existing row)
+    //   3. supplierKey === name
+    function resolveCodeForSupplier(supplierKey) {
+        const list = STATE.suppliersList || [];
+        if (!list.length) return null;
+        const lower = String(supplierKey).toLowerCase();
+        // Prefer code prefix match (legacy/TPOS format)
+        for (const s of list) {
+            const prefix = String(s.code).toLowerCase() + ' ';
+            if (lower.startsWith(prefix)) return s;
+        }
+        // Exact name match
+        for (const s of list) {
+            if (lower === String(s.name).toLowerCase()) return s;
+        }
+        return null;
     }
 
     function isoTpos(date, endOfDay) {
@@ -281,11 +329,38 @@
             }
         }
 
-        // Finalize: compute opening + ending for Web 2.0 rows
+        // Finalize: compute opening + ending for Web 2.0 rows + attach code from suppliers_v1
         for (const supplier of Object.keys(result)) {
             const row = result[supplier];
             row.opening = row._purchasesBefore - row._txBefore;
             row.ending = row.opening + row.debit - row.credit;
+            if (!row.code) {
+                const matched = resolveCodeForSupplier(supplier);
+                if (matched) row.code = matched.code;
+            }
+        }
+
+        // Add empty rows for suppliers in list that have no purchases yet
+        // (so they show up after "Tạo NCC" before any orders are placed).
+        for (const s of STATE.suppliersList || []) {
+            const fullName = `${s.code} ${s.name}`;
+            const existsExact = result[fullName];
+            const existsByCode = Object.values(result).find((r) => r.code === s.code);
+            if (existsExact || existsByCode) continue;
+            result[fullName] = {
+                supplier: fullName,
+                opening: 0,
+                debit: 0,
+                credit: 0,
+                ending: 0,
+                _purchasesBefore: 0,
+                _txBefore: 0,
+                purchasesInPeriod: [],
+                txInPeriod: [],
+                source: 'web2',
+                code: s.code,
+                partnerId: null,
+            };
         }
 
         // Merge TPOS rows (server-provided Debit/Credit/End; opening derived).
@@ -355,6 +430,21 @@
             if (f === 'opening' || f === 'debit' || f === 'credit' || f === 'ending') {
                 return (a[f] - b[f]) * dir;
             }
+            if (f === 'code') {
+                // Rows with code first, then without (regardless of dir, no-code stays last).
+                const aHas = !!a.code;
+                const bHas = !!b.code;
+                if (aHas && !bHas) return -1;
+                if (!aHas && bHas) return 1;
+                if (aHas && bHas) {
+                    const cmp = String(a.code).localeCompare(String(b.code), 'vi', {
+                        numeric: true,
+                        sensitivity: 'base',
+                    });
+                    if (cmp !== 0) return cmp * dir;
+                }
+                return a.supplier.localeCompare(b.supplier, 'vi', { numeric: true }) * dir;
+            }
             return a.supplier.localeCompare(b.supplier) * dir;
         });
 
@@ -392,17 +482,29 @@
                     r.source === 'tpos'
                         ? `<span class="sd-source-badge is-tpos" title="Dữ liệu từ TPOS (legacy)">TPOS</span>`
                         : `<span class="sd-source-badge is-web2" title="Dữ liệu từ Web 2.0 (so-order + ví NCC)">WEB 2.0</span>`;
+                // Display format: [code] code name (if code), else just name.
+                // For created suppliers, r.supplier === `${code} ${name}` already.
+                // For matched legacy/TPOS rows, r.supplier already includes code prefix.
+                const codeBadge = r.code
+                    ? `<span class="sd-code-pill">${escapeHtml(r.code)}</span>`
+                    : '<span class="sd-code-pill is-empty">—</span>';
+                const displayName = r.code
+                    ? r.supplier.startsWith(r.code + ' ')
+                        ? r.supplier
+                        : `${r.code} ${r.supplier}`
+                    : r.supplier;
                 return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
                     <td class="num-stt">${stt}</td>
                     <td class="col-expand"><button class="sd-expand-btn" type="button" data-toggle-supplier="${escapeHtml(r.supplier)}">${arrow}</button></td>
-                    <td class="col-name">${sourceBadge}${escapeHtml(r.supplier)}</td>
+                    <td class="col-code">${codeBadge}</td>
+                    <td class="col-name">${sourceBadge}${escapeHtml(displayName)}</td>
                     <td class="num">${fmtVnd(r.opening)}</td>
                     <td class="num">${fmtVnd(r.debit)}</td>
                     <td class="num">${fmtVnd(r.credit)}</td>
                     <td class="num col-ending">${fmtVnd(r.ending)}</td>
                 </tr>
                 <tr class="sd-detail-row" data-detail-for="${escapeHtml(r.supplier)}" ${isExpanded ? '' : 'hidden'}>
-                    <td colspan="7" class="sd-detail-cell">${detailContent}</td>
+                    <td colspan="8" class="sd-detail-cell">${detailContent}</td>
                 </tr>`;
             })
             .join('');
@@ -712,11 +814,20 @@
 
     // ---------- export CSV ----------
     function exportCsv() {
-        const headers = ['#', 'Nhà cung cấp', 'Nợ đầu kỳ', 'Phát sinh', 'Thanh toán', 'Nợ cuối kỳ'];
+        const headers = [
+            '#',
+            'Mã NCC',
+            'Nhà cung cấp',
+            'Nợ đầu kỳ',
+            'Phát sinh',
+            'Thanh toán',
+            'Nợ cuối kỳ',
+        ];
         const lines = [headers.join(',')];
         STATE.rows.forEach((r, i) => {
             const cells = [
                 i + 1,
+                csvEscape(r.code || ''),
                 csvEscape(r.supplier),
                 Math.round(r.opening),
                 Math.round(r.debit),
@@ -838,6 +949,41 @@
             if (e.key === 'Escape' && STATE.expanded.size > 0) {
                 STATE.expanded.clear();
                 renderTable();
+            }
+        });
+
+        // Create NCC modal
+        document.getElementById('sdCreateNccBtn')?.addEventListener('click', () => {
+            const m = document.getElementById('sdCreateNccModal');
+            document.getElementById('sdNccCode').value = '';
+            document.getElementById('sdNccName').value = '';
+            m.hidden = false;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            setTimeout(() => document.getElementById('sdNccCode')?.focus(), 30);
+        });
+        document.querySelectorAll('[data-sd-modal-close]').forEach((el) => {
+            el.addEventListener('click', () => {
+                el.closest('.sd-modal')?.setAttribute('hidden', '');
+            });
+        });
+        document.getElementById('sdNccConfirmBtn')?.addEventListener('click', async () => {
+            const code = (document.getElementById('sdNccCode')?.value || '').trim();
+            const name = (document.getElementById('sdNccName')?.value || '').trim();
+            if (!code || !name) {
+                notify('Vui lòng nhập đủ Mã + Tên', 'warning');
+                return;
+            }
+            if (!/^[A-Za-z0-9]+$/.test(code)) {
+                notify('Mã chỉ được chứa chữ + số (vd B5, A12, MM2)', 'warning');
+                return;
+            }
+            try {
+                await saveSupplier(code, name);
+                notify(`Đã tạo NCC [${code.toUpperCase()}] ${name}`, 'success');
+                document.getElementById('sdCreateNccModal').hidden = true;
+                applyFilterAndRender();
+            } catch (e) {
+                notify(e.message || 'Lỗi tạo NCC', 'error');
             }
         });
     }
