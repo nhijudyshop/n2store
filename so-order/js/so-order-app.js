@@ -31,11 +31,11 @@
     let editingRowId = null;
     let editingShipmentId = null;
     let editingTabId = null;
-    // Inline table edit mode — toggle qua nút "Chỉnh sửa bảng" header.
-    // Khi true: cell qty/sellPrice/costPrice/variant/note/costNote/status
-    // hiện input/select; blur/change auto-save qua SoOrderStorage.updateRow().
-    let editTableMode = false;
-    const STORAGE_EDIT_MODE_KEY = 'soOrder_editTableMode_v1';
+    // Inline cell edit state (per-cell dblclick mode) — track ô đang edit
+    // để 2 lần dblclick nhanh không clobber input đang gõ.
+    let inlineCellEditingKey = null; // `${rowId}|${field}`
+    // Inline image modal state — track row đang sửa ảnh nào.
+    let inlineImageCtx = null; // { rowId, shipmentId, field, currentUrl }
     // Multi-row modal state. Each entry is { uid, productName, variant, qty,
     // costPrice, sellPrice, productImage, invoiceImage, matchedCode }.
     // `matchedCode` is set when the user picks a suggestion or the typed
@@ -201,35 +201,57 @@
         tbody.querySelectorAll('img[data-zoomable]').forEach((img) => {
             img.addEventListener('click', () => openLightbox(img.src));
         });
-        // Inline edit-table wiring (chỉ active khi editTableMode = true)
-        if (editTableMode) wireInlineEditCells(tbody);
+        // Inline dblclick-to-edit per cell — đăng ký 1 lần ở tbody level
+        if (!tbody.__inlineEditBound) {
+            tbody.addEventListener('dblclick', onCellDoubleClick);
+            tbody.__inlineEditBound = true;
+        }
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
-    function wireInlineEditCells(tbody) {
+    function onCellDoubleClick(e) {
+        // Bỏ qua dblclick lên image (đã có click-mở-lightbox riêng cho preview;
+        // image cells trống và non-empty đều cần mở image modal — handle qua TD).
+        const td = e.target.closest('td[data-cell-field]');
+        if (!td) return;
+        const field = td.dataset.cellField;
+        const rowId = td.dataset.rowId;
+        const shipmentId = td.dataset.shipmentId;
+        if (!field || !rowId || !shipmentId) return;
+        if (INLINE_IMAGE_FIELDS.has(field)) {
+            // Don't trigger lightbox — preventDefault on image bubbling
+            e.preventDefault();
+            e.stopPropagation();
+            openInlineImageModal(rowId, shipmentId, field);
+            return;
+        }
+        if (!INLINE_EDIT_FIELDS.has(field)) return;
+        // Guard: nếu cell đang trong inline edit mode → kệ
+        const key = `${rowId}|${field}`;
+        if (inlineCellEditingKey === key) return;
+        inlineCellEditingKey = key;
+        beginInlineCellEdit(td, rowId, shipmentId, field);
+    }
+
+    function beginInlineCellEdit(td, rowId, shipmentId, field) {
         const tab = window.SoOrderStorage.getActiveTab(state);
-        // Variant picker per cell
-        tbody.querySelectorAll('input[data-edit-variant="1"]').forEach((input) => {
-            const rid = input.dataset.rowId;
-            input.addEventListener('focus', () => _showInlineVariantSuggest(rid, input.value));
-            input.addEventListener('input', () => _showInlineVariantSuggest(rid, input.value));
-            input.addEventListener('blur', () => {
-                setTimeout(() => _hideInlineVariantSuggest(rid), 180);
-            });
-        });
-        // Generic field auto-save on change
-        const persist = (input) => {
-            const field = input.dataset.editField;
-            const rowId = input.dataset.rowId;
-            const shId = input.dataset.shipmentId;
-            if (!field || !rowId || !shId) return;
-            let value = input.value;
+        const sh = tab.shipments.find((s) => s.id === shipmentId);
+        const r = sh?.rows.find((x) => x.id === rowId);
+        if (!r) return;
+        const origHtml = td.innerHTML;
+        const restore = () => {
+            td.innerHTML = origHtml;
+            inlineCellEditingKey = null;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        };
+        const commit = (rawValue) => {
+            let value = rawValue;
             if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
                 value = Number(value) || 0;
             } else if (typeof value === 'string') {
                 value = value.trim();
             }
-            // Variant validation: if non-empty must exist in Kho Biến Thể
+            // Variant validation
             if (field === 'variant' && value) {
                 const cache = window.Web2VariantsCache;
                 if (cache && !cache.findByValueExact(value)) {
@@ -237,88 +259,117 @@
                         `Biến thể "${value}" chưa có trong Kho Biến Thể — thêm trước rồi pick lại.`,
                         'error'
                     );
-                    // Revert UI to stored value
-                    const tabNow = window.SoOrderStorage.getActiveTab(state);
-                    const sh = tabNow.shipments.find((s) => s.id === shId);
-                    const r = sh?.rows.find((x) => x.id === rowId);
-                    if (r) input.value = r.variant || '';
+                    restore();
                     return;
                 }
             }
-            const patch = { [field]: value };
-            window.SoOrderStorage.updateRow(state, tab.id, shId, rowId, patch);
+            window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, { [field]: value });
             pushSync();
-            renderFooterTotals();
-            // Flash row to confirm save
-            const tr = tbody.querySelector(`tr.so-data-row[data-row-id="${rowId}"]`);
-            if (tr) tr.classList.add('is-saved-flash');
-            setTimeout(() => tr?.classList.remove('is-saved-flash'), 600);
+            inlineCellEditingKey = null;
+            renderAll();
+            flashRow(rowId);
         };
-        tbody.querySelectorAll('input[data-edit-field], select[data-edit-field]').forEach((el) => {
-            if (el.tagName === 'SELECT') {
-                el.addEventListener('change', () => persist(el));
-            } else {
-                el.addEventListener('change', () => persist(el));
-                // Save on Enter
-                el.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        el.blur();
-                    }
-                });
-            }
-        });
-    }
 
-    function _showInlineVariantSuggest(rid, query) {
-        const list = document.querySelector(
-            `.so-edit-variant-dropdown[data-edit-variant-for="${rid}"]`
-        );
-        if (!list) return;
-        const cache = window.Web2VariantsCache;
-        if (!cache) return;
-        const items = cache.findByValue((query || '').trim(), 10);
-        if (!items.length) {
-            list.innerHTML = `<div class="so-variant-empty">
-                Kho rỗng. <a href="../web2-variants/index.html" target="_blank">Thêm →</a>
+        let inputHtml;
+        if (field === 'qty') {
+            inputHtml = `<input class="so-edit-input so-edit-num" type="number" min="0" step="1" value="${Number(r.qty) || 0}" autofocus />`;
+        } else if (field === 'sellPrice' || field === 'costPrice') {
+            inputHtml = `<input class="so-edit-input so-edit-num" type="number" min="0" step="any" value="${Number(r[field]) || 0}" autofocus />`;
+        } else if (field === 'status') {
+            const opts = Object.entries(STATUS_LABELS)
+                .map(
+                    ([val, lbl]) =>
+                        `<option value="${val}" ${val === (r.status || 'draft') ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+                )
+                .join('');
+            inputHtml = `<select class="so-edit-select" autofocus>${opts}</select>`;
+        } else if (field === 'variant') {
+            inputHtml = `<div class="so-edit-variant-wrap">
+                <input class="so-edit-input" type="text" value="${escapeHtml(r.variant || '')}" placeholder="Pick từ kho…" autocomplete="off" autofocus />
+                <div class="so-edit-variant-dropdown" hidden></div>
             </div>`;
-            list.hidden = false;
+        } else {
+            inputHtml = `<input class="so-edit-input" type="text" value="${escapeHtml(r[field] || '')}" autofocus />`;
+        }
+        td.innerHTML = inputHtml;
+        const el = td.querySelector('input, select');
+        if (!el) {
+            restore();
             return;
         }
-        list.innerHTML = items
-            .map((v) => {
-                const grp = v.groupName
-                    ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
-                    : '';
-                return `<button type="button" class="so-variant-item" data-rid="${rid}" data-val="${escapeHtml(v.value)}">
-                    <span class="so-variant-val">${escapeHtml(v.value)}</span>${grp}
-                </button>`;
-            })
-            .join('');
-        list.hidden = false;
-        list.querySelectorAll('.so-variant-item').forEach((btn) => {
-            btn.addEventListener('mousedown', (e) => e.preventDefault());
-            btn.addEventListener('click', () => {
-                const input = document.querySelector(
-                    `input[data-edit-variant="1"][data-row-id="${rid}"]`
-                );
-                if (input) {
-                    input.value = btn.dataset.val;
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                list.hidden = true;
-            });
+        el.focus();
+        if (typeof el.select === 'function' && el.tagName === 'INPUT') el.select();
+
+        let committed = false;
+        const finish = () => {
+            if (committed) return;
+            committed = true;
+            commit(el.value);
+        };
+        el.addEventListener('change', finish);
+        el.addEventListener('blur', () => {
+            // Delay nhẹ để click trên dropdown picker register trước
+            setTimeout(() => {
+                if (!committed) finish();
+            }, 150);
         });
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                finish();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                committed = true; // skip blur commit
+                restore();
+            }
+        });
+
+        if (field === 'variant') {
+            const dropdown = td.querySelector('.so-edit-variant-dropdown');
+            const refresh = () => {
+                const cache = window.Web2VariantsCache;
+                if (!cache) {
+                    dropdown.hidden = true;
+                    return;
+                }
+                const items = cache.findByValue((el.value || '').trim(), 10);
+                if (!items.length) {
+                    dropdown.innerHTML = `<div class="so-variant-empty">
+                        Kho rỗng. <a href="../web2-variants/index.html" target="_blank">Thêm →</a>
+                    </div>`;
+                    dropdown.hidden = false;
+                    return;
+                }
+                dropdown.innerHTML = items
+                    .map((v) => {
+                        const grp = v.groupName
+                            ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
+                            : '';
+                        return `<button type="button" class="so-variant-item" data-val="${escapeHtml(v.value)}">
+                            <span class="so-variant-val">${escapeHtml(v.value)}</span>${grp}
+                        </button>`;
+                    })
+                    .join('');
+                dropdown.hidden = false;
+                dropdown.querySelectorAll('.so-variant-item').forEach((btn) => {
+                    btn.addEventListener('mousedown', (e) => e.preventDefault());
+                    btn.addEventListener('click', () => {
+                        el.value = btn.dataset.val;
+                        finish();
+                    });
+                });
+            };
+            el.addEventListener('focus', refresh);
+            el.addEventListener('input', refresh);
+            refresh();
+        }
     }
 
-    function _hideInlineVariantSuggest(rid) {
-        const list = document.querySelector(
-            `.so-edit-variant-dropdown[data-edit-variant-for="${rid}"]`
-        );
-        if (list) {
-            list.hidden = true;
-            list.innerHTML = '';
-        }
+    function flashRow(rowId) {
+        const tr = document.querySelector(`#soTableBody tr.so-data-row[data-row-id="${rowId}"]`);
+        if (!tr) return;
+        tr.classList.add('is-saved-flash');
+        setTimeout(() => tr.classList.remove('is-saved-flash'), 600);
     }
 
     function shipmentHtml(sh, tab, colSpan) {
@@ -386,12 +437,39 @@
         </tr>`;
     }
 
+    // Field nào dblclick được edit inline. STT auto-tính, ảnh có modal riêng,
+    // actions là buttons → bỏ qua.
+    const INLINE_EDIT_FIELDS = new Set([
+        'supplier',
+        'productName',
+        'variant',
+        'qty',
+        'sellPrice',
+        'costPrice',
+        'note',
+        'costNote',
+        'status',
+    ]);
+    const INLINE_IMAGE_FIELDS = new Set(['productImage', 'invoiceImage']);
+
     function rowHtml(r, idx, tab, shipmentId) {
         const rid = escapeHtml(r.id);
         const sid = escapeHtml(shipmentId);
-        const cells = editTableMode
-            ? _editCells(r, idx, tab, shipmentId, rid, sid)
-            : _readCells(r, idx, tab, shipmentId, rid, sid);
+        const cells = {
+            supplier: `<td class="so-cell-supplier" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.supplier || '—')}</td>`,
+            stt: `<td class="so-cell-stt">${idx + 1}</td>`,
+            productName: `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}</td>`,
+            variant: `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.variant || '—')}</td>`,
+            qty: `<td class="so-cell-qty" data-cell-field="qty" data-row-id="${rid}" data-shipment-id="${sid}">${Number(r.qty) || 0}</td>`,
+            sellPrice: priceCell(r.sellPrice, tab, { rid, sid, field: 'sellPrice' }),
+            costPrice: priceCell(r.costPrice, tab, { rid, sid, field: 'costPrice' }),
+            productImage: imgCell(r.productImage, { rid, sid, field: 'productImage' }),
+            invoiceImage: imgCell(r.invoiceImage, { rid, sid, field: 'invoiceImage' }),
+            note: `<td class="so-cell-note" data-cell-field="note" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.note || '')}</td>`,
+            costNote: `<td class="so-cell-note so-cell-note-cp" data-cell-field="costNote" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.costNote || '')}</td>`,
+            status: statusCell(r.status, { rid, sid }),
+            actions: actionsCell(r.id, shipmentId),
+        };
         return (
             '<tr class="so-data-row" data-row-id="' +
             rid +
@@ -403,56 +481,6 @@
                 .join('') +
             '</tr>'
         );
-    }
-
-    function _readCells(r, idx, tab, shipmentId) {
-        return {
-            supplier: `<td class="so-cell-supplier">${escapeHtml(r.supplier || '—')}</td>`,
-            stt: `<td class="so-cell-stt">${idx + 1}</td>`,
-            productName: `<td class="so-cell-product">${escapeHtml(r.productName || '—')}</td>`,
-            variant: `<td class="so-cell-variant">${escapeHtml(r.variant || '—')}</td>`,
-            qty: `<td class="so-cell-qty">${Number(r.qty) || 0}</td>`,
-            sellPrice: priceCell(r.sellPrice, tab),
-            costPrice: priceCell(r.costPrice, tab),
-            productImage: imgCell(r.productImage),
-            invoiceImage: imgCell(r.invoiceImage),
-            note: `<td class="so-cell-note">${escapeHtml(r.note || '')}</td>`,
-            costNote: `<td class="so-cell-note so-cell-note-cp">${escapeHtml(r.costNote || '')}</td>`,
-            status: statusCell(r.status),
-            actions: actionsCell(r.id, shipmentId),
-        };
-    }
-
-    function _editCells(r, idx, tab, shipmentId, rid, sid) {
-        const dataAttrs = `data-row-id="${rid}" data-shipment-id="${sid}"`;
-        const statusOpts = Object.entries(STATUS_LABELS)
-            .map(
-                ([val, lbl]) =>
-                    `<option value="${val}" ${val === (r.status || 'draft') ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
-            )
-            .join('');
-        return {
-            supplier: `<td class="so-cell-supplier"><input class="so-edit-input" type="text" data-edit-field="supplier" ${dataAttrs} value="${escapeHtml(r.supplier || '')}" placeholder="NCC" /></td>`,
-            stt: `<td class="so-cell-stt">${idx + 1}</td>`,
-            // productName + variant + images vẫn editable nhưng productName chỉ
-            // free-text (suggestion phức tạp); variant đi dropdown picker mini.
-            productName: `<td class="so-cell-product"><input class="so-edit-input" type="text" data-edit-field="productName" ${dataAttrs} value="${escapeHtml(r.productName || '')}" placeholder="Tên SP" /></td>`,
-            variant: `<td class="so-cell-variant">
-                <div class="so-edit-variant-wrap">
-                    <input class="so-edit-input" type="text" data-edit-field="variant" data-edit-variant="1" ${dataAttrs} value="${escapeHtml(r.variant || '')}" placeholder="Pick từ kho…" autocomplete="off" />
-                    <div class="so-edit-variant-dropdown" data-edit-variant-for="${rid}" hidden></div>
-                </div>
-            </td>`,
-            qty: `<td class="so-cell-qty"><input class="so-edit-input so-edit-num" type="number" min="0" step="1" data-edit-field="qty" ${dataAttrs} value="${Number(r.qty) || 0}" /></td>`,
-            sellPrice: `<td class="so-cell-money"><input class="so-edit-input so-edit-num" type="number" min="0" step="any" data-edit-field="sellPrice" ${dataAttrs} value="${Number(r.sellPrice) || 0}" /></td>`,
-            costPrice: `<td class="so-cell-money"><input class="so-edit-input so-edit-num" type="number" min="0" step="any" data-edit-field="costPrice" ${dataAttrs} value="${Number(r.costPrice) || 0}" /></td>`,
-            productImage: imgCell(r.productImage),
-            invoiceImage: imgCell(r.invoiceImage),
-            note: `<td class="so-cell-note"><input class="so-edit-input" type="text" data-edit-field="note" ${dataAttrs} value="${escapeHtml(r.note || '')}" placeholder="Ghi chú" /></td>`,
-            costNote: `<td class="so-cell-note so-cell-note-cp"><input class="so-edit-input" type="text" data-edit-field="costNote" ${dataAttrs} value="${escapeHtml(r.costNote || '')}" placeholder="GC CP" /></td>`,
-            status: `<td class="so-cell-status"><select class="so-edit-select" data-edit-field="status" ${dataAttrs}>${statusOpts}</select></td>`,
-            actions: actionsCell(r.id, shipmentId),
-        };
     }
 
     function actionsCell(rowId, shipmentId) {
@@ -494,27 +522,36 @@
         return `${parseInt(m[3], 10)}/${parseInt(m[2], 10)}/${m[1]}`;
     }
 
-    function priceCell(amount, tab) {
+    function priceCell(amount, tab, meta) {
         const raw = Number(amount) || 0;
         const isVnd = tab.currency === 'VND';
         const rawText = isVnd ? '' : fmtCurrency(raw, tab.currency);
         const vndText = fmtVnd(toVnd(raw, tab));
-        return `<td class="so-cell-money">
+        const attrs = meta
+            ? ` data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}"`
+            : '';
+        return `<td class="so-cell-money"${attrs}>
             ${rawText ? '<span class="so-cell-money-raw">' + escapeHtml(rawText) + '</span>' : '<span class="so-cell-money-raw">' + escapeHtml(vndText) + '</span>'}
             ${!isVnd ? '<span class="so-cell-money-vnd">≈ ' + escapeHtml(vndText) + '</span>' : ''}
         </td>`;
     }
 
-    function imgCell(url) {
+    function imgCell(url, meta) {
+        const attrs = meta
+            ? ` data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}"`
+            : '';
         if (!url) {
-            return `<td class="so-cell-img"><span class="so-cell-img-missing">—</span></td>`;
+            return `<td class="so-cell-img"${attrs}><span class="so-cell-img-missing">—</span></td>`;
         }
-        return `<td class="so-cell-img"><img src="${escapeHtml(url)}" alt="" data-zoomable loading="lazy" /></td>`;
+        return `<td class="so-cell-img"${attrs}><img src="${escapeHtml(url)}" alt="" data-zoomable loading="lazy" /></td>`;
     }
 
-    function statusCell(status) {
+    function statusCell(status, meta) {
         const lbl = STATUS_LABELS[status] || status;
-        return `<td class="so-cell-status"><span class="so-status-pill" data-status="${escapeHtml(status || 'draft')}">${escapeHtml(lbl)}</span></td>`;
+        const attrs = meta
+            ? ` data-cell-field="status" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}"`
+            : '';
+        return `<td class="so-cell-status"${attrs}><span class="so-status-pill" data-status="${escapeHtml(status || 'draft')}">${escapeHtml(lbl)}</span></td>`;
     }
 
     function renderFooterTotals() {
@@ -1572,7 +1609,6 @@
             .getElementById('soCreateOrderBtn')
             .addEventListener('click', () => openOrderModal(null));
         document.getElementById('soColumnSettingsBtn').addEventListener('click', openColumnModal);
-        document.getElementById('soEditTableBtn')?.addEventListener('click', toggleEditTableMode);
         document.getElementById('soTabDeleteBtn').addEventListener('click', handleTabDelete);
 
         document.getElementById('soOrderForm').addEventListener('submit', handleOrderSubmit);
@@ -1627,34 +1663,96 @@
         // Multi-row inputs auto-wired in wireModalRowInputs via onModalRowFieldInput.
     }
 
-    function toggleEditTableMode() {
-        editTableMode = !editTableMode;
-        try {
-            localStorage.setItem(STORAGE_EDIT_MODE_KEY, editTableMode ? '1' : '0');
-        } catch {
-            /* ignore quota */
-        }
-        _applyEditModeChrome();
-        renderTableBody();
-        notify(editTableMode ? 'Đã bật chỉnh sửa bảng' : 'Đã tắt chỉnh sửa bảng', 'info');
+    // ---------- Inline image edit modal ----------
+
+    function openInlineImageModal(rowId, shipmentId, field) {
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const sh = tab.shipments.find((s) => s.id === shipmentId);
+        const r = sh?.rows.find((x) => x.id === rowId);
+        if (!r) return;
+        const currentUrl = r[field] || '';
+        inlineImageCtx = { rowId, shipmentId, field, currentUrl, newUrl: currentUrl };
+        const title = field === 'productImage' ? 'Sửa ảnh sản phẩm' : 'Sửa ảnh hóa đơn';
+        const titleEl = document.getElementById('soInlineImageTitle');
+        if (titleEl) titleEl.textContent = title;
+        const urlInput = document.getElementById('soInlineImageUrl');
+        if (urlInput) urlInput.value = currentUrl;
+        _refreshInlineImagePreview(currentUrl);
+        showModal('soInlineImageModal');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        setTimeout(() => {
+            document.getElementById('soInlineImageDrop')?.focus();
+        }, 60);
     }
 
-    function _applyEditModeChrome() {
-        const btn = document.getElementById('soEditTableBtn');
-        if (btn) btn.classList.toggle('is-active', editTableMode);
-        document.body.classList.toggle('so-edit-table-mode', editTableMode);
+    function _refreshInlineImagePreview(url) {
+        const prev = document.getElementById('soInlineImagePreview');
+        if (!prev) return;
+        if (url && url.length < 1024 * 1024 * 3) {
+            prev.innerHTML = `<img src="${escapeHtml(url)}" alt="Preview" />`;
+        } else if (url) {
+            prev.innerHTML = `<img src="${escapeHtml(url)}" alt="Preview" />`;
+        } else {
+            prev.innerHTML = `<div class="so-inline-img-empty">Chưa có ảnh — paste/drop/click để thêm</div>`;
+        }
+    }
+
+    function _saveInlineImage() {
+        if (!inlineImageCtx) return hideModal('soInlineImageModal');
+        const { rowId, shipmentId, field } = inlineImageCtx;
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const urlInput = document.getElementById('soInlineImageUrl');
+        const newUrl = (urlInput?.value || inlineImageCtx.newUrl || '').trim();
+        window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, {
+            [field]: newUrl,
+        });
+        pushSync();
+        renderAll();
+        flashRow(rowId);
+        notify('Đã lưu ảnh', 'success');
+        hideModal('soInlineImageModal');
+        inlineImageCtx = null;
+    }
+
+    function _clearInlineImage() {
+        const urlInput = document.getElementById('soInlineImageUrl');
+        if (urlInput) urlInput.value = '';
+        if (inlineImageCtx) inlineImageCtx.newUrl = '';
+        _refreshInlineImagePreview('');
+    }
+
+    function wireInlineImageModal() {
+        const drop = document.getElementById('soInlineImageDrop');
+        if (drop && window.Web2Effects?.attachImageDropTarget) {
+            window.Web2Effects.attachImageDropTarget(drop, {
+                onResult(url) {
+                    const urlInput = document.getElementById('soInlineImageUrl');
+                    if (urlInput) urlInput.value = url;
+                    if (inlineImageCtx) inlineImageCtx.newUrl = url;
+                    _refreshInlineImagePreview(url);
+                },
+                notify,
+            });
+        }
+        const urlInput = document.getElementById('soInlineImageUrl');
+        urlInput?.addEventListener('input', () => {
+            const v = urlInput.value.trim();
+            if (inlineImageCtx) inlineImageCtx.newUrl = v;
+            _refreshInlineImagePreview(v);
+        });
+        document
+            .getElementById('soInlineImageSaveBtn')
+            ?.addEventListener('click', _saveInlineImage);
+        document
+            .getElementById('soInlineImageClearBtn')
+            ?.addEventListener('click', _clearInlineImage);
     }
 
     async function init() {
         state = window.SoOrderStorage.load();
-        try {
-            editTableMode = localStorage.getItem(STORAGE_EDIT_MODE_KEY) === '1';
-        } catch {
-            editTableMode = false;
-        }
-        _applyEditModeChrome();
         renderAll();
         wireToolbar();
+        wireInlineImageModal();
         wireModalTotals();
         wireFooterInputs();
         if (window.lucide?.createIcons) window.lucide.createIcons();
