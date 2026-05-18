@@ -4,7 +4,10 @@
  * Mirrors the 87 routes crawled from tomato.tpos.vn /#/app/dashboard.
  * Ours-counterpart routes go under /web2/<slug>/index.html.
  *
- * Usage:
+ * Usage (from /web2/<slug>/index.html):
+ *   <link rel="stylesheet" href="../shared/tpos-sidebar.css">
+ *   <script src="../shared/tpos-sidebar.js"></script>
+ * Usage (from /native-orders/, /tpos-pancake/, /so-order/):
  *   <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css">
  *   <script src="../web2/shared/tpos-sidebar.js"></script>
  *   <body>

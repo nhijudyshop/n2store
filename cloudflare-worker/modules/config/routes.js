@@ -213,9 +213,17 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/delivery-invoices/')) return 'DELIVERY_INVOICES';
     if (pathname.startsWith('/api/refunds/')) return 'REFUNDS';
     if (pathname.startsWith('/api/pbh-reports/')) return 'PBH_REPORTS';
-    if (pathname.startsWith('/api/web2/products/') || pathname === '/api/web2-products')
+    if (
+        pathname.startsWith('/api/web2/products/') ||
+        pathname.startsWith('/api/web2-products/') ||
+        pathname === '/api/web2-products'
+    )
         return 'WEB2_PRODUCTS';
-    if (pathname.startsWith('/api/web2/variants/') || pathname === '/api/web2-variants')
+    if (
+        pathname.startsWith('/api/web2/variants/') ||
+        pathname.startsWith('/api/web2-variants/') ||
+        pathname === '/api/web2-variants'
+    )
         return 'WEB2_VARIANTS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/wallet-deposits/')) return 'WALLET_DEPOSITS';

@@ -15,10 +15,10 @@
         />
 
         <!-- Share CSS with native-orders cho consistency, plus local overrides -->
-        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260518d" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260517b" />
-        <link rel="stylesheet" href="../native-orders/css/native-orders.css?v=20260425h" />
-        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260425h" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518d" />
+        <link rel="stylesheet" href="../shared/web2-effects.css?v=20260517b" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260425h" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260425h" />
         <link rel="stylesheet" href="css/web2-products.css?v=20260517c" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
@@ -27,9 +27,9 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/shared-auth-manager.js"></script>
-        <script src="../shared/js/notification-system.js"></script>
+        <script src="../../shared/js/firebase-config.js"></script>
+        <script src="../../shared/js/shared-auth-manager.js"></script>
+        <script src="../../shared/js/notification-system.js"></script>
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -136,7 +136,7 @@
         </div>
         <!-- /.web2-shell -->
 
-        <script src="../web2/shared/tpos-sidebar.js?v=20260514f"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260514f"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
         </script>
@@ -166,7 +166,7 @@
                         <label>
                             Biến thể
                             <a
-                                href="../web2/variants/index.html"
+                                href="../variants/index.html"
                                 target="_blank"
                                 class="field-aux-link"
                                 title="Quản lý kho biến thể (mở tab mới)"
@@ -247,11 +247,11 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-effects.js?v=20260517b"></script>
+        <script src="../shared/web2-effects.js?v=20260517b"></script>
         <script src="js/web2-products-api.js?v=20260517a"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260517a"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260517a"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260517a"></script>
+        <script src="../variants/js/web2-variants-api.js?v=20260517a"></script>
+        <script src="../shared/web2-products-cache.js?v=20260517a"></script>
+        <script src="../shared/web2-variants-cache.js?v=20260517a"></script>
         <script src="js/web2-products-app.js?v=20260517d"></script>
     </body>
 </html>

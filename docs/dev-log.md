@@ -25,6 +25,35 @@
 
 ## 2026-05-18
 
+### [web2][paths][worker] Fix path bể sau khi move `web2-products` + `web2-variants` vào `web2/`
+
+**User**: phát hiện URL `http://localhost:8093/web2/variants/index.html` bị sai path → yêu cầu audit toàn bộ.
+
+**Root cause**: commit `cc2c8ff4` move 2 folder từ root vào trong `web2/` nhưng KHÔNG update các relative path bên trong:
+
+- `../web2/shared/...` từ `/web2/variants/index.html` → resolve thành `/web2/variants/../web2/shared/...` = `/web2/web2/shared/...` ❌
+- `../native-orders/...` (sibling cũ ở root) → giờ phải đi lên 2 levels: `../../native-orders/...`
+- `../shared/js/...` (legacy n2store shared ở root) → giờ phải: `../../shared/js/...`
+- `../web2/variants/index.html` href trong `web2/products/...` → `../variants/index.html`
+
+**Fixed files**:
+
+- [web2/variants/index.html](../web2/variants/index.html): 5 paths (CSS sidebar/effects, native-orders, shared/js, JS sidebar/effects/variants-cache)
+- [web2/products/index.html](../web2/products/index.html): 8 paths (CSS, native-orders, shared/js, JS sidebar/effects/variants-api/caches, href Kho Biến Thể)
+- [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js): 2 hint links `Thêm tại Kho Biến Thể`
+- [web2/index.html](../web2/index.html): cleanup 2 path `../web2/shared/` → `shared/` (works by luck, đổi cho clean)
+- [web2/shared/tpos-sidebar.js](../web2/shared/tpos-sidebar.js): JSDoc usage example phân biệt depth 1 (web2 subpage) vs depth 0 (native-orders, etc.)
+
+**Worker route bug**: `pathname === '/api/web2-products'` không match `/api/web2-products/list`. Thêm `startsWith('/api/web2-products/')` + same cho variants ([routes.js](../cloudflare-worker/modules/config/routes.js)). Deploy worker (`wrangler deploy` qua Cloudflare Global Key auth).
+
+**Smoke script cleanup**: [scripts/n2store-smoke-all-pages.js](../scripts/n2store-smoke-all-pages.js) — bỏ slug đã chết `product-template`, `product-variant`, thêm `products`, `variants`.
+
+**Verified**: smoke 144 pages localhost → 142/142 HTTP 200, 0 HTTP 404/5xx (trước fix: 2 trang 404 + nhiều 404 từ API call). Browser test ngân hàng `/web2/{variants,products,index,customer-wallet,supplier-wallet}` → 0 console error path-related.
+
+**Worker deploy**: `chatomni-proxy` version `01a6068d-8be6-4a64-b826-d30e81895695`.
+
+**Status**: ✅ Done.
+
 ### [orders-report] Fix divergence KPI strip giữa các browser
 
 **Bug user báo**: "kiểm tra lại realtime API hiện tại hoạt động không đúng — mỗi trang nhân viên số KPI của mọi người lại hiển thị khác nhau". Browser A và B không hội tụ — số liệu trôi khác nhau sau khi switch sang SSE-only.

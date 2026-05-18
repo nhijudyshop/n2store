@@ -158,10 +158,9 @@ const WEB2_PAGES = [
     'product-attribute-value',
     'product-category',
     'product-label-paper',
-    'product-template',
     'product-uom',
     'product-uom-categ',
-    'product-variant',
+    'products', // Kho SP Web 2.0 (đã move từ web2-products/)
     'promotion-program',
     'report-audit-fastsale',
     'report-business-results',
@@ -193,6 +192,7 @@ const WEB2_PAGES = [
     'stock-picking-type',
     'stock-warehouse-product',
     'tag',
+    'variants', // Kho Biến Thể Web 2.0 (đã move từ web2-variants/)
     'wi-invoice',
     'wi-invoice-config',
     'wi-invoice-history',
