@@ -484,19 +484,38 @@
     function rowHtml(r, idx, tab, shipmentId) {
         const rid = escapeHtml(r.id);
         const sid = escapeHtml(shipmentId);
+        const edit = editTableMode;
         const cells = {
-            supplier: `<td class="so-cell-supplier" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.supplier || '—')}</td>`,
+            supplier: edit
+                ? editableCellHtml('supplier', r, rid, sid)
+                : `<td class="so-cell-supplier" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.supplier || '—')}</td>`,
             stt: `<td class="so-cell-stt">${idx + 1}</td>`,
-            productName: `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}</td>`,
-            variant: `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.variant || '—')}</td>`,
-            qty: `<td class="so-cell-qty" data-cell-field="qty" data-row-id="${rid}" data-shipment-id="${sid}">${Number(r.qty) || 0}</td>`,
-            sellPrice: priceCell(r.sellPrice, tab, { rid, sid, field: 'sellPrice' }),
-            costPrice: priceCell(r.costPrice, tab, { rid, sid, field: 'costPrice' }),
+            productName: edit
+                ? editableCellHtml('productName', r, rid, sid)
+                : `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}</td>`,
+            variant: edit
+                ? editableCellHtml('variant', r, rid, sid)
+                : `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.variant || '—')}</td>`,
+            qty: edit
+                ? editableCellHtml('qty', r, rid, sid)
+                : `<td class="so-cell-qty" data-cell-field="qty" data-row-id="${rid}" data-shipment-id="${sid}">${Number(r.qty) || 0}</td>`,
+            sellPrice: edit
+                ? editableCellHtml('sellPrice', r, rid, sid)
+                : priceCell(r.sellPrice, tab, { rid, sid, field: 'sellPrice' }),
+            costPrice: edit
+                ? editableCellHtml('costPrice', r, rid, sid)
+                : priceCell(r.costPrice, tab, { rid, sid, field: 'costPrice' }),
             productImage: imgCell(r.productImage, { rid, sid, field: 'productImage' }),
             invoiceImage: imgCell(r.invoiceImage, { rid, sid, field: 'invoiceImage' }),
-            note: `<td class="so-cell-note" data-cell-field="note" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.note || '')}</td>`,
-            costNote: `<td class="so-cell-note so-cell-note-cp" data-cell-field="costNote" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.costNote || '')}</td>`,
-            status: statusCell(r.status, { rid, sid }),
+            note: edit
+                ? editableCellHtml('note', r, rid, sid)
+                : `<td class="so-cell-note" data-cell-field="note" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.note || '')}</td>`,
+            costNote: edit
+                ? editableCellHtml('costNote', r, rid, sid)
+                : `<td class="so-cell-note so-cell-note-cp" data-cell-field="costNote" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.costNote || '')}</td>`,
+            status: edit
+                ? editableCellHtml('status', r, rid, sid)
+                : statusCell(r.status, { rid, sid }),
             actions: actionsCell(r.id, shipmentId),
         };
         return (
@@ -510,6 +529,149 @@
                 .join('') +
             '</tr>'
         );
+    }
+
+    // Tạo HTML <td> chứa input/select khi whole-table edit mode bật.
+    // Field nào không có handler riêng → text input. Status → select.
+    // Variant → wrapper với picker dropdown (lazy refresh khi focus/typing).
+    function editableCellHtml(field, r, rid, sid) {
+        const dataAttr = `data-cell-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}"`;
+        const tdClass =
+            {
+                qty: 'so-cell-qty',
+                sellPrice: 'so-cell-money',
+                costPrice: 'so-cell-money',
+                note: 'so-cell-note',
+                costNote: 'so-cell-note so-cell-note-cp',
+                status: 'so-cell-status',
+                variant: 'so-cell-variant',
+                supplier: 'so-cell-supplier',
+                productName: 'so-cell-product',
+            }[field] || '';
+        if (field === 'qty') {
+            return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
+                <input class="so-edit-input so-edit-num" type="number" min="0" step="1" value="${Number(r.qty) || 0}" data-edit-field="qty" data-row-id="${rid}" data-shipment-id="${sid}" />
+            </td>`;
+        }
+        if (field === 'sellPrice' || field === 'costPrice') {
+            return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
+                <input class="so-edit-input so-edit-num" type="number" min="0" step="any" value="${Number(r[field]) || 0}" data-edit-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}" />
+            </td>`;
+        }
+        if (field === 'status') {
+            const opts = Object.entries(STATUS_LABELS)
+                .map(
+                    ([val, lbl]) =>
+                        `<option value="${val}" ${val === (r.status || 'draft') ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+                )
+                .join('');
+            return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
+                <select class="so-edit-select" data-edit-field="status" data-row-id="${rid}" data-shipment-id="${sid}">${opts}</select>
+            </td>`;
+        }
+        if (field === 'variant') {
+            return `<td class="${tdClass} so-cell-edit so-cell-edit-variant" ${dataAttr}>
+                <div class="so-edit-variant-wrap">
+                    <input class="so-edit-input" type="text" value="${escapeHtml(r.variant || '')}" placeholder="Pick từ kho…" autocomplete="off" data-edit-field="variant" data-row-id="${rid}" data-shipment-id="${sid}" />
+                    <div class="so-edit-variant-dropdown" hidden></div>
+                </div>
+            </td>`;
+        }
+        return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
+            <input class="so-edit-input" type="text" value="${escapeHtml(r[field] || '')}" data-edit-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}" />
+        </td>`;
+    }
+
+    // Commit 1 field từ bulk edit mode. Re-use validation (variant) +
+    // pushSync + flashRow giống dblclick path để hành vi nhất quán.
+    function commitBulkEditField(rowId, shipmentId, field, rawValue) {
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const sh = tab.shipments.find((s) => s.id === shipmentId);
+        const r = sh?.rows.find((x) => x.id === rowId);
+        if (!r) return;
+        let value = rawValue;
+        if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
+            value = Number(value) || 0;
+        } else if (typeof value === 'string') {
+            value = value.trim();
+        }
+        if (field === 'variant' && value) {
+            const cache = window.Web2VariantsCache;
+            if (cache && !cache.findByValueExact(value)) {
+                notify(
+                    `Biến thể "${value}" chưa có trong Kho Biến Thể — thêm trước rồi pick lại.`,
+                    'error'
+                );
+                // Revert input value
+                const input = document.querySelector(
+                    `#soTableBody [data-edit-field="variant"][data-row-id="${rowId}"]`
+                );
+                if (input) input.value = r.variant || '';
+                return;
+            }
+        }
+        if (r[field] === value) return; // no-op skip
+        window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, { [field]: value });
+        pushSync();
+        renderFooterTotals();
+        flashRow(rowId);
+    }
+
+    // Variant picker dropdown — chỉ kích hoạt khi user thực sự focus vào input
+    // variant trong bulk edit mode. Tránh build dropdown cho tất cả rows upfront.
+    function attachVariantPickerOnDemand(input) {
+        if (input.__variantPickerBound) return;
+        input.__variantPickerBound = true;
+        const wrap = input.closest('.so-edit-variant-wrap');
+        const dropdown = wrap?.querySelector('.so-edit-variant-dropdown');
+        if (!dropdown) return;
+        const refresh = () => {
+            const cache = window.Web2VariantsCache;
+            if (!cache) {
+                dropdown.hidden = true;
+                return;
+            }
+            const items = cache.findByValue((input.value || '').trim(), 10);
+            if (!items.length) {
+                dropdown.innerHTML = `<div class="so-variant-empty">
+                    Kho rỗng. <a href="../web2-variants/index.html" target="_blank">Thêm →</a>
+                </div>`;
+                dropdown.hidden = false;
+                return;
+            }
+            dropdown.innerHTML = items
+                .map((v) => {
+                    const grp = v.groupName
+                        ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
+                        : '';
+                    return `<button type="button" class="so-variant-item" data-val="${escapeHtml(v.value)}">
+                        <span class="so-variant-val">${escapeHtml(v.value)}</span>${grp}
+                    </button>`;
+                })
+                .join('');
+            dropdown.hidden = false;
+            dropdown.querySelectorAll('.so-variant-item').forEach((btn) => {
+                btn.addEventListener('mousedown', (e) => e.preventDefault());
+                btn.addEventListener('click', () => {
+                    input.value = btn.dataset.val;
+                    dropdown.hidden = true;
+                    commitBulkEditField(
+                        input.dataset.rowId,
+                        input.dataset.shipmentId,
+                        'variant',
+                        input.value
+                    );
+                });
+            });
+        };
+        input.addEventListener('focus', refresh);
+        input.addEventListener('input', refresh);
+        input.addEventListener('blur', () => {
+            // Delay nhẹ để click button trên dropdown register trước khi ẩn
+            setTimeout(() => {
+                if (dropdown) dropdown.hidden = true;
+            }, 150);
+        });
     }
 
     function actionsCell(rowId, shipmentId) {
