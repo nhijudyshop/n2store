@@ -1947,6 +1947,12 @@ class UnifiedNavigationManager {
     }
 
     async init() {
+        // Web 2.0 pages opt out of legacy auth redirect.
+        // Set window.__SKIP_LEGACY_NAV_AUTH = true BEFORE navigation-modern.js loads
+        // to keep the SePay banner etc. but skip the legacy login redirect.
+        if (window.__SKIP_LEGACY_NAV_AUTH) {
+            return;
+        }
         // Check authentication - use window.authManager explicitly
         const auth = window.authManager;
         const authData = auth ? auth.getAuthData() : null;

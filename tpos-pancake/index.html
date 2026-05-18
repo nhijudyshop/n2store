@@ -24,14 +24,9 @@
 
         <!-- ESM Compat -->
         <script type="module" src="../shared/esm/compat.js"></script>
-        <script>
-            if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-                document.write(
-                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
-                );
-            }
-        </script>
+        <!-- Auth: page là Web 2.0 module → dùng hệ thống user mới (web2/users/).
+             Legacy AuthManager đã được gỡ. Page guard sẽ được wire qua web2-auth-guard
+             trong Phase 2 (xem render.com/routes/web2-users.js). -->
 
         <!-- Storage Migration -->
         <script src="../shared/js/storage-migration.js"></script>
@@ -659,16 +654,11 @@
 
         <!-- ===== SCRIPTS ===== -->
 
-        <!-- Shared N2Store modules -->
-        <script src="../shared/js/shared-auth-manager.js?v=20260412"></script>
+        <!-- Shared N2Store modules (auth removed — Web 2.0 page) -->
         <script>
-            if (typeof AuthManager !== 'undefined' && !window.authManager) {
-                window.authManager = new AuthManager({
-                    redirectUrl: '../index.html',
-                    sessionDuration: 8 * 60 * 60 * 1000,
-                    rememberDuration: 30 * 24 * 60 * 60 * 1000,
-                });
-            }
+            // Skip legacy auth redirect in navigation-modern (vẫn load để có
+            // SePay banner). Phase 2 sẽ thay bằng Web 2.0 auth guard.
+            window.__SKIP_LEGACY_NAV_AUTH = true;
         </script>
         <script src="../shared/js/firebase-config.js?v=20260412"></script>
         <script src="../shared/js/shared-cache-manager.js?v=20260412"></script>
