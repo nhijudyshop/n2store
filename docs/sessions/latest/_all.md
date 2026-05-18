@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `12f2bb5` — feat(so-order): move "Mua hàng theo NCC" panel into right-side drawer with toggle
-**Last updated**: 2026-05-18 16:16:35 +07
-**Latest session**: [`RESUME:20260518-161635-12f2bb5`](../20260518-161635-12f2bb5.md)
-**Summary**: feat(so-order): move "Mua hàng theo NCC" panel into right-side drawer with toggle
+**Latest commit**: `1e6b6ae` — fix(so-order): replace lucide icons in FAB toggle with inline SVG + add label
+**Last updated**: 2026-05-18 16:58:15 +07
+**Latest session**: [`RESUME:20260518-165815-1e6b6ae`](../20260518-165815-1e6b6ae.md)
+**Summary**: fix(so-order): replace lucide icons in FAB toggle with inline SVG + add label
 
 ## Folders affected in this commit
 
@@ -17,14 +17,14 @@
 
 - [`_root/`](./_root.md) — updated 2026-05-18 11:04
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-18 16:16
+- [`docs/`](./docs.md) — updated 2026-05-18 16:58
 - [`downloads/`](./downloads.md) — updated 2026-05-18 11:38
 - [`native-orders/`](./native-orders.md) — updated 2026-05-18 15:41
 - [`orders-report/`](./orders-report.md) — updated 2026-05-18 12:28
 - [`render.com/`](./render.com.md) — updated 2026-05-18 15:26
 - [`scripts/`](./scripts.md) — updated 2026-05-18 13:18
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
-- [`so-order/`](./so-order.md) — updated 2026-05-18 16:16
+- [`so-order/`](./so-order.md) — updated 2026-05-18 16:58
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-18 14:39
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
