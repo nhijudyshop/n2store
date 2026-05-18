@@ -164,11 +164,6 @@
             icon: 'shopping-cart',
             children: [
                 {
-                    label: 'Trả hàng mua',
-                    tpos: '#/app/fastpurchaseorder/refundlist',
-                    our: '../web2/fastpurchaseorder-refund/index.html',
-                },
-                {
                     label: 'Ví NCC',
                     our: '../web2/supplier-wallet/index.html',
                 },

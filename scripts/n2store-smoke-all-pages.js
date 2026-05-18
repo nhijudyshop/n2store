@@ -136,8 +136,6 @@ const WEB2_PAGES = [
     'coupon-program',
     'delivery-carrier',
     'export-file',
-    'fastpurchaseorder-invoice',
-    'fastpurchaseorder-refund',
     'fastsaleorder-delivery',
     'fastsaleorder-invoice',
     'fastsaleorder-refund',

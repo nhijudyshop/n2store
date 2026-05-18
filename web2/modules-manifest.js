@@ -163,20 +163,6 @@ window.WEB2_MODULES_MANIFEST = [
         icon: 'sliders',
     },
     {
-        dir: 'fastpurchaseorder-invoice',
-        title: 'Mua hàng',
-        slug: 'fastpurchaseorder-invoice',
-        category: 'Mua hàng',
-        icon: 'shopping-bag',
-    },
-    {
-        dir: 'fastpurchaseorder-refund',
-        title: 'Trả hàng mua',
-        slug: 'fastpurchaseorder-refund',
-        category: 'Mua hàng',
-        icon: 'shopping-bag',
-    },
-    {
         dir: 'fastsaleorder-delivery',
         title: 'Phiếu giao hàng',
         slug: 'fastsaleorder-delivery',

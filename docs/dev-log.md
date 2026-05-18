@@ -25,6 +25,49 @@
 
 ## 2026-05-18
 
+### [web2][sidebar][audit] Xóa nốt `fastpurchaseorder-refund` + audit data flow
+
+**User**: "xóa luôn và kiểm lại logic các trang liên quan, tác động tới nhau".
+
+**Removed**:
+
+- `web2/fastpurchaseorder-refund/` folder + sidebar entry "Trả hàng mua"
+- 2 entries trong `web2/modules-manifest.js` (invoice + refund)
+- 2 entries trong `shared/js/navigation-modern.js` (launcher list) + permission list
+- `fastpurchaseorder-invoice` khỏi `render.com/services/web2-sync-worker.js` hot tier
+- Seeder config khỏi `scripts/web2-seed-from-tpos.js` + 2 slugs khỏi `scripts/n2store-smoke-all-pages.js`
+
+Nhóm "Mua hàng" sidebar giờ chỉ còn **Ví NCC**.
+
+**Audit data flow** (module shop dùng thật):
+
+```
+Sổ Order (so-order/) ──► Web2 Products (web2-products/)
+Firestore so_order_v2     Postgres web2_products (stock=0 khi tạo, không +)
+     │
+     │ derive purchases by supplier
+     ▼
+Ví NCC (web2/supplier-wallet/) — Firestore supplier_wallet_v1 (ledger riêng)
+Modal trả hàng → transaction.type='return' (KHÔNG động so-order data)
+
+Native Orders ──► PBH (fast_sale_orders, Postgres, KHÔNG trừ stock)
+                         │ group by phone
+                         ▼
+                  Ví KH (web2/customer-wallet/) — Firestore customer_wallet_v1
+                  Modal trả theo chiến dịch → transaction.type='return' (KHÔNG động PBH)
+```
+
+**Findings**:
+
+1. **Stock end-to-end CHƯA track**: so-order import không +stock, PBH bán không -stock, ví trả hàng không touch stock. `web2_products.stock` field tồn tại nhưng không ai write.
+2. **Ledger độc lập với source**: nếu user xóa shipment so-order / cancel PBH, totals recompute trên next load nhưng `returnedRowIds`/`returnedLineKeys` flag cũ trở thành stale (không gây lỗi).
+3. **PBH cancelled chưa filter**: customer-wallet dùng `amount_total` mọi PBH bất kể state. Nên filter `state != 'cancelled'` (TODO nhẹ).
+4. **500 PBH limit cứng**: shop nhiều đơn cần pagination/server-side filter (TODO).
+5. **30-day cleanup**: chỉ purge ledger transactions, không động source ✓.
+6. **SePay sau**: webhook → ghi `transaction.type='deposit'` vào wallet matching phone/supplier qua metadata.
+
+**Status**: ✅ Cleanup done. Logic interconnect ổn (loosely coupled — Ví là ledger overlay).
+
 ### [web2][sidebar] Xóa trang `fastpurchaseorder-invoice` placeholder
 
 **User**: hỏi data source trang "Mua hàng" (`web2/fastpurchaseorder-invoice/`) → chỉ là TPOS-clone generic CRUD (table `web2_records` ở Render), không phải module shop dùng thật. Shop dùng `so-order/` (Sổ Order) + ví NCC vừa làm. → "xóa đi".
