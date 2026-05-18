@@ -453,6 +453,7 @@ app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2', web2GenericRoutes);
 app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits for ví NCC/KH
+app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
 app.use(

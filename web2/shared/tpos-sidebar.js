@@ -507,7 +507,11 @@
                     our: '../web2/product-label-paper/index.html',
                 },
                 {
-                    label: 'Người dùng',
+                    label: 'Người dùng (Web 2.0)',
+                    our: '../web2/users/index.html',
+                },
+                {
+                    label: 'Người dùng (TPOS-clone)',
                     tpos: '#/app/applicationuser/list',
                     our: '../web2/application-user/index.html',
                 },

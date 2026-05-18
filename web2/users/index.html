@@ -1,0 +1,228 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Người dùng Web 2.0 — N2Store</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518d" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
+        <link rel="stylesheet" href="css/users.css?v=20260518a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content u-main">
+                <header class="u-page-head">
+                    <div class="u-page-title">
+                        <i data-lucide="users"></i>
+                        <h1>Người dùng Web 2.0</h1>
+                    </div>
+                    <div class="u-page-counters">
+                        <span class="counter-pill" id="uCount">0 user</span>
+                        <button
+                            class="btn btn-secondary"
+                            id="uRefreshBtn"
+                            type="button"
+                            title="Tải lại"
+                        >
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                        <button class="btn btn-primary" id="uCreateBtn" type="button">
+                            <i data-lucide="user-plus"></i> Tạo người dùng
+                        </button>
+                    </div>
+                </header>
+
+                <section class="u-toolbar">
+                    <div class="u-toolbar-row">
+                        <input
+                            id="uSearch"
+                            type="search"
+                            placeholder="Tìm theo username, tên, email…"
+                            autocomplete="off"
+                            class="u-search-input"
+                        />
+                        <label class="u-toggle">
+                            <input type="checkbox" id="uShowInactive" />
+                            <span>Hiển thị user đã vô hiệu</span>
+                        </label>
+                    </div>
+                </section>
+
+                <div class="u-table-wrap">
+                    <table class="u-table" id="uTable">
+                        <thead>
+                            <tr>
+                                <th class="u-col-stt">#</th>
+                                <th>Username</th>
+                                <th>Họ tên</th>
+                                <th>Email / SĐT</th>
+                                <th class="u-col-role">Vai trò</th>
+                                <th class="u-col-state">Trạng thái</th>
+                                <th>Đăng nhập gần nhất</th>
+                                <th class="u-col-actions">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="uTableBody"></tbody>
+                    </table>
+                    <div class="u-empty" id="uEmpty" hidden>
+                        <i data-lucide="user-x"></i>
+                        <p>Chưa có user nào.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Create / Edit user modal -->
+        <div class="u-modal" id="uUserModal" hidden>
+            <div class="u-modal-backdrop" data-u-close></div>
+            <div class="u-modal-panel u-modal-panel-narrow">
+                <header class="u-modal-head">
+                    <h2 id="uUserModalTitle">Tạo người dùng</h2>
+                    <button class="u-modal-close" type="button" data-u-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="u-modal-body">
+                    <label class="u-field">
+                        <span>Username <em>*</em></span>
+                        <input id="uFormUsername" type="text" autocomplete="off" maxlength="40" />
+                        <small>3-40 ký tự, chỉ a-z 0-9 _ . -</small>
+                    </label>
+                    <label class="u-field" id="uPasswordField">
+                        <span>Mật khẩu <em>*</em></span>
+                        <input id="uFormPassword" type="password" autocomplete="new-password" />
+                        <small>Tối thiểu 6 ký tự.</small>
+                    </label>
+                    <label class="u-field">
+                        <span>Họ tên <em>*</em></span>
+                        <input id="uFormDisplayName" type="text" maxlength="100" />
+                    </label>
+                    <div class="u-field-row">
+                        <label class="u-field">
+                            <span>Email</span>
+                            <input id="uFormEmail" type="email" maxlength="120" />
+                        </label>
+                        <label class="u-field">
+                            <span>SĐT</span>
+                            <input id="uFormPhone" type="tel" maxlength="30" />
+                        </label>
+                    </div>
+                    <label class="u-field">
+                        <span>Vai trò</span>
+                        <select id="uFormRole">
+                            <option value="admin">Admin (toàn quyền)</option>
+                            <option value="manager">Quản lý</option>
+                            <option value="staff" selected>Nhân viên</option>
+                            <option value="viewer">Chỉ xem</option>
+                        </select>
+                        <small
+                            >Quyết định phân quyền mặc định. Có thể tinh chỉnh sau qua nút "Phân
+                            quyền".</small
+                        >
+                    </label>
+                    <label class="u-field">
+                        <span>Ghi chú</span>
+                        <textarea id="uFormNote" rows="2" maxlength="300"></textarea>
+                    </label>
+                </div>
+                <footer class="u-modal-foot">
+                    <button class="btn btn-secondary" type="button" data-u-close>Hủy</button>
+                    <button class="btn btn-primary" id="uUserSaveBtn" type="button">
+                        <i data-lucide="check"></i> Lưu
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Change password modal -->
+        <div class="u-modal" id="uPasswordModal" hidden>
+            <div class="u-modal-backdrop" data-u-close></div>
+            <div class="u-modal-panel u-modal-panel-narrow">
+                <header class="u-modal-head">
+                    <h2>Đổi mật khẩu: <span id="uPwdUsername">—</span></h2>
+                    <button class="u-modal-close" type="button" data-u-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="u-modal-body">
+                    <label class="u-field">
+                        <span>Mật khẩu mới <em>*</em></span>
+                        <input id="uPwdNew" type="password" autocomplete="new-password" />
+                        <small>Tối thiểu 6 ký tự. Mọi session hiện tại sẽ bị logout.</small>
+                    </label>
+                </div>
+                <footer class="u-modal-foot">
+                    <button class="btn btn-secondary" type="button" data-u-close>Hủy</button>
+                    <button class="btn btn-primary" id="uPwdSaveBtn" type="button">
+                        <i data-lucide="check"></i> Đổi mật khẩu
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Permissions matrix modal -->
+        <div class="u-modal" id="uPermsModal" hidden>
+            <div class="u-modal-backdrop" data-u-close></div>
+            <div class="u-modal-panel u-modal-panel-wide">
+                <header class="u-modal-head">
+                    <h2>Phân quyền: <span id="uPermsUsername">—</span></h2>
+                    <button class="u-modal-close" type="button" data-u-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="u-modal-body">
+                    <div class="u-perms-toolbar">
+                        <button
+                            class="btn btn-secondary btn-sm"
+                            id="uPermsResetDefaults"
+                            type="button"
+                        >
+                            <i data-lucide="rotate-ccw"></i> Reset về mặc định theo vai trò
+                        </button>
+                        <button class="btn btn-secondary btn-sm" id="uPermsCheckAll" type="button">
+                            ✓ Tick tất cả
+                        </button>
+                        <button
+                            class="btn btn-secondary btn-sm"
+                            id="uPermsUncheckAll"
+                            type="button"
+                        >
+                            ✗ Bỏ tất cả
+                        </button>
+                    </div>
+                    <div class="u-perms-grid" id="uPermsGrid"></div>
+                    <p class="u-perms-hint">
+                        Tick action user được phép làm trên page. Bỏ tick "Xem trang" → user không
+                        vào được page.
+                    </p>
+                </div>
+                <footer class="u-modal-foot">
+                    <button class="btn btn-secondary" type="button" data-u-close>Hủy</button>
+                    <button class="btn btn-primary" id="uPermsSaveBtn" type="button">
+                        <i data-lucide="check"></i> Lưu phân quyền
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <script src="../shared/tpos-sidebar.js?v=20260518b"></script>
+        <script src="js/users-app.js?v=20260518a"></script>
+        <script>
+            Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+        </script>
+    </body>
+</html>
