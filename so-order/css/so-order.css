@@ -2057,10 +2057,51 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     color: #15803d;
     font-size: 0.8125rem;
 }
+.so-purchase-line-cost {
+    font-size: 0.75rem;
+    color: #475569;
+    font-weight: 600;
+    margin-left: auto;
+    white-space: nowrap;
+}
+.so-purchase-supplier-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #be123c;
+    background: #ffe4e6;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .so-purchase-empty,
 .so-purchase-loading {
     padding: 24px;
     text-align: center;
     color: #94a3b8;
     font-size: 0.875rem;
+}
+/* Global "Mua hàng tất cả NCC" button trong header panel */
+.so-purchase-btn-all {
+    margin-left: 8px;
+    background: linear-gradient(135deg, #4338ca, #6366f1);
+    padding: 9px 14px;
+    font-size: 0.85rem;
+}
+.so-purchase-btn-all:hover {
+    filter: brightness(1.08);
+}
+/* Per-row "Mua hàng" trong cột Thao tác */
+.so-action-btn.so-action-btn-buy {
+    color: #fff;
+    background: linear-gradient(135deg, #059669, #047857);
+    border-color: transparent;
+}
+.so-action-btn.so-action-btn-buy:hover {
+    filter: brightness(1.08);
+}
+.so-action-btn.so-action-btn-buy i {
+    color: #fff;
 }

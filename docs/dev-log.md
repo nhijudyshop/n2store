@@ -25,6 +25,39 @@
 
 ## 2026-05-18
 
+### [so-order] Fix modal "Mua hàng" rỗng + thêm 3 entry points (global / per-NCC / per-row)
+
+**User báo**: bấm "Mua hàng" cho Shenzhen → modal hiện "Không có SP CHỜ MUA cho NCC này, hãy Lưu Nháp trước" mặc dù card đã hiện 1 SP / VND 3.750.
+
+**Root cause**: `openPurchaseModal` cũ query DB qua `Web2ProductsApi.listPending` (filter `status='CHO_MUA' AND pending_qty>0`), nhưng panel cha lại tính từ rows local của tab. Nếu user chưa Lưu Nháp → DB rỗng → modal trống dù panel có hiện số.
+
+**Fix**:
+
+- Refactor `openPurchaseModal({scope, supplier?, rowId?})` lấy items trực tiếp từ `tab.shipments[].rows` local (filter theo scope).
+- `confirmPurchaseFromModal`: auto `upsertPending` (= Lưu Nháp ngầm) → lấy codes trả về → gọi `confirmPurchase({codes})` → in mã vạch. User không cần bấm Lưu Nháp riêng nữa.
+- Modal title + supplier tag thay đổi theo scope: `'all' | 'supplier' | 'row'`.
+
+**Thêm 2 entry points mới**:
+
+- Nút "Mua hàng tất cả (N SP · X₫)" ở header panel → mở modal gộp SP từ tất cả NCC trong tab, có tag NCC trên từng dòng.
+- Nút giỏ hàng xanh ở cột Thao tác mỗi dòng → modal chỉ với SP đó (title "Mua hàng SP: {tên}").
+
+**Verify** (browser localhost:8093):
+
+- Shenzhen → 1 SP · 25 cái · 3.750₫ ✅
+- Tất cả NCC → 3 SP · 40 cái · 5.200₫ (Quảng Châu A, Hồng Châu B, Shenzhen) ✅
+- Per-row → 1 SP với title đúng tên SP ✅
+
+**Files**:
+
+- `so-order/js/so-order-app.js` — refactor renderPurchasePanel + openPurchaseModal + confirmPurchaseFromModal + actionsCell
+- `so-order/css/so-order.css` — `.so-purchase-btn-all`, `.so-action-btn-buy`, `.so-purchase-supplier-tag`, `.so-purchase-line-cost`
+- `so-order/index.html` — bump cache `v20260518e → v20260518f`
+
+**Status**: ✅ Done
+
+---
+
 ### [orders-report] Fix miss auto-tag XL "ĐÃ RA ĐƠN" sau tạo PBH (single + bulk)
 
 **User báo**: lâu lâu sau khi tạo phiếu bán hàng lẻ hoặc bán hàng hàng loạt, đơn ra thành công nhưng không tự động đánh tag XL "ĐÃ RA ĐƠN" → kẹt ở "CHỜ ĐI ĐƠN".
@@ -32,6 +65,7 @@
 **Constraint cứng**: chỉ sửa phần đánh tag, không động flow tạo đơn / modal.
 
 **Root cause** (4 nguyên nhân chồng):
+
 1. `storeFromApiResult` gọi `window.onPtagBillCreated(soId, source)` trong `forEach` không await → fire-and-forget ([tab1-fast-sale-invoice-status.js:879](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js#L879)).
 2. `onPtagBillCreated` skip im lặng khi `ProcessingTagState._isLoaded === false` → race: F5 → tạo đơn ngay → miss vĩnh viễn ([tab1-processing-tags.js:1462](../orders-report/js/tab1/tab1-processing-tags.js#L1462)).
 3. `saveProcessingTagToAPI` catch chỉ log, không retry → network thoáng qua = memory có tag, DB không → F5 mất tag.

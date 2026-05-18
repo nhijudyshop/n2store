@@ -225,6 +225,8 @@
                 const shId = btn.dataset.shipmentId;
                 if (action === 'edit') openOrderModal(rowId, shId);
                 else if (action === 'delete') deleteRow(shId, rowId);
+                else if (action === 'buy')
+                    openPurchaseModal({ scope: 'row', rowId, shipmentId: shId });
             });
         });
         tbody.querySelectorAll('img[data-zoomable]').forEach((img) => {
@@ -706,6 +708,9 @@
 
     function actionsCell(rowId, shipmentId) {
         return `<td class="so-cell-actions">
+            <button class="so-action-btn so-action-btn-buy" type="button" data-row-action="buy" data-row-id="${escapeHtml(rowId)}" data-shipment-id="${escapeHtml(shipmentId)}" title="Mua hàng dòng này">
+                <i data-lucide="shopping-cart"></i>
+            </button>
             <button class="so-action-btn" type="button" data-row-action="edit" data-row-id="${escapeHtml(rowId)}" data-shipment-id="${escapeHtml(shipmentId)}" title="Sửa">
                 <i data-lucide="edit-2"></i>
             </button>
@@ -808,12 +813,10 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
-    // ---------- Purchase panel (Mua hàng per NCC) ----------
+    // ---------- Purchase panel (Mua hàng per NCC + global) ----------
     function renderPurchasePanel() {
         let panel = document.getElementById('soPurchasePanel');
         if (!panel) {
-            // Inject panel right after the main toolbar/header area.
-            // We attach it before the table wrapper.
             const table = document.getElementById('soTable');
             if (!table) return;
             const tableWrap = table.closest('.so-table-wrap') || table.parentElement;
@@ -828,19 +831,24 @@
             panel.hidden = true;
             return;
         }
-        // Group rows by supplier across all shipments in active tab.
         const groups = {};
+        let totalAllRows = 0;
+        let totalAllValue = 0;
         for (const sh of tab.shipments || []) {
             for (const r of sh.rows || []) {
                 const supplier = (r.supplier || '').trim();
                 if (!supplier) continue;
+                const name = (r.productName || '').trim();
+                const qty = Number(r.qty) || 0;
+                if (!name || qty <= 0) continue;
                 if (!groups[supplier]) {
                     groups[supplier] = { supplier, rows: [], total: 0 };
                 }
                 groups[supplier].rows.push(r);
-                const qty = Number(r.qty) || 0;
                 const cost = Number(r.costPrice) || 0;
                 groups[supplier].total += qty * cost;
+                totalAllRows += 1;
+                totalAllValue += qty * cost;
             }
         }
         const suppliers = Object.values(groups).sort((a, b) =>
@@ -853,10 +861,15 @@
         panel.hidden = false;
         const rate = Number(tab.rate) || 1;
         const ccy = tab.currency || 'VND';
+        const totalAllValueVnd = Math.round(totalAllValue * rate);
         panel.innerHTML = `<div class="so-purchase-head">
                 <i data-lucide="shopping-cart"></i>
                 <strong>Mua hàng theo NCC</strong>
                 <span class="so-purchase-hint">${suppliers.length} NCC trong ${escapeHtml(tab.label || '')}</span>
+                <button class="so-purchase-btn so-purchase-btn-all" type="button" data-purchase-all>
+                    <i data-lucide="shopping-bag"></i>
+                    Mua hàng tất cả (${totalAllRows} SP · ${ccy !== 'VND' ? totalAllValueVnd.toLocaleString('vi-VN') + '₫' : totalAllValue.toLocaleString('vi-VN') + '₫'})
+                </button>
             </div>
             <div class="so-purchase-grid">
                 ${suppliers
@@ -879,16 +892,77 @@
                     .join('')}
             </div>`;
         panel.querySelectorAll('[data-purchase-supplier]').forEach((btn) => {
-            btn.addEventListener('click', () => openPurchaseModal(btn.dataset.purchaseSupplier));
+            btn.addEventListener('click', () =>
+                openPurchaseModal({ scope: 'supplier', supplier: btn.dataset.purchaseSupplier })
+            );
         });
+        const allBtn = panel.querySelector('[data-purchase-all]');
+        if (allBtn) {
+            allBtn.addEventListener('click', () => openPurchaseModal({ scope: 'all' }));
+        }
     }
 
-    // ---------- Purchase modal (xác nhận mua + chọn SP) ----------
-    async function openPurchaseModal(supplier) {
+    // ---------- Purchase modal (lấy SP trực tiếp từ rows local) ----------
+    // _currentPurchaseItems: items đang hiển thị trong modal (1 item = 1 row trong tab).
+    // Confirm flow: upsertPending (auto Lưu Nháp) → confirmPurchase với codes trả về.
+    let _currentPurchaseItems = [];
+
+    /**
+     * Mở modal mua hàng.
+     * opts:
+     *   - scope: 'all' | 'supplier' | 'row'
+     *   - supplier?: string (cho scope='supplier')
+     *   - rowId?: string, shipmentId?: string (cho scope='row')
+     */
+    function openPurchaseModal(opts) {
         if (!window.Web2ProductsApi) {
             notify('Web2ProductsApi chưa load', 'error');
             return;
         }
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        if (!tab) {
+            notify('Không có tab active', 'error');
+            return;
+        }
+        const scope = (opts && opts.scope) || 'all';
+        const rate = Number(tab.rate) || 1;
+        const ccy = tab.currency || 'VND';
+        const tabLabel = (tab.label || '').trim();
+
+        const items = [];
+        for (const sh of tab.shipments || []) {
+            for (const r of sh.rows || []) {
+                const supplier = (r.supplier || '').trim();
+                const name = (r.productName || '').trim();
+                const qty = Number(r.qty) || 0;
+                if (!name || qty <= 0) continue;
+                if (scope === 'supplier' && supplier !== opts.supplier) continue;
+                if (scope === 'row' && r.id !== opts.rowId) continue;
+                if (scope !== 'row' && !supplier) continue;
+                items.push({
+                    key: r.id,
+                    rowId: r.id,
+                    shipmentId: sh.id,
+                    name,
+                    variant: (r.variant || '').trim() || null,
+                    qty,
+                    supplier: supplier || null,
+                    costPriceRaw: Number(r.costPrice) || 0,
+                    sellPriceRaw: Number(r.sellPrice) || 0,
+                    costPriceVnd: Math.round((Number(r.costPrice) || 0) * rate),
+                    sellPriceVnd: Math.round((Number(r.sellPrice) || 0) * rate),
+                    imageUrl: r.productImage || null,
+                    note: tabLabel || null,
+                });
+            }
+        }
+        _currentPurchaseItems = items;
+
+        let title;
+        if (scope === 'supplier') title = `Mua hàng từ ${opts.supplier}`;
+        else if (scope === 'row') title = items[0] ? `Mua hàng SP: ${items[0].name}` : 'Mua hàng';
+        else title = `Mua hàng tất cả NCC — ${tabLabel || tab.id}`;
+
         let modal = document.getElementById('soPurchaseModal');
         if (!modal) {
             modal = document.createElement('div');
@@ -899,7 +973,7 @@
                 <div class="so-modal-backdrop" data-so-purchase-close></div>
                 <div class="so-modal-panel so-modal-panel-narrow">
                     <header class="so-modal-head">
-                        <h2>Mua hàng từ <span id="soPurchaseSupplier">—</span></h2>
+                        <h2 id="soPurchaseTitle">Mua hàng</h2>
                         <button class="so-modal-close" type="button" data-so-purchase-close>
                             <i data-lucide="x"></i>
                         </button>
@@ -934,81 +1008,128 @@
                 .getElementById('soPurchaseConfirmBtn')
                 .addEventListener('click', confirmPurchaseFromModal);
         }
-        document.getElementById('soPurchaseSupplier').textContent = supplier;
-        modal.dataset.supplier = supplier;
+        document.getElementById('soPurchaseTitle').textContent = title;
         const listEl = document.getElementById('soPurchaseList');
-        listEl.innerHTML = `<div class="so-purchase-loading">Đang tải SP CHỜ MUA…</div>`;
+        const checkAll = document.getElementById('soPurchaseCheckAll');
+        if (checkAll) checkAll.checked = true;
+
+        if (!items.length) {
+            listEl.innerHTML = `<div class="so-purchase-empty">Không có SP hợp lệ. Kiểm tra cột NCC, Tên SP, SL.</div>`;
+            _updatePurchaseSummary();
+            modal.hidden = false;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            return;
+        }
+        const showSupplier = scope !== 'supplier';
+        listEl.innerHTML = items
+            .map((it) => {
+                const lineCost = it.qty * it.costPriceRaw;
+                const lineCostVnd = it.qty * it.costPriceVnd;
+                return `<label class="so-purchase-row">
+                    <input type="checkbox" data-purchase-key="${escapeHtml(it.key)}" data-purchase-qty="${it.qty}" data-purchase-cost-vnd="${lineCostVnd}" checked />
+                    ${showSupplier && it.supplier ? `<span class="so-purchase-supplier-tag">${escapeHtml(it.supplier)}</span>` : ''}
+                    <span class="so-purchase-name">${escapeHtml(it.name)}</span>
+                    ${it.variant ? `<span class="so-purchase-variant">${escapeHtml(it.variant)}</span>` : ''}
+                    <span class="so-purchase-qty">×${it.qty}</span>
+                    <span class="so-purchase-line-cost">${ccy !== 'VND' ? `${lineCost.toLocaleString('vi-VN')} ${ccy} · ` : ''}${lineCostVnd.toLocaleString('vi-VN')}₫</span>
+                </label>`;
+            })
+            .join('');
+        listEl.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+            cb.addEventListener('change', _updatePurchaseSummary);
+        });
+        _updatePurchaseSummary();
         modal.hidden = false;
         if (window.lucide?.createIcons) window.lucide.createIcons();
-        try {
-            const res = await window.Web2ProductsApi.listPending(supplier);
-            const items = res?.items || [];
-            if (!items.length) {
-                listEl.innerHTML = `<div class="so-purchase-empty">Không có SP CHỜ MUA cho NCC này. Hãy Lưu Nháp trước.</div>`;
-                _updatePurchaseSummary();
-                return;
-            }
-            listEl.innerHTML = items
-                .map((p) => {
-                    return `<label class="so-purchase-row">
-                    <input type="checkbox" data-pending-code="${escapeHtml(p.code)}" data-pending-qty="${p.pendingQty}" checked />
-                    <span class="so-purchase-code">[${escapeHtml(p.code)}]</span>
-                    <span class="so-purchase-name">${escapeHtml(p.name)}</span>
-                    ${p.variant ? `<span class="so-purchase-variant">${escapeHtml(p.variant)}</span>` : ''}
-                    <span class="so-purchase-qty">×${p.pendingQty}</span>
-                </label>`;
-                })
-                .join('');
-            listEl.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-                cb.addEventListener('change', _updatePurchaseSummary);
-            });
-            _updatePurchaseSummary();
-            if (window.lucide?.createIcons) window.lucide.createIcons();
-        } catch (e) {
-            listEl.innerHTML = `<div class="so-purchase-empty">Lỗi: ${escapeHtml(e.message || '')}</div>`;
-        }
     }
 
     function _updatePurchaseSummary() {
         const checks = document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked');
         let totalQty = 0;
+        let totalCostVnd = 0;
         checks.forEach((cb) => {
-            totalQty += Number(cb.dataset.pendingQty) || 0;
+            totalQty += Number(cb.dataset.purchaseQty) || 0;
+            totalCostVnd += Number(cb.dataset.purchaseCostVnd) || 0;
         });
         const el = document.getElementById('soPurchaseSummary');
-        if (el) el.textContent = `${checks.length} SP · ${totalQty} cái`;
+        if (el) {
+            el.textContent = `${checks.length} SP · ${totalQty} cái · ${totalCostVnd.toLocaleString('vi-VN')}₫`;
+        }
     }
 
     async function confirmPurchaseFromModal() {
         const modal = document.getElementById('soPurchaseModal');
         const btn = document.getElementById('soPurchaseConfirmBtn');
         if (!btn || btn.disabled) return;
-        const supplier = modal.dataset.supplier;
-        const codes = Array.from(
-            document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked')
-        )
-            .map((cb) => cb.dataset.pendingCode)
-            .filter(Boolean);
-        if (!codes.length) {
+        const selectedKeys = new Set(
+            Array.from(document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked'))
+                .map((cb) => cb.dataset.purchaseKey)
+                .filter(Boolean)
+        );
+        const selectedItems = _currentPurchaseItems.filter((it) => selectedKeys.has(it.key));
+        if (!selectedItems.length) {
             notify('Chưa chọn SP nào', 'warning');
+            return;
+        }
+        const missingSupplier = selectedItems.filter((it) => !it.supplier);
+        if (missingSupplier.length) {
+            notify(
+                `${missingSupplier.length} SP chưa có NCC: ${missingSupplier.map((it) => it.name).join(', ')}`,
+                'error'
+            );
             return;
         }
         const orig = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xác nhận…';
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý…';
         if (window.lucide?.createIcons) window.lucide.createIcons();
         try {
-            const res = await window.Web2ProductsApi.confirmPurchase({ codes });
-            const confirmedItems = res?.items || [];
-            notify(
-                `Đã chuyển ${confirmedItems.length} SP sang ĐANG BÁN cho ${supplier}`,
-                'success'
-            );
+            // 1. Auto Lưu Nháp: upsertPending để có code trong DB.
+            const upsertPayload = selectedItems.map((it) => ({
+                name: it.name,
+                variant: it.variant,
+                qty: it.qty,
+                costPrice: it.costPriceVnd,
+                sellPrice: it.sellPriceVnd,
+                supplier: it.supplier,
+                imageUrl: it.imageUrl,
+                note: it.note,
+            }));
+            const upsertRes = await window.Web2ProductsApi.upsertPending(upsertPayload);
+            const upsertItems = (upsertRes && upsertRes.items) || [];
+            const codes = upsertItems.map((i) => i.code).filter(Boolean);
+            if (!codes.length) {
+                throw new Error('Không tạo/cập nhật được SP nào trong Kho');
+            }
+            if (window.Web2ProductsCache) {
+                window.Web2ProductsCache.pushTickle({ action: 'so-order-buy' });
+            }
+
+            // 2. Confirm purchase: status='DANG_BAN', stock += pending_qty.
+            const confirmRes = await window.Web2ProductsApi.confirmPurchase({ codes });
+            const confirmedItems = (confirmRes && confirmRes.items) || [];
+
+            // Merge variant info từ selectedItems (confirmRes ko trả variant).
+            const variantByCode = new Map();
+            for (let i = 0; i < upsertItems.length && i < selectedItems.length; i++) {
+                if (upsertItems[i].code) {
+                    variantByCode.set(upsertItems[i].code, selectedItems[i].variant);
+                }
+            }
+            const enriched = confirmedItems.map((p) => ({
+                ...p,
+                variant: variantByCode.get(p.code) || null,
+            }));
+
+            const supplierLabel = (() => {
+                const uniq = Array.from(new Set(selectedItems.map((it) => it.supplier)));
+                return uniq.length === 1 ? uniq[0] : `${uniq.length} NCC`;
+            })();
+            notify(`Đã mua ${confirmedItems.length} SP từ ${supplierLabel}`, 'success');
             modal.hidden = true;
-            // Open barcode print modal next
-            openBarcodePrintModal(confirmedItems, supplier);
+            openBarcodePrintModal(enriched, supplierLabel);
         } catch (e) {
-            notify('Lỗi xác nhận mua hàng: ' + e.message, 'error');
+            notify('Lỗi mua hàng: ' + (e.message || e), 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML = orig;
