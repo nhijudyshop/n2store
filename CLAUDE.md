@@ -25,6 +25,20 @@
 
 **Format & rationale**: xem [`docs/sessions/README.md`](docs/sessions/README.md). Tóm: dùng token+file md thay vì base64/hash thô vì hash 1-chiều, base64 transcript đầy đủ quá dài để paste; token ~30 ký tự + file structured có thể chứa context lớn, được git track.
 
+### Folder Snapshot — fallback khi session cũ chết (lỗi image limit, v.v.)
+
+Script `save-session-resume.sh` ngoài việc sinh file session token còn tự ghi đè `docs/sessions/latest/<folder>.md` cho mỗi folder bị chạm trong commit. Mục đích: khi session cũ **không gõ được nữa** (vd lỗi `dimension limit for many-image requests`), session mới chỉ cần đọc 1 file snapshot là có đủ context — không cần paste token, không cần walk chain.
+
+**Khi user paste path `docs/sessions/latest/<folder>.md` hoặc nói "đọc latest <folder>":**
+
+1. `Read` file đó → lấy: latest session token, commit, files changed, 5 commit gần nhất chạm folder.
+2. Nếu cần Next Steps đầy đủ → `Read` luôn file session được pointer trỏ tới (1 hop, không walk chain).
+3. Tổng hợp 2-3 câu → confirm hiểu → tiếp tục.
+
+**Index toàn bộ folder snapshots**: [`docs/sessions/latest/_all.md`](docs/sessions/latest/_all.md) — list tất cả folder đã có snapshot + folder bị chạm trong commit gần nhất.
+
+File snapshot là **machine-generated, không edit thủ công** — sẽ bị ghi đè lần commit sau.
+
 ---
 
 ## Documentation to Read
