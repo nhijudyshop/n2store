@@ -25,6 +25,37 @@
 
 ## 2026-05-18
 
+### [so-order] Chuyển panel "Mua hàng theo NCC" thành drawer phải có toggle (mặc định ẩn)
+
+**User yêu cầu**: panel "Mua hàng theo NCC" đang chiếm chỗ trên cùng table — chuyển thành menu/drawer bên phải, có toggle ẩn/hiện, default ẩn.
+
+**Implement**:
+
+- Thay inline `<section.so-purchase-panel>` (chèn trước `.so-table-wrap`) bằng:
+    - **FAB toggle** `#soPurchaseToggle` (right edge, vertical-center, gradient indigo, shopping-cart icon + badge đỏ đếm số NCC)
+    - **Drawer** `#soPurchaseDrawer` slide-in từ phải, width 460px, backdrop mờ, transform translateX 260ms
+- Drawer cấu trúc: head ("Mua hàng theo NCC" + nút X) + body (hint, "Mua hàng tất cả", grid cards 1 cột).
+- Đóng drawer: bấm X, click backdrop, hoặc Esc.
+- Toggle ẩn khi `suppliers.length === 0`.
+- Cleanup defensive: xóa legacy inline `#soPurchasePanel` nếu còn từ cache cũ.
+
+**Verify** (browser localhost:8093):
+
+- Default: drawer đóng, FAB toggle hiện với badge "3" ✅
+- Click toggle → drawer slide in, 3 cards + nút "Mua hàng tất cả (3 SP · 5.200₫)" ✅
+- Click "Mua hàng" Shenzhen trong drawer → modal mở chồng trên drawer, 1 SP · 25 cái · 3.750₫ ✅
+- Click X / backdrop / Esc → drawer đóng, toggle vẫn còn ✅
+
+**Files**:
+
+- `so-order/js/so-order-app.js` — `_ensurePurchaseDrawer()` + refactor `renderPurchasePanel()` dùng drawer-body
+- `so-order/css/so-order.css` — `.so-purchase-toggle`, `.so-purchase-toggle-badge`, `.so-purchase-drawer*`
+- `so-order/index.html` — bump cache `v20260518f → v20260518g`
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Fix modal "Mua hàng" rỗng + thêm 3 entry points (global / per-NCC / per-row)
 
 **User báo**: bấm "Mua hàng" cho Shenzhen → modal hiện "Không có SP CHỜ MUA cho NCC này, hãy Lưu Nháp trước" mặc dù card đã hiện 1 SP / VND 3.750.

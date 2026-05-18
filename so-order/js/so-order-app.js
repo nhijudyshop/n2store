@@ -813,22 +813,74 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
-    // ---------- Purchase panel (Mua hàng per NCC + global) ----------
-    function renderPurchasePanel() {
-        let panel = document.getElementById('soPurchasePanel');
-        if (!panel) {
-            const table = document.getElementById('soTable');
-            if (!table) return;
-            const tableWrap = table.closest('.so-table-wrap') || table.parentElement;
-            if (!tableWrap) return;
-            panel = document.createElement('section');
-            panel.id = 'soPurchasePanel';
-            panel.className = 'so-purchase-panel';
-            tableWrap.parentElement.insertBefore(panel, tableWrap);
+    // ---------- Purchase drawer (Mua hàng per NCC + global, right-side toggle) ----------
+    function _ensurePurchaseDrawer() {
+        // Cleanup any legacy inline panel (created bởi version cũ).
+        const oldInline = document.getElementById('soPurchasePanel');
+        if (oldInline && !oldInline.classList.contains('so-purchase-drawer')) {
+            oldInline.remove();
         }
+        let drawer = document.getElementById('soPurchaseDrawer');
+        if (drawer) {
+            return {
+                drawer,
+                body: drawer.querySelector('.so-purchase-drawer-body'),
+                toggle: document.getElementById('soPurchaseToggle'),
+            };
+        }
+        // FAB toggle button (right edge, mặc định ẩn khi không có NCC nào).
+        const toggle = document.createElement('button');
+        toggle.id = 'soPurchaseToggle';
+        toggle.type = 'button';
+        toggle.className = 'so-purchase-toggle';
+        toggle.hidden = true;
+        toggle.title = 'Mua hàng theo NCC';
+        toggle.innerHTML =
+            '<i data-lucide="shopping-cart"></i><span class="so-purchase-toggle-badge">0</span>';
+        document.body.appendChild(toggle);
+
+        drawer = document.createElement('aside');
+        drawer.id = 'soPurchaseDrawer';
+        drawer.className = 'so-purchase-drawer';
+        drawer.innerHTML = `
+            <div class="so-purchase-drawer-backdrop" data-so-drawer-close></div>
+            <div class="so-purchase-drawer-panel">
+                <header class="so-purchase-drawer-head">
+                    <span class="so-purchase-drawer-title">
+                        <i data-lucide="shopping-cart"></i>
+                        <strong>Mua hàng theo NCC</strong>
+                    </span>
+                    <button class="so-purchase-drawer-close" type="button" data-so-drawer-close title="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="so-purchase-drawer-body"></div>
+            </div>`;
+        document.body.appendChild(drawer);
+        toggle.addEventListener('click', () => {
+            drawer.classList.toggle('is-open');
+        });
+        drawer.querySelectorAll('[data-so-drawer-close]').forEach((el) => {
+            el.addEventListener('click', () => drawer.classList.remove('is-open'));
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && drawer.classList.contains('is-open')) {
+                drawer.classList.remove('is-open');
+            }
+        });
+        return {
+            drawer,
+            body: drawer.querySelector('.so-purchase-drawer-body'),
+            toggle,
+        };
+    }
+
+    function renderPurchasePanel() {
+        const els = _ensurePurchaseDrawer();
         const tab = window.SoOrderStorage.getActiveTab(state);
         if (!tab) {
-            panel.hidden = true;
+            els.toggle.hidden = true;
+            els.drawer.classList.remove('is-open');
             return;
         }
         const groups = {};
@@ -855,16 +907,18 @@
             a.supplier.localeCompare(b.supplier)
         );
         if (!suppliers.length) {
-            panel.hidden = true;
+            els.toggle.hidden = true;
+            els.drawer.classList.remove('is-open');
             return;
         }
-        panel.hidden = false;
+        els.toggle.hidden = false;
+        const badge = els.toggle.querySelector('.so-purchase-toggle-badge');
+        if (badge) badge.textContent = String(suppliers.length);
+
         const rate = Number(tab.rate) || 1;
         const ccy = tab.currency || 'VND';
         const totalAllValueVnd = Math.round(totalAllValue * rate);
-        panel.innerHTML = `<div class="so-purchase-head">
-                <i data-lucide="shopping-cart"></i>
-                <strong>Mua hàng theo NCC</strong>
+        els.body.innerHTML = `<div class="so-purchase-head">
                 <span class="so-purchase-hint">${suppliers.length} NCC trong ${escapeHtml(tab.label || '')}</span>
                 <button class="so-purchase-btn so-purchase-btn-all" type="button" data-purchase-all>
                     <i data-lucide="shopping-bag"></i>
@@ -891,12 +945,12 @@
                     })
                     .join('')}
             </div>`;
-        panel.querySelectorAll('[data-purchase-supplier]').forEach((btn) => {
+        els.body.querySelectorAll('[data-purchase-supplier]').forEach((btn) => {
             btn.addEventListener('click', () =>
                 openPurchaseModal({ scope: 'supplier', supplier: btn.dataset.purchaseSupplier })
             );
         });
-        const allBtn = panel.querySelector('[data-purchase-all]');
+        const allBtn = els.body.querySelector('[data-purchase-all]');
         if (allBtn) {
             allBtn.addEventListener('click', () => openPurchaseModal({ scope: 'all' }));
         }
