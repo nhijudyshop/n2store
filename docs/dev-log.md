@@ -25,6 +25,42 @@
 
 ## 2026-05-18
 
+### [web2/supplier-debt] Thêm tab "Công nợ" — chronological merge + running balance per row
+
+**User**: "chức năng tính tiền giống bên supplier-debt/ chưa? Tìm hiểu kĩ chức năng bên supplier-debt/ đi".
+
+**Phân tích legacy** `n2store/supplier-debt/`:
+
+- Bảng chính 5 cột: Mã NCC, Tên NCC, Phát sinh (Debit), Thanh toán (Credit), Nợ cuối kỳ (End) — TPOS API `Report/PartnerDebtReport` trả sẵn 3 cột tiền, **KHÔNG** có Nợ đầu kỳ ở bảng chính.
+- **Tab "Công nợ"** trong expanded row mới là feature money-calc quan trọng: merge tất cả bút toán (BILL hóa đơn mua, CSH/BANK/TK thanh toán) chronological, hiển thị Nợ đầu kỳ / Phát sinh / Thanh toán / Nợ cuối kỳ per row với **running balance**.
+- Công thức (legacy `main.js:1623`):
+
+    ```
+    Opening = End − ΣDebit + ΣCredit      (derive từ summary row)
+    currentEnd = currentBegin + debit − credit
+    currentBegin = currentEnd              (next row)
+    ```
+
+- 4 tabs khác trong expand: Info, Hóa đơn (FastPurchaseOrder), Chi tiết nợ (CreditDebitSupplierDetail), Công nợ.
+
+**Web 2.0 update** ([web2/supplier-debt/](../web2/supplier-debt/)):
+
+- **Tab mới "Công nợ (running balance)"** thành default tab — merge `row.purchasesInPeriod` (Debit) + `row.txInPeriod` (Credit) sort theo `sortKey` ASC (date + time), tính running balance theo công thức legacy.
+- Bảng 7 cột: Ngày, Diễn giải, Bút toán, Nợ đầu kỳ, Phát sinh, Thanh toán, Nợ cuối kỳ.
+- Bút toán label: `PO/<tab>` cho purchase, `PAYMENT`/`RETURN` cho transaction. Row payment/return có bg xanh nhạt (`is-credit-move`).
+- Giữ 2 tab cũ (Phiếu mua / Giao dịch) cho ai chỉ muốn xem 1 hướng.
+
+**Khác biệt còn lại với legacy** (đã ý thức, không clone):
+
+- Drag-drop reorder rows — legacy dùng chỉnh ngày web (RefundDateStore); Web 2.0 dùng ngày shipment cố định.
+- Hóa đơn / Chi tiết nợ tab — Web 2.0 không có pattern hóa đơn riêng (purchases gắn trực tiếp shipment).
+- Web notes (Firebase per-move), Tạo NCC, Column toggle — chưa cần.
+- Payment modal + delete payment — đã có sẵn ở `web2/supplier-wallet/`.
+
+**Verified Playwright localhost**: Shenzhen → modal mở Công nợ tab → row "9/5/2026 — Mua: Túi xách — PO/HÀ NỘI — 0₫ → 3.750₫" running balance đúng. 0 JS error.
+
+**Status**: ✅ Done.
+
 ### [web2/supplier-debt][sidebar] Báo cáo công nợ NCC theo kỳ — clone UX legacy supplier-debt vào Web 2.0
 
 **User**: "làm 1 trang giống `n2store/supplier-debt/index.html` ở trong mục Mua hàng trên Ví NCC".

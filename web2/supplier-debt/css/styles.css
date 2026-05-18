@@ -556,6 +556,30 @@
     color: #1e40af;
 }
 
+/* Công nợ tab — running balance table */
+.sd-congno-table tbody tr.is-credit-move {
+    background: #f0fdf4;
+}
+
+.sd-congno-table tbody tr.is-credit-move:hover {
+    background: #dcfce7;
+}
+
+.sd-move-name {
+    display: inline-block;
+    font-family: 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 0.75rem;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.sd-congno-table tbody td.num:last-child strong {
+    color: #4338ca;
+}
+
 /* Responsive */
 @media (max-width: 920px) {
     .sd-filter-row {

@@ -43,7 +43,7 @@
             display: 'all', // 'all' | 'endnonzero'
         },
         activeSupplier: null,
-        detailTab: 'purchases',
+        detailTab: 'congno',
     };
 
     // ---------- helpers ----------
@@ -336,7 +336,7 @@
     // ---------- detail modal ----------
     function openDetail(supplier) {
         STATE.activeSupplier = supplier;
-        STATE.detailTab = 'purchases';
+        STATE.detailTab = 'congno';
         const row = STATE.rows.find((r) => r.supplier === supplier);
         if (!row) return;
         document.getElementById('sdDetailTitle').textContent = supplier;
@@ -362,11 +362,83 @@
         });
         const row = STATE.rows.find((r) => r.supplier === STATE.activeSupplier);
         if (!row) return;
-        if (STATE.detailTab === 'purchases') {
+        if (STATE.detailTab === 'congno') {
+            renderDetailCongNo(row);
+        } else if (STATE.detailTab === 'purchases') {
             renderDetailPurchases(row);
         } else {
             renderDetailTx(row);
         }
+    }
+
+    // Chronological merge of purchases (Debit) + transactions (Credit) with
+    // running balance per row. Mimics legacy supplier-debt "Công nợ" tab.
+    //
+    // currentBegin starts = opening (đầu kỳ)
+    // For mỗi entry sorted by date asc:
+    //   currentEnd = currentBegin + debit - credit
+    //   currentBegin = currentEnd (for next row)
+    //
+    // Result: cuối cùng currentEnd === row.ending (sanity check).
+    function buildCongNoEntries(row) {
+        const entries = [];
+        for (const p of row.purchasesInPeriod || []) {
+            entries.push({
+                sortKey: String(p.date || '') + ' 00:00:00',
+                date: p.date || '',
+                desc: `Mua: ${p.productName || '—'}${p.variant ? ` (${p.variant})` : ''}`,
+                moveName: `PO/${p.tabLabel || ''}`,
+                debit: p.subtotal || 0,
+                credit: 0,
+            });
+        }
+        for (const t of row.txInPeriod || []) {
+            const d = t.ts ? new Date(Number(t.ts)) : null;
+            const dateIso = d ? d.toISOString().slice(0, 10) : '';
+            const timeStr = d
+                ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                : '';
+            const lbl = t.type === 'return' ? 'Trả hàng' : 'Thanh toán';
+            entries.push({
+                sortKey: dateIso + ' ' + timeStr,
+                date: dateIso,
+                desc: lbl + (t.note ? ` — ${t.note}` : ''),
+                moveName: t.type === 'return' ? 'RETURN' : 'PAYMENT',
+                debit: 0,
+                credit: t.amount || 0,
+            });
+        }
+        entries.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+        return entries;
+    }
+
+    function renderDetailCongNo(row) {
+        const tbody = document.getElementById('sdDetailCongnoBody');
+        const entries = buildCongNoEntries(row);
+        if (!entries.length) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px;">Không có bút toán trong kỳ.</td></tr>`;
+            return;
+        }
+        let runningBalance = row.opening;
+        const rowsHtml = entries
+            .map((e) => {
+                const begin = runningBalance;
+                const end = begin + (e.debit || 0) - (e.credit || 0);
+                runningBalance = end;
+                const moveCls =
+                    e.moveName === 'PAYMENT' || e.moveName === 'RETURN' ? 'is-credit-move' : '';
+                return `<tr class="${moveCls}">
+                    <td>${escapeHtml(fmtDateVN(e.date))}</td>
+                    <td>${escapeHtml(e.desc)}</td>
+                    <td><span class="sd-move-name">${escapeHtml(e.moveName)}</span></td>
+                    <td class="num">${fmtVnd(begin)}</td>
+                    <td class="num">${e.debit ? fmtVnd(e.debit) : '—'}</td>
+                    <td class="num">${e.credit ? fmtVnd(e.credit) : '—'}</td>
+                    <td class="num"><strong>${fmtVnd(end)}</strong></td>
+                </tr>`;
+            })
+            .join('');
+        tbody.innerHTML = rowsHtml;
     }
 
     function renderDetailPurchases(row) {
