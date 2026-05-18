@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `76fc24c` — fix(tpos-pancake): gỡ legacy auth → opt-in qua flag **SKIP_LEGACY_NAV_AUTH
-**Last updated**: 2026-05-18 14:04:31 +07
-**Latest session**: [`RESUME:20260518-140431-76fc24c`](../20260518-140431-76fc24c.md)
-**Summary**: fix(tpos-pancake): gỡ legacy auth → opt-in qua flag **SKIP_LEGACY_NAV_AUTH
+**Latest commit**: `2a8ad33` — fix(web2/sidebar): nav scroll + footer pinned + nút "Đăng xuất" rõ ràng
+**Last updated**: 2026-05-18 14:16:25 +07
+**Latest session**: [`RESUME:20260518-141625-2a8ad33`](../20260518-141625-2a8ad33.md)
+**Summary**: fix(web2/sidebar): nav scroll + footer pinned + nút "Đăng xuất" rõ ràng
 
 ## Folders affected in this commit
 
-- [`shared/`](./shared.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -29,4 +28,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-18 13:58
+- [`web2/`](./web2.md) — updated 2026-05-18 14:16
