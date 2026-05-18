@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b555189` — feat(web2/supplier-debt): mặc định filter = đầu → cuối tháng hiện tại
-**Last updated**: 2026-05-18 13:07:29 +07
-**Latest session**: [`RESUME:20260518-130729-b555189`](../20260518-130729-b555189.md)
-**Summary**: feat(web2/supplier-debt): mặc định filter = đầu → cuối tháng hiện tại
+**Latest commit**: `ba75d7a` — feat(scripts): seeder fake demo data cho Web 2.0
+**Last updated**: 2026-05-18 13:18:27 +07
+**Latest session**: [`RESUME:20260518-131827-ba75d7a`](../20260518-131827-ba75d7a.md)
+**Summary**: feat(scripts): seeder fake demo data cho Web 2.0
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -22,7 +21,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-05-18 11:04
 - [`orders-report/`](./orders-report.md) — updated 2026-05-18 12:28
 - [`render.com/`](./render.com.md) — updated 2026-05-18 12:14
-- [`scripts/`](./scripts.md) — updated 2026-05-18 11:38
+- [`scripts/`](./scripts.md) — updated 2026-05-18 13:18
 - [`shared/`](./shared.md) — updated 2026-05-18 11:04
 - [`so-order/`](./so-order.md) — updated 2026-05-18 11:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-18 11:04
