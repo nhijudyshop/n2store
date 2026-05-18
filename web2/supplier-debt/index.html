@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518d" />
         <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
-        <link rel="stylesheet" href="css/styles.css?v=20260518c" />
+        <link rel="stylesheet" href="css/styles.css?v=20260518d" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -26,6 +26,8 @@
 
         <script src="../../shared/js/firebase-config.js"></script>
         <script src="../../shared/js/notification-system.js"></script>
+        <script src="../../shared/js/core-loader.js"></script>
+        <script src="../../shared/js/token-manager.js"></script>
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -79,6 +81,19 @@
                                 <label class="sd-radio-label">
                                     <input type="radio" name="sdDisplay" value="endnonzero" />
                                     <span>Nợ cuối kỳ &ne; 0</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="sd-filter-group sd-filter-group-radio">
+                            <label>Nguồn</label>
+                            <div class="sd-radio-group">
+                                <label class="sd-radio-label">
+                                    <input type="checkbox" id="sdSourceWeb2" checked />
+                                    <span>Web 2.0</span>
+                                </label>
+                                <label class="sd-radio-label">
+                                    <input type="checkbox" id="sdSourceTpos" />
+                                    <span>TPOS (legacy)</span>
                                 </label>
                             </div>
                         </div>
@@ -139,7 +154,7 @@
         </div>
 
         <script src="../shared/tpos-sidebar.js?v=20260518b"></script>
-        <script src="js/supplier-debt-app.js?v=20260518c"></script>
+        <script src="js/supplier-debt-app.js?v=20260518d"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

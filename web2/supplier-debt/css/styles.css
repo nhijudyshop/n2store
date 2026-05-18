@@ -369,6 +369,27 @@
     font-weight: 500;
 }
 
+.sd-source-badge {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+}
+
+.sd-source-badge.is-web2 {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.sd-source-badge.is-tpos {
+    background: #fef3c7;
+    color: #92400e;
+}
+
 .sd-table tbody tr.is-debt td.col-ending {
     color: #b91c1c;
     font-weight: 600;

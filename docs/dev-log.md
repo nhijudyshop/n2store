@@ -77,6 +77,34 @@ Thêm `notifyClients('kpi_statistics', ...)` vào TẤT CẢ write endpoints:
 
 **Status**: ✅ Code done. Cần deploy Render + GitHub Pages, sau đó re-test 2-user.
 
+### [web2/supplier-debt] Thêm option "Bao gồm TPOS (legacy)" — merge data từ TPOS Report API
+
+**User**: "thêm dữ liệu như bên https://nhijudyshop.github.io/n2store/supplier-debt/index.html tôi coi thử".
+
+**Context**: Legacy `supplier-debt/` show 56 NCC từ TPOS (tổng nợ 891M). Web 2.0 chỉ 3 NCC từ so-order (5.2k). User muốn xem báo cáo Web 2.0 với data dày như legacy.
+
+**Approach**: Thêm toggle "Nguồn" trong toolbar — 2 checkbox `Web 2.0` + `TPOS (legacy)`. TPOS được fetch on-demand qua `tokenManager.authenticatedFetch()` (giống legacy).
+
+**Implementation** ([web2/supplier-debt/](../web2/supplier-debt/)):
+
+- HTML: thêm `<script src="../../shared/js/core-loader.js">` + `<script src="../../shared/js/token-manager.js">` + 2 checkbox toggle source.
+- JS state thêm: `tposData: []`, `tposCongNo: Map<partnerId, rows>` (lazy), `filters.sourceWeb2/sourceTpos`.
+- `loadTpos()`: GET `/api/odata/Report/PartnerDebtReport?ResultSelection=supplier&DateFrom=...&$top=1000` → 1000 NCC từ TPOS qua worker proxy.
+- `aggregate()` merge: Web 2.0 rows giữ nguyên (so_order + wallet), thêm TPOS rows với `opening = ending - debit + credit` (legacy formula).
+- Row có `source` field ('web2' | 'tpos'). Render thêm badge: `WEB 2.0` (xanh) / `TPOS` (vàng).
+- Expand TPOS row: `congnoTableHtml` lazy fetch `/api/odata/Report/PartnerDebtReportDetail?PartnerId=...` → cache vào `STATE.tposCongNo` → re-render detail panel. Running balance dùng `row.opening` làm start, compute `currentEnd = currentBegin + debit - credit` per row.
+- Toggle change → `loadAll()` + `tposCongNo.clear()` (invalidate cache) + re-render.
+
+**Verified localhost**:
+
+- Toggle TPOS ON → load 56 TPOS NCC + 3 Web 2.0 = 59 row, total ending **891.739.200₫** match legacy.
+- Expand TPOS row (B5 CHIẾN NGỌC) → lazy fetch PartnerDebtReportDetail → 100+ rows running balance đúng (lastEnd = summaryEnd = **100.580.000₫**).
+- Badge phân biệt nguồn rõ ràng.
+
+**Web 2.0 isolation note**: TPOS được đọc **read-only** ở client để bổ sung báo cáo. KHÔNG sync vào Firestore/Postgres, KHÔNG write back. Web 2.0 data layer (so_order_v2, supplier_wallet_v1) vẫn không cross-contaminate.
+
+**Status**: ✅ Done.
+
 ### [web2/supplier-debt] Refactor modal → inline row expand giống legacy
 
 **User**: "làm chức năng expand cho web2/supplier-debt giống supplier-debt/" + answer relationship giữa các trang Web 2.0.

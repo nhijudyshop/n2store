@@ -28,9 +28,13 @@
         THB: 720,
     };
 
+    const TPOS_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+
     const STATE = {
         soOrderData: null,
         walletData: null,
+        tposData: [], // raw TPOS supplier rows (from Report/PartnerDebtReport)
+        tposCongNo: new Map(), // partnerId → congNo rows (lazy fetched on expand)
         rows: [], // aggregated supplier rows after filter
         sortField: 'ending',
         sortDir: 'desc',
@@ -41,6 +45,8 @@
             to: '',
             search: '',
             display: 'all', // 'all' | 'endnonzero'
+            sourceWeb2: true,
+            sourceTpos: false,
         },
         expanded: new Set(), // expanded supplier names
         detailTabs: new Map(), // supplier → active tab name (default 'congno')
@@ -106,6 +112,13 @@
 
     // ---------- load ----------
     async function loadAll() {
+        const tasks = [];
+        if (STATE.filters.sourceWeb2) tasks.push(loadWeb2());
+        if (STATE.filters.sourceTpos) tasks.push(loadTpos());
+        await Promise.all(tasks);
+    }
+
+    async function loadWeb2() {
         try {
             if (typeof firebase === 'undefined' || !firebase.firestore) {
                 notify('Firebase chưa sẵn sàng', 'error');
@@ -119,8 +132,72 @@
             STATE.soOrderData = soSnap.exists ? soSnap.data()?.data || null : null;
             STATE.walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
         } catch (e) {
-            console.warn('[supplier-debt] load fail:', e.message);
-            notify('Lỗi tải dữ liệu: ' + e.message, 'error');
+            console.warn('[supplier-debt] load Web 2.0 fail:', e.message);
+            notify('Lỗi tải dữ liệu Web 2.0: ' + e.message, 'error');
+        }
+    }
+
+    function isoTpos(date, endOfDay) {
+        if (!date) return '';
+        // yyyy-mm-dd → ISO with TZ for TPOS
+        const d = new Date(date + 'T' + (endOfDay ? '23:59:59' : '00:00:00') + '+07:00');
+        return d.toISOString();
+    }
+
+    async function loadTpos() {
+        try {
+            if (!window.tokenManager?.authenticatedFetch) {
+                notify('TokenManager chưa load — refresh trang', 'warning');
+                return;
+            }
+            const params = new URLSearchParams();
+            params.set('Display', 'all');
+            const from = STATE.filters.from || '2020-01-01';
+            const to = STATE.filters.to || new Date().toISOString().slice(0, 10);
+            params.set('DateFrom', isoTpos(from, false));
+            params.set('DateTo', isoTpos(to, true));
+            params.set('ResultSelection', 'supplier');
+            params.set('$top', '1000');
+            params.set('$count', 'true');
+            params.set('$orderby', 'Code asc');
+            const url = `${TPOS_API_BASE}/Report/PartnerDebtReport?${params.toString()}`;
+            const res = await window.tokenManager.authenticatedFetch(url, {
+                headers: { 'Content-Type': 'application/json', tposappversion: '6.2.6.1' },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json = await res.json();
+            STATE.tposData = Array.isArray(json.value) ? json.value : [];
+        } catch (e) {
+            console.warn('[supplier-debt] load TPOS fail:', e.message);
+            notify('Lỗi tải TPOS: ' + e.message, 'error');
+            STATE.tposData = [];
+        }
+    }
+
+    async function loadTposCongNo(partnerId) {
+        try {
+            if (!window.tokenManager?.authenticatedFetch) return [];
+            const params = new URLSearchParams();
+            params.set('ResultSelection', 'supplier');
+            params.set('PartnerId', String(partnerId));
+            const from = STATE.filters.from || '2020-01-01';
+            const to = STATE.filters.to || new Date().toISOString().slice(0, 10);
+            params.set('DateFrom', isoTpos(from, false));
+            params.set('DateTo', isoTpos(to, true));
+            params.set('CompanyId', '');
+            params.set('$format', 'json');
+            params.set('$top', '200');
+            params.set('$orderby', 'Date asc');
+            const url = `${TPOS_API_BASE}/Report/PartnerDebtReportDetail?${params.toString()}`;
+            const res = await window.tokenManager.authenticatedFetch(url, {
+                headers: { 'Content-Type': 'application/json', tposappversion: '6.2.6.1' },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json = await res.json();
+            return Array.isArray(json.value) ? json.value : [];
+        } catch (e) {
+            console.warn('[supplier-debt] load TPOS congno fail:', e.message);
+            return [];
         }
     }
 
@@ -204,16 +281,45 @@
             }
         }
 
-        // Finalize: compute opening + ending
+        // Finalize: compute opening + ending for Web 2.0 rows
         for (const supplier of Object.keys(result)) {
             const row = result[supplier];
             row.opening = row._purchasesBefore - row._txBefore;
             row.ending = row.opening + row.debit - row.credit;
         }
+
+        // Merge TPOS rows (server-provided Debit/Credit/End; opening derived).
+        // Key by "[code] name" so a Web 2.0 supplier matching TPOS code doesn't collide.
+        for (const t of STATE.tposData || []) {
+            const code = t.Code || '';
+            const name = t.PartnerName || '';
+            const key = code ? `[${code}] ${name}` : name;
+            if (!key) continue;
+            const debit = Number(t.Debit) || 0;
+            const credit = Number(t.Credit) || 0;
+            const ending = Number(t.End) || 0;
+            const opening = ending - debit + credit;
+            // TPOS row replaces existing key only if Web 2.0 doesn't already have data.
+            if (result[key]) continue;
+            result[key] = {
+                supplier: key,
+                opening,
+                debit,
+                credit,
+                ending,
+                _purchasesBefore: 0,
+                _txBefore: 0,
+                purchasesInPeriod: [],
+                txInPeriod: [],
+                source: 'tpos',
+                code,
+                partnerId: t.PartnerId || null,
+            };
+        }
         return result;
     }
 
-    function makeRow(supplier) {
+    function makeRow(supplier, opts) {
         return {
             supplier,
             opening: 0,
@@ -224,6 +330,9 @@
             _txBefore: 0,
             purchasesInPeriod: [],
             txInPeriod: [],
+            source: opts?.source || 'web2', // 'web2' | 'tpos'
+            code: opts?.code || '',
+            partnerId: opts?.partnerId || null,
         };
     }
 
@@ -279,10 +388,14 @@
                 const isExpanded = STATE.expanded.has(r.supplier);
                 const arrow = isExpanded ? '▼' : '▶';
                 const detailContent = isExpanded ? detailPanelHtml(r) : '';
+                const sourceBadge =
+                    r.source === 'tpos'
+                        ? `<span class="sd-source-badge is-tpos" title="Dữ liệu từ TPOS (legacy)">TPOS</span>`
+                        : `<span class="sd-source-badge is-web2" title="Dữ liệu từ Web 2.0 (so-order + ví NCC)">WEB 2.0</span>`;
                 return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
                     <td class="num-stt">${stt}</td>
                     <td class="col-expand"><button class="sd-expand-btn" type="button" data-toggle-supplier="${escapeHtml(r.supplier)}">${arrow}</button></td>
-                    <td class="col-name">${escapeHtml(r.supplier)}</td>
+                    <td class="col-name">${sourceBadge}${escapeHtml(r.supplier)}</td>
                     <td class="num">${fmtVnd(r.opening)}</td>
                     <td class="num">${fmtVnd(r.debit)}</td>
                     <td class="num">${fmtVnd(r.credit)}</td>
@@ -479,8 +592,37 @@
         return entries;
     }
 
+    // Build entries from TPOS PartnerDebtReportDetail rows. Each row has
+    // { Date, Name (diễn giải), Ref (note), MoveName (bút toán), Debit, Credit }.
+    function buildTposCongNoEntries(tposRows) {
+        return tposRows.map((r) => ({
+            sortKey: String(r.Date || '') + ' ' + String(r.MoveName || ''),
+            date: r.Date ? String(r.Date).slice(0, 10) : '',
+            desc: r.Name || r.Ref || '',
+            moveName: r.MoveName || '',
+            debit: Number(r.Debit) || 0,
+            credit: Number(r.Credit) || 0,
+        }));
+    }
+
     function congnoTableHtml(row) {
-        const entries = buildCongNoEntries(row);
+        // TPOS source → entries come from `STATE.tposCongNo.get(partnerId)`,
+        // fetched lazily on first expand. Show loading placeholder while pending.
+        let entries;
+        if (row.source === 'tpos' && row.partnerId) {
+            const tposRows = STATE.tposCongNo.get(row.partnerId);
+            if (tposRows === undefined) {
+                // trigger lazy load
+                loadTposCongNo(row.partnerId).then((rows) => {
+                    STATE.tposCongNo.set(row.partnerId, rows);
+                    updateDetailPanel(row.supplier);
+                });
+                return `<div class="sd-detail-empty"><i data-lucide="loader-2" style="width:18px;height:18px;"></i> Đang tải bút toán TPOS…</div>`;
+            }
+            entries = buildTposCongNoEntries(tposRows);
+        } else {
+            entries = buildCongNoEntries(row);
+        }
         if (!entries.length) {
             return `<div class="sd-detail-empty">Không có bút toán trong kỳ.</div>`;
         }
@@ -604,11 +746,33 @@
 
     // ---------- wire UI ----------
     function wireUi() {
-        document.getElementById('sdSearchBtn').addEventListener('click', () => {
+        document.getElementById('sdSearchBtn').addEventListener('click', async () => {
             readFilters();
             STATE.page = 1;
+            await loadAll();
+            STATE.tposCongNo.clear(); // invalidate cached TPOS detail
             applyFilterAndRender();
         });
+        const sourceWeb2 = document.getElementById('sdSourceWeb2');
+        const sourceTpos = document.getElementById('sdSourceTpos');
+        if (sourceWeb2) {
+            sourceWeb2.addEventListener('change', async (e) => {
+                STATE.filters.sourceWeb2 = e.target.checked;
+                await loadAll();
+                applyFilterAndRender();
+            });
+        }
+        if (sourceTpos) {
+            sourceTpos.addEventListener('change', async (e) => {
+                STATE.filters.sourceTpos = e.target.checked;
+                if (e.target.checked) notify('Đang tải dữ liệu TPOS…', 'info');
+                await loadAll();
+                applyFilterAndRender();
+                if (e.target.checked) {
+                    notify(`Đã tải ${STATE.tposData.length} NCC từ TPOS`, 'success');
+                }
+            });
+        }
         document.getElementById('sdResetBtn').addEventListener('click', () => {
             document.getElementById('sdDateFrom').value = '';
             document.getElementById('sdDateTo').value = '';
@@ -681,6 +845,8 @@
         STATE.filters.search = document.getElementById('sdSearch').value || '';
         const chosen = document.querySelector('input[name="sdDisplay"]:checked');
         STATE.filters.display = chosen ? chosen.value : 'all';
+        STATE.filters.sourceWeb2 = document.getElementById('sdSourceWeb2')?.checked ?? true;
+        STATE.filters.sourceTpos = document.getElementById('sdSourceTpos')?.checked ?? false;
     }
 
     // ---------- init ----------
