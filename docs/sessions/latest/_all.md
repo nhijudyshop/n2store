@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `99ee022` — feat(web2/sidebar): footer hiển thị nút "Đăng nhập" khi chưa có session
-**Last updated**: 2026-05-18 14:29:18 +07
-**Latest session**: [`RESUME:20260518-142918-99ee022`](../20260518-142918-99ee022.md)
-**Summary**: feat(web2/sidebar): footer hiển thị nút "Đăng nhập" khi chưa có session
+**Latest commit**: `fe0b910` — fix(web2/sidebar): footer compact + sticky bottom — không còn bị che
+**Last updated**: 2026-05-18 14:36:18 +07
+**Latest session**: [`RESUME:20260518-143618-fe0b910`](../20260518-143618-fe0b910.md)
+**Summary**: fix(web2/sidebar): footer compact + sticky bottom — không còn bị che
 
 ## Folders affected in this commit
 
@@ -28,4 +28,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-18 14:29
+- [`web2/`](./web2.md) — updated 2026-05-18 14:36
