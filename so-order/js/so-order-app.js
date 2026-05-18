@@ -34,6 +34,35 @@
     // Inline cell edit state (per-cell dblclick mode) — track ô đang edit
     // để 2 lần dblclick nhanh không clobber input đang gõ.
     let inlineCellEditingKey = null; // `${rowId}|${field}`
+
+    // Whole-table edit toggle. Khi BẬT, mọi ô editable render thành input/select
+    // sẵn để gõ nhanh nhiều ô liên tục. Khi TẮT vẫn double-click ô để sửa lẻ.
+    // Per-device preference → tách khỏi state đồng bộ Firestore.
+    const EDIT_TABLE_MODE_KEY = 'soOrder_editTableMode_v1';
+    let editTableMode = (() => {
+        try {
+            return localStorage.getItem(EDIT_TABLE_MODE_KEY) === 'true';
+        } catch {
+            return false;
+        }
+    })();
+    function setEditTableMode(on) {
+        editTableMode = !!on;
+        try {
+            localStorage.setItem(EDIT_TABLE_MODE_KEY, editTableMode ? 'true' : 'false');
+        } catch {
+            /* quota / disabled */
+        }
+        applyEditTableModeUi();
+    }
+    function applyEditTableModeUi() {
+        document.body.classList.toggle('so-edit-table-mode', editTableMode);
+        const btn = document.getElementById('soEditTableBtn');
+        if (btn) {
+            btn.classList.toggle('is-active', editTableMode);
+            btn.setAttribute('aria-pressed', editTableMode ? 'true' : 'false');
+        }
+    }
     // Inline image modal state — track row đang sửa ảnh nào.
     let inlineImageCtx = null; // { rowId, shipmentId, field, currentUrl }
     // Multi-row modal state. Each entry is { uid, productName, variant, qty,
