@@ -828,6 +828,10 @@
                 toggle: document.getElementById('soPurchaseToggle'),
             };
         }
+        // Inline SVG — không phụ thuộc lucide CDN, hoạt động ngay cả offline.
+        const cartSvg = `<svg class="so-purchase-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`;
+        const xSvg = `<svg class="so-purchase-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+
         // FAB toggle button (right edge, mặc định ẩn khi không có NCC nào).
         const toggle = document.createElement('button');
         toggle.id = 'soPurchaseToggle';
@@ -836,7 +840,9 @@
         toggle.hidden = true;
         toggle.title = 'Mua hàng theo NCC';
         toggle.innerHTML =
-            '<i data-lucide="shopping-cart"></i><span class="so-purchase-toggle-badge">0</span>';
+            cartSvg +
+            '<span class="so-purchase-toggle-label">Mua hàng</span>' +
+            '<span class="so-purchase-toggle-badge">0</span>';
         document.body.appendChild(toggle);
 
         drawer = document.createElement('aside');
@@ -847,11 +853,11 @@
             <div class="so-purchase-drawer-panel">
                 <header class="so-purchase-drawer-head">
                     <span class="so-purchase-drawer-title">
-                        <i data-lucide="shopping-cart"></i>
+                        ${cartSvg}
                         <strong>Mua hàng theo NCC</strong>
                     </span>
                     <button class="so-purchase-drawer-close" type="button" data-so-drawer-close title="Đóng">
-                        <i data-lucide="x"></i>
+                        ${xSvg}
                     </button>
                 </header>
                 <div class="so-purchase-drawer-body"></div>

@@ -1761,6 +1761,12 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 }
 
 /* ============ Right-side drawer + FAB toggle ============ */
+.so-purchase-icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
 .so-purchase-toggle {
     position: fixed;
     right: 0;
@@ -1770,10 +1776,15 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     color: #fff;
     border: 0;
     border-radius: 14px 0 0 14px;
-    padding: 14px 14px 14px 12px;
+    padding: 14px 12px;
     cursor: pointer;
-    box-shadow: -3px 6px 20px rgba(67, 56, 202, 0.32);
+    box-shadow: -4px 6px 22px rgba(67, 56, 202, 0.38);
     z-index: 998;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 58px;
     transition:
         transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
         filter 120ms;
@@ -1785,25 +1796,32 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 .so-purchase-toggle[hidden] {
     display: none;
 }
-.so-purchase-toggle i {
-    display: block;
-    width: 22px;
-    height: 22px;
+.so-purchase-toggle .so-purchase-icon {
+    width: 24px;
+    height: 24px;
+}
+.so-purchase-toggle-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: uppercase;
 }
 .so-purchase-toggle-badge {
     position: absolute;
     top: -6px;
-    right: -6px;
+    left: -6px;
     background: #ef4444;
     color: #fff;
     font-size: 0.7rem;
     font-weight: 700;
     border-radius: 999px;
-    min-width: 20px;
-    padding: 2px 6px;
+    min-width: 22px;
+    padding: 3px 6px;
     text-align: center;
     line-height: 1;
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+    border: 2px solid #fff;
 }
 
 .so-purchase-drawer {
@@ -1859,7 +1877,8 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     font-size: 0.95rem;
     color: #0f172a;
 }
-.so-purchase-drawer-title i {
+.so-purchase-drawer-title i,
+.so-purchase-drawer-title .so-purchase-icon {
     width: 18px;
     height: 18px;
     color: #4338ca;
@@ -1879,7 +1898,8 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     background: #f1f5f9;
     color: #0f172a;
 }
-.so-purchase-drawer-close i {
+.so-purchase-drawer-close i,
+.so-purchase-drawer-close .so-purchase-icon {
     width: 18px;
     height: 18px;
 }

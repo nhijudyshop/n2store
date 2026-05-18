@@ -25,6 +25,34 @@
 
 ## 2026-05-18
 
+### [so-order] Sửa icon FAB toggle "Mua hàng" — dùng inline SVG thay lucide, thêm text label
+
+**User báo**: FAB toggle mua hàng ở mép phải bị "trống trơn", chỉ còn badge "3" — không thấy icon hay text.
+
+**Root cause**: Toggle dùng `<i data-lucide="shopping-cart">` cần lucide CDN (unpkg.com) replace thành SVG khi load. Khi network down (`net::ERR_INTERNET_DISCONNECTED`) lucide.min.js không load → `<i>` vẫn rỗng → FAB chỉ thấy nền tím + badge đỏ.
+
+**Fix**:
+
+- Thay `<i data-lucide>` bằng **inline SVG** (`<svg class="so-purchase-icon">`) cho cart + X close — hoạt động offline.
+- Thêm text label "MUA HÀNG" (uppercase, bold, dưới icon) trên FAB để rõ ràng hơn.
+- FAB đổi layout: vertical (icon trên, text dưới), pill 58px width tối thiểu, badge chuyển sang góc trái có viền trắng.
+
+**Verify**:
+
+- Toggle: 87×69px, có SVG cart + label "Mua hàng" + badge "3" ✅
+- Drawer title: icon cart tím render ✅
+- Drawer close: X SVG render ✅
+
+**Files**:
+
+- `so-order/js/so-order-app.js` — inline cartSvg + xSvg trong `_ensurePurchaseDrawer()`
+- `so-order/css/so-order.css` — `.so-purchase-icon`, layout toggle vertical, badge moved to top-left với border trắng
+- `so-order/index.html` — bump cache `v20260518g → v20260518h`
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Chuyển panel "Mua hàng theo NCC" thành drawer phải có toggle (mặc định ẩn)
 
 **User yêu cầu**: panel "Mua hàng theo NCC" đang chiếm chỗ trên cùng table — chuyển thành menu/drawer bên phải, có toggle ẩn/hiện, default ẩn.
