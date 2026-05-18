@@ -1265,7 +1265,7 @@ window.addEventListener('load', () => {
             <td class="so-td-img">
                 <div class="so-img-cell-v2" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="productImage">
                     <div class="so-img-cell-hint">
-                        <i data-lucide="image"></i>
+                        <i data-lucide="clipboard-paste"></i>
                         <span>Ctrl+V / Kéo thả</span>
                     </div>
                     <input
@@ -1276,9 +1276,6 @@ window.addEventListener('load', () => {
                         class="so-input-v2 so-input-mini so-input-url"
                         value="${escapeHtml(row.productImage)}"
                     />
-                    <button type="button" class="so-img-upload-btn" data-upload-uid="${row.uid}" data-img-name="productImage" title="Tải ảnh từ máy">
-                        <i data-lucide="upload"></i>
-                    </button>
                 </div>
                 <div class="so-img-preview" data-preview-uid="${row.uid}" data-img-name="productImage">${
                     row.productImage ? `<img src="${escapeHtml(row.productImage)}" alt="" />` : ''
@@ -1287,7 +1284,7 @@ window.addEventListener('load', () => {
             <td class="so-td-img">
                 <div class="so-img-cell-v2" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="invoiceImage">
                     <div class="so-img-cell-hint">
-                        <i data-lucide="image"></i>
+                        <i data-lucide="clipboard-paste"></i>
                         <span>Ctrl+V / Kéo thả</span>
                     </div>
                     <input
@@ -1298,9 +1295,6 @@ window.addEventListener('load', () => {
                         class="so-input-v2 so-input-mini so-input-url"
                         value="${escapeHtml(row.invoiceImage)}"
                     />
-                    <button type="button" class="so-img-upload-btn" data-upload-uid="${row.uid}" data-img-name="invoiceImage" title="Tải ảnh từ máy">
-                        <i data-lucide="upload"></i>
-                    </button>
                 </div>
                 <div class="so-img-preview" data-preview-uid="${row.uid}" data-img-name="invoiceImage">${
                     row.invoiceImage ? `<img src="${escapeHtml(row.invoiceImage)}" alt="" />` : ''
@@ -1377,13 +1371,7 @@ window.addEventListener('load', () => {
                 renderModalRows();
             });
         });
-        tbody.querySelectorAll('[data-upload-uid]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const uid = btn.dataset.uploadUid;
-                const name = btn.dataset.imgName;
-                pickImageForRow(uid, name);
-            });
-        });
+        // (Upload button đã bỏ — chỉ dùng Ctrl+V / kéo thả)
     }
 
     function onModalRowFieldInput(e) {
@@ -1606,30 +1594,8 @@ window.addEventListener('load', () => {
         updateRowImagePreview(uid, name, dataUrl);
     }
 
-    function pickImageForRow(uid, name) {
-        if (window.Web2Effects?.attachImageDropTarget) {
-            const cell = document.querySelector(
-                `#soModalProductsBody [data-img-cell][data-uid="${uid}"][data-img-name="${name}"]`
-            );
-            const handle = cell?.__w2DropAttached;
-            if (handle && typeof handle.apply !== 'function') {
-                // attachImageDropTarget exposes .apply for programmatic file pass.
-            }
-        }
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = async () => {
-            const f = input.files?.[0];
-            if (!f) return;
-            if (f.size > 2 * 1024 * 1024) {
-                notify('Ảnh > 2MB — nên paste URL CDN thay vì upload base64', 'warning');
-            }
-            const dataUrl = await fileToDataUrl(f);
-            _applyImageToRow(uid, name, dataUrl);
-        };
-        input.click();
-    }
+    // (pickImageForRow / file picker đã bỏ — chỉ dùng Ctrl+V / kéo thả qua
+    // attachImageDropTarget. Ảnh tự động được resize + nén JPEG.)
 
     function wireModalImagePasteDrop() {
         const cells = document.querySelectorAll('#soModalProductsBody [data-img-cell]');

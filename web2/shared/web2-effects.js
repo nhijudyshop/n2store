@@ -597,13 +597,64 @@
         });
     }
 
+    // Compress + resize image. Mục tiêu output < targetKB. Resize tối đa
+    // maxDim (default 1200px). Output luôn là JPEG quality giảm dần.
+    // Trả về { dataUrl, sizeKB, w, h, compressed: bool }.
+    function _compressImage(file, opts = {}) {
+        const maxDim = opts.maxDim || 1200;
+        const targetKB = opts.targetKB || 500;
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = reject;
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = reject;
+                img.onload = () => {
+                    let { width: w, height: h } = img;
+                    const scale = Math.min(1, maxDim / Math.max(w, h));
+                    const newW = Math.round(w * scale);
+                    const newH = Math.round(h * scale);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = newW;
+                    canvas.height = newH;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff'; // bg cho JPEG (xử lý alpha PNG)
+                    ctx.fillRect(0, 0, newW, newH);
+                    ctx.drawImage(img, 0, 0, newW, newH);
+                    let quality = 0.85;
+                    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    let sizeKB = Math.round((dataUrl.length * 0.75) / 1024);
+                    // Iterate down quality if still too large (max 4 tries)
+                    let tries = 0;
+                    while (sizeKB > targetKB && quality > 0.4 && tries < 4) {
+                        quality -= 0.15;
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        sizeKB = Math.round((dataUrl.length * 0.75) / 1024);
+                        tries += 1;
+                    }
+                    resolve({
+                        dataUrl,
+                        sizeKB,
+                        w: newW,
+                        h: newH,
+                        compressed: scale < 1 || quality < 0.85,
+                        quality: Math.round(quality * 100),
+                    });
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
     function attachImageDropTarget(element, opts = {}) {
         const el = typeof element === 'string' ? document.querySelector(element) : element;
         if (!el) return { detach() {} };
         if (el.__w2DropAttached) return el.__w2DropAttached;
 
-        const maxMB = opts.maxSizeMB ?? 2;
-        const accept = opts.accept || 'image/*';
+        const hardLimitMB = opts.hardLimitMB ?? 10; // reject file lớn hơn
+        const maxDim = opts.maxDim || 1200;
+        const targetKB = opts.targetKB || 500;
         const onResult = opts.onResult || (() => {});
         const notify = (msg, type) => _w2Notify(opts.notify, msg, type);
 
@@ -616,36 +667,41 @@
                 notify('File không phải là ảnh', 'warning');
                 return;
             }
-            if (file.size > maxMB * 1024 * 1024) {
-                notify(`Ảnh > ${maxMB}MB — nên paste URL CDN thay vì upload base64`, 'warning');
+            if (file.size > hardLimitMB * 1024 * 1024) {
+                notify(`Ảnh > ${hardLimitMB}MB — quá lớn, từ chối`, 'error');
+                return;
             }
             try {
-                const url = await _fileToDataUrl(file);
-                onResult(url, file);
+                const result = await _compressImage(file, { maxDim, targetKB });
+                if (result.compressed) {
+                    notify(
+                        `Đã nén ảnh xuống ${result.sizeKB}KB (${result.w}×${result.h}, JPEG ${result.quality}%)`,
+                        'info'
+                    );
+                }
+                onResult(result.dataUrl, file, result);
             } catch (e) {
-                notify('Đọc file lỗi: ' + e.message, 'error');
+                notify('Đọc/nén ảnh lỗi: ' + e.message, 'error');
             }
         };
 
-        const onClick = (e) => {
-            // Cho phép click target nguyên area → mở file picker (trừ khi
-            // click trúng input/button con của caller).
-            if (opts.noClickPicker) return;
-            const tag = (e.target && e.target.tagName) || '';
-            if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA' || tag === 'A') return;
-            // Focus trước, để sau khi đóng picker user có thể paste tiếp.
-            el.focus();
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = accept;
-            input.style.display = 'none';
-            input.onchange = async () => {
-                const f = input.files?.[0];
-                if (f) await apply(f);
-                input.remove();
-            };
-            document.body.appendChild(input);
-            input.click();
+        // BỎ click → mở file picker. User chỉ dùng Ctrl+V hoặc kéo thả.
+
+        // Hover-to-focus: chuột vào area → auto focus → Ctrl+V land vào đây
+        // mà không cần click trước.
+        const onMouseEnter = () => {
+            // Chỉ focus nếu user chưa typing vào input khác
+            const active = document.activeElement;
+            if (active && active !== document.body && active !== el) {
+                // Nếu đang typing trong input/textarea ở chỗ khác, không cướp focus
+                const tag = (active.tagName || '').toUpperCase();
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || active.isContentEditable) return;
+            }
+            try {
+                el.focus({ preventScroll: true });
+            } catch {
+                el.focus();
+            }
         };
 
         const onPaste = async (e) => {
@@ -672,7 +728,7 @@
             if (file) await apply(file);
         };
 
-        el.addEventListener('click', onClick);
+        el.addEventListener('mouseenter', onMouseEnter);
         el.addEventListener('paste', onPaste);
         el.addEventListener('dragover', onDragover);
         el.addEventListener('dragleave', onDragleave);
@@ -680,7 +736,7 @@
 
         const handle = {
             detach() {
-                el.removeEventListener('click', onClick);
+                el.removeEventListener('mouseenter', onMouseEnter);
                 el.removeEventListener('paste', onPaste);
                 el.removeEventListener('dragover', onDragover);
                 el.removeEventListener('dragleave', onDragleave);
