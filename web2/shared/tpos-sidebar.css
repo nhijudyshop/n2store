@@ -140,6 +140,62 @@
     height: 14px;
 }
 
+/* Anonymous / logged-out state */
+.web2-user-footer.is-logged-out {
+    background: rgba(0, 0, 0, 0.3);
+}
+.web2-user-avatar-anon {
+    background: linear-gradient(135deg, #475569, #1e293b);
+    color: #cbd5e1;
+}
+.web2-user-avatar-anon i {
+    width: 18px;
+    height: 18px;
+}
+.web2-user-anon-hint {
+    color: #94a3b8;
+    font-size: 0.7rem;
+}
+
+.web2-user-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #4338ca, #7c3aed);
+    color: #fff;
+    border: 1px solid rgba(124, 58, 237, 0.6);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        filter 120ms,
+        transform 80ms,
+        box-shadow 120ms;
+    box-shadow: 0 4px 10px rgba(67, 56, 202, 0.3);
+}
+.web2-user-login-btn:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 6px 14px rgba(67, 56, 202, 0.45);
+}
+.web2-user-login-btn:active {
+    transform: scale(0.98);
+}
+.web2-user-login-btn i {
+    width: 14px;
+    height: 14px;
+}
+
+body.web2-sidebar-collapsed .web2-user-login-text {
+    display: none;
+}
+body.web2-sidebar-collapsed .web2-user-login-btn {
+    padding: 8px;
+}
+
 body.web2-sidebar-collapsed .web2-user-info,
 body.web2-sidebar-collapsed .web2-user-logout-text {
     display: none;

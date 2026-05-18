@@ -660,17 +660,46 @@
             typeof window !== 'undefined' && window.Web2Auth ? window.Web2Auth.getStored() : null;
         const user = stored?.user || null;
         let footer = el.querySelector('.web2-user-footer');
+        if (!footer) {
+            footer = document.createElement('div');
+            footer.className = 'web2-user-footer';
+            el.appendChild(footer);
+        }
         if (!user) {
-            footer?.remove();
+            // Logged-out state: show "Chưa đăng nhập" + login button.
+            footer.classList.add('is-logged-out');
+            footer.innerHTML = `<div class="web2-user-header web2-user-anon">
+                    <div class="web2-user-avatar web2-user-avatar-anon" title="Chưa đăng nhập">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div class="web2-user-info">
+                        <div class="web2-user-name">Chưa đăng nhập</div>
+                        <div class="web2-user-meta">
+                            <span class="web2-user-anon-hint">Đăng nhập để có session</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="web2-user-login-btn" id="web2UserLogin" type="button">
+                    <i data-lucide="log-in"></i>
+                    <span class="web2-user-login-text">Đăng nhập</span>
+                </button>`;
+            footer.querySelector('#web2UserLogin')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const loginPath = window.Web2Auth?.loginUrl?.() || '../web2/login/index.html';
+                const next = location.pathname + location.search;
+                location.href = `${loginPath}?next=${encodeURIComponent(next)}`;
+            });
+            if (window.lucide) lucide.createIcons();
             return;
         }
+        footer.classList.remove('is-logged-out');
         const initial = escapeHtml(
             (user.displayName || user.username || '?').slice(0, 1).toUpperCase()
         );
         const username = escapeHtml(user.username || '');
         const displayName = escapeHtml(user.displayName || user.username || '');
         const role = escapeHtml(user.role || '');
-        const html = `<div class="web2-user-header">
+        footer.innerHTML = `<div class="web2-user-header">
                     <div class="web2-user-avatar" title="${username}">${initial}</div>
                     <div class="web2-user-info">
                         <div class="web2-user-name" title="${displayName} (${username})">${displayName}</div>
@@ -685,12 +714,6 @@
                     <i data-lucide="log-out"></i>
                     <span class="web2-user-logout-text">Đăng xuất</span>
                 </button>`;
-        if (!footer) {
-            footer = document.createElement('div');
-            footer.className = 'web2-user-footer';
-            el.appendChild(footer);
-        }
-        footer.innerHTML = html;
         footer.querySelector('#web2UserLogout')?.addEventListener('click', (e) => {
             e.stopPropagation();
             if (window.Web2Auth?.logout) window.Web2Auth.logout({ redirect: true });
