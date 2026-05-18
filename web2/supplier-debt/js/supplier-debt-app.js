@@ -773,15 +773,18 @@
                 }
             });
         }
-        document.getElementById('sdResetBtn').addEventListener('click', () => {
-            document.getElementById('sdDateFrom').value = '';
-            document.getElementById('sdDateTo').value = '';
+        document.getElementById('sdResetBtn').addEventListener('click', async () => {
+            const { from, to } = currentMonthRange();
+            document.getElementById('sdDateFrom').value = from;
+            document.getElementById('sdDateTo').value = to;
             document.getElementById('sdSearch').value = '';
             document
                 .querySelectorAll('input[name="sdDisplay"]')
                 .forEach((r) => (r.checked = r.value === 'all'));
             readFilters();
             STATE.page = 1;
+            STATE.tposCongNo.clear(); // period changed → invalidate cache
+            await loadAll();
             applyFilterAndRender();
         });
         document.getElementById('sdExportBtn').addEventListener('click', exportCsv);
@@ -849,10 +852,35 @@
         STATE.filters.sourceTpos = document.getElementById('sdSourceTpos')?.checked ?? false;
     }
 
+    // Default period = current month (1 → last day of month, local TZ).
+    function currentMonthRange() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const pad = (n) => String(n).padStart(2, '0');
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        return {
+            from: `${y}-${pad(m + 1)}-01`,
+            to: `${y}-${pad(m + 1)}-${pad(lastDay)}`,
+        };
+    }
+
+    function setDefaultDateRange() {
+        const fromEl = document.getElementById('sdDateFrom');
+        const toEl = document.getElementById('sdDateTo');
+        if (!fromEl || !toEl) return;
+        if (!fromEl.value && !toEl.value) {
+            const { from, to } = currentMonthRange();
+            fromEl.value = from;
+            toEl.value = to;
+        }
+    }
+
     // ---------- init ----------
     async function init() {
         wireUi();
         updateSortIcons();
+        setDefaultDateRange();
         readFilters();
         await loadAll();
         applyFilterAndRender();
