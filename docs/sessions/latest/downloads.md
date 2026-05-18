@@ -1,0 +1,305 @@
+# Latest Snapshot — `downloads/`
+
+> Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
+> Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
+
+**Latest session**: `RESUME:20260518-110451-cc2c8ff`
+**Session file**: [`./20260518-110451-cc2c8ff.md`](../20260518-110451-cc2c8ff.md)
+**Commit**: `cc2c8ff` — refactor(web2): move web2-products + web2-variants into web2/
+**Last updated**: 2026-05-18 11:04:51 +07
+**Summary**: refactor(web2): move web2-products + web2-variants into web2/
+
+## Files changed in this commit (`downloads/`)
+
+- `downloads/n2store-session/aikol-sidebar-debug/01-online-initial.png`
+- `downloads/n2store-session/aikol-sidebar-debug/02-after-renav.png`
+- `downloads/n2store-session/aikol-sidebar-debug/03-local-after-fix.png`
+- `downloads/n2store-session/aikol-sidebar-debug/04-models.png`
+- `downloads/n2store-session/aikol-sidebar-debug/05-library.png`
+- `downloads/n2store-session/aikol-sidebar-debug/06-settings.png`
+- `downloads/n2store-session/aikol-sidebar-debug/07-dashboard-clean.png`
+- `downloads/n2store-session/aikol-sidebar-debug/account-card-final.png`
+- `downloads/n2store-session/aikol-sidebar-debug/account-card-final2.png`
+- `downloads/n2store-session/aikol-sidebar-debug/account-card-local.png`
+- `downloads/n2store-session/aikol-sidebar-debug/admin-final-after-fix.png`
+- `downloads/n2store-session/aikol-sidebar-debug/admin-grant-final.png`
+- `downloads/n2store-session/aikol-sidebar-debug/admin-panel-loaded.png`
+- `downloads/n2store-session/aikol-sidebar-debug/bulk-after.png`
+- `downloads/n2store-session/aikol-sidebar-debug/credit-01-settings.png`
+- `downloads/n2store-session/aikol-sidebar-debug/credit-02-topup-created.png`
+- `downloads/n2store-session/aikol-sidebar-debug/credit-02-topup.png`
+- `downloads/n2store-session/aikol-sidebar-debug/dashboard-final.png`
+- `downloads/n2store-session/aikol-sidebar-debug/online-final.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-bulk.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-campaigns.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-history.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-library.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-models.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-products.png`
+- `downloads/n2store-session/aikol-sidebar-debug/page-settings.png`
+- `downloads/n2store-session/badge-applied.png`
+- `downloads/n2store-session/badge-visible.png`
+- `downloads/n2store-session/before-generate.png`
+- `downloads/n2store-session/bulk-scene-suggestions.png`
+- `downloads/n2store-session/channel-import-c10.png`
+- `downloads/n2store-session/channel-paste-video-url.png`
+- `downloads/n2store-session/chat-after-load-more.png`
+- `downloads/n2store-session/chat-after-msgplain-fix.png`
+- `downloads/n2store-session/chat-lenis-active.png`
+- `downloads/n2store-session/chat-long-bubble-newlines.png`
+- `downloads/n2store-session/chat-modal-after-fix.png`
+- `downloads/n2store-session/chat-modal-final.png`
+- `downloads/n2store-session/chat-modal-newline-test.png`
+- `downloads/n2store-session/chat-modal-plain-text.png`
+- `downloads/n2store-session/chat-newlines-fixed.png`
+- `downloads/n2store-session/chat-newlines-scrolled-top.png`
+- `downloads/n2store-session/chat-order2-newlines.png`
+- `downloads/n2store-session/chat-smooth-wheel-modal.png`
+- `downloads/n2store-session/chat-with-qr-button.png`
+- `downloads/n2store-session/chat-with-separators.png`
+- `downloads/n2store-session/check-app-state.png`
+- `downloads/n2store-session/check-pbh-badges.json`
+- `downloads/n2store-session/comments-tab-fixed.png`
+- `downloads/n2store-session/customer-lookup-expanded.png`
+- `downloads/n2store-session/customer-lookup-final.png`
+- `downloads/n2store-session/customer-lookup-fix-overlap.png`
+- `downloads/n2store-session/customer-lookup-modal-viewport.png`
+- `downloads/n2store-session/customer-lookup-online-fixed.png`
+- `downloads/n2store-session/customer-lookup-with-notes.png`
+- `downloads/n2store-session/customer-wallet-1.png`
+- `downloads/n2store-session/customer-wallet-after-return.png`
+- `downloads/n2store-session/customer-wallet-detail.png`
+- `downloads/n2store-session/customer-wallet-return-picked.png`
+- `downloads/n2store-session/customer-wallet-return.png`
+- `downloads/n2store-session/edittoggle-1-default.png`
+- `downloads/n2store-session/edittoggle-2-on.png`
+- `downloads/n2store-session/edittoggle-3-edited.png`
+- `downloads/n2store-session/edittoggle-4-off.png`
+- `downloads/n2store-session/edittoggle-5-dblclick-off.png`
+- `downloads/n2store-session/filter-dropdown-open.png`
+- `downloads/n2store-session/filter-pancake-final.png`
+- `downloads/n2store-session/filter-pancake-include-tags.png`
+- `downloads/n2store-session/filter-unread-applied.png`
+- `downloads/n2store-session/fix-1-local-loaded.png`
+- `downloads/n2store-session/fix-po-55687-applied-1778577886355.json`
+- `downloads/n2store-session/fix-po-55687-applied-1778578205877.json`
+- `downloads/n2store-session/fix-po-55687-dryrun-1778577045383.json`
+- `downloads/n2store-session/fix-po-55687-dryrun-1778577068991.json`
+- `downloads/n2store-session/fix-po-55687-dryrun-1778577829919.json`
+- `downloads/n2store-session/fix-po-55687-dryrun-1778577863550.json`
+- `downloads/n2store-session/gemini-docs-home.png`
+- `downloads/n2store-session/generating-now.png`
+- `downloads/n2store-session/kho-sp-8093.png`
+- `downloads/n2store-session/kho-sp-modal-with-upload.png`
+- `downloads/n2store-session/kho-sp-modal-with-variant-input.png`
+- `downloads/n2store-session/kho-sp-url-preview.png`
+- `downloads/n2store-session/kho-sp-with-variant-col.png`
+- `downloads/n2store-session/kho-sp-with-variant-picker.png`
+- `downloads/n2store-session/kpi-campaign-dropdown.png`
+- `downloads/n2store-session/kpi-inbox-loaded.png`
+- `downloads/n2store-session/kpi-inbox-real-1.png`
+- `downloads/n2store-session/kpi-inbox-table.png`
+- `downloads/n2store-session/kpi-no-cancel-1.png`
+- `downloads/n2store-session/kpi-subtabs-1.png`
+- `downloads/n2store-session/kpi-subtabs-2-inbox.png`
+- `downloads/n2store-session/kpi-test-1-tab.png`
+- `downloads/n2store-session/kpi-test-2-tab-open.png`
+- `downloads/n2store-session/kpi-test-3-modal-hanh.png`
+- `downloads/n2store-session/kpi-test-4-refunds-tab.png`
+- `downloads/n2store-session/kpi-test-5-recon-done.png`
+- `downloads/n2store-session/kpi-test-6-order-modal.png`
+- `downloads/n2store-session/kpi-test-7-inbox-tab.png`
+- `downloads/n2store-session/kpi-test-8-inbox-loaded.png`
+- `downloads/n2store-session/kpi-test-9-inbox-loaded.png`
+- `downloads/n2store-session/library-channel-cookie-error.png`
+- `downloads/n2store-session/library-channel-error.png`
+- `downloads/n2store-session/library-channel-online-test.png`
+- `downloads/n2store-session/library-gen-modal-suggest.png`
+- `downloads/n2store-session/library-modal-cards.png`
+- `downloads/n2store-session/link-preview-image-fixed.png`
+- `downloads/n2store-session/modal-after-polish.png`
+- `downloads/n2store-session/modal-avatars-final.png`
+- `downloads/n2store-session/modal-before-polish.png`
+- `downloads/n2store-session/modal-final.png`
+- `downloads/n2store-session/modal-polished-detail.png`
+- `downloads/n2store-session/modal-reply-state.png`
+- `downloads/n2store-session/modal-rich-types.png`
+- `downloads/n2store-session/modal-with-avatars.png`
+- `downloads/n2store-session/model-gen-done.png`
+- `downloads/n2store-session/model-gen-loading.png`
+- `downloads/n2store-session/model-gen-result.png`
+- `downloads/n2store-session/models-page.png`
+- `downloads/n2store-session/multipages-probe/1-after-nav.html`
+- `downloads/n2store-session/multipages-probe/1-after-nav.png`
+- `downloads/n2store-session/multipages-probe/2-after-click-entry.png`
+- `downloads/n2store-session/multipages-probe/3-after-merge.html`
+- `downloads/n2store-session/multipages-probe/3-after-merge.png`
+- `downloads/n2store-session/multipages-probe/ws.json`
+- `downloads/n2store-session/multipages-probe/xhr.json`
+- `downloads/n2store-session/n2store-models-2sections.png`
+- `downloads/n2store-session/native-3col-final.png`
+- `downloads/n2store-session/native-3col-v1.png`
+- `downloads/n2store-session/native-3col-v2.png`
+- `downloads/n2store-session/native-3col-v3.png`
+- `downloads/n2store-session/native-conv-switch-fix-v2.png`
+- `downloads/n2store-session/native-conv-switch-fix.png`
+- `downloads/n2store-session/native-conv-switch-rightavatar.png`
+- `downloads/n2store-session/native-now.png`
+- `downloads/n2store-session/native-orders-no-tabbar.png`
+- `downloads/n2store-session/native-pancake-styled-v1.png`
+- `downloads/n2store-session/native-realtime-tz-fixed.png`
+- `downloads/n2store-session/native-rightavatar-final.png`
+- `downloads/n2store-session/native-search-results.png`
+- `downloads/n2store-session/nw-after-fix.png`
+- `downloads/n2store-session/nw-verify.png`
+- `downloads/n2store-session/page-avatar-test.png`
+- `downloads/n2store-session/pancake-current.png`
+- `downloads/n2store-session/pancake-gop-active.png`
+- `downloads/n2store-session/pancake-gop-modal.png`
+- `downloads/n2store-session/pancake-gop-selected.png`
+- `downloads/n2store-session/pancake-gop-selected2.png`
+- `downloads/n2store-session/pancake-inbox-2.png`
+- `downloads/n2store-session/pancake-inbox.png`
+- `downloads/n2store-session/pancake-inspect/01-landing.png`
+- `downloads/n2store-session/pancake-inspect/02-chat-opened.png`
+- `downloads/n2store-session/pancake-inspect/02-conv-open.png`
+- `downloads/n2store-session/pancake-inspect/03-after-scroll.png`
+- `downloads/n2store-session/pancake-inspect/03-conv-clicked.png`
+- `downloads/n2store-session/pancake-inspect/04-full-current.png`
+- `downloads/n2store-session/pancake-inspect/05-tao-don.png`
+- `downloads/n2store-session/pancake-inspect/search-trace-1778820189874.json`
+- `downloads/n2store-session/pancake-inspect/ws-trace-1778816631313.json`
+- `downloads/n2store-session/pancake-orders.png`
+- `downloads/n2store-session/pancake-page.png`
+- `downloads/n2store-session/pancake-recon-1.png`
+- `downloads/n2store-session/pancake-settings-initial.png`
+- `downloads/n2store-session/po-55687-duplicate-report.md`
+- `downloads/n2store-session/postfix-dieu-hao.png`
+- `downloads/n2store-session/postfix-prod-loaded.png`
+- `downloads/n2store-session/prompt-card-clicked.png`
+- `downloads/n2store-session/prompt-generator-suggestions.png`
+- `downloads/n2store-session/refactor-supplier-wallet-after-move.png`
+- `downloads/n2store-session/repro-prod-step1.png`
+- `downloads/n2store-session/repro-prod-step2.png`
+- `downloads/n2store-session/repro-step1-main.png`
+- `downloads/n2store-session/repro-step2-after-campaign.png`
+- `downloads/n2store-session/scroll-perf-final.png`
+- `downloads/n2store-session/sepay-notice-test.png`
+- `downloads/n2store-session/sidebar-avatars-fixed.png`
+- `downloads/n2store-session/sidebar-collapsed-fixed-v2.png`
+- `downloads/n2store-session/sidebar-collapsed-fixed.png`
+- `downloads/n2store-session/sidebar-multipage-house-store.png`
+- `downloads/n2store-session/sidebar-reexpand.png`
+- `downloads/n2store-session/so-order-2-rows.png`
+- `downloads/n2store-session/so-order-after-refactor.png`
+- `downloads/n2store-session/so-order-after-submit.png`
+- `downloads/n2store-session/so-order-cleanup-2.png`
+- `downloads/n2store-session/so-order-cleanup-3.png`
+- `downloads/n2store-session/so-order-cleanup.png`
+- `downloads/n2store-session/so-order-cny-tab.png`
+- `downloads/n2store-session/so-order-colhead-inside-shipment.png`
+- `downloads/n2store-session/so-order-dblclick-default.png`
+- `downloads/n2store-session/so-order-default.png`
+- `downloads/n2store-session/so-order-edit-mode.png`
+- `downloads/n2store-session/so-order-edit-saved-flash.png`
+- `downloads/n2store-session/so-order-fix-currency-hc.png`
+- `downloads/n2store-session/so-order-fix-currency.png`
+- `downloads/n2store-session/so-order-hc-tab.png`
+- `downloads/n2store-session/so-order-modal-multirow.png`
+- `downloads/n2store-session/so-order-modal-suggest-typing.png`
+- `downloads/n2store-session/so-order-modal-suggestion-applied.png`
+- `downloads/n2store-session/so-order-modal-v2-totals.png`
+- `downloads/n2store-session/so-order-modal-v2.png`
+- `downloads/n2store-session/so-order-no-suggest-empty.png`
+- `downloads/n2store-session/so-order-no-tabbar.png`
+- `downloads/n2store-session/so-order-shipment-grouped.png`
+- `downloads/n2store-session/so-order-suggest-after-typing-ao.png`
+- `downloads/n2store-session/so-order-suggest-clicked.png`
+- `downloads/n2store-session/so-order-suggest-typing.png`
+- `downloads/n2store-session/so-order-two-shipments.png`
+- `downloads/n2store-session/so-order-v3-after-paste.png`
+- `downloads/n2store-session/so-order-v3-hover-zoom.png`
+- `downloads/n2store-session/so-order-v3-paste-dropzone.png`
+- `downloads/n2store-session/so-order-v3-preview-set.png`
+- `downloads/n2store-session/so-order-v3-url-set.png`
+- `downloads/n2store-session/so-order-v3-zoom-popup.png`
+- `downloads/n2store-session/sprint5-audit/audit.json`
+- `downloads/n2store-session/sprint5-audit/bulk-desktop.png`
+- `downloads/n2store-session/sprint5-audit/bulk-mobile.png`
+- `downloads/n2store-session/sprint5-audit/campaigns-desktop.png`
+- `downloads/n2store-session/sprint5-audit/campaigns-mobile.png`
+- `downloads/n2store-session/sprint5-audit/dashboard-desktop.png`
+- `downloads/n2store-session/sprint5-audit/dashboard-final-v2.png`
+- `downloads/n2store-session/sprint5-audit/dashboard-final.png`
+- `downloads/n2store-session/sprint5-audit/dashboard-mobile.png`
+- `downloads/n2store-session/sprint5-audit/history-desktop.png`
+- `downloads/n2store-session/sprint5-audit/history-mobile.png`
+- `downloads/n2store-session/sprint5-audit/library-desktop.png`
+- `downloads/n2store-session/sprint5-audit/library-mobile.png`
+- `downloads/n2store-session/sprint5-audit/models-desktop.png`
+- `downloads/n2store-session/sprint5-audit/models-mobile.png`
+- `downloads/n2store-session/sprint5-audit/settings-desktop.png`
+- `downloads/n2store-session/sprint5-audit/settings-mobile.png`
+- `downloads/n2store-session/sprint5-audit/sidebar-after-fix.png`
+- `downloads/n2store-session/sprint5-audit/sidebar-zoom.png`
+- `downloads/n2store-session/sprint5-history-final.png`
+- `downloads/n2store-session/sprint5-settings-final.png`
+- `downloads/n2store-session/supplier-debt-fix-01-05.png`
+- `downloads/n2store-session/supplier-debt-fix-zoom.png`
+- `downloads/n2store-session/supplier-wallet-1.png`
+- `downloads/n2store-session/tab1-main-initial.png`
+- `downloads/n2store-session/tab3-bulk-recon-picker.png`
+- `downloads/n2store-session/tab3-history-modal-with-button.png`
+- `downloads/n2store-session/tab3-recon-result.png`
+- `downloads/n2store-session/test-1-loaded.png`
+- `downloads/n2store-session/test-10-hien-le.png`
+- `downloads/n2store-session/test-2-after-login.png`
+- `downloads/n2store-session/test-3-campaign-selected.png`
+- `downloads/n2store-session/test-4-state.png`
+- `downloads/n2store-session/test-5-after-cancel.png`
+- `downloads/n2store-session/test-6-modals-closed.png`
+- `downloads/n2store-session/test-7-after-apply.png`
+- `downloads/n2store-session/test-8-msg-clicked.png`
+- `downloads/n2store-session/test-9-lam-nguyen.png`
+- `downloads/n2store-session/tikreel-models-page.png`
+- `downloads/n2store-session/tikreel-upload-modal.png`
+- `downloads/n2store-session/topup-admin-modal.png`
+- `downloads/n2store-session/tpos-direct/network.jsonl`
+- `downloads/n2store-session/tpos-direct/tpos-cookies.json`
+- `downloads/n2store-session/tpos-pbh-explore/01-saleonline-orders.json`
+- `downloads/n2store-session/tpos-pbh-explore/02-saleonline-order-detail.json`
+- `downloads/n2store-session/tpos-pbh-explore/05-probe-results.json`
+- `downloads/n2store-session/tpos-pbh-explore/C-order-detail.json`
+- `downloads/n2store-session/tpos-pbh-explore/F-pbh-create-probes.json`
+- `downloads/n2store-session/tpos-pbh-explore/api-trace.json`
+- `downloads/n2store-session/tpos-pbh-explore/partner-sample.json`
+- `downloads/n2store-session/tpos-pbh-explore/phase1-after-login.png`
+- `downloads/n2store-session/tpos-pbh-explore/phase2-order-list.png`
+- `downloads/n2store-session/tpos-pbh-explore/phase5-pbh-modal.png`
+- `downloads/n2store-session/tpos-pbh-explore/phase6-invoice-list.png`
+- `downloads/n2store-session/tpos-pbh-explore/probe-convert.json`
+- `downloads/n2store-session/tpos-pbh-explore/tpos-token.txt`
+- `downloads/n2store-session/trash-tab-visible.png`
+- `downloads/n2store-session/trash-view-with-order.png`
+- `downloads/n2store-session/web2-product-template-deleted.png`
+- `downloads/n2store-session/web2-products-after-redesign.png`
+- `downloads/n2store-session/web2-products-fixed.png`
+- `downloads/n2store-session/web2-products-ok.png`
+- `downloads/n2store-session/web2-variants-108-seeded.png`
+- `downloads/n2store-session/web2-variants-page.png`
+
+## Last 5 commits touching `downloads/`
+
+- `7eb39f57` refactor(web2): move web2-shared to web2/shared (consolidate Web 2.0) _(2026-05-18)_
+- `c049756e` feat(web2): filter cancelled PBH + pagination + stock tracking + SePay endpoint + WEB2.0 markers _(2026-05-18)_
+- `932cb47d` feat(kpi-inbox): drill-down chi tiết đơn theo NV (STT, số phiếu, SL món, KPI, trạng thái) _(2026-05-17)_
+- `f96742d2` docs(pbh): Phase 10-11 — Excel export + bulk actions log + screenshot _(2026-05-13)_
+- `72edcb43` docs(pbh): Phase 8-9 — Print + Reports dashboard live with screenshot _(2026-05-13)_
+
+---
+
+**Để tiếp tục context trong session mới:**
+
+1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
+2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
+3. Hoặc paste token `RESUME:20260518-110451-cc2c8ff` cho Claude walk chain theo CLAUDE.md protocol.

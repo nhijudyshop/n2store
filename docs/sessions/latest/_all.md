@@ -3,31 +3,38 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0c3c131` — chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow
-**Last updated**: 2026-05-18 10:47:04 +07
-**Latest session**: [`RESUME:20260518-104704-0c3c131`](../20260518-104704-0c3c131.md)
-**Summary**: chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow
+**Latest commit**: `cc2c8ff` — refactor(web2): move web2-products + web2-variants into web2/
+**Last updated**: 2026-05-18 11:04:51 +07
+**Latest session**: [`RESUME:20260518-110451-cc2c8ff`](../20260518-110451-cc2c8ff.md)
+**Summary**: refactor(web2): move web2-products + web2-variants into web2/
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
+- [`docs/`](./docs.md) — 14 file(s)
+- [`downloads/`](./downloads.md) — 276 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
+- [`scripts/`](./scripts.md) — 13 file(s)
 - [`shared/`](./shared.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
-- [`web2/shared/`](./web2-shared.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`web2/`](./web2.md) — 116 file(s)
 
 ## All folder snapshots
 
-- [`_root/`](./_root.md) — updated 2026-05-18 09:37
-- [`docs/`](./docs.md) — updated 2026-05-18 10:47
-- [`native-orders/`](./native-orders.md) — updated 2026-05-18 09:31
-- [`render.com/`](./render.com.md) — updated 2026-05-18 10:47
-- [`scripts/`](./scripts.md) — updated 2026-05-18 10:47
-- [`shared/`](./shared.md) — updated 2026-05-18 10:47
-- [`so-order/`](./so-order.md) — updated 2026-05-18 09:31
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-18 09:31
-- [`web2/products/`](./web2-products.md) — updated 2026-05-18 09:31
-- [`web2/shared/`](./web2-shared.md) — updated 2026-05-18 10:47
-- [`web2/variants/`](./web2-variants.md) — updated 2026-05-18 09:31
-- [`web2/`](./web2.md) — updated 2026-05-18 10:47
+- [`_root/`](./_root.md) — updated 2026-05-18 11:04
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 11:04
+- [`docs/`](./docs.md) — updated 2026-05-18 11:04
+- [`downloads/`](./downloads.md) — updated 2026-05-18 11:04
+- [`native-orders/`](./native-orders.md) — updated 2026-05-18 11:04
+- [`render.com/`](./render.com.md) — updated 2026-05-18 11:04
+- [`scripts/`](./scripts.md) — updated 2026-05-18 11:04
+- [`shared/`](./shared.md) — updated 2026-05-18 11:04
+- [`so-order/`](./so-order.md) — updated 2026-05-18 11:04
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-18 11:04
+- [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
+- [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
+- [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
+- [`web2/`](./web2.md) — updated 2026-05-18 11:04

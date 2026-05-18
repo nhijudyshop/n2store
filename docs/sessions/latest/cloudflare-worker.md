@@ -1,4 +1,4 @@
-# Latest Snapshot — `render.com/`
+# Latest Snapshot — `cloudflare-worker/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,20 +9,17 @@
 **Last updated**: 2026-05-18 11:04:51 +07
 **Summary**: refactor(web2): move web2-products + web2-variants into web2/
 
-## Files changed in this commit (`render.com/`)
+## Files changed in this commit (`cloudflare-worker/`)
 
-- `render.com/routes/fast-sale-orders.js`
-- `render.com/routes/wallet-deposits.js`
-- `render.com/routes/web2-products.js`
-- `render.com/server.js`
+- `cloudflare-worker/modules/config/routes.js`
 
-## Last 5 commits touching `render.com/`
+## Last 5 commits touching `cloudflare-worker/`
 
 - `cc2c8ff4` refactor(web2): move web2-products + web2-variants into web2/ _(2026-05-18)_
-- `c049756e` feat(web2): filter cancelled PBH + pagination + stock tracking + SePay endpoint + WEB2.0 markers _(2026-05-18)_
-- `0c3c1310` chore(web2): xóa nốt fastpurchaseorder-refund + audit data flow _(2026-05-18)_
 - `9c8a37db` feat(web2): Kho Biến Thể riêng — picker dropdown thay free-text variant _(2026-05-18)_
-- `e0854df2` feat(web2,so-order): tách field BIẾN THỂ ra khỏi note — DB column riêng + UI cột mới _(2026-05-17)_
+- `c1ff85ab` feat(balance-history-home): BE /api/sepay-home/\* + CF Worker route — đấu SePay account #2 _(2026-05-14)_
+- `0041026c` feat(pbh): Phase 9 — Reports dashboard với KPI + chart + top customers _(2026-05-13)_
+- `262f92f3` auto: session update _(2026-05-13)_
 
 ---
 
