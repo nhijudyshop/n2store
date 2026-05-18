@@ -168,6 +168,32 @@ router.get('/list', async (req, res) => {
     }
 });
 
+// =====================================================
+// GET /api/web2-products/pending?supplier=X
+// List CHỜ MUA items, optional filter by supplier.
+// NOTE: phải đặt trước /:code để không bị Express route catch /pending → code='pending'.
+// =====================================================
+router.get('/pending', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const supplier = req.query.supplier ? String(req.query.supplier).trim() : null;
+        let sql = `SELECT * FROM web2_products WHERE status = 'CHO_MUA' AND pending_qty > 0`;
+        const params = [];
+        if (supplier) {
+            params.push(supplier);
+            sql += ` AND supplier = $${params.length}`;
+        }
+        sql += ` ORDER BY supplier, name`;
+        const r = await pool.query(sql, params);
+        res.json({ success: true, items: r.rows.map(mapRow) });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] pending list error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // -----------------------------------------------------
 // GET /api/web2/products/:code
 // -----------------------------------------------------
@@ -528,31 +554,6 @@ router.post('/confirm-purchase', async (req, res) => {
         });
     } catch (e) {
         console.error('[WEB2-PRODUCTS] confirm-purchase error:', e.message);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// =====================================================
-// GET /api/web2-products/pending?supplier=X
-// List CHỜ MUA items, optional filter by supplier.
-// =====================================================
-router.get('/pending', async (req, res) => {
-    const pool = req.app.locals.chatDb;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    try {
-        await ensureTables(pool);
-        const supplier = req.query.supplier ? String(req.query.supplier).trim() : null;
-        let sql = `SELECT * FROM web2_products WHERE status = 'CHO_MUA' AND pending_qty > 0`;
-        const params = [];
-        if (supplier) {
-            params.push(supplier);
-            sql += ` AND supplier = $${params.length}`;
-        }
-        sql += ` ORDER BY supplier, name`;
-        const r = await pool.query(sql, params);
-        res.json({ success: true, items: r.rows.map(mapRow) });
-    } catch (e) {
-        console.error('[WEB2-PRODUCTS] pending list error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
