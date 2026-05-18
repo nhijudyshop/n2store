@@ -1753,3 +1753,314 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     font-weight: 600;
     margin-left: auto;
 }
+
+/* ============ Purchase panel — Mua hàng per NCC ============ */
+.so-purchase-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.so-purchase-panel[hidden] {
+    display: none;
+}
+.so-purchase-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+.so-purchase-head i {
+    width: 18px;
+    height: 18px;
+    color: #4338ca;
+}
+.so-purchase-head strong {
+    color: #0f172a;
+}
+.so-purchase-hint {
+    color: #94a3b8;
+    font-size: 0.8125rem;
+    margin-left: auto;
+}
+.so-purchase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+.so-purchase-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.so-purchase-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+}
+.so-purchase-ncc {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.so-purchase-count {
+    background: #eef2ff;
+    color: #4338ca;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.so-purchase-totals {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8125rem;
+    color: #475569;
+    line-height: 1.4;
+}
+.so-purchase-currency {
+    font-weight: 600;
+}
+.so-purchase-vnd {
+    color: #94a3b8;
+    font-size: 0.75rem;
+}
+.so-purchase-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #059669, #047857);
+    color: #fff;
+    border: 0;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        filter 120ms,
+        transform 80ms;
+}
+.so-purchase-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+.so-purchase-btn:active {
+    transform: scale(0.98);
+}
+.so-purchase-btn i {
+    width: 14px;
+    height: 14px;
+}
+
+/* ============ Purchase modal ============ */
+.so-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.so-modal[hidden] {
+    display: none;
+}
+.so-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(2px);
+}
+.so-modal-panel {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    width: min(700px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+}
+.so-modal-panel-narrow {
+    max-width: 560px;
+}
+.so-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.so-modal-head h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.so-modal-close {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: #64748b;
+    padding: 4px;
+    border-radius: 4px;
+}
+.so-modal-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+.so-modal-body {
+    padding: 16px 18px;
+    overflow-y: auto;
+    flex: 1;
+}
+.so-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.so-modal-foot .btn-primary {
+    background: #4338ca;
+    color: #fff;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.so-modal-foot .btn-primary:hover {
+    background: #3730a3;
+}
+.so-modal-foot .btn-secondary {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+.so-modal-foot .btn-secondary:hover {
+    background: #e2e8f0;
+}
+.so-modal-foot .btn-primary i {
+    width: 14px;
+    height: 14px;
+}
+
+.so-purchase-toolbar,
+.so-barcode-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 0.875rem;
+}
+.so-purchase-toolbar label,
+.so-barcode-toolbar label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.so-purchase-summary,
+.so-barcode-summary {
+    margin-left: auto;
+    color: #4338ca;
+    font-weight: 600;
+    font-size: 0.8125rem;
+}
+.so-purchase-list,
+.so-barcode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.so-purchase-row,
+.so-barcode-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    background: #fff;
+    border: 1px solid #f1f5f9;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    transition: background-color 80ms;
+}
+.so-purchase-row:hover,
+.so-barcode-row:hover {
+    background: #f8fafc;
+}
+.so-purchase-row input,
+.so-barcode-row input {
+    accent-color: #4338ca;
+}
+.so-purchase-code,
+.so-barcode-code {
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.72rem;
+    color: #4338ca;
+    background: #eef2ff;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+.so-purchase-name,
+.so-barcode-name {
+    flex: 1;
+    min-width: 0;
+    color: #0f172a;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.so-purchase-variant,
+.so-barcode-variant {
+    font-size: 0.72rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+.so-purchase-qty {
+    font-weight: 700;
+    color: #15803d;
+    font-size: 0.8125rem;
+}
+.so-purchase-empty,
+.so-purchase-loading {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.875rem;
+}

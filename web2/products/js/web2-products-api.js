@@ -65,6 +65,29 @@
                 body: JSON.stringify({ adjustments }),
             });
         },
+        // so-order Lưu Nháp: upsert items với status='CHO_MUA' + pending_qty.
+        // items: [{name, variant, qty, costPrice, sellPrice, supplier, imageUrl, note}]
+        async upsertPending(items) {
+            return _fetchJson(`${BASE}/upsert-pending`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items }),
+            });
+        },
+        // Mua hàng confirm: status='DANG_BAN' + stock += pending_qty.
+        // body: { codes: [...] } hoặc { supplier: "X" }
+        async confirmPurchase(body) {
+            return _fetchJson(`${BASE}/confirm-purchase`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        },
+        // List SP CHỜ MUA, optional filter by supplier.
+        async listPending(supplier) {
+            const qs = supplier ? `?supplier=${encodeURIComponent(supplier)}` : '';
+            return _fetchJson(`${BASE}/pending${qs}`);
+        },
     };
 
     global.Web2ProductsApi = Web2ProductsApi;

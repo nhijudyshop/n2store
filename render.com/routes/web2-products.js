@@ -49,6 +49,18 @@ async function ensureTables(pool) {
             -- cột BIẾN THỂ độc lập với ghi chú.
             ALTER TABLE web2_products
                 ADD COLUMN IF NOT EXISTS variant TEXT;
+
+            -- Migration 069: status (CHO_MUA | DANG_BAN) + pending_qty.
+            -- so-order Lưu Nháp → tạo SP với status='CHO_MUA' và pending_qty=qty.
+            -- Khi nhấn "Mua hàng" cho NCC → status='DANG_BAN', stock += pending_qty,
+            -- pending_qty = 0.
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS status       VARCHAR(20) DEFAULT 'DANG_BAN',
+                ADD COLUMN IF NOT EXISTS pending_qty  INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS supplier     VARCHAR(255);
+
+            CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
+            CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
         `);
         _tablesCreated = true;
         console.log('[WEB2-PRODUCTS] Tables created/verified');
@@ -81,6 +93,10 @@ function mapRow(row) {
         category: row.category,
         // Migration 068
         variant: row.variant || null,
+        // Migration 069: purchase pipeline status
+        status: row.status || 'DANG_BAN',
+        pendingQty: Number(row.pending_qty) || 0,
+        supplier: row.supplier || null,
     };
 }
 
@@ -334,6 +350,209 @@ router.delete('/:code', async (req, res) => {
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/web2-products/upsert-pending
+// Body: { items: [{name, variant, qty, costPrice, sellPrice, supplier, imageUrl, note}] }
+//
+// Logic per item (so-order Lưu Nháp flow):
+//   1. Tìm SP theo (name) — variant matching optional.
+//   2. KHÔNG tìm thấy → INSERT mới
+//        status='CHO_MUA', stock=0, pending_qty=qty, supplier=<supplier>
+//   3. Tìm thấy:
+//        - stock = 0 → SET status='CHO_MUA', pending_qty += qty
+//        - stock > 0 → KEEP status, pending_qty += qty (giữ "đang bán" + có thêm "chờ mua")
+//        - Update supplier nếu chưa có
+// Returns: { success, created, updated, items: [{code, name, action, status, pendingQty, stock}] }
+// =====================================================
+router.post('/upsert-pending', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
+        if (!items.length) return res.json({ success: true, created: 0, updated: 0, items: [] });
+        const now = Date.now();
+        let created = 0,
+            updated = 0;
+        const results = [];
+        for (const it of items) {
+            const name = String(it.name || '').trim();
+            const variant = it.variant ? String(it.variant).trim() : null;
+            const qty = Math.max(0, Number(it.qty) || 0);
+            const supplier = it.supplier ? String(it.supplier).trim() : null;
+            if (!name || qty <= 0) continue;
+            // Match: name + variant (variant nullable, NULL match NULL)
+            const findSql = variant
+                ? `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) AND (variant IS NULL OR LOWER(variant) = LOWER($2)) ORDER BY id LIMIT 1`
+                : `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) ORDER BY id LIMIT 1`;
+            const findParams = variant ? [name, variant] : [name];
+            const existing = await pool.query(findSql, findParams);
+
+            if (!existing.rows.length) {
+                // INSERT new product with CHO_MUA status
+                const code =
+                    it.code ||
+                    'KHO-' +
+                        Math.random().toString(36).slice(2, 6).toUpperCase() +
+                        '-' +
+                        Date.now().toString(36).toUpperCase();
+                try {
+                    const r = await pool.query(
+                        `INSERT INTO web2_products
+                            (code, name, price, image_url, stock, note, tags, is_active,
+                             original_price, barcode, category, variant,
+                             status, pending_qty, supplier,
+                             created_by, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, 0, $5, '[]'::jsonb, TRUE,
+                                 $6, NULL, NULL, $7,
+                                 'CHO_MUA', $8, $9,
+                                 'so-order', $10, $10)
+                         RETURNING *`,
+                        [
+                            code,
+                            name,
+                            Number(it.sellPrice) || 0,
+                            it.imageUrl || null,
+                            it.note || null,
+                            Number(it.costPrice) || 0,
+                            variant,
+                            qty,
+                            supplier,
+                            now,
+                        ]
+                    );
+                    const row = r.rows[0];
+                    created++;
+                    results.push({
+                        code: row.code,
+                        name: row.name,
+                        action: 'created',
+                        status: row.status,
+                        pendingQty: row.pending_qty,
+                        stock: row.stock,
+                    });
+                } catch (err) {
+                    if (err.code === '23505') {
+                        // Code collision (rare) — retry with new code
+                        results.push({ name, action: 'error', error: 'Code collision' });
+                    } else {
+                        throw err;
+                    }
+                }
+            } else {
+                const row = existing.rows[0];
+                const curStock = Number(row.stock) || 0;
+                const curPending = Number(row.pending_qty) || 0;
+                const newPending = curPending + qty;
+                const newStatus = curStock === 0 ? 'CHO_MUA' : row.status;
+                const newSupplier = row.supplier || supplier;
+                const r2 = await pool.query(
+                    `UPDATE web2_products
+                       SET pending_qty = $1,
+                           status      = $2,
+                           supplier    = $3,
+                           updated_at  = $4
+                     WHERE code = $5
+                     RETURNING *`,
+                    [newPending, newStatus, newSupplier, now, row.code]
+                );
+                const updated_row = r2.rows[0];
+                updated++;
+                results.push({
+                    code: updated_row.code,
+                    name: updated_row.name,
+                    action: 'updated',
+                    status: updated_row.status,
+                    pendingQty: updated_row.pending_qty,
+                    stock: updated_row.stock,
+                });
+            }
+        }
+        res.json({ success: true, created, updated, items: results });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] upsert-pending error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/web2-products/confirm-purchase
+// Body: { codes: [code1, code2, ...] }  hoặc  { supplier: "X" } (confirm all CHO_MUA của NCC)
+//
+// Logic: với mỗi SP → status='DANG_BAN', stock += pending_qty, pending_qty=0.
+// Returns: { success, confirmed, items: [{code, name, stock, status}] }
+// =====================================================
+router.post('/confirm-purchase', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const b = req.body || {};
+        const codes = Array.isArray(b.codes)
+            ? b.codes.map((c) => String(c).trim()).filter(Boolean)
+            : [];
+        const supplier = b.supplier ? String(b.supplier).trim() : null;
+        if (!codes.length && !supplier) {
+            return res.status(400).json({ error: 'Cần codes[] hoặc supplier' });
+        }
+        const now = Date.now();
+        const whereParts = ["status = 'CHO_MUA'"];
+        const params = [];
+        if (codes.length) {
+            params.push(codes);
+            whereParts.push(`code = ANY($${params.length}::text[])`);
+        }
+        if (supplier) {
+            params.push(supplier);
+            whereParts.push(`supplier = $${params.length}`);
+        }
+        params.push(now);
+        const sql = `
+            UPDATE web2_products
+               SET status      = 'DANG_BAN',
+                   stock       = stock + COALESCE(pending_qty, 0),
+                   pending_qty = 0,
+                   updated_at  = $${params.length}
+             WHERE ${whereParts.join(' AND ')}
+            RETURNING *
+        `;
+        const r = await pool.query(sql, params);
+        res.json({
+            success: true,
+            confirmed: r.rows.length,
+            items: r.rows.map(mapRow),
+        });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] confirm-purchase error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// GET /api/web2-products/pending?supplier=X
+// List CHỜ MUA items, optional filter by supplier.
+// =====================================================
+router.get('/pending', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const supplier = req.query.supplier ? String(req.query.supplier).trim() : null;
+        let sql = `SELECT * FROM web2_products WHERE status = 'CHO_MUA' AND pending_qty > 0`;
+        const params = [];
+        if (supplier) {
+            params.push(supplier);
+            sql += ` AND supplier = $${params.length}`;
+        }
+        sql += ` ORDER BY supplier, name`;
+        const r = await pool.query(sql, params);
+        res.json({ success: true, items: r.rows.map(mapRow) });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] pending list error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });

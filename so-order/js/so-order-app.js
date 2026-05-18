@@ -804,7 +804,349 @@
         renderTableHead();
         renderTableBody();
         renderFooterTotals();
+        renderPurchasePanel();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    // ---------- Purchase panel (Mua hàng per NCC) ----------
+    function renderPurchasePanel() {
+        let panel = document.getElementById('soPurchasePanel');
+        if (!panel) {
+            // Inject panel right after the main toolbar/header area.
+            // We attach it before the table wrapper.
+            const table = document.getElementById('soTable');
+            if (!table) return;
+            const tableWrap = table.closest('.so-table-wrap') || table.parentElement;
+            if (!tableWrap) return;
+            panel = document.createElement('section');
+            panel.id = 'soPurchasePanel';
+            panel.className = 'so-purchase-panel';
+            tableWrap.parentElement.insertBefore(panel, tableWrap);
+        }
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        if (!tab) {
+            panel.hidden = true;
+            return;
+        }
+        // Group rows by supplier across all shipments in active tab.
+        const groups = {};
+        for (const sh of tab.shipments || []) {
+            for (const r of sh.rows || []) {
+                const supplier = (r.supplier || '').trim();
+                if (!supplier) continue;
+                if (!groups[supplier]) {
+                    groups[supplier] = { supplier, rows: [], total: 0 };
+                }
+                groups[supplier].rows.push(r);
+                const qty = Number(r.qty) || 0;
+                const cost = Number(r.costPrice) || 0;
+                groups[supplier].total += qty * cost;
+            }
+        }
+        const suppliers = Object.values(groups).sort((a, b) =>
+            a.supplier.localeCompare(b.supplier)
+        );
+        if (!suppliers.length) {
+            panel.hidden = true;
+            return;
+        }
+        panel.hidden = false;
+        const rate = Number(tab.rate) || 1;
+        const ccy = tab.currency || 'VND';
+        panel.innerHTML = `<div class="so-purchase-head">
+                <i data-lucide="shopping-cart"></i>
+                <strong>Mua hàng theo NCC</strong>
+                <span class="so-purchase-hint">${suppliers.length} NCC trong ${escapeHtml(tab.label || '')}</span>
+            </div>
+            <div class="so-purchase-grid">
+                ${suppliers
+                    .map((g) => {
+                        const totalVnd = Math.round(g.total * rate);
+                        return `<div class="so-purchase-card">
+                        <div class="so-purchase-card-head">
+                            <span class="so-purchase-ncc">${escapeHtml(g.supplier)}</span>
+                            <span class="so-purchase-count">${g.rows.length} SP</span>
+                        </div>
+                        <div class="so-purchase-totals">
+                            <span class="so-purchase-currency">${escapeHtml(ccy)}: ${g.total.toLocaleString('vi-VN')}</span>
+                            ${ccy !== 'VND' ? `<span class="so-purchase-vnd">≈ ${totalVnd.toLocaleString('vi-VN')}₫</span>` : ''}
+                        </div>
+                        <button class="so-purchase-btn" type="button" data-purchase-supplier="${escapeHtml(g.supplier)}">
+                            <i data-lucide="check-circle"></i> Mua hàng
+                        </button>
+                    </div>`;
+                    })
+                    .join('')}
+            </div>`;
+        panel.querySelectorAll('[data-purchase-supplier]').forEach((btn) => {
+            btn.addEventListener('click', () => openPurchaseModal(btn.dataset.purchaseSupplier));
+        });
+    }
+
+    // ---------- Purchase modal (xác nhận mua + chọn SP) ----------
+    async function openPurchaseModal(supplier) {
+        if (!window.Web2ProductsApi) {
+            notify('Web2ProductsApi chưa load', 'error');
+            return;
+        }
+        let modal = document.getElementById('soPurchaseModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'soPurchaseModal';
+            modal.className = 'so-modal';
+            modal.hidden = true;
+            modal.innerHTML = `
+                <div class="so-modal-backdrop" data-so-purchase-close></div>
+                <div class="so-modal-panel so-modal-panel-narrow">
+                    <header class="so-modal-head">
+                        <h2>Mua hàng từ <span id="soPurchaseSupplier">—</span></h2>
+                        <button class="so-modal-close" type="button" data-so-purchase-close>
+                            <i data-lucide="x"></i>
+                        </button>
+                    </header>
+                    <div class="so-modal-body">
+                        <div class="so-purchase-toolbar">
+                            <label><input type="checkbox" id="soPurchaseCheckAll" checked /> Chọn tất cả</label>
+                            <span class="so-purchase-summary" id="soPurchaseSummary"></span>
+                        </div>
+                        <div class="so-purchase-list" id="soPurchaseList"></div>
+                    </div>
+                    <footer class="so-modal-foot">
+                        <button class="btn-secondary" type="button" data-so-purchase-close>Hủy</button>
+                        <button class="btn-primary" type="button" id="soPurchaseConfirmBtn">
+                            <i data-lucide="check"></i> Xác nhận mua hàng
+                        </button>
+                    </footer>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.querySelectorAll('[data-so-purchase-close]').forEach((el) => {
+                el.addEventListener('click', () => {
+                    modal.hidden = true;
+                });
+            });
+            document.getElementById('soPurchaseCheckAll').addEventListener('change', (e) => {
+                document.querySelectorAll('#soPurchaseList input[type=checkbox]').forEach((cb) => {
+                    cb.checked = e.target.checked;
+                });
+                _updatePurchaseSummary();
+            });
+            document
+                .getElementById('soPurchaseConfirmBtn')
+                .addEventListener('click', confirmPurchaseFromModal);
+        }
+        document.getElementById('soPurchaseSupplier').textContent = supplier;
+        modal.dataset.supplier = supplier;
+        const listEl = document.getElementById('soPurchaseList');
+        listEl.innerHTML = `<div class="so-purchase-loading">Đang tải SP CHỜ MUA…</div>`;
+        modal.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        try {
+            const res = await window.Web2ProductsApi.listPending(supplier);
+            const items = res?.items || [];
+            if (!items.length) {
+                listEl.innerHTML = `<div class="so-purchase-empty">Không có SP CHỜ MUA cho NCC này. Hãy Lưu Nháp trước.</div>`;
+                _updatePurchaseSummary();
+                return;
+            }
+            listEl.innerHTML = items
+                .map((p) => {
+                    return `<label class="so-purchase-row">
+                    <input type="checkbox" data-pending-code="${escapeHtml(p.code)}" data-pending-qty="${p.pendingQty}" checked />
+                    <span class="so-purchase-code">[${escapeHtml(p.code)}]</span>
+                    <span class="so-purchase-name">${escapeHtml(p.name)}</span>
+                    ${p.variant ? `<span class="so-purchase-variant">${escapeHtml(p.variant)}</span>` : ''}
+                    <span class="so-purchase-qty">×${p.pendingQty}</span>
+                </label>`;
+                })
+                .join('');
+            listEl.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+                cb.addEventListener('change', _updatePurchaseSummary);
+            });
+            _updatePurchaseSummary();
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        } catch (e) {
+            listEl.innerHTML = `<div class="so-purchase-empty">Lỗi: ${escapeHtml(e.message || '')}</div>`;
+        }
+    }
+
+    function _updatePurchaseSummary() {
+        const checks = document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked');
+        let totalQty = 0;
+        checks.forEach((cb) => {
+            totalQty += Number(cb.dataset.pendingQty) || 0;
+        });
+        const el = document.getElementById('soPurchaseSummary');
+        if (el) el.textContent = `${checks.length} SP · ${totalQty} cái`;
+    }
+
+    async function confirmPurchaseFromModal() {
+        const modal = document.getElementById('soPurchaseModal');
+        const btn = document.getElementById('soPurchaseConfirmBtn');
+        if (!btn || btn.disabled) return;
+        const supplier = modal.dataset.supplier;
+        const codes = Array.from(
+            document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked')
+        )
+            .map((cb) => cb.dataset.pendingCode)
+            .filter(Boolean);
+        if (!codes.length) {
+            notify('Chưa chọn SP nào', 'warning');
+            return;
+        }
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xác nhận…';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        try {
+            const res = await window.Web2ProductsApi.confirmPurchase({ codes });
+            const confirmedItems = res?.items || [];
+            notify(
+                `Đã chuyển ${confirmedItems.length} SP sang ĐANG BÁN cho ${supplier}`,
+                'success'
+            );
+            modal.hidden = true;
+            // Open barcode print modal next
+            openBarcodePrintModal(confirmedItems, supplier);
+        } catch (e) {
+            notify('Lỗi xác nhận mua hàng: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+    }
+
+    // ---------- Barcode print modal ----------
+    function openBarcodePrintModal(items, supplier) {
+        let modal = document.getElementById('soBarcodeModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'soBarcodeModal';
+            modal.className = 'so-modal';
+            modal.hidden = true;
+            modal.innerHTML = `
+                <div class="so-modal-backdrop" data-so-barcode-close></div>
+                <div class="so-modal-panel">
+                    <header class="so-modal-head">
+                        <h2>In mã vạch — <span id="soBarcodeSupplier">—</span></h2>
+                        <button class="so-modal-close" type="button" data-so-barcode-close>
+                            <i data-lucide="x"></i>
+                        </button>
+                    </header>
+                    <div class="so-modal-body">
+                        <div class="so-barcode-toolbar">
+                            <label><input type="checkbox" id="soBarcodeCheckAll" checked /> Chọn tất cả</label>
+                            <span class="so-barcode-summary" id="soBarcodeSummary"></span>
+                        </div>
+                        <div class="so-barcode-list" id="soBarcodeList"></div>
+                    </div>
+                    <footer class="so-modal-foot">
+                        <button class="btn-secondary" type="button" data-so-barcode-close>Bỏ qua</button>
+                        <button class="btn-primary" type="button" id="soBarcodePrintBtn">
+                            <i data-lucide="printer"></i> In mã vạch
+                        </button>
+                    </footer>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.querySelectorAll('[data-so-barcode-close]').forEach((el) => {
+                el.addEventListener('click', () => {
+                    modal.hidden = true;
+                });
+            });
+            document.getElementById('soBarcodeCheckAll').addEventListener('change', (e) => {
+                document.querySelectorAll('#soBarcodeList input[type=checkbox]').forEach((cb) => {
+                    cb.checked = e.target.checked;
+                });
+                _updateBarcodeSummary();
+            });
+            document.getElementById('soBarcodePrintBtn').addEventListener('click', printBarcodes);
+        }
+        document.getElementById('soBarcodeSupplier').textContent = supplier;
+        const listEl = document.getElementById('soBarcodeList');
+        listEl.innerHTML = items
+            .map((p) => {
+                return `<label class="so-barcode-row">
+                <input type="checkbox" data-bc-code="${escapeHtml(p.code)}" data-bc-name="${escapeHtml(p.name)}" checked />
+                <span class="so-barcode-code">[${escapeHtml(p.code)}]</span>
+                <span class="so-barcode-name">${escapeHtml(p.name)}</span>
+                ${p.variant ? `<span class="so-barcode-variant">${escapeHtml(p.variant)}</span>` : ''}
+            </label>`;
+            })
+            .join('');
+        listEl.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+            cb.addEventListener('change', _updateBarcodeSummary);
+        });
+        _updateBarcodeSummary();
+        modal.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function _updateBarcodeSummary() {
+        const checks = document.querySelectorAll('#soBarcodeList input[type=checkbox]:checked');
+        const el = document.getElementById('soBarcodeSummary');
+        if (el) el.textContent = `${checks.length} mã sẽ in`;
+    }
+
+    function printBarcodes() {
+        const selected = Array.from(
+            document.querySelectorAll('#soBarcodeList input[type=checkbox]:checked')
+        ).map((cb) => ({
+            code: cb.dataset.bcCode,
+            name: cb.dataset.bcName,
+        }));
+        if (!selected.length) {
+            notify('Chưa chọn mã nào', 'warning');
+            return;
+        }
+        // Open print window with barcode layout
+        const w = window.open('', '_blank', 'width=700,height=900');
+        if (!w) {
+            notify('Trình duyệt chặn popup — cho phép popup rồi thử lại', 'warning');
+            return;
+        }
+        const labels = selected
+            .map(
+                (p) => `
+            <div class="bc-label">
+                <div class="bc-svg-wrap"><svg class="bc-svg" data-bc="${escapeHtml(p.code)}"></svg></div>
+                <div class="bc-code">${escapeHtml(p.code)}</div>
+                <div class="bc-name">${escapeHtml(p.name)}</div>
+            </div>`
+            )
+            .join('');
+        w.document.write(`<!doctype html>
+<html><head><meta charset="utf-8"><title>In mã vạch</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+body{font-family:'Inter',sans-serif;margin:0;padding:8mm;background:#fff;color:#000}
+.bc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6mm}
+.bc-label{border:1px dashed #999;border-radius:4px;padding:6mm 4mm;text-align:center;page-break-inside:avoid}
+.bc-svg-wrap{display:flex;justify-content:center}
+.bc-svg{max-width:100%;height:auto}
+.bc-code{font-family:'SF Mono',monospace;font-size:11px;color:#475569;margin-top:2mm}
+.bc-name{font-size:12px;font-weight:600;margin-top:1mm;line-height:1.3}
+@media print {.no-print{display:none}}
+.no-print{position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:8px 0 12px;margin-bottom:10px;display:flex;gap:8px;justify-content:center}
+.btn{background:#4338ca;color:#fff;border:0;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer}
+.btn-2{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1}
+</style></head><body>
+<div class="no-print">
+    <button class="btn" onclick="window.print()">🖨 In</button>
+    <button class="btn btn-2" onclick="window.close()">Đóng</button>
+</div>
+<div class="bc-grid">${labels}</div>
+<script>
+window.addEventListener('load', () => {
+    document.querySelectorAll('.bc-svg').forEach(el => {
+        try {
+            JsBarcode(el, el.dataset.bc, { format: 'CODE128', width: 1.6, height: 50, fontSize: 11, margin: 4 });
+        } catch (e) { el.outerHTML = '<div style="color:red">Lỗi: ' + e.message + '</div>'; }
+    });
+});
+</script>
+</body></html>`);
+        w.document.close();
+        notify(`Đã mở cửa sổ in ${selected.length} mã vạch`, 'success');
     }
 
     // ---------- modals ----------
@@ -1543,65 +1885,43 @@
         const label = (tab && tab.label) || '';
         const trimLabel = label.trim();
         if (!trimLabel) return;
-        let createdCount = 0;
-        let updatedCount = 0;
-        for (const r of rows) {
-            const name = (r.productName || '').trim();
-            if (!name) continue;
-            const variant = (r.variant || '').trim();
-            const qty = Number(r.qty) || 0;
-            // Convert price to VND because kho lưu VND, while tab có thể CNY/USD.
-            const sellVnd = Math.round((Number(r.sellPrice) || 0) * (Number(tab.rate) || 1));
-            const costVnd = Math.round((Number(r.costPrice) || 0) * (Number(tab.rate) || 1));
-            const matched =
-                (r.matchedCode && cache.findByCode(r.matchedCode)) || cache.findByNameExact(name);
-            try {
-                if (matched) {
-                    const patch = {};
-                    // note chỉ chứa labels HÀ NỘI / HƯƠNG CHÂU / … (sticky tag),
-                    // KHÔNG còn nhét variant. Variant đi vào field riêng.
-                    const oldNote = String(matched.note || '');
-                    if (!_noteHasLabel(oldNote, trimLabel)) {
-                        patch.note = oldNote
-                            ? `${oldNote} | ${trimLabel}`.slice(0, 240)
-                            : trimLabel;
-                    }
-                    // variant: chỉ điền nếu kho đang trống — không clobber
-                    // variant user đã set sẵn (vd "Size M" trong kho ≠ "Size L"
-                    // trong đơn này).
-                    if (variant && !matched.variant) patch.variant = variant;
-                    // Stock: SP đã có → +qty (mua thêm = nhập kho thêm).
-                    // Chỉ cộng nếu qty > 0 để tránh patch dư khi sửa note thuần túy.
-                    if (qty > 0) patch.stock = (Number(matched.stock) || 0) + qty;
-                    if (Object.keys(patch).length) {
-                        await window.Web2ProductsApi.update(matched.code, patch);
-                        updatedCount += 1;
-                    }
-                } else {
-                    const code = _generateKhoCode(name);
-                    await window.Web2ProductsApi.create({
-                        code,
-                        name,
-                        variant: variant || null,
-                        price: sellVnd,
-                        originalPrice: costVnd,
-                        // Stock: SP mới → khởi tạo với qty đã mua (nhập kho lần đầu).
-                        stock: qty,
-                        imageUrl: r.productImage || null,
-                        note: trimLabel,
-                        createdBy: 'so-order',
-                    });
-                    createdCount += 1;
-                }
-            } catch (e) {
-                console.warn('[so-order] syncRowsToKho:', name, '→', e.message);
-            }
-        }
-        if (createdCount || updatedCount) {
+        // Lưu Nháp → upsert-pending: SP mới = CHO_MUA, SP cũ stock=0 → CHO_MUA,
+        // pending_qty += qty trong cả 2 case.
+        const items = rows
+            .map((r) => {
+                const name = (r.productName || '').trim();
+                const qty = Number(r.qty) || 0;
+                if (!name || qty <= 0) return null;
+                const variant = (r.variant || '').trim();
+                const sellVnd = Math.round((Number(r.sellPrice) || 0) * (Number(tab.rate) || 1));
+                const costVnd = Math.round((Number(r.costPrice) || 0) * (Number(tab.rate) || 1));
+                return {
+                    name,
+                    variant: variant || null,
+                    qty,
+                    sellPrice: sellVnd,
+                    costPrice: costVnd,
+                    supplier: (r.supplier || '').trim() || null,
+                    imageUrl: r.productImage || null,
+                    note: trimLabel,
+                };
+            })
+            .filter(Boolean);
+        if (!items.length) return;
+        try {
+            const res = await window.Web2ProductsApi.upsertPending(items);
+            const created = res?.created || 0;
+            const updated = res?.updated || 0;
             cache.pushTickle({ action: 'sync-from-so-order' });
-            if (createdCount) {
-                notify(`Đã thêm ${createdCount} SP vào Kho SP Web 2.0`, 'info');
+            if (created) {
+                notify(`Đã tạo ${created} SP CHỜ MUA vào Kho SP`, 'info');
             }
+            if (updated) {
+                notify(`Đã cập nhật ${updated} SP (pending qty)`, 'info');
+            }
+        } catch (e) {
+            console.warn('[so-order] syncRowsToKho upsertPending:', e.message);
+            notify('Lỗi sync SP vào Kho: ' + e.message, 'error');
         }
     }
 
