@@ -1,0 +1,254 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Ví NCC — Công nợ Nhà Cung Cấp — N2Store</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2-shared/tpos-sidebar.css?v=20260518d" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
+        <link rel="stylesheet" href="css/supplier-wallet.css?v=20260518a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js"></script>
+        <script src="../../shared/js/notification-system.js"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content" style="overflow: auto; height: 100vh">
+                <header class="sw-page-head">
+                    <div class="sw-page-title">
+                        <i data-lucide="wallet"></i>
+                        <h1>Ví Nhà Cung Cấp</h1>
+                    </div>
+                    <div class="sw-page-counters">
+                        <span class="counter-pill" id="swTotalSuppliers">— NCC</span>
+                        <span class="counter-pill" id="swTotalOutstanding">Công nợ: 0₫</span>
+                        <button
+                            id="swRefreshBtn"
+                            class="btn-secondary"
+                            type="button"
+                            title="Đồng bộ lại từ Sổ Order"
+                        >
+                            <i data-lucide="refresh-cw"></i>
+                            Đồng bộ
+                        </button>
+                    </div>
+                </header>
+
+                <section class="sw-toolbar">
+                    <div class="sw-search-wrap">
+                        <i data-lucide="search"></i>
+                        <input
+                            id="swSearch"
+                            type="search"
+                            placeholder="Tìm NCC theo tên…"
+                            autocomplete="off"
+                        />
+                    </div>
+                    <div class="sw-sort-wrap">
+                        <label for="swSort">Sắp xếp:</label>
+                        <select id="swSort">
+                            <option value="balance-desc">Còn nợ nhiều → ít</option>
+                            <option value="balance-asc">Còn nợ ít → nhiều</option>
+                            <option value="total-desc">Tổng mua nhiều → ít</option>
+                            <option value="name-asc">Tên A → Z</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="sw-list-wrap">
+                    <div class="sw-list" id="swList">
+                        <!-- supplier cards injected -->
+                    </div>
+                    <div class="sw-empty-state" id="swEmptyState" hidden>
+                        <i data-lucide="package-x"></i>
+                        <p>
+                            Chưa có NCC nào — tạo đơn ở
+                            <a href="../../so-order/index.html">Sổ Order</a> để bắt đầu.
+                        </p>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Detail drawer — chi tiết 1 NCC -->
+        <div class="sw-modal" id="swDetailModal" hidden>
+            <div class="sw-modal-backdrop" data-sw-close></div>
+            <div class="sw-modal-panel">
+                <header class="sw-modal-head">
+                    <div>
+                        <h2 id="swDetailTitle">—</h2>
+                        <div class="sw-detail-sub" id="swDetailSub"></div>
+                    </div>
+                    <button class="sw-modal-close" type="button" data-sw-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sw-modal-body">
+                    <div class="sw-detail-stats">
+                        <div class="sw-stat">
+                            <span class="sw-stat-label">Tổng mua</span>
+                            <span class="sw-stat-value" id="swStatTotal">0₫</span>
+                        </div>
+                        <div class="sw-stat">
+                            <span class="sw-stat-label">Đã trả NCC</span>
+                            <span class="sw-stat-value sw-stat-paid" id="swStatPaid">0₫</span>
+                        </div>
+                        <div class="sw-stat">
+                            <span class="sw-stat-label">Đã trả hàng</span>
+                            <span class="sw-stat-value sw-stat-return" id="swStatReturned">0₫</span>
+                        </div>
+                        <div class="sw-stat sw-stat-strong">
+                            <span class="sw-stat-label">Còn nợ</span>
+                            <span class="sw-stat-value" id="swStatBalance">0₫</span>
+                        </div>
+                    </div>
+                    <div class="sw-detail-actions">
+                        <button class="btn-primary" id="swReturnBtn" type="button">
+                            <i data-lucide="undo-2"></i> Trả hàng
+                        </button>
+                        <button class="btn-secondary" id="swPayBtn" type="button">
+                            <i data-lucide="banknote"></i> Ghi thanh toán
+                        </button>
+                    </div>
+                    <div class="sw-detail-tabs">
+                        <button class="sw-tab is-active" data-detail-tab="purchases" type="button">
+                            Đã mua
+                        </button>
+                        <button class="sw-tab" data-detail-tab="history" type="button">
+                            Lịch sử (30 ngày)
+                        </button>
+                    </div>
+                    <div class="sw-detail-content">
+                        <div class="sw-detail-panel" data-panel="purchases">
+                            <table class="sw-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ngày</th>
+                                        <th>Sản phẩm</th>
+                                        <th>Biến thể</th>
+                                        <th class="num">SL</th>
+                                        <th class="num">Giá nhập</th>
+                                        <th class="num">Thành tiền</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="swPurchasesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="sw-detail-panel" data-panel="history" hidden>
+                            <table class="sw-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Loại</th>
+                                        <th class="num">Số tiền</th>
+                                        <th>Ghi chú</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="swHistoryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return modal -->
+        <div class="sw-modal" id="swReturnModal" hidden>
+            <div class="sw-modal-backdrop" data-sw-close></div>
+            <div class="sw-modal-panel sw-modal-panel-narrow">
+                <header class="sw-modal-head">
+                    <h2>Trả hàng cho <span id="swReturnSupplier">—</span></h2>
+                    <button class="sw-modal-close" type="button" data-sw-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sw-modal-body">
+                    <p class="sw-hint">
+                        Chọn sản phẩm để trả lại NCC. Tiền trả sẽ trừ vào tổng nợ.
+                    </p>
+                    <table class="sw-table sw-table-return">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="swReturnSelectAll" /></th>
+                                <th>Sản phẩm</th>
+                                <th>Biến thể</th>
+                                <th class="num">SL mua</th>
+                                <th class="num">SL trả</th>
+                                <th class="num">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody id="swReturnBody"></tbody>
+                    </table>
+                    <div class="sw-return-summary">
+                        <span>Tổng tiền trả:</span>
+                        <strong id="swReturnTotal">0₫</strong>
+                    </div>
+                </div>
+                <footer class="sw-modal-foot">
+                    <button class="btn-secondary" type="button" data-sw-close>Hủy</button>
+                    <button class="btn-primary" id="swReturnConfirmBtn" type="button">
+                        <i data-lucide="check"></i> Xác nhận trả
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Payment modal -->
+        <div class="sw-modal" id="swPayModal" hidden>
+            <div class="sw-modal-backdrop" data-sw-close></div>
+            <div class="sw-modal-panel sw-modal-panel-narrow">
+                <header class="sw-modal-head">
+                    <h2>Ghi thanh toán cho <span id="swPaySupplier">—</span></h2>
+                    <button class="sw-modal-close" type="button" data-sw-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sw-modal-body">
+                    <label class="sw-field">
+                        <span>Số tiền (VND)</span>
+                        <input id="swPayAmount" type="number" min="0" step="1000" value="0" />
+                    </label>
+                    <label class="sw-field">
+                        <span>Ghi chú</span>
+                        <input
+                            id="swPayNote"
+                            type="text"
+                            placeholder="VD: chuyển khoản, tiền mặt…"
+                        />
+                    </label>
+                </div>
+                <footer class="sw-modal-foot">
+                    <button class="btn-secondary" type="button" data-sw-close>Hủy</button>
+                    <button class="btn-primary" id="swPayConfirmBtn" type="button">
+                        <i data-lucide="check"></i> Lưu thanh toán
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <script src="../../web2-shared/tpos-sidebar.js?v=20260518a"></script>
+        <script src="js/supplier-wallet-storage.js?v=20260518a"></script>
+        <script src="js/supplier-wallet-app.js?v=20260518a"></script>
+        <script>
+            Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+        </script>
+    </body>
+</html>

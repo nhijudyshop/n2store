@@ -1,0 +1,30 @@
+/* Customer Wallet — shares base styles from supplier-wallet.css.
+ * Chỉ override / extend phần khác biệt.
+ */
+
+.sw-page-title i {
+    color: #0891b2; /* cyan to distinguish from supplier purple */
+}
+.sw-card-name + .sw-card-phone {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+.cw-pbh-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-family: 'SF Mono', Menlo, monospace;
+}
+.cw-campaign-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    background: #fef3c7;
+    color: #92400e;
+}

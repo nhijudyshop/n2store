@@ -25,6 +25,34 @@
 
 ## 2026-05-18
 
+### [web2/supplier-wallet][web2/customer-wallet] Ví NCC + Ví KH — công nợ + lịch sử 30 ngày
+
+**User**: shop cần 2 trang ví: NCC (từ Sổ Order) + KH (từ PBH native-orders). Modal trả hàng → chọn SP → tính lại tiền. 30-day auto-cleanup. SePay webhook sẽ tích hợp sau.
+
+**Pages**:
+
+1. **Ví NCC** ([web2/supplier-wallet/](../web2/supplier-wallet/))
+    - Data: derive từ `so_order_v2/main` — group `rows.supplier`, tổng mua = `Σ qty × costPrice × rate→VND`
+    - Wallet Firestore: `supplier_wallet_v1/main`
+    - Modal trả hàng: list rows chưa trả → tick → input SL trả → `transaction.type='return'` âm tiền
+    - Modal thanh toán: `transaction.type='payment'`
+    - Sidebar: nhóm "Mua hàng" → "Ví NCC"
+
+2. **Ví KH** ([web2/customer-wallet/](../web2/customer-wallet/))
+    - Data: fetch `/api/fast-sale-orders/load` → group `partner_phone`
+    - Wallet Firestore: `customer_wallet_v1/main`
+    - Modal trả hàng: dropdown chiến dịch → filter `order_lines` theo `live_campaign_id` → tick
+    - Modal thu tiền: `transaction.type='payment'`
+    - Sidebar: nhóm "Khách hàng" → "Ví Khách Hàng"
+
+**Pattern dùng chung**: Firestore source of truth + realtime listener + echo guard. 30-day cleanup on load: `transactions.filter(t => t.ts > Date.now() - 30d)`. localStorage warm cache. CSS supplier-wallet là base, customer-wallet override.
+
+**Verified Playwright (real data)**: 3 NCC từ so-order (Shenzhen 3.750₫, Quảng Châu A 1.000₫, Hồng Châu B 450₫, tổng nợ 5.200₫) + 2 KH từ PBH (Thế Hoàng 135k, Antina Trân 0). Return flow: chiến dịch "HOUSE 11/05/2026" → AO NAU M → tick → 100k hoàn → Còn nợ 35k ✓.
+
+**TODO next**: SePay webhook → `/api/sepay/wallet-deposit` Render → ghi `transaction.type='deposit'` vào wallet matching từ payment metadata.
+
+**Status**: ✅ Done MVP.
+
 ### [docs] Rule mới: đọc `docs/sessions/latest/<folder>.md` trước khi code phần mới
 
 **User**: "thêm vào memory, devlog, claude khi code đoạn mới thì vào `/Users/mac/Desktop/n2store/docs/sessions/latest` đúng trang cần đọc trước để hiểu trang đó làm gì".

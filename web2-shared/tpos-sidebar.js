@@ -173,6 +173,10 @@
                     tpos: '#/app/fastpurchaseorder/refundlist',
                     our: '../web2/fastpurchaseorder-refund/index.html',
                 },
+                {
+                    label: 'Ví NCC',
+                    our: '../web2/supplier-wallet/index.html',
+                },
             ],
         },
         {
@@ -261,6 +265,10 @@
                     label: 'Khách hàng',
                     tpos: '#/app/partner/customer/list1',
                     our: '../web2/partner-customer/index.html',
+                },
+                {
+                    label: 'Ví Khách Hàng',
+                    our: '../web2/customer-wallet/index.html',
                 },
                 {
                     label: 'Nhà cung cấp',
