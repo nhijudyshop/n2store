@@ -96,34 +96,39 @@ body.web2-sidebar-collapsed .web2-aside {
     min-width: 56px !important;
 }
 body.web2-sidebar-collapsed .web2-brand {
-    padding: 14px 12px;
+    padding: 12px 0 10px;
     justify-content: center;
-    gap: 0;
+    gap: 6px;
+    flex-direction: column;
 }
 body.web2-sidebar-collapsed .web2-brand-text,
 body.web2-sidebar-collapsed .web2-brand-sub,
-body.web2-sidebar-collapsed .web2-nav-heading,
-body.web2-sidebar-collapsed .web2-nav-label,
-body.web2-sidebar-collapsed .web2-nav-caret,
-body.web2-sidebar-collapsed .web2-nav-children {
+body.web2-sidebar-collapsed .web2-aside .label,
+body.web2-sidebar-collapsed .web2-aside .caret,
+body.web2-sidebar-collapsed .web2-aside .web2-nav-sub,
+body.web2-sidebar-collapsed .web2-aside .web2-nav-soon {
     display: none !important;
 }
 body.web2-sidebar-collapsed .web2-sidebar-toggle {
-    position: absolute;
-    right: -14px;
-    top: 14px;
-    background: #1c2b36;
-    border-color: rgba(255, 255, 255, 0.18);
-    z-index: 10;
+    position: static;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+body.web2-sidebar-collapsed .web2-sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.28);
 }
 body.web2-sidebar-collapsed .web2-aside {
     position: relative;
 }
-body.web2-sidebar-collapsed .web2-nav-item {
+body.web2-sidebar-collapsed .web2-aside .web2-nav-link,
+body.web2-sidebar-collapsed .web2-aside .web2-nav-group-head {
     justify-content: center;
     padding: 10px 0;
+    gap: 0;
 }
-body.web2-sidebar-collapsed .web2-nav-icon {
+body.web2-sidebar-collapsed .web2-aside .icon {
     margin: 0;
 }
 

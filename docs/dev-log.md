@@ -25,6 +25,21 @@
 
 ## 2026-05-18
 
+### [web2-shared] Fix sidebar collapsed — labels bleed-through + toggle button bị che
+
+**User**: "thanh menu đang bị lỗi giao diện" (collapsed bị bleed text "đ V", "C S", "L", "F" — chữ submenu lộ ra ngoài). Sau đó: "nút toggle khi collapsed lại bị che đi".
+
+**Root cause** ([web2-shared/tpos-sidebar.css](../web2-shared/tpos-sidebar.css)):
+
+1. **Class mismatch JS render vs CSS**: `tpos-sidebar.js` render `.label`, `.caret`, `.web2-nav-sub`, `.web2-nav-link`, `.web2-nav-group-head`, `.icon` — nhưng CSS collapsed selectors lại target `.web2-nav-label`, `.web2-nav-caret`, `.web2-nav-children`, `.web2-nav-item`, `.web2-nav-icon` (không tồn tại) → `display: none` không kích hoạt → labels bleed-through.
+2. **Toggle button bị clip**: `position: absolute; right: -14px` hang off rìa phải aside, nhưng `.web2-aside` có `overflow-x: hidden` → toggle bị che một phần.
+
+**Fix**: sửa selectors đúng class names + scope dưới `.web2-aside`. Toggle khi collapsed đổi `position: static` + brand `flex-direction: column` → N2 logo + toggle xếp dọc trong vùng 56px visible (không hang off → không bị clip).
+
+**Verified Playwright**: collapsed → 56px rail không bleed text + toggle visible; click toggle → re-expand 260px labels đầy đủ.
+
+**Status**: ✅ Done. Cache-bust `?v=20260518d` cho 14 file dùng `tpos-sidebar.css`.
+
 ### [scripts][docs] Per-folder LATEST snapshot — fallback khi session cũ chết (image limit)
 
 **User**: gặp lỗi `dimension limit for many-image requests` thì session đóng băng, không nhờ Claude tóm tắt context được nữa. Cần snapshot **đã có sẵn** trước khi lỗi xảy ra, do hook tự ghi đè sau mỗi commit. Yêu cầu chia theo folder/page để session mới chỉ cần đọc 1 file của module đang làm.
