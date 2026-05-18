@@ -23,6 +23,7 @@
     const FIRESTORE_COLLECTION = 'supplier_wallet_v1';
     const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     function emptyState() {
         return { wallets: {}, lastUpdated: 0 };
@@ -201,6 +202,86 @@
         },
     };
 
+    // Fetch SePay incoming deposits since `since` (unix ms). Match by content substring vs supplier name.
+    async function fetchDeposits(since) {
+        try {
+            const url = `${WORKER_URL}/api/wallet-deposits/load?since=${Number(since) || 0}&limit=200`;
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            return Array.isArray(data?.deposits) ? data.deposits : [];
+        } catch (e) {
+            console.warn('[SupplierWallet] fetchDeposits fail:', e.message);
+            return [];
+        }
+    }
+
+    function getProcessedSepayIds(state) {
+        const ids = new Set();
+        for (const k of Object.keys(state.wallets || {})) {
+            const txs = state.wallets[k].transactions || [];
+            for (const tx of txs) {
+                if (tx.ref?.sepayId) ids.add(String(tx.ref.sepayId));
+            }
+        }
+        return ids;
+    }
+
+    function normalize(s) {
+        return String(s || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+    }
+
+    // Match deposit content vs supplier name. Tránh false positive bằng cách yêu cầu
+    // supplier name normalized length ≥ 4 và xuất hiện như từ riêng (boundary check).
+    function matchSupplier(content, supplierNames) {
+        const c = ' ' + normalize(content) + ' ';
+        if (c.trim().length < 4) return null;
+        for (const name of supplierNames) {
+            const n = normalize(name);
+            if (n.length < 4) continue;
+            if (c.includes(' ' + n + ' ') || c.includes(' ' + n) || c.includes(n + ' ')) {
+                return name;
+            }
+        }
+        return null;
+    }
+
+    // Apply deposits: refund money từ NCC chuyển trở lại → type='payment' (giảm balance).
+    function applyDeposits(state, deposits) {
+        const processed = getProcessedSepayIds(state);
+        const supplierNames = Object.keys(state.wallets || {});
+        let added = 0;
+        for (const d of deposits || []) {
+            if (!d?.sepayId) continue;
+            const sid = String(d.sepayId);
+            if (processed.has(sid)) continue;
+            const amount = Number(d.amount) || 0;
+            if (amount <= 0) continue;
+            const matched = matchSupplier(d.content || '', supplierNames);
+            if (!matched) continue;
+            const w = state.wallets[matched];
+            const entry = {
+                id: `tx-sepay-${sid.slice(-12)}`,
+                ts: Number(d.ts) || Date.now(),
+                type: 'payment',
+                amount,
+                note: `SePay refund: ${(d.content || '').slice(0, 160)}`,
+                ref: { sepayId: sid, source: 'sepay', matchedSupplier: matched },
+            };
+            w.transactions.push(entry);
+            w.paidAmount += amount;
+            recalcBalance(w);
+            added++;
+        }
+        if (added) save(state);
+        return added;
+    }
+
     // Load so-order data (read-only) to derive purchases.
     async function loadSoOrderData() {
         try {
@@ -231,6 +312,8 @@
         recalcBalance,
         addTransaction,
         loadSoOrderData,
+        fetchDeposits,
+        applyDeposits,
         Sync,
         RETENTION_MS,
     };

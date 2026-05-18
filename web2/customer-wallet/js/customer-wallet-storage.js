@@ -193,6 +193,69 @@
         },
     };
 
+    // Fetch SePay incoming deposits since `since` (unix ms). Match by linked_customer_phone.
+    async function fetchDeposits(since) {
+        try {
+            const url = `${WORKER_URL}/api/wallet-deposits/load?since=${Number(since) || 0}&limit=200`;
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            return Array.isArray(data?.deposits) ? data.deposits : [];
+        } catch (e) {
+            console.warn('[CustomerWallet] fetchDeposits fail:', e.message);
+            return [];
+        }
+    }
+
+    function getProcessedSepayIds(state) {
+        const ids = new Set();
+        for (const k of Object.keys(state.wallets || {})) {
+            const txs = state.wallets[k].transactions || [];
+            for (const tx of txs) {
+                if (tx.ref?.sepayId) ids.add(String(tx.ref.sepayId));
+            }
+        }
+        return ids;
+    }
+
+    function normPhone(p) {
+        const s = String(p || '').replace(/\D/g, '');
+        if (!s) return '';
+        if (s.startsWith('84') && s.length >= 11) return '0' + s.slice(2);
+        return s;
+    }
+
+    // Apply deposits: match by linkedPhone → type='payment'. Idempotent via sepayId.
+    function applyDeposits(state, deposits) {
+        const processed = getProcessedSepayIds(state);
+        let added = 0;
+        for (const d of deposits || []) {
+            if (!d?.sepayId) continue;
+            const sid = String(d.sepayId);
+            if (processed.has(sid)) continue;
+            const phone = normPhone(d.linkedPhone);
+            if (!phone) continue;
+            const w = state.wallets[phone];
+            if (!w) continue; // chỉ cộng nếu KH đã có trong ví
+            const amount = Number(d.amount) || 0;
+            if (amount <= 0) continue;
+            const entry = {
+                id: `tx-sepay-${sid.slice(-12)}`,
+                ts: Number(d.ts) || Date.now(),
+                type: 'payment',
+                amount,
+                note: `SePay: ${(d.content || d.referenceCode || '').slice(0, 160)}`,
+                ref: { sepayId: sid, source: 'sepay', linkedPhone: phone },
+            };
+            w.transactions.push(entry);
+            w.paidAmount += amount;
+            recalcBalance(w);
+            added++;
+        }
+        if (added) save(state);
+        return added;
+    }
+
     // Fetch ALL PBH from Render with pagination loop. Mỗi page = 500 rows.
     // Stop khi page trả về < pageSize (đã hết) hoặc gặp lỗi.
     async function fetchPbhList(maxPages = 20, pageSize = 500) {
@@ -228,6 +291,8 @@
         recalcBalance,
         addTransaction,
         fetchPbhList,
+        fetchDeposits,
+        applyDeposits,
         Sync,
         RETENTION_MS,
     };

@@ -440,6 +440,30 @@
             pushSync();
         }
         renderList();
+        // Poll SePay deposits (incoming) → match KH theo phone → +payment
+        pollDeposits().catch(() => {});
+    }
+
+    // Poll SePay deposits since lastDepositSync. Idempotent qua sepayId.
+    async function pollDeposits() {
+        const since = Number(walletState.lastDepositSync) || 0;
+        const deposits = await window.CustomerWalletStorage.fetchDeposits(since);
+        if (!Array.isArray(deposits) || !deposits.length) return;
+        const added = window.CustomerWalletStorage.applyDeposits(walletState, deposits);
+        // Cập nhật cursor = max ts đã thấy (kể cả khi không match wallet → tránh fetch lại)
+        const maxTs = deposits.reduce((m, d) => Math.max(m, Number(d.ts) || 0), since);
+        if (maxTs > since) {
+            walletState.lastDepositSync = maxTs;
+            window.CustomerWalletStorage.save(walletState);
+        }
+        if (added > 0) {
+            notify(`Cập nhật ${added} thanh toán SePay`, 'success');
+            pushSync();
+            renderList();
+            if (activePhone && !document.getElementById('cwDetailModal').hidden) {
+                openDetail(activePhone);
+            }
+        }
     }
 
     function wireUi() {

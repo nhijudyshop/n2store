@@ -131,6 +131,9 @@ export const ROUTES = {
     // Web 2.0 Generic — universal entity CRUD for 87 TPOS-clone pages
     WEB2_GENERIC: { pattern: '/api/web2/*' },
 
+    // Wallet Deposits (Web 2.0) — SePay incoming transfers for ví NCC/KH
+    WALLET_DEPOSITS: { pattern: '/api/wallet-deposits/*' },
+
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -215,6 +218,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/web2/variants/') || pathname === '/api/web2-variants')
         return 'WEB2_VARIANTS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
+    if (pathname.startsWith('/api/wallet-deposits/')) return 'WALLET_DEPOSITS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';

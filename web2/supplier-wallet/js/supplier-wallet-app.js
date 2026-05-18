@@ -409,6 +409,28 @@
             pushSync();
         }
         renderList();
+        // Poll SePay deposits (refund từ NCC → giảm balance)
+        pollDeposits().catch(() => {});
+    }
+
+    async function pollDeposits() {
+        const since = Number(walletState.lastDepositSync) || 0;
+        const deposits = await window.SupplierWalletStorage.fetchDeposits(since);
+        if (!Array.isArray(deposits) || !deposits.length) return;
+        const added = window.SupplierWalletStorage.applyDeposits(walletState, deposits);
+        const maxTs = deposits.reduce((m, d) => Math.max(m, Number(d.ts) || 0), since);
+        if (maxTs > since) {
+            walletState.lastDepositSync = maxTs;
+            window.SupplierWalletStorage.save(walletState);
+        }
+        if (added > 0) {
+            notify(`Cập nhật ${added} refund SePay từ NCC`, 'success');
+            pushSync();
+            renderList();
+            if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
+                openDetail(activeSupplier);
+            }
+        }
     }
 
     function wireUi() {

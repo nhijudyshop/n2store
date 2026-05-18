@@ -25,6 +25,38 @@
 
 ## 2026-05-18
 
+### [web2][wallet][sepay][worker][render] SePay deposit poll — ví KH/NCC tự cộng payment từ webhook
+
+**User**: tiếp tục TODO từ commit `c049756e` — _"Wallet apps sẽ tích hợp poll on load (next session)"_.
+
+**Bug phát hiện**: commit trước ghi message "Mount /api/wallet-deposits trong server.js" nhưng thực tế **chưa mount** — `walletDepositsRoutes` chỉ được `require()` (line 333) nhưng thiếu `app.use(...)`. Worker cũng chưa có route → 404 toàn bộ.
+
+**Fix**:
+
+1. **Render** ([server.js:454](../render.com/server.js#L454)): mount `app.use('/api/wallet-deposits', walletDepositsRoutes)`.
+2. **Cloudflare Worker**:
+    - [routes.js](../cloudflare-worker/modules/config/routes.js): thêm `WALLET_DEPOSITS: { pattern: '/api/wallet-deposits/*' }` + matcher `startsWith('/api/wallet-deposits/')`.
+    - [worker.js](../cloudflare-worker/worker.js): thêm `case 'WALLET_DEPOSITS': return handleCustomer360Proxy(...)` (Render passthrough + CORS).
+
+**Customer wallet integration** ([web2/customer-wallet/](../web2/customer-wallet/)):
+
+- `customer-wallet-storage.js`: thêm `fetchDeposits(since)`, `applyDeposits(state, deposits)`, helper `normPhone` (84→0 prefix), `getProcessedSepayIds` (idempotent dedup).
+- Match: `d.linkedPhone` → `state.wallets[phone]` chỉ apply khi KH đã có ví → `type='payment'` (`paidAmount += amount`, balance ↓).
+- Skip nếu sepayId đã processed (idempotent qua bộ ref.sepayId của tất cả tx).
+- `customer-wallet-app.js`: gọi `pollDeposits()` sau `loadAndRender()`. Track `state.lastDepositSync` = max ts đã thấy (cursor cho lần poll sau, tránh re-fetch).
+
+**Supplier wallet integration** ([web2/supplier-wallet/](../web2/supplier-wallet/)):
+
+- `supplier-wallet-storage.js`: `fetchDeposits` + `applyDeposits` với matcher khác — `matchSupplier(content, supplierNames)` normalize (lowercase + NFD strip diacritics + non-alnum→space) + boundary check (yêu cầu name ≥4 chars + xuất hiện như từ riêng để tránh false positive).
+- Match: supplier nào tên xuất hiện trong `d.content` → `paidAmount += amount` (semantically là NCC refund/hoàn tiền → giảm shop's debt).
+- Cùng pattern `lastDepositSync` cursor + idempotent qua sepayId.
+
+**Verified**: syntax-check 6 file pass. Test live cần data SePay thật trong `balance_history` — sẽ test sau khi deploy CF Worker + Render.
+
+**TODO sau**: deploy CF Worker (push lên Cloudflare); deploy Render (auto từ git push); test với deposit thật từ SePay sandbox hoặc giả lập via webhook payload.
+
+**Status**: ✅ Code done. Deploy + verify end-to-end sau.
+
 ### [web2][sidebar][audit] Xóa nốt `fastpurchaseorder-refund` + audit data flow
 
 **User**: "xóa luôn và kiểm lại logic các trang liên quan, tác động tới nhau".
