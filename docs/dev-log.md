@@ -25,6 +25,25 @@
 
 ## 2026-05-18
 
+### [so-order] Đồng bộ style bảng với native-orders: font Segoe UI + header bg + button action
+
+**User yêu cầu**: làm bảng so-order giống native-orders về font chữ, cỡ chữ, màu thead, button, màu sắc.
+
+**Thay đổi** (`so-order/css/so-order.css`, bump cache `v=20260518l`):
+
+- `.so-table` thêm `font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif` + `color: #333` (match TPOS body color).
+- `.so-table-scroll`: border `#c8ced3` → `#dee5e7`, radius `10px` → `8px`, shadow giảm sang `--shadow-sm` (`0 1px 2px rgba(0,0,0,.05)`).
+- `.so-table thead th` + `.so-shipment-colhead-cell`: bỏ `text-transform: uppercase` + `letter-spacing: 0.04em`, đổi `font-size 11px → 13px`, bg `#eef2f7 → #f0eeee` (var --tpos-bg-cell-head), padding `10px 12px → 8px 10px`. Nhìn đúng style TPOS thay vì style admin-modern.
+- `.so-table tbody td`: padding `9px 12px → 8px 10px`, color `#0f172a → #333`, border-right `#d9dde0 → #e5e8ea` (vertical line mảnh hơn để row dễ scan).
+- `.so-action-btn`: chuyển từ transparent → square 28×28 với background mặc định (edit blue `#dbeafe/#1d4ed8`, delete red `#fee2e2/#b91c1c`, add-row green `#dcfce7/#15803d`). Hover lift `translateY(-1px) + shadow-sm`. Khớp native action button style (act-edit / act-delete / act-confirm).
+- `.so-cell-actions`: width `96px → 112px` + thêm gap `margin-left: 4px` giữa các button.
+
+**Kết quả**: bảng so-order giờ trông giống native-orders về font, header, buttons. Zebra + hover từ commit trước giữ nguyên.
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Cải thiện grid bảng (giống native-orders): vertical lines + zebra + hover rõ hơn
 
 **User yêu cầu**: kẻ đường bảng cho dễ nhìn, làm giống native-orders.
