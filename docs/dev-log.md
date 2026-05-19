@@ -25,6 +25,58 @@
 
 ## 2026-05-19
 
+### [inventory-tracking] 3 nâng cấp lớn: Image Manager đợt/ngày + Column hide/restore + Lazy render perf
+
+**User yêu cầu** (screen inventory-tracking/index.html):
+
+1. Bảng cho nút ẩn cột — và có panel hiện lại cột đã ẩn.
+2. Modal "Quản Lý Ảnh Sản Phẩm" — khi thêm hàng cho chọn đợt/ngày để map đúng đợt (NCC=4 đợt 17/5 ≠ NCC=4 đợt 12/5).
+3. Cải thiện tốc độ.
+
+**Thay đổi**:
+
+**1. Image Manager đợt/ngày mapping** ([js/modal-image-manager.js](../inventory-tracking/js/modal-image-manager.js))
+
+- Mỗi row có thêm field `batchKey` = `"YYYY-MM-DD__N"` (date + dotSo).
+- UI: row hiển thị 2 input — NCC + dropdown "Đợt giao" (options từ `getAllDotHangAsShipments()`, latest first).
+- Row tự group theo batch: section header "📅 17/5/2026 — Đợt 1 — N NCC — Thêm NCC" + chips các row trong đợt.
+- Filter row đầu: "Tìm NCC" + dropdown "Tất cả đợt" để filter theo batch.
+- New row default batch = đợt mới nhất; "Thêm NCC vào đợt này" trong section header tạo row có batch của đợt đó.
+- Save: split rows theo `batchKey` → call `productImagesApi.bulkSave(rows, {date, dotSo})` mỗi batch (parallel). Empty PUT cho batches initially-có-data nhưng giờ-rỗng (deletion sticks).
+- Pattern data layer đã sẵn (`migration 058`, `getProductImagesForNcc(ncc, ngày, đợt)` exact-batch lookup) — chỉ thiếu UI.
+
+**2. Column hide button + restore panel** ([js/column-toggle.js](../inventory-tracking/js/column-toggle.js) — file mới)
+
+- `window.ColumnToggle` module với `hide(colKey)`, `show(colKey)`, `refresh()`, `togglePanel()`.
+- Per-th: icon eye-off ẩn hiện trên hover → click ẩn cột; dùng dynamic `<style>` (`display:none !important` cho `td.col-X, th.col-X`).
+- Toolbar: button "Cột ẩn (N)" cạnh "Xuất Excel" → popover panel: chips cho mỗi col đang ẩn (click chip = restore) + nút "Hiện tất cả".
+- State persist qua `UIState.hiddenCols` (localStorage `n2store_inv_ui_state_v1`).
+- Sửa [js/table-renderer.js](../inventory-tracking/js/table-renderer.js) thêm `col-X` class vào `<td>` tfoot tương ứng để CSS ẩn đồng bộ với header.
+- MutationObserver re-attach hide buttons cho tables re-rendered.
+
+**3. Lazy render perf** ([js/table-renderer.js](../inventory-tracking/js/table-renderer.js))
+
+- Trước: `createShipmentCard` luôn call `renderInvoicesSection()` cho mọi shipment → 100 shipments = 100 tables trong DOM (chỉ 1-2 visible).
+- Sau: collapsed shipments có `data-lazy="1"` empty body. Khi expand lần đầu → `_renderCardBody(card)` build HTML on-demand + reapply lucide icons + detail-cols-hidden state + ColumnToggle + NoteManager.
+- Benchmark local (11 shipments, 1 expanded):
+    - `applyFiltersAndRender`: **49ms → 14ms** (~3.5×)
+    - DOM total: **4458 → 2348** nodes (47% smaller)
+    - Invoice tables in DOM: **5 → 1**
+    - Table TDs: **540 → 112**
+- Production scale (100+ shipments): saving expected lớn hơn nhiều.
+
+**Files changed**:
+
+- `inventory-tracking/js/modal-image-manager.js` — full rewrite cho đợt/ngày mapping.
+- `inventory-tracking/js/column-toggle.js` — NEW.
+- `inventory-tracking/js/ui-state.js` — thêm `getHiddenCols / hideCol / showCol / clearHiddenCols`.
+- `inventory-tracking/js/table-renderer.js` — lazy body render + tfoot col-class.
+- `inventory-tracking/js/main.js` — gọi `ColumnToggle.init()` sau app.init.
+- `inventory-tracking/index.html` — load `column-toggle.js`, thêm toolbar button + panel.
+- `inventory-tracking/css/modern.css` — styles cho img-mgr group/batch + column hide buttons + restore popover.
+
+**Verify**: Playwright local 8093 — đã test cả 3 feature (screenshot trong `downloads/n2store-session/inv-*.png`). Status: ✅ Done.
+
 ### [web2/balance-history] Clone toàn bộ chức năng balance-history sang Web 2.0 + integrate sidebar + SSE
 
 **User yêu cầu**: tạo trang Web 2.0 với tất cả chức năng giống `/balance-history/` legacy — chi tiết, đầy đủ.
