@@ -99,6 +99,13 @@ async function ensureTables(pool) {
                 value BIGINT NOT NULL DEFAULT 0,
                 updated_at BIGINT
             );
+
+            -- 2026-05-19: cột order_at = thời điểm đơn chuyển sang status='order'
+            -- (được chấp nhận tính KPI). Set 1 lần khi transition; preserve khi update khác.
+            -- Đơn cũ (status='order' nhưng order_at NULL) sẽ fallback COALESCE(order_at, updated_at)
+            -- trong query select.
+            ALTER TABLE social_orders ADD COLUMN IF NOT EXISTS order_at BIGINT;
+            CREATE INDEX IF NOT EXISTS idx_social_orders_order_at ON social_orders(order_at);
         `);
         _tablesCreated = true;
         console.log('[SOCIAL-ORDERS] Tables created/verified');
@@ -208,11 +215,17 @@ router.get('/kpi-stats', async (req, res) => {
         const fromMs = parseInt(req.query.from) || defaultFrom;
         const toMs = parseInt(req.query.to) || now;
         const includeCancelled = req.query.includeAll === '1';
+        // 2026-05-19: excludeDraft=1 → chỉ count đơn được tính KPI (loại 'draft').
+        // Opt-in, default giữ behavior cũ (backward-compat).
+        const excludeDraft = req.query.excludeDraft === '1';
 
         const params = [fromMs, toMs];
         let whereClause = 'WHERE created_at >= $1 AND created_at <= $2';
         if (!includeCancelled) {
             whereClause += " AND COALESCE(status, 'draft') <> 'cancelled'";
+        }
+        if (excludeDraft) {
+            whereClause += " AND COALESCE(status, 'draft') <> 'draft'";
         }
 
         const result = await pool.query(
@@ -313,6 +326,8 @@ router.get('/kpi-stats/orders', async (req, res) => {
         const fromMs = parseInt(req.query.from) || defaultFrom;
         const toMs = parseInt(req.query.to) || now;
         const includeCancelled = req.query.includeAll === '1';
+        // 2026-05-19: excludeDraft=1 → loại đơn nháp (chỉ đơn được tính KPI).
+        const excludeDraft = req.query.excludeDraft === '1';
 
         const params = [userId, fromMs, toMs];
         let whereClause =
@@ -320,12 +335,22 @@ router.get('/kpi-stats/orders', async (req, res) => {
         if (!includeCancelled) {
             whereClause += " AND COALESCE(status, 'draft') <> 'cancelled'";
         }
+        if (excludeDraft) {
+            whereClause += " AND COALESCE(status, 'draft') <> 'draft'";
+        }
 
+        // order_at = thời điểm chuyển sang status='order'. Đơn cũ chưa có order_at
+        // → fallback COALESCE(order_at, updated_at) chỉ khi status ≠ 'draft' (nháp
+        // chưa được chấp nhận KPI nên không có "ngày đơn").
         const result = await pool.query(
             `SELECT id, stt, status,
                     COALESCE(total_quantity, 0)::int AS total_quantity,
                     COALESCE(total_amount, 0)::numeric AS total_amount,
-                    created_at
+                    created_at,
+                    CASE
+                        WHEN COALESCE(status, 'draft') = 'draft' THEN NULL
+                        ELSE COALESCE(order_at, updated_at)
+                    END AS order_at
              FROM social_orders
              ${whereClause}
              ORDER BY stt ASC NULLS LAST, created_at ASC`,
@@ -342,6 +367,7 @@ router.get('/kpi-stats/orders', async (req, res) => {
                 totalAmount: Number(row.total_amount) || 0,
                 kpi: qty * KPI_PER_UNIT,
                 createdAt: row.created_at ? Number(row.created_at) : null,
+                orderAt: row.order_at ? Number(row.order_at) : null,
             };
         });
 
@@ -493,6 +519,13 @@ router.put('/entries/:id', async (req, res) => {
         if (!updates.updatedAt) {
             params.push(Date.now());
             setClauses.push(`updated_at = $${params.length}`);
+        }
+
+        // 2026-05-19: track order_at = timestamp khi status chuyển sang 'order'.
+        // COALESCE → chỉ set khi order_at đang NULL (preserve lần transition đầu tiên).
+        if (updates.status === 'order') {
+            params.push(Date.now());
+            setClauses.push(`order_at = COALESCE(order_at, $${params.length})`);
         }
 
         if (setClauses.length === 0) {
@@ -757,6 +790,7 @@ router.post('/migrate', async (req, res) => {
  * Upsert a single order using pool
  */
 async function upsertOrder(pool, order) {
+    const orderAt = resolveOrderAt(order);
     return pool.query(
         `
         INSERT INTO social_orders (
@@ -764,13 +798,13 @@ async function upsertOrder(pool, order) {
             products, total_quantity, total_amount, tags, status, note, note_images,
             tpos_partner_id, page_id, psid, conversation_id,
             assigned_user_id, assigned_user_name,
-            created_by, created_by_name, created_at, updated_at, username
+            created_by, created_by_name, created_at, updated_at, username, order_at
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8,
             $9, $10, $11, $12, $13, $14, $15,
             $16, $17, $18, $19,
             $20, $21,
-            $22, $23, $24, $25, $26
+            $22, $23, $24, $25, $26, $27
         )
         ON CONFLICT (id) DO UPDATE SET
             stt = EXCLUDED.stt,
@@ -795,7 +829,8 @@ async function upsertOrder(pool, order) {
             assigned_user_name = EXCLUDED.assigned_user_name,
             created_by = EXCLUDED.created_by,
             created_by_name = EXCLUDED.created_by_name,
-            updated_at = EXCLUDED.updated_at
+            updated_at = EXCLUDED.updated_at,
+            order_at = COALESCE(social_orders.order_at, EXCLUDED.order_at)
     `,
         [
             order.id,
@@ -824,14 +859,31 @@ async function upsertOrder(pool, order) {
             order.createdAt || order.created_at || Date.now(),
             order.updatedAt || order.updated_at || Date.now(),
             order.username || 'default',
+            orderAt,
         ]
     );
+}
+
+/**
+ * Resolve order_at từ payload upsert:
+ * - Nếu client gửi explicit order_at / orderAt → dùng.
+ * - Else nếu status='order' → fallback updated_at (đơn import từ legacy có thể không có order_at).
+ * - Else null (DB sẽ giữ NULL hoặc preserve qua COALESCE ở ON CONFLICT).
+ */
+function resolveOrderAt(order) {
+    if (order.orderAt != null) return Number(order.orderAt);
+    if (order.order_at != null) return Number(order.order_at);
+    if (order.status === 'order') {
+        return Number(order.updatedAt || order.updated_at || Date.now());
+    }
+    return null;
 }
 
 /**
  * Upsert a single order using a transaction client
  */
 async function upsertOrderWithClient(client, order) {
+    const orderAt = resolveOrderAt(order);
     return client.query(
         `
         INSERT INTO social_orders (
@@ -839,13 +891,13 @@ async function upsertOrderWithClient(client, order) {
             products, total_quantity, total_amount, tags, status, note, note_images,
             tpos_partner_id, page_id, psid, conversation_id,
             assigned_user_id, assigned_user_name,
-            created_by, created_by_name, created_at, updated_at, username
+            created_by, created_by_name, created_at, updated_at, username, order_at
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8,
             $9, $10, $11, $12, $13, $14, $15,
             $16, $17, $18, $19,
             $20, $21,
-            $22, $23, $24, $25, $26
+            $22, $23, $24, $25, $26, $27
         )
         ON CONFLICT (id) DO UPDATE SET
             stt = EXCLUDED.stt,
@@ -870,7 +922,8 @@ async function upsertOrderWithClient(client, order) {
             assigned_user_name = EXCLUDED.assigned_user_name,
             created_by = EXCLUDED.created_by,
             created_by_name = EXCLUDED.created_by_name,
-            updated_at = EXCLUDED.updated_at
+            updated_at = EXCLUDED.updated_at,
+            order_at = COALESCE(social_orders.order_at, EXCLUDED.order_at)
     `,
         [
             order.id,
@@ -899,6 +952,7 @@ async function upsertOrderWithClient(client, order) {
             order.createdAt || order.created_at || Date.now(),
             order.updatedAt || order.updated_at || Date.now(),
             order.username || 'default',
+            orderAt,
         ]
     );
 }

@@ -388,7 +388,8 @@ const KPICommission = {
     },
 
     // Inbox tab state
-    _inboxSubtabPreset: '30d', // 'today' | '7d' | '30d' | 'thismonth' | 'all'
+    _inboxSubtabPreset: '30d', // 'today' | '7d' | '30d' | 'thismonth' | 'all' | 'custom'
+    _inboxCustomRange: { from: null, to: null }, // ms khi preset = 'custom'
     _activeKpiSubtab: 'orders', // 'orders' | 'inbox'
 
     /**
@@ -421,6 +422,13 @@ const KPICommission = {
             const first = new Date(today.getFullYear(), today.getMonth(), 1);
             return { from: startOfDay(first), to: endOfDay(today), label: 'Tháng này' };
         }
+        if (preset === 'custom') {
+            const { from, to } = this._inboxCustomRange || {};
+            if (from != null && to != null && from <= to) {
+                return { from, to, label: 'Tùy chọn' };
+            }
+            return null;
+        }
         // 'all' → không filter
         return null;
     },
@@ -438,11 +446,13 @@ const KPICommission = {
             params.set('from', range.from);
             params.set('to', range.to);
         }
+        // 2026-05-19: chỉ count đơn được tính KPI (loại 'draft').
+        params.set('excludeDraft', '1');
         const WORKER =
             window.API_CONFIG?.WORKER_URL ||
             window.parent?.API_CONFIG?.WORKER_URL ||
             'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const url = `${WORKER}/api/social-orders/kpi-stats${params.toString() ? '?' + params.toString() : ''}`;
+        const url = `${WORKER}/api/social-orders/kpi-stats?${params.toString()}`;
         try {
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -608,7 +618,7 @@ const KPICommission = {
         const cell = detailRow.querySelector('.kpi-inbox-details-cell');
         if (!cell) return;
 
-        const cacheKey = `${userId}|${this._inboxSubtabPreset}`;
+        const cacheKey = this._inboxCacheKey(userId);
         const cached = this._inboxOrdersCache.get(cacheKey);
         if (cached && Array.isArray(cached.orders)) {
             this._renderInboxUserOrders(cell, cached.orders);
@@ -634,8 +644,20 @@ const KPICommission = {
      * Fetch danh sách đơn cho 1 user trong khoảng thời gian hiện tại của
      * inbox subtab. Cache + dedupe in-flight.
      */
+    /**
+     * Build cache key per user theo preset hiện tại. Với 'custom' phải include
+     * from/to để invalidate tự động khi đổi khoảng.
+     */
+    _inboxCacheKey(userId) {
+        if (this._inboxSubtabPreset === 'custom') {
+            const r = this._inboxCustomRange || {};
+            return `${userId}|custom|${r.from || ''}-${r.to || ''}`;
+        }
+        return `${userId}|${this._inboxSubtabPreset}`;
+    },
+
     async _loadInboxOrdersForUser(userId) {
-        const cacheKey = `${userId}|${this._inboxSubtabPreset}`;
+        const cacheKey = this._inboxCacheKey(userId);
         const cached = this._inboxOrdersCache.get(cacheKey);
         if (cached && Array.isArray(cached.orders)) return cached.orders;
 
@@ -650,6 +672,7 @@ const KPICommission = {
             params.set('from', String(range.from));
             params.set('to', String(range.to));
         }
+        params.set('excludeDraft', '1');
         const WORKER =
             window.API_CONFIG?.WORKER_URL ||
             window.parent?.API_CONFIG?.WORKER_URL ||
@@ -694,11 +717,13 @@ const KPICommission = {
                     this._INBOX_STATUS_LABELS.draft;
                 const sttDisp =
                     o.stt != null && o.stt !== '' ? Number(o.stt).toLocaleString('vi-VN') : '—';
+                const orderAtDisp = o.orderAt ? this.formatTimestamp(o.orderAt) : '—';
                 return `<tr>
                     <td class="col-num">${sttDisp}</td>
                     <td class="col-id"><code>${this.escapeHtml(o.id || '—')}</code></td>
                     <td class="col-num">${(o.totalQuantity || 0).toLocaleString('vi-VN')}</td>
                     <td class="col-money">${this.formatCurrency(o.kpi || 0)}</td>
+                    <td class="col-date">${orderAtDisp}</td>
                     <td><span class="kpi-inbox-status-badge ${cfg.cls}">${cfg.label}</span></td>
                 </tr>`;
             })
@@ -712,6 +737,7 @@ const KPICommission = {
                             <th>Số phiếu</th>
                             <th class="col-num">SL Món</th>
                             <th class="col-money">KPI</th>
+                            <th class="col-date">Ngày đơn</th>
                             <th>Trạng thái</th>
                         </tr>
                     </thead>
@@ -758,7 +784,7 @@ const KPICommission = {
         }
     },
 
-    /** Bind preset buttons trong inbox tab. */
+    /** Bind preset buttons + custom date range trong inbox tab. */
     _bindInboxPresets() {
         const btns = document.querySelectorAll('[data-inbox-preset]');
         btns.forEach((btn) => {
@@ -770,6 +796,32 @@ const KPICommission = {
                 this.renderInboxKpiView();
             });
         });
+
+        // Custom date range: "Áp dụng" → switch preset='custom' + reload.
+        const fromInput = document.getElementById('kpiInboxDateFrom');
+        const toInput = document.getElementById('kpiInboxDateTo');
+        const applyBtn = document.getElementById('kpiInboxDateApply');
+        if (applyBtn && !applyBtn.__inboxDateBound) {
+            applyBtn.__inboxDateBound = true;
+            applyBtn.addEventListener('click', () => {
+                const fromStr = fromInput?.value;
+                const toStr = toInput?.value;
+                if (!fromStr || !toStr) {
+                    alert('Vui lòng chọn cả ngày Từ và ngày Đến.');
+                    return;
+                }
+                const fromDate = new Date(fromStr + 'T00:00:00');
+                const toDate = new Date(toStr + 'T23:59:59.999');
+                if (isNaN(fromDate) || isNaN(toDate) || fromDate > toDate) {
+                    alert('Khoảng ngày không hợp lệ.');
+                    return;
+                }
+                this._inboxCustomRange = { from: fromDate.getTime(), to: toDate.getTime() };
+                this._inboxSubtabPreset = 'custom';
+                btns.forEach((b) => b.classList.remove('is-active'));
+                this.renderInboxKpiView();
+            });
+        }
     },
 
     /**

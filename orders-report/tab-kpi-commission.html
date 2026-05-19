@@ -507,30 +507,58 @@
                             đơn hàng campaign.</small
                         >
                     </div>
-                    <div class="kpi-inbox-presets" role="tablist" aria-label="Khoảng thời gian">
-                        <button class="kpi-inbox-preset" data-inbox-preset="today" type="button">
-                            Hôm nay
-                        </button>
-                        <button class="kpi-inbox-preset" data-inbox-preset="7d" type="button">
-                            7 ngày
-                        </button>
-                        <button
-                            class="kpi-inbox-preset is-active"
-                            data-inbox-preset="30d"
-                            type="button"
-                        >
-                            30 ngày
-                        </button>
-                        <button
-                            class="kpi-inbox-preset"
-                            data-inbox-preset="thismonth"
-                            type="button"
-                        >
-                            Tháng này
-                        </button>
-                        <button class="kpi-inbox-preset" data-inbox-preset="all" type="button">
-                            Tất cả
-                        </button>
+                    <div class="kpi-inbox-filter-group">
+                        <div class="kpi-inbox-presets" role="tablist" aria-label="Khoảng thời gian">
+                            <button class="kpi-inbox-preset" data-inbox-preset="today" type="button">
+                                Hôm nay
+                            </button>
+                            <button class="kpi-inbox-preset" data-inbox-preset="7d" type="button">
+                                7 ngày
+                            </button>
+                            <button
+                                class="kpi-inbox-preset is-active"
+                                data-inbox-preset="30d"
+                                type="button"
+                            >
+                                30 ngày
+                            </button>
+                            <button
+                                class="kpi-inbox-preset"
+                                data-inbox-preset="thismonth"
+                                type="button"
+                            >
+                                Tháng này
+                            </button>
+                            <button class="kpi-inbox-preset" data-inbox-preset="all" type="button">
+                                Tất cả
+                            </button>
+                        </div>
+                        <div class="kpi-inbox-daterange" aria-label="Khoảng ngày tùy chọn">
+                            <label class="kpi-inbox-daterange-label">
+                                <span>Từ</span>
+                                <input
+                                    type="date"
+                                    id="kpiInboxDateFrom"
+                                    class="kpi-inbox-date-input"
+                                />
+                            </label>
+                            <label class="kpi-inbox-daterange-label">
+                                <span>Đến</span>
+                                <input
+                                    type="date"
+                                    id="kpiInboxDateTo"
+                                    class="kpi-inbox-date-input"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                id="kpiInboxDateApply"
+                                class="kpi-inbox-date-apply"
+                                title="Áp dụng khoảng ngày"
+                            >
+                                Áp dụng
+                            </button>
+                        </div>
                     </div>
                 </div>
 

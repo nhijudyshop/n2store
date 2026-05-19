@@ -25,6 +25,51 @@
 
 ## 2026-05-19
 
+### [orders-report][render] KPI Inbox: cột "Ngày đơn" + ẩn nháp + custom date range
+
+**User yêu cầu**: trong drill-down KPI Đơn Inbox (tab KPI - HOA HỒNG):
+
+1. Thêm cột ngày khi đơn chuyển sang trạng thái "Đơn hàng" (được tính KPI).
+2. Chỉ hiển thị đơn được tính KPI — ẩn các đơn "Nháp".
+3. Bộ lọc ngày có thêm khoảng tùy chọn "Từ ngày – Đến ngày".
+
+**Thay đổi backend** (`render.com/routes/social-orders.js`):
+
+- Schema: `ALTER TABLE social_orders ADD COLUMN IF NOT EXISTS order_at BIGINT;` + index. Cột này chỉ set 1 lần khi đơn transition sang `status='order'`.
+- PUT `/entries/:id`: khi `updates.status === 'order'` → `order_at = COALESCE(order_at, $now)` (preserve lần transition đầu tiên).
+- `upsertOrder` / `upsertOrderWithClient`: thêm cột `order_at`, ON CONFLICT preserve `COALESCE(social_orders.order_at, EXCLUDED.order_at)`. Helper `resolveOrderAt()` resolve giá trị khi insert.
+- `/kpi-stats` + `/kpi-stats/orders`: query param mới `excludeDraft=1` (opt-in, default behavior giữ nguyên → backward-compat). Khi set, thêm `AND COALESCE(status,'draft') <> 'draft'`.
+- `/kpi-stats/orders` response: thêm field `orderAt`. Đơn cũ chưa có `order_at` → fallback `COALESCE(order_at, updated_at)` cho status ≠ 'draft'.
+
+**Thay đổi frontend** (`orders-report/`):
+
+- HTML (`tab-kpi-commission.html`): thêm khối `.kpi-inbox-daterange` gồm 2 ô `<input type="date">` + nút "Áp dụng" cạnh preset buttons.
+- JS (`js/tab-kpi-commission.js`):
+    - State mới: `_inboxCustomRange = { from, to }` + `_inboxSubtabPreset` thêm value `'custom'`.
+    - `_resolveInboxDateRange('custom')` đọc range tùy chọn.
+    - `loadInboxSubtabStats()` + `_loadInboxOrdersForUser()` luôn gửi `excludeDraft=1`.
+    - Helper `_inboxCacheKey(userId)` — cache key của 'custom' include `from-to` để tự invalidate khi đổi khoảng.
+    - `_renderInboxUserOrders()`: thêm cột `Ngày đơn` (dùng `formatTimestamp(o.orderAt)`), header table thêm `col-date`.
+    - `_bindInboxPresets()`: bind sự kiện "Áp dụng" → set custom range + render.
+- CSS (`css/tab-kpi-commission.css`): style `.kpi-inbox-filter-group`, `.kpi-inbox-daterange`, `.kpi-inbox-date-input`, `.kpi-inbox-date-apply`, và `.col-date` cho sub-table.
+
+**Lưu ý deploy**:
+
+- Render auto-deploy schema migration qua `ensureTables()` (idempotent ALTER với IF NOT EXISTS).
+- Đơn cũ không có `order_at` → query fallback `COALESCE(order_at, updated_at)` cho status ≠ 'draft', nên không cần backfill.
+- Endpoint cũ vẫn hoạt động bình thường (excludeDraft opt-in) → không vi phạm rule "không modify endpoints KPI hiện có" (append-only query param).
+
+**Files**:
+
+- `render.com/routes/social-orders.js`
+- `orders-report/tab-kpi-commission.html`
+- `orders-report/js/tab-kpi-commission.js`
+- `orders-report/css/tab-kpi-commission.css`
+
+**Status**: DONE — cần push để Render deploy schema + GH Pages serve frontend mới.
+
+---
+
 ### [web2 cross-page] Phase A + B SSE wiring — liên kết chức năng giữa các page Web 2.0
 
 **User yêu cầu**: "liên kết chức năng các web 2.0, thêm SSE cập nhật realtime, plan lớn, nghiên cứu kĩ, làm logic thống nhất".
