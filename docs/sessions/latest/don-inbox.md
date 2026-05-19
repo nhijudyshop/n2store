@@ -1,4 +1,4 @@
-# Latest Snapshot — `orders-report/`
+# Latest Snapshot — `don-inbox/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,19 +9,22 @@
 **Last updated**: 2026-05-19 13:11:32 +07
 **Summary**: fix(server): wire fast-sale-orders + web2-users initializeNotifiers top-level (block scope bug)
 
-## Files changed in this commit (`orders-report/`)
+## Files changed in this commit (`don-inbox/`)
 
-- `orders-report/css/tab-kpi-commission.css`
-- `orders-report/js/tab-kpi-commission.js`
-- `orders-report/tab-kpi-commission.html`
+- `don-inbox/css/don-inbox.css`
+- `don-inbox/index.html`
+- `don-inbox/js/tab-social-core.js`
+- `don-inbox/js/tab-social-invoice.js`
+- `don-inbox/js/tab-social-sale.js`
+- `don-inbox/js/tab-social-table.js`
 
-## Last 5 commits touching `orders-report/`
+## Last 5 commits touching `don-inbox/`
 
-- `400dd6b7` feat(kpi-inbox): cột "Ngày đơn" + ẩn nháp + custom date range _(2026-05-19)_
-- `b835da61` fix(orders-report): miss auto-tag XL "ĐÃ RA ĐƠN" sau tạo PBH (single + bulk) _(2026-05-18)_
-- `5c72af4f` feat(kpi-strip): SSE-only realtime — push instant trên mọi write kpi-statistics _(2026-05-18)_
-- `60b49340` fix(tab1): KPI strip divergence — always-on poll 60s + cache:no-store _(2026-05-18)_
-- `f9b9bf44` fix(chat): sync toggle Tin nhắn/Bình luận với conv thực tế load _(2026-05-17)_
+- `15211c34` feat(don-inbox): stat card KPI ngày + toast "User bán được X món - nhận được Yk" _(2026-05-19)_
+- `625b797b` fix(inbox): STT độc nhất — atomic counter `inbox_counters` thay cho orders.length+1 _(2026-05-17)_
+- `ef1c0425` feat(kpi-inbox): tính KPI từ don-inbox social orders, phân riêng trong KPI tab _(2026-05-13)_
+- `b451b433` fix(wallet): ẩn cặp tạo-hủy đơn khỏi UI ví + fix note PBH "Nợ Cũ" sai khi tiền vào ví là ADJUSTMENT _(2026-05-07)_
+- `fc29455d` feat(don-inbox): pin button trên mọi tag card trong panel (không chỉ zero-order sub-list) _(2026-05-07)_
 
 ---
 

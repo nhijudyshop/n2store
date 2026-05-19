@@ -3,27 +3,30 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `62257cb` — test(web2): QA test plan + report — Tier 1 16/16 PASS, Phase B1 cross-broadcast verified live
-**Last updated**: 2026-05-19 12:02:48 +07
-**Latest session**: [`RESUME:20260519-120248-62257cb`](../20260519-120248-62257cb.md)
-**Summary**: test(web2): QA test plan + report — Tier 1 16/16 PASS, Phase B1 cross-broadcast verified live
+**Latest commit**: `050a596` — fix(server): wire fast-sale-orders + web2-users initializeNotifiers top-level (block scope bug)
+**Last updated**: 2026-05-19 13:11:32 +07
+**Latest session**: [`RESUME:20260519-131132-050a596`](../20260519-131132-050a596.md)
+**Summary**: fix(server): wire fast-sale-orders + web2-users initializeNotifiers top-level (block scope bug)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`downloads/`](./downloads.md) — 18 file(s)
+- [`don-inbox/`](./don-inbox.md) — 6 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 12:02
+- [`docs/`](./docs.md) — updated 2026-05-19 13:11
+- [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:11
 - [`downloads/`](./downloads.md) — updated 2026-05-19 12:02
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 11:39
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 10:07
-- [`orders-report/`](./orders-report.md) — updated 2026-05-18 12:28
+- [`orders-report/`](./orders-report.md) — updated 2026-05-19 13:11
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-19 10:26
-- [`render.com/`](./render.com.md) — updated 2026-05-19 11:45
+- [`render.com/`](./render.com.md) — updated 2026-05-19 13:11
 - [`scripts/`](./scripts.md) — updated 2026-05-18 17:45
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`so-order/`](./so-order.md) — updated 2026-05-19 10:07
