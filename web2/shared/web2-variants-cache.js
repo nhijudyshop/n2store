@@ -118,6 +118,16 @@
     }
 
     function _setupRealtime() {
+        // Prefer SSE bridge (server pub/sub) — không tốn Firestore reads.
+        // Xem docs/web2/SSE-REALTIME.md. Fallback Firestore tickle nếu
+        // bridge không load.
+        if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
+            state.unsubscribe = global.Web2SSE.subscribe('web2:variants', (msg) => {
+                if (msg?.data?.by && msg.data.by === state.clientId) return;
+                _scheduleRefresh('sse');
+            });
+            return;
+        }
         const db = _ensureFirestore();
         if (!db) return;
         const ref = db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);

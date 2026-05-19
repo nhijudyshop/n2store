@@ -25,6 +25,29 @@
 
 ## 2026-05-19
 
+### [web2-variants + web2-users + fast-sale-orders] Wire SSE notify cho 3 routes còn lại + cache layer SSE for variants
+
+**User yêu cầu**: tiếp tục — complete 3 todo routes còn nợ (variants, users, PBH).
+
+**Server side** (`render.com/routes/`):
+
+- `web2-variants.js`: thêm `initializeNotifiers + _notify('variants', action, id)`. Gọi sau 3 endpoints: POST `/`, PATCH `/:id`, DELETE `/:id`. Topic: `web2:variants`.
+- `web2-users.js`: thêm `initializeNotifiers + _notify('users', action, id)`. Gọi sau 5 endpoints: create, update, update-permissions, change-password, deactivate. Topic: `web2:users`.
+- `fast-sale-orders.js` (PBH): thêm `initializeNotifiers + _notify('fast-sale-orders', action, number)`. Gọi sau 8 endpoints: bulk-confirm/cancel, create, from-native-order, PATCH /:number, cancel/confirm/print/delete, reset-stt. Topic: `web2:fast-sale-orders`.
+
+**Server wiring** (`server.js`): thêm `initializeNotifiers(realtimeSseRoutes.notifyClients)` cho 3 routes.
+
+**Client side**:
+
+- `web2/shared/web2-variants-cache.js` `_setupRealtime()`: ưu tiên `Web2SSE.subscribe('web2:variants', ...)`; fallback Firestore tickle (cùng pattern web2-products-cache).
+- `web2/users/js/users-app.js`: thêm `_sseConnect()` sau `init()` → subscribe `web2:users`, debounce 600ms reload.
+- HTML thêm `<script src="web2-sse-bridge.js?v=20260519a">`: web2/variants/, web2/users/, web2/fastsaleorder-invoice/.
+- PBH (pbh-app.js) **không** wire SSE subscribe — đã có WS realtime qua `PbhRealtime`. Server notify giữ để pages khác listen được.
+
+**Status**: ✅ Done
+
+---
+
 ### [purchase-orders] Hover x5 zoom + click lightbox cho ảnh trong form "Tạo đơn đặt hàng"
 
 **User yêu cầu**: Form tạo đơn hàng tại `purchase-orders/index.html` — hover ảnh thì zoom to x5, click thì mở ảnh full-screen.

@@ -510,6 +510,21 @@ if (nativeOrdersRoutes.initializeNotifiers) {
 if (web2GenericRoutes.initializeNotifiers) {
     web2GenericRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
+if (web2VariantsRoutes.initializeNotifiers) {
+    web2VariantsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+{
+    const fastSaleOrdersRoutes = require('./routes/fast-sale-orders');
+    if (fastSaleOrdersRoutes.initializeNotifiers) {
+        fastSaleOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    }
+}
+{
+    const web2UsersRoutes = require('./routes/web2-users');
+    if (web2UsersRoutes.initializeNotifiers) {
+        web2UsersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    }
+}
 
 // Initialize SSE notifiers in order-notes routes
 if (orderNotesRoutes.initializeNotifiers) {

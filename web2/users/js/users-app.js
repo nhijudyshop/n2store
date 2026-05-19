@@ -425,6 +425,25 @@
         await loadAll();
         renderList();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        _sseConnect();
+    }
+
+    // SSE: refresh khi user khác create/update/delete user qua trang khác
+    let _sseUnsubscribe = null;
+    let _sseReloadTimer = null;
+    function _sseConnect() {
+        if (!window.Web2SSE?.subscribe) return;
+        if (_sseUnsubscribe) return;
+        _sseUnsubscribe = window.Web2SSE.subscribe('web2:users', (msg) => {
+            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            _sseReloadTimer = setTimeout(async () => {
+                _sseReloadTimer = null;
+                console.log('[users-app-SSE] event:', msg.data?.action, msg.data?.id || '');
+                await loadAll();
+                renderList();
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            }, 600);
+        });
     }
 
     if (document.readyState === 'loading') {
