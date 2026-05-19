@@ -241,23 +241,9 @@ router.get('/list', async (req, res) => {
     }
 });
 
-router.get('/:id', async (req, res) => {
-    const pool = req.app.locals.chatDb;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    try {
-        await ensureTables(pool);
-        const r = await pool.query(`SELECT * FROM web2_variants WHERE id = $1 LIMIT 1`, [
-            req.params.id,
-        ]);
-        if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
-        res.json({ success: true, variant: mapRow(r.rows[0]) });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
 // GET /suggest-short-code?value=Màu Xanh Dương&groupName=Màu
 // Trả về shortcode đề xuất + collision info (nếu có).
+// Đặt TRƯỚC /:id để route literal khớp trước (Express match-first-wins).
 router.get('/suggest-short-code', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
@@ -304,6 +290,22 @@ router.post('/backfill-short-codes', async (req, res) => {
         res.json({ success: true, updated, total: r.rows.length });
     } catch (e) {
         console.error('[WEB2-VARIANTS] backfill error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /:id — fetch single variant by id. Đặt SAU các literal routes để tránh xung đột.
+router.get('/:id(\\d+)', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(`SELECT * FROM web2_variants WHERE id = $1 LIMIT 1`, [
+            req.params.id,
+        ]);
+        if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        res.json({ success: true, variant: mapRow(r.rows[0]) });
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
