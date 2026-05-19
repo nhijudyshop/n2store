@@ -1,9 +1,9 @@
 # Smoke Test Report — 142 pages
 
-Generated: 2026-05-18T04:35:37.292Z
+Generated: 2026-05-19T11:37:25.074Z
 
-- ✅ Clean: **100**
-- ❌ Issues: **42**
+- ✅ Clean: **101**
+- ❌ Issues: **41**
 
 ## Pages with issues (sorted by severity)
 
@@ -27,7 +27,7 @@ Generated: 2026-05-18T04:35:37.292Z
 | `/invoice-compare/index.html`                 | 200  | So Sánh Đơn Hàng               | 1      | 0         |           | ✓     |       |
 | `/issue-tracking/index.html`                  | 200  | Quản lý Sự vụ & Điều phối sau  | 1      | 0         |           | ✓     |       |
 | `/lichsuchinhsua/index.html`                  | 200  | Lịch Sử Chỉnh Sửa - Nhật Ký Ki | 1      | 0         |           | ✓     |       |
-| `/native-orders/index.html`                   | 200  | Đơn Web — N2Store              | 3      | 0         |           | ✓     |       |
+| `/native-orders/index.html`                   | 200  | Đơn Web - WEB 2.0              | 4      | 0         |           | ✓     |       |
 | `/nhanhang/index.html`                        | 200  | Cân nặng hàng                  | 1      | 0         |           | ✓     |       |
 | `/order-management/hidden-products.html`      | 200  | Danh sách Sản phẩm đã ẩn - N2S | 1      | 0         |           | ✓     |       |
 | `/order-management/index.html`                | 200  | Quản lý Order - N2STORE        | 1      | 0         |           | ✓     |       |
@@ -49,7 +49,6 @@ Generated: 2026-05-18T04:35:37.292Z
 | `/soorder/index.html`                         | 200  | Sổ Order                       | 1      | 0         |           | ✓     |       |
 | `/soquy/index.html`                           | 200  | Sổ Quỹ - N2STORE               | 1      | 0         |           | ✓     |       |
 | `/supplier-debt/index.html`                   | 200  | Công nợ nhà cung cấp           | 1      | 0         |           | ✓     |       |
-| `/tpos-pancake/index.html`                    | 200  | Tpos - Pancake                 | 1      | 0         |           | ✓     |       |
 | `/user-management/index.html`                 | 200  | Quản Lý Tài Khoản - N2STORE    | 1      | 0         |           | ✓     |       |
 
 ## Top errors (first 3 per broken page)
@@ -57,133 +56,133 @@ Generated: 2026-05-18T04:35:37.292Z
 ### `/`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/AI/gemini.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/balance-history/index.html`
 
 - err: [ACCOUNTANT] Stats error: TypeError: Failed to fetch
-  at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:623:36)
-  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:207:9)
+  at loadDashboardStats (http://localhost:8093/balance-history/js/accountant.js?v=20260505a:623:36)
+  at HTMLDocument.init (http://localhost:8093/balance-history/js/accountant.js?v=20260505a:207:9)
 - err: [ACCOUNTANT] Load queue error: TypeError: Failed to fetch
-  at loadPendingQueue (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:709:36)
-  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:208:9)
+  at loadPendingQueue (http://localhost:8093/balance-history/js/accountant.js?v=20260505a:709:36)
+  at HTMLDocument.init (http://localhost:8093/balance-history/js/accountant.js?v=20260505a:208:9)
 - err: [ACCOUNTANT] Load auto-approve setting error: TypeError: Failed to fetch
-  at loadAutoApproveSetting (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:2259:36)
-  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260505a:209:9)
+  at loadAutoApproveSetting (http://localhost:8093/balance-history/js/accountant.js?v=20260505a:2259:36)
+  at HTMLDocument.init (http://localhost:8093/balance-history/js/accountant.js?v=20260505a:209:9)
 
 ### `/bangkiemhang/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/customer-hub/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/delivery-report/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/doi-soat/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/don-inbox/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/facebook-services/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/fb-ads/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/firebase-stats/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/hanghoan/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/inbox/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/inventory-tracking/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/invoice-compare/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/issue-tracking/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/lichsuchinhsua/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/native-orders/index.html`
 
@@ -194,170 +193,163 @@ Generated: 2026-05-18T04:35:37.292Z
 ### `/nhanhang/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/order-management/hidden-products.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/order-management/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/order-management/order-list.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/orders-report/main.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 - err: [MenuLayout] Error saving to API: TypeError: Failed to fetch
-  at http://localhost:8080/shared/js/navigation-modern.js:1858:36
+  at http://localhost:8093/shared/js/navigation-modern.js:1858:36
 
 ### `/phone-management/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/product-warehouse/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/project-tracker/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/purchase-orders/goods-receiving/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/purchase-orders/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/quy-trinh/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/render-data-manager/index.html`
 
 - err: [DATA-MANAGER] Load tables error: TypeError: Failed to fetch
-  at loadTableList (http://localhost:8080/render-data-manager/js/main.js:116:28)
-  at HTMLDocument.<anonymous> (http://localhost:8080/render-data-manager/js/main.js:62:5)
+  at loadTableList (http://localhost:8093/render-data-manager/js/main.js:116:28)
+  at HTMLDocument.<anonymous> (http://localhost:8093/render-data-manager/js/main.js:62:5)
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/service-costs/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soluong-live/hidden-soluong.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soluong-live/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soluong-live/sales-report.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soluong-live/social-sales.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soluong-live/soluong-list.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soorder/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/soquy/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/supplier-debt/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
-
-### `/tpos-pancake/index.html`
-
-- err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js?v=20260412:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js?v=20260412:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js?v=20260412:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
 ### `/user-management/index.html`
 
 - err: [MenuLayout] Error loading from API: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/shared/js/navigation-modern.js:1625:32)
-  at Object.init (http://localhost:8080/shared/js/navigation-modern.js:1452:20)
-  at UnifiedNavigationManager.init (http://localhost:8080/shared/js/navigation-modern.js:1993:35)
+  at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
+  at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
+  at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
-## Clean pages (100)
+## Clean pages (101)
 
 - `/orders-report/migration-kpi-per-user.html`
 - `/orders-report/tab-kpi-commission.html`
@@ -374,6 +366,7 @@ Generated: 2026-05-18T04:35:37.292Z
 - `/stitch_customer/customer_search.html`
 - `/stitch_customer/transaction-activity.html`
 - `/stitch_customer/Unlinked_Bank_Transactions.html`
+- `/tpos-pancake/index.html`
 - `/web2/account-chi/index.html`
 - `/web2/account-deposit/index.html`
 - `/web2/account-inventory/index.html`
