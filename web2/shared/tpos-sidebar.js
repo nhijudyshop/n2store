@@ -763,12 +763,23 @@
                     }
                 }, 100);
             }
-            // Restore collapsed state from localStorage on mount
-            setCollapsed(isCollapsed());
+            // Restore collapsed state from localStorage on mount.
+            // opts.forceExpand: page-specific override → luôn start expanded,
+            // toggle session-only (không persist) — dùng cho page có UI dày
+            // (vd tpos-pancake) tránh user mất login footer vì state cũ.
+            if (opts.forceExpand) {
+                document.body.classList.remove('web2-sidebar-collapsed');
+            } else {
+                setCollapsed(isCollapsed());
+            }
             const toggle = el.querySelector('#web2SidebarToggle');
             toggle?.addEventListener('click', (e) => {
                 e.stopPropagation();
-                setCollapsed(!isCollapsed());
+                if (opts.forceExpand) {
+                    document.body.classList.toggle('web2-sidebar-collapsed');
+                } else {
+                    setCollapsed(!isCollapsed());
+                }
             });
             if (window.lucide) lucide.createIcons();
         },
