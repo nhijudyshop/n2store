@@ -705,16 +705,11 @@
         <script src="js/layout/app-init.js?v=20260412"></script>
 
         <!-- Web 2.0 sidebar mount -->
-        <script src="../web2/shared/tpos-sidebar.js?v=20260519i"></script>
+        <script src="../web2/shared/tpos-sidebar.js?v=20260514f"></script>
         <script>
             if (window.Web2Sidebar) {
                 try {
-                    // forceExpand: tpos-pancake luôn show sidebar đầy đủ (login footer
-                    // hiển thị rõ), không nhớ collapse state từ localStorage.
-                    Web2Sidebar.mount('#web2Aside', {
-                        activeRoute: 'tpos-pancake',
-                        forceExpand: true,
-                    });
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'tpos-pancake' });
                 } catch (e) {
                     console.warn('[sidebar]', e);
                 }
