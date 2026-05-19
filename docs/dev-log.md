@@ -25,6 +25,25 @@
 
 ## 2026-05-19
 
+### [docs + memory] Cập nhật SSE-REALTIME.md section 9 + WEB2-INDEX + memory với 7 topics đã wire xong
+
+**Mục đích**: codify trạng thái cuối ngày 2026-05-19. Toàn bộ 7 topics + 78 generic pages đã wire SSE realtime. Đảm bảo future sessions đọc được pattern + danh sách live topics.
+
+**Cập nhật**:
+
+- `docs/web2/SSE-REALTIME.md` section 9 (Existing topics map):
+    - Mở rộng bảng từ 6 topics (mostly ⏳ Todo) thành **7 topics + 78 generic** (tất cả ✅ Live).
+    - Thêm pipeline note "SePay → wallet realtime" với ASCII diagram đầy đủ + subscribe convention (`wallet:<phone>` vs `wallet:all`).
+- `docs/web2/WEB2-INDEX.md`:
+    - Thêm `Web2SSE` vào bảng shared client libs.
+    - Thêm section "Realtime pattern" với pointer BẮT BUỘC đến SSE-REALTIME.md.
+- Memory `~/.claude/projects/.../reference_web2_sse_realtime.md`:
+    - Cập nhật "Existing topics" từ trạng thái Todo cũ sang live với endpoint counts + SePay pipeline.
+
+**Status**: ✅ Done
+
+---
+
 ### [supplier-wallet + supplier-debt] Wire SSE realtime — auto-refresh khi SePay + so-order data change
 
 **User yêu cầu**: tiếp tục — wire 2 page Ví NCC + Báo cáo công nợ NCC.

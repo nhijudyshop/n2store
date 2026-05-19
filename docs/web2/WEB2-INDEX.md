@@ -52,14 +52,21 @@ Cloudflare Worker proxy: `https://chatomni-proxy.nhijudyshop.workers.dev` forwar
 
 ## Shared client libs
 
-| Lib                 | File                                                                                   | Vai trò                                  |
-| ------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `Web2Sidebar`       | [`web2/shared/tpos-sidebar.js`](../../web2/shared/tpos-sidebar.js)                     | Sidebar NAV mount                        |
-| `Web2Shell`         | [`web2/shared/page-shell.js`](../../web2/shared/page-shell.js)                         | Bootstrap cho TPOS-clone pages           |
-| `Web2Api`           | [`web2/shared/web2-api.js`](../../web2/shared/web2-api.js)                             | Generic API client (`/api/web2/:entity`) |
-| `Web2ProductsApi`   | [`web2/products/js/web2-products-api.js`](../../web2/products/js/web2-products-api.js) | Kho SP API client                        |
-| `Web2ProductsCache` | [`web2/shared/web2-products-cache.js`](../../web2/shared/web2-products-cache.js)       | Realtime cache kho SP                    |
-| `Web2VariantsCache` | [`web2/shared/web2-variants-cache.js`](../../web2/shared/web2-variants-cache.js)       | Realtime cache biến thể                  |
+| Lib                 | File                                                                                   | Vai trò                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Web2Sidebar`       | [`web2/shared/tpos-sidebar.js`](../../web2/shared/tpos-sidebar.js)                     | Sidebar NAV mount                                                              |
+| `Web2Shell`         | [`web2/shared/page-shell.js`](../../web2/shared/page-shell.js)                         | Bootstrap cho TPOS-clone pages                                                 |
+| `Web2Api`           | [`web2/shared/web2-api.js`](../../web2/shared/web2-api.js)                             | Generic API client (`/api/web2/:entity`)                                       |
+| `Web2ProductsApi`   | [`web2/products/js/web2-products-api.js`](../../web2/products/js/web2-products-api.js) | Kho SP API client                                                              |
+| `Web2ProductsCache` | [`web2/shared/web2-products-cache.js`](../../web2/shared/web2-products-cache.js)       | Realtime cache kho SP                                                          |
+| `Web2VariantsCache` | [`web2/shared/web2-variants-cache.js`](../../web2/shared/web2-variants-cache.js)       | Realtime cache biến thể                                                        |
+| `Web2SSE`           | [`web2/shared/web2-sse-bridge.js`](../../web2/shared/web2-sse-bridge.js)               | SSE pub/sub bridge (subscribe topic, multiplex multi-topics qua 1 EventSource) |
+
+## Realtime pattern
+
+> **BẮT BUỘC đọc trước khi code realtime/data-sync**: [`docs/web2/SSE-REALTIME.md`](SSE-REALTIME.md).
+
+Web 2.0 dùng **SSE pub/sub trên Render** (`realtime-sse.js`) thay vì Firebase Firestore listener. Topic convention `web2:<entity>` (CRUD entity) hoặc `wallet:<phone>` / `wallet:*` (SePay events). 7 topics + 78 generic auto đã wire — xem section 9 của SSE-REALTIME.md.
 
 ## Data flow (xem dev-log 2026-05-18 audit)
 

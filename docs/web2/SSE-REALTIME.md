@@ -331,16 +331,35 @@ Với shop ~100 mutations/ngày × 5 clients online:
 
 ## 9. Existing topics map (cập nhật khi thêm topic mới)
 
-| Topic                                                | Server notify                                     | Client subscribers                                                    | Status    | Migrated date |
-| ---------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------- | --------- | ------------- |
-| `web2:products`                                      | `routes/web2-products.js` (7 endpoints)           | web2/products, so-order, supplier-wallet (qua cache), customer-wallet | ✅ Live   | 2026-05-19    |
-| `web2:native-orders`                                 | `routes/native-orders.js` (5 endpoints)           | native-orders                                                         | ✅ Live   | 2026-05-19    |
-| `web2:variants`                                      | `routes/web2-variants.js`                         | web2/variants, so-order                                               | ⏳ Todo   | —             |
-| `web2:so-order`                                      | `routes/web2-generic.js` (entity=so-order)        | so-order                                                              | ⏳ Todo   | —             |
-| `web2:supplier-wallet:<phone>`                       | `routes/supplier-wallet.js`                       | supplier-wallet                                                       | ⏳ Todo   | —             |
-| `web2:customer-wallet:<phone>` hoặc `wallet:<phone>` | walletEvents → SSE (đã có sẵn từ realtime-sse.js) | customer-wallet                                                       | ✅ Có sẵn | Pre-existing  |
+| Topic                         | Server notify                                                                                    | Client subscribers                                                                                 | Status  | Migrated date |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------- | ------------- |
+| `web2:products`               | `routes/web2-products.js` (7 endpoints)                                                          | web2/products (cache), so-order, supplier-wallet (cache), customer-wallet, supplier-debt (báo cáo) | ✅ Live | 2026-05-19    |
+| `web2:variants`               | `routes/web2-variants.js` (3 endpoints)                                                          | web2/variants (cache), so-order                                                                    | ✅ Live | 2026-05-19    |
+| `web2:users`                  | `routes/web2-users.js` (5 endpoints)                                                             | web2/users                                                                                         | ✅ Live | 2026-05-19    |
+| `web2:native-orders`          | `routes/native-orders.js` (5 endpoints)                                                          | native-orders                                                                                      | ✅ Live | 2026-05-19    |
+| `web2:fast-sale-orders`       | `routes/fast-sale-orders.js` (8+ endpoints)                                                      | PBH page (dùng WS qua `PbhRealtime`), supplier-debt (báo cáo)                                      | ✅ Live | 2026-05-19    |
+| `web2:<slug>` (78 generic)    | `routes/web2-generic.js` × 5 endpoints                                                           | tất cả pages dùng `Web2Shell.bootstrap({ slug })` (page-builder framework auto)                    | ✅ Live | 2026-05-19    |
+| `wallet:<phone>` / `wallet:*` | `services/wallet-event-processor` → `walletEvents.emit('wallet:update')` → realtime-sse listener | customer-wallet (`wallet:all`), supplier-wallet (`wallet:all`), supplier-debt                      | ✅ Live | 2026-05-19    |
 
 **Khi thêm topic mới**: update bảng này + update [WEB2-INDEX.md](WEB2-INDEX.md).
+
+### Pipeline note — SePay → wallet realtime
+
+```
+SePay app/bank → POST /api/sepay/webhook → sepay-webhook-core.js
+  → wallet-event-processor.processIncomingPayment()
+     → Postgres TX: UPDATE customer_wallets, INSERT customer_wallet_transactions
+     → walletEvents.emit('wallet:update', { phone, wallet, transaction })
+  → realtime-sse.js listener (line 369)
+     → SSE broadcast topic 'wallet:<phone>' + wildcard 'wallet:*'
+  → Web2SSE.subscribe('wallet:all', cb) on customer/supplier-wallet pages
+     → debounce 800ms → pollDeposits() + toast 💰
+```
+
+Subscribe convention:
+
+- **`wallet:<phone>`**: detail page chỉ xem 1 khách/NCC cụ thể
+- **`wallet:all`**: admin/list page xem mọi giao dịch (match wildcard `wallet:*` của server `notifyClientsWildcard('wallet', …)`)
 
 ---
 
