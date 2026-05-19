@@ -1,0 +1,618 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
+// =====================================================
+// RECONCILE (PBH Fulfillment) REST API — WEB 2.0 MODULE
+// =====================================================
+// Đối soát + đóng gói PBH:
+//   pending → picking → picked → packed → shipped → delivered
+// 1 kho, 1 nhân viên, scanner-driven. Stock đã trừ tại lúc tạo PBH (web2_products.stock),
+// reconcile KHÔNG trừ lại — chỉ verify pick + state machine + audit log.
+//
+// Endpoints:
+//   GET    /api/reconcile/health
+//   GET    /api/reconcile/list                   — list PBH theo fulfillment_state
+//   GET    /api/reconcile/:number                — detail 1 PBH
+//   POST   /api/reconcile/:number/scan           — scan 1 SP (productCode) → +1 picked_qty
+//   POST   /api/reconcile/:number/manual-pick    — set picked_qty trực tiếp cho 1 line
+//   POST   /api/reconcile/:number/reset-pick     — clear picked_lines, về pending
+//   POST   /api/reconcile/:number/pack           — chuyển → packed (block nếu thiếu)
+//   POST   /api/reconcile/:number/ship           — chuyển → shipped
+//   POST   /api/reconcile/:number/deliver        — chuyển → delivered
+//   GET    /api/reconcile/:number/logs           — audit log của 1 PBH
+//
+// SSE: broadcast 'web2:reconcile' + 'web2:fast-sale-orders' sau mỗi mutation.
+
+const express = require('express');
+const router = express.Router();
+
+// -----------------------------------------------------
+// SSE notifier
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, number, extra = {}) {
+    if (!_notifyClients) return;
+    try {
+        const payload = { action, number: number || null, ts: Date.now(), ...extra };
+        _notifyClients('web2:reconcile', payload, 'update');
+        // Cross-broadcast cho PBH page biết fulfillment_state thay đổi
+        _notifyClients(
+            'web2:fast-sale-orders',
+            { action: `reconcile:${action}`, number: number || null, ts: Date.now() },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[RECONCILE] _notify failed:', e.message);
+    }
+}
+
+// -----------------------------------------------------
+// Schema (chỉ tạo bảng audit log; cột fulfillment_* đã có ở fast-sale-orders.js migration 076)
+// -----------------------------------------------------
+let _ready = false;
+async function ensureTables(pool) {
+    if (_ready) return;
+    try {
+        await pool.query(`
+            -- Migration 076b: Audit log cho mọi mutation fulfillment
+            CREATE TABLE IF NOT EXISTS pbh_fulfillment_logs (
+                id           BIGSERIAL PRIMARY KEY,
+                pbh_number   VARCHAR(50) NOT NULL,
+                action       VARCHAR(40) NOT NULL,   -- scan|manual-pick|reset-pick|pack|ship|deliver|cancel-pack
+                payload      JSONB,
+                state_before VARCHAR(20),
+                state_after  VARCHAR(20),
+                user_id      VARCHAR(100),
+                user_name    VARCHAR(255),
+                created_at   BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_pbh_log_number ON pbh_fulfillment_logs(pbh_number);
+            CREATE INDEX IF NOT EXISTS idx_pbh_log_created ON pbh_fulfillment_logs(created_at DESC);
+        `);
+        _ready = true;
+        console.log('[RECONCILE] Tables created/verified (migration 076b)');
+    } catch (e) {
+        console.error('[RECONCILE] migration error:', e.message);
+    }
+}
+
+// -----------------------------------------------------
+// Helpers
+// -----------------------------------------------------
+const FULFILL_STATES = [
+    'pending',
+    'picking',
+    'picked',
+    'packed',
+    'shipped',
+    'delivered',
+    'cancelled',
+];
+
+function userFromReq(req) {
+    return {
+        id: req.body?.userId || req.headers['x-user-id'] || null,
+        name: req.body?.userName || req.headers['x-user-name'] || null,
+    };
+}
+
+async function logAction(pool, pbhNumber, action, payload, stateBefore, stateAfter, user) {
+    try {
+        await pool.query(
+            `INSERT INTO pbh_fulfillment_logs
+               (pbh_number, action, payload, state_before, state_after, user_id, user_name, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [
+                pbhNumber,
+                action,
+                JSON.stringify(payload || {}),
+                stateBefore,
+                stateAfter,
+                user.id,
+                user.name,
+                Date.now(),
+            ]
+        );
+    } catch (e) {
+        console.warn('[RECONCILE] logAction failed:', e.message);
+    }
+}
+
+function mapPbh(row) {
+    if (!row) return null;
+    const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
+    const picked = Array.isArray(row.fulfillment_picked_lines) ? row.fulfillment_picked_lines : [];
+    const pickedByCode = new Map();
+    for (const p of picked) {
+        if (p && p.productCode) pickedByCode.set(p.productCode, Number(p.picked_qty) || 0);
+    }
+    // Mỗi line + picked_qty
+    const mergedLines = lines.map((l) => ({
+        productCode: l.productCode || l.code || null,
+        productName: l.productName || l.name || l.productCode || '',
+        quantity: Number(l.quantity) || 0,
+        priceUnit: Number(l.priceUnit ?? l.price ?? 0),
+        picked_qty: pickedByCode.get(l.productCode) || 0,
+    }));
+    const totalQty = mergedLines.reduce((s, l) => s + l.quantity, 0);
+    const totalPicked = mergedLines.reduce((s, l) => s + l.picked_qty, 0);
+    return {
+        number: row.number,
+        displayStt: row.display_stt,
+        mergedDisplayStt: row.merged_display_stt || null,
+        partner: {
+            name: row.partner_name,
+            phone: row.partner_phone,
+            address: row.partner_address,
+        },
+        state: row.state,
+        fulfillmentState: row.fulfillment_state || 'pending',
+        packedAt: row.fulfillment_packed_at != null ? Number(row.fulfillment_packed_at) : null,
+        shippedAt: row.fulfillment_shipped_at != null ? Number(row.fulfillment_shipped_at) : null,
+        deliveredAt:
+            row.fulfillment_delivered_at != null ? Number(row.fulfillment_delivered_at) : null,
+        lines: mergedLines,
+        totals: {
+            quantity: totalQty,
+            picked: totalPicked,
+            isComplete: totalPicked >= totalQty && totalQty > 0,
+        },
+        amountTotal: Number(row.amount_total || 0),
+        dateInvoice: row.date_invoice,
+    };
+}
+
+async function getPbh(pool, number) {
+    const r = await pool.query(
+        `SELECT number, display_stt, merged_display_stt,
+                partner_name, partner_phone, partner_address,
+                state, fulfillment_state, fulfillment_picked_lines,
+                fulfillment_packed_at, fulfillment_shipped_at, fulfillment_delivered_at,
+                order_lines, amount_total, date_invoice
+         FROM fast_sale_orders WHERE number = $1`,
+        [number]
+    );
+    return r.rows[0] || null;
+}
+
+// -----------------------------------------------------
+// GET /health
+// -----------------------------------------------------
+router.get('/health', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT fulfillment_state, COUNT(*)::int AS n
+             FROM fast_sale_orders
+             WHERE state IN ('confirmed','done')
+             GROUP BY fulfillment_state`
+        );
+        const counts = {};
+        for (const s of FULFILL_STATES) counts[s] = 0;
+        for (const row of r.rows) counts[row.fulfillment_state || 'pending'] = row.n;
+        res.json({ ok: true, counts });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// GET /list?state=pending|picking|picked|packed|shipped|delivered|all
+// Mặc định: trả về PBH cần xử lý (pending + picking + picked + packed).
+// Filter state PBH: chỉ những PBH state='confirmed' hoặc 'done' (đã xác nhận).
+// -----------------------------------------------------
+router.get('/list', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const stateFilter = req.query.state || 'active';
+        const search = req.query.search ? String(req.query.search).trim() : '';
+        const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
+
+        const conds = [`state IN ('confirmed','done')`];
+        const params = [];
+
+        if (stateFilter === 'active') {
+            conds.push(
+                `COALESCE(fulfillment_state,'pending') IN ('pending','picking','picked','packed')`
+            );
+        } else if (stateFilter !== 'all' && FULFILL_STATES.includes(stateFilter)) {
+            params.push(stateFilter);
+            conds.push(`COALESCE(fulfillment_state,'pending') = $${params.length}`);
+        }
+
+        if (search) {
+            params.push(`%${search}%`);
+            const i = params.length;
+            conds.push(
+                `(partner_name ILIKE $${i} OR partner_phone ILIKE $${i} OR number ILIKE $${i})`
+            );
+        }
+
+        const where = 'WHERE ' + conds.join(' AND ');
+        const r = await pool.query(
+            `SELECT number, display_stt, merged_display_stt,
+                    partner_name, partner_phone, partner_address,
+                    state, fulfillment_state, fulfillment_picked_lines,
+                    fulfillment_packed_at, fulfillment_shipped_at, fulfillment_delivered_at,
+                    order_lines, amount_total, date_invoice
+             FROM fast_sale_orders ${where}
+             ORDER BY date_invoice DESC
+             LIMIT ${limit}`,
+            params
+        );
+        res.json({ success: true, items: r.rows.map(mapPbh) });
+    } catch (e) {
+        console.error('[RECONCILE] list error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// GET /:number — detail
+// -----------------------------------------------------
+router.get('/:number', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const row = await getPbh(pool, req.params.number);
+        if (!row) return res.status(404).json({ error: 'PBH not found' });
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// Internal helper: apply pick mutation atomically
+// -----------------------------------------------------
+async function applyPick(pool, number, mutator) {
+    const r = await pool.query(`SELECT * FROM fast_sale_orders WHERE number = $1 FOR UPDATE`, [
+        number,
+    ]);
+    const row = r.rows[0];
+    if (!row) throw new Error('PBH not found');
+    if (!['confirmed', 'done'].includes(row.state)) {
+        throw new Error(`PBH state=${row.state} không thể pick (cần confirmed/done)`);
+    }
+    const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
+    const picked = Array.isArray(row.fulfillment_picked_lines) ? row.fulfillment_picked_lines : [];
+    const stateBefore = row.fulfillment_state || 'pending';
+
+    if (['packed', 'shipped', 'delivered', 'cancelled'].includes(stateBefore)) {
+        throw new Error(`Không thể chỉnh pick khi PBH đã ở state ${stateBefore}`);
+    }
+
+    const updated = mutator({ lines, picked });
+
+    // Tính state mới
+    const totalQty = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+    const totalPicked = updated.reduce((s, p) => s + (Number(p.picked_qty) || 0), 0);
+    let newState;
+    if (totalPicked === 0) newState = 'pending';
+    else if (totalPicked >= totalQty) newState = 'picked';
+    else newState = 'picking';
+
+    await pool.query(
+        `UPDATE fast_sale_orders
+         SET fulfillment_picked_lines = $1::jsonb,
+             fulfillment_state = $2,
+             date_updated = NOW()
+         WHERE number = $3`,
+        [JSON.stringify(updated), newState, number]
+    );
+    return { stateBefore, stateAfter: newState, picked: updated, lines };
+}
+
+// -----------------------------------------------------
+// POST /:number/scan — quét 1 SP, +1 picked_qty
+// Body: { productCode }
+// -----------------------------------------------------
+router.post('/:number/scan', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const productCode = String(req.body?.productCode || '').trim();
+    if (!productCode) return res.status(400).json({ error: 'productCode required' });
+    const user = userFromReq(req);
+
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+        const result = await applyPick(client, number, ({ lines, picked }) => {
+            const line = lines.find((l) => (l.productCode || l.code) === productCode);
+            if (!line) {
+                throw new Error(`SP ${productCode} không có trong PBH này`);
+            }
+            const existing = picked.find((p) => p.productCode === productCode);
+            const maxQty = Number(line.quantity) || 0;
+            if (existing) {
+                if (existing.picked_qty >= maxQty) {
+                    throw new Error(
+                        `SP ${productCode} đã đủ (${existing.picked_qty}/${maxQty}). Không thể scan thêm.`
+                    );
+                }
+                return picked.map((p) =>
+                    p.productCode === productCode
+                        ? { ...p, picked_qty: p.picked_qty + 1, last_scan_at: Date.now() }
+                        : p
+                );
+            }
+            return [...picked, { productCode, picked_qty: 1, last_scan_at: Date.now() }];
+        });
+        await client.query('COMMIT');
+
+        await logAction(
+            pool,
+            number,
+            'scan',
+            { productCode },
+            result.stateBefore,
+            result.stateAfter,
+            user
+        );
+        _notify('scan', number, { productCode });
+
+        const row = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.warn('[RECONCILE] scan error:', e.message);
+        res.status(400).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// -----------------------------------------------------
+// POST /:number/manual-pick — set picked_qty trực tiếp 1 line
+// Body: { productCode, pickedQty }
+// -----------------------------------------------------
+router.post('/:number/manual-pick', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const productCode = String(req.body?.productCode || '').trim();
+    const qty = Math.max(0, parseInt(req.body?.pickedQty, 10) || 0);
+    if (!productCode) return res.status(400).json({ error: 'productCode required' });
+    const user = userFromReq(req);
+
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+        const result = await applyPick(client, number, ({ lines, picked }) => {
+            const line = lines.find((l) => (l.productCode || l.code) === productCode);
+            if (!line) throw new Error(`SP ${productCode} không có trong PBH này`);
+            const maxQty = Number(line.quantity) || 0;
+            if (qty > maxQty) throw new Error(`picked_qty (${qty}) > quantity (${maxQty})`);
+            const filtered = picked.filter((p) => p.productCode !== productCode);
+            if (qty === 0) return filtered;
+            return [...filtered, { productCode, picked_qty: qty, last_scan_at: Date.now() }];
+        });
+        await client.query('COMMIT');
+
+        await logAction(
+            pool,
+            number,
+            'manual-pick',
+            { productCode, pickedQty: qty },
+            result.stateBefore,
+            result.stateAfter,
+            user
+        );
+        _notify('manual-pick', number, { productCode, pickedQty: qty });
+
+        const row = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.warn('[RECONCILE] manual-pick error:', e.message);
+        res.status(400).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// -----------------------------------------------------
+// POST /:number/reset-pick — clear toàn bộ picked_lines, về pending
+// -----------------------------------------------------
+router.post('/:number/reset-pick', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const user = userFromReq(req);
+    try {
+        await ensureTables(pool);
+        const before = await getPbh(pool, number);
+        if (!before) return res.status(404).json({ error: 'PBH not found' });
+        const stateBefore = before.fulfillment_state || 'pending';
+        if (['packed', 'shipped', 'delivered'].includes(stateBefore)) {
+            return res.status(400).json({ error: `Không thể reset khi đã ở state ${stateBefore}` });
+        }
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_picked_lines = '[]'::jsonb,
+                 fulfillment_state = 'pending',
+                 date_updated = NOW()
+             WHERE number = $1`,
+            [number]
+        );
+        await logAction(pool, number, 'reset-pick', {}, stateBefore, 'pending', user);
+        _notify('reset-pick', number);
+        const row = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:number/pack — chuyển → packed
+// Block nếu picked_qty < quantity (KHÔNG cho thiếu hàng).
+// -----------------------------------------------------
+router.post('/:number/pack', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const user = userFromReq(req);
+    try {
+        await ensureTables(pool);
+        const before = await getPbh(pool, number);
+        if (!before) return res.status(404).json({ error: 'PBH not found' });
+        if (!['confirmed', 'done'].includes(before.state)) {
+            return res.status(400).json({ error: `PBH state=${before.state} không thể đóng gói` });
+        }
+        const stateBefore = before.fulfillment_state || 'pending';
+        if (stateBefore !== 'picked') {
+            // Verify đủ hàng
+            const lines = Array.isArray(before.order_lines) ? before.order_lines : [];
+            const picked = Array.isArray(before.fulfillment_picked_lines)
+                ? before.fulfillment_picked_lines
+                : [];
+            const pickedMap = new Map(picked.map((p) => [p.productCode, p.picked_qty || 0]));
+            const missing = [];
+            for (const l of lines) {
+                const code = l.productCode || l.code;
+                const need = Number(l.quantity) || 0;
+                const got = pickedMap.get(code) || 0;
+                if (got < need) missing.push({ code, name: l.productName || l.name, need, got });
+            }
+            if (missing.length > 0) {
+                return res.status(400).json({
+                    error: 'Chưa đủ hàng để đóng gói',
+                    missing,
+                });
+            }
+        }
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_state = 'packed',
+                 fulfillment_packed_at = $1,
+                 date_updated = NOW()
+             WHERE number = $2`,
+            [Date.now(), number]
+        );
+        await logAction(pool, number, 'pack', {}, stateBefore, 'packed', user);
+        _notify('pack', number);
+        const row = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        console.error('[RECONCILE] pack error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:number/ship — chuyển → shipped
+// -----------------------------------------------------
+router.post('/:number/ship', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const user = userFromReq(req);
+    try {
+        await ensureTables(pool);
+        const before = await getPbh(pool, number);
+        if (!before) return res.status(404).json({ error: 'PBH not found' });
+        const stateBefore = before.fulfillment_state || 'pending';
+        if (stateBefore !== 'packed') {
+            return res
+                .status(400)
+                .json({ error: `Phải đóng gói trước khi giao shipper (hiện: ${stateBefore})` });
+        }
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_state = 'shipped',
+                 fulfillment_shipped_at = $1,
+                 date_updated = NOW()
+             WHERE number = $2`,
+            [Date.now(), number]
+        );
+        await logAction(pool, number, 'ship', {}, stateBefore, 'shipped', user);
+        _notify('ship', number);
+        const row = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:number/deliver — chuyển → delivered
+// -----------------------------------------------------
+router.post('/:number/deliver', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const user = userFromReq(req);
+    try {
+        await ensureTables(pool);
+        const before = await getPbh(pool, number);
+        if (!before) return res.status(404).json({ error: 'PBH not found' });
+        const stateBefore = before.fulfillment_state || 'pending';
+        if (stateBefore !== 'shipped') {
+            return res
+                .status(400)
+                .json({ error: `Phải ship trước khi giao thành công (hiện: ${stateBefore})` });
+        }
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_state = 'delivered',
+                 fulfillment_delivered_at = $1,
+                 date_updated = NOW()
+             WHERE number = $2`,
+            [Date.now(), number]
+        );
+        await logAction(pool, number, 'deliver', {}, stateBefore, 'delivered', user);
+        _notify('deliver', number);
+        const row = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(row) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// GET /:number/logs — audit log
+// -----------------------------------------------------
+router.get('/:number/logs', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT id, action, payload, state_before, state_after,
+                    user_id, user_name, created_at
+             FROM pbh_fulfillment_logs
+             WHERE pbh_number = $1
+             ORDER BY created_at DESC
+             LIMIT 200`,
+            [req.params.number]
+        );
+        res.json({
+            success: true,
+            logs: r.rows.map((x) => ({
+                id: Number(x.id),
+                action: x.action,
+                payload: x.payload || {},
+                stateBefore: x.state_before,
+                stateAfter: x.state_after,
+                userId: x.user_id,
+                userName: x.user_name,
+                createdAt: Number(x.created_at),
+            })),
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.initializeNotifiers = initializeNotifiers;
+module.exports = router;

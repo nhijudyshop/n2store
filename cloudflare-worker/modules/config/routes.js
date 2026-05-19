@@ -113,6 +113,9 @@ export const ROUTES = {
     // Fast Sale Orders (PBH — Phiếu Bán Hàng) — convert native_order → invoice
     FAST_SALE_ORDERS: { pattern: '/api/fast-sale-orders/*' },
 
+    // Reconcile — PBH fulfillment (scan + pack + ship + deliver)
+    RECONCILE: { pattern: '/api/reconcile/*' },
+
     // Delivery Invoices (Phiếu Giao Hàng) — from PBH
     DELIVERY_INVOICES: { pattern: '/api/delivery-invoices/*' },
 
@@ -213,6 +216,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/native-orders/')) return 'NATIVE_ORDERS';
     if (pathname.startsWith('/api/fast-sale-orders/')) return 'FAST_SALE_ORDERS';
+    if (pathname.startsWith('/api/reconcile/')) return 'RECONCILE';
     if (pathname.startsWith('/api/delivery-invoices/')) return 'DELIVERY_INVOICES';
     if (pathname.startsWith('/api/refunds/')) return 'REFUNDS';
     if (pathname.startsWith('/api/pbh-reports/')) return 'PBH_REPORTS';

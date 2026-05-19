@@ -208,6 +208,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'FAST_SALE_ORDERS':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'RECONCILE':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'DELIVERY_INVOICES':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'REFUNDS':

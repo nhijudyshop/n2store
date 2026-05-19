@@ -1,0 +1,116 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Đối soát đóng gói - WEB 2.0</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260518e" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260515a" />
+        <link rel="stylesheet" href="css/reconcile.css?v=20260519a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content rc-main">
+                <header class="rc-page-head">
+                    <div class="rc-page-title">
+                        <i data-lucide="package-check"></i>
+                        <h1>Đối soát đóng gói</h1>
+                        <span class="rc-page-subtitle">Quét hàng → đóng gói → giao shipper</span>
+                    </div>
+                    <div class="rc-page-counters">
+                        <span class="counter-pill" id="rcCount">0</span>
+                        <button
+                            class="btn btn-secondary"
+                            id="rcRefreshBtn"
+                            type="button"
+                            title="Tải lại"
+                        >
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                    </div>
+                </header>
+
+                <section class="rc-toolbar">
+                    <div class="rc-toolbar-row">
+                        <div class="rc-scanner-box">
+                            <i data-lucide="scan-line"></i>
+                            <input
+                                id="rcScannerInput"
+                                type="text"
+                                placeholder="Quét barcode SP (hoặc gõ mã + Enter)…"
+                                autocomplete="off"
+                                inputmode="text"
+                                autofocus
+                            />
+                            <span class="rc-scanner-target" id="rcScannerTarget"
+                                >Chưa chọn PBH</span
+                            >
+                        </div>
+                        <input
+                            id="rcSearch"
+                            type="search"
+                            placeholder="Tìm PBH theo số, tên, SĐT…"
+                            autocomplete="off"
+                            class="rc-search-input"
+                        />
+                        <div class="rc-state-tabs" id="rcStateTabs">
+                            <button class="rc-tab is-active" data-state="active">Đang xử lý</button>
+                            <button class="rc-tab" data-state="pending">Chờ pick</button>
+                            <button class="rc-tab" data-state="picking">Đang pick</button>
+                            <button class="rc-tab" data-state="picked">Đã pick đủ</button>
+                            <button class="rc-tab" data-state="packed">Đã đóng gói</button>
+                            <button class="rc-tab" data-state="shipped">Đã giao shipper</button>
+                            <button class="rc-tab" data-state="delivered">Đã giao</button>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="rc-layout">
+                    <!-- Left: PBH list -->
+                    <section class="rc-list-panel">
+                        <div class="rc-list-header">
+                            <span>Danh sách PBH</span>
+                            <span class="rc-list-hint">Click để mở</span>
+                        </div>
+                        <ul class="rc-pbh-list" id="rcPbhList"></ul>
+                        <div class="rc-empty" id="rcEmpty" hidden>
+                            <i data-lucide="inbox"></i>
+                            <p>Không có PBH nào trong trạng thái này</p>
+                        </div>
+                    </section>
+
+                    <!-- Right: Detail panel -->
+                    <section class="rc-detail-panel" id="rcDetailPanel">
+                        <div class="rc-detail-empty" id="rcDetailEmpty">
+                            <i data-lucide="mouse-pointer-click"></i>
+                            <p>Chọn 1 PBH bên trái để bắt đầu đối soát</p>
+                            <p class="rc-detail-hint">
+                                Hoặc quét barcode SP — nếu đang mở 1 PBH, hệ thống sẽ +1 picked_qty.
+                            </p>
+                        </div>
+                        <div class="rc-detail-content" id="rcDetailContent" hidden></div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <script src="../shared/web2-auth.js?v=20260519a"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260518e"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260519a"></script>
+        <script src="js/reconcile-app.js?v=20260519a"></script>
+    </body>
+</html>

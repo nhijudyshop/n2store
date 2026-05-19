@@ -80,6 +80,10 @@
                     our: '../web2/fastsaleorder-invoice/index.html',
                 },
                 {
+                    label: 'Đối soát đóng gói',
+                    our: '../web2/reconcile/index.html',
+                },
+                {
                     label: 'Trả hàng',
                     tpos: '#/app/fastsaleorder/refundlist',
                     our: '../web2/fastsaleorder-refund/index.html',

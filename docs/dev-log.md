@@ -25,6 +25,26 @@
 
 ## 2026-05-19
 
+### [reconcile] Phase 1 MVP — Đối soát đóng gói PBH (scan + pack + ship + deliver)
+
+**Mục đích**: Trang `web2/reconcile/` để verify đủ hàng từng PBH trước khi đóng gói + giao shipper. Scope: 1 kho, 1 nhân viên, scanner đã gắn sẵn; KHÔNG ảnh chống tranh chấp, KHÔNG notify khách, KHÔNG tích hợp API GHN/J&T, KHÔNG cho thiếu hàng, KHÔNG trừ kho lại (đã trừ lúc tạo PBH).
+
+**State machine song song với state PBH (kế toán)**: `pending → picking → picked → packed → shipped → delivered` (cancelled). State PBH (`draft/confirmed/done/cancel`) độc lập, reconcile chỉ thao tác trên PBH có `state IN ('confirmed','done')`.
+
+**Files**:
+
+- `render.com/routes/reconcile.js` — route mới. Endpoints: `GET /health`, `GET /list?state=active|pending|picking|picked|packed|shipped|delivered|all`, `GET /:number`, `POST /:number/scan`, `POST /:number/manual-pick`, `POST /:number/reset-pick`, `POST /:number/pack` (block nếu picked < quantity), `POST /:number/ship`, `POST /:number/deliver`, `GET /:number/logs`. Atomic `applyPick` dùng `FOR UPDATE`. SSE broadcast `web2:reconcile` + cross-broadcast `web2:fast-sale-orders`.
+- `render.com/routes/fast-sale-orders.js` — Migration 076: ADD COLUMN `fulfillment_state` (default 'pending'), `fulfillment_picked_lines` JSONB, `fulfillment_packed_at`, `fulfillment_shipped_at`, `fulfillment_delivered_at`, INDEX `idx_fso_fulfillment_state`. `mapRow` thêm trường `fulfillment.{state,pickedLines,packedAt,shippedAt,deliveredAt}`.
+- `render.com/server.js` — require + mount `/api/reconcile`, gọi `initializeNotifiers(realtimeSseRoutes.notifyClients)` để SSE fire (theo pattern fast-sale-orders đã verify).
+- `cloudflare-worker/modules/config/routes.js` + `worker.js` — thêm route `RECONCILE: /api/reconcile/*` proxy qua `handleCustomer360Proxy`.
+- `web2/reconcile/index.html` + `js/reconcile-app.js` + `css/reconcile.css` — trang scanner-driven. Layout 2 cột: trái = DS PBH theo state tab (Đang xử lý / Chờ pick / Đang pick / Đã pick đủ / Đã đóng gói / Đã giao shipper / Đã giao), phải = detail PBH với bảng line + ô picked_qty per line + nút action theo state. Scanner input autofocus, Enter để +1 qty SP. Subscribe SSE `web2:reconcile` + `web2:fast-sale-orders`.
+- `web2/shared/tpos-sidebar.js` — thêm entry "Đối soát đóng gói" trong group Bán hàng (sau "Bán hàng (HĐ)").
+- `docs/web2/RECONCILE-PBH-PROPOSAL.md` — proposal gốc (đã có từ session trước).
+
+**Đã verify**: `node --check` all JS files OK. Browser smoke load page localhost:8093 → UI render đầy đủ (scanner box, 7 state tab, list panel, detail panel empty state). Backend chưa live trên Render → empty list là expected.
+
+**Pending**: deploy Render + publish CF Worker để verify end-to-end với PBH thật. Status: ✅ Code done, ⏳ awaiting deploy.
+
 ### [inventory-tracking] Modal "Quản Lý Ảnh SP": dời nút "Thêm NCC" từ header xuống dưới mỗi đợt
 
 **User feedback**: nút "+ Thêm NCC" nằm bên phải header mỗi đợt → muốn dời xuống dưới. Mỗi đợt phải có nút riêng vì context theo đợt.
