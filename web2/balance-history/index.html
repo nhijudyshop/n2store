@@ -22,6 +22,13 @@
             }
         </script>
 
+        <!-- Opt out của legacy navigation-modern.js auth redirect.
+             Web 2.0 dùng TPOS sidebar mount riêng + web2-users auth, không cần legacy nav.
+             KHÔNG có flag này → navigation-modern.js redirect về ../index.html khi chưa login. -->
+        <script>
+            window.__SKIP_LEGACY_NAV_AUTH = true;
+        </script>
+
         <!-- TPOS sidebar (Web 2.0 layout) -->
         <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260518e" />
 
