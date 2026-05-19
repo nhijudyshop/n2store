@@ -1084,4 +1084,5 @@ router.post('/reset-stt', async (req, res) => {
     }
 });
 
+router.initializeNotifiers = initializeNotifiers;
 module.exports = router;
