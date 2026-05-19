@@ -380,7 +380,9 @@
         <script src="../web2/shared/web2-new-msg-badge.js?v=20260514a"></script>
         <script src="../web2/shared/web2-quick-reply.js?v=20260514a"></script>
         <script src="../web2/shared/web2-sse-bridge.js?v=20260519a"></script>
-        <script src="../web2/shared/web2-bill-service.js?v=20260519g"></script>
+        <!-- JsBarcode local — load 1 lần, browser cache, pre-render SVG ở parent → bill in instant -->
+        <script src="../web2/shared/jsbarcode-code128.min.js?v=3.11.6"></script>
+        <script src="../web2/shared/web2-bill-service.js?v=20260519h"></script>
         <script src="js/native-orders-api.js?v=20260513b"></script>
         <script src="js/native-orders-app.js?v=20260519c"></script>
         <script>

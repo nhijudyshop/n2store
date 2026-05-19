@@ -6,6 +6,7 @@ dist/
 build/
 *.min.js
 !**/js/lib/*.min.js
+!web2/shared/*.min.js
 *.min.css
 *.min.html
 

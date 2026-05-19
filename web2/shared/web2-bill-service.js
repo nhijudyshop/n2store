@@ -26,6 +26,31 @@
 
     if (global.Web2Bill) return;
 
+    // Pre-render barcode SVG ngay trong parent context — bill HTML thuần static,
+    // không cần JsBarcode/CDN trong print window → in nhanh, no fixed delays.
+    // Yêu cầu host page load: <script src="../web2/shared/jsbarcode-code128.min.js"></script>
+    function _renderBarcodeSvg(value) {
+        if (!value) return '';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        try {
+            if (typeof global.JsBarcode !== 'function') return '';
+            global.JsBarcode(svg, value, {
+                format: 'CODE128',
+                width: 2,
+                height: 60,
+                displayValue: false,
+                margin: 0,
+                background: '#ffffff',
+                lineColor: '#000000',
+            });
+            svg.setAttribute('class', 'barcode-svg');
+            return new XMLSerializer().serializeToString(svg);
+        } catch (e) {
+            console.warn('[Web2Bill] renderBarcodeSvg failed:', e.message);
+            return '';
+        }
+    }
+
     function _shop() {
         return (
             global.WEB2_SHOP_CONFIG || {
@@ -135,13 +160,9 @@
         const billDate = pbh.dateInvoice || pbh.dateCreated || new Date().toISOString();
         const dateStr = _fmtDate(billDate);
 
-        // Barcode — TPOS service yêu cầu type=Code%20128 (URL-encoded space).
-        // Một số browser KHÔNG auto-encode space trong img src → image fail load
-        // → barcode mất tích. Encode explicit ở đây.
+        // Pre-render barcode SVG ngay tại đây — embed inline trong HTML (no async).
         const billNumber = pbh.number || '';
-        const barcodeUrl = billNumber
-            ? `https://statics.tpos.vn/Web/Barcode?type=${encodeURIComponent('Code 128')}&value=${encodeURIComponent(billNumber)}&width=600&height=100`
-            : '';
+        const barcodeSvg = _renderBarcodeSvg(billNumber);
 
         // Comment + delivery note
         const orderComment = pbh.comment || '';
@@ -181,7 +202,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phiếu bán hàng ${_esc(billNumber)} - ${_esc(shop.name)}</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
 @page { margin: 1mm 0; }
 html, body {
@@ -346,7 +366,7 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     ${
         billNumber
             ? `<div class="barcode-box">
-                  <svg class="barcode-svg" data-value="${_esc(billNumber)}"></svg>
+                  ${barcodeSvg}
                   <div class="barcode-number">${_esc(billNumber)}</div>
                </div>`
             : ''
@@ -427,28 +447,6 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         ${_esc(shop.name)}
     </div>
 </div>
-<script>
-(function renderBarcodes(){
-    function go(){
-        if (!window.JsBarcode) return setTimeout(go, 80);
-        document.querySelectorAll('svg.barcode-svg[data-value]').forEach(function(svg){
-            try {
-                window.JsBarcode(svg, svg.getAttribute('data-value'), {
-                    format: 'CODE128',
-                    width: 2,
-                    height: 60,
-                    displayValue: false,
-                    margin: 0,
-                    background: '#ffffff',
-                    lineColor: '#000000'
-                });
-            } catch(e) { console.warn('[Web2Bill] barcode render fail:', e.message); }
-        });
-    }
-    if (document.readyState === 'complete' || document.readyState === 'interactive') go();
-    else document.addEventListener('DOMContentLoaded', go);
-})();
-</script>
 </body></html>`;
     }
 
@@ -469,9 +467,11 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             w.print();
         };
         w.onafterprint = () => w.close();
-        w.onload = () => setTimeout(trigger, 600);
-        // Fallback đủ thời gian cho JsBarcode CDN load + render SVG ở browser chậm
-        setTimeout(trigger, 4500);
+        // Bill HTML giờ thuần HTML+CSS (barcode SVG pre-rendered inline ở parent context)
+        // → onload fire NGAY khi parse xong, không cần chờ network/JS.
+        w.onload = trigger;
+        // Fallback ngắn phòng onload không fire (popup quirk ở vài browser)
+        setTimeout(trigger, 250);
         return w;
     }
 
@@ -492,7 +492,6 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         });
         const combined = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>In ${pbhs.length} phiếu bán hàng</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>${styles}
 .bill-container { margin-bottom: 20px; }
 @media print { .bill-container { page-break-inside: avoid; } }
@@ -510,9 +509,9 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             w.print();
         };
         w.onafterprint = () => w.close();
-        w.onload = () => setTimeout(trigger, 1000);
-        // Fallback đủ thời gian cho JsBarcode CDN load + render N SVG
-        setTimeout(trigger, 5000);
+        w.onload = trigger;
+        // Fallback ngắn — bill HTML thuần static, không có async work
+        setTimeout(trigger, 350);
         return w;
     }
 
@@ -526,7 +525,8 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         doc.open();
         doc.write(html);
         doc.close();
-        await new Promise((r) => setTimeout(r, 1500));
+        // Bill HTML giờ thuần static (barcode pre-rendered) — chỉ cần 1 frame để layout
+        await new Promise((r) => setTimeout(r, 100));
         try {
             const body = doc.body;
             const contentHeight = body.scrollHeight + 20;
