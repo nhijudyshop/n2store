@@ -46,11 +46,15 @@
                 const groupHtml = v.groupName
                     ? `<span class="group-pill">${escapeHtml(v.groupName)}</span>`
                     : '<span class="group-empty">—</span>';
+                const shortCodeHtml = v.shortCode
+                    ? `<span style="font-family:'SF Mono','Menlo',monospace;font-weight:700;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-size:12px">${escapeHtml(v.shortCode)}</span>`
+                    : `<span style="color:#dc2626;font-size:11px">⚠ chưa có</span>`;
                 return `
                 <tr data-id="${v.id}">
                     <td>${idx + 1}</td>
                     <td><span class="variant-value-pill">${escapeHtml(v.value)}</span></td>
                     <td>${groupHtml}</td>
+                    <td>${shortCodeHtml}</td>
                     <td class="sort-cell">${v.sortOrder ?? 0}</td>
                     <td>
                         ${
@@ -136,6 +140,8 @@
         $('#vmGroup').value = '';
         $('#vmSortOrder').value = 0;
         $('#vmIsActive').value = 'true';
+        if ($('#vmShortCode')) $('#vmShortCode').value = '';
+        if ($('#vmShortCodeHint')) $('#vmShortCodeHint').textContent = '';
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
         setTimeout(() => $('#vmValue').focus(), 50);
@@ -152,8 +158,34 @@
         $('#vmGroup').value = v.groupName || '';
         $('#vmSortOrder').value = v.sortOrder ?? 0;
         $('#vmIsActive').value = v.isActive ? 'true' : 'false';
+        if ($('#vmShortCode')) $('#vmShortCode').value = v.shortCode || '';
+        if ($('#vmShortCodeHint')) {
+            $('#vmShortCodeHint').textContent = v.shortCode
+                ? '✓ Đã khoá — đổi sẽ ảnh hưởng các SP mới tạo sau này'
+                : '⚠ Chưa có viết tắt — bấm Gợi ý để tự sinh';
+        }
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
+    }
+
+    async function suggestShortCode() {
+        const value = ($('#vmValue')?.value || '').trim();
+        const groupName = ($('#vmGroup')?.value || '').trim();
+        if (!value) return notify('Cần điền giá trị biến thể trước', 'warning');
+        try {
+            const q = new URLSearchParams({ value });
+            if (groupName) q.set('groupName', groupName);
+            const resp = await window.Web2VariantsApi.suggestShortCode(q);
+            $('#vmShortCode').value = resp.shortCode || '';
+            const hint = $('#vmShortCodeHint');
+            if (hint) {
+                hint.textContent = resp.collidesWith
+                    ? `✨ Mở rộng vì trùng "${resp.collidesWith}" → ${resp.shortCode}`
+                    : `✨ Gợi ý: ${resp.shortCode}`;
+            }
+        } catch (e) {
+            notify('Lỗi gợi ý: ' + e.message, 'error');
+        }
     }
 
     function closeModal() {
@@ -163,13 +195,19 @@
 
     async function saveModal() {
         const user = window.AuthManager?.getCurrentUser?.() || {};
+        const shortCode = ($('#vmShortCode')?.value || '').trim().toUpperCase();
         const fields = {
             value: $('#vmValue').value.trim(),
             groupName: $('#vmGroup').value.trim() || null,
+            shortCode: shortCode || null,
             sortOrder: Number($('#vmSortOrder').value) || 0,
             isActive: $('#vmIsActive').value === 'true',
         };
         if (!fields.value) return notify('Thiếu giá trị biến thể', 'error');
+        if (!fields.shortCode) return notify('Thiếu viết tắt — bấm Gợi ý hoặc nhập tay', 'error');
+        if (!/^[A-Z0-9]{1,20}$/.test(fields.shortCode)) {
+            return notify('Viết tắt phải gồm A-Z và 0-9, 1-20 ký tự', 'error');
+        }
         try {
             if (STATE.editingId) {
                 const resp = await window.Web2VariantsApi.update(STATE.editingId, fields);
@@ -257,6 +295,14 @@
         $('#btnCloseVariantModal')?.addEventListener('click', closeModal);
         $('#btnCancelVariant')?.addEventListener('click', closeModal);
         $('#btnSaveVariant')?.addEventListener('click', saveModal);
+        $('#vmSuggestShortCode')?.addEventListener('click', suggestShortCode);
+        // Auto-suggest khi blur giá trị nếu shortcode còn trống
+        $('#vmValue')?.addEventListener('blur', () => {
+            if (STATE.editingId) return;
+            if (($('#vmShortCode')?.value || '').trim()) return;
+            const val = ($('#vmValue')?.value || '').trim();
+            if (val) suggestShortCode();
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal()?.classList.contains('active')) closeModal();
         });

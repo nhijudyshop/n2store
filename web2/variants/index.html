@@ -103,6 +103,7 @@
                                     <th style="width: 48px">#</th>
                                     <th>BIẾN THỂ</th>
                                     <th style="width: 160px">NHÓM</th>
+                                    <th style="width: 130px">VIẾT TẮT</th>
                                     <th style="width: 100px">THỨ TỰ</th>
                                     <th style="width: 110px">TRẠNG THÁI</th>
                                     <th style="width: 140px">THAO TÁC</th>
@@ -144,23 +145,68 @@
                         <label>Giá trị biến thể *</label>
                         <input
                             id="vmValue"
-                            placeholder="VD: Size M / Đỏ / 2003 B5"
+                            placeholder="VD: Màu Xanh Dương / Size M / Size 3"
                             autocomplete="off"
                         />
                     </div>
                     <div class="field-row-grid field-row-grid-2">
                         <div class="field-row">
                             <label>Nhóm (tùy chọn)</label>
-                            <input
-                                id="vmGroup"
-                                placeholder="VD: Size / Màu / Mẫu"
-                                autocomplete="off"
-                            />
+                            <input id="vmGroup" placeholder="VD: Màu / Size" autocomplete="off" />
                         </div>
                         <div class="field-row">
                             <label>Thứ tự</label>
                             <input id="vmSortOrder" type="number" step="1" value="0" />
                         </div>
+                    </div>
+                    <div class="field-row">
+                        <label>
+                            Viết tắt (dùng cho mã SP) *
+                            <span style="font-weight: 400; color: #64748b; font-size: 11px">
+                                — A-Z và 0-9, 1-20 ký tự, duy nhất
+                            </span>
+                        </label>
+                        <div style="display: flex; gap: 6px; align-items: stretch">
+                            <input
+                                id="vmShortCode"
+                                placeholder="VD: XANDUONG / M / S3"
+                                autocomplete="off"
+                                style="
+                                    flex: 1;
+                                    text-transform: uppercase;
+                                    font-family: 'SF Mono', 'Menlo', monospace;
+                                    font-weight: 600;
+                                "
+                                maxlength="20"
+                            />
+                            <button
+                                type="button"
+                                id="vmSuggestShortCode"
+                                class="btn-ghost"
+                                style="
+                                    white-space: nowrap;
+                                    padding: 4px 10px;
+                                    font-size: 12px;
+                                    border: 1px solid #cbd5e1;
+                                    border-radius: 6px;
+                                    background: #f1f5f9;
+                                    cursor: pointer;
+                                "
+                                title="Đề xuất viết tắt từ giá trị"
+                            >
+                                <i data-lucide="sparkles" style="width: 14px; height: 14px"></i>
+                                Gợi ý
+                            </button>
+                        </div>
+                        <div
+                            id="vmShortCodeHint"
+                            style="
+                                font-size: 11px;
+                                color: #64748b;
+                                margin-top: 4px;
+                                min-height: 14px;
+                            "
+                        ></div>
                     </div>
                     <div class="field-row">
                         <label>Trạng thái</label>
@@ -181,8 +227,9 @@
 
         <script src="../shared/web2-effects.js?v=20260518a"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260519a"></script>
-        <script src="js/web2-variants-api.js?v=20260517a"></script>
+        <script src="../shared/web2-product-code.js?v=20260519b"></script>
+        <script src="js/web2-variants-api.js?v=20260519c"></script>
         <script src="../shared/web2-variants-cache.js?v=20260519a"></script>
-        <script src="js/web2-variants-app.js?v=20260517a"></script>
+        <script src="js/web2-variants-app.js?v=20260519c"></script>
     </body>
 </html>

@@ -223,17 +223,25 @@
             .join('');
     }
 
-    // Cache color shortmap — build 1 lần từ kho biến thể, reuse across suggestions
+    // Cache color shortmap — đọc TRỰC TIẾP từ variant.shortCode (locked tại DB)
+    // Không compute client-side nữa → ổn định, không shift khi thêm biến thể mới.
     let _colorShortMapCache = null;
     function getColorShortMap() {
         if (_colorShortMapCache) return _colorShortMapCache;
         const cache = window.Web2VariantsCache;
         if (!cache?.getAll) return {};
-        const colors = cache
-            .getAll()
-            .filter((v) => /màu/i.test(v.groupName || ''))
-            .map((v) => v.value);
-        _colorShortMapCache = window.Web2ProductCode.buildColorShortMap(colors);
+        const map = {};
+        for (const v of cache.getAll()) {
+            if (!/màu/i.test(v.groupName || '')) continue;
+            if (!v.shortCode) continue; // chỉ dùng locked shortcodes
+            // Strip "Màu " prefix + normalize key
+            const stripped = String(v.value || '')
+                .replace(/^\s*M[àáạăâ]u\s+/iu, '')
+                .trim();
+            const key = window.Web2ProductCode.toAsciiUpper(stripped);
+            if (key) map[key] = v.shortCode;
+        }
+        _colorShortMapCache = map;
         return _colorShortMapCache;
     }
     // Reset cache khi kho biến thể đổi

@@ -52,6 +52,14 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_variants_value  ON web2_variants(value);
             CREATE INDEX IF NOT EXISTS idx_web2_variants_group  ON web2_variants(group_name);
             CREATE INDEX IF NOT EXISTS idx_web2_variants_active ON web2_variants(is_active);
+
+            -- Migration: shortcode locked per variant. Set lúc create, immutable
+            -- để mã SP của các SP cũ không bị thay đổi khi thêm biến thể mới.
+            ALTER TABLE web2_variants
+                ADD COLUMN IF NOT EXISTS short_code VARCHAR(20);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_web2_variants_short_code
+                ON web2_variants(short_code)
+                WHERE short_code IS NOT NULL;
         `);
         _tablesCreated = true;
         console.log('[WEB2-VARIANTS] Tables created/verified');
@@ -66,12 +74,111 @@ function mapRow(row) {
         id: Number(row.id),
         value: row.value,
         groupName: row.group_name || null,
+        shortCode: row.short_code || null,
         sortOrder: Number(row.sort_order || 0),
         isActive: !!row.is_active,
         createdBy: row.created_by,
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
     };
+}
+
+// ─────────────────────────────────────────────────────────
+// Shortcode helpers (must mirror logic of Web2ProductCode client-side
+// để server có thể gợi ý + validate khi user thêm biến thể mới)
+// ─────────────────────────────────────────────────────────
+function _stripDiacritics(s) {
+    return String(s || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
+}
+function _toAsciiUpper(s) {
+    return _stripDiacritics(s)
+        .toUpperCase()
+        .replace(/[^A-Z0-9 ]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _stripGroupPrefix(value, groupName) {
+    // "Màu Xanh Dương" → "Xanh Dương"; "Size XL" → "XL"; "Size 38" → "38"
+    if (!value) return '';
+    let v = String(value);
+    if (groupName) {
+        const re = new RegExp(
+            `^\\s*${groupName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s+`,
+            'i'
+        );
+        v = v.replace(re, '');
+    }
+    return v.trim();
+}
+
+function _baseShortCode(asciiClean) {
+    const words = asciiClean.split(' ').filter(Boolean);
+    if (words.length === 0) return '';
+    if (words.length === 1) return words[0];
+    return words.map((w) => w[0]).join('');
+}
+
+/**
+ * Server-side suggest: tìm shortcode tốt nhất cho value mới.
+ * Bắt đầu từ naive (chữ đầu mỗi từ). Nếu trùng với existing locked → extend depth.
+ * Trả về { shortCode, collidesWith }.
+ */
+async function _suggestShortCode(pool, value, groupName) {
+    const stripped = _stripGroupPrefix(value, groupName);
+    const ascii = _toAsciiUpper(stripped);
+    if (!ascii) return { shortCode: '', collidesWith: null };
+
+    // Load existing locked shortcodes
+    const r = await pool.query(
+        `SELECT value, group_name, short_code FROM web2_variants WHERE short_code IS NOT NULL`
+    );
+    const usedCodes = new Map(); // shortCode → existing value
+    for (const row of r.rows) {
+        if (row.short_code) usedCodes.set(row.short_code, row.value);
+    }
+
+    const words = ascii.split(' ').filter(Boolean);
+    if (words.length === 0) return { shortCode: '', collidesWith: null };
+
+    // Single word → use full
+    if (words.length === 1) {
+        const base = words[0];
+        if (!usedCodes.has(base)) return { shortCode: base, collidesWith: null };
+        let n = 2;
+        while (usedCodes.has(base + n)) n++;
+        return { shortCode: base + n, collidesWith: usedCodes.get(base) };
+    }
+
+    // Multi-word: extend depth từ word cuối
+    const depths = words.map(() => 1);
+    let lastCollidingValue = null;
+    for (let iter = 0; iter < 25; iter++) {
+        const code = words.map((w, i) => w.slice(0, depths[i])).join('');
+        if (!usedCodes.has(code)) {
+            return { shortCode: code, collidesWith: lastCollidingValue };
+        }
+        lastCollidingValue = usedCodes.get(code);
+        let extended = false;
+        for (let i = depths.length - 1; i >= 0; i--) {
+            if (depths[i] < words[i].length) {
+                depths[i]++;
+                extended = true;
+                break;
+            }
+        }
+        if (!extended) {
+            // Fully spelled out, fall back to numeric suffix
+            let n = 2;
+            while (usedCodes.has(code + n)) n++;
+            return { shortCode: code + n, collidesWith: lastCollidingValue };
+        }
+    }
+    return { shortCode: words.join(''), collidesWith: lastCollidingValue };
 }
 
 router.get('/health', async (req, res) => {
@@ -149,6 +256,58 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// GET /suggest-short-code?value=Màu Xanh Dương&groupName=Màu
+// Trả về shortcode đề xuất + collision info (nếu có).
+router.get('/suggest-short-code', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const value = String(req.query.value || '').trim();
+        const groupName = req.query.groupName ? String(req.query.groupName).trim() : null;
+        if (!value) return res.status(400).json({ error: 'value required' });
+        const result = await _suggestShortCode(pool, value, groupName);
+        res.json({ success: true, ...result });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /backfill-short-codes — assign short_code cho tất cả variants chưa có.
+// Idempotent: chỉ touch row có short_code IS NULL.
+router.post('/backfill-short-codes', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT id, value, group_name FROM web2_variants
+             WHERE short_code IS NULL
+             ORDER BY group_name, sort_order, value`
+        );
+        let updated = 0;
+        for (const row of r.rows) {
+            const sug = await _suggestShortCode(pool, row.value, row.group_name);
+            if (!sug.shortCode) continue;
+            try {
+                await pool.query(
+                    `UPDATE web2_variants SET short_code = $1, updated_at = $2 WHERE id = $3`,
+                    [sug.shortCode, Date.now(), row.id]
+                );
+                updated++;
+            } catch (err) {
+                if (err.code !== '23505') throw err;
+                // Conflict — rare since _suggestShortCode checks. Skip.
+            }
+        }
+        _notify('backfill', null);
+        res.json({ success: true, updated, total: r.rows.length });
+    } catch (e) {
+        console.error('[WEB2-VARIANTS] backfill error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.post('/', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
@@ -157,16 +316,35 @@ router.post('/', async (req, res) => {
         const b = req.body || {};
         const value = typeof b.value === 'string' ? b.value.trim() : '';
         if (!value) return res.status(400).json({ error: 'value required' });
+        const groupName = b.groupName ? String(b.groupName).trim() : null;
+
+        // Shortcode REQUIRED. Nếu client không gửi → server tự suggest.
+        let shortCode = b.shortCode ? String(b.shortCode).trim().toUpperCase() : null;
+        if (!shortCode) {
+            const sug = await _suggestShortCode(pool, value, groupName);
+            shortCode = sug.shortCode || null;
+        }
+        if (!shortCode) {
+            return res.status(400).json({ error: 'shortCode required (auto-suggest failed)' });
+        }
+        // Validate format: A-Z, 0-9, độ dài 1-20
+        if (!/^[A-Z0-9]{1,20}$/.test(shortCode)) {
+            return res.status(400).json({
+                error: 'shortCode phải gồm A-Z và 0-9, độ dài 1-20 ký tự',
+            });
+        }
+
         const now = Date.now();
         try {
             const r = await pool.query(
                 `INSERT INTO web2_variants
-                 (value, group_name, sort_order, is_active, created_by, created_at, updated_at)
-                 VALUES ($1, $2, $3, true, $4, $5, $5)
+                 (value, group_name, short_code, sort_order, is_active, created_by, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, true, $5, $6, $6)
                  RETURNING *`,
                 [
                     value,
-                    b.groupName ? String(b.groupName).trim() : null,
+                    groupName,
+                    shortCode,
                     Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 0,
                     b.createdBy || null,
                     now,
@@ -176,6 +354,13 @@ router.post('/', async (req, res) => {
             res.json({ success: true, variant: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
+                // Phân biệt unique constraint: value hay short_code
+                const msg = err.detail || '';
+                if (msg.includes('short_code')) {
+                    return res.status(409).json({
+                        error: `Viết tắt "${shortCode}" đã được dùng cho biến thể khác`,
+                    });
+                }
                 return res.status(409).json({ error: `Biến thể "${value}" đã tồn tại` });
             }
             throw err;
@@ -196,7 +381,16 @@ router.patch('/:id', async (req, res) => {
             groupName: 'group_name',
             sortOrder: 'sort_order',
             isActive: 'is_active',
+            // shortCode CHO sửa (admin override), nhưng phải đúng format A-Z0-9
+            shortCode: 'short_code',
         };
+        if (req.body.shortCode !== undefined) {
+            const sc = String(req.body.shortCode).trim().toUpperCase();
+            if (sc && !/^[A-Z0-9]{1,20}$/.test(sc)) {
+                return res.status(400).json({ error: 'shortCode invalid format' });
+            }
+            req.body.shortCode = sc || null;
+        }
         const sets = [];
         const params = [];
         for (const [k, col] of Object.entries(allowed)) {

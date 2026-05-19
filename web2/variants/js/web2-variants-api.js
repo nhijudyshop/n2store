@@ -57,6 +57,16 @@
         async remove(id) {
             return _fetchJson(`${BASE}/${encodeURIComponent(id)}`, { method: 'DELETE' });
         },
+        async suggestShortCode(searchParams) {
+            const qs =
+                searchParams instanceof URLSearchParams
+                    ? searchParams.toString()
+                    : new URLSearchParams(searchParams || {}).toString();
+            return _fetchJson(`${BASE}/suggest-short-code?${qs}`);
+        },
+        async backfillShortCodes() {
+            return _fetchJson(`${BASE}/backfill-short-codes`, { method: 'POST' });
+        },
     };
 
     global.Web2VariantsApi = Web2VariantsApi;
