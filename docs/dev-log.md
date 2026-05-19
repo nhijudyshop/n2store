@@ -25,6 +25,21 @@
 
 ## 2026-05-19
 
+### [web2 × 15 pages] Đồng nhất title `<base> - WEB 2.0` cho các trang Web 2.0 chính
+
+**User yêu cầu**: thêm " - WEB 2.0" vào sau title của 15 pages chính (real impl) để dễ phân biệt khi mở nhiều tab.
+
+**Files** (15 `index.html`):
+
+- web2/fastsaleorder-invoice/, live-campaign/, supplier-debt/, supplier-wallet/, partner-customer/, customer-wallet/, partner-supplier/, delivery-carrier/, products/, variants/, product-category/, users/
+- Plus root: native-orders/, so-order/, tpos-pancake/
+
+**Thay đổi**: replace existing suffix (`— N2Store`, `— Web 2.0`) thành ` - WEB 2.0` (dấu gạch thường, WEB IN HOA). Vd: `Sổ Order — N2Store` → `Sổ Order - WEB 2.0`, `Kho Sản Phẩm Web 2.0 — N2Store` → `Kho Sản Phẩm - WEB 2.0`, `Tpos - Pancake` → `Tpos - Pancake - WEB 2.0`.
+
+**Status**: ✅ Done
+
+---
+
 ### [docs + claude.md + memory] Viết doc SSE realtime pattern + cập nhật rule bắt buộc cho Web 2.0
 
 **User yêu cầu**: viết file cách dùng SSE Web 2.0, cập nhật MEMORY/CLAUDE/dev-log để khi code Web 2.0 sẽ đọc file này.
