@@ -25,6 +25,40 @@
 
 ## 2026-05-19
 
+### [customer-wallet] Wire SSE subscribe → realtime auto-refresh khi SePay webhook nhận tiền
+
+**User cho biết**: SePay webhook đã hoạt động — nhận tiền chuyển khoản vào, update công nợ KH Web 2.0.
+
+**Hiện trạng kiểm tra**:
+
+- Server pipeline đã đầy đủ: SePay webhook → `routes/sepay-webhook-core.js` → `services/wallet-event-processor.js` `processIncomingPayment()` → UPDATE `customer_wallets` balance → `walletEvents.emit('wallet:update', { phone, wallet, transaction })` → `routes/realtime-sse.js` listener → broadcast SSE topic `wallet:<phone>` + wildcard `wallet:*`.
+- Client side **KHÔNG** subscribe SSE — phải bấm "Refresh" hoặc reload page để thấy tiền mới.
+
+**Fix**:
+
+- `web2/customer-wallet/index.html`: thêm `<script src="../shared/web2-sse-bridge.js?v=20260519a">`. Bump cache `customer-wallet-app.js?v=20260519a`.
+- `web2/customer-wallet/js/customer-wallet-app.js`: thêm `_sseConnect()` trong `init()`:
+    - Subscribe topic `wallet:all` — match wildcard `wallet:*` của server `notifyClientsWildcard('wallet', ...)`.
+    - Debounce 800ms — burst nhiều giao dịch SePay liên tiếp gom thành 1 reload.
+    - Action: `pollDeposits()` (fetch SePay deposits từ `lastDepositSync` cursor) + toast `💰 SePay: X đ → <phone>`.
+
+**Flow sau fix**:
+
+```
+SePay → webhook /api/sepay/webhook → wallet-event-processor.processIncomingPayment
+  → UPDATE customer_wallets + INSERT customer_wallet_transactions
+  → walletEvents.emit('wallet:update', { phone, wallet, transaction })
+  → realtime-sse listener → SSE broadcast 'wallet:<phone>' + wildcard 'wallet:*'
+  → customer-wallet page (đang subscribe 'wallet:all') nhận event
+  → debounce 800ms → pollDeposits() → render + toast
+```
+
+**Verify**: chuyển khoản 5K vào tk SePay → 1-3s sau trang Ví KH tự update + toast hiện.
+
+**Status**: ✅ Done
+
+---
+
 ### [web2-variants + web2-users + fast-sale-orders] Wire SSE notify cho 3 routes còn lại + cache layer SSE for variants
 
 **User yêu cầu**: tiếp tục — complete 3 todo routes còn nợ (variants, users, PBH).

@@ -533,6 +533,47 @@
             pushSync();
         }
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        _sseConnect();
+    }
+
+    // SSE: realtime auto-refresh khi SePay webhook nhận tiền chuyển khoản.
+    // Server pipeline: SePay webhook → wallet-event-processor → walletEvents
+    // .emit('wallet:update') → realtime-sse.js → notifyClientsWildcard('wallet')
+    // → clients subscribe topic 'wallet:*' nhận event.
+    //
+    // Subscribe key bất kỳ start với 'wallet:' để nhận wildcard broadcast.
+    // Dùng 'wallet:all' làm convention cho admin/page-level subscriber
+    // (per-customer detail page có thể subscribe 'wallet:<phone>' riêng).
+    let _sseUnsubscribe = null;
+    let _ssePollTimer = null;
+    function _sseConnect() {
+        if (!window.Web2SSE?.subscribe) {
+            console.warn('[CustomerWallet-SSE] Web2SSE not loaded — skip realtime');
+            return;
+        }
+        if (_sseUnsubscribe) return;
+        _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
+            // Server gửi event 'wallet_update' với data { phone, wallet, transaction }
+            // Debounce 800ms — burst nhiều giao dịch SePay liên tiếp → 1 reload.
+            if (_ssePollTimer) clearTimeout(_ssePollTimer);
+            _ssePollTimer = setTimeout(async () => {
+                _ssePollTimer = null;
+                const phone = msg?.data?.phone;
+                const amount = msg?.data?.transaction?.amount;
+                console.log(
+                    '[CustomerWallet-SSE] wallet_update:',
+                    phone,
+                    amount ? amount.toLocaleString('vi-VN') + 'đ' : ''
+                );
+                await pollDeposits();
+                if (phone && amount) {
+                    notify(
+                        `💰 SePay: ${Number(amount).toLocaleString('vi-VN')}đ → ${phone}`,
+                        'success'
+                    );
+                }
+            }, 800);
+        });
     }
 
     if (document.readyState === 'loading') {
