@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `purchase-orders/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,18 @@
 **Last updated**: 2026-05-19 10:26:28 +07
 **Summary**: auto: session update
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`purchase-orders/`)
 
-- `docs/dev-log.md`
+- `purchase-orders/css/table.css`
+- `purchase-orders/js/form-modal.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `purchase-orders/`
 
 - `54cc66d6` feat(purchase-orders): hover x5 zoom + click lightbox cho ảnh trong form Tạo đơn đặt hàng _(2026-05-19)_
-- `5785ac2e` chore(session): RESUME:20260519-101633-07841fb _(2026-05-19)_
-- `07841fb8` feat(web2-generic + page-builder): SSE realtime tự enable cho 78 generic CRUD pages _(2026-05-19)_
-- `87e929ad` chore(session): RESUME:20260519-100742-95dc85b _(2026-05-19)_
-- `95dc85bf` chore(web2): đồng nhất title 15 trang chính thành '<base> - WEB 2.0' _(2026-05-19)_
+- `3cf7d74c` fix(orders): InventoryPicker "Chọn từ Kho SP" thiếu template không có active variant _(2026-05-15)_
+- `04fbfd41` fix(orders): barcode recheck báo 38/38 missing vì TPOS OData 400 với >20 `or` _(2026-05-15)_
+- `3ac3ed4c` fix(orders): auto-generate code jump B2246 → B19752 vì query Product variants _(2026-05-15)_
+- `62b6f42d` fix(purchase-orders): TPOS OData 502 — bỏ \$select trong Strategy A, 2-step Strategy B _(2026-05-14)_
 
 ---
 
