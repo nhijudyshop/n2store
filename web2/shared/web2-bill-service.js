@@ -135,10 +135,12 @@
         const billDate = pbh.dateInvoice || pbh.dateCreated || new Date().toISOString();
         const dateStr = _fmtDate(billDate);
 
-        // Barcode
+        // Barcode — TPOS service yêu cầu type=Code%20128 (URL-encoded space).
+        // Một số browser KHÔNG auto-encode space trong img src → image fail load
+        // → barcode mất tích. Encode explicit ở đây.
         const billNumber = pbh.number || '';
         const barcodeUrl = billNumber
-            ? `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${encodeURIComponent(billNumber)}&width=600&height=100`
+            ? `https://statics.tpos.vn/Web/Barcode?type=${encodeURIComponent('Code 128')}&value=${encodeURIComponent(billNumber)}&width=600&height=100`
             : '';
 
         // Comment + delivery note
@@ -179,6 +181,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phiếu bán hàng ${_esc(billNumber)} - ${_esc(shop.name)}</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
 @page { margin: 1mm 0; }
 html, body {
@@ -232,15 +235,15 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
 
 /* ─── Barcode box (scan đối soát) ────────────────────── */
 .barcode-box {
-    text-align: center; margin: 6px 0; padding: 4px 0;
+    text-align: center; margin: 6px 0; padding: 6px 4px;
     border: 1.5px solid #000; border-radius: 4px;
 }
-.barcode-box .barcode-img {
-    width: 92%; height: 70px; display: block; margin: 0 auto;
+.barcode-box .barcode-svg {
+    width: 95%; height: 70px; display: block; margin: 0 auto;
 }
 .barcode-box .barcode-number {
     font-family: 'Courier New', monospace; font-size: 14px;
-    font-weight: bold; letter-spacing: 1px; margin-top: 2px;
+    font-weight: bold; letter-spacing: 1px; margin-top: 4px;
 }
 .barcode-box .barcode-hint {
     font-size: 10px; color: #555; margin-top: 1px;
@@ -341,9 +344,9 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     <hr class="sep-double" />
     <div class="bill-title">Phiếu bán hàng</div>
     ${
-        barcodeUrl
+        billNumber
             ? `<div class="barcode-box">
-                  <img src="${barcodeUrl}" class="barcode-img" onerror="this.style.display='none'" />
+                  <svg class="barcode-svg" data-value="${_esc(billNumber)}"></svg>
                   <div class="barcode-number">${_esc(billNumber)}</div>
                   <div class="barcode-hint">Quét để mở phiếu trong web đối soát</div>
                </div>`
@@ -426,6 +429,28 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         ${_esc(shop.name)}
     </div>
 </div>
+<script>
+(function renderBarcodes(){
+    function go(){
+        if (!window.JsBarcode) return setTimeout(go, 80);
+        document.querySelectorAll('svg.barcode-svg[data-value]').forEach(function(svg){
+            try {
+                window.JsBarcode(svg, svg.getAttribute('data-value'), {
+                    format: 'CODE128',
+                    width: 2,
+                    height: 60,
+                    displayValue: false,
+                    margin: 0,
+                    background: '#ffffff',
+                    lineColor: '#000000'
+                });
+            } catch(e) { console.warn('[Web2Bill] barcode render fail:', e.message); }
+        });
+    }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') go();
+    else document.addEventListener('DOMContentLoaded', go);
+})();
+</script>
 </body></html>`;
     }
 
@@ -446,8 +471,9 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             w.print();
         };
         w.onafterprint = () => w.close();
-        w.onload = () => setTimeout(trigger, 500);
-        setTimeout(trigger, 1500);
+        w.onload = () => setTimeout(trigger, 600);
+        // Fallback đủ thời gian cho JsBarcode CDN load + render SVG ở browser chậm
+        setTimeout(trigger, 4500);
         return w;
     }
 
@@ -468,6 +494,7 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         });
         const combined = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>In ${pbhs.length} phiếu bán hàng</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>${styles}
 .bill-container { margin-bottom: 20px; }
 @media print { .bill-container { page-break-inside: avoid; } }
@@ -485,8 +512,9 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             w.print();
         };
         w.onafterprint = () => w.close();
-        w.onload = () => setTimeout(trigger, 800);
-        setTimeout(trigger, 2000);
+        w.onload = () => setTimeout(trigger, 1000);
+        // Fallback đủ thời gian cho JsBarcode CDN load + render N SVG
+        setTimeout(trigger, 5000);
         return w;
     }
 
