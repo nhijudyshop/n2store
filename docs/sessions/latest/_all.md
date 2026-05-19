@@ -3,21 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `73a2f6b` — test(web2): Phase B2 VERIFIED LIVE — both cross-broadcast pipelines working end-to-end
-**Last updated**: 2026-05-19 13:23:39 +07
-**Latest session**: [`RESUME:20260519-132339-73a2f6b`](../20260519-132339-73a2f6b.md)
-**Summary**: test(web2): Phase B2 VERIFIED LIVE — both cross-broadcast pipelines working end-to-end
+**Latest commit**: `1af7b58` — fix(don-inbox/kpi-stat): chỉ phản ứng theo date filter, bỏ qua status/source/tag/search
+**Last updated**: 2026-05-19 13:27:03 +07
+**Latest session**: [`RESUME:20260519-132703-1af7b58`](../20260519-132703-1af7b58.md)
+**Summary**: fix(don-inbox/kpi-stat): chỉ phản ứng theo date filter, bỏ qua status/source/tag/search
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`don-inbox/`](./don-inbox.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 13:23
-- [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:11
+- [`docs/`](./docs.md) — updated 2026-05-19 13:27
+- [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:27
 - [`downloads/`](./downloads.md) — updated 2026-05-19 12:02
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 11:39
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 10:07
