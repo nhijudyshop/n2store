@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `050a596` — fix(server): wire fast-sale-orders + web2-users initializeNotifiers top-level (block scope bug)
-**Last updated**: 2026-05-19 13:11:32 +07
-**Latest session**: [`RESUME:20260519-131132-050a596`](../20260519-131132-050a596.md)
-**Summary**: fix(server): wire fast-sale-orders + web2-users initializeNotifiers top-level (block scope bug)
+**Latest commit**: `7946dfc` — fix(fast-sale-orders): export missing router.initializeNotifiers — Phase B2 root cause
+**Last updated**: 2026-05-19 13:17:15 +07
+**Latest session**: [`RESUME:20260519-131715-7946dfc`](../20260519-131715-7946dfc.md)
+**Summary**: fix(fast-sale-orders): export missing router.initializeNotifiers — Phase B2 root cause
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`don-inbox/`](./don-inbox.md) — 6 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +23,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 10:07
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 13:11
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-19 10:26
-- [`render.com/`](./render.com.md) — updated 2026-05-19 13:11
+- [`render.com/`](./render.com.md) — updated 2026-05-19 13:17
 - [`scripts/`](./scripts.md) — updated 2026-05-18 17:45
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`so-order/`](./so-order.md) — updated 2026-05-19 10:07
