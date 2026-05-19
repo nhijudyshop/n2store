@@ -3,22 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a1a7829` — chore(web2): đồng nhất title - WEB 2.0 cho 79 pages còn lại (tổng 92/92)
-**Last updated**: 2026-05-19 11:29:53 +07
-**Latest session**: [`RESUME:20260519-112953-a1a7829`](../20260519-112953-a1a7829.md)
-**Summary**: chore(web2): đồng nhất title - WEB 2.0 cho 79 pages còn lại (tổng 92/92)
+**Latest commit**: `fa8c3a3` — docs(inventory-tracking): ghi dev-log 3 feature (image mgr đợt/ngày + col hide + lazy render perf)
+**Last updated**: 2026-05-19 11:31:29 +07
+**Latest session**: [`RESUME:20260519-113129-fa8c3a3`](../20260519-113129-fa8c3a3.md)
+**Summary**: docs(inventory-tracking): ghi dev-log 3 feature (image mgr đợt/ngày + col hide + lazy render perf)
 
 ## Folders affected in this commit
 
-- [`downloads/`](./downloads.md) — 22 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
-- [`web2/`](./web2.md) — 79 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 10:59
+- [`docs/`](./docs.md) — updated 2026-05-19 11:31
 - [`downloads/`](./downloads.md) — updated 2026-05-19 11:29
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 11:29
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 10:07
