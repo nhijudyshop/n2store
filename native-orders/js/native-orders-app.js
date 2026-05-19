@@ -1496,6 +1496,138 @@
         updateBulkBar();
     }
 
+    // Gộp 2+ Đơn Web cùng SĐT → 1 PBH duy nhất (STT hiển thị "1 + 2")
+    async function bulkMergeAndCreatePbh() {
+        const codes = getSelectedCodes();
+        if (codes.length < 2) {
+            notify('Cần chọn ít nhất 2 đơn để gộp', 'warning');
+            return;
+        }
+        const orders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
+        if (orders.length !== codes.length) {
+            notify('Không tìm thấy đơn trong state', 'error');
+            return;
+        }
+        // Preflight: cùng SĐT
+        const phones = new Set(orders.map((o) => (o.phone || '').trim()));
+        if (phones.size > 1) {
+            notify(
+                `Phải cùng SĐT. Đang có ${phones.size} SĐT: ${Array.from(phones).join(', ')}`,
+                'error'
+            );
+            return;
+        }
+        // Preflight: validate (đủ phone + address + có sản phẩm)
+        const invalid = orders.filter((o) => !validateOrderForPbh(o).ok);
+        if (invalid.length) {
+            notify(
+                `Đơn thiếu thông tin: ${invalid.map((o) => o.code).join(', ')}. Bổ sung phone/address/sản phẩm trước.`,
+                'error'
+            );
+            return;
+        }
+        const phone = Array.from(phones)[0] || '';
+        const customerName = orders[0].customerName || '';
+        const stts = orders
+            .map((o) => Number(o.displayStt) || 0)
+            .filter(Boolean)
+            .sort((a, b) => a - b);
+        const totalQty = orders.reduce(
+            (s, o) => s + (o.products || []).reduce((q, p) => q + (Number(p.quantity) || 0), 0),
+            0
+        );
+        const totalAmt = orders.reduce(
+            (s, o) =>
+                s +
+                (o.products || []).reduce(
+                    (q, p) => q + (Number(p.quantity) || 0) * (Number(p.price) || 0),
+                    0
+                ),
+            0
+        );
+
+        const proceed = window.Popup
+            ? await window.Popup.confirm(
+                  `Gộp ${orders.length} đơn của KH ${customerName} (${phone}) thành 1 PBH?\n\n` +
+                      `STT mới hiển thị: "${stts.join(' + ')}"\n` +
+                      `Tổng SL: ${totalQty}, Tổng tiền: ${Number(totalAmt).toLocaleString('vi-VN')}đ\n\n` +
+                      `Các đơn gốc (${codes.join(', ')}) vẫn giữ — chỉ tạo 1 PBH gộp.`,
+                  { title: 'Gộp + Tạo PBH', okText: 'Gộp', type: 'question' }
+              )
+            : confirm(`Gộp ${orders.length} đơn thành 1 PBH?`);
+        if (!proceed) return;
+
+        try {
+            const r = await fetch(`${WORKER_URL}/api/native-orders/merge-to-pbh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codes }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            notify(
+                `✅ Đã gộp ${orders.length} đơn → PBH ${data.order.number} (STT ${data.mergedStts.join(' + ')})`,
+                'success'
+            );
+            unselectAllOrders();
+            load();
+        } catch (e) {
+            notify('Lỗi gộp đơn: ' + e.message, 'error');
+        }
+    }
+
+    // In bill thermal 80mm cho các đơn được chọn (tạo PBH-shape object trong RAM,
+    // không lưu DB — dùng Web2Bill template). Hữu ích preview trước khi tạo PBH.
+    async function bulkPrintBills() {
+        const codes = getSelectedCodes();
+        if (!codes.length) {
+            notify('Chưa chọn đơn nào để in', 'warning');
+            return;
+        }
+        if (!window.Web2Bill) {
+            notify('Web2Bill chưa load — kiểm tra script', 'error');
+            return;
+        }
+        const orders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
+        if (!orders.length) {
+            notify('Không tìm thấy đơn', 'error');
+            return;
+        }
+        // Convert native-order shape → PBH-shape cho Web2Bill template
+        const pbhs = orders.map((o) => {
+            const lines = (o.products || []).map((p) => ({
+                productName: p.name || p.productName || '',
+                quantity: Number(p.quantity) || 0,
+                priceUnit: Number(p.price) || 0,
+                uomName: p.uomName || 'Cái',
+                note: p.note || '',
+            }));
+            const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
+            const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
+            return {
+                number: o.code,
+                displayStt: o.displayStt,
+                partner: {
+                    name: o.customerName || '',
+                    phone: o.phone || '',
+                    address: o.address || '',
+                },
+                orderLines: lines,
+                totals: { quantity: totalQty, untaxed: totalAmount, total: totalAmount },
+                payment: { amount: 0, residual: totalAmount },
+                delivery: { price: 0, carrierName: '' },
+                comment: o.note || '',
+                dateInvoice: o.createdAt || new Date().toISOString(),
+            };
+        });
+        if (pbhs.length === 1) {
+            window.Web2Bill.openPrint(pbhs[0]);
+        } else {
+            window.Web2Bill.openCombinedPrint(pbhs);
+        }
+        notify(`Đang mở popup in ${pbhs.length} bill...`, 'info');
+    }
+
     // Phase 15: bulk-create PBH. Opens a management modal that lists every
     // selected order with its readiness status; user can apply shared
     // delivery / date / note OR per-row override (just delivery for now),
@@ -2010,6 +2142,8 @@
             if (e.target?.classList?.contains('row-check')) updateBulkBar();
         });
         $('#ordersBulkPbh')?.addEventListener('click', bulkCreatePbh);
+        $('#ordersBulkMerge')?.addEventListener('click', bulkMergeAndCreatePbh);
+        $('#ordersBulkPrintBill')?.addEventListener('click', bulkPrintBills);
         $('#ordersBulkUnselect')?.addEventListener('click', unselectAllOrders);
 
         // Phase 16: column show/hide toggle

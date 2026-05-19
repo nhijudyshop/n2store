@@ -1061,5 +1061,173 @@ router.delete('/:code', async (req, res) => {
     }
 });
 
+// -----------------------------------------------------
+// POST /api/native-orders/merge-to-pbh
+// Body: { codes: ['NW-...', 'NW-...'] } (≥2 codes)
+// Logic:
+//   - Validate: ≥2 codes, tất cả tồn tại, cùng phone
+//   - Combine products (concat), sum totalQty + totalAmount
+//   - INSERT vào fast_sale_orders (PBH mới) với:
+//       source_code = "NW-A+NW-B" (join '+')
+//       merged_display_stt = [stt_a, stt_b] (lưu để client hiển thị "1 + 2")
+//       source_type = 'native_order'
+//       state = 'draft'
+//   - KHÔNG xóa native-orders gốc — chỉ tạo PBH mới (user có thể delete đơn web sau)
+//   - Notify SSE web2:native-orders + web2:fast-sale-orders + cross-bc web2:customer-wallet
+// -----------------------------------------------------
+router.post('/merge-to-pbh', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const codes = Array.isArray(req.body?.codes) ? req.body.codes : null;
+    if (!codes || codes.length < 2) {
+        return res.status(400).json({ error: 'Cần ít nhất 2 đơn để gộp' });
+    }
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+
+        // Fetch all native orders
+        const placeholders = codes.map((_, i) => `$${i + 1}`).join(',');
+        const src = await client.query(
+            `SELECT * FROM native_orders WHERE code IN (${placeholders})`,
+            codes
+        );
+        if (src.rows.length !== codes.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({
+                error: `Tìm thấy ${src.rows.length}/${codes.length} đơn — có đơn không tồn tại`,
+            });
+        }
+
+        // Validate cùng phone
+        const phones = new Set(src.rows.map((r) => (r.phone || '').trim()));
+        if (phones.size > 1) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Phải cùng SĐT. Đang có ${phones.size} SĐT: ${Array.from(phones).join(', ')}`,
+            });
+        }
+
+        // Combine: sort theo display_stt asc để STT hiển thị đúng thứ tự
+        const sorted = src.rows.sort(
+            (a, b) => (Number(a.display_stt) || 0) - (Number(b.display_stt) || 0)
+        );
+        const base = sorted[0];
+        const combinedLines = [];
+        let totalQty = 0;
+        let totalAmount = 0;
+        for (const r of sorted) {
+            const products = Array.isArray(r.products) ? r.products : [];
+            for (const p of products) {
+                const q = Number(p.quantity) || 0;
+                const price = Number(p.price) || 0;
+                combinedLines.push({
+                    productName: p.name || p.productName || '',
+                    quantity: q,
+                    priceUnit: price,
+                    uomName: p.uomName || 'Cái',
+                    note: p.note || '',
+                });
+                totalQty += q;
+                totalAmount += q * price;
+            }
+        }
+        const mergedStts = sorted.map((r) => Number(r.display_stt) || 0).filter(Boolean);
+        const mergedSourceCode = sorted.map((r) => r.code).join('+');
+        const combinedComment = sorted
+            .map((r) => (r.note ? `[${r.code}] ${r.note}` : null))
+            .filter(Boolean)
+            .join('\n---\n');
+
+        // Generate new HD number
+        const today = new Date();
+        const pad = (n, w = 2) => String(n).padStart(w, '0');
+        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
+        const todayCountQ = await client.query(
+            `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
+            [`HD-${ymd}-%`]
+        );
+        const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
+        const newNumber = `HD-${ymd}-${nextSeq}`;
+
+        // INSERT new PBH (fast_sale_orders)
+        const ins = await client.query(
+            `INSERT INTO fast_sale_orders (
+                number, display_stt, source,
+                partner_name, partner_phone, partner_address,
+                order_lines, total_quantity, amount_untaxed, amount_total,
+                state, source_type, source_code, merged_display_stt,
+                customer_id, comment, date_invoice
+            ) VALUES (
+                $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
+                $2, $3, $4,
+                $5, $6, $7, $7,
+                'draft', 'native_order', $8, $9,
+                $10, $11, NOW()
+            ) RETURNING *`,
+            [
+                newNumber,
+                base.customer_name || '',
+                base.phone || '',
+                base.address || '',
+                JSON.stringify(combinedLines),
+                totalQty,
+                totalAmount,
+                mergedSourceCode,
+                JSON.stringify(mergedStts),
+                base.customer_id || null,
+                combinedComment,
+            ]
+        );
+
+        await client.query('COMMIT');
+        const newOrder = ins.rows[0];
+
+        // Notify cả 2 topics
+        _notify('merge-to-pbh', null);
+        // Direct broadcast fast-sale-orders topic (route khác, không gọi _notify của route đó được)
+        const realtimeSse = req.app.locals.realtimeSseNotify;
+        if (typeof realtimeSse === 'function') {
+            realtimeSse(
+                'web2:fast-sale-orders',
+                { action: 'merge-to-pbh', number: newNumber, ts: Date.now() },
+                'update'
+            );
+            realtimeSse(
+                'web2:customer-wallet',
+                {
+                    action: 'merge-to-pbh',
+                    number: newNumber,
+                    ts: Date.now(),
+                    from: 'web2:native-orders',
+                },
+                'update'
+            );
+        }
+
+        res.json({
+            success: true,
+            mergedFrom: codes,
+            mergedStts,
+            order: {
+                id: Number(newOrder.id),
+                number: newOrder.number,
+                displayStt: newOrder.display_stt,
+                mergedDisplayStt: newOrder.merged_display_stt,
+                sourceCode: newOrder.source_code,
+                totalQuantity: Number(newOrder.total_quantity),
+                amountTotal: Number(newOrder.amount_total),
+            },
+        });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[NATIVE-ORDERS] merge-to-pbh error:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
 router.initializeNotifiers = initializeNotifiers;
 module.exports = router;

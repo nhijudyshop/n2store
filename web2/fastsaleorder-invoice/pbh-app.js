@@ -684,8 +684,6 @@
         );
         $('#pbhBulkCancel').addEventListener('click', () => bulkAction('bulk-cancel', 'Hủy'));
         $('#pbhBulkUnselect').addEventListener('click', unselectAll);
-        $('#pbhBulkMerge')?.addEventListener('click', bulkMerge);
-        $('#pbhBulkPrint')?.addEventListener('click', bulkPrint);
         // Check-all + per-row check delegation
         $('#pbhCheckAll')?.addEventListener('change', (e) => {
             document.querySelectorAll('#pbhTbody .row-check').forEach((c) => {

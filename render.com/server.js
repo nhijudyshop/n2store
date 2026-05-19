@@ -2034,6 +2034,11 @@ const broadcastToClients = (data) => {
 // Expose broadcast to routes (use req.app.locals.broadcastToClients)
 app.locals.broadcastToClients = broadcastToClients;
 
+// Expose SSE notifier to routes (use req.app.locals.realtimeSseNotify)
+// Cho phép routes cross-broadcast SSE topic không phải của mình
+// (vd native-orders/merge-to-pbh broadcast web2:fast-sale-orders + web2:customer-wallet).
+app.locals.realtimeSseNotify = realtimeSseRoutes.notifyClients;
+
 // Heartbeat for Frontend Clients (Keep-Alive)
 const interval = setInterval(function ping() {
     wss.clients.forEach(function each(ws) {
