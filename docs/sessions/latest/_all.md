@@ -3,22 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dc58ffa` — feat(supplier-wallet + supplier-debt): SSE realtime — auto-refresh khi SePay + so-order data change
-**Last updated**: 2026-05-19 10:49:29 +07
-**Latest session**: [`RESUME:20260519-104929-dc58ffa`](../20260519-104929-dc58ffa.md)
-**Summary**: feat(supplier-wallet + supplier-debt): SSE realtime — auto-refresh khi SePay + so-order data change
+**Latest commit**: `834ed61` — docs(web2): cập nhật SSE-REALTIME.md section 9 + WEB2-INDEX + memory với 7 topics live
+**Last updated**: 2026-05-19 10:52:35 +07
+**Latest session**: [`RESUME:20260519-105235-834ed61`](../20260519-105235-834ed61.md)
+**Summary**: docs(web2): cập nhật SSE-REALTIME.md section 9 + WEB2-INDEX + memory với 7 topics live
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`docs/`](./docs.md) — 3 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 10:49
+- [`docs/`](./docs.md) — updated 2026-05-19 10:52
 - [`downloads/`](./downloads.md) — updated 2026-05-19 10:49
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 09:18
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 10:07
