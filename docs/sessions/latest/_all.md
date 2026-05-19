@@ -3,24 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9e55325` — feat(web2): cross-page SSE wiring Phase A+B — liên kết realtime giữa các page
-**Last updated**: 2026-05-19 11:45:25 +07
-**Latest session**: [`RESUME:20260519-114525-9e55325`](../20260519-114525-9e55325.md)
-**Summary**: feat(web2): cross-page SSE wiring Phase A+B — liên kết realtime giữa các page
+**Latest commit**: `62257cb` — test(web2): QA test plan + report — Tier 1 16/16 PASS, Phase B1 cross-broadcast verified live
+**Last updated**: 2026-05-19 12:02:48 +07
+**Latest session**: [`RESUME:20260519-120248-62257cb`](../20260519-120248-62257cb.md)
+**Summary**: test(web2): QA test plan + report — Tier 1 16/16 PASS, Phase B1 cross-broadcast verified live
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`downloads/`](./downloads.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`downloads/`](./downloads.md) — 18 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 11:45
-- [`downloads/`](./downloads.md) — updated 2026-05-19 11:45
+- [`docs/`](./docs.md) — updated 2026-05-19 12:02
+- [`downloads/`](./downloads.md) — updated 2026-05-19 12:02
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 11:39
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 10:07
 - [`orders-report/`](./orders-report.md) — updated 2026-05-18 12:28
