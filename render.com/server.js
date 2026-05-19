@@ -513,17 +513,16 @@ if (web2GenericRoutes.initializeNotifiers) {
 if (web2VariantsRoutes.initializeNotifiers) {
     web2VariantsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
-{
-    const fastSaleOrdersRoutes = require('./routes/fast-sale-orders');
-    if (fastSaleOrdersRoutes.initializeNotifiers) {
-        fastSaleOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-    }
+// fastSaleOrdersRoutes đã require ở top (line 332). Web2-users require inline qua
+// app.use line 456 — re-require ở đây để có handle gọi initializeNotifiers.
+// Pattern thống nhất: gọi initializeNotifiers ở top-level if, không block-scope
+// (block scope đã verified bug — SSE event không fire dù require cached).
+if (fastSaleOrdersRoutes.initializeNotifiers) {
+    fastSaleOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
-{
-    const web2UsersRoutes = require('./routes/web2-users');
-    if (web2UsersRoutes.initializeNotifiers) {
-        web2UsersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-    }
+const web2UsersRoutes = require('./routes/web2-users');
+if (web2UsersRoutes.initializeNotifiers) {
+    web2UsersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in order-notes routes
