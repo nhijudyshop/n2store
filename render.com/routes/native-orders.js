@@ -14,6 +14,28 @@ const router = express.Router();
 const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
 
 // -----------------------------------------------------
+// SSE notifier — injected từ server.js. Sau mỗi DB mutation, broadcast
+// topic 'web2:native-orders' để các client đang xem trang Đơn Web tự
+// refresh không cần F5. Replaces (would-be) Firestore listener.
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, code) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients(
+            'web2:native-orders',
+            { action, code: code || null, ts: Date.now() },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[NATIVE-ORDERS] _notify failed:', e.message);
+    }
+}
+
+// -----------------------------------------------------
 // Auto-create table on first request
 // -----------------------------------------------------
 let _tablesCreated = false;
@@ -268,6 +290,7 @@ router.post('/backfill-customer-links', async (req, res) => {
               AND c.phone = o.phone
             RETURNING o.code
         `);
+        if (r.rows.length) _notify('backfill-customer-links', null);
         res.json({
             success: true,
             linked: r.rows.length,
@@ -319,6 +342,7 @@ router.post('/reset-stt', async (req, res) => {
                 END $$;
             `);
             const c = await pool.query('SELECT COUNT(*)::int AS n FROM native_orders');
+            _notify('reset-stt-renumber', null);
             return res.json({ success: true, mode: 'renumber', renumbered: c.rows[0].n });
         }
         // Default: chỉ reset sequence — đơn cũ giữ STT, đơn mới bắt đầu từ 1
@@ -427,6 +451,7 @@ router.post('/from-comment', async (req, res) => {
                         newCommentId: b.fbCommentId || null,
                     });
                 }
+                _notify('comment-merged', order.code);
                 return res.json({ success: true, order, merged: true });
             }
         }
@@ -518,6 +543,7 @@ router.post('/from-comment', async (req, res) => {
                 order,
             });
         }
+        _notify('create', order.code);
         res.json({ success: true, order, merged: false });
     } catch (error) {
         console.error('[NATIVE-ORDERS] POST /from-comment error:', error);
@@ -1002,6 +1028,7 @@ router.patch('/:code', async (req, res) => {
                 order,
             });
         }
+        _notify('update', order.code);
         res.json({ success: true, order });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1027,10 +1054,12 @@ router.delete('/:code', async (req, res) => {
                 code: req.params.code,
             });
         }
+        _notify('delete', req.params.code);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
+router.initializeNotifiers = initializeNotifiers;
 module.exports = router;

@@ -504,6 +504,9 @@ initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyCli
 if (web2ProductsRoutes.initializeNotifiers) {
     web2ProductsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
+if (nativeOrdersRoutes.initializeNotifiers) {
+    nativeOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
 
 // Initialize SSE notifiers in order-notes routes
 if (orderNotesRoutes.initializeNotifiers) {

@@ -1873,6 +1873,35 @@
         }, 500);
     }
 
+    // ---------- SSE subscription cho data CRUD (Web2SSE bridge) ----------
+    // Server side gọi notifyClients('web2:native-orders', { action, code, ts })
+    // sau mỗi POST/PATCH/DELETE → client tự reload list.
+    // Khác với rtConnect (chuyên về Pancake messages), SSE bridge này dành
+    // riêng cho data sync giữa các máy cùng xem trang Đơn Web.
+    let _sseUnsubscribe = null;
+    let _sseReloadTimer = null;
+    function _sseConnect() {
+        if (!window.Web2SSE?.subscribe) {
+            console.warn('[NativeOrders-SSE] Web2SSE not loaded — skip realtime data sync');
+            return;
+        }
+        if (_sseUnsubscribe) return;
+        _sseUnsubscribe = window.Web2SSE.subscribe('web2:native-orders', (msg) => {
+            // Debounce 600ms để gom nhiều mutation gần nhau thành 1 reload.
+            // (User edit nhanh 5 đơn liên tiếp → 1 reload thay vì 5.)
+            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            _sseReloadTimer = setTimeout(() => {
+                _sseReloadTimer = null;
+                console.log(
+                    '[NativeOrders-SSE] data event:',
+                    msg.data?.action,
+                    msg.data?.code || ''
+                );
+                load();
+            }, 600);
+        });
+    }
+
     // ---------- Init ----------
     function init() {
         if (window.lucide) lucide.createIcons();
@@ -1881,6 +1910,7 @@
         const urlCid = parseInt(urlParams.get('customerId'), 10);
         if (Number.isFinite(urlCid)) STATE.customerId = urlCid;
         rtConnect();
+        _sseConnect();
 
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
         // filters now auto-apply on change (debounced for search input).

@@ -25,6 +25,27 @@
 
 ## 2026-05-19
 
+### [native-orders + render] Add SSE realtime cho data CRUD — topic 'web2:native-orders'
+
+**User yêu cầu**: native-orders cần realtime — user A edit/tạo/xoá đơn ở máy A → máy B thấy ngay.
+
+**Hiện trạng trước**: native-orders chỉ có Web2Realtime (Pancake messages WS) cho sidebar comments. Data CRUD KHÔNG có realtime — phải F5 thủ công.
+
+**Thay đổi**:
+
+- `render.com/routes/native-orders.js`: thêm `initializeNotifiers + _notify('web2:native-orders', { action, code })`. Gọi sau 5 successful endpoints: POST `/from-comment` (created + comment-merged), POST `/reset-stt` (renumber), POST `/backfill-customer-links`, PATCH `/:code` (update), DELETE `/:code` (delete).
+- `render.com/server.js`: wire `nativeOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients)`.
+- `native-orders/js/native-orders-app.js`: thêm `_sseConnect()` gọi trong `init()`. Subscribe `Web2SSE.subscribe('web2:native-orders', ...)` → debounced `load()` 600ms.
+- `native-orders/index.html`: load `web2-sse-bridge.js?v=20260519a` trước `native-orders-app.js`. Bump cache `v=20260519a`.
+
+**Pattern**: clone từ web2-products SSE POC. Server notify khi DB write, client trang Đơn Web nhận event → reload list. Debounce 600ms để gom mutation burst.
+
+**Verify**: 2 tab/máy mở native-orders cùng lúc, edit đơn ở tab A → tab B thấy update trong <1s.
+
+**Status**: ✅ Done
+
+---
+
 ### [web2-products + render + so-order] POC migrate Firestore tickle → SSE pub/sub server-side
 
 **User yêu cầu**: Firebase realtime tốn tiền — build server socket realtime riêng cho Web 2.0. Pattern user mô tả: "server log coi trang user đang ở → cập nhật". Đúng pattern topic-based pub/sub.
