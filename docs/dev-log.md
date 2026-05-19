@@ -25,6 +25,32 @@
 
 ## 2026-05-19
 
+### [purchase-orders] Hover x5 zoom + click lightbox cho ảnh trong form "Tạo đơn đặt hàng"
+
+**User yêu cầu**: Form tạo đơn hàng tại `purchase-orders/index.html` — hover ảnh thì zoom to x5, click thì mở ảnh full-screen.
+
+**Trước đây**:
+
+- `.po-modal-thumb` đã có floating preview qua JS nhưng hardcode 300px (≈x6 với 50px thumb, không đồng đều).
+- Ảnh hóa đơn (`renderInvoiceImages()`) không có class hover → không có preview.
+- `viewImage(url)` chỉ `window.open(url, '_blank')` → mở tab mới, UX kém.
+
+**Files**:
+
+- `purchase-orders/js/form-modal.js`:
+    - `viewImage()` → tạo `.po-image-lightbox` overlay full-screen, click outside / ESC / nút × để đóng.
+    - `setupImageHoverPreview()` → selector mở rộng `.po-modal-thumb, .po-zoom-img`.
+    - `_positionPreview()` → zoom size = `max(thumbWidth, thumbHeight) * 5`, cap `min(viewport*0.8, 600px)`, auto-anchor right edge nếu tràn.
+    - `renderInvoiceImages()` → `<img>` invoice thêm `class="po-zoom-img"` + `cursor: zoom-in`.
+- `purchase-orders/css/table.css`:
+    - `.po-modal-thumb` cursor → `zoom-in`.
+    - `.po-image-preview` bỏ max-width/height (JS điều khiển).
+    - Mới: `.po-image-lightbox`, `.po-image-lightbox__img`, `.po-image-lightbox__close` + `@keyframes po-lightbox-fade-in`.
+
+**Status**: ✅ Done (verified parse cleanly, CSS classes injected, x5 formula correct)
+
+---
+
 ### [web2-generic + page-builder + page-shell] SSE realtime cho ALL generic CRUD pages (78 pages auto-enabled)
 
 **User yêu cầu**: 15 pages Web 2.0 (mostly generic CRUD qua page-builder framework) "liên kết với nhau theo listen update log" — pattern user mô tả từ trước.
@@ -4209,308 +4235,6 @@ Iterate mỗi pending row, fetch Pancake `/conversations/{pid}_{psid}` qua JWT (
 - Lần 2 (sau deploy `sync-pending`): UPDATE 6 drifted → tất cả 9 rows khớp Pancake. 0 stale.
 
 **Status**: ✅ Done. Tất cả badge "X MỚI" hiện đúng `unread_count` từ Pancake.
-
-## 2026-05-11
-
-### [chat][render] read = shop tương tác (NV signature) — bulk cleanup 256 stale entries
-
-**Owner clarification 2026-05-11**: "mở modal tin nhắn không tính là read mà tương tác với khách → tin nhắn cuối cùng là của page, có chữ ký nv, là Nhijudy House, Nhijudy Store → thì là read".
-
-→ Read condition = SHOP đã interact (gửi tin cuối). KHÔNG phải mở modal = read. Indicator:
-• Pancake `last_sent_by.id === pageId` (authoritative)
-• Snippet có chữ ký nhân viên `NV.{name}` (reply-tool tự append)
-
-**Code change** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)): gate auto-clear logic by `shopSentLast || hasNvSignature`. Pattern NV: `/(?:^|[\s\r\n])N\.?V\.?[\s\-:.]+[A-Za-zÀ-ỹ]/i`.
-
-**Bulk cleanup** (Render DB pending_customers, 2 rounds):
-
-| Round         | Match heuristic                                          | Cleared | DB after                          |
-| ------------- | -------------------------------------------------------- | ------- | --------------------------------- |
-| Initial state | —                                                        | —       | 1500 rows (Store 1056, House 444) |
-| Round 1       | `NV.{name}` signature + shop templates (bill, đã nhận K) | 378     | 1122                              |
-| Round 2       | + shipper/bank/business-specific terms                   | 98      | 1244                              |
-
-Cleanup script: `/tmp/cleanup-stale-pending.mjs --apply` (concurrency 8, calls `/api/realtime/mark-replied` for each match).
-
-**Trạng thái còn lại**: 1244 rows. Phần lớn legitimate (KH thực sự có tin chưa đọc) hoặc cần Pancake live verify. Server fix từ commit trước (`351a5eaa`) + client reconcile sẽ tự động dọn entries còn stale khi user mở chat / khi `pages:update_conversation` event mới đến.
-
-**Status**: ✅ Done. Read semantics aligned với expectation chuẩn ("interaction → read"), không over-clear khi user chỉ open modal xem.
-
-### [chat][realtime][render] stale "X MỚI" badge — server + client self-heal khi shop là người gửi cuối
-
-**Owner repro 2026-05-11**: KH "Huỳnh Thành Đạt 0123456788" (page Nhi Judy House) hiện `2 MỚI` mặc dù tin nhắn cuối là từ page/Pancake account (template "Dạ hàng của mình đã được lên bill...").
-
-**Diagnosis** (live recon Pancake + DB):
-
-- **Pancake live state**: `unread_count: 0`, `last_sent_by: {id:"117267091364524" Nhi Judy House}`, `snippet: "Dạ hàng của mình đã được lên bill..."`, `updated_at: 2026-05-10T04:17:24Z`, `last_customer_interactive_at: 2026-04-22` (KH không nhắn 19 ngày).
-- **Render DB `pending_customers`**: row tồn tại với `message_count: 2`, snippet là template shop reply, `last_message_time: 2026-05-10 04:17:24+07`. → server không xóa khi shop reply.
-- **Client localStorage `n2s_pending_customers`**: cùng entry với `inboxCount: 2`.
-
-**Root cause** (server [render.com/server.js:790](../render.com/server.js#L790)):
-
-Handler `pages:update_conversation` chỉ kiểm tra `unread_count` để quyết định upsert/delete `pending_customers`. Khi shop reply qua direct API (auto bill-send), Pancake đôi khi vẫn báo `unread_count > 0` ngay sau reply (delay) hoặc gửi snippet shop trước khi clear unread → server BUMP count thêm 1 và lưu snippet shop. Không có path detect `last_sent_by.id === pageId`. → row stale tồn tại cho tới khi user manual mark-replied.
-
-**Fix server** ([render.com/server.js](../render.com/server.js)):
-
-- Detect `shopSentLast` = `conversation.last_sent_by?.id === pageId` HOẶC `last_message?.from?.id === pageId`.
-- DELETE `pending_customers` row nếu `shopSentLast` HOẶC `unread_count === 0` (cũ chỉ check sau).
-- Upsert chỉ khi `!shopSentLast && unread > 0`.
-
-**Fix client** ([orders-report/js/chat/new-messages-notifier.js](../orders-report/js/chat/new-messages-notifier.js), [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
-
-- Thêm `reconcilePendingWithPancake()` — chạy 8s sau load + mỗi 5 phút. Cho mỗi page có pending: 1 call `fetchConversationsForPage` → cross-check `last_sent_by.id` / `unread_count` cho mọi pending psid trong list → clear stale. 1 API call/page (3-5 pages), không phải 1/customer.
-- Self-heal khi chat modal open: conv resolve xong + `shopSentLast` || `unread_count===0` + có pending entry → `clearPendingForCustomer(psid)` + `_markRepliedOnServer`. Mọi lần user click chat sẽ tự sửa stale badge.
-
-**Live verification**:
-
-- Manual mark-replied cho psid `24948162744877764`: server returned `{success:true, removed:1}` → row đã xóa khỏi `pending_customers`.
-- Local cache cleared via `newMessagesNotifier.clearPendingForCustomer` → entry biến mất.
-
-**Status**: ✅ Done. Server auto-deploys khi push.
-
-### [chat] page avatars + picker for phone-mismatch candidates
-
-**Pancake recon — page avatar endpoint** (live, 2026-05-11):
-
-- `GET /api/v1/pages/{pageId}/avatar?access_token={JWT}` → returns JPEG ~5-6 KB. Works for **both** Facebook and Instagram pages.
-- The `/api/v1/pages` list endpoint returns `avatar_url` **only** for Instagram pages (`cdninstagram.com`). Facebook pages get `avatar_url: null` — that's why the chat-modal page selector previously fell back to initial letters for all FB pages.
-
-**Owner repro 2026-05-11**: "tìm sđt 0123456788 ở 2 page house và store → đều tìm được mà" + "với coi cách hiển thị avatar page". User observed Pancake's own UI search returns hits on both pages, but our modal showed "Khách chưa có SĐT trên NhiJudy Store" empty state on Store.
-
-**Why empty state was wrong on Store**: Pancake's search returned a HOMONYM ("Huỳnh Thành Đạt" fb_id `25717004554573583`, phone `0908123456`) — same name as our test customer but different person with different phone. Our prior logic confirmed the phone mismatch and silently rejected the whole group → empty state. User wanted to **see** the candidate so they can decide "đúng/không đúng khách".
-
-**Implementation** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
-
-1. **Page avatar helper** `_getPageAvatarProxyUrl(pageId)` — builds `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/{pid}/avatar?access_token={token}`. Routes through CF worker for edge cache + proper referer headers. Token from `pancakeTokenManager.currentToken` (cached).
-2. **Page selector**: dropdown items + selector button label now use the proxy URL (falls back to `avatar_url` for IG, then initial). Previously read `page.avatar` (wrong field — API gives `avatar_url`) so all FB pages showed letters even when valid avatars existed.
-3. **Picker decision tree refactor**: bucket fb_id groups by phone verdict (matched / uncertain / mismatched). Auto-accept iff exactly 1 matched group OR exactly 1 uncertain group with no mismatch. Otherwise → picker with **all** candidates including mismatched ones (so user sees the homonym and can verify "không phải khách"). Picker trigger relaxed from `> 1 candidate` to `≥ 1 candidate`.
-4. **Picker heading** also handles single-mismatch case: "Tìm thấy 1 hội thoại — kiểm tra có đúng khách không" with help "SĐT trên Pancake khác với SĐT đơn hàng. Bấm để mở nếu đúng khách, hoặc bỏ qua nếu không phải".
-5. **Picker card avatars**: prefer `window._getChatAvatarUrl(fid, pageId)` (existing helper that routes via worker) over raw FB graph URL — better cache + consistent with rest of chat UI.
-
-**Live verification**:
-
-- `https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/pages/270136663390370/avatar?access_token=...` → `200 image/jpeg 5586 B`.
-- Visual test: chat modal opened, page-selector dropdown shows 4 page avatars with real images (not initials).
-- Picker trigger: phone 0123456788 on Store with homonym fb_id 25717004554573583 now flows through `mismatchedGroups` path → picker fires with the candidate, user can verify it's not their customer instead of seeing empty state.
-
-**Status**: ✅ Done.
-
-### [issue-tracking] FIX_COD + "Trừ công nợ khách" → trừ COD giảm vào ví khách
-
-**Yêu cầu owner**: Khi tạo phiếu **Sửa COD (Shipper gọi)** với lý do **"Trừ công nợ khách"** (`CUSTOMER_DEBT`), số tiền COD giảm phải được **trừ vào số dư ví của khách** (khách "ứng" COD giảm từ ví → shop chuyển 0đ cho ĐVVC).
-
-**Ví dụ**: Ví 100k, đơn COD 205k, COD giảm 40k → COD còn phải thu 165k, trừ vào ví 40k → ví còn lại 60k. **Ràng buộc**: `walletBalance >= codReduce` (nếu không đủ → block submit, alert chi tiết).
-
-**Implementation** ([issue-tracking/index.html](../issue-tracking/index.html), [issue-tracking/js/script.js](../issue-tracking/js/script.js)):
-
-1. **UI preview** (`#wallet-deduct-preview`): khối vàng hiện khi reason = CUSTOMER_DEBT, show Số dư ví / Trừ vào ví / Ví còn lại / cảnh báo nếu ví thiếu. Auto-update khi đổi `codReduce` (qua `calculateCodRemaining`) hoặc đổi reason (qua `onFixCodReasonChange`).
-2. **Track wallet balance** trên `currentCustomer.walletBalance` ở 3 nhánh load customer (searchCustomerByPhone + selectOrder hit/miss/error) thay vì chỉ render xuống DOM — function `updateWalletDeductPreview()` cần đọc giá trị.
-3. **Validation** trong `handleSubmitTicket` (FIX_COD branch): nếu reason CUSTOMER_DEBT thì check `codReduce > 0` và `walletBalance >= codReduce`, fail → `alert` chi tiết "thiếu X đ" và `return` không gọi createTicket.
-4. **Withdraw sau khi createTicket thành công**: gọi `ApiService.walletWithdraw(phone, money, orderId, note, createdBy)` (POST `/api/v2/wallets/:phone/withdraw`, dùng `wallet_withdraw_fifo` SQL function — FIFO virtual credit trước, rồi real balance). Withdraw fail không rollback ticket, chỉ notify warning "trừ ví thủ công qua Customer 360".
-
-**Browser test** (localhost:8080, customer test mặc định Huỳnh Thành Đạt `0123456788`):
-
-- Test 1 (preview): mock selectedOrder COD 205k + currentCustomer walletBalance 100k, set codReduce 40k → preview hiện `Wallet 100k / Trừ 40k / Còn lại 60k`, không error. ✓
-- Test 2 (ví thiếu preview): codReduce 150k > wallet 100k → preview cảnh báo `⚠️ Ví không đủ (thiếu 50.000 ₫)`. ✓
-- Test 3 (reason switch): chuyển sang `WRONG_SHIP` → preview ẩn; quay lại `CUSTOMER_DEBT` → preview hiện. ✓
-- Test 4 (validation block submit): codReduce 150k > wallet 100k, gọi `handleSubmitTicket` → alert chi tiết, ticket KHÔNG được tạo. ✓
-- Test 5 (happy path e2e): codReduce 40k ≤ wallet 100k → ticket `TV-2026-00737` (FIX_COD/CUSTOMER_DEBT/40000/PENDING_FINANCE) tạo OK, wallet đi từ `100000.00` → `60000.00` (đúng -40k). ✓
-
-**Cleanup test**: hard-delete ticket `TV-2026-00737` (DELETE `?hard=true`), deposit lại 40k, withdraw 100k seed deposit → wallet về 0 nguyên trạng.
-
-**Files**: [issue-tracking/index.html:300-315](../issue-tracking/index.html#L300-L315), [issue-tracking/js/script.js:516-518, 619-621, 636, 988-1019, 1052, 1530-1546, 1655-1683](../issue-tracking/js/script.js).
-
-**Status**: ✅ Done
-
-### [issue-tracking] custom confirm dialog cho FIX_COD + CUSTOMER_DEBT
-
-**Yêu cầu owner**: thêm custom confirm xác nhận khi Sửa COD (Shipper gọi) + "Trừ công nợ khách" — đây là thao tác trừ ví thật, không tự động hoàn nếu user lỡ tay.
-
-**Implementation** ([issue-tracking/js/script.js:1652-1680](../issue-tracking/js/script.js#L1652-L1680)):
-
-- Dùng `notificationManager.confirm(htmlMessage, title)` ([shared/js/notification-system.js:306](../shared/js/notification-system.js#L306)) — đã có sẵn, render modal Promise-based, hỗ trợ HTML trong body, Enter=OK, Esc/click overlay=Cancel.
-- Title: `⚠️ Xác nhận trừ ví khách`.
-- Body (HTML): Khách + Đơn + COD ban đầu + COD giảm (đỏ) + COD còn phải thu + Số dư ví hiện tại + Số dư ví sau khi trừ (xanh).
-- Confirm đặt **sau khi tạo ticketData** nhưng **trước khi `isSubmitting=true` + disable nút submit** → user bấm Hủy không bị stuck disable button.
-
-**Browser test (3 paths)**:
-
-- **Cancel path**: mock `notificationManager.confirm` → return false → `handleSubmitTicket` không tạo ticket, không trừ ví (100k → 100k unchanged). ✓
-- **OK path**: mock confirm → return true → ticket tạo OK, ví 100k → 60k (-40k đúng). ✓
-- **Visual path**: gọi handleSubmitTicket thật → dialog hiện với title đúng, body chứa đủ 40k/100k/60k/205k, click Cancel → dialog đóng. ✓
-
-**Files**: [issue-tracking/js/script.js:1652-1680](../issue-tracking/js/script.js#L1652-L1680).
-
-**Status**: ✅ Done
-
----
-
-### [chat] cross-page conv lookup — priority chain FB-ID → phone → name picker
-
-**Yêu cầu owner** (2026-05-11): "browser test pancake id facebook → và tìm theo id này được không? Nếu được ưu tiên tìm theo id facebook → fallback sđt → fall back tên (có danh sách cho chọn vì tên có thể trùng)".
-
-**Pancake recon — live API probe** (logged-in, real token):
-
-- `GET /api/v1/pages/{pid}/conversations/{pid}_{fb_id}` — page-scoped direct lookup.
-    - **Hit** → full conv object (`id`, `type`, `from_psid`, `customers[].id` UUID, `recent_phone_numbers[]`, `thread_id`).
-    - **Miss** → `{ existed:false, success:false, message:"Hội thoại này không tồn tại" }`.
-- Verified via persistent Playwright session: fb_id `25717004554573583` on pageId `270136663390370` → hit (phone `0908123456`); fb_id `24948162744877764` on same page → miss.
-- Endpoint là **nguồn lookup tin cậy nhất** — không fuzzy match, không phone ambiguity.
-
-**Implementation** — priority chain inside `_doFindAndLoadConversation`:
-
-1. **Priority 1: FB-ID direct lookup**. Read `customers.pancake_data.page_fb_ids[pageId]` from DB by phone; if present, call `pancakeDataManager.fetchConversationDirect(pageId, fbId)`. Hit → resolved conv. Miss/no mapping → fall through.
-2. **Priority 2: phone search** (existing — `searchConversationsOnPage(pageId, phone)`).
-3. **Priority 3: name search + phone verification** (existing — grouped by fb_id, reject any group with phone mismatch).
-4. **NEW — ambiguity picker**: when name search returns multiple distinct fb_id groups AND none has phone-confirmed match → render picker UI listing each candidate (avatar, name, recent phones, type, snippet) so user picks the right human manually. Previously the code "best-effort accepted" and silently loaded whichever sorted first — can be the wrong person for homonyms.
-
-**Files** ([shared/js/pancake-data-manager.js](../shared/js/pancake-data-manager.js), [orders-report/js/managers/pancake-data-manager.js](../orders-report/js/managers/pancake-data-manager.js), [orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
-
-- Added `fetchConversationDirect(pageId, fbId)` method on both PDM classes (shared/orders-report-local) — returns conv on hit, null on miss.
-- Added `_renderConvPickerEmptyState(candidates, pageName)` — bento card list with avatar/phones/types/snippet.
-- Added `_wireConvPickerEmptyState(pageId, byFbIdMap, loadToken, type)` — click handler resolves conv + calls `_loadMessages`.
-- Hook in `_doFindAndLoadConversation`: Priority 1 block at top; ambiguity flag inside name-search verification; empty-state branch checks picker > set-phone > generic.
-- Pancake URL is page-scoped: `pages/{pid}/conversations/{convId}` (corrected from initial `conversations/{convId}` which returns wrong shape).
-
-**Status**: ✅ Done. Direct lookup verified live (hit + miss cases). Picker auto-renders when name-ambiguity trigger fires. No regression for unambiguous flows (phone-confirmed match still auto-loads).
-
-### [delivery-report][render][DB] refactor: schema order_number-keyed — loại bỏ class bug "duplicate by date"
-
-**Vấn đề gốc**: schema có `UNIQUE (assignment_date, order_number)` — compound key cho phép cùng `order_number` xuất hiện ở nhiều `assignment_date` (đã ghi nhận 16265 row duplicate trong DB, max 6 row/đơn). Class bug này tồn tại từ ngày 1 của module. `order_number` (NJD/2026/XXXXX) đã unique trên TPOS nên `assignment_date` là redundant trong key — gây ra đúng class bug ta đang fix.
-
-**Migration toàn bảng** ([render.com/scripts/dedupe-delivery-fulltable.js](../render.com/scripts/dedupe-delivery-fulltable.js)):
-
-1. Backup `pg_dump` CSV mới (`backups/delivery_assignments-20260511-180452.csv`, 25327 rows).
-2. `LOCK TABLE EXCLUSIVE` + transaction.
-3. Cho mỗi `order_number` có >1 row: keep row có `created_at` mới nhất (= user-visible value). Merge `is_scanned=OR`, `is_hidden=OR`, `scanned_at=earliest non-null`, `scanned_by=corresponding`.
-4. DELETE 16265 row duplicate. Còn lại 9062 row distinct (1 row / đơn).
-5. `ALTER TABLE ADD CONSTRAINT delivery_assignments_order_number_unique UNIQUE (order_number)`.
-6. Sau khi backend deploy với `ON CONFLICT (order_number)`: `DROP CONSTRAINT delivery_assignments_assignment_date_order_number_key`.
-
-**Refactor backend** ([render.com/routes/v2/delivery-assignments.js](../render.com/routes/v2/delivery-assignments.js)):
-
-- `GET /` thêm filter `?order_numbers=N1,N2,...` (preferred new). `?date=` và `?from=&to=` giữ cho compat.
-- `POST /` dùng `ON CONFLICT (order_number) DO NOTHING`. `date` param chỉ làm metadata (assignment_date), default `today` nếu missing.
-- `PATCH /scan|/unscan|/hide`, `PUT`, `DELETE`: bỏ requirement `?date=` query param. Chỉ cần `order_number` trong path.
-- `PATCH /unscan-bulk`: shape mới `{orderNumbers:[...]}`. Legacy `{date,orderNumbers}` và `{items:[{orderNumber,date}]}` vẫn nhận.
-- `POST /lookup-batch`: trả về `{assignments, scannedNumbers, hiddenNumbers}` (extended payload — thay vì chỉ groups).
-
-**Refactor frontend** ([delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)):
-
-- Bỏ `getAssignmentDateRange()`, `getDateForOrder()`, `getAssignmentDate()` — không còn cần lookup date.
-- Thêm `getCurrentOrderNumbers()` lấy `order_number` từ `allData`.
-- `loadAssignmentsFromDB()` dùng `POST /lookup-batch` với `orderNumbers` từ allData (thay range query `?from=&to=`).
-- Sync polling: dùng `lookup-batch` thay range.
-- `saveScannedNumber`, `unscanNumberInDB`, `hideOrder`: không truyền date trong URL.
-- `unscanBulkInDB(numbers)`: body `{orderNumbers: numbers}`.
-- `saveAssignmentsToDB`: bỏ `date` top-level; mỗi item vẫn pass `date: extractTposDate(DateInvoice)` làm metadata cho `assignment_date`.
-
-**Verify**:
-
-- Pre-migration: 25327 rows / 9062 distinct / 6218 đơn có duplicate.
-- Post-migration: 9062 rows / 9062 distinct / 0 duplicate. UNIQUE constraint giờ chỉ `delivery_assignments_order_number_unique`.
-- API endpoints test pass với cả legacy `?date=` và new `?order_numbers=`.
-
-**Status**: ✅ Done. Class bug "same order with different assignment_date" giờ **không thể xảy ra** ở DB level (UNIQUE constraint).
-
-### [delivery-report] TZ-safe date extract — `extractTposDate(iso)` thay `new Date().getDate()`
-
-**Vấn đề**: `getDateForOrder()` và `saveAssignmentsToDB()` dùng `new Date(item.DateInvoice).getDate()` → phụ thuộc browser TZ. Nếu browser ở TZ âm (vd US-PDT) và DateInvoice rơi vào sáng sớm VN → date lệch 1 ngày → `assignment_date` ghi sai. Toàn bộ user n2store ở VN nên không lộ trong production, nhưng CI/headless test ở server US sẽ tái xuất bug.
-
-**Fix** ([delivery-report.js](../delivery-report/js/delivery-report.js)):
-
-- Thêm helper `extractTposDate(iso)` dùng regex `^(\d{4}-\d{2}-\d{2})` trích YYYY-MM-DD trực tiếp từ string ISO (TPOS luôn trả `2026-05-10T19:21:55.637+07:00` — prefix là VN-local date, không cần parse Date).
-- `getDateForOrder()` và `saveAssignmentsToDB()` dùng helper mới → 0 dependency vào browser TZ.
-
-**Status**: ✅ Done. Code-only fix, không đụng DB.
-
-### [delivery-report][DB] dedupe 09-10/05 — 1504 rows → 778 (Strategy B: 09/05 wins)
-
-**Vấn đề**: 726 đơn duplicate trong DB do bug `getAssignmentDate()` cũ ghi `fromDate=09/05` cho TẤT CẢ scan trong filter multi-day 09-10/05. Sau đó user vào filter 10/05 single-day → save lại đúng date → 2 row/đơn. Phát hiện qua API range query: 1504 total / 778 distinct.
-
-**Migration** ([render.com/scripts/dedupe-delivery-09-10-strategyB.js](../render.com/scripts/dedupe-delivery-09-10-strategyB.js)):
-
-1. Backup `pg_dump` CSV (`backups/delivery_assignments-20260511-113130.csv`, 26013 rows, gzipped + MD5).
-2. `LOCK TABLE EXCLUSIVE` → BEGIN transaction.
-3. UPDATE 726 row 10/05 với: `group_name = 09's value` (Strategy B — giữ user-visible state), `is_scanned = OR`, `is_hidden = OR`, `scanned_at = earliest non-null`, `scanned_by = tương ứng`.
-4. DELETE 726 row 09/05 duplicate.
-5. COMMIT.
-
-**Verify**:
-
-- Trước: 778 đơn distinct, 1504 rows, 559 scanned (deduped).
-- Sau: 778 đơn distinct, 778 rows, 559 scanned. 0 duplicate.
-- Group breakdown unchanged user-visible: nap=422, tomato=119, city=220, shop=10, return=7.
-- 0 đơn mất scan (verified pre-migration: 0 cases scan@09 nhưng không@10).
-- Special: NJD/2026/66254 → tomato (riêng request user). Sau đó: nap=421, tomato=120.
-
-**Status**: ✅ Done. Strategy B chọn vì preserve toàn bộ user-visible state (0 đơn flip group), khớp với "giữ nguyên assignments đã assign cho 2 ngày 9, 10".
-
-### [delivery-report][render] fix tra soát — đã quét/chưa quét chia đúng theo filter nhiều ngày
-
-**Vấn đề**: filter 09/05–10/05, "Đã quét" tab chỉ hiển thị scans của ngày 09/05 (fromDate); scans của 10/05 trôi sang "Chưa quét". Lý do: `loadAssignmentsFromDB` chỉ gọi `?date=fromDate`, một ngày. Tương tự `saveScannedNumber`/`unscan`/`hide` ghi `assignment_date = fromDate` thay vì DateInvoice thực của đơn → đơn 10/05 scan trong filter 09–10 bị lưu nhầm dưới ngày 09/05.
-
-**Fix backend** ([render.com/routes/v2/delivery-assignments.js](../render.com/routes/v2/delivery-assignments.js)):
-
-- `GET /` thêm `?from=YYYY-MM-DD&to=YYYY-MM-DD` (BETWEEN), giữ `?date=` cho backward compat. Dedupe `scannedNumbers`/`hiddenNumbers` khi 1 order có 2 row khác `assignment_date`.
-- `POST /` chấp nhận per-assignment `.date` (fallback `date` top-level) → mỗi đơn lưu đúng `assignment_date` theo DateInvoice của chính nó.
-- `PATCH /unscan-bulk` chấp nhận shape mới `{ items: [{orderNumber, date}] }` (giữ shape cũ `{date, orderNumbers}` để compat) → bulk unscan cross-date trong 1 statement.
-
-**Fix frontend** ([delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)):
-
-- Thêm `getAssignmentDateRange()` và `getDateForOrder(orderNumber)` (resolve qua `allData[].DateInvoice`, fallback fromDate).
-- `loadAssignmentsFromDB`, sync polling: dùng `from`/`to` thay vì `date`.
-- `saveAssignmentsToDB`: từng item gán `.date = toLocalDateStr(item.DateInvoice)`.
-- `saveScannedNumber`, `unscanNumberInDB`, `hideOrder`: query string `date = getDateForOrder(orderNumber)`.
-- `unscanBulkInDB`: gửi `{ items:[{orderNumber, date}] }`.
-
-**Status**: ✅ Done.
-
-### [chat][render] "Khách chưa có SĐT" empty state — set-phone flow + Pancake recon
-
-**Yêu cầu owner**: "xem pancake set sđt ra sao → nếu không tìm được thì hiện khách chưa có sđt → cho set sđt".
-Tiếp: "request set phone trên pancake là được rồi vì tìm đoạn hội thoại trên pancake mà".
-
-**Pancake recon** (passive inspection của `__pancakeReduxStore__` + bundle grep + endpoint probe):
-
-- Pancake capture phone TỰ ĐỘNG từ chat content qua `recent_phone_numbers[{m_id, offset, length, phone_number, status}]` — m_id reference message gốc, offset+length = position trong text.
-- **Không có public REST API để set phone manually**. Probed các pattern:
-    - `PATCH/PUT /api/v1/pages/{pid}/customers/{uuid}` → 404
-    - `POST .../phone_numbers`, `.../recent_phone_numbers`, `.../edit_phone`, `.../add_phone_number`, `.../info`, `.../extra_info` → 404
-    - `POST /api/v1/customers/update_global_id` → 404
-    - `customers_by_phone_number?phone_number=...` → 500 (lookup-only, broken or needs special params)
-- Pancake hidden globals tìm được: `window.findGlobalIdForConv(e)` (gọi extension `GET_GLOBAL_ID_FOR_CONV`), `window.__pancakeReduxStore__`, `window.__pancakeReduxHistoryLog__`. Pancake action types `UPDATE_CUSTOMER_PROFILE_INFO`, `ADD_CUSTOMER_NOTE` etc. có ở store nhưng dispatch qua các thunk private không expose URL constants.
-
-**Kết luận**: không clone được "Pancake set-phone" qua HTTP. Best practical: lưu phone trong DB n2store + re-trigger lookup chain (`searchConversationsOnPage(pageId, phone)` + by-phone DB lookup + `pancake_data.page_fb_ids[pageId]` mapping).
-
-**Backend** ([render.com/routes/v2/customers.js](../render.com/routes/v2/customers.js)):
-
-- `POST /api/v2/customers/set-phone` body `{ fbId?, globalId?, pageId?, phone, name? }`.
-- Dedicated `client.connect()` + `BEGIN`. **Phone-first** `SELECT … FOR UPDATE` row-lock (UNIQUE index ở phone → lock trước khi UPDATE/INSERT để tránh race + duplicate-key). Fallback fb_id → global_id dưới cùng lock.
-- UPDATE existing với `COALESCE` preserve các field non-null (chỉ điền null cũ). Maintain `pancake_data.page_fb_ids[pageId] = fbId` mapping → chat-core lookup chain dùng cho cross-page resolve.
-- INSERT branch dùng plain INSERT (không ON CONFLICT vì SELECT FOR UPDATE đã guarantee no race).
-- Seed `fb_global_id_cache(page_id, psid, global_user_id, resolved_by='set-phone')` nếu có cả 3.
-
-**Frontend** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)):
-
-- `_renderSetPhoneEmptyState(pageName, opts)` 2-mode UX:
-    - Initial: `"Khách chưa có SĐT trên <page>"` + button **"Gán SĐT"**.
-    - Sau save mà vẫn chưa có conv (`opts.persisted`): `"Đã lưu SĐT nhưng chưa có hội thoại trên <page>"` + button **"Thử SĐT khác"** — user biết save thành công, lý do empty là Pancake không có conv (khách chưa nhắn page).
-- `_wireSetPhoneEmptyState(targetPageId)` submit → POST set-phone → cập nhật `window.currentChatPhone` + header → flag `window._chatPhonePersistedForPage` → re-trigger `_findAndLoadConversation(allowDrift=false)`. Nếu vẫn empty → re-render với mode `persisted=true`.
-- Flag `_chatPhonePersistedForPage` reset trong `openChatModal` để không leak giữa các order khác nhau.
-
-**Tests verified** (browser, test customer 0123456788 → switch sang NhiJudy Store):
-
-- ✅ Heading ban đầu: "Khách chưa có SĐT trên NhiJudy Store"
-- ✅ Submit SĐT 0123456788 → POST `/api/v2/customers/set-phone` → 200 success
-- ✅ Verify DB: customer.pancake_data.page_fb_ids = {"270136663390370": "24948162744877764"} ← link Store fb_id
-- ✅ Re-lookup vẫn empty (đúng — test customer chưa nhắn Store) → heading switch sang "Đã lưu SĐT nhưng chưa có hội thoại trên NhiJudy Store"
-- ✅ Button label: "Gán SĐT" → "Thử SĐT khác"
-- ✅ 0 console errors
-
-Status: ✅ Done (commits `ebec2276` backend transaction fix + `93e6c865` frontend two-mode UX + `e86b1319` initial scaffold).
-
----
 
 <!--
 HƯỚNG DẪN THÊM ENTRY MỚI:

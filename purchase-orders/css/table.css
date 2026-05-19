@@ -422,22 +422,75 @@
     height: 50px;
     object-fit: cover;
     border-radius: 6px;
-    cursor: pointer;
+    cursor: zoom-in;
 }
 
-/* Floating image preview on hover */
+/* Floating image preview on hover (x5 zoom — sized in JS) */
 .po-image-preview {
     position: fixed;
     z-index: var(--z-image-preview);
     pointer-events: none;
     border-radius: 8px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-    max-width: 350px;
-    max-height: 350px;
     object-fit: contain;
     background: white;
     padding: 4px;
     border: 1px solid #e5e7eb;
+}
+
+/* Full-screen lightbox khi click thumbnail */
+.po-image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    animation: po-lightbox-fade-in 0.18s ease-out;
+}
+
+.po-image-lightbox__img {
+    max-width: 92vw;
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    cursor: default;
+    user-select: none;
+}
+
+.po-image-lightbox__close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+.po-image-lightbox__close:hover {
+    background: rgba(255, 255, 255, 0.32);
+}
+
+@keyframes po-lightbox-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 /* ========================================

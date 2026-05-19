@@ -390,12 +390,12 @@ class PurchaseOrderFormModal {
                     .map(
                         (url, index) => `
                     <div style="position: relative; width: 60px; height: 60px;">
-                        <img src="${url}" alt="Invoice ${index + 1}" style="
+                        <img src="${url}" alt="Invoice ${index + 1}" class="po-zoom-img" style="
                             width: 100%;
                             height: 100%;
                             object-fit: cover;
                             border-radius: 8px;
-                            cursor: pointer;
+                            cursor: zoom-in;
                         " onclick="window.purchaseOrderFormModal.viewImage('${url}')">
                         <button type="button" data-remove-invoice="${index}" style="
                             position: absolute;
@@ -542,11 +542,39 @@ class PurchaseOrderFormModal {
     }
 
     /**
-     * View image in full size
+     * View image in full size - lightbox overlay (click outside or ESC to close)
      */
     viewImage(url) {
-        // Simple image viewer - can be enhanced later
-        window.open(url, '_blank');
+        if (this._lightbox) {
+            this._lightbox.remove();
+            this._lightbox = null;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'po-image-lightbox';
+        overlay.innerHTML = `
+            <button type="button" class="po-image-lightbox__close" aria-label="Đóng">&times;</button>
+            <img src="${url}" alt="Ảnh phóng to" class="po-image-lightbox__img">
+        `;
+
+        const close = () => {
+            overlay.remove();
+            document.removeEventListener('keydown', onKey);
+            if (this._lightbox === overlay) this._lightbox = null;
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') close();
+        };
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay || e.target.classList.contains('po-image-lightbox__close')) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKey);
+
+        document.body.appendChild(overlay);
+        this._lightbox = overlay;
     }
 
     /**
@@ -2210,11 +2238,13 @@ class PurchaseOrderFormModal {
             document.body.appendChild(this._imagePreview);
         }
 
+        const ZOOM_SELECTOR = '.po-modal-thumb, .po-zoom-img';
+
         // Use event delegation on modal
         this.modalElement.addEventListener(
             'mouseenter',
             (e) => {
-                const thumb = e.target.closest('.po-modal-thumb');
+                const thumb = e.target.closest(ZOOM_SELECTOR);
                 if (!thumb) return;
                 this._imagePreview.src = thumb.src;
                 this._imagePreview.style.display = 'block';
@@ -2226,7 +2256,7 @@ class PurchaseOrderFormModal {
         this.modalElement.addEventListener(
             'mousemove',
             (e) => {
-                const thumb = e.target.closest('.po-modal-thumb');
+                const thumb = e.target.closest(ZOOM_SELECTOR);
                 if (!thumb || this._imagePreview.style.display === 'none') return;
                 this._positionPreview(thumb);
             },
@@ -2236,7 +2266,7 @@ class PurchaseOrderFormModal {
         this.modalElement.addEventListener(
             'mouseleave',
             (e) => {
-                const thumb = e.target.closest('.po-modal-thumb');
+                const thumb = e.target.closest(ZOOM_SELECTOR);
                 if (!thumb) return;
                 this._imagePreview.style.display = 'none';
             },
@@ -2246,11 +2276,18 @@ class PurchaseOrderFormModal {
 
     /**
      * Position the floating preview next to the thumbnail
+     * Zoom level: x5 thumb size, capped to viewport
      */
     _positionPreview(thumb) {
         const rect = thumb.getBoundingClientRect();
-        const previewSize = 300;
-        const gap = 10;
+        const gap = 12;
+        // x5 zoom based on actual thumb dimension, clamped to fit viewport
+        const maxDim = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.8, 600);
+        const baseDim = Math.max(rect.width, rect.height);
+        const previewSize = Math.min(Math.max(baseDim * 5, 250), maxDim);
+
+        this._imagePreview.style.maxWidth = previewSize + 'px';
+        this._imagePreview.style.maxHeight = previewSize + 'px';
 
         // Default: show to the left of the image
         let left = rect.left - previewSize - gap;
@@ -2259,6 +2296,10 @@ class PurchaseOrderFormModal {
         // If not enough space on the left, show on the right
         if (left < 10) {
             left = rect.right + gap;
+        }
+        // If still overflows right, anchor against right edge
+        if (left + previewSize > window.innerWidth - 10) {
+            left = window.innerWidth - previewSize - 10;
         }
 
         // Keep within viewport vertically
