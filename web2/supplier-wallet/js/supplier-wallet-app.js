@@ -507,6 +507,38 @@
             pushSync();
         }
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        _sseConnect();
+    }
+
+    // SSE: realtime auto-refresh khi SePay webhook nhận tiền (refund từ NCC).
+    // Server pipeline (đã có): SePay webhook → wallet-event-processor →
+    // walletEvents.emit('wallet:update') → realtime-sse.js wildcard notify
+    // 'wallet:*'. Subscribe 'wallet:all' để nhận mọi event.
+    //
+    // Khác biệt với customer-wallet: NCC ít khi chuyển tiền cho shop (chỉ khi
+    // refund/hoàn), nên rate event thấp. Cùng pattern, debounce 800ms.
+    let _sseUnsubscribe = null;
+    let _ssePollTimer = null;
+    function _sseConnect() {
+        if (!window.Web2SSE?.subscribe) {
+            console.warn('[SupplierWallet-SSE] Web2SSE not loaded — skip realtime');
+            return;
+        }
+        if (_sseUnsubscribe) return;
+        _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
+            if (_ssePollTimer) clearTimeout(_ssePollTimer);
+            _ssePollTimer = setTimeout(async () => {
+                _ssePollTimer = null;
+                const phone = msg?.data?.phone;
+                const amount = msg?.data?.transaction?.amount;
+                console.log(
+                    '[SupplierWallet-SSE] wallet_update:',
+                    phone,
+                    amount ? amount.toLocaleString('vi-VN') + 'đ' : ''
+                );
+                await pollDeposits();
+            }, 800);
+        });
     }
 
     if (document.readyState === 'loading') {

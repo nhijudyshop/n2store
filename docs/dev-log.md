@@ -25,6 +25,28 @@
 
 ## 2026-05-19
 
+### [supplier-wallet + supplier-debt] Wire SSE realtime — auto-refresh khi SePay + so-order data change
+
+**User yêu cầu**: tiếp tục — wire 2 page Ví NCC + Báo cáo công nợ NCC.
+
+**supplier-wallet** (`web2/supplier-wallet/`):
+
+- Tương tự customer-wallet, subscribe SSE wildcard `wallet:all` để nhận event `wallet_update` từ SePay webhook (refund từ NCC).
+- `js/supplier-wallet-app.js`: thêm `_sseConnect()` sau `init()` → debounce 800ms `pollDeposits()`.
+- Manual data (notes, payments) vẫn dùng Firestore sync trong `supplier-wallet-storage.js` (data nhỏ + ít user, không cần migrate).
+- HTML: bridge đã load sẵn từ commit trước; bump `supplier-wallet-app.js?v=20260519a`.
+
+**supplier-debt** (`web2/supplier-debt/`):
+
+- Báo cáo cross-source (Web 2.0 + TPOS legacy). Read-only — không có write riêng.
+- Subscribe **3 topics**: `wallet:all` (SePay events), `web2:products` (so-order data feeds qua products pending), `web2:fast-sale-orders` (PBH ảnh hưởng nếu refund NCC).
+- Debounce **1500ms** — báo cáo nặng, gom mutation thành 1 reload (`loadAll` + `applyFilterAndRender`).
+- `index.html`: thêm `<script src="web2-sse-bridge.js?v=20260519a">`. Bump `supplier-debt-app.js?v=20260519a`.
+
+**Status**: ✅ Done
+
+---
+
 ### [customer-wallet] Wire SSE subscribe → realtime auto-refresh khi SePay webhook nhận tiền
 
 **User cho biết**: SePay webhook đã hoạt động — nhận tiền chuyển khoản vào, update công nợ KH Web 2.0.

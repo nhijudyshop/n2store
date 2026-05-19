@@ -1297,6 +1297,40 @@
         await loadAll();
         applyFilterAndRender();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        _sseConnect();
+    }
+
+    // SSE: realtime refresh báo cáo công nợ NCC khi data nguồn thay đổi.
+    // Sources ảnh hưởng:
+    //   - SePay deposit (wallet:all) — NCC refund/transfer
+    //   - web2-products — so-order data feeds via products pending
+    //   - web2:fast-sale-orders — PBH ảnh hưởng nếu refund NCC
+    // Debounce 1500ms — báo cáo nặng, không cần refresh quá nhanh.
+    let _sseUnsubs = [];
+    let _sseReloadTimer = null;
+    function _sseConnect() {
+        if (!window.Web2SSE?.subscribe) {
+            console.warn('[SupplierDebt-SSE] Web2SSE not loaded — skip realtime');
+            return;
+        }
+        if (_sseUnsubs.length) return;
+        const scheduleReload = (topic) => () => {
+            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            _sseReloadTimer = setTimeout(async () => {
+                _sseReloadTimer = null;
+                console.log('[SupplierDebt-SSE] reload triggered by:', topic);
+                await loadAll();
+                applyFilterAndRender();
+            }, 1500);
+        };
+        _sseUnsubs.push(window.Web2SSE.subscribe('wallet:all', scheduleReload('wallet:all')));
+        _sseUnsubs.push(window.Web2SSE.subscribe('web2:products', scheduleReload('web2:products')));
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe(
+                'web2:fast-sale-orders',
+                scheduleReload('web2:fast-sale-orders')
+            )
+        );
     }
 
     if (document.readyState === 'loading') {
