@@ -25,6 +25,17 @@
 
 ## 2026-05-19
 
+### [inventory-tracking] Modal "Quản Lý Ảnh SP": dời nút "Thêm NCC" từ header xuống dưới mỗi đợt
+
+**User feedback**: nút "+ Thêm NCC" nằm bên phải header mỗi đợt → muốn dời xuống dưới. Mỗi đợt phải có nút riêng vì context theo đợt.
+
+**Files**:
+
+- `inventory-tracking/js/modal-image-manager.js` — `_renderGroup`: bỏ nút trong `.img-mgr-group-header`, thêm `.img-mgr-group-footer` chứa nút "Thêm NCC vào Đợt N" ở cuối mỗi group, sau list NCC.
+- `inventory-tracking/css/modern.css` — thêm `.img-mgr-group-footer` (border-top dashed + flex center), update `.img-mgr-group-add` (bỏ `margin-left:auto`, tăng padding/font-size cho dễ click).
+
+**Hành vi**: mỗi đợt có 1 nút "Thêm NCC vào Đợt N" riêng ở cuối block đợt đó → click thì gọi `ImageManager.addRowInDot(N)` (giữ đúng đợt context). Status: ✅ Done.
+
 ### [don-inbox] Stat card KPI: chỉ phản ứng với date filter, bỏ qua filter khác
 
 **User feedback**: stat card hiển thị 37 đơn cùng "0 món · 0đ" → sai. Lý do: KPI lấy từ `filteredOrders` (sau khi áp tất cả filters bao gồm `status='draft'`), nên không bao giờ có đơn `status='order'`.

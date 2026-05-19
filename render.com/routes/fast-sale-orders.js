@@ -162,6 +162,23 @@ async function ensureTables(pool) {
             ALTER TABLE fast_sale_orders
                 ADD COLUMN IF NOT EXISTS merged_display_stt JSONB;
 
+            -- Migration 076: Đối soát đóng gói (PBH fulfillment workflow)
+            -- State chạy SONG SONG state PBH (state vẫn là kế toán: draft/confirmed/done/cancel).
+            -- fulfillment_state vận hành kho: pending|picking|picked|packed|shipped|delivered|cancelled.
+            -- picked_lines: array {productCode, picked_qty, last_scan_at}.
+            -- Stock đã trừ tại lúc tạo PBH (line ~1019 below) — reconcile KHÔNG trừ lại.
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS fulfillment_state VARCHAR(20) DEFAULT 'pending';
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS fulfillment_picked_lines JSONB DEFAULT '[]'::jsonb;
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS fulfillment_packed_at BIGINT;
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS fulfillment_shipped_at BIGINT;
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS fulfillment_delivered_at BIGINT;
+            CREATE INDEX IF NOT EXISTS idx_fso_fulfillment_state ON fast_sale_orders(fulfillment_state);
+
             CREATE INDEX IF NOT EXISTS idx_fso_date_invoice ON fast_sale_orders(date_invoice DESC);
             CREATE INDEX IF NOT EXISTS idx_fso_partner_phone ON fast_sale_orders(partner_phone);
             CREATE INDEX IF NOT EXISTS idx_fso_state ON fast_sale_orders(state);
@@ -258,6 +275,16 @@ function mapRow(row) {
         createdByName: row.created_by_name,
         // Migration 074 — Customer 360 link (Phase 12)
         customerId: row.customer_id != null ? Number(row.customer_id) : null,
+        // Migration 076 — Fulfillment / Reconcile
+        fulfillment: {
+            state: row.fulfillment_state || 'pending',
+            pickedLines: row.fulfillment_picked_lines || [],
+            packedAt: row.fulfillment_packed_at != null ? Number(row.fulfillment_packed_at) : null,
+            shippedAt:
+                row.fulfillment_shipped_at != null ? Number(row.fulfillment_shipped_at) : null,
+            deliveredAt:
+                row.fulfillment_delivered_at != null ? Number(row.fulfillment_delivered_at) : null,
+        },
     };
 }
 

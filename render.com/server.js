@@ -330,6 +330,7 @@ const orderNotesRoutes = require('./routes/order-notes');
 const socialOrdersRoutes = require('./routes/social-orders');
 const nativeOrdersRoutes = require('./routes/native-orders');
 const fastSaleOrdersRoutes = require('./routes/fast-sale-orders');
+const reconcileRoutes = require('./routes/reconcile'); // WEB2.0 — PBH đối soát đóng gói
 const walletDepositsRoutes = require('./routes/wallet-deposits'); // WEB2.0
 const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
@@ -446,6 +447,7 @@ app.use('/api/order-notes', orderNotesRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
 app.use('/api/native-orders', nativeOrdersRoutes);
 app.use('/api/fast-sale-orders', fastSaleOrdersRoutes);
+app.use('/api/reconcile', reconcileRoutes); // WEB2.0 — PBH đối soát đóng gói
 app.use('/api/delivery-invoices', deliveryInvoicesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/pbh-reports', pbhReportsRoutes);
@@ -519,6 +521,9 @@ if (web2VariantsRoutes.initializeNotifiers) {
 // (block scope đã verified bug — SSE event không fire dù require cached).
 if (fastSaleOrdersRoutes.initializeNotifiers) {
     fastSaleOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+if (reconcileRoutes.initializeNotifiers) {
+    reconcileRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 const web2UsersRoutes = require('./routes/web2-users');
 if (web2UsersRoutes.initializeNotifiers) {

@@ -4368,17 +4368,24 @@ textarea.inline-edit-input {
     font-size: 12px;
     font-weight: 500;
 }
+.img-mgr-group-footer {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--gray-200);
+    display: flex;
+    justify-content: center;
+}
 .img-mgr-group-add {
-    margin-left: auto;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
+    gap: 6px;
+    padding: 6px 14px;
     border: 1px dashed var(--gray-300);
     border-radius: 6px;
     background: transparent;
     color: var(--gray-600);
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -4386,11 +4393,11 @@ textarea.inline-edit-input {
     border-color: var(--primary);
     border-style: solid;
     color: var(--primary);
-    background: rgba(99, 102, 241, 0.04);
+    background: rgba(99, 102, 241, 0.06);
 }
 .img-mgr-group-add i {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
 }
 .img-mgr-field label {
     display: block;

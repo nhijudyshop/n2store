@@ -280,13 +280,15 @@ const ImageManager = (() => {
                     <i data-lucide="layers"></i>
                     <strong>Đợt ${group.dotSo}</strong>${badge}
                     <span class="img-mgr-group-count">${group.rows.length} NCC</span>
-                    <button class="img-mgr-group-add"
-                            onclick="ImageManager.addRowInDot(${group.dotSo})"
-                            title="Thêm NCC vào đợt này">
-                        <i data-lucide="plus"></i> Thêm NCC
-                    </button>
                 </div>
                 ${group.rows.map((row) => _renderRow(row)).join('')}
+                <div class="img-mgr-group-footer">
+                    <button class="img-mgr-group-add"
+                            onclick="ImageManager.addRowInDot(${group.dotSo})"
+                            title="Thêm NCC vào đợt ${group.dotSo}">
+                        <i data-lucide="plus"></i> Thêm NCC vào Đợt ${group.dotSo}
+                    </button>
+                </div>
             </div>
         `;
     }
