@@ -38,6 +38,26 @@ function _notify(action, number) {
             { action, number: number || null, ts: Date.now() },
             'update'
         );
+        // PHASE B2: cross-broadcast cho customer-wallet (Ví KH). PBH create /
+        // confirm / cancel / print ảnh hưởng tổng tiền + công nợ KH → page Ví KH
+        // tự refresh thay vì chờ poll wallet:all.
+        const walletAffectingActions = new Set([
+            'create',
+            'from-native-order',
+            'confirm',
+            'cancel',
+            'delete',
+            'update',
+            'bulk-confirm',
+            'bulk-cancel',
+        ]);
+        if (walletAffectingActions.has(action)) {
+            _notifyClients(
+                'web2:customer-wallet',
+                { action, number: number || null, ts: Date.now(), from: 'web2:fast-sale-orders' },
+                'update'
+            );
+        }
     } catch (e) {
         console.warn('[FAST-SALE-ORDERS] _notify failed:', e.message);
     }

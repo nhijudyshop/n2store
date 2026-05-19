@@ -546,6 +546,7 @@
     // (per-customer detail page có thể subscribe 'wallet:<phone>' riêng).
     let _sseUnsubscribe = null;
     let _sseUnsubscribeFso = null; // PHASE A1: web2:fast-sale-orders
+    let _sseUnsubscribeCw = null; // PHASE B2: web2:customer-wallet cross-broadcast
     let _ssePollTimer = null;
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) {
@@ -553,21 +554,28 @@
             return;
         }
         if (_sseUnsubscribe) return;
-        // PHASE A1: subscribe thêm 'web2:fast-sale-orders' — khi PBH
-        // confirm/cancel/print → wallet KH cần reload PBH list + recalc.
-        // Cùng debounce timer với wallet:all để gom mutation burst.
-        _sseUnsubscribeFso = window.Web2SSE.subscribe('web2:fast-sale-orders', (msg) => {
+        // PHASE A1 + B2: subscribe 'web2:fast-sale-orders' và alias
+        // 'web2:customer-wallet' (server cross-broadcast topic — Phase B2 ở
+        // fast-sale-orders.js). Khi PBH confirm/cancel/create → wallet KH
+        // reload PBH list + recalc. Cùng debounce với wallet:all.
+        const reloadPbh = (msg, source) => {
             if (_ssePollTimer) clearTimeout(_ssePollTimer);
             _ssePollTimer = setTimeout(async () => {
                 _ssePollTimer = null;
                 console.log(
-                    '[CustomerWallet-SSE] PBH event:',
+                    `[CustomerWallet-SSE] ${source}:`,
                     msg.data?.action,
                     msg.data?.number || ''
                 );
                 await loadAndRender();
             }, 800);
-        });
+        };
+        _sseUnsubscribeFso = window.Web2SSE.subscribe('web2:fast-sale-orders', (msg) =>
+            reloadPbh(msg, 'PBH direct')
+        );
+        _sseUnsubscribeCw = window.Web2SSE.subscribe('web2:customer-wallet', (msg) =>
+            reloadPbh(msg, 'wallet cross-broadcast')
+        );
         _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
             // Server gửi event 'wallet_update' với data { phone, wallet, transaction }
             // Debounce 800ms — burst nhiều giao dịch SePay liên tiếp → 1 reload.

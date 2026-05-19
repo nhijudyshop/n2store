@@ -428,22 +428,61 @@
         _sseConnect();
     }
 
-    // SSE: refresh khi user khác create/update/delete user qua trang khác
+    // SSE: refresh khi user khác create/update/delete user qua trang khác.
+    // PHASE A5: nếu action ảnh hưởng QUYỀN của session current user
+    // (update-permissions hoặc role change cho chính mình) → toast cảnh báo
+    // + force-reload sau 3s để áp dụng quyền mới.
     let _sseUnsubscribe = null;
     let _sseReloadTimer = null;
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) return;
         if (_sseUnsubscribe) return;
         _sseUnsubscribe = window.Web2SSE.subscribe('web2:users', (msg) => {
+            const action = msg.data?.action;
+            const targetId = msg.data?.id;
+
+            // PHASE A5: check if event affects current session user's permission
+            // → force F5 sau khi cảnh báo.
+            const myId = _currentSessionUserId();
+            const sensitiveActions = new Set([
+                'update-permissions',
+                'update',
+                'change-password',
+                'deactivate',
+            ]);
+            if (myId && Number(targetId) === Number(myId) && sensitiveActions.has(action)) {
+                notify(
+                    `⚠️ Quyền/thông tin tài khoản của bạn vừa thay đổi (${action}). Trang sẽ tự reload sau 3s.`,
+                    'warning'
+                );
+                setTimeout(() => window.location.reload(), 3000);
+                return;
+            }
+
+            // Normal: reload user list
             if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
             _sseReloadTimer = setTimeout(async () => {
                 _sseReloadTimer = null;
-                console.log('[users-app-SSE] event:', msg.data?.action, msg.data?.id || '');
+                console.log('[users-app-SSE] event:', action, targetId || '');
                 await loadAll();
                 renderList();
                 if (window.lucide?.createIcons) window.lucide.createIcons();
             }, 600);
         });
+    }
+
+    function _currentSessionUserId() {
+        // Try shared auth + local web2-users session token.
+        try {
+            const me = window.authManager?.getAuthData?.();
+            if (me?.userId) return me.userId;
+            const tok = localStorage.getItem('web2_users_session') || '';
+            if (tok) {
+                const parsed = JSON.parse(tok);
+                return parsed?.user?.id || null;
+            }
+        } catch (_) {}
+        return null;
     }
 
     if (document.readyState === 'loading') {

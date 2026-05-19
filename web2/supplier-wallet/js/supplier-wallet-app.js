@@ -517,28 +517,56 @@
     //
     // Khác biệt với customer-wallet: NCC ít khi chuyển tiền cho shop (chỉ khi
     // refund/hoàn), nên rate event thấp. Cùng pattern, debounce 800ms.
-    let _sseUnsubscribe = null;
+    let _sseUnsubs = [];
     let _ssePollTimer = null;
+    let _sseReloadTimer = null;
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) {
             console.warn('[SupplierWallet-SSE] Web2SSE not loaded — skip realtime');
             return;
         }
-        if (_sseUnsubscribe) return;
-        _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
-            if (_ssePollTimer) clearTimeout(_ssePollTimer);
-            _ssePollTimer = setTimeout(async () => {
-                _ssePollTimer = null;
-                const phone = msg?.data?.phone;
-                const amount = msg?.data?.transaction?.amount;
-                console.log(
-                    '[SupplierWallet-SSE] wallet_update:',
-                    phone,
-                    amount ? amount.toLocaleString('vi-VN') + 'đ' : ''
-                );
-                await pollDeposits();
-            }, 800);
-        });
+        if (_sseUnsubs.length) return;
+
+        // 1. wallet:all — SePay deposit (refund từ NCC)
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe('wallet:all', (msg) => {
+                if (_ssePollTimer) clearTimeout(_ssePollTimer);
+                _ssePollTimer = setTimeout(async () => {
+                    _ssePollTimer = null;
+                    const phone = msg?.data?.phone;
+                    const amount = msg?.data?.transaction?.amount;
+                    console.log(
+                        '[SupplierWallet-SSE] wallet_update:',
+                        phone,
+                        amount ? amount.toLocaleString('vi-VN') + 'đ' : ''
+                    );
+                    await pollDeposits();
+                }, 800);
+            })
+        );
+
+        // PHASE A2: web2:products — stock change từ so-order / web2/products ảnh
+        // hưởng công nợ NCC. Khi adjust-stock / upsert-pending / confirm-purchase
+        // → reload supplier aggregation.
+        const scheduleAggregateReload = (label) => () => {
+            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            _sseReloadTimer = setTimeout(async () => {
+                _sseReloadTimer = null;
+                console.log('[SupplierWallet-SSE] aggregate reload triggered by:', label);
+                await loadAndRender();
+            }, 1200);
+        };
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe('web2:products', scheduleAggregateReload('web2:products'))
+        );
+        // PHASE A2 phụ: web2:supplier-wallet — server cross-broadcast khi
+        // products mutation (xem Phase B1 server side).
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe(
+                'web2:supplier-wallet',
+                scheduleAggregateReload('web2:supplier-wallet')
+            )
+        );
     }
 
     if (document.readyState === 'loading') {

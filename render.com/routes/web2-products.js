@@ -22,6 +22,22 @@ function _notify(action, code) {
     if (!_notifyClients) return;
     try {
         _notifyClients('web2:products', { action, code: code || null, ts: Date.now() }, 'update');
+        // PHASE B1: cross-broadcast cho supplier-wallet (Ví NCC) khi stock change.
+        // Lý do: supplier debt = Σ(qty × costPrice). Stock change qua adjust-stock /
+        // upsert-pending / confirm-purchase ảnh hưởng debt → page Ví NCC tự refresh.
+        const stockAffectingActions = new Set([
+            'adjust-stock',
+            'upsert-pending',
+            'confirm-purchase',
+            'adjust-pending',
+        ]);
+        if (stockAffectingActions.has(action)) {
+            _notifyClients(
+                'web2:supplier-wallet',
+                { action, code: code || null, ts: Date.now(), from: 'web2:products' },
+                'update'
+            );
+        }
     } catch (e) {
         console.warn('[WEB2-PRODUCTS] _notify failed:', e.message);
     }

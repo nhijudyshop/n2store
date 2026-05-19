@@ -177,6 +177,7 @@
                             <button class="tpos-btn tpos-btn-default tpos-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
                             ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-info tpos-btn-xs" title="Tạo phiếu giao" onclick="PbhApp.createDelivery('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
                             ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Trả hàng" onclick="PbhApp.createRefund('${escapeHtml(o.number)}')"><i data-lucide="undo-2" style="width:12px;height:12px;"></i></button>` : ''}
+                            ${src.code && src.type === 'native_order' ? `<a class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xem đơn nguồn ${escapeHtml(src.code)}" href="../../native-orders/index.html?search=${encodeURIComponent(src.code)}" target="_blank" style="color:#0ea5e9;"><i data-lucide="external-link" style="width:12px;height:12px;"></i></a>` : ''}
                         </div>
                     </td>
                     <td class="tpos-cell-center"><strong>${o.displayStt ?? ''}</strong></td>

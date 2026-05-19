@@ -25,6 +25,30 @@
 
 ## 2026-05-19
 
+### [web2 cross-page] Phase A + B SSE wiring — liên kết chức năng giữa các page Web 2.0
+
+**User yêu cầu**: "liên kết chức năng các web 2.0, thêm SSE cập nhật realtime, plan lớn, nghiên cứu kĩ, làm logic thống nhất".
+
+**Research**: dispatch Explore agent map Read/Write matrix cho 16 pages, identify 8 frictions. Tổng hợp [`docs/web2/IMPROVEMENT-PLAN.md`](web2/IMPROVEMENT-PLAN.md) với roadmap Phase A (quick wins) / B (cross-cutting) / C (architectural defer).
+
+**Implement Phase A + B (subset)**:
+
+- **A1** customer-wallet: subscribe `web2:fast-sale-orders` → reload PBH list khi PBH confirm/cancel ở máy khác. Debounce 800ms.
+- **A2** supplier-wallet: chuyển sang array `_sseUnsubs`, subscribe `web2:products` + `web2:supplier-wallet`. Debounce 1200ms aggregate reload.
+- **A3** PBH page: thêm icon "Xem đơn nguồn" với `target="_blank"` đến `../../native-orders/?search=<code>` khi `sourceLink.type === 'native_order'`.
+- **A5** users-app: detect SSE event ảnh hưởng current session user → toast cảnh báo + force reload 3s. Helper `_currentSessionUserId()`.
+- **B1** server `web2-products.js`: emit thêm topic `web2:supplier-wallet` khi action stock-affecting.
+- **B2** server `fast-sale-orders.js`: emit thêm topic `web2:customer-wallet` khi action wallet-affecting.
+- Customer-wallet subscribe thêm `web2:customer-wallet` cross-broadcast.
+
+**Frictions resolved**: 5/8 (F4 manual refresh, F5 nav deep link, F6 cross-cache invalidate, F7 permission realtime, partial F2/F8).
+
+**Deferred**: A4 native→PBH back-link (cần DB query backend), B3 ID helper, B4 supplier-debt cache, Phase C architectural (Firestore→Postgres, saga).
+
+**Status**: ✅ Done
+
+---
+
 ### [inventory-tracking] Image Manager v2: chỉ Đợt (bỏ ngày), cho phép Đợt tùy chỉnh
 
 **User yêu cầu**: "Quản lý ảnh bỏ ngày đi, cho chọn theo đợt → cho chỉnh đợt custom".
