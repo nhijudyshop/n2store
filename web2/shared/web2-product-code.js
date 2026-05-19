@@ -184,12 +184,13 @@
      * @returns {{ type: string|null, rest: string }}
      */
     function extractType(productNameClean) {
-        // Sort by length desc để match longest first
+        // Sort by length desc để match longest first.
+        // Chỉ match ở ĐẦU tên SP (convention VN: "ÁO ĐỎ", "QUẦN XANH", "VÁY HỒNG"...).
+        // Tránh false match như "HỒNG ĐẬM" → DAM (đầm) khi ĐẬM là tính từ.
         const keys = Object.keys(TYPE_MAP).sort((a, b) => b.length - a.length);
         for (const key of keys) {
             const keyAscii = clean(key);
-            // Match nguyên từ ở đầu hoặc giữa chuỗi
-            const re = new RegExp(`\\b${keyAscii}\\b`);
+            const re = new RegExp(`^${keyAscii}\\b`);
             if (re.test(productNameClean)) {
                 const rest = productNameClean.replace(re, ' ').replace(/\s+/g, ' ').trim();
                 return { type: TYPE_MAP[key], rest };
@@ -376,13 +377,152 @@
         return map;
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Color shortening with collision detection
+    // ─────────────────────────────────────────────────────────
+    /**
+     * Build map ASCII-uppercase color → unique shortcode.
+     *
+     * Resolves collisions trong kho biến thể (vd "Xám Đậm" vs "Xanh Đậm" cùng
+     * naive code "XD"). Extend chars progressively từ word cuối (more distinguishing
+     * in Vietnamese color names) until all unique within collision group.
+     *
+     * @param {string[]} colorNames — full variant names ("Màu Xanh Dương", …)
+     * @returns {Object<string,string>} { "XANH DUONG": "XD", "XAM DAM": "XAMDAM", … }
+     */
+    function buildColorShortMap(colorNames) {
+        // Normalize: strip "Màu " prefix
+        const entries = (colorNames || [])
+            .map((n) => {
+                const stripped = String(n || '')
+                    .replace(/^\s*M[àÀáÁ]u\s+/iu, '')
+                    .replace(/^\s*MAU\s+/i, '')
+                    .trim();
+                return { full: n, ascii: clean(stripped) };
+            })
+            .filter((c) => c.ascii);
+
+        // Pass 1: naive code
+        const codes = new Map(); // ascii → code
+        for (const c of entries) {
+            const words = c.ascii.split(' ').filter(Boolean);
+            if (words.length === 1) {
+                codes.set(c.ascii, words[0]);
+            } else {
+                codes.set(c.ascii, words.map((w) => w[0]).join(''));
+            }
+        }
+
+        // Pass 2: collision groups → progressive extension
+        const codeToAsciis = {};
+        for (const [ascii, code] of codes) {
+            (codeToAsciis[code] = codeToAsciis[code] || []).push(ascii);
+        }
+
+        for (const [code, asciis] of Object.entries(codeToAsciis)) {
+            if (asciis.length === 1) continue;
+            const wordsList = asciis.map((a) => a.split(' ').filter(Boolean));
+            const maxWords = Math.max(...wordsList.map((ws) => ws.length));
+            const depths = new Array(maxWords).fill(1);
+
+            const generate = (i) => wordsList[i].map((w, k) => w.slice(0, depths[k] || 1)).join('');
+
+            for (let iter = 0; iter < 25; iter++) {
+                const all = asciis.map((_, i) => generate(i));
+                if (new Set(all).size === asciis.length) {
+                    asciis.forEach((a, i) => codes.set(a, all[i]));
+                    break;
+                }
+                // Extend rightmost not-exhausted depth
+                let extended = false;
+                for (let i = depths.length - 1; i >= 0; i--) {
+                    const maxLen = Math.max(...wordsList.map((ws) => (ws[i] || '').length));
+                    if (depths[i] < maxLen) {
+                        depths[i]++;
+                        extended = true;
+                        break;
+                    }
+                }
+                if (!extended) {
+                    // Fully spelled — fall back to numeric suffix
+                    asciis.forEach((a, i) => codes.set(a, generate(i) + (i + 1)));
+                    break;
+                }
+            }
+        }
+
+        const result = {};
+        for (const [ascii, code] of codes) result[ascii] = code;
+        return result;
+    }
+
+    /**
+     * Override extractColor when colorShortMap provided: lookup từng sub-sequence của
+     * product-name-clean. Greedy longest match.
+     */
+    function extractColorWithMap(productNameClean, colorShortMap) {
+        const tokens = productNameClean.split(' ').filter(Boolean);
+        // Try each starting position, longest sub-sequence first
+        for (let i = 0; i < tokens.length; i++) {
+            for (let j = tokens.length; j > i; j--) {
+                const sub = tokens.slice(i, j).join(' ');
+                if (colorShortMap[sub]) {
+                    const rest = [...tokens.slice(0, i), ...tokens.slice(j)].join(' ');
+                    return { colorShort: colorShortMap[sub], rest };
+                }
+            }
+        }
+        // Fallback to default logic
+        return extractColor(productNameClean);
+    }
+
+    // Override suggest() to accept colorShortMap
+    const _originalSuggest = suggest;
+    function suggestWithMap(opts) {
+        const colorShortMap = (opts && opts.colorShortMap) || null;
+        if (!colorShortMap) return _originalSuggest(opts);
+
+        const supplierName = (opts && opts.supplierName) || '';
+        const productName = (opts && opts.productName) || '';
+        const existingCodes = (opts && opts.existingCodes) || [];
+        const supplierPrefixMap = (opts && opts.supplierPrefixMap) || {};
+
+        const prefix = resolvePrefix(supplierName, supplierPrefixMap);
+        const nameClean = clean(productName);
+
+        const { type, rest: r1 } = extractType(nameClean);
+        const { sizeShort, rest: r2 } = extractSize(r1);
+        const { colorShort, rest: r3 } = extractColorWithMap(r2, colorShortMap);
+
+        let counter = '';
+        if (type) {
+            const typePrefix = prefix + type;
+            const re = new RegExp(`^${typePrefix}(\\d+)`);
+            let maxN = 0;
+            for (const c of existingCodes) {
+                const m = c.match(re);
+                if (m && m[1]) maxN = Math.max(maxN, parseInt(m[1], 10));
+            }
+            counter = String(maxN + 1);
+        }
+
+        const code = prefix + (type || '') + counter + (colorShort || '') + (sizeShort || '');
+        return {
+            code,
+            parts: { prefix, type, counter, colorShort, sizeShort, unparsed: r3 },
+        };
+    }
+
     global.Web2ProductCode = {
-        suggest,
+        suggest: suggestWithMap,
+        suggestNaive: _originalSuggest,
         basePrefix,
         resolvePrefix,
         buildPrefixMap,
+        buildColorShortMap,
         extractType,
         extractColor,
+        extractColorWithMap,
         extractSize,
         toAsciiUpper,
     };

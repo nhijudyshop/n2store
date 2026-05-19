@@ -223,6 +223,26 @@
             .join('');
     }
 
+    // Cache color shortmap — build 1 lần từ kho biến thể, reuse across suggestions
+    let _colorShortMapCache = null;
+    function getColorShortMap() {
+        if (_colorShortMapCache) return _colorShortMapCache;
+        const cache = window.Web2VariantsCache;
+        if (!cache?.getAll) return {};
+        const colors = cache
+            .getAll()
+            .filter((v) => /màu/i.test(v.groupName || ''))
+            .map((v) => v.value);
+        _colorShortMapCache = window.Web2ProductCode.buildColorShortMap(colors);
+        return _colorShortMapCache;
+    }
+    // Reset cache khi kho biến thể đổi
+    if (window.Web2VariantsCache?.subscribe) {
+        window.Web2VariantsCache.subscribe(() => {
+            _colorShortMapCache = null;
+        });
+    }
+
     function suggestProductCode() {
         if (!window.Web2ProductCode) {
             notify('Module gợi ý mã chưa load', 'error');
@@ -244,6 +264,7 @@
             productName,
             existingCodes,
             supplierPrefixMap: prefixMap,
+            colorShortMap: getColorShortMap(),
         });
         $('#pmCode').value = result.code;
         const hint = $('#pmCodeHint');
