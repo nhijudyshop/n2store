@@ -25,6 +25,31 @@
 
 ## 2026-05-19
 
+### [web2] sidebar: footer user/đăng xuất mất khi page-shell mount sidebar trước khi web2-auth.js load xong
+
+**User feedback**: trên `/web2/pos-session/index.html` (và các page khác qua page-shell), thanh sidebar trái mất phần "user đăng nhập + nút Đăng xuất" ở dưới đáy. Test Playwright thấy footer hiển thị, browser thật của user không thấy → race condition.
+
+**Root cause**:
+
+- `tpos-sidebar.js` mount footer ngay sau khi load — chưa chắc `Web2Auth` đã sẵn (vì auto-loader inject `web2-auth.js` async).
+- Có polling 2s đợi Web2Auth, nhưng nếu network glitch / cache stale → footer kẹt ở trạng thái rỗng.
+
+**Fix**:
+
+- `web2/shared/page-shell.js`: thêm `web2-auth.js` vào `SCRIPTS_PRELOAD` → load SYNC trước khi mount sidebar → `renderUserFooter()` luôn có `Web2Auth` thật ngay frame đầu.
+- Bump `ASSET_VERSION = 'v=20260519j'` (force browser cache-bust mọi script con).
+- Bump 75 trang web2/\*.html từ `page-shell.js?v=20260425[i|l|n]` → `?v=20260519j`.
+
+**Revert kèm**: commit `32772f6f` (forceExpand cho tpos-pancake) — workaround sai vector, fix root cause nay đã đủ.
+
+**Files**:
+
+- `web2/shared/page-shell.js`
+- `web2/*/index.html` (75 trang)
+- (revert) `web2/shared/tpos-sidebar.js` + `tpos-pancake/index.html`
+
+**Status**: ✅ Done — verified Playwright (logged-out: "Chưa đăng nhập" + nút tím; logged-in admin: "Quản trị viên" + nút đỏ Đăng xuất). User cần **hard-reload Cmd+Shift+R** để clear cache JS cũ.
+
 ### [orders] KPI confirm modal hiển thị cho cả đơn chưa có phiếu bán hàng
 
 **User feedback**: modal "Xác nhận kiểm tra đơn" trong tab KPI chỉ hiện cho đơn đã có phiếu (NJD/2026/xxxxx). Yêu cầu: hiện cho TẤT CẢ đơn trong bảng, không phụ thuộc cột phiếu bán hàng.

@@ -28,7 +28,7 @@
 (function (global) {
     'use strict';
 
-    const ASSET_VERSION = 'v=20260514a';
+    const ASSET_VERSION = 'v=20260519j';
 
     // CSS files cần load
     const CSS_FILES = [
@@ -39,7 +39,10 @@
         '../../web2/shared/web2-effects.css',
     ];
 
-    // Script tags cần load TRƯỚC khi mount (theo thứ tự)
+    // Script tags cần load TRƯỚC khi mount (theo thứ tự).
+    // web2-auth.js phải có TRƯỚC tpos-sidebar.js để renderUserFooter()
+    // có Web2Auth sẵn lúc mount → footer "Chưa đăng nhập" / user info hiện
+    // ngay frame đầu, không có race window làm footer trống.
     const SCRIPTS_PRELOAD = [
         'https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js',
         'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
@@ -48,6 +51,7 @@
         '../../shared/js/firebase-config.js',
         '../../shared/js/shared-auth-manager.js',
         '../../shared/js/notification-system.js',
+        '../../web2/shared/web2-auth.js',
         '../../web2/shared/web2-effects.js',
     ];
 
