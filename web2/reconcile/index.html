@@ -111,6 +111,13 @@
         <script src="../shared/web2-auth.js?v=20260519a"></script>
         <script src="../shared/tpos-sidebar.js?v=20260518e"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260519a"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar) {
+                    Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+                }
+            });
+        </script>
         <script src="js/reconcile-app.js?v=20260519a"></script>
     </body>
 </html>
