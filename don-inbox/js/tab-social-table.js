@@ -598,6 +598,7 @@ function performTableSearch() {
     renderTable();
     updateSearchResultCount();
     updateSearchClearButton();
+    updateInboxKpiStatCard();
 
     // Update tag panel counts only if panel is open
     if (
@@ -1182,6 +1183,12 @@ async function changeSocialOrderStatus(orderId, newStatus) {
 
     // Re-render to update colors
     performTableSearch();
+
+    // Toast KPI khi đơn vừa chuyển sang 'order' qua dropdown (chỉ khi
+    // trước đó chưa phải 'order' — tránh fire khi reorder dropdown trùng giá trị).
+    if (newStatus === 'order' && typeof window.notifyOrderKpiEarned === 'function') {
+        window.notifyOrderKpiEarned(order, oldStatus);
+    }
 }
 
 // ===== EXPORTS =====

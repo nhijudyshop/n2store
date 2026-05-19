@@ -191,6 +191,7 @@ function updateSocialOrderAfterSale(socialOrderId) {
     // Fallback: update status directly
     const order = SocialOrderState?.orders?.find((o) => o.id === socialOrderId);
     if (order) {
+        const prevStatus = order.status;
         order.status = 'order';
         if (typeof saveSocialOrdersToStorage === 'function') {
             saveSocialOrdersToStorage();
@@ -202,6 +203,9 @@ function updateSocialOrderAfterSale(socialOrderId) {
             performTableSearch();
         } else if (typeof renderTable === 'function') {
             renderTable();
+        }
+        if (typeof window.notifyOrderKpiEarned === 'function') {
+            window.notifyOrderKpiEarned(order, prevStatus);
         }
     }
 }

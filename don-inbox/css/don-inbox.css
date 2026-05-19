@@ -793,6 +793,52 @@
     white-space: nowrap;
 }
 
+/* KPI Stat Card — đứng cạnh các filter, đồng bộ theo bộ lọc ngày. */
+.inbox-kpi-stat {
+    background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%);
+    border: 1px solid #ddd6fe;
+    border-radius: 10px;
+    padding: 6px 12px;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(99, 102, 241, 0.08);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.inbox-kpi-stat:hover {
+    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.18);
+    transform: translateY(-1px);
+}
+.inbox-kpi-stat-icon {
+    color: #6366f1;
+    font-size: 18px;
+}
+.inbox-kpi-stat-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    line-height: 1.1;
+}
+.inbox-kpi-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6d28d9;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.inbox-kpi-stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e1b4b;
+    font-variant-numeric: tabular-nums;
+}
+.inbox-kpi-stat-sep {
+    margin: 0 4px;
+    color: #a78bfa;
+}
+.inbox-kpi-stat-amount {
+    color: #4338ca;
+    font-weight: 700;
+}
+
 /* Status Filter Tabs (replaces Trạng thái dropdown) */
 .status-filter-tabs {
     display: inline-flex;

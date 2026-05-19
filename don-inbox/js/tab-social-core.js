@@ -226,6 +226,88 @@ function showNotification(message, type = 'success') {
     }
 }
 
+// 2026-05-19: KPI inbox = 5.000đ / món bán được (status='order'). Đồng bộ với
+// orders-report KPI Đơn Inbox tab.
+const KPI_PER_UNIT_INBOX = 5000;
+
+/**
+ * Cập nhật stat card KPI ở filter row — chạy mỗi lần performTableSearch.
+ * KPI = sum(totalQuantity) của các đơn 'order' trong filteredOrders × 5.000đ.
+ */
+function updateInboxKpiStatCard() {
+    const card = document.getElementById('inboxKpiStatCard');
+    if (!card) return;
+    const orders =
+        window.SocialOrderState?.filteredOrders ||
+        window.SocialOrderState?.orders ||
+        [];
+    const kpiOrders = orders.filter((o) => o && o.status === 'order');
+    const totalQty = kpiOrders.reduce(
+        (s, o) => s + (Number(o.totalQuantity) || 0),
+        0
+    );
+    const totalKpi = totalQty * KPI_PER_UNIT_INBOX;
+
+    const labelMap = {
+        all: 'KPI tất cả',
+        today: 'KPI hôm nay',
+        yesterday: 'KPI hôm qua',
+        '3days': 'KPI 3 ngày',
+        '7days': 'KPI 7 ngày',
+        '15days': 'KPI 15 ngày',
+        custom: 'KPI khoảng đã chọn',
+    };
+    const filterKey =
+        typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
+    const labelEl = document.getElementById('inboxKpiStatLabel');
+    if (labelEl) labelEl.textContent = labelMap[filterKey] || 'KPI';
+
+    const qtyEl = document.getElementById('inboxKpiQty');
+    if (qtyEl) qtyEl.textContent = totalQty.toLocaleString('vi-VN');
+
+    const amtEl = document.getElementById('inboxKpiAmount');
+    if (amtEl) amtEl.textContent = formatVndInbox(totalKpi);
+}
+
+function formatVndInbox(n) {
+    return new Intl.NumberFormat('vi-VN').format(n || 0) + 'đ';
+}
+
+/**
+ * Toast "User bán được X món - nhận được Yk" khi đơn vừa transition sang
+ * status='order' (được chấp nhận tính KPI). Gọi từ các call site update status.
+ *
+ * @param {object} order — order sau khi đã set status='order'.
+ * @param {string} [prevStatus] — status trước đó. Nếu đã là 'order' → không fire.
+ */
+function notifyOrderKpiEarned(order, prevStatus) {
+    if (!order) return;
+    if (prevStatus === 'order') return; // đã tính KPI trước đó, không bắn nữa
+    if (order.status !== 'order') return;
+    const qty = Number(order.totalQuantity) || 0;
+    if (qty <= 0) return;
+
+    const kpi = qty * KPI_PER_UNIT_INBOX;
+    const kpiK = Math.round(kpi / 1000); // "25k", "10k" — quy đổi sang nghìn cho gọn
+    const userName =
+        order.createdByName ||
+        order.assignedUserName ||
+        order.createdBy ||
+        'Bạn';
+    const msg = `${userName} bán được ${qty.toLocaleString('vi-VN')} món - nhận được ${kpiK}k`;
+
+    if (window.notificationManager?.success) {
+        window.notificationManager.success(msg, 6000, { title: 'KPI 🎉' });
+    } else if (typeof showNotification === 'function') {
+        showNotification(msg, 'success');
+    } else {
+        console.log('[KPI] ', msg);
+    }
+}
+
+window.updateInboxKpiStatCard = updateInboxKpiStatCard;
+window.notifyOrderKpiEarned = notifyOrderKpiEarned;
+
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {

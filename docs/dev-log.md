@@ -25,6 +25,31 @@
 
 ## 2026-05-19
 
+### [don-inbox] Stat card KPI ngày + toast "User bán được X món - nhận được Yk"
+
+**User yêu cầu** (trang Đơn Inbox):
+
+1. Thêm stat card KPI sau ô lọc TAG, đồng bộ với bộ lọc ngày bên cạnh ô tìm kiếm.
+2. Mỗi khi đơn vừa được "tính KPI thành công" (status chuyển sang `'order'`) → toast `"User bán được X món - nhận được Yk"` (Y = X × 5.000đ, hiển thị quy đổi sang nghìn).
+
+**Thay đổi**:
+
+- HTML (`don-inbox/index.html`): thêm `.inbox-kpi-stat` (id `#inboxKpiStatCard`) trong `.filter-row` ngay sau filter TAG. Hiển thị icon trophy + label (thay đổi theo preset ngày) + giá trị "X món · Yđ".
+- JS:
+    - [`tab-social-core.js`](don-inbox/js/tab-social-core.js): thêm `KPI_PER_UNIT_INBOX = 5000`, `updateInboxKpiStatCard()` (đếm `totalQuantity` của các order `status='order'` trong `filteredOrders` × 5.000đ; label đổi theo `currentDateFilter`), `notifyOrderKpiEarned(order, prevStatus)` (gửi toast khi `prevStatus !== 'order'` và `order.status === 'order'`, qty > 0). Hỗ trợ `notificationManager.success` với title `KPI 🎉`, fallback `showNotification`.
+    - [`tab-social-table.js`](don-inbox/js/tab-social-table.js#L599): gọi `updateInboxKpiStatCard()` sau `renderTable()` trong `performTableSearch`. Trong `changeOrderStatus`, sau khi update status, nếu `newStatus === 'order'` → `notifyOrderKpiEarned(order, oldStatus)`.
+    - [`tab-social-invoice.js`](don-inbox/js/tab-social-invoice.js#L601): `updateSocialOrderAfterBillCreation` save `prevStatus` trước khi set `'order'`, gọi `notifyOrderKpiEarned(order, prevStatus)` sau khi đã sync xong.
+    - [`tab-social-sale.js`](don-inbox/js/tab-social-sale.js): fallback path khi không có invoice adapter — cũng track `prevStatus` + fire toast.
+- CSS (`don-inbox/css/don-inbox.css`): style `.inbox-kpi-stat` (gradient tím nhạt + box-shadow nhẹ, hover bounce), `.inbox-kpi-stat-icon/label/value/sep/amount`.
+
+**Tên user trong toast**: dùng `order.createdByName` (NV tạo đơn — không phải user đang login), fallback `assignedUserName` → `createdBy` → "Bạn".
+
+**Label động theo date filter**: KPI tất cả / KPI hôm nay / KPI hôm qua / KPI 3 ngày / KPI 7 ngày / KPI 15 ngày / KPI khoảng đã chọn.
+
+**Status**: DONE — push để GH Pages serve.
+
+---
+
 ### [orders-report][render] KPI Inbox: cột "Ngày đơn" + ẩn nháp + custom date range
 
 **User yêu cầu**: trong drill-down KPI Đơn Inbox (tab KPI - HOA HỒNG):

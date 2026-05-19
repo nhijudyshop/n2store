@@ -605,6 +605,7 @@
         if (!order) return;
 
         // Change status to 'order' (Don hang)
+        const prevStatus = order.status;
         order.status = 'order';
 
         // Save to storage + Firebase
@@ -620,6 +621,11 @@
             performTableSearch();
         } else if (typeof renderTable === 'function') {
             renderTable();
+        }
+
+        // Toast KPI khi đơn vừa được tính (chỉ fire lần đầu transition).
+        if (typeof window.notifyOrderKpiEarned === 'function') {
+            window.notifyOrderKpiEarned(order, prevStatus);
         }
 
         console.log(`[SOCIAL-INVOICE] Updated social order ${socialOrderId} status to "order"`);
