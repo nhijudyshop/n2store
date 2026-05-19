@@ -9,6 +9,25 @@ const express = require('express');
 const router = express.Router();
 
 // -----------------------------------------------------
+// SSE notifier — injected from server.js via initializeNotifiers().
+// Sau mỗi DB mutation success, gọi _notify('web2:products', { action, code })
+// để broadcast cho tất cả client đang subscribe SSE topic 'web2:products'.
+// Replaces Firestore tickle pattern (every mutation no longer needs FS write).
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, code) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:products', { action, code: code || null, ts: Date.now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-PRODUCTS] _notify failed:', e.message);
+    }
+}
+
+// -----------------------------------------------------
 // Auto-create table on first request
 // -----------------------------------------------------
 let _tablesCreated = false;
@@ -252,6 +271,7 @@ router.post('/', async (req, res) => {
                     now,
                 ]
             );
+            _notify('create', r.rows[0].code);
             res.json({ success: true, product: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -307,6 +327,7 @@ router.patch('/:code', async (req, res) => {
             params
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        _notify('update', r.rows[0].code);
         res.json({ success: true, product: mapRow(r.rows[0]) });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -353,6 +374,7 @@ router.post('/adjust-stock', async (req, res) => {
             results.push({ code: r.rows[0].code, stock: r.rows[0].stock, delta });
         }
         await client.query('COMMIT');
+        if (results.length) _notify('adjust-stock', null);
         res.json({ success: true, results, warnings });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -392,6 +414,7 @@ router.delete('/:code', async (req, res) => {
             });
         }
         await pool.query(`DELETE FROM web2_products WHERE code = $1`, [req.params.code]);
+        _notify('delete', cur.code);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -499,6 +522,7 @@ router.post('/adjust-pending', async (req, res) => {
             });
         }
         await client.query('COMMIT');
+        if (results.length) _notify('adjust-pending', null);
         res.json({ success: true, results, warnings });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -627,6 +651,7 @@ router.post('/upsert-pending', async (req, res) => {
                 });
             }
         }
+        if (created || updated) _notify('upsert-pending', null);
         res.json({ success: true, created, updated, items: results });
     } catch (e) {
         console.error('[WEB2-PRODUCTS] upsert-pending error:', e.message);
@@ -676,6 +701,7 @@ router.post('/confirm-purchase', async (req, res) => {
             RETURNING *
         `;
         const r = await pool.query(sql, params);
+        if (r.rows.length) _notify('confirm-purchase', null);
         res.json({
             success: true,
             confirmed: r.rows.length,
@@ -687,4 +713,5 @@ router.post('/confirm-purchase', async (req, res) => {
     }
 });
 
+router.initializeNotifiers = initializeNotifiers;
 module.exports = router;

@@ -140,6 +140,20 @@
     }
 
     function _setupRealtime() {
+        // Prefer SSE bridge (server pub/sub on Render) — single connection,
+        // no Firestore reads, broadcasts only when DB actually changes.
+        // Falls back to Firestore tickle if SSE module not loaded.
+        if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
+            state.unsubscribe = global.Web2SSE.subscribe('web2:products', (msg) => {
+                // Don't refresh on our own echo. Render side stamps `by`
+                // with clientId when notify called from this client's
+                // request (see pushTickle below).
+                if (msg?.data?.by && msg.data.by === state.clientId) return;
+                _scheduleRefresh('sse');
+            });
+            return;
+        }
+        // ----- Firestore fallback (legacy) -----
         const db = _ensureFirestore();
         if (!db) return;
         const ref = db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
@@ -228,8 +242,15 @@
      * Gọi sau khi POST/PATCH/DELETE thành công ở client hiện tại.
      */
     async function pushTickle(opts = {}) {
-        // Refresh local trước cho UI hiện tại; tickle bắn cho người khác.
+        // Refresh local trước cho UI hiện tại.
         _scheduleRefresh('local');
+        // TRANSITION: vẫn ghi Firestore tickle song song với SSE notify (server-side).
+        // Lý do giữ cả 2:
+        //   - Server side (render.com/routes/web2-products.js) đã notify SSE topic
+        //     'web2:products' sau mỗi DB mutation thành công → client SSE nhận trực tiếp.
+        //   - Firestore tickle vẫn ghi để client cũ (chưa load web2-sse-bridge.js)
+        //     vẫn nhận update qua onSnapshot fallback.
+        // Sau khi verify SSE production OK 1-2 ngày → remove block này hoàn toàn.
         const db = _ensureFirestore();
         if (!db) return;
         try {

@@ -497,6 +497,14 @@ app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyClientsWildcard);
 
+// Initialize SSE notifier for Web 2.0 products (topic: 'web2:products').
+// Replaces Firestore tickle pattern — server broadcasts after each DB mutation
+// so client cache (web2-products-cache.js → web2-sse-bridge.js) refreshes
+// without paying Firestore reads/writes per change.
+if (web2ProductsRoutes.initializeNotifiers) {
+    web2ProductsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+
 // Initialize SSE notifiers in order-notes routes
 if (orderNotesRoutes.initializeNotifiers) {
     orderNotesRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);

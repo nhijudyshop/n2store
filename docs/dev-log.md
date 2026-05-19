@@ -23,6 +23,37 @@
 
 ---
 
+## 2026-05-19
+
+### [web2-products + render + so-order] POC migrate Firestore tickle → SSE pub/sub server-side
+
+**User yêu cầu**: Firebase realtime tốn tiền — build server socket realtime riêng cho Web 2.0. Pattern user mô tả: "server log coi trang user đang ở → cập nhật". Đúng pattern topic-based pub/sub.
+
+**Hạ tầng đã có sẵn**:
+
+- `render.com/routes/realtime-sse.js` — SSE pub/sub trên Render (`notifyClients(topic, data, eventType)` + per-topic client set Map)
+- `cloudflare-worker/modules/handlers/proxy-handler.js` `handleRealtimeProxy` → proxy `/api/realtime/*` đến `n2store-fallback.onrender.com`, preserves SSE streaming
+- Chỉ cần wire web2-products + thêm 1 client bridge
+
+**Thay đổi**:
+
+1. `web2/shared/web2-sse-bridge.js` (mới): `Web2SSE.subscribe(topic, callback)`. Single EventSource multiplex nhiều topics qua param `?keys=`. Auto-reconnect exponential backoff. `visibilitychange` listener: tab visible after long hide → reopen socket.
+2. `web2/shared/web2-products-cache.js` `_setupRealtime()`: ưu tiên `Web2SSE.subscribe('web2:products', ...)`; fallback Firestore tickle khi bridge không load.
+3. `render.com/routes/web2-products.js`: thêm `initializeNotifiers(notifyClients)` + `_notify(action, code)` helper. Gọi `_notify` sau mỗi successful write: create, update, delete, adjust-stock, adjust-pending, upsert-pending, confirm-purchase → broadcast SSE topic `'web2:products'`.
+4. `render.com/server.js`: hook `web2ProductsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients)` sau khi mount SSE.
+5. HTML pages: thêm `<script src="...web2-sse-bridge.js?v=20260519a">` TRƯỚC `web2-products-cache.js` ở 3 file: `so-order/index.html`, `web2/products/index.html`, `web2/supplier-wallet/index.html`.
+
+**TRANSITION**: `pushTickle()` vẫn ghi Firestore tickle song song với SSE (server notify). Sau khi verify production SSE OK 1-2 ngày sẽ remove Firestore write hoàn toàn → tiết kiệm Firestore writes/reads cho web2-products.
+
+**Cost dự kiến giảm** (cho riêng module web2-products):
+
+- Trước: mỗi mutation → 1 Firestore write (tickle) + N Firestore reads (listener fire ở N clients online)
+- Sau: 0 Firestore ops, 1 SSE broadcast (in-memory Map, free trên Render flat-rate)
+
+**Status**: ✅ POC done, đợi deploy verify
+
+---
+
 ## 2026-05-18
 
 ### [so-order] Fix TRIỆT ĐỂ "giựt lại đợi đồng bộ" — refactor sang local-first (bỏ onSnapshot)
