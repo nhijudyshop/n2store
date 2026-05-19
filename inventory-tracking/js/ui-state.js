@@ -13,14 +13,15 @@ window.UIState = (function () {
     function _load() {
         try {
             const raw = localStorage.getItem(KEY);
-            if (!raw) return { expanded: [], detailsVisible: false };
+            if (!raw) return { expanded: [], detailsVisible: false, hiddenCols: [] };
             const p = JSON.parse(raw);
             return {
                 expanded: Array.isArray(p.expanded) ? p.expanded.map(String) : [],
                 detailsVisible: !!p.detailsVisible,
+                hiddenCols: Array.isArray(p.hiddenCols) ? p.hiddenCols.filter(Boolean) : [],
             };
         } catch (_) {
-            return { expanded: [], detailsVisible: false };
+            return { expanded: [], detailsVisible: false, hiddenCols: [] };
         }
     }
 
@@ -65,12 +66,45 @@ window.UIState = (function () {
         if (state.expanded.length !== before) _save();
     }
 
+    // -------- Per-column hidden state --------
+    function getHiddenCols() {
+        return [...state.hiddenCols];
+    }
+    function setHiddenCols(cols) {
+        state.hiddenCols = Array.from(new Set((cols || []).filter(Boolean)));
+        _save();
+    }
+    function isColHidden(colKey) {
+        return state.hiddenCols.includes(colKey);
+    }
+    function hideCol(colKey) {
+        if (!colKey || state.hiddenCols.includes(colKey)) return;
+        state.hiddenCols.push(colKey);
+        _save();
+    }
+    function showCol(colKey) {
+        const idx = state.hiddenCols.indexOf(colKey);
+        if (idx < 0) return;
+        state.hiddenCols.splice(idx, 1);
+        _save();
+    }
+    function clearHiddenCols() {
+        state.hiddenCols = [];
+        _save();
+    }
+
     return {
         isExpanded,
         setExpanded,
         isDetailsVisible,
         setDetailsVisible,
         pruneExpanded,
+        getHiddenCols,
+        setHiddenCols,
+        isColHidden,
+        hideCol,
+        showCol,
+        clearHiddenCols,
     };
 })();
 

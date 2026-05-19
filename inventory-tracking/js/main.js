@@ -723,6 +723,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.app = app;
 
     await app.init();
+
+    // Column hide/show controls (depends on tables being rendered)
+    if (window.ColumnToggle?.init) window.ColumnToggle.init();
 });
 
 console.log('[MAIN] Main.js loaded');

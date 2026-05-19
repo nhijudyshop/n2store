@@ -876,13 +876,13 @@ function renderInvoicesSection(shipment) {
                     <tfoot>
                         <tr class="total-row">
                             <td class="tfoot-total-label text-right" colspan="5"><strong>TỔNG:</strong></td>
-                            <td class="text-right"><strong class="total-amount">${formatNumber(totalAmount)}${_vndSuffixHtml(totalAmount, shipTiGia)}</strong></td>
-                            <td class="text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
-                            <td class="text-center total-shortage-cell"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
-                            <td></td>
-                            <td></td>
-                            ${canViewCost ? `<td class="text-right cost-total-cell"><strong class="total-cost">${formatNumber(totalCost)}</strong></td>` : ''}
-                            ${canViewCost ? '<td class="cost-note-cell"></td>' : ''}
+                            <td class="col-amount text-right"><strong class="total-amount">${formatNumber(totalAmount)}${_vndSuffixHtml(totalAmount, shipTiGia)}</strong></td>
+                            <td class="col-total text-center"><strong class="total-items">${formatNumber(totalItems)}</strong></td>
+                            <td class="col-shortage text-center total-shortage-cell"><strong>${totalShortage > 0 ? formatNumber(totalShortage) : '-'}</strong></td>
+                            <td class="col-image"></td>
+                            <td class="col-invoice-note"></td>
+                            ${canViewCost ? `<td class="col-cost text-right cost-total-cell"><strong class="total-cost">${formatNumber(totalCost)}</strong></td>` : ''}
+                            ${canViewCost ? '<td class="col-cost-note cost-note-cell"></td>' : ''}
                         </tr>
                     </tfoot>
                 </table>

@@ -78,6 +78,18 @@
                         <i data-lucide="download"></i>
                         <span>Xuất Excel</span>
                     </button>
+                    <div class="hidden-cols-wrap">
+                        <button
+                            class="btn btn-outline"
+                            id="btnHiddenCols"
+                            title="Hiện/Ẩn cột của bảng"
+                        >
+                            <i data-lucide="columns"></i>
+                            <span>Cột ẩn</span>
+                            <span class="hidden-cols-count">0</span>
+                        </button>
+                        <div class="hidden-cols-panel" id="hiddenColsPanel"></div>
+                    </div>
                     <button class="btn-icon" id="refreshButton" title="Làm mới dữ liệu">
                         <i data-lucide="refresh-cw"></i>
                     </button>
@@ -1001,6 +1013,7 @@
         <!-- Scripts -->
         <script src="js/config.js"></script>
         <script src="js/ui-state.js"></script>
+        <script src="js/column-toggle.js"></script>
         <script src="js/api-client.js?v=20260418-stats-autoupdate"></script>
         <script src="js/permission-helper.js"></script>
         <script src="js/data-loader.js?v=20260418-stats-autoupdate"></script>
