@@ -271,10 +271,12 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 3. **API route mới**: prefix `/api/web2-...` hoặc `/api/web2/...`. Nếu phải dùng tên trung tính (vd `wallet-deposits`) → comment đầu file `// WEB2.0 MODULE`.
 4. **Không cross-import**: legacy/orders-report KHÔNG được import code từ web2/, web2/shared/, supplier-wallet/, customer-wallet/. Ngược lại OK (web2 dùng `shared/js/...` được vì shared là chung).
 5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
+6. **Realtime / Data sync — BẮT BUỘC**: KHÔNG dùng Firebase Firestore listener cho Web 2.0 nữa. Web 2.0 dùng **SSE pub/sub trên Render** (topic-based). Trước khi code bất kỳ feature nào liên quan realtime, cross-tab sync, listener data → **PHẢI đọc [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md)** (architecture + recipe server/client + topic naming + migration checklist + verification). Topic convention: `web2:<entity>` hoặc `web2:<entity>:<id>`. Pattern proven trong web2-products + native-orders.
 
 ### Index quick-lookup
 
-Xem [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) để liệt kê đầy đủ: folder, route, table, Firestore collection.
+- [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) — folder, route, table, Firestore collection của Web 2.0
+- [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md) — **SSE realtime pattern** (BẮT BUỘC đọc khi code realtime/sync)
 
 ## #Note Header Convention
 

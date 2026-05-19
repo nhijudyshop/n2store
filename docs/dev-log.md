@@ -25,6 +25,37 @@
 
 ## 2026-05-19
 
+### [docs + claude.md + memory] Viết doc SSE realtime pattern + cập nhật rule bắt buộc cho Web 2.0
+
+**User yêu cầu**: viết file cách dùng SSE Web 2.0, cập nhật MEMORY/CLAUDE/dev-log để khi code Web 2.0 sẽ đọc file này.
+
+**File mới**:
+
+- `docs/web2/SSE-REALTIME.md` (~370 dòng) — comprehensive guide:
+    1. Architecture overview (diagram + file map)
+    2. Topic naming convention
+    3. Server-side recipe (inject notifier + gọi \_notify + wire trong server.js)
+    4. Client-side recipe (load bridge + subscribe + debounce)
+    5. Echo guard (debounce vs strict clientId)
+    6. Migration checklist (Firestore → SSE)
+    7. Verification + debugging (curl SSE, stats, browser DevTools, Render logs)
+    8. Cost comparison (Firestore vs SSE)
+    9. Existing topics map (status table)
+    10. Anti-patterns / Gotchas
+    11. Khi nào KHÔNG dùng SSE (so sánh với WebSocket, BroadcastChannel, local-first, FCM)
+- `~/.claude/projects/.../memory/reference_web2_sse_realtime.md` — pointer memory cho Claude future sessions
+
+**Cập nhật**:
+
+- `CLAUDE.md` mục "Web 2.0 — Quy tắc khi code": thêm rule #6 BẮT BUỘC đọc `docs/web2/SSE-REALTIME.md` trước khi code realtime. Index quick-lookup thêm pointer.
+- `MEMORY.md` mục "Web 2.0 vs Legacy": thêm 1 dòng pointer reference_web2_sse_realtime.md.
+
+**Mục đích**: codify pattern SSE đã proven trong web2-products + native-orders để các module tiếp theo (web2-variants, supplier-wallet, …) clone đúng pattern, không phải hỏi lại.
+
+**Status**: ✅ Done
+
+---
+
 ### [native-orders + render] Add SSE realtime cho data CRUD — topic 'web2:native-orders'
 
 **User yêu cầu**: native-orders cần realtime — user A edit/tạo/xoá đơn ở máy A → máy B thấy ngay.
