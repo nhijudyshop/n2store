@@ -3,23 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260519-093944-ae200b3`
-**Session file**: [`./20260519-093944-ae200b3.md`](../20260519-093944-ae200b3.md)
-**Commit**: `ae200b3` — docs(web2): SSE realtime pattern guide + cập nhật CLAUDE.md/MEMORY rule bắt buộc
-**Last updated**: 2026-05-19 09:39:44 +07
-**Summary**: docs(web2): SSE realtime pattern guide + cập nhật CLAUDE.md/MEMORY rule bắt buộc
+**Latest session**: `RESUME:20260519-165429-6a40c72`
+**Session file**: [`./20260519-165429-6a40c72.md`](../20260519-165429-6a40c72.md)
+**Commit**: `6a40c72` — perf(bill): pre-render barcode SVG ở parent → bill HTML thuần static, in instant
+**Last updated**: 2026-05-19 16:54:29 +07
+**Summary**: perf(bill): pre-render barcode SVG ở parent → bill HTML thuần static, in instant
 
 ## Files changed in this commit (`_root/`)
 
-- `CLAUDE.md`
+- `.gitignore`
 
 ## Last 5 commits touching `_root/`
 
-- `ae200b35` docs(web2): SSE realtime pattern guide + cập nhật CLAUDE.md/MEMORY rule bắt buộc _(2026-05-19)_
-- `cc2c8ff4` refactor(web2): move web2-products + web2-variants into web2/ _(2026-05-18)_
-- `7eb39f57` refactor(web2): move web2-shared to web2/shared (consolidate Web 2.0) _(2026-05-18)_
-- `c049756e` feat(web2): filter cancelled PBH + pagination + stock tracking + SePay endpoint + WEB2.0 markers _(2026-05-18)_
-- `1bd91c3b` auto: session update _(2026-05-18)_
+- `6a40c72b` perf(bill): pre-render barcode SVG ở parent → bill HTML thuần static, in instant _(2026-05-19)_
+- `90675d58` auto: session update _(2026-05-11)_
+- `be44094e` feat(aikol/clips): yt-dlp primary cho /import/channel — KHÔNG cần TikTok cookie _(2026-05-07)_
+- `518252f9` auto: session update _(2026-05-07)_
+- `5edb8d9c` perf(tab1-orders): surgical row insert/remove on filter membership flip — fix bảng giật khi 'ĐƠN CHƯA PHẢN HỒI' idle _(2026-04-25)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260519-093944-ae200b3` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260519-165429-6a40c72` cho Claude walk chain theo CLAUDE.md protocol.
