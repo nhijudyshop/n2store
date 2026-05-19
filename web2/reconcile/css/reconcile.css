@@ -575,6 +575,10 @@
     color: #94a3b8;
     padding: 30px;
 }
+.rc-empty[hidden],
+.rc-detail-empty[hidden] {
+    display: none;
+}
 .rc-empty i {
     width: 48px;
     height: 48px;
