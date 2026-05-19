@@ -29,7 +29,7 @@
     function _shop() {
         return (
             global.WEB2_SHOP_CONFIG || {
-                name: 'NJD Live',
+                name: 'NHI JUDY',
                 deliveryNote:
                     'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ.\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng, "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI".',
                 comment: 'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)',
@@ -348,7 +348,6 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             ? `<div class="barcode-box">
                   <svg class="barcode-svg" data-value="${_esc(billNumber)}"></svg>
                   <div class="barcode-number">${_esc(billNumber)}</div>
-                  <div class="barcode-hint">Quét để mở phiếu trong web đối soát</div>
                </div>`
             : ''
     }
@@ -357,9 +356,8 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     <!-- ═══════════ CUSTOMER ═══════════ -->
     <hr class="sep-dashed" />
     <div class="customer-block">
-        <div class="cb-row"><strong>Khách:</strong> ${_esc(recName)}</div>
+        <div class="cb-row"><strong>Khách:</strong> ${_esc(recName)}${recPhone ? ` - ${_esc(recPhone)}` : ''}</div>
         ${recAddr ? `<div class="cb-row"><strong>Địa chỉ:</strong> ${_esc(recAddr)}</div>` : ''}
-        <div class="cb-row"><strong>SĐT:</strong> ${_esc(recPhone)}</div>
         ${sellerName ? `<div class="cb-row"><strong>Người bán:</strong> ${_esc(sellerName)}</div>` : ''}
         ${sttDisplay ? `<div class="cb-row"><strong>STT:</strong> <span style="font-weight:bold;font-size:14px;">${_esc(sttDisplay)}</span></div>` : ''}
     </div>
