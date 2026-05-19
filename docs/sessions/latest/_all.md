@@ -3,23 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bb40f46` — feat(native-orders): realtime data CRUD qua SSE topic 'web2:native-orders'
-**Last updated**: 2026-05-19 09:33:11 +07
-**Latest session**: [`RESUME:20260519-093311-bb40f46`](../20260519-093311-bb40f46.md)
-**Summary**: feat(native-orders): realtime data CRUD qua SSE topic 'web2:native-orders'
+**Latest commit**: `ae200b3` — docs(web2): SSE realtime pattern guide + cập nhật CLAUDE.md/MEMORY rule bắt buộc
+**Last updated**: 2026-05-19 09:39:44 +07
+**Latest session**: [`RESUME:20260519-093944-ae200b3`](../20260519-093944-ae200b3.md)
+**Summary**: docs(web2): SSE realtime pattern guide + cập nhật CLAUDE.md/MEMORY rule bắt buộc
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
-- [`_root/`](./_root.md) — updated 2026-05-18 11:04
+- [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 09:33
+- [`docs/`](./docs.md) — updated 2026-05-19 09:39
 - [`downloads/`](./downloads.md) — updated 2026-05-19 09:33
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 09:18
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 09:33
