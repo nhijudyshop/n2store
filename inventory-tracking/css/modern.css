@@ -4130,6 +4130,25 @@ textarea.inline-edit-input {
 .img-mgr-toolbar .img-mgr-hint {
     margin-bottom: 0;
 }
+.img-mgr-filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.img-mgr-filter-select {
+    flex: 0 0 220px;
+    padding: 8px 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+}
+.img-mgr-filter-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
 .img-mgr-search {
     display: flex;
     align-items: center;
@@ -4138,7 +4157,7 @@ textarea.inline-edit-input {
     border: 1px solid var(--gray-300);
     border-radius: 8px;
     padding: 8px 12px;
-    width: 100%;
+    flex: 1;
 }
 .img-mgr-search i {
     width: 16px;
