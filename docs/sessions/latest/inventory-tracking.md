@@ -1,4 +1,4 @@
-# Latest Snapshot — `render.com/`
+# Latest Snapshot — `inventory-tracking/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,18 @@
 **Last updated**: 2026-05-19 09:18:56 +07
 **Summary**: feat(web2-products): SSE pub/sub thay Firestore tickle — server broadcast khi DB write
 
-## Files changed in this commit (`render.com/`)
+## Files changed in this commit (`inventory-tracking/`)
 
-- `render.com/routes/web2-products.js`
-- `render.com/server.js`
+- `inventory-tracking/css/modal-convert-po.css`
+- `inventory-tracking/js/modal-convert-po.js`
 
-## Last 5 commits touching `render.com/`
+## Last 5 commits touching `inventory-tracking/`
 
-- `3c5d5c10` feat(web2-products): SSE pub/sub thay Firestore tickle — server broadcast khi DB write _(2026-05-19)_
-- `c6f1321f` feat(web2-products+so-order): full 2-way sync delete/edit qty ⇄ pending*qty *(2026-05-18)\_
-- `3bd6ca29` fix(web2-products): move /pending TRƯỚC /:code (Express route order) _(2026-05-18)_
-- `0546bad3` feat(web2-products+so-order): CHỜ MUA / ĐANG BÁN pipeline + Mua hàng per NCC _(2026-05-18)_
-- `d26c4aa5` feat(web2/users): hệ thống user account riêng cho Web 2.0 + phân quyền per-page per-action _(2026-05-18)_
+- `2a63aac7` fix(inventory-tracking/modal-convert-po): dropdown gợi ý SP trải rộng hết bảng, không cắt tên dài _(2026-05-18)_
+- `025598ea` feat(inventory↔po): badge inventory products đã được đưa qua PO Draft + chip đếm _(2026-05-07)_
+- `cb2bcc24` feat(inventory/convert-po): iPad SL readability + persistent suggest dropdown + Đồng bộ giá _(2026-05-07)_
+- `a8096494` fix(inv-modal): strip leading [CODE] khỏi tên SP suggestion từ kho TPOS _(2026-05-03)_
+- `67131c0a` feat(inv+po): lock variant/mã + badge TPOS cho item chọn từ kho, dropdown fixed-position _(2026-05-03)_
 
 ---
 
