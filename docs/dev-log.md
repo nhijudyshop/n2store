@@ -25,6 +25,16 @@
 
 ## 2026-05-19
 
+### [web2] sidebar: footer mất ở 19 trang Web 2.0 load tpos-sidebar.js trực tiếp (không qua page-shell)
+
+**Follow-up của fix preload phía dưới**: user phát hiện `/web2/index.html` vẫn mất footer. Lý do: fix preload chỉ với tới trang qua page-shell. Các trang `tpos-pancake`, `native-orders`, `so-order`, `web2/index.html`, `web2/products/`, `web2/variants/`, `web2/users/`, `web2/balance-history/`, … load `tpos-sidebar.js` trực tiếp bằng `<script src>` → chưa fix.
+
+**Fix**: chèn `<script src="<prefix>web2-auth.js?v=20260519k">` ngay TRƯỚC `<script src="<prefix>tpos-sidebar.js?v=...">` ở 19 trang Web 2.0 (1 trang đã có sẵn — `web2/reconcile/`). Đảm bảo `Web2Auth` ready khi sidebar mount, footer render đúng frame đầu.
+
+**Files**: `native-orders/`, `tpos-pancake/`, `so-order/`, `web2/{index,products,variants,users,supplier-debt,supplier-wallet,customer-wallet,balance-history,pancake-settings,report-revenue,fastsaleorder-{invoice,refund,delivery},product-{uom,uom-categ,category}}/index.html`.
+
+**Status**: ✅ Done — Playwright verified `/web2/index.html`, `/tpos-pancake/`, `/native-orders/`, `/web2/products/` đều hiện footer "Quản trị viên / @admin ADMIN / Đăng xuất". Browser thật Cmd+Shift+R 1 lần để clear cache.
+
 ### [web2] sidebar: footer user/đăng xuất mất khi page-shell mount sidebar trước khi web2-auth.js load xong
 
 **User feedback**: trên `/web2/pos-session/index.html` (và các page khác qua page-shell), thanh sidebar trái mất phần "user đăng nhập + nút Đăng xuất" ở dưới đáy. Test Playwright thấy footer hiển thị, browser thật của user không thấy → race condition.
