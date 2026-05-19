@@ -50,6 +50,7 @@ function _notify(action, number) {
             'update',
             'bulk-confirm',
             'bulk-cancel',
+            'merge',
         ]);
         if (walletAffectingActions.has(action)) {
             _notifyClients(
@@ -156,6 +157,11 @@ async function ensureTables(pool) {
             ALTER TABLE fast_sale_orders
                 ADD COLUMN IF NOT EXISTS customer_id INTEGER;
 
+            -- Migration 075: Gộp đơn (merge orders) — lưu array display_stt
+            -- của các PBH gốc đã merge → client hiển thị "STT 1 + STT 2"
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS merged_display_stt JSONB;
+
             CREATE INDEX IF NOT EXISTS idx_fso_date_invoice ON fast_sale_orders(date_invoice DESC);
             CREATE INDEX IF NOT EXISTS idx_fso_partner_phone ON fast_sale_orders(partner_phone);
             CREATE INDEX IF NOT EXISTS idx_fso_state ON fast_sale_orders(state);
@@ -190,6 +196,7 @@ function mapRow(row) {
         id: Number(row.id),
         number: row.number,
         displayStt: row.display_stt,
+        mergedDisplayStt: row.merged_display_stt || null,
         source: row.source,
         dateInvoice: row.date_invoice,
         dateCreated: row.date_created,
@@ -500,6 +507,176 @@ async function _bulkStateChange(req, res, newState) {
 }
 router.post('/bulk-confirm', (req, res) => _bulkStateChange(req, res, 'done'));
 router.post('/bulk-cancel', (req, res) => _bulkStateChange(req, res, 'cancel'));
+
+// -----------------------------------------------------
+// POST /merge — gộp 2+ PBH draft cùng KH thành 1 PBH mới
+// Body: { numbers: ['HD-...', 'HD-...'] }
+// Logic:
+//   - Validate: ≥2 numbers, tất cả tồn tại, tất cả state=draft, cùng partner_phone
+//   - Combine order_lines (concat), sum total_quantity + amount_*
+//   - INSERT PBH mới với:
+//       source_code = "HD-A+HD-B" (join '+')
+//       merged_display_stt = [stt_a, stt_b] (lưu để client hiển thị "1 + 2")
+//   - DELETE PBHs gốc
+//   - Notify SSE web2:fast-sale-orders + web2:customer-wallet (cross-bc B2)
+// -----------------------------------------------------
+router.post('/merge', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const numbers = Array.isArray(req.body?.numbers) ? req.body.numbers : null;
+    if (!numbers || numbers.length < 2) {
+        return res.status(400).json({ error: 'Cần ít nhất 2 số PBH để gộp' });
+    }
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+
+        // Fetch all source PBHs
+        const placeholders = numbers.map((_, i) => `$${i + 1}`).join(',');
+        const src = await client.query(
+            `SELECT * FROM fast_sale_orders WHERE number IN (${placeholders})`,
+            numbers
+        );
+        if (src.rows.length !== numbers.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({
+                error: `Tìm thấy ${src.rows.length}/${numbers.length} PBH — có đơn không tồn tại`,
+            });
+        }
+
+        // Validate: all draft + same partner_phone
+        const notDraft = src.rows.filter((r) => r.state !== 'draft');
+        if (notDraft.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Chỉ gộp được PBH ở trạng thái 'draft'. Đơn không hợp lệ: ${notDraft.map((r) => r.number).join(', ')}`,
+            });
+        }
+        const phones = new Set(src.rows.map((r) => r.partner_phone || ''));
+        if (phones.size > 1) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Phải cùng SĐT khách. Đang có ${phones.size} SĐT khác nhau: ${Array.from(phones).join(', ')}`,
+            });
+        }
+
+        // Combine fields
+        const baseRow = src.rows[0]; // dùng row đầu làm template (partner info, address, ...)
+        const sortedRows = src.rows.sort(
+            (a, b) => (Number(a.display_stt) || 0) - (Number(b.display_stt) || 0)
+        );
+        const combinedLines = [];
+        let totalQty = 0;
+        let totalUntaxed = 0;
+        let totalDiscount = 0;
+        let totalAmount = 0;
+        let totalShipping = 0;
+        for (const r of sortedRows) {
+            const lines = Array.isArray(r.order_lines) ? r.order_lines : [];
+            combinedLines.push(...lines);
+            totalQty += Number(r.total_quantity) || 0;
+            totalUntaxed += Number(r.amount_untaxed) || 0;
+            totalDiscount += Number(r.amount_discount) || 0;
+            totalAmount += Number(r.amount_total) || 0;
+            totalShipping += Number(r.delivery_price) || 0;
+        }
+        const mergedStts = sortedRows.map((r) => Number(r.display_stt) || 0).filter(Boolean);
+        const mergedSourceCode = sortedRows.map((r) => r.number).join('+');
+        const combinedComment = sortedRows
+            .map((r) => (r.comment ? `[${r.number}] ${r.comment}` : null))
+            .filter(Boolean)
+            .join('\n---\n');
+
+        // Generate new PBH number
+        const today = new Date();
+        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1, 2)}${pad(today.getDate(), 2)}`;
+        const todayCountQ = await client.query(
+            `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
+            [`HD-${ymd}-%`]
+        );
+        const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
+        const newNumber = `HD-${ymd}-${nextSeq}`;
+
+        const ins = await client.query(
+            `INSERT INTO fast_sale_orders (
+                number, display_stt, source,
+                partner_id, partner_code, partner_name, partner_phone, partner_address, partner_email,
+                city_code, city_name, district_code, district_name, ward_code, ward_name,
+                order_lines, total_quantity, amount_untaxed, amount_discount, amount_total,
+                delivery_price, carrier_id, carrier_name,
+                state, source_type, source_code, merged_display_stt,
+                live_campaign_id, live_campaign_name, customer_id, comment
+            ) VALUES (
+                $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
+                $2, $3, $4, $5, $6, $7,
+                $8, $9, $10, $11, $12, $13,
+                $14, $15, $16, $17, $18,
+                $19, $20, $21,
+                'draft', 'merged', $22, $23,
+                $24, $25, $26, $27
+            ) RETURNING *`,
+            [
+                newNumber,
+                baseRow.partner_id,
+                baseRow.partner_code,
+                baseRow.partner_name,
+                baseRow.partner_phone,
+                baseRow.partner_address,
+                baseRow.partner_email,
+                baseRow.city_code,
+                baseRow.city_name,
+                baseRow.district_code,
+                baseRow.district_name,
+                baseRow.ward_code,
+                baseRow.ward_name,
+                JSON.stringify(combinedLines),
+                totalQty,
+                totalUntaxed,
+                totalDiscount,
+                totalAmount,
+                totalShipping,
+                baseRow.carrier_id,
+                baseRow.carrier_name,
+                mergedSourceCode,
+                JSON.stringify(mergedStts),
+                baseRow.live_campaign_id,
+                baseRow.live_campaign_name,
+                baseRow.customer_id,
+                combinedComment,
+            ]
+        );
+
+        // Delete source PBHs
+        await client.query(
+            `DELETE FROM fast_sale_orders WHERE number IN (${placeholders})`,
+            numbers
+        );
+
+        await client.query('COMMIT');
+        const newOrder = mapRow(ins.rows[0]);
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'pbh:merged',
+                merged: numbers,
+                order: newOrder,
+            });
+        }
+        _notify('merge', newOrder.number);
+        res.json({
+            success: true,
+            mergedFrom: numbers,
+            mergedStts,
+            order: newOrder,
+        });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[FAST-SALE-ORDERS] merge error:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
 
 // -----------------------------------------------------
 // GET /load — list with filter + paging

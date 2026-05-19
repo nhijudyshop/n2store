@@ -180,7 +180,15 @@
                             ${src.code && src.type === 'native_order' ? `<a class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xem đơn nguồn ${escapeHtml(src.code)}" href="../../native-orders/index.html?search=${encodeURIComponent(src.code)}" target="_blank" style="color:#0ea5e9;"><i data-lucide="external-link" style="width:12px;height:12px;"></i></a>` : ''}
                         </div>
                     </td>
-                    <td class="tpos-cell-center"><strong>${o.displayStt ?? ''}</strong></td>
+                    <td class="tpos-cell-center"><strong>${
+                        Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1
+                            ? o.mergedDisplayStt
+                                  .map((n) => parseInt(n, 10))
+                                  .filter(Number.isFinite)
+                                  .sort((a, b) => a - b)
+                                  .join(' + ')
+                            : (o.displayStt ?? '')
+                    }</strong></td>
                     <td class="tpos-cell-center"><strong>${escapeHtml(o.number)}</strong></td>
                     <td>${escapeHtml(p.name || '—')}</td>
                     <td>${escapeHtml(p.phone || '—')}</td>
@@ -501,6 +509,103 @@
         updateBulkBar();
     }
 
+    // Gộp 2+ PBH cùng KH → 1 PBH mới với STT hiển thị "1 + 2"
+    async function bulkMerge() {
+        const numbers = getSelectedNumbers();
+        if (numbers.length < 2) {
+            notify('Cần chọn ít nhất 2 PBH để gộp', 'warning');
+            return;
+        }
+        // Client-side preflight validation: same phone + all draft
+        const selected = STATE.orders.filter((o) => numbers.includes(o.number));
+        const phones = new Set(selected.map((o) => o.partner?.phone || ''));
+        if (phones.size > 1) {
+            notify(
+                `Phải cùng SĐT khách. Đang có ${phones.size} SĐT: ${Array.from(phones).join(', ')}`,
+                'error'
+            );
+            return;
+        }
+        const nonDraft = selected.filter((o) => o.state !== 'draft');
+        if (nonDraft.length) {
+            notify(
+                `Chỉ gộp được PBH trạng thái "draft". Đơn không hợp lệ: ${nonDraft.map((o) => o.number).join(', ')}`,
+                'error'
+            );
+            return;
+        }
+        const phone = Array.from(phones)[0] || '';
+        const customerName = selected[0]?.partner?.name || '';
+        const stts = selected
+            .map((o) => Number(o.displayStt) || 0)
+            .filter(Boolean)
+            .sort((a, b) => a - b);
+        if (
+            !(await w2pConfirm(
+                `Gộp ${numbers.length} PBH của KH ${customerName} (${phone})?\n\n` +
+                    `STT sẽ hiển thị: "${stts.join(' + ')}"\n` +
+                    `Các PBH gốc (${numbers.join(', ')}) sẽ bị xóa và thay bằng 1 PBH mới.`,
+                { okText: 'Gộp đơn', type: 'warning' }
+            ))
+        )
+            return;
+        try {
+            const r = await fetch(`${WORKER}/api/fast-sale-orders/merge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numbers }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            notify(
+                `✅ Đã gộp thành PBH ${data.order.number} (STT ${data.mergedStts.join(' + ')})`,
+                'success'
+            );
+            const ca = $('#pbhCheckAll');
+            if (ca) ca.checked = false;
+            updateBulkBar();
+            load();
+        } catch (e) {
+            notify('Lỗi gộp đơn: ' + e.message, 'error');
+        }
+    }
+
+    // In thermal 80mm tất cả PBH đang chọn (1 popup, page-break giữa)
+    async function bulkPrint() {
+        const numbers = getSelectedNumbers();
+        if (!numbers.length) {
+            notify('Chưa chọn PBH nào để in', 'warning');
+            return;
+        }
+        if (!window.Web2Bill) {
+            notify('Web2Bill chưa load — kiểm tra script', 'error');
+            return;
+        }
+        try {
+            // Fetch detail PBH theo numbers (load endpoint chỉ trả summary, cần GET /:number)
+            const detailed = await Promise.all(
+                numbers.map(async (num) => {
+                    const r = await fetch(`${WORKER}/api/fast-sale-orders/${num}`);
+                    const d = await r.json();
+                    return d.order || null;
+                })
+            );
+            const valid = detailed.filter(Boolean);
+            if (!valid.length) {
+                notify('Không lấy được data PBH', 'error');
+                return;
+            }
+            if (valid.length === 1) {
+                window.Web2Bill.openPrint(valid[0]);
+            } else {
+                window.Web2Bill.openCombinedPrint(valid);
+            }
+            notify(`Đang in ${valid.length} PBH...`, 'info');
+        } catch (e) {
+            notify('Lỗi in bill: ' + e.message, 'error');
+        }
+    }
+
     async function resetStt() {
         const renumber = await w2pConfirm(
             'OK để renumber TẤT CẢ PBH theo ngày HĐ.\nHuỷ để chỉ reset bộ đếm (PBH cũ giữ STT).',
@@ -579,6 +684,8 @@
         );
         $('#pbhBulkCancel').addEventListener('click', () => bulkAction('bulk-cancel', 'Hủy'));
         $('#pbhBulkUnselect').addEventListener('click', unselectAll);
+        $('#pbhBulkMerge')?.addEventListener('click', bulkMerge);
+        $('#pbhBulkPrint')?.addEventListener('click', bulkPrint);
         // Check-all + per-row check delegation
         $('#pbhCheckAll')?.addEventListener('change', (e) => {
             document.querySelectorAll('#pbhTbody .row-check').forEach((c) => {
