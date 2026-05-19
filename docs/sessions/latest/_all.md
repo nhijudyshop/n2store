@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5e460ac` — fix(web2/reconcile): hide empty-state when list has items (CSS display:flex overrode [hidden])
-**Last updated**: 2026-05-19 15:29:06 +07
-**Latest session**: [`RESUME:20260519-152906-5e460ac`](../20260519-152906-5e460ac.md)
-**Summary**: fix(web2/reconcile): hide empty-state when list has items (CSS display:flex overrode [hidden])
+**Latest commit**: `afade1d` — feat(bill+reconcile): barcode PBH trên bill có thể quét → reconcile tự mở PBH
+**Last updated**: 2026-05-19 15:40:03 +07
+**Latest session**: [`RESUME:20260519-154003-afade1d`](../20260519-154003-afade1d.md)
+**Summary**: feat(bill+reconcile): barcode PBH trên bill có thể quét → reconcile tự mở PBH
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -22,7 +21,7 @@
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:27
 - [`downloads/`](./downloads.md) — updated 2026-05-19 14:10
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 15:07
-- [`native-orders/`](./native-orders.md) — updated 2026-05-19 15:29
+- [`native-orders/`](./native-orders.md) — updated 2026-05-19 15:40
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 13:11
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-19 10:26
 - [`render.com/`](./render.com.md) — updated 2026-05-19 15:29
@@ -33,4 +32,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-19 15:29
+- [`web2/`](./web2.md) — updated 2026-05-19 15:40
