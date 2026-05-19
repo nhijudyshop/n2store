@@ -545,6 +545,7 @@
     // Dùng 'wallet:all' làm convention cho admin/page-level subscriber
     // (per-customer detail page có thể subscribe 'wallet:<phone>' riêng).
     let _sseUnsubscribe = null;
+    let _sseUnsubscribeFso = null; // PHASE A1: web2:fast-sale-orders
     let _ssePollTimer = null;
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) {
@@ -552,6 +553,21 @@
             return;
         }
         if (_sseUnsubscribe) return;
+        // PHASE A1: subscribe thêm 'web2:fast-sale-orders' — khi PBH
+        // confirm/cancel/print → wallet KH cần reload PBH list + recalc.
+        // Cùng debounce timer với wallet:all để gom mutation burst.
+        _sseUnsubscribeFso = window.Web2SSE.subscribe('web2:fast-sale-orders', (msg) => {
+            if (_ssePollTimer) clearTimeout(_ssePollTimer);
+            _ssePollTimer = setTimeout(async () => {
+                _ssePollTimer = null;
+                console.log(
+                    '[CustomerWallet-SSE] PBH event:',
+                    msg.data?.action,
+                    msg.data?.number || ''
+                );
+                await loadAndRender();
+            }, 800);
+        });
         _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
             // Server gửi event 'wallet_update' với data { phone, wallet, transaction }
             // Debounce 800ms — burst nhiều giao dịch SePay liên tiếp → 1 reload.
