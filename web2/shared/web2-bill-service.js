@@ -230,6 +230,22 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     letter-spacing: 1.5px; text-align: center; margin: 4px 0;
 }
 
+/* ─── Barcode box (scan đối soát) ────────────────────── */
+.barcode-box {
+    text-align: center; margin: 6px 0; padding: 4px 0;
+    border: 1.5px solid #000; border-radius: 4px;
+}
+.barcode-box .barcode-img {
+    width: 92%; height: 70px; display: block; margin: 0 auto;
+}
+.barcode-box .barcode-number {
+    font-family: 'Courier New', monospace; font-size: 14px;
+    font-weight: bold; letter-spacing: 1px; margin-top: 2px;
+}
+.barcode-box .barcode-hint {
+    font-size: 10px; color: #555; margin-top: 1px;
+}
+
 /* ─── Meta info (số phiếu, ngày, KH) ─────────────────── */
 .meta-row { display: flex; justify-content: space-between; padding: 1px 0; }
 .meta-row .meta-label { font-weight: bold; min-width: 70px; }
@@ -324,8 +340,15 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     <!-- ═══════════ BILL TITLE + BARCODE ═══════════ -->
     <hr class="sep-double" />
     <div class="bill-title">Phiếu bán hàng</div>
-    ${barcodeUrl ? `<div class="text-center"><img src="${barcodeUrl}" style="width:95%;max-height:50px;" onerror="this.style.display='none'" /></div>` : ''}
-    <div class="meta-row"><span class="meta-label">Số phiếu:</span><span class="meta-value font-bold">${_esc(billNumber)}</span></div>
+    ${
+        barcodeUrl
+            ? `<div class="barcode-box">
+                  <img src="${barcodeUrl}" class="barcode-img" onerror="this.style.display='none'" />
+                  <div class="barcode-number">${_esc(billNumber)}</div>
+                  <div class="barcode-hint">Quét để mở phiếu trong web đối soát</div>
+               </div>`
+            : ''
+    }
     <div class="meta-row"><span class="meta-label">Ngày:</span><span class="meta-value">${_esc(dateStr)}</span></div>
 
     <!-- ═══════════ CUSTOMER ═══════════ -->

@@ -398,20 +398,37 @@
     }
 
     // ---------- scanner ----------
-    async function onScannerSubmit(productCode) {
-        productCode = (productCode || '').trim();
-        if (!productCode) return;
+    // PBH number pattern: HD-YYYYMMDD-NNNN. Quét barcode trên bill ngoài bọc
+    // sẽ ra chuỗi này → tự switch sang PBH đó (không treat as product code).
+    const PBH_NUMBER_RE = /^HD-\d{8}-\d{3,5}$/;
+
+    async function onScannerSubmit(value) {
+        value = (value || '').trim();
+        if (!value) return;
+
+        // Quét barcode bill → switch PBH
+        if (PBH_NUMBER_RE.test(value)) {
+            try {
+                await selectPbh(value);
+                feedback(`📦 Mở PBH ${value}`);
+            } catch (e) {
+                feedback('✗ ' + e.message, true);
+            }
+            return;
+        }
+
+        // Mọi giá trị khác = product code → +1 picked_qty
         if (!STATE.selectedNumber) {
-            feedback('Hãy chọn 1 PBH trước', true);
+            feedback('Quét barcode trên bill trước, hoặc chọn 1 PBH', true);
             return;
         }
         try {
             const res = await api('POST', `/${encodeURIComponent(STATE.selectedNumber)}/scan`, {
-                productCode,
+                productCode: value,
             });
             STATE.currentPbh = res.pbh;
             renderDetail();
-            feedback(`✓ ${productCode}`);
+            feedback(`✓ ${value}`);
         } catch (e) {
             feedback('✗ ' + e.message, true);
         }

@@ -51,7 +51,7 @@
                             <input
                                 id="rcScannerInput"
                                 type="text"
-                                placeholder="Quét barcode SP (hoặc gõ mã + Enter)…"
+                                placeholder="Quét barcode bill (HD-…) hoặc SP…"
                                 autocomplete="off"
                                 inputmode="text"
                                 autofocus
@@ -97,9 +97,10 @@
                     <section class="rc-detail-panel" id="rcDetailPanel">
                         <div class="rc-detail-empty" id="rcDetailEmpty">
                             <i data-lucide="mouse-pointer-click"></i>
-                            <p>Chọn 1 PBH bên trái để bắt đầu đối soát</p>
+                            <p>Quét barcode trên bill ngoài bọc, hoặc chọn 1 PBH bên trái</p>
                             <p class="rc-detail-hint">
-                                Hoặc quét barcode SP — nếu đang mở 1 PBH, hệ thống sẽ +1 picked_qty.
+                                Workflow: quét bill (HD-…) → mở PBH → quét từng SP bên trong (+1
+                                picked_qty).
                             </p>
                         </div>
                         <div class="rc-detail-content" id="rcDetailContent" hidden></div>
@@ -118,6 +119,6 @@
                 }
             });
         </script>
-        <script src="js/reconcile-app.js?v=20260519a"></script>
+        <script src="js/reconcile-app.js?v=20260519b"></script>
     </body>
 </html>
