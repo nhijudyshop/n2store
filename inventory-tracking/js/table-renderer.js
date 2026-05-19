@@ -431,7 +431,8 @@ function formatColors(mauSac) {
 }
 
 /**
- * Toggle shipment card expand/collapse — persist state via UIState
+ * Toggle shipment card expand/collapse — persist state via UIState.
+ * Body content is lazy-built on first expand to keep collapsed cards lightweight.
  */
 function toggleShipmentCard(card) {
     const body = card.querySelector('.shipment-body');
@@ -439,6 +440,10 @@ function toggleShipmentCard(card) {
     const isCollapsed = body.classList.contains('hidden');
 
     if (isCollapsed) {
+        // Lazy render body content on first expand
+        if (body.dataset.lazy === '1') {
+            _renderCardBody(card);
+        }
         body.classList.remove('hidden');
         card.classList.remove('collapsed');
         if (chevron) chevron.style.transform = 'rotate(90deg)';
@@ -449,6 +454,34 @@ function toggleShipmentCard(card) {
         if (chevron) chevron.style.transform = 'rotate(0deg)';
         if (window.UIState && card.dataset.id) window.UIState.setExpanded(card.dataset.id, false);
     }
+}
+
+/**
+ * Build the shipment body (invoices section + admin note) on demand.
+ * Called once per card when the user first expands it.
+ */
+function _renderCardBody(card) {
+    const body = card.querySelector('.shipment-body');
+    if (!body || body.dataset.lazy !== '1') return;
+    const shipment = card._shipment;
+    if (!shipment) return;
+
+    const canViewNote = permissionHelper?.can('view_ghiChuAdmin');
+    body.innerHTML = `
+        ${renderInvoicesSection(shipment)}
+        ${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}
+    `;
+    body.dataset.lazy = '0';
+
+    // Post-render hooks scoped to this card
+    if (window.lucide) lucide.createIcons();
+    if (window.UIState && window.UIState.isDetailsVisible()) {
+        _applyDetailColsVisibility(true);
+    }
+    if (typeof NoteManager !== 'undefined' && NoteManager.onTableRendered) {
+        NoteManager.onTableRendered();
+    }
+    if (window.ColumnToggle?.refresh) window.ColumnToggle.refresh();
 }
 
 /**
@@ -676,11 +709,17 @@ function createShipmentCard(shipment) {
                 </button>
             </div>
         </div>
-        <div class="shipment-body${wasExpanded ? '' : ' hidden'}">
-            ${renderInvoicesSection(shipment)}
-            ${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}
+        <div class="shipment-body${wasExpanded ? '' : ' hidden'}" data-lazy="${wasExpanded ? '0' : '1'}">
+            ${
+                wasExpanded
+                    ? `${renderInvoicesSection(shipment)}${canViewNote && shipment.ghiChuAdmin ? renderAdminNoteSection(shipment) : ''}`
+                    : ''
+            }
         </div>
     `;
+
+    // Stash shipment ref on the card for lazy body render on first expand
+    card._shipment = shipment;
 
     // Apply chevron rotation for expanded cards (icons render async via lucide)
     if (wasExpanded) {
