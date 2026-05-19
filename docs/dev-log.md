@@ -25,6 +25,21 @@
 
 ## 2026-05-19
 
+### [don-inbox] Stat card KPI: chỉ phản ứng với date filter, bỏ qua filter khác
+
+**User feedback**: stat card hiển thị 37 đơn cùng "0 món · 0đ" → sai. Lý do: KPI lấy từ `filteredOrders` (sau khi áp tất cả filters bao gồm `status='draft'`), nên không bao giờ có đơn `status='order'`.
+
+**Fix**: trong `updateInboxKpiStatCard` ([tab-social-core.js](don-inbox/js/tab-social-core.js)) đổi source từ `filteredOrders` → toàn bộ `SocialOrderState.orders`, rồi filter tay theo:
+
+- `status === 'order'` (đơn được tính KPI)
+- `createdAt` nằm trong `getDateRange(currentDateFilter)`
+
+KPI giờ độc lập với status/source/tag/search — chỉ thay đổi khi đổi preset ngày.
+
+**Status**: DONE.
+
+---
+
 ### [don-inbox] Stat card KPI ngày + toast "User bán được X món - nhận được Yk"
 
 **User yêu cầu** (trang Đơn Inbox):

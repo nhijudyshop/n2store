@@ -232,16 +232,37 @@ const KPI_PER_UNIT_INBOX = 5000;
 
 /**
  * Cập nhật stat card KPI ở filter row — chạy mỗi lần performTableSearch.
- * KPI = sum(totalQuantity) của các đơn 'order' trong filteredOrders × 5.000đ.
+ * KPI CHỈ thay đổi theo bộ lọc NGÀY, bỏ qua status/source/tag/search.
+ * Lý do: stat card phản ánh tổng KPI thực tế bán được trong khoảng ngày,
+ * không phụ thuộc subset đang xem trong bảng.
+ *
+ * Source orders: toàn bộ `SocialOrderState.orders`. Filter:
+ *   - status === 'order' (chỉ đơn được tính KPI)
+ *   - createdAt nằm trong dateRange của `currentDateFilter`
+ * KPI = sum(totalQuantity) × 5.000đ.
  */
 function updateInboxKpiStatCard() {
     const card = document.getElementById('inboxKpiStatCard');
     if (!card) return;
-    const orders =
-        window.SocialOrderState?.filteredOrders ||
-        window.SocialOrderState?.orders ||
-        [];
-    const kpiOrders = orders.filter((o) => o && o.status === 'order');
+    const all = window.SocialOrderState?.orders || [];
+
+    const filterKey =
+        typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
+    // Reuse getDateRange (defined in tab-social-table.js). Nếu chưa load → fallback all.
+    const range =
+        typeof getDateRange === 'function'
+            ? getDateRange(filterKey)
+            : { from: null, to: null };
+
+    const kpiOrders = all.filter((o) => {
+        if (!o || o.status !== 'order') return false;
+        if (range.from || range.to) {
+            const ts = new Date(o.createdAt);
+            if (range.from && ts < range.from) return false;
+            if (range.to && ts > range.to) return false;
+        }
+        return true;
+    });
     const totalQty = kpiOrders.reduce(
         (s, o) => s + (Number(o.totalQuantity) || 0),
         0
@@ -257,8 +278,6 @@ function updateInboxKpiStatCard() {
         '15days': 'KPI 15 ngày',
         custom: 'KPI khoảng đã chọn',
     };
-    const filterKey =
-        typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
     const labelEl = document.getElementById('inboxKpiStatLabel');
     if (labelEl) labelEl.textContent = labelMap[filterKey] || 'KPI';
 
