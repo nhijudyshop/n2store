@@ -3,21 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1af7b58` — fix(don-inbox/kpi-stat): chỉ phản ứng theo date filter, bỏ qua status/source/tag/search
-**Last updated**: 2026-05-19 13:27:03 +07
-**Latest session**: [`RESUME:20260519-132703-1af7b58`](../20260519-132703-1af7b58.md)
-**Summary**: fix(don-inbox/kpi-stat): chỉ phản ứng theo date filter, bỏ qua status/source/tag/search
+**Latest commit**: `98d793d` — docs(web2): INTERACTION-DIAGRAM.md — sơ đồ tương tác 16 pages + data flow + SSE topology
+**Last updated**: 2026-05-19 13:37:33 +07
+**Latest session**: [`RESUME:20260519-133733-98d793d`](../20260519-133733-98d793d.md)
+**Summary**: docs(web2): INTERACTION-DIAGRAM.md — sơ đồ tương tác 16 pages + data flow + SSE topology
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`don-inbox/`](./don-inbox.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 13:27
+- [`docs/`](./docs.md) — updated 2026-05-19 13:37
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:27
 - [`downloads/`](./downloads.md) — updated 2026-05-19 12:02
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 11:39
