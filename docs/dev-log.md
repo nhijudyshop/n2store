@@ -25,6 +25,29 @@
 
 ## 2026-05-19
 
+### [inventory-tracking] Image Manager v2: chỉ Đợt (bỏ ngày), cho phép Đợt tùy chỉnh
+
+**User yêu cầu**: "Quản lý ảnh bỏ ngày đi, cho chọn theo đợt → cho chỉnh đợt custom".
+
+**Đổi**:
+
+- **UI per row**: Bỏ field "Đợt giao (ngày + đợt)" dropdown. Thay bằng input number `Đợt` cho phép gõ tay đợt bất kỳ (cả đợt chưa có shipment, vd "Đợt 5").
+- **Group header**: chỉ hiện "Đợt N — X NCC" (không có ngày). Đợt không có shipment hiển thị badge "tùy chỉnh" màu cam.
+- **Filter row**: bỏ dropdown "Tất cả đợt" → thay bằng input number "Lọc đợt..." để filter rows theo đợt.
+- **Row state**: `batchKey` ("YYYY-MM-DD\_\_N") → `dotSo` (integer). Thêm `originalDate` để track entry gốc khi save.
+- **Save**: client tự tính canonical date cho mỗi đợt N — ưu tiên shipment đợt N mới nhất, fallback hình ảnh hiện có cho đợt N, fallback today (VN tz). Mỗi đợt PUT 1 lần `bulkSave(rows, { date: canonical, dotSo: N })`. Nếu row được di chuyển khỏi (date_X, dotSo_Y) ban đầu → gửi empty PUT cho (date_X, dotSo_Y) để xoá entry mồ côi.
+- **Read** ([data-loader.js getProductImagesForNcc](../inventory-tracking/js/data-loader.js#L182-L201)): match priority đổi từ `(ngày, đợt, ncc)` exact → `(đợt, ncc)` only (date trở thành storage detail). Legacy fallback: bất kỳ ảnh cho NCC đó. Tham số `ngayDiHang` giữ lại cho backward compat nhưng không dùng.
+
+**Tại sao đổi**: User concept "đợt N" là logical batch (có thể trải nhiều ngày giao). Mapping theo (date, đợt, ncc) tạo data đụng nhau khi cùng đợt 1 có shipment 12/5 và 17/5 — phải tạo entry cho mỗi cặp. Đổi sang (đợt, ncc) đơn giản hơn và đúng với cách user nghĩ.
+
+**Files changed**:
+
+- `inventory-tracking/js/modal-image-manager.js` — full rewrite (538→640 lines, batchKey → dotSo).
+- `inventory-tracking/js/data-loader.js` — `getProductImagesForNcc` đổi match logic.
+- `inventory-tracking/css/modern.css` — bỏ `.img-mgr-filter-select / .img-mgr-batch-select`, thêm `.img-mgr-filter-dot / .img-mgr-dot-custom`. Field width 200px → 120px.
+
+**Verify**: Playwright local 8093 — đổi Đợt từ 1 → 5 (custom), thấy badge "tùy chỉnh" + row tách ra group riêng. Status: ✅ Done. Screenshots `inv-img-v2-default.png`, `inv-img-v2-custom-dot.png`.
+
 ### [inventory-tracking] 3 nâng cấp lớn: Image Manager đợt/ngày + Column hide/restore + Lazy render perf
 
 **User yêu cầu** (screen inventory-tracking/index.html):

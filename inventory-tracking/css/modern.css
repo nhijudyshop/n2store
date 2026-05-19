@@ -4135,19 +4135,20 @@ textarea.inline-edit-input {
     gap: 8px;
     align-items: stretch;
 }
-.img-mgr-filter-select {
-    flex: 0 0 220px;
-    padding: 8px 12px;
-    border: 1px solid var(--gray-300);
-    border-radius: 8px;
-    background: #fff;
-    font-size: 14px;
-    outline: none;
-    cursor: pointer;
+.img-mgr-filter-dot {
+    flex: 0 0 160px;
 }
-.img-mgr-filter-select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+.img-mgr-dot-custom {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 8px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
 }
 .img-mgr-search {
     display: flex;
@@ -4325,15 +4326,7 @@ textarea.inline-edit-input {
     flex-direction: column;
     gap: 8px;
     flex-shrink: 0;
-    width: 200px;
-}
-.img-mgr-batch-select {
-    cursor: pointer;
-    background: #fff;
-}
-.img-mgr-batch-select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    width: 120px;
 }
 
 /* Group section (rows of same đợt grouped together) */

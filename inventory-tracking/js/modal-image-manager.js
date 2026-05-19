@@ -1,103 +1,78 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // MODAL IMAGE MANAGER - INVENTORY TRACKING
-// Row-based input: each row = [images] + [NCC] + [batchKey]
-// Images stored in inventory_product_images table keyed by
-// (ngay_di_hang, dot_so, ncc). Adding a row asks which đợt/ngày
-// it belongs to so NCC duplicates across shipments map correctly.
+// Row-based input: each row = [images] + [NCC] + [đợt].
+// Đợt is a plain integer (1, 2, 3, ...) — user can type a
+// custom đợt even if no shipment exists yet for that đợt.
+// Server stores by (ngay_di_hang, dot_so, ncc); the client
+// picks a canonical date per đợt at save time (earliest
+// shipment date for that đợt, else today).
 // =====================================================
 
 const ImageManager = (() => {
-    const GLOBAL_BATCH = '2026-04-10__1'; // canonical default batch from migration 058
-    let _rows = []; // [{ id, uploadedUrls, ncc, batchKey, mapped }]
+    const GLOBAL_LEGACY_DATE = '2026-04-10'; // canonical default date from migration 058
+    let _rows = []; // [{ id, uploadedUrls, ncc, dotSo, mapped }]
     let _focusedRowId = null;
     let _isUploading = false;
     let _rowCounter = 0;
     let _searchNcc = ''; // NCC search filter
-    let _filterBatchKey = ''; // batch filter ('' = all)
-    let _batchOptions = []; // [{ batchKey, ngayDiHang, dotSo, label }]
-    let _initialBatchKeys = new Set(); // batches loaded at open() — used to send empty PUT on clear
+    let _filterDotSo = ''; // đợt filter ('' = all)
+    let _knownDotSos = []; // distinct đợt numbers from shipments (DESC) — for "Đợt mới nhất" default
+    let _initialKey = new Set(); // (dotSo, originalNgay) loaded at open — used to send empty PUT on clear
 
-    function _splitBatchKey(batchKey) {
-        if (!batchKey) return { ngayDiHang: null, dotSo: null };
-        const [ngayDiHang, dotSoStr] = batchKey.split('__');
-        return { ngayDiHang, dotSo: parseInt(dotSoStr, 10) || 1 };
-    }
-
-    function _formatBatchLabel(ngayDiHang, dotSo) {
-        const dateLabel =
-            typeof formatDateDisplay === 'function' ? formatDateDisplay(ngayDiHang) : ngayDiHang;
-        return `${dateLabel} — Đợt ${dotSo}`;
-    }
-
-    function _buildBatchOptions() {
-        const seen = new Map();
-
-        // Real shipments from data (latest first)
-        if (typeof getAllDotHangAsShipments === 'function') {
-            getAllDotHangAsShipments().forEach((s) => {
-                if (!s.ngayDiHang) return;
-                const dotSo = s.dotSo || 1;
-                const key = `${s.ngayDiHang}__${dotSo}`;
-                if (!seen.has(key)) {
-                    seen.set(key, {
-                        batchKey: key,
-                        ngayDiHang: s.ngayDiHang,
-                        dotSo,
-                        label: _formatBatchLabel(s.ngayDiHang, dotSo),
-                    });
-                }
-            });
-        }
-
-        // Also include batches that exist in productImages but not in shipments
-        // (orphan images, e.g. canonical 2026-04-10/1 legacy)
-        (globalState.productImages || []).forEach((img) => {
-            if (!img.ngayDiHang) return;
-            const dotSo = img.dotSo || 1;
-            const key = `${img.ngayDiHang}__${dotSo}`;
-            if (!seen.has(key)) {
-                const isLegacy = key === GLOBAL_BATCH;
-                seen.set(key, {
-                    batchKey: key,
-                    ngayDiHang: img.ngayDiHang,
-                    dotSo,
-                    label: isLegacy
-                        ? `${_formatBatchLabel(img.ngayDiHang, dotSo)} (ảnh cũ)`
-                        : _formatBatchLabel(img.ngayDiHang, dotSo),
-                });
-            }
-        });
-
-        return Array.from(seen.values()).sort((a, b) => {
-            // Date DESC, then dotSo DESC
-            if (a.ngayDiHang !== b.ngayDiHang) {
-                return a.ngayDiHang < b.ngayDiHang ? 1 : -1;
-            }
-            return b.dotSo - a.dotSo;
-        });
-    }
-
-    function _defaultBatchKey() {
-        // Prefer top of batch options (latest shipment); fall back to canonical global
-        return _batchOptions.length > 0 ? _batchOptions[0].batchKey : GLOBAL_BATCH;
+    function _todayVN() {
+        if (typeof todayVN === 'function') return todayVN();
+        return new Date().toISOString().slice(0, 10);
     }
 
     /**
-     * Create a new empty row in the given batch (or default batch)
+     * Pick the canonical save date for a given đợt:
+     * - First, the most-recent shipment date that uses this dotSo
+     * - Else, the most-recent existing image entry for this dotSo
+     * - Else, today (Vietnam tz)
      */
-    function _createRow(batchKey) {
+    function _canonicalDateForDot(dotSo) {
+        const n = parseInt(dotSo, 10);
+        if (!n) return _todayVN();
+
+        if (typeof getAllDotHangAsShipments === 'function') {
+            const ship = getAllDotHangAsShipments().find((s) => (s.dotSo || 1) === n);
+            if (ship?.ngayDiHang) return ship.ngayDiHang;
+        }
+        const img = (globalState.productImages || []).find((i) => (i.dotSo || 1) === n);
+        if (img?.ngayDiHang) return img.ngayDiHang;
+
+        return _todayVN();
+    }
+
+    function _buildKnownDotSos() {
+        const set = new Set();
+        if (typeof getAllDotHangAsShipments === 'function') {
+            getAllDotHangAsShipments().forEach((s) => set.add(s.dotSo || 1));
+        }
+        (globalState.productImages || []).forEach((img) => set.add(img.dotSo || 1));
+        return Array.from(set).sort((a, b) => b - a); // DESC
+    }
+
+    function _defaultDotSo() {
+        return _knownDotSos.length > 0 ? _knownDotSos[0] : 1;
+    }
+
+    /**
+     * Create a new empty row in the given đợt (or default đợt)
+     */
+    function _createRow(dotSo) {
         const row = {
             id: `row_${++_rowCounter}`,
             uploadedUrls: [],
             ncc: '',
-            batchKey: batchKey || _defaultBatchKey(),
+            dotSo: dotSo || _defaultDotSo(),
         };
 
-        // Auto-fill NCC = last NCC in same batch + 1
+        // Auto-fill NCC = last NCC in same đợt + 1
         const lastNcc = [..._rows]
             .reverse()
-            .find((r) => r.batchKey === row.batchKey && r.ncc && !isNaN(parseInt(r.ncc)));
+            .find((r) => r.dotSo === row.dotSo && r.ncc && !isNaN(parseInt(r.ncc)));
         if (lastNcc) {
             row.ncc = String(parseInt(lastNcc.ncc) + 1);
         }
@@ -106,26 +81,24 @@ const ImageManager = (() => {
     }
 
     /**
-     * Open image manager modal — load existing data and group by batch
+     * Open image manager modal — load existing data and group by đợt
      */
     async function open() {
         _rows = [];
         _searchNcc = '';
-        _filterBatchKey = '';
-        _initialBatchKeys = new Set();
+        _filterDotSo = '';
+        _initialKey = new Set();
 
         try {
             const images = globalState.productImages || [];
+            _knownDotSos = _buildKnownDotSos();
 
-            // Build batch options (real shipments + orphan batches)
-            _batchOptions = _buildBatchOptions();
-
-            // Collect NCCs that exist in current shipments table (for mapped flag — visual hint)
+            // Collect (đợt, ncc) keys mapped by current shipments (visual hint only)
             const mappedKeys = new Set();
             if (typeof getAllDotHang === 'function') {
                 getAllDotHang().forEach((dot) => {
-                    if (dot.sttNCC && dot.ngayDiHang) {
-                        mappedKeys.add(`${dot.ngayDiHang}__${dot.dotSo || 1}__${dot.sttNCC}`);
+                    if (dot.sttNCC) {
+                        mappedKeys.add(`${dot.dotSo || 1}__${dot.sttNCC}`);
                     }
                 });
             }
@@ -135,32 +108,33 @@ const ImageManager = (() => {
                 if (urls.length === 0) return;
 
                 const dotSo = img.dotSo || 1;
-                const batchKey = img.ngayDiHang ? `${img.ngayDiHang}__${dotSo}` : GLOBAL_BATCH;
                 const nccNum = img.ncc ? parseInt(img.ncc) : null;
-                const isMapped =
-                    nccNum !== null && img.ngayDiHang && mappedKeys.has(`${batchKey}__${nccNum}`);
+                const isMapped = nccNum !== null && mappedKeys.has(`${dotSo}__${nccNum}`);
 
-                _initialBatchKeys.add(batchKey);
+                // Snapshot original (date, dotSo, ncc) so save can detect cleared entries
+                _initialKey.add(`${img.ngayDiHang || GLOBAL_LEGACY_DATE}__${dotSo}__${nccNum}`);
+
                 _rows.push({
                     id: `row_${++_rowCounter}`,
                     uploadedUrls: [...urls],
                     ncc: img.ncc ? String(img.ncc) : '',
-                    batchKey,
+                    dotSo,
+                    originalDate: img.ngayDiHang || GLOBAL_LEGACY_DATE,
                     mapped: isMapped,
                 });
             });
 
-            // Sort: batchKey DESC (newest đợt first), then NCC ASC
+            // Sort: đợt DESC, NCC ASC
             _rows.sort((a, b) => {
-                if (a.batchKey !== b.batchKey) return a.batchKey < b.batchKey ? 1 : -1;
+                if (a.dotSo !== b.dotSo) return b.dotSo - a.dotSo;
                 return (parseInt(a.ncc) || 0) - (parseInt(b.ncc) || 0);
             });
         } catch (error) {
             console.error('[IMG-MGR] Error loading product images:', error);
-            _batchOptions = _buildBatchOptions();
+            _knownDotSos = _buildKnownDotSos();
         }
 
-        // Always add one empty row at the end in the latest batch for new input
+        // Always add one empty row at the end in the latest đợt for new input
         const newRow = _createRow();
         _rows.push(newRow);
         _focusedRowId = newRow.id;
@@ -178,34 +152,28 @@ const ImageManager = (() => {
 
         // Apply filters
         const visibleRows = _rows.filter((r) => {
-            if (_filterBatchKey && r.batchKey !== _filterBatchKey) return false;
+            if (_filterDotSo && String(r.dotSo) !== String(_filterDotSo)) return false;
             if (_searchNcc && r.ncc && !r.ncc.includes(_searchNcc)) return false;
             return true;
         });
 
-        // Group visible rows by batchKey (preserve current order)
-        const groups = []; // [{ batchKey, rows: [] }]
+        // Group visible rows by dotSo (preserve current order)
+        const groups = []; // [{ dotSo, rows: [] }]
         const groupIdx = new Map();
         visibleRows.forEach((row) => {
-            if (!groupIdx.has(row.batchKey)) {
-                groupIdx.set(row.batchKey, groups.length);
-                groups.push({ batchKey: row.batchKey, rows: [] });
+            const key = String(row.dotSo);
+            if (!groupIdx.has(key)) {
+                groupIdx.set(key, groups.length);
+                groups.push({ dotSo: row.dotSo, rows: [] });
             }
-            groups[groupIdx.get(row.batchKey)].rows.push(row);
+            groups[groupIdx.get(key)].rows.push(row);
         });
-
-        const batchFilterOptions = _batchOptions
-            .map(
-                (b) =>
-                    `<option value="${b.batchKey}" ${b.batchKey === _filterBatchKey ? 'selected' : ''}>${b.label}</option>`
-            )
-            .join('');
 
         body.innerHTML = `
             <div class="img-mgr-toolbar">
                 <div class="img-mgr-hint">
                     <i data-lucide="info"></i>
-                    Chọn hàng → dán ảnh (Ctrl+V) hoặc chọn file → nhập NCC → chọn Đợt giao
+                    Chọn hàng → dán ảnh (Ctrl+V) hoặc chọn file → nhập NCC → nhập số Đợt (tùy chỉnh)
                 </div>
                 <div class="img-mgr-filter-row">
                     <div class="img-mgr-search">
@@ -213,10 +181,11 @@ const ImageManager = (() => {
                         <input type="number" id="imgMgrSearchNcc" class="img-mgr-search-input"
                             placeholder="Tìm NCC..." value="${_searchNcc}" min="1" autocomplete="off">
                     </div>
-                    <select id="imgMgrFilterBatch" class="img-mgr-filter-select" title="Lọc theo đợt">
-                        <option value="">Tất cả đợt</option>
-                        ${batchFilterOptions}
-                    </select>
+                    <div class="img-mgr-search img-mgr-filter-dot">
+                        <i data-lucide="layers"></i>
+                        <input type="number" id="imgMgrFilterDot" class="img-mgr-search-input"
+                            placeholder="Lọc đợt..." value="${_filterDotSo}" min="1" autocomplete="off">
+                    </div>
                 </div>
             </div>
             <div class="img-mgr-rows">
@@ -224,27 +193,28 @@ const ImageManager = (() => {
             </div>
         `;
 
-        // Search listener
+        // Search listener — NCC
         const searchInput = body.querySelector('#imgMgrSearchNcc');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 _searchNcc = e.target.value.trim();
                 _render();
-                const next = document.getElementById('imgMgrSearchNcc');
-                if (next) next.focus();
+                document.getElementById('imgMgrSearchNcc')?.focus();
             });
         }
-        const batchFilter = body.querySelector('#imgMgrFilterBatch');
-        if (batchFilter) {
-            batchFilter.addEventListener('change', (e) => {
-                _filterBatchKey = e.target.value;
+        // Filter listener — đợt
+        const filterDot = body.querySelector('#imgMgrFilterDot');
+        if (filterDot) {
+            filterDot.addEventListener('input', (e) => {
+                _filterDotSo = e.target.value.trim();
                 _render();
+                document.getElementById('imgMgrFilterDot')?.focus();
             });
         }
 
         _setupPasteHandler();
 
-        // Wire input/select listeners (must do after innerHTML)
+        // Wire input listeners (must do after innerHTML)
         _rows.forEach((row) => {
             const nccInput = body.querySelector(`#ncc_${row.id}`);
             const hasImages = row.uploadedUrls.length > 0;
@@ -263,12 +233,16 @@ const ImageManager = (() => {
                 });
             }
 
-            const batchSel = body.querySelector(`#batch_${row.id}`);
-            if (batchSel) {
-                batchSel.value = row.batchKey;
-                batchSel.addEventListener('change', (e) => {
-                    row.batchKey = e.target.value;
-                    // Re-render so row regroups visually
+            const dotInput = body.querySelector(`#dot_${row.id}`);
+            if (dotInput) {
+                dotInput.value = row.dotSo;
+                dotInput.addEventListener('change', (e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (!n || n < 1) {
+                        e.target.value = row.dotSo;
+                        return;
+                    }
+                    row.dotSo = n;
                     _render();
                 });
             }
@@ -292,20 +266,22 @@ const ImageManager = (() => {
     }
 
     /**
-     * Render a batch section (header + its rows + add-row button)
+     * Render a đợt group (header + its rows + add-row button)
      */
     function _renderGroup(group) {
-        const opt = _batchOptions.find((b) => b.batchKey === group.batchKey);
-        const label = opt ? opt.label : group.batchKey;
+        const isKnown = _knownDotSos.includes(group.dotSo);
+        const badge = isKnown
+            ? ''
+            : ' <span class="img-mgr-dot-custom" title="Đợt tự nhập">tùy chỉnh</span>';
 
         return `
-            <div class="img-mgr-group" data-batch-key="${group.batchKey}">
+            <div class="img-mgr-group" data-dot-so="${group.dotSo}">
                 <div class="img-mgr-group-header">
-                    <i data-lucide="calendar"></i>
-                    <strong>${label}</strong>
+                    <i data-lucide="layers"></i>
+                    <strong>Đợt ${group.dotSo}</strong>${badge}
                     <span class="img-mgr-group-count">${group.rows.length} NCC</span>
                     <button class="img-mgr-group-add"
-                            onclick="ImageManager.addRowInBatch('${group.batchKey}')"
+                            onclick="ImageManager.addRowInDot(${group.dotSo})"
                             title="Thêm NCC vào đợt này">
                         <i data-lucide="plus"></i> Thêm NCC
                     </button>
@@ -322,19 +298,6 @@ const ImageManager = (() => {
         const isFocused = row.id === _focusedRowId;
         const hasImages = row.uploadedUrls.length > 0;
         const mappedClass = row.mapped ? 'img-mgr-entry-mapped' : '';
-
-        const batchOpts = _batchOptions
-            .map(
-                (b) =>
-                    `<option value="${b.batchKey}" ${b.batchKey === row.batchKey ? 'selected' : ''}>${b.label}</option>`
-            )
-            .join('');
-
-        // If current batchKey is not in options (e.g. orphan), add it inline
-        const hasCurrent = _batchOptions.some((b) => b.batchKey === row.batchKey);
-        const fallbackOpt = hasCurrent
-            ? ''
-            : `<option value="${row.batchKey}" selected>${row.batchKey}</option>`;
 
         return `
             <div class="img-mgr-entry ${isFocused ? 'img-mgr-entry-focused' : ''} ${mappedClass}"
@@ -382,11 +345,10 @@ const ImageManager = (() => {
                                 placeholder="VD: 1" min="1" autocomplete="off">
                         </div>
                         <div class="img-mgr-field">
-                            <label>Đợt giao</label>
-                            <select id="batch_${row.id}" class="img-mgr-input img-mgr-batch-select"
-                                title="Chọn đợt mà ảnh thuộc về">
-                                ${fallbackOpt}${batchOpts}
-                            </select>
+                            <label>Đợt</label>
+                            <input type="number" id="dot_${row.id}" class="img-mgr-input"
+                                placeholder="VD: 1" min="1" autocomplete="off"
+                                title="Nhập số đợt — có thể tự đặt đợt mới">
                         </div>
                     </div>
 
@@ -416,7 +378,7 @@ const ImageManager = (() => {
     }
 
     /**
-     * Add a new row (default to latest batch)
+     * Add a new row (default to latest đợt)
      */
     function addRow() {
         const row = _createRow();
@@ -426,10 +388,10 @@ const ImageManager = (() => {
     }
 
     /**
-     * Add a new row in a specific batch (called from section header "Thêm NCC")
+     * Add a new row in a specific đợt (called from section header "Thêm NCC")
      */
-    function addRowInBatch(batchKey) {
-        const row = _createRow(batchKey);
+    function addRowInDot(dotSo) {
+        const row = _createRow(parseInt(dotSo, 10) || _defaultDotSo());
         _rows.push(row);
         _focusedRowId = row.id;
         _render();
@@ -574,41 +536,71 @@ const ImageManager = (() => {
     }
 
     /**
-     * Save: group rows by batchKey → PUT per batch with {date, dotSo}.
-     * Also send empty PUT for any batch that was loaded initially but now has 0 rows
-     * (so deletions stick).
+     * Save: group rows by đợt → PUT per đợt with {date=canonical, dotSo}.
+     * Also clear stale (date, dotSo) entries whose rows have been moved/removed.
+     *
+     * For each đợt N we PUT all its rows to the canonical date for N. Server's
+     * scoped DELETE removes rows for (canonicalDate, N) before INSERT — so prior
+     * canonical-date rows are replaced cleanly.
+     *
+     * If a row was originally at (date X, dotSo N) but X != canonicalDate(N) — for
+     * example legacy ảnh ngày 2026-04-10 mà giờ user move sang đợt 2 — we also send
+     * a clear PUT for (X, originalDotSo) so the old slot doesn't leave a duplicate
+     * behind.
      */
     async function save() {
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         try {
-            // Build batch buckets: only rows with images + NCC
-            const buckets = new Map(); // batchKey -> [{ncc, urls}]
+            // Group rows by dotSo
+            const buckets = new Map(); // dotSo -> [{ncc, urls}]
+            const seenInRows = new Set(); // `${date}__${dotSo}__${ncc}` for survivors
+
             _rows.forEach((r) => {
                 if (r.uploadedUrls.length === 0) return;
                 const nccNum = parseInt(r.ncc);
                 if (!nccNum) return;
-                const key = r.batchKey || _defaultBatchKey();
-                if (!buckets.has(key)) buckets.set(key, []);
-                buckets.get(key).push({ ncc: nccNum, urls: r.uploadedUrls });
+                const dotSo = parseInt(r.dotSo, 10) || _defaultDotSo();
+                if (!buckets.has(dotSo)) buckets.set(dotSo, []);
+                buckets.get(dotSo).push({ ncc: nccNum, urls: r.uploadedUrls });
+
+                // Track survivor under (canonical date for dotSo, dotSo, ncc)
+                const canonicalDate = _canonicalDateForDot(dotSo);
+                seenInRows.add(`${canonicalDate}__${dotSo}__${nccNum}`);
             });
 
-            // Initial batches that are now empty — send empty PUT so server deletes them
-            const clearedBatches = [];
-            _initialBatchKeys.forEach((key) => {
-                if (!buckets.has(key)) clearedBatches.push(key);
-            });
-
-            const allBatchKeys = new Set([...buckets.keys(), ...clearedBatches]);
-
-            // Issue one PUT per batch (parallel; usually small number)
+            // Issue one PUT per đợt (parallel; usually small number)
             const calls = [];
-            allBatchKeys.forEach((key) => {
-                const { ngayDiHang, dotSo } = _splitBatchKey(key);
-                const rows = buckets.get(key) || [];
+            buckets.forEach((rows, dotSo) => {
+                const canonicalDate = _canonicalDateForDot(dotSo);
                 calls.push(
-                    productImagesApi.bulkSave(rows, { date: ngayDiHang, dotSo }).catch((err) => {
-                        console.error(`[IMG-MGR] Save batch ${key} failed:`, err);
+                    productImagesApi.bulkSave(rows, { date: canonicalDate, dotSo }).catch((err) => {
+                        console.error(`[IMG-MGR] Save đợt ${dotSo} failed:`, err);
+                        throw err;
+                    })
+                );
+            });
+
+            // Clear original (date, dotSo) slots whose contents are no longer survivors
+            // — but only if the canonical PUT above isn't already doing it.
+            const orphanSlots = new Map(); // `${date}__${dotSo}` -> {date, dotSo}
+            _initialKey.forEach((key) => {
+                const [date, dotSoStr, _nccStr] = key.split('__');
+                const dotSo = parseInt(dotSoStr, 10);
+                const canonicalDate = _canonicalDateForDot(dotSo);
+                // Already covered by the bucket PUT for this dotSo at canonicalDate
+                if (date === canonicalDate && buckets.has(dotSo)) return;
+                const slotKey = `${date}__${dotSo}`;
+                if (!orphanSlots.has(slotKey)) {
+                    orphanSlots.set(slotKey, { date, dotSo });
+                }
+            });
+            orphanSlots.forEach(({ date, dotSo }) => {
+                // For an orphan slot we don't have a list of surviving NCCs at (date, dotSo),
+                // because rows now live elsewhere. Send empty rows[] → server clears the slot.
+                calls.push(
+                    productImagesApi.bulkSave([], { date, dotSo }).catch((err) => {
+                        console.error(`[IMG-MGR] Clear slot ${date}/${dotSo} failed:`, err);
                         throw err;
                     })
                 );
@@ -634,8 +626,13 @@ const ImageManager = (() => {
                     : 'Đã xóa tất cả ảnh sản phẩm'
             );
 
-            // Refresh initial batch set so subsequent saves don't re-clear
-            _initialBatchKeys = new Set(buckets.keys());
+            // Refresh snapshot so next save doesn't re-clear
+            _initialKey = seenInRows;
+            // Update each row's originalDate to canonical (since DB now has them there)
+            _rows.forEach((r) => {
+                if (r.uploadedUrls.length === 0 || !parseInt(r.ncc)) return;
+                r.originalDate = _canonicalDateForDot(parseInt(r.dotSo, 10) || _defaultDotSo());
+            });
 
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
         } catch (error) {
@@ -747,7 +744,7 @@ const ImageManager = (() => {
     return {
         open,
         addRow,
-        addRowInBatch,
+        addRowInDot,
         removeRow,
         focusRow,
         save,
