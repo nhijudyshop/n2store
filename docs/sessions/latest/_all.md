@@ -3,23 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9f62816` — feat(native-orders): tách nút 'Gộp đơn' riêng + redesign bill 80mm đẹp hơn
-**Last updated**: 2026-05-19 14:10:37 +07
-**Latest session**: [`RESUME:20260519-141037-9f62816`](../20260519-141037-9f62816.md)
-**Summary**: feat(native-orders): tách nút 'Gộp đơn' riêng + redesign bill 80mm đẹp hơn
+**Latest commit**: `fb4e919` — docs(web2): proposal — module đối soát PBH (reconciliation) — design + roadmap
+**Last updated**: 2026-05-19 14:45:45 +07
+**Latest session**: [`RESUME:20260519-144545-fb4e919`](../20260519-144545-fb4e919.md)
+**Summary**: docs(web2): proposal — module đối soát PBH (reconciliation) — design + roadmap
 
 ## Folders affected in this commit
 
-- [`downloads/`](./downloads.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-19 09:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-18 13:58
-- [`docs/`](./docs.md) — updated 2026-05-19 13:37
+- [`docs/`](./docs.md) — updated 2026-05-19 14:45
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:27
 - [`downloads/`](./downloads.md) — updated 2026-05-19 14:10
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 11:39
