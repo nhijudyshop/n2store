@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e13d6be` — feat(web2/products): đề xuất mã SP tự động từ NCC + tên SP
-**Last updated**: 2026-05-19 17:15:50 +07
-**Latest session**: [`RESUME:20260519-171550-e13d6be`](../20260519-171550-e13d6be.md)
-**Summary**: feat(web2/products): đề xuất mã SP tự động từ NCC + tên SP
+**Latest commit**: `62eac18` — feat(web2/product-code): collision-aware color shortening + fix ĐẬM/ĐẦM bug
+**Last updated**: 2026-05-19 17:32:58 +07
+**Latest session**: [`RESUME:20260519-173258-62eac18`](../20260519-173258-62eac18.md)
+**Summary**: feat(web2/product-code): collision-aware color shortening + fix ĐẬM/ĐẦM bug
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
 - [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
@@ -32,4 +31,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-19 17:15
+- [`web2/`](./web2.md) — updated 2026-05-19 17:32
