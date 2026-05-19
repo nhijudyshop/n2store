@@ -2311,7 +2311,7 @@ const KPICommission = {
                 ? `<button class="recon-toggle-btn l1-toggle-btn" onclick="window.KPICommission._toggleL1OrderDetail('${this.escapeHtml(order.orderId)}')" title="Xem món trả + lý do"><i data-lucide="chevron-right"></i></button>`
                 : '';
 
-            html += `<tr class="${rowClass}" data-l1-order="${this.escapeHtml(order.orderId)}" data-l1-number="${this.escapeHtml(invNumber)}">
+            html += `<tr class="${rowClass}" data-l1-order="${this.escapeHtml(order.orderId)}" data-l1-number="${this.escapeHtml(invNumber)}" data-l1-order-code="${this.escapeHtml(order.orderCode || '')}">
                 <td data-col="stt">${toggleBtn}${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
                 <td><a class="order-link" onclick="KPICommission.showOrderDetails('${this.escapeHtml(order.orderId)}')">${this.escapeHtml(order.orderCode || order.orderId)}</a></td>
                 <td>${invHtml}</td>
@@ -2736,21 +2736,28 @@ const KPICommission = {
     closeOrderDetails() {
         const orderId = this.state.currentOrderId;
         const number = orderId ? this._getInvoiceNumberForOrder(orderId) : '';
-        // No permission OR no số phiếu OR already checked → close ngay, không hỏi.
+        const order = orderId
+            ? this.state.currentEmployeeOrders.find((o) => o.orderId === orderId)
+            : null;
+        const orderCode = order?.orderCode || '';
+        // Fallback identifier khi đơn chưa có phiếu bán hàng → dùng Mã ĐH (orderCode).
+        // Giữ confirm modal hiển thị cho TẤT CẢ đơn trong bảng, không phụ thuộc phiếu.
+        const checkKey = number || orderCode;
+        // No permission OR không có cả number lẫn orderCode OR already checked → close ngay.
         if (
-            !number ||
+            !checkKey ||
             !this._canMarkOrderChecked() ||
-            this._orderCheckStore.isChecked(number)
+            this._orderCheckStore.isChecked(checkKey)
         ) {
             this._doCloseOrderDetails();
             return;
         }
-        const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
         const invoiceId = this._invoiceCache?.get(orderId)?.Id || '';
         this._pendingCheckCtx = {
+            checkKey,
             number,
             invoiceId,
-            orderCode: order?.orderCode || '',
+            orderCode,
             campaignName: order?.campaignName || '',
             kpiOwnerUserId: this.state.currentEmployeeUserId || '',
             kpiOwnerUserName: this.state.currentEmployeeName || '',
@@ -2758,8 +2765,12 @@ const KPICommission = {
             netProducts: order?.netProducts || 0,
         };
         const el = this._ensureCheckConfirmModal();
-        el.querySelector('#kpi-confirm-number').textContent = number;
-        const secondary = order?.orderCode ? `Mã ĐH: ${order.orderCode}` : '';
+        el.querySelector('#kpi-confirm-number').textContent = number || orderCode;
+        const secondary = number
+            ? orderCode
+                ? `Mã ĐH: ${orderCode}`
+                : ''
+            : '(Chưa có phiếu bán hàng)';
         el.querySelector('#kpi-confirm-secondary').textContent = secondary;
         el.style.display = 'flex';
     },
@@ -2794,9 +2805,11 @@ const KPICommission = {
     _applyL1CheckedStyles() {
         const tbody = document.getElementById('modalL1TableBody');
         if (!tbody) return;
-        tbody.querySelectorAll('tr[data-l1-number]').forEach((tr) => {
+        tbody.querySelectorAll('tr[data-l1-order]').forEach((tr) => {
             const number = tr.getAttribute('data-l1-number') || '';
-            const shouldBe = !!number && this._orderCheckStore.isChecked(number);
+            const orderCode = tr.getAttribute('data-l1-order-code') || '';
+            const checkKey = number || orderCode;
+            const shouldBe = !!checkKey && this._orderCheckStore.isChecked(checkKey);
             tr.classList.toggle('kpi-l1-row-checked', shouldBe);
         });
     },
@@ -2811,7 +2824,7 @@ const KPICommission = {
             .trim()
             .toLowerCase();
         const all = Array.from(this._orderCheckStore._data.values())
-            .filter((v) => v && v.number)
+            .filter((v) => v && (v.number || v.orderCode || v.checkKey))
             .sort((a, b) => (b.checkedAt || 0) - (a.checkedAt || 0));
         const filtered = !search
             ? all
@@ -2860,7 +2873,7 @@ const KPICommission = {
             const checker = entry.checkedByDisplayName || entry.checkedBy || '—';
             html += `<tr>
                 <td>${idx + 1}</td>
-                <td><strong>${this.escapeHtml(entry.number)}</strong></td>
+                <td><strong>${this.escapeHtml(entry.number || '—')}</strong></td>
                 <td>${this.escapeHtml(entry.orderCode || '—')}</td>
                 <td>${this.escapeHtml(entry.campaignName || '—')}</td>
                 <td>${this.escapeHtml(entry.kpiOwnerUserName || '—')}</td>
@@ -2920,8 +2933,8 @@ const KPICommission = {
             const ctx = self._pendingCheckCtx;
             hide();
             self._doCloseOrderDetails();
-            if (ctx?.number) {
-                await self._orderCheckStore.markChecked(ctx.number, ctx);
+            if (ctx?.checkKey) {
+                await self._orderCheckStore.markChecked(ctx.checkKey, ctx);
             }
         });
         el.addEventListener('click', (e) => {
@@ -2961,6 +2974,12 @@ const KPICommission = {
         },
 
         init() {
+            // Key resolution:
+            //   1. data.checkKey (đơn không phiếu → bằng orderCode)
+            //   2. data.number    (đơn có phiếu — cũng là doc data có sẵn)
+            //   3. doc.id         (backward compat cho doc không có 2 field trên)
+            const resolveKey = (data, docId) =>
+                data.checkKey || data.number || docId;
             if (this._initPromise) return this._initPromise;
             this._initPromise = (async () => {
                 const col = this._getCol();
@@ -2970,8 +2989,7 @@ const KPICommission = {
                     this._data.clear();
                     snap.forEach((doc) => {
                         const data = doc.data() || {};
-                        const key = data.number || doc.id;
-                        this._data.set(key, data);
+                        this._data.set(resolveKey(data, doc.id), data);
                     });
                     window.KPICommission?._applyL1CheckedStyles?.();
                     window.KPICommission?._renderCheckHistory?.();
@@ -2984,8 +3002,7 @@ const KPICommission = {
                             this._data.clear();
                             snap.forEach((doc) => {
                                 const data = doc.data() || {};
-                                const key = data.number || doc.id;
-                                this._data.set(key, data);
+                                this._data.set(resolveKey(data, doc.id), data);
                             });
                             window.KPICommission?._applyL1CheckedStyles?.();
                             window.KPICommission?._renderCheckHistory?.();
@@ -3000,12 +3017,12 @@ const KPICommission = {
             return this._initPromise;
         },
 
-        isChecked(number) {
-            return !!number && this._data.has(number);
+        isChecked(checkKey) {
+            return !!checkKey && this._data.has(checkKey);
         },
 
-        async markChecked(number, meta) {
-            if (!number) return;
+        async markChecked(checkKey, meta) {
+            if (!checkKey) return;
             // Iframe `tab-kpi-commission.html` không load shared-auth-manager
             // (parent main.html mới load) → `window.authManager` thường undefined
             // trong iframe. Đọc thẳng `loginindex_auth` từ storage (same-origin
@@ -3033,7 +3050,10 @@ const KPICommission = {
                 displayName = displayName || info.displayName || info.fullName || '';
             }
             const payload = {
-                number,
+                // checkKey = doc identifier (number nếu có phiếu, else orderCode).
+                // number  = phiếu bán hàng thực tế (rỗng khi đơn chưa có phiếu).
+                checkKey,
+                number: meta?.number || '',
                 checkedBy: username,
                 checkedByDisplayName: displayName,
                 checkedAt: Date.now(),
@@ -3048,13 +3068,13 @@ const KPICommission = {
                 netProducts: meta?.netProducts || 0,
                 source: 'kpi-commission',
             };
-            this._data.set(number, payload);
+            this._data.set(checkKey, payload);
             window.KPICommission?._applyL1CheckedStyles?.();
             window.KPICommission?._renderCheckHistory?.();
             const col = this._getCol();
             if (!col) return;
             try {
-                await col.doc(this._sanitizeDocId(number)).set(payload, { merge: true });
+                await col.doc(this._sanitizeDocId(checkKey)).set(payload, { merge: true });
             } catch (e) {
                 console.warn('[KPI-ORDER-CHECK] save failed:', e?.message);
             }

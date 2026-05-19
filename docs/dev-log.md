@@ -25,6 +25,19 @@
 
 ## 2026-05-19
 
+### [orders] KPI confirm modal hiển thị cho cả đơn chưa có phiếu bán hàng
+
+**User feedback**: modal "Xác nhận kiểm tra đơn" trong tab KPI chỉ hiện cho đơn đã có phiếu (NJD/2026/xxxxx). Yêu cầu: hiện cho TẤT CẢ đơn trong bảng, không phụ thuộc cột phiếu bán hàng.
+
+**Fix** ([orders-report/js/tab-kpi-commission.js](orders-report/js/tab-kpi-commission.js)):
+
+- `closeOrderDetails()` — dùng `checkKey = number || orderCode` thay cho `number`. Đơn chưa có phiếu fallback về Mã ĐH (orderCode) làm identifier. Modal primary text dùng `number || orderCode`, secondary text `(Chưa có phiếu bán hàng)` khi rỗng.
+- L1 row template — thêm `data-l1-order-code` để `_applyL1CheckedStyles` style cả các dòng không có phiếu.
+- `_orderCheckStore` — `init()` resolve key theo thứ tự `checkKey → number → docId` (backward compat). `markChecked(checkKey, meta)` tách `checkKey` (doc id) khỏi `number` (phiếu thực, rỗng khi không có). `isChecked(checkKey)` chấp nhận cả orderCode.
+- `_renderCheckHistory` — filter `(number || orderCode || checkKey)` (bỏ filter cũ `v.number`), cột Số phiếu hiển thị `'—'` khi rỗng.
+
+**Status**: DONE.
+
 ### [reconcile] Phase 1 MVP — Đối soát đóng gói PBH (scan + pack + ship + deliver)
 
 **Mục đích**: Trang `web2/reconcile/` để verify đủ hàng từng PBH trước khi đóng gói + giao shipper. Scope: 1 kho, 1 nhân viên, scanner đã gắn sẵn; KHÔNG ảnh chống tranh chấp, KHÔNG notify khách, KHÔNG tích hợp API GHN/J&T, KHÔNG cho thiếu hàng, KHÔNG trừ kho lại (đã trừ lúc tạo PBH).
