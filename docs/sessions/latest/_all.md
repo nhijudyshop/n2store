@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a713327` — feat(web2/reconcile): Phase 1 MVP — Đối soát đóng gói PBH (scan + pack + ship + deliver)
-**Last updated**: 2026-05-19 15:15:10 +07
-**Latest session**: [`RESUME:20260519-151510-a713327`](../20260519-151510-a713327.md)
-**Summary**: feat(web2/reconcile): Phase 1 MVP — Đối soát đóng gói PBH (scan + pack + ship + deliver)
+**Latest commit**: `956084f` — fix(web2/reconcile): mount sidebar via Web2Sidebar.mount + redeploy CF Worker
+**Last updated**: 2026-05-19 15:18:51 +07
+**Latest session**: [`RESUME:20260519-151851-956084f`](../20260519-151851-956084f.md)
+**Summary**: fix(web2/reconcile): mount sidebar via Web2Sidebar.mount + redeploy CF Worker
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -34,4 +31,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-19 15:15
+- [`web2/`](./web2.md) — updated 2026-05-19 15:18
