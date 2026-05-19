@@ -507,6 +507,9 @@ if (web2ProductsRoutes.initializeNotifiers) {
 if (nativeOrdersRoutes.initializeNotifiers) {
     nativeOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
+if (web2GenericRoutes.initializeNotifiers) {
+    web2GenericRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
 
 // Initialize SSE notifiers in order-notes routes
 if (orderNotesRoutes.initializeNotifiers) {

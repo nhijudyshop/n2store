@@ -642,10 +642,43 @@
                 closeModal();
         });
 
+        // ---- SSE: realtime refresh khi entity mutate ở máy/tab khác ----
+        // Topic convention: 'web2:<entity-slug>'. Server (web2-generic.js)
+        // notify sau mỗi create/update/delete/bulk. Đã debounce 600ms để
+        // gom mutation burst. Xem docs/web2/SSE-REALTIME.md.
+        let _sseReloadTimer = null;
+        let _sseUnsubscribe = null;
+        if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
+            _sseUnsubscribe = global.Web2SSE.subscribe(`web2:${config.slug}`, (msg) => {
+                if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+                _sseReloadTimer = setTimeout(() => {
+                    _sseReloadTimer = null;
+                    console.log(
+                        `[page-builder:${config.slug}] SSE event:`,
+                        msg.data?.action,
+                        msg.data?.code || ''
+                    );
+                    load();
+                }, 600);
+            });
+        }
+
         // First load
         load();
 
-        return { reload: load, openCreate, STATE };
+        return {
+            reload: load,
+            openCreate,
+            STATE,
+            // Allow caller to tear down SSE (vd khi page navigate đi).
+            destroy: () => {
+                if (_sseUnsubscribe) {
+                    _sseUnsubscribe();
+                    _sseUnsubscribe = null;
+                }
+                if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            },
+        };
     }
 
     global.Web2Page = { mount };

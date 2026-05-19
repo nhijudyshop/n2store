@@ -25,6 +25,30 @@
 
 ## 2026-05-19
 
+### [web2-generic + page-builder + page-shell] SSE realtime cho ALL generic CRUD pages (78 pages auto-enabled)
+
+**User yêu cầu**: 15 pages Web 2.0 (mostly generic CRUD qua page-builder framework) "liên kết với nhau theo listen update log" — pattern user mô tả từ trước.
+
+**Phạm vi**: framework-level SSE — KHÔNG phải sửa từng page. Khi server-side `web2-generic.js` broadcast topic `web2:<entity-slug>`, MỌI page mount qua `Web2Shell.bootstrap({ slug, ... })` tự subscribe topic đó.
+
+**Thay đổi server-side** (`render.com/`):
+
+- `routes/web2-generic.js`: thêm `initializeNotifiers + _notify(entity, action, code)` ở top. Gọi `_notify(req.params.entity, 'create'|'update'|'delete'|'delete-all'|'bulk-create', code)` sau 5 endpoints: POST `/:entity/create`, PATCH `/:entity/update/:code`, POST `/:entity/delete-all`, DELETE `/:entity/delete/:code`, POST `/:entity/bulk-create`. Topic format: `web2:<entity>` (vd `web2:partner-customer`).
+- `server.js`: wire `web2GenericRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients)` sau khi mount.
+
+**Thay đổi client-side**:
+
+- `web2/shared/page-shell.js` `SCRIPTS_MOUNT`: thêm `web2-sse-bridge.js` (load TRƯỚC page-builder.js để bridge sẵn sàng).
+- `web2/shared/page-builder.js` `mount()`: thêm SSE subscription tự động — `Web2SSE.subscribe('web2:' + config.slug, ...)` → debounced 600ms `load()`. Trả `destroy()` để caller teardown khi navigate đi.
+
+**Tự enable cho 78 pages**: tất cả pages dùng `Web2Shell.bootstrap` (partner-customer, partner-supplier, delivery-carrier, product-category, live-campaign, các config-_, account-_, report-\*, …) tự động có realtime sync giữa các tab/máy mà không cần edit file nào.
+
+**Verify**: mở 2 tab cùng entity, edit ở A → B tự refresh trong <1s.
+
+**Status**: ✅ Done
+
+---
+
 ### [web2 × 15 pages] Đồng nhất title `<base> - WEB 2.0` cho các trang Web 2.0 chính
 
 **User yêu cầu**: thêm " - WEB 2.0" vào sau title của 15 pages chính (real impl) để dễ phân biệt khi mở nhiều tab.

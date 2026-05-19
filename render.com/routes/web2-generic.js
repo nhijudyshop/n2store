@@ -8,6 +8,25 @@
 const express = require('express');
 const router = express.Router();
 
+// -----------------------------------------------------
+// SSE notifier — injected từ server.js. Sau mỗi DB mutation, broadcast
+// topic `web2:<entity-slug>` (vd 'web2:partner-customer') để các page
+// generic CRUD đang subscribe (qua page-builder + Web2SSE) tự refresh.
+// Xem docs/web2/SSE-REALTIME.md.
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(entity, action, code) {
+    if (!_notifyClients || !entity) return;
+    try {
+        _notifyClients(`web2:${entity}`, { action, code: code || null, ts: Date.now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-GENERIC] _notify failed:', e.message);
+    }
+}
+
 let _tablesCreated = false;
 async function ensureTables(pool) {
     if (_tablesCreated) return;
@@ -244,6 +263,7 @@ router.post('/:entity/create', async (req, res) => {
                     now,
                 ]
             );
+            _notify(req.params.entity, 'create', r.rows[0].code);
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -290,6 +310,7 @@ router.patch('/:entity/update/:code', async (req, res) => {
             params
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        _notify(req.params.entity, 'update', r.rows[0].code);
         res.json({ success: true, record: mapRow(r.rows[0]) });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -316,6 +337,7 @@ router.post('/:entity/delete-all', async (req, res) => {
         const r = await pool.query(`DELETE FROM web2_records WHERE entity_slug = $1 RETURNING id`, [
             req.params.entity,
         ]);
+        if (r.rowCount) _notify(req.params.entity, 'delete-all', null);
         res.json({ success: true, entity: req.params.entity, deleted: r.rowCount });
     } catch (e) {
         console.error('[WEB2-GENERIC] delete-all error:', e);
@@ -376,6 +398,7 @@ router.delete('/:entity/delete/:code', async (req, res) => {
             [req.params.entity, req.params.code]
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        _notify(req.params.entity, 'delete', req.params.code);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -439,6 +462,7 @@ router.post('/:entity/bulk-create', async (req, res) => {
             RETURNING id
         `;
         const r = await pool.query(sql, params);
+        if (r.rows.length) _notify(req.params.entity, 'bulk-create', null);
         res.json({
             success: true,
             total: records.length,
@@ -451,4 +475,5 @@ router.post('/:entity/bulk-create', async (req, res) => {
     }
 });
 
+router.initializeNotifiers = initializeNotifiers;
 module.exports = router;
