@@ -445,10 +445,17 @@
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
-                            <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
+                            ${
+                                o.status === 'confirmed'
+                                    ? `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
+                                onclick="event.stopPropagation();NativeOrdersApp.cancelPbh('${escapeHtml(o.code)}')">
+                                <i data-lucide="receipt-text" style="width:12px;height:12px;"></i>
+                            </button>`
+                                    : `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
-                            </button>
+                            </button>`
+                            }
                             ${
                                 o.customerId
                                     ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
@@ -1868,6 +1875,32 @@
         );
         unselectAllOrders();
         await load();
+    }
+
+    async function cancelPbh(code) {
+        const ok = await w2pConfirm(
+            `Huỷ PBH đã tạo từ đơn ${code}? Trạng thái đơn web sẽ về Nháp, hành động không phục hồi tự động.`,
+            {
+                title: `Huỷ PBH ${code}?`,
+                okText: 'Huỷ PBH',
+                cancelText: 'Đóng',
+                type: 'error',
+            }
+        );
+        if (!ok) return;
+        try {
+            const resp = await fetch(
+                `${WORKER_URL}/api/fast-sale-orders/by-source/${encodeURIComponent(code)}/cancel`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+            );
+            const data = await resp.json();
+            if (!resp.ok || !data.success) throw new Error(data.error || `HTTP ${resp.status}`);
+            notify(`Đã huỷ PBH ${data.order?.number || ''}`, 'success');
+            await load();
+        } catch (e) {
+            notify('Lỗi huỷ PBH: ' + e.message, 'error');
+            console.error('[cancelPbh]', e);
+        }
     }
 
     async function _doCreatePbh(code, extras) {
@@ -5925,6 +5958,7 @@
         openEdit,
         quickStatus,
         createPbh,
+        cancelPbh,
         bulkCreatePbh,
         unselectAllOrders,
         copyCode,

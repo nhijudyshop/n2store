@@ -1201,6 +1201,66 @@ router.post('/:number/cancel', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
+// POST /by-source/:nativeOrderCode/cancel
+// Tìm PBH có source_code = :nativeOrderCode (state != 'cancel') → cancel.
+// Đồng thời revert native_orders.status từ 'confirmed' về 'draft' để
+// row bên native-orders quay lại trạng thái "có thể tạo PBH lại".
+// Dùng bởi nút "Huỷ PBH" trong native-orders.
+router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    const code = req.params.nativeOrderCode;
+    if (!code) return res.status(400).json({ error: 'nativeOrderCode required' });
+    try {
+        await ensureTables(pool);
+        const found = await pool.query(
+            `SELECT number FROM fast_sale_orders
+             WHERE source_code = $1 AND state <> 'cancel'
+             ORDER BY date_created DESC LIMIT 1`,
+            [code]
+        );
+        if (found.rows.length === 0) {
+            return res.status(404).json({ error: 'PBH chưa tồn tại cho đơn web này' });
+        }
+        const number = found.rows[0].number;
+        const r = await _stateChange(pool, number, 'cancel');
+        if (r.rows.length === 0) return res.status(404).json({ error: 'PBH biến mất khi cancel' });
+        const o = mapRow(r.rows[0]);
+
+        // Revert native_orders.status — chỉ revert nếu đang là 'confirmed'.
+        await pool.query(
+            `UPDATE native_orders SET status = 'draft', updated_at = $1
+             WHERE code = $2 AND status = 'confirmed'`,
+            [Date.now(), code]
+        );
+
+        _wsEmit(req, 'pbh:cancelled', o);
+        _notify('cancel', o.number);
+
+        // Cũng emit cho native-orders để row update ngay (status badge đổi)
+        if (req.app.locals.realtimeSseNotify) {
+            try {
+                req.app.locals.realtimeSseNotify(
+                    'web2:native-orders',
+                    {
+                        action: 'pbh-cancelled',
+                        code,
+                        pbhNumber: number,
+                        ts: Date.now(),
+                    },
+                    'update'
+                );
+            } catch {
+                /* ignore */
+            }
+        }
+
+        res.json({ success: true, order: o, nativeOrderCode: code });
+    } catch (e) {
+        console.error('[FAST-SALE-ORDERS] cancel-by-source error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
 router.post('/:number/confirm', async (req, res) => {
     const pool = req.app.locals.chatDb;
     try {

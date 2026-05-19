@@ -187,7 +187,7 @@ router.get('/health', async (req, res) => {
         const r = await pool.query(
             `SELECT fulfillment_state, COUNT(*)::int AS n
              FROM fast_sale_orders
-             WHERE state IN ('confirmed','done')
+             WHERE state IN ('draft','confirmed','done')
              GROUP BY fulfillment_state`
         );
         const counts = {};
@@ -213,7 +213,7 @@ router.get('/list', async (req, res) => {
         const search = req.query.search ? String(req.query.search).trim() : '';
         const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
 
-        const conds = [`state IN ('confirmed','done')`];
+        const conds = [`state IN ('draft','confirmed','done')`];
         const params = [];
 
         if (stateFilter === 'active') {
@@ -277,8 +277,8 @@ async function applyPick(pool, number, mutator) {
     ]);
     const row = r.rows[0];
     if (!row) throw new Error('PBH not found');
-    if (!['confirmed', 'done'].includes(row.state)) {
-        throw new Error(`PBH state=${row.state} không thể pick (cần confirmed/done)`);
+    if (!['draft', 'confirmed', 'done'].includes(row.state)) {
+        throw new Error(`PBH state=${row.state} không thể pick (cần draft/confirmed/done)`);
     }
     const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
     const picked = Array.isArray(row.fulfillment_picked_lines) ? row.fulfillment_picked_lines : [];
@@ -466,7 +466,7 @@ router.post('/:number/pack', async (req, res) => {
         await ensureTables(pool);
         const before = await getPbh(pool, number);
         if (!before) return res.status(404).json({ error: 'PBH not found' });
-        if (!['confirmed', 'done'].includes(before.state)) {
+        if (!['draft', 'confirmed', 'done'].includes(before.state)) {
             return res.status(400).json({ error: `PBH state=${before.state} không thể đóng gói` });
         }
         const stateBefore = before.fulfillment_state || 'pending';
