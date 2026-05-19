@@ -144,6 +144,14 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_native_orders_partner_id ON native_orders(partner_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_company_id ON native_orders(company_id);
             CREATE INDEX IF NOT EXISTS idx_native_orders_customer_id ON native_orders(customer_id);
+
+            -- Migration 075: Gộp Đơn Web — lưu array display_stt của các đơn gốc
+            -- đã merge → client hiển thị "STT1 + STT2" trong cột STT.
+            -- Khi merge: tạo native_order mới với merged_display_stt + merged_codes,
+            -- xóa các native_order gốc (atomic transaction).
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS merged_display_stt JSONB,
+                ADD COLUMN IF NOT EXISTS merged_codes JSONB;
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -176,6 +184,8 @@ function mapRowToOrder(row) {
         id: row.id,
         code: row.code,
         displayStt: row.display_stt,
+        mergedDisplayStt: row.merged_display_stt || null,
+        mergedCodes: row.merged_codes || null,
         sessionIndex: row.session_index,
         source: row.source,
         customerName: row.customer_name,
@@ -1075,6 +1085,159 @@ router.delete('/:code', async (req, res) => {
 //   - KHÔNG xóa native-orders gốc — chỉ tạo PBH mới (user có thể delete đơn web sau)
 //   - Notify SSE web2:native-orders + web2:fast-sale-orders + cross-bc web2:customer-wallet
 // -----------------------------------------------------
+
+// -----------------------------------------------------
+// POST /api/native-orders/merge
+// Body: { codes: ['NW-...', 'NW-...'] } (≥2 codes)
+// Gộp 2+ Đơn Web cùng SĐT thành 1 Đơn Web mới (KHÔNG tạo PBH).
+// Logic:
+//   - Validate: ≥2 codes, tất cả tồn tại, cùng phone
+//   - Combine products (concat), sum total_qty + total_amount
+//   - INSERT native_order mới:
+//       code = "NW-YYYYMMDD-XXXX" (sequence mới)
+//       display_stt = nextval
+//       merged_display_stt = [stt_a, stt_b] (lưu để client hiển thị "1 + 2")
+//       merged_codes = [code_a, code_b]
+//       comment_ids = concat all source comment_ids
+//   - DELETE các native_order gốc (atomic transaction)
+//   - Notify SSE web2:native-orders
+// -----------------------------------------------------
+router.post('/merge', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const codes = Array.isArray(req.body?.codes) ? req.body.codes : null;
+    if (!codes || codes.length < 2) {
+        return res.status(400).json({ error: 'Cần ít nhất 2 đơn để gộp' });
+    }
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+
+        const placeholders = codes.map((_, i) => `$${i + 1}`).join(',');
+        const src = await client.query(
+            `SELECT * FROM native_orders WHERE code IN (${placeholders})`,
+            codes
+        );
+        if (src.rows.length !== codes.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({
+                error: `Tìm thấy ${src.rows.length}/${codes.length} đơn — có đơn không tồn tại`,
+            });
+        }
+        const phones = new Set(src.rows.map((r) => (r.phone || '').trim()));
+        if (phones.size > 1) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Phải cùng SĐT. Đang có ${phones.size} SĐT: ${Array.from(phones).join(', ')}`,
+            });
+        }
+
+        const sorted = src.rows.sort(
+            (a, b) => (Number(a.display_stt) || 0) - (Number(b.display_stt) || 0)
+        );
+        const base = sorted[0];
+        const combinedProducts = [];
+        let totalQty = 0;
+        let totalAmount = 0;
+        const allCommentIds = [];
+        for (const r of sorted) {
+            const products = Array.isArray(r.products) ? r.products : [];
+            for (const p of products) {
+                combinedProducts.push(p);
+                totalQty += Number(p.quantity) || 0;
+                totalAmount += (Number(p.quantity) || 0) * (Number(p.price) || 0);
+            }
+            const cids = Array.isArray(r.comment_ids) ? r.comment_ids : [];
+            allCommentIds.push(...cids);
+        }
+        const mergedStts = sorted.map((r) => Number(r.display_stt) || 0).filter(Boolean);
+        const mergedCodes = sorted.map((r) => r.code);
+        const combinedNote = sorted
+            .map((r) => (r.note ? `[${r.code}] ${r.note}` : null))
+            .filter(Boolean)
+            .join('\n---\n');
+
+        // Generate new NW code
+        const today = new Date();
+        const pad = (n, w = 2) => String(n).padStart(w, '0');
+        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
+        const todayCountQ = await client.query(
+            `SELECT COUNT(*)::int AS n FROM native_orders WHERE code LIKE $1`,
+            [`NW-${ymd}-%`]
+        );
+        const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
+        const newCode = `NW-${ymd}-${nextSeq}`;
+        const now = Date.now();
+
+        const ins = await client.query(
+            `INSERT INTO native_orders (
+                code, display_stt, source,
+                customer_name, phone, address, note,
+                fb_user_id, fb_user_name, fb_page_id, fb_post_id,
+                crm_team_id, products, total_quantity, total_amount,
+                status, live_campaign_id, live_campaign_name,
+                customer_id, comment_ids, comment_count,
+                merged_display_stt, merged_codes,
+                created_by, created_by_name, created_at, updated_at
+            ) VALUES (
+                $1, nextval('native_orders_display_stt_seq'), 'NATIVE_WEB',
+                $2, $3, $4, $5,
+                $6, $7, $8, $9,
+                $10, $11, $12, $13,
+                'draft', $14, $15,
+                $16, $17, $18,
+                $19, $20,
+                $21, $22, $23, $23
+            ) RETURNING *`,
+            [
+                newCode,
+                base.customer_name,
+                base.phone,
+                base.address,
+                combinedNote,
+                base.fb_user_id,
+                base.fb_user_name,
+                base.fb_page_id,
+                base.fb_post_id,
+                base.crm_team_id,
+                JSON.stringify(combinedProducts),
+                totalQty,
+                totalAmount,
+                base.live_campaign_id,
+                base.live_campaign_name,
+                base.customer_id,
+                JSON.stringify(allCommentIds),
+                allCommentIds.length || sorted.length,
+                JSON.stringify(mergedStts),
+                JSON.stringify(mergedCodes),
+                base.created_by,
+                base.created_by_name,
+                now,
+            ]
+        );
+
+        // Delete source native-orders
+        await client.query(`DELETE FROM native_orders WHERE code IN (${placeholders})`, codes);
+
+        await client.query('COMMIT');
+        const newOrder = mapRowToOrder(ins.rows[0]);
+        _notify('merge', newCode);
+        res.json({
+            success: true,
+            mergedFrom: codes,
+            mergedStts,
+            order: newOrder,
+        });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[NATIVE-ORDERS] merge error:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
 router.post('/merge-to-pbh', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });

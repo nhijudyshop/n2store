@@ -161,14 +161,15 @@
                 const note = it.note || it.Note || '';
                 totalQty += qty;
                 return `<tr>
-    <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
-        <label>${_esc(name)}${note ? ` <span style="font-weight:bold">(${_esc(note)})</span>` : ''}</label>
+    <td class="product-name word-break" colspan="3">
+        ${_esc(name)}
+        ${note ? `<div class="product-note">↳ ${_esc(note)}</div>` : ''}
     </td>
 </tr>
 <tr>
-    <td class="text-center numberPadding">${qty} ${_esc(uom)}</td>
-    <td class="text-right numberPadding">${_fmtMoney(price)}</td>
-    <td class="text-right numberPadding">${_fmtMoney(total)}</td>
+    <td class="product-qty"><span style="font-weight:bold;">${qty}</span> ${_esc(uom)}</td>
+    <td class="product-price text-right">${_fmtMoney(price)}</td>
+    <td class="product-total text-right"><strong>${_fmtMoney(total)}</strong></td>
 </tr>`;
             })
             .join('\n');
@@ -177,99 +178,230 @@
 <html><head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Phiếu bán hàng - ${_esc(shop.name)}</title>
+<title>Phiếu bán hàng ${_esc(billNumber)} - ${_esc(shop.name)}</title>
 <style>
 @page { margin: 1mm 0; }
-html, body { width: 80mm; margin: auto; color: #000 !important; font-size: 13px;
-    font-family: Arial, Helvetica, sans-serif; line-height: 1.2; }
+html, body {
+    width: 80mm; margin: auto; color: #000 !important; font-size: 13px;
+    font-family: Arial, Helvetica, sans-serif; line-height: 1.35;
+}
 *, *:before, *:after { box-sizing: border-box; }
-.container { padding: 0 10px; margin: auto; }
+.container { padding: 0 8px; margin: auto; }
 .text-center { text-align: center; }
-.text-right { text-align: right; }
-.text-left { text-align: left; }
-.word-break { word-break: break-word; }
-.font-bold { font-weight: bold; }
-.hidden { display: none !important; }
-label { font-weight: bold; display: inline-block; margin-bottom: 5px; }
-h3 { font-size: 15px !important; font-weight: bold; margin: 0.5em 0; }
+.text-right  { text-align: right; }
+.text-left   { text-align: left; }
+.word-break  { word-break: break-word; }
+.font-bold   { font-weight: bold; }
+.muted       { color: #444; }
 table { width: 100%; max-width: 100%; border-collapse: collapse; }
-.table { width: 100%; margin-bottom: 10px; }
-.table thead > tr > th { padding: 1px; vertical-align: middle; }
-.table tbody > tr > td { padding: 1px; }
-.table tfoot > tr > td { padding: 1px; }
-.table tbody > tr > td.numberPadding { padding-top: 0; padding-bottom: 2px; border-top: none !important; }
-.table tbody > tr > td.PaddingProduct { padding-top: 2px; padding-bottom: 2px; border-bottom: none !important; }
-.table-bordered { border: 1px solid #000; }
-.table-bordered > thead > tr > th { border: 1px solid #000; padding: 2px; }
-.table-cs > thead > tr > th { padding: 2px 4px; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
-.print-header, .print-header td, .print-header th { border: none !important; padding: 0 !important; }
-.size-16 { font-size: 16px; }
-hr.dash-cs { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+
+/* ─── Section separators (dashed) ─────────────────────── */
+.sep-dashed {
+    border: 0; border-top: 1px dashed #000;
+    margin: 6px 0; height: 0;
+}
+.sep-double {
+    border: 0; border-top: 2px solid #000;
+    margin: 6px 0; height: 0;
+}
+.sep-dotted {
+    border: 0; border-top: 1px dotted #555;
+    margin: 4px 0; height: 0;
+}
+
+/* ─── Shop header ────────────────────────────────────── */
+.shop-name {
+    font-size: 18px; font-weight: bold; letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* ─── COD highlight box ──────────────────────────────── */
+.cod-box {
+    border: 2px solid #000; padding: 6px 8px;
+    margin: 6px 0; text-align: center;
+    background: #f0f0f0;
+}
+.cod-box .cod-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+.cod-box .cod-amount { font-size: 20px; font-weight: bold; margin-top: 2px; }
+
+/* ─── Title ──────────────────────────────────────────── */
+.bill-title {
+    font-size: 16px; font-weight: bold; text-transform: uppercase;
+    letter-spacing: 1.5px; text-align: center; margin: 4px 0;
+}
+
+/* ─── Meta info (số phiếu, ngày, KH) ─────────────────── */
+.meta-row { display: flex; justify-content: space-between; padding: 1px 0; }
+.meta-row .meta-label { font-weight: bold; min-width: 70px; }
+.meta-row .meta-value { text-align: right; flex: 1; }
+.customer-block { padding: 2px 0; }
+.customer-block .cb-row { padding: 1px 0; }
+.customer-block .cb-row strong { display: inline-block; min-width: 72px; }
+
+/* ─── Products table ─────────────────────────────────── */
+.products-table thead th {
+    padding: 4px 2px; font-size: 12px; font-weight: bold;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;
+}
+.products-table tbody td.product-name {
+    padding: 4px 2px 1px 2px;
+    border-bottom: none !important;
+    font-weight: bold;
+}
+.products-table tbody td.product-qty,
+.products-table tbody td.product-price,
+.products-table tbody td.product-total {
+    padding: 0 2px 4px 2px;
+    border-top: none !important;
+    border-bottom: 1px dotted #999;
+    font-size: 12.5px;
+}
+.products-table .product-note {
+    font-size: 11.5px; font-style: italic; color: #333;
+    padding-left: 4px;
+}
+
+/* ─── Totals ─────────────────────────────────────────── */
+.totals-table { margin-top: 4px; }
+.totals-table td { padding: 2px 2px; }
+.totals-table .total-label { font-weight: 600; }
+.totals-table .total-value { text-align: right; font-weight: 600; }
+.totals-table .total-final td {
+    border-top: 1.5px solid #000;
+    border-bottom: 1.5px solid #000;
+    padding-top: 4px; padding-bottom: 4px;
+}
+.totals-table .total-final .total-label,
+.totals-table .total-final .total-value {
+    font-weight: bold; font-size: 14px;
+}
+.totals-table .total-cod .total-value {
+    font-weight: bold; font-size: 15px;
+}
+
+/* ─── Notes ──────────────────────────────────────────── */
+.note-block {
+    margin-top: 6px; padding: 4px 6px;
+    border-left: 3px solid #000;
+    background: #f8f8f8;
+}
+.note-block .note-label {
+    font-weight: bold; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.5px; display: block; margin-bottom: 2px;
+}
+.note-block .note-content {
+    white-space: pre-wrap; word-break: break-word;
+    font-size: 12.5px;
+}
+.shop-footer {
+    margin-top: 8px; padding-top: 6px;
+    border-top: 1px dashed #000; text-align: center;
+    font-size: 11px; color: #555;
+}
+.virtual-debt-banner {
+    background: #000; color: #fff; padding: 4px 6px;
+    text-align: center; font-weight: bold;
+    margin: 4px 0; font-size: 12px;
+    letter-spacing: 1px;
+}
 .page-break { display: block; height: 0; page-break-before: always; }
 </style></head>
 <body>
 <div class="container">
-<div class="text-center"><span style="font-size:16px;font-weight:bold">${_esc(shop.name)}</span></div>
-<table class="table print-header">
-<thead>
-<tr><th class="text-center">
-    ${carrierName ? `<span>${_esc(carrierName)}</span><br/>` : ''}
-    ${hasVirtualDebt ? `<span style="font-weight:bold;color:#c00;">** CÓ ĐƠN THU VỀ **</span><br/>` : ''}
-    <p class="size-16 font-bold">Tiền thu hộ: ${_fmtMoney(cod)}</p>
-    <hr class="dash-cs" />
-</th></tr>
-<tr><th class="text-center"><h3 style="text-transform:uppercase">Phiếu bán hàng</h3></th></tr>
-<tr><th><div class="text-center">
-    ${barcodeUrl ? `<div><img src="${barcodeUrl}" style="width:95%" onerror="this.style.display='none'" /></div>` : ''}
-    <strong>Số phiếu</strong>: ${_esc(billNumber)}
-    <div><strong>Ngày</strong>: ${_esc(dateStr)}</div>
-    <hr class="dash-cs" />
-</div></th></tr>
-<tr><th class="text-left">
-    <div><strong>Khách hàng:</strong> ${_esc(recName)}</div>
-    ${recAddr ? `<div><strong>Địa chỉ:</strong> ${_esc(recAddr)}</div>` : ''}
-    <div><strong>Điện thoại:</strong> ${_esc(recPhone)}</div>
-    ${sellerName ? `<div><strong>Người bán:</strong> ${_esc(sellerName)}</div>` : ''}
-    ${sttDisplay ? `<div><strong>STT:</strong> ${_esc(sttDisplay)}</div>` : ''}
-</th></tr>
-</thead></table>
 
-<table class="table table-cs">
-<thead><tr>
-    <th width="80">Sản phẩm</th>
-    <th class="text-right" width="80">Giá</th>
-    <th class="text-right" width="80">Tổng</th>
-</tr></thead>
-<tbody>${productsHTML}</tbody>
-<tfoot class="word-break">
-<tr><td colspan="1"><strong>Tổng:</strong></td>
-    <td><strong>SL: ${totalQty}</strong></td>
-    <td class="text-right"><strong>${_fmtMoney(subtotal)}</strong></td></tr>
-${
-    discount > 0
-        ? `<tr><td colspan="2" class="text-right" style="border-right:none !important"><strong>Giảm giá:</strong></td>
-    <td style="border-left:none !important" class="text-right">${_fmtMoney(discount)}</td></tr>`
-        : ''
-}
-<tr><td colspan="2" class="text-right" style="border-right:none !important"><strong>Tiền ship:</strong></td>
-    <td style="border-left:none !important" class="text-right">${_fmtMoney(shipping)}</td></tr>
-<tr><td colspan="2" class="text-right"><strong>Tổng tiền:</strong></td>
-    <td class="text-right">${_fmtMoney(finalTotal)}</td></tr>
-${
-    prepaid > 0
-        ? `<tr><td colspan="2" class="text-right" style="border-right:none !important"><strong>Trả trước:</strong></td>
-    <td style="border-left:none !important" class="text-right">${_fmtMoney(prepaid)}</td></tr>
-<tr><td colspan="2" class="text-right"><strong>Còn lại:</strong></td>
-    <td class="text-right">${_fmtMoney(cod)}</td></tr>`
-        : ''
-}
-</tfoot></table>
+    <!-- ═══════════ SHOP HEADER ═══════════ -->
+    <div class="text-center shop-name">${_esc(shop.name)}</div>
+    ${carrierName ? `<div class="text-center muted" style="font-size:12px;">📦 ${_esc(carrierName)}</div>` : ''}
+    ${hasVirtualDebt ? `<div class="virtual-debt-banner">⚠ CÓ ĐƠN THU VỀ ⚠</div>` : ''}
 
-${orderComment ? `<div style="word-wrap:break-word"><strong>Ghi chú:</strong> ${_esc(orderComment)}</div>` : ''}
-<div style="word-wrap:break-word"><strong>Ghi chú giao hàng:</strong>
-    <span style="white-space:pre-wrap;word-break:break-word">${_esc(shopDeliveryNote)}</span></div>
-<div style="word-wrap:break-word"><strong>Ghi chú:</strong>
-    <p>${_esc(shopComment).replace(/\n/g, '<br/>')}</p></div>
+    <!-- ═══════════ COD HIGHLIGHT ═══════════ -->
+    <div class="cod-box">
+        <div class="cod-label">Tiền thu hộ (COD)</div>
+        <div class="cod-amount">${_fmtMoney(cod)} đ</div>
+    </div>
+
+    <!-- ═══════════ BILL TITLE + BARCODE ═══════════ -->
+    <hr class="sep-double" />
+    <div class="bill-title">Phiếu bán hàng</div>
+    ${barcodeUrl ? `<div class="text-center"><img src="${barcodeUrl}" style="width:95%;max-height:50px;" onerror="this.style.display='none'" /></div>` : ''}
+    <div class="meta-row"><span class="meta-label">Số phiếu:</span><span class="meta-value font-bold">${_esc(billNumber)}</span></div>
+    <div class="meta-row"><span class="meta-label">Ngày:</span><span class="meta-value">${_esc(dateStr)}</span></div>
+
+    <!-- ═══════════ CUSTOMER ═══════════ -->
+    <hr class="sep-dashed" />
+    <div class="customer-block">
+        <div class="cb-row"><strong>Khách:</strong> ${_esc(recName)}</div>
+        ${recAddr ? `<div class="cb-row"><strong>Địa chỉ:</strong> ${_esc(recAddr)}</div>` : ''}
+        <div class="cb-row"><strong>SĐT:</strong> ${_esc(recPhone)}</div>
+        ${sellerName ? `<div class="cb-row"><strong>Người bán:</strong> ${_esc(sellerName)}</div>` : ''}
+        ${sttDisplay ? `<div class="cb-row"><strong>STT:</strong> <span style="font-weight:bold;font-size:14px;">${_esc(sttDisplay)}</span></div>` : ''}
+    </div>
+
+    <!-- ═══════════ PRODUCTS ═══════════ -->
+    <hr class="sep-dashed" />
+    <table class="products-table">
+        <thead><tr>
+            <th style="text-align:left;">Sản phẩm</th>
+            <th class="text-right" style="width:60px;">Giá</th>
+            <th class="text-right" style="width:70px;">Tổng</th>
+        </tr></thead>
+        <tbody>${productsHTML}</tbody>
+    </table>
+
+    <!-- ═══════════ TOTALS ═══════════ -->
+    <table class="totals-table">
+        <tr>
+            <td class="total-label">Tổng SL:</td>
+            <td class="total-value">${totalQty}</td>
+        </tr>
+        <tr>
+            <td class="total-label">Tạm tính:</td>
+            <td class="total-value">${_fmtMoney(subtotal)}</td>
+        </tr>
+        ${discount > 0 ? `<tr><td class="total-label">Giảm giá:</td><td class="total-value">- ${_fmtMoney(discount)}</td></tr>` : ''}
+        <tr>
+            <td class="total-label">Phí ship:</td>
+            <td class="total-value">${_fmtMoney(shipping)}</td>
+        </tr>
+        <tr class="total-final">
+            <td class="total-label">TỔNG TIỀN:</td>
+            <td class="total-value">${_fmtMoney(finalTotal)} đ</td>
+        </tr>
+        ${
+            prepaid > 0
+                ? `
+        <tr><td class="total-label">Đã trả trước:</td><td class="total-value">- ${_fmtMoney(prepaid)}</td></tr>
+        <tr class="total-cod"><td class="total-label">Còn lại (COD):</td><td class="total-value">${_fmtMoney(cod)} đ</td></tr>
+        `
+                : ''
+        }
+    </table>
+
+    <!-- ═══════════ NOTES ═══════════ -->
+    ${
+        orderComment
+            ? `<div class="note-block">
+        <span class="note-label">📝 Ghi chú đơn</span>
+        <div class="note-content">${_esc(orderComment)}</div>
+    </div>`
+            : ''
+    }
+
+    <div class="note-block">
+        <span class="note-label">🚚 Ghi chú giao hàng</span>
+        <div class="note-content">${_esc(shopDeliveryNote)}</div>
+    </div>
+
+    <div class="note-block">
+        <span class="note-label">🏦 Thông tin chuyển khoản</span>
+        <div class="note-content">${_esc(shopComment)}</div>
+    </div>
+
+    <div class="shop-footer">
+        ━━━ Cảm ơn quý khách! ━━━<br/>
+        ${_esc(shop.name)}
+    </div>
 </div>
 </body></html>`;
     }

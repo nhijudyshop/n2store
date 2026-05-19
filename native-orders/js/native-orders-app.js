@@ -419,7 +419,15 @@
                     mergeTotalQty && qty
                         ? `<div style="font-size:11px;color:#6b7280;font-weight:500;">SL: ${qty}</div>`
                         : '';
-                const sttValue = o.displayStt ?? o.sessionIndex ?? '';
+                // Hiển thị STT merged "1 + 2" nếu là đơn gộp, không thì single STT
+                const sttValue =
+                    Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1
+                        ? o.mergedDisplayStt
+                              .map((n) => parseInt(n, 10))
+                              .filter(Number.isFinite)
+                              .sort((a, b) => a - b)
+                              .join(' + ')
+                        : (o.displayStt ?? o.sessionIndex ?? '');
                 const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
                     data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
@@ -1496,8 +1504,10 @@
         updateBulkBar();
     }
 
-    // Gộp 2+ Đơn Web cùng SĐT → 1 PBH duy nhất (STT hiển thị "1 + 2")
-    async function bulkMergeAndCreatePbh() {
+    // Gộp 2+ Đơn Web cùng SĐT → 1 Đơn Web mới (STT "1 + 2"). KHÔNG tạo PBH.
+    // Đơn gốc bị xóa, đơn mới hiện trong list như Đơn Web bình thường — user
+    // có thể click "Tạo PBH" sau hoặc dùng bulk Tạo PBH hàng loạt.
+    async function bulkMergeOrders() {
         const codes = getSelectedCodes();
         if (codes.length < 2) {
             notify('Cần chọn ít nhất 2 đơn để gộp', 'warning');
@@ -1508,7 +1518,7 @@
             notify('Không tìm thấy đơn trong state', 'error');
             return;
         }
-        // Preflight: cùng SĐT
+        // Preflight: cùng SĐT (KHÔNG cần validate đủ address/products vì chỉ gộp)
         const phones = new Set(orders.map((o) => (o.phone || '').trim()));
         if (phones.size > 1) {
             notify(
@@ -1517,16 +1527,7 @@
             );
             return;
         }
-        // Preflight: validate (đủ phone + address + có sản phẩm)
-        const invalid = orders.filter((o) => !validateOrderForPbh(o).ok);
-        if (invalid.length) {
-            notify(
-                `Đơn thiếu thông tin: ${invalid.map((o) => o.code).join(', ')}. Bổ sung phone/address/sản phẩm trước.`,
-                'error'
-            );
-            return;
-        }
-        const phone = Array.from(phones)[0] || '';
+        const phone = Array.from(phones)[0] || '(chưa có SĐT)';
         const customerName = orders[0].customerName || '';
         const stts = orders
             .map((o) => Number(o.displayStt) || 0)
@@ -1548,17 +1549,17 @@
 
         const proceed = window.Popup
             ? await window.Popup.confirm(
-                  `Gộp ${orders.length} đơn của KH ${customerName} (${phone}) thành 1 PBH?\n\n` +
+                  `Gộp ${orders.length} Đơn Web của KH ${customerName} (${phone}) thành 1 đơn?\n\n` +
                       `STT mới hiển thị: "${stts.join(' + ')}"\n` +
-                      `Tổng SL: ${totalQty}, Tổng tiền: ${Number(totalAmt).toLocaleString('vi-VN')}đ\n\n` +
-                      `Các đơn gốc (${codes.join(', ')}) vẫn giữ — chỉ tạo 1 PBH gộp.`,
-                  { title: 'Gộp + Tạo PBH', okText: 'Gộp', type: 'question' }
+                      `Tổng SL: ${totalQty} sản phẩm — ${Number(totalAmt).toLocaleString('vi-VN')}đ\n\n` +
+                      `⚠️ Các đơn gốc (${codes.join(', ')}) sẽ BỊ XÓA và thay bằng 1 Đơn Web mới (chưa tạo PBH).`,
+                  { title: 'Gộp Đơn Web', okText: 'Gộp đơn', type: 'warning' }
               )
-            : confirm(`Gộp ${orders.length} đơn thành 1 PBH?`);
+            : confirm(`Gộp ${orders.length} đơn thành 1?`);
         if (!proceed) return;
 
         try {
-            const r = await fetch(`${WORKER_URL}/api/native-orders/merge-to-pbh`, {
+            const r = await fetch(`${WORKER_URL}/api/native-orders/merge`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ codes }),
@@ -1566,7 +1567,7 @@
             const data = await r.json();
             if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
             notify(
-                `✅ Đã gộp ${orders.length} đơn → PBH ${data.order.number} (STT ${data.mergedStts.join(' + ')})`,
+                `✅ Đã gộp ${orders.length} đơn → ${data.order.code} (STT ${data.mergedStts.join(' + ')})`,
                 'success'
             );
             unselectAllOrders();
@@ -2142,7 +2143,7 @@
             if (e.target?.classList?.contains('row-check')) updateBulkBar();
         });
         $('#ordersBulkPbh')?.addEventListener('click', bulkCreatePbh);
-        $('#ordersBulkMerge')?.addEventListener('click', bulkMergeAndCreatePbh);
+        $('#ordersBulkMerge')?.addEventListener('click', bulkMergeOrders);
         $('#ordersBulkPrintBill')?.addEventListener('click', bulkPrintBills);
         $('#ordersBulkUnselect')?.addEventListener('click', unselectAllOrders);
 
