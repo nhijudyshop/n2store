@@ -243,6 +243,10 @@
                     tpos: '#/app/accountpayment/chilist',
                     our: '../web2/account-payment-chi/index.html',
                 },
+                {
+                    label: 'Lịch sử biến động số dư (SePay)',
+                    our: '../web2/balance-history/index.html',
+                },
             ],
         },
         {

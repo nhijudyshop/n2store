@@ -25,6 +25,33 @@
 
 ## 2026-05-19
 
+### [web2/balance-history] Clone toàn bộ chức năng balance-history sang Web 2.0 + integrate sidebar + SSE
+
+**User yêu cầu**: tạo trang Web 2.0 với tất cả chức năng giống `/balance-history/` legacy — chi tiết, đầy đủ.
+
+**Approach**: clone toàn bộ folder (`balance-history/` → `web2/balance-history/`) — 23K dòng code 13 JS + 5 CSS, KHÔNG re-implement. Chỉ update entry point HTML để integrate Web 2.0 shell.
+
+**Thay đổi**:
+
+1. `cp -r balance-history/ web2/balance-history/` — giữ nguyên: css/, js/, docs/, DATABASE_STRUCTURE.md.
+2. `sed` replace 15 occurrences `../shared/` → `../../shared/` trong `index.html` (depth tăng 1 level).
+3. `web2/balance-history/js/balance-verification.js` line 1363: `../customer-hub/` → `../../customer-hub/`.
+4. `index.html` edit:
+    - Title: `Lịch sử biến động số dư - SePay` → `... - SePay - WEB 2.0`. Comment `WEB2.0 module` ở #Note.
+    - `<head>`: thêm `<link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260518e">`.
+    - `<body>`: + `class="tpos-theme"`. Wrap content trong `<div class="web2-shell"><aside id="web2Aside">…<main>existing main-content</main></div>`.
+    - `<main>` thêm `style="overflow:auto;height:100vh"` để content scroll trong shell.
+    - Cuối body: load `tpos-sidebar.js` + `web2-sse-bridge.js`. Mount `Web2Sidebar.mount('#web2Aside')`. Wire SSE subscribe `wallet:all` (debounce 1000ms) → call `loadData()` + `LiveModeModule.refresh()` nếu có.
+5. `web2/shared/tpos-sidebar.js` mục Tài chính: thêm entry `Lịch sử biến động số dư (SePay)` → `../web2/balance-history/index.html`.
+
+**4 tabs giữ nguyên** (Live Mode kanban realtime SSE, Lịch sử biến động số dư table với QR + filters + verification chips, Thống Kê Chuyển Khoản, Kế Toán dashboard).
+
+**Verify**: page render đúng với 2173 transactions, badges hoạt động (99+ unchecked, Realtime status xanh, view tabs, verification filters), Live Mode kanban "NHẬP TAY" + "TỰ ĐỘNG GÁN" cards hiển thị.
+
+**Status**: ✅ Done
+
+---
+
 ### [docs + memory] Cập nhật SSE-REALTIME.md section 9 + WEB2-INDEX + memory với 7 topics đã wire xong
 
 **Mục đích**: codify trạng thái cuối ngày 2026-05-19. Toàn bộ 7 topics + 78 generic pages đã wire SSE realtime. Đảm bảo future sessions đọc được pattern + danh sách live topics.
