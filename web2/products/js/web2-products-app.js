@@ -193,12 +193,82 @@
         load();
     }
 
+    // ---------- Supplier suggestion ----------
+    function collectExistingSuppliers() {
+        const set = new Set();
+        for (const p of STATE.products) {
+            const s = (p.supplier || '').trim();
+            if (s) set.add(s);
+            // Cũng parse note nếu chứa tên NCC (dạng "HÀ NỘI", "HƯƠNG CHÂU")
+            const note = (p.note || '').trim();
+            if (
+                note &&
+                note.length < 30 &&
+                /^[A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ\s]+$/i.test(
+                    note
+                )
+            ) {
+                set.add(note);
+            }
+        }
+        return Array.from(set).sort();
+    }
+
+    function populateSupplierDatalist() {
+        const list = $('#pmSupplierList');
+        if (!list) return;
+        const suppliers = collectExistingSuppliers();
+        list.innerHTML = suppliers
+            .map((s) => `<option value="${escapeHtml(s)}"></option>`)
+            .join('');
+    }
+
+    function suggestProductCode() {
+        if (!window.Web2ProductCode) {
+            notify('Module gợi ý mã chưa load', 'error');
+            return;
+        }
+        const supplierName = ($('#pmSupplier')?.value || '').trim();
+        const productName = ($('#pmName')?.value || '').trim();
+        if (!supplierName || !productName) {
+            notify('Cần điền NCC + Tên sản phẩm để gợi ý mã', 'warning');
+            return;
+        }
+        const suppliers = collectExistingSuppliers();
+        const prefixMap = window.Web2ProductCode.buildPrefixMap(
+            suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
+        );
+        const existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
+        const result = window.Web2ProductCode.suggest({
+            supplierName,
+            productName,
+            existingCodes,
+            supplierPrefixMap: prefixMap,
+        });
+        $('#pmCode').value = result.code;
+        const hint = $('#pmCodeHint');
+        if (hint) {
+            const parts = result.parts;
+            const detail = [
+                `prefix=${parts.prefix}`,
+                parts.type ? `loại=${parts.type}${parts.counter}` : null,
+                parts.colorShort ? `màu=${parts.colorShort}` : null,
+                parts.sizeShort ? `size=${parts.sizeShort}` : null,
+            ]
+                .filter(Boolean)
+                .join(' · ');
+            hint.textContent = `✨ ${detail}  (${result.code.length} ký tự)`;
+        }
+    }
+
     // ---------- Modal ----------
     function openCreate() {
         STATE.editingCode = null;
         $('#productModalTitle').innerHTML = `<i data-lucide="plus"></i><span>Thêm sản phẩm</span>`;
         $('#pmCode').value = '';
         $('#pmCode').disabled = false;
+        if ($('#pmSupplier')) $('#pmSupplier').value = '';
+        if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = '';
         $('#pmVariant').value = '';
         $('#pmPriceBuy').value = 0;
@@ -208,9 +278,10 @@
         $('#pmNote').value = '';
         $('#pmIsActive').value = 'true';
         updateImagePreview('');
+        populateSupplierDatalist();
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
-        setTimeout(() => $('#pmCode').focus(), 50);
+        setTimeout(() => $('#pmSupplier')?.focus(), 50);
     }
     function openEdit(code) {
         const p = STATE.products.find((x) => x.code === code);
@@ -220,6 +291,8 @@
             `<i data-lucide="pencil"></i><span>Sửa sản phẩm ${escapeHtml(code)}</span>`;
         $('#pmCode').value = p.code;
         $('#pmCode').disabled = true;
+        if ($('#pmSupplier')) $('#pmSupplier').value = p.supplier || '';
+        if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = p.name || '';
         $('#pmVariant').value = p.variant || '';
         $('#pmPriceBuy').value = p.originalPrice || 0;
@@ -229,6 +302,7 @@
         $('#pmNote').value = p.note || '';
         $('#pmIsActive').value = p.isActive ? 'true' : 'false';
         updateImagePreview(p.imageUrl || '');
+        populateSupplierDatalist();
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
     }
@@ -250,9 +324,11 @@
 
     async function saveModal() {
         const user = window.AuthManager?.getCurrentUser?.() || {};
+        const supplierInput = ($('#pmSupplier')?.value || '').trim();
         const fields = {
             code: $('#pmCode').value.trim(),
             name: $('#pmName').value.trim(),
+            supplier: supplierInput || null,
             variant: $('#pmVariant').value.trim() || null,
             price: Number($('#pmPriceSell').value) || 0,
             originalPrice: Number($('#pmPriceBuy').value) || 0,
@@ -278,6 +354,7 @@
             if (STATE.editingCode) {
                 const resp = await window.Web2ProductsApi.update(STATE.editingCode, {
                     name: fields.name,
+                    supplier: fields.supplier,
                     variant: fields.variant,
                     price: fields.price,
                     originalPrice: fields.originalPrice,
@@ -511,6 +588,17 @@
         $('#btnCloseProductModal')?.addEventListener('click', closeModal);
         $('#btnCancelProduct')?.addEventListener('click', closeModal);
         $('#btnSaveProduct')?.addEventListener('click', saveModal);
+        $('#pmSuggestCode')?.addEventListener('click', suggestProductCode);
+        // Auto-suggest khi nhập xong cả NCC + Tên SP (nếu Mã SP vẫn trống)
+        const autoSuggest = () => {
+            if (STATE.editingCode) return; // chỉ auto khi tạo mới
+            if (($('#pmCode')?.value || '').trim()) return; // đừng đè nếu user đã gõ mã
+            const sup = ($('#pmSupplier')?.value || '').trim();
+            const name = ($('#pmName')?.value || '').trim();
+            if (sup && name) suggestProductCode();
+        };
+        $('#pmSupplier')?.addEventListener('change', autoSuggest);
+        $('#pmName')?.addEventListener('blur', autoSuggest);
         // Intentionally NOT closing on overlay click — protect in-progress data.
         // Only X button / Hủy button / ESC close the modal.
         document.addEventListener('keydown', (e) => {

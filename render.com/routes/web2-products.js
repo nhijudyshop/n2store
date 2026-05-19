@@ -265,11 +265,11 @@ router.post('/', async (req, res) => {
             const r = await pool.query(
                 `INSERT INTO web2_products
                  (code, name, price, image_url, stock, note, tags, is_active,
-                  original_price, barcode, category, variant,
+                  original_price, barcode, category, variant, supplier,
                   created_by, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, true,
-                         $8, $9, $10, $11,
-                         $12, $13, $13)
+                         $8, $9, $10, $11, $12,
+                         $13, $14, $14)
                  RETURNING *`,
                 [
                     b.code.trim(),
@@ -283,6 +283,7 @@ router.post('/', async (req, res) => {
                     b.barcode ? b.barcode.trim() : null,
                     b.category ? b.category.trim() : null,
                     b.variant ? String(b.variant).trim() : null,
+                    b.supplier ? String(b.supplier).trim() : null,
                     b.createdBy || null,
                     now,
                 ]
@@ -323,6 +324,7 @@ router.patch('/:code', async (req, res) => {
             category: 'category',
             // Migration 068
             variant: 'variant',
+            supplier: 'supplier',
         };
         const sets = [];
         const params = [];

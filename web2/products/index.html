@@ -155,12 +155,61 @@
                 </div>
                 <div class="modal-body">
                     <div class="field-row">
-                        <label>Mã SP *</label>
-                        <input id="pmCode" placeholder="VD: SP-001" autocomplete="off" />
+                        <label
+                            >NCC
+                            <span style="font-weight: 400; color: #64748b; font-size: 11px"
+                                >(gợi ý mã tự động)</span
+                            ></label
+                        >
+                        <input
+                            id="pmSupplier"
+                            list="pmSupplierList"
+                            placeholder="VD: HÀ NỘI, HƯƠNG CHÂU…"
+                            autocomplete="off"
+                        />
+                        <datalist id="pmSupplierList"></datalist>
                     </div>
                     <div class="field-row">
                         <label>Tên sản phẩm *</label>
-                        <input id="pmName" placeholder="Tên hiển thị" autocomplete="off" />
+                        <input id="pmName" placeholder="VD: ÁO ĐỎ SIZE 3" autocomplete="off" />
+                    </div>
+                    <div class="field-row">
+                        <label>Mã SP *</label>
+                        <div style="display: flex; gap: 6px; align-items: stretch">
+                            <input
+                                id="pmCode"
+                                placeholder="VD: SP-001"
+                                autocomplete="off"
+                                style="flex: 1"
+                            />
+                            <button
+                                type="button"
+                                id="pmSuggestCode"
+                                class="btn-ghost"
+                                style="
+                                    white-space: nowrap;
+                                    padding: 4px 10px;
+                                    font-size: 12px;
+                                    border: 1px solid #cbd5e1;
+                                    border-radius: 6px;
+                                    background: #f1f5f9;
+                                    cursor: pointer;
+                                "
+                                title="Đề xuất mã từ NCC + Tên SP"
+                            >
+                                <i data-lucide="sparkles" style="width: 14px; height: 14px"></i>
+                                Gợi ý
+                            </button>
+                        </div>
+                        <div
+                            id="pmCodeHint"
+                            style="
+                                font-size: 11px;
+                                color: #64748b;
+                                margin-top: 4px;
+                                min-height: 14px;
+                            "
+                        ></div>
                     </div>
                     <div class="field-row">
                         <label>
@@ -248,11 +297,12 @@
         </div>
 
         <script src="../shared/web2-effects.js?v=20260518a"></script>
+        <script src="../shared/web2-product-code.js?v=20260519a"></script>
         <script src="js/web2-products-api.js?v=20260518b"></script>
         <script src="../variants/js/web2-variants-api.js?v=20260517a"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260519a"></script>
         <script src="../shared/web2-products-cache.js?v=20260519a"></script>
         <script src="../shared/web2-variants-cache.js?v=20260517a"></script>
-        <script src="js/web2-products-app.js?v=20260518c"></script>
+        <script src="js/web2-products-app.js?v=20260519d"></script>
     </body>
 </html>
