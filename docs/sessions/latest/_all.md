@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8ff8533` — fix(web2/sidebar): preload web2-auth.js trong page-shell → footer user/đăng xuất luôn hiện
-**Last updated**: 2026-05-19 18:25:04 +07
-**Latest session**: [`RESUME:20260519-182504-8ff8533`](../20260519-182504-8ff8533.md)
-**Summary**: fix(web2/sidebar): preload web2-auth.js trong page-shell → footer user/đăng xuất luôn hiện
+**Latest commit**: `d9168a2` — auto: session update
+**Last updated**: 2026-05-19 18:38:03 +07
+**Latest session**: [`RESUME:20260519-183803-d9168a2`](../20260519-183803-d9168a2.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
-- [`web2/`](./web2.md) — 77 file(s)
+- [`downloads/`](./downloads.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -20,7 +18,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-19 15:15
 - [`docs/`](./docs.md) — updated 2026-05-19 18:25
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-19 13:27
-- [`downloads/`](./downloads.md) — updated 2026-05-19 14:10
+- [`downloads/`](./downloads.md) — updated 2026-05-19 18:38
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-19 15:07
 - [`native-orders/`](./native-orders.md) — updated 2026-05-19 16:54
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 16:54
