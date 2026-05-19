@@ -17,6 +17,23 @@
 
 const express = require('express');
 const router = express.Router();
+
+// -----------------------------------------------------
+// SSE notifier — broadcast topic 'web2:users' sau mỗi DB mutation
+// (create/update/delete/password change). Xem docs/web2/SSE-REALTIME.md.
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, id) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:users', { action, id: id || null, ts: Date.now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-USERS] _notify failed:', e.message);
+    }
+}
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
@@ -413,6 +430,7 @@ router.post('/', async (req, res) => {
                     now,
                 ]
             );
+            _notify('create', r.rows[0].id);
             res.json({ success: true, user: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -468,6 +486,7 @@ router.patch('/:id(\\d+)', async (req, res) => {
         const sql = `UPDATE web2_users SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`;
         const r = await pool.query(sql, vals);
         if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+        _notify('update', r.rows[0].id);
         res.json({ success: true, user: mapRow(r.rows[0]) });
     } catch (e) {
         console.error('[WEB2-USERS] update error:', e.message);
@@ -513,6 +532,7 @@ router.put('/:id(\\d+)/permissions', async (req, res) => {
             [perms === null ? null : JSON.stringify(perms), Date.now(), id]
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+        _notify('update-permissions', r.rows[0].id);
         res.json({ success: true, user: mapRow(r.rows[0]) });
     } catch (e) {
         console.error('[WEB2-USERS] update permissions error:', e.message);
@@ -536,6 +556,7 @@ router.post('/:id(\\d+)/password', async (req, res) => {
         if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
         // Invalidate all sessions for this user
         await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
+        _notify('change-password', id);
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-USERS] change-password error:', e.message);
@@ -568,6 +589,7 @@ router.delete('/:id(\\d+)', async (req, res) => {
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
         await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
+        _notify('deactivate', id);
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-USERS] delete error:', e.message);
@@ -660,4 +682,5 @@ router.post('/logout', async (req, res) => {
     }
 });
 
+router.initializeNotifiers = initializeNotifiers;
 module.exports = router;

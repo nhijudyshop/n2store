@@ -20,6 +20,28 @@
 
 const express = require('express');
 const router = express.Router();
+
+// -----------------------------------------------------
+// SSE notifier — broadcast topic 'web2:fast-sale-orders' sau mỗi DB mutation.
+// Page web2/fastsaleorder-invoice/ subscribe để tự refresh khi PBH thay đổi.
+// Xem docs/web2/SSE-REALTIME.md.
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, number) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients(
+            'web2:fast-sale-orders',
+            { action, number: number || null, ts: Date.now() },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[FAST-SALE-ORDERS] _notify failed:', e.message);
+    }
+}
 const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
 
 // -----------------------------------------------------
@@ -450,6 +472,7 @@ async function _bulkStateChange(req, res, newState) {
                 numbers: orders.map((o) => o.number),
             });
         }
+        if (orders.length) _notify(newState === 'done' ? 'bulk-confirm' : 'bulk-cancel', null);
         res.json({ success: true, changed: orders.length, requested: numbers.length, orders });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -649,6 +672,7 @@ router.post('/', async (req, res) => {
         const o = mapRow(r.rows[0]);
         if (req.app.locals.broadcastToClients)
             req.app.locals.broadcastToClients({ type: 'pbh:created', order: o, manual: true });
+        _notify('create', o.number);
         res.json({ success: true, order: o });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] create error:', e.message);
@@ -829,6 +853,7 @@ router.post('/from-native-order', async (req, res) => {
                 code: src.code,
             });
         }
+        _notify('from-native-order', o.number);
         res.json({ success: true, order: o });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] from-native-order error:', e.message);
@@ -916,7 +941,9 @@ router.patch('/:number', async (req, res) => {
             params
         );
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        res.json({ success: true, order: mapRow(r.rows[0]) });
+        const o = mapRow(r.rows[0]);
+        _notify('update', o.number);
+        res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -944,6 +971,7 @@ router.post('/:number/cancel', async (req, res) => {
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const o = mapRow(r.rows[0]);
         _wsEmit(req, 'pbh:cancelled', o);
+        _notify('cancel', o.number);
         res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -957,6 +985,7 @@ router.post('/:number/confirm', async (req, res) => {
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const o = mapRow(r.rows[0]);
         _wsEmit(req, 'pbh:confirmed', o);
+        _notify('confirm', o.number);
         res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -973,6 +1002,7 @@ router.post('/:number/print', async (req, res) => {
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const o = mapRow(r.rows[0]);
         _wsEmit(req, 'pbh:printed', o);
+        _notify('print', o.number);
         res.json({ success: true, order: o });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -997,6 +1027,7 @@ router.delete('/:number', async (req, res) => {
                 .status(404)
                 .json({ error: 'Not found or not deletable (state ≠ draft, use force=1)' });
         }
+        _notify('delete', req.params.number);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -1023,6 +1054,7 @@ router.post('/reset-stt', async (req, res) => {
                 END $$;
             `);
             const c = await pool.query('SELECT COUNT(*)::int AS n FROM fast_sale_orders');
+            _notify('reset-stt-renumber', null);
             return res.json({ success: true, mode: 'renumber', renumbered: c.rows[0].n });
         }
         await pool.query('ALTER SEQUENCE fast_sale_orders_display_stt_seq RESTART WITH 1');

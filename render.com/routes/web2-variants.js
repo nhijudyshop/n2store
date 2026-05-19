@@ -17,6 +17,23 @@
 const express = require('express');
 const router = express.Router();
 
+// -----------------------------------------------------
+// SSE notifier — broadcast topic 'web2:variants' sau mỗi DB write.
+// Xem docs/web2/SSE-REALTIME.md.
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, id) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:variants', { action, id: id || null, ts: Date.now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-VARIANTS] _notify failed:', e.message);
+    }
+}
+
 let _tablesCreated = false;
 async function ensureTables(pool) {
     if (_tablesCreated) return;
@@ -155,6 +172,7 @@ router.post('/', async (req, res) => {
                     now,
                 ]
             );
+            _notify('create', r.rows[0].id);
             res.json({ success: true, variant: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -200,6 +218,7 @@ router.patch('/:id', async (req, res) => {
                 params
             );
             if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+            _notify('update', r.rows[0].id);
             res.json({ success: true, variant: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -221,10 +240,12 @@ router.delete('/:id', async (req, res) => {
             req.params.id,
         ]);
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        _notify('delete', req.params.id);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
+router.initializeNotifiers = initializeNotifiers;
 module.exports = router;
