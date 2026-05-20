@@ -473,12 +473,17 @@
                                     : '<span class="tpos-action-placeholder"></span>'
                             }
                             ${
-                                o.status !== 'cancelled'
-                                    ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
+                                o.status === 'draft'
+                                    ? `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xoá đơn (chưa lập PBH — xoá hẳn khỏi DB)"
+                                onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
+                                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                            </button>`
+                                    : o.status === 'confirmed'
+                                      ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
                             </button>`
-                                    : ''
+                                      : ''
                             }
                         </div>
                     </td>
@@ -6122,6 +6127,7 @@
         confirmDraft,
         cancelOrder,
         splitPbh,
+        removeOrder,
         bulkCreatePbh,
         unselectAllOrders,
         copyCode,
