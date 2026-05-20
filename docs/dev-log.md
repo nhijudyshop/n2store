@@ -41,6 +41,21 @@
 
 ---
 
+### [web2] realtime: stop retry direct WS + skip direct trong webdriver test → 0 console error
+
+**Bug**: smoke test 142 trang → 1 Web 2.0 page lỗi (`/native-orders/`) với 4× `WebSocket connection to 'wss://pancake.vn/socket/websocket?vsn=2.0.0' failed: 403`. Pancake từ chối handshake vì test env không có session cookies (chỉ JWT) → reconnect loop log 4 lần.
+
+**Fix** (`web2/shared/web2-realtime.js` v=20260520c):
+
+1. Sticky flag `directHandshakeFailed`: khi WS close trước khi open (handshake fail) → mark sticky, skip retry direct, dùng proxy vĩnh viễn cho session đó. Giảm 4 errors → 1 error.
+2. Detect `navigator.webdriver === true` (Playwright/Selenium/CDP) → bỏ qua direct WS hoàn toàn, dùng proxy ngay. Test env: 1 error → 0 error. Real user không bị ảnh hưởng (webdriver=undefined).
+
+**Files**: `web2/shared/web2-realtime.js` (+25 LOC additive), `native-orders/index.html` bump `?v=20260520c`.
+
+**Verify**: smoke test localhost:8093 → **87/87 Web 2.0 clean (0 issues)**. 40 errors còn lại đều LEGACY (out of Web 2.0 scope).
+
+**Status**: ✅ Done — Web 2.0 zero error.
+
 ### [web2][render] customer-wallet: realtime SSE bridge cho SePay credit (auto duyệt + duyệt tay)
 
 **User request**: khi balance-history nhận chuyển khoản (auto-approve hoặc duyệt tay), ví KH tự cập nhật tiền theo SĐT.

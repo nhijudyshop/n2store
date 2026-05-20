@@ -1,9 +1,9 @@
 # Smoke Test Report — 142 pages
 
-Generated: 2026-05-19T11:49:06.485Z
+Generated: 2026-05-20T04:16:07.742Z
 
-- ✅ Clean: **101**
-- ❌ Issues: **41**
+- ✅ Clean: **102**
+- ❌ Issues: **40**
 
 ## Pages with issues (sorted by severity)
 
@@ -27,7 +27,6 @@ Generated: 2026-05-19T11:49:06.485Z
 | `/invoice-compare/index.html`                 | 200  | So Sánh Đơn Hàng               | 1      | 0         |           | ✓     |       |
 | `/issue-tracking/index.html`                  | 200  | Quản lý Sự vụ & Điều phối sau  | 1      | 0         |           | ✓     |       |
 | `/lichsuchinhsua/index.html`                  | 200  | Lịch Sử Chỉnh Sửa - Nhật Ký Ki | 1      | 0         |           | ✓     |       |
-| `/native-orders/index.html`                   | 200  | Đơn Web - WEB 2.0              | 4      | 0         |           | ✓     |       |
 | `/nhanhang/index.html`                        | 200  | Cân nặng hàng                  | 1      | 0         |           | ✓     |       |
 | `/order-management/hidden-products.html`      | 200  | Danh sách Sản phẩm đã ẩn - N2S | 1      | 0         |           | ✓     |       |
 | `/order-management/index.html`                | 200  | Quản lý Order - N2STORE        | 1      | 0         |           | ✓     |       |
@@ -183,12 +182,6 @@ Generated: 2026-05-19T11:49:06.485Z
   at Object.\_loadFromAPI (http://localhost:8093/shared/js/navigation-modern.js:1625:32)
   at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
   at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
-
-### `/native-orders/index.html`
-
-- err: WebSocket connection to 'wss://pancake.vn/socket/websocket?vsn=2.0.0' failed: Error during WebSocket handshake: Unexpected response code: 403
-- err: WebSocket connection to 'wss://pancake.vn/socket/websocket?vsn=2.0.0' failed: Error during WebSocket handshake: Unexpected response code: 403
-- err: WebSocket connection to 'wss://pancake.vn/socket/websocket?vsn=2.0.0' failed: Error during WebSocket handshake: Unexpected response code: 403
 
 ### `/nhanhang/index.html`
 
@@ -349,8 +342,9 @@ Generated: 2026-05-19T11:49:06.485Z
   at Object.init (http://localhost:8093/shared/js/navigation-modern.js:1452:20)
   at UnifiedNavigationManager.init (http://localhost:8093/shared/js/navigation-modern.js:1999:35)
 
-## Clean pages (101)
+## Clean pages (102)
 
+- `/native-orders/index.html`
 - `/orders-report/migration-kpi-per-user.html`
 - `/orders-report/tab-kpi-commission.html`
 - `/orders-report/tab-live-ledger.html`

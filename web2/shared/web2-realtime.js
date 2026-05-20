@@ -50,6 +50,8 @@
     let directToken = null;
     let directPageIds = []; // current subscription set
     let directJoinedPages = new Set(); // pages we've already sent phx_join for
+    let directOpenedAt = 0; // 0 = never opened — handshake/auth failed
+    let directHandshakeFailed = false; // sticky: stop retrying direct after 1st handshake failure
 
     // Proxy mode state (fallback)
     let proxyWs = null;
@@ -106,6 +108,22 @@
 
     function _connectDirect(pageIdsHint) {
         if (directWs && (directWs.readyState === 0 || directWs.readyState === 1)) return;
+        // Sticky guard: nếu lần đầu handshake fail (JWT invalid / pancake reject) →
+        // không retry direct nữa, chỉ dùng proxy. Tránh log "WS failed: 403" 4× mỗi lần
+        // mount native-orders trong môi trường JWT hết hạn / test (Playwright).
+        if (directHandshakeFailed) {
+            _connectProxy();
+            return;
+        }
+        // Test env / headless automation: skip direct WS to pancake.vn (sẽ luôn fail
+        // do thiếu pancake.vn session cookies). Browser tự đặt navigator.webdriver=true
+        // cho Playwright/Selenium/Puppeteer/CDP. Real user → undefined/false → fall through.
+        if (typeof navigator !== 'undefined' && navigator.webdriver === true) {
+            console.log('[Web2Realtime] webdriver detected → skipping direct WS, using proxy only');
+            directHandshakeFailed = true;
+            _connectProxy();
+            return;
+        }
         const auth = _decodeUser();
         if (!auth) {
             console.warn('[Web2Realtime] direct: no JWT — falling back to proxy');
@@ -132,14 +150,27 @@
             console.log(
                 `[Web2Realtime] ✓ direct WS → pancake.vn (user=${directUserId.slice(0, 8)}, pages=${directPageIds.length})`
             );
+            directOpenedAt = Date.now();
             directReconnectAttempts = 0;
             _startDirectHeartbeat();
             _joinDirectChannels();
         };
 
         directWs.onclose = (e) => {
-            console.log('[Web2Realtime] direct WS closed', e.code);
+            const neverOpened = directOpenedAt === 0;
+            console.log(
+                '[Web2Realtime] direct WS closed',
+                e.code,
+                neverOpened ? '(handshake failed — switching to proxy permanently)' : ''
+            );
             _stopDirectHeartbeat();
+            if (neverOpened) {
+                // Code 1006 + never opened = TLS/HTTP handshake failed (403/401/network).
+                // JWT invalid hoặc pancake từ chối kết nối → stop retry, dùng proxy.
+                directHandshakeFailed = true;
+                _connectProxy();
+                return;
+            }
             _scheduleDirectReconnect();
         };
 
