@@ -23,6 +23,32 @@
 
 ---
 
+## 2026-05-20
+
+### [inventory] fix: sửa Đợt Hàng bị 404 + stuck "Đang lưu..." khi thêm hóa đơn NCC mới
+
+**Bug**: User edit "Đợt Hàng" rồi thêm 1 hóa đơn NCC mới → save bị stuck ở "Đang lưu...", console báo `PUT /api/v2/inventory-tracking/shipments/hd_mpdfvmsk_mvlzct 404 Not found`.
+
+**Root cause**:
+
+- `inventory-tracking/js/modal-shipment.js:729` — khi user thêm row hóa đơn mới trong modal edit, sinh ID client-side `hd_*` (vì không có `existingInvoice`).
+- `inventory-tracking/js/crud-operations.js:115` (cũ) — `updateShipment` vô điều kiện gọi `shipmentsApi.update(invoice.id, ...)` cho TẤT CẢ hoá đơn, kể cả `hd_*` chưa từng có trên server → PUT 404 → throw → loading toast không bị remove (toast remove ở line 802 sau `await`, không trong `finally`).
+
+**Fix**:
+
+1. `inventory-tracking/js/crud-operations.js` — `updateShipment` giờ build set `existingInvoiceIds` từ `existingShipment.hoaDon`. Mỗi invoice trong `data.hoaDon`:
+    - `id ∈ existingInvoiceIds` → `shipmentsApi.update(invoice.id, payload)` (PUT)
+    - ngược lại → `shipmentsApi.create({ ...payload, id: generateId('dot') })` (POST với ID `dot_*` hợp lệ)
+    - Invoices có trong `existingShipment.hoaDon` nhưng KHÔNG có trong `data.hoaDon` → `shipmentsApi.delete()` (xử lý case user xoá row trong modal).
+2. `inventory-tracking/js/modal-shipment.js` — wrap save logic trong inner `try/finally` để `notificationManager.remove(loadingToast)` luôn chạy, tránh stuck toast khi update fail.
+
+**Verify**: probe browser session inject 3 invoice types (2 existing + 1 mới `hd_*` + 1 xoá khỏi modal) → routing đúng: 1 DELETE, 2 UPDATE, 1 CREATE (với ID mới `dot_mpdg4e6f_9tmvif`). Không còn 404.
+
+**Files**: `inventory-tracking/js/crud-operations.js`, `inventory-tracking/js/modal-shipment.js`
+**Status**: ✅ Done
+
+---
+
 ## 2026-05-19
 
 ### [web2] sidebar: footer mất ở 19 trang Web 2.0 load tpos-sidebar.js trực tiếp (không qua page-shell)
