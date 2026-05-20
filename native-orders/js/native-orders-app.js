@@ -1636,6 +1636,7 @@
             return {
                 number: o.code,
                 displayStt: o.displayStt,
+                mergedDisplayStt: o.mergedDisplayStt || null,
                 partner: {
                     name: o.customerName || '',
                     phone: o.phone || '',

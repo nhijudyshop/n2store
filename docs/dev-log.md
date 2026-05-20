@@ -25,6 +25,33 @@
 
 ## 2026-05-20
 
+### [native-orders][web2] In bill: fix STT merge "26 + 30" + giảm trễ print ~250ms → ~80ms
+
+**Yêu cầu user**: (1) Bấm "In bill" trên đơn gộp (STT 26 + 30) — bill chỉ in STT đơn lẻ thay vì "26 + 30". (2) "In bill xử lý quá lâu" dù bill là template-swap.
+
+**Root cause**:
+
+- `bulkPrintBills` (native-orders-app.js) build PBH-shape trong RAM nhưng **không pass `mergedDisplayStt`** → `Web2Bill.getMergedSttDisplay` fallback về single `displayStt`.
+- `Web2Bill.openPrint` / `openCombinedPrint` có floor `setTimeout(trigger, 250ms)` + gán `w.onload = trigger` **sau** `document.write/close`, nên onload có thể đã fire mất → fallback 250ms thành đường chính. Bill HTML thuần static (barcode SVG inline pre-rendered), không cần đợi.
+
+**Files**:
+
+- [`native-orders/js/native-orders-app.js`](../native-orders/js/native-orders-app.js#L1636-L1652) — `bulkPrintBills` pass thêm `mergedDisplayStt: o.mergedDisplayStt || null` vào PBH-shape.
+- [`web2/shared/web2-bill-service.js`](../web2/shared/web2-bill-service.js#L453-L484) — `openPrint` / `openCombinedPrint`: gán `w.onload` + `w.onafterprint` **trước** `document.write`; thay `setTimeout(trigger, 250/350ms)` bằng 2× `requestAnimationFrame` (~32ms) + fallback ngắn (80/120ms).
+- [`native-orders/index.html`](../native-orders/index.html#L386) + [`web2/fastsaleorder-invoice/index.html`](../web2/fastsaleorder-invoice/index.html#L203) — bump `web2-bill-service.js?v=20260520a`.
+
+**Verify live (localhost playwright)**:
+
+- `Web2Bill.getMergedSttDisplay({mergedDisplayStt:[26,30],displayStt:26})` → `"26 + 30"` ✓
+- Bill HTML output chứa `<span ...>26 + 30</span>` cho field STT ✓
+- `generateHTML` mean: **0.38ms** (50 calls)
+- Mock popup test: `window.open` → `print()` fire sau **4.3ms** (trước: ≥250ms floor)
+- Screenshot xác nhận: [`downloads/n2store-session/bill-merged-stt.png`](../downloads/n2store-session/bill-merged-stt.png) hiện đúng "STT: 26 + 30".
+
+**Status**: ✅ Done
+
+---
+
 ### [inbox] Sale modal — nút "Tải lại" sản phẩm từ TPOS
 
 **Yêu cầu**: User muốn thêm nút Tải lại bên cạnh ô tìm kiếm "Tìm kiếm [F2]..." trong modal Phiếu bán hàng (Đơn Inbox), giống pattern modal "Chọn sản phẩm từ kho" của `purchase-orders`.

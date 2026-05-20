@@ -457,8 +457,6 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             console.warn('[Web2Bill] popup blocked');
             return null;
         }
-        w.document.write(html);
-        w.document.close();
         let printed = false;
         const trigger = () => {
             if (printed || !w || w.closed) return;
@@ -466,12 +464,17 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
             w.focus();
             w.print();
         };
+        // Gán handler TRƯỚC document.write — nếu gán sau, load event có thể đã fire mất.
         w.onafterprint = () => w.close();
-        // Bill HTML giờ thuần HTML+CSS (barcode SVG pre-rendered inline ở parent context)
-        // → onload fire NGAY khi parse xong, không cần chờ network/JS.
         w.onload = trigger;
-        // Fallback ngắn phòng onload không fire (popup quirk ở vài browser)
-        setTimeout(trigger, 250);
+        w.document.write(html);
+        w.document.close();
+        // Bill HTML thuần static (barcode SVG inline) → ready ngay khi parse xong.
+        // 2 rAF (~32ms) đủ cho layout pass; fallback 80ms cho browser quirks.
+        if (typeof w.requestAnimationFrame === 'function') {
+            w.requestAnimationFrame(() => w.requestAnimationFrame(trigger));
+        }
+        setTimeout(trigger, 80);
         return w;
     }
 
@@ -499,8 +502,6 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
 
         const w = global.open('', '_blank', 'width=800,height=800,scrollbars=yes');
         if (!w) return null;
-        w.document.write(combined);
-        w.document.close();
         let printed = false;
         const trigger = () => {
             if (printed || !w || w.closed) return;
@@ -510,8 +511,13 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         };
         w.onafterprint = () => w.close();
         w.onload = trigger;
-        // Fallback ngắn — bill HTML thuần static, không có async work
-        setTimeout(trigger, 350);
+        w.document.write(combined);
+        w.document.close();
+        // Bill HTML thuần static — 2 rAF + fallback 120ms (combined có thể nhiều bills)
+        if (typeof w.requestAnimationFrame === 'function') {
+            w.requestAnimationFrame(() => w.requestAnimationFrame(trigger));
+        }
+        setTimeout(trigger, 120);
         return w;
     }
 
