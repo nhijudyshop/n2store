@@ -332,6 +332,7 @@ const nativeOrdersRoutes = require('./routes/native-orders');
 const fastSaleOrdersRoutes = require('./routes/fast-sale-orders');
 const reconcileRoutes = require('./routes/reconcile'); // WEB2.0 — PBH đối soát đóng gói
 const walletDepositsRoutes = require('./routes/wallet-deposits'); // WEB2.0
+const purchaseRefundRoutes = require('./routes/purchase-refund'); // WEB2.0 — Trả hàng NCC state machine
 const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
 const pbhReportsRoutes = require('./routes/pbh-reports');
@@ -455,6 +456,7 @@ app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2', web2GenericRoutes);
 app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits for ví NCC/KH
+app.use('/api/purchase-refund', purchaseRefundRoutes); // WEB2.0 Trả hàng NCC state machine + stock
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
@@ -514,6 +516,9 @@ if (web2GenericRoutes.initializeNotifiers) {
 }
 if (web2VariantsRoutes.initializeNotifiers) {
     web2VariantsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+if (purchaseRefundRoutes.initializeNotifiers) {
+    purchaseRefundRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 // fastSaleOrdersRoutes đã require ở top (line 332). Web2-users require inline qua
 // app.use line 456 — re-require ở đây để có handle gọi initializeNotifiers.

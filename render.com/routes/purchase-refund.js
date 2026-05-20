@@ -1,0 +1,304 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+// =====================================================
+// PURCHASE-REFUND — state machine + stock side-effects
+// =====================================================
+//
+// Storage: web2_records (entity_slug='purchase-refund', data JSONB).
+// Generic CRUD list/get/create/update qua /api/web2/purchase-refund/* (web2-generic.js).
+// Endpoint này chỉ làm các state transition CÓ side-effect lên web2_products.stock:
+//
+//   POST /api/purchase-refund/:code/approve         draft|sent → approved + stock--
+//   POST /api/purchase-refund/:code/cancel-approve  approved   → sent + stock++ (revert)
+//   POST /api/purchase-refund/:code/refunded        approved   → refunded (no stock)
+//   POST /api/purchase-refund/:code/reject          approved|sent → rejected (no stock impact;
+//                                                                   if was approved → cũng restock)
+//
+// Idempotency:
+//   data.stock_deducted = true sau khi /approve thành công.
+//   /cancel-approve hoặc /reject (khi state=approved) set lại false sau restock.
+//   /approve chạy lại trên record đã deducted → skip stock op, vẫn return OK.
+//
+// Products schema (data.products): array of { code, name, qty, price } | null.
+// Cho phép data.products là string JSON (sẽ parse) hoặc array sẵn.
+
+const express = require('express');
+const router = express.Router();
+
+// -----------------------------------------------------
+// SSE notifier injected từ server.js. Topic 'web2:purchase-refund'.
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, code) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients(
+            'web2:purchase-refund',
+            { action, code: code || null, ts: Date.now() },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[PURCHASE-REFUND] _notify failed:', e.message);
+    }
+}
+
+// -----------------------------------------------------
+// Helpers
+// -----------------------------------------------------
+
+function parseProducts(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }
+    return [];
+}
+
+function normalizeLines(products) {
+    const map = new Map();
+    for (const p of products || []) {
+        const code = (p?.code || p?.product_code || '').trim();
+        const qty = Number(p?.qty || p?.quantity || 0);
+        if (!code || qty <= 0) continue;
+        map.set(code, (map.get(code) || 0) + qty);
+    }
+    return map; // code → totalQty
+}
+
+async function loadRefund(pool, code) {
+    const r = await pool.query(
+        `SELECT * FROM web2_records
+         WHERE entity_slug = 'purchase-refund' AND code = $1 LIMIT 1`,
+        [code]
+    );
+    return r.rows[0] || null;
+}
+
+async function saveRefundData(pool, code, dataPatch) {
+    // Merge JSONB shallow vào data. Idempotent.
+    await pool.query(
+        `UPDATE web2_records
+         SET data = COALESCE(data, '{}'::jsonb) || $1::jsonb,
+             updated_at = NOW()
+         WHERE entity_slug = 'purchase-refund' AND code = $2`,
+        [JSON.stringify(dataPatch), code]
+    );
+}
+
+// Trừ tồn: web2_products.stock -= qty. CHO PHÉP âm — nếu shop trả lượng > tồn
+// (vd hàng cũ chưa nhập đủ), stock âm phản ánh đúng tình trạng thực + sẽ về 0
+// sau nhập kho kỳ sau. Trả về list {code, deducted, before, after}.
+async function deductStock(pool, lines) {
+    const results = [];
+    const now = Date.now();
+    for (const [code, qty] of lines) {
+        const before = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
+        const stockBefore = before.rows[0]?.stock != null ? Number(before.rows[0].stock) : null;
+        await pool.query(
+            `UPDATE web2_products SET stock = COALESCE(stock, 0) - $1, updated_at = $2 WHERE code = $3`,
+            [qty, now, code]
+        );
+        const after = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
+        results.push({
+            code,
+            deducted: qty,
+            before: stockBefore,
+            after: after.rows[0]?.stock != null ? Number(after.rows[0].stock) : null,
+        });
+    }
+    return results;
+}
+
+async function restockStock(pool, lines) {
+    const results = [];
+    const now = Date.now();
+    for (const [code, qty] of lines) {
+        await pool.query(
+            `UPDATE web2_products SET stock = COALESCE(stock, 0) + $1, updated_at = $2 WHERE code = $3`,
+            [qty, now, code]
+        );
+        const after = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
+        results.push({
+            code,
+            restocked: qty,
+            after: after.rows[0]?.stock != null ? Number(after.rows[0].stock) : null,
+        });
+    }
+    return results;
+}
+
+// -----------------------------------------------------
+// POST /:code/approve — draft|sent → approved + deduct stock
+// Body: { note?: string }
+// -----------------------------------------------------
+router.post('/:code/approve', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const code = req.params.code;
+    try {
+        const row = await loadRefund(pool, code);
+        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        const data = row.data || {};
+        const currentStatus = data.status || 'draft';
+
+        // Idempotent: nếu đã approved + đã trừ kho → skip
+        if (currentStatus === 'approved' && data.stock_deducted === true) {
+            return res.json({
+                success: true,
+                idempotent: true,
+                refund: { code, status: 'approved' },
+            });
+        }
+        if (!['draft', 'sent'].includes(currentStatus)) {
+            return res.status(400).json({
+                error: `Chỉ approve được từ draft/sent (hiện: ${currentStatus})`,
+            });
+        }
+
+        const lines = normalizeLines(parseProducts(data.products));
+        if (lines.size === 0) {
+            return res.status(400).json({
+                error: 'Phiếu trả hàng không có SP nào (data.products rỗng)',
+            });
+        }
+
+        const stockResults = await deductStock(pool, lines);
+        await saveRefundData(pool, code, {
+            status: 'approved',
+            stock_deducted: true,
+            approved_at: Date.now(),
+            approved_note: req.body?.note || null,
+        });
+        _notify('approve', code);
+        res.json({
+            success: true,
+            refund: { code, status: 'approved' },
+            stock: stockResults,
+            linesProcessed: stockResults.length,
+        });
+    } catch (e) {
+        console.error('[PURCHASE-REFUND] /approve error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:code/cancel-approve — approved → sent + restock (revert)
+// Body: { reason?: string }
+// -----------------------------------------------------
+router.post('/:code/cancel-approve', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const code = req.params.code;
+    try {
+        const row = await loadRefund(pool, code);
+        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        const data = row.data || {};
+        const currentStatus = data.status || 'draft';
+        if (currentStatus !== 'approved') {
+            return res.status(400).json({
+                error: `Chỉ revoke được khi đang approved (hiện: ${currentStatus})`,
+            });
+        }
+        const lines = normalizeLines(parseProducts(data.products));
+        const stockResults = data.stock_deducted ? await restockStock(pool, lines) : [];
+        await saveRefundData(pool, code, {
+            status: 'sent',
+            stock_deducted: false,
+            cancel_approve_at: Date.now(),
+            cancel_approve_reason: req.body?.reason || null,
+        });
+        _notify('cancel-approve', code);
+        res.json({
+            success: true,
+            refund: { code, status: 'sent' },
+            stock: stockResults,
+            linesProcessed: stockResults.length,
+        });
+    } catch (e) {
+        console.error('[PURCHASE-REFUND] /cancel-approve error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:code/refunded — approved → refunded (NCC đã hoàn tiền, no stock)
+// Body: { refundMethod?: 'cash'|'bank'|'debt_offset'|'replace', refundAmount?, note? }
+// -----------------------------------------------------
+router.post('/:code/refunded', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const code = req.params.code;
+    try {
+        const row = await loadRefund(pool, code);
+        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        const data = row.data || {};
+        if (data.status !== 'approved') {
+            return res.status(400).json({
+                error: `Chỉ mark refunded sau khi approved (hiện: ${data.status})`,
+            });
+        }
+        await saveRefundData(pool, code, {
+            status: 'refunded',
+            refunded_at: Date.now(),
+            refundMethod: req.body?.refundMethod || data.refundMethod || null,
+            refundAmount: req.body?.refundAmount ?? data.totalAmount ?? null,
+            refunded_note: req.body?.note || null,
+        });
+        _notify('refunded', code);
+        res.json({ success: true, refund: { code, status: 'refunded' } });
+    } catch (e) {
+        console.error('[PURCHASE-REFUND] /refunded error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:code/reject — bất kỳ → rejected. Nếu đã approved → restock.
+// Body: { reason?: string }
+// -----------------------------------------------------
+router.post('/:code/reject', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const code = req.params.code;
+    try {
+        const row = await loadRefund(pool, code);
+        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        const data = row.data || {};
+        if (data.status === 'rejected') {
+            return res.json({ success: true, idempotent: true });
+        }
+        let stockResults = [];
+        if (data.stock_deducted) {
+            const lines = normalizeLines(parseProducts(data.products));
+            stockResults = await restockStock(pool, lines);
+        }
+        await saveRefundData(pool, code, {
+            status: 'rejected',
+            stock_deducted: false,
+            rejected_at: Date.now(),
+            rejected_reason: req.body?.reason || null,
+        });
+        _notify('reject', code);
+        res.json({
+            success: true,
+            refund: { code, status: 'rejected' },
+            stock: stockResults,
+            linesProcessed: stockResults.length,
+        });
+    } catch (e) {
+        console.error('[PURCHASE-REFUND] /reject error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.initializeNotifiers = initializeNotifiers;
+module.exports = router;
