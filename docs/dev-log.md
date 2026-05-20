@@ -25,6 +25,24 @@
 
 ## 2026-05-20
 
+### [showroom] Card bo góc + aspect 2:3 + object-contain + gap-1 (theo yêu cầu user)
+
+**Yêu cầu user**: Sửa card theo ảnh tham khảo:
+1. Bo góc cho card (look chuyên nghiệp như "bức tường ảnh thời trang").
+2. Bỏ aspect-square → dùng tỉ lệ chữ nhật đứng 2:3.
+3. `object-cover` → `object-contain` để giữ nguyên ảnh, không cắt góc.
+4. `gap-0` → `gap-1` (4px) để khoảng cách tối thiểu giữa các card.
+
+**Files sửa**:
+- `showroom/index.html` (3 chỗ):
+    - Grid: `gap-0 w-full` → `gap-1 w-full p-1`.
+    - 21 cards: `aspect-square ... bg-surface-container-low` → `aspect-[2/3] ... bg-surface-container-low rounded-2xl` (16px corner radius).
+    - 21 ảnh: `object-cover` → `object-contain`.
+
+**Status**: ✅ DONE — verify 21/21 cards updated via grep.
+
+---
+
 ### [showroom] Reset về 1 file copy y hệt stitch/code.html (user yêu cầu)
 
 **Yêu cầu user**: "xóa hết code đã làm, làm lại từ đầu giống HOÀN TOÀN ảnh và hướng dẫn trong `stitch_simple_fashion_catalog/`".
