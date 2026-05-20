@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0bbc1ab` — test(web2): verify smoke loop — Web 2.0 87/87 clean sau split-PBH feature
-**Last updated**: 2026-05-20 16:51:00 +07
-**Latest session**: [`RESUME:20260520-165100-0bbc1ab`](../20260520-165100-0bbc1ab.md)
-**Summary**: test(web2): verify smoke loop — Web 2.0 87/87 clean sau split-PBH feature
+**Latest commit**: `2ec46af` — auto: session update
+**Last updated**: 2026-05-20 17:02:02 +07
+**Latest session**: [`RESUME:20260520-170202-2ec46af`](../20260520-170202-2ec46af.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`downloads/`](./downloads.md) — 2 file(s)
 - [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -22,9 +20,9 @@
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
 - [`docs/`](./docs.md) — updated 2026-05-20 15:53
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
-- [`downloads/`](./downloads.md) — updated 2026-05-20 16:51
+- [`downloads/`](./downloads.md) — updated 2026-05-20 17:02
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
-- [`native-orders/`](./native-orders.md) — updated 2026-05-20 16:51
+- [`native-orders/`](./native-orders.md) — updated 2026-05-20 17:02
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 16:54
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-19 10:26
 - [`render.com/`](./render.com.md) — updated 2026-05-20 16:51
