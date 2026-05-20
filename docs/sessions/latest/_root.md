@@ -3,23 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260519-165429-6a40c72`
-**Session file**: [`./20260519-165429-6a40c72.md`](../20260519-165429-6a40c72.md)
-**Commit**: `6a40c72` — perf(bill): pre-render barcode SVG ở parent → bill HTML thuần static, in instant
-**Last updated**: 2026-05-19 16:54:29 +07
-**Summary**: perf(bill): pre-render barcode SVG ở parent → bill HTML thuần static, in instant
+**Latest session**: `RESUME:20260520-093029-31cafa3`
+**Session file**: [`./20260520-093029-31cafa3.md`](../20260520-093029-31cafa3.md)
+**Commit**: `31cafa3` — auto: session update
+**Last updated**: 2026-05-20 09:30:29 +07
+**Summary**: auto: session update
 
 ## Files changed in this commit (`_root/`)
 
-- `.gitignore`
+- `index.html`
 
 ## Last 5 commits touching `_root/`
 
-- `6a40c72b` perf(bill): pre-render barcode SVG ở parent → bill HTML thuần static, in instant _(2026-05-19)_
-- `90675d58` auto: session update _(2026-05-11)_
-- `be44094e` feat(aikol/clips): yt-dlp primary cho /import/channel — KHÔNG cần TikTok cookie _(2026-05-07)_
-- `518252f9` auto: session update _(2026-05-07)_
-- `5edb8d9c` perf(tab1-orders): surgical row insert/remove on filter membership flip — fix bảng giật khi 'ĐƠN CHƯA PHẢN HỒI' idle _(2026-04-25)_
+- `31cafa32` auto: session update _(2026-05-20)_
+- `324935e8` fix(auth): bỏ prompt "Lưu mật khẩu" của browser trên các page có password input _(2026-04-22)_
+- `9e588e01` style: unify typography across all pages (Inter 20px weight 600) _(2026-04-08)_
+- `ea059fd1` feat(docs): add #Note AI-instruction header to all HTML+JS files + module overview in dev-log _(2026-04-04)_
+- `db6a4e1b` feat: migrate user management from Firebase to Render PostgreSQL API _(2026-03-22)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260519-165429-6a40c72` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260520-093029-31cafa3` cho Claude walk chain theo CLAUDE.md protocol.
