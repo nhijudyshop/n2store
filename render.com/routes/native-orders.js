@@ -423,8 +423,11 @@ router.post('/from-comment', async (req, res) => {
                         ...(b.fbCommentId ? [b.fbCommentId] : []),
                     ])
                 );
+                // Prefix '[Tên Page]' vào mỗi line note → user phân biệt
+                // comment đến từ page nào khi gộp nhiều page về 1 KH.
+                const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
                 const appendedNote = b.message
-                    ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${b.message}`
+                    ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
                     : src.note;
                 // Phase 12: if this merge brings a phone the order didn't have before,
                 // attempt to link customer_id (lookup-only)
@@ -470,7 +473,14 @@ router.post('/from-comment', async (req, res) => {
         const code = await nextDailyCode(pool);
         const sessionIndex = await nextSessionIndex(pool, b.fbUserId);
 
-        const note = b.note || (b.message ? String(b.message).slice(0, 500) : null);
+        // Note format: '[timestamp] [Tên Page] message' — page name giúp phân
+        // biệt khi sau gộp comment từ nhiều page về 1 KH.
+        const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
+        const note = b.note
+            ? b.note
+            : b.message
+              ? `[${new Date().toLocaleString('vi-VN')}] ${pageTag}${String(b.message).slice(0, 500)}`
+              : null;
 
         // Phase 12: link to Customer 360 by phone (no auto-create)
         const customerId = b.phone ? await lookupCustomerIdByPhone(pool, b.phone) : null;

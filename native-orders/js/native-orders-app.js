@@ -451,7 +451,11 @@
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt-text" style="width:12px;height:12px;"></i>
                             </button>`
-                                    : `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
+                                    : `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xác nhận đơn (chưa tạo PBH)" style="color:#3b82f6;"
+                                onclick="event.stopPropagation();NativeOrdersApp.confirmDraft('${escapeHtml(o.code)}')">
+                                <i data-lucide="check-circle" style="width:12px;height:12px;"></i>
+                            </button>
+                            <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>`
@@ -5954,11 +5958,53 @@
         _renderInteractionsModal(STATE.orders[idx] || updatedOrder, _interactionsState.tab);
     }
 
+    // Xác nhận đơn web (draft → confirmed) KHÔNG tạo PBH. UX: user xem
+    // xong đơn, thấy info đúng, chốt đơn để chuẩn bị đóng gói, PBH tạo sau.
+    async function confirmDraft(code) {
+        if (!code) return;
+        const src = STATE.orders.find((o) => o.code === code);
+        if (!src) return notify('Không tìm thấy đơn ' + code, 'error');
+        if (src.status !== 'draft') {
+            return notify(`Đơn ${code} không phải draft (hiện: ${src.status})`, 'warning');
+        }
+        const ok = await w2pConfirm(
+            `Xác nhận đơn ${code}? Đơn sẽ chuyển trạng thái 'confirmed' (PBH tạo sau khi đóng gói).`,
+            { confirmText: 'Xác nhận', cancelText: 'Hủy' }
+        );
+        if (!ok) return;
+        try {
+            const r = await fetch(
+                `${window.NativeOrdersApi._getBaseUrl()}/${encodeURIComponent(code)}/confirm`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+            );
+            const data = await r.json();
+            if (!r.ok || !data.success) {
+                throw new Error(data.error || `HTTP ${r.status}`);
+            }
+            notify(
+                data.idempotent
+                    ? `Đơn ${code} đã ở trạng thái ${data.order.status} (không đổi)`
+                    : `✓ Đơn ${code} đã xác nhận`,
+                'success'
+            );
+            // SSE sẽ tự reload list, nhưng update local cache cho responsive UX
+            if (data.order) {
+                const i = STATE.orders.findIndex((o) => o.code === code);
+                if (i >= 0) STATE.orders[i] = data.order;
+                renderOrders();
+            }
+        } catch (e) {
+            console.error('[confirmDraft] error', e);
+            notify(`Xác nhận thất bại: ${e.message}`, 'error');
+        }
+    }
+
     window.NativeOrdersApp = {
         openEdit,
         quickStatus,
         createPbh,
         cancelPbh,
+        confirmDraft,
         bulkCreatePbh,
         unselectAllOrders,
         copyCode,

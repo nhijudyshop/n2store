@@ -992,10 +992,21 @@ const TposCommentList = {
 
             const currentUser = window.AuthManager?.getCurrentUser?.() || {};
 
+            // Page name để bên native-orders ghi nguồn comment (mỗi message
+            // prefix '[Tên Page] ...') → user thấy comment đến từ page nào
+            // khi nhiều page comment cùng 1 KH gộp 1 đơn.
+            const fbPageName =
+                pageObj?.Name ||
+                pageObj?.PageName ||
+                pageObj?.Facebook_PageName ||
+                comment?._pageName ||
+                null;
+
             const resp = await window.NativeOrdersApi.createFromComment({
                 fbUserId: fromId,
                 fbUserName: fromName,
                 fbPageId: fbPageId ? String(fbPageId) : null,
+                fbPageName,
                 fbPostId: postId || null,
                 fbCommentId: commentId,
                 crmTeamId: crmTeamId || null,

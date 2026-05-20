@@ -43,6 +43,8 @@ const NativeOrdersApi = {
      * @param {string} params.fbUserId       - Facebook AS user id (required)
      * @param {string} [params.fbUserName]
      * @param {string} [params.fbPageId]
+     * @param {string} [params.fbPageName] - Tên page (vd "NhiJudy Store") để
+     *   backend prefix vào note → user thấy comment đến từ page nào.
      * @param {string} [params.fbPostId]    - Full post id (pageId_postId)
      * @param {string} [params.fbCommentId]
      * @param {number} [params.crmTeamId]

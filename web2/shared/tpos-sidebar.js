@@ -172,6 +172,14 @@
             icon: 'shopping-cart',
             children: [
                 {
+                    label: 'Sổ Order NCC',
+                    our: '../so-order/index.html',
+                },
+                {
+                    label: 'Trả hàng NCC',
+                    our: '../web2/purchase-refund/index.html',
+                },
+                {
                     label: 'Công nợ NCC',
                     our: '../web2/supplier-debt/index.html',
                 },

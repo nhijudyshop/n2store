@@ -262,6 +262,7 @@
         b('rcBtnPack', packOrder);
         b('rcBtnShip', shipOrder);
         b('rcBtnDeliver', deliverOrder);
+        b('rcBtnReturnFailed', returnFailedOrder);
 
         if (window.lucide) window.lucide.createIcons();
     }
@@ -309,6 +310,15 @@
         if (fState === 'shipped') {
             buttons.push(
                 `<button class="btn btn-success" id="rcBtnDeliver"><i data-lucide="check-circle-2"></i> Đã giao</button>`
+            );
+        }
+        // Trả về kho — bật khi shipped HOẶC delivered (KH nhận xong từ chối).
+        // Auto restock + cancel PBH (web2/PBH bug "cancel không trả tồn về" đã fix).
+        if (fState === 'shipped' || fState === 'delivered') {
+            buttons.push(
+                `<button class="btn btn-danger" id="rcBtnReturnFailed">
+                    <i data-lucide="undo-2"></i> Giao thất bại / Trả về kho
+                </button>`
             );
         }
         return buttons.join('');
@@ -391,6 +401,39 @@
             STATE.currentPbh = res.pbh;
             renderDetail();
             notify('Đã giao thành công ✓', 'success');
+            loadList();
+        } catch (e) {
+            notify(e.message, 'error');
+        }
+    }
+
+    async function returnFailedOrder() {
+        if (!STATE.currentPbh) return;
+        const reason = prompt('Lý do giao thất bại / trả về kho (optional):', 'Khách từ chối nhận');
+        if (reason === null) return; // user cancelled
+        if (
+            !confirm(
+                `Đánh dấu PBH ${STATE.currentPbh.number} GIAO THẤT BẠI?\n\n` +
+                    `→ Trả tồn về kho web2_products\n` +
+                    `→ Hủy PBH (state='cancel')\n\n` +
+                    `Hành động idempotent — chỉ trả tồn 1 lần.`
+            )
+        ) {
+            return;
+        }
+        try {
+            const res = await api(
+                'POST',
+                `/${encodeURIComponent(STATE.currentPbh.number)}/return-failed`,
+                { reason: reason || null }
+            );
+            STATE.currentPbh = res.pbh;
+            renderDetail();
+            const restored = res.restock?.restored || 0;
+            notify(
+                `✓ Đã trả về kho ${restored} dòng SP. PBH ${STATE.currentPbh.number} đã hủy.`,
+                'success'
+            );
             loadList();
         } catch (e) {
             notify(e.message, 'error');

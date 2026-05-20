@@ -1,0 +1,177 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module - Trả hàng NCC -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Trả hàng NCC - WEB 2.0</title>
+        <script src="../../web2/shared/page-shell.js?v=20260519j"></script>
+    </head>
+    <body>
+        <script>
+            // Trả hàng NCC: shop trả hàng lại cho NCC sau khi nhận hàng (defect /
+            // sai hàng / dư hàng). Lưu generic vào web2_records entity='purchase-refund'.
+            // Schema tối thiểu — sẽ mở rộng (line items + restock logic) khi user feedback.
+            Web2Shell.bootstrap({
+                slug: 'purchase-refund',
+                title: 'Trả hàng NCC',
+                breadcrumb: ['App', 'Mua Hàng'],
+                columns: [
+                    {
+                        key: 'code',
+                        label: 'Mã phiếu',
+                        width: 140,
+                        align: 'center',
+                    },
+                    {
+                        key: 'name',
+                        label: 'Tiêu đề',
+                        align: 'left',
+                    },
+                    {
+                        key: 'data.supplierCode',
+                        label: 'Mã NCC',
+                        width: 100,
+                        align: 'center',
+                    },
+                    {
+                        key: 'data.supplierName',
+                        label: 'Tên NCC',
+                        width: 180,
+                        align: 'left',
+                    },
+                    {
+                        key: 'data.sourcePurchaseCode',
+                        label: 'Mã Sổ Order gốc',
+                        width: 160,
+                        align: 'center',
+                    },
+                    {
+                        key: 'data.refundDate',
+                        label: 'Ngày trả',
+                        width: 110,
+                        align: 'center',
+                    },
+                    {
+                        key: 'data.totalQty',
+                        label: 'SL trả',
+                        width: 80,
+                        align: 'right',
+                    },
+                    {
+                        key: 'data.totalAmount',
+                        label: 'Tổng tiền',
+                        width: 130,
+                        align: 'right',
+                    },
+                    {
+                        key: 'data.status',
+                        label: 'Trạng thái',
+                        width: 110,
+                        align: 'center',
+                    },
+                    {
+                        key: 'data.reason',
+                        label: 'Lý do',
+                        align: 'left',
+                    },
+                ],
+                fields: [
+                    {
+                        key: 'code',
+                        label: 'Mã phiếu (tự gen TRA-YYYYMMDD-XXX)',
+                        type: 'text',
+                        required: true,
+                    },
+                    {
+                        key: 'name',
+                        label: 'Tiêu đề phiếu',
+                        type: 'text',
+                        required: true,
+                    },
+                    {
+                        key: 'data.supplierCode',
+                        label: 'Mã NCC',
+                        type: 'text',
+                    },
+                    {
+                        key: 'data.supplierName',
+                        label: 'Tên NCC',
+                        type: 'text',
+                    },
+                    {
+                        key: 'data.supplierPhone',
+                        label: 'SĐT NCC',
+                        type: 'text',
+                    },
+                    {
+                        key: 'data.sourcePurchaseCode',
+                        label: 'Mã Sổ Order gốc (đơn nhập NCC)',
+                        type: 'text',
+                    },
+                    {
+                        key: 'data.refundDate',
+                        label: 'Ngày trả (YYYY-MM-DD)',
+                        type: 'text',
+                    },
+                    {
+                        key: 'data.reason',
+                        label: 'Lý do trả hàng',
+                        type: 'select',
+                        options: [
+                            { value: 'defect', label: 'Hàng lỗi / hỏng' },
+                            { value: 'wrong_item', label: 'Sai mã / sai SP' },
+                            { value: 'excess', label: 'Dư hàng / nhận thừa' },
+                            { value: 'quality', label: 'Chất lượng kém' },
+                            { value: 'other', label: 'Khác' },
+                        ],
+                    },
+                    {
+                        key: 'data.totalQty',
+                        label: 'Tổng số lượng trả',
+                        type: 'number',
+                    },
+                    {
+                        key: 'data.totalAmount',
+                        label: 'Tổng tiền hoàn (NCC sẽ trả lại)',
+                        type: 'number',
+                    },
+                    {
+                        key: 'data.status',
+                        label: 'Trạng thái',
+                        type: 'select',
+                        options: [
+                            { value: 'draft', label: 'Nháp' },
+                            { value: 'sent', label: 'Đã gửi NCC' },
+                            { value: 'approved', label: 'NCC đồng ý' },
+                            { value: 'refunded', label: 'NCC đã hoàn tiền' },
+                            { value: 'rejected', label: 'NCC từ chối' },
+                            { value: 'cancelled', label: 'Hủy' },
+                        ],
+                    },
+                    {
+                        key: 'data.refundMethod',
+                        label: 'Phương thức hoàn',
+                        type: 'select',
+                        options: [
+                            { value: 'cash', label: 'Tiền mặt' },
+                            { value: 'bank', label: 'Chuyển khoản' },
+                            { value: 'debt_offset', label: 'Trừ vào công nợ kỳ sau' },
+                            { value: 'replace', label: 'Đổi hàng mới' },
+                        ],
+                    },
+                    {
+                        key: 'data.note',
+                        label: 'Ghi chú thêm',
+                        type: 'textarea',
+                    },
+                    {
+                        key: 'data.products',
+                        label: 'Danh sách SP trả (JSON: [{code, name, qty, price}])',
+                        type: 'textarea',
+                    },
+                ],
+            });
+        </script>
+    </body>
+</html>
