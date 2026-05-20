@@ -85,6 +85,30 @@ async function updateShipment(id, data) {
             throw new Error('Shipment not found');
         }
 
+        // Build set of IDs that exist server-side so we can pick CREATE vs UPDATE per row.
+        // Server-issued IDs come back as `dot_*`; modal-shipment.js generates `hd_*` for
+        // newly-added invoice rows — those must hit CREATE, not UPDATE (would 404).
+        const existingInvoiceIds = new Set(
+            (existingShipment.hoaDon || []).map((h) => h.id).filter(Boolean)
+        );
+        const submittedInvoiceIds = new Set((data.hoaDon || []).map((h) => h.id).filter(Boolean));
+
+        // Delete invoices removed from the modal
+        for (const oldInvoice of existingShipment.hoaDon || []) {
+            if (oldInvoice.id && !submittedInvoiceIds.has(oldInvoice.id)) {
+                try {
+                    await shipmentsApi.delete(oldInvoice.id);
+                    console.log(`[CRUD] Deleted removed dotHang: ${oldInvoice.id}`);
+                    const ncc = getNCCById(oldInvoice.sttNCC);
+                    if (ncc?.dotHang) {
+                        ncc.dotHang = ncc.dotHang.filter((d) => d.id !== oldInvoice.id);
+                    }
+                } catch (delErr) {
+                    console.warn(`[CRUD] Failed to delete ${oldInvoice.id}:`, delErr);
+                }
+            }
+        }
+
         // kienHang only on first invoice to avoid duplication
         let isFirstUpdate = true;
         for (const invoice of data.hoaDon || []) {
@@ -92,7 +116,8 @@ async function updateShipment(id, data) {
             const tenNCC = invoice.tenNCC || '';
             if (!sttNCC && !tenNCC) continue;
 
-            const updateData = {
+            const payload = {
+                sttNCC: sttNCC,
                 ngayDiHang: data.ngayDiHang,
                 dotSo: data.dotSo,
                 tenNCC: invoice.tenNCC,
@@ -112,19 +137,35 @@ async function updateShipment(id, data) {
                 ghiChuAdmin: isFirstUpdate ? data.ghiChuAdmin : '',
             };
 
-            const saved = await shipmentsApi.update(invoice.id, updateData);
+            const isExisting = invoice.id && existingInvoiceIds.has(invoice.id);
+            let saved;
+            if (isExisting) {
+                saved = await shipmentsApi.update(invoice.id, payload);
+                console.log(`[CRUD] Updated dotHang for NCC ${sttNCC}:`, invoice.id);
+            } else {
+                // New row added in modal — server expects `dot_*` id, drop client-side `hd_*`
+                const newId = generateId('dot');
+                saved = await shipmentsApi.create({ ...payload, id: newId });
+                console.log(`[CRUD] Created dotHang for NCC ${sttNCC}:`, newId);
+            }
 
             // Update local state
-            const ncc = getNCCById(sttNCC);
+            const ncc = getNCCById(sttNCC) || (await getOrCreateNCC(sttNCC, tenNCC));
             if (ncc) {
-                const idx = (ncc.dotHang || []).findIndex((d) => d.id === invoice.id);
-                if (idx !== -1) {
-                    ncc.dotHang[idx] = pgToShipment(saved);
+                if (!ncc.dotHang) ncc.dotHang = [];
+                if (isExisting) {
+                    const idx = ncc.dotHang.findIndex((d) => d.id === invoice.id);
+                    if (idx !== -1) {
+                        ncc.dotHang[idx] = pgToShipment(saved);
+                    } else {
+                        ncc.dotHang.push(pgToShipment(saved));
+                    }
+                } else {
+                    ncc.dotHang.push(pgToShipment(saved));
                 }
             }
 
             isFirstUpdate = false;
-            console.log(`[CRUD] Updated dotHang for NCC ${sttNCC}:`, invoice.id);
         }
 
         await logEditHistory('update', 'shipment', id, existingShipment, data);

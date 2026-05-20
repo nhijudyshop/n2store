@@ -791,19 +791,20 @@ async function saveShipment() {
         // Show loading
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
-        if (currentShipmentData) {
-            // Update existing
-            await updateShipment(currentShipmentData.id, shipmentData);
-        } else {
-            // Create new
-            await createShipment(shipmentData);
+        try {
+            if (currentShipmentData) {
+                // Update existing
+                await updateShipment(currentShipmentData.id, shipmentData);
+            } else {
+                // Create new
+                await createShipment(shipmentData);
+            }
+
+            closeModal('modalShipment');
+            await loadShipmentsData();
+        } finally {
+            window.notificationManager?.remove(loadingToast);
         }
-
-        window.notificationManager?.remove(loadingToast);
-        closeModal('modalShipment');
-
-        // Reload data
-        await loadShipmentsData();
     } catch (error) {
         console.error('[MODAL] Error saving shipment:', error);
         window.notificationManager?.error('Không thể lưu đợt hàng');
