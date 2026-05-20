@@ -3,20 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e76d927` — feat(delivery-report): hoạt động ví hiển thị label ticket chi tiết + số dư sau giao dịch
-**Last updated**: 2026-05-20 09:42:25 +07
-**Latest session**: [`RESUME:20260520-094225-e76d927`](../20260520-094225-e76d927.md)
-**Summary**: feat(delivery-report): hoạt động ví hiển thị label ticket chi tiết + số dư sau giao dịch
+**Latest commit**: `2841962` — feat(pages): add CNAME for custom domain nhijudy.store
+**Last updated**: 2026-05-20 09:46:55 +07
+**Latest session**: [`RESUME:20260520-094655-2841962`](../20260520-094655-2841962.md)
+**Summary**: feat(pages): add CNAME for custom domain nhijudy.store
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
 
 ## All folder snapshots
 
-- [`_root/`](./_root.md) — updated 2026-05-20 09:30
+- [`_root/`](./_root.md) — updated 2026-05-20 09:46
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-19 15:15
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 09:42
 - [`docs/`](./docs.md) — updated 2026-05-20 09:42
