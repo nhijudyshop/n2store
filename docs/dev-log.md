@@ -25,6 +25,26 @@
 
 ## 2026-05-20
 
+### [delivery-report] Hoạt động gần đây — label ticket credit chi tiết + số dư ví sau giao dịch
+
+**User feedback** (page Thống Kê Giao Hàng → popover/modal "Hoạt động gần đây" của khách):
+
+- Giao dịch cộng tiền từ các ticket phải ghi rõ loại: hoàn tiền từ khách gửi / thu về / sửa COD — đồng bộ với customer-hub.
+- Giữa ngày giờ và icon con mắt cần hiển thị số dư ví **sau** giao dịch đó (kiểu `→ 338K`) — giống ví khách hàng trong customer-profile.
+
+**Fix**:
+
+- [render.com/routes/v2/customers.js](render.com/routes/v2/customers.js) — endpoint `/api/v2/customers/:id/quick-view`: append `created_by`, `balance_before`, `balance_after`, `virtual_balance_before`, `virtual_balance_after` vào SELECT chính + fallback (append-only, không thay shape có sẵn → các consumer khác như balance-verification, pancake-validator không bị ảnh hưởng).
+- [delivery-report/js/delivery-report.js](delivery-report/js/delivery-report.js):
+    - `txConfig()` — phân biệt `DEPOSIT` từ ticket RETURN_GOODS → "Khách Gửi" (match `source === 'RETURN_GOODS'` hoặc note có `Hoàn tiền từ ticket TV-` / `RETURN_CLIENT` / `Công Nợ Ảo Từ Khách Gửi`). `ORDER_CANCEL_REFUND` → "Hoàn Hủy Đơn". `VIRTUAL_CREDIT` từ RETURN_SHIPPER → "Thu Về". `FIX_COD` + `COD_ADJUSTMENT` cùng label "Sửa COD".
+    - Thêm `fmtBalanceK()` + `balanceAfterHtml()` — format `338K` / `1.2M` / `0K` từ `balance_after + virtual_balance_after`, kèm tooltip số dư trước → sau (đầy đủ đơn vị đồng).
+    - `buildTxRow()` — chèn pill số dư giữa `dr-hp-tx-time` và `dr-hp-tx-actions`.
+- [delivery-report/css/delivery-report.css](delivery-report/css/delivery-report.css) — class `.dr-hp-tx-balance` (pill nhỏ, viền nhẹ, xanh cho credit) + mở rộng rule reset `margin-left` để actions không bị 2 lần `auto`-margin khi balance pill xen giữa.
+
+**Status**: DONE.
+
+---
+
 ### [docs][seo] feat: thêm Open Graph meta tags cho index.html (preview đẹp khi share Zalo/Facebook)
 
 **Mục đích**: Khi share link `https://nhijudyshop.github.io/n2store/` lên Zalo/Messenger/FB, hiện card preview với logo + tên shop + mô tả thay vì URL trần. Zalo dùng cùng chuẩn OG như Facebook.

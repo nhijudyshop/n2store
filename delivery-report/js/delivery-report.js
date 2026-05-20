@@ -3163,21 +3163,37 @@
 
         function txConfig(tx) {
             const t = tx.type;
+            const source = tx.source || '';
             const note = tx.note || '';
             const amount = parseFloat(tx.amount) || 0;
             const isCredit = amount >= 0;
             let label = 'Khác';
             switch (t) {
                 case 'DEPOSIT':
-                    label = /ORDER_CANCEL_REFUND|hoàn|hoan/i.test(tx.source || note)
-                        ? 'HOÀN'
-                        : 'Nạp tiền';
+                    // DEPOSIT từ ticket RETURN_GOODS (Hoàn tiền khi khách trả hàng) →
+                    // "Khách Gửi" để đồng bộ với customer-hub wallet UI.
+                    if (
+                        source === 'RETURN_GOODS' ||
+                        /Hoàn tiền từ ticket TV-|RETURN_CLIENT|Công Nợ Ảo Từ Khách Gửi/i.test(note)
+                    ) {
+                        label = 'Khách Gửi';
+                    } else if (source === 'ORDER_CANCEL_REFUND' || /ORDER_CANCEL_REFUND|hoàn hủy/i.test(source || note)) {
+                        label = 'Hoàn Hủy Đơn';
+                    } else {
+                        label = 'Nạp tiền';
+                    }
                     break;
                 case 'WITHDRAW':
                     label = /thanh\s*toán/i.test(note) ? 'Thanh toán' : 'Rút tiền';
                     break;
                 case 'VIRTUAL_CREDIT':
-                    label = 'Cộng nợ ảo';
+                    // VIRTUAL_CREDIT từ ticket RETURN_SHIPPER (Hoàn về cấp công nợ ảo) →
+                    // "Thu Về". Các trường hợp khác giữ "Cộng nợ ảo".
+                    label =
+                        source === 'VIRTUAL_CREDIT_ISSUE' ||
+                        /Công Nợ Ảo Từ Thu Về|RETURN_SHIPPER/i.test(note)
+                            ? 'Thu Về'
+                            : 'Cộng nợ ảo';
                     break;
                 case 'VIRTUAL_DEBIT':
                     label = 'Trừ nợ ảo';
@@ -3195,19 +3211,51 @@
                     label = 'Sửa COD';
                     break;
                 case 'COD_ADJUSTMENT':
-                    label = 'Điều chỉnh COD';
+                    label = 'Sửa COD';
                     break;
                 case 'BOOM':
                     label = 'Boom hàng';
                     break;
                 case 'RETURN_SHIPPER':
-                    label = 'Thu về';
+                    label = 'Thu Về';
                     break;
                 case 'RETURN_CLIENT':
-                    label = 'Trả hàng';
+                    label = 'Khách Gửi';
                     break;
             }
             return { label, isCredit, amount };
+        }
+
+        // Format số dư kiểu "338K" / "1.2M" / "0K" — match customer-hub wallet UI.
+        function fmtBalanceK(val) {
+            const num = Math.abs(parseFloat(val) || 0);
+            if (num === 0) return '0K';
+            if (num >= 1_000_000) {
+                const m = num / 1_000_000;
+                return (Number.isInteger(m) ? m : m.toFixed(1).replace(/\.0$/, '')) + 'M';
+            }
+            const k = num / 1000;
+            return (Number.isInteger(k) ? k : k.toFixed(1).replace(/\.0$/, '')) + 'K';
+        }
+
+        // Render pill số dư sau giao dịch ("→ 338K") — null nếu tx không có
+        // balance_after (legacy data hoặc fallback API).
+        function balanceAfterHtml(tx) {
+            if (
+                tx.balance_after === null ||
+                tx.balance_after === undefined ||
+                tx.balance_after === ''
+            ) {
+                return '';
+            }
+            const balAfter = parseFloat(tx.balance_after) || 0;
+            const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
+            const total = balAfter + vBalAfter;
+            const balBefore = parseFloat(tx.balance_before) || 0;
+            const vBalBefore = parseFloat(tx.virtual_balance_before) || 0;
+            const totalBefore = balBefore + vBalBefore;
+            const tip = `Số dư ví sau giao dịch: ${fmtMoney(total)}đ (trước: ${fmtMoney(totalBefore)}đ)`;
+            return `<span class="dr-hp-tx-balance" title="${escapeHtml(tip)}">→ ${escapeHtml(fmtBalanceK(total))}</span>`;
         }
 
         // Build a small "view image" eye button for a tx with sepay_image_url (legacy signature)
@@ -3365,12 +3413,14 @@
                 const eye = eyeBtnHtmlForTx(tx);
                 const review = reviewBtnHtmlForTx(tx);
                 const actions = [eye, review].filter(Boolean).join('');
+                const balanceHtml = balanceAfterHtml(tx);
                 return `
                           <div class="dr-hp-tx ${cls}">
                               <div class="dr-hp-tx-head">
                                   <span class="dr-hp-tx-amount">${sign}${fmtMoney(amount)}đ</span>
                                   <span class="dr-hp-tx-label">${escapeHtml(label)}</span>
                                   <span class="dr-hp-tx-time">${escapeHtml(fmtDateTime(tx.created_at))}</span>
+                                  ${balanceHtml}
                                   ${actions ? `<span class="dr-hp-tx-actions" style="display:inline-flex;gap:4px;align-items:center;">${actions}</span>` : ''}
                               </div>
                               ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
