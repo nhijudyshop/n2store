@@ -1,0 +1,309 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Demo — Zalo Link Preview Card</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+            :root {
+                --bg: #e9ebee;
+                --zalo-chat-bg: #cfe5fb;
+                --zalo-blue: #0068ff;
+                --card-bg: #ffffff;
+                --card-border: #e4e6eb;
+                --text-primary: #050505;
+                --text-secondary: #65676b;
+                --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.1);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text-primary);
+                padding: 24px 16px 80px;
+            }
+
+            h1 {
+                text-align: center;
+                font-size: 22px;
+                margin: 0 0 8px;
+            }
+
+            .subtitle {
+                text-align: center;
+                color: var(--text-secondary);
+                font-size: 14px;
+                margin-bottom: 32px;
+            }
+
+            .phone {
+                max-width: 380px;
+                margin: 0 auto;
+                background: #fff;
+                border-radius: 24px;
+                overflow: hidden;
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+            }
+
+            .phone-header {
+                background: var(--zalo-blue);
+                color: #fff;
+                padding: 14px 16px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 600;
+            }
+
+            .phone-header .avatar {
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                background: #fff;
+                display: grid;
+                place-items: center;
+                color: var(--zalo-blue);
+                font-weight: 700;
+                font-size: 13px;
+            }
+
+            .chat-body {
+                background: var(--zalo-chat-bg);
+                padding: 18px 14px;
+                min-height: 420px;
+            }
+
+            .timestamp {
+                text-align: center;
+                color: #5a6b7a;
+                font-size: 11px;
+                margin: 6px 0 14px;
+            }
+
+            .msg-bubble {
+                background: #fff;
+                border-radius: 14px;
+                padding: 0;
+                max-width: 280px;
+                margin-left: auto;
+                box-shadow: var(--shadow-card);
+                overflow: hidden;
+                margin-bottom: 6px;
+            }
+
+            .preview-card {
+                cursor: pointer;
+                transition: background 0.15s;
+            }
+
+            .preview-card:hover {
+                background: #f7f8fa;
+            }
+
+            .preview-img {
+                width: 100%;
+                aspect-ratio: 1200 / 630;
+                object-fit: cover;
+                display: block;
+                background: linear-gradient(135deg, #ffd4e5, #c5d9ff);
+            }
+
+            .preview-text {
+                padding: 10px 12px 12px;
+                border-top: 1px solid var(--card-border);
+            }
+
+            .preview-domain {
+                font-size: 11px;
+                color: var(--text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                margin-bottom: 4px;
+            }
+
+            .preview-title {
+                font-size: 15px;
+                font-weight: 600;
+                color: var(--text-primary);
+                line-height: 1.3;
+                margin-bottom: 4px;
+            }
+
+            .preview-desc {
+                font-size: 13px;
+                color: var(--text-secondary);
+                line-height: 1.35;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .url-text {
+                background: #fff;
+                padding: 8px 12px;
+                border-radius: 14px;
+                font-size: 13px;
+                color: var(--zalo-blue);
+                max-width: 280px;
+                margin-left: auto;
+                word-break: break-all;
+                box-shadow: var(--shadow-card);
+                margin-top: 4px;
+            }
+
+            .reaction-bar {
+                margin-top: 32px;
+                text-align: center;
+                color: var(--text-secondary);
+                font-size: 13px;
+            }
+
+            .comparison {
+                max-width: 760px;
+                margin: 40px auto 0;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+            }
+
+            @media (max-width: 720px) {
+                .comparison {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .compare-card {
+                background: #fff;
+                border-radius: 12px;
+                padding: 16px;
+                box-shadow: var(--shadow-card);
+            }
+
+            .compare-card h3 {
+                margin: 0 0 12px;
+                font-size: 15px;
+            }
+
+            .bad h3 {
+                color: #c0392b;
+            }
+
+            .good h3 {
+                color: #27ae60;
+            }
+
+            .raw-url {
+                font-family: ui-monospace, SFMono-Regular, monospace;
+                font-size: 12px;
+                color: var(--zalo-blue);
+                background: #f0f2f5;
+                padding: 10px;
+                border-radius: 8px;
+                word-break: break-all;
+            }
+
+            .note {
+                max-width: 760px;
+                margin: 40px auto 0;
+                padding: 16px 20px;
+                background: #fff8e1;
+                border-left: 4px solid #f5b400;
+                border-radius: 8px;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+
+            .note code {
+                background: rgba(0, 0, 0, 0.06);
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12.5px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Demo — Card preview trên Zalo</h1>
+        <p class="subtitle">Khi bạn dán link <code>nhijudyshop.github.io/n2store</code> vào chat</p>
+
+        <div class="phone">
+            <div class="phone-header">
+                <div class="avatar">NJ</div>
+                <div>
+                    <div style="font-size: 14px">Nhi Judy House</div>
+                    <div style="font-size: 11px; opacity: 0.85; font-weight: 400">
+                        Đang hoạt động
+                    </div>
+                </div>
+            </div>
+            <div class="chat-body">
+                <div class="timestamp">Hôm nay, 19:45</div>
+
+                <!-- Card preview (sau khi có OG tags) -->
+                <div class="msg-bubble">
+                    <a
+                        class="preview-card"
+                        href="https://nhijudyshop.github.io/n2store/"
+                        target="_blank"
+                        rel="noopener"
+                    >
+                        <img
+                            class="preview-img"
+                            src="../../index/logo.jpg"
+                            alt="Nhi Judy House logo"
+                        />
+                        <div class="preview-text">
+                            <div class="preview-domain">nhijudyshop.github.io</div>
+                            <div class="preview-title">Nhi Judy House</div>
+                            <div class="preview-desc">
+                                Shop thời trang nữ — Bấm vào để xem sản phẩm và đặt hàng.
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="url-text">https://nhijudyshop.github.io/n2store/</div>
+
+                <div class="reaction-bar">👆 Đây là card khách hàng sẽ thấy khi bạn gửi link</div>
+            </div>
+        </div>
+
+        <div class="comparison">
+            <div class="compare-card bad">
+                <h3>❌ Trước khi có OG tags</h3>
+                <div class="raw-url">https://nhijudyshop.github.io/n2store/</div>
+                <p style="font-size: 13px; color: #65676b; margin: 12px 0 0">
+                    Chỉ hiện URL trần, không có ảnh, không có tên shop. Khách không biết bấm vào sẽ
+                    đi đâu → ít click.
+                </p>
+            </div>
+            <div class="compare-card good">
+                <h3>✅ Sau khi có OG tags</h3>
+                <div class="raw-url">https://nhijudyshop.github.io/n2store/</div>
+                <p style="font-size: 13px; color: #65676b; margin: 12px 0 0">
+                    Zalo tự render card với <strong>logo + tên shop + mô tả</strong>. Khách thấy
+                    thương hiệu rõ ràng → tỷ lệ click cao hơn nhiều.
+                </p>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>Lưu ý khi test thật trên Zalo:</strong><br />
+            • Đã commit/push lên GitHub Pages → đợi 2-4 phút deploy.<br />
+            • Nếu Zalo đã cache URL cũ → thêm <code>?v=2</code> vào cuối URL khi gửi lại (vd:
+            <code>nhijudyshop.github.io/n2store/?v=2</code>).<br />
+            • Có thể debug card preview ở
+            <a href="https://developers.facebook.com/tools/debug/" target="_blank"
+                >Facebook Sharing Debugger</a
+            >
+            (Zalo dùng cùng chuẩn OG).
+        </div>
+    </body>
+</html>
