@@ -41,7 +41,7 @@ function getConnectionStats() {
     return {
         totalClients,
         uniqueKeys: sseClients.size,
-        keyStats
+        keyStats,
     };
 }
 
@@ -66,19 +66,20 @@ function getConnectionStats() {
 router.get('/sse', (req, res) => {
     // Parse keys to subscribe to
     const keysParam = req.query.keys || '';
-    const keys = keysParam.split(',')
-        .map(k => k.trim())
-        .filter(k => k.length > 0);
+    const keys = keysParam
+        .split(',')
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0);
 
     if (keys.length === 0) {
         return res.status(400).json({
             error: 'No keys specified',
-            usage: 'GET /api/realtime/sse?keys=key1,key2,key3'
+            usage: 'GET /api/realtime/sse?keys=key1,key2,key3',
         });
     }
 
     // Validate key length
-    if (keys.some(k => k.length > 500)) {
+    if (keys.some((k) => k.length > 500)) {
         return res.status(400).json({ error: 'Key too long (max 500 characters)' });
     }
 
@@ -96,22 +97,24 @@ router.get('/sse', (req, res) => {
     // Send initial connection message
     const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     res.write(`event: connected\n`);
-    res.write(`data: ${JSON.stringify({
-        keys,
-        connectionId,
-        timestamp: new Date().toISOString()
-    })}\n\n`);
+    res.write(
+        `data: ${JSON.stringify({
+            keys,
+            connectionId,
+            timestamp: new Date().toISOString(),
+        })}\n\n`
+    );
 
     // Store client metadata
     clientMetadata.set(res, {
         connectionId,
         keys,
         connectedAt: new Date(),
-        ip: req.ip || req.connection.remoteAddress
+        ip: req.ip || req.connection.remoteAddress,
     });
 
     // Register this client for each key
-    keys.forEach(key => {
+    keys.forEach((key) => {
         if (!sseClients.has(key)) {
             sseClients.set(key, new Set());
         }
@@ -137,7 +140,7 @@ router.get('/sse', (req, res) => {
         clearInterval(heartbeat);
 
         // Remove client from all subscribed keys
-        keys.forEach(key => {
+        keys.forEach((key) => {
             const clients = sseClients.get(key);
             if (clients) {
                 clients.delete(res);
@@ -148,11 +151,13 @@ router.get('/sse', (req, res) => {
         });
 
         const metadata = clientMetadata.get(res);
-        const duration = metadata ?
-            ((Date.now() - metadata.connectedAt.getTime()) / 1000).toFixed(1) :
-            'unknown';
+        const duration = metadata
+            ? ((Date.now() - metadata.connectedAt.getTime()) / 1000).toFixed(1)
+            : 'unknown';
 
-        console.log(`[SSE] Client disconnected (${metadata?.connectionId || 'unknown'}) after ${duration}s`);
+        console.log(
+            `[SSE] Client disconnected (${metadata?.connectionId || 'unknown'}) after ${duration}s`
+        );
         console.log(`[SSE] Active connections:`, getConnectionStats().totalClients);
 
         // Cleanup metadata
@@ -189,14 +194,14 @@ function notifyClients(key, data, eventType = 'update') {
         key,
         data,
         timestamp: Date.now(),
-        event: eventType
+        event: eventType,
     });
 
     let successCount = 0;
     let failureCount = 0;
 
     // Send to all clients watching this key
-    clients.forEach(client => {
+    clients.forEach((client) => {
         try {
             client.write(`event: ${eventType}\n`);
             client.write(`data: ${message}\n\n`);
@@ -208,8 +213,10 @@ function notifyClients(key, data, eventType = 'update') {
         }
     });
 
-    console.log(`[SSE] Notified ${successCount} clients for key: ${key}` +
-        (failureCount > 0 ? ` (${failureCount} failed)` : ''));
+    console.log(
+        `[SSE] Notified ${successCount} clients for key: ${key}` +
+            (failureCount > 0 ? ` (${failureCount} failed)` : '')
+    );
 
     return successCount;
 }
@@ -237,10 +244,10 @@ function notifyClientsWildcard(keyPrefix, data, eventType = 'update') {
                 data,
                 timestamp: Date.now(),
                 event: eventType,
-                matchedKey: key
+                matchedKey: key,
             });
 
-            clients.forEach(client => {
+            clients.forEach((client) => {
                 try {
                     client.write(`event: ${eventType}\n`);
                     client.write(`data: ${message}\n\n`);
@@ -270,11 +277,11 @@ function broadcastToAll(data, eventType = 'broadcast') {
     const message = JSON.stringify({
         data,
         timestamp: Date.now(),
-        event: eventType
+        event: eventType,
     });
 
     sseClients.forEach((clients) => {
-        clients.forEach(client => {
+        clients.forEach((client) => {
             try {
                 client.write(`event: ${eventType}\n`);
                 client.write(`data: ${message}\n\n`);
@@ -302,7 +309,7 @@ router.get('/sse/stats', (req, res) => {
     res.json({
         success: true,
         ...stats,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
@@ -322,7 +329,7 @@ router.post('/sse/test', (req, res) => {
     res.json({
         success: true,
         key,
-        clientsNotified: count
+        clientsNotified: count,
     });
 });
 
@@ -343,11 +350,15 @@ router.post('/celebration', (req, res) => {
         return res.status(400).json({ error: 'Missing employee parameter' });
     }
 
-    const count = notifyClients('celebration', {
-        employee,
-        detail: detail || '',
-        triggeredAt: Date.now(),
-    }, 'celebration');
+    const count = notifyClients(
+        'celebration',
+        {
+            employee,
+            detail: detail || '',
+            triggeredAt: Date.now(),
+        },
+        'celebration'
+    );
 
     console.log(`[SSE] 🎉 Celebration triggered for "${employee}", notified ${count} clients`);
 
@@ -380,14 +391,14 @@ walletEvents.on('wallet:update', (data) => {
                 phone,
                 wallet,
                 transaction,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             },
             timestamp: Date.now(),
-            event: 'wallet_update'
+            event: 'wallet_update',
         });
 
         let successCount = 0;
-        clients.forEach(client => {
+        clients.forEach((client) => {
             try {
                 client.write(`event: wallet_update\n`);
                 client.write(`data: ${message}\n\n`);
@@ -402,6 +413,28 @@ walletEvents.on('wallet:update', (data) => {
 
     // Also notify wildcard watchers for "wallet" key (admin dashboard)
     notifyClientsWildcard('wallet', data, 'wallet_update');
+
+    // Web 2.0 customer-wallet page subscribes the canonical 'web2:customer-wallet'
+    // topic (per docs/web2/SSE-REALTIME.md naming convention). Re-broadcast the
+    // same payload there with a lightweight shape so the page can fetch the
+    // matching balance_history row + credit the wallet. Auto-approve và
+    // duyệt-tay đều đi qua processDeposit → walletEvents → here → page reloads.
+    try {
+        notifyClients(
+            'web2:customer-wallet',
+            {
+                action: 'sepay_credit',
+                phone: phone || null,
+                amount: transaction?.amount || 0,
+                sepayId: transaction?.sepayId || null,
+                source: transaction?.source || null,
+                ts: Date.now(),
+            },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[SSE-WALLET] web2:customer-wallet bridge failed:', e.message);
+    }
 });
 
 console.log('[SSE] Wallet event subscription initialized');

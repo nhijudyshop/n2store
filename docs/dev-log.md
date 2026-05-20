@@ -25,6 +25,20 @@
 
 ## 2026-05-20
 
+### [web2][render] customer-wallet: realtime SSE bridge cho SePay credit (auto duyệt + duyệt tay)
+
+**User request**: khi balance-history nhận chuyển khoản (auto-approve hoặc duyệt tay), ví KH tự cập nhật tiền theo SĐT.
+
+**Discovery**: Server-side `walletEvents.emit('wallet:update')` đã có (firing từ `processDeposit` qua 4 path: manual approve trong `sepay-wallet-operations.js`, auto-approve QR/exact-10-digit/single match trong `sepay-transaction-matching.js`). Client-side `customer-wallet-app.js` đã subscribe `'web2:customer-wallet'` SSE. **Thiếu mảnh nối**: server emit `walletEvents` nhưng KHÔNG forward sang topic `web2:customer-wallet` mà client chờ (chỉ fire wildcard `'wallet'` với `event: 'wallet_update'` mà bridge không lắng nghe).
+
+**Fix** (`render.com/routes/realtime-sse.js`): trong `walletEvents.on('wallet:update', ...)` listener, thêm `notifyClients('web2:customer-wallet', {action:'sepay_credit', phone, amount, sepayId, source, ts}, 'update')`. Khớp với pattern client đang subscribe.
+
+**Pipeline đầy đủ**: SePay/balance-history approve → `processDeposit` → `walletEvents.emit('wallet:update')` → realtime-sse listener → `notifyClients('web2:customer-wallet')` → CF Worker proxy SSE → `Web2SSE.subscribe('web2:customer-wallet')` → customer-wallet `reloadPbh` debounce 800ms → `loadAndRender()` → `pollDeposits()` → fetch `/api/wallet-deposits/load` → `applyDeposits()` match phone → cộng vào ví + notify.
+
+**Files**: `render.com/routes/realtime-sse.js` (+18 LOC additive). Không động client/HTML.
+
+**Status**: ✅ Done — sau deploy Render, mọi credit SePay (auto/manual) tự đẩy event đến mọi tab `customer-wallet` đang mở.
+
 ### [domain][dns] feat: custom domain nhijudy.store trỏ về GitHub Pages qua GoDaddy API
 
 **Goal**: URL chia sẻ ngắn gọn `https://nhijudy.store/` thay vì `https://nhijudyshop.github.io/n2store/`.
