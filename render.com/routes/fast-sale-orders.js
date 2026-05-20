@@ -168,6 +168,16 @@ async function ensureTables(pool) {
             ALTER TABLE fast_sale_orders
                 ADD COLUMN IF NOT EXISTS stock_restored BOOLEAN DEFAULT FALSE;
 
+            -- Migration 078: PBH split index — cho phép 1 native-order tạo nhiều PBH
+            -- (tách đơn). Khi từ-native-order với ?split=true:
+            --   PBH đầu  : split_index = 1
+            --   PBH thứ 2: split_index = 2 (UI hiển thị STT "24-2")
+            -- Định danh group qua source_id (cùng native_order).
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS split_index INTEGER DEFAULT 1;
+            CREATE INDEX IF NOT EXISTS idx_fso_source_split
+                ON fast_sale_orders(source_type, source_id, split_index);
+
             -- Migration 076: Đối soát đóng gói (PBH fulfillment workflow)
             -- State chạy SONG SONG state PBH (state vẫn là kế toán: draft/confirmed/done/cancel).
             -- fulfillment_state vận hành kho: pending|picking|picked|packed|shipped|delivered|cancelled.
@@ -220,6 +230,7 @@ function mapRow(row) {
         number: row.number,
         displayStt: row.display_stt,
         mergedDisplayStt: row.merged_display_stt || null,
+        splitIndex: row.split_index != null ? Number(row.split_index) : 1,
         source: row.source,
         dateInvoice: row.date_invoice,
         dateCreated: row.date_created,
@@ -1001,18 +1012,36 @@ router.post('/from-native-order', async (req, res) => {
             return res.status(404).json({ error: 'Native order not found' });
         const src = srcQ.rows[0];
 
-        // Idempotency: already converted?
-        const exists = await pool.query(
-            `SELECT * FROM fast_sale_orders WHERE source_type = 'native_order' AND source_id = $1 LIMIT 1`,
+        // Idempotency vs split mode:
+        // - Default (b.split !== true): nếu native-order đã có PBH → return existing (idempotent).
+        // - Split mode (b.split === true): cho phép tạo PBH thứ 2, 3... với split_index tăng dần.
+        //   UI hiển thị STT format "24-2", "24-3" để phân biệt.
+        const existsQ = await pool.query(
+            `SELECT *, COUNT(*) OVER() AS sibling_count FROM fast_sale_orders
+             WHERE source_type = 'native_order' AND source_id = $1
+             ORDER BY split_index ASC, date_created ASC`,
             [src.id]
         );
-        if (exists.rows.length > 0) {
-            return res.json({ success: true, order: mapRow(exists.rows[0]), idempotent: true });
+        const existingPbhs = existsQ.rows;
+        const splitMode = b.split === true;
+        if (existingPbhs.length > 0 && !splitMode) {
+            return res.json({
+                success: true,
+                order: mapRow(existingPbhs[0]),
+                idempotent: true,
+                note: 'Đã có PBH. Gửi ?split=true để tạo PBH bổ sung (tách đơn).',
+            });
         }
+        const splitIndex = existingPbhs.length + 1; // 1 = PBH đầu, ≥2 = tách đơn.
 
         const number = await nextNumber(pool);
-        // Map native_orders.products → fast_sale_orders.order_lines (same shape).
-        const lines = (src.products || []).map((p, idx) => ({
+        // Lines: ưu tiên b.orderLines nếu client truyền (tách đơn chỉ subset SP);
+        // fallback toàn bộ products của native-order.
+        const sourceLines =
+            Array.isArray(b.orderLines) && b.orderLines.length > 0
+                ? b.orderLines
+                : src.products || [];
+        const lines = sourceLines.map((p, idx) => ({
             position: idx + 1,
             productId: p.productId || p.product_id || null,
             productCode: p.productCode || p.product_code || p.code || null,
@@ -1064,7 +1093,7 @@ router.post('/from-native-order', async (req, res) => {
                 warehouse_id, warehouse_name, company_id, company_name,
                 crm_team_id, assigned_user_id, assigned_user_name,
                 comment, tags, created_by, created_by_name,
-                customer_id
+                customer_id, split_index
             ) VALUES (
                 $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
                 COALESCE($2::timestamptz, NOW()),
@@ -1079,7 +1108,7 @@ router.post('/from-native-order', async (req, res) => {
                 $30, $31, $32, $33,
                 $34, $35, $36,
                 $37, $38::jsonb, $39, $40,
-                $41
+                $41, $42
             ) RETURNING *`,
             [
                 number,
@@ -1123,6 +1152,7 @@ router.post('/from-native-order', async (req, res) => {
                 b.createdBy || src.created_by,
                 b.createdByName || src.created_by_name,
                 customerId,
+                splitIndex,
             ]
         );
 

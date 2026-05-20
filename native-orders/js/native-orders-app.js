@@ -447,7 +447,11 @@
                             </button>
                             ${
                                 o.status === 'confirmed'
-                                    ? `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
+                                    ? `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH bổ sung (tách đơn — STT ${sttValue}-2, ${sttValue}-3, ...)"
+                                onclick="event.stopPropagation();NativeOrdersApp.splitPbh('${escapeHtml(o.code)}')">
+                                <i data-lucide="copy-plus" style="width:12px;height:12px;"></i>
+                            </button>
+                            <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt-text" style="width:12px;height:12px;"></i>
                             </button>`
@@ -6007,6 +6011,55 @@
         }
     }
 
+    // Tạo PBH bổ sung (tách đơn) — call /from-native-order với split=true.
+    // Backend tự tăng split_index → PBH thứ 2 hiển thị STT '24-2', thứ 3 '24-3'.
+    async function splitPbh(code) {
+        if (!code) return;
+        const src = STATE.orders.find((o) => o.code === code);
+        if (!src) return notify('Không tìm thấy đơn ' + code, 'error');
+        if (src.status !== 'confirmed') {
+            return notify(
+                `Đơn ${code} chưa confirmed — bấm "Tạo PBH" thường thay vì split`,
+                'warning'
+            );
+        }
+        const ok = await w2pConfirm(
+            `Tách đơn ${code} (STT ${src.displayStt})?\n\n` +
+                `→ Tạo PBH thứ 2 với CÙNG sản phẩm + KH (clone đơn gốc).\n` +
+                `→ PBH mới có STT '${src.displayStt}-2' (hoặc -3, -4 nếu tách thêm).\n` +
+                `→ Stock sẽ trừ thêm 1 lần (validate over-sell — fail nếu thiếu kho).`,
+            { confirmText: 'Tách đơn', cancelText: 'Hủy' }
+        );
+        if (!ok) return;
+        try {
+            const url = `${window.NativeOrdersApi._getBaseUrl().replace('/native-orders', '')}/fast-sale-orders/from-native-order`;
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nativeOrderCode: code, split: true }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) {
+                if (data?.error === 'over_sell') {
+                    const viol = (data.violations || [])
+                        .map((v) => `${v.code}: cần ${v.requested}, kho ${v.available}`)
+                        .join('\n');
+                    throw new Error(`Tách đơn thất bại — over-sell:\n${viol}`);
+                }
+                throw new Error(data.error || `HTTP ${r.status}`);
+            }
+            const splitIdx = data.order?.splitIndex || '?';
+            notify(
+                `✓ Tách đơn xong: PBH ${data.order?.number} (STT ${src.displayStt}-${splitIdx})`,
+                'success'
+            );
+            await load();
+        } catch (e) {
+            console.error('[splitPbh]', e);
+            notify(`Tách đơn thất bại: ${e.message}`, 'error');
+        }
+    }
+
     // Huỷ đơn web — status='cancelled'. Tự sync sang PBH (cancel + restock
     // nếu PBH active). Khác cancelPbh: cancelPbh chỉ hủy PBH, giữ đơn web
     // draft để tạo lại. cancelOrder hủy NGUYÊN ĐƠN luôn — không tạo lại.
@@ -6068,6 +6121,7 @@
         cancelPbh,
         confirmDraft,
         cancelOrder,
+        splitPbh,
         bulkCreatePbh,
         unselectAllOrders,
         copyCode,

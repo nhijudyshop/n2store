@@ -187,7 +187,9 @@
                                   .filter(Number.isFinite)
                                   .sort((a, b) => a - b)
                                   .join(' + ')
-                            : (o.displayStt ?? '')
+                            : o.splitIndex && o.splitIndex > 1
+                              ? `${o.displayStt}-${o.splitIndex}`
+                              : (o.displayStt ?? '')
                     }</strong></td>
                     <td class="tpos-cell-center"><strong>${escapeHtml(o.number)}</strong></td>
                     <td>${escapeHtml(p.name || '—')}</td>
