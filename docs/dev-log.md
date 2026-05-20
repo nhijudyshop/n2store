@@ -25,6 +25,25 @@
 
 ## 2026-05-20
 
+### [domain][dns] feat: custom domain nhijudy.store trỏ về GitHub Pages qua GoDaddy API
+
+**Goal**: URL chia sẻ ngắn gọn `https://nhijudy.store/` thay vì `https://nhijudyshop.github.io/n2store/`.
+
+**Changes**:
+
+- `CNAME` (root repo) — tạo file chứa `nhijudy.store` để GitHub Pages auto-detect custom domain.
+- `scripts/godaddy-setup-dns.js` — Node script gọi GoDaddy Developer API (`PUT /v1/domains/{domain}/records/{type}/{name}`) set 4 A `@` (185.199.108-111.153) + 4 AAAA `@` (2606:50c0:8000-8003::153) + CNAME `www` → `nhijudyshop.github.io`. Đọc `GODADDY_API_KEY`+`SECRET` từ `serect_dont_push.txt`.
+- `index.html` — update `og:url`, `og:image`, `twitter:image` sang `https://nhijudy.store/...`.
+
+**Run**: `node scripts/godaddy-setup-dns.js nhijudy.store` → 9 records written OK.
+
+**Verify**: `dig nhijudy.store +short` tới khi thấy 4 IP `185.199.10x.153` (đang đợi propagate, hiện vẫn cache cũ `76.223.105.230 / 13.248.243.5`). Sau đó vào GitHub repo Settings → Pages → confirm custom domain auto-fill → đợi SSL cert → Enforce HTTPS → re-scrape FB Debugger.
+
+**Files**: `CNAME`, `scripts/godaddy-setup-dns.js`, `index.html`
+**Status**: ✅ Done (API records written, chờ DNS propagation)
+
+---
+
 ### [delivery-report] Hoạt động gần đây — label ticket credit chi tiết + số dư ví sau giao dịch
 
 **User feedback** (page Thống Kê Giao Hàng → popover/modal "Hoạt động gần đây" của khách):
