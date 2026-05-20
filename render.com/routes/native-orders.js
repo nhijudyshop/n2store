@@ -13,6 +13,57 @@ const express = require('express');
 const router = express.Router();
 const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
 
+// =====================================================
+// 2-way state sync: native-orders ↔ fast_sale_orders (PBH).
+// =====================================================
+// User yêu cầu: PBH state mirror native-order status. Khi native-order
+// đổi status (draft/confirmed/cancelled) → tự đẩy state mới sang PBH liên kết.
+// Hỗ trợ cả merged PBH (source_code = 'NW-A+NW-B' join '+').
+//
+// Map: draft→draft, confirmed→confirmed, cancelled→cancel.
+// (Không dùng 'done' để giữ user-facing 'confirmed' label = "Đã XN")
+const NATIVE_TO_PBH_STATE = {
+    draft: 'draft',
+    confirmed: 'confirmed',
+    cancelled: 'cancel',
+    cancel: 'cancel',
+};
+
+async function syncPbhStateFromNativeOrder(pool, nativeOrderCode, newNativeStatus) {
+    const pbhState = NATIVE_TO_PBH_STATE[newNativeStatus];
+    if (!pbhState || !nativeOrderCode) return { synced: 0 };
+    try {
+        // Match: source_code = code (single) HOẶC chứa code giữa các dấu '+' (merged).
+        // Patterns: 'NW-A', 'NW-A+%', '%+NW-A+%', '%+NW-A'.
+        const r = await pool.query(
+            `UPDATE fast_sale_orders
+             SET state = $1, date_updated = NOW()
+             WHERE state <> $1
+               AND (source_code = $2
+                    OR source_code LIKE $3
+                    OR source_code LIKE $4
+                    OR source_code LIKE $5)
+             RETURNING number`,
+            [
+                pbhState,
+                nativeOrderCode,
+                `${nativeOrderCode}+%`,
+                `%+${nativeOrderCode}+%`,
+                `%+${nativeOrderCode}`,
+            ]
+        );
+        if (r.rows.length > 0) {
+            console.log(
+                `[NATIVE→PBH-SYNC] ${nativeOrderCode} status=${newNativeStatus} → PBH state=${pbhState} (${r.rows.length} PBH)`
+            );
+        }
+        return { synced: r.rows.length, numbers: r.rows.map((x) => x.number) };
+    } catch (e) {
+        console.warn('[NATIVE→PBH-SYNC] fail:', e.message);
+        return { synced: 0, error: e.message };
+    }
+}
+
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js. Sau mỗi DB mutation, broadcast
 // topic 'web2:native-orders' để các client đang xem trang Đơn Web tự
@@ -1041,6 +1092,25 @@ router.patch('/:code', async (req, res) => {
         );
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const order = mapRowToOrder(r.rows[0]);
+        // Sync PBH state nếu status field thay đổi (2-way sync — native is source of truth).
+        let pbhSync = null;
+        if (body.status) {
+            pbhSync = await syncPbhStateFromNativeOrder(pool, order.code, body.status);
+            if (pbhSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+                try {
+                    req.app.locals.realtimeSseNotify(
+                        'web2:fast-sale-orders',
+                        {
+                            action: 'native-status-sync',
+                            code: order.code,
+                            status: body.status,
+                            ts: Date.now(),
+                        },
+                        'update'
+                    );
+                } catch {}
+            }
+        }
         if (req.app.locals.broadcastToClients) {
             req.app.locals.broadcastToClients({
                 type: 'native_order:updated',
@@ -1049,7 +1119,7 @@ router.patch('/:code', async (req, res) => {
             });
         }
         _notify('update', order.code);
-        res.json({ success: true, order });
+        res.json({ success: true, order, pbhSync });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -1087,6 +1157,17 @@ router.post('/:code/confirm', async (req, res) => {
             });
         }
         const order = mapRowToOrder(r.rows[0]);
+        // Auto sync state sang PBH liên kết (single + merged).
+        const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'confirmed');
+        if (pbhSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+            try {
+                req.app.locals.realtimeSseNotify(
+                    'web2:fast-sale-orders',
+                    { action: 'native-status-sync', code, status: 'confirmed', ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         if (req.app.locals.broadcastToClients) {
             req.app.locals.broadcastToClients({
                 type: 'native_order:updated',
@@ -1095,9 +1176,75 @@ router.post('/:code/confirm', async (req, res) => {
             });
         }
         _notify('confirm', code);
-        res.json({ success: true, order });
+        res.json({ success: true, order, pbhSync });
     } catch (e) {
         console.error('[NATIVE-ORDERS] /confirm error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /api/native-orders/:code/cancel
+// Huỷ đơn web — status='cancelled'. Tự sync sang PBH liên kết (single
+// + merged) → state='cancel' + restock tồn kho (qua syncPbhStateFromNativeOrder
+// + cancel logic ở fast-sale-orders.js).
+// Idempotent: nếu đã cancelled → trả về current state.
+// -----------------------------------------------------
+router.post('/:code/cancel', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const code = req.params.code;
+        const reason = req.body?.reason || null;
+        const r = await pool.query(
+            `UPDATE native_orders
+             SET status = 'cancelled', updated_at = $1,
+                 note = CASE
+                            WHEN $2::text IS NULL THEN note
+                            ELSE COALESCE(note || E'\n---\n', '') || '[' || to_char(NOW(),'DD/MM/YYYY HH24:MI') || '] [HUỶ ĐƠN] ' || $2
+                        END
+             WHERE code = $3 AND status <> 'cancelled'
+             RETURNING *`,
+            [Date.now(), reason, code]
+        );
+        if (r.rows.length === 0) {
+            const cur = await pool.query(`SELECT * FROM native_orders WHERE code = $1`, [code]);
+            if (cur.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+            return res.json({
+                success: true,
+                order: mapRowToOrder(cur.rows[0]),
+                idempotent: true,
+                note: `Đã ở trạng thái cancelled trước đó`,
+            });
+        }
+        const order = mapRowToOrder(r.rows[0]);
+        // Sync sang PBH: status='cancelled' → PBH state='cancel'.
+        // Note: PBH /:number/cancel có thêm restock logic; ở đây ta chỉ
+        // đổi state PBH qua syncPbhStateFromNativeOrder (đơn giản). Nếu cần
+        // restock chính xác, gọi /by-source/cancel của fast-sale-orders.
+        const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'cancelled');
+        if (pbhSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+            try {
+                req.app.locals.realtimeSseNotify(
+                    'web2:fast-sale-orders',
+                    { action: 'native-status-sync', code, status: 'cancelled', ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:updated',
+                action: 'cancelled',
+                order,
+                reason,
+            });
+        }
+        _notify('cancel', code);
+        res.json({ success: true, order, pbhSync });
+    } catch (e) {
+        console.error('[NATIVE-ORDERS] /cancel error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });

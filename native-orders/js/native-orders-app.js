@@ -468,6 +468,14 @@
                             </button>`
                                     : '<span class="tpos-action-placeholder"></span>'
                             }
+                            ${
+                                o.status !== 'cancelled'
+                                    ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
+                                onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
+                                <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
+                            </button>`
+                                    : ''
+                            }
                         </div>
                     </td>
                     <td class="col-stt tpos-cell-center"><strong>${sttValue}</strong></td>
@@ -5999,12 +6007,67 @@
         }
     }
 
+    // Huỷ đơn web — status='cancelled'. Tự sync sang PBH (cancel + restock
+    // nếu PBH active). Khác cancelPbh: cancelPbh chỉ hủy PBH, giữ đơn web
+    // draft để tạo lại. cancelOrder hủy NGUYÊN ĐƠN luôn — không tạo lại.
+    async function cancelOrder(code) {
+        if (!code) return;
+        const src = STATE.orders.find((o) => o.code === code);
+        if (!src) return notify('Không tìm thấy đơn ' + code, 'error');
+        if (src.status === 'cancelled') {
+            return notify(`Đơn ${code} đã ở trạng thái cancelled`, 'warning');
+        }
+        const reasonRes = await (window.Popup?.prompt?.(`Lý do huỷ đơn ${code}?`, {
+            defaultValue: '',
+            okText: 'Huỷ đơn',
+            cancelText: 'Quay lại',
+        }) || Promise.resolve(prompt(`Lý do huỷ đơn ${code}:`, '')));
+        if (reasonRes === null || reasonRes === undefined || reasonRes === false) return;
+        const reason = String(reasonRes || '').trim();
+        const ok = await w2pConfirm(
+            `Xác nhận HUỶ ĐƠN ${code}?\n\n${src.status === 'confirmed' ? '⚠️ Đơn đang confirmed có PBH liên kết — PBH sẽ bị cancel + tự trả tồn về kho.' : '→ Status chuyển sang cancelled.'}\n\nHành động không thể undo (phải tạo đơn mới).`,
+            { confirmText: 'Huỷ đơn', cancelText: 'Không' }
+        );
+        if (!ok) return;
+        try {
+            const r = await fetch(
+                `${window.NativeOrdersApi._getBaseUrl()}/${encodeURIComponent(code)}/cancel`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason || null }),
+                }
+            );
+            const data = await r.json();
+            if (!r.ok || !data.success) {
+                throw new Error(data.error || `HTTP ${r.status}`);
+            }
+            const synced = data.pbhSync?.synced || 0;
+            notify(
+                data.idempotent
+                    ? `Đơn ${code} đã cancelled trước đó`
+                    : `✓ Huỷ đơn ${code}${synced ? ` + sync ${synced} PBH` : ''}`,
+                'success'
+            );
+            // SSE sẽ tự reload, nhưng update local cho responsive UX.
+            if (data.order) {
+                const i = STATE.orders.findIndex((o) => o.code === code);
+                if (i >= 0) STATE.orders[i] = data.order;
+                renderOrders();
+            }
+        } catch (e) {
+            console.error('[cancelOrder]', e);
+            notify(`Huỷ đơn thất bại: ${e.message}`, 'error');
+        }
+    }
+
     window.NativeOrdersApp = {
         openEdit,
         quickStatus,
         createPbh,
         cancelPbh,
         confirmDraft,
+        cancelOrder,
         bulkCreatePbh,
         unselectAllOrders,
         copyCode,

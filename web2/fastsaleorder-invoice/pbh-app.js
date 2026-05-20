@@ -172,7 +172,7 @@
                         <div class="tpos-row-actions">
                             <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Chi tiết" onclick="PbhApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
                             ${o.customerId ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;" onclick="PbhApp.openCustomer(${o.customerId})"><i data-lucide="user-circle" style="width:12px;height:12px;"></i></button>` : ''}
-                            ${o.state === 'draft' ? `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Xác nhận" onclick="PbhApp.confirm('${escapeHtml(o.number)}')"><i data-lucide="check" style="width:12px;height:12px;"></i></button>` : ''}
+                            ${/* Nút Xác nhận đã bỏ — PBH state auto sync theo native-orders.status */ ''}
                             ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Hủy" onclick="PbhApp.cancel('${escapeHtml(o.number)}')"><i data-lucide="x-circle" style="width:12px;height:12px;"></i></button>` : ''}
                             <button class="tpos-btn tpos-btn-default tpos-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
                             ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-info tpos-btn-xs" title="Tạo phiếu giao" onclick="PbhApp.createDelivery('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
@@ -679,9 +679,9 @@
             });
         }
         $('#pbhExportCsv').addEventListener('click', exportCsv);
-        $('#pbhBulkConfirm').addEventListener('click', () =>
-            bulkAction('bulk-confirm', 'Xác nhận')
-        );
+        // Bulk-confirm: bỏ — PBH state auto theo native-orders. Hide nút trong DOM nếu tồn tại.
+        const bcBtn = $('#pbhBulkConfirm');
+        if (bcBtn) bcBtn.style.display = 'none';
         $('#pbhBulkCancel').addEventListener('click', () => bulkAction('bulk-cancel', 'Hủy'));
         $('#pbhBulkUnselect').addEventListener('click', unselectAll);
         // Check-all + per-row check delegation

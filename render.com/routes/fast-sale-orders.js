@@ -1273,6 +1273,46 @@ async function _stateChange(pool, number, newState) {
         [newState, number]
     );
 }
+
+// 2-way sync: PBH state change → propagate ngược về native_orders linked.
+// Map: draft→draft, confirmed→confirmed, done→confirmed (PBH 'done' = native 'confirmed' UX),
+//      cancel→cancelled. PBH 'done' shouldn't bump native back to draft, treat as confirmed.
+const PBH_TO_NATIVE_STATUS = {
+    draft: 'draft',
+    confirmed: 'confirmed',
+    done: 'confirmed',
+    cancel: 'cancelled',
+};
+async function syncNativeOrderStatusFromPbh(pool, pbhRow, newState) {
+    const native = PBH_TO_NATIVE_STATUS[newState];
+    if (!native || !pbhRow?.source_code || pbhRow.source_type !== 'native_order') {
+        return { synced: 0 };
+    }
+    // source_code có thể là 'NW-A' hoặc 'NW-A+NW-B+...' khi merged.
+    const codes = String(pbhRow.source_code)
+        .split('+')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    if (codes.length === 0) return { synced: 0 };
+    try {
+        const r = await pool.query(
+            `UPDATE native_orders
+             SET status = $1, updated_at = $2
+             WHERE code = ANY($3::text[]) AND status <> $1
+             RETURNING code`,
+            [native, Date.now(), codes]
+        );
+        if (r.rows.length > 0) {
+            console.log(
+                `[PBH→NATIVE-SYNC] PBH ${pbhRow.number} state=${newState} → native status=${native} (${r.rows.length} đơn web)`
+            );
+        }
+        return { synced: r.rows.length, codes: r.rows.map((x) => x.code) };
+    } catch (e) {
+        console.warn('[PBH→NATIVE-SYNC] fail:', e.message);
+        return { synced: 0, error: e.message };
+    }
+}
 function _wsEmit(req, type, order) {
     if (req.app.locals.broadcastToClients) {
         req.app.locals.broadcastToClients({ type, order });
@@ -1309,9 +1349,28 @@ router.post('/:number/cancel', async (req, res) => {
             }
         }
 
+        // Sync ngược: PBH cancel → native-orders status='cancelled' (cho single + merged).
+        let nativeSync = null;
+        if (wasNotCancelled) {
+            nativeSync = await syncNativeOrderStatusFromPbh(pool, prevRow, 'cancel');
+            if (nativeSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+                try {
+                    req.app.locals.realtimeSseNotify(
+                        'web2:native-orders',
+                        {
+                            action: 'pbh-state-sync',
+                            state: 'cancel',
+                            codes: nativeSync.codes,
+                            ts: Date.now(),
+                        },
+                        'update'
+                    );
+                } catch {}
+            }
+        }
         _wsEmit(req, 'pbh:cancelled', o);
         _notify('cancel', o.number);
-        res.json({ success: true, order: o, restock: restockSummary });
+        res.json({ success: true, order: o, restock: restockSummary, nativeSync });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -1395,9 +1454,25 @@ router.post('/:number/confirm', async (req, res) => {
         const r = await _stateChange(pool, req.params.number, 'done');
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const o = mapRow(r.rows[0]);
+        // Sync ngược: PBH done → native-orders confirmed (cả single + merged)
+        const nativeSync = await syncNativeOrderStatusFromPbh(pool, r.rows[0], 'done');
+        if (nativeSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+            try {
+                req.app.locals.realtimeSseNotify(
+                    'web2:native-orders',
+                    {
+                        action: 'pbh-state-sync',
+                        state: 'done',
+                        codes: nativeSync.codes,
+                        ts: Date.now(),
+                    },
+                    'update'
+                );
+            } catch {}
+        }
         _wsEmit(req, 'pbh:confirmed', o);
         _notify('confirm', o.number);
-        res.json({ success: true, order: o });
+        res.json({ success: true, order: o, nativeSync });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
