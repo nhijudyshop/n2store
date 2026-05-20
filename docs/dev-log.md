@@ -41,6 +41,22 @@
 
 ---
 
+### [web2][render] reconcile + delivery-assignments + native-orders: thêm endpoint giao thất bại, stats chia đơn shipper, confirm đơn web
+
+3 feature gaps từ audit:
+
+1. **POST `/api/reconcile/:number/return-failed`** (`render.com/routes/reconcile.js`): đánh dấu PBH giao thất bại / khách trả về kho. Transition `shipped|delivered → returned`. SET fulfillment_state='returned' + state='cancel' + call `restockOrderLines` (import từ fast-sale-orders — DRY) → trả tồn về web2_products. Idempotent qua `stock_restored`. Audit log action='return-failed' với reason. Thêm 'returned' vào FULFILL_STATES enum.
+
+2. **GET `/api/v2/delivery-assignments/stats`** (`render.com/routes/v2/delivery-assignments.js`): thống kê chia đơn giao hàng. Query `?date=` hoặc `?from=&to=`. Trả về `totals`, `byGroup` (per shipper), `byCarrier`. Mỗi row có: orderCount, amountTotal, codTotal, scannedCount, hiddenCount.
+
+3. **POST `/api/native-orders/:code/confirm`** (`render.com/routes/native-orders.js`): chuyển đơn Web từ draft → confirmed mà KHÔNG cần tạo PBH (fix UX gap "đơn vẫn ở trạng thái nháp"). Idempotent. Emit SSE `web2:native-orders` action='confirmed'.
+
+**Helpers exported**: `restockOrderLines`, `validateStock` từ `fast-sale-orders.js` cross-module.
+
+**Files**: reconcile.js +70, delivery-assignments.js +95, native-orders.js +40, fast-sale-orders.js +3 export.
+
+**Status**: ✅ Backend done. Frontend tiêu thụ các endpoint mới sau (out of scope batch hiện tại). Smoke Web 2.0 vẫn 87/87 clean.
+
 ### [web2][render][CRITICAL] fast-sale-orders: chặn over-sell + trả tồn khi cancel PBH
 
 User audit phát hiện 2 bug data integrity quan trọng:

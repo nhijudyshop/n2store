@@ -416,4 +416,103 @@ router.post('/lookup-batch', async (req, res) => {
     }
 });
 
+// =====================================================
+// GET /stats — thống kê chia đơn giao hàng
+// Query params:
+//   ?date=YYYY-MM-DD          → stats 1 ngày (default: today)
+//   ?from=YYYY-MM-DD&to=YYYY-MM-DD → stats khoảng ngày
+//   ?group_by=group|carrier|both  → granularity (default: group)
+// Returns:
+//   {
+//     range: {from, to},
+//     totals: { orderCount, amountTotal, codTotal, scannedCount, hiddenCount },
+//     byGroup: [{ groupName, orderCount, amountTotal, codTotal, scannedCount, hiddenCount }],
+//     byCarrier: [{ carrierName, orderCount, amountTotal, codTotal }],
+//   }
+// User-facing: trang thống kê chia đơn giao hàng cho mỗi shipper.
+// =====================================================
+router.get('/stats', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, from, to, group_by } = req.query;
+        // Resolve date range
+        const today = todayLocal();
+        const fromDate = (from || date || today).slice(0, 10);
+        const toDate = (to || date || today).slice(0, 10);
+
+        // Totals + breakdown by group
+        const totalsQuery = `
+            SELECT
+                COUNT(*)::int                                                AS order_count,
+                COALESCE(SUM(amount_total), 0)::numeric                      AS amount_total,
+                COALESCE(SUM(cash_on_delivery), 0)::numeric                  AS cod_total,
+                COUNT(*) FILTER (WHERE is_scanned = TRUE)::int               AS scanned_count,
+                COUNT(*) FILTER (WHERE is_hidden = TRUE)::int                AS hidden_count
+            FROM delivery_assignments
+            WHERE assignment_date BETWEEN $1 AND $2
+        `;
+        const groupQuery = `
+            SELECT
+                COALESCE(NULLIF(group_name, ''), '(chưa chia)')              AS group_name,
+                COUNT(*)::int                                                AS order_count,
+                COALESCE(SUM(amount_total), 0)::numeric                      AS amount_total,
+                COALESCE(SUM(cash_on_delivery), 0)::numeric                  AS cod_total,
+                COUNT(*) FILTER (WHERE is_scanned = TRUE)::int               AS scanned_count,
+                COUNT(*) FILTER (WHERE is_hidden = TRUE)::int                AS hidden_count
+            FROM delivery_assignments
+            WHERE assignment_date BETWEEN $1 AND $2
+            GROUP BY COALESCE(NULLIF(group_name, ''), '(chưa chia)')
+            ORDER BY order_count DESC
+        `;
+        const carrierQuery = `
+            SELECT
+                COALESCE(NULLIF(carrier_name, ''), '(không rõ)')             AS carrier_name,
+                COUNT(*)::int                                                AS order_count,
+                COALESCE(SUM(amount_total), 0)::numeric                      AS amount_total,
+                COALESCE(SUM(cash_on_delivery), 0)::numeric                  AS cod_total
+            FROM delivery_assignments
+            WHERE assignment_date BETWEEN $1 AND $2
+            GROUP BY COALESCE(NULLIF(carrier_name, ''), '(không rõ)')
+            ORDER BY order_count DESC
+        `;
+
+        const [totalsR, groupR, carrierR] = await Promise.all([
+            db.query(totalsQuery, [fromDate, toDate]),
+            db.query(groupQuery, [fromDate, toDate]),
+            db.query(carrierQuery, [fromDate, toDate]),
+        ]);
+
+        const fmt = (n) => Number(n) || 0;
+        const totalsRow = totalsR.rows[0] || {};
+        res.json({
+            success: true,
+            range: { from: fromDate, to: toDate },
+            totals: {
+                orderCount: fmt(totalsRow.order_count),
+                amountTotal: fmt(totalsRow.amount_total),
+                codTotal: fmt(totalsRow.cod_total),
+                scannedCount: fmt(totalsRow.scanned_count),
+                hiddenCount: fmt(totalsRow.hidden_count),
+            },
+            byGroup: groupR.rows.map((r) => ({
+                groupName: r.group_name,
+                orderCount: fmt(r.order_count),
+                amountTotal: fmt(r.amount_total),
+                codTotal: fmt(r.cod_total),
+                scannedCount: fmt(r.scanned_count),
+                hiddenCount: fmt(r.hidden_count),
+            })),
+            byCarrier: carrierR.rows.map((r) => ({
+                carrierName: r.carrier_name,
+                orderCount: fmt(r.order_count),
+                amountTotal: fmt(r.amount_total),
+                codTotal: fmt(r.cod_total),
+            })),
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] GET /stats error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;

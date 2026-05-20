@@ -1476,4 +1476,7 @@ router.post('/reset-stt', async (req, res) => {
 });
 
 router.initializeNotifiers = initializeNotifiers;
+// Export restock helper cho cross-module reuse (vd reconcile /return-failed).
+router.restockOrderLines = restockOrderLines;
+router.validateStock = validateStock;
 module.exports = router;

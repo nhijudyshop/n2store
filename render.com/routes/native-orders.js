@@ -1046,6 +1046,53 @@ router.patch('/:code', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /api/native-orders/:code/confirm
+// Mark đơn Web là "confirmed" mà KHÔNG cần tạo PBH (UX: user xem xong đơn,
+// thấy thông tin đúng, đánh dấu đã chốt → status='confirmed'). Còn PBH có thể
+// lập sau khi đóng gói / chuẩn bị giao. Cancel bằng PATCH /:code body
+// {status:'cancelled'} hoặc dùng /by-source/:code/cancel ở fast-sale-orders.
+// -----------------------------------------------------
+router.post('/:code/confirm', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const code = req.params.code;
+        const r = await pool.query(
+            `UPDATE native_orders
+             SET status = 'confirmed', updated_at = $1
+             WHERE code = $2 AND status = 'draft'
+             RETURNING *`,
+            [Date.now(), code]
+        );
+        if (r.rows.length === 0) {
+            // Idempotent: nếu đơn không phải draft → check tồn tại + return current
+            const cur = await pool.query(`SELECT * FROM native_orders WHERE code = $1`, [code]);
+            if (cur.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+            return res.json({
+                success: true,
+                order: mapRowToOrder(cur.rows[0]),
+                idempotent: true,
+                note: `Status hiện tại: ${cur.rows[0].status} (không đổi)`,
+            });
+        }
+        const order = mapRowToOrder(r.rows[0]);
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:updated',
+                action: 'confirmed',
+                order,
+            });
+        }
+        _notify('confirm', code);
+        res.json({ success: true, order });
+    } catch (e) {
+        console.error('[NATIVE-ORDERS] /confirm error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // DELETE /api/native-orders/:code — hard delete
 // -----------------------------------------------------
 router.delete('/:code', async (req, res) => {

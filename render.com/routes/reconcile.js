@@ -87,8 +87,14 @@ const FULFILL_STATES = [
     'packed',
     'shipped',
     'delivered',
+    'returned', // giao thất bại / khách trả về kho → restock + cancel PBH
     'cancelled',
 ];
+
+// Import restock helper từ fast-sale-orders (đã export). DRY: cancel PBH +
+// reconcile return-failed dùng chung 1 logic.
+const fastSaleOrdersRouter = require('./fast-sale-orders');
+const restockOrderLines = fastSaleOrdersRouter.restockOrderLines;
 
 function userFromReq(req) {
     return {
@@ -575,6 +581,83 @@ router.post('/:number/deliver', async (req, res) => {
         const row = await getPbh(pool, number);
         res.json({ success: true, pbh: mapPbh(row) });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /:number/return-failed — giao thất bại / khách trả lại kho
+// Workflow: shipped/delivered → returned. Auto restock + cancel PBH.
+//   - fulfillment_state = 'returned'
+//   - state = 'cancel' (kế toán: PBH bị hủy)
+//   - web2_products.stock += qty (trả tồn về kho) — idempotent qua stock_restored.
+//   - Audit log: action='return-failed', state_before, state_after.
+// Body (optional): { reason?: string }
+// -----------------------------------------------------
+router.post('/:number/return-failed', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const reason = req.body?.reason || null;
+    const user = userFromReq(req);
+    try {
+        await ensureTables(pool);
+        // Load PBH row đầy đủ — cần order_lines + stock_restored cho restock.
+        const r = await pool.query(
+            `SELECT id, number, state, stock_restored, order_lines, fulfillment_state
+             FROM fast_sale_orders WHERE number = $1`,
+            [number]
+        );
+        if (r.rows.length === 0) return res.status(404).json({ error: 'PBH not found' });
+        const row = r.rows[0];
+        const stateBefore = row.fulfillment_state || 'pending';
+        // Cho phép return từ shipped HOẶC delivered (khách nhận rồi trả lại).
+        if (!['shipped', 'delivered'].includes(stateBefore)) {
+            return res.status(400).json({
+                error: `Chỉ có thể đánh dấu trả về sau khi ship/delivered (hiện: ${stateBefore})`,
+            });
+        }
+
+        // Update fulfillment_state + cancel PBH (state='cancel') trong 1 query.
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_state = 'returned',
+                 state = 'cancel',
+                 date_updated = NOW()
+             WHERE number = $1`,
+            [number]
+        );
+
+        // Restock — idempotent qua stock_restored flag.
+        let restockSummary = null;
+        if (typeof restockOrderLines === 'function') {
+            try {
+                restockSummary = await restockOrderLines(pool, row);
+            } catch (e) {
+                console.error('[RECONCILE] return-failed restock fail:', e.message);
+            }
+        }
+
+        await logAction(
+            pool,
+            number,
+            'return-failed',
+            { reason, restocked: restockSummary?.restored || 0 },
+            stateBefore,
+            'returned',
+            user
+        );
+        _notify('return-failed', number);
+
+        const updated = await getPbh(pool, number);
+        res.json({
+            success: true,
+            pbh: mapPbh(updated),
+            restock: restockSummary,
+            cancelled: true,
+        });
+    } catch (e) {
+        console.error('[RECONCILE] return-failed error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
