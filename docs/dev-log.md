@@ -25,6 +25,24 @@
 
 ## 2026-05-20
 
+### [showroom] Refactor theo DESIGN.md prose: palette 4-tier + accent active tab
+
+**Yêu cầu user**: User cập nhật lại DESIGN.md + screen mới trong `stitch_simple_fashion_catalog/`, yêu cầu áp dụng vào showroom (palette, layout, typography, components).
+
+**Files sửa**:
+- `showroom/index.html` — refactor tailwind.config sang palette prose 4-tier (`primary #1A1A1A`, `secondary #5D5F5B`, `tertiary #D9C5B2`, `accent #8C7355`); đổi `surface` sang Cream `#F5F5F0`; thêm `borderRadius DEFAULT 0.25rem` (4px) và `maxWidth.container 1280px`; nav + main wrap `max-w-container mx-auto` với `px-5 md:px-16` (margin 20/64px theo spec).
+- `showroom/showroom.css` — tab active đổi từ `1px solid #000` → **`2px solid #8C7355`** (accent taupe-gold, đúng spec "## Components — Tabs"); thêm ambient hover shadow `0 4px 24px rgba(26,26,26,0.05)` (5% charcoal) theo "## Elevation — Interactions"; border tokens đổi sang `tertiary/40`.
+- `showroom/showroom.js` — không đổi (data + render template giữ nguyên).
+
+**Quyết định khi prose & screen.png mâu thuẫn**:
+- Prose nói "Image Grid: 24px gutters" nhưng screen.png cho thấy ảnh dán sát edge-to-edge → giữ `gap-0` (intent "quiet gallery / album").
+- Prose nói "Product Cards: title/price below image" nhưng screen.png chỉ hiện ảnh → giữ card image-only, title/price chỉ trong overlay zoom.
+- Frontmatter cũ có `primary: #000000` còn prose `#1A1A1A` → theo prose (intent rõ ràng hơn).
+
+**Status**: ✅ DONE — refresh trang để xem. Khi nối API thật, chỉ cần thay `PRODUCTS = [...]` trong `showroom.js`.
+
+---
+
 ### [showroom] Tạo trang showroom đơn giản theo DESIGN.md "Ethos Curated"
 
 **Yêu cầu user**: Tạo trang showroom đơn giản theo design + code mẫu trong `stitch_simple_fashion_catalog/`.

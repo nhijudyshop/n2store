@@ -15,40 +15,50 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
 
-<!-- Tailwind config: tokens từ DESIGN.md (Ethos Curated) -->
+<!-- Tailwind config: tokens từ DESIGN.md "Ethos Curated" (prose section — palette 4-tier) -->
 <script>
   tailwind.config = {
     theme: {
       extend: {
         colors: {
-          surface: '#fbf9f9',
-          'surface-dim': '#dbdad9',
-          'surface-container-lowest': '#ffffff',
-          'surface-container-low': '#f5f3f3',
-          'surface-container': '#efeded',
-          'surface-container-high': '#e9e8e7',
-          'surface-container-highest': '#e4e2e2',
-          'surface-variant': '#e4e2e2',
-          'on-surface': '#1b1c1c',
+          // Palette 4-tier (## Colors — prose)
+          primary:   '#1A1A1A', // Charcoal — typography & high-contrast borders
+          secondary: '#5D5F5B', // Neutral gray — inactive tabs, secondary text
+          tertiary:  '#D9C5B2', // Soft Beige — subtle dividers, card outline
+          accent:    '#8C7355', // Taupe-Gold — active tab, CTA, selection
+
+          // Surfaces (Level 0 = warm Cream background, Level 1 = pure white card)
+          surface:                     '#F5F5F0',
+          'surface-container-lowest':  '#FFFFFF',
+          'surface-container-low':     '#EFEEE9',
+          'surface-container':         '#E9E7E2',
+          'surface-container-high':    '#E4E2DC',
+
+          // Inverse / variants
+          'on-primary':         '#FFFFFF',
+          'on-surface':         '#1A1A1A',
           'on-surface-variant': '#444748',
-          outline: '#747878',
-          'outline-variant': '#c4c7c7',
-          primary: '#000000',
-          'on-primary': '#ffffff',
-          secondary: '#5d5f5b',
-          'on-secondary': '#ffffff'
+          'outline-variant':    '#C4C7C7'
         },
         fontFamily: {
           sans: ['Hanken Grotesk', 'system-ui', 'sans-serif']
         },
         fontSize: {
-          'display-lg': ['48px', { lineHeight: '56px', letterSpacing: '-0.02em', fontWeight: '600' }],
+          'display-lg':        ['48px', { lineHeight: '56px', letterSpacing: '-0.02em', fontWeight: '600' }],
           'display-lg-mobile': ['32px', { lineHeight: '40px', letterSpacing: '-0.01em', fontWeight: '600' }],
-          'headline-md': ['24px', { lineHeight: '32px', fontWeight: '500' }],
-          'body-lg': ['18px', { lineHeight: '28px', fontWeight: '400' }],
-          'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }],
-          'nav-link': ['15px', { lineHeight: '20px', fontWeight: '500' }],
-          'label-caps': ['12px', { lineHeight: '16px', letterSpacing: '0.1em', fontWeight: '700' }]
+          'headline-md':       ['24px', { lineHeight: '32px', fontWeight: '500' }],
+          'body-lg':           ['18px', { lineHeight: '28px', fontWeight: '400' }],
+          'body-md':           ['16px', { lineHeight: '24px', fontWeight: '400' }],
+          'nav-link':          ['15px', { lineHeight: '20px', fontWeight: '500' }],
+          'label-caps':        ['12px', { lineHeight: '16px', letterSpacing: '0.1em', fontWeight: '700' }]
+        },
+        borderRadius: {
+          // Shapes (## Shapes — soft 4px default)
+          DEFAULT: '0.25rem'
+        },
+        maxWidth: {
+          // Layout (## Layout & Spacing — container-max)
+          'container': '1280px'
         }
       }
     }
@@ -59,14 +69,14 @@
 </head>
 <body class="bg-surface text-on-surface antialiased font-sans">
 
-<!-- TopAppBar: brand -->
-<header class="fixed top-0 left-0 w-full z-50 flex justify-center items-center h-24 md:h-32 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30">
+<!-- TopAppBar: brand (## Brand & Style — quiet gallery feel) -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-center items-center h-24 md:h-32 bg-surface/90 backdrop-blur-md border-b border-tertiary/40">
   <div class="text-display-lg-mobile md:text-display-lg tracking-[0.2em] text-primary uppercase">NHIJUDY STORE</div>
 </header>
 
-<!-- Sub-nav: danh mục -->
-<nav class="fixed top-24 md:top-32 left-0 w-full z-40 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/30 flex justify-center">
-  <ul id="category-nav" class="flex overflow-x-auto no-scrollbar justify-start sm:justify-center items-center gap-x-6 py-4 px-4 w-full max-w-[1280px]">
+<!-- Sub-nav: danh mục (## Components — Tabs: 2px bottom border in Accent #8C7355 cho active) -->
+<nav class="fixed top-24 md:top-32 left-0 w-full z-40 bg-surface/95 backdrop-blur-sm border-b border-tertiary/40 flex justify-center">
+  <ul id="category-nav" class="flex overflow-x-auto no-scrollbar justify-start sm:justify-center items-center gap-x-8 py-4 px-5 md:px-16 w-full max-w-container">
     <li><button type="button" data-category="quan" class="nav-link nav-link-active">QUẦN</button></li>
     <li><button type="button" data-category="ao" class="nav-link">ÁO</button></li>
     <li><button type="button" data-category="dam" class="nav-link">ĐẦM</button></li>
@@ -75,8 +85,8 @@
   </ul>
 </nav>
 
-<!-- Lưới sản phẩm: 2 cột mobile, 3 cột desktop, gap-0 để feel 'album' -->
-<main class="pt-[160px] md:pt-[184px] pb-20">
+<!-- Lưới sản phẩm (## Layout — 1280px max container; ## Responsive — mobile 2 cột / desktop 3 cột) -->
+<main class="pt-[160px] md:pt-[184px] pb-20 max-w-container mx-auto">
   <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 gap-0 w-full">
     <!-- product cards inject từ showroom.js -->
   </div>
@@ -86,19 +96,20 @@
   </div>
 </main>
 
-<!-- Overlay xem chi tiết sản phẩm -->
-<div id="zoom-overlay" class="fixed inset-0 z-[100] bg-surface/85 backdrop-blur-md flex flex-col justify-center items-center px-4 pt-10 pb-6">
-  <button type="button" class="absolute top-6 right-6 p-2 rounded-full bg-surface-container-high text-primary hover:bg-surface-variant transition-colors" onclick="closeZoom()" aria-label="Đóng">
+<!-- Overlay zoom chi tiết -->
+<div id="zoom-overlay" class="fixed inset-0 z-[100] bg-surface/90 backdrop-blur-md flex flex-col justify-center items-center px-5 pt-10 pb-6">
+  <button type="button" class="absolute top-6 right-6 p-2 rounded-full bg-surface-container-high text-primary hover:bg-tertiary/50 transition-colors" onclick="closeZoom()" aria-label="Đóng">
     <span class="material-symbols-outlined">close</span>
   </button>
 
-  <div class="w-full max-w-lg aspect-[3/4] relative overflow-hidden shadow-2xl bg-surface-container-low mb-8 rounded">
+  <div class="w-full max-w-lg aspect-[3/4] relative overflow-hidden bg-surface-container-low mb-8 rounded border border-tertiary/60">
     <img id="zoomed-image" alt="" class="w-full h-full object-cover" src="" />
   </div>
 
-  <div class="text-center w-full max-w-lg">
-    <h2 id="zoom-title" class="text-headline-md text-primary mb-2">Sản phẩm</h2>
-    <p id="zoom-price" class="text-body-lg text-secondary mb-6">0đ</p>
+  <!-- Title/price left-aligned theo ## Components — Product Cards -->
+  <div class="w-full max-w-lg">
+    <h2 id="zoom-title" class="text-headline-md text-primary mb-1">Sản phẩm</h2>
+    <p id="zoom-price" class="text-body-lg text-secondary">0đ</p>
   </div>
 </div>
 
