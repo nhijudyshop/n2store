@@ -625,6 +625,9 @@ async function openSaleModalInSocialTab(orderId) {
         initSaleProductSearch();
     }
 
+    // Wire reload button: clear cache + refetch products from TPOS, then re-run current search
+    wireSaleProductReloadButton();
+
     // Auto-fill notes
     autoFillSaleNote();
 
@@ -792,6 +795,52 @@ document.addEventListener('keydown', function (e) {
         if (typeof confirmAndPrintSale === 'function') confirmAndPrintSale();
     }
 });
+
+// =====================================================
+// Reload sản phẩm từ TPOS trong sale modal (Đơn Inbox)
+// Khi user click nút "Tải lại": clear cache productSearchManager,
+// refetch danh sách SP từ TPOS (qua Excel), rồi re-run search hiện tại nếu có query.
+// =====================================================
+function wireSaleProductReloadButton() {
+    const btn = document.getElementById('saleProductReloadBtn');
+    if (!btn || btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+
+    btn.addEventListener('click', async () => {
+        const icon = document.getElementById('saleProductReloadIcon');
+        const searchInput = document.getElementById('saleProductSearch');
+        if (btn.disabled) return;
+
+        btn.disabled = true;
+        if (icon) icon.classList.add('fa-spin');
+
+        try {
+            if (!window.productSearchManager || typeof window.productSearchManager.refresh !== 'function') {
+                throw new Error('productSearchManager không khả dụng');
+            }
+            await window.productSearchManager.refresh();
+
+            if (window.notificationManager) {
+                const count = window.productSearchManager.excelProducts?.length || 0;
+                window.notificationManager.success(`Đã tải lại ${count} sản phẩm từ TPOS`);
+            }
+
+            // Re-run current search nếu có query đang nhập
+            const query = (searchInput?.value || '').trim();
+            if (query.length >= 2 && typeof performSaleProductSearch === 'function') {
+                await performSaleProductSearch(query);
+            }
+        } catch (err) {
+            console.error('[SOCIAL-SALE] Reload products failed:', err);
+            if (window.notificationManager) {
+                window.notificationManager.error(`Tải lại thất bại: ${err.message}`);
+            }
+        } finally {
+            btn.disabled = false;
+            if (icon) icon.classList.remove('fa-spin');
+        }
+    });
+}
 
 // Export for debugging
 window.openSaleModalInSocialTab = openSaleModalInSocialTab;

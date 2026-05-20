@@ -25,6 +25,23 @@
 
 ## 2026-05-20
 
+### [inbox] Sale modal — nút "Tải lại" sản phẩm từ TPOS
+
+**Yêu cầu**: User muốn thêm nút Tải lại bên cạnh ô tìm kiếm "Tìm kiếm [F2]..." trong modal Phiếu bán hàng (Đơn Inbox), giống pattern modal "Chọn sản phẩm từ kho" của `purchase-orders`.
+
+**Files**:
+
+- [`don-inbox/index.html`](../don-inbox/index.html) — thêm `<button id="saleProductReloadBtn">` ngay sau input `#saleProductSearch` (icon `fa-sync-alt` + label "Tải lại", `title="Tải lại danh sách sản phẩm từ TPOS"`).
+- [`don-inbox/js/tab-social-sale.js`](../don-inbox/js/tab-social-sale.js) — thêm `wireSaleProductReloadButton()` được gọi sau `initSaleProductSearch()` trong `openSaleModalInSocialTab`. Handler:
+    1. Disable button + spin icon
+    2. Gọi `window.productSearchManager.refresh()` (clear sessionStorage cache + refetch từ Excel/TPOS)
+    3. Toast "Đã tải lại {N} sản phẩm từ TPOS"
+    4. Nếu input đang có query ≥ 2 ký tự → re-run `performSaleProductSearch(query)` để refresh kết quả
+    5. Restore icon/button trong `finally`
+- Idempotent: dùng `dataset.wired` để tránh attach listener nhiều lần khi mở modal lại.
+
+**Status**: ✅ Done
+
 ### [delivery-report] Note ghi chú giao dịch ticket viết lại 1:1 theo customer-wallet
 
 **Follow-up**: sau khi đổi label badge thành "KHÁCH GỬI", user thấy text ghi chú vẫn là `"Hoàn tiền từ ticket TV-..."` thay vì `"Hoàn Tiền Khách Gửi #..."` như trong ví khách hàng. Yêu cầu rewrite text giống hệt customer-profile.js.
