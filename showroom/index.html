@@ -1,118 +1,265 @@
 <!DOCTYPE html>
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
-<html lang="vi">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>NHIJUDY STORE — Showroom</title>
-
-<!-- Tailwind CDN + plugins (giữ giống code mẫu) -->
+<html lang="vi" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Luxe Album</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-
-<!-- Fonts: Hanken Grotesk theo DESIGN.md + Material Symbols icon -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
-
-<!-- Tailwind config: tokens từ DESIGN.md "Ethos Curated" (prose section — palette 4-tier) -->
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          // Palette 4-tier (## Colors — prose)
-          primary:   '#1A1A1A', // Charcoal — typography & high-contrast borders
-          secondary: '#5D5F5B', // Neutral gray — inactive tabs, secondary text
-          tertiary:  '#D9C5B2', // Soft Beige — subtle dividers, card outline
-          accent:    '#8C7355', // Taupe-Gold — active tab, CTA, selection
-
-          // Surfaces (Level 0 = warm Cream background, Level 1 = pure white card)
-          surface:                     '#F5F5F0',
-          'surface-container-lowest':  '#FFFFFF',
-          'surface-container-low':     '#EFEEE9',
-          'surface-container':         '#E9E7E2',
-          'surface-container-high':    '#E4E2DC',
-
-          // Inverse / variants
-          'on-primary':         '#FFFFFF',
-          'on-surface':         '#1A1A1A',
-          'on-surface-variant': '#444748',
-          'outline-variant':    '#C4C7C7'
-        },
-        fontFamily: {
-          sans: ['Hanken Grotesk', 'system-ui', 'sans-serif']
-        },
-        fontSize: {
-          'display-lg':        ['48px', { lineHeight: '56px', letterSpacing: '-0.02em', fontWeight: '600' }],
-          'display-lg-mobile': ['32px', { lineHeight: '40px', letterSpacing: '-0.01em', fontWeight: '600' }],
-          'headline-md':       ['24px', { lineHeight: '32px', fontWeight: '500' }],
-          'body-lg':           ['18px', { lineHeight: '28px', fontWeight: '400' }],
-          'body-md':           ['16px', { lineHeight: '24px', fontWeight: '400' }],
-          'nav-link':          ['15px', { lineHeight: '20px', fontWeight: '500' }],
-          'label-caps':        ['12px', { lineHeight: '16px', letterSpacing: '0.1em', fontWeight: '700' }]
-        },
-        borderRadius: {
-          // Shapes (## Shapes — soft 4px default)
-          DEFAULT: '0.25rem'
-        },
-        maxWidth: {
-          // Layout (## Layout & Spacing — container-max)
-          'container': '1280px'
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#1b1c1c",
+                        "primary-container": "#1c1b1b",
+                        "on-tertiary-fixed": "#241a0e",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#000000",
+                        "outline-variant": "#c4c7c7",
+                        "surface-tint": "#5f5e5e",
+                        "on-tertiary-fixed-variant": "#524436",
+                        "outline": "#747878",
+                        "on-secondary-container": "#62635f",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#1c1b1b",
+                        "primary-fixed-dim": "#c8c6c5",
+                        "surface-container-high": "#e9e8e7",
+                        "surface-bright": "#fbf9f9",
+                        "tertiary-fixed-dim": "#d7c3b0",
+                        "secondary-container": "#e0e0db",
+                        "tertiary-container": "#241a0e",
+                        "surface-container-low": "#f5f3f3",
+                        "background": "#fbf9f9",
+                        "on-secondary-fixed": "#1a1c19",
+                        "inverse-primary": "#c8c6c5",
+                        "secondary-fixed-dim": "#c6c7c2",
+                        "on-tertiary-container": "#928170",
+                        "surface-dim": "#dbdad9",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-background": "#1b1c1c",
+                        "on-primary-container": "#858383",
+                        "inverse-surface": "#303031",
+                        "surface-variant": "#e4e2e2",
+                        "primary-fixed": "#e5e2e1",
+                        "primary": "#000000",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e4e2e2",
+                        "on-primary-fixed-variant": "#474746",
+                        "surface-container": "#efeded",
+                        "surface": "#fbf9f9",
+                        "secondary-fixed": "#e3e3de",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#f4dfcb",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#5d5f5b",
+                        "on-secondary-fixed-variant": "#454744",
+                        "on-surface-variant": "#444748",
+                        "inverse-on-surface": "#f2f0f0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-desktop": "64px",
+                        "section-gap": "80px",
+                        "container-max": "1280px",
+                        "gutter": "24px",
+                        "margin-mobile": "20px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Hanken Grotesk", "sans-serif"],
+                        "body-lg": ["Hanken Grotesk", "sans-serif"],
+                        "nav-link": ["Hanken Grotesk", "sans-serif"],
+                        "headline-md": ["Hanken Grotesk", "sans-serif"],
+                        "display-lg-mobile": ["Hanken Grotesk", "sans-serif"],
+                        "label-caps": ["Hanken Grotesk", "sans-serif"],
+                        "display-lg": ["Hanken Grotesk", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "nav-link": ["15px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
         }
-      }
-    }
-  };
-</script>
-
-<link rel="stylesheet" href="showroom.css" />
+    </script>
+<style>
+        /* Custom scrollbar for nav */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Image zoom overlay transitions */
+        #zoom-overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #zoom-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #zoomed-image {
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #zoom-overlay.active #zoomed-image {
+            transform: scale(1);
+        }
+    </style>
 </head>
-<body class="bg-surface text-on-surface antialiased font-sans">
-
-<!-- TopAppBar: brand (## Brand & Style — quiet gallery feel) -->
-<header class="fixed top-0 left-0 w-full z-50 flex justify-center items-center h-24 md:h-32 bg-surface/90 backdrop-blur-md border-b border-tertiary/40">
-  <div class="text-display-lg-mobile md:text-display-lg tracking-[0.2em] text-primary uppercase">NHIJUDY STORE</div>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex flex-col justify-center items-center h-32 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 transition-all duration-500">
+<div class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg tracking-[0.2em] text-primary uppercase">NHIJUDY STORE</div>
 </header>
-
-<!-- Sub-nav: danh mục (## Components — Tabs: 2px bottom border in Accent #8C7355 cho active) -->
-<nav class="fixed top-24 md:top-32 left-0 w-full z-40 bg-surface/95 backdrop-blur-sm border-b border-tertiary/40 flex justify-center">
-  <ul id="category-nav" class="flex overflow-x-auto no-scrollbar justify-start sm:justify-center items-center gap-x-8 py-4 px-5 md:px-16 w-full max-w-container">
-    <li><button type="button" data-category="quan" class="nav-link nav-link-active">QUẦN</button></li>
-    <li><button type="button" data-category="ao" class="nav-link">ÁO</button></li>
-    <li><button type="button" data-category="dam" class="nav-link">ĐẦM</button></li>
-    <li><button type="button" data-category="set" class="nav-link">SET</button></li>
-    <li><button type="button" data-category="phu-kien" class="nav-link">PHỤ KIỆN</button></li>
-  </ul>
+<!-- Navigation Sub-header (Mobile Scrollable) -->
+<nav class="fixed top-32 left-0 w-full z-40 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/30 flex justify-center transition-all duration-500">
+<ul class="flex overflow-x-auto no-scrollbar justify-start sm:justify-center items-center gap-x-6 py-4 px-4 w-full">
+<li class="cursor-pointer shrink-0"><span class="font-nav-link text-nav-link text-primary border-b border-primary pb-0.5 block tracking-[0.15em] uppercase whitespace-nowrap">QUẦN</span></li>
+<li class="cursor-pointer shrink-0"><span class="font-nav-link text-nav-link text-secondary hover:text-primary transition-colors duration-300 block tracking-[0.15em] uppercase whitespace-nowrap">ÁO</span></li>
+<li class="cursor-pointer shrink-0"><span class="font-nav-link text-nav-link text-secondary hover:text-primary transition-colors duration-300 block tracking-[0.15em] uppercase whitespace-nowrap">ĐẦM</span></li>
+<li class="cursor-pointer shrink-0"><span class="font-nav-link text-nav-link text-secondary hover:text-primary transition-colors duration-300 block tracking-[0.15em] uppercase whitespace-nowrap">SET</span></li>
+<li class="cursor-pointer shrink-0"><span class="font-nav-link text-nav-link text-secondary hover:text-primary transition-colors duration-300 block tracking-[0.15em] uppercase whitespace-nowrap">PHỤ KIỆN</span></li>
+</ul>
 </nav>
-
-<!-- Lưới sản phẩm (## Layout — 1280px max container; ## Responsive — mobile 2 cột / desktop 3 cột) -->
-<main class="pt-[160px] md:pt-[184px] pb-20 max-w-container mx-auto">
-  <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 gap-0 w-full">
-    <!-- product cards inject từ showroom.js -->
-  </div>
-
-  <div id="empty-state" class="hidden text-center py-24 text-secondary text-body-md">
-    Chưa có sản phẩm trong danh mục này.
-  </div>
-</main>
-
-<!-- Overlay zoom chi tiết -->
-<div id="zoom-overlay" class="fixed inset-0 z-[100] bg-surface/90 backdrop-blur-md flex flex-col justify-center items-center px-5 pt-10 pb-6">
-  <button type="button" class="absolute top-6 right-6 p-2 rounded-full bg-surface-container-high text-primary hover:bg-tertiary/50 transition-colors" onclick="closeZoom()" aria-label="Đóng">
-    <span class="material-symbols-outlined">close</span>
-  </button>
-
-  <div class="w-full max-w-lg aspect-[3/4] relative overflow-hidden bg-surface-container-low mb-8 rounded border border-tertiary/60">
-    <img id="zoomed-image" alt="" class="w-full h-full object-cover" src="" />
-  </div>
-
-  <!-- Title/price left-aligned theo ## Components — Product Cards -->
-  <div class="w-full max-w-lg">
-    <h2 id="zoom-title" class="text-headline-md text-primary mb-1">Sản phẩm</h2>
-    <p id="zoom-price" class="text-body-lg text-secondary">0đ</p>
-  </div>
+<!-- Main Content Canvas -->
+<main class="pt-[184px] pb-section-gap transition-all duration-500">
+<!-- 3-Column Product Grid -->
+<div class="grid grid-cols-3 gap-0 w-full"><!-- Row 1 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')">
+<img alt="Elegant women's fashion photography, a designer skirt and top" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
 </div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')">
+<img alt="Luxury fashion photography of a stylish women's blouse and trousers set" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Sophisticated women's autumn coat fashion" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div>
+<!-- Row 2 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuC0AlT9PwCnDgO4WwWPJyI-iYAcfKbuGbUFZo52gIh0q-SEEJKrvrVFL7Dh0eSipJNAsLGDP_AFOSE0Yqs3oyi7-ty19k2Z6JrvheVnotZTp3reGI066HyJEE54U3kdBYv65fG_8ZcagaDcR6GYQFqIPdsr1ZnramKQ92rYP8lkrqvRAHQZJdDRwp26KEoMKA6SPxFqYGz7i23PAVikiZmnAgOeLW8RU9EE_tlK6InuqWOSyR4mzW4_S5UcACbUNTef9ng4JPYwt_vP', 'TAILORED POWER SUIT', '$520.00')">
+<img alt="Modern professional women's suit, tailored fit" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0AlT9PwCnDgO4WwWPJyI-iYAcfKbuGbUFZo52gIh0q-SEEJKrvrVFL7Dh0eSipJNAsLGDP_AFOSE0Yqs3oyi7-ty19k2Z6JrvheVnotZTp3reGI066HyJEE54U3kdBYv65fG_8ZcagaDcR6GYQFqIPdsr1ZnramKQ92rYP8lkrqvRAHQZJdDRwp26KEoMKA6SPxFqYGz7i23PAVikiZmnAgOeLW8RU9EE_tlK6InuqWOSyR4mzW4_S5UcACbUNTef9ng4JPYwt_vP"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuC5779IdoQCL5TpAn7ijpW_VWbGsgWECPsM45PVrKaWISPM5eSAE8TJZqx9sI1L_EaTTZxKm6p-b3U4BL1v8L0P4DFQMW0c88Qtw-ZBJhRLs-7kYG59YgGzIImmFkjC0mkSwE-mtN-5SFuURMDkrshH5458B23tK4fgHtLyXNiBEkblrV2X00IWgPuzweHPYLRhOLrM8J1syaPOVQiaDGqLcnB8TXTemhlvlSsnwBPiTPKvcpk6KCy1idmJEF1IRq4gvBiXf_Smn7mj', 'COWL NECK SILK DRESS', '$380.00')">
+<img alt="High-end fashion photography of a modern women's silk dress" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5779IdoQCL5TpAn7ijpW_VWbGsgWECPsM45PVrKaWISPM5eSAE8TJZqx9sI1L_EaTTZxKm6p-b3U4BL1v8L0P4DFQMW0c88Qtw-ZBJhRLs-7kYG59YgGzIImmFkjC0mkSwE-mtN-5SFuURMDkrshH5458B23tK4fgHtLyXNiBEkblrV2X00IWgPuzweHPYLRhOLrM8J1syaPOVQiaDGqLcnB8TXTemhlvlSsnwBPiTPKvcpk6KCy1idmJEF1IRq4gvBiXf_Smn7mj"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
+</div>
+<!-- Row 3 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
+</div>
+<!-- Row 4 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
+</div>
+<!-- Row 5 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
+</div>
+<!-- Row 6 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div>
+<!-- Row 7 -->
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div>
+<div class="product-card aspect-square relative overflow-hidden cursor-pointer bg-surface-container-low" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')">
+<img alt="Product Image" class="w-full h-full object-cover transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
+</div></div>
+</main>
+<!-- Footer -->
+<!-- Zoom/Details Overlay -->
+<div class="fixed inset-0 z-[100] bg-surface/80 backdrop-blur-md flex flex-col justify-center items-center px-4 pt-10 pb-6 opacity-0 pointer-events-none transition-opacity duration-300 ease-in-out" id="zoom-overlay">
+<!-- Close Button -->
+<button class="absolute top-6 right-6 p-2 rounded-full bg-surface-container-high text-primary hover:bg-surface-variant transition-colors" onclick="closeZoom()">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+<!-- Enlarged Image Container -->
+<div class="w-full max-w-lg aspect-[3/4] relative overflow-hidden shadow-2xl bg-surface-container-low mb-8 rounded-DEFAULT">
+<img alt="Zoomed Product" class="w-full h-full object-cover" id="zoomed-image" src=""/>
+</div>
+<!-- Product Details (Only visible here) -->
+<div class="text-center w-full max-w-lg">
+<h2 class="font-headline-md text-headline-md text-primary mb-2" id="zoom-title">Sản phẩm cao cấp</h2>
+<p class="font-body-lg text-body-lg text-secondary mb-6" id="zoom-price">750.000đ</p>
+</div>
+</div>
+<script>
+        function openZoom(element, imgSrc, title, price) {
+            document.getElementById('zoomed-image').src = imgSrc;
+            document.getElementById('zoom-title').textContent = title;
+            document.getElementById('zoom-price').textContent = price;
+            
+            const overlay = document.getElementById('zoom-overlay');
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
 
-<script src="showroom.js"></script>
-</body>
-</html>
+        function closeZoom() {
+            const overlay = document.getElementById('zoom-overlay');
+            overlay.classList.remove('active');
+            document.body.style.overflow = ''; // Restore background scrolling
+            
+            // Clear src after transition to prevent flicker on next open
+            setTimeout(() => {
+                document.getElementById('zoomed-image').src = '';
+            }, 300);
+        }
+
+        // Close on clicking outside the image/content area
+        document.getElementById('zoom-overlay').addEventListener('click', function(e) {
+            if(e.target === this) {
+                closeZoom();
+            }
+        });
+    </script>
+</body></html>

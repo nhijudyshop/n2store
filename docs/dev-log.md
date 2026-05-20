@@ -25,6 +25,22 @@
 
 ## 2026-05-20
 
+### [showroom] Reset về 1 file copy y hệt stitch/code.html (user yêu cầu)
+
+**Yêu cầu user**: "xóa hết code đã làm, làm lại từ đầu giống HOÀN TOÀN ảnh và hướng dẫn trong `stitch_simple_fashion_catalog/`".
+
+**Hành động**:
+- ❌ Xóa `showroom/showroom.css` và `showroom/showroom.js`.
+- ♻️ Overwrite `showroom/index.html` = copy y hệt `stitch_simple_fashion_catalog/code.html` (264 dòng), chỉ thêm 1 line `#Note` header bắt buộc theo CLAUDE.md (chiếm chỗ dòng trống cũ).
+
+**Không còn**: tách CSS/JS, palette refactor, tabs filter dynamic, 2-col mobile responsive, data array PRODUCTS, render template, ESC handler thêm, ambient hover shadow. Toàn bộ revert về state code mẫu.
+
+**Bài học (lesson)**: Khi user đưa code mẫu + screen + DESIGN.md → mặc định **copy 1-1**, không tự refactor / cải tiến / Việt hoá kể cả khi prose mâu thuẫn frontmatter. Nếu muốn cải tiến thì **đề xuất diff TRƯỚC khi áp dụng**, không tự ý sửa.
+
+**Status**: ✅ DONE — page hiện y hệt mẫu (3 cột fix, tabs static, USD prices, EN product names trong onclick, gap-0).
+
+---
+
 ### [showroom] Refactor theo DESIGN.md prose: palette 4-tier + accent active tab
 
 **Yêu cầu user**: User cập nhật lại DESIGN.md + screen mới trong `stitch_simple_fashion_catalog/`, yêu cầu áp dụng vào showroom (palette, layout, typography, components).
