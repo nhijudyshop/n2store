@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `delivery-report/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,18 @@
 **Last updated**: 2026-05-20 09:42:25 +07
 **Summary**: feat(delivery-report): hoạt động ví hiển thị label ticket chi tiết + số dư sau giao dịch
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`delivery-report/`)
 
-- `docs/demo/zalo-og-preview-demo.html`
-- `docs/dev-log.md`
+- `delivery-report/css/delivery-report.css`
+- `delivery-report/js/delivery-report.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `delivery-report/`
 
 - `e76d9274` feat(delivery-report): hoạt động ví hiển thị label ticket chi tiết + số dư sau giao dịch _(2026-05-20)_
-- `11601ef1` chore(session): RESUME:20260520-093617-6c2188c _(2026-05-20)_
-- `6c2188ca` auto: session update _(2026-05-20)_
-- `f9b91b88` docs(dev-log): fix sửa Đợt Hàng 404 khi thêm hóa đơn NCC mới + stuck "Đang lưu..." _(2026-05-20)_
-- `e2441966` chore(session): RESUME:20260520-093029-31cafa3 _(2026-05-20)_
+- `3eb00a27` feat(check-confirm): detail permission canMarkOrderChecked + tab Lịch sử kiểm tra _(2026-05-17)_
+- `effb1996` fix(wallet): rút gọn note thanh toán + ghi đúng user nạp ví _(2026-05-16)_
+- `3821b79b` fix(delivery-report): ẩn cặp WITHDRAW+HOÀN trong modal + nút con mắt xem toàn bộ _(2026-05-16)_
+- `00dd1ddf` fix(delivery-report): persist "Đã kiểm tra" qua F5 + thêm modal Lịch sử KT _(2026-05-14)_
 
 ---
 
