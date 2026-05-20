@@ -3401,6 +3401,78 @@
                 return result.trim();
             };
 
+            // Rewrite note cho 3 nhóm tx từ ticket — đồng bộ wording 1:1 với customer-hub
+            // wallet UI (customer-profile.js). Trả về { html, isHtml } — caller render html
+            // trực tiếp (đã escape parts an toàn) thay vì escapeHtml(text) để giữ màu đỏ
+            // cho "Hoàn bởi / Duyệt bởi / Tạo bởi" suffix.
+            // - Khách Gửi: DEPOSIT từ RETURN_GOODS → "Hoàn Tiền Khách Gửi #ORDER (TV-…)"
+            // - Thu Về: VIRTUAL_CREDIT từ RETURN_SHIPPER → "Hoàn Về Cấp Công Nợ Ảo #ORDER"
+            // - Hoàn Hủy Đơn: DEPOSIT + ORDER_CANCEL_REFUND → "Hoàn Tiền Hủy Đơn Công Nợ #ORDER"
+            // Fallback orderCode về tx.reference_id (giống customer-profile.js) — vì
+            // tx kiểu này thường không có NJD trong note, chỉ có TV-… ở reference_id.
+            const rewriteTicketNote = (note, tx) => {
+                if (!note) return { html: '', isHtml: false };
+                const source = tx.source || '';
+                const orderMatch =
+                    note.match(/#?(NJD\/\d{4}\/\d+)/i) ||
+                    String(tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+                const orderCode = orderMatch ? orderMatch[1] : tx.reference_id || '';
+                const tvMatch = note.match(/TV-\d{4}-\d+/i);
+                const tvCode = tvMatch ? tvMatch[0] : '';
+                const createdBy =
+                    tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+
+                const isReturnClient =
+                    tx.type === 'DEPOSIT' &&
+                    (source === 'RETURN_GOODS' ||
+                        /Hoàn tiền từ ticket TV-|RETURN_CLIENT|Công Nợ Ảo Từ Khách Gửi/i.test(
+                            note
+                        ));
+                const isReturnShipper =
+                    tx.type === 'VIRTUAL_CREDIT' &&
+                    (source === 'VIRTUAL_CREDIT_ISSUE' ||
+                        /Công Nợ Ảo Từ Thu Về|RETURN_SHIPPER/i.test(note));
+                const isCancelRefund =
+                    tx.type === 'DEPOSIT' && source === 'ORDER_CANCEL_REFUND';
+
+                if (!isReturnClient && !isReturnShipper && !isCancelRefund) {
+                    return { html: '', isHtml: false };
+                }
+
+                let head = '';
+                let operatorLabel = 'Bởi';
+                if (isReturnClient) {
+                    head = orderCode
+                        ? `Hoàn Tiền Khách Gửi #${orderCode}${tvCode ? ` (${tvCode})` : ''}`
+                        : tvCode
+                          ? `Hoàn Tiền Khách Gửi (${tvCode})`
+                          : 'Hoàn Tiền Khách Gửi';
+                    operatorLabel = 'Hoàn bởi';
+                } else if (isReturnShipper) {
+                    const internalMatch = note.match(
+                        /Công Nợ Ảo Từ Thu Về\s*\([^)]*\)\s*-\s*(.+)$/i
+                    );
+                    const internal = internalMatch ? internalMatch[1].trim() : '';
+                    head = orderCode
+                        ? `Hoàn Về Cấp Công Nợ Ảo #${orderCode}${tvCode ? ` (${tvCode})` : ''}`
+                        : tvCode
+                          ? `Hoàn Về Cấp Công Nợ Ảo (${tvCode})`
+                          : 'Hoàn Về Cấp Công Nợ Ảo';
+                    if (internal) head = `${head} - ${internal}`;
+                    operatorLabel = 'Duyệt bởi';
+                } else {
+                    head = orderCode
+                        ? `Hoàn Tiền Hủy Đơn Công Nợ #${orderCode}`
+                        : 'Hoàn Tiền Hủy Đơn Công Nợ';
+                    operatorLabel = 'Người Hủy';
+                }
+
+                const operatorHtml = createdBy
+                    ? ` - <span style="color:#ef4444;font-weight:700;">${escapeHtml(operatorLabel)} ${escapeHtml(createdBy)}</span>`
+                    : '';
+                return { html: escapeHtml(head) + operatorHtml, isHtml: true };
+            };
+
             // Recent (processed) transactions
             const buildTxRow = (tx) => {
                 const { label, isCredit, amount } = txConfig(tx);
@@ -3408,8 +3480,18 @@
                 const cls = isCredit ? 'credit' : 'debit';
                 const noteRaw = tx.note || '';
                 const noteCleanImg = noteRaw.replace(/\[Ảnh GD:[^\]]+\]/g, '').trim();
-                const note = shortenCodPaymentNote(noteCleanImg);
-                const shortNote = note.length > 90 ? note.slice(0, 90) + '…' : note;
+                const noteShortenedCod = shortenCodPaymentNote(noteCleanImg);
+                const ticketRewrite = rewriteTicketNote(noteShortenedCod, tx);
+                let noteHtml = '';
+                if (ticketRewrite.isHtml) {
+                    noteHtml = ticketRewrite.html;
+                } else {
+                    const txt =
+                        noteShortenedCod.length > 90
+                            ? noteShortenedCod.slice(0, 90) + '…'
+                            : noteShortenedCod;
+                    noteHtml = escapeHtml(txt);
+                }
                 const eye = eyeBtnHtmlForTx(tx);
                 const review = reviewBtnHtmlForTx(tx);
                 const actions = [eye, review].filter(Boolean).join('');
@@ -3423,7 +3505,7 @@
                                   ${balanceHtml}
                                   ${actions ? `<span class="dr-hp-tx-actions" style="display:inline-flex;gap:4px;align-items:center;">${actions}</span>` : ''}
                               </div>
-                              ${shortNote ? `<div class="dr-hp-tx-note">${escapeHtml(shortNote)}</div>` : ''}
+                              ${noteHtml ? `<div class="dr-hp-tx-note">${noteHtml}</div>` : ''}
                           </div>`;
             };
             const buildTxListHtml = (list) =>

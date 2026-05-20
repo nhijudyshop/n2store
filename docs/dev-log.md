@@ -25,6 +25,22 @@
 
 ## 2026-05-20
 
+### [delivery-report] Note ghi chú giao dịch ticket viết lại 1:1 theo customer-wallet
+
+**Follow-up**: sau khi đổi label badge thành "KHÁCH GỬI", user thấy text ghi chú vẫn là `"Hoàn tiền từ ticket TV-..."` thay vì `"Hoàn Tiền Khách Gửi #..."` như trong ví khách hàng. Yêu cầu rewrite text giống hệt customer-profile.js.
+
+**Fix** ([delivery-report/js/delivery-report.js](delivery-report/js/delivery-report.js#L3404)): thêm helper `rewriteTicketNote(note, tx)` port từ customer-profile.js cho 3 case:
+
+- `isReturnClient` (DEPOSIT + RETURN_GOODS) → `"Hoàn Tiền Khách Gửi #ORDER (TV-XXXX)"` + ` - <span red>Hoàn bởi <created_by></span>`. Fallback `orderCode = tx.reference_id` khi note không có `NJD/...` (vì tx này thường chỉ có ticket code).
+- `isReturnShipper` (VIRTUAL_CREDIT + RETURN_SHIPPER) → `"Hoàn Về Cấp Công Nợ Ảo #ORDER - <internal>"` + `Duyệt bởi <name>`.
+- `isCancelRefund` (DEPOSIT + ORDER_CANCEL_REFUND) → `"Hoàn Tiền Hủy Đơn Công Nợ #ORDER"` + `Người Hủy <name>`.
+
+`buildTxRow()` đổi từ `${escapeHtml(shortNote)}` sang `${noteHtml}` — caller phân biệt theo `isHtml` flag để render markup đỏ cho suffix mà vẫn escape phần text gốc.
+
+**Status**: DONE.
+
+---
+
 ### [web2][render] customer-wallet: realtime SSE bridge cho SePay credit (auto duyệt + duyệt tay)
 
 **User request**: khi balance-history nhận chuyển khoản (auto-approve hoặc duyệt tay), ví KH tự cập nhật tiền theo SĐT.
