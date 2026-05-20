@@ -25,6 +25,27 @@
 
 ## 2026-05-20
 
+### [docs][seo] feat: thêm Open Graph meta tags cho index.html (preview đẹp khi share Zalo/Facebook)
+
+**Mục đích**: Khi share link `https://nhijudyshop.github.io/n2store/` lên Zalo/Messenger/FB, hiện card preview với logo + tên shop + mô tả thay vì URL trần. Zalo dùng cùng chuẩn OG như Facebook.
+
+**Changes**:
+
+- `index.html` — title đổi thành "Nhi Judy House — Hệ thống quản lý bán hàng"; thêm `<meta name="description">`, full OG block (`og:type/site_name/title/description/image/url/locale=vi_VN`, image dimensions 1200×630), Twitter Card (`summary_large_image`). Image dùng `https://nhijudyshop.github.io/n2store/index/logo.jpg` (absolute URL bắt buộc cho OG crawler).
+- `docs/demo/zalo-og-preview-demo.html` — mockup giao diện chat Zalo để xem trước card preview render thế nào, kèm so sánh trước/sau.
+
+**Verify**:
+
+- Sau khi GitHub Pages deploy (~2-4 phút), test ở [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) — dán URL → bấm "Scrape Again" để force refresh cache.
+- Gửi link trên Zalo thật. Nếu Zalo cache URL cũ → append `?v=2` để force re-fetch.
+
+**Lưu ý**: Logo hiện tại 600×600 (vuông). Khuyến nghị thay banner 1200×630 (tỷ lệ 1.91:1) để card hiện full-width đẹp hơn — chưa làm vì chưa có ảnh banner.
+
+**Files**: `index.html`, `docs/demo/zalo-og-preview-demo.html`
+**Status**: ✅ Done
+
+---
+
 ### [inventory] fix: sửa Đợt Hàng bị 404 + stuck "Đang lưu..." khi thêm hóa đơn NCC mới
 
 **Bug**: User edit "Đợt Hàng" rồi thêm 1 hóa đơn NCC mới → save bị stuck ở "Đang lưu...", console báo `PUT /api/v2/inventory-tracking/shipments/hd_mpdfvmsk_mvlzct 404 Not found`.
