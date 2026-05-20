@@ -41,6 +41,23 @@
 
 ---
 
+### [web2][render][CRITICAL] fast-sale-orders: chặn over-sell + trả tồn khi cancel PBH
+
+User audit phát hiện 2 bug data integrity quan trọng:
+
+1. **Over-sell**: tạo PBH với qty > stock vẫn được trừ (clamp về 0). Stock âm → mất hàng.
+2. **Cancel không restock**: hủy PBH chỉ đổi state='cancel', không trả tồn về web2_products → stock mất vĩnh viễn.
+
+**Fix** (`render.com/routes/fast-sale-orders.js`):
+
+1. **Migration 077**: thêm `stock_restored BOOLEAN DEFAULT FALSE` vào fast_sale_orders → idempotency flag cho restock.
+2. **`validateStock(pool, lines)`** helper: gộp qty theo productCode (xử lý duplicate trong cùng đơn), so với `web2_products.stock`. Wired vào `POST /` và `POST /from-native-order`. Hỗ trợ `body.force=true` để admin bypass. Vi phạm → HTTP 400 `{error:'over_sell', violations:[{code,requested,available}]}`.
+3. **`restockOrderLines(pool, orderRow)`** helper: + qty cho mỗi line vào web2_products, SET stock_restored=TRUE. Idempotent: skip nếu đã restore. Wired vào `POST /:number/cancel` + `POST /by-source/:nativeOrderCode/cancel` — load lines TRƯỚC khi đổi state.
+
+**Files**: `render.com/routes/fast-sale-orders.js` (+85 LOC additive).
+
+**Status**: ✅ Done — chỉ backend, không động frontend. Sau deploy Render: over-sell bị block 400; cancel PBH tự restock.
+
 ### [web2] realtime: stop retry direct WS + skip direct trong webdriver test → 0 console error
 
 **Bug**: smoke test 142 trang → 1 Web 2.0 page lỗi (`/native-orders/`) với 4× `WebSocket connection to 'wss://pancake.vn/socket/websocket?vsn=2.0.0' failed: 403`. Pancake từ chối handshake vì test env không có session cookies (chỉ JWT) → reconnect loop log 4 lần.

@@ -162,6 +162,12 @@ async function ensureTables(pool) {
             ALTER TABLE fast_sale_orders
                 ADD COLUMN IF NOT EXISTS merged_display_stt JSONB;
 
+            -- Migration 077: Stock restore idempotency
+            -- Mark TRUE sau khi cancel PBH đã trả tồn về cho web2_products → tránh
+            -- restock 2 lần nếu /cancel bị gọi lặp (idempotent retry).
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS stock_restored BOOLEAN DEFAULT FALSE;
+
             -- Migration 076: Đối soát đóng gói (PBH fulfillment workflow)
             -- State chạy SONG SONG state PBH (state vẫn là kế toán: draft/confirmed/done/cancel).
             -- fulfillment_state vận hành kho: pending|picking|picked|packed|shipped|delivered|cancelled.
@@ -304,6 +310,62 @@ async function nextNumber(pool) {
         if (m) seq = parseInt(m[1], 10) + 1;
     }
     return prefix + pad(seq, 4);
+}
+
+// Validate stock TRƯỚC khi tạo PBH (block over-sell).
+// Trả về array violations [{code, requested, available}] — empty = OK.
+// Bỏ qua line có productCode null hoặc qty <= 0 (vd phí ship, item free).
+async function validateStock(pool, lines) {
+    const arr = Array.isArray(lines) ? lines : [];
+    const need = new Map(); // code → totalRequested (gộp duplicate code trong cùng đơn)
+    for (const l of arr) {
+        const code = l.productCode || l.product_code || l.code;
+        const qty = Number(l.quantity || l.qty || 0);
+        if (!code || qty <= 0) continue;
+        need.set(code, (need.get(code) || 0) + qty);
+    }
+    if (need.size === 0) return [];
+    const codes = [...need.keys()];
+    const r = await pool.query(
+        `SELECT code, stock FROM web2_products WHERE code = ANY($1::text[])`,
+        [codes]
+    );
+    const stockMap = new Map(r.rows.map((row) => [row.code, Number(row.stock) || 0]));
+    const violations = [];
+    for (const [code, requested] of need) {
+        const available = stockMap.has(code) ? stockMap.get(code) : 0;
+        if (requested > available) {
+            violations.push({ code, requested, available });
+        }
+    }
+    return violations;
+}
+
+// Restock 1 PBH (đã cancel) → trả tồn về web2_products. Idempotent:
+// chỉ chạy nếu stock_restored=FALSE, sau khi xong SET stock_restored=TRUE.
+// Trả về { restored: number_of_lines, items: [{code, qty}] }.
+async function restockOrderLines(pool, orderRow) {
+    if (!orderRow || orderRow.stock_restored === true) {
+        return { restored: 0, items: [], skipped: 'already_restored' };
+    }
+    const lines = Array.isArray(orderRow.order_lines) ? orderRow.order_lines : [];
+    const now = Date.now();
+    const items = [];
+    for (const line of lines) {
+        const code = line.productCode || line.product_code || line.code;
+        const qty = Number(line.quantity || line.qty || 0);
+        if (!code || qty <= 0) continue;
+        await pool.query(
+            `UPDATE web2_products SET stock = stock + $1, updated_at = $2 WHERE code = $3`,
+            [qty, now, code]
+        );
+        items.push({ code, qty });
+    }
+    await pool.query(
+        `UPDATE fast_sale_orders SET stock_restored = TRUE, date_updated = NOW() WHERE id = $1`,
+        [orderRow.id]
+    );
+    return { restored: items.length, items };
 }
 
 function computeTotals(lines, deposit, deliveryPrice) {
@@ -800,6 +862,19 @@ router.post('/', async (req, res) => {
         }
         const number = await nextNumber(pool);
         const lines = Array.isArray(b.orderLines) ? b.orderLines : [];
+        // Stock guard cho manual create — same logic as from-native-order.
+        if (b.force !== true) {
+            const violations = await validateStock(pool, lines);
+            if (violations.length > 0) {
+                return res.status(400).json({
+                    error: 'over_sell',
+                    message: 'Tạo PBH thất bại: số lượng vượt tồn kho ở 1 hoặc nhiều SP',
+                    violations,
+                });
+            }
+        } else {
+            console.warn(`[FAST-SALE-ORDERS] manual create: stock check BYPASSED (force=true)`);
+        }
         const totals = computeTotals(lines, b.deposit, b.deliveryPrice);
         // Phase 12: link to Customer 360 by phone (no auto-create)
         const customerId = b.partnerPhone
@@ -951,6 +1026,22 @@ router.post('/from-native-order', async (req, res) => {
             imageUrl: p.imageUrl || p.image_url || null,
             note: p.note || null,
         }));
+        // Stock guard: block over-sell. Có thể bypass với `force: true` (vd admin
+        // tạo PBH gấp khi đang chờ nhập hàng) — log để traceable.
+        if (b.force !== true) {
+            const violations = await validateStock(pool, lines);
+            if (violations.length > 0) {
+                return res.status(400).json({
+                    error: 'over_sell',
+                    message: 'Tạo PBH thất bại: số lượng vượt tồn kho ở 1 hoặc nhiều SP',
+                    violations,
+                });
+            }
+        } else {
+            console.warn(
+                `[FAST-SALE-ORDERS] from-native-order: stock check BYPASSED (force=true) nativeOrder=${src.code}`
+            );
+        }
         const totals = computeTotals(lines, b.deposit ?? src.deposit, b.deliveryPrice);
         // Phase 12: inherit customer_id from source NativeOrder; fall back to phone lookup
         let customerId = src.customer_id || null;
@@ -1191,12 +1282,36 @@ router.post('/:number/cancel', async (req, res) => {
     const pool = req.app.locals.chatDb;
     try {
         await ensureTables(pool);
+        // Lấy state cũ + lines TRƯỚC khi đổi state — quyết định có restock không.
+        const prev = await pool.query(
+            `SELECT id, state, stock_restored, order_lines FROM fast_sale_orders WHERE number = $1`,
+            [req.params.number]
+        );
+        if (prev.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const prevRow = prev.rows[0];
+        const wasNotCancelled = prevRow.state !== 'cancel';
+
         const r = await _stateChange(pool, req.params.number, 'cancel');
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const o = mapRow(r.rows[0]);
+
+        // Restock: chỉ chạy nếu PBH lần đầu cancel (tránh restock 2 lần idempotent retry).
+        // restockOrderLines tự skip nếu stock_restored=TRUE → safe khi /cancel gọi lại.
+        let restockSummary = null;
+        if (wasNotCancelled) {
+            try {
+                restockSummary = await restockOrderLines(pool, prevRow);
+                console.log(
+                    `[FAST-SALE-ORDERS] cancel ${o.number} → restocked ${restockSummary.restored} lines`
+                );
+            } catch (e) {
+                console.error('[FAST-SALE-ORDERS] restock fail:', e.message);
+            }
+        }
+
         _wsEmit(req, 'pbh:cancelled', o);
         _notify('cancel', o.number);
-        res.json({ success: true, order: o });
+        res.json({ success: true, order: o, restock: restockSummary });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -1214,7 +1329,7 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
     try {
         await ensureTables(pool);
         const found = await pool.query(
-            `SELECT number FROM fast_sale_orders
+            `SELECT id, number, state, stock_restored, order_lines FROM fast_sale_orders
              WHERE source_code = $1 AND state <> 'cancel'
              ORDER BY date_created DESC LIMIT 1`,
             [code]
@@ -1222,10 +1337,22 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
         if (found.rows.length === 0) {
             return res.status(404).json({ error: 'PBH chưa tồn tại cho đơn web này' });
         }
-        const number = found.rows[0].number;
+        const prevRow = found.rows[0];
+        const number = prevRow.number;
         const r = await _stateChange(pool, number, 'cancel');
         if (r.rows.length === 0) return res.status(404).json({ error: 'PBH biến mất khi cancel' });
         const o = mapRow(r.rows[0]);
+
+        // Restock — query trước WHERE state <> 'cancel' nên chắc chắn cần restock.
+        let restockSummary = null;
+        try {
+            restockSummary = await restockOrderLines(pool, prevRow);
+            console.log(
+                `[FAST-SALE-ORDERS] cancel-by-source ${number} → restocked ${restockSummary.restored} lines`
+            );
+        } catch (e) {
+            console.error('[FAST-SALE-ORDERS] restock fail:', e.message);
+        }
 
         // Revert native_orders.status — chỉ revert nếu đang là 'confirmed'.
         await pool.query(
@@ -1255,7 +1382,7 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
             }
         }
 
-        res.json({ success: true, order: o, nativeOrderCode: code });
+        res.json({ success: true, order: o, nativeOrderCode: code, restock: restockSummary });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] cancel-by-source error:', e.message);
         res.status(500).json({ error: e.message });
