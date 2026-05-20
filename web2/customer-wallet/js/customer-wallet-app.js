@@ -109,6 +109,32 @@
         return result;
     }
 
+    // Merge native-orders (Đơn Web) customers vào agg map — chỉ đảm bảo entry
+    // tồn tại + có tên KH, KHÔNG cộng vào totalPurchased (Đơn Web chưa lập PBH).
+    // Khi user tạo PBH từ native-order, totalPurchased cập nhật ở vòng aggregateCustomers tiếp.
+    function mergeNativeOrdersIntoAgg(agg, nativeOrders) {
+        if (!Array.isArray(nativeOrders)) return agg;
+        for (const row of nativeOrders) {
+            const phone = (row.phone || row.partner_phone || '').trim();
+            if (!phone) continue;
+            const name = (row.customerName || row.customer_name || row.fbUserName || '').trim();
+            if (!agg[phone]) {
+                agg[phone] = {
+                    phone,
+                    name: name || phone,
+                    orders: [],
+                    totalPurchased: 0,
+                    campaigns: {},
+                    fromNativeOrder: true, // flag để debug — không cần persist
+                };
+            } else if (!agg[phone].name || agg[phone].name === phone) {
+                // Có PBH rồi nhưng tên rỗng / fallback phone → lấy tên native-order
+                if (name) agg[phone].name = name;
+            }
+        }
+        return agg;
+    }
+
     function mergeAggregation(wallet, agg) {
         const allPhones = new Set([...Object.keys(wallet.wallets || {}), ...Object.keys(agg)]);
         let mutated = false;
@@ -431,9 +457,15 @@
 
     async function loadAndRender() {
         // Pagination: loop tới khi hết (max 20 pages × 500 = 10k PBH)
-        const list = await window.CustomerWalletStorage.fetchPbhList(20, 500);
+        // Fetch song song PBH + native-orders để giảm latency.
+        const [list, nativeOrders] = await Promise.all([
+            window.CustomerWalletStorage.fetchPbhList(20, 500),
+            window.CustomerWalletStorage.fetchNativeOrders(20, 200).catch(() => []),
+        ]);
         pbhList = list;
         customers = aggregateCustomers(pbhList);
+        // Ensure mỗi KH có Đơn Web cũng có entry trong ví (totalPurchased=0 nếu chưa lập PBH)
+        mergeNativeOrdersIntoAgg(customers, nativeOrders);
         const mutated = mergeAggregation(walletState, customers);
         if (mutated) {
             window.CustomerWalletStorage.save(walletState);
@@ -547,6 +579,7 @@
     let _sseUnsubscribe = null;
     let _sseUnsubscribeFso = null; // PHASE A1: web2:fast-sale-orders
     let _sseUnsubscribeCw = null; // PHASE B2: web2:customer-wallet cross-broadcast
+    let _sseUnsubscribeNo = null; // web2:native-orders → reload để ensure wallet entry
     let _ssePollTimer = null;
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) {
@@ -575,6 +608,10 @@
         );
         _sseUnsubscribeCw = window.Web2SSE.subscribe('web2:customer-wallet', (msg) =>
             reloadPbh(msg, 'wallet cross-broadcast')
+        );
+        // Native-orders (Đơn Web) thay đổi → ensure wallet entry cho KH mới
+        _sseUnsubscribeNo = window.Web2SSE.subscribe('web2:native-orders', (msg) =>
+            reloadPbh(msg, 'native-orders')
         );
         _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
             // Server gửi event 'wallet_update' với data { phone, wallet, transaction }

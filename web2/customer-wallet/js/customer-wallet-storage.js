@@ -256,6 +256,33 @@
         return added;
     }
 
+    // Fetch ALL native-orders (Đơn Web) — paginated. Trả về list (phone, name) để
+    // ví KH tạo entry cho mọi KH có đơn Web (kể cả chưa lập PBH → công nợ = 0).
+    // Render auto-create customer record qua upsertCustomerFromOrder rồi.
+    async function fetchNativeOrders(maxPages = 20, pageSize = 200) {
+        const all = [];
+        for (let page = 1; page <= maxPages; page++) {
+            try {
+                const r = await fetch(
+                    `${WORKER_URL}/api/native-orders/load?limit=${pageSize}&page=${page}`
+                );
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+                let batch = [];
+                if (Array.isArray(data?.orders)) batch = data.orders;
+                else if (Array.isArray(data?.data)) batch = data.data;
+                else if (Array.isArray(data)) batch = data;
+                if (!batch.length) break;
+                all.push(...batch);
+                if (batch.length < pageSize) break;
+            } catch (e) {
+                console.warn(`[CustomerWallet] fetchNativeOrders page ${page} fail:`, e.message);
+                break;
+            }
+        }
+        return all;
+    }
+
     // Fetch ALL PBH from Render with pagination loop. Mỗi page = 500 rows.
     // Stop khi page trả về < pageSize (đã hết) hoặc gặp lỗi.
     async function fetchPbhList(maxPages = 20, pageSize = 500) {
@@ -291,6 +318,7 @@
         recalcBalance,
         addTransaction,
         fetchPbhList,
+        fetchNativeOrders,
         fetchDeposits,
         applyDeposits,
         Sync,
