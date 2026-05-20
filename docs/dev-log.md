@@ -25,6 +25,22 @@
 
 ## 2026-05-20
 
+### [showroom] Sửa viewer: bắt đầu từ ảnh 0.jpg (đại diện), không phải 1.jpg
+
+**Yêu cầu user**: Click ảnh đại diện → viewer hiển thị từ ảnh 0 trở đi (gồm cả ảnh đại diện), không phải bỏ qua 0.jpg.
+
+**Files sửa** (`showroom/index.html`):
+- `ALBUMS`: đổi field `size` (số ảnh con sau 0.jpg) → `total` (tổng ảnh gồm cả 0.jpg). Album 1-5: `total: 5`, album 6: `total: 6`.
+- `openAlbum()`: `currentIndex = 0` (was `1`).
+- `nextImage()`: `(idx + 1) % total` — wrap về 0 sau ảnh cuối.
+- `prevImage()`: `(idx - 1 + total) % total` — wrap về cuối khi ở 0.
+- Counter: `${currentIndex + 1} / ${total}` — vẫn hiển thị 1-based cho user-friendly.
+- Default counter HTML: `1 / 5` (was `1 / 4`).
+
+**Status**: ✅ DONE.
+
+---
+
 ### [showroom] Xóa mock data, thay bằng 6 album thật + viewer prev/next
 
 **Yêu cầu user**:

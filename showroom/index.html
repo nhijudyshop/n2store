@@ -119,7 +119,7 @@
         </button>
 
         <!-- Counter -->
-        <div id="image-counter" class="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary/70 text-on-primary text-sm">1 / 4</div>
+        <div id="image-counter" class="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary/70 text-on-primary text-sm">1 / 5</div>
     </div>
 
     <!-- Album label -->
@@ -129,16 +129,16 @@
 </div>
 
 <script>
-    // Cấu hình 6 album: id, số ảnh con (không tính ảnh đại diện 0.jpg), category cho tab.
+    // Cấu hình 6 album: id, total = tổng số ảnh (gồm cả 0.jpg), category cho tab.
     // Hiện tại tất cả 6 album đều thuộc tab QUẦN.
-    // Album 1-5: có 1.jpg → 4.jpg (4 ảnh). Album 6: có 1.jpg → 5.jpg (5 ảnh).
+    // Album 1-5: 0.jpg → 4.jpg (5 ảnh). Album 6: 0.jpg → 5.jpg (6 ảnh).
     const ALBUMS = [
-        { id: 1, size: 4, category: 'quan' },
-        { id: 2, size: 4, category: 'quan' },
-        { id: 3, size: 4, category: 'quan' },
-        { id: 4, size: 4, category: 'quan' },
-        { id: 5, size: 4, category: 'quan' },
-        { id: 6, size: 5, category: 'quan' }
+        { id: 1, total: 5, category: 'quan' },
+        { id: 2, total: 5, category: 'quan' },
+        { id: 3, total: 5, category: 'quan' },
+        { id: 4, total: 5, category: 'quan' },
+        { id: 5, total: 5, category: 'quan' },
+        { id: 6, total: 6, category: 'quan' }
     ];
 
     // ── Render lưới ảnh đại diện ──
@@ -182,7 +182,7 @@
 
     // ── Viewer state ──
     let currentAlbum = null;
-    let currentIndex = 1; // luôn bắt đầu từ 1.jpg, không phải 0.jpg
+    let currentIndex = 0; // bắt đầu từ ảnh 0.jpg (ảnh đại diện)
 
     const overlay = document.getElementById('zoom-overlay');
     const zoomedImg = document.getElementById('zoomed-image');
@@ -192,7 +192,7 @@
     function openAlbum(albumId) {
         currentAlbum = ALBUMS.find(a => a.id === albumId);
         if (!currentAlbum) return;
-        currentIndex = 1;
+        currentIndex = 0;
         renderImage();
         overlay.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -213,19 +213,19 @@
             zoomedImg.src = newSrc;
             zoomedImg.classList.remove('swapping');
         }, 120);
-        counter.textContent = `${currentIndex} / ${currentAlbum.size}`;
+        counter.textContent = `${currentIndex + 1} / ${currentAlbum.total}`;
         albumLabel.textContent = `Album ${currentAlbum.id}`;
     }
 
     function nextImage() {
         if (!currentAlbum) return;
-        currentIndex = currentIndex < currentAlbum.size ? currentIndex + 1 : 1; // wrap
+        currentIndex = (currentIndex + 1) % currentAlbum.total; // wrap về 0 sau ảnh cuối
         renderImage();
     }
 
     function prevImage() {
         if (!currentAlbum) return;
-        currentIndex = currentIndex > 1 ? currentIndex - 1 : currentAlbum.size; // wrap
+        currentIndex = (currentIndex - 1 + currentAlbum.total) % currentAlbum.total; // wrap về cuối khi ở 0
         renderImage();
     }
 
