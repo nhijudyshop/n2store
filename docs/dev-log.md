@@ -25,6 +25,24 @@
 
 ## 2026-05-20
 
+### [showroom] Viewer navigation order tuỳ chỉnh: 1 → 0 → 2 → 3 → 4 → ...
+
+**Yêu cầu user**: Click ảnh đại diện (0.jpg) → viewer mở ở ảnh 1, next/prev đi theo thứ tự: `1 → 0 → 2 → 3 → 4 → ...` (wrap về 1).
+
+**Lý do thiết kế**: Ảnh 0.jpg là ảnh user vừa nhìn trên grid (đại diện). Mở viewer ở ảnh 1 cho user xem "tiếp theo", còn 0.jpg vẫn xem được qua next/prev nhưng không phải đầu tiên.
+
+**Files sửa** (`showroom/index.html`):
+- Thêm `buildSequence(total)` trả mảng `[1, 0, 2, 3, ..., total-1]`.
+- Đổi state: `currentIndex` (image number) → `currentPos` (position in sequence). State thêm `currentSeq`.
+- `openAlbum`: build sequence + `currentPos = 0`.
+- `renderImage`: lookup `currentSeq[currentPos]` để lấy image number, src `albums/{id}/{imageNum}.jpg`.
+- `nextImage`/`prevImage`: navigate by `currentPos` (modulo wrap).
+- Counter vẫn 1-based theo position: `${currentPos + 1} / ${total}`.
+
+**Status**: ✅ DONE.
+
+---
+
 ### [showroom] Sửa viewer: bắt đầu từ ảnh 0.jpg (đại diện), không phải 1.jpg
 
 **Yêu cầu user**: Click ảnh đại diện → viewer hiển thị từ ảnh 0 trở đi (gồm cả ảnh đại diện), không phải bỏ qua 0.jpg.

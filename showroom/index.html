@@ -181,8 +181,20 @@
     setTab('quan'); // default
 
     // ── Viewer state ──
+    // Thứ tự duyệt ảnh: 1 → 0 → 2 → 3 → 4 → ... → wrap về 1.
+    // Mở từ card → vào ảnh 1 trước (vị trí 0 trong sequence), next sang 0.jpg, rồi 2.jpg, 3.jpg, ...
+    // Lý do: ảnh 0.jpg là đại diện (user vừa nhìn trên grid), ưu tiên cho user xem ảnh "kế tiếp" trước.
+    function buildSequence(total) {
+        // [1, 0, 2, 3, ..., total-1]
+        if (total < 2) return [0];
+        const tail = [];
+        for (let i = 2; i < total; i++) tail.push(i);
+        return [1, 0, ...tail];
+    }
+
     let currentAlbum = null;
-    let currentIndex = 0; // bắt đầu từ ảnh 0.jpg (ảnh đại diện)
+    let currentPos = 0; // vị trí trong sequence (0..total-1)
+    let currentSeq = [];
 
     const overlay = document.getElementById('zoom-overlay');
     const zoomedImg = document.getElementById('zoomed-image');
@@ -192,7 +204,8 @@
     function openAlbum(albumId) {
         currentAlbum = ALBUMS.find(a => a.id === albumId);
         if (!currentAlbum) return;
-        currentIndex = 0;
+        currentSeq = buildSequence(currentAlbum.total);
+        currentPos = 0; // ảnh 1.jpg theo sequence
         renderImage();
         overlay.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -206,26 +219,26 @@
 
     function renderImage() {
         if (!currentAlbum) return;
-        // Fade out → swap → fade in
+        const imageNum = currentSeq[currentPos];
         zoomedImg.classList.add('swapping');
-        const newSrc = `albums/${currentAlbum.id}/${currentIndex}.jpg`;
+        const newSrc = `albums/${currentAlbum.id}/${imageNum}.jpg`;
         setTimeout(() => {
             zoomedImg.src = newSrc;
             zoomedImg.classList.remove('swapping');
         }, 120);
-        counter.textContent = `${currentIndex + 1} / ${currentAlbum.total}`;
+        counter.textContent = `${currentPos + 1} / ${currentAlbum.total}`;
         albumLabel.textContent = `Album ${currentAlbum.id}`;
     }
 
     function nextImage() {
         if (!currentAlbum) return;
-        currentIndex = (currentIndex + 1) % currentAlbum.total; // wrap về 0 sau ảnh cuối
+        currentPos = (currentPos + 1) % currentAlbum.total;
         renderImage();
     }
 
     function prevImage() {
         if (!currentAlbum) return;
-        currentIndex = (currentIndex - 1 + currentAlbum.total) % currentAlbum.total; // wrap về cuối khi ở 0
+        currentPos = (currentPos - 1 + currentAlbum.total) % currentAlbum.total;
         renderImage();
     }
 
