@@ -25,6 +25,26 @@
 
 ## 2026-05-20
 
+### [showroom] Tab QUẦN/ÁO/ĐẦM/SET/PHỤ KIỆN có filter hoạt động thật
+
+**Yêu cầu user**: "bấm chuyển đổi qua lại giữa các tab quần áo đầm set không được kiểm tra lại". Tab gốc của code.html là static (chỉ visual). Cần làm filter thật.
+
+**Files sửa** (`showroom/index.html`):
+1. Mỗi card thêm `data-category="..."` dựa theo product name trong onclick:
+    - CHIC KNIT & SKIRT SET → `set` (6 card)
+    - TAILORED POWER SUIT → `set` (1 card)
+    - SILK BLOUSE & TROUSER → `quan` (6 card)
+    - AUTUMN WOOL COAT → `ao` (7 card)
+    - COWL NECK SILK DRESS → `dam` (1 card)
+    - PHỤ KIỆN → 0 card (empty state)
+2. Tab `<span>` thêm `class="tab-link"` + `data-tab="quan|ao|dam|set|phu-kien"`. Bỏ active classes hardcode ở QUẦN — JS sẽ set theo `setTab()`.
+3. Thêm `<div id="empty-state" class="hidden ...">` sau grid để hiển thị khi tab không có sản phẩm.
+4. Mở rộng `<script>` cuối file: thêm `setTab(category)` toggle `text-primary border-b border-primary` cho tab active, toggle `display:none` cho card không match, show empty-state khi count = 0. Default init `setTab('quan')`.
+
+**Status**: ✅ DONE — verify grep counts (7+6+7+1 = 21 cards, 5 tabs).
+
+---
+
 ### [showroom] Card bo góc + aspect 2:3 + object-contain + gap-1 (theo yêu cầu user)
 
 **Yêu cầu user**: Sửa card theo ảnh tham khảo:
