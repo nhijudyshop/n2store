@@ -1,293 +1,257 @@
 <!DOCTYPE html>
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
-<html lang="vi" style=""><head>
+<html lang="vi">
+<head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>NhiJudy Album</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "on-surface": "#1b1c1c",
-                        "primary-container": "#1c1b1b",
-                        "on-tertiary-fixed": "#241a0e",
-                        "error-container": "#ffdad6",
-                        "tertiary": "#000000",
-                        "outline-variant": "#c4c7c7",
-                        "surface-tint": "#5f5e5e",
-                        "on-tertiary-fixed-variant": "#524436",
-                        "outline": "#747878",
-                        "on-secondary-container": "#62635f",
-                        "on-error-container": "#93000a",
-                        "on-primary-fixed": "#1c1b1b",
-                        "primary-fixed-dim": "#c8c6c5",
-                        "surface-container-high": "#e9e8e7",
-                        "surface-bright": "#fbf9f9",
-                        "tertiary-fixed-dim": "#d7c3b0",
-                        "secondary-container": "#e0e0db",
-                        "tertiary-container": "#241a0e",
-                        "surface-container-low": "#f5f3f3",
-                        "background": "#fbf9f9",
-                        "on-secondary-fixed": "#1a1c19",
-                        "inverse-primary": "#c8c6c5",
-                        "secondary-fixed-dim": "#c6c7c2",
-                        "on-tertiary-container": "#928170",
-                        "surface-dim": "#dbdad9",
-                        "on-secondary": "#ffffff",
-                        "on-error": "#ffffff",
-                        "on-background": "#1b1c1c",
-                        "on-primary-container": "#858383",
-                        "inverse-surface": "#303031",
-                        "surface-variant": "#e4e2e2",
-                        "primary-fixed": "#e5e2e1",
-                        "primary": "#000000",
-                        "on-tertiary": "#ffffff",
-                        "surface-container-highest": "#e4e2e2",
-                        "on-primary-fixed-variant": "#474746",
-                        "surface-container": "#efeded",
-                        "surface": "#fbf9f9",
-                        "secondary-fixed": "#e3e3de",
-                        "error": "#ba1a1a",
-                        "on-primary": "#ffffff",
-                        "tertiary-fixed": "#f4dfcb",
-                        "surface-container-lowest": "#ffffff",
-                        "secondary": "#5d5f5b",
-                        "on-secondary-fixed-variant": "#454744",
-                        "on-surface-variant": "#444748",
-                        "inverse-on-surface": "#f2f0f0"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.125rem",
-                        "lg": "0.25rem",
-                        "xl": "0.5rem",
-                        "full": "0.75rem"
-                    },
-                    "spacing": {
-                        "margin-desktop": "64px",
-                        "section-gap": "80px",
-                        "container-max": "1280px",
-                        "gutter": "24px",
-                        "margin-mobile": "20px",
-                        "base": "8px"
-                    },
-                    "fontFamily": {
-                        "body-md": ["Hanken Grotesk", "sans-serif"],
-                        "body-lg": ["Hanken Grotesk", "sans-serif"],
-                        "nav-link": ["Hanken Grotesk", "sans-serif"],
-                        "headline-md": ["Hanken Grotesk", "sans-serif"],
-                        "display-lg-mobile": ["Hanken Grotesk", "sans-serif"],
-                        "label-caps": ["Hanken Grotesk", "sans-serif"],
-                        "display-lg": ["Hanken Grotesk", "sans-serif"]
-                    },
-                    "fontSize": {
-                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
-                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                        "nav-link": ["15px", { "lineHeight": "20px", "fontWeight": "500" }],
-                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
-                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
-                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700" }],
-                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600" }]
-                    }
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                "colors": {
+                    "on-surface": "#1b1c1c",
+                    "outline-variant": "#c4c7c7",
+                    "surface-container-high": "#e9e8e7",
+                    "surface-container-low": "#f5f3f3",
+                    "background": "#fbf9f9",
+                    "surface-variant": "#e4e2e2",
+                    "primary": "#000000",
+                    "on-primary": "#ffffff",
+                    "surface": "#fbf9f9",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary": "#5d5f5b"
+                },
+                "fontFamily": {
+                    "body-md": ["Hanken Grotesk", "sans-serif"],
+                    "nav-link": ["Hanken Grotesk", "sans-serif"],
+                    "headline-md": ["Hanken Grotesk", "sans-serif"],
+                    "display-lg-mobile": ["Hanken Grotesk", "sans-serif"],
+                    "display-lg": ["Hanken Grotesk", "sans-serif"]
+                },
+                "fontSize": {
+                    "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                    "nav-link": ["15px", { "lineHeight": "20px", "fontWeight": "500" }],
+                    "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                    "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                    "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600" }]
                 }
             }
         }
-    </script>
+    }
+</script>
 <style>
-        /* Custom scrollbar for nav */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        
-        /* Image zoom overlay transitions */
-        #zoom-overlay {
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-        #zoom-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        #zoomed-image {
-            transform: scale(0.9);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        #zoom-overlay.active #zoomed-image {
-            transform: scale(1);
-        }
-    </style>
+    /* Ẩn scrollbar khi nav scroll trên mobile */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Image zoom overlay transitions */
+    #zoom-overlay {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    #zoom-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    #zoomed-image {
+        transform: scale(0.9);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    }
+    #zoom-overlay.active #zoomed-image {
+        transform: scale(1);
+    }
+    #zoomed-image.swapping {
+        opacity: 0;
+    }
+</style>
 </head>
 <body class="bg-surface text-on-surface antialiased">
 <!-- TopAppBar -->
-<header class="fixed top-0 left-0 w-full z-50 flex flex-col justify-center items-center h-32 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 transition-all duration-500">
-<div class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg tracking-[0.2em] text-primary uppercase">NHIJUDY STORE</div>
+<header class="fixed top-0 left-0 w-full z-50 flex flex-col justify-center items-center h-32 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30">
+    <div class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg tracking-[0.2em] text-primary uppercase">NHIJUDY STORE</div>
 </header>
-<!-- Navigation Sub-header (Mobile Scrollable) -->
-<nav class="fixed top-32 left-0 w-full z-40 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/30 flex justify-center transition-all duration-500">
-<ul class="flex overflow-x-auto no-scrollbar justify-start sm:justify-center items-center gap-x-6 py-4 px-4 w-full">
-<li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="quan">QUẦN</span></li>
-<li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="ao">ÁO</span></li>
-<li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="dam">ĐẦM</span></li>
-<li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="set">SET</span></li>
-<li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="phu-kien">PHỤ KIỆN</span></li>
-</ul>
+
+<!-- Tab nav -->
+<nav class="fixed top-32 left-0 w-full z-40 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/30 flex justify-center">
+    <ul class="flex overflow-x-auto justify-start sm:justify-center items-center gap-x-6 py-4 px-4 w-full no-scrollbar">
+        <li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="quan">QUẦN</span></li>
+        <li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="ao">ÁO</span></li>
+        <li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="dam">ĐẦM</span></li>
+        <li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="set">SET</span></li>
+        <li class="cursor-pointer shrink-0"><span class="tab-link font-nav-link text-nav-link block tracking-[0.15em] uppercase whitespace-nowrap pb-0.5" data-tab="phu-kien">PHỤ KIỆN</span></li>
+    </ul>
 </nav>
-<!-- Main Content Canvas -->
-<main class="pt-[184px] pb-section-gap transition-all duration-500">
-<!-- 3-Column Product Grid -->
-<div class="grid grid-cols-3 gap-1 w-full p-1"><!-- Row 1 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')" data-category="set">
-<img alt="Elegant women's fashion photography, a designer skirt and top" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')" data-category="quan">
-<img alt="Luxury fashion photography of a stylish women's blouse and trousers set" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Sophisticated women's autumn coat fashion" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div>
-<!-- Row 2 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuC0AlT9PwCnDgO4WwWPJyI-iYAcfKbuGbUFZo52gIh0q-SEEJKrvrVFL7Dh0eSipJNAsLGDP_AFOSE0Yqs3oyi7-ty19k2Z6JrvheVnotZTp3reGI066HyJEE54U3kdBYv65fG_8ZcagaDcR6GYQFqIPdsr1ZnramKQ92rYP8lkrqvRAHQZJdDRwp26KEoMKA6SPxFqYGz7i23PAVikiZmnAgOeLW8RU9EE_tlK6InuqWOSyR4mzW4_S5UcACbUNTef9ng4JPYwt_vP', 'TAILORED POWER SUIT', '$520.00')" data-category="set">
-<img alt="Modern professional women's suit, tailored fit" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0AlT9PwCnDgO4WwWPJyI-iYAcfKbuGbUFZo52gIh0q-SEEJKrvrVFL7Dh0eSipJNAsLGDP_AFOSE0Yqs3oyi7-ty19k2Z6JrvheVnotZTp3reGI066HyJEE54U3kdBYv65fG_8ZcagaDcR6GYQFqIPdsr1ZnramKQ92rYP8lkrqvRAHQZJdDRwp26KEoMKA6SPxFqYGz7i23PAVikiZmnAgOeLW8RU9EE_tlK6InuqWOSyR4mzW4_S5UcACbUNTef9ng4JPYwt_vP"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuC5779IdoQCL5TpAn7ijpW_VWbGsgWECPsM45PVrKaWISPM5eSAE8TJZqx9sI1L_EaTTZxKm6p-b3U4BL1v8L0P4DFQMW0c88Qtw-ZBJhRLs-7kYG59YgGzIImmFkjC0mkSwE-mtN-5SFuURMDkrshH5458B23tK4fgHtLyXNiBEkblrV2X00IWgPuzweHPYLRhOLrM8J1syaPOVQiaDGqLcnB8TXTemhlvlSsnwBPiTPKvcpk6KCy1idmJEF1IRq4gvBiXf_Smn7mj', 'COWL NECK SILK DRESS', '$380.00')" data-category="dam">
-<img alt="High-end fashion photography of a modern women's silk dress" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5779IdoQCL5TpAn7ijpW_VWbGsgWECPsM45PVrKaWISPM5eSAE8TJZqx9sI1L_EaTTZxKm6p-b3U4BL1v8L0P4DFQMW0c88Qtw-ZBJhRLs-7kYG59YgGzIImmFkjC0mkSwE-mtN-5SFuURMDkrshH5458B23tK4fgHtLyXNiBEkblrV2X00IWgPuzweHPYLRhOLrM8J1syaPOVQiaDGqLcnB8TXTemhlvlSsnwBPiTPKvcpk6KCy1idmJEF1IRq4gvBiXf_Smn7mj"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')" data-category="set">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
-</div>
-<!-- Row 3 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')" data-category="set">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')" data-category="set">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')" data-category="set">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
-</div>
-<!-- Row 4 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE', 'CHIC KNIT &amp; SKIRT SET', '$240.00')" data-category="set">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXCBEvcuAqn8aN0VCoFAKDFkASbLC8E4zDv9Zuma5JAlMHsg0G2KzzceGwPtvW1Z-eFMXoskvGK0A885iUc7kUmQ-KuCg3JyqR4f_fDGSP9fzZspQbttqzcgi-cIAFsYH88UK2BiJigIrMuHZziPXB7TRikLLB0Y_PjKMhpgRDfW6E2FJi0oYNVZKfn-TZ_gJK9YCz9OuHxKt6wp3I_n_gLs2-WPN1P_TnkZT6uzIsv3RyDZUchybd3PhP-sWSGBWMXPiVdebnZyJE"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')" data-category="quan">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')" data-category="quan">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
-</div>
-<!-- Row 5 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')" data-category="quan">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')" data-category="quan">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK', 'SILK BLOUSE &amp; TROUSER', '$310.00')" data-category="quan">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVOtRzpqLY3tSJpVFVXHrfLQu9qfujGXMwl6jLxp7Mipa2GaVqx1VvtrzBZKgAOm0Feull5gdjbJwAQ8udfyAPtT3_hFZ-sAg2KyKjKWc0baIs8HD3CwrvoBWx8J5ADDVruypHG5J2HJKITp9uqphjnazZGl2Mx7Sels1NDKR9uW0mV_atJZSawlBxOORuFjiql2BSNHDXbNiMe4vnX3Fz2EL8MBimj2k2YU3Xs2187Q0mqxG2rW4mmV0QIJhLZni1lIYSzStA4DsK"/>
-</div>
-<!-- Row 6 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div>
-<!-- Row 7 -->
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div>
-<div class="product-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" onclick="openZoom(this, 'https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5', 'AUTUMN WOOL COAT', '$450.00')" data-category="ao">
-<img alt="Product Image" class="w-full h-full object-contain transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyVvi1hYjXzZBOe1PRmCt1hFlzEIeavmfRw-hAX8vzkpmGtteXmZKCKH-jxBXh7W-JNK_47nRPs5wqCEd-oERXGIuGXuqUyrQjk9-tOybig_1PDrzESSgpBXPqFXYkms-B7x6dOVuyzpgm5MZzfJq-jVENqhrwv_lcd0xrGSdY7V7vWmpf4ahd3R8PO84278xq7gtGRxY_4rcNxAMB__HxGQHBECoTsyZ3lM2eloFide5qnTO4ISAh06tI6BbPAcu1tCbTlTZy-oy5"/>
-</div></div>
-<!-- Empty state khi tab không có sản phẩm -->
-<div id="empty-state" class="hidden text-center py-24 px-4 text-secondary text-body-md">Chưa có sản phẩm trong danh mục này.</div>
+
+<!-- Main Content Canvas — 3-Column Album Grid -->
+<main class="pt-[184px] pb-20">
+    <div id="album-grid" class="grid grid-cols-3 gap-1 w-full p-1">
+        <!-- Cards inject via JS for clean handler binding -->
+    </div>
+    <!-- Empty state khi tab không có album -->
+    <div id="empty-state" class="hidden text-center py-24 px-4 text-secondary text-body-md">Chưa có sản phẩm trong danh mục này.</div>
 </main>
-<!-- Footer -->
-<!-- Zoom/Details Overlay -->
-<div class="fixed inset-0 z-[100] bg-surface/80 backdrop-blur-md flex flex-col justify-center items-center px-4 pt-10 pb-6 opacity-0 pointer-events-none transition-opacity duration-300 ease-in-out" id="zoom-overlay">
-<!-- Close Button -->
-<button class="absolute top-6 right-6 p-2 rounded-full bg-surface-container-high text-primary hover:bg-surface-variant transition-colors" onclick="closeZoom()">
-<span class="material-symbols-outlined" data-icon="close">close</span>
-</button>
-<!-- Enlarged Image Container -->
-<div class="w-full max-w-lg aspect-[3/4] relative overflow-hidden shadow-2xl bg-surface-container-low mb-8 rounded-DEFAULT">
-<img alt="Zoomed Product" class="w-full h-full object-cover" id="zoomed-image" src=""/>
+
+<!-- Album Viewer Overlay -->
+<div id="zoom-overlay" class="fixed inset-0 z-[100] bg-surface/90 backdrop-blur-md flex flex-col justify-center items-center px-4 pt-10 pb-6">
+    <!-- Close Button -->
+    <button type="button" class="absolute top-6 right-6 p-2 rounded-full bg-surface-container-high text-primary hover:bg-surface-variant transition-colors z-10" onclick="closeZoom()" aria-label="Đóng">
+        <span class="material-symbols-outlined">close</span>
+    </button>
+
+    <!-- Image container with prev/next arrows -->
+    <div class="relative w-full max-w-lg aspect-[3/4] bg-surface-container-low overflow-hidden rounded-2xl mb-4">
+        <img alt="Ảnh sản phẩm" class="w-full h-full object-contain" id="zoomed-image" src=""/>
+
+        <!-- Prev arrow -->
+        <button type="button" id="prev-btn" class="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-surface-container-high/90 text-primary hover:bg-surface-variant transition-colors" onclick="prevImage()" aria-label="Ảnh trước">
+            <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+
+        <!-- Next arrow -->
+        <button type="button" id="next-btn" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-surface-container-high/90 text-primary hover:bg-surface-variant transition-colors" onclick="nextImage()" aria-label="Ảnh sau">
+            <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+
+        <!-- Counter -->
+        <div id="image-counter" class="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary/70 text-on-primary text-sm">1 / 4</div>
+    </div>
+
+    <!-- Album label -->
+    <div class="text-center w-full max-w-lg">
+        <p class="font-body-md text-body-md text-secondary" id="album-label">Album 1</p>
+    </div>
 </div>
-<!-- Product Details (Only visible here) -->
-<div class="text-center w-full max-w-lg">
-<h2 class="font-headline-md text-headline-md text-primary mb-2" id="zoom-title">Sản phẩm cao cấp</h2>
-<p class="font-body-lg text-body-lg text-secondary mb-6" id="zoom-price">750.000đ</p>
-</div>
-</div>
+
 <script>
-        function openZoom(element, imgSrc, title, price) {
-            document.getElementById('zoomed-image').src = imgSrc;
-            document.getElementById('zoom-title').textContent = title;
-            document.getElementById('zoom-price').textContent = price;
-            
-            const overlay = document.getElementById('zoom-overlay');
-            overlay.classList.add('active');
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        }
+    // Cấu hình 6 album: id, số ảnh con (không tính ảnh đại diện 0.jpg), category cho tab.
+    // Hiện tại tất cả 6 album đều thuộc tab QUẦN.
+    // Album 1-5: có 1.jpg → 4.jpg (4 ảnh). Album 6: có 1.jpg → 5.jpg (5 ảnh).
+    const ALBUMS = [
+        { id: 1, size: 4, category: 'quan' },
+        { id: 2, size: 4, category: 'quan' },
+        { id: 3, size: 4, category: 'quan' },
+        { id: 4, size: 4, category: 'quan' },
+        { id: 5, size: 4, category: 'quan' },
+        { id: 6, size: 5, category: 'quan' }
+    ];
 
-        function closeZoom() {
-            const overlay = document.getElementById('zoom-overlay');
-            overlay.classList.remove('active');
-            document.body.style.overflow = ''; // Restore background scrolling
-            
-            // Clear src after transition to prevent flicker on next open
-            setTimeout(() => {
-                document.getElementById('zoomed-image').src = '';
-            }, 300);
-        }
+    // ── Render lưới ảnh đại diện ──
+    const grid = document.getElementById('album-grid');
+    grid.innerHTML = ALBUMS.map(a => `
+        <div class="album-card aspect-[2/3] relative overflow-hidden cursor-pointer bg-surface-container-low rounded-2xl" data-album="${a.id}" data-category="${a.category}">
+            <img alt="Album ${a.id}" loading="lazy" class="w-full h-full object-contain transition-transform duration-500" src="albums/${a.id}/0.jpg"/>
+        </div>
+    `).join('');
 
-        // Close on clicking outside the image/content area
-        document.getElementById('zoom-overlay').addEventListener('click', function(e) {
-            if(e.target === this) {
-                closeZoom();
-            }
-        });
+    grid.addEventListener('click', (e) => {
+        const card = e.target.closest('.album-card');
+        if (card) openAlbum(parseInt(card.dataset.album, 10));
+    });
 
-        // --- Tab filter: bấm tab → hiển thị card theo data-category ---
-        function setTab(category) {
-            document.querySelectorAll('.tab-link').forEach(el => {
-                const active = el.dataset.tab === category;
-                el.classList.toggle('text-primary', active);
-                el.classList.toggle('border-b', active);
-                el.classList.toggle('border-primary', active);
-                el.classList.toggle('text-secondary', !active);
-                el.classList.toggle('hover:text-primary', !active);
-                el.classList.toggle('transition-colors', !active);
-                el.classList.toggle('duration-300', !active);
-            });
-            let visible = 0;
-            document.querySelectorAll('.product-card').forEach(card => {
-                const match = card.dataset.category === category;
-                card.style.display = match ? '' : 'none';
-                if (match) visible++;
-            });
-            document.getElementById('empty-state').classList.toggle('hidden', visible > 0);
-        }
+    // ── Tab filter ──
+    const emptyState = document.getElementById('empty-state');
+    function setTab(category) {
         document.querySelectorAll('.tab-link').forEach(el => {
-            el.addEventListener('click', () => setTab(el.dataset.tab));
+            const active = el.dataset.tab === category;
+            el.classList.toggle('text-primary', active);
+            el.classList.toggle('border-b', active);
+            el.classList.toggle('border-primary', active);
+            el.classList.toggle('text-secondary', !active);
+            el.classList.toggle('hover:text-primary', !active);
+            el.classList.toggle('transition-colors', !active);
+            el.classList.toggle('duration-300', !active);
         });
-        // Default: tab QUẦN
-        setTab('quan');
-    </script>
-</body></html>
+        let visible = 0;
+        document.querySelectorAll('.album-card').forEach(card => {
+            const match = card.dataset.category === category;
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        emptyState.classList.toggle('hidden', visible > 0);
+    }
+    document.querySelectorAll('.tab-link').forEach(el => {
+        el.addEventListener('click', () => setTab(el.dataset.tab));
+    });
+    setTab('quan'); // default
+
+    // ── Viewer state ──
+    let currentAlbum = null;
+    let currentIndex = 1; // luôn bắt đầu từ 1.jpg, không phải 0.jpg
+
+    const overlay = document.getElementById('zoom-overlay');
+    const zoomedImg = document.getElementById('zoomed-image');
+    const counter = document.getElementById('image-counter');
+    const albumLabel = document.getElementById('album-label');
+
+    function openAlbum(albumId) {
+        currentAlbum = ALBUMS.find(a => a.id === albumId);
+        if (!currentAlbum) return;
+        currentIndex = 1;
+        renderImage();
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeZoom() {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        setTimeout(() => { zoomedImg.src = ''; }, 300);
+    }
+
+    function renderImage() {
+        if (!currentAlbum) return;
+        // Fade out → swap → fade in
+        zoomedImg.classList.add('swapping');
+        const newSrc = `albums/${currentAlbum.id}/${currentIndex}.jpg`;
+        setTimeout(() => {
+            zoomedImg.src = newSrc;
+            zoomedImg.classList.remove('swapping');
+        }, 120);
+        counter.textContent = `${currentIndex} / ${currentAlbum.size}`;
+        albumLabel.textContent = `Album ${currentAlbum.id}`;
+    }
+
+    function nextImage() {
+        if (!currentAlbum) return;
+        currentIndex = currentIndex < currentAlbum.size ? currentIndex + 1 : 1; // wrap
+        renderImage();
+    }
+
+    function prevImage() {
+        if (!currentAlbum) return;
+        currentIndex = currentIndex > 1 ? currentIndex - 1 : currentAlbum.size; // wrap
+        renderImage();
+    }
+
+    // Click ngoài ảnh để đóng
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeZoom();
+    });
+
+    // Bàn phím: ESC đóng, ← →  điều hướng
+    document.addEventListener('keydown', (e) => {
+        if (!overlay.classList.contains('active')) return;
+        if (e.key === 'Escape') closeZoom();
+        else if (e.key === 'ArrowRight') nextImage();
+        else if (e.key === 'ArrowLeft') prevImage();
+    });
+
+    // Vuốt trên mobile (touch swipe) — kéo qua lại để chuyển ảnh
+    let touchStartX = 0;
+    zoomedImg.parentElement.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    zoomedImg.parentElement.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].screenX - touchStartX;
+        if (Math.abs(dx) < 40) return; // threshold
+        if (dx < 0) nextImage(); else prevImage();
+    }, { passive: true });
+</script>
+</body>
+</html>

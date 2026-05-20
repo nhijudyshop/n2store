@@ -25,6 +25,28 @@
 
 ## 2026-05-20
 
+### [showroom] Xóa mock data, thay bằng 6 album thật + viewer prev/next
+
+**Yêu cầu user**:
+1. Xóa toàn bộ ảnh mock từ Google CDN.
+2. Mỗi card grid là 1 album (ảnh `0.jpg` làm đại diện). Click vào → mở viewer hiển thị các ảnh con `1.jpg → N.jpg`, có nút prev/next để lướt qua lại.
+3. User đã đặt sẵn 6 album trong `stitch_simple_fashion_catalog/{1..6}/` — copy vào project.
+4. Cả 6 album đều thuộc tab QUẦN, các tab ÁO/ĐẦM/SET/PHỤ KIỆN sẽ trống.
+
+**Files mới**:
+- `showroom/albums/{1..6}/{0..N}.jpg` — copy từ `stitch_simple_fashion_catalog/` (album 1-5 có 5 ảnh `0..4.jpg`, album 6 có 6 ảnh `0..5.jpg`).
+
+**Files sửa hoàn toàn** (`showroom/index.html`):
+- Bỏ 21 mock card từ code mẫu Google CDN.
+- Grid render dynamic từ `const ALBUMS = [{id, size, category}]` qua `grid.innerHTML = ALBUMS.map(...)`. Mỗi card data-album={id}, data-category="quan".
+- Overlay viewer: thay `text-center` content cũ bằng image container có nút `chevron_left`/`chevron_right` + counter `1 / N` + album label.
+- JS mới: `openAlbum(id)` set state `currentAlbum + currentIndex=1`, `nextImage()`/`prevImage()` wrap-around, `renderImage()` fade swap 120ms. Bàn phím ESC/←/→ điều khiển. Touch swipe trên mobile (threshold 40px).
+- Tab filter vẫn còn: default tab QUẦN, 4 tab khác → empty state "Chưa có sản phẩm trong danh mục này."
+
+**Status**: ✅ DONE — refresh để xem 6 album thật. Test: click album → prev/next/ESC + arrow keys + swipe mobile.
+
+---
+
 ### [showroom] Tab QUẦN/ÁO/ĐẦM/SET/PHỤ KIỆN có filter hoạt động thật
 
 **Yêu cầu user**: "bấm chuyển đổi qua lại giữa các tab quần áo đầm set không được kiểm tra lại". Tab gốc của code.html là static (chỉ visual). Cần làm filter thật.
