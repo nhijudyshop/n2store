@@ -1,0 +1,70 @@
+/*
+ * Showroom — custom styles bổ sung cho Tailwind.
+ * Token màu/typo đã định nghĩa trong tailwind.config ở index.html.
+ * File này chỉ chứa: ẩn scrollbar nav, anim overlay zoom, nav-link active state, hover product card.
+ */
+
+/* Nav: ẩn scrollbar khi overflow-x trên mobile */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Nav link — kế thừa typography & motion theo DESIGN.md (accent state = border đậm) */
+.nav-link {
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #5d5f5b; /* secondary */
+  white-space: nowrap;
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color 0.3s ease, border-color 0.3s ease;
+  cursor: pointer;
+  background: none;
+}
+.nav-link:hover { color: #000; }
+.nav-link-active {
+  color: #000;
+  border-bottom-color: #000;
+}
+
+/* Product card hover: scale ảnh nhẹ + shadow rất mềm (theo DESIGN.md elevation) */
+.product-card img {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.product-card:hover img {
+  transform: scale(1.03);
+}
+
+/* Zoom overlay anim — fade + scale-in image */
+#zoom-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#zoom-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+#zoomed-image {
+  transform: scale(0.92);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#zoom-overlay.active #zoomed-image {
+  transform: scale(1);
+}
+
+/* Reduce motion: tôn trọng prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .product-card img,
+  #zoom-overlay,
+  #zoomed-image,
+  .nav-link {
+    transition: none;
+  }
+  .product-card:hover img {
+    transform: none;
+  }
+}

@@ -25,6 +25,25 @@
 
 ## 2026-05-20
 
+### [showroom] Tạo trang showroom đơn giản theo DESIGN.md "Ethos Curated"
+
+**Yêu cầu user**: Tạo trang showroom đơn giản theo design + code mẫu trong `stitch_simple_fashion_catalog/`.
+
+**Files mới**:
+- `showroom/index.html` — markup, Tailwind config tokens "Ethos Curated" (surface `#fbf9f9`, primary `#000`, Hanken Grotesk, scale `display-lg`/`headline-md`/`nav-link`).
+- `showroom/showroom.css` — ẩn scrollbar nav, hover scale ảnh nhẹ, fade+scale-in overlay zoom, tôn trọng `prefers-reduced-motion`.
+- `showroom/showroom.js` — data demo `PRODUCTS` 5 danh mục (QUẦN/ÁO/ĐẦM/SET/PHỤ KIỆN), render grid theo tab, click ảnh để zoom, ESC/click out để đóng, giá VNĐ (`750.000đ`).
+
+**Khác biệt với code mẫu**:
+- Grid: mobile 2 cột / desktop 3 cột (theo DESIGN.md), không fix 3 cột.
+- Click: event-delegation + `dataset` thay onclick inline (tránh lỗi escape ký tự đặc biệt trong tên SP).
+- Tabs: hoạt động thật (re-render grid theo category), không phải decoration.
+- Bàn phím: ESC đóng overlay.
+
+**Status**: ✅ DONE — page tĩnh, chưa nối API. Khi cần data thật, thay `const PRODUCTS = [...]` bằng fetch `/api/web2-products` và map field `{id, category, name, price, img}`.
+
+---
+
 ### [native-orders][web2] In bill: fix STT merge "26 + 30" + giảm trễ print ~250ms → ~80ms
 
 **Yêu cầu user**: (1) Bấm "In bill" trên đơn gộp (STT 26 + 30) — bill chỉ in STT đơn lẻ thay vì "26 + 30". (2) "In bill xử lý quá lâu" dù bill là template-swap.
