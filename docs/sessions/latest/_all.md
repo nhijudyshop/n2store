@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2afef5f` — feat(web2): SSE realtime cho products + PBH page (không cần F5)
-**Last updated**: 2026-05-21 18:44:15 +07
-**Latest session**: [`RESUME:20260521-184415-2afef5f`](../20260521-184415-2afef5f.md)
-**Summary**: feat(web2): SSE realtime cho products + PBH page (không cần F5)
+**Latest commit**: `65fd9d7` — chore(cache-bust): bump asset version v=20260521b → v=20260521c
+**Last updated**: 2026-05-21 18:54:19 +07
+**Latest session**: [`RESUME:20260521-185419-65fd9d7`](../20260521-185419-65fd9d7.md)
+**Summary**: chore(cache-bust): bump asset version v=20260521b → v=20260521c
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -40,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-21 15:39
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-21 18:32
+- [`native-orders/`](./native-orders.md) — updated 2026-05-21 18:54
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
@@ -69,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-21 18:44
+- [`web2/`](./web2.md) — updated 2026-05-21 18:54
