@@ -19,18 +19,20 @@
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
         <!-- Reuse styles from tab1 -->
-        <link rel="stylesheet" href="../orders-report/css/tab1-orders.css" />
+        <link rel="stylesheet" href="../orders-report/css/tab1-orders.css?v=20260521b" />
         <!-- Custom styles for don-inbox -->
-        <link rel="stylesheet" href="css/don-inbox.css" />
+        <link rel="stylesheet" href="css/don-inbox.css?v=20260521b" />
         <!-- Sale modal styles (shared with tab1) -->
-        <link rel="stylesheet" href="../orders-report/css/tab1-sale-modal.css" />
+        <link rel="stylesheet" href="../orders-report/css/tab1-sale-modal.css?v=20260521b" />
 
         <!-- ES Module: Shared utilities (auth) -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
@@ -38,7 +40,7 @@
         </script>
 
         <!-- Navigation sidebar -->
-        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -47,7 +49,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
     </head>
 
@@ -288,17 +290,15 @@
                             >
                                 <i class="fas fa-trophy inbox-kpi-stat-icon"></i>
                                 <div class="inbox-kpi-stat-body">
-                                    <div
-                                        class="inbox-kpi-stat-label"
-                                        id="inboxKpiStatLabel"
-                                    >KPI tất cả</div>
+                                    <div class="inbox-kpi-stat-label" id="inboxKpiStatLabel">
+                                        KPI tất cả
+                                    </div>
                                     <div class="inbox-kpi-stat-value">
                                         <span id="inboxKpiQty">0</span> món
                                         <span class="inbox-kpi-stat-sep">·</span>
-                                        <span
-                                            class="inbox-kpi-stat-amount"
-                                            id="inboxKpiAmount"
-                                        >0đ</span>
+                                        <span class="inbox-kpi-stat-amount" id="inboxKpiAmount"
+                                            >0đ</span
+                                        >
                                     </div>
                                 </div>
                             </div>
@@ -975,7 +975,16 @@
         <!-- Bulk Remove Tag Modal -->
         <div class="tag-modal" id="bulkRemoveTagModal">
             <div class="tag-modal-content" style="max-width: 520px">
-                <div class="tag-modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #e5e7eb">
+                <div
+                    class="tag-modal-header"
+                    style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 14px 18px;
+                        border-bottom: 1px solid #e5e7eb;
+                    "
+                >
                     <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827">
                         <i class="fas fa-tag" style="color: #dc2626"></i>
                         Gỡ tag khỏi <span id="bulkRemoveTagCount">0</span> đơn đã chọn
@@ -986,18 +995,39 @@
                     <p style="margin: 0 0 12px; color: #6b7280; font-size: 13px">
                         Tick chọn tag muốn gỡ. Danh sách chỉ hiện các tag đang gắn trên đơn đã chọn.
                     </p>
-                    <div class="tag-dropdown-list" id="bulkRemoveTagList" style="max-height: 360px; overflow-y: auto">
+                    <div
+                        class="tag-dropdown-list"
+                        id="bulkRemoveTagList"
+                        style="max-height: 360px; overflow-y: auto"
+                    >
                         <div class="no-tags-message">
                             <i class="fas fa-tags"></i>
                             <p>Chưa có dữ liệu</p>
                         </div>
                     </div>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid #e5e7eb; background: #f9fafb">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: flex-end;
+                        gap: 8px;
+                        padding: 12px 18px;
+                        border-top: 1px solid #e5e7eb;
+                        background: #f9fafb;
+                    "
+                >
                     <button
                         class="btn-secondary"
                         onclick="closeBulkRemoveTagModal()"
-                        style="padding: 8px 16px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; color: #374151; font-weight: 500; cursor: pointer"
+                        style="
+                            padding: 8px 16px;
+                            background: #fff;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            color: #374151;
+                            font-weight: 500;
+                            cursor: pointer;
+                        "
                     >
                         Hủy
                     </button>
@@ -1005,7 +1035,16 @@
                         class="btn-primary"
                         id="bulkRemoveTagConfirmBtn"
                         onclick="confirmBulkRemoveTags()"
-                        style="padding: 8px 16px; background: #dc2626; border: none; border-radius: 6px; color: #fff; font-weight: 500; cursor: pointer; opacity: 0.5"
+                        style="
+                            padding: 8px 16px;
+                            background: #dc2626;
+                            border: none;
+                            border-radius: 6px;
+                            color: #fff;
+                            font-weight: 500;
+                            cursor: pointer;
+                            opacity: 0.5;
+                        "
                         disabled
                     >
                         <i class="fas fa-trash"></i>
@@ -1288,33 +1327,33 @@ HẾT HÀNG</textarea
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Shared Scripts -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/indexed-db-store.js"></script>
-        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/indexed-db-store.js?v=20260521b"></script>
+        <script src="../shared/js/shared-auth-manager.js?v=20260521b"></script>
         <script>
             if (typeof AuthManager !== 'undefined' && !window.authManager)
                 window.authManager = new AuthManager({ redirectUrl: '../index.html' });
         </script>
-        <script src="../shared/js/notification-system.js"></script>
-        <script src="../shared/js/shop-config.js"></script>
-        <script src="../shared/js/pancake-token-manager.js"></script>
-        <script src="../shared/js/token-manager.js"></script>
-        <script src="../shared/js/tpos-customer-lookup.js"></script>
-        <script src="../shared/js/customer-creator.js"></script>
-        <script src="../shared/js/goong-places.js"></script>
+        <script src="../shared/js/notification-system.js?v=20260521b"></script>
+        <script src="../shared/js/shop-config.js?v=20260521b"></script>
+        <script src="../shared/js/pancake-token-manager.js?v=20260521b"></script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
+        <script src="../shared/js/tpos-customer-lookup.js?v=20260521b"></script>
+        <script src="../shared/js/customer-creator.js?v=20260521b"></script>
+        <script src="../shared/js/goong-places.js?v=20260521b"></script>
 
         <!-- XLSX library (required by InventoryPickerDialog for Excel parsing) -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
         <!-- Purchase Orders scripts (for reuse via Borrowed State pattern) -->
-        <script src="../purchase-orders/js/lib/tpos-search.js"></script>
-        <script src="../purchase-orders/js/lib/supplier-detector.js"></script>
-        <script src="../purchase-orders/js/lib/product-code-generator.js"></script>
-        <script src="../purchase-orders/js/lib/tpos-product-creator.js"></script>
-        <script src="../purchase-orders/js/config.js"></script>
-        <script src="../purchase-orders/js/service.js"></script>
-        <script src="../purchase-orders/js/dialogs.js"></script>
-        <script src="../purchase-orders/js/form-modal.js"></script>
+        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/lib/supplier-detector.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/lib/product-code-generator.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/lib/tpos-product-creator.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/config.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/service.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/dialogs.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/form-modal.js?v=20260521b"></script>
         <script>
             // Khởi tạo instance dùng chung — PHẢI chạy trước tab-social-modal.js
             window.purchaseOrderFormModal = new PurchaseOrderFormModal();
@@ -1766,7 +1805,12 @@ HẾT HÀNG</textarea
                                 id="saleProductReloadBtn"
                                 class="sale-btn sale-btn-default"
                                 title="Tải lại danh sách sản phẩm từ TPOS"
-                                style="display: flex; align-items: center; gap: 6px; padding: 6px 12px;"
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                    padding: 6px 12px;
+                                "
                             >
                                 <i class="fas fa-sync-alt" id="saleProductReloadIcon"></i>
                                 Tải lại
@@ -2230,35 +2274,35 @@ HẾT HÀNG</textarea
         <!-- ===== END HISTORY MODAL ===== -->
 
         <!-- Sale Modal Dependencies (shared with Tab1) -->
-        <script src="../orders-report/js/core/api-config.js"></script>
-        <script src="../orders-report/js/core/bill-token-manager.js"></script>
-        <script src="../orders-report/js/core/indexeddb-storage.js"></script>
-        <script src="../orders-report/js/managers/product-search-manager.js"></script>
-        <script src="../orders-report/js/utils/web-warehouse-cache.js"></script>
-        <script src="../orders-report/js/utils/bill-service.js"></script>
-        <script src="../orders-report/js/utils/wallet-integration.js"></script>
-        <script src="../orders-report/js/managers/global-id-harvester.js"></script>
-        <script src="../orders-report/js/managers/pancake-data-manager.js"></script>
-        <script src="../shared/js/pancake-customer-validator.js"></script>
+        <script src="../orders-report/js/core/api-config.js?v=20260521b"></script>
+        <script src="../orders-report/js/core/bill-token-manager.js?v=20260521b"></script>
+        <script src="../orders-report/js/core/indexeddb-storage.js?v=20260521b"></script>
+        <script src="../orders-report/js/managers/product-search-manager.js?v=20260521b"></script>
+        <script src="../orders-report/js/utils/web-warehouse-cache.js?v=20260521b"></script>
+        <script src="../orders-report/js/utils/bill-service.js?v=20260521b"></script>
+        <script src="../orders-report/js/utils/wallet-integration.js?v=20260521b"></script>
+        <script src="../orders-report/js/managers/global-id-harvester.js?v=20260521b"></script>
+        <script src="../orders-report/js/managers/pancake-data-manager.js?v=20260521b"></script>
+        <script src="../shared/js/pancake-customer-validator.js?v=20260521b"></script>
 
         <!-- Tab Social Scripts (local copies) -->
-        <script src="js/tab-social-core.js"></script>
-        <script src="js/tab-social-column-visibility.js"></script>
-        <script src="js/tab-social-table.js"></script>
-        <script src="js/tab-social-modal.js"></script>
-        <script src="js/tab-social-firebase.js"></script>
-        <script src="js/tab-social-history.js"></script>
-        <script src="js/tab-social-tags.js"></script>
-        <script src="js/tab-social-panel.js"></script>
+        <script src="js/tab-social-core.js?v=20260521b"></script>
+        <script src="js/tab-social-column-visibility.js?v=20260521b"></script>
+        <script src="js/tab-social-table.js?v=20260521b"></script>
+        <script src="js/tab-social-modal.js?v=20260521b"></script>
+        <script src="js/tab-social-firebase.js?v=20260521b"></script>
+        <script src="js/tab-social-history.js?v=20260521b"></script>
+        <script src="js/tab-social-tags.js?v=20260521b"></script>
+        <script src="js/tab-social-panel.js?v=20260521b"></script>
 
         <!-- Sale Modal: adapter (must load AFTER tab-social-core for SocialOrderState) -->
-        <script src="js/tab-social-sale.js"></script>
+        <script src="js/tab-social-sale.js?v=20260521b"></script>
         <!-- Wallet pair utils: skip cặp tạo-hủy đơn + compute walletNoteLines (cover ADJUSTMENT) -->
-        <script src="../shared/js/wallet-pair-utils.js"></script>
+        <script src="../shared/js/wallet-pair-utils.js?v=20260521b"></script>
         <!-- Sale Modal: shared functions (must load AFTER tab-social-sale.js for globals) -->
-        <script src="../orders-report/js/utils/sale-modal-common.js"></script>
+        <script src="../orders-report/js/utils/sale-modal-common.js?v=20260521b"></script>
         <!-- Sale Modal: shared creation logic from Tab1 -->
-        <script src="../orders-report/js/tab1/tab1-sale.js"></script>
+        <script src="../orders-report/js/tab1/tab1-sale.js?v=20260521b"></script>
         <!-- Override confirmAndPrintSale with address sync wrapper (must be right after tab1-sale.js) -->
         <script>
             if (typeof overrideConfirmAndPrintSale === 'function') overrideConfirmAndPrintSale();
@@ -2267,12 +2311,12 @@ HẾT HÀNG</textarea
         </script>
 
         <!-- Tab1 Invoice Status Store + Workflow (reuse for Phieu ban hang, Messenger, Huy don) -->
-        <script src="../shared/js/base-store.js"></script>
-        <script src="../orders-report/js/tab1/tab1-fast-sale-invoice-status.js"></script>
-        <script src="../orders-report/js/tab1/tab1-fast-sale-workflow.js"></script>
+        <script src="../shared/js/base-store.js?v=20260521b"></script>
+        <script src="../orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260521b"></script>
+        <script src="../orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260521b"></script>
 
         <!-- Social Invoice Adapter (bridges social orders with Tab 1 functions) -->
-        <script src="js/tab-social-invoice.js"></script>
+        <script src="js/tab-social-invoice.js?v=20260521b"></script>
 
         <!-- Status Filter Tabs: sync clicks → hidden #statusFilter + performTableSearch -->
         <script>
@@ -2488,6 +2532,6 @@ HẾT HÀNG</textarea
                 </div>
             </div>
         </div>
-        <script src="js/tab-social-packing-slip.js"></script>
+        <script src="js/tab-social-packing-slip.js?v=20260521b"></script>
     </body>
 </html>

@@ -1,95 +1,245 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
-<!DOCTYPE html>
+<!doctype html>
 <html class="light" lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Theo Dõi Dự Án - N2Store</title>
+        <link rel="icon" type="image/svg+xml" href="../shared/images/favicon.svg" />
+        <link href="https://fonts.googleapis.com" rel="preconnect" />
+        <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+            rel="stylesheet"
+        />
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260521b" />
+        <link rel="stylesheet" href="./css/style.css?v=20260521b" />
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Theo Dõi Dự Án - N2Store</title>
-    <link rel="icon" type="image/svg+xml" href="../shared/images/favicon.svg">
-    <link href="https://fonts.googleapis.com" rel="preconnect">
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="../shared/css/modern.css">
-    <link rel="stylesheet" href="./css/style.css">
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
 
-    <script type="module" src="../shared/esm/compat.js"></script>
-    <script>
-        if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-        }
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js"></script>
-    <script defer src="../shared/js/navigation-modern.js"></script>
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
-
-<body class="bg-slate-50 font-display text-slate-900 min-h-screen flex flex-col">
-    <div class="main-content">
-        <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4">
-
-            <!-- Header -->
-            <div style="margin-bottom:24px">
-                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-                    <div style="display:flex;align-items:center;gap:12px">
-                        <button class="btn-icon md:hidden" id="menuToggle">
-                            <span class="material-symbols-outlined">menu</span>
-                        </button>
-                        <div>
-                            <h1 style="font-size:1.5rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:8px">
-                                <span class="material-symbols-outlined" style="color:#7c3aed">dashboard</span>
-                                Theo Dõi Dự Án
-                            </h1>
-                            <p style="font-size:0.875rem;color:#64748b;margin-top:2px">N2Store - Hệ thống quản lý bán hàng</p>
+    <body class="bg-slate-50 font-display text-slate-900 min-h-screen flex flex-col">
+        <div class="main-content">
+            <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4">
+                <!-- Header -->
+                <div style="margin-bottom: 24px">
+                    <div
+                        style="
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            flex-wrap: wrap;
+                            gap: 12px;
+                        "
+                    >
+                        <div style="display: flex; align-items: center; gap: 12px">
+                            <button class="btn-icon md:hidden" id="menuToggle">
+                                <span class="material-symbols-outlined">menu</span>
+                            </button>
+                            <div>
+                                <h1
+                                    style="
+                                        font-size: 1.5rem;
+                                        font-weight: 700;
+                                        color: #1e293b;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                    "
+                                >
+                                    <span class="material-symbols-outlined" style="color: #7c3aed"
+                                        >dashboard</span
+                                    >
+                                    Theo Dõi Dự Án
+                                </h1>
+                                <p style="font-size: 0.875rem; color: #64748b; margin-top: 2px">
+                                    N2Store - Hệ thống quản lý bán hàng
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px">
+                            <button
+                                id="btnSyncMd"
+                                style="
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                    padding: 6px 12px;
+                                    background: #7c3aed;
+                                    color: white;
+                                    border-radius: 8px;
+                                    font-size: 0.875rem;
+                                    font-weight: 500;
+                                    border: none;
+                                    cursor: pointer;
+                                "
+                            >
+                                <span class="material-symbols-outlined" style="font-size: 18px"
+                                    >sync</span
+                                >
+                                Đồng bộ từ MD
+                            </button>
+                            <button
+                                id="btnExportMd"
+                                style="
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                    padding: 6px 12px;
+                                    background: #f1f5f9;
+                                    color: #334155;
+                                    border-radius: 8px;
+                                    font-size: 0.875rem;
+                                    font-weight: 500;
+                                    border: 1px solid #e2e8f0;
+                                    cursor: pointer;
+                                "
+                            >
+                                <span class="material-symbols-outlined" style="font-size: 18px"
+                                    >download</span
+                                >
+                                Xuất ra MD
+                            </button>
                         </div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px">
-                        <button id="btnSyncMd" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#7c3aed;color:white;border-radius:8px;font-size:0.875rem;font-weight:500;border:none;cursor:pointer">
-                            <span class="material-symbols-outlined" style="font-size:18px">sync</span>
-                            Đồng bộ từ MD
-                        </button>
-                        <button id="btnExportMd" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#f1f5f9;color:#334155;border-radius:8px;font-size:0.875rem;font-weight:500;border:1px solid #e2e8f0;cursor:pointer">
-                            <span class="material-symbols-outlined" style="font-size:18px">download</span>
-                            Xuất ra MD
-                        </button>
-                    </div>
                 </div>
-            </div>
 
-            <!-- Tab Navigation -->
-            <div style="margin-bottom:24px">
-                <nav style="display:flex;gap:4px;border-bottom:1px solid #e2e8f0;overflow-x:auto" aria-label="Tabs">
-                    <button class="tab-btn active" data-tab="dashboard" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid #7c3aed;color:#6d28d9;background:none;cursor:pointer">
-                        <span class="material-symbols-outlined" style="font-size:18px">bar_chart</span> Dashboard
-                    </button>
-                    <button class="tab-btn" data-tab="feature-catalog" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid transparent;color:#64748b;background:none;cursor:pointer">
-                        <span class="material-symbols-outlined" style="font-size:18px">list_alt</span> Mục Lục Tính Năng
-                    </button>
-                    <button class="tab-btn" data-tab="todo-system" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid transparent;color:#64748b;background:none;cursor:pointer">
-                        <span class="material-symbols-outlined" style="font-size:18px">checklist</span> Kế Hoạch & Todo
-                    </button>
-                    <button class="tab-btn" data-tab="module-map" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid transparent;color:#64748b;background:none;cursor:pointer">
-                        <span class="material-symbols-outlined" style="font-size:18px">account_tree</span> Sơ Đồ Module
-                    </button>
-                </nav>
-            </div>
+                <!-- Tab Navigation -->
+                <div style="margin-bottom: 24px">
+                    <nav
+                        style="
+                            display: flex;
+                            gap: 4px;
+                            border-bottom: 1px solid #e2e8f0;
+                            overflow-x: auto;
+                        "
+                        aria-label="Tabs"
+                    >
+                        <button
+                            class="tab-btn active"
+                            data-tab="dashboard"
+                            style="
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                padding: 10px 16px;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                white-space: nowrap;
+                                border: none;
+                                border-bottom: 2px solid #7c3aed;
+                                color: #6d28d9;
+                                background: none;
+                                cursor: pointer;
+                            "
+                        >
+                            <span class="material-symbols-outlined" style="font-size: 18px"
+                                >bar_chart</span
+                            >
+                            Dashboard
+                        </button>
+                        <button
+                            class="tab-btn"
+                            data-tab="feature-catalog"
+                            style="
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                padding: 10px 16px;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                white-space: nowrap;
+                                border: none;
+                                border-bottom: 2px solid transparent;
+                                color: #64748b;
+                                background: none;
+                                cursor: pointer;
+                            "
+                        >
+                            <span class="material-symbols-outlined" style="font-size: 18px"
+                                >list_alt</span
+                            >
+                            Mục Lục Tính Năng
+                        </button>
+                        <button
+                            class="tab-btn"
+                            data-tab="todo-system"
+                            style="
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                padding: 10px 16px;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                white-space: nowrap;
+                                border: none;
+                                border-bottom: 2px solid transparent;
+                                color: #64748b;
+                                background: none;
+                                cursor: pointer;
+                            "
+                        >
+                            <span class="material-symbols-outlined" style="font-size: 18px"
+                                >checklist</span
+                            >
+                            Kế Hoạch & Todo
+                        </button>
+                        <button
+                            class="tab-btn"
+                            data-tab="module-map"
+                            style="
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                padding: 10px 16px;
+                                font-size: 0.875rem;
+                                font-weight: 500;
+                                white-space: nowrap;
+                                border: none;
+                                border-bottom: 2px solid transparent;
+                                color: #64748b;
+                                background: none;
+                                cursor: pointer;
+                            "
+                        >
+                            <span class="material-symbols-outlined" style="font-size: 18px"
+                                >account_tree</span
+                            >
+                            Sơ Đồ Module
+                        </button>
+                    </nav>
+                </div>
 
-            <!-- Tab Content -->
-            <div id="tab-dashboard" class="tab-content"></div>
-            <div id="tab-feature-catalog" class="tab-content" style="display:none"></div>
-            <div id="tab-todo-system" class="tab-content" style="display:none"></div>
-            <div id="tab-module-map" class="tab-content" style="display:none"></div>
+                <!-- Tab Content -->
+                <div id="tab-dashboard" class="tab-content"></div>
+                <div id="tab-feature-catalog" class="tab-content" style="display: none"></div>
+                <div id="tab-todo-system" class="tab-content" style="display: none"></div>
+                <div id="tab-module-map" class="tab-content" style="display: none"></div>
+            </main>
+        </div>
 
-        </main>
-    </div>
-
-    <script src="./js/app.js"></script>
-</body>
-
+        <script src="./js/app.js?v=20260521b"></script>
+    </body>
 </html>

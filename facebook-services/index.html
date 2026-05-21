@@ -1,371 +1,498 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
 <!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>D&#7883;ch V&#7909; Facebook - N2STORE</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>D&#7883;ch V&#7909; Facebook - N2STORE</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <link rel="stylesheet" href="css/facebook-services.css?v=20260521b" />
 
-    <link rel="stylesheet" href="css/facebook-services.css" />
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
 
-    <script type="module" src="../shared/esm/compat.js"></script>
-    <script>
-        if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-        }
-    </script>
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-    <script defer src="../shared/js/navigation-modern.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
-
-<body>
-    <!-- Access Denied -->
-    <div id="accessDenied" class="access-denied" style="display: none">
-        <h1><i data-lucide="shield-x"></i> Truy c&#7853;p b&#7883; t&#7915; ch&#7889;i</h1>
-        <p>B&#7841;n kh&ocirc;ng c&oacute; quy&#7873;n truy c&#7853;p.</p>
-        <a href="../index.html" class="btn btn-primary"><i data-lucide="arrow-left"></i> Quay v&#7873;</a>
-    </div>
-
-    <!-- Main Container -->
-    <main class="main-content" id="mainContainer" style="display: none">
-        <!-- Top Bar -->
-        <header class="top-bar">
-            <div class="top-bar-left">
-                <button class="mobile-menu-btn" id="mobileMenuBtn">
-                    <i data-lucide="menu"></i>
-                </button>
-                <h1 class="page-title">
-                    <i data-lucide="thumbs-up"></i>
-                    D&#7883;ch V&#7909; Facebook
-                </h1>
-            </div>
-            <div class="top-bar-right">
-                <div class="balance-display" id="balanceDisplay">
-                    <i data-lucide="wallet"></i>
-                    <span id="balanceText">--</span>
-                </div>
-                <button class="btn btn-sm btn-outline" id="btnHeaderDeposit" title="N&#7841;p ti&#7873;n">
-                    <i data-lucide="plus-circle"></i> N&#7841;p
-                </button>
-            </div>
-        </header>
-
-        <!-- Tabs -->
-        <div class="tabs-bar">
-            <button class="tab-btn active" data-tab="order">
-                <i data-lucide="shopping-cart"></i> T&#7841;o &#272;&#417;n
-            </button>
-            <button class="tab-btn" data-tab="history">
-                <i data-lucide="history"></i> L&#7883;ch S&#7917; &#272;&#417;n
-            </button>
-            <button class="tab-btn" data-tab="wallet">
-                <i data-lucide="wallet"></i> N&#7841;p Ti&#7873;n
-            </button>
+    <body>
+        <!-- Access Denied -->
+        <div id="accessDenied" class="access-denied" style="display: none">
+            <h1><i data-lucide="shield-x"></i> Truy c&#7853;p b&#7883; t&#7915; ch&#7889;i</h1>
+            <p>B&#7841;n kh&ocirc;ng c&oacute; quy&#7873;n truy c&#7853;p.</p>
+            <a href="../index.html" class="btn btn-primary"
+                ><i data-lucide="arrow-left"></i> Quay v&#7873;</a
+            >
         </div>
 
-        <!-- Tab: Create Order -->
-        <div class="tab-content active" id="tabOrder">
-            <div class="content-area">
-                <div class="order-layout">
-                    <!-- Left: Order Form -->
-                    <div class="order-form-panel">
-                        <!-- Category Filter -->
-                        <div class="form-group">
-                            <label><i data-lucide="filter"></i> Danh m&#7909;c</label>
-                            <select id="categorySelect" class="form-select">
-                                <option value="">T&#7845;t c&#7843; danh m&#7909;c</option>
-                            </select>
-                        </div>
-
-                        <!-- Service Select -->
-                        <div class="form-group">
-                            <label><i data-lucide="list"></i> D&#7883;ch v&#7909;</label>
-                            <select id="serviceSelect" class="form-select">
-                                <option value="">-- Ch&#7885;n d&#7883;ch v&#7909; --</option>
-                            </select>
-                        </div>
-
-                        <!-- Service Info -->
-                        <div class="service-info-card" id="serviceInfo" style="display:none">
-                            <div class="info-row">
-                                <span class="info-label">Gi&aacute;:</span>
-                                <span class="info-value" id="serviceRate">--</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Min:</span>
-                                <span class="info-value" id="serviceMin">--</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Max:</span>
-                                <span class="info-value" id="serviceMax">--</span>
-                            </div>
-                            <div class="info-row" id="serviceDescRow" style="display:none">
-                                <span class="info-label">M&ocirc; t&#7843;:</span>
-                                <span class="info-value" id="serviceDesc">--</span>
-                            </div>
-                        </div>
-
-                        <!-- Link Input -->
-                        <div class="form-group">
-                            <label><i data-lucide="link"></i> Link b&agrave;i vi&#7871;t</label>
-                            <div class="link-input-group">
-                                <input type="text" id="linkInput" class="form-input" placeholder="Nh&#7845;n n&uacute;t b&ecirc;n ph&#7843;i &#273;&#7875; ch&#7885;n b&agrave;i vi&#7871;t..." readonly onclick="openPostModal()" style="cursor:pointer" />
-                                <button class="btn btn-sm btn-outline" id="btnPickFromPage" title="L&#7845;y t&#7915; Page">
-                                    <i data-lucide="download"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Selected Post Preview -->
-                        <div class="selected-post-preview" id="selectedPostPreview" style="display:none">
-                            <img id="selectedPostThumb" src="" alt="" />
-                            <div class="selected-post-info">
-                                <div class="selected-post-title" id="selectedPostTitle"></div>
-                                <button type="button" class="selected-post-clear" onclick="clearSelectedPost()" title="X&oacute;a">&times;</button>
-                            </div>
-                        </div>
-
-                        <!-- Comments (for comment services) -->
-                        <div class="form-group" id="commentsGroup" style="display:none">
-                            <label><i data-lucide="message-square"></i> N&#7897;i dung comment</label>
-                            <textarea id="commentsInput" class="form-textarea" rows="4" placeholder="M&#7895;i d&ograve;ng 1 comment"></textarea>
-                        </div>
-
-                        <!-- Quantity -->
-                        <div class="form-group">
-                            <label><i data-lucide="hash"></i> S&#7889; l&#432;&#7907;ng</label>
-                            <input type="number" id="quantityInput" class="form-input" min="1" placeholder="Nh&#7853;p s&#7889; l&#432;&#7907;ng" />
-                        </div>
-
-                        <!-- Total -->
-                        <div class="total-estimate">
-                            <span>T&#7893;ng chi ph&iacute;:</span>
-                            <span class="total-price" id="totalPrice">$0.00</span>
-                            <span class="total-price-vnd" id="totalPriceVND">(0 &#273;)</span>
-                        </div>
-
-                        <!-- Submit -->
-                        <button class="btn btn-primary btn-lg btn-block" id="btnSubmitOrder" disabled>
-                            <i data-lucide="send"></i> &#272;&#7863;t &#272;&#417;n
-                        </button>
-                    </div>
-
-                    <!-- Right: Services Browser -->
-                    <div class="services-browser-panel">
-                        <div class="search-box">
-                            <i data-lucide="search"></i>
-                            <input type="text" id="serviceSearch" class="form-input" placeholder="T&igrave;m d&#7883;ch v&#7909;..." />
-                        </div>
-                        <div class="services-list" id="servicesList">
-                            <div class="loading-state">
-                                <i data-lucide="loader-2" class="animate-spin"></i>
-                                <span>&#272;ang t&#7843;i d&#7883;ch v&#7909;...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab: Order History -->
-        <div class="tab-content" id="tabHistory">
-            <div class="content-area">
-                <div class="history-header">
-                    <button class="btn btn-sm btn-outline" id="btnRefreshAll">
-                        <i data-lucide="refresh-cw"></i> C&#7853;p nh&#7853;t tr&#7841;ng th&aacute;i
+        <!-- Main Container -->
+        <main class="main-content" id="mainContainer" style="display: none">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" id="mobileMenuBtn">
+                        <i data-lucide="menu"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline btn-danger" id="btnClearHistory">
-                        <i data-lucide="trash-2"></i> X&oacute;a l&#7883;ch s&#7917;
+                    <h1 class="page-title">
+                        <i data-lucide="thumbs-up"></i>
+                        D&#7883;ch V&#7909; Facebook
+                    </h1>
+                </div>
+                <div class="top-bar-right">
+                    <div class="balance-display" id="balanceDisplay">
+                        <i data-lucide="wallet"></i>
+                        <span id="balanceText">--</span>
+                    </div>
+                    <button
+                        class="btn btn-sm btn-outline"
+                        id="btnHeaderDeposit"
+                        title="N&#7841;p ti&#7873;n"
+                    >
+                        <i data-lucide="plus-circle"></i> N&#7841;p
                     </button>
                 </div>
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>D&#7883;ch v&#7909;</th>
-                                <th>Link</th>
-                                <th>SL</th>
-                                <th>Gi&aacute;</th>
-                                <th>Tr&#7841;ng th&aacute;i</th>
-                                <th>Ng&agrave;y</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTable">
-                            <tr class="empty-row">
-                                <td colspan="8">Ch&#432;a c&oacute; &#273;&#417;n h&agrave;ng n&agrave;o</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            </header>
+
+            <!-- Tabs -->
+            <div class="tabs-bar">
+                <button class="tab-btn active" data-tab="order">
+                    <i data-lucide="shopping-cart"></i> T&#7841;o &#272;&#417;n
+                </button>
+                <button class="tab-btn" data-tab="history">
+                    <i data-lucide="history"></i> L&#7883;ch S&#7917; &#272;&#417;n
+                </button>
+                <button class="tab-btn" data-tab="wallet">
+                    <i data-lucide="wallet"></i> N&#7841;p Ti&#7873;n
+                </button>
+            </div>
+
+            <!-- Tab: Create Order -->
+            <div class="tab-content active" id="tabOrder">
+                <div class="content-area">
+                    <div class="order-layout">
+                        <!-- Left: Order Form -->
+                        <div class="order-form-panel">
+                            <!-- Category Filter -->
+                            <div class="form-group">
+                                <label><i data-lucide="filter"></i> Danh m&#7909;c</label>
+                                <select id="categorySelect" class="form-select">
+                                    <option value="">T&#7845;t c&#7843; danh m&#7909;c</option>
+                                </select>
+                            </div>
+
+                            <!-- Service Select -->
+                            <div class="form-group">
+                                <label><i data-lucide="list"></i> D&#7883;ch v&#7909;</label>
+                                <select id="serviceSelect" class="form-select">
+                                    <option value="">-- Ch&#7885;n d&#7883;ch v&#7909; --</option>
+                                </select>
+                            </div>
+
+                            <!-- Service Info -->
+                            <div class="service-info-card" id="serviceInfo" style="display: none">
+                                <div class="info-row">
+                                    <span class="info-label">Gi&aacute;:</span>
+                                    <span class="info-value" id="serviceRate">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Min:</span>
+                                    <span class="info-value" id="serviceMin">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Max:</span>
+                                    <span class="info-value" id="serviceMax">--</span>
+                                </div>
+                                <div class="info-row" id="serviceDescRow" style="display: none">
+                                    <span class="info-label">M&ocirc; t&#7843;:</span>
+                                    <span class="info-value" id="serviceDesc">--</span>
+                                </div>
+                            </div>
+
+                            <!-- Link Input -->
+                            <div class="form-group">
+                                <label><i data-lucide="link"></i> Link b&agrave;i vi&#7871;t</label>
+                                <div class="link-input-group">
+                                    <input
+                                        type="text"
+                                        id="linkInput"
+                                        class="form-input"
+                                        placeholder="Nh&#7845;n n&uacute;t b&ecirc;n ph&#7843;i &#273;&#7875; ch&#7885;n b&agrave;i vi&#7871;t..."
+                                        readonly
+                                        onclick="openPostModal()"
+                                        style="cursor: pointer"
+                                    />
+                                    <button
+                                        class="btn btn-sm btn-outline"
+                                        id="btnPickFromPage"
+                                        title="L&#7845;y t&#7915; Page"
+                                    >
+                                        <i data-lucide="download"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Selected Post Preview -->
+                            <div
+                                class="selected-post-preview"
+                                id="selectedPostPreview"
+                                style="display: none"
+                            >
+                                <img id="selectedPostThumb" src="" alt="" />
+                                <div class="selected-post-info">
+                                    <div class="selected-post-title" id="selectedPostTitle"></div>
+                                    <button
+                                        type="button"
+                                        class="selected-post-clear"
+                                        onclick="clearSelectedPost()"
+                                        title="X&oacute;a"
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Comments (for comment services) -->
+                            <div class="form-group" id="commentsGroup" style="display: none">
+                                <label
+                                    ><i data-lucide="message-square"></i> N&#7897;i dung
+                                    comment</label
+                                >
+                                <textarea
+                                    id="commentsInput"
+                                    class="form-textarea"
+                                    rows="4"
+                                    placeholder="M&#7895;i d&ograve;ng 1 comment"
+                                ></textarea>
+                            </div>
+
+                            <!-- Quantity -->
+                            <div class="form-group">
+                                <label><i data-lucide="hash"></i> S&#7889; l&#432;&#7907;ng</label>
+                                <input
+                                    type="number"
+                                    id="quantityInput"
+                                    class="form-input"
+                                    min="1"
+                                    placeholder="Nh&#7853;p s&#7889; l&#432;&#7907;ng"
+                                />
+                            </div>
+
+                            <!-- Total -->
+                            <div class="total-estimate">
+                                <span>T&#7893;ng chi ph&iacute;:</span>
+                                <span class="total-price" id="totalPrice">$0.00</span>
+                                <span class="total-price-vnd" id="totalPriceVND">(0 &#273;)</span>
+                            </div>
+
+                            <!-- Submit -->
+                            <button
+                                class="btn btn-primary btn-lg btn-block"
+                                id="btnSubmitOrder"
+                                disabled
+                            >
+                                <i data-lucide="send"></i> &#272;&#7863;t &#272;&#417;n
+                            </button>
+                        </div>
+
+                        <!-- Right: Services Browser -->
+                        <div class="services-browser-panel">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input
+                                    type="text"
+                                    id="serviceSearch"
+                                    class="form-input"
+                                    placeholder="T&igrave;m d&#7883;ch v&#7909;..."
+                                />
+                            </div>
+                            <div class="services-list" id="servicesList">
+                                <div class="loading-state">
+                                    <i data-lucide="loader-2" class="animate-spin"></i>
+                                    <span>&#272;ang t&#7843;i d&#7883;ch v&#7909;...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <!-- Tab: Wallet / Nạp Tiền -->
-        <div class="tab-content" id="tabWallet">
-            <div class="content-area">
-                <div class="wallet-layout">
-                    <!-- Balance Card -->
-                    <div class="wallet-balance-card">
-                        <div class="wallet-balance-header">
-                            <i data-lucide="wallet"></i>
-                            <span>S&#7889; d&#432; t&agrave;i kho&#7843;n</span>
-                        </div>
-                        <div class="wallet-balance-amount" id="walletBalanceUSD">--</div>
-                        <div class="wallet-balance-vnd" id="walletBalanceVND">--</div>
-                        <button class="btn btn-sm btn-outline" id="btnRefreshBalance" style="margin-top:0.75rem">
-                            <i data-lucide="refresh-cw"></i> L&agrave;m m&#7899;i
+
+            <!-- Tab: Order History -->
+            <div class="tab-content" id="tabHistory">
+                <div class="content-area">
+                    <div class="history-header">
+                        <button class="btn btn-sm btn-outline" id="btnRefreshAll">
+                            <i data-lucide="refresh-cw"></i> C&#7853;p nh&#7853;t tr&#7841;ng
+                            th&aacute;i
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-danger" id="btnClearHistory">
+                            <i data-lucide="trash-2"></i> X&oacute;a l&#7883;ch s&#7917;
                         </button>
                     </div>
-
-                    <!-- Deposit Section -->
-                    <div class="wallet-deposit-section">
-                        <h3><i data-lucide="plus-circle"></i> N&#7841;p ti&#7873;n</h3>
-
-                        <div class="deposit-notice">
-                            <i data-lucide="info"></i>
-                            <div>
-                                <p>N&#7841;p ti&#7873;n qua chuy&#7875;n kho&#7843;n ng&acirc;n h&agrave;ng.</p>
-                                <p>T&#7889;i thi&#7875;u: <strong>10,000 VND</strong></p>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>D&#7883;ch v&#7909;</th>
+                                    <th>Link</th>
+                                    <th>SL</th>
+                                    <th>Gi&aacute;</th>
+                                    <th>Tr&#7841;ng th&aacute;i</th>
+                                    <th>Ng&agrave;y</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTable">
+                                <tr class="empty-row">
+                                    <td colspan="8">
+                                        Ch&#432;a c&oacute; &#273;&#417;n h&agrave;ng n&agrave;o
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- Tab: Wallet / Nạp Tiền -->
+            <div class="tab-content" id="tabWallet">
+                <div class="content-area">
+                    <div class="wallet-layout">
+                        <!-- Balance Card -->
+                        <div class="wallet-balance-card">
+                            <div class="wallet-balance-header">
+                                <i data-lucide="wallet"></i>
+                                <span>S&#7889; d&#432; t&agrave;i kho&#7843;n</span>
                             </div>
+                            <div class="wallet-balance-amount" id="walletBalanceUSD">--</div>
+                            <div class="wallet-balance-vnd" id="walletBalanceVND">--</div>
+                            <button
+                                class="btn btn-sm btn-outline"
+                                id="btnRefreshBalance"
+                                style="margin-top: 0.75rem"
+                            >
+                                <i data-lucide="refresh-cw"></i> L&agrave;m m&#7899;i
+                            </button>
                         </div>
 
-                        <!-- Quick Amount Buttons -->
-                        <div class="quick-amounts">
-                            <label>Ch&#7885;n s&#7889; ti&#7873;n n&#7841;p:</label>
-                            <div class="quick-amounts-grid">
-                                <button class="quick-amount-btn" data-amount="50000">50,000&#273;</button>
-                                <button class="quick-amount-btn" data-amount="100000">100,000&#273;</button>
-                                <button class="quick-amount-btn" data-amount="200000">200,000&#273;</button>
-                                <button class="quick-amount-btn" data-amount="500000">500,000&#273;</button>
-                                <button class="quick-amount-btn" data-amount="1000000">1,000,000&#273;</button>
-                                <button class="quick-amount-btn" data-amount="2000000">2,000,000&#273;</button>
-                            </div>
-                        </div>
+                        <!-- Deposit Section -->
+                        <div class="wallet-deposit-section">
+                            <h3><i data-lucide="plus-circle"></i> N&#7841;p ti&#7873;n</h3>
 
-                        <!-- Custom Amount -->
-                        <div class="form-group">
-                            <label><i data-lucide="banknote"></i> Ho&#7863;c nh&#7853;p s&#7889; ti&#7873;n</label>
-                            <div class="deposit-amount-group">
-                                <input type="number" id="depositAmount" class="form-input" placeholder="Nh&#7853;p s&#7889; ti&#7873;n (VND)" min="10000" step="1000" />
-                                <span class="deposit-usd" id="depositUSD">~$0.00</span>
-                            </div>
-                        </div>
-
-                        <!-- Create QR Button -->
-                        <button class="btn btn-primary btn-lg btn-block" id="btnCreateQR" disabled>
-                            <i data-lucide="qr-code"></i> T&#7841;o m&atilde; QR n&#7841;p ti&#7873;n
-                        </button>
-
-                        <!-- QR Result (hidden by default) -->
-                        <div class="qr-result" id="qrResult" style="display:none">
-                            <div class="qr-content">
-                                <div class="qr-bank-info">
-                                    <div class="qr-bank-row">
-                                        <span class="qr-label">Ng&acirc;n h&agrave;ng:</span>
-                                        <span class="qr-value" id="qrBankName">--</span>
-                                    </div>
-                                    <div class="qr-bank-row">
-                                        <span class="qr-label">S&#7889; t&agrave;i kho&#7843;n:</span>
-                                        <span class="qr-value" id="qrAccountNumber">--</span>
-                                        <button class="btn btn-sm btn-outline btn-copy" data-copy="qrAccountNumber" title="Copy">
-                                            <i data-lucide="copy"></i>
-                                        </button>
-                                    </div>
-                                    <div class="qr-bank-row">
-                                        <span class="qr-label">Ch&#7911; t&agrave;i kho&#7843;n:</span>
-                                        <span class="qr-value" id="qrAccountName">--</span>
-                                    </div>
-                                    <div class="qr-bank-row">
-                                        <span class="qr-label">S&#7889; ti&#7873;n:</span>
-                                        <span class="qr-value qr-amount" id="qrAmount">--</span>
-                                    </div>
-                                    <div class="qr-bank-row">
-                                        <span class="qr-label">N&#7897;i dung CK:</span>
-                                        <span class="qr-value" id="qrTransferContent">--</span>
-                                        <button class="btn btn-sm btn-outline btn-copy" data-copy="qrTransferContent" title="Copy">
-                                            <i data-lucide="copy"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="qr-image-container">
-                                    <img id="qrImage" src="" alt="QR Code" />
-                                </div>
-                            </div>
-                            <div class="qr-note">
+                            <div class="deposit-notice">
                                 <i data-lucide="info"></i>
-                                <span>Qu&eacute;t m&atilde; QR ho&#7863;c chuy&#7875;n kho&#7843;n theo th&ocirc;ng tin tr&ecirc;n. S&#7889; d&#432; c&#7853;p nh&#7853;t sau 1-5 ph&uacute;t.</span>
+                                <div>
+                                    <p>
+                                        N&#7841;p ti&#7873;n qua chuy&#7875;n kho&#7843;n ng&acirc;n
+                                        h&agrave;ng.
+                                    </p>
+                                    <p>T&#7889;i thi&#7875;u: <strong>10,000 VND</strong></p>
+                                </div>
+                            </div>
+
+                            <!-- Quick Amount Buttons -->
+                            <div class="quick-amounts">
+                                <label>Ch&#7885;n s&#7889; ti&#7873;n n&#7841;p:</label>
+                                <div class="quick-amounts-grid">
+                                    <button class="quick-amount-btn" data-amount="50000">
+                                        50,000&#273;
+                                    </button>
+                                    <button class="quick-amount-btn" data-amount="100000">
+                                        100,000&#273;
+                                    </button>
+                                    <button class="quick-amount-btn" data-amount="200000">
+                                        200,000&#273;
+                                    </button>
+                                    <button class="quick-amount-btn" data-amount="500000">
+                                        500,000&#273;
+                                    </button>
+                                    <button class="quick-amount-btn" data-amount="1000000">
+                                        1,000,000&#273;
+                                    </button>
+                                    <button class="quick-amount-btn" data-amount="2000000">
+                                        2,000,000&#273;
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Custom Amount -->
+                            <div class="form-group">
+                                <label
+                                    ><i data-lucide="banknote"></i> Ho&#7863;c nh&#7853;p s&#7889;
+                                    ti&#7873;n</label
+                                >
+                                <div class="deposit-amount-group">
+                                    <input
+                                        type="number"
+                                        id="depositAmount"
+                                        class="form-input"
+                                        placeholder="Nh&#7853;p s&#7889; ti&#7873;n (VND)"
+                                        min="10000"
+                                        step="1000"
+                                    />
+                                    <span class="deposit-usd" id="depositUSD">~$0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Create QR Button -->
+                            <button
+                                class="btn btn-primary btn-lg btn-block"
+                                id="btnCreateQR"
+                                disabled
+                            >
+                                <i data-lucide="qr-code"></i> T&#7841;o m&atilde; QR n&#7841;p
+                                ti&#7873;n
+                            </button>
+
+                            <!-- QR Result (hidden by default) -->
+                            <div class="qr-result" id="qrResult" style="display: none">
+                                <div class="qr-content">
+                                    <div class="qr-bank-info">
+                                        <div class="qr-bank-row">
+                                            <span class="qr-label">Ng&acirc;n h&agrave;ng:</span>
+                                            <span class="qr-value" id="qrBankName">--</span>
+                                        </div>
+                                        <div class="qr-bank-row">
+                                            <span class="qr-label"
+                                                >S&#7889; t&agrave;i kho&#7843;n:</span
+                                            >
+                                            <span class="qr-value" id="qrAccountNumber">--</span>
+                                            <button
+                                                class="btn btn-sm btn-outline btn-copy"
+                                                data-copy="qrAccountNumber"
+                                                title="Copy"
+                                            >
+                                                <i data-lucide="copy"></i>
+                                            </button>
+                                        </div>
+                                        <div class="qr-bank-row">
+                                            <span class="qr-label"
+                                                >Ch&#7911; t&agrave;i kho&#7843;n:</span
+                                            >
+                                            <span class="qr-value" id="qrAccountName">--</span>
+                                        </div>
+                                        <div class="qr-bank-row">
+                                            <span class="qr-label">S&#7889; ti&#7873;n:</span>
+                                            <span class="qr-value qr-amount" id="qrAmount">--</span>
+                                        </div>
+                                        <div class="qr-bank-row">
+                                            <span class="qr-label">N&#7897;i dung CK:</span>
+                                            <span class="qr-value" id="qrTransferContent">--</span>
+                                            <button
+                                                class="btn btn-sm btn-outline btn-copy"
+                                                data-copy="qrTransferContent"
+                                                title="Copy"
+                                            >
+                                                <i data-lucide="copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="qr-image-container">
+                                        <img id="qrImage" src="" alt="QR Code" />
+                                    </div>
+                                </div>
+                                <div class="qr-note">
+                                    <i data-lucide="info"></i>
+                                    <span
+                                        >Qu&eacute;t m&atilde; QR ho&#7863;c chuy&#7875;n
+                                        kho&#7843;n theo th&ocirc;ng tin tr&ecirc;n. S&#7889;
+                                        d&#432; c&#7853;p nh&#7853;t sau 1-5 ph&uacute;t.</span
+                                    >
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Spending Summary -->
+                        <div class="wallet-spending-section">
+                            <h3>
+                                <i data-lucide="bar-chart-3"></i> Th&#7889;ng k&ecirc; chi
+                                ti&ecirc;u
+                            </h3>
+                            <div class="spending-stats" id="spendingStats">
+                                <div class="stat-card">
+                                    <div class="stat-label">T&#7893;ng &#273;&#417;n</div>
+                                    <div class="stat-value" id="statTotalOrders">0</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">&#272;&#227; chi</div>
+                                    <div class="stat-value" id="statTotalSpent">$0.00</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">
+                                        &#272;&#417;n th&agrave;nh c&ocirc;ng
+                                    </div>
+                                    <div class="stat-value" id="statCompleted">0</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">&#272;ang x&#7917; l&yacute;</div>
+                                    <div class="stat-value" id="statPending">0</div>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </main>
 
-                    <!-- Spending Summary -->
-                    <div class="wallet-spending-section">
-                        <h3><i data-lucide="bar-chart-3"></i> Th&#7889;ng k&ecirc; chi ti&ecirc;u</h3>
-                        <div class="spending-stats" id="spendingStats">
-                            <div class="stat-card">
-                                <div class="stat-label">T&#7893;ng &#273;&#417;n</div>
-                                <div class="stat-value" id="statTotalOrders">0</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">&#272;&#227; chi</div>
-                                <div class="stat-value" id="statTotalSpent">$0.00</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">&#272;&#417;n th&agrave;nh c&ocirc;ng</div>
-                                <div class="stat-value" id="statCompleted">0</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">&#272;ang x&#7917; l&yacute;</div>
-                                <div class="stat-value" id="statPending">0</div>
-                            </div>
+        <!-- Post Selection Modal -->
+        <div class="fb-post-modal-overlay" id="postModal">
+            <div class="fb-post-modal">
+                <div class="fb-post-modal-header">
+                    <h3><i data-lucide="facebook"></i> Ch&#7885;n b&agrave;i vi&#7871;t</h3>
+                    <button class="fb-post-modal-close" onclick="closePostModal()">&times;</button>
+                </div>
+                <div class="fb-post-modal-body">
+                    <div class="fb-post-toolbar">
+                        <div class="fb-post-tabs" id="postTabs">
+                            <button class="fb-post-tab active" data-tab="live">LIVE</button>
+                            <button class="fb-post-tab" data-tab="video">Video</button>
+                            <button class="fb-post-tab" data-tab="post">
+                                B&agrave;i vi&#7871;t
+                            </button>
                         </div>
+                        <select
+                            id="postPageSelect"
+                            class="fb-post-page-select"
+                            title="Ch&#7885;n page"
+                        >
+                            <option value="">&#272;ang t&#7843;i page...</option>
+                        </select>
                     </div>
+                    <div class="fb-post-filter">
+                        <i data-lucide="search"></i>
+                        <input
+                            type="text"
+                            id="postFilterInput"
+                            placeholder="N&#7897;i dung b&agrave;i vi&#7871;t"
+                            oninput="filterPancakePosts()"
+                        />
+                    </div>
+                    <div class="fb-post-loading" id="postLoading">
+                        <i data-lucide="loader-2" class="animate-spin"></i>
+                        <span>&#272;ang t&#7843;i danh s&aacute;ch b&agrave;i vi&#7871;t...</span>
+                    </div>
+                    <div class="fb-post-list" id="postList"></div>
                 </div>
             </div>
         </div>
-    </main>
 
-    <!-- Post Selection Modal -->
-    <div class="fb-post-modal-overlay" id="postModal">
-        <div class="fb-post-modal">
-            <div class="fb-post-modal-header">
-                <h3><i data-lucide="facebook"></i> Ch&#7885;n b&agrave;i vi&#7871;t</h3>
-                <button class="fb-post-modal-close" onclick="closePostModal()">&times;</button>
-            </div>
-            <div class="fb-post-modal-body">
-                <div class="fb-post-toolbar">
-                    <div class="fb-post-tabs" id="postTabs">
-                        <button class="fb-post-tab active" data-tab="live">LIVE</button>
-                        <button class="fb-post-tab" data-tab="video">Video</button>
-                        <button class="fb-post-tab" data-tab="post">B&agrave;i vi&#7871;t</button>
-                    </div>
-                    <select id="postPageSelect" class="fb-post-page-select" title="Ch&#7885;n page">
-                        <option value="">&#272;ang t&#7843;i page...</option>
-                    </select>
-                </div>
-                <div class="fb-post-filter">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="postFilterInput" placeholder="N&#7897;i dung b&agrave;i vi&#7871;t" oninput="filterPancakePosts()" />
-                </div>
-                <div class="fb-post-loading" id="postLoading">
-                    <i data-lucide="loader-2" class="animate-spin"></i>
-                    <span>&#272;ang t&#7843;i danh s&aacute;ch b&agrave;i vi&#7871;t...</span>
-                </div>
-                <div class="fb-post-list" id="postList"></div>
-            </div>
-        </div>
-    </div>
-
-    <script src="../shared/js/pancake-token-manager.js"></script>
-    <script src="js/facebook-services.js"></script>
-</body>
-
+        <script src="../shared/js/pancake-token-manager.js?v=20260521b"></script>
+        <script src="js/facebook-services.js?v=20260521b"></script>
+    </body>
 </html>

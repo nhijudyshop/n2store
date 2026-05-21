@@ -24,8 +24,8 @@
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
         <!-- TPOSImageProxy hooks phải load SỚM NHẤT để rewrite img TPOS CDN URLs trước render. -->
-        <script src="../shared/js/image-cache.js?v=20260503a"></script>
-        <script src="../shared/js/tpos-image-proxy.js"></script>
+        <script src="../shared/js/image-cache.js?v=20260521b"></script>
+        <script src="../shared/js/tpos-image-proxy.js?v=20260521b"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
         <!-- Firebase SDK -->
@@ -34,15 +34,15 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/indexed-db-store.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/indexed-db-store.js?v=20260521b"></script>
 
-        <script src="js/utils/decoding-utility.js"></script>
+        <script src="js/utils/decoding-utility.js?v=20260521b"></script>
 
-        <link rel="stylesheet" href="css/tab3-product-assignment.css" />
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="css/tab3-product-assignment.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
-        <link rel="stylesheet" href="css/design-system.css" />
+        <link rel="stylesheet" href="css/design-system.css?v=20260521b" />
     </head>
 
     <body>
@@ -989,27 +989,31 @@
         <!-- Scripts -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-        <script src="js/core/api-config.js"></script>
-        <script src="../shared/js/shop-config.js"></script>
+        <script src="js/core/api-config.js?v=20260521b"></script>
+        <script src="../shared/js/shop-config.js?v=20260521b"></script>
         <script>
             window.N2STORE_CLIENT_API_KEY =
                 '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
         </script>
-        <script src="../shared/js/token-manager.js"></script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
         <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
-        <script src="js/core/indexeddb-storage.js"></script>
-        <script src="js/core/cache.js"></script>
+        <script src="js/core/indexeddb-storage.js?v=20260521b"></script>
+        <script src="js/core/cache.js?v=20260521b"></script>
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>window.authManager=new AuthManager({redirectUrl:"../index.html",sessionDuration:8*60*60*1000,rememberDuration:30*24*60*60*1000});<\/script>'
                 );
-                document.write('<script src="../shared/js/notification-system.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/notification-system.js?v=20260521b"><\/script>'
+                );
             }
         </script>
 
@@ -1036,7 +1040,7 @@
                 }
             }
         </script>
-        <script src="js/core/user-storage-manager.js"></script>
+        <script src="js/core/user-storage-manager.js?v=20260521b"></script>
         <!-- Note: notification-system.js is loaded by compat.js ES Module -->
         <!-- Version checker is now in navigation-modern.js (loaded in main.html) -->
         <!-- Note: TPOS token caching is now handled server-side (Cloudflare Worker & Render.com) -->
@@ -1044,14 +1048,14 @@
         <!-- tpos-image-proxy.js moved to <head> (line ~18) để hook chạy SỚM NHẤT. -->
 
         <!-- Tab3 sub-modules (load order matters!) -->
-        <script src="js/tab3/tab3-core.js"></script>
-        <script src="js/tab3/tab3-filters.js"></script>
-        <script src="js/tab3/tab3-table.js"></script>
-        <script src="js/tab3/tab3-assignment.js"></script>
-        <script src="js/tab3/tab3-export.js"></script>
-        <script src="js/tab3/tab3-upload.js"></script>
-        <script src="js/tab3/tab3-history.js"></script>
-        <script src="js/tab3/tab3-history-v2.js"></script>
-        <script src="js/tab3/tab3-removal.js"></script>
+        <script src="js/tab3/tab3-core.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-filters.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-table.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-assignment.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-export.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-upload.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-history.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-history-v2.js?v=20260521b"></script>
+        <script src="js/tab3/tab3-removal.js?v=20260521b"></script>
     </body>
 </html>

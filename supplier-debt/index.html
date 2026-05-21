@@ -1,578 +1,751 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Công nợ nhà cung cấp</title>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Công nợ nhà cung cấp</title>
+        <!-- Core Loader -->
+        <script src="../shared/js/core-loader.js?v=20260521b"></script>
 
-    <!-- Core Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
-    <!-- ES Module: Shared utilities -->
-    <script type="module" src="../shared/esm/compat.js"></script>
+        <!-- Storage Migration -->
+        <script src="../shared/js/storage-migration.js?v=20260521b"></script>
 
-    <!-- Storage Migration -->
-    <script src="../shared/js/storage-migration.js"></script>
+        <!-- Lucide Icons -->
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-    <!-- Lucide Icons -->
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+        <!-- Styles -->
+        <link rel="stylesheet" href="../balance-history/css/modern.css?v=20260521b" />
+        <link rel="stylesheet" href="css/styles.css?v=20260521b" />
+        <link rel="stylesheet" href="css/return-order.css?v=20260521b" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="../balance-history/css/modern.css">
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/return-order.css">
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
-
-<body>
-    <!-- Main Content -->
-    <div class="main-content" id="mainContent">
-        <div class="container">
-            <!-- Page Header -->
-            <header class="page-header">
-                <h1><i data-lucide="receipt"></i> Công nợ nhà cung cấp</h1>
-                <button class="btn btn-outline btn-reload" id="btnRefresh" title="Tải lại dữ liệu">
-                    <i data-lucide="refresh-cw"></i>
-                </button>
-            </header>
-
-            <!-- Filter Toggle Button -->
-            <button class="btn btn-outline filter-toggle-btn" id="btnFilterToggle">
-                <i data-lucide="sliders-horizontal"></i> Bộ lọc
-                <i data-lucide="chevron-down" class="toggle-icon"></i>
-            </button>
-
-            <!-- Filter Section -->
-            <div class="filter-section" id="filterSection" style="display: none;">
-                <div class="filter-row">
-                    <div class="filter-group">
-                        <label>Thời gian</label>
-                        <div class="date-input-wrapper">
-                            <input type="text" id="dateFromDisplay" class="date-input date-display"
-                                placeholder="dd/mm/yyyy" maxlength="10">
-                            <input type="date" id="dateFrom" class="date-input-hidden">
-                            <i data-lucide="calendar" class="date-icon"></i>
-                        </div>
-                    </div>
-
-                    <div class="filter-group">
-                        <label>Ngày kết thúc</label>
-                        <div class="date-input-wrapper">
-                            <input type="text" id="dateToDisplay" class="date-input date-display"
-                                placeholder="dd/mm/yyyy" maxlength="10">
-                            <input type="date" id="dateTo" class="date-input-hidden">
-                            <i data-lucide="calendar" class="date-icon"></i>
-                        </div>
-                    </div>
-
-                    <div class="filter-group filter-group-display">
-                        <label>Hiển thị</label>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="display" value="all" checked>
-                                <span>Tất cả</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="display" value="endnonzero">
-                                <span>Nợ cuối kỳ khác 0</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="filter-row">
-                    <div class="filter-group filter-group-supplier">
-                        <label>Nhà cung cấp</label>
-                        <div class="searchable-select-wrapper" id="supplierSearchWrapper">
-                            <input type="text" id="supplierSearchInput" class="form-input" placeholder="Tìm nhà cung cấp..." autocomplete="off">
-                            <button type="button" class="clear-select" id="clearSupplier" style="display: none;">
-                                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
-                            </button>
-                            <div class="searchable-dropdown" id="supplierDropdown" style="display: none;"></div>
-                        </div>
-                        <!-- Hidden select for compatibility -->
-                        <select id="supplierFilter" style="display: none;">
-                            <option value="">Chọn nhà cung cấp</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-actions">
-                        <button class="btn btn-primary" id="btnSearch">
-                            <i data-lucide="search"></i> Tìm kiếm
-                        </button>
-                        <button class="btn btn-success" id="btnExport" style="display: none;">
-                            <i data-lucide="file-spreadsheet"></i> Xuất excel
-                        </button>
-                        <button class="btn btn-primary" id="btnCreateSupplier">
-                            <i data-lucide="plus"></i> Tạo NCC
-                        </button>
-                        <button class="btn btn-warning" id="btnReturnOrder">
-                            <i data-lucide="undo-2"></i> Trả hàng
-                        </button>
-                        <div class="column-toggle-wrapper">
-                            <button class="btn btn-secondary" id="btnColumnToggle">
-                                <i data-lucide="columns"></i> Ẩn/Hiện cột
-                            </button>
-                            <div class="column-toggle-dropdown" id="columnToggleDropdown">
-                                <div class="column-toggle-item">
-                                    <input type="checkbox" id="col-code" checked>
-                                    <label for="col-code">Mã NCC</label>
-                                </div>
-                                <div class="column-toggle-item">
-                                    <input type="checkbox" id="col-name" checked>
-                                    <label for="col-name">Tên NCC</label>
-                                </div>
-                                <div class="column-toggle-item">
-                                    <input type="checkbox" id="col-debit" checked>
-                                    <label for="col-debit">Phát sinh</label>
-                                </div>
-                                <div class="column-toggle-item">
-                                    <input type="checkbox" id="col-credit" checked>
-                                    <label for="col-credit">Thanh toán</label>
-                                </div>
-                                <div class="column-toggle-item">
-                                    <input type="checkbox" id="col-end" checked>
-                                    <label for="col-end">Nợ cuối kỳ</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Refund Orders: Banner + Collapsible Table -->
-            <div class="refund-orders-wrap" id="refundOrdersWrap" style="display: none;">
-                <div class="refund-orders-banner" id="refundOrdersBanner">
-                    <i data-lucide="undo-2" style="width:16px;height:16px;"></i>
-                    <span>Đơn trả hàng (Nháp) <span id="refundOrdersCount"></span></span>
-                    <i data-lucide="chevron-down" class="refund-toggle-icon" style="width:16px;height:16px;margin-left:auto;"></i>
-                </div>
-                <div class="refund-orders-body" id="refundOrdersSection" style="display: none;">
-                    <div class="refund-orders-table-wrap">
-                        <table class="refund-orders-table" id="refundOrdersTable">
-                            <thead>
-                                <tr>
-                                    <th style="width:40px; text-align:center;">
-                                        <input type="checkbox" id="refundCheckAll" title="Chọn tất cả">
-                                    </th>
-                                    <th>Nhà cung cấp</th>
-                                    <th class="refund-col-date" id="refundSortDate" style="cursor:pointer;">
-                                        Ngày đơn hàng <span class="sort-arrow">&darr;</span>
-                                    </th>
-                                    <th style="text-align:right;">Tổng tiền</th>
-                                </tr>
-                            </thead>
-                            <tbody id="refundOrdersBody"></tbody>
-                        </table>
-                    </div>
-                    <div class="refund-orders-actions" id="refundOrdersActions" style="display:none;">
-                        <button class="btn btn-success btn-sm" id="btnConfirmRefunds">
-                            <i data-lucide="check" style="width:14px;height:14px;"></i> Xác nhận đã trả hàng
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading Indicator -->
-            <div id="loadingIndicator" class="loading" style="display: none;">
-                <i data-lucide="loader-2"></i> Đang tải dữ liệu...
-            </div>
-
-            <!-- Data Table -->
-            <div class="table-container">
-                <table class="data-table" id="dataTable">
-                    <thead>
-                        <tr>
-                            <th class="col-code-header" data-col="code">
-                                Mã NCC
-                                <button class="filter-btn" data-column="code">
-                                    <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
-                                </button>
-                            </th>
-                            <th class="col-name" data-col="name">
-                                Tên NCC
-                                <button class="filter-btn" data-column="name">
-                                    <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
-                                </button>
-                            </th>
-                            <th class="col-number sortable-header" data-col="debit" data-sort-field="Debit" onclick="toggleColumnSort('Debit')">
-                                Phát sinh
-                                <span class="sort-icon" id="sort-icon-Debit"></span>
-                                <button class="filter-btn" data-column="debit" onclick="event.stopPropagation()">
-                                    <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
-                                </button>
-                            </th>
-                            <th class="col-number sortable-header" data-col="credit" data-sort-field="Credit" onclick="toggleColumnSort('Credit')">
-                                Thanh toán
-                                <span class="sort-icon" id="sort-icon-Credit"></span>
-                                <button class="filter-btn" data-column="credit" onclick="event.stopPropagation()">
-                                    <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
-                                </button>
-                            </th>
-                            <th class="col-number sortable-header" data-col="end" data-sort-field="End" onclick="toggleColumnSort('End')">
-                                Nợ cuối kỳ
-                                <span class="sort-icon" id="sort-icon-End"></span>
-                                <button class="filter-btn" data-column="end" onclick="event.stopPropagation()">
-                                    <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
-                                </button>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Data will be rendered here -->
-                    </tbody>
-                    <tfoot id="tableFoot">
-                        <tr class="total-row">
-                            <td data-col="code"><strong>Tổng</strong></td>
-                            <td data-col="name"></td>
-                            <td data-col="debit" class="col-number" id="totalDebit">0</td>
-                            <td data-col="credit" class="col-number" id="totalCredit">0</td>
-                            <td data-col="end" class="col-number" id="totalEnd">0</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <div class="pagination">
-                <div class="pagination-nav">
-                    <button class="btn-page" id="btnFirst" title="Trang đầu">
-                        <i data-lucide="chevrons-left"></i>
-                    </button>
-                    <button class="btn-page" id="btnPrev" title="Trang trước">
-                        <i data-lucide="chevron-left"></i>
-                    </button>
-                    <div class="page-numbers" id="pageNumbers">
-                        <!-- Page numbers will be rendered here -->
-                    </div>
-                    <button class="btn-page" id="btnNext" title="Trang sau">
-                        <i data-lucide="chevron-right"></i>
-                    </button>
-                    <button class="btn-page" id="btnLast" title="Trang cuối">
-                        <i data-lucide="chevrons-right"></i>
-                    </button>
-                </div>
-
-                <div class="pagination-info">
-                    <select id="pageSize" class="page-size-select">
-                        <option value="20">20</option>
-                        <option value="50">50</option>
-                        <option value="200">200</option>
-                        <option value="1000">1000</option>
-                    </select>
-                    <span>Số dòng trên trang</span>
-                    <span class="page-info" id="pageInfo">0 - 0 của 0 dòng</span>
-                    <button class="btn-refresh" id="btnRefresh" title="Làm mới">
+    <body>
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <div class="container">
+                <!-- Page Header -->
+                <header class="page-header">
+                    <h1><i data-lucide="receipt"></i> Công nợ nhà cung cấp</h1>
+                    <button
+                        class="btn btn-outline btn-reload"
+                        id="btnRefresh"
+                        title="Tải lại dữ liệu"
+                    >
                         <i data-lucide="refresh-cw"></i>
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
+                </header>
 
-    <!-- Payment Modal -->
-    <div class="modal-overlay" id="paymentModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Đăng ký thanh toán</h3>
-                <button class="modal-close" id="btnCloseModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Nhà cung cấp</label>
-                            <div class="form-value" id="paymentSupplierName"></div>
+                <!-- Filter Toggle Button -->
+                <button class="btn btn-outline filter-toggle-btn" id="btnFilterToggle">
+                    <i data-lucide="sliders-horizontal"></i> Bộ lọc
+                    <i data-lucide="chevron-down" class="toggle-icon"></i>
+                </button>
+
+                <!-- Filter Section -->
+                <div class="filter-section" id="filterSection" style="display: none">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Thời gian</label>
+                            <div class="date-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="dateFromDisplay"
+                                    class="date-input date-display"
+                                    placeholder="dd/mm/yyyy"
+                                    maxlength="10"
+                                />
+                                <input type="date" id="dateFrom" class="date-input-hidden" />
+                                <i data-lucide="calendar" class="date-icon"></i>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Ngày thanh toán</label>
-                            <input type="datetime-local" id="paymentDate" class="form-input">
+
+                        <div class="filter-group">
+                            <label>Ngày kết thúc</label>
+                            <div class="date-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="dateToDisplay"
+                                    class="date-input date-display"
+                                    placeholder="dd/mm/yyyy"
+                                    maxlength="10"
+                                />
+                                <input type="date" id="dateTo" class="date-input-hidden" />
+                                <i data-lucide="calendar" class="date-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-group filter-group-display">
+                            <label>Hiển thị</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="display" value="all" checked />
+                                    <span>Tất cả</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="display" value="endnonzero" />
+                                    <span>Nợ cuối kỳ khác 0</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Phương thức</label>
-                            <select id="paymentMethod" class="form-select">
-                                <option value="">-- Chọn phương thức --</option>
+
+                    <div class="filter-row">
+                        <div class="filter-group filter-group-supplier">
+                            <label>Nhà cung cấp</label>
+                            <div class="searchable-select-wrapper" id="supplierSearchWrapper">
+                                <input
+                                    type="text"
+                                    id="supplierSearchInput"
+                                    class="form-input"
+                                    placeholder="Tìm nhà cung cấp..."
+                                    autocomplete="off"
+                                />
+                                <button
+                                    type="button"
+                                    class="clear-select"
+                                    id="clearSupplier"
+                                    style="display: none"
+                                >
+                                    <i data-lucide="x" style="width: 14px; height: 14px"></i>
+                                </button>
+                                <div
+                                    class="searchable-dropdown"
+                                    id="supplierDropdown"
+                                    style="display: none"
+                                ></div>
+                            </div>
+                            <!-- Hidden select for compatibility -->
+                            <select id="supplierFilter" style="display: none">
+                                <option value="">Chọn nhà cung cấp</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>Nội dung</label>
-                            <input type="text" id="paymentContent" class="form-input" placeholder="Nhập nội dung">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Số tiền</label>
-                            <input type="text" id="paymentAmount" class="form-input" inputmode="numeric" oninput="formatPaymentAmountInput(this)">
-                        </div>
-                        <div class="form-group"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="btnSubmitPayment">Thanh toán</button>
-                <button class="btn btn-secondary" id="btnCancelPayment">Đóng</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Note Edit Modal -->
-    <div class="modal-overlay" id="noteEditModal">
-        <div class="modal modal-note">
-            <div class="modal-header">
-                <h3>Chỉnh sửa ghi chú</h3>
-                <button class="modal-close" id="btnCloseNoteModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-form">
-                    <div class="form-group">
-                        <label>Nhà cung cấp - Bút toán</label>
-                        <div class="form-value" id="noteEditSupplier"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Ghi chú TPOS <span class="text-muted">(không thể sửa)</span></label>
-                        <div class="form-value note-readonly" id="noteEditTpos"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Ghi chú Web <span class="text-muted">(có thể sửa)</span></label>
-                        <textarea id="noteEditWeb" class="form-input form-textarea" rows="3" placeholder="Nhập ghi chú..."></textarea>
-                        <div class="form-hint">Nhấn Ctrl+Enter để lưu nhanh</div>
-                    </div>
-                    <div class="form-group" id="noteHistorySection" style="display: none;">
-                        <label>Lịch sử chỉnh sửa</label>
-                        <div class="note-history-list" id="noteHistoryList"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="btnSaveNote">Lưu</button>
-                <button class="btn btn-secondary" id="btnCancelNote">Đóng</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Invoice Detail Modal -->
-    <div class="modal-overlay" id="invoiceDetailModal">
-        <div class="modal modal-invoice-detail">
-            <div class="modal-header">
-                <h3>Chi tiết hóa đơn</h3>
-                <button class="modal-close" id="btnCloseInvoiceDetail">&times;</button>
-            </div>
-            <div class="modal-body" id="invoiceDetailBody">
-                <!-- Content will be rendered by JS -->
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCloseInvoiceDetailFooter">Đóng</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Supplier Modal -->
-    <div class="modal-overlay" id="createSupplierModal">
-        <div class="modal modal-note">
-            <div class="modal-header">
-                <h3>Tạo nhà cung cấp mới</h3>
-                <button class="modal-close" id="btnCloseCreateSupplier">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-form">
-                    <div class="form-group">
-                        <label>Mã NCC <span style="color: #dc2626;">*</span></label>
-                        <input type="text" id="newSupplierRef" class="form-input" placeholder="VD: B28">
-                    </div>
-                    <div class="form-group">
-                        <label>Tên NCC <span style="color: #dc2626;">*</span></label>
-                        <input type="text" id="newSupplierName" class="form-input" placeholder="VD: NGUYỄN VĂN A">
-                    </div>
-                    <div class="form-group">
-                        <label>Ghi chú <span class="text-muted">(tùy chọn)</span></label>
-                        <textarea id="newSupplierNote" class="form-input form-textarea" rows="2" placeholder="Nhập ghi chú..."></textarea>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="btnSubmitCreateSupplier">Tạo</button>
-                <button class="btn btn-secondary" id="btnCancelCreateSupplier">Đóng</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Supplier Note Edit Modal -->
-    <div class="modal-overlay" id="supplierNoteModal">
-        <div class="modal modal-note">
-            <div class="modal-header">
-                <h3>Ghi chú nhà cung cấp</h3>
-                <button class="modal-close" id="btnCloseSupplierNote">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-form">
-                    <div class="form-group">
-                        <label>Nhà cung cấp</label>
-                        <div class="form-value" id="supplierNoteLabel"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Ghi chú</label>
-                        <textarea id="supplierNoteText" class="form-input form-textarea" rows="3" placeholder="Nhập ghi chú..."></textarea>
-                        <div class="form-hint">Nhấn Ctrl+Enter để lưu nhanh</div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="btnSaveSupplierNote">Lưu</button>
-                <button class="btn btn-secondary" id="btnCancelSupplierNote">Đóng</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Return Order Modal -->
-    <div class="modal-overlay" id="returnOrderModal">
-        <div class="modal modal-return-order">
-            <div class="modal-header">
-                <h3>Đơn trả hàng nhà cung cấp</h3>
-                <button class="modal-close" id="btnCloseReturnOrder">&times;</button>
-            </div>
-
-            <!-- Action bar -->
-            <div class="return-action-bar">
-                <button class="btn btn-save-draft" id="btnReturnSave">
-                    <i data-lucide="save" style="width:14px;height:14px;"></i> Lưu
-                </button>
-                <button class="btn btn-go-back" id="btnReturnBack">Trở lại</button>
-            </div>
-
-            <div class="return-order-body">
-                <!-- LEFT: Product Catalog -->
-                <div class="return-product-panel">
-                    <div class="return-product-toolbar">
-                        <input type="text" id="returnProductSearch" class="return-product-search" placeholder="Tìm kiếm [F2]..." autocomplete="off">
-                        <select id="returnSortBy" class="return-sort-select">
-                            <option value="DateCreated desc">Mới nhất</option>
-                            <option value="QtyAvailable desc">Tồn kho</option>
-                            <option value="Name asc">Tên A-Z</option>
-                        </select>
-                    </div>
-                    <div class="return-product-table-header">
-                        <span>Ảnh</span>
-                        <span>Tên sản phẩm</span>
-                        <span>ĐVT</span>
-                        <span style="text-align:right">Giá mua</span>
-                    </div>
-                    <div class="return-product-list" id="returnProductList">
-                        <!-- Rendered by JS -->
-                    </div>
-                    <div class="return-product-pagination" id="returnProductPagination"></div>
-                </div>
-
-                <!-- RIGHT: Order Form -->
-                <div class="return-order-panel">
-                    <div class="return-order-header">
-                        <div class="return-order-header-row">
-                            <div class="form-group" style="flex:2;">
-                                <label>Nhà cung cấp</label>
-                                <div class="return-supplier-wrapper" id="returnSupplierWrapper">
-                                    <input type="text" id="returnSupplierSearch" class="form-input" placeholder="Tìm nhà cung cấp..." autocomplete="off">
-                                    <div class="searchable-dropdown" id="returnSupplierDropdown" style="display:none;"></div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" id="btnSearch">
+                                <i data-lucide="search"></i> Tìm kiếm
+                            </button>
+                            <button class="btn btn-success" id="btnExport" style="display: none">
+                                <i data-lucide="file-spreadsheet"></i> Xuất excel
+                            </button>
+                            <button class="btn btn-primary" id="btnCreateSupplier">
+                                <i data-lucide="plus"></i> Tạo NCC
+                            </button>
+                            <button class="btn btn-warning" id="btnReturnOrder">
+                                <i data-lucide="undo-2"></i> Trả hàng
+                            </button>
+                            <div class="column-toggle-wrapper">
+                                <button class="btn btn-secondary" id="btnColumnToggle">
+                                    <i data-lucide="columns"></i> Ẩn/Hiện cột
+                                </button>
+                                <div class="column-toggle-dropdown" id="columnToggleDropdown">
+                                    <div class="column-toggle-item">
+                                        <input type="checkbox" id="col-code" checked />
+                                        <label for="col-code">Mã NCC</label>
+                                    </div>
+                                    <div class="column-toggle-item">
+                                        <input type="checkbox" id="col-name" checked />
+                                        <label for="col-name">Tên NCC</label>
+                                    </div>
+                                    <div class="column-toggle-item">
+                                        <input type="checkbox" id="col-debit" checked />
+                                        <label for="col-debit">Phát sinh</label>
+                                    </div>
+                                    <div class="column-toggle-item">
+                                        <input type="checkbox" id="col-credit" checked />
+                                        <label for="col-credit">Thanh toán</label>
+                                    </div>
+                                    <div class="column-toggle-item">
+                                        <input type="checkbox" id="col-end" checked />
+                                        <label for="col-end">Nợ cuối kỳ</label>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Refund Orders: Banner + Collapsible Table -->
+                <div class="refund-orders-wrap" id="refundOrdersWrap" style="display: none">
+                    <div class="refund-orders-banner" id="refundOrdersBanner">
+                        <i data-lucide="undo-2" style="width: 16px; height: 16px"></i>
+                        <span>Đơn trả hàng (Nháp) <span id="refundOrdersCount"></span></span>
+                        <i
+                            data-lucide="chevron-down"
+                            class="refund-toggle-icon"
+                            style="width: 16px; height: 16px; margin-left: auto"
+                        ></i>
+                    </div>
+                    <div class="refund-orders-body" id="refundOrdersSection" style="display: none">
+                        <div class="refund-orders-table-wrap">
+                            <table class="refund-orders-table" id="refundOrdersTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px; text-align: center">
+                                            <input
+                                                type="checkbox"
+                                                id="refundCheckAll"
+                                                title="Chọn tất cả"
+                                            />
+                                        </th>
+                                        <th>Nhà cung cấp</th>
+                                        <th
+                                            class="refund-col-date"
+                                            id="refundSortDate"
+                                            style="cursor: pointer"
+                                        >
+                                            Ngày đơn hàng <span class="sort-arrow">&darr;</span>
+                                        </th>
+                                        <th style="text-align: right">Tổng tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="refundOrdersBody"></tbody>
+                            </table>
+                        </div>
+                        <div
+                            class="refund-orders-actions"
+                            id="refundOrdersActions"
+                            style="display: none"
+                        >
+                            <button class="btn btn-success btn-sm" id="btnConfirmRefunds">
+                                <i data-lucide="check" style="width: 14px; height: 14px"></i> Xác
+                                nhận đã trả hàng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="loadingIndicator" class="loading" style="display: none">
+                    <i data-lucide="loader-2"></i> Đang tải dữ liệu...
+                </div>
+
+                <!-- Data Table -->
+                <div class="table-container">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th class="col-code-header" data-col="code">
+                                    Mã NCC
+                                    <button class="filter-btn" data-column="code">
+                                        <i
+                                            data-lucide="filter"
+                                            style="width: 12px; height: 12px"
+                                        ></i>
+                                    </button>
+                                </th>
+                                <th class="col-name" data-col="name">
+                                    Tên NCC
+                                    <button class="filter-btn" data-column="name">
+                                        <i
+                                            data-lucide="filter"
+                                            style="width: 12px; height: 12px"
+                                        ></i>
+                                    </button>
+                                </th>
+                                <th
+                                    class="col-number sortable-header"
+                                    data-col="debit"
+                                    data-sort-field="Debit"
+                                    onclick="toggleColumnSort('Debit')"
+                                >
+                                    Phát sinh
+                                    <span class="sort-icon" id="sort-icon-Debit"></span>
+                                    <button
+                                        class="filter-btn"
+                                        data-column="debit"
+                                        onclick="event.stopPropagation()"
+                                    >
+                                        <i
+                                            data-lucide="filter"
+                                            style="width: 12px; height: 12px"
+                                        ></i>
+                                    </button>
+                                </th>
+                                <th
+                                    class="col-number sortable-header"
+                                    data-col="credit"
+                                    data-sort-field="Credit"
+                                    onclick="toggleColumnSort('Credit')"
+                                >
+                                    Thanh toán
+                                    <span class="sort-icon" id="sort-icon-Credit"></span>
+                                    <button
+                                        class="filter-btn"
+                                        data-column="credit"
+                                        onclick="event.stopPropagation()"
+                                    >
+                                        <i
+                                            data-lucide="filter"
+                                            style="width: 12px; height: 12px"
+                                        ></i>
+                                    </button>
+                                </th>
+                                <th
+                                    class="col-number sortable-header"
+                                    data-col="end"
+                                    data-sort-field="End"
+                                    onclick="toggleColumnSort('End')"
+                                >
+                                    Nợ cuối kỳ
+                                    <span class="sort-icon" id="sort-icon-End"></span>
+                                    <button
+                                        class="filter-btn"
+                                        data-column="end"
+                                        onclick="event.stopPropagation()"
+                                    >
+                                        <i
+                                            data-lucide="filter"
+                                            style="width: 12px; height: 12px"
+                                        ></i>
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Data will be rendered here -->
+                        </tbody>
+                        <tfoot id="tableFoot">
+                            <tr class="total-row">
+                                <td data-col="code"><strong>Tổng</strong></td>
+                                <td data-col="name"></td>
+                                <td data-col="debit" class="col-number" id="totalDebit">0</td>
+                                <td data-col="credit" class="col-number" id="totalCredit">0</td>
+                                <td data-col="end" class="col-number" id="totalEnd">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <div class="pagination-nav">
+                        <button class="btn-page" id="btnFirst" title="Trang đầu">
+                            <i data-lucide="chevrons-left"></i>
+                        </button>
+                        <button class="btn-page" id="btnPrev" title="Trang trước">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <div class="page-numbers" id="pageNumbers">
+                            <!-- Page numbers will be rendered here -->
+                        </div>
+                        <button class="btn-page" id="btnNext" title="Trang sau">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                        <button class="btn-page" id="btnLast" title="Trang cuối">
+                            <i data-lucide="chevrons-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="pagination-info">
+                        <select id="pageSize" class="page-size-select">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="200">200</option>
+                            <option value="1000">1000</option>
+                        </select>
+                        <span>Số dòng trên trang</span>
+                        <span class="page-info" id="pageInfo">0 - 0 của 0 dòng</span>
+                        <button class="btn-refresh" id="btnRefresh" title="Làm mới">
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Modal -->
+        <div class="modal-overlay" id="paymentModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Đăng ký thanh toán</h3>
+                    <button class="modal-close" id="btnCloseModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-form">
+                        <div class="form-row">
                             <div class="form-group">
-                                <label>Ngày đơn hàng</label>
-                                <input type="date" id="returnOrderDate" class="form-input">
+                                <label>Nhà cung cấp</label>
+                                <div class="form-value" id="paymentSupplierName"></div>
                             </div>
                             <div class="form-group">
-                                <label>Phương thức thanh toán</label>
-                                <select id="returnPaymentMethod" class="form-select">
-                                    <option value="1">Tiền mặt</option>
+                                <label>Ngày thanh toán</label>
+                                <input type="datetime-local" id="paymentDate" class="form-input" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Phương thức</label>
+                                <select id="paymentMethod" class="form-select">
+                                    <option value="">-- Chọn phương thức --</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label>Nội dung</label>
+                                <input
+                                    type="text"
+                                    id="paymentContent"
+                                    class="form-input"
+                                    placeholder="Nhập nội dung"
+                                />
+                            </div>
                         </div>
-                        <div class="return-order-header-row">
+                        <div class="form-row">
                             <div class="form-group">
-                                <label>Cước phí</label>
-                                <input type="text" id="returnShippingCost" class="form-input" inputmode="numeric" value="0">
+                                <label>Số tiền</label>
+                                <input
+                                    type="text"
+                                    id="paymentAmount"
+                                    class="form-input"
+                                    inputmode="numeric"
+                                    oninput="formatPaymentAmountInput(this)"
+                                />
                             </div>
-                            <div class="form-group">
-                                <label>Số tiền thanh toán</label>
-                                <input type="text" id="returnPaymentAmount" class="form-input" inputmode="numeric" value="0">
-                            </div>
+                            <div class="form-group"></div>
                         </div>
                     </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btnSubmitPayment">Thanh toán</button>
+                    <button class="btn btn-secondary" id="btnCancelPayment">Đóng</button>
+                </div>
+            </div>
+        </div>
 
-                    <div class="return-order-table-wrap">
-                        <table class="return-order-table" id="returnOrderTable">
-                            <thead>
-                                <tr>
-                                    <th class="col-stt">STT</th>
-                                    <th class="col-product">Sản phẩm</th>
-                                    <th class="col-qty">Số lượng</th>
-                                    <th class="col-price">Đơn giá</th>
-                                    <th class="col-total">Tổng</th>
-                                    <th class="col-action"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="returnOrderLines">
-                                <tr><td colspan="6"><div class="return-order-empty">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" x2="21" y1="6" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                                    <div>Chọn sản phẩm từ danh sách bên trái</div>
-                                </div></td></tr>
-                            </tbody>
-                        </table>
+        <!-- Note Edit Modal -->
+        <div class="modal-overlay" id="noteEditModal">
+            <div class="modal modal-note">
+                <div class="modal-header">
+                    <h3>Chỉnh sửa ghi chú</h3>
+                    <button class="modal-close" id="btnCloseNoteModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-form">
+                        <div class="form-group">
+                            <label>Nhà cung cấp - Bút toán</label>
+                            <div class="form-value" id="noteEditSupplier"></div>
+                        </div>
+                        <div class="form-group">
+                            <label
+                                >Ghi chú TPOS <span class="text-muted">(không thể sửa)</span></label
+                            >
+                            <div class="form-value note-readonly" id="noteEditTpos"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú Web <span class="text-muted">(có thể sửa)</span></label>
+                            <textarea
+                                id="noteEditWeb"
+                                class="form-input form-textarea"
+                                rows="3"
+                                placeholder="Nhập ghi chú..."
+                            ></textarea>
+                            <div class="form-hint">Nhấn Ctrl+Enter để lưu nhanh</div>
+                        </div>
+                        <div class="form-group" id="noteHistorySection" style="display: none">
+                            <label>Lịch sử chỉnh sửa</label>
+                            <div class="note-history-list" id="noteHistoryList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btnSaveNote">Lưu</button>
+                    <button class="btn btn-secondary" id="btnCancelNote">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice Detail Modal -->
+        <div class="modal-overlay" id="invoiceDetailModal">
+            <div class="modal modal-invoice-detail">
+                <div class="modal-header">
+                    <h3>Chi tiết hóa đơn</h3>
+                    <button class="modal-close" id="btnCloseInvoiceDetail">&times;</button>
+                </div>
+                <div class="modal-body" id="invoiceDetailBody">
+                    <!-- Content will be rendered by JS -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btnCloseInvoiceDetailFooter">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Supplier Modal -->
+        <div class="modal-overlay" id="createSupplierModal">
+            <div class="modal modal-note">
+                <div class="modal-header">
+                    <h3>Tạo nhà cung cấp mới</h3>
+                    <button class="modal-close" id="btnCloseCreateSupplier">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-form">
+                        <div class="form-group">
+                            <label>Mã NCC <span style="color: #dc2626">*</span></label>
+                            <input
+                                type="text"
+                                id="newSupplierRef"
+                                class="form-input"
+                                placeholder="VD: B28"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>Tên NCC <span style="color: #dc2626">*</span></label>
+                            <input
+                                type="text"
+                                id="newSupplierName"
+                                class="form-input"
+                                placeholder="VD: NGUYỄN VĂN A"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú <span class="text-muted">(tùy chọn)</span></label>
+                            <textarea
+                                id="newSupplierNote"
+                                class="form-input form-textarea"
+                                rows="2"
+                                placeholder="Nhập ghi chú..."
+                            ></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btnSubmitCreateSupplier">Tạo</button>
+                    <button class="btn btn-secondary" id="btnCancelCreateSupplier">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supplier Note Edit Modal -->
+        <div class="modal-overlay" id="supplierNoteModal">
+            <div class="modal modal-note">
+                <div class="modal-header">
+                    <h3>Ghi chú nhà cung cấp</h3>
+                    <button class="modal-close" id="btnCloseSupplierNote">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-form">
+                        <div class="form-group">
+                            <label>Nhà cung cấp</label>
+                            <div class="form-value" id="supplierNoteLabel"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú</label>
+                            <textarea
+                                id="supplierNoteText"
+                                class="form-input form-textarea"
+                                rows="3"
+                                placeholder="Nhập ghi chú..."
+                            ></textarea>
+                            <div class="form-hint">Nhấn Ctrl+Enter để lưu nhanh</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="btnSaveSupplierNote">Lưu</button>
+                    <button class="btn btn-secondary" id="btnCancelSupplierNote">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return Order Modal -->
+        <div class="modal-overlay" id="returnOrderModal">
+            <div class="modal modal-return-order">
+                <div class="modal-header">
+                    <h3>Đơn trả hàng nhà cung cấp</h3>
+                    <button class="modal-close" id="btnCloseReturnOrder">&times;</button>
+                </div>
+
+                <!-- Action bar -->
+                <div class="return-action-bar">
+                    <button class="btn btn-save-draft" id="btnReturnSave">
+                        <i data-lucide="save" style="width: 14px; height: 14px"></i> Lưu
+                    </button>
+                    <button class="btn btn-go-back" id="btnReturnBack">Trở lại</button>
+                </div>
+
+                <div class="return-order-body">
+                    <!-- LEFT: Product Catalog -->
+                    <div class="return-product-panel">
+                        <div class="return-product-toolbar">
+                            <input
+                                type="text"
+                                id="returnProductSearch"
+                                class="return-product-search"
+                                placeholder="Tìm kiếm [F2]..."
+                                autocomplete="off"
+                            />
+                            <select id="returnSortBy" class="return-sort-select">
+                                <option value="DateCreated desc">Mới nhất</option>
+                                <option value="QtyAvailable desc">Tồn kho</option>
+                                <option value="Name asc">Tên A-Z</option>
+                            </select>
+                        </div>
+                        <div class="return-product-table-header">
+                            <span>Ảnh</span>
+                            <span>Tên sản phẩm</span>
+                            <span>ĐVT</span>
+                            <span style="text-align: right">Giá mua</span>
+                        </div>
+                        <div class="return-product-list" id="returnProductList">
+                            <!-- Rendered by JS -->
+                        </div>
+                        <div class="return-product-pagination" id="returnProductPagination"></div>
                     </div>
 
-                    <div class="return-order-footer">
-                        <div class="return-order-summary" id="returnOrderSummary">
-                            <div class="return-summary-row">
-                                <span class="label">Tổng số lượng:</span>
-                                <span class="value">0</span>
+                    <!-- RIGHT: Order Form -->
+                    <div class="return-order-panel">
+                        <div class="return-order-header">
+                            <div class="return-order-header-row">
+                                <div class="form-group" style="flex: 2">
+                                    <label>Nhà cung cấp</label>
+                                    <div class="return-supplier-wrapper" id="returnSupplierWrapper">
+                                        <input
+                                            type="text"
+                                            id="returnSupplierSearch"
+                                            class="form-input"
+                                            placeholder="Tìm nhà cung cấp..."
+                                            autocomplete="off"
+                                        />
+                                        <div
+                                            class="searchable-dropdown"
+                                            id="returnSupplierDropdown"
+                                            style="display: none"
+                                        ></div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Ngày đơn hàng</label>
+                                    <input type="date" id="returnOrderDate" class="form-input" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Phương thức thanh toán</label>
+                                    <select id="returnPaymentMethod" class="form-select">
+                                        <option value="1">Tiền mặt</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="return-summary-row total">
-                                <span class="label">Tổng tiền:</span>
-                                <span class="value">0</span>
+                            <div class="return-order-header-row">
+                                <div class="form-group">
+                                    <label>Cước phí</label>
+                                    <input
+                                        type="text"
+                                        id="returnShippingCost"
+                                        class="form-input"
+                                        inputmode="numeric"
+                                        value="0"
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label>Số tiền thanh toán</label>
+                                    <input
+                                        type="text"
+                                        id="returnPaymentAmount"
+                                        class="form-input"
+                                        inputmode="numeric"
+                                        value="0"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="return-order-table-wrap">
+                            <table class="return-order-table" id="returnOrderTable">
+                                <thead>
+                                    <tr>
+                                        <th class="col-stt">STT</th>
+                                        <th class="col-product">Sản phẩm</th>
+                                        <th class="col-qty">Số lượng</th>
+                                        <th class="col-price">Đơn giá</th>
+                                        <th class="col-total">Tổng</th>
+                                        <th class="col-action"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="returnOrderLines">
+                                    <tr>
+                                        <td colspan="6">
+                                            <div class="return-order-empty">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="40"
+                                                    height="40"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                >
+                                                    <path
+                                                        d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+                                                    />
+                                                    <line x1="3" x2="21" y1="6" y2="6" />
+                                                    <path d="M16 10a4 4 0 0 1-8 0" />
+                                                </svg>
+                                                <div>Chọn sản phẩm từ danh sách bên trái</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="return-order-footer">
+                            <div class="return-order-summary" id="returnOrderSummary">
+                                <div class="return-summary-row">
+                                    <span class="label">Tổng số lượng:</span>
+                                    <span class="value">0</span>
+                                </div>
+                                <div class="return-summary-row total">
+                                    <span class="label">Tổng tiền:</span>
+                                    <span class="value">0</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js"></script>
+        <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
 
-    <!-- Auth Manager -->
-    <script src="../shared/js/shared-auth-manager.js"></script>
+        <!-- Auth Manager -->
+        <script src="../shared/js/shared-auth-manager.js?v=20260521b"></script>
 
-    <!-- Navigation -->
-    <script defer src="../shared/js/navigation-modern.js"></script>
+        <!-- Navigation -->
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
 
-    <!-- Notification System -->
-    <script src="../shared/js/notification-system.js"></script>
+        <!-- Notification System -->
+        <script src="../shared/js/notification-system.js?v=20260521b"></script>
 
-    <!-- Token Manager & API Config -->
-    <script src="../shared/js/shop-config.js"></script>
-    <script src="../shared/js/api-config.js"></script>
-    <script src="../shared/js/token-manager.js"></script>
+        <!-- Token Manager & API Config -->
+        <script src="../shared/js/shop-config.js?v=20260521b"></script>
+        <script src="../shared/js/api-config.js?v=20260521b"></script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
 
-    <!-- Return Order Module -->
-    <script src="js/return-order.js"></script>
+        <!-- Return Order Module -->
+        <script src="js/return-order.js?v=20260521b"></script>
 
-    <!-- Page Script -->
-    <script src="js/main.js"></script>
+        <!-- Page Script -->
+        <script src="js/main.js?v=20260521b"></script>
 
-    <!-- Initialize Lucide Icons -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-        });
-    </script>
-</body>
-
+        <!-- Initialize Lucide Icons -->
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                lucide.createIcons();
+            });
+        </script>
+    </body>
 </html>

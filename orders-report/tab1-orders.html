@@ -26,31 +26,31 @@
             href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="css/tab1-orders.css" />
-        <link rel="stylesheet" href="css/message-template-modal.css" />
-        <link rel="stylesheet" href="css/quick-reply-modal.css" />
+        <link rel="stylesheet" href="css/tab1-orders.css?v=20260521b" />
+        <link rel="stylesheet" href="css/message-template-modal.css?v=20260521b" />
+        <link rel="stylesheet" href="css/quick-reply-modal.css?v=20260521b" />
         <!-- Extracted CSS files -->
-        <link rel="stylesheet" href="css/tab1-filters.css" />
-        <link rel="stylesheet" href="css/tab1-chat-modal.css?v=3" />
-        <link rel="stylesheet" href="css/tab1-sale-modal.css" />
-        <link rel="stylesheet" href="css/tab1-bill-settings.css" />
-        <link rel="stylesheet" href="css/tab1-autosend-toast.css" />
-        <link rel="stylesheet" href="css/tab1-processing-tags.css" />
-        <link rel="stylesheet" href="css/order-history.css" />
+        <link rel="stylesheet" href="css/tab1-filters.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-chat-modal.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-sale-modal.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-bill-settings.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-autosend-toast.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-processing-tags.css?v=20260521b" />
+        <link rel="stylesheet" href="css/order-history.css?v=20260521b" />
 
-        <link rel="stylesheet" href="css/tab1-stock-status.css" />
-        <link rel="stylesheet" href="css/tab1-kpi-stats-strip.css" />
+        <link rel="stylesheet" href="css/tab1-stock-status.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-kpi-stats-strip.css?v=20260521b" />
 
         <!-- TPOSImageProxy hooks phải load SỚM NHẤT để rewrite innerHTML / img.src trước khi
          bất kỳ code nào render <img src="https://vn.img1.tpos.vn/...">. Nếu load muộn,
          browser parser đã start network request raw URL → hit HTTP/2 stream limit. -->
-        <script src="../shared/js/image-cache.js?v=20260503a"></script>
-        <script src="../shared/js/tpos-image-proxy.js"></script>
+        <script src="../shared/js/image-cache.js?v=20260521b"></script>
+        <script src="../shared/js/tpos-image-proxy.js?v=20260521b"></script>
         <!-- Heavy CDN libs (XLSX ~950KB, html2canvas ~200KB) lazy-loaded on first use via window.loadXLSX() / window.loadHtml2Canvas() -->
-        <script src="../shared/js/cdn-libs.js"></script>
-        <script src="js/utils/decoding-utility.js"></script>
-        <script src="js/utils/fetch-with-timeout.js"></script>
-        <script src="js/core/api-handler.js"></script>
+        <script src="../shared/js/cdn-libs.js?v=20260521b"></script>
+        <script src="js/utils/decoding-utility.js?v=20260521b"></script>
+        <script src="js/utils/fetch-with-timeout.js?v=20260521b"></script>
+        <script src="js/core/api-handler.js?v=20260521b"></script>
         <script>
             // Permission gate cho power-user toggles (RT, Auto T).
             // Chỉ admin / lai-authenticated được toggle; users khác mặc định ON, ẩn switch.
@@ -69,9 +69,9 @@
                 }
             };
         </script>
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
-        <link rel="stylesheet" href="css/design-system.css" />
+        <link rel="stylesheet" href="css/design-system.css?v=20260521b" />
     </head>
 
     <body>
@@ -2630,8 +2630,8 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED - initialize Firebase immediately after SDK) -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/indexed-db-store.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/indexed-db-store.js?v=20260521b"></script>
         <script>
             // Initialize Firebase immediately
             if (typeof initializeFirestore === 'function') {
@@ -2643,38 +2643,42 @@
         </script>
 
         <!-- API Configuration (load first!) -->
-        <script src="js/core/api-config.js"></script>
+        <script src="js/core/api-config.js?v=20260521b"></script>
 
         <!-- Firebase Configuration (local fallback - must load before firebase-image-cache.js) -->
-        <script src="js/core/config.js"></script>
+        <script src="js/core/config.js?v=20260521b"></script>
 
         <!-- User Employee Loader -->
-        <script src="js/core/user-employee-loader.js"></script>
+        <script src="js/core/user-employee-loader.js?v=20260521b"></script>
 
         <!-- Render API key for token cache endpoints -->
         <script>
             window.N2STORE_CLIENT_API_KEY =
                 '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
         </script>
-        <script src="../shared/js/shop-config.js"></script>
-        <script src="../shared/js/token-manager.js"></script>
-        <script src="js/core/bill-token-manager.js"></script>
+        <script src="../shared/js/shop-config.js?v=20260521b"></script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
+        <script src="js/core/bill-token-manager.js?v=20260521b"></script>
         <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
-        <script src="js/core/indexeddb-storage.js"></script>
-        <script src="js/core/cache.js"></script>
+        <script src="js/core/indexeddb-storage.js?v=20260521b"></script>
+        <script src="js/core/cache.js?v=20260521b"></script>
         <!-- User-specific storage manager (append _${username} to localStorage keys) -->
-        <script src="js/core/user-storage-manager.js"></script>
+        <script src="js/core/user-storage-manager.js?v=20260521b"></script>
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>window.authManager=new AuthManager({redirectUrl:"../index.html",sessionDuration:8*60*60*1000,rememberDuration:30*24*60*60*1000});<\/script>'
                 );
-                document.write('<script src="../shared/js/notification-system.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/notification-system.js?v=20260521b"><\/script>'
+                );
             }
         </script>
 
@@ -2703,193 +2707,193 @@
         </script>
         <!-- Note: notification-system.js is loaded by compat.js ES Module -->
         <!-- tpos-image-proxy.js moved to <head> (line ~32) để hook chạy SỚM NHẤT, trước mọi render. -->
-        <script src="../shared/js/pancake-token-manager.js"></script>
-        <script src="js/managers/global-id-harvester.js"></script>
-        <script src="js/managers/pancake-data-manager.js?v=2"></script>
-        <script src="js/utils/firebase-image-cache.js"></script>
+        <script src="../shared/js/pancake-token-manager.js?v=20260521b"></script>
+        <script src="js/managers/global-id-harvester.js?v=20260521b"></script>
+        <script src="js/managers/pancake-data-manager.js?v=20260521b"></script>
+        <script src="js/utils/firebase-image-cache.js?v=20260521b"></script>
         <!-- html2canvas (~200KB) lazy-loaded via window.loadHtml2Canvas() in order-image-generator.js / bill-service.js -->
         <!-- JsBarcode (~50KB) loaded inside print window iframe by bill-service.js — duplicate top-level removed -->
-        <script src="js/utils/order-image-generator.js"></script>
-        <script src="js/chat/message-template-manager.js?v=2"></script>
-        <script src="js/utils/copy-template-helper.js"></script>
-        <script src="js/chat/live-comments-readonly-modal.js"></script>
+        <script src="js/utils/order-image-generator.js?v=20260521b"></script>
+        <script src="js/chat/message-template-manager.js?v=20260521b"></script>
+        <script src="js/utils/copy-template-helper.js?v=20260521b"></script>
+        <script src="js/chat/live-comments-readonly-modal.js?v=20260521b"></script>
 
-        <script src="../shared/js/quick-reply-manager.js?v=2"></script>
-        <script src="../shared/js/attribute-values-loader.js"></script>
-        <script src="../shared/js/warehouse-api.js"></script>
-        <script src="js/managers/product-search-manager.js"></script>
-        <script src="js/managers/dropped-products-manager.js"></script>
-        <script src="js/managers/held-products-manager.js"></script>
-        <script src="js/managers/kpi-sale-flag-store.js"></script>
-        <script src="js/managers/kpi-manager.js"></script>
-        <script src="js/tab1/tab1-kpi-base-button.js"></script>
-        <script src="js/utils/search-functions.js"></script>
-        <script src="js/managers/column-visibility-manager.js"></script>
-        <script src="js/managers/realtime-manager.js"></script>
-        <script src="js/chat/new-messages-notifier.js?v=3"></script>
-        <script src="js/tab1/tab1-pending-badge-admin.js"></script>
-        <script src="js/tab1/tab1-extension-bridge.js"></script>
+        <script src="../shared/js/quick-reply-manager.js?v=20260521b"></script>
+        <script src="../shared/js/attribute-values-loader.js?v=20260521b"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260521b"></script>
+        <script src="js/managers/product-search-manager.js?v=20260521b"></script>
+        <script src="js/managers/dropped-products-manager.js?v=20260521b"></script>
+        <script src="js/managers/held-products-manager.js?v=20260521b"></script>
+        <script src="js/managers/kpi-sale-flag-store.js?v=20260521b"></script>
+        <script src="js/managers/kpi-manager.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-kpi-base-button.js?v=20260521b"></script>
+        <script src="js/utils/search-functions.js?v=20260521b"></script>
+        <script src="js/managers/column-visibility-manager.js?v=20260521b"></script>
+        <script src="js/managers/realtime-manager.js?v=20260521b"></script>
+        <script src="js/chat/new-messages-notifier.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-pending-badge-admin.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-extension-bridge.js?v=20260521b"></script>
         <!-- ⭐ Image Compressor for Pancake API (500KB limit) -->
-        <script src="js/utils/image-compressor.js"></script>
+        <script src="js/utils/image-compressor.js?v=20260521b"></script>
         <!-- Kho Di Cho Cache for bill STT lookup -->
-        <script src="js/utils/web-warehouse-cache.js"></script>
+        <script src="js/utils/web-warehouse-cache.js?v=20260521b"></script>
         <!-- ⭐ Bill Service for custom bill generation, printing and sending -->
-        <script src="js/utils/bill-service.js"></script>
+        <script src="js/utils/bill-service.js?v=20260521b"></script>
         <!-- ⭐ Customer 360° Wallet Integration - Phase 5 -->
-        <script src="js/utils/wallet-integration.js"></script>
+        <script src="js/utils/wallet-integration.js?v=20260521b"></script>
         <!-- ═══════════════════════════════════════════════════════════════════════ -->
         <!-- ⭐ TAB1 ORDERS - MODULAR ARCHITECTURE (17 files, 445 functions)          -->
         <!-- ═══════════════════════════════════════════════════════════════════════ -->
 
         <!-- 1. Core: Global state, formatTimeVN, cache (lines 1-278) -->
-        <script src="js/tab1/tab1-core.js"></script>
+        <script src="js/tab1/tab1-core.js?v=20260521b"></script>
 
         <!-- 1b. Filter Persistence: per-account IndexedDB snapshot of all filters -->
-        <script src="js/tab1/tab1-filter-persistence.js"></script>
+        <script src="js/tab1/tab1-filter-persistence.js?v=20260521b"></script>
 
         <!-- 2. Firebase: Tag sync, KPI, filter prefs (lines 279-749) -->
-        <script src="js/tab1/tab1-firebase.js"></script>
+        <script src="js/tab1/tab1-firebase.js?v=20260521b"></script>
 
         <!-- 2b. Date Mode: Quick date filter toggle -->
-        <script src="js/tab1/tab1-date-mode.js"></script>
+        <script src="js/tab1/tab1-date-mode.js?v=20260521b"></script>
 
         <!-- 3. Init: DOMContentLoaded, app initialization (lines 750-1385) -->
-        <script src="js/tab1/tab1-init.js"></script>
+        <script src="js/tab1/tab1-init.js?v=20260521b"></script>
 
         <!-- 4. Employee: Employee range management (lines 1386-1775) -->
-        <script src="js/tab1/tab1-employee.js"></script>
+        <script src="js/tab1/tab1-employee.js?v=20260521b"></script>
 
         <!-- 5. Tags: Single tag operations (lines 1776-2854) -->
-        <script src="js/tab1/tab1-tags.js"></script>
+        <script src="js/tab1/tab1-tags.js?v=20260521b"></script>
 
         <!-- 6. Bulk Tags: Bulk tag add/delete (lines 2855-5240) -->
-        <script src="js/tab1/tab1-bulk-tags.js?v=20260418c"></script>
+        <script src="js/tab1/tab1-bulk-tags.js?v=20260521b"></script>
 
         <!-- 6b. Processing Tags: Tag xử lý chốt đơn -->
-        <script src="js/tab1/tab1-processing-tags.js"></script>
+        <script src="js/tab1/tab1-processing-tags.js?v=20260521b"></script>
 
         <!-- 6b1a. Bulk subtag KHÔNG ĐỂ HÀNG: gán hàng loạt theo STT -->
-        <script src="js/tab1/tab1-bulk-subtag-khong-de-hang.js"></script>
+        <script src="js/tab1/tab1-bulk-subtag-khong-de-hang.js?v=20260521b"></script>
 
         <!-- 6b2. Exclude Tag XL: Filter ẩn đơn theo Tag XL -->
-        <script src="js/tab1/tab1-ptag-xl-exclude.js"></script>
+        <script src="js/tab1/tab1-ptag-xl-exclude.js?v=20260521b"></script>
 
         <!-- 6b1. Tag Sync: Bidirectional sync TPOS ↔ TAG XL (hardcoded mapping) -->
-        <script src="js/tab1/tab1-tag-sync.js"></script>
+        <script src="js/tab1/tab1-tag-sync.js?v=20260521b"></script>
 
         <!-- 6c. Stock Status: Kiểm tra tồn kho tự động -->
-        <script src="js/tab1/tab1-stock-status.js"></script>
+        <script src="js/tab1/tab1-stock-status.js?v=20260521b"></script>
 
         <!-- Phone Widget: WebRTC softphone via OnCallCX -->
-        <script src="js/lib/jssip.min.js"></script>
-        <script src="js/phone-ext-assignment.js"></script>
-        <script src="js/phone-cloud-sync.js"></script>
-        <script src="js/phone-recording.js"></script>
-        <script src="js/phone-widget.js"></script>
-        <script src="js/phone-orders-bridge.js"></script>
-        <script src="js/phone-auto-register.js"></script>
-        <script src="js/phone-history-badges.js"></script>
+        <script src="js/lib/jssip.min.js?v=20260521b"></script>
+        <script src="js/phone-ext-assignment.js?v=20260521b"></script>
+        <script src="js/phone-cloud-sync.js?v=20260521b"></script>
+        <script src="js/phone-recording.js?v=20260521b"></script>
+        <script src="js/phone-widget.js?v=20260521b"></script>
+        <script src="js/phone-orders-bridge.js?v=20260521b"></script>
+        <script src="js/phone-auto-register.js?v=20260521b"></script>
+        <script src="js/phone-history-badges.js?v=20260521b"></script>
 
         <!-- 7. Search: Table search, campaign loading (lines 5241-6814) -->
-        <script src="js/tab1/tab1-search.js"></script>
+        <script src="js/tab1/tab1-search.js?v=20260521b"></script>
 
         <!-- 8. Table: Rendering, sorting, row creation (lines 6815-8392) -->
-        <script src="js/tab1/tab1-table.js"></script>
+        <script src="js/tab1/tab1-table.js?v=20260521b"></script>
 
         <!-- 8.1 Active filter chip — chip "Đang bật filter" + nút clear all cạnh nút Hiển thị bộ lọc -->
-        <script src="js/tab1/tab1-active-filter-chip.js"></script>
+        <script src="js/tab1/tab1-active-filter-chip.js?v=20260521b"></script>
 
         <!-- 8.2 KPI badge — render badge "KPI" trong cột STT cho đơn có ≥1 SP đánh dấu KPI -->
-        <script src="js/tab1/tab1-kpi-badge.js"></script>
+        <script src="js/tab1/tab1-kpi-badge.js?v=20260521b"></script>
 
         <!-- 8.3 KPI stats — counter + tooltip cạnh KPI filter dropdown -->
-        <script src="js/tab1/tab1-kpi-stats.js"></script>
+        <script src="js/tab1/tab1-kpi-stats.js?v=20260521b"></script>
 
-        <script src="js/tab1/tab1-kpi-stats-strip.js"></script>
+        <script src="js/tab1/tab1-kpi-stats-strip.js?v=20260521b"></script>
 
         <!-- 8a. Chat Cache Warmer — P6 preload inbox map top 20 visible orders -->
-        <script src="js/tab1/tab1-chat-cache-warmer.js"></script>
+        <script src="js/tab1/tab1-chat-cache-warmer.js?v=20260521b"></script>
 
         <!-- 8b. Cleanup GIỎ TRỐNG tag (auto-remove nếu lỡ gắn — không auto-add) -->
-        <script src="js/tab1/tab1-empty-cart-auto-sync.js"></script>
+        <script src="js/tab1/tab1-empty-cart-auto-sync.js?v=20260521b"></script>
 
         <!-- 9. Edit Modal: Order editing, inline search (lines 8393-10015) -->
-        <script src="js/tab1/tab1-edit-history.js"></script>
-        <script src="js/tab1/tab1-edit-modal.js"></script>
+        <script src="js/tab1/tab1-edit-history.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-edit-modal.js?v=20260521b"></script>
 
         <!-- 10. Chat: will be rebuilt (new Pancake API + Extension Bypass) -->
 
         <!-- 11. Encoding: Note encoding/decoding (lines 16371-17195) -->
-        <script src="js/tab1/tab1-encoding.js"></script>
+        <script src="js/tab1/tab1-encoding.js?v=20260521b"></script>
 
         <!-- 12. Chat Products: will be rebuilt -->
 
         <!-- 13. Merge: Order merge functions (lines 19145-20743) -->
-        <script src="js/tab1/tab1-merge.js"></script>
+        <script src="js/tab1/tab1-merge.js?v=20260521b"></script>
 
         <!-- 13b. Merge SP Chờ Live: chuyển giỏ có flag CHO_LIVE sang live mới nhất cùng SĐT -->
-        <script src="js/tab1/tab1-merge-live-waiting.js"></script>
+        <script src="js/tab1/tab1-merge-live-waiting.js?v=20260521b"></script>
 
         <!-- 14. Address & Stats: Address lookup, product stats (lines 20744-22045) -->
-        <script src="js/tab1/tab1-address-stats.js"></script>
+        <script src="js/tab1/tab1-address-stats.js?v=20260521b"></script>
 
         <!-- 15. QR & Debt: QR code, VietQR, debt management (lines 22046-23805) -->
-        <script src="js/tab1/tab1-qr-debt.js"></script>
+        <script src="js/tab1/tab1-qr-debt.js?v=20260521b"></script>
 
         <!-- 15b. Wallet Debt Modal: click badge to see wallet history -->
-        <script src="js/tab1/tab1-wallet-modal.js"></script>
+        <script src="js/tab1/tab1-wallet-modal.js?v=20260521b"></script>
 
         <!-- 15c. Customer Info Popup: Pancake customer data on name click -->
-        <script src="js/tab1/tab1-customer-prefs.js"></script>
-        <script src="js/tab1/tab1-customer-info.js"></script>
+        <script src="js/tab1/tab1-customer-prefs.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-customer-info.js?v=20260521b"></script>
 
         <!-- Wallet pair utils: skip cặp tạo-hủy đơn + compute walletNoteLines (cover ADJUSTMENT) -->
-        <script src="../shared/js/wallet-pair-utils.js"></script>
+        <script src="../shared/js/wallet-pair-utils.js?v=20260521b"></script>
         <!-- Sale Modal: shared functions (carriers, totals, order lines, etc.) -->
-        <script src="js/utils/sale-modal-common.js"></script>
+        <script src="js/utils/sale-modal-common.js?v=20260521b"></script>
 
         <!-- 16. Sale: Sale modal, product search, confirm & print -->
-        <script src="js/tab1/tab1-sale.js"></script>
+        <script src="js/tab1/tab1-sale.js?v=20260521b"></script>
 
         <!-- 17. Fast Sale: Fast sale modal, bill settings (lines 24975-26905) -->
-        <script src="js/tab1/tab1-fast-sale.js"></script>
+        <script src="js/tab1/tab1-fast-sale.js?v=20260521b"></script>
 
         <!-- BaseStore: shared state management base class -->
-        <script src="../shared/js/base-store.js"></script>
+        <script src="../shared/js/base-store.js?v=20260521b"></script>
 
         <!-- 17b. Fast Sale Invoice Status: StateCode column, manual bill send -->
-        <script src="js/tab1/tab1-fast-sale-invoice-status.js"></script>
+        <script src="js/tab1/tab1-fast-sale-invoice-status.js?v=20260521b"></script>
 
         <!-- Order Notes: CSKH notes history column (Ghi chú cột) -->
-        <script src="js/tab1/tab1-order-notes.js"></script>
+        <script src="js/tab1/tab1-order-notes.js?v=20260521b"></script>
 
         <!-- Wallet Adjustment Store: tracks phone change wallet adjustments -->
-        <script src="js/utils/wallet-adjustment-store.js"></script>
+        <script src="js/utils/wallet-adjustment-store.js?v=20260521b"></script>
 
         <!-- 17c. Fast Sale Workflow: Cancel order, OK customer, failed order tags -->
-        <script src="js/tab1/tab1-fast-sale-workflow.js"></script>
+        <script src="js/tab1/tab1-fast-sale-workflow.js?v=20260521b"></script>
 
         <!-- 17d. Auto-Send Toast: floating progress UI for parallel auto-send bills -->
-        <script src="js/tab1/tab1-autosend-toast.js"></script>
+        <script src="js/tab1/tab1-autosend-toast.js?v=20260521b"></script>
 
         <!-- Legacy file (backup - comment out when using modular) -->
-        <!-- <script src="js/tab1/tab1-orders.js"></script> -->
-        <script src="js/managers/kpi-audit-logger.js"></script>
+        <!-- <script src="js/tab1/tab1-orders.js?v=20260521b"></script> -->
+        <script src="js/managers/kpi-audit-logger.js?v=20260521b"></script>
         <!-- Chat System (rebuilt) -->
-        <script src="js/tab1/tab1-chat-core.js?v=7"></script>
-        <script src="js/tab1/tab1-chat-messages.js?v=20260521a"></script>
-        <script src="js/tab1/tab1-chat-images.js"></script>
-        <script src="js/tab1/tab1-chat-realtime.js"></script>
-        <script src="js/tab1/tab1-chat-address.js"></script>
-        <script src="js/chat/chat-products-ui.js"></script>
-        <script src="js/chat/chat-products-actions.js"></script>
+        <script src="js/tab1/tab1-chat-core.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-chat-messages.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-chat-images.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-chat-realtime.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-chat-address.js?v=20260521b"></script>
+        <script src="js/chat/chat-products-ui.js?v=20260521b"></script>
+        <script src="js/chat/chat-products-actions.js?v=20260521b"></script>
 
         <!-- TPOS Real-time Order Updates (auto-add new orders) -->
-        <script src="js/tab1/tab1-tpos-realtime.js"></script>
+        <script src="js/tab1/tab1-tpos-realtime.js?v=20260521b"></script>
 
         <!-- Extracted JS files (formerly inline) -->
-        <script src="js/tab1/tab1-checkbox.js"></script>
-        <script src="js/tab1/tab1-scroll-restore.js"></script>
+        <script src="js/tab1/tab1-checkbox.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-scroll-restore.js?v=20260521b"></script>
 
         <!-- Save Indicator -->
         <div class="save-indicator" id="saveIndicator">
@@ -3983,7 +3987,7 @@
         </div>
 
         <!-- Campaign Settings Modal Script -->
-        <script src="js/tab1/tab1-campaign-settings.js"></script>
+        <script src="js/tab1/tab1-campaign-settings.js?v=20260521b"></script>
 
         <!-- Create Campaign Modal -->
         <div class="tag-modal" id="createCampaignModal" style="display: none; z-index: 10150">
@@ -4378,13 +4382,13 @@
         </div>
 
         <!-- Campaign API Client (PostgreSQL backend) -->
-        <script src="js/core/campaign-api.js"></script>
+        <script src="js/core/campaign-api.js?v=20260521b"></script>
 
         <!-- Create Campaign Modal Script -->
-        <script src="js/tab1/tab1-campaign-create.js"></script>
+        <script src="js/tab1/tab1-campaign-create.js?v=20260521b"></script>
 
         <!-- Comprehensive Campaign Management System -->
-        <script src="js/tab1/tab1-campaign-system.js"></script>
+        <script src="js/tab1/tab1-campaign-system.js?v=20260521b"></script>
 
         <!-- Pancake Settings Modal -->
         <div class="tag-modal" id="pancakeSettingsModal" style="display: none">
@@ -4858,8 +4862,8 @@
         </div>
 
         <!-- Pancake Settings Script -->
-        <script src="../shared/js/pancake-settings.js"></script>
-        <script src="../shared/js/goong-places.js"></script>
+        <script src="../shared/js/pancake-settings.js?v=20260521b"></script>
+        <script src="../shared/js/goong-places.js?v=20260521b"></script>
 
         <!-- Employee Assignment Drawer -->
         <div
@@ -7903,7 +7907,7 @@
         </div>
 
         <!-- Order History JS -->
-        <script src="js/tab1/tab1-order-history.js"></script>
+        <script src="js/tab1/tab1-order-history.js?v=20260521b"></script>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- Packing Slip Modal (Phiếu Soạn Hàng) -->
@@ -8093,7 +8097,7 @@
                 </div>
             </div>
         </div>
-        <script src="js/tab1/tab1-packing-slip.js"></script>
+        <script src="js/tab1/tab1-packing-slip.js?v=20260521b"></script>
 
         <!-- Goong Places: attach autocomplete to saleReceiverAddress -->
         <script>

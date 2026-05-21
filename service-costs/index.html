@@ -1,79 +1,97 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
 <!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Chi Ph&iacute; D&#7883;ch V&#7909; - N2STORE</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chi Ph&iacute; D&#7883;ch V&#7909; - N2STORE</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <link rel="stylesheet" href="css/service-costs.css?v=20260521b" />
 
-    <link rel="stylesheet" href="css/service-costs.css" />
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
 
-    <script type="module" src="../shared/esm/compat.js"></script>
-    <script>
-        if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-        }
-    </script>
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-    <script defer src="../shared/js/navigation-modern.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
+    <body>
+        <!-- Access Denied -->
+        <div id="accessDenied" class="access-denied" style="display: none">
+            <h1><i data-lucide="shield-x"></i> Truy c&#7853;p b&#7883; t&#7915; ch&#7889;i</h1>
+            <p>
+                B&#7841;n kh&ocirc;ng c&oacute; quy&#7873;n truy c&#7853;p v&agrave;o trang
+                n&agrave;y.
+            </p>
+            <a href="../index.html" class="btn btn-primary"
+                ><i data-lucide="arrow-left"></i> Quay v&#7873; trang ch&iacute;nh</a
+            >
+        </div>
 
-<body>
-    <!-- Access Denied -->
-    <div id="accessDenied" class="access-denied" style="display: none">
-        <h1><i data-lucide="shield-x"></i> Truy c&#7853;p b&#7883; t&#7915; ch&#7889;i</h1>
-        <p>B&#7841;n kh&ocirc;ng c&oacute; quy&#7873;n truy c&#7853;p v&agrave;o trang n&agrave;y.</p>
-        <a href="../index.html" class="btn btn-primary"><i data-lucide="arrow-left"></i> Quay v&#7873; trang ch&iacute;nh</a>
-    </div>
+        <!-- Main Container -->
+        <main class="main-content" id="mainContainer" style="display: none">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" id="mobileMenuBtn">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h1 class="page-title">
+                        <i data-lucide="wallet"></i>
+                        Chi Ph&iacute; D&#7883;ch V&#7909;
+                    </h1>
+                </div>
+                <div class="top-bar-right">
+                    <span class="last-updated" id="lastUpdated">C&#7853;p nh&#7853;t: --</span>
+                </div>
+            </header>
 
-    <!-- Main Container -->
-    <main class="main-content" id="mainContainer" style="display: none">
-        <!-- Top Bar -->
-        <header class="top-bar">
-            <div class="top-bar-left">
-                <button class="mobile-menu-btn" id="mobileMenuBtn">
-                    <i data-lucide="menu"></i>
-                </button>
-                <h1 class="page-title">
-                    <i data-lucide="wallet"></i>
-                    Chi Ph&iacute; D&#7883;ch V&#7909;
-                </h1>
-            </div>
-            <div class="top-bar-right">
-                <span class="last-updated" id="lastUpdated">C&#7853;p nh&#7853;t: --</span>
-            </div>
-        </header>
-
-        <!-- Content Area -->
-        <div class="content-area">
-
+            <!-- Content Area -->
+            <div class="content-area">
                 <!-- Total Summary -->
                 <div class="total-summary">
                     <div class="total-card">
                         <div class="total-icon"><i data-lucide="calculator"></i></div>
                         <div class="total-info">
-                            <span class="total-label">T&#7893;ng chi ph&iacute; &#432;&#7899;c t&iacute;nh / th&aacute;ng</span>
+                            <span class="total-label"
+                                >T&#7893;ng chi ph&iacute; &#432;&#7899;c t&iacute;nh /
+                                th&aacute;ng</span
+                            >
                             <span class="total-value" id="totalMonthlyCost">--</span>
                         </div>
                     </div>
                     <div class="total-card free">
                         <div class="total-icon"><i data-lucide="gift"></i></div>
                         <div class="total-info">
-                            <span class="total-label">D&#7883;ch v&#7909; mi&#7877;n ph&iacute;</span>
+                            <span class="total-label"
+                                >D&#7883;ch v&#7909; mi&#7877;n ph&iacute;</span
+                            >
                             <span class="total-value" id="freeServicesCount">--</span>
                         </div>
                     </div>
                     <div class="total-card paid">
                         <div class="total-icon"><i data-lucide="credit-card"></i></div>
                         <div class="total-info">
-                            <span class="total-label">D&#7883;ch v&#7909; tr&#7843; ph&iacute;</span>
+                            <span class="total-label"
+                                >D&#7883;ch v&#7909; tr&#7843; ph&iacute;</span
+                            >
                             <span class="total-value" id="paidServicesCount">--</span>
                         </div>
                     </div>
@@ -94,7 +112,10 @@
                 <!-- Cost Breakdown Table -->
                 <div class="cost-breakdown">
                     <div class="section-header">
-                        <h2><i data-lucide="table"></i> B&#7843;ng t&#7893;ng h&#7907;p chi ph&iacute;</h2>
+                        <h2>
+                            <i data-lucide="table"></i> B&#7843;ng t&#7893;ng h&#7907;p chi
+                            ph&iacute;
+                        </h2>
                     </div>
                     <div class="data-table-container">
                         <table class="data-table">
@@ -144,9 +165,8 @@
                     </div>
                 </div>
             </div>
-    </main>
+        </main>
 
-    <script src="js/service-costs.js"></script>
-</body>
-
+        <script src="js/service-costs.js?v=20260521b"></script>
+    </body>
 </html>

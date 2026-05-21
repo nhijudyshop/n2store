@@ -17,7 +17,10 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <title>Báo Cáo Tổng Hợp</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
         <link
             href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
             rel="stylesheet"
@@ -26,12 +29,13 @@
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
-        <link rel="stylesheet" href="css/tab-overview.css" />
+        <link rel="stylesheet" href="css/tab-overview.css?v=20260521b" />
 
         <!-- Mobile CSS removed - will be reimplemented later -->
-    <link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-    <link rel="stylesheet" href="css/design-system.css" />
-</head>
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+        <link rel="stylesheet" href="css/design-system.css?v=20260521b" />
+    </head>
 
     <body>
         <div class="container">
@@ -94,14 +98,7 @@
                             >
                         </div>
                     </div>
-                    <button
-                        class="btn-action"
-                        onclick="refreshAllData()"
-                        style="
-
-                            margin-top: 20px;
-                        "
-                    >
+                    <button class="btn-action" onclick="refreshAllData()" style="margin-top: 20px">
                         <i class="fas fa-sync-alt"></i> Làm mới danh sách
                     </button>
                     <button
@@ -197,7 +194,13 @@
                     <div class="stat-card">
                         <div class="stat-icon orange"><i class="fas fa-box"></i></div>
                         <div class="stat-value" id="statTotalProducts">0</div>
-                        <div class="stat-sublabel" id="statUniqueProducts" style="color: #888; font-weight: 600; font-size: 13px; margin-top: 4px;">0 mã SP</div>
+                        <div
+                            class="stat-sublabel"
+                            id="statUniqueProducts"
+                            style="color: #888; font-weight: 600; font-size: 13px; margin-top: 4px"
+                        >
+                            0 mã SP
+                        </div>
                         <div class="stat-label">Tổng sản phẩm</div>
                     </div>
                     <div class="stat-card">
@@ -413,7 +416,15 @@
                                 class="btn-action"
                                 onclick="window.ledgerModule.updateStockFromTPOS()"
                                 id="btnLedgerUpdateStock"
-                                style="padding: 8px 16px; font-size: 13px; background: #f59e0b; color: #fff; border: none; border-radius: 6px; cursor: pointer"
+                                style="
+                                    padding: 8px 16px;
+                                    font-size: 13px;
+                                    background: #f59e0b;
+                                    color: #fff;
+                                    border: none;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                "
                                 title="Lấy số tồn kho mới nhất từ TPOS (như trang Sản phẩm)"
                             >
                                 <i class="fas fa-warehouse"></i> Cập nhật tồn kho
@@ -489,10 +500,7 @@
         <!-- Modal: Lưu báo cáo -->
         <div class="modal-overlay" id="saveReportModal">
             <div class="modal-content" style="width: 95%; max-width: 500px; border-radius: 16px">
-                <div
-                    class="modal-header"
-                    
-                >
+                <div class="modal-header">
                     <h3 style="margin: 0; color: white">
                         <i class="fas fa-save"></i> Lưu bản sao báo cáo
                     </h3>
@@ -599,14 +607,7 @@
                     animation: modalSlideIn 0.3s ease;
                 "
             >
-                <div
-                    class="modal-header"
-                    style="
-
-                        padding: 30px 25px;
-                        position: relative;
-                    "
-                >
+                <div class="modal-header" style="padding: 30px 25px; position: relative">
                     <h3
                         style="
                             margin: 0;
@@ -990,10 +991,7 @@
                     flex-direction: column;
                 "
             >
-                <div
-                    class="modal-header"
-                    
-                >
+                <div class="modal-header">
                     <h3 style="margin: 0; color: white">
                         <i class="fas fa-cog"></i> Quản lý bản lưu
                     </h3>
@@ -1089,37 +1087,40 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/indexed-db-store.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/indexed-db-store.js?v=20260521b"></script>
 
         <!-- Core Dependencies -->
-        <script src="js/core/config.js"></script>
-        <script src="js/core/api-config.js"></script>
-        <script src="../shared/js/shop-config.js"></script>
-        <script>window.N2STORE_CLIENT_API_KEY='8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';</script>
-        <script src="../shared/js/token-manager.js"></script>
+        <script src="js/core/config.js?v=20260521b"></script>
+        <script src="js/core/api-config.js?v=20260521b"></script>
+        <script src="../shared/js/shop-config.js?v=20260521b"></script>
+        <script>
+            window.N2STORE_CLIENT_API_KEY =
+                '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
+        </script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
 
         <!-- Discount Stats Dependencies -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-        <script src="js/managers/product-search-manager.js"></script>
-        <script src="js/managers/standard-price-manager.js"></script>
-        <script src="js/stats/discount-stats-calculator.js"></script>
-        <script src="js/stats/discount-stats-ui.js"></script>
+        <script src="js/managers/product-search-manager.js?v=20260521b"></script>
+        <script src="js/managers/standard-price-manager.js?v=20260521b"></script>
+        <script src="js/stats/discount-stats-calculator.js?v=20260521b"></script>
+        <script src="js/stats/discount-stats-ui.js?v=20260521b"></script>
 
         <!-- Campaign API Client (PostgreSQL backend) -->
-        <script src="js/core/campaign-api.js"></script>
+        <script src="js/core/campaign-api.js?v=20260521b"></script>
 
         <!-- Overview Module Scripts -->
-        <script src="js/overview/overview-core.js"></script>
-        <script src="js/overview/overview-firebase.js"></script>
-        <script src="js/overview/overview-fetch.js"></script>
-        <script src="js/overview/overview-statistics.js"></script>
-        <script src="js/overview/overview-modals.js"></script>
-        <script src="js/overview/overview-table.js"></script>
-        <script src="js/overview/overview-events.js"></script>
-        <script src="js/overview/overview-ui.js"></script>
-        <script src="js/overview/overview-ledger.js"></script>
-        <script src="js/overview/overview-init.js"></script>
+        <script src="js/overview/overview-core.js?v=20260521b"></script>
+        <script src="js/overview/overview-firebase.js?v=20260521b"></script>
+        <script src="js/overview/overview-fetch.js?v=20260521b"></script>
+        <script src="js/overview/overview-statistics.js?v=20260521b"></script>
+        <script src="js/overview/overview-modals.js?v=20260521b"></script>
+        <script src="js/overview/overview-table.js?v=20260521b"></script>
+        <script src="js/overview/overview-events.js?v=20260521b"></script>
+        <script src="js/overview/overview-ui.js?v=20260521b"></script>
+        <script src="js/overview/overview-ledger.js?v=20260521b"></script>
+        <script src="js/overview/overview-init.js?v=20260521b"></script>
 
         <!-- Mobile JS removed - will be reimplemented later -->
     </body>

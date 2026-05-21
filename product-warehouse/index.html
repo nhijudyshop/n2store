@@ -4,830 +4,1757 @@
   Trang xem và tìm kiếm sản phẩm trong kho.
   Tất cả user đều có quyền truy cập.
 -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kho Sản Phẩm - N2STORE</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Kho Sản Phẩm - N2STORE</title>
 
-    <!-- Shared Styles -->
-    <link rel="stylesheet" href="../shared/css/modern.css">
-    <!-- Module Styles -->
-    <link rel="stylesheet" href="css/warehouse.css">
+        <!-- Shared Styles -->
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260521b" />
+        <!-- Module Styles -->
+        <link rel="stylesheet" href="css/warehouse.css?v=20260521b" />
 
-    <!-- ES Module: Shared utilities -->
-    <script type="module" src="../shared/esm/compat.js"></script>
-<!-- Fallback for file:// protocol -->
-<script>
-    if (window.location.protocol === 'file:') {
-        document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-        document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-    }
-</script>
-    <!-- Navigation Manager -->
-    <script defer src="../shared/js/navigation-modern.js"></script>
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
+        <!-- Navigation Manager -->
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
 
-    <!-- Lucide Icons CDN -->
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+        <!-- Lucide Icons CDN -->
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
-    <!-- Firebase Configuration (SHARED) -->
-    <script src="../shared/js/firebase-config.js"></script>
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
 
-    <!-- Token Manager & API Config (kept for edit/save to TPOS) -->
-    <script src="../shared/js/api-config.js"></script>
-    <script src="../shared/js/token-manager.js"></script>
+        <!-- Token Manager & API Config (kept for edit/save to TPOS) -->
+        <script src="../shared/js/api-config.js?v=20260521b"></script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
 
-    <!-- Warehouse API (Render DB) — product list, search, variants -->
-    <script src="../shared/js/warehouse-api.js"></script>
+        <!-- Warehouse API (Render DB) — product list, search, variants -->
+        <script src="../shared/js/warehouse-api.js?v=20260521b"></script>
 
-    <!-- Suggestion dropdown styles (same as soluong-live) -->
-    <style>
-        .header-search-box { position: relative; }
-        .search-suggestions {
-            position: absolute;
-            top: calc(100% + 2px);
-            left: 0;
-            right: 0;
-            background: white;
-            border: 2px solid #667eea;
-            border-radius: 10px;
-            max-height: 300px;
-            overflow-y: auto;
-            display: none;
-            z-index: 1000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-top: 5px;
-        }
-        .search-suggestions.show { display: block; }
-        .suggestion-item {
-            padding: 8px 12px;
-            cursor: pointer;
-            transition: background 0.2s;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .suggestion-item:hover { background: #f0f0ff; }
-        .suggestion-item:last-child { border-bottom: none; }
-        .suggestion-img {
-            width: 40px;
-            height: 40px;
-            border-radius: 6px;
-            object-fit: cover;
-            flex-shrink: 0;
-            background: #f3f4f6;
-        }
-        .suggestion-img-empty {
-            display: inline-block;
-            background: #e5e7eb;
-        }
-        .suggestion-info { flex: 1; min-width: 0; }
-        .suggestion-name {
-            font-size: 13px;
-            line-height: 1.3;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .suggestion-meta {
-            font-size: 11px;
-            color: #6b7280;
-            display: flex;
-            gap: 12px;
-            margin-top: 2px;
-        }
-        .suggestion-price { color: #059669; font-weight: 500; }
-        .suggestion-qty { color: #6b7280; }
-        .suggestion-qty-zero { color: #dc2626; }
+        <!-- Suggestion dropdown styles (same as soluong-live) -->
+        <style>
+            .header-search-box {
+                position: relative;
+            }
+            .search-suggestions {
+                position: absolute;
+                top: calc(100% + 2px);
+                left: 0;
+                right: 0;
+                background: white;
+                border: 2px solid #667eea;
+                border-radius: 10px;
+                max-height: 300px;
+                overflow-y: auto;
+                display: none;
+                z-index: 1000;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                margin-top: 5px;
+            }
+            .search-suggestions.show {
+                display: block;
+            }
+            .suggestion-item {
+                padding: 8px 12px;
+                cursor: pointer;
+                transition: background 0.2s;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .suggestion-item:hover {
+                background: #f0f0ff;
+            }
+            .suggestion-item:last-child {
+                border-bottom: none;
+            }
+            .suggestion-img {
+                width: 40px;
+                height: 40px;
+                border-radius: 6px;
+                object-fit: cover;
+                flex-shrink: 0;
+                background: #f3f4f6;
+            }
+            .suggestion-img-empty {
+                display: inline-block;
+                background: #e5e7eb;
+            }
+            .suggestion-info {
+                flex: 1;
+                min-width: 0;
+            }
+            .suggestion-name {
+                font-size: 13px;
+                line-height: 1.3;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .suggestion-meta {
+                font-size: 11px;
+                color: #6b7280;
+                display: flex;
+                gap: 12px;
+                margin-top: 2px;
+            }
+            .suggestion-price {
+                color: #059669;
+                font-weight: 500;
+            }
+            .suggestion-qty {
+                color: #6b7280;
+            }
+            .suggestion-qty-zero {
+                color: #dc2626;
+            }
 
-        /* Edit modal form styles */
-        .edit-label { font-weight:600; font-size:12px; margin-bottom:3px; display:block; color:#374151; }
-        .edit-input { width:100%; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:#fff; transition:border-color .2s; }
-        .edit-input:focus { outline:none; border-color:#4f46e5; box-shadow:0 0 0 2px rgba(79,70,229,.15); }
-        textarea.edit-input { font-family:inherit; }
-        select.edit-input { cursor:pointer; }
-        .edit-checkbox { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer; }
-        .edit-checkbox input { width:16px; height:16px; cursor:pointer; }
-    </style>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
-<body>
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Page Header -->
-        <header class="page-header">
-            <div class="page-header-left">
-                <button class="btn-icon mobile-menu-toggle" id="menuToggle">
-                    <i data-lucide="menu"></i>
-                </button>
-                <div class="page-title-group">
-                    <h1 class="page-title">
-                        <i data-lucide="warehouse"></i>
-                        Sản phẩm
-                    </h1>
-                </div>
-                <div class="header-search-box">
-                    <i data-lucide="search" class="header-search-icon"></i>
-                    <input type="text" id="searchInput" class="header-search-input" placeholder="Nhập mã hoặc tên sản phẩm..." autocomplete="off">
-                    <button class="header-search-btn" id="searchBtn">
-                        <i data-lucide="search"></i>
+            /* Edit modal form styles */
+            .edit-label {
+                font-weight: 600;
+                font-size: 12px;
+                margin-bottom: 3px;
+                display: block;
+                color: #374151;
+            }
+            .edit-input {
+                width: 100%;
+                padding: 7px 10px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 13px;
+                background: #fff;
+                transition: border-color 0.2s;
+            }
+            .edit-input:focus {
+                outline: none;
+                border-color: #4f46e5;
+                box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+            }
+            textarea.edit-input {
+                font-family: inherit;
+            }
+            select.edit-input {
+                cursor: pointer;
+            }
+            .edit-checkbox {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+            }
+            .edit-checkbox input {
+                width: 16px;
+                height: 16px;
+                cursor: pointer;
+            }
+        </style>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
+    <body>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="page-header-left">
+                    <button class="btn-icon mobile-menu-toggle" id="menuToggle">
+                        <i data-lucide="menu"></i>
                     </button>
-                    <div class="search-suggestions" id="searchSuggestions"></div>
+                    <div class="page-title-group">
+                        <h1 class="page-title">
+                            <i data-lucide="warehouse"></i>
+                            Sản phẩm
+                        </h1>
+                    </div>
+                    <div class="header-search-box">
+                        <i data-lucide="search" class="header-search-icon"></i>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="header-search-input"
+                            placeholder="Nhập mã hoặc tên sản phẩm..."
+                            autocomplete="off"
+                        />
+                        <button class="header-search-btn" id="searchBtn">
+                            <i data-lucide="search"></i>
+                        </button>
+                        <div class="search-suggestions" id="searchSuggestions"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Filter & Toolbar Bar -->
+            <div class="warehouse-toolbar">
+                <div class="toolbar-left">
+                    <div class="toolbar-filter-group">
+                        <label class="filter-label">Tồn kho:</label>
+                        <select id="filterStock" class="filter-select filter-select-primary">
+                            <option value="all">Tất cả</option>
+                            <option value="in-stock">Còn hàng</option>
+                            <option value="low-stock">Sắp hết (≤5)</option>
+                            <option value="out-of-stock">Hết hàng</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-filter-group">
+                        <label class="filter-label">Nhóm SP:</label>
+                        <select id="filterGroup" class="filter-select filter-select-info">
+                            <option value="all">Tất cả</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-filter-group">
+                        <label class="filter-label">Hiệu lực:</label>
+                        <select id="filterStatus" class="filter-select filter-select-success">
+                            <option value="all">Tất cả</option>
+                            <option value="active">Hiệu lực</option>
+                            <option value="inactive">Hết hiệu lực</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-filter-group">
+                        <label class="filter-label">Nhãn:</label>
+                        <select id="filterTag" class="filter-select filter-select-warning">
+                            <option value="all">Tất cả</option>
+                        </select>
+                    </div>
+                    <span class="result-count" id="productCount">
+                        <i data-lucide="package"></i>
+                        <strong>0</strong> sản phẩm
+                    </span>
+                </div>
+                <div class="toolbar-right">
+                    <span class="toolbar-hint">
+                        <i data-lucide="lightbulb"></i>
+                        Gõ để tìm kiếm nhanh
+                    </span>
+                    <button
+                        class="btn-toolbar btn-create-product"
+                        id="btnCreateProduct"
+                        title="Thêm sản phẩm mới"
+                    >
+                        <i data-lucide="plus"></i>
+                        Thêm SP
+                    </button>
+                    <button
+                        class="btn-toolbar btn-import-excel"
+                        id="btnImportExcel"
+                        title="Nhập sản phẩm từ file Excel"
+                    >
+                        <i data-lucide="upload"></i>
+                        Nhập Excel
+                    </button>
+                    <button
+                        class="btn-toolbar btn-export-excel"
+                        id="btnExportExcel"
+                        title="Xuất danh sách hiện tại ra Excel"
+                    >
+                        <i data-lucide="download"></i>
+                        Xuất Excel
+                    </button>
+                    <button
+                        class="btn-toolbar btn-bulk-price"
+                        id="btnBulkPrice"
+                        title="Cập nhật giá hàng loạt từ file"
+                    >
+                        <i data-lucide="banknote"></i>
+                        Cập nhật giá
+                    </button>
+                    <div
+                        class="bulk-actions-wrap"
+                        style="position: relative; display: inline-block"
+                    >
+                        <button
+                            class="btn-toolbar"
+                            id="btnBulkActions"
+                            title="Thao tác hàng loạt với SP đã chọn"
+                        >
+                            <i data-lucide="list-checks"></i>
+                            Thao tác ▼
+                        </button>
+                        <div
+                            id="bulkActionsMenu"
+                            style="
+                                display: none;
+                                position: absolute;
+                                top: calc(100% + 4px);
+                                right: 0;
+                                background: #fff;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+                                min-width: 220px;
+                                z-index: 100;
+                                overflow: hidden;
+                            "
+                        >
+                            <button
+                                class="bulk-action-item"
+                                data-action="archive"
+                                style="
+                                    display: block;
+                                    width: 100%;
+                                    text-align: left;
+                                    padding: 10px 14px;
+                                    border: none;
+                                    background: none;
+                                    font-size: 13px;
+                                    cursor: pointer;
+                                "
+                            >
+                                <i
+                                    data-lucide="archive"
+                                    style="width: 14px; height: 14px; vertical-align: middle"
+                                ></i>
+                                Ngưng hiệu lực (archive)
+                            </button>
+                            <button
+                                class="bulk-action-item"
+                                data-action="activate"
+                                style="
+                                    display: block;
+                                    width: 100%;
+                                    text-align: left;
+                                    padding: 10px 14px;
+                                    border: none;
+                                    background: none;
+                                    font-size: 13px;
+                                    cursor: pointer;
+                                "
+                            >
+                                <i
+                                    data-lucide="check-circle-2"
+                                    style="width: 14px; height: 14px; vertical-align: middle"
+                                ></i>
+                                Kích hoạt lại
+                            </button>
+                            <button
+                                class="bulk-action-item"
+                                data-action="tag"
+                                style="
+                                    display: block;
+                                    width: 100%;
+                                    text-align: left;
+                                    padding: 10px 14px;
+                                    border: none;
+                                    background: none;
+                                    font-size: 13px;
+                                    cursor: pointer;
+                                "
+                            >
+                                <i
+                                    data-lucide="tag"
+                                    style="width: 14px; height: 14px; vertical-align: middle"
+                                ></i>
+                                Gán nhãn
+                            </button>
+                            <button
+                                class="bulk-action-item"
+                                data-action="print"
+                                style="
+                                    display: block;
+                                    width: 100%;
+                                    text-align: left;
+                                    padding: 10px 14px;
+                                    border: none;
+                                    background: none;
+                                    font-size: 13px;
+                                    cursor: pointer;
+                                "
+                            >
+                                <i
+                                    data-lucide="printer"
+                                    style="width: 14px; height: 14px; vertical-align: middle"
+                                ></i>
+                                In mã vạch
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        class="btn-toolbar btn-reload"
+                        id="refreshButton"
+                        title="Tải lại dữ liệu"
+                    >
+                        <i data-lucide="refresh-cw"></i>
+                        Tải lại
+                    </button>
+                    <button
+                        class="btn-toolbar btn-sync-tpos"
+                        id="btnSyncTPOS"
+                        title="Đồng bộ toàn bộ sản phẩm từ TPOS (có thể mất vài phút)"
+                    >
+                        <i data-lucide="cloud"></i>
+                        Đồng bộ TPOS
+                    </button>
+                    <button
+                        class="btn-toolbar"
+                        onclick="window.warehouseApp.printBarcode()"
+                        title="In mã vạch cho SP đã chọn"
+                    >
+                        <i data-lucide="printer"></i>
+                        In mã vạch
+                    </button>
+                    <button
+                        class="btn-toolbar btn-column-settings"
+                        id="btnColumnSettings"
+                        title="Cài đặt cột hiển thị"
+                    >
+                        <i data-lucide="columns"></i>
+                        Cài đặt cột
+                    </button>
                 </div>
             </div>
-        </header>
 
-        <!-- Filter & Toolbar Bar -->
-        <div class="warehouse-toolbar">
-            <div class="toolbar-left">
-                <div class="toolbar-filter-group">
-                    <label class="filter-label">Tồn kho:</label>
-                    <select id="filterStock" class="filter-select filter-select-primary">
-                        <option value="all">Tất cả</option>
-                        <option value="in-stock">Còn hàng</option>
-                        <option value="low-stock">Sắp hết (≤5)</option>
-                        <option value="out-of-stock">Hết hàng</option>
-                    </select>
+            <!-- Product Table -->
+            <div class="warehouse-table-wrapper">
+                <table class="warehouse-table" id="productTable">
+                    <thead>
+                        <tr>
+                            <th class="col-checkbox col-sticky-left">
+                                <input type="checkbox" id="selectAll" title="Chọn tất cả" />
+                            </th>
+                            <th class="col-actions">Thao tác</th>
+                            <th class="col-image">Ảnh</th>
+                            <th class="col-code sortable" data-sort="code" data-col="code">
+                                <div class="th-content">
+                                    <span>Mã</span>
+                                    <i data-lucide="filter" class="th-filter-icon"></i>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                                <input
+                                    type="text"
+                                    class="th-filter-input"
+                                    data-filter="code"
+                                    placeholder="Lọc mã..."
+                                />
+                            </th>
+                            <th class="col-name sortable" data-sort="name" data-col="name">
+                                <div class="th-content">
+                                    <span>Tên</span>
+                                    <i data-lucide="filter" class="th-filter-icon"></i>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                                <input
+                                    type="text"
+                                    class="th-filter-input"
+                                    data-filter="name"
+                                    placeholder="Lọc tên..."
+                                />
+                            </th>
+                            <th class="col-group sortable" data-sort="group" data-col="group">
+                                <div class="th-content">
+                                    <span>Nhóm sản phẩm</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th class="col-price sortable" data-sort="price" data-col="price">
+                                <div class="th-content">
+                                    <span>Giá bán</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th
+                                class="col-cost sortable"
+                                data-sort="defaultBuyPrice"
+                                data-col="defaultBuyPrice"
+                            >
+                                <div class="th-content">
+                                    <span>Giá mua mặc định</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th
+                                class="col-cost sortable"
+                                data-sort="costPrice"
+                                data-col="costPrice"
+                            >
+                                <div class="th-content">
+                                    <span>Giá vốn</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th class="col-qty sortable" data-sort="qtyActual" data-col="qtyActual">
+                                <div class="th-content">
+                                    <span>Số lượng thực tế</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th
+                                class="col-qty sortable"
+                                data-sort="qtyForecast"
+                                data-col="qtyForecast"
+                            >
+                                <div class="th-content">
+                                    <span>Số lượng dự báo</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th class="col-unit" data-col="unit">
+                                <div class="th-content"><span>Đơn vị</span></div>
+                            </th>
+                            <th class="col-label" data-col="label">
+                                <div class="th-content"><span>Nhãn</span></div>
+                            </th>
+                            <th class="col-status sortable" data-sort="active" data-col="active">
+                                <div class="th-content">
+                                    <span>Hiệu lực</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th class="col-company" data-col="allCompany">
+                                <div class="th-content"><span>All company</span></div>
+                            </th>
+                            <th class="col-note" data-col="note">
+                                <div class="th-content"><span>Ghi chú</span></div>
+                            </th>
+                            <th
+                                class="col-date sortable"
+                                data-sort="createdAt"
+                                data-col="createdAt"
+                            >
+                                <div class="th-content">
+                                    <span>Ngày tạo</span>
+                                    <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                                </div>
+                            </th>
+                            <th class="col-company-name" data-col="company">
+                                <div class="th-content"><span>Công ty</span></div>
+                            </th>
+                            <th class="col-creator" data-col="creator">
+                                <div class="th-content"><span>Người tạo</span></div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody">
+                        <!-- Products rendered by JS -->
+                    </tbody>
+                </table>
+
+                <!-- Loading State -->
+                <div class="loading-state" id="loadingState">
+                    <div class="loading-spinner"></div>
+                    <span>Đang tải dữ liệu...</span>
                 </div>
-                <div class="toolbar-filter-group">
-                    <label class="filter-label">Nhóm SP:</label>
-                    <select id="filterGroup" class="filter-select filter-select-info">
-                        <option value="all">Tất cả</option>
-                    </select>
+
+                <!-- Empty State -->
+                <div class="empty-state hidden" id="emptyState">
+                    <i data-lucide="package-x"></i>
+                    <h3>Không tìm thấy sản phẩm</h3>
+                    <p>Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                 </div>
-                <div class="toolbar-filter-group">
-                    <label class="filter-label">Hiệu lực:</label>
-                    <select id="filterStatus" class="filter-select filter-select-success">
-                        <option value="all">Tất cả</option>
-                        <option value="active">Hiệu lực</option>
-                        <option value="inactive">Hết hiệu lực</option>
-                    </select>
-                </div>
-                <div class="toolbar-filter-group">
-                    <label class="filter-label">Nhãn:</label>
-                    <select id="filterTag" class="filter-select filter-select-warning">
-                        <option value="all">Tất cả</option>
-                    </select>
-                </div>
-                <span class="result-count" id="productCount">
-                    <i data-lucide="package"></i>
-                    <strong>0</strong> sản phẩm
-                </span>
             </div>
-            <div class="toolbar-right">
-                <span class="toolbar-hint">
-                    <i data-lucide="lightbulb"></i>
-                    Gõ để tìm kiếm nhanh
-                </span>
-                <button class="btn-toolbar btn-create-product" id="btnCreateProduct" title="Thêm sản phẩm mới">
-                    <i data-lucide="plus"></i>
-                    Thêm SP
-                </button>
-                <button class="btn-toolbar btn-import-excel" id="btnImportExcel" title="Nhập sản phẩm từ file Excel">
-                    <i data-lucide="upload"></i>
-                    Nhập Excel
-                </button>
-                <button class="btn-toolbar btn-export-excel" id="btnExportExcel" title="Xuất danh sách hiện tại ra Excel">
-                    <i data-lucide="download"></i>
-                    Xuất Excel
-                </button>
-                <button class="btn-toolbar btn-bulk-price" id="btnBulkPrice" title="Cập nhật giá hàng loạt từ file">
-                    <i data-lucide="banknote"></i>
-                    Cập nhật giá
-                </button>
-                <div class="bulk-actions-wrap" style="position:relative;display:inline-block;">
-                    <button class="btn-toolbar" id="btnBulkActions" title="Thao tác hàng loạt với SP đã chọn">
-                        <i data-lucide="list-checks"></i>
-                        Thao tác ▼
+
+            <!-- Pagination -->
+            <div class="warehouse-pagination" id="pagination">
+                <div class="pagination-info">
+                    <span id="paginationInfo">Hiển thị 0 - 0 / 0 sản phẩm</span>
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn-page" id="btnPrevPage" disabled>
+                        <i data-lucide="chevron-left"></i>
                     </button>
-                    <div id="bulkActionsMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.15);min-width:220px;z-index:100;overflow:hidden;">
-                        <button class="bulk-action-item" data-action="archive" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:13px;cursor:pointer;">
-                            <i data-lucide="archive" style="width:14px;height:14px;vertical-align:middle;"></i> Ngưng hiệu lực (archive)
+                    <div class="page-numbers" id="pageNumbers"></div>
+                    <button class="btn-page" id="btnNextPage" disabled>
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+                <div class="pagination-size">
+                    <select id="pageSize" class="filter-select">
+                        <option value="20">20 / trang</option>
+                        <option value="50" selected>50 / trang</option>
+                        <option value="100">100 / trang</option>
+                    </select>
+                </div>
+            </div>
+        </main>
+
+        <!-- Column Settings Modal -->
+        <div class="column-settings-modal" id="columnSettingsModal">
+            <div class="column-settings-modal-content">
+                <div class="column-settings-modal-header">
+                    <h3><i data-lucide="columns"></i> Cài đặt cột hiển thị</h3>
+                    <button class="column-settings-modal-close" id="closeColumnSettings">
+                        &times;
+                    </button>
+                </div>
+                <div class="column-settings-modal-body">
+                    <div class="column-settings-list" id="columnSettingsList">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+                <div class="column-settings-modal-footer">
+                    <button class="column-settings-btn column-settings-btn-reset" id="resetColumns">
+                        <i data-lucide="rotate-ccw"></i> Mặc định
+                    </button>
+                    <div class="column-settings-btn-group">
+                        <button
+                            class="column-settings-btn column-settings-btn-cancel"
+                            id="cancelColumnSettings"
+                        >
+                            Hủy
                         </button>
-                        <button class="bulk-action-item" data-action="activate" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:13px;cursor:pointer;">
-                            <i data-lucide="check-circle-2" style="width:14px;height:14px;vertical-align:middle;"></i> Kích hoạt lại
-                        </button>
-                        <button class="bulk-action-item" data-action="tag" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:13px;cursor:pointer;">
-                            <i data-lucide="tag" style="width:14px;height:14px;vertical-align:middle;"></i> Gán nhãn
-                        </button>
-                        <button class="bulk-action-item" data-action="print" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:13px;cursor:pointer;">
-                            <i data-lucide="printer" style="width:14px;height:14px;vertical-align:middle;"></i> In mã vạch
+                        <button
+                            class="column-settings-btn column-settings-btn-save"
+                            id="saveColumnSettings"
+                        >
+                            <i data-lucide="check"></i> Lưu
                         </button>
                     </div>
                 </div>
-                <button class="btn-toolbar btn-reload" id="refreshButton" title="Tải lại dữ liệu">
-                    <i data-lucide="refresh-cw"></i>
-                    Tải lại
-                </button>
-                <button class="btn-toolbar btn-sync-tpos" id="btnSyncTPOS" title="Đồng bộ toàn bộ sản phẩm từ TPOS (có thể mất vài phút)">
-                    <i data-lucide="cloud"></i>
-                    Đồng bộ TPOS
-                </button>
-                <button class="btn-toolbar" onclick="window.warehouseApp.printBarcode()" title="In mã vạch cho SP đã chọn">
-                    <i data-lucide="printer"></i>
-                    In mã vạch
-                </button>
-                <button class="btn-toolbar btn-column-settings" id="btnColumnSettings" title="Cài đặt cột hiển thị">
-                    <i data-lucide="columns"></i>
-                    Cài đặt cột
-                </button>
             </div>
         </div>
 
-        <!-- Product Table -->
-        <div class="warehouse-table-wrapper">
-            <table class="warehouse-table" id="productTable">
-                <thead>
-                    <tr>
-                        <th class="col-checkbox col-sticky-left">
-                            <input type="checkbox" id="selectAll" title="Chọn tất cả">
-                        </th>
-                        <th class="col-actions">Thao tác</th>
-                        <th class="col-image">Ảnh</th>
-                        <th class="col-code sortable" data-sort="code" data-col="code">
-                            <div class="th-content">
-                                <span>Mã</span>
-                                <i data-lucide="filter" class="th-filter-icon"></i>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                            <input type="text" class="th-filter-input" data-filter="code" placeholder="Lọc mã...">
-                        </th>
-                        <th class="col-name sortable" data-sort="name" data-col="name">
-                            <div class="th-content">
-                                <span>Tên</span>
-                                <i data-lucide="filter" class="th-filter-icon"></i>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                            <input type="text" class="th-filter-input" data-filter="name" placeholder="Lọc tên...">
-                        </th>
-                        <th class="col-group sortable" data-sort="group" data-col="group">
-                            <div class="th-content">
-                                <span>Nhóm sản phẩm</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-price sortable" data-sort="price" data-col="price">
-                            <div class="th-content">
-                                <span>Giá bán</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-cost sortable" data-sort="defaultBuyPrice" data-col="defaultBuyPrice">
-                            <div class="th-content">
-                                <span>Giá mua mặc định</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-cost sortable" data-sort="costPrice" data-col="costPrice">
-                            <div class="th-content">
-                                <span>Giá vốn</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-qty sortable" data-sort="qtyActual" data-col="qtyActual">
-                            <div class="th-content">
-                                <span>Số lượng thực tế</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-qty sortable" data-sort="qtyForecast" data-col="qtyForecast">
-                            <div class="th-content">
-                                <span>Số lượng dự báo</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-unit" data-col="unit">
-                            <div class="th-content"><span>Đơn vị</span></div>
-                        </th>
-                        <th class="col-label" data-col="label">
-                            <div class="th-content"><span>Nhãn</span></div>
-                        </th>
-                        <th class="col-status sortable" data-sort="active" data-col="active">
-                            <div class="th-content">
-                                <span>Hiệu lực</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-company" data-col="allCompany">
-                            <div class="th-content"><span>All company</span></div>
-                        </th>
-                        <th class="col-note" data-col="note">
-                            <div class="th-content"><span>Ghi chú</span></div>
-                        </th>
-                        <th class="col-date sortable" data-sort="createdAt" data-col="createdAt">
-                            <div class="th-content">
-                                <span>Ngày tạo</span>
-                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
-                            </div>
-                        </th>
-                        <th class="col-company-name" data-col="company">
-                            <div class="th-content"><span>Công ty</span></div>
-                        </th>
-                        <th class="col-creator" data-col="creator">
-                            <div class="th-content"><span>Người tạo</span></div>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="productTableBody">
-                    <!-- Products rendered by JS -->
-                </tbody>
-            </table>
-
-            <!-- Loading State -->
-            <div class="loading-state" id="loadingState">
-                <div class="loading-spinner"></div>
-                <span>Đang tải dữ liệu...</span>
-            </div>
-
-            <!-- Empty State -->
-            <div class="empty-state hidden" id="emptyState">
-                <i data-lucide="package-x"></i>
-                <h3>Không tìm thấy sản phẩm</h3>
-                <p>Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
-            </div>
-        </div>
-
-        <!-- Pagination -->
-        <div class="warehouse-pagination" id="pagination">
-            <div class="pagination-info">
-                <span id="paginationInfo">Hiển thị 0 - 0 / 0 sản phẩm</span>
-            </div>
-            <div class="pagination-controls">
-                <button class="btn-page" id="btnPrevPage" disabled>
-                    <i data-lucide="chevron-left"></i>
-                </button>
-                <div class="page-numbers" id="pageNumbers"></div>
-                <button class="btn-page" id="btnNextPage" disabled>
-                    <i data-lucide="chevron-right"></i>
-                </button>
-            </div>
-            <div class="pagination-size">
-                <select id="pageSize" class="filter-select">
-                    <option value="20">20 / trang</option>
-                    <option value="50" selected>50 / trang</option>
-                    <option value="100">100 / trang</option>
-                </select>
-            </div>
-        </div>
-    </main>
-
-    <!-- Column Settings Modal -->
-    <div class="column-settings-modal" id="columnSettingsModal">
-        <div class="column-settings-modal-content">
-            <div class="column-settings-modal-header">
-                <h3><i data-lucide="columns"></i> Cài đặt cột hiển thị</h3>
-                <button class="column-settings-modal-close" id="closeColumnSettings">&times;</button>
-            </div>
-            <div class="column-settings-modal-body">
-                <div class="column-settings-list" id="columnSettingsList">
-                    <!-- Generated by JS -->
-                </div>
-            </div>
-            <div class="column-settings-modal-footer">
-                <button class="column-settings-btn column-settings-btn-reset" id="resetColumns">
-                    <i data-lucide="rotate-ccw"></i> Mặc định
-                </button>
-                <div class="column-settings-btn-group">
-                    <button class="column-settings-btn column-settings-btn-cancel" id="cancelColumnSettings">Hủy</button>
-                    <button class="column-settings-btn column-settings-btn-save" id="saveColumnSettings">
-                        <i data-lucide="check"></i> Lưu
+        <!-- Edit Product Modal -->
+        <div class="column-settings-modal" id="editProductModal">
+            <div class="column-settings-modal-content" style="max-width: 640px">
+                <div class="column-settings-modal-header">
+                    <h3><i data-lucide="pencil"></i> Chỉnh sửa sản phẩm</h3>
+                    <button class="column-settings-modal-close" id="closeEditProduct">
+                        &times;
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Product Modal -->
-    <div class="column-settings-modal" id="editProductModal">
-        <div class="column-settings-modal-content" style="max-width:640px;">
-            <div class="column-settings-modal-header">
-                <h3><i data-lucide="pencil"></i> Chỉnh sửa sản phẩm</h3>
-                <button class="column-settings-modal-close" id="closeEditProduct">&times;</button>
-            </div>
-            <div class="column-settings-modal-body" style="padding:20px;max-height:70vh;overflow-y:auto;">
-                <input type="hidden" id="editProductId">
-                <div style="display:grid;gap:16px;">
-
-                    <!-- Ảnh + Thông tin cơ bản -->
-                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#4f46e5;">Thông tin cơ bản</legend>
-                        <div style="display:grid;gap:10px;">
-                            <div style="display:flex;gap:14px;align-items:flex-start;">
-                                <div id="editImagePreview" style="width:80px;height:80px;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;flex-shrink:0;background:#f9fafb;display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Bấm để đổi ảnh">
-                                    <span style="color:#9ca3af;font-size:11px;">No image</span>
-                                </div>
-                                <input type="file" id="editImageFile" accept="image/*" style="display:none;">
-                                <div style="flex:1;display:grid;gap:8px;">
-                                    <div>
-                                        <label class="edit-label">Tên sản phẩm</label>
-                                        <input type="text" id="editProductName" class="edit-input">
+                <div
+                    class="column-settings-modal-body"
+                    style="padding: 20px; max-height: 70vh; overflow-y: auto"
+                >
+                    <input type="hidden" id="editProductId" />
+                    <div style="display: grid; gap: 16px">
+                        <!-- Ảnh + Thông tin cơ bản -->
+                        <fieldset
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #4f46e5;
+                                "
+                            >
+                                Thông tin cơ bản
+                            </legend>
+                            <div style="display: grid; gap: 10px">
+                                <div style="display: flex; gap: 14px; align-items: flex-start">
+                                    <div
+                                        id="editImagePreview"
+                                        style="
+                                            width: 80px;
+                                            height: 80px;
+                                            border-radius: 8px;
+                                            border: 1px solid #e5e7eb;
+                                            overflow: hidden;
+                                            flex-shrink: 0;
+                                            background: #f9fafb;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            cursor: pointer;
+                                        "
+                                        title="Bấm để đổi ảnh"
+                                    >
+                                        <span style="color: #9ca3af; font-size: 11px"
+                                            >No image</span
+                                        >
                                     </div>
-                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                    <input
+                                        type="file"
+                                        id="editImageFile"
+                                        accept="image/*"
+                                        style="display: none"
+                                    />
+                                    <div style="flex: 1; display: grid; gap: 8px">
                                         <div>
-                                            <label class="edit-label">Mã sản phẩm</label>
-                                            <input type="text" id="editProductCode" class="edit-input">
+                                            <label class="edit-label">Tên sản phẩm</label>
+                                            <input
+                                                type="text"
+                                                id="editProductName"
+                                                class="edit-input"
+                                            />
                                         </div>
-                                        <div>
-                                            <label class="edit-label">Mã vạch (Barcode)</label>
-                                            <input type="text" id="editBarcode" class="edit-input">
+                                        <div
+                                            style="
+                                                display: grid;
+                                                grid-template-columns: 1fr 1fr;
+                                                gap: 8px;
+                                            "
+                                        >
+                                            <div>
+                                                <label class="edit-label">Mã sản phẩm</label>
+                                                <input
+                                                    type="text"
+                                                    id="editProductCode"
+                                                    class="edit-input"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="edit-label">Mã vạch (Barcode)</label>
+                                                <input
+                                                    type="text"
+                                                    id="editBarcode"
+                                                    class="edit-input"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </fieldset>
+                        </fieldset>
 
-                    <!-- Giá -->
-                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#059669;">Giá</legend>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                            <div>
-                                <label class="edit-label">Giá bán</label>
-                                <input type="number" id="editListPrice" class="edit-input" min="0">
+                        <!-- Giá -->
+                        <fieldset
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #059669;
+                                "
+                            >
+                                Giá
+                            </legend>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                                <div>
+                                    <label class="edit-label">Giá bán</label>
+                                    <input
+                                        type="number"
+                                        id="editListPrice"
+                                        class="edit-input"
+                                        min="0"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="edit-label">Giá mua mặc định</label>
+                                    <input
+                                        type="number"
+                                        id="editPurchasePrice"
+                                        class="edit-input"
+                                        min="0"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="edit-label">Chiết khấu bán (%)</label>
+                                    <input
+                                        type="number"
+                                        id="editDiscountSale"
+                                        class="edit-input"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="edit-label">Chiết khấu mua (%)</label>
+                                    <input
+                                        type="number"
+                                        id="editDiscountPurchase"
+                                        class="edit-input"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label class="edit-label">Giá mua mặc định</label>
-                                <input type="number" id="editPurchasePrice" class="edit-input" min="0">
-                            </div>
-                            <div>
-                                <label class="edit-label">Chiết khấu bán (%)</label>
-                                <input type="number" id="editDiscountSale" class="edit-input" min="0" max="100" step="0.1">
-                            </div>
-                            <div>
-                                <label class="edit-label">Chiết khấu mua (%)</label>
-                                <input type="number" id="editDiscountPurchase" class="edit-input" min="0" max="100" step="0.1">
-                            </div>
-                        </div>
-                    </fieldset>
+                        </fieldset>
 
-                    <!-- Phân loại -->
-                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#d97706;">Phân loại</legend>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                            <div>
-                                <label class="edit-label">Nhóm sản phẩm</label>
-                                <select id="editCategId" class="edit-input"></select>
+                        <!-- Phân loại -->
+                        <fieldset
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #d97706;
+                                "
+                            >
+                                Phân loại
+                            </legend>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                                <div>
+                                    <label class="edit-label">Nhóm sản phẩm</label>
+                                    <select id="editCategId" class="edit-input"></select>
+                                </div>
+                                <div>
+                                    <label class="edit-label">Nhóm POS</label>
+                                    <select id="editPOSCategId" class="edit-input">
+                                        <option value="">-- Không --</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="edit-label">Đơn vị tính</label>
+                                    <select id="editUOMId" class="edit-input"></select>
+                                </div>
+                                <div>
+                                    <label class="edit-label">ĐVT mua hàng</label>
+                                    <select id="editUOMPOId" class="edit-input"></select>
+                                </div>
+                                <div>
+                                    <label class="edit-label">Trọng lượng (kg)</label>
+                                    <input
+                                        type="number"
+                                        id="editWeight"
+                                        class="edit-input"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="edit-label">Tracking</label>
+                                    <select id="editTracking" class="edit-input">
+                                        <option value="none">Không theo dõi</option>
+                                        <option value="lot">Theo lô</option>
+                                        <option value="serial">Theo serial</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div>
-                                <label class="edit-label">Nhóm POS</label>
-                                <select id="editPOSCategId" class="edit-input">
-                                    <option value="">-- Không --</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="edit-label">Đơn vị tính</label>
-                                <select id="editUOMId" class="edit-input"></select>
-                            </div>
-                            <div>
-                                <label class="edit-label">ĐVT mua hàng</label>
-                                <select id="editUOMPOId" class="edit-input"></select>
-                            </div>
-                            <div>
-                                <label class="edit-label">Trọng lượng (kg)</label>
-                                <input type="number" id="editWeight" class="edit-input" min="0" step="0.01">
-                            </div>
-                            <div>
-                                <label class="edit-label">Tracking</label>
-                                <select id="editTracking" class="edit-input">
-                                    <option value="none">Không theo dõi</option>
-                                    <option value="lot">Theo lô</option>
-                                    <option value="serial">Theo serial</option>
-                                </select>
-                            </div>
-                        </div>
-                    </fieldset>
+                        </fieldset>
 
-                    <!-- Trạng thái -->
-                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#7c3aed;">Trạng thái</legend>
-                        <div style="display:flex;flex-wrap:wrap;gap:16px;">
-                            <label class="edit-checkbox"><input type="checkbox" id="editActive"> Hiệu lực</label>
-                            <label class="edit-checkbox"><input type="checkbox" id="editSaleOK"> Có thể bán</label>
-                            <label class="edit-checkbox"><input type="checkbox" id="editPurchaseOK"> Có thể mua</label>
-                            <label class="edit-checkbox"><input type="checkbox" id="editAvailableInPOS"> Hiển thị POS</label>
-                        </div>
-                    </fieldset>
-
-                    <!-- Kế toán -->
-                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#6b7280;">Kế toán & Kho</legend>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                            <div>
-                                <label class="edit-label">Chính sách hóa đơn</label>
-                                <select id="editInvoicePolicy" class="edit-input">
-                                    <option value="order">Theo đơn hàng</option>
-                                    <option value="delivery">Theo giao hàng</option>
-                                </select>
+                        <!-- Trạng thái -->
+                        <fieldset
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #7c3aed;
+                                "
+                            >
+                                Trạng thái
+                            </legend>
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px">
+                                <label class="edit-checkbox"
+                                    ><input type="checkbox" id="editActive" /> Hiệu lực</label
+                                >
+                                <label class="edit-checkbox"
+                                    ><input type="checkbox" id="editSaleOK" /> Có thể bán</label
+                                >
+                                <label class="edit-checkbox"
+                                    ><input type="checkbox" id="editPurchaseOK" /> Có thể mua</label
+                                >
+                                <label class="edit-checkbox"
+                                    ><input type="checkbox" id="editAvailableInPOS" /> Hiển thị
+                                    POS</label
+                                >
                             </div>
-                            <div>
-                                <label class="edit-label">Phương pháp mua</label>
-                                <select id="editPurchaseMethod" class="edit-input">
-                                    <option value="receive">Theo nhận hàng</option>
-                                    <option value="purchase">Theo đơn mua</option>
-                                </select>
-                            </div>
-                        </div>
-                    </fieldset>
+                        </fieldset>
 
-                    <!-- Biến thể + Thuộc tính -->
-                    <fieldset id="fsVariants" style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#db2777;">Biến thể & Thuộc tính</legend>
-                        <div id="attributeLinesWrap" style="margin-bottom:12px;">
-                            <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Thuộc tính phân biệt biến thể (Màu / Size Chữ / Size Số):</div>
-                            <div id="attributeLinesList" style="display:grid;gap:8px;"></div>
-                            <button type="button" id="btnAddAttributeLine" style="margin-top:8px;padding:6px 10px;font-size:12px;border:1px dashed #d1d5db;border-radius:6px;background:#f9fafb;cursor:pointer;">+ Thêm thuộc tính</button>
-                            <button type="button" id="btnRegenVariants" style="margin-top:8px;margin-left:8px;padding:6px 10px;font-size:12px;border:1px solid #a78bfa;border-radius:6px;background:#ede9fe;color:#6d28d9;cursor:pointer;" title="Tạo lại danh sách biến thể từ các thuộc tính đã chọn">↻ Tạo lại biến thể từ thuộc tính</button>
-                        </div>
-                        <div style="overflow:auto;max-height:280px;border:1px solid #e5e7eb;border-radius:6px;">
-                            <table id="variantsTable" style="width:100%;border-collapse:collapse;font-size:12px;">
-                                <thead style="background:#f9fafb;position:sticky;top:0;">
+                        <!-- Kế toán -->
+                        <fieldset
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #6b7280;
+                                "
+                            >
+                                Kế toán & Kho
+                            </legend>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                                <div>
+                                    <label class="edit-label">Chính sách hóa đơn</label>
+                                    <select id="editInvoicePolicy" class="edit-input">
+                                        <option value="order">Theo đơn hàng</option>
+                                        <option value="delivery">Theo giao hàng</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="edit-label">Phương pháp mua</label>
+                                    <select id="editPurchaseMethod" class="edit-input">
+                                        <option value="receive">Theo nhận hàng</option>
+                                        <option value="purchase">Theo đơn mua</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Biến thể + Thuộc tính -->
+                        <fieldset
+                            id="fsVariants"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #db2777;
+                                "
+                            >
+                                Biến thể & Thuộc tính
+                            </legend>
+                            <div id="attributeLinesWrap" style="margin-bottom: 12px">
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px">
+                                    Thuộc tính phân biệt biến thể (Màu / Size Chữ / Size Số):
+                                </div>
+                                <div id="attributeLinesList" style="display: grid; gap: 8px"></div>
+                                <button
+                                    type="button"
+                                    id="btnAddAttributeLine"
+                                    style="
+                                        margin-top: 8px;
+                                        padding: 6px 10px;
+                                        font-size: 12px;
+                                        border: 1px dashed #d1d5db;
+                                        border-radius: 6px;
+                                        background: #f9fafb;
+                                        cursor: pointer;
+                                    "
+                                >
+                                    + Thêm thuộc tính
+                                </button>
+                                <button
+                                    type="button"
+                                    id="btnRegenVariants"
+                                    style="
+                                        margin-top: 8px;
+                                        margin-left: 8px;
+                                        padding: 6px 10px;
+                                        font-size: 12px;
+                                        border: 1px solid #a78bfa;
+                                        border-radius: 6px;
+                                        background: #ede9fe;
+                                        color: #6d28d9;
+                                        cursor: pointer;
+                                    "
+                                    title="Tạo lại danh sách biến thể từ các thuộc tính đã chọn"
+                                >
+                                    ↻ Tạo lại biến thể từ thuộc tính
+                                </button>
+                            </div>
+                            <div
+                                style="
+                                    overflow: auto;
+                                    max-height: 280px;
+                                    border: 1px solid #e5e7eb;
+                                    border-radius: 6px;
+                                "
+                            >
+                                <table
+                                    id="variantsTable"
+                                    style="width: 100%; border-collapse: collapse; font-size: 12px"
+                                >
+                                    <thead style="background: #f9fafb; position: sticky; top: 0">
+                                        <tr>
+                                            <th style="padding: 6px; text-align: left">
+                                                Thuộc tính
+                                            </th>
+                                            <th style="padding: 6px; text-align: left">
+                                                Mã biến thể
+                                            </th>
+                                            <th style="padding: 6px; text-align: left">Barcode</th>
+                                            <th style="padding: 6px; text-align: right">
+                                                Giá biến thể
+                                            </th>
+                                            <th style="padding: 6px; text-align: center">
+                                                Hiệu lực
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="variantsTbody"></tbody>
+                                </table>
+                            </div>
+                        </fieldset>
+
+                        <!-- Combo sản phẩm -->
+                        <fieldset
+                            id="fsCombo"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #ea580c;
+                                "
+                            >
+                                Sản phẩm combo
+                            </legend>
+                            <div
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 8px;
+                                    margin-bottom: 8px;
+                                "
+                            >
+                                <label class="edit-checkbox"
+                                    ><input type="checkbox" id="editIsCombo" /> Là sản phẩm
+                                    combo</label
+                                >
+                            </div>
+                            <div id="comboWrap" style="display: none">
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px">
+                                    Các SP con trong combo:
+                                </div>
+                                <div
+                                    id="comboItemsList"
+                                    style="display: grid; gap: 6px; margin-bottom: 8px"
+                                ></div>
+                                <div style="display: flex; gap: 6px; position: relative">
+                                    <input
+                                        type="text"
+                                        id="comboSearchInput"
+                                        class="edit-input"
+                                        placeholder="Nhập mã/tên SP con để thêm..."
+                                        style="flex: 1"
+                                    />
+                                    <div
+                                        id="comboSearchResults"
+                                        style="
+                                            display: none;
+                                            position: absolute;
+                                            top: calc(100% + 2px);
+                                            left: 0;
+                                            right: 0;
+                                            background: #fff;
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 6px;
+                                            max-height: 200px;
+                                            overflow: auto;
+                                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                                            z-index: 10;
+                                        "
+                                    ></div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- ĐVT quy đổi -->
+                        <fieldset
+                            id="fsUOMLines"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #0d9488;
+                                "
+                            >
+                                Đơn vị tính quy đổi
+                            </legend>
+                            <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px">
+                                VD: 1 Thùng = 12 Cái. Để trống nếu chỉ dùng 1 ĐVT.
+                            </div>
+                            <table
+                                id="uomLinesTable"
+                                style="width: 100%; border-collapse: collapse; font-size: 12px"
+                            >
+                                <thead style="background: #f9fafb">
                                     <tr>
-                                        <th style="padding:6px;text-align:left;">Thuộc tính</th>
-                                        <th style="padding:6px;text-align:left;">Mã biến thể</th>
-                                        <th style="padding:6px;text-align:left;">Barcode</th>
-                                        <th style="padding:6px;text-align:right;">Giá biến thể</th>
-                                        <th style="padding:6px;text-align:center;">Hiệu lực</th>
+                                        <th style="padding: 6px; text-align: left">Đơn vị</th>
+                                        <th style="padding: 6px; text-align: right">
+                                            Hệ số quy đổi (FactorInv)
+                                        </th>
+                                        <th style="padding: 6px; text-align: center">Xóa</th>
                                     </tr>
                                 </thead>
-                                <tbody id="variantsTbody"></tbody>
+                                <tbody id="uomLinesTbody"></tbody>
+                            </table>
+                            <button
+                                type="button"
+                                id="btnAddUOMLine"
+                                style="
+                                    margin-top: 8px;
+                                    padding: 6px 10px;
+                                    font-size: 12px;
+                                    border: 1px dashed #d1d5db;
+                                    border-radius: 6px;
+                                    background: #f9fafb;
+                                    cursor: pointer;
+                                "
+                            >
+                                + Thêm ĐVT quy đổi
+                            </button>
+                        </fieldset>
+
+                        <!-- Nhà cung cấp -->
+                        <fieldset
+                            id="fsSupplier"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #0284c7;
+                                "
+                            >
+                                Nhà cung cấp
+                            </legend>
+                            <table
+                                id="supplierTable"
+                                style="width: 100%; border-collapse: collapse; font-size: 12px"
+                            >
+                                <thead style="background: #f9fafb">
+                                    <tr>
+                                        <th style="padding: 6px; text-align: left">NCC</th>
+                                        <th style="padding: 6px; text-align: left">
+                                            Mã SP của NCC
+                                        </th>
+                                        <th style="padding: 6px; text-align: right">Giá</th>
+                                        <th style="padding: 6px; text-align: right">
+                                            SL tối thiểu
+                                        </th>
+                                        <th style="padding: 6px; text-align: center">Xóa</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="supplierTbody"></tbody>
+                            </table>
+                            <div
+                                style="display: flex; gap: 6px; margin-top: 8px; position: relative"
+                            >
+                                <input
+                                    type="text"
+                                    id="supplierSearchInput"
+                                    class="edit-input"
+                                    placeholder="Tìm NCC để thêm..."
+                                    style="flex: 1"
+                                />
+                                <div
+                                    id="supplierSearchResults"
+                                    style="
+                                        display: none;
+                                        position: absolute;
+                                        top: calc(100% + 2px);
+                                        left: 0;
+                                        right: 0;
+                                        background: #fff;
+                                        border: 1px solid #e5e7eb;
+                                        border-radius: 6px;
+                                        max-height: 200px;
+                                        overflow: auto;
+                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                                        z-index: 10;
+                                    "
+                                ></div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Nhãn (Tags) -->
+                        <fieldset
+                            id="fsTags"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #be185d;
+                                "
+                            >
+                                Nhãn
+                            </legend>
+                            <div
+                                id="tagsPickerList"
+                                style="display: flex; flex-wrap: wrap; gap: 6px"
+                            ></div>
+                            <div style="font-size: 11px; color: #9ca3af; margin-top: 6px">
+                                Click để chọn/bỏ chọn nhãn.
+                            </div>
+                        </fieldset>
+
+                        <!-- Audit log -->
+                        <fieldset
+                            id="fsAudit"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #475569;
+                                "
+                            >
+                                Lịch sử chỉnh sửa
+                            </legend>
+                            <button
+                                type="button"
+                                id="btnLoadAuditLog"
+                                style="
+                                    padding: 6px 10px;
+                                    font-size: 12px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    background: #f9fafb;
+                                    cursor: pointer;
+                                "
+                            >
+                                Tải lịch sử
+                            </button>
+                            <div
+                                id="auditLogContent"
+                                style="
+                                    margin-top: 8px;
+                                    max-height: 240px;
+                                    overflow: auto;
+                                    font-size: 12px;
+                                "
+                            ></div>
+                        </fieldset>
+
+                        <!-- Mô tả -->
+                        <fieldset
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #0891b2;
+                                "
+                            >
+                                Mô tả
+                            </legend>
+                            <div style="display: grid; gap: 10px">
+                                <div>
+                                    <label class="edit-label">Ghi chú bán hàng</label>
+                                    <textarea
+                                        id="editDescriptionSale"
+                                        class="edit-input"
+                                        style="min-height: 50px; resize: vertical"
+                                    ></textarea>
+                                </div>
+                                <div>
+                                    <label class="edit-label">Ghi chú mua hàng</label>
+                                    <textarea
+                                        id="editDescriptionPurchase"
+                                        class="edit-input"
+                                        style="min-height: 50px; resize: vertical"
+                                    ></textarea>
+                                </div>
+                                <div>
+                                    <label class="edit-label">Mô tả chi tiết</label>
+                                    <textarea
+                                        id="editDescription"
+                                        class="edit-input"
+                                        style="min-height: 50px; resize: vertical"
+                                    ></textarea>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+                <div class="column-settings-modal-footer">
+                    <button
+                        class="column-settings-btn column-settings-btn-cancel"
+                        id="cancelEditProduct"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        class="column-settings-btn column-settings-btn-save"
+                        id="saveEditProduct"
+                    >
+                        <i data-lucide="check"></i> Lưu lên TPOS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Excel Preview Modal -->
+        <div class="column-settings-modal" id="importExcelModal">
+            <div class="column-settings-modal-content" style="max-width: 1100px">
+                <div class="column-settings-modal-header">
+                    <h3><i data-lucide="upload"></i> Nhập sản phẩm từ Excel</h3>
+                    <button class="column-settings-modal-close" id="closeImportExcel">
+                        &times;
+                    </button>
+                </div>
+                <div
+                    class="column-settings-modal-body"
+                    style="padding: 16px; max-height: 75vh; overflow: auto"
+                >
+                    <div id="importStepPick" style="display: block">
+                        <div
+                            style="
+                                background: #eff6ff;
+                                border: 1px solid #bfdbfe;
+                                border-radius: 8px;
+                                padding: 12px;
+                                margin-bottom: 12px;
+                                font-size: 13px;
+                                line-height: 1.5;
+                            "
+                        >
+                            <strong>Hướng dẫn:</strong> tải
+                            <a href="#" id="downloadImportTemplate">mẫu Excel</a> → điền dữ liệu →
+                            chọn file upload. <br />Các cột: <code>Mã*</code>, <code>Tên*</code>,
+                            <code>Giá bán*</code>, <code>Giá mua</code>, <code>Giá vốn</code>,
+                            <code>Nhóm SP*</code>, <code>Đơn vị*</code>, <code>Barcode</code>.
+                        </div>
+                        <input
+                            type="file"
+                            id="importExcelFile"
+                            accept=".xlsx,.xls"
+                            style="display: block; margin: 16px 0"
+                        />
+                    </div>
+                    <div id="importStepPreview" style="display: none">
+                        <div
+                            style="
+                                display: flex;
+                                gap: 12px;
+                                align-items: center;
+                                margin-bottom: 8px;
+                                font-size: 13px;
+                            "
+                        >
+                            <span>Tổng dòng: <strong id="importTotalRows">0</strong></span>
+                            <span style="color: #059669"
+                                >Hợp lệ: <strong id="importValidRows">0</strong></span
+                            >
+                            <span style="color: #dc2626"
+                                >Lỗi: <strong id="importErrorRows">0</strong></span
+                            >
+                        </div>
+                        <div
+                            style="
+                                max-height: 50vh;
+                                overflow: auto;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 6px;
+                            "
+                        >
+                            <table
+                                id="importPreviewTable"
+                                style="width: 100%; border-collapse: collapse; font-size: 12px"
+                            >
+                                <thead
+                                    style="background: #f9fafb; position: sticky; top: 0"
+                                ></thead>
+                                <tbody></tbody>
                             </table>
                         </div>
-                    </fieldset>
-
-                    <!-- Combo sản phẩm -->
-                    <fieldset id="fsCombo" style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#ea580c;">Sản phẩm combo</legend>
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <label class="edit-checkbox"><input type="checkbox" id="editIsCombo"> Là sản phẩm combo</label>
+                    </div>
+                    <div id="importStepProgress" style="display: none">
+                        <div style="font-size: 13px; margin-bottom: 8px">Đang tạo sản phẩm...</div>
+                        <div
+                            style="
+                                background: #e5e7eb;
+                                border-radius: 8px;
+                                height: 16px;
+                                overflow: hidden;
+                            "
+                        >
+                            <div
+                                id="importProgressBar"
+                                style="
+                                    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+                                    height: 100%;
+                                    width: 0%;
+                                    transition: width 0.2s;
+                                "
+                            ></div>
                         </div>
-                        <div id="comboWrap" style="display:none;">
-                            <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Các SP con trong combo:</div>
-                            <div id="comboItemsList" style="display:grid;gap:6px;margin-bottom:8px;"></div>
-                            <div style="display:flex;gap:6px;position:relative;">
-                                <input type="text" id="comboSearchInput" class="edit-input" placeholder="Nhập mã/tên SP con để thêm..." style="flex:1;">
-                                <div id="comboSearchResults" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:200px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:10;"></div>
-                            </div>
+                        <div
+                            id="importProgressText"
+                            style="font-size: 12px; color: #6b7280; margin-top: 6px"
+                        >
+                            0 / 0
                         </div>
-                    </fieldset>
+                        <div
+                            id="importProgressErrors"
+                            style="
+                                margin-top: 10px;
+                                max-height: 30vh;
+                                overflow: auto;
+                                font-size: 12px;
+                            "
+                        ></div>
+                    </div>
+                </div>
+                <div class="column-settings-modal-footer">
+                    <button
+                        class="column-settings-btn column-settings-btn-cancel"
+                        id="cancelImportExcel"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        class="column-settings-btn column-settings-btn-save"
+                        id="confirmImportExcel"
+                        style="display: none"
+                    >
+                        <i data-lucide="check"></i> Nhập <span id="importValidRowsBtn">0</span> sản
+                        phẩm
+                    </button>
+                </div>
+            </div>
+        </div>
 
-                    <!-- ĐVT quy đổi -->
-                    <fieldset id="fsUOMLines" style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#0d9488;">Đơn vị tính quy đổi</legend>
-                        <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">VD: 1 Thùng = 12 Cái. Để trống nếu chỉ dùng 1 ĐVT.</div>
-                        <table id="uomLinesTable" style="width:100%;border-collapse:collapse;font-size:12px;">
-                            <thead style="background:#f9fafb;">
-                                <tr>
-                                    <th style="padding:6px;text-align:left;">Đơn vị</th>
-                                    <th style="padding:6px;text-align:right;">Hệ số quy đổi (FactorInv)</th>
-                                    <th style="padding:6px;text-align:center;">Xóa</th>
-                                </tr>
-                            </thead>
-                            <tbody id="uomLinesTbody"></tbody>
-                        </table>
-                        <button type="button" id="btnAddUOMLine" style="margin-top:8px;padding:6px 10px;font-size:12px;border:1px dashed #d1d5db;border-radius:6px;background:#f9fafb;cursor:pointer;">+ Thêm ĐVT quy đổi</button>
-                    </fieldset>
-
-                    <!-- Nhà cung cấp -->
-                    <fieldset id="fsSupplier" style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#0284c7;">Nhà cung cấp</legend>
-                        <table id="supplierTable" style="width:100%;border-collapse:collapse;font-size:12px;">
-                            <thead style="background:#f9fafb;">
-                                <tr>
-                                    <th style="padding:6px;text-align:left;">NCC</th>
-                                    <th style="padding:6px;text-align:left;">Mã SP của NCC</th>
-                                    <th style="padding:6px;text-align:right;">Giá</th>
-                                    <th style="padding:6px;text-align:right;">SL tối thiểu</th>
-                                    <th style="padding:6px;text-align:center;">Xóa</th>
-                                </tr>
-                            </thead>
-                            <tbody id="supplierTbody"></tbody>
-                        </table>
-                        <div style="display:flex;gap:6px;margin-top:8px;position:relative;">
-                            <input type="text" id="supplierSearchInput" class="edit-input" placeholder="Tìm NCC để thêm..." style="flex:1;">
-                            <div id="supplierSearchResults" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:200px;overflow:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:10;"></div>
+        <!-- Bulk Price Update Modal -->
+        <div class="column-settings-modal" id="bulkPriceModal">
+            <div class="column-settings-modal-content" style="max-width: 900px">
+                <div class="column-settings-modal-header">
+                    <h3><i data-lucide="banknote"></i> Cập nhật giá hàng loạt từ file</h3>
+                    <button class="column-settings-modal-close" id="closeBulkPrice">&times;</button>
+                </div>
+                <div
+                    class="column-settings-modal-body"
+                    style="padding: 16px; max-height: 75vh; overflow: auto"
+                >
+                    <div id="bulkPriceStepPick" style="display: block">
+                        <div
+                            style="
+                                background: #fef3c7;
+                                border: 1px solid #fde68a;
+                                border-radius: 8px;
+                                padding: 12px;
+                                margin-bottom: 12px;
+                                font-size: 13px;
+                                line-height: 1.5;
+                            "
+                        >
+                            <strong>Lưu ý:</strong> file Excel cần có cột <code>Mã*</code> và ít
+                            nhất 1 trong 3 cột giá: <code>Giá bán</code>, <code>Giá mua</code>,
+                            <code>Giá vốn</code>. <br />Hệ thống sẽ tìm SP theo mã và cập nhật giá
+                            mới qua UpdateV2.
                         </div>
-                    </fieldset>
-
-                    <!-- Nhãn (Tags) -->
-                    <fieldset id="fsTags" style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#be185d;">Nhãn</legend>
-                        <div id="tagsPickerList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-                        <div style="font-size:11px;color:#9ca3af;margin-top:6px;">Click để chọn/bỏ chọn nhãn.</div>
-                    </fieldset>
-
-                    <!-- Audit log -->
-                    <fieldset id="fsAudit" style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#475569;">Lịch sử chỉnh sửa</legend>
-                        <button type="button" id="btnLoadAuditLog" style="padding:6px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;cursor:pointer;">Tải lịch sử</button>
-                        <div id="auditLogContent" style="margin-top:8px;max-height:240px;overflow:auto;font-size:12px;"></div>
-                    </fieldset>
-
-                    <!-- Mô tả -->
-                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:0;">
-                        <legend style="font-weight:700;font-size:13px;padding:0 6px;color:#0891b2;">Mô tả</legend>
-                        <div style="display:grid;gap:10px;">
-                            <div>
-                                <label class="edit-label">Ghi chú bán hàng</label>
-                                <textarea id="editDescriptionSale" class="edit-input" style="min-height:50px;resize:vertical;"></textarea>
-                            </div>
-                            <div>
-                                <label class="edit-label">Ghi chú mua hàng</label>
-                                <textarea id="editDescriptionPurchase" class="edit-input" style="min-height:50px;resize:vertical;"></textarea>
-                            </div>
-                            <div>
-                                <label class="edit-label">Mô tả chi tiết</label>
-                                <textarea id="editDescription" class="edit-input" style="min-height:50px;resize:vertical;"></textarea>
-                            </div>
+                        <input
+                            type="file"
+                            id="bulkPriceFile"
+                            accept=".xlsx,.xls"
+                            style="display: block; margin: 16px 0"
+                        />
+                    </div>
+                    <div id="bulkPriceStepPreview" style="display: none">
+                        <div
+                            style="
+                                display: flex;
+                                gap: 12px;
+                                align-items: center;
+                                margin-bottom: 8px;
+                                font-size: 13px;
+                            "
+                        >
+                            <span>Tổng: <strong id="bulkPriceTotal">0</strong></span>
+                            <span style="color: #059669"
+                                >Thay đổi: <strong id="bulkPriceChanged">0</strong></span
+                            >
+                            <span style="color: #6b7280"
+                                >Không đổi: <strong id="bulkPriceUnchanged">0</strong></span
+                            >
+                            <span style="color: #dc2626"
+                                >Không tìm thấy: <strong id="bulkPriceMissing">0</strong></span
+                            >
                         </div>
-                    </fieldset>
-
+                        <div
+                            style="
+                                max-height: 50vh;
+                                overflow: auto;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 6px;
+                            "
+                        >
+                            <table
+                                id="bulkPricePreviewTable"
+                                style="width: 100%; border-collapse: collapse; font-size: 12px"
+                            >
+                                <thead
+                                    style="background: #f9fafb; position: sticky; top: 0"
+                                ></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="bulkPriceStepProgress" style="display: none">
+                        <div style="font-size: 13px; margin-bottom: 8px">Đang cập nhật giá...</div>
+                        <div
+                            style="
+                                background: #e5e7eb;
+                                border-radius: 8px;
+                                height: 16px;
+                                overflow: hidden;
+                            "
+                        >
+                            <div
+                                id="bulkPriceProgressBar"
+                                style="
+                                    background: linear-gradient(90deg, #f59e0b, #ef4444);
+                                    height: 100%;
+                                    width: 0%;
+                                    transition: width 0.2s;
+                                "
+                            ></div>
+                        </div>
+                        <div
+                            id="bulkPriceProgressText"
+                            style="font-size: 12px; color: #6b7280; margin-top: 6px"
+                        >
+                            0 / 0
+                        </div>
+                        <div
+                            id="bulkPriceProgressErrors"
+                            style="
+                                margin-top: 10px;
+                                max-height: 30vh;
+                                overflow: auto;
+                                font-size: 12px;
+                            "
+                        ></div>
+                    </div>
                 </div>
-            </div>
-            <div class="column-settings-modal-footer">
-                <button class="column-settings-btn column-settings-btn-cancel" id="cancelEditProduct">Hủy</button>
-                <button class="column-settings-btn column-settings-btn-save" id="saveEditProduct">
-                    <i data-lucide="check"></i> Lưu lên TPOS
-                </button>
+                <div class="column-settings-modal-footer">
+                    <button
+                        class="column-settings-btn column-settings-btn-cancel"
+                        id="cancelBulkPrice"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        class="column-settings-btn column-settings-btn-save"
+                        id="confirmBulkPrice"
+                        style="display: none"
+                    >
+                        <i data-lucide="check"></i> Cập nhật
+                        <span id="bulkPriceChangedBtn">0</span> sản phẩm
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Import Excel Preview Modal -->
-    <div class="column-settings-modal" id="importExcelModal">
-        <div class="column-settings-modal-content" style="max-width:1100px;">
-            <div class="column-settings-modal-header">
-                <h3><i data-lucide="upload"></i> Nhập sản phẩm từ Excel</h3>
-                <button class="column-settings-modal-close" id="closeImportExcel">&times;</button>
-            </div>
-            <div class="column-settings-modal-body" style="padding:16px;max-height:75vh;overflow:auto;">
-                <div id="importStepPick" style="display:block;">
-                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.5;">
-                        <strong>Hướng dẫn:</strong> tải <a href="#" id="downloadImportTemplate">mẫu Excel</a> → điền dữ liệu → chọn file upload.
-                        <br>Các cột: <code>Mã*</code>, <code>Tên*</code>, <code>Giá bán*</code>, <code>Giá mua</code>, <code>Giá vốn</code>, <code>Nhóm SP*</code>, <code>Đơn vị*</code>, <code>Barcode</code>.
-                    </div>
-                    <input type="file" id="importExcelFile" accept=".xlsx,.xls" style="display:block;margin:16px 0;">
+        <!-- Stock Adjust Modal -->
+        <div class="column-settings-modal" id="stockAdjustModal">
+            <div class="column-settings-modal-content" style="max-width: 520px">
+                <div class="column-settings-modal-header">
+                    <h3><i data-lucide="package-plus"></i> Điều chỉnh tồn kho</h3>
+                    <button class="column-settings-modal-close" id="closeStockAdjust">
+                        &times;
+                    </button>
                 </div>
-                <div id="importStepPreview" style="display:none;">
-                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;font-size:13px;">
-                        <span>Tổng dòng: <strong id="importTotalRows">0</strong></span>
-                        <span style="color:#059669;">Hợp lệ: <strong id="importValidRows">0</strong></span>
-                        <span style="color:#dc2626;">Lỗi: <strong id="importErrorRows">0</strong></span>
+                <div class="column-settings-modal-body" style="padding: 20px">
+                    <div
+                        id="stockAdjustProductInfo"
+                        style="
+                            padding: 10px;
+                            background: #f9fafb;
+                            border-radius: 6px;
+                            margin-bottom: 12px;
+                            font-size: 13px;
+                        "
+                    ></div>
+                    <div id="stockAdjustVariantPick" style="margin-bottom: 12px; display: none">
+                        <label class="edit-label">Chọn biến thể:</label>
+                        <select id="stockAdjustVariantSelect" class="edit-input"></select>
                     </div>
-                    <div style="max-height:50vh;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">
-                        <table id="importPreviewTable" style="width:100%;border-collapse:collapse;font-size:12px;">
-                            <thead style="background:#f9fafb;position:sticky;top:0;"></thead>
-                            <tbody></tbody>
-                        </table>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                        <div>
+                            <label class="edit-label">Tồn hiện tại</label>
+                            <input
+                                type="text"
+                                id="stockAdjustCurrentQty"
+                                class="edit-input"
+                                readonly
+                                style="background: #f3f4f6"
+                            />
+                        </div>
+                        <div>
+                            <label class="edit-label">Tồn mới *</label>
+                            <input
+                                type="number"
+                                id="stockAdjustNewQty"
+                                class="edit-input"
+                                min="0"
+                                step="1"
+                            />
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px">
+                        <label class="edit-label">Lý do (tùy chọn)</label>
+                        <input
+                            type="text"
+                            id="stockAdjustReason"
+                            class="edit-input"
+                            placeholder="VD: kiểm kê, hao hụt, nhập sai..."
+                        />
                     </div>
                 </div>
-                <div id="importStepProgress" style="display:none;">
-                    <div style="font-size:13px;margin-bottom:8px;">Đang tạo sản phẩm...</div>
-                    <div style="background:#e5e7eb;border-radius:8px;height:16px;overflow:hidden;">
-                        <div id="importProgressBar" style="background:linear-gradient(90deg,#3b82f6,#8b5cf6);height:100%;width:0%;transition:width .2s;"></div>
-                    </div>
-                    <div id="importProgressText" style="font-size:12px;color:#6b7280;margin-top:6px;">0 / 0</div>
-                    <div id="importProgressErrors" style="margin-top:10px;max-height:30vh;overflow:auto;font-size:12px;"></div>
+                <div class="column-settings-modal-footer">
+                    <button
+                        class="column-settings-btn column-settings-btn-cancel"
+                        id="cancelStockAdjust"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        class="column-settings-btn column-settings-btn-save"
+                        id="confirmStockAdjust"
+                    >
+                        <i data-lucide="check"></i> Xác nhận điều chỉnh
+                    </button>
                 </div>
-            </div>
-            <div class="column-settings-modal-footer">
-                <button class="column-settings-btn column-settings-btn-cancel" id="cancelImportExcel">Hủy</button>
-                <button class="column-settings-btn column-settings-btn-save" id="confirmImportExcel" style="display:none;">
-                    <i data-lucide="check"></i> Nhập <span id="importValidRowsBtn">0</span> sản phẩm
-                </button>
             </div>
         </div>
-    </div>
 
-    <!-- Bulk Price Update Modal -->
-    <div class="column-settings-modal" id="bulkPriceModal">
-        <div class="column-settings-modal-content" style="max-width:900px;">
-            <div class="column-settings-modal-header">
-                <h3><i data-lucide="banknote"></i> Cập nhật giá hàng loạt từ file</h3>
-                <button class="column-settings-modal-close" id="closeBulkPrice">&times;</button>
-            </div>
-            <div class="column-settings-modal-body" style="padding:16px;max-height:75vh;overflow:auto;">
-                <div id="bulkPriceStepPick" style="display:block;">
-                    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.5;">
-                        <strong>Lưu ý:</strong> file Excel cần có cột <code>Mã*</code> và ít nhất 1 trong 3 cột giá: <code>Giá bán</code>, <code>Giá mua</code>, <code>Giá vốn</code>.
-                        <br>Hệ thống sẽ tìm SP theo mã và cập nhật giá mới qua UpdateV2.
-                    </div>
-                    <input type="file" id="bulkPriceFile" accept=".xlsx,.xls" style="display:block;margin:16px 0;">
+        <!-- Bulk Tag Assign Modal -->
+        <div class="column-settings-modal" id="bulkTagModal">
+            <div class="column-settings-modal-content" style="max-width: 520px">
+                <div class="column-settings-modal-header">
+                    <h3><i data-lucide="tag"></i> Gán nhãn hàng loạt</h3>
+                    <button class="column-settings-modal-close" id="closeBulkTag">&times;</button>
                 </div>
-                <div id="bulkPriceStepPreview" style="display:none;">
-                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;font-size:13px;">
-                        <span>Tổng: <strong id="bulkPriceTotal">0</strong></span>
-                        <span style="color:#059669;">Thay đổi: <strong id="bulkPriceChanged">0</strong></span>
-                        <span style="color:#6b7280;">Không đổi: <strong id="bulkPriceUnchanged">0</strong></span>
-                        <span style="color:#dc2626;">Không tìm thấy: <strong id="bulkPriceMissing">0</strong></span>
-                    </div>
-                    <div style="max-height:50vh;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">
-                        <table id="bulkPricePreviewTable" style="width:100%;border-collapse:collapse;font-size:12px;">
-                            <thead style="background:#f9fafb;position:sticky;top:0;"></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
+                <div class="column-settings-modal-body" style="padding: 20px">
+                    <div
+                        id="bulkTagCount"
+                        style="
+                            padding: 10px;
+                            background: #f9fafb;
+                            border-radius: 6px;
+                            margin-bottom: 12px;
+                            font-size: 13px;
+                        "
+                    ></div>
+                    <label class="edit-label">Chế độ</label>
+                    <select id="bulkTagMode" class="edit-input" style="margin-bottom: 10px">
+                        <option value="add">Thêm nhãn (giữ nhãn cũ)</option>
+                        <option value="replace">Thay thế toàn bộ nhãn cũ</option>
+                        <option value="remove">Xóa các nhãn được chọn</option>
+                    </select>
+                    <label class="edit-label">Chọn nhãn</label>
+                    <div
+                        id="bulkTagList"
+                        style="
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 6px;
+                            max-height: 240px;
+                            overflow: auto;
+                            padding: 8px;
+                            border: 1px solid #e5e7eb;
+                            border-radius: 6px;
+                        "
+                    ></div>
                 </div>
-                <div id="bulkPriceStepProgress" style="display:none;">
-                    <div style="font-size:13px;margin-bottom:8px;">Đang cập nhật giá...</div>
-                    <div style="background:#e5e7eb;border-radius:8px;height:16px;overflow:hidden;">
-                        <div id="bulkPriceProgressBar" style="background:linear-gradient(90deg,#f59e0b,#ef4444);height:100%;width:0%;transition:width .2s;"></div>
-                    </div>
-                    <div id="bulkPriceProgressText" style="font-size:12px;color:#6b7280;margin-top:6px;">0 / 0</div>
-                    <div id="bulkPriceProgressErrors" style="margin-top:10px;max-height:30vh;overflow:auto;font-size:12px;"></div>
+                <div class="column-settings-modal-footer">
+                    <button
+                        class="column-settings-btn column-settings-btn-cancel"
+                        id="cancelBulkTag"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        class="column-settings-btn column-settings-btn-save"
+                        id="confirmBulkTag"
+                    >
+                        <i data-lucide="check"></i> Áp dụng
+                    </button>
                 </div>
-            </div>
-            <div class="column-settings-modal-footer">
-                <button class="column-settings-btn column-settings-btn-cancel" id="cancelBulkPrice">Hủy</button>
-                <button class="column-settings-btn column-settings-btn-save" id="confirmBulkPrice" style="display:none;">
-                    <i data-lucide="check"></i> Cập nhật <span id="bulkPriceChangedBtn">0</span> sản phẩm
-                </button>
             </div>
         </div>
-    </div>
 
-    <!-- Stock Adjust Modal -->
-    <div class="column-settings-modal" id="stockAdjustModal">
-        <div class="column-settings-modal-content" style="max-width:520px;">
-            <div class="column-settings-modal-header">
-                <h3><i data-lucide="package-plus"></i> Điều chỉnh tồn kho</h3>
-                <button class="column-settings-modal-close" id="closeStockAdjust">&times;</button>
-            </div>
-            <div class="column-settings-modal-body" style="padding:20px;">
-                <div id="stockAdjustProductInfo" style="padding:10px;background:#f9fafb;border-radius:6px;margin-bottom:12px;font-size:13px;"></div>
-                <div id="stockAdjustVariantPick" style="margin-bottom:12px;display:none;">
-                    <label class="edit-label">Chọn biến thể:</label>
-                    <select id="stockAdjustVariantSelect" class="edit-input"></select>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <div>
-                        <label class="edit-label">Tồn hiện tại</label>
-                        <input type="text" id="stockAdjustCurrentQty" class="edit-input" readonly style="background:#f3f4f6;">
-                    </div>
-                    <div>
-                        <label class="edit-label">Tồn mới *</label>
-                        <input type="number" id="stockAdjustNewQty" class="edit-input" min="0" step="1">
-                    </div>
-                </div>
-                <div style="margin-top:10px;">
-                    <label class="edit-label">Lý do (tùy chọn)</label>
-                    <input type="text" id="stockAdjustReason" class="edit-input" placeholder="VD: kiểm kê, hao hụt, nhập sai...">
-                </div>
-            </div>
-            <div class="column-settings-modal-footer">
-                <button class="column-settings-btn column-settings-btn-cancel" id="cancelStockAdjust">Hủy</button>
-                <button class="column-settings-btn column-settings-btn-save" id="confirmStockAdjust">
-                    <i data-lucide="check"></i> Xác nhận điều chỉnh
-                </button>
-            </div>
-        </div>
-    </div>
+        <!-- Toast Notification Container -->
+        <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Bulk Tag Assign Modal -->
-    <div class="column-settings-modal" id="bulkTagModal">
-        <div class="column-settings-modal-content" style="max-width:520px;">
-            <div class="column-settings-modal-header">
-                <h3><i data-lucide="tag"></i> Gán nhãn hàng loạt</h3>
-                <button class="column-settings-modal-close" id="closeBulkTag">&times;</button>
-            </div>
-            <div class="column-settings-modal-body" style="padding:20px;">
-                <div id="bulkTagCount" style="padding:10px;background:#f9fafb;border-radius:6px;margin-bottom:12px;font-size:13px;"></div>
-                <label class="edit-label">Chế độ</label>
-                <select id="bulkTagMode" class="edit-input" style="margin-bottom:10px;">
-                    <option value="add">Thêm nhãn (giữ nhãn cũ)</option>
-                    <option value="replace">Thay thế toàn bộ nhãn cũ</option>
-                    <option value="remove">Xóa các nhãn được chọn</option>
-                </select>
-                <label class="edit-label">Chọn nhãn</label>
-                <div id="bulkTagList" style="display:flex;flex-wrap:wrap;gap:6px;max-height:240px;overflow:auto;padding:8px;border:1px solid #e5e7eb;border-radius:6px;"></div>
-            </div>
-            <div class="column-settings-modal-footer">
-                <button class="column-settings-btn column-settings-btn-cancel" id="cancelBulkTag">Hủy</button>
-                <button class="column-settings-btn column-settings-btn-save" id="confirmBulkTag">
-                    <i data-lucide="check"></i> Áp dụng
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification Container -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- Scripts -->
-    <!-- SheetJS (lazy-loaded for Import/Export Excel) -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-    <!-- Shared Warehouse Utilities -->
-    <script src="../shared/js/warehouse-shared.js"></script>
-    <script src="../purchase-orders/js/lib/barcode-label-dialog.js"></script>
-    <script src="js/main.js"></script>
-</body>
+        <!-- Scripts -->
+        <!-- SheetJS (lazy-loaded for Import/Export Excel) -->
+        <script
+            src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+            defer
+        ></script>
+        <!-- Shared Warehouse Utilities -->
+        <script src="../shared/js/warehouse-shared.js?v=20260521b"></script>
+        <script src="../purchase-orders/js/lib/barcode-label-dialog.js?v=20260521b"></script>
+        <script src="js/main.js?v=20260521b"></script>
+    </body>
 </html>

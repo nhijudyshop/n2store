@@ -12,21 +12,25 @@
         <title>Quản Lý Kiểm Hàng</title>
 
         <!-- External CSS -->
-        <link rel="stylesheet" href="css/styles.css" />
+        <link rel="stylesheet" href="css/styles.css?v=20260521b" />
 
         <!-- ES Module: Shared utilities (replaces core-loader.js) -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
             }
         </script>
 
         <!-- Navigation Manager -->
-        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
 
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -36,15 +40,19 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
 
         <!-- XLSX -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
     <body>
         <!-- Main -->
         <main class="main-content">
@@ -111,10 +119,7 @@
             </section>
 
             <section class="filters-section card">
-                <div
-                    class="card-header filter-header collapsed"
-                    id="filterHeader"
-                >
+                <div class="card-header filter-header collapsed" id="filterHeader">
                     <div class="card-title">
                         <i data-lucide="filter"></i>
                         <h2>Bộ Lọc Dữ Liệu</h2>
@@ -160,11 +165,7 @@
                                 <i data-lucide="calendar"></i>
                                 Từ Ngày
                             </label>
-                            <input
-                                type="date"
-                                id="dateFromFilter"
-                                class="filter-input"
-                            />
+                            <input type="date" id="dateFromFilter" class="filter-input" />
                         </div>
 
                         <!-- Date To -->
@@ -173,11 +174,7 @@
                                 <i data-lucide="calendar"></i>
                                 Đến Ngày
                             </label>
-                            <input
-                                type="date"
-                                id="dateToFilter"
-                                class="filter-input"
-                            />
+                            <input type="date" id="dateToFilter" class="filter-input" />
                         </div>
 
                         <!-- Global Search -->
@@ -228,13 +225,7 @@
                             </thead>
                             <tbody id="orderTableBody">
                                 <tr>
-                                    <td
-                                        colspan="9"
-                                        style="
-                                            text-align: center;
-                                            padding: 40px;
-                                        "
-                                    >
+                                    <td colspan="9" style="text-align: center; padding: 40px">
                                         Đang tải dữ liệu...
                                     </td>
                                 </tr>
@@ -252,15 +243,15 @@
         </div>
 
         <!-- Scripts - Page modules (shared loaded via esm/compat.js) -->
-        <script src="../shared/js/permissions-helper.js"></script>
-        <script defer src="js/config.js"></script>
-        <script defer src="js/utils.js"></script>
-        <script defer src="js/ui-components.js"></script>
-        <script defer src="js/data-loader.js"></script>
-        <script defer src="js/filters.js"></script>
-        <script defer src="js/table-renderer.js"></script>
-        <script defer src="js/crud-operations.js"></script>
-        <script defer src="js/export.js"></script>
-        <script defer src="js/main.js"></script>
+        <script src="../shared/js/permissions-helper.js?v=20260521b"></script>
+        <script defer src="js/config.js?v=20260521b"></script>
+        <script defer src="js/utils.js?v=20260521b"></script>
+        <script defer src="js/ui-components.js?v=20260521b"></script>
+        <script defer src="js/data-loader.js?v=20260521b"></script>
+        <script defer src="js/filters.js?v=20260521b"></script>
+        <script defer src="js/table-renderer.js?v=20260521b"></script>
+        <script defer src="js/crud-operations.js?v=20260521b"></script>
+        <script defer src="js/export.js?v=20260521b"></script>
+        <script defer src="js/main.js?v=20260521b"></script>
     </body>
 </html>

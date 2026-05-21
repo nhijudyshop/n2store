@@ -21,8 +21,8 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/indexed-db-store.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/indexed-db-store.js?v=20260521b"></script>
 
         <!-- XLSX.js for Excel export -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -30,7 +30,7 @@
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-        <link rel="stylesheet" href="css/tab-kpi-commission.css" />
+        <link rel="stylesheet" href="css/tab-kpi-commission.css?v=20260521b" />
 
         <!-- Inline overrides (if any) -->
         <style>
@@ -39,9 +39,9 @@
 
         <!-- Embedded CSS extracted to css/tab-kpi-commission.css -->
         <!-- Old embedded CSS removed (564 lines) -->
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
-        <link rel="stylesheet" href="css/design-system.css" />
+        <link rel="stylesheet" href="css/design-system.css?v=20260521b" />
     </head>
 
     <body>
@@ -509,7 +509,11 @@
                     </div>
                     <div class="kpi-inbox-filter-group">
                         <div class="kpi-inbox-presets" role="tablist" aria-label="Khoảng thời gian">
-                            <button class="kpi-inbox-preset" data-inbox-preset="today" type="button">
+                            <button
+                                class="kpi-inbox-preset"
+                                data-inbox-preset="today"
+                                type="button"
+                            >
                                 Hôm nay
                             </button>
                             <button class="kpi-inbox-preset" data-inbox-preset="7d" type="button">
@@ -625,8 +629,8 @@
                     <div class="kpi-check-history-info">
                         <i data-lucide="info"></i>
                         <span>
-                            Lưu lại toàn bộ thao tác đánh dấu "Đã kiểm tra" — share với
-                            Thống Kê Giao Hàng.
+                            Lưu lại toàn bộ thao tác đánh dấu "Đã kiểm tra" — share với Thống Kê
+                            Giao Hàng.
                         </span>
                     </div>
                     <div class="kpi-check-history-controls">
@@ -655,7 +659,10 @@
                         </thead>
                         <tbody id="kpiCheckHistoryBody">
                             <tr>
-                                <td colspan="8" style="text-align: center; padding: 24px; color: #9ca3af;">
+                                <td
+                                    colspan="8"
+                                    style="text-align: center; padding: 24px; color: #9ca3af"
+                                >
                                     Đang tải lịch sử kiểm tra...
                                 </td>
                             </tr>
@@ -1026,17 +1033,17 @@
         </script>
 
         <!-- KPI Commission Tab JS (11.8) -->
-        <script src="../shared/js/attribute-values-loader.js"></script>
-        <script src="../shared/js/warehouse-api.js"></script>
-        <script src="js/managers/kpi-manager.js"></script>
-        <script src="js/managers/kpi-audit-logger.js"></script>
+        <script src="../shared/js/attribute-values-loader.js?v=20260521b"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260521b"></script>
+        <script src="js/managers/kpi-manager.js?v=20260521b"></script>
+        <script src="js/managers/kpi-audit-logger.js?v=20260521b"></script>
 
         <!-- Pancake stack for tab "Tin nhắn" trong modal L2.
              pancake-token-manager: đọc JWT từ localStorage (đã login từ tab1).
              pancake-data-manager: fetchConversationsByCustomerFbId + fetchMessages. -->
-        <script src="../shared/js/pancake-token-manager.js"></script>
-        <script src="js/managers/pancake-data-manager.js"></script>
+        <script src="../shared/js/pancake-token-manager.js?v=20260521b"></script>
+        <script src="js/managers/pancake-data-manager.js?v=20260521b"></script>
 
-        <script src="js/tab-kpi-commission.js"></script>
+        <script src="js/tab-kpi-commission.js?v=20260521b"></script>
     </body>
 </html>

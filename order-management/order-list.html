@@ -17,16 +17,16 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Warehouse API (Render DB) — replaces TPOS Excel/OData direct calls -->
-        <script src="../shared/js/warehouse-api.js"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260521b"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/indexed-db-store.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/indexed-db-store.js?v=20260521b"></script>
 
-        <script src="firebase-helpers.js"></script>
-        <script src="../orders-report/js/core/campaign-api.js"></script>
+        <script src="firebase-helpers.js?v=20260521b"></script>
+        <script src="../orders-report/js/core/campaign-api.js?v=20260521b"></script>
 
-        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
 
         <style>
             :root {
@@ -1458,11 +1458,15 @@
                 display: none !important;
             }
         </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
     <body>
         <div class="main-content" id="mainContent">
             <div class="product-grid" id="productGrid"></div>
@@ -1568,15 +1572,19 @@
         </div>
 
         <!-- ES Module: Shared utilities (auto-initializes authManager, cache) -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-                document.write('<script src="../shared/js/shared-cache-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script src="../shared/js/shared-cache-manager.js?v=20260521b"><\/script>'
+                );
             }
         </script>
-        <script src="js/order-list.js"></script>
+        <script src="js/order-list.js?v=20260521b"></script>
     </body>
 </html>

@@ -138,8 +138,8 @@
         </script>
 
         <!-- External CSS -->
-        <link rel="stylesheet" href="css/modern.css" />
-        <link rel="stylesheet" href="css/celebration.css" />
+        <link rel="stylesheet" href="css/modern.css?v=20260521b" />
+        <link rel="stylesheet" href="css/celebration.css?v=20260521b" />
 
         <!-- Motion.dev for celebration animations -->
         <script src="https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js"></script>
@@ -151,12 +151,14 @@
         </script>
 
         <!-- N2Store Optimization: ES Module Loader (auto-inits authManager) -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
@@ -198,14 +200,14 @@
         <!-- Firebase SDK for menu layout sync -->
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
 
         <!-- Navigation Manager -->
-        <script defer src="../shared/js/navigation-modern.js"></script>
-        <script defer src="../shared/js/common-utils.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <script defer src="../shared/js/common-utils.js?v=20260521b"></script>
 
         <!-- Storage Migration (run migration on load) -->
-        <script src="../shared/js/storage-migration.js"></script>
+        <script src="../shared/js/storage-migration.js?v=20260521b"></script>
         <script>
             // Auto-migrate orders module storage on page load
             document.addEventListener('DOMContentLoaded', function () {
@@ -216,7 +218,7 @@
         </script>
 
         <!-- Fulfillment Data (shared between tabs) -->
-        <script src="js/fulfillment-data.js"></script>
+        <script src="js/fulfillment-data.js?v=20260521b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.FulfillmentData) {
@@ -229,7 +231,7 @@
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
         <!-- XLSX.js — moved to lazy-load inside iframes that need it (saves ~950KB on shell page) -->
-        <script src="../shared/js/cdn-libs.js"></script>
+        <script src="../shared/js/cdn-libs.js?v=20260521b"></script>
 
         <style>
             /* Tab Navigation */
@@ -503,9 +505,9 @@
                 position: relative;
             }
         </style>
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
-        <link rel="stylesheet" href="css/design-system.css" />
+        <link rel="stylesheet" href="css/design-system.css?v=20260521b" />
     </head>
 
     <body>
@@ -1346,6 +1348,6 @@
                 btn.addEventListener('mouseleave', () => (btn.style.opacity = '1'));
             })();
         </script>
-        <script src="js/celebration.js"></script>
+        <script src="js/celebration.js?v=20260521b"></script>
     </body>
 </html>

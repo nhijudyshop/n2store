@@ -1,561 +1,1612 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facebook Ads Manager - N2Store</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Facebook Ads Manager - N2Store</title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
 
-    <!-- Shared CSS -->
-    <link rel="stylesheet" href="../shared/css/typography.css" />
-    <link rel="stylesheet" href="fb-ads.css">
+        <!-- Shared CSS -->
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <link rel="stylesheet" href="fb-ads.css?v=20260521b" />
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
+        <!-- Font Awesome -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+            crossorigin="anonymous"
+        />
 
-    <!-- ES Module: Shared utilities -->
-    <script type="module" src="../shared/esm/compat.js"></script>
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
 
-    <!-- Auth fallback for file:// protocol -->
-    <script>
-        if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-        }
-    </script>
+        <!-- Auth fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
+                );
+            }
+        </script>
 
-    <!-- Navigation + Lucide Icons -->
-    <script defer src="../shared/js/navigation-modern.js"></script>
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+        <!-- Navigation + Lucide Icons -->
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-    <!-- Firebase (for shared modules that may need it) -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js"></script>
-</head>
-<body>
-
-<!-- ==================== TOP BAR ==================== -->
-<div class="topbar">
-    <div class="topbar-left">
-        <a href="../" class="topbar-logo">
-            <svg viewBox="0 0 36 36" fill="currentColor"><path d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"/><path fill="#fff" d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"/></svg>
-            Ads Manager
-        </a>
-        <select id="accountSelector" class="account-selector" onchange="FBAds.selectAccount(this.value)">
-            <option value="">Chọn tài khoản quảng cáo...</option>
-        </select>
-    </div>
-    <div class="topbar-right">
-        <div class="user-info" id="userInfo" style="display:none">
-            <!-- Account switcher dropdown -->
-            <div style="position:relative;display:inline-block" id="accountSwitcher">
-                <button class="btn btn-outline btn-sm" onclick="FBAds.toggleAccountMenu()" id="currentAccountBtn" style="display:flex;align-items:center;gap:6px">
-                    <span id="currentAccountAvatar" style="width:24px;height:24px;background:var(--fb-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700"></span>
-                    <span id="userName"></span>
-                    <span style="font-size:10px">&#9660;</span>
+        <!-- Firebase (for shared modules that may need it) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+    </head>
+    <body>
+        <!-- ==================== TOP BAR ==================== -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <a href="../" class="topbar-logo">
+                    <svg viewBox="0 0 36 36" fill="currentColor">
+                        <path
+                            d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"
+                        />
+                        <path
+                            fill="#fff"
+                            d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"
+                        />
+                    </svg>
+                    Ads Manager
+                </a>
+                <select
+                    id="accountSelector"
+                    class="account-selector"
+                    onchange="FBAds.selectAccount(this.value)"
+                >
+                    <option value="">Chọn tài khoản quảng cáo...</option>
+                </select>
+            </div>
+            <div class="topbar-right">
+                <div class="user-info" id="userInfo" style="display: none">
+                    <!-- Account switcher dropdown -->
+                    <div style="position: relative; display: inline-block" id="accountSwitcher">
+                        <button
+                            class="btn btn-outline btn-sm"
+                            onclick="FBAds.toggleAccountMenu()"
+                            id="currentAccountBtn"
+                            style="display: flex; align-items: center; gap: 6px"
+                        >
+                            <span
+                                id="currentAccountAvatar"
+                                style="
+                                    width: 24px;
+                                    height: 24px;
+                                    background: var(--fb-primary);
+                                    border-radius: 50%;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    color: #fff;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                "
+                            ></span>
+                            <span id="userName"></span>
+                            <span style="font-size: 10px">&#9660;</span>
+                        </button>
+                        <div
+                            id="accountDropdown"
+                            style="
+                                display: none;
+                                position: absolute;
+                                right: 0;
+                                top: 38px;
+                                background: var(--fb-surface);
+                                border: 1px solid var(--fb-border);
+                                border-radius: var(--radius);
+                                box-shadow: var(--shadow-lg);
+                                min-width: 280px;
+                                z-index: 200;
+                                overflow: hidden;
+                            "
+                        >
+                            <div
+                                style="
+                                    padding: 10px 14px;
+                                    font-size: 12px;
+                                    color: var(--fb-text-secondary);
+                                    border-bottom: 1px solid var(--fb-border);
+                                    font-weight: 600;
+                                "
+                            >
+                                Tài khoản Facebook đã lưu
+                            </div>
+                            <div
+                                id="accountDropdownList"
+                                style="max-height: 250px; overflow-y: auto"
+                            ></div>
+                            <div style="border-top: 1px solid var(--fb-border); padding: 6px">
+                                <button
+                                    class="btn btn-primary btn-sm"
+                                    style="width: 100%"
+                                    onclick="FBAds.login()"
+                                >
+                                    + Thêm tài khoản FB mới
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button
+                    class="btn btn-outline btn-sm"
+                    id="settingsBtn"
+                    style="display: none"
+                    onclick="FBAds.openModal('settingsModal')"
+                >
+                    &#9881; Cài đặt
                 </button>
-                <div id="accountDropdown" style="display:none;position:absolute;right:0;top:38px;background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:280px;z-index:200;overflow:hidden">
-                    <div style="padding:10px 14px;font-size:12px;color:var(--fb-text-secondary);border-bottom:1px solid var(--fb-border);font-weight:600">Tài khoản Facebook đã lưu</div>
-                    <div id="accountDropdownList" style="max-height:250px;overflow-y:auto"></div>
-                    <div style="border-top:1px solid var(--fb-border);padding:6px">
-                        <button class="btn btn-primary btn-sm" style="width:100%" onclick="FBAds.login()">+ Thêm tài khoản FB mới</button>
+                <button class="btn btn-primary btn-sm" id="loginBtn" onclick="FBAds.login()">
+                    Đăng nhập Facebook
+                </button>
+                <button
+                    class="btn btn-outline btn-sm"
+                    id="logoutBtn"
+                    style="display: none"
+                    onclick="FBAds.logout()"
+                >
+                    Đăng xuất
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== LOGIN SCREEN ==================== -->
+        <div id="loginScreen" class="login-screen">
+            <svg
+                viewBox="0 0 36 36"
+                fill="currentColor"
+                style="width: 80px; height: 80px; color: var(--fb-primary)"
+            >
+                <path
+                    d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"
+                />
+                <path
+                    fill="#fff"
+                    d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"
+                />
+            </svg>
+            <h2>Facebook Ads Manager</h2>
+            <p>Đăng nhập bằng tài khoản Facebook để quản lý quảng cáo trực tiếp từ đây.</p>
+            <button class="btn btn-fb btn-lg" onclick="FBAds.login()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                    <path
+                        d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                    />
+                </svg>
+                Đăng nhập với Facebook
+            </button>
+
+            <!-- Cookie / Token login section -->
+            <div style="margin-top: 20px; width: 100%; max-width: 460px">
+                <div
+                    style="
+                        text-align: center;
+                        color: var(--fb-text-secondary);
+                        font-size: 13px;
+                        margin-bottom: 12px;
+                    "
+                >
+                    &#x2500;&#x2500; hoặc đăng nhập bằng Token (không cần API App) &#x2500;&#x2500;
+                </div>
+                <div
+                    style="
+                        background: var(--fb-surface);
+                        border: 1px solid var(--fb-border);
+                        border-radius: var(--radius);
+                        padding: 16px;
+                    "
+                >
+                    <!-- Tab selector -->
+                    <div
+                        style="
+                            display: flex;
+                            gap: 0;
+                            margin-bottom: 12px;
+                            border: 1px solid var(--fb-border);
+                            border-radius: 6px;
+                            overflow: hidden;
+                        "
+                    >
+                        <button
+                            class="btn btn-sm"
+                            id="tabToken"
+                            onclick="FBAds.switchLoginTab('token')"
+                            style="
+                                flex: 1;
+                                border: none;
+                                border-radius: 0;
+                                background: var(--fb-primary);
+                                color: #fff;
+                            "
+                        >
+                            &#128273; EAAG Token
+                        </button>
+                        <button
+                            class="btn btn-sm"
+                            id="tabCookie"
+                            onclick="FBAds.switchLoginTab('cookie')"
+                            style="
+                                flex: 1;
+                                border: none;
+                                border-radius: 0;
+                                background: var(--fb-bg);
+                                color: var(--fb-text-secondary);
+                            "
+                        >
+                            &#127850; Cookie
+                        </button>
+                    </div>
+
+                    <!-- Token input (default, recommended) -->
+                    <div id="tokenSection">
+                        <textarea
+                            id="tokenInput"
+                            rows="3"
+                            placeholder="Paste EAAG token ở đây...&#10;&#10;Cách lấy: Xem hướng dẫn bấm nút ? bên dưới"
+                            style="
+                                width: 100%;
+                                padding: 8px 12px;
+                                border: 1px solid var(--fb-border);
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-family: monospace;
+                                resize: vertical;
+                            "
+                        ></textarea>
+                        <div style="display: flex; gap: 8px; margin-top: 8px">
+                            <button
+                                class="btn btn-primary btn-sm"
+                                onclick="FBAds.loginWithToken()"
+                                style="flex: 1"
+                                id="tokenLoginBtn"
+                            >
+                                &#128274; Đăng nhập với Token
+                            </button>
+                            <button
+                                class="btn btn-outline btn-sm"
+                                onclick="FBAds.showCookieHelp()"
+                                title="Hướng dẫn"
+                            >
+                                ?
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cookie input (fallback) -->
+                    <div id="cookieSection" style="display: none">
+                        <textarea
+                            id="cookieInput"
+                            rows="3"
+                            placeholder="Paste cookies ở đây: c_user=...; xs=...; datr=...&#10;&#10;Dùng Extension hoặc console: copy(document.cookie)"
+                            style="
+                                width: 100%;
+                                padding: 8px 12px;
+                                border: 1px solid var(--fb-border);
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-family: monospace;
+                                resize: vertical;
+                            "
+                        ></textarea>
+                        <div style="display: flex; gap: 8px; margin-top: 8px">
+                            <button
+                                class="btn btn-primary btn-sm"
+                                onclick="FBAds.loginWithCookies()"
+                                style="flex: 1"
+                                id="cookieLoginBtn"
+                            >
+                                &#128274; Đăng nhập với Cookie
+                            </button>
+                            <button
+                                class="btn btn-outline btn-sm"
+                                onclick="FBAds.showCookieHelp()"
+                                title="Hướng dẫn"
+                            >
+                                ?
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        id="cookieStatus"
+                        style="margin-top: 8px; font-size: 12px; display: none"
+                    ></div>
+                </div>
+            </div>
+
+            <!-- Saved accounts -->
+            <div
+                id="savedAccountsSection"
+                style="margin-top: 24px; width: 100%; max-width: 460px; display: none"
+            >
+                <div
+                    style="
+                        text-align: center;
+                        color: var(--fb-text-secondary);
+                        font-size: 13px;
+                        margin-bottom: 12px;
+                    "
+                >
+                    &#x2500;&#x2500; hoặc chọn tài khoản đã lưu &#x2500;&#x2500;
+                </div>
+                <div
+                    id="savedAccountsList"
+                    style="display: flex; flex-direction: column; gap: 8px"
+                ></div>
+            </div>
+        </div>
+
+        <!-- ==================== MAIN APP ==================== -->
+        <div id="mainApp" style="display: none">
+            <!-- MAIN TABS (top level navigation) -->
+            <div class="tabs" id="mainTabs">
+                <div class="tab active" data-tab="campaigns" onclick="FBAds.switchTab('campaigns')">
+                    Chiến dịch <span class="count" id="campaignCount">0</span>
+                </div>
+                <div class="tab" data-tab="adsets" onclick="FBAds.switchTab('adsets')">
+                    Nhóm QC <span class="count" id="adsetCount">0</span>
+                </div>
+                <div class="tab" data-tab="ads" onclick="FBAds.switchTab('ads')">
+                    Quảng cáo <span class="count" id="adCount">0</span>
+                </div>
+                <div class="tab" data-tab="audiences" onclick="FBAds.switchTab('audiences')">
+                    Đối tượng
+                </div>
+                <div class="tab" data-tab="pixels" onclick="FBAds.switchTab('pixels')">Pixel</div>
+                <div class="tab" data-tab="billing" onclick="FBAds.switchTab('billing')">
+                    Thanh toán
+                </div>
+                <div class="tab" data-tab="reports" onclick="FBAds.switchTab('reports')">
+                    Báo cáo
+                </div>
+                <div class="tab" data-tab="rules" onclick="FBAds.switchTab('rules')">
+                    Quy tắc tự động
+                </div>
+                <div class="tab" data-tab="account" onclick="FBAds.switchTab('account')">
+                    Tài khoản
+                </div>
+            </div>
+
+            <!-- TOOLBAR (for ads tabs) -->
+            <div class="toolbar" id="adsToolbar">
+                <div class="toolbar-group">
+                    <button class="btn btn-primary btn-sm" onclick="FBAds.showCreateModal()">
+                        + Tạo
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.refreshData()">
+                        &#8635; Làm mới
+                    </button>
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group" id="bulkActions" style="display: none">
+                    <span
+                        id="selectedCount"
+                        style="font-size: 13px; color: var(--fb-primary); font-weight: 600"
+                    ></span>
+                    <button class="btn btn-success btn-sm" onclick="FBAds.bulkAction('ACTIVE')">
+                        &#9654; Bật
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.bulkAction('PAUSED')">
+                        &#10074;&#10074; Dừng
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="FBAds.bulkAction('DELETE')">
+                        &#128465; Xóa
+                    </button>
+                    <div class="toolbar-divider"></div>
+                </div>
+                <input
+                    type="text"
+                    class="search-box"
+                    placeholder="Tìm kiếm theo tên, ID..."
+                    id="searchBox"
+                    oninput="FBAds.filterTable()"
+                />
+                <div style="flex: 1"></div>
+                <select id="datePreset" class="date-range-btn" onchange="FBAds.loadInsights()">
+                    <option value="last_7d">7 ngày qua</option>
+                    <option value="last_14d">14 ngày qua</option>
+                    <option value="last_30d" selected>30 ngày qua</option>
+                    <option value="this_month">Tháng này</option>
+                    <option value="last_month">Tháng trước</option>
+                    <option value="last_90d">90 ngày qua</option>
+                </select>
+            </div>
+
+            <!-- METRICS BAR -->
+            <div class="metrics-bar" id="metricsBar">
+                <div class="metric-card">
+                    <div class="metric-label">Chi tiêu</div>
+                    <div class="metric-value" id="metricSpend">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Lượt hiển thị</div>
+                    <div class="metric-value" id="metricImpressions">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Lượt click</div>
+                    <div class="metric-value" id="metricClicks">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">CTR</div>
+                    <div class="metric-value" id="metricCTR">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">CPC</div>
+                    <div class="metric-value" id="metricCPC">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Tiếp cận</div>
+                    <div class="metric-value" id="metricReach">--</div>
+                </div>
+            </div>
+
+            <!-- ADS TABLES -->
+            <div class="table-container" id="adsTablesContainer">
+                <table class="data-table" id="campaignsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px">
+                                <input
+                                    type="checkbox"
+                                    id="selectAll"
+                                    onchange="FBAds.toggleSelectAll(this)"
+                                />
+                            </th>
+                            <th>Bật/Tắt</th>
+                            <th>Chiến dịch</th>
+                            <th>Phân phối</th>
+                            <th>Ngân sách</th>
+                            <th>Chi tiêu</th>
+                            <th>Kết quả</th>
+                            <th>CPR</th>
+                            <th>Lượt hiển thị</th>
+                            <th>Tiếp cận</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaignsBody"></tbody>
+                </table>
+                <table class="data-table" id="adsetsTable" style="display: none">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px">
+                                <input type="checkbox" onchange="FBAds.toggleSelectAll(this)" />
+                            </th>
+                            <th>Bật/Tắt</th>
+                            <th>Nhóm quảng cáo</th>
+                            <th>Phân phối</th>
+                            <th>Ngân sách</th>
+                            <th>Chi tiêu</th>
+                            <th>Kết quả</th>
+                            <th>Chiến dịch</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adsetsBody"></tbody>
+                </table>
+                <table class="data-table" id="adsTable" style="display: none">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px">
+                                <input type="checkbox" onchange="FBAds.toggleSelectAll(this)" />
+                            </th>
+                            <th>Bật/Tắt</th>
+                            <th>Quảng cáo</th>
+                            <th>Phân phối</th>
+                            <th>Chi tiêu</th>
+                            <th>Kết quả</th>
+                            <th>Nhóm QC</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adsBody"></tbody>
+                </table>
+            </div>
+
+            <!-- ==================== AUDIENCES PANEL ==================== -->
+            <div id="audiencesPanel" class="panel" style="display: none">
+                <div class="toolbar">
+                    <button
+                        class="btn btn-primary btn-sm"
+                        onclick="FBAds.openModal('createAudienceModal')"
+                    >
+                        + Tạo đối tượng
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.loadAudiences()">
+                        &#8635; Làm mới
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tên</th>
+                                <th>Loại</th>
+                                <th>Kích thước</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày tạo</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audiencesBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==================== PIXELS PANEL ==================== -->
+            <div id="pixelsPanel" class="panel" style="display: none">
+                <div class="toolbar">
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.loadPixels()">
+                        &#8635; Làm mới
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tên Pixel</th>
+                                <th>ID</th>
+                                <th>Lần bắn cuối</th>
+                                <th>Ngày tạo</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pixelsBody"></tbody>
+                    </table>
+                </div>
+                <div id="pixelEventsContainer" style="padding: 0 20px 20px"></div>
+            </div>
+
+            <!-- ==================== BILLING PANEL ==================== -->
+            <div id="billingPanel" class="panel" style="display: none">
+                <div class="toolbar">
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.loadBilling()">
+                        &#8635; Làm mới
+                    </button>
+                </div>
+                <!-- Billing overview cards -->
+                <div class="metrics-bar" id="billingCards">
+                    <div class="metric-card">
+                        <div class="metric-label">Trạng thái TK</div>
+                        <div class="metric-value" id="billingAccStatus">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Tổng chi tiêu</div>
+                        <div class="metric-value" id="billingTotalSpent">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Số dư</div>
+                        <div class="metric-value" id="billingBalance">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Giới hạn chi tiêu</div>
+                        <div class="metric-value" id="billingSpendCap">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Nguồn tiền</div>
+                        <div class="metric-value" id="billingFunding" style="font-size: 14px">
+                            --
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Tiền tệ</div>
+                        <div class="metric-value" id="billingCurrency">--</div>
+                    </div>
+                </div>
+                <!-- Spend cap control -->
+                <div style="padding: 0 20px 12px; display: flex; gap: 8px; align-items: center">
+                    <label style="font-weight: 600; font-size: 14px">Đặt giới hạn chi tiêu:</label>
+                    <input
+                        type="number"
+                        id="spendCapInput"
+                        placeholder="VND"
+                        style="
+                            padding: 7px 12px;
+                            border: 1px solid var(--fb-border);
+                            border-radius: 6px;
+                            width: 200px;
+                            font-size: 14px;
+                        "
+                        min="0"
+                        step="100000"
+                    />
+                    <button class="btn btn-primary btn-sm" onclick="FBAds.updateSpendCap()">
+                        Cập nhật
+                    </button>
+                    <span class="form-hint">Để trống hoặc 0 = không giới hạn</span>
+                </div>
+                <!-- Transactions -->
+                <div style="padding: 0 20px">
+                    <h3 style="font-size: 16px; margin-bottom: 12px">Lịch sử giao dịch</h3>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Loại</th>
+                                <th>Số tiền</th>
+                                <th>Trạng thái</th>
+                                <th>Lý do</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==================== REPORTS PANEL ==================== -->
+            <div id="reportsPanel" class="panel" style="display: none">
+                <div class="toolbar">
+                    <div class="toolbar-group">
+                        <select
+                            id="reportType"
+                            class="date-range-btn"
+                            onchange="FBAds.loadReport()"
+                        >
+                            <option value="daily">Theo ngày</option>
+                            <option value="age_gender">Theo tuổi + giới tính</option>
+                            <option value="placement">Theo vị trí</option>
+                        </select>
+                        <select
+                            id="reportDatePreset"
+                            class="date-range-btn"
+                            onchange="FBAds.loadReport()"
+                        >
+                            <option value="last_7d">7 ngày</option>
+                            <option value="last_14d">14 ngày</option>
+                            <option value="last_30d" selected>30 ngày</option>
+                            <option value="last_90d">90 ngày</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1"></div>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.exportReport()">
+                        &#128190; Xuất CSV
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="reportTable">
+                        <thead id="reportHead"></thead>
+                        <tbody id="reportBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==================== RULES PANEL ==================== -->
+            <div id="rulesPanel" class="panel" style="display: none">
+                <div class="toolbar">
+                    <button
+                        class="btn btn-primary btn-sm"
+                        onclick="FBAds.openModal('createRuleModal')"
+                    >
+                        + Tạo quy tắc
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.loadRules()">
+                        &#8635; Làm mới
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Bật/Tắt</th>
+                                <th>Tên quy tắc</th>
+                                <th>Ngày tạo</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rulesBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==================== ACCOUNT PANEL ==================== -->
+            <div id="accountPanel" class="panel" style="display: none">
+                <div class="toolbar">
+                    <button class="btn btn-outline btn-sm" onclick="FBAds.loadAccountDetails()">
+                        &#8635; Làm mới
+                    </button>
+                </div>
+                <!-- Account info -->
+                <div
+                    style="
+                        padding: 0 20px 20px;
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 16px;
+                    "
+                    id="accountDetails"
+                >
+                    <div class="metric-card">
+                        <div class="metric-label">Tên TK</div>
+                        <div class="metric-value" id="accName" style="font-size: 16px">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">ID</div>
+                        <div class="metric-value" id="accId" style="font-size: 14px">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Trạng thái</div>
+                        <div class="metric-value" id="accStatus">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Múi giờ</div>
+                        <div class="metric-value" id="accTimezone" style="font-size: 14px">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Doanh nghiệp</div>
+                        <div class="metric-value" id="accBusiness" style="font-size: 14px">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Ngày tạo</div>
+                        <div class="metric-value" id="accCreated" style="font-size: 14px">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Prepay</div>
+                        <div class="metric-value" id="accPrepay">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Lý do vô hiệu</div>
+                        <div class="metric-value" id="accDisableReason" style="font-size: 14px">
+                            --
+                        </div>
+                    </div>
+                </div>
+                <!-- Account users -->
+                <div style="padding: 0 20px">
+                    <h3 style="font-size: 16px; margin-bottom: 12px">
+                        Người dùng có quyền truy cập
+                    </h3>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tên</th>
+                                <th>ID</th>
+                                <th>Vai trò</th>
+                                <th>Quyền</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accUsersBody"></tbody>
+                    </table>
+                </div>
+                <!-- Activity log -->
+                <div style="padding: 16px 20px 0">
+                    <h3 style="font-size: 16px; margin-bottom: 12px">
+                        Nhật ký hoạt động (gần nhất)
+                    </h3>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Sự kiện</th>
+                                <th>Người thực hiện</th>
+                                <th>Đối tượng</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accActivityBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== MODALS (existing) ==================== -->
+        <!-- Create Campaign -->
+        <div class="modal-overlay" id="createCampaignModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Tạo chiến dịch mới</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('createCampaignModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tên chiến dịch</label
+                        ><input type="text" id="campaignName" placeholder="VD: Sale T4 - Traffic" />
+                    </div>
+                    <div class="form-group">
+                        <label>Mục tiêu</label
+                        ><select id="campaignObjective">
+                            <option value="OUTCOME_TRAFFIC">Traffic</option>
+                            <option value="OUTCOME_ENGAGEMENT">Engagement</option>
+                            <option value="OUTCOME_LEADS">Leads</option>
+                            <option value="OUTCOME_SALES">Sales</option>
+                            <option value="OUTCOME_AWARENESS">Awareness</option>
+                            <option value="OUTCOME_APP_PROMOTION">App Promotion</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ngân sách hàng ngày (VND)</label
+                        ><input
+                            type="number"
+                            id="campaignBudget"
+                            placeholder="100000"
+                            min="10000"
+                            step="10000"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Trạng thái</label
+                        ><select id="campaignStatus">
+                            <option value="PAUSED">Tạm dừng</option>
+                            <option value="ACTIVE">Hoạt động</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        class="btn btn-outline"
+                        onclick="FBAds.closeModal('createCampaignModal')"
+                    >
+                        Hủy</button
+                    ><button class="btn btn-primary" onclick="FBAds.createCampaign()">Tạo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Campaign -->
+        <div class="modal-overlay" id="editCampaignModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Chỉnh sửa chiến dịch</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('editCampaignModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editCampaignId" />
+                    <div class="form-group">
+                        <label>Tên</label><input type="text" id="editCampaignName" />
+                    </div>
+                    <div class="form-group">
+                        <label>Ngân sách/ngày (VND)</label
+                        ><input type="number" id="editCampaignBudget" min="10000" step="10000" />
+                    </div>
+                    <div class="form-group">
+                        <label>Trạng thái</label
+                        ><select id="editCampaignStatus">
+                            <option value="ACTIVE">Hoạt động</option>
+                            <option value="PAUSED">Tạm dừng</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="FBAds.closeModal('editCampaignModal')">
+                        Hủy</button
+                    ><button class="btn btn-primary" onclick="FBAds.updateCampaign()">Lưu</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create AdSet -->
+        <div class="modal-overlay" id="createAdSetModal">
+            <div class="modal" style="max-width: 700px">
+                <div class="modal-header">
+                    <h3>Tạo nhóm quảng cáo</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('createAdSetModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Chiến dịch</label
+                        ><select id="adsetCampaignId"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tên nhóm QC</label
+                        ><input type="text" id="adsetName" placeholder="VN - Nữ 25-45" />
+                    </div>
+                    <div class="form-group">
+                        <label>Ngân sách/ngày (VND)</label
+                        ><input
+                            type="number"
+                            id="adsetBudget"
+                            placeholder="100000"
+                            min="10000"
+                            step="10000"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Tối ưu</label
+                        ><select id="adsetOptGoal">
+                            <option value="LINK_CLICKS">Link clicks</option>
+                            <option value="LANDING_PAGE_VIEWS">Landing page views</option>
+                            <option value="IMPRESSIONS">Impressions</option>
+                            <option value="REACH">Reach</option>
+                            <option value="OFFSITE_CONVERSIONS">Conversions</option>
+                            <option value="POST_ENGAGEMENT">Post engagement</option>
+                            <option value="LEAD_GENERATION">Lead generation</option>
+                        </select>
+                    </div>
+                    <fieldset
+                        style="
+                            border: 1px solid var(--fb-border);
+                            border-radius: var(--radius);
+                            padding: 16px;
+                            margin-bottom: 16px;
+                        "
+                    >
+                        <legend style="font-weight: 600; font-size: 14px; padding: 0 8px">
+                            Targeting
+                        </legend>
+                        <div class="form-group">
+                            <label>Quốc gia</label
+                            ><input type="text" id="adsetCountries" value="VN" />
+                            <div class="form-hint">VD: VN,US,TH</div>
+                        </div>
+                        <div style="display: flex; gap: 12px">
+                            <div class="form-group" style="flex: 1">
+                                <label>Tuổi từ</label
+                                ><input
+                                    type="number"
+                                    id="adsetAgeMin"
+                                    value="18"
+                                    min="13"
+                                    max="65"
+                                />
+                            </div>
+                            <div class="form-group" style="flex: 1">
+                                <label>Tuổi đến</label
+                                ><input
+                                    type="number"
+                                    id="adsetAgeMax"
+                                    value="65"
+                                    min="13"
+                                    max="65"
+                                />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Giới tính</label
+                            ><select id="adsetGender">
+                                <option value="0">Tất cả</option>
+                                <option value="1">Nam</option>
+                                <option value="2">Nữ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Sở thích</label>
+                            <div style="display: flex; gap: 8px">
+                                <input
+                                    type="text"
+                                    id="interestSearch"
+                                    placeholder="Tìm sở thích..."
+                                    style="flex: 1"
+                                /><button
+                                    class="btn btn-outline btn-sm"
+                                    onclick="FBAds.searchInterests()"
+                                >
+                                    Tìm
+                                </button>
+                            </div>
+                            <div
+                                id="interestResults"
+                                style="max-height: 150px; overflow-y: auto; margin-top: 8px"
+                            ></div>
+                            <div
+                                id="selectedInterests"
+                                style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px"
+                            ></div>
+                        </div>
+                    </fieldset>
+                    <div class="form-group">
+                        <label>Trạng thái</label
+                        ><select id="adsetStatus">
+                            <option value="PAUSED">Tạm dừng</option>
+                            <option value="ACTIVE">Hoạt động</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="FBAds.closeModal('createAdSetModal')">
+                        Hủy</button
+                    ><button class="btn btn-primary" onclick="FBAds.createAdSet()">Tạo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Ad -->
+        <div class="modal-overlay" id="createAdModal">
+            <div class="modal" style="max-width: 750px">
+                <div class="modal-header">
+                    <h3>Tạo quảng cáo</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('createAdModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Nhóm QC</label
+                        ><select id="adAdSetId"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tên quảng cáo</label
+                        ><input type="text" id="adName" placeholder="Ad 1 - Boost bài viết" />
+                    </div>
+
+                    <!-- Ad type selector -->
+                    <div class="form-group">
+                        <label>Loại quảng cáo</label>
+                        <div style="display: flex; gap: 8px">
+                            <button
+                                class="btn btn-primary btn-sm"
+                                id="adTypePost"
+                                onclick="FBAds.setAdType('post')"
+                                style="flex: 1"
+                            >
+                                Chọn bài viết trên Page
+                            </button>
+                            <button
+                                class="btn btn-outline btn-sm"
+                                id="adTypeNew"
+                                onclick="FBAds.setAdType('new')"
+                                style="flex: 1"
+                            >
+                                Tạo nội dung mới
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- === USE EXISTING POST === -->
+                    <div id="adPostSection">
+                        <div class="form-group">
+                            <label>Chọn Page</label>
+                            <select id="adPageId" onchange="FBAds.loadPagePosts()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Chọn bài viết</label>
+                            <div
+                                id="pagePostsList"
+                                style="
+                                    max-height: 350px;
+                                    overflow-y: auto;
+                                    border: 1px solid var(--fb-border);
+                                    border-radius: var(--radius);
+                                "
+                            >
+                                <div
+                                    style="
+                                        padding: 20px;
+                                        text-align: center;
+                                        color: var(--fb-text-light);
+                                    "
+                                >
+                                    Chọn Page để xem bài viết
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="selectedPostId" />
+                    </div>
+
+                    <!-- === CREATE NEW CONTENT === -->
+                    <div id="adNewSection" style="display: none">
+                        <div class="form-group">
+                            <label>Facebook Page</label
+                            ><select id="adPageIdNew"></select>
+                        </div>
+                        <fieldset
+                            style="
+                                border: 1px solid var(--fb-border);
+                                border-radius: var(--radius);
+                                padding: 16px;
+                                margin-bottom: 16px;
+                            "
+                        >
+                            <legend style="font-weight: 600; font-size: 14px; padding: 0 8px">
+                                Nội dung mới
+                            </legend>
+                            <div class="form-group">
+                                <label>Message</label
+                                ><textarea
+                                    id="adMessage"
+                                    rows="3"
+                                    placeholder="Nội dung quảng cáo..."
+                                ></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Headline</label
+                                ><input type="text" id="adHeadline" placeholder="Giảm giá 50%" />
+                            </div>
+                            <div class="form-group">
+                                <label>Mô tả</label
+                                ><input
+                                    type="text"
+                                    id="adDescription"
+                                    placeholder="Free ship từ 200k"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label>Link</label
+                                ><input type="url" id="adLink" placeholder="https://..." />
+                            </div>
+                            <div class="form-group">
+                                <label>Hình</label
+                                ><input
+                                    type="file"
+                                    id="adImageFile"
+                                    accept="image/*"
+                                    onchange="FBAds.previewAdImage(this)"
+                                />
+                                <div id="adImagePreview" style="margin-top: 8px"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>CTA</label
+                                ><select id="adCTA">
+                                    <option value="LEARN_MORE">Tìm hiểu thêm</option>
+                                    <option value="SHOP_NOW">Mua ngay</option>
+                                    <option value="SIGN_UP">Đăng ký</option>
+                                    <option value="CONTACT_US">Liên hệ</option>
+                                    <option value="SEND_MESSAGE">Nhắn tin</option>
+                                    <option value="ORDER_NOW">Đặt hàng</option>
+                                    <option value="NO_BUTTON">Không nút</option>
+                                </select>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Trạng thái</label
+                        ><select id="adStatus">
+                            <option value="PAUSED">Tạm dừng</option>
+                            <option value="ACTIVE">Hoạt động</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="FBAds.closeModal('createAdModal')">
+                        Hủy</button
+                    ><button class="btn btn-primary" onclick="FBAds.createAd()">
+                        Tạo quảng cáo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Audience -->
+        <div class="modal-overlay" id="createAudienceModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Tạo đối tượng tùy chỉnh</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('createAudienceModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tên</label
+                        ><input
+                            type="text"
+                            id="audienceName"
+                            placeholder="VD: Khách mua 30 ngày qua"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Mô tả</label
+                        ><input type="text" id="audienceDesc" placeholder="Mô tả đối tượng" />
+                    </div>
+                    <div class="form-group">
+                        <label>Loại</label
+                        ><select id="audienceSubtype">
+                            <option value="CUSTOM">Custom Audience</option>
+                            <option value="WEBSITE">Website Traffic</option>
+                            <option value="ENGAGEMENT">Engagement</option>
+                            <option value="LOOKALIKE">Lookalike</option>
+                        </select>
+                    </div>
+                    <div id="lookalikeFields" style="display: none">
+                        <div class="form-group">
+                            <label>Audience gốc (ID)</label
+                            ><input
+                                type="text"
+                                id="lookalikeSourceId"
+                                placeholder="Audience ID gốc"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>Quốc gia</label
+                            ><input type="text" id="lookalikeCountry" value="VN" />
+                        </div>
+                        <div class="form-group">
+                            <label>Tỉ lệ (1-10%)</label
+                            ><input
+                                type="number"
+                                id="lookalikeRatio"
+                                value="1"
+                                min="1"
+                                max="10"
+                                step="1"
+                            />
+                            <div class="form-hint">1% = giống nhất, 10% = lớn nhất</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        class="btn btn-outline"
+                        onclick="FBAds.closeModal('createAudienceModal')"
+                    >
+                        Hủy</button
+                    ><button class="btn btn-primary" onclick="FBAds.createAudience()">Tạo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Rule -->
+        <div class="modal-overlay" id="createRuleModal">
+            <div class="modal" style="max-width: 650px">
+                <div class="modal-header">
+                    <h3>Tạo quy tắc tự động</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('createRuleModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tên quy tắc</label
+                        ><input type="text" id="ruleName" placeholder="VD: Tắt QC khi CPC > 10k" />
+                    </div>
+                    <div class="form-group">
+                        <label>Áp dụng cho</label
+                        ><select id="ruleEntityType">
+                            <option value="CAMPAIGN">Chiến dịch</option>
+                            <option value="ADSET">Nhóm QC</option>
+                            <option value="AD">Quảng cáo</option>
+                        </select>
+                    </div>
+                    <fieldset
+                        style="
+                            border: 1px solid var(--fb-border);
+                            border-radius: var(--radius);
+                            padding: 16px;
+                            margin-bottom: 16px;
+                        "
+                    >
+                        <legend style="font-weight: 600; font-size: 14px; padding: 0 8px">
+                            Điều kiện
+                        </legend>
+                        <div style="display: flex; gap: 8px; align-items: center">
+                            <select
+                                id="ruleMetric"
+                                style="
+                                    flex: 1;
+                                    padding: 7px;
+                                    border: 1px solid var(--fb-border);
+                                    border-radius: 6px;
+                                "
+                            >
+                                <option value="cost_per_result">Chi phí/kết quả (CPR)</option>
+                                <option value="cpc">CPC</option>
+                                <option value="cpm">CPM</option>
+                                <option value="spend">Chi tiêu</option>
+                                <option value="impressions">Lượt hiển thị</option>
+                                <option value="ctr">CTR</option>
+                                <option value="frequency">Tần suất</option>
+                            </select>
+                            <select
+                                id="ruleOperator"
+                                style="
+                                    padding: 7px;
+                                    border: 1px solid var(--fb-border);
+                                    border-radius: 6px;
+                                "
+                            >
+                                <option value="GREATER_THAN">></option>
+                                <option value="LESS_THAN"><</option>
+                                <option value="IN_RANGE">Trong khoảng</option>
+                            </select>
+                            <input
+                                type="number"
+                                id="ruleValue"
+                                placeholder="Giá trị"
+                                style="
+                                    width: 120px;
+                                    padding: 7px;
+                                    border: 1px solid var(--fb-border);
+                                    border-radius: 6px;
+                                "
+                            />
+                        </div>
+                    </fieldset>
+                    <div class="form-group">
+                        <label>Hành động khi thỏa</label
+                        ><select id="ruleAction">
+                            <option value="PAUSE">Tạm dừng</option>
+                            <option value="UNPAUSE">Bật lại</option>
+                            <option value="SEND_NOTIFICATION">Gửi thông báo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Lịch kiểm tra</label
+                        ><select id="ruleSchedule">
+                            <option value="SEMI_HOURLY">Mỗi 30 phút</option>
+                            <option value="HOURLY">Mỗi giờ</option>
+                            <option value="DAILY">Hàng ngày</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="FBAds.closeModal('createRuleModal')">
+                        Hủy</button
+                    ><button class="btn btn-primary" onclick="FBAds.createRule()">
+                        Tạo quy tắc
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div class="modal-overlay" id="settingsModal">
+            <div class="modal" style="max-width: 650px">
+                <div class="modal-header">
+                    <h3>Cài đặt</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('settingsModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div
+                        style="
+                            display: flex;
+                            gap: 0;
+                            border-bottom: 1px solid var(--fb-border);
+                            margin-bottom: 16px;
+                        "
+                    >
+                        <div
+                            class="settings-tab active"
+                            data-stab="roles"
+                            onclick="FBAds.switchSettingsTab('roles')"
+                            style="
+                                padding: 10px 16px;
+                                cursor: pointer;
+                                font-weight: 600;
+                                font-size: 14px;
+                                border-bottom: 2px solid var(--fb-primary);
+                                color: var(--fb-primary);
+                            "
+                        >
+                            Người dùng
+                        </div>
+                        <div
+                            class="settings-tab"
+                            data-stab="pages"
+                            onclick="FBAds.switchSettingsTab('pages')"
+                            style="
+                                padding: 10px 16px;
+                                cursor: pointer;
+                                font-weight: 600;
+                                font-size: 14px;
+                                border-bottom: 2px solid transparent;
+                                color: var(--fb-text-secondary);
+                            "
+                        >
+                            Pages
+                        </div>
+                        <div
+                            class="settings-tab"
+                            data-stab="info"
+                            onclick="FBAds.switchSettingsTab('info')"
+                            style="
+                                padding: 10px 16px;
+                                cursor: pointer;
+                                font-weight: 600;
+                                font-size: 14px;
+                                border-bottom: 2px solid transparent;
+                                color: var(--fb-text-secondary);
+                            "
+                        >
+                            Thông tin
+                        </div>
+                    </div>
+                    <div id="settingsRoles">
+                        <p
+                            style="
+                                font-size: 13px;
+                                color: var(--fb-text-secondary);
+                                margin-bottom: 12px;
+                            "
+                        >
+                            App đang ở Development mode — chỉ admin/developer/tester mới dùng được.
+                            Thêm người dùng trên Facebook Developers.
+                        </p>
+                        <a
+                            href="https://developers.facebook.com/apps/1290728302927895/roles/roles/"
+                            target="_blank"
+                            class="btn btn-primary"
+                            style="margin-bottom: 16px; display: inline-flex"
+                        >
+                            Mở trang Vai trò trên Facebook Developers &#8599;
+                        </a>
+                        <div class="form-hint" style="margin-bottom: 16px">
+                            <strong>Cách thêm:</strong> Vai trò → Thêm người → nhập tên/email FB →
+                            chọn vai trò (Người thử nghiệm) → Gửi lời mời<br />
+                            Người đó cần <strong>chấp nhận lời mời</strong> tại
+                            <a href="https://developers.facebook.com/requests/" target="_blank"
+                                >developers.facebook.com/requests</a
+                            >
+                        </div>
+                        <div style="margin-bottom: 8px; font-weight: 600; font-size: 14px">
+                            Người dùng hiện tại
+                        </div>
+                        <div id="rolesListContainer"></div>
+                    </div>
+                    <div id="settingsPages" style="display: none">
+                        <div id="pagesListContainer"></div>
+                    </div>
+                    <div id="settingsInfo" style="display: none">
+                        <div style="display: grid; gap: 12px">
+                            <div><strong>App ID:</strong> <code id="infoAppId"></code></div>
+                            <div><strong>User ID:</strong> <code id="infoUserId"></code></div>
+                            <div><strong>Ad Account:</strong> <code id="infoAdAccount"></code></div>
+                            <div>
+                                <strong>Token hết hạn:</strong> <span id="infoTokenExpiry"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <button class="btn btn-outline btn-sm" id="settingsBtn" style="display:none" onclick="FBAds.openModal('settingsModal')">&#9881; Cài đặt</button>
-        <button class="btn btn-primary btn-sm" id="loginBtn" onclick="FBAds.login()">Đăng nhập Facebook</button>
-        <button class="btn btn-outline btn-sm" id="logoutBtn" style="display:none" onclick="FBAds.logout()">Đăng xuất</button>
-    </div>
-</div>
 
-<!-- ==================== LOGIN SCREEN ==================== -->
-<div id="loginScreen" class="login-screen">
-    <svg viewBox="0 0 36 36" fill="currentColor" style="width:80px;height:80px;color:var(--fb-primary)"><path d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"/><path fill="#fff" d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"/></svg>
-    <h2>Facebook Ads Manager</h2>
-    <p>Đăng nhập bằng tài khoản Facebook để quản lý quảng cáo trực tiếp từ đây.</p>
-    <button class="btn btn-fb btn-lg" onclick="FBAds.login()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-        Đăng nhập với Facebook
-    </button>
+        <!-- Help Modal -->
+        <div class="modal-overlay" id="cookieHelpModal">
+            <div class="modal" style="max-width: 650px">
+                <div class="modal-header">
+                    <h3>&#128273; Hướng dẫn lấy Token / Cookie</h3>
+                    <button class="modal-close" onclick="FBAds.closeModal('cookieHelpModal')">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body" style="font-size: 14px; line-height: 1.7">
+                    <div
+                        style="
+                            background: #e7f3ff;
+                            padding: 14px;
+                            border-radius: 8px;
+                            margin-bottom: 16px;
+                            border-left: 4px solid var(--fb-primary);
+                        "
+                    >
+                        <strong>&#11088; Khuyến nghị: Dùng EAAG Token</strong> — đáng tin, hoạt động
+                        ngay, không cần server trích xuất.
+                    </div>
 
-    <!-- Cookie / Token login section -->
-    <div style="margin-top:20px;width:100%;max-width:460px">
-        <div style="text-align:center;color:var(--fb-text-secondary);font-size:13px;margin-bottom:12px">&#x2500;&#x2500; hoặc đăng nhập bằng Token (không cần API App) &#x2500;&#x2500;</div>
-        <div style="background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px">
-            <!-- Tab selector -->
-            <div style="display:flex;gap:0;margin-bottom:12px;border:1px solid var(--fb-border);border-radius:6px;overflow:hidden">
-                <button class="btn btn-sm" id="tabToken" onclick="FBAds.switchLoginTab('token')" style="flex:1;border:none;border-radius:0;background:var(--fb-primary);color:#fff">&#128273; EAAG Token</button>
-                <button class="btn btn-sm" id="tabCookie" onclick="FBAds.switchLoginTab('cookie')" style="flex:1;border:none;border-radius:0;background:var(--fb-bg);color:var(--fb-text-secondary)">&#127850; Cookie</button>
-            </div>
+                    <h4 style="margin-bottom: 8px">
+                        Cách 1: Lấy EAAG Token từ Ads Manager (Khuyến nghị)
+                    </h4>
+                    <ol style="padding-left: 20px; margin-bottom: 8px">
+                        <li>
+                            Mở
+                            <a
+                                href="https://adsmanager.facebook.com"
+                                target="_blank"
+                                style="color: var(--fb-primary)"
+                                >adsmanager.facebook.com</a
+                            >
+                            (đăng nhập nếu chưa)
+                        </li>
+                        <li>
+                            Nhấn <strong>F12</strong> mở DevTools &rarr; tab
+                            <strong>Console</strong>
+                        </li>
+                        <li>Paste đoạn code sau rồi Enter:</li>
+                    </ol>
+                    <div
+                        style="
+                            background: #1c1e21;
+                            color: #66ff66;
+                            padding: 12px;
+                            border-radius: 6px;
+                            font-family: monospace;
+                            font-size: 12px;
+                            margin-bottom: 6px;
+                            position: relative;
+                            cursor: pointer;
+                            word-break: break-all;
+                        "
+                        onclick="
+                            navigator.clipboard
+                                .writeText(this.querySelector('code').textContent)
+                                .then(() => {
+                                    this.querySelector('.cp').textContent = 'Copied!';
+                                })
+                        "
+                    >
+                        <span
+                            class="cp"
+                            style="
+                                position: absolute;
+                                top: 4px;
+                                right: 8px;
+                                font-size: 10px;
+                                color: #999;
+                            "
+                            >Click to copy</span
+                        >
+                        <code
+                            >var
+                            s=document.createElement('script');s.src='';fetch(location.href).then(r=>r.text()).then(h=>{var
+                            m=h.match(/EAAG\w{20,}/);if(m){copy(m[0]);alert('Token
+                            copied!\\n'+m[0].substring(0,30)+'...')}else{var
+                            t=document.querySelector('[data-testid]');var
+                            all=document.body.innerHTML.match(/EAAG\w+/g)||[];if(all.length){copy(all[0]);alert('Token
+                            copied!\\n'+all[0].substring(0,30)+'...')}else alert('Không tìm thấy
+                            token. Thử Cách 2.')}})</code
+                        >
+                    </div>
+                    <div style="font-size: 12px; color: var(--fb-text-light); margin-bottom: 16px">
+                        Token sẽ tự copy. Quay lại đây paste vào ô &rarr; Đăng nhập.
+                    </div>
 
-            <!-- Token input (default, recommended) -->
-            <div id="tokenSection">
-                <textarea id="tokenInput" rows="3" placeholder="Paste EAAG token ở đây...&#10;&#10;Cách lấy: Xem hướng dẫn bấm nút ? bên dưới" style="width:100%;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:13px;font-family:monospace;resize:vertical"></textarea>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button class="btn btn-primary btn-sm" onclick="FBAds.loginWithToken()" style="flex:1" id="tokenLoginBtn">&#128274; Đăng nhập với Token</button>
-                    <button class="btn btn-outline btn-sm" onclick="FBAds.showCookieHelp()" title="Hướng dẫn">?</button>
+                    <h4 style="margin-bottom: 8px">Cách 2: Lấy EAAG Token từ Network tab</h4>
+                    <ol style="padding-left: 20px; margin-bottom: 16px">
+                        <li>
+                            Mở
+                            <a
+                                href="https://adsmanager.facebook.com"
+                                target="_blank"
+                                style="color: var(--fb-primary)"
+                                >adsmanager.facebook.com</a
+                            >
+                        </li>
+                        <li>Nhấn <strong>F12</strong> &rarr; tab <strong>Network</strong></li>
+                        <li>Trong ô Filter gõ: <code>access_token</code></li>
+                        <li>Refresh trang (F5), click vào bất kỳ request nào</li>
+                        <li>Tìm <code>access_token=EAAG...</code> trong URL hoặc payload</li>
+                        <li>Copy giá trị EAAG... (từ EAAG đến hết, không có dấu &amp;)</li>
+                    </ol>
+
+                    <h4 style="margin-bottom: 8px">Cách 3: Dùng Cookie (Backup)</h4>
+                    <ol style="padding-left: 20px; margin-bottom: 16px">
+                        <li>Mở facebook.com &rarr; F12 &rarr; tab <strong>Console</strong></li>
+                        <li>Gõ: <code>copy(document.cookie)</code> &rarr; Enter</li>
+                        <li>Chuyển sang tab Cookie, paste vào ô &rarr; Đăng nhập</li>
+                    </ol>
+
+                    <div
+                        style="
+                            background: #fff3cd;
+                            padding: 12px;
+                            border-radius: 6px;
+                            font-size: 13px;
+                        "
+                    >
+                        <strong>&#9888; Bảo mật:</strong> Token/Cookie = quyền truy cập FB. Không
+                        chia sẻ. Token thường hết hạn sau ~2h.
+                    </div>
                 </div>
             </div>
-
-            <!-- Cookie input (fallback) -->
-            <div id="cookieSection" style="display:none">
-                <textarea id="cookieInput" rows="3" placeholder="Paste cookies ở đây: c_user=...; xs=...; datr=...&#10;&#10;Dùng Extension hoặc console: copy(document.cookie)" style="width:100%;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:13px;font-family:monospace;resize:vertical"></textarea>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button class="btn btn-primary btn-sm" onclick="FBAds.loginWithCookies()" style="flex:1" id="cookieLoginBtn">&#128274; Đăng nhập với Cookie</button>
-                    <button class="btn btn-outline btn-sm" onclick="FBAds.showCookieHelp()" title="Hướng dẫn">?</button>
-                </div>
-            </div>
-
-            <div id="cookieStatus" style="margin-top:8px;font-size:12px;display:none"></div>
-        </div>
-    </div>
-
-    <!-- Saved accounts -->
-    <div id="savedAccountsSection" style="margin-top:24px;width:100%;max-width:460px;display:none">
-        <div style="text-align:center;color:var(--fb-text-secondary);font-size:13px;margin-bottom:12px">&#x2500;&#x2500; hoặc chọn tài khoản đã lưu &#x2500;&#x2500;</div>
-        <div id="savedAccountsList" style="display:flex;flex-direction:column;gap:8px"></div>
-    </div>
-</div>
-
-<!-- ==================== MAIN APP ==================== -->
-<div id="mainApp" style="display:none">
-
-    <!-- MAIN TABS (top level navigation) -->
-    <div class="tabs" id="mainTabs">
-        <div class="tab active" data-tab="campaigns" onclick="FBAds.switchTab('campaigns')">Chiến dịch <span class="count" id="campaignCount">0</span></div>
-        <div class="tab" data-tab="adsets" onclick="FBAds.switchTab('adsets')">Nhóm QC <span class="count" id="adsetCount">0</span></div>
-        <div class="tab" data-tab="ads" onclick="FBAds.switchTab('ads')">Quảng cáo <span class="count" id="adCount">0</span></div>
-        <div class="tab" data-tab="audiences" onclick="FBAds.switchTab('audiences')">Đối tượng</div>
-        <div class="tab" data-tab="pixels" onclick="FBAds.switchTab('pixels')">Pixel</div>
-        <div class="tab" data-tab="billing" onclick="FBAds.switchTab('billing')">Thanh toán</div>
-        <div class="tab" data-tab="reports" onclick="FBAds.switchTab('reports')">Báo cáo</div>
-        <div class="tab" data-tab="rules" onclick="FBAds.switchTab('rules')">Quy tắc tự động</div>
-        <div class="tab" data-tab="account" onclick="FBAds.switchTab('account')">Tài khoản</div>
-    </div>
-
-    <!-- TOOLBAR (for ads tabs) -->
-    <div class="toolbar" id="adsToolbar">
-        <div class="toolbar-group">
-            <button class="btn btn-primary btn-sm" onclick="FBAds.showCreateModal()">+ Tạo</button>
-            <button class="btn btn-outline btn-sm" onclick="FBAds.refreshData()">&#8635; Làm mới</button>
-        </div>
-        <div class="toolbar-divider"></div>
-        <div class="toolbar-group" id="bulkActions" style="display:none">
-            <span id="selectedCount" style="font-size:13px;color:var(--fb-primary);font-weight:600"></span>
-            <button class="btn btn-success btn-sm" onclick="FBAds.bulkAction('ACTIVE')">&#9654; Bật</button>
-            <button class="btn btn-outline btn-sm" onclick="FBAds.bulkAction('PAUSED')">&#10074;&#10074; Dừng</button>
-            <button class="btn btn-danger btn-sm" onclick="FBAds.bulkAction('DELETE')">&#128465; Xóa</button>
-            <div class="toolbar-divider"></div>
-        </div>
-        <input type="text" class="search-box" placeholder="Tìm kiếm theo tên, ID..." id="searchBox" oninput="FBAds.filterTable()">
-        <div style="flex:1"></div>
-        <select id="datePreset" class="date-range-btn" onchange="FBAds.loadInsights()">
-            <option value="last_7d">7 ngày qua</option>
-            <option value="last_14d">14 ngày qua</option>
-            <option value="last_30d" selected>30 ngày qua</option>
-            <option value="this_month">Tháng này</option>
-            <option value="last_month">Tháng trước</option>
-            <option value="last_90d">90 ngày qua</option>
-        </select>
-    </div>
-
-    <!-- METRICS BAR -->
-    <div class="metrics-bar" id="metricsBar">
-        <div class="metric-card"><div class="metric-label">Chi tiêu</div><div class="metric-value" id="metricSpend">--</div></div>
-        <div class="metric-card"><div class="metric-label">Lượt hiển thị</div><div class="metric-value" id="metricImpressions">--</div></div>
-        <div class="metric-card"><div class="metric-label">Lượt click</div><div class="metric-value" id="metricClicks">--</div></div>
-        <div class="metric-card"><div class="metric-label">CTR</div><div class="metric-value" id="metricCTR">--</div></div>
-        <div class="metric-card"><div class="metric-label">CPC</div><div class="metric-value" id="metricCPC">--</div></div>
-        <div class="metric-card"><div class="metric-label">Tiếp cận</div><div class="metric-value" id="metricReach">--</div></div>
-    </div>
-
-    <!-- ADS TABLES -->
-    <div class="table-container" id="adsTablesContainer">
-        <table class="data-table" id="campaignsTable"><thead><tr>
-            <th style="width:40px"><input type="checkbox" id="selectAll" onchange="FBAds.toggleSelectAll(this)"></th>
-            <th>Bật/Tắt</th><th>Chiến dịch</th><th>Phân phối</th><th>Ngân sách</th>
-            <th>Chi tiêu</th><th>Kết quả</th><th>CPR</th><th>Lượt hiển thị</th><th>Tiếp cận</th><th>Hành động</th>
-        </tr></thead><tbody id="campaignsBody"></tbody></table>
-        <table class="data-table" id="adsetsTable" style="display:none"><thead><tr>
-            <th style="width:40px"><input type="checkbox" onchange="FBAds.toggleSelectAll(this)"></th>
-            <th>Bật/Tắt</th><th>Nhóm quảng cáo</th><th>Phân phối</th><th>Ngân sách</th>
-            <th>Chi tiêu</th><th>Kết quả</th><th>Chiến dịch</th><th>Hành động</th>
-        </tr></thead><tbody id="adsetsBody"></tbody></table>
-        <table class="data-table" id="adsTable" style="display:none"><thead><tr>
-            <th style="width:40px"><input type="checkbox" onchange="FBAds.toggleSelectAll(this)"></th>
-            <th>Bật/Tắt</th><th>Quảng cáo</th><th>Phân phối</th>
-            <th>Chi tiêu</th><th>Kết quả</th><th>Nhóm QC</th><th>Hành động</th>
-        </tr></thead><tbody id="adsBody"></tbody></table>
-    </div>
-
-    <!-- ==================== AUDIENCES PANEL ==================== -->
-    <div id="audiencesPanel" class="panel" style="display:none">
-        <div class="toolbar">
-            <button class="btn btn-primary btn-sm" onclick="FBAds.openModal('createAudienceModal')">+ Tạo đối tượng</button>
-            <button class="btn btn-outline btn-sm" onclick="FBAds.loadAudiences()">&#8635; Làm mới</button>
-        </div>
-        <div class="table-container"><table class="data-table"><thead><tr>
-            <th>Tên</th><th>Loại</th><th>Kích thước</th><th>Trạng thái</th><th>Ngày tạo</th><th>Hành động</th>
-        </tr></thead><tbody id="audiencesBody"></tbody></table></div>
-    </div>
-
-    <!-- ==================== PIXELS PANEL ==================== -->
-    <div id="pixelsPanel" class="panel" style="display:none">
-        <div class="toolbar">
-            <button class="btn btn-outline btn-sm" onclick="FBAds.loadPixels()">&#8635; Làm mới</button>
-        </div>
-        <div class="table-container"><table class="data-table"><thead><tr>
-            <th>Tên Pixel</th><th>ID</th><th>Lần bắn cuối</th><th>Ngày tạo</th><th>Hành động</th>
-        </tr></thead><tbody id="pixelsBody"></tbody></table></div>
-        <div id="pixelEventsContainer" style="padding:0 20px 20px"></div>
-    </div>
-
-    <!-- ==================== BILLING PANEL ==================== -->
-    <div id="billingPanel" class="panel" style="display:none">
-        <div class="toolbar">
-            <button class="btn btn-outline btn-sm" onclick="FBAds.loadBilling()">&#8635; Làm mới</button>
-        </div>
-        <!-- Billing overview cards -->
-        <div class="metrics-bar" id="billingCards">
-            <div class="metric-card"><div class="metric-label">Trạng thái TK</div><div class="metric-value" id="billingAccStatus">--</div></div>
-            <div class="metric-card"><div class="metric-label">Tổng chi tiêu</div><div class="metric-value" id="billingTotalSpent">--</div></div>
-            <div class="metric-card"><div class="metric-label">Số dư</div><div class="metric-value" id="billingBalance">--</div></div>
-            <div class="metric-card"><div class="metric-label">Giới hạn chi tiêu</div><div class="metric-value" id="billingSpendCap">--</div></div>
-            <div class="metric-card"><div class="metric-label">Nguồn tiền</div><div class="metric-value" id="billingFunding" style="font-size:14px">--</div></div>
-            <div class="metric-card"><div class="metric-label">Tiền tệ</div><div class="metric-value" id="billingCurrency">--</div></div>
-        </div>
-        <!-- Spend cap control -->
-        <div style="padding:0 20px 12px;display:flex;gap:8px;align-items:center">
-            <label style="font-weight:600;font-size:14px">Đặt giới hạn chi tiêu:</label>
-            <input type="number" id="spendCapInput" placeholder="VND" style="padding:7px 12px;border:1px solid var(--fb-border);border-radius:6px;width:200px;font-size:14px" min="0" step="100000">
-            <button class="btn btn-primary btn-sm" onclick="FBAds.updateSpendCap()">Cập nhật</button>
-            <span class="form-hint">Để trống hoặc 0 = không giới hạn</span>
-        </div>
-        <!-- Transactions -->
-        <div style="padding:0 20px"><h3 style="font-size:16px;margin-bottom:12px">Lịch sử giao dịch</h3></div>
-        <div class="table-container"><table class="data-table"><thead><tr>
-            <th>Thời gian</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Lý do</th>
-        </tr></thead><tbody id="transactionsBody"></tbody></table></div>
-    </div>
-
-    <!-- ==================== REPORTS PANEL ==================== -->
-    <div id="reportsPanel" class="panel" style="display:none">
-        <div class="toolbar">
-            <div class="toolbar-group">
-                <select id="reportType" class="date-range-btn" onchange="FBAds.loadReport()">
-                    <option value="daily">Theo ngày</option>
-                    <option value="age_gender">Theo tuổi + giới tính</option>
-                    <option value="placement">Theo vị trí</option>
-                </select>
-                <select id="reportDatePreset" class="date-range-btn" onchange="FBAds.loadReport()">
-                    <option value="last_7d">7 ngày</option>
-                    <option value="last_14d">14 ngày</option>
-                    <option value="last_30d" selected>30 ngày</option>
-                    <option value="last_90d">90 ngày</option>
-                </select>
-            </div>
-            <div style="flex:1"></div>
-            <button class="btn btn-outline btn-sm" onclick="FBAds.exportReport()">&#128190; Xuất CSV</button>
-        </div>
-        <div class="table-container"><table class="data-table" id="reportTable"><thead id="reportHead"></thead><tbody id="reportBody"></tbody></table></div>
-    </div>
-
-    <!-- ==================== RULES PANEL ==================== -->
-    <div id="rulesPanel" class="panel" style="display:none">
-        <div class="toolbar">
-            <button class="btn btn-primary btn-sm" onclick="FBAds.openModal('createRuleModal')">+ Tạo quy tắc</button>
-            <button class="btn btn-outline btn-sm" onclick="FBAds.loadRules()">&#8635; Làm mới</button>
-        </div>
-        <div class="table-container"><table class="data-table"><thead><tr>
-            <th>Bật/Tắt</th><th>Tên quy tắc</th><th>Ngày tạo</th><th>Hành động</th>
-        </tr></thead><tbody id="rulesBody"></tbody></table></div>
-    </div>
-
-    <!-- ==================== ACCOUNT PANEL ==================== -->
-    <div id="accountPanel" class="panel" style="display:none">
-        <div class="toolbar">
-            <button class="btn btn-outline btn-sm" onclick="FBAds.loadAccountDetails()">&#8635; Làm mới</button>
-        </div>
-        <!-- Account info -->
-        <div style="padding:0 20px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px" id="accountDetails">
-            <div class="metric-card"><div class="metric-label">Tên TK</div><div class="metric-value" id="accName" style="font-size:16px">--</div></div>
-            <div class="metric-card"><div class="metric-label">ID</div><div class="metric-value" id="accId" style="font-size:14px">--</div></div>
-            <div class="metric-card"><div class="metric-label">Trạng thái</div><div class="metric-value" id="accStatus">--</div></div>
-            <div class="metric-card"><div class="metric-label">Múi giờ</div><div class="metric-value" id="accTimezone" style="font-size:14px">--</div></div>
-            <div class="metric-card"><div class="metric-label">Doanh nghiệp</div><div class="metric-value" id="accBusiness" style="font-size:14px">--</div></div>
-            <div class="metric-card"><div class="metric-label">Ngày tạo</div><div class="metric-value" id="accCreated" style="font-size:14px">--</div></div>
-            <div class="metric-card"><div class="metric-label">Prepay</div><div class="metric-value" id="accPrepay">--</div></div>
-            <div class="metric-card"><div class="metric-label">Lý do vô hiệu</div><div class="metric-value" id="accDisableReason" style="font-size:14px">--</div></div>
-        </div>
-        <!-- Account users -->
-        <div style="padding:0 20px"><h3 style="font-size:16px;margin-bottom:12px">Người dùng có quyền truy cập</h3></div>
-        <div class="table-container"><table class="data-table"><thead><tr>
-            <th>Tên</th><th>ID</th><th>Vai trò</th><th>Quyền</th>
-        </tr></thead><tbody id="accUsersBody"></tbody></table></div>
-        <!-- Activity log -->
-        <div style="padding:16px 20px 0"><h3 style="font-size:16px;margin-bottom:12px">Nhật ký hoạt động (gần nhất)</h3></div>
-        <div class="table-container"><table class="data-table"><thead><tr>
-            <th>Thời gian</th><th>Sự kiện</th><th>Người thực hiện</th><th>Đối tượng</th>
-        </tr></thead><tbody id="accActivityBody"></tbody></table></div>
-    </div>
-</div>
-
-<!-- ==================== MODALS (existing) ==================== -->
-<!-- Create Campaign -->
-<div class="modal-overlay" id="createCampaignModal"><div class="modal">
-    <div class="modal-header"><h3>Tạo chiến dịch mới</h3><button class="modal-close" onclick="FBAds.closeModal('createCampaignModal')">&times;</button></div>
-    <div class="modal-body">
-        <div class="form-group"><label>Tên chiến dịch</label><input type="text" id="campaignName" placeholder="VD: Sale T4 - Traffic"></div>
-        <div class="form-group"><label>Mục tiêu</label><select id="campaignObjective">
-            <option value="OUTCOME_TRAFFIC">Traffic</option><option value="OUTCOME_ENGAGEMENT">Engagement</option>
-            <option value="OUTCOME_LEADS">Leads</option><option value="OUTCOME_SALES">Sales</option>
-            <option value="OUTCOME_AWARENESS">Awareness</option><option value="OUTCOME_APP_PROMOTION">App Promotion</option>
-        </select></div>
-        <div class="form-group"><label>Ngân sách hàng ngày (VND)</label><input type="number" id="campaignBudget" placeholder="100000" min="10000" step="10000"></div>
-        <div class="form-group"><label>Trạng thái</label><select id="campaignStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createCampaignModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createCampaign()">Tạo</button></div>
-</div></div>
-
-<!-- Edit Campaign -->
-<div class="modal-overlay" id="editCampaignModal"><div class="modal">
-    <div class="modal-header"><h3>Chỉnh sửa chiến dịch</h3><button class="modal-close" onclick="FBAds.closeModal('editCampaignModal')">&times;</button></div>
-    <div class="modal-body"><input type="hidden" id="editCampaignId">
-        <div class="form-group"><label>Tên</label><input type="text" id="editCampaignName"></div>
-        <div class="form-group"><label>Ngân sách/ngày (VND)</label><input type="number" id="editCampaignBudget" min="10000" step="10000"></div>
-        <div class="form-group"><label>Trạng thái</label><select id="editCampaignStatus"><option value="ACTIVE">Hoạt động</option><option value="PAUSED">Tạm dừng</option></select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('editCampaignModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.updateCampaign()">Lưu</button></div>
-</div></div>
-
-<!-- Create AdSet -->
-<div class="modal-overlay" id="createAdSetModal"><div class="modal" style="max-width:700px">
-    <div class="modal-header"><h3>Tạo nhóm quảng cáo</h3><button class="modal-close" onclick="FBAds.closeModal('createAdSetModal')">&times;</button></div>
-    <div class="modal-body">
-        <div class="form-group"><label>Chiến dịch</label><select id="adsetCampaignId"></select></div>
-        <div class="form-group"><label>Tên nhóm QC</label><input type="text" id="adsetName" placeholder="VN - Nữ 25-45"></div>
-        <div class="form-group"><label>Ngân sách/ngày (VND)</label><input type="number" id="adsetBudget" placeholder="100000" min="10000" step="10000"></div>
-        <div class="form-group"><label>Tối ưu</label><select id="adsetOptGoal">
-            <option value="LINK_CLICKS">Link clicks</option><option value="LANDING_PAGE_VIEWS">Landing page views</option>
-            <option value="IMPRESSIONS">Impressions</option><option value="REACH">Reach</option>
-            <option value="OFFSITE_CONVERSIONS">Conversions</option><option value="POST_ENGAGEMENT">Post engagement</option>
-            <option value="LEAD_GENERATION">Lead generation</option>
-        </select></div>
-        <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-            <legend style="font-weight:600;font-size:14px;padding:0 8px">Targeting</legend>
-            <div class="form-group"><label>Quốc gia</label><input type="text" id="adsetCountries" value="VN"><div class="form-hint">VD: VN,US,TH</div></div>
-            <div style="display:flex;gap:12px">
-                <div class="form-group" style="flex:1"><label>Tuổi từ</label><input type="number" id="adsetAgeMin" value="18" min="13" max="65"></div>
-                <div class="form-group" style="flex:1"><label>Tuổi đến</label><input type="number" id="adsetAgeMax" value="65" min="13" max="65"></div>
-            </div>
-            <div class="form-group"><label>Giới tính</label><select id="adsetGender"><option value="0">Tất cả</option><option value="1">Nam</option><option value="2">Nữ</option></select></div>
-            <div class="form-group"><label>Sở thích</label>
-                <div style="display:flex;gap:8px"><input type="text" id="interestSearch" placeholder="Tìm sở thích..." style="flex:1"><button class="btn btn-outline btn-sm" onclick="FBAds.searchInterests()">Tìm</button></div>
-                <div id="interestResults" style="max-height:150px;overflow-y:auto;margin-top:8px"></div>
-                <div id="selectedInterests" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-            </div>
-        </fieldset>
-        <div class="form-group"><label>Trạng thái</label><select id="adsetStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAdSetModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAdSet()">Tạo</button></div>
-</div></div>
-
-<!-- Create Ad -->
-<div class="modal-overlay" id="createAdModal"><div class="modal" style="max-width:750px">
-    <div class="modal-header"><h3>Tạo quảng cáo</h3><button class="modal-close" onclick="FBAds.closeModal('createAdModal')">&times;</button></div>
-    <div class="modal-body">
-        <div class="form-group"><label>Nhóm QC</label><select id="adAdSetId"></select></div>
-        <div class="form-group"><label>Tên quảng cáo</label><input type="text" id="adName" placeholder="Ad 1 - Boost bài viết"></div>
-
-        <!-- Ad type selector -->
-        <div class="form-group">
-            <label>Loại quảng cáo</label>
-            <div style="display:flex;gap:8px">
-                <button class="btn btn-primary btn-sm" id="adTypePost" onclick="FBAds.setAdType('post')" style="flex:1">Chọn bài viết trên Page</button>
-                <button class="btn btn-outline btn-sm" id="adTypeNew" onclick="FBAds.setAdType('new')" style="flex:1">Tạo nội dung mới</button>
-            </div>
         </div>
 
-        <!-- === USE EXISTING POST === -->
-        <div id="adPostSection">
-            <div class="form-group">
-                <label>Chọn Page</label>
-                <select id="adPageId" onchange="FBAds.loadPagePosts()"></select>
-            </div>
-            <div class="form-group">
-                <label>Chọn bài viết</label>
-                <div id="pagePostsList" style="max-height:350px;overflow-y:auto;border:1px solid var(--fb-border);border-radius:var(--radius)">
-                    <div style="padding:20px;text-align:center;color:var(--fb-text-light)">Chọn Page để xem bài viết</div>
-                </div>
-            </div>
-            <input type="hidden" id="selectedPostId">
-        </div>
+        <!-- TOAST -->
+        <div class="toast-container" id="toastContainer"></div>
 
-        <!-- === CREATE NEW CONTENT === -->
-        <div id="adNewSection" style="display:none">
-            <div class="form-group"><label>Facebook Page</label><select id="adPageIdNew"></select></div>
-            <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-                <legend style="font-weight:600;font-size:14px;padding:0 8px">Nội dung mới</legend>
-                <div class="form-group"><label>Message</label><textarea id="adMessage" rows="3" placeholder="Nội dung quảng cáo..."></textarea></div>
-                <div class="form-group"><label>Headline</label><input type="text" id="adHeadline" placeholder="Giảm giá 50%"></div>
-                <div class="form-group"><label>Mô tả</label><input type="text" id="adDescription" placeholder="Free ship từ 200k"></div>
-                <div class="form-group"><label>Link</label><input type="url" id="adLink" placeholder="https://..."></div>
-                <div class="form-group"><label>Hình</label><input type="file" id="adImageFile" accept="image/*" onchange="FBAds.previewAdImage(this)"><div id="adImagePreview" style="margin-top:8px"></div></div>
-                <div class="form-group"><label>CTA</label><select id="adCTA">
-                    <option value="LEARN_MORE">Tìm hiểu thêm</option><option value="SHOP_NOW">Mua ngay</option><option value="SIGN_UP">Đăng ký</option>
-                    <option value="CONTACT_US">Liên hệ</option><option value="SEND_MESSAGE">Nhắn tin</option><option value="ORDER_NOW">Đặt hàng</option>
-                    <option value="NO_BUTTON">Không nút</option>
-                </select></div>
-            </fieldset>
-        </div>
-
-        <div class="form-group"><label>Trạng thái</label><select id="adStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAdModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAd()">Tạo quảng cáo</button></div>
-</div></div>
-
-<!-- Create Audience -->
-<div class="modal-overlay" id="createAudienceModal"><div class="modal">
-    <div class="modal-header"><h3>Tạo đối tượng tùy chỉnh</h3><button class="modal-close" onclick="FBAds.closeModal('createAudienceModal')">&times;</button></div>
-    <div class="modal-body">
-        <div class="form-group"><label>Tên</label><input type="text" id="audienceName" placeholder="VD: Khách mua 30 ngày qua"></div>
-        <div class="form-group"><label>Mô tả</label><input type="text" id="audienceDesc" placeholder="Mô tả đối tượng"></div>
-        <div class="form-group"><label>Loại</label><select id="audienceSubtype">
-            <option value="CUSTOM">Custom Audience</option><option value="WEBSITE">Website Traffic</option>
-            <option value="ENGAGEMENT">Engagement</option><option value="LOOKALIKE">Lookalike</option>
-        </select></div>
-        <div id="lookalikeFields" style="display:none">
-            <div class="form-group"><label>Audience gốc (ID)</label><input type="text" id="lookalikeSourceId" placeholder="Audience ID gốc"></div>
-            <div class="form-group"><label>Quốc gia</label><input type="text" id="lookalikeCountry" value="VN"></div>
-            <div class="form-group"><label>Tỉ lệ (1-10%)</label><input type="number" id="lookalikeRatio" value="1" min="1" max="10" step="1"><div class="form-hint">1% = giống nhất, 10% = lớn nhất</div></div>
-        </div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAudienceModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAudience()">Tạo</button></div>
-</div></div>
-
-<!-- Create Rule -->
-<div class="modal-overlay" id="createRuleModal"><div class="modal" style="max-width:650px">
-    <div class="modal-header"><h3>Tạo quy tắc tự động</h3><button class="modal-close" onclick="FBAds.closeModal('createRuleModal')">&times;</button></div>
-    <div class="modal-body">
-        <div class="form-group"><label>Tên quy tắc</label><input type="text" id="ruleName" placeholder="VD: Tắt QC khi CPC > 10k"></div>
-        <div class="form-group"><label>Áp dụng cho</label><select id="ruleEntityType">
-            <option value="CAMPAIGN">Chiến dịch</option><option value="ADSET">Nhóm QC</option><option value="AD">Quảng cáo</option>
-        </select></div>
-        <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-            <legend style="font-weight:600;font-size:14px;padding:0 8px">Điều kiện</legend>
-            <div style="display:flex;gap:8px;align-items:center">
-                <select id="ruleMetric" style="flex:1;padding:7px;border:1px solid var(--fb-border);border-radius:6px">
-                    <option value="cost_per_result">Chi phí/kết quả (CPR)</option>
-                    <option value="cpc">CPC</option><option value="cpm">CPM</option>
-                    <option value="spend">Chi tiêu</option><option value="impressions">Lượt hiển thị</option>
-                    <option value="ctr">CTR</option><option value="frequency">Tần suất</option>
-                </select>
-                <select id="ruleOperator" style="padding:7px;border:1px solid var(--fb-border);border-radius:6px">
-                    <option value="GREATER_THAN">></option><option value="LESS_THAN"><</option>
-                    <option value="IN_RANGE">Trong khoảng</option>
-                </select>
-                <input type="number" id="ruleValue" placeholder="Giá trị" style="width:120px;padding:7px;border:1px solid var(--fb-border);border-radius:6px">
-            </div>
-        </fieldset>
-        <div class="form-group"><label>Hành động khi thỏa</label><select id="ruleAction">
-            <option value="PAUSE">Tạm dừng</option><option value="UNPAUSE">Bật lại</option>
-            <option value="SEND_NOTIFICATION">Gửi thông báo</option>
-        </select></div>
-        <div class="form-group"><label>Lịch kiểm tra</label><select id="ruleSchedule">
-            <option value="SEMI_HOURLY">Mỗi 30 phút</option><option value="HOURLY">Mỗi giờ</option>
-            <option value="DAILY">Hàng ngày</option>
-        </select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createRuleModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createRule()">Tạo quy tắc</button></div>
-</div></div>
-
-<!-- Settings Modal -->
-<div class="modal-overlay" id="settingsModal"><div class="modal" style="max-width:650px">
-    <div class="modal-header"><h3>Cài đặt</h3><button class="modal-close" onclick="FBAds.closeModal('settingsModal')">&times;</button></div>
-    <div class="modal-body">
-        <div style="display:flex;gap:0;border-bottom:1px solid var(--fb-border);margin-bottom:16px">
-            <div class="settings-tab active" data-stab="roles" onclick="FBAds.switchSettingsTab('roles')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid var(--fb-primary);color:var(--fb-primary)">Người dùng</div>
-            <div class="settings-tab" data-stab="pages" onclick="FBAds.switchSettingsTab('pages')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid transparent;color:var(--fb-text-secondary)">Pages</div>
-            <div class="settings-tab" data-stab="info" onclick="FBAds.switchSettingsTab('info')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid transparent;color:var(--fb-text-secondary)">Thông tin</div>
-        </div>
-        <div id="settingsRoles">
-            <p style="font-size:13px;color:var(--fb-text-secondary);margin-bottom:12px">App đang ở Development mode — chỉ admin/developer/tester mới dùng được. Thêm người dùng trên Facebook Developers.</p>
-            <a href="https://developers.facebook.com/apps/1290728302927895/roles/roles/" target="_blank" class="btn btn-primary" style="margin-bottom:16px;display:inline-flex">
-                Mở trang Vai trò trên Facebook Developers &#8599;
-            </a>
-            <div class="form-hint" style="margin-bottom:16px">
-                <strong>Cách thêm:</strong> Vai trò → Thêm người → nhập tên/email FB → chọn vai trò (Người thử nghiệm) → Gửi lời mời<br>
-                Người đó cần <strong>chấp nhận lời mời</strong> tại <a href="https://developers.facebook.com/requests/" target="_blank">developers.facebook.com/requests</a>
-            </div>
-            <div style="margin-bottom:8px;font-weight:600;font-size:14px">Người dùng hiện tại</div>
-            <div id="rolesListContainer"></div>
-        </div>
-        <div id="settingsPages" style="display:none"><div id="pagesListContainer"></div></div>
-        <div id="settingsInfo" style="display:none"><div style="display:grid;gap:12px">
-            <div><strong>App ID:</strong> <code id="infoAppId"></code></div>
-            <div><strong>User ID:</strong> <code id="infoUserId"></code></div>
-            <div><strong>Ad Account:</strong> <code id="infoAdAccount"></code></div>
-            <div><strong>Token hết hạn:</strong> <span id="infoTokenExpiry"></span></div>
-        </div></div>
-    </div>
-</div></div>
-
-<!-- Help Modal -->
-<div class="modal-overlay" id="cookieHelpModal"><div class="modal" style="max-width:650px">
-    <div class="modal-header"><h3>&#128273; Hướng dẫn lấy Token / Cookie</h3><button class="modal-close" onclick="FBAds.closeModal('cookieHelpModal')">&times;</button></div>
-    <div class="modal-body" style="font-size:14px;line-height:1.7">
-
-        <div style="background:#e7f3ff;padding:14px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--fb-primary)">
-            <strong>&#11088; Khuyến nghị: Dùng EAAG Token</strong> — đáng tin, hoạt động ngay, không cần server trích xuất.
-        </div>
-
-        <h4 style="margin-bottom:8px">Cách 1: Lấy EAAG Token từ Ads Manager (Khuyến nghị)</h4>
-        <ol style="padding-left:20px;margin-bottom:8px">
-            <li>Mở <a href="https://adsmanager.facebook.com" target="_blank" style="color:var(--fb-primary)">adsmanager.facebook.com</a> (đăng nhập nếu chưa)</li>
-            <li>Nhấn <strong>F12</strong> mở DevTools &rarr; tab <strong>Console</strong></li>
-            <li>Paste đoạn code sau rồi Enter:</li>
-        </ol>
-        <div style="background:#1c1e21;color:#66ff66;padding:12px;border-radius:6px;font-family:monospace;font-size:12px;margin-bottom:6px;position:relative;cursor:pointer;word-break:break-all" onclick="navigator.clipboard.writeText(this.querySelector('code').textContent).then(()=>{this.querySelector('.cp').textContent='Copied!'})">
-            <span class="cp" style="position:absolute;top:4px;right:8px;font-size:10px;color:#999">Click to copy</span>
-            <code>var s=document.createElement('script');s.src='';fetch(location.href).then(r=>r.text()).then(h=>{var m=h.match(/EAAG\w{20,}/);if(m){copy(m[0]);alert('Token copied!\\n'+m[0].substring(0,30)+'...')}else{var t=document.querySelector('[data-testid]');var all=document.body.innerHTML.match(/EAAG\w+/g)||[];if(all.length){copy(all[0]);alert('Token copied!\\n'+all[0].substring(0,30)+'...')}else alert('Không tìm thấy token. Thử Cách 2.')}})</code>
-        </div>
-        <div style="font-size:12px;color:var(--fb-text-light);margin-bottom:16px">Token sẽ tự copy. Quay lại đây paste vào ô &rarr; Đăng nhập.</div>
-
-        <h4 style="margin-bottom:8px">Cách 2: Lấy EAAG Token từ Network tab</h4>
-        <ol style="padding-left:20px;margin-bottom:16px">
-            <li>Mở <a href="https://adsmanager.facebook.com" target="_blank" style="color:var(--fb-primary)">adsmanager.facebook.com</a></li>
-            <li>Nhấn <strong>F12</strong> &rarr; tab <strong>Network</strong></li>
-            <li>Trong ô Filter gõ: <code>access_token</code></li>
-            <li>Refresh trang (F5), click vào bất kỳ request nào</li>
-            <li>Tìm <code>access_token=EAAG...</code> trong URL hoặc payload</li>
-            <li>Copy giá trị EAAG... (từ EAAG đến hết, không có dấu &amp;)</li>
-        </ol>
-
-        <h4 style="margin-bottom:8px">Cách 3: Dùng Cookie (Backup)</h4>
-        <ol style="padding-left:20px;margin-bottom:16px">
-            <li>Mở facebook.com &rarr; F12 &rarr; tab <strong>Console</strong></li>
-            <li>Gõ: <code>copy(document.cookie)</code> &rarr; Enter</li>
-            <li>Chuyển sang tab Cookie, paste vào ô &rarr; Đăng nhập</li>
-        </ol>
-
-        <div style="background:#fff3cd;padding:12px;border-radius:6px;font-size:13px">
-            <strong>&#9888; Bảo mật:</strong> Token/Cookie = quyền truy cập FB. Không chia sẻ. Token thường hết hạn sau ~2h.
-        </div>
-    </div>
-</div></div>
-
-<!-- TOAST -->
-<div class="toast-container" id="toastContainer"></div>
-
-<!-- Facebook SDK -->
-<script async defer crossorigin="anonymous" src="https://connect.facebook.net/vi_VN/sdk.js"></script>
-<script src="fb-ads.js"></script>
-</body>
+        <!-- Facebook SDK -->
+        <script
+            async
+            defer
+            crossorigin="anonymous"
+            src="https://connect.facebook.net/vi_VN/sdk.js"
+        ></script>
+        <script src="fb-ads.js?v=20260521b"></script>
+    </body>
 </html>

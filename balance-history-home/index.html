@@ -7,10 +7,12 @@
         <title>Lịch sử biến động số dư — Home (SePay)</title>
 
         <!-- Core Loader -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
@@ -18,7 +20,7 @@
         </script>
 
         <!-- Storage Migration -->
-        <script src="../shared/js/storage-migration.js"></script>
+        <script src="../shared/js/storage-migration.js?v=20260521b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.StorageMigration) {
@@ -31,9 +33,9 @@
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
         <!-- CSS -->
-        <link rel="stylesheet" href="css/modern.css" />
-        <link rel="stylesheet" href="css/styles.css" />
-        <link rel="stylesheet" href="css/home.css" />
+        <link rel="stylesheet" href="css/modern.css?v=20260521b" />
+        <link rel="stylesheet" href="css/styles.css?v=20260521b" />
+        <link rel="stylesheet" href="css/home.css?v=20260521b" />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -41,7 +43,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
     </head>
 
     <body>
@@ -201,15 +203,15 @@
         <!-- Firebase SDK (for shared auth/notification system) -->
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
 
         <!-- Shop config + token manager -->
-        <script src="../shared/js/shop-config.js"></script>
-        <script src="../shared/js/token-manager.js"></script>
+        <script src="../shared/js/shop-config.js?v=20260521b"></script>
+        <script src="../shared/js/token-manager.js?v=20260521b"></script>
 
         <!-- Navigation + notification -->
-        <script defer src="../shared/js/navigation-modern.js"></script>
-        <script src="../shared/js/notification-system.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <script src="../shared/js/notification-system.js?v=20260521b"></script>
 
         <!-- Permission helpers -->
         <script>
@@ -219,12 +221,12 @@
         </script>
 
         <!-- Page scripts (load order matters!) -->
-        <script src="js/config.js"></script>
-        <script src="js/room-codes.js"></script>
-        <script src="js/balance-core.js"></script>
-        <script src="js/balance-filters.js"></script>
-        <script src="js/balance-table.js"></script>
-        <script src="js/main.js"></script>
+        <script src="js/config.js?v=20260521b"></script>
+        <script src="js/room-codes.js?v=20260521b"></script>
+        <script src="js/balance-core.js?v=20260521b"></script>
+        <script src="js/balance-filters.js?v=20260521b"></script>
+        <script src="js/balance-table.js?v=20260521b"></script>
+        <script src="js/main.js?v=20260521b"></script>
 
         <!-- Init Lucide icons -->
         <script>

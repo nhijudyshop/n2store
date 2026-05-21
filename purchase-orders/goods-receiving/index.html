@@ -3,161 +3,176 @@
   GOODS RECEIVING MODULE
   Trang kiểm hàng nhập - Matches GoodsReceiving.tsx
 -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiểm hàng nhập - N2STORE</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Kiểm hàng nhập - N2STORE</title>
 
-    <!-- Styles - Parent CSS -->
-    <link rel="stylesheet" href="../css/variables.css">
-    <link rel="stylesheet" href="../css/base.css">
+        <!-- Styles - Parent CSS -->
+        <link rel="stylesheet" href="../css/variables.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/base.css?v=20260521b" />
 
-    <link rel="stylesheet" href="../css/layout.css">
-    <link rel="stylesheet" href="../css/buttons.css">
-    <link rel="stylesheet" href="../css/cards.css">
-    <link rel="stylesheet" href="../css/tabs.css">
-    <link rel="stylesheet" href="../css/filters.css">
-    <link rel="stylesheet" href="../css/table.css">
-    <link rel="stylesheet" href="../css/states.css">
-    <link rel="stylesheet" href="../css/pagination.css">
-    <link rel="stylesheet" href="../css/toast.css">
-    <link rel="stylesheet" href="../css/modal.css">
-    <link rel="stylesheet" href="../css/form.css">
-    <link rel="stylesheet" href="../css/responsive.css">
+        <link rel="stylesheet" href="../css/layout.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/buttons.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/cards.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/tabs.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/filters.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/table.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/states.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/pagination.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/toast.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/modal.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/form.css?v=20260521b" />
+        <link rel="stylesheet" href="../css/responsive.css?v=20260521b" />
 
-    <!-- Module-specific styles -->
-    <link rel="stylesheet" href="css/styles.css">
+        <!-- Module-specific styles -->
+        <link rel="stylesheet" href="css/styles.css?v=20260521b" />
 
-    <!-- ES Module: Shared utilities -->
-    <script type="module" src="../../shared/esm/compat.js"></script>
-<!-- Fallback for file:// protocol -->
-<script>
-    if (window.location.protocol === 'file:') {
-        document.write('<script src="../../shared/js/shared-auth-manager.js"><\/script>');
-        document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../../index.html"});<\/script>');
-    }
-</script>
-
-    <!-- Navigation Manager -->
-    <script defer src="../../shared/js/navigation-modern.js"></script>
-
-    <!-- Lucide Icons CDN -->
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-
-    <!-- Firebase Configuration (SHARED) -->
-    <script src="../../shared/js/firebase-config.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="../../shared/css/typography.css" /> <!-- typography:shared -->
-</head>
-<body>
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Page Header -->
-        <header class="page-header">
-            <div class="page-header__info">
-                <h1 class="page-header__title">Kiểm hàng nhập</h1>
-                <p class="page-header__description">Kiểm tra số lượng hàng nhận từ nhà cung cấp</p>
-            </div>
-            <a href="../index.html" class="btn btn-outline">
-                <i data-lucide="arrow-left"></i>
-                <span>Quay lại đơn hàng</span>
-            </a>
-        </header>
-
-        <!-- Summary Cards (Desktop only) -->
-        <section class="summary-cards" id="summaryCards">
-            <!-- Cards rendered by JS -->
-        </section>
-
-        <!-- Tabs - Status Filter -->
-        <section class="tabs-container">
-            <div class="tabs-nav" id="tabsContainer">
-                <button class="tab-btn active" data-tab="needInspection">
-                    <span>Cần kiểm</span>
-                    <span class="tab-count" id="countNeedInspection">0</span>
-                </button>
-                <button class="tab-btn" data-tab="inspected">
-                    <span>Đã kiểm</span>
-                    <span class="tab-count" id="countInspected">0</span>
-                </button>
-                <button class="tab-btn" data-tab="shortage">
-                    <span>Có chênh lệch</span>
-                    <span class="tab-count" id="countShortage">0</span>
-                </button>
-                <button class="tab-btn" data-tab="all">
-                    <span>Tất cả</span>
-                </button>
-            </div>
-        </section>
-
-        <!-- Filter Bar -->
-        <section class="filter-bar" id="filterBar">
-            <div class="filter-group filter-group--search">
-                <div class="input-icon">
-                    <i data-lucide="search"></i>
-                    <input type="text" class="form-input" id="searchInput" placeholder="Tìm theo NCC, ghi chú...">
-                </div>
-            </div>
-
-            <div class="filter-group">
-                <select class="form-select" id="quickDateFilter">
-                    <option value="thisMonth">Tháng này</option>
-                    <option value="today">Hôm nay</option>
-                    <option value="yesterday">Hôm qua</option>
-                    <option value="week">7 ngày qua</option>
-                    <option value="month">30 ngày qua</option>
-                    <option value="lastMonth">Tháng trước</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <input type="date" class="form-input" id="dateFrom">
-                <span class="filter-separator">-</span>
-                <input type="date" class="form-input" id="dateTo">
-            </div>
-        </section>
-
-        <!-- Orders List -->
-        <section id="ordersContainer">
-            <!-- List rendered by JS -->
-        </section>
-
-        <!-- Pagination -->
-        <section id="pagination">
-            <!-- Pagination rendered by JS -->
-        </section>
-    </main>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
-    </div>
-
-    <!-- Parent Module Scripts for config -->
-    <script src="../js/config.js"></script>
-    <script src="../js/service.js"></script>
-
-    <!-- Module Scripts -->
-    <script src="js/main.js"></script>
-
-    <!-- Initialize Lucide Icons -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../../shared/esm/compat.js?v=20260521b"></script>
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write(
+                    '<script src="../../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
+                document.write(
+                    '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../../index.html"});<\/script>'
+                );
             }
-        });
-    </script>
-</body>
+        </script>
+
+        <!-- Navigation Manager -->
+        <script defer src="../../shared/js/navigation-modern.js?v=20260521b"></script>
+
+        <!-- Lucide Icons CDN -->
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../../shared/css/typography.css?v=20260521b" />
+        <!-- typography:shared -->
+    </head>
+    <body>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="page-header__info">
+                    <h1 class="page-header__title">Kiểm hàng nhập</h1>
+                    <p class="page-header__description">
+                        Kiểm tra số lượng hàng nhận từ nhà cung cấp
+                    </p>
+                </div>
+                <a href="../index.html" class="btn btn-outline">
+                    <i data-lucide="arrow-left"></i>
+                    <span>Quay lại đơn hàng</span>
+                </a>
+            </header>
+
+            <!-- Summary Cards (Desktop only) -->
+            <section class="summary-cards" id="summaryCards">
+                <!-- Cards rendered by JS -->
+            </section>
+
+            <!-- Tabs - Status Filter -->
+            <section class="tabs-container">
+                <div class="tabs-nav" id="tabsContainer">
+                    <button class="tab-btn active" data-tab="needInspection">
+                        <span>Cần kiểm</span>
+                        <span class="tab-count" id="countNeedInspection">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="inspected">
+                        <span>Đã kiểm</span>
+                        <span class="tab-count" id="countInspected">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="shortage">
+                        <span>Có chênh lệch</span>
+                        <span class="tab-count" id="countShortage">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="all">
+                        <span>Tất cả</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Filter Bar -->
+            <section class="filter-bar" id="filterBar">
+                <div class="filter-group filter-group--search">
+                    <div class="input-icon">
+                        <i data-lucide="search"></i>
+                        <input
+                            type="text"
+                            class="form-input"
+                            id="searchInput"
+                            placeholder="Tìm theo NCC, ghi chú..."
+                        />
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <select class="form-select" id="quickDateFilter">
+                        <option value="thisMonth">Tháng này</option>
+                        <option value="today">Hôm nay</option>
+                        <option value="yesterday">Hôm qua</option>
+                        <option value="week">7 ngày qua</option>
+                        <option value="month">30 ngày qua</option>
+                        <option value="lastMonth">Tháng trước</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <input type="date" class="form-input" id="dateFrom" />
+                    <span class="filter-separator">-</span>
+                    <input type="date" class="form-input" id="dateTo" />
+                </div>
+            </section>
+
+            <!-- Orders List -->
+            <section id="ordersContainer">
+                <!-- List rendered by JS -->
+            </section>
+
+            <!-- Pagination -->
+            <section id="pagination">
+                <!-- Pagination rendered by JS -->
+            </section>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+        </div>
+
+        <!-- Parent Module Scripts for config -->
+        <script src="../js/config.js?v=20260521b"></script>
+        <script src="../js/service.js?v=20260521b"></script>
+
+        <!-- Module Scripts -->
+        <script src="js/main.js?v=20260521b"></script>
+
+        <!-- Initialize Lucide Icons -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
+        </script>
+    </body>
 </html>

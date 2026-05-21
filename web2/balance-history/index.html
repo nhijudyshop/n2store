@@ -30,15 +30,17 @@
         </script>
 
         <!-- TPOS sidebar (Web 2.0 layout) -->
-        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260518e" />
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260521b" />
 
         <!-- Core Loader -->
         <!-- ES Module: Shared utilities -->
-        <script type="module" src="../../shared/esm/compat.js"></script>
+        <script type="module" src="../../shared/esm/compat.js?v=20260521b"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
@@ -46,7 +48,7 @@
         </script>
 
         <!-- Storage Migration -->
-        <script src="../../shared/js/storage-migration.js"></script>
+        <script src="../../shared/js/storage-migration.js?v=20260521b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.StorageMigration) {
@@ -59,18 +61,18 @@
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
         <!-- Modern CSS + Styles -->
-        <link rel="stylesheet" href="css/modern.css" />
-        <link rel="stylesheet" href="css/styles.css" />
-        <link rel="stylesheet" href="css/transfer-stats.css" />
-        <link rel="stylesheet" href="css/live-mode.css" />
-        <link rel="stylesheet" href="css/accountant.css?v=20260428a" />
+        <link rel="stylesheet" href="css/modern.css?v=20260521b" />
+        <link rel="stylesheet" href="css/styles.css?v=20260521b" />
+        <link rel="stylesheet" href="css/transfer-stats.css?v=20260521b" />
+        <link rel="stylesheet" href="css/live-mode.css?v=20260521b" />
+        <link rel="stylesheet" href="css/accountant.css?v=20260521b" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../../shared/css/typography.css" />
+        <link rel="stylesheet" href="../../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
     </head>
 
@@ -2617,14 +2619,14 @@
             <!-- Firebase SDK -->
             <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
             <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-            <script src="../../shared/js/firebase-config.js"></script>
+            <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
             <!-- Shop Config + Token Manager for TPOS auth -->
-            <script src="../../shared/js/shop-config.js"></script>
-            <script src="../../shared/js/token-manager.js"></script>
+            <script src="../../shared/js/shop-config.js?v=20260521b"></script>
+            <script src="../../shared/js/token-manager.js?v=20260521b"></script>
 
             <!-- Navigation & Auth -->
-            <script defer src="../../shared/js/navigation-modern.js"></script>
-            <script src="../../shared/js/notification-system.js"></script>
+            <script defer src="../../shared/js/navigation-modern.js?v=20260521b"></script>
+            <script src="../../shared/js/notification-system.js?v=20260521b"></script>
 
             <!-- Permission helpers (bridge to authManager) -->
             <script>
@@ -2635,27 +2637,27 @@
             </script>
 
             <!-- Page Scripts - v=20260311a for cache busting -->
-            <script src="js/config.js?v=20260311a"></script>
-            <script src="js/qr-generator.js?v=20260506c"></script>
-            <script src="js/customer-info.js?v=20260311a"></script>
-            <script src="../../shared/js/image-cache.js?v=20260503a"></script>
-            <script src="../../shared/js/audit-logger.js"></script>
-            <script src="../../shared/js/tpos-customer-lookup.js"></script>
-            <script src="../../shared/js/pancake-customer-validator.js"></script>
-            <script src="../../shared/js/customer-creator.js"></script>
+            <script src="js/config.js?v=20260521b"></script>
+            <script src="js/qr-generator.js?v=20260521b"></script>
+            <script src="js/customer-info.js?v=20260521b"></script>
+            <script src="../../shared/js/image-cache.js?v=20260521b"></script>
+            <script src="../../shared/js/audit-logger.js?v=20260521b"></script>
+            <script src="../../shared/js/tpos-customer-lookup.js?v=20260521b"></script>
+            <script src="../../shared/js/pancake-customer-validator.js?v=20260521b"></script>
+            <script src="../../shared/js/customer-creator.js?v=20260521b"></script>
             <!-- Balance History sub-modules (load order: core -> filters -> table -> verification -> aggregator) -->
-            <script src="js/balance-core.js?v=20260311a"></script>
-            <script src="js/balance-filters.js?v=20260311a"></script>
-            <script src="js/balance-table.js?v=20260311a"></script>
-            <script src="js/balance-verification.js?v=20260311a"></script>
-            <script src="js/main.js?v=20260311a"></script>
-            <script src="js/transfer-stats.js?v=20260123b"></script>
+            <script src="js/balance-core.js?v=20260521b"></script>
+            <script src="js/balance-filters.js?v=20260521b"></script>
+            <script src="js/balance-table.js?v=20260521b"></script>
+            <script src="js/balance-verification.js?v=20260521b"></script>
+            <script src="js/main.js?v=20260521b"></script>
+            <script src="js/transfer-stats.js?v=20260521b"></script>
             <!-- BaseStore + WalletAdjustmentStore for wallet adjustment tracking -->
-            <script src="../../shared/js/base-store.js"></script>
-            <script src="../orders-report/js/utils/wallet-adjustment-store.js"></script>
-            <script src="js/accountant.js?v=20260505a"></script>
-            <script src="js/accountant-history.js?v=20260506a"></script>
-            <script src="js/live-mode.js?v=20260123b"></script>
+            <script src="../../shared/js/base-store.js?v=20260521b"></script>
+            <script src="../orders-report/js/utils/wallet-adjustment-store.js?v=20260521b"></script>
+            <script src="js/accountant.js?v=20260521b"></script>
+            <script src="js/accountant-history.js?v=20260521b"></script>
+            <script src="js/live-mode.js?v=20260521b"></script>
 
             <!-- Initialize Lucide Icons, View Mode, and Main Tabs -->
             <script>
@@ -2745,9 +2747,9 @@
         <!-- /.web2-shell -->
 
         <!-- Web 2.0 sidebar mount + SSE realtime bridge -->
-        <script src="../../web2/shared/web2-auth.js?v=20260519k"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260518a"></script>
-        <script src="../../web2/shared/web2-sse-bridge.js?v=20260519a"></script>
+        <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260521b"></script>
+        <script src="../../web2/shared/web2-sse-bridge.js?v=20260521b"></script>
         <script>
             // Mount sidebar
             if (window.Web2Sidebar?.mount) {

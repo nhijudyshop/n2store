@@ -25,6 +25,28 @@
 
 ## 2026-05-21
 
+### [tooling] opt-in cache-bust cho 88 page còn lại (toàn bộ project)
+
+**User**: "vậy bạn sửa các page khác luôn đi".
+
+**Action**: Chạy `scripts/bump-cache-version.sh` lên TẤT CẢ HTML files user-facing trong project (không touch chrome extension pages + node_modules + dist). 88 files bumped, 1241 refs gắn `?v=20260521b`.
+
+**Bumped folders**:
+
+- Toàn bộ pages cấp 1: `aikol-studio/*`, `balance-history/`, `balance-history-home/`, `bangkiemhang/`, `customer-hub/`, `delivery-report/`, `doi-soat/`, `don-inbox/`, `facebook-services/`, `fb-ads/index.html` (không touch `fb-ads/extension/`), `firebase-stats/`, `hanghoan/`, `inbox/`, `inventory-tracking/`, `invoice-compare/`, `issue-tracking/`, `lichsuchinhsua/`, `native-orders/`, `nhanhang/`, `order-management/*`, `phone-management/*`, `product-warehouse/`, `project-tracker/`, `purchase-orders/{index,goods-receiving/}`, `quy-trinh/`, `render-data-manager/`, `resident/`, `service-costs/`, `so-order/`, `soluong-live/*`, `soorder/`, `soquy/*`, `stitch_customer/*`, `supplier-debt/`, `tpos-pancake/`, `user-management/`
+- Orders-report tabs: `orders-report/{main,tab-overview,tab-live-ledger,tab-kpi-commission,tab1-orders,tab3-product-assignment,tab-pending-delete,migration-kpi-per-user}.html`
+- Toàn bộ web2 pages: `web2/{index,balance-history,customer-wallet,fastsaleorder-{delivery,invoice,refund},login,pancake-settings,product-{category,uom,uom-categ},products,purchase-refund,reconcile,report-{delivery,revenue},supplier-{debt,wallet},users,variants}/index.html`
+- Root: `index.html`, `privacy-policy.html`
+- Misc user-facing: `AI/gemini.html`
+
+**NOT touched** (đúng theo MEMORY.md "⚠ HỎI USER TRƯỚC KHI SỬA n2store-extension/"):
+
+- `n2store-extension/`, `web2-extension/`, `pancake-extension/` — chrome extension pages, dùng chrome-extension:// (cache strategy khác, không phải HTTP CDN)
+- `fb-ads/extension/popup.html` — extension popup
+- `render.com/node_modules/`, `dist/` — third-party + build artifacts
+
+**Effect**: từ giờ mọi page n2store đều opt-in vào convention `?v=YYYYMMDDx`. Stop hook `auto-bump-cache-on-change.sh` (commit `c53e98a3`) sẽ tự động bump phiên bản cho page có JS/CSS đổi mỗi commit → không bao giờ user gặp cache issue nữa.
+
 ### [tooling][scripts] feat: auto cache-bust `?v=YYYYMMDDx` cho JS/CSS sau mỗi deploy
 
 **User**: "fix luôn lỗi bị browser cached js cũ đi".

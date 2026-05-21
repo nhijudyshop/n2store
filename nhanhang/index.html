@@ -17,16 +17,18 @@
         <link rel="shortcut icon" href="../index/logo.jpg" />
 
         <!-- Modern CSS -->
-        <link rel="stylesheet" href="css/modern-styles.css" />
+        <link rel="stylesheet" href="css/modern-styles.css?v=20260521b" />
 
         <!-- Lucide Icons CDN -->
         <!-- N2Store Optimization: Core Utilities Loader -->
         <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
@@ -41,21 +43,21 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
 
         <!-- External Libraries -->
         <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
         <!-- Common Scripts -->
-        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
     </head>
 
@@ -565,15 +567,15 @@
         </div>
 
         <!-- Scripts -->
-        <script src="../shared/js/permissions-helper.js"></script>
+        <script src="../shared/js/permissions-helper.js?v=20260521b"></script>
         <!-- Image cache (auto-observer sẽ swap firebasestorage.googleapis.com URLs sang blob: URL từ IndexedDB) -->
-        <script src="../shared/js/image-cache.js"></script>
-        <script src="js/config.js"></script>
-        <script src="js/utility.js?v=20260118"></script>
-        <script src="js/ui.js"></script>
-        <script src="js/camera.js"></script>
-        <script src="js/crud.js"></script>
-        <script src="js/main.js"></script>
+        <script src="../shared/js/image-cache.js?v=20260521b"></script>
+        <script src="js/config.js?v=20260521b"></script>
+        <script src="js/utility.js?v=20260521b"></script>
+        <script src="js/ui.js?v=20260521b"></script>
+        <script src="js/camera.js?v=20260521b"></script>
+        <script src="js/crud.js?v=20260521b"></script>
+        <script src="js/main.js?v=20260521b"></script>
 
         <script>
             // Initialize Lucide icons after DOM load
