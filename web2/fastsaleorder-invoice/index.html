@@ -14,10 +14,10 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260521b" />
-        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521b" />
-        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521b" />
-        <link rel="stylesheet" href="../../web2/shared/page-builder-tpos.css?v=20260521b" />
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260521c" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521c" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521c" />
+        <link rel="stylesheet" href="../../web2/shared/page-builder-tpos.css?v=20260521c" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
     </head>
@@ -187,19 +187,19 @@
             </main>
         </div>
 
-        <script src="../../web2/shared/pbh-realtime.js?v=20260521b"></script>
-        <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260521b"></script>
+        <script src="../../web2/shared/pbh-realtime.js?v=20260521c"></script>
+        <script src="../../web2/shared/web2-auth.js?v=20260521c"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260521c"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside');
             });
         </script>
-        <script src="../shared/web2-sse-bridge.js?v=20260521b"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260521c"></script>
         <!-- JsBarcode local — load 1 lần, browser cache, pre-render SVG ở parent → bill in instant -->
-        <script src="../shared/jsbarcode-code128.min.js?v=20260521b"></script>
-        <script src="../shared/web2-bill-service.js?v=20260521b"></script>
+        <script src="../shared/jsbarcode-code128.min.js?v=20260521c"></script>
+        <script src="../shared/web2-bill-service.js?v=20260521c"></script>
         <!-- html2canvas chỉ load lazy khi cần sinh image bill (gửi messenger). Bỏ qua cho print only. -->
-        <script src="pbh-app.js?v=20260521b"></script>
+        <script src="pbh-app.js?v=20260521c"></script>
     </body>
 </html>
