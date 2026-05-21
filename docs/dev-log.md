@@ -25,6 +25,16 @@
 
 ## 2026-05-21
 
+### [native-orders] fix: Huỷ đơn (cancelOrder) — `_getBaseUrl` không tồn tại
+
+User report: "Hủy đơn này không được" cho NW-20260521-0004.
+
+Bug ở [`native-orders-app.js:6493`](../native-orders/js/native-orders-app.js#L6493): code gọi `window.NativeOrdersApi._getBaseUrl()` nhưng helper này **không có** — `BASE` const là private inside IIFE của `native-orders-api.js`. Click "Huỷ đơn" → `_getBaseUrl()` throw `TypeError` → catch → notify "Huỷ đơn thất bại: window.NativeOrdersApi.\_getBaseUrl is not a function".
+
+Fix: dùng `WORKER_URL` directly + path `/api/native-orders/...` (cùng pattern `cancelPbh` line 2152 + `_doCreatePbh` line 2168). Endpoint `POST /api/native-orders/:code/cancel` backend đã sẵn sàng (verified: HTTP 200 + success=true với reason note).
+
+Status: ✅ Done; ⏳ pending verify in-browser.
+
 ### [native-orders] feat: bulk-send filter SL=0 (giỏ trống)
 
 User request: "bỏ qua các đơn hàng SL 0" — không gửi tin "đã đặt SP gồm:..." cho đơn không sản phẩm vì kỳ.

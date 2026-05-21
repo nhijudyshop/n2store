@@ -6490,8 +6490,10 @@
         );
         if (!ok) return;
         try {
+            // `NativeOrdersApi._getBaseUrl()` không tồn tại — IIFE đóng kín
+            // const `BASE`. Dùng WORKER_URL trực tiếp như cancelPbh + createPbh.
             const r = await fetch(
-                `${window.NativeOrdersApi._getBaseUrl()}/${encodeURIComponent(code)}/cancel`,
+                `${WORKER_URL}/api/native-orders/${encodeURIComponent(code)}/cancel`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
