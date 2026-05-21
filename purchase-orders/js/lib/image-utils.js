@@ -5,11 +5,82 @@
  * Purpose: Image compression and manipulation utilities
  */
 
-window.ImageUtils = (function() {
+window.ImageUtils = (function () {
     'use strict';
 
+    // Hard upper bound for any input file. Anything bigger blocks
+    // the FileReader → image decode chain and freezes the tab; we
+    // refuse it with a friendly message instead.
+    const MAX_INPUT_BYTES = 40 * 1024 * 1024;
+
+    // Browsers cap a single canvas dimension and total area. Going
+    // over either silently produces a blank canvas → toBlob returns
+    // either a tiny black blob or null. The Chrome ceiling is
+    // 16384px per side; iOS/Safari is lower. We resize down to fit
+    // these intermediate canvases even when the user-supplied target
+    // is larger.
+    const MAX_CANVAS_DIMENSION = 8192;
+
+    function shrinkToFit(width, height, maxW, maxH) {
+        const ratio = Math.min(maxW / width, maxH / height, 1);
+        return {
+            width: Math.max(1, Math.round(width * ratio)),
+            height: Math.max(1, Math.round(height * ratio)),
+            ratio,
+        };
+    }
+
+    async function decodeBitmap(file) {
+        // createImageBitmap streams the decode off the main thread
+        // and copes with large sources better than <img>.src=dataURL.
+        if (typeof createImageBitmap === 'function') {
+            try {
+                return await createImageBitmap(file, { imageOrientation: 'from-image' });
+            } catch (_) {
+                // Some Safari versions reject the options bag; retry without it.
+                try {
+                    return await createImageBitmap(file);
+                } catch (__) {
+                    // fall through to <img> path
+                }
+            }
+        }
+        return await new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                resolve(img);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(
+                    new Error('Không đọc được nội dung ảnh (ảnh hỏng hoặc định dạng không hỗ trợ)')
+                );
+            };
+            img.src = url;
+        });
+    }
+
+    function disposeBitmap(bitmap) {
+        if (bitmap && typeof bitmap.close === 'function') {
+            try {
+                bitmap.close();
+            } catch (_) {}
+        }
+    }
+
+    function blobToFile(blob, originalName) {
+        return new File([blob], (originalName || 'image').replace(/\.\w+$/, '.jpg'), {
+            type: 'image/jpeg',
+        });
+    }
+
     /**
-     * Compress image file using canvas
+     * Compress image file using canvas. Robust against huge paste
+     * inputs: validates input size, decodes via createImageBitmap
+     * when available, resizes in a single canvas pass capped to
+     * MAX_CANVAS_DIMENSION, and verifies the output blob is non-empty.
      * @param {File} file - Image file to compress
      * @param {number} maxSizeMB - Maximum size in MB (default: 1)
      * @param {number} maxWidth - Maximum width in pixels (default: 1920)
@@ -17,74 +88,75 @@ window.ImageUtils = (function() {
      * @returns {Promise<File>}
      */
     async function compressImage(file, maxSizeMB = 1, maxWidth = 1920, maxHeight = 1920) {
-        // Skip if already small enough
+        if (!file || typeof file.size !== 'number') {
+            throw new Error('Không phải file hợp lệ');
+        }
+        if (file.size > MAX_INPUT_BYTES) {
+            const mb = (file.size / (1024 * 1024)).toFixed(1);
+            throw new Error(`Ảnh quá lớn (${mb} MB). Vui lòng dùng ảnh ≤ 40 MB.`);
+        }
+
         const maxSizeBytes = maxSizeMB * 1024 * 1024;
-        if (file.size <= maxSizeBytes) {
+
+        // Cap intermediate canvas to a size every browser handles.
+        const safeMaxW = Math.min(maxWidth, MAX_CANVAS_DIMENSION);
+        const safeMaxH = Math.min(maxHeight, MAX_CANVAS_DIMENSION);
+
+        const bitmap = await decodeBitmap(file);
+        const srcW = bitmap.naturalWidth || bitmap.width;
+        const srcH = bitmap.naturalHeight || bitmap.height;
+        if (!srcW || !srcH) {
+            disposeBitmap(bitmap);
+            throw new Error('Ảnh không đọc được kích thước');
+        }
+
+        // If source fits the budget already and is also small in bytes, return as-is.
+        const fitsBox = srcW <= safeMaxW && srcH <= safeMaxH;
+        if (fitsBox && file.size <= maxSizeBytes) {
+            disposeBitmap(bitmap);
             return file;
         }
 
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            const reader = new FileReader();
+        const { width, height } = shrinkToFit(srcW, srcH, safeMaxW, safeMaxH);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            disposeBitmap(bitmap);
+            throw new Error('Trình duyệt không cấp được canvas 2D context');
+        }
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        disposeBitmap(bitmap);
 
-            reader.onload = (e) => {
-                img.onload = () => {
-                    try {
-                        // Calculate new dimensions keeping aspect ratio
-                        let { width, height } = img;
-                        const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+        const encode = (quality) =>
+            new Promise((resolve, reject) => {
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob || blob.size < 64) {
+                            reject(
+                                new Error(
+                                    'Trình duyệt trả về ảnh rỗng khi nén (kích thước quá lớn?)'
+                                )
+                            );
+                            return;
+                        }
+                        resolve(blob);
+                    },
+                    'image/jpeg',
+                    quality
+                );
+            });
 
-                        width = Math.round(width * ratio);
-                        height = Math.round(height * ratio);
+        let quality = 0.9;
+        const minQuality = 0.5;
+        let blob = await encode(quality);
+        while (blob.size > maxSizeBytes && quality > minQuality) {
+            quality = Math.max(minQuality, +(quality - 0.1).toFixed(2));
+            blob = await encode(quality);
+        }
 
-                        // Create canvas and draw resized image
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        // Try different quality levels
-                        let quality = 0.9;
-                        const minQuality = 0.5;
-
-                        const tryCompress = () => {
-                            canvas.toBlob((blob) => {
-                                if (!blob) {
-                                    reject(new Error('Failed to compress image'));
-                                    return;
-                                }
-
-                                if (blob.size <= maxSizeBytes || quality <= minQuality) {
-                                    // Success or reached minimum quality
-                                    const compressedFile = new File(
-                                        [blob],
-                                        file.name.replace(/\.\w+$/, '.jpg'),
-                                        { type: 'image/jpeg' }
-                                    );
-                                    resolve(compressedFile);
-                                } else {
-                                    // Reduce quality and try again
-                                    quality -= 0.1;
-                                    tryCompress();
-                                }
-                            }, 'image/jpeg', quality);
-                        };
-
-                        tryCompress();
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-
-                img.onerror = () => reject(new Error('Failed to load image'));
-                img.src = e.target.result;
-            };
-
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(file);
-        });
+        return blobToFile(blob, file.name);
     }
 
     /**
@@ -196,7 +268,9 @@ window.ImageUtils = (function() {
 
             if (source instanceof File) {
                 const reader = new FileReader();
-                reader.onload = (e) => { img.src = e.target.result; };
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                };
                 reader.onerror = () => reject(new Error('Failed to read file'));
                 reader.readAsDataURL(source);
             } else {
@@ -268,7 +342,7 @@ window.ImageUtils = (function() {
                     ctx.font = `bold ${fontSize}px sans-serif`;
                     const textWidth = ctx.measureText(labelText).width;
                     if (textWidth > canvasWidth * 0.9) {
-                        fontSize = Math.floor((canvasWidth * 0.9 / textWidth) * fontSize);
+                        fontSize = Math.floor(((canvasWidth * 0.9) / textWidth) * fontSize);
                         ctx.font = `bold ${fontSize}px sans-serif`;
                     }
 
@@ -283,11 +357,13 @@ window.ImageUtils = (function() {
 
                         try {
                             await navigator.clipboard.write([
-                                new ClipboardItem({ 'image/png': blob })
+                                new ClipboardItem({ 'image/png': blob }),
                             ]);
                             resolve();
                         } catch (clipboardError) {
-                            reject(new Error('Failed to copy to clipboard: ' + clipboardError.message));
+                            reject(
+                                new Error('Failed to copy to clipboard: ' + clipboardError.message)
+                            );
                         }
                     }, 'image/png');
                 } catch (error) {
@@ -307,8 +383,9 @@ window.ImageUtils = (function() {
      */
     function isImageFile(file) {
         if (!file) return false;
-        return file.type.startsWith('image/') ||
-            /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(file.name);
+        return (
+            file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(file.name)
+        );
     }
 
     /**
@@ -371,6 +448,6 @@ window.ImageUtils = (function() {
         generateOrderImage,
         isImageFile,
         getProductImageUrl,
-        createImageCache
+        createImageCache,
     };
 })();

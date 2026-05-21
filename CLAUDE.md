@@ -302,10 +302,39 @@ Project có **4 scripts test dự án qua Playwright** (auto-login + capture err
 
 - **Localhost = vừa code vừa test luôn** (workflow chuẩn):
     1. **Auto server**: 3 script test tự spawn `python3 -m http.server <port>` từ project root khi `--base http://localhost:PORT` được truyền và port chưa listen. Helper: `scripts/lib/ensure-local-server.js`. KHÔNG cần user pre-launch server.
-    2. Khởi động persistent browser session 1 lần: `mkfifo /tmp/n2store-session.fifo; (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &`
-    3. Sau mỗi `Edit` file → file saved → đẩy command vào FIFO test ngay: `echo "nav http://localhost:8080/<path>?t=$(date +%s)" > /tmp/n2store-session.fifo; echo "feval ..." > /tmp/n2store-session.fifo`
-    4. **KHÔNG restart browser** giữa các iteration. Cache-bust HTML bằng `?t=...`. JS đã `cache-control: no-cache` sẵn trong route handler.
-    5. Stop local server khi xong: `pkill -f "http.server 8080"` (server detached từ script test, sống tiếp khi script exit).
+    2. **Auth tự restore**: `n2store-browser-session.js` đọc `serect_dont_push.txt` qua `scripts/restore-login-session.js`, inject vào BrowserContext (localStorage + cookies) → KHÔNG bị bounce về login. Nếu file thiếu block hoặc token hết hạn → fallback form login + lưu lại.
+    3. Lưu session tươi khi cần: `node scripts/save-login-session.js --base http://localhost:8080` (và `--base https://nhijudy.store`). Chạy lại định kỳ (mỗi tuần hoặc khi script báo lỗi auth) — JWT trong `loginindex_auth` hết hạn sau 30 ngày.
+    4. Khởi động persistent browser session 1 lần: `mkfifo /tmp/n2store-session.fifo; (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &`
+    5. Sau mỗi `Edit` file → file saved → đẩy command vào FIFO test ngay: `echo "nav http://localhost:8080/<path>?t=$(date +%s)" > /tmp/n2store-session.fifo; echo "feval ..." > /tmp/n2store-session.fifo`
+    6. **KHÔNG restart browser** giữa các iteration. Cache-bust HTML bằng `?t=...`. JS đã `cache-control: no-cache` sẵn trong route handler.
+    7. Stop local server khi xong: `pkill -f "http.server 8080"` (server detached từ script test, sống tiếp khi script exit).
+
+### 🔬 Quy tắc DEBUG — console-first, screenshot last resort (BẮT BUỘC)
+
+Khi repro/diagnose bug qua persistent browser session, **ưu tiên đọc state qua `eval`/`feval` JSON returns** thay vì chụp ảnh:
+
+- **Capture state**: `eval return { formData, pendingFiles, validation, dom: { ... } };` — JSON đi qua tail log, parse được.
+- **Hook console.error** trước khi trigger bug để không miss async errors:
+    ```js
+    const _err = console.error;
+    window.__errs = [];
+    console.error = function (...a) {
+        window.__errs.push(
+            a
+                .map((x) => (typeof x === 'string' ? x : x?.message || JSON.stringify(x)))
+                .join(' ')
+                .slice(0, 200)
+        );
+        return _err.apply(console, a);
+    };
+    ```
+- **Hook notificationManager.show** để capture toast errors hiển thị ngắn.
+- **Network buffer**: `netlast 20` đọc 20 calls gần nhất từ session script.
+- **Inspect DOM state**: `document.querySelector / querySelectorAll` + properties (`.value`, `.offsetParent !== null`, dataset).
+
+Lý do: nhiều state UI không lộ qua hình — modal nội bộ, dialog ẩn, dropdown chưa mở, async errors, race conditions giữa render và nav. Screenshot là last resort khi cần verify visual rendering (layout, color, icon) **sau khi** đã sửa code và state lookup confirm OK.
+
+Pattern này verified trong session debug paste-image (2026-05-21): 16+ eval calls bóc tách bug compress logic (skip khi file < 0.5 MB nhưng dim > 16384) — không screenshot nào.
 
 ### 🛡️ Quy tắc test ĐỤNG DATABASE (BẮT BUỘC)
 

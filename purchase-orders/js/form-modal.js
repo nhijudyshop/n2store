@@ -118,29 +118,40 @@ class PurchaseOrderFormModal {
      */
     async addLocalImages(files, type, itemId = null) {
         try {
-            // Show loading state briefly
             this.showUploadingState(type, itemId, true);
 
-            // Compress images using ImageUtils
-            let processedFiles = files;
-            if (window.ImageUtils && window.ImageUtils.compressImage) {
-                processedFiles = await Promise.all(
-                    files.map((file) => window.ImageUtils.compressImage(file, 0.5, 1200, 1200))
-                );
-            }
+            // Compress each independently so one bad image doesn't
+            // abort the whole paste. Failed ones become null and are
+            // reported to the user; the rest still go through.
+            const compressed = await Promise.all(
+                Array.from(files).map(async (file) => {
+                    try {
+                        if (window.ImageUtils && window.ImageUtils.compressImage) {
+                            return {
+                                ok: true,
+                                file: await window.ImageUtils.compressImage(file, 0.5, 1200, 1200),
+                            };
+                        }
+                        return { ok: true, file };
+                    } catch (err) {
+                        console.error('[FormModal] Compress failed:', err);
+                        return { ok: false, name: file?.name || 'ảnh', error: err };
+                    }
+                })
+            );
 
-            // Convert to data URLs for preview
+            const successes = compressed.filter((r) => r.ok);
+            const failures = compressed.filter((r) => !r.ok);
+
             const imageData = await Promise.all(
-                processedFiles.map(async (file) => ({
-                    file: file,
-                    dataUrl: await this.fileToDataUrl(file),
+                successes.map(async (r) => ({
+                    file: r.file,
+                    dataUrl: await this.fileToDataUrl(r.file),
                 }))
             );
 
-            // Store locally based on type
             if (type === 'invoice') {
                 this.pendingImages.invoice.push(...imageData);
-                // Add data URLs to formData for preview
                 this.formData.invoiceImages = [
                     ...this.formData.invoiceImages,
                     ...imageData.map((d) => d.dataUrl),
@@ -172,12 +183,17 @@ class PurchaseOrderFormModal {
                 }
             }
 
-            // Show success notification
             if (window.notificationManager) {
-                window.notificationManager.show(
-                    `Đã thêm ${imageData.length} ảnh (sẽ tải lên khi tạo đơn)`,
-                    'success'
-                );
+                if (imageData.length > 0) {
+                    window.notificationManager.show(
+                        `Đã thêm ${imageData.length} ảnh (sẽ tải lên khi tạo đơn)`,
+                        'success'
+                    );
+                }
+                for (const f of failures) {
+                    const msg = f.error?.message || 'Lỗi không xác định';
+                    window.notificationManager.show(`Không thêm được ảnh: ${msg}`, 'error');
+                }
             }
         } catch (error) {
             console.error('[FormModal] Add image failed:', error);

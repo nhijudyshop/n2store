@@ -25,6 +25,62 @@
 
 ## 2026-05-21
 
+### [purchase-orders][scripts][docs] Paste-image: fix huge dimension freeze + persistent session restore + debug-via-console rule
+
+**Yêu cầu user**: Trên https://nhijudy.store/purchase-orders/index.html, paste ảnh **lớn quá → bị lỗi** trong modal "Tạo đơn đặt hàng". Self-debug + test + commit/push tới khi sạch lỗi. Đồng thời: (1) lưu cookies đăng nhập vào `serect_dont_push.txt` để khỏi đăng nhập lại; (2) thêm rule "debug từ console, hạn chế chụp hình" vào memory/CLAUDE.md/dev-log.
+
+**Repro qua persistent browser session** ([scripts/n2store-browser-session.js](../scripts/n2store-browser-session.js) + FIFO `eval`):
+
+- Synthesize huge `File` ngay trong tab (canvas + `toBlob` → `new File`) rồi gọi `purchaseOrderFormModal.addLocalImages([huge], 'invoice')`.
+- 12000×9000 / 8000×6000 / 15000×11000 / 16384×16384 → OK (compress xuống ~7-9 KB JPEG).
+- **`16385×1000`** (1 chiều > Chrome canvas max 16384): file 299 KB, `compressImage` skip nén vì `file.size < 0.5 MB` → preview giữ kích thước gốc; canvas vẽ ảnh `> 16384px` ra blank → behavior ảnh paste vô modal "bị lỗi" như user report.
+- 17000×17000 / 20000×20000: `toBlob` trả null → file creation fail trước khi vào flow paste.
+
+**Root cause** ở [`purchase-orders/js/lib/image-utils.js`](../purchase-orders/js/lib/image-utils.js) hàm `compressImage`:
+
+1. Early return `if (file.size <= maxSizeBytes) return file` — bypass cả khi dim huge.
+2. Không cap canvas tới giới hạn browser (Chrome 16384 mỗi chiều, area 268M pixels). Cấp `<canvas width=20000 height=15000>` → silent blank.
+3. `img.src = dataURL` qua `FileReader.readAsDataURL` — chậm + tốn ~2× bộ nhớ vs `createImageBitmap`.
+4. Không validate output blob (blob.size < 64 → vẫn coi là success).
+5. Error message generic, một ảnh hỏng kill cả batch paste.
+
+**Fix**:
+
+- [`purchase-orders/js/lib/image-utils.js`](../purchase-orders/js/lib/image-utils.js#L19): rewrite `compressImage` — input size cap 40 MB, `createImageBitmap` (fallback `<img>`+ObjectURL), cap canvas tới `MAX_CANVAS_DIMENSION=8192`, single-pass resize, validate `blob.size ≥ 64`, friendly Vietnamese error.
+- [`purchase-orders/js/form-modal.js#L119-L207`](../purchase-orders/js/form-modal.js#L119): `addLocalImages` xử lý từng ảnh riêng (1 ảnh fail không kill batch), toast riêng cho thành công + từng failure.
+
+**Verify** (lần lượt qua eval):
+
+- 8000×6000 → 7 KB JPEG, preview 1200×900 ✓
+- 15000×11000 → 7 KB JPEG, preview 1200×880 ✓
+- **16385×1000 → 1 KB JPEG, preview 1200×73 ✓** (trước: 299 KB unchanged, broken preview)
+- 16384×16384 → 9 KB JPEG, preview 1200×1200 ✓
+- Corrupt PNG → toast "Không đọc được nội dung ảnh (ảnh hỏng hoặc định dạng không hỗ trợ)"
+- 50 MB file → toast "Ảnh quá lớn (50.0 MB). Vui lòng dùng ảnh ≤ 40 MB."
+- Mixed batch (1 ok + 1 corrupt) → ảnh OK vẫn được thêm + toast lỗi cho ảnh hỏng riêng
+- Invoice + product + price areas đều paste được, `__consoleErrs=[]`
+
+**Backend upload (`POST /api/v2/purchase-orders/images`) trả 500** trong khi test (3/3 fail, ~8s/lần — timeout từ `bunny-storage-service`). Đây là **issue tách rời** (Bunny env/key trên Render), không liên quan paste fix. Cần user cho phép investigate Render env vars/logs.
+
+**Phần phụ — user yêu cầu**:
+
+1. **Save login cookies + LS vào `serect_dont_push.txt`**: thêm [`scripts/save-login-session.js`](../scripts/save-login-session.js) và [`scripts/restore-login-session.js`](../scripts/restore-login-session.js). Block JSON `## n2store_session_<host>` ghi vào file gitignored. `n2store-browser-session.js` integrate sẵn: restore trước, fallback login form. Đã lưu sẵn 2 block: localhost:8080 + nhijudy.store.
+2. **Debug rule "console-first, screenshot last"**: thêm section mới vào [`CLAUDE.md`](../CLAUDE.md#L297) + memory `feedback_debug_via_console.md`. Patterns: eval-JSON state dumps, hook `console.error`/`notificationManager.show`, network buffer, DOM inspector — screenshot chỉ cần khi verify visual rendering sau khi confirm code OK.
+
+**Files**:
+
+- [`purchase-orders/js/lib/image-utils.js`](../purchase-orders/js/lib/image-utils.js)
+- [`purchase-orders/js/form-modal.js`](../purchase-orders/js/form-modal.js)
+- [`scripts/save-login-session.js`](../scripts/save-login-session.js) (new)
+- [`scripts/restore-login-session.js`](../scripts/restore-login-session.js) (new)
+- [`scripts/n2store-browser-session.js`](../scripts/n2store-browser-session.js) (integrate restore)
+- [`CLAUDE.md`](../CLAUDE.md) — thêm Auth restore + Debug-via-console rules
+- `serect_dont_push.txt` — thêm 2 session blocks (gitignored)
+
+**Status**: ✅ Done — paste-image flow robust với ảnh huge/corrupt/oversize. Backend Bunny 500 cần escalation riêng.
+
+---
+
 ### [web2-products][native-orders][render] Realtime cascade snapshot khi update SP
 
 **Yêu cầu user**: Cập nhật hình SP ở `web2/products/index.html` — bên `native-orders/index.html` các SP đã có sẵn trong đơn KHÔNG cập nhật hình. SSE realtime không bridge giữa 2 page.
