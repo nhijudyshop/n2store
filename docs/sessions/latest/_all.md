@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `65fd9d7` — chore(cache-bust): bump asset version v=20260521b → v=20260521c
-**Last updated**: 2026-05-21 18:54:19 +07
-**Latest session**: [`RESUME:20260521-185419-65fd9d7`](../20260521-185419-65fd9d7.md)
-**Summary**: chore(cache-bust): bump asset version v=20260521b → v=20260521c
+**Latest commit**: `599f466` — feat(native-orders): bỏ nút đỏ 'Huỷ PBH' khỏi confirmed — chỉ giữ 'Huỷ đơn'
+**Last updated**: 2026-05-21 18:57:11 +07
+**Latest session**: [`RESUME:20260521-185711-599f466`](../20260521-185711-599f466.md)
+**Summary**: feat(native-orders): bỏ nút đỏ 'Huỷ PBH' khỏi confirmed — chỉ giữ 'Huỷ đơn'
 
 ## Folders affected in this commit
 
 - [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-21 15:39
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-21 18:54
+- [`native-orders/`](./native-orders.md) — updated 2026-05-21 18:57
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
