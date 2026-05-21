@@ -13,6 +13,7 @@
  * hoặc dùng `navigator.sendBeacon` (luôn kèm cookies).
  */
 const CREDENTIALED_ORIGIN_PATTERNS = [
+    /^https:\/\/nhijudy\.store$/,
     /^https:\/\/nhijudyshop\.github\.io$/,
     /^https:\/\/[a-z0-9-]+\.pages\.dev$/,
     /^http:\/\/localhost(?::\d+)?$/,

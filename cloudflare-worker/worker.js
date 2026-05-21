@@ -84,7 +84,7 @@ export default {
         // WebSocket upgrade responses không thể clone/modify headers → trả nguyên
         if (response.webSocket) return response;
         // Wrap mọi response khác với origin-aware CORS headers.
-        // Nếu Origin ∈ allowlist (nhijudyshop.github.io, localhost) → echo specific origin + Allow-Credentials: true
+        // Nếu Origin ∈ allowlist (nhijudy.store, nhijudyshop.github.io legacy, localhost) → echo specific origin + Allow-Credentials: true
         // Ngược lại → giữ Allow-Origin: * (public API)
         // Điều này fix lỗi CORS với requests dùng credentials: 'include' hoặc navigator.sendBeacon.
         return addCorsHeaders(response, request);

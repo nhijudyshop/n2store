@@ -39,6 +39,6 @@ export const CONFIG = {
 
     // N2Store web app
     WEB_BASE_URL: 'https://nhijudyshop.workers.dev',
-    WEB_GITHUB_URL: 'https://nhijudyshop.github.io/n2store/orders-report/main.html',
-    WEB_INBOX_URL: 'https://nhijudyshop.github.io/n2store/inbox/index.html',
+    WEB_GITHUB_URL: 'https://nhijudy.store/orders-report/main.html',
+    WEB_INBOX_URL: 'https://nhijudy.store/inbox/index.html',
 };

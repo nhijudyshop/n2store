@@ -62,7 +62,7 @@ async function checkNCCExists(sttNCC) {
  * Convert products to sanPham format
  */
 function convertProducts(products) {
-    return (products || []).map(p => {
+    return (products || []).map((p) => {
         const maSP = p.sku || '';
         const tenSP = p.name || '';
         const soMau = p.color || '';
@@ -86,7 +86,7 @@ function convertProducts(products) {
             soLuong,
             giaDonVi,
             rawText,
-            rawText_vi
+            rawText_vi,
         };
     });
 }
@@ -134,17 +134,20 @@ async function createDatHang(invoiceData, imageUrl, chatId, userId) {
         createdAt: new Date().toISOString(),
         createdBy: `telegram_${userId}`,
         updatedAt: new Date().toISOString(),
-        updatedBy: `telegram_${userId}`
+        updatedBy: `telegram_${userId}`,
     };
 
     // Create new NCC document with datHang
-    await firestore.collection('inventory_tracking').doc(docId).set({
-        sttNCC: sttNCC,
-        datHang: [datHangEntry],
-        dotHang: [],
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    await firestore
+        .collection('inventory_tracking')
+        .doc(docId)
+        .set({
+            sttNCC: sttNCC,
+            datHang: [datHangEntry],
+            dotHang: [],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
 
     console.log(`[FIREBASE] Created NCC ${sttNCC} with datHang:`, datHangEntry.id);
 
@@ -153,7 +156,7 @@ async function createDatHang(invoiceData, imageUrl, chatId, userId) {
         entryId: datHangEntry.id,
         type: 'datHang',
         isNew: true,
-        tongMon: tongMon
+        tongMon: tongMon,
     };
 }
 
@@ -186,7 +189,7 @@ async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
     const soMonThieu = calculateSoMonThieu(datHang, tongMon);
 
     // Find existing dotHang with same date
-    const existingIndex = dotHang.findIndex(d => d.ngayDiHang === today);
+    const existingIndex = dotHang.findIndex((d) => d.ngayDiHang === today);
 
     let isUpdate = false;
     let entryId = '';
@@ -210,13 +213,16 @@ async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
             sanPham: mergedSanPham,
             tongTienHD: (dotHang[existingIndex].tongTienHD || 0) + (invoiceData.totalAmount || 0),
             tongMon: mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0),
-            soMonThieu: calculateSoMonThieu(datHang, mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0)),
+            soMonThieu: calculateSoMonThieu(
+                datHang,
+                mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0)
+            ),
             anhHoaDon: mergedImages,
             ghiChu: dotHang[existingIndex].ghiChu
                 ? `${dotHang[existingIndex].ghiChu}\n${invoiceData.notes || ''}`.trim()
-                : (invoiceData.notes || ''),
+                : invoiceData.notes || '',
             updatedAt: new Date().toISOString(),
-            updatedBy: `telegram_${userId}`
+            updatedBy: `telegram_${userId}`,
         };
 
         console.log(`[FIREBASE] Updated dotHang for NCC ${sttNCC}, date ${today}`);
@@ -240,7 +246,7 @@ async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
             createdAt: new Date().toISOString(),
             createdBy: `telegram_${userId}`,
             updatedAt: new Date().toISOString(),
-            updatedBy: `telegram_${userId}`
+            updatedBy: `telegram_${userId}`,
         };
 
         dotHang.push(newDotHang);
@@ -250,7 +256,7 @@ async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
     // Update Firestore
     await docRef.update({
         dotHang: dotHang,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return {
@@ -258,12 +264,8 @@ async function addOrUpdateDotHang(invoiceData, imageUrl, chatId, userId) {
         entryId: entryId,
         type: 'dotHang',
         isUpdate: isUpdate,
-        soMonThieu: isUpdate
-            ? dotHang[existingIndex].soMonThieu
-            : soMonThieu,
-        tongMon: isUpdate
-            ? dotHang[existingIndex].tongMon
-            : tongMon
+        soMonThieu: isUpdate ? dotHang[existingIndex].soMonThieu : soMonThieu,
+        tongMon: isUpdate ? dotHang[existingIndex].tongMon : tongMon,
     };
 }
 
@@ -284,7 +286,9 @@ async function saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userI
     // Check if NCC exists
     const nccExists = await checkNCCExists(invoiceData.ncc);
     if (!nccExists) {
-        throw new Error(`NCC ${invoiceData.ncc} chưa tồn tại trong hệ thống. Vui lòng gửi ảnh không có caption trước để tạo NCC mới.`);
+        throw new Error(
+            `NCC ${invoiceData.ncc} chưa tồn tại trong hệ thống. Vui lòng gửi ảnh không có caption trước để tạo NCC mới.`
+        );
     }
 
     // Get NCC document
@@ -301,7 +305,7 @@ async function saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userI
     const soMonThieu = calculateSoMonThieu(datHang, tongMon);
 
     // Find existing dotHang with same date
-    const existingIndex = dotHang.findIndex(d => d.ngayDiHang === deliveryDate);
+    const existingIndex = dotHang.findIndex((d) => d.ngayDiHang === deliveryDate);
 
     let isUpdate = false;
     let entryId = '';
@@ -325,13 +329,16 @@ async function saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userI
             sanPham: mergedSanPham,
             tongTienHD: (dotHang[existingIndex].tongTienHD || 0) + (invoiceData.totalAmount || 0),
             tongMon: mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0),
-            soMonThieu: calculateSoMonThieu(datHang, mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0)),
+            soMonThieu: calculateSoMonThieu(
+                datHang,
+                mergedSanPham.reduce((sum, p) => sum + (p.soLuong || 0), 0)
+            ),
             anhHoaDon: mergedImages,
             ghiChu: dotHang[existingIndex].ghiChu
                 ? `${dotHang[existingIndex].ghiChu}\n${invoiceData.notes || ''}`.trim()
-                : (invoiceData.notes || ''),
+                : invoiceData.notes || '',
             updatedAt: new Date().toISOString(),
-            updatedBy: `telegram_${userId}`
+            updatedBy: `telegram_${userId}`,
         };
 
         console.log(`[FIREBASE] Updated dotHang for NCC ${sttNCC}, delivery date ${deliveryDate}`);
@@ -355,17 +362,19 @@ async function saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userI
             createdAt: new Date().toISOString(),
             createdBy: `telegram_${userId}`,
             updatedAt: new Date().toISOString(),
-            updatedBy: `telegram_${userId}`
+            updatedBy: `telegram_${userId}`,
         };
 
         dotHang.push(newDotHang);
-        console.log(`[FIREBASE] Added new dotHang for NCC ${sttNCC}, delivery date ${deliveryDate}`);
+        console.log(
+            `[FIREBASE] Added new dotHang for NCC ${sttNCC}, delivery date ${deliveryDate}`
+        );
     }
 
     // Update Firestore
     await docRef.update({
         dotHang: dotHang,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return {
@@ -374,12 +383,8 @@ async function saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userI
         type: 'dotHang',
         isUpdate: isUpdate,
         deliveryDate: deliveryDate,
-        soMonThieu: isUpdate
-            ? dotHang[existingIndex].soMonThieu
-            : soMonThieu,
-        tongMon: isUpdate
-            ? dotHang[existingIndex].tongMon
-            : tongMon
+        soMonThieu: isUpdate ? dotHang[existingIndex].soMonThieu : soMonThieu,
+        tongMon: isUpdate ? dotHang[existingIndex].tongMon : tongMon,
     };
 }
 
@@ -408,7 +413,12 @@ async function saveInvoiceToFirebase(invoiceData, chatId, userId) {
             const extension = mimeType.split('/')[1] || 'jpg';
             const fileName = `invoice_${nccCode}_${timestamp}.${extension}`;
             // Use shared Firebase Storage service
-            imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', mimeType);
+            imageUrl = await firebaseStorageService.uploadImageBuffer(
+                buffer,
+                fileName,
+                'invoices',
+                mimeType
+            );
             console.log('[FIREBASE] Invoice image uploaded:', imageUrl);
         } catch (error) {
             console.error('[FIREBASE] Image upload error:', error.message);
@@ -446,7 +456,7 @@ async function findNCCDocument(nccCode) {
 
     return {
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
     };
 }
 
@@ -493,7 +503,12 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
     const fileName = `ncc_${nccCode}_${timestamp}.${extension}`;
 
     // Upload to Firebase Storage using shared service
-    const imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', mimeType);
+    const imageUrl = await firebaseStorageService.uploadImageBuffer(
+        buffer,
+        fileName,
+        'invoices',
+        mimeType
+    );
 
     // Get NCC document
     const docId = `ncc_${nccCode}`;
@@ -512,7 +527,7 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
 
     // Try to add to today's dotHang first
     const dotHang = data.dotHang || [];
-    const todayDotHangIndex = dotHang.findIndex(d => d.ngayDiHang === today);
+    const todayDotHangIndex = dotHang.findIndex((d) => d.ngayDiHang === today);
 
     if (todayDotHangIndex !== -1) {
         // Add to today's dotHang
@@ -526,7 +541,7 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
 
         await docRef.update({
             dotHang: dotHang,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
     } else {
         // Add to latest datHang
@@ -542,7 +557,7 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
 
             await docRef.update({
                 datHang: datHang,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         } else {
             throw new Error(`NCC ${nccCode} không có datHang hoặc dotHang để thêm ảnh`);
@@ -555,7 +570,7 @@ async function addImageToNCC(nccCode, fileId, targetType = 'latest') {
         nccCode: nccCode,
         arrayType: arrayType,
         imageCount: imageCount,
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
     };
 }
 
@@ -587,11 +602,11 @@ async function downloadTelegramFile(fileId) {
     // Determine MIME type from file path
     const extension = filePath.split('.').pop().toLowerCase();
     const mimeTypes = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'gif': 'image/gif',
-        'webp': 'image/webp'
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        webp: 'image/webp',
     };
     const mimeType = mimeTypes[extension] || 'image/jpeg';
 
@@ -687,11 +702,7 @@ function formatNCCDetails(nccDoc) {
  */
 function buildNccKeyboard(nccCode) {
     return {
-        inline_keyboard: [
-            [
-                { text: '🖼️ Thêm ảnh', callback_data: `add_img_${nccCode}` }
-            ]
-        ]
+        inline_keyboard: [[{ text: '🖼️ Thêm ảnh', callback_data: `add_img_${nccCode}` }]],
     };
 }
 
@@ -717,332 +728,332 @@ const CHINESE_TO_VIETNAMESE = {
     // COLORS - MÀU SẮC (颜色)
     // =====================================================
     // Màu cơ bản
-    '黑色': 'Đen',
-    '黑': 'Đen',
-    '白色': 'Trắng',
-    '白': 'Trắng',
-    '红色': 'Đỏ',
-    '红': 'Đỏ',
-    '蓝色': 'Xanh dương',
-    '蓝': 'Xanh dương',
-    '绿色': 'Xanh lá',
-    '绿': 'Xanh lá',
-    '黄色': 'Vàng',
-    '黄': 'Vàng',
-    '紫色': 'Tím',
-    '紫': 'Tím',
-    '粉色': 'Hồng',
-    '粉红色': 'Hồng phấn',
-    '粉': 'Hồng',
-    '灰色': 'Xám',
-    '灰': 'Xám',
-    '棕色': 'Nâu',
-    '棕': 'Nâu',
-    '橙色': 'Cam',
-    '橙': 'Cam',
-    '桔色': 'Cam',
-    '橘色': 'Cam',
+    黑色: 'Đen',
+    黑: 'Đen',
+    白色: 'Trắng',
+    白: 'Trắng',
+    红色: 'Đỏ',
+    红: 'Đỏ',
+    蓝色: 'Xanh dương',
+    蓝: 'Xanh dương',
+    绿色: 'Xanh lá',
+    绿: 'Xanh lá',
+    黄色: 'Vàng',
+    黄: 'Vàng',
+    紫色: 'Tím',
+    紫: 'Tím',
+    粉色: 'Hồng',
+    粉红色: 'Hồng phấn',
+    粉: 'Hồng',
+    灰色: 'Xám',
+    灰: 'Xám',
+    棕色: 'Nâu',
+    棕: 'Nâu',
+    橙色: 'Cam',
+    橙: 'Cam',
+    桔色: 'Cam',
+    橘色: 'Cam',
 
     // Màu đặc biệt / Hot trend
-    '咖啡色': 'Cà phê',
-    '咖色': 'Nâu cà phê',
-    '咖': 'Nâu cà phê',
-    '米色': 'Kem',
-    '米白色': 'Trắng kem',
-    '米白': 'Trắng kem',
-    '米': 'Kem',
-    '杏色': 'Hồng mơ',
-    '杏': 'Hồng mơ',
-    '酱色': 'Nâu đậm',
-    '酱红色': 'Đỏ nâu',
-    '酱': 'Nâu đậm',
-    '卡其色': 'Khaki',
-    '卡其': 'Khaki',
-    '驼色': 'Nâu lạc đà',
-    '驼': 'Lạc đà',
-    '藏青色': 'Xanh than',
-    '藏青': 'Xanh than',
-    '酒红色': 'Đỏ rượu vang',
-    '酒红': 'Đỏ rượu',
-    '墨绿色': 'Xanh rêu',
-    '墨绿': 'Xanh rêu',
-    '军绿色': 'Xanh quân đội',
-    '军绿': 'Xanh lính',
-    '焦糖色': 'Caramel',
-    '焦糖': 'Caramel',
-    '牛油果色': 'Xanh bơ',
-    '牛油果': 'Xanh bơ',
-    '奶白': 'Trắng sữa',
-    '奶油': 'Kem sữa',
-    '香槟色': 'Champagne',
-    '香槟': 'Champagne',
-    '银色': 'Bạc',
-    '银': 'Bạc',
-    '金色': 'Vàng gold',
-    '金': 'Vàng gold',
-    '玫红': 'Hồng cánh sen',
-    '玫瑰红': 'Hồng hoa hồng',
-    '宝蓝': 'Xanh hoàng gia',
-    '天蓝': 'Xanh da trời',
-    '湖蓝': 'Xanh hồ',
-    '雾蓝': 'Xanh sương mù',
-    '烟灰': 'Xám khói',
-    '炭灰': 'Xám than',
-    '花灰': 'Xám hoa',
-    '杂灰': 'Xám đốm',
-    '姜黄': 'Vàng nghệ',
-    '土黄': 'Vàng đất',
-    '芥末黄': 'Vàng mù tạt',
+    咖啡色: 'Cà phê',
+    咖色: 'Nâu cà phê',
+    咖: 'Nâu cà phê',
+    米色: 'Kem',
+    米白色: 'Trắng kem',
+    米白: 'Trắng kem',
+    米: 'Kem',
+    杏色: 'Hồng mơ',
+    杏: 'Hồng mơ',
+    酱色: 'Nâu đậm',
+    酱红色: 'Đỏ nâu',
+    酱: 'Nâu đậm',
+    卡其色: 'Khaki',
+    卡其: 'Khaki',
+    驼色: 'Nâu lạc đà',
+    驼: 'Lạc đà',
+    藏青色: 'Xanh than',
+    藏青: 'Xanh than',
+    酒红色: 'Đỏ rượu vang',
+    酒红: 'Đỏ rượu',
+    墨绿色: 'Xanh rêu',
+    墨绿: 'Xanh rêu',
+    军绿色: 'Xanh quân đội',
+    军绿: 'Xanh lính',
+    焦糖色: 'Caramel',
+    焦糖: 'Caramel',
+    牛油果色: 'Xanh bơ',
+    牛油果: 'Xanh bơ',
+    奶白: 'Trắng sữa',
+    奶油: 'Kem sữa',
+    香槟色: 'Champagne',
+    香槟: 'Champagne',
+    银色: 'Bạc',
+    银: 'Bạc',
+    金色: 'Vàng gold',
+    金: 'Vàng gold',
+    玫红: 'Hồng cánh sen',
+    玫瑰红: 'Hồng hoa hồng',
+    宝蓝: 'Xanh hoàng gia',
+    天蓝: 'Xanh da trời',
+    湖蓝: 'Xanh hồ',
+    雾蓝: 'Xanh sương mù',
+    烟灰: 'Xám khói',
+    炭灰: 'Xám than',
+    花灰: 'Xám hoa',
+    杂灰: 'Xám đốm',
+    姜黄: 'Vàng nghệ',
+    土黄: 'Vàng đất',
+    芥末黄: 'Vàng mù tạt',
 
     // Tiền tố màu
-    '浅': 'Nhạt',
-    '深': 'Đậm',
-    '浅灰': 'Xám nhạt',
-    '深灰': 'Xám đậm',
-    '浅蓝': 'Xanh nhạt',
-    '深蓝': 'Xanh đậm',
-    '浅绿': 'Xanh lá nhạt',
-    '深绿': 'Xanh lá đậm',
-    '浅粉': 'Hồng nhạt',
-    '深粉': 'Hồng đậm',
-    '浅紫': 'Tím nhạt',
-    '深紫': 'Tím đậm',
-    '浅咖': 'Nâu nhạt',
-    '深咖': 'Nâu đậm',
+    浅: 'Nhạt',
+    深: 'Đậm',
+    浅灰: 'Xám nhạt',
+    深灰: 'Xám đậm',
+    浅蓝: 'Xanh nhạt',
+    深蓝: 'Xanh đậm',
+    浅绿: 'Xanh lá nhạt',
+    深绿: 'Xanh lá đậm',
+    浅粉: 'Hồng nhạt',
+    深粉: 'Hồng đậm',
+    浅紫: 'Tím nhạt',
+    深紫: 'Tím đậm',
+    浅咖: 'Nâu nhạt',
+    深咖: 'Nâu đậm',
 
     // Viết tắt màu (phổ biến trong hóa đơn viết tay)
-    '兰': 'Xanh dương',  // Viết tắt của 蓝色
+    兰: 'Xanh dương', // Viết tắt của 蓝色
 
     // =====================================================
     // PATTERNS - HỌA TIẾT
     // =====================================================
-    '条': 'Sọc',
-    '条纹': 'Sọc',
-    '纹': 'Vân',
-    '格': 'Caro',
-    '格子': 'Caro',
-    '花': 'Hoa',
-    '碎花': 'Hoa nhỏ',
-    '大花': 'Hoa lớn',
-    '点': 'Chấm',
-    '波点': 'Chấm bi',
-    '印': 'In',
-    '印花': 'In hoa',
-    '刺绣': 'Thêu',
-    '绣花': 'Thêu hoa',
-    '山茶花': 'Hoa sơn trà',
-    '皇冠': 'Vương miện',
-    '字母': 'Chữ cái',
-    '数字': 'Số',
-    '卡通': 'Hoạt hình',
+    条: 'Sọc',
+    条纹: 'Sọc',
+    纹: 'Vân',
+    格: 'Caro',
+    格子: 'Caro',
+    花: 'Hoa',
+    碎花: 'Hoa nhỏ',
+    大花: 'Hoa lớn',
+    点: 'Chấm',
+    波点: 'Chấm bi',
+    印: 'In',
+    印花: 'In hoa',
+    刺绣: 'Thêu',
+    绣花: 'Thêu hoa',
+    山茶花: 'Hoa sơn trà',
+    皇冠: 'Vương miện',
+    字母: 'Chữ cái',
+    数字: 'Số',
+    卡通: 'Hoạt hình',
 
     // =====================================================
     // MATERIALS - CHẤT LIỆU (面料)
     // =====================================================
-    '棉': 'Cotton',
-    '纯棉': 'Cotton 100%',
-    '全棉': 'Cotton 100%',
-    '麻': 'Lanh',
-    '棉麻': 'Cotton lanh',
-    '丝': 'Lụa',
-    '真丝': 'Lụa thật',
-    '绒': 'Nhung',
-    '天鹅绒': 'Nhung thiên nga',
-    '金丝绒': 'Nhung vàng',
-    '毛': 'Len',
-    '羊毛': 'Len cừu',
-    '羊绒': 'Len cashmere',
-    '皮': 'Da',
-    '皮革': 'Da thuộc',
-    '革': 'Da thuộc',
-    '牛仔': 'Vải jean',
-    '雪纺': 'Voan',
-    '涤纶': 'Polyester',
-    '锦纶': 'Nylon',
-    '氨纶': 'Spandex',
-    '蕾丝': 'Ren',
-    '网纱': 'Lưới',
-    '针织': 'Dệt kim',
-    '梭织': 'Dệt thoi',
-    '弹力': 'Co giãn',
+    棉: 'Cotton',
+    纯棉: 'Cotton 100%',
+    全棉: 'Cotton 100%',
+    麻: 'Lanh',
+    棉麻: 'Cotton lanh',
+    丝: 'Lụa',
+    真丝: 'Lụa thật',
+    绒: 'Nhung',
+    天鹅绒: 'Nhung thiên nga',
+    金丝绒: 'Nhung vàng',
+    毛: 'Len',
+    羊毛: 'Len cừu',
+    羊绒: 'Len cashmere',
+    皮: 'Da',
+    皮革: 'Da thuộc',
+    革: 'Da thuộc',
+    牛仔: 'Vải jean',
+    雪纺: 'Voan',
+    涤纶: 'Polyester',
+    锦纶: 'Nylon',
+    氨纶: 'Spandex',
+    蕾丝: 'Ren',
+    网纱: 'Lưới',
+    针织: 'Dệt kim',
+    梭织: 'Dệt thoi',
+    弹力: 'Co giãn',
 
     // =====================================================
     // CLOTHING TYPES - LOẠI TRANG PHỤC (款式)
     // =====================================================
     // Áo
-    '上衣': 'Áo',
-    'T恤': 'Áo thun',
-    'T恤衫': 'Áo thun',
-    '衬衫': 'Áo sơ mi',
-    '衬衣': 'Áo sơ mi',
-    '外套': 'Áo khoác',
-    '夹克': 'Áo jacket',
-    '风衣': 'Áo măng tô',
-    '大衣': 'Áo khoác dài',
-    '棉衣': 'Áo cotton',
-    '棉袄': 'Áo bông',
-    '羽绒服': 'Áo phao',
-    '卫衣': 'Áo nỉ',
-    '毛衣': 'Áo len',
-    '针织衫': 'Áo len',
-    '打底衫': 'Áo lót',
-    '打底': 'Áo lót',
-    '马甲': 'Áo gile',
-    '背心': 'Áo ba lỗ',
-    '吊带': 'Dây đeo',
-    '吊带衫': 'Áo hai dây',
-    '西装': 'Vest',
-    '西服': 'Vest',
-    '开衫': 'Áo cardigan',
+    上衣: 'Áo',
+    T恤: 'Áo thun',
+    T恤衫: 'Áo thun',
+    衬衫: 'Áo sơ mi',
+    衬衣: 'Áo sơ mi',
+    外套: 'Áo khoác',
+    夹克: 'Áo jacket',
+    风衣: 'Áo măng tô',
+    大衣: 'Áo khoác dài',
+    棉衣: 'Áo cotton',
+    棉袄: 'Áo bông',
+    羽绒服: 'Áo phao',
+    卫衣: 'Áo nỉ',
+    毛衣: 'Áo len',
+    针织衫: 'Áo len',
+    打底衫: 'Áo lót',
+    打底: 'Áo lót',
+    马甲: 'Áo gile',
+    背心: 'Áo ba lỗ',
+    吊带: 'Dây đeo',
+    吊带衫: 'Áo hai dây',
+    西装: 'Vest',
+    西服: 'Vest',
+    开衫: 'Áo cardigan',
 
     // Quần
-    '裤': 'Quần',
-    '裤子': 'Quần',
-    '短裤': 'Quần short',
-    '长裤': 'Quần dài',
-    '牛仔裤': 'Quần jean',
-    '西裤': 'Quần tây',
-    '休闲裤': 'Quần casual',
-    '运动裤': 'Quần thể thao',
-    '阔腿裤': 'Quần ống rộng',
-    '喇叭裤': 'Quần ống loe',
-    '直筒裤': 'Quần ống đứng',
-    '九分裤': 'Quần 9 phân',
-    '七分裤': 'Quần 7 phân',
-    '五分裤': 'Quần 5 phân',
-    '打底裤': 'Quần legging',
+    裤: 'Quần',
+    裤子: 'Quần',
+    短裤: 'Quần short',
+    长裤: 'Quần dài',
+    牛仔裤: 'Quần jean',
+    西裤: 'Quần tây',
+    休闲裤: 'Quần casual',
+    运动裤: 'Quần thể thao',
+    阔腿裤: 'Quần ống rộng',
+    喇叭裤: 'Quần ống loe',
+    直筒裤: 'Quần ống đứng',
+    九分裤: 'Quần 9 phân',
+    七分裤: 'Quần 7 phân',
+    五分裤: 'Quần 5 phân',
+    打底裤: 'Quần legging',
 
     // Váy
-    '裙': 'Váy',
-    '裙子': 'Váy',
-    '连衣裙': 'Váy liền',
-    '半身裙': 'Chân váy',
-    '短裙': 'Váy ngắn',
-    '长裙': 'Váy dài',
-    '百褶裙': 'Váy xếp ly',
-    '包臀裙': 'Váy bút chì',
-    'A字裙': 'Váy chữ A',
-    '蓬蓬裙': 'Váy xòe',
+    裙: 'Váy',
+    裙子: 'Váy',
+    连衣裙: 'Váy liền',
+    半身裙: 'Chân váy',
+    短裙: 'Váy ngắn',
+    长裙: 'Váy dài',
+    百褶裙: 'Váy xếp ly',
+    包臀裙: 'Váy bút chì',
+    A字裙: 'Váy chữ A',
+    蓬蓬裙: 'Váy xòe',
 
     // Bộ đồ
-    '套装': 'Đồ bộ',
-    '两件套': 'Bộ 2 món',
-    '三件套': 'Bộ 3 món',
-    '四件套': 'Bộ 4 món',
-    '套': 'Bộ',
-    '睡衣': 'Đồ ngủ',
-    '家居服': 'Đồ mặc nhà',
-    '运动套装': 'Bộ thể thao',
+    套装: 'Đồ bộ',
+    两件套: 'Bộ 2 món',
+    三件套: 'Bộ 3 món',
+    四件套: 'Bộ 4 món',
+    套: 'Bộ',
+    睡衣: 'Đồ ngủ',
+    家居服: 'Đồ mặc nhà',
+    运动套装: 'Bộ thể thao',
 
     // Phụ kiện
-    '帽子': 'Mũ',
-    '围巾': 'Khăn choàng',
-    '手套': 'Găng tay',
-    '袜子': 'Tất',
-    '皮带': 'Thắt lưng',
-    '腰带': 'Dây lưng',
-    '包': 'Túi',
-    '手提包': 'Túi xách',
-    '单肩包': 'Túi đeo vai',
-    '斜挎包': 'Túi đeo chéo',
-    '双肩包': 'Balo',
+    帽子: 'Mũ',
+    围巾: 'Khăn choàng',
+    手套: 'Găng tay',
+    袜子: 'Tất',
+    皮带: 'Thắt lưng',
+    腰带: 'Dây lưng',
+    包: 'Túi',
+    手提包: 'Túi xách',
+    单肩包: 'Túi đeo vai',
+    斜挎包: 'Túi đeo chéo',
+    双肩包: 'Balo',
 
     // =====================================================
     // DESIGN DETAILS - CHI TIẾT THIẾT KẾ (细节)
     // =====================================================
     // Cổ áo
-    '领': 'Cổ',
-    '圆领': 'Cổ tròn',
-    'V领': 'Cổ chữ V',
-    '高领': 'Cổ cao',
-    '翻领': 'Cổ lật',
-    '方领': 'Cổ vuông',
-    '一字领': 'Cổ ngang',
-    '娃娃领': 'Cổ búp bê',
-    '立领': 'Cổ đứng',
-    '半高领': 'Cổ lọ',
-    '堆堆领': 'Cổ đống',
+    领: 'Cổ',
+    圆领: 'Cổ tròn',
+    V领: 'Cổ chữ V',
+    高领: 'Cổ cao',
+    翻领: 'Cổ lật',
+    方领: 'Cổ vuông',
+    一字领: 'Cổ ngang',
+    娃娃领: 'Cổ búp bê',
+    立领: 'Cổ đứng',
+    半高领: 'Cổ lọ',
+    堆堆领: 'Cổ đống',
 
     // Tay áo
-    '袖': 'Tay áo',
-    '长袖': 'Tay dài',
-    '短袖': 'Tay ngắn',
-    '七分袖': 'Tay 7 phân',
-    '无袖': 'Không tay',
-    '泡泡袖': 'Tay bồng',
-    '蝙蝠袖': 'Tay dơi',
-    '喇叭袖': 'Tay loe',
-    '灯笼袖': 'Tay lồng đèn',
+    袖: 'Tay áo',
+    长袖: 'Tay dài',
+    短袖: 'Tay ngắn',
+    七分袖: 'Tay 7 phân',
+    无袖: 'Không tay',
+    泡泡袖: 'Tay bồng',
+    蝙蝠袖: 'Tay dơi',
+    喇叭袖: 'Tay loe',
+    灯笼袖: 'Tay lồng đèn',
 
     // Dáng / Kiểu
-    '短款': 'Dáng ngắn',
-    '中长款': 'Dáng trung',
-    '长款': 'Dáng dài',
-    '修身': 'Ôm body',
-    '宽松': 'Rộng',
-    '直筒': 'Ống đứng',
-    '交叉': 'Chéo',
-    '斜角': 'Xéo góc',
-    '系带': 'Dây buộc',
-    '拉链': 'Khoá kéo',
-    '纽扣': 'Khuy',
-    '扣子': 'Nút',
-    '铆钉': 'Đinh tán',
-    '流苏': 'Tua rua',
-    '荷叶边': 'Viền lượn sóng',
-    '木耳边': 'Viền bèo',
-    '蝴蝶结': 'Nơ',
-    '腰带': 'Đai lưng',
-    '口袋': 'Túi',
-    '开叉': 'Xẻ',
-    '褶皱': 'Xếp ly',
-    '收腰': 'Eo',
+    短款: 'Dáng ngắn',
+    中长款: 'Dáng trung',
+    长款: 'Dáng dài',
+    修身: 'Ôm body',
+    宽松: 'Rộng',
+    直筒: 'Ống đứng',
+    交叉: 'Chéo',
+    斜角: 'Xéo góc',
+    系带: 'Dây buộc',
+    拉链: 'Khoá kéo',
+    纽扣: 'Khuy',
+    扣子: 'Nút',
+    铆钉: 'Đinh tán',
+    流苏: 'Tua rua',
+    荷叶边: 'Viền lượn sóng',
+    木耳边: 'Viền bèo',
+    蝴蝶结: 'Nơ',
+    腰带: 'Đai lưng',
+    口袋: 'Túi',
+    开叉: 'Xẻ',
+    褶皱: 'Xếp ly',
+    收腰: 'Eo',
 
     // =====================================================
     // SIZES - KÍCH THƯỚC
     // =====================================================
-    '均码': 'Freesize',
-    'F': 'Freesize',
-    '均': 'Freesize',
-    'S码': 'Size S',
-    'M码': 'Size M',
-    'L码': 'Size L',
-    'XL码': 'Size XL',
-    'XXL码': 'Size XXL',
-    '大码': 'Size lớn',
-    '加大码': 'Size cực lớn',
-    '件': 'Cái',
-    '条': 'Chiếc',
-    '手': '1 ri',
+    均码: 'Freesize',
+    F: 'Freesize',
+    均: 'Freesize',
+    S码: 'Size S',
+    M码: 'Size M',
+    L码: 'Size L',
+    XL码: 'Size XL',
+    XXL码: 'Size XXL',
+    大码: 'Size lớn',
+    加大码: 'Size cực lớn',
+    件: 'Cái',
+    条: 'Chiếc',
+    手: '1 ri',
 
     // =====================================================
     // ORDER STATUS - TÌNH TRẠNG ĐƠN HÀNG
     // =====================================================
-    '现货': 'Có sẵn',
-    '预售': 'Pre-order',
-    '欠货': 'Nợ hàng',
-    '退货': 'Trả hàng',
-    '拿货': 'Lấy hàng',
-    '补货': 'Bổ sung hàng',
-    '断货': 'Hết hàng',
-    '缺货': 'Thiếu hàng',
+    现货: 'Có sẵn',
+    预售: 'Pre-order',
+    欠货: 'Nợ hàng',
+    退货: 'Trả hàng',
+    拿货: 'Lấy hàng',
+    补货: 'Bổ sung hàng',
+    断货: 'Hết hàng',
+    缺货: 'Thiếu hàng',
 
     // =====================================================
     // COMMON TERMS - TỪ THÔNG DỤNG
     // =====================================================
-    '色': '',
-    '款': 'Kiểu',
-    '新款': 'Mẫu mới',
-    '热卖': 'Bán chạy',
-    '爆款': 'Hot',
-    '苏': 'Tô',
-    '号': 'Số',
-    '小计': 'Tạm tính',
-    '合计': 'Tổng cộng',
-    '销售合计': 'Tổng bán',
-    '数量': 'Số lượng',
-    '单价': 'Đơn giá',
-    '金额': 'Thành tiền'
+    色: '',
+    款: 'Kiểu',
+    新款: 'Mẫu mới',
+    热卖: 'Bán chạy',
+    爆款: 'Hot',
+    苏: 'Tô',
+    号: 'Số',
+    小计: 'Tạm tính',
+    合计: 'Tổng cộng',
+    销售合计: 'Tổng bán',
+    数量: 'Số lượng',
+    单价: 'Đơn giá',
+    金额: 'Thành tiền',
 };
 
 /**
@@ -1332,7 +1343,7 @@ async function sendTelegramMessage(chatId, text, replyToMessageId = null, replyM
     try {
         const body = {
             chat_id: chatId,
-            text: text
+            text: text,
         };
 
         if (replyToMessageId) {
@@ -1346,7 +1357,7 @@ async function sendTelegramMessage(chatId, text, replyToMessageId = null, replyM
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
 
         const data = await response.json();
@@ -1371,8 +1382,8 @@ async function answerCallbackQuery(callbackQueryId, text = '') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 callback_query_id: callbackQueryId,
-                text: text
-            })
+                text: text,
+            }),
         });
     } catch (error) {
         console.error('[TELEGRAM] answerCallbackQuery error:', error.message);
@@ -1388,7 +1399,7 @@ async function editMessageText(chatId, messageId, text, replyMarkup = null) {
         const body = {
             chat_id: chatId,
             message_id: messageId,
-            text: text
+            text: text,
         };
         if (replyMarkup) {
             body.reply_markup = replyMarkup;
@@ -1396,7 +1407,7 @@ async function editMessageText(chatId, messageId, text, replyMarkup = null) {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         return await response.json();
     } catch (error) {
@@ -1417,8 +1428,8 @@ async function sendChatAction(chatId, action = 'typing') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                action: action
-            })
+                action: action,
+            }),
         });
     } catch (error) {
         // Ignore action errors
@@ -1448,11 +1459,11 @@ async function getTelegramFileAsBase64(fileId) {
     // Determine mime type
     const extension = filePath.split('.').pop().toLowerCase();
     const mimeTypes = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'gif': 'image/gif',
-        'webp': 'image/webp'
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        webp: 'image/webp',
     };
     const mimeType = mimeTypes[extension] || 'image/jpeg';
 
@@ -1473,24 +1484,26 @@ async function analyzeInvoiceImage(base64Image, mimeType) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            contents: [{
-                parts: [
-                    { text: INVOICE_EXTRACTION_PROMPT },
-                    {
-                        inline_data: {
-                            mime_type: mimeType,
-                            data: base64Image
-                        }
-                    }
-                ]
-            }],
+            contents: [
+                {
+                    parts: [
+                        { text: INVOICE_EXTRACTION_PROMPT },
+                        {
+                            inline_data: {
+                                mime_type: mimeType,
+                                data: base64Image,
+                            },
+                        },
+                    ],
+                },
+            ],
             generationConfig: {
                 temperature: 0.1,
                 topP: 0.95,
                 topK: 40,
-                maxOutputTokens: 4096
-            }
-        })
+                maxOutputTokens: 4096,
+            },
+        }),
     });
 
     const data = await response.json();
@@ -1519,7 +1532,7 @@ async function analyzeInvoiceImage(base64Image, mimeType) {
         return {
             success: false,
             error: 'Không thể parse kết quả từ AI',
-            rawResponse: responseText
+            rawResponse: responseText,
         };
     }
 }
@@ -1541,7 +1554,7 @@ async function callGeminiAI(historyKey, userMessage, userName = null) {
 
     history.push({
         role: 'user',
-        parts: [{ text: messageText }]
+        parts: [{ text: messageText }],
     });
 
     while (history.length > MAX_HISTORY_LENGTH) {
@@ -1559,9 +1572,9 @@ async function callGeminiAI(historyKey, userMessage, userName = null) {
                 temperature: 0.7,
                 topP: 0.95,
                 topK: 40,
-                maxOutputTokens: 2048
-            }
-        })
+                maxOutputTokens: 2048,
+            },
+        }),
     });
 
     const data = await response.json();
@@ -1578,7 +1591,7 @@ async function callGeminiAI(historyKey, userMessage, userName = null) {
 
     history.push({
         role: 'model',
-        parts: [{ text: aiResponse }]
+        parts: [{ text: aiResponse }],
     });
 
     return aiResponse;
@@ -1666,7 +1679,9 @@ function formatInvoicePreview(invoiceData, langMode = 'vi') {
         text += `🔢 MÃ NCC: ${invoiceData.ncc}\n`;
     }
     if (invoiceData.supplier) {
-        const supplier = isVietnamese ? translateToVietnamese(invoiceData.supplier) : invoiceData.supplier;
+        const supplier = isVietnamese
+            ? translateToVietnamese(invoiceData.supplier)
+            : invoiceData.supplier;
         text += `🏪 Tên NCC: ${supplier}\n`;
     }
     if (invoiceData.date) {
@@ -1705,18 +1720,19 @@ function formatInvoicePreview(invoiceData, langMode = 'vi') {
  * Build inline keyboard for invoice preview
  */
 function buildInvoiceKeyboard(invoiceId, langMode = 'vi') {
-    const toggleButton = langMode === 'vi'
-        ? { text: '🇨🇳 Xem tiếng Trung', callback_data: `lang_cn_${invoiceId}` }
-        : { text: '🇻🇳 Xem Việt hóa', callback_data: `lang_vi_${invoiceId}` };
+    const toggleButton =
+        langMode === 'vi'
+            ? { text: '🇨🇳 Xem tiếng Trung', callback_data: `lang_cn_${invoiceId}` }
+            : { text: '🇻🇳 Xem Việt hóa', callback_data: `lang_vi_${invoiceId}` };
 
     return {
         inline_keyboard: [
             [toggleButton],
             [
                 { text: '✅ Xác nhận lưu', callback_data: `confirm_invoice_${invoiceId}` },
-                { text: '❌ Hủy', callback_data: `cancel_invoice_${invoiceId}` }
-            ]
-        ]
+                { text: '❌ Hủy', callback_data: `cancel_invoice_${invoiceId}` },
+            ],
+        ],
     };
 }
 
@@ -1737,7 +1753,13 @@ router.get('/', (req, res) => {
         botUsername: BOT_USERNAME,
         activeConversations: conversationHistory.size,
         pendingInvoices: pendingInvoices.size,
-        features: ['text_chat', 'invoice_processing', 'group_chat', 'mention_trigger', 'firebase_storage']
+        features: [
+            'text_chat',
+            'invoice_processing',
+            'group_chat',
+            'mention_trigger',
+            'firebase_storage',
+        ],
     });
 });
 
@@ -1769,7 +1791,9 @@ router.post('/webhook', async (req, res) => {
                     const keyboard = buildInvoiceKeyboard(invoiceId, langMode);
                     await editMessageText(chatId, messageId, previewText, keyboard);
                 } else {
-                    await editMessageText(chatId, messageId,
+                    await editMessageText(
+                        chatId,
+                        messageId,
                         `⚠️ Hóa đơn đã hết hạn. Vui lòng gửi lại ảnh.`
                     );
                 }
@@ -1790,7 +1814,8 @@ router.post('/webhook', async (req, res) => {
                         let successMsg = '';
                         if (result.type === 'datHang') {
                             // New NCC - created datHang (Tab 1)
-                            successMsg = `✅ ĐÃ TẠO ĐƠN ĐẶT HÀNG MỚI!\n\n` +
+                            successMsg =
+                                `✅ ĐÃ TẠO ĐƠN ĐẶT HÀNG MỚI!\n\n` +
                                 `📋 Document: ${result.docId}\n` +
                                 `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
                                 `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
@@ -1800,24 +1825,28 @@ router.post('/webhook', async (req, res) => {
                         } else if (result.type === 'dotHang') {
                             // Existing NCC - added/updated dotHang (Tab 2)
                             if (result.isUpdate) {
-                                successMsg = `✅ ĐÃ CẬP NHẬT ĐỢT HÀNG!\n\n` +
+                                successMsg =
+                                    `✅ ĐÃ CẬP NHẬT ĐỢT HÀNG!\n\n` +
                                     `📋 Document: ${result.docId}\n` +
                                     `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
                                     `📦 Tổng món: ${result.tongMon || 0}\n`;
                                 if (result.soMonThieu > 0) {
                                     successMsg += `⚠️ Thiếu: ${result.soMonThieu} món\n`;
                                 }
-                                successMsg += `\n📝 Tab 2 - Theo dõi đơn hàng\n` +
+                                successMsg +=
+                                    `\n📝 Tab 2 - Theo dõi đơn hàng\n` +
                                     `💡 Đã gộp vào đợt hàng hôm nay.`;
                             } else {
-                                successMsg = `✅ ĐÃ THÊM ĐỢT HÀNG MỚI!\n\n` +
+                                successMsg =
+                                    `✅ ĐÃ THÊM ĐỢT HÀNG MỚI!\n\n` +
                                     `📋 Document: ${result.docId}\n` +
                                     `🔢 Mã NCC: ${invoiceData.ncc || 'N/A'}\n` +
                                     `📦 Tổng món: ${result.tongMon || 0}\n`;
                                 if (result.soMonThieu > 0) {
                                     successMsg += `⚠️ Thiếu: ${result.soMonThieu} món\n`;
                                 }
-                                successMsg += `\n📝 Tab 2 - Theo dõi đơn hàng\n` +
+                                successMsg +=
+                                    `\n📝 Tab 2 - Theo dõi đơn hàng\n` +
                                     `💡 NCC ${invoiceData.ncc} đã tồn tại, thêm đợt giao hàng mới.`;
                             }
                         }
@@ -1825,12 +1854,16 @@ router.post('/webhook', async (req, res) => {
                         await editMessageText(chatId, messageId, successMsg);
                     } catch (error) {
                         console.error('[TELEGRAM] Firebase save error:', error.message);
-                        await editMessageText(chatId, messageId,
+                        await editMessageText(
+                            chatId,
+                            messageId,
                             `❌ Lỗi lưu hóa đơn:\n${error.message}\n\nVui lòng thử lại.`
                         );
                     }
                 } else {
-                    await editMessageText(chatId, messageId,
+                    await editMessageText(
+                        chatId,
+                        messageId,
                         `⚠️ Hóa đơn đã hết hạn. Vui lòng gửi lại ảnh.`
                     );
                 }
@@ -1840,7 +1873,9 @@ router.post('/webhook', async (req, res) => {
                 const invoiceId = data.replace('cancel_invoice_', '');
                 pendingInvoices.delete(invoiceId);
 
-                await editMessageText(chatId, messageId,
+                await editMessageText(
+                    chatId,
+                    messageId,
                     `❌ Đã hủy. Bạn có thể gửi lại ảnh hóa đơn khác.`
                 );
             }
@@ -1851,21 +1886,25 @@ router.post('/webhook', async (req, res) => {
                 // Store pending add image state
                 pendingImageEdits.set(chatId, {
                     nccCode,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                 });
 
                 // Auto-expire after 5 minutes
-                setTimeout(() => {
-                    const edit = pendingImageEdits.get(chatId);
-                    if (edit && edit.nccCode === nccCode) {
-                        pendingImageEdits.delete(chatId);
-                    }
-                }, 5 * 60 * 1000);
+                setTimeout(
+                    () => {
+                        const edit = pendingImageEdits.get(chatId);
+                        if (edit && edit.nccCode === nccCode) {
+                            pendingImageEdits.delete(chatId);
+                        }
+                    },
+                    5 * 60 * 1000
+                );
 
-                await sendTelegramMessage(chatId,
+                await sendTelegramMessage(
+                    chatId,
                     `📤 Gửi ảnh để thêm vào NCC ${nccCode}\n\n` +
-                    `⏳ Bạn có 5 phút để gửi ảnh.\n` +
-                    `❌ Gửi /cancel để hủy.`
+                        `⏳ Bạn có 5 phút để gửi ảnh.\n` +
+                        `❌ Gửi /cancel để hủy.`
                 );
             }
             return;
@@ -1886,7 +1925,9 @@ router.post('/webhook', async (req, res) => {
 
             await getBotUsername();
 
-            console.log(`[TELEGRAM] ${isGroup ? 'Group' : 'Private'} message from ${firstName} in ${chatName}`);
+            console.log(
+                `[TELEGRAM] ${isGroup ? 'Group' : 'Private'} message from ${firstName} in ${chatName}`
+            );
 
             // In groups, check if should respond
             if (isGroup && !shouldRespondInGroup(message, BOT_USERNAME)) {
@@ -1915,10 +1956,16 @@ router.post('/webhook', async (req, res) => {
                     const year = tab2Match[3];
                     const deliveryDate = `${day}/${month}/${year}`;
 
-                    console.log(`[TELEGRAM] Photo with /2 command - Save to Tab 2 with delivery date: ${deliveryDate}`);
+                    console.log(
+                        `[TELEGRAM] Photo with /2 command - Save to Tab 2 with delivery date: ${deliveryDate}`
+                    );
 
                     await sendChatAction(chatId, 'typing');
-                    await sendTelegramMessage(chatId, `🔍 Đang phân tích hóa đơn...\n📅 Ngày giao: ${deliveryDate}`, messageId);
+                    await sendTelegramMessage(
+                        chatId,
+                        `🔍 Đang phân tích hóa đơn...\n📅 Ngày giao: ${deliveryDate}`,
+                        messageId
+                    );
 
                     try {
                         // Get the largest photo
@@ -1929,7 +1976,8 @@ router.post('/webhook', async (req, res) => {
                         const invoiceData = await analyzeInvoiceImage(base64, mimeType);
 
                         if (!invoiceData.success) {
-                            await sendTelegramMessage(chatId,
+                            await sendTelegramMessage(
+                                chatId,
                                 `❌ Không thể phân tích hóa đơn:\n${invoiceData.error || 'Lỗi không xác định'}`,
                                 messageId
                             );
@@ -1937,7 +1985,8 @@ router.post('/webhook', async (req, res) => {
                         }
 
                         if (!invoiceData.ncc) {
-                            await sendTelegramMessage(chatId,
+                            await sendTelegramMessage(
+                                chatId,
                                 `❌ Không tìm thấy mã NCC trong ảnh.\n💡 Đảm bảo hóa đơn có ghi số NCC.`,
                                 messageId
                             );
@@ -1947,47 +1996,63 @@ router.post('/webhook', async (req, res) => {
                         // Upload image to Firebase Storage
                         let imageUrl = null;
                         try {
-                            const { buffer, mimeType: fileMimeType } = await downloadTelegramFile(photo.file_id);
+                            const { buffer, mimeType: fileMimeType } = await downloadTelegramFile(
+                                photo.file_id
+                            );
                             const timestamp = Date.now();
                             const extension = fileMimeType.split('/')[1] || 'jpg';
                             const fileName = `invoice_${invoiceData.ncc}_${timestamp}.${extension}`;
-                            imageUrl = await firebaseStorageService.uploadImageBuffer(buffer, fileName, 'invoices', fileMimeType);
+                            imageUrl = await firebaseStorageService.uploadImageBuffer(
+                                buffer,
+                                fileName,
+                                'invoices',
+                                fileMimeType
+                            );
                         } catch (error) {
                             console.error('[FIREBASE] Image upload error:', error.message);
                         }
 
                         // Save directly to Tab 2 with custom delivery date
-                        const result = await saveInvoiceToDotHangWithDate(invoiceData, imageUrl, chatId, userId, deliveryDate);
+                        const result = await saveInvoiceToDotHangWithDate(
+                            invoiceData,
+                            imageUrl,
+                            chatId,
+                            userId,
+                            deliveryDate
+                        );
 
                         // Format products summary
-                        const productsList = invoiceData.products.slice(0, 5)
-                            .map(p => `  • ${p.sku || ''} ${p.name || ''}: ${p.quantity || 0}`)
+                        const productsList = invoiceData.products
+                            .slice(0, 5)
+                            .map((p) => `  • ${p.sku || ''} ${p.name || ''}: ${p.quantity || 0}`)
                             .join('\n');
-                        const moreProducts = invoiceData.products.length > 5
-                            ? `\n  ... và ${invoiceData.products.length - 5} sản phẩm khác`
-                            : '';
+                        const moreProducts =
+                            invoiceData.products.length > 5
+                                ? `\n  ... và ${invoiceData.products.length - 5} sản phẩm khác`
+                                : '';
 
                         const successMsg = result.isUpdate
                             ? `✅ ĐÃ CẬP NHẬT THEO DÕI ĐƠN HÀNG!\n\n`
                             : `✅ ĐÃ TẠO THEO DÕI ĐƠN HÀNG MỚI!\n\n`;
 
-                        await sendTelegramMessage(chatId,
+                        await sendTelegramMessage(
+                            chatId,
                             successMsg +
-                            `📋 Document: ${result.docId}\n` +
-                            `🔢 Mã NCC: ${invoiceData.ncc}\n` +
-                            `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
-                            `📅 Ngày giao: ${deliveryDate}\n` +
-                            `📦 Tổng món: ${result.tongMon}\n` +
-                            `⚠️ Còn thiếu: ${result.soMonThieu}\n\n` +
-                            `📝 Sản phẩm:\n${productsList}${moreProducts}\n\n` +
-                            `🔗 Tab 2 - Theo dõi đơn hàng\n` +
-                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                                `📋 Document: ${result.docId}\n` +
+                                `🔢 Mã NCC: ${invoiceData.ncc}\n` +
+                                `🏪 Tên NCC: ${translateToVietnamese(invoiceData.supplier) || 'N/A'}\n` +
+                                `📅 Ngày giao: ${deliveryDate}\n` +
+                                `📦 Tổng món: ${result.tongMon}\n` +
+                                `⚠️ Còn thiếu: ${result.soMonThieu}\n\n` +
+                                `📝 Sản phẩm:\n${productsList}${moreProducts}\n\n` +
+                                `🔗 Tab 2 - Theo dõi đơn hàng\n` +
+                                `Xem tại: https://nhijudy.store/inventory-tracking/`,
                             messageId
                         );
-
                     } catch (error) {
                         console.error('[TELEGRAM] Tab 2 save error:', error.message);
-                        await sendTelegramMessage(chatId,
+                        await sendTelegramMessage(
+                            chatId,
                             `❌ Lỗi lưu vào Tab 2:\n${error.message}`,
                             messageId
                         );
@@ -2004,7 +2069,11 @@ router.post('/webhook', async (req, res) => {
                     console.log(`[TELEGRAM] Photo with NCC command: /${nccCode}`);
 
                     await sendChatAction(chatId, 'upload_photo');
-                    await sendTelegramMessage(chatId, '📤 Đang upload ảnh lên Firebase Storage...', messageId);
+                    await sendTelegramMessage(
+                        chatId,
+                        '📤 Đang upload ảnh lên Firebase Storage...',
+                        messageId
+                    );
 
                     try {
                         // Get the largest photo
@@ -2013,21 +2082,26 @@ router.post('/webhook', async (req, res) => {
                         // Add image to NCC document (uploads to Firebase Storage)
                         const result = await addImageToNCC(nccCode, photo.file_id);
 
-                        const tabLabel = result.arrayType === 'datHang' ? 'Tab 1 - Đặt hàng' : 'Tab 2 - Theo dõi';
-                        await sendTelegramMessage(chatId,
+                        const tabLabel =
+                            result.arrayType === 'datHang'
+                                ? 'Tab 1 - Đặt hàng'
+                                : 'Tab 2 - Theo dõi';
+                        await sendTelegramMessage(
+                            chatId,
                             `✅ Đã thêm ảnh vào NCC ${nccCode}\n\n` +
-                            `📋 Document: ${result.docId}\n` +
-                            `📝 ${tabLabel}\n` +
-                            `🖼️ Tổng ảnh: ${result.imageCount}\n` +
-                            `☁️ Đã lưu lên Firebase Storage\n\n` +
-                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                                `📋 Document: ${result.docId}\n` +
+                                `📝 ${tabLabel}\n` +
+                                `🖼️ Tổng ảnh: ${result.imageCount}\n` +
+                                `☁️ Đã lưu lên Firebase Storage\n\n` +
+                                `Xem tại: https://nhijudy.store/inventory-tracking/`,
                             messageId
                         );
                     } catch (error) {
                         console.error('[TELEGRAM] Add image error:', error.message);
-                        await sendTelegramMessage(chatId,
+                        await sendTelegramMessage(
+                            chatId,
                             `❌ Lỗi thêm ảnh:\n${error.message}\n\n` +
-                            `💡 Đảm bảo đã có NCC ${nccCode} trong hệ thống.`,
+                                `💡 Đảm bảo đã có NCC ${nccCode} trong hệ thống.`,
                             messageId
                         );
                     }
@@ -2039,7 +2113,9 @@ router.post('/webhook', async (req, res) => {
                 // ==========================================
                 const pendingEdit = pendingImageEdits.get(chatId);
                 if (pendingEdit) {
-                    console.log(`[TELEGRAM] Processing pending image add for NCC ${pendingEdit.nccCode}`);
+                    console.log(
+                        `[TELEGRAM] Processing pending image add for NCC ${pendingEdit.nccCode}`
+                    );
 
                     await sendChatAction(chatId, 'upload_photo');
                     await sendTelegramMessage(chatId, '📤 Đang upload ảnh...', messageId);
@@ -2053,19 +2129,23 @@ router.post('/webhook', async (req, res) => {
                         // Clear pending edit
                         pendingImageEdits.delete(chatId);
 
-                        const tabLabel = result.arrayType === 'datHang' ? 'Tab 1 - Đặt hàng' : 'Tab 2 - Theo dõi';
-                        await sendTelegramMessage(chatId,
+                        const tabLabel =
+                            result.arrayType === 'datHang'
+                                ? 'Tab 1 - Đặt hàng'
+                                : 'Tab 2 - Theo dõi';
+                        await sendTelegramMessage(
+                            chatId,
                             `✅ Đã thêm ảnh vào NCC ${pendingEdit.nccCode}\n\n` +
-                            `📝 ${tabLabel}\n` +
-                            `🖼️ Tổng ảnh: ${result.imageCount}\n` +
-                            `☁️ Đã lưu lên Firebase Storage`,
+                                `📝 ${tabLabel}\n` +
+                                `🖼️ Tổng ảnh: ${result.imageCount}\n` +
+                                `☁️ Đã lưu lên Firebase Storage`,
                             messageId
                         );
-
                     } catch (error) {
                         console.error('[TELEGRAM] Add image error:', error.message);
                         pendingImageEdits.delete(chatId);
-                        await sendTelegramMessage(chatId,
+                        await sendTelegramMessage(
+                            chatId,
                             `❌ Lỗi thêm ảnh:\n${error.message}`,
                             messageId
                         );
@@ -2108,10 +2188,10 @@ router.post('/webhook', async (req, res) => {
                     } else {
                         await sendTelegramMessage(chatId, previewText, messageId);
                     }
-
                 } catch (error) {
                     console.error('[TELEGRAM] Invoice processing error:', error.message);
-                    await sendTelegramMessage(chatId,
+                    await sendTelegramMessage(
+                        chatId,
                         `❌ Lỗi xử lý hóa đơn:\n${error.message}`,
                         messageId
                     );
@@ -2132,16 +2212,17 @@ router.post('/webhook', async (req, res) => {
                     ? `\n\nTrong nhóm:\n- Tag @${BOT_USERNAME} để hỏi\n- Hoặc reply tin nhắn của bot`
                     : '';
 
-                await sendTelegramMessage(chatId,
+                await sendTelegramMessage(
+                    chatId,
                     `Xin chào ${firstName}! 👋\n\n` +
-                    `Tôi là Gemini AI Assistant.\n\n` +
-                    `📸 Gửi ẢNH HÓA ĐƠN để tôi phân tích\n` +
-                    `💬 Hoặc nhắn tin để trò chuyện với AI\n\n` +
-                    `Các lệnh:\n` +
-                    `/start - Bắt đầu lại\n` +
-                    `/clear - Xóa lịch sử chat\n` +
-                    `/help - Hướng dẫn` +
-                    groupNote,
+                        `Tôi là Gemini AI Assistant.\n\n` +
+                        `📸 Gửi ẢNH HÓA ĐƠN để tôi phân tích\n` +
+                        `💬 Hoặc nhắn tin để trò chuyện với AI\n\n` +
+                        `Các lệnh:\n` +
+                        `/start - Bắt đầu lại\n` +
+                        `/clear - Xóa lịch sử chat\n` +
+                        `/help - Hướng dẫn` +
+                        groupNote,
                     messageId
                 );
                 return;
@@ -2150,10 +2231,7 @@ router.post('/webhook', async (req, res) => {
             // /clear command
             if (commandText === '/clear') {
                 clearHistory(historyKey);
-                await sendTelegramMessage(chatId,
-                    'Đã xóa lịch sử trò chuyện!',
-                    messageId
-                );
+                await sendTelegramMessage(chatId, 'Đã xóa lịch sử trò chuyện!', messageId);
                 return;
             }
 
@@ -2163,12 +2241,10 @@ router.post('/webhook', async (req, res) => {
                 pendingImageEdits.delete(chatId);
 
                 if (hadPending) {
-                    await sendTelegramMessage(chatId,
-                        '❌ Đã hủy thao tác sửa ảnh.',
-                        messageId
-                    );
+                    await sendTelegramMessage(chatId, '❌ Đã hủy thao tác sửa ảnh.', messageId);
                 } else {
-                    await sendTelegramMessage(chatId,
+                    await sendTelegramMessage(
+                        chatId,
                         '✓ Không có thao tác nào đang chờ.',
                         messageId
                     );
@@ -2182,30 +2258,31 @@ router.post('/webhook', async (req, res) => {
                     ? `\n\nCách dùng trong nhóm:\n- Tag @${BOT_USERNAME} + câu hỏi\n- Hoặc reply tin nhắn của bot`
                     : '';
 
-                await sendTelegramMessage(chatId,
+                await sendTelegramMessage(
+                    chatId,
                     `📖 HƯỚNG DẪN SỬ DỤNG\n` +
-                    `${'─'.repeat(25)}\n\n` +
-                    `📸 XỬ LÝ HÓA ĐƠN:\n` +
-                    `- Gửi ảnh hóa đơn viết tay\n` +
-                    `- Bot sẽ phân tích và trích xuất dữ liệu\n` +
-                    `- Xác nhận để lưu vào hệ thống\n\n` +
-                    `📦 THEO DÕI ĐƠN HÀNG (Tab 2):\n` +
-                    `- Gửi ảnh + caption "/2 DD.MM.YYYY"\n` +
-                    `- VD: /2 28.12.2025\n` +
-                    `- NCC lấy từ ảnh, ngày giao từ caption\n` +
-                    `- Lưu trực tiếp vào Tab 2\n\n` +
-                    `📋 XEM CHI TIẾT HÓA ĐƠN:\n` +
-                    `- Gửi /NCC (VD: /15)\n` +
-                    `- Hiển thị chi tiết hóa đơn của NCC đó\n\n` +
-                    `🖼️ THÊM ẢNH VÀO HÓA ĐƠN:\n` +
-                    `- Gửi ảnh với caption /NCC\n` +
-                    `- VD: Gửi ảnh + caption "/15"\n` +
-                    `- Ảnh sẽ upload lên Firebase Storage\n\n` +
-                    `💬 TRÒ CHUYỆN AI:\n` +
-                    `- Gửi tin nhắn bất kỳ\n` +
-                    `- Bot sẽ trả lời bằng Gemini AI\n\n` +
-                    `Model: ${GEMINI_MODEL}` +
-                    groupHelp,
+                        `${'─'.repeat(25)}\n\n` +
+                        `📸 XỬ LÝ HÓA ĐƠN:\n` +
+                        `- Gửi ảnh hóa đơn viết tay\n` +
+                        `- Bot sẽ phân tích và trích xuất dữ liệu\n` +
+                        `- Xác nhận để lưu vào hệ thống\n\n` +
+                        `📦 THEO DÕI ĐƠN HÀNG (Tab 2):\n` +
+                        `- Gửi ảnh + caption "/2 DD.MM.YYYY"\n` +
+                        `- VD: /2 28.12.2025\n` +
+                        `- NCC lấy từ ảnh, ngày giao từ caption\n` +
+                        `- Lưu trực tiếp vào Tab 2\n\n` +
+                        `📋 XEM CHI TIẾT HÓA ĐƠN:\n` +
+                        `- Gửi /NCC (VD: /15)\n` +
+                        `- Hiển thị chi tiết hóa đơn của NCC đó\n\n` +
+                        `🖼️ THÊM ẢNH VÀO HÓA ĐƠN:\n` +
+                        `- Gửi ảnh với caption /NCC\n` +
+                        `- VD: Gửi ảnh + caption "/15"\n` +
+                        `- Ảnh sẽ upload lên Firebase Storage\n\n` +
+                        `💬 TRÒ CHUYỆN AI:\n` +
+                        `- Gửi tin nhắn bất kỳ\n` +
+                        `- Bot sẽ trả lời bằng Gemini AI\n\n` +
+                        `Model: ${GEMINI_MODEL}` +
+                        groupHelp,
                     messageId
                 );
                 return;
@@ -2227,9 +2304,10 @@ router.post('/webhook', async (req, res) => {
                     await sendTelegramMessage(chatId, detailsText, messageId, keyboard);
                 } catch (error) {
                     console.error('[TELEGRAM] NCC lookup error:', error.message);
-                    await sendTelegramMessage(chatId,
+                    await sendTelegramMessage(
+                        chatId,
                         `❌ ${error.message}\n\n` +
-                        `💡 Gửi ảnh hóa đơn để tạo mới, hoặc kiểm tra lại mã NCC.`,
+                            `💡 Gửi ảnh hóa đơn để tạo mới, hoặc kiểm tra lại mã NCC.`,
                         messageId
                     );
                 }
@@ -2238,7 +2316,8 @@ router.post('/webhook', async (req, res) => {
 
             // Regular text message - chat with AI
             if (!text) {
-                await sendTelegramMessage(chatId,
+                await sendTelegramMessage(
+                    chatId,
                     'Gửi tin nhắn văn bản hoặc ảnh hóa đơn để tôi xử lý.',
                     messageId
                 );
@@ -2246,10 +2325,7 @@ router.post('/webhook', async (req, res) => {
             }
 
             if (!TELEGRAM_BOT_TOKEN || !GEMINI_API_KEY) {
-                await sendTelegramMessage(chatId,
-                    'Bot chưa được cấu hình đầy đủ.',
-                    messageId
-                );
+                await sendTelegramMessage(chatId, 'Bot chưa được cấu hình đầy đủ.', messageId);
                 return;
             }
 
@@ -2272,25 +2348,16 @@ router.post('/webhook', async (req, res) => {
                 if (aiResponse.length > 4000) {
                     const chunks = aiResponse.match(/[\s\S]{1,4000}/g) || [];
                     for (let i = 0; i < chunks.length; i++) {
-                        await sendTelegramMessage(
-                            chatId,
-                            chunks[i],
-                            i === 0 ? messageId : null
-                        );
+                        await sendTelegramMessage(chatId, chunks[i], i === 0 ? messageId : null);
                     }
                 } else {
                     await sendTelegramMessage(chatId, aiResponse, messageId);
                 }
-
             } catch (error) {
                 console.error('[TELEGRAM] Gemini error:', error.message);
-                await sendTelegramMessage(chatId,
-                    `Có lỗi xảy ra:\n${error.message}`,
-                    messageId
-                );
+                await sendTelegramMessage(chatId, `Có lỗi xảy ra:\n${error.message}`, messageId);
             }
         }
-
     } catch (error) {
         console.error('[TELEGRAM] Webhook error:', error.message);
     }
@@ -2311,7 +2378,6 @@ router.post('/send', async (req, res) => {
 
         const result = await sendTelegramMessage(chatId, text);
         res.json(result);
-
     } catch (error) {
         console.error('[TELEGRAM] Send error:', error.message);
         res.status(500).json({ error: error.message });
@@ -2338,14 +2404,13 @@ router.post('/setWebhook', async (req, res) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 url: webhookUrl,
-                allowed_updates: ['message', 'callback_query']
-            })
+                allowed_updates: ['message', 'callback_query'],
+            }),
         });
 
         const data = await response.json();
         console.log('[TELEGRAM] Webhook set:', data);
         res.json(data);
-
     } catch (error) {
         console.error('[TELEGRAM] setWebhook error:', error.message);
         res.status(500).json({ error: error.message });
@@ -2364,7 +2429,6 @@ router.get('/webhookInfo', async (req, res) => {
         const data = await response.json();
 
         res.json(data);
-
     } catch (error) {
         console.error('[TELEGRAM] webhookInfo error:', error.message);
         res.status(500).json({ error: error.message });
@@ -2384,7 +2448,6 @@ router.post('/deleteWebhook', async (req, res) => {
 
         console.log('[TELEGRAM] Webhook deleted:', data);
         res.json(data);
-
     } catch (error) {
         console.error('[TELEGRAM] deleteWebhook error:', error.message);
         res.status(500).json({ error: error.message });

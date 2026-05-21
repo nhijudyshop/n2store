@@ -5,8 +5,8 @@ import { log } from '../../shared/logger.js';
 import { addActivity, incrementBadge, getPreferences, saveNotification } from '../sync/storage.js';
 
 const MODULE = 'Notif';
-const INBOX_URL = 'https://nhijudyshop.github.io/n2store/inbox/index.html';
-const ORDERS_URL = 'https://nhijudyshop.github.io/n2store/orders-report/main.html';
+const INBOX_URL = 'https://nhijudy.store/inbox/index.html';
+const ORDERS_URL = 'https://nhijudy.store/orders-report/main.html';
 
 // Notification type definitions: icon, title template, body template, click URL
 const NOTIF_TYPES = {

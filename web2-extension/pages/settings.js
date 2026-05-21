@@ -132,7 +132,11 @@ async function loadStatus() {
 
         // Tabs
         const tabs = await chrome.tabs.query({
-            url: ['*://*.nhijudyshop.workers.dev/*', '*://nhijudyshop.github.io/*'],
+            url: [
+                '*://*.nhijudyshop.workers.dev/*',
+                '*://nhijudyshop.github.io/*',
+                '*://nhijudy.store/*',
+            ],
         });
         const tabDot = document.getElementById('tabDot');
         const tabText = document.getElementById('tabStatusText');

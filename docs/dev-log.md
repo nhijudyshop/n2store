@@ -25,6 +25,47 @@
 
 ## 2026-05-21
 
+### [domain][extension][cors] feat: rewire toàn bộ codebase sang custom domain `nhijudy.store`
+
+**Yêu cầu user**: Sau khi switch GH Pages → `https://nhijudy.store/`, audit toàn bộ codebase: extension manifest có cần update, có chỗ nào khác cần đổi domain.
+
+**Findings**: GH Pages `nhijudyshop.github.io/n2store/*` 301 → `nhijudy.store/*` (path-preserving). 3 nhóm vấn đề:
+
+1. **🔴 Critical — content script chết trên nhijudy.store**: `n2store-extension/manifest.json` matches/host_permissions chỉ liệt kê `nhijudyshop.github.io/*` → contentscript.js không inject trên domain mới. Web2-extension đã thêm sẵn lúc fork, nhưng n2store-extension thì quên.
+2. **🔴 Critical — credentialed CORS reject từ nhijudy.store**: `shared/universal/cors-headers.js` `CREDENTIALED_ORIGIN_PATTERNS` và `render.com/server.js` CORS allowlist chỉ có github.io → page trên nhijudy.store gọi API kèm `credentials: 'include'`/`sendBeacon` sẽ bị trả `Allow-Origin: *` (no creds) → cookies bị strip.
+3. **🟡 URL flicker — extension/code redirect về github.io rồi 301 lại**: 15+ hardcoded URLs trong extension popup/notifications/config + production redirects (order-management, soluong-live, orders-report iframe, telegram-bot link, fb-ads ext).
+
+**Fixes (option B — full sweep)**:
+
+- **CORS**: thêm `/^https:\/\/nhijudy\.store$/` vào `CREDENTIALED_ORIGIN_PATTERNS` + `'https://nhijudy.store'` vào Express CORS array. Giữ github.io legacy entry để bao quát transition.
+- **Manifest matches/host_permissions**: thêm `https://nhijudy.store/*` vào `n2store-extension/manifest.json` + `pancake-extension/manifest.json`. Web2-extension đã có sẵn.
+- **Hardcoded URLs (replace `nhijudyshop.github.io/n2store/...` → `nhijudy.store/...`)**:
+    - `n2store-extension/popup/popup.js` (5 dòng) + `web2-extension/popup/popup.js` (5 dòng)
+    - `n2store-extension/background/server/notifications.js` (2 dòng: INBOX_URL, ORDERS_URL) + web2-extension tương ứng
+    - `n2store-extension/shared/config.js` (WEB_GITHUB_URL, WEB_INBOX_URL) + web2-extension tương ứng
+    - `order-management/js/main.js:892` + `soluong-live/js/main.js:740` redirect home
+    - `orders-report/main.html` iframe data-src + `_trustedOrigins` (giữ cả 2 cho postMessage relay)
+    - `render.com/routes/telegram-bot.js` (2 message link inventory-tracking)
+    - `fb-ads/extension/background.js` `N2_ADS_URL`
+- **Chrome tabs filter URLs** (`popup.js`/`settings.js` cả 2 extension): thêm `'*://nhijudy.store/*'` vào array, giữ legacy github.io để bao quát.
+- **CF Worker comment**: update line 87 để phản ánh allowlist mới (chỉ comment).
+
+**Files changed** (15):
+
+- `shared/universal/cors-headers.js`, `render.com/server.js`, `cloudflare-worker/worker.js`
+- `n2store-extension/manifest.json`, `n2store-extension/popup/popup.js`, `n2store-extension/background/server/notifications.js`, `n2store-extension/shared/config.js`, `n2store-extension/pages/settings.js`
+- `web2-extension/popup/popup.js`, `web2-extension/background/server/notifications.js`, `web2-extension/shared/config.js`, `web2-extension/pages/settings.js`
+- `pancake-extension/manifest.json`, `fb-ads/extension/background.js`
+- `order-management/js/main.js`, `soluong-live/js/main.js`, `orders-report/main.html`, `render.com/routes/telegram-bot.js`
+
+**Verify**: `grep -rn "nhijudyshop\.github\.io/n2store" --include="*.{js,json,html}"` trong production code = 0 matches. Refs còn lại là (a) comment-only, (b) intentional legacy entries giữ song song với nhijudy.store. Manifest JSON syntax validated qua `node -e JSON.parse(...)`.
+
+**Note**: Extension cần reload thủ công trong Chrome sau khi pull (manifest matches thay đổi). Render server cần redeploy để pick up CORS array mới (env vars không đổi, code change → auto-deploy on push). CF Worker chỉ đổi comment, không cần `wrangler deploy` thêm.
+
+**Status**: ✅ Done
+
+---
+
 ### [web2-extension][scripts] Fork n2store-extension → Web 2.0 Messenger + browser-test --ext flag
 
 **Yêu cầu user**: Copy n2store-extension vào web 2.0 + đổi tên + thêm vào browser test để test message-sending + interactions ở panel giữa của native-orders.

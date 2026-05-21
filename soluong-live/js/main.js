@@ -737,7 +737,7 @@ function logoutUser() {
         localStorage.removeItem('loginindex_auth');
 
         // Redirect to home page
-        window.location.href = 'https://nhijudyshop.github.io/n2store/';
+        window.location.href = 'https://nhijudy.store/';
     }
 }
 

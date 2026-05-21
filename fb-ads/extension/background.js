@@ -1,7 +1,7 @@
 // N2 FB Cookie Helper — Background Service Worker
 // Uses Facebook OAuth dialog to get EAAG token (most reliable)
 
-const N2_ADS_URL = 'https://nhijudyshop.github.io/n2store/fb-ads/index.html';
+const N2_ADS_URL = 'https://nhijudy.store/fb-ads/index.html';
 const FB_APP_ID = '1290728302927895';
 const OAUTH_REDIRECT = 'https://www.facebook.com/connect/login_success.html';
 const OAUTH_SCOPES =

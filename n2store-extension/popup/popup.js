@@ -24,13 +24,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Quick actions
     document.getElementById('openInbox').addEventListener('click', () => {
-        chrome.tabs.create({ url: 'https://nhijudyshop.github.io/n2store/inbox/index.html' });
+        chrome.tabs.create({ url: 'https://nhijudy.store/inbox/index.html' });
         window.close();
     });
 
     document.getElementById('openOrders').addEventListener('click', () => {
         chrome.tabs.create({
-            url: 'https://nhijudyshop.github.io/n2store/orders-report/main.html',
+            url: 'https://nhijudy.store/orders-report/main.html',
         });
         window.close();
     });
@@ -164,7 +164,11 @@ async function loadStatus() {
 async function updateTabCount() {
     try {
         const tabs = await chrome.tabs.query({
-            url: ['*://*.nhijudyshop.workers.dev/*', '*://nhijudyshop.github.io/*'],
+            url: [
+                '*://*.nhijudyshop.workers.dev/*',
+                '*://nhijudyshop.github.io/*',
+                '*://nhijudy.store/*',
+            ],
         });
         const count = tabs.length;
         document.getElementById('tabCount').textContent = `${count} tab${count !== 1 ? 's' : ''}`;
@@ -497,10 +501,10 @@ function getNotifUrl(type) {
             'upload_failed',
         ].includes(type)
     ) {
-        return 'https://nhijudyshop.github.io/n2store/inbox/index.html';
+        return 'https://nhijudy.store/inbox/index.html';
     }
     if (['new_transaction', 'wallet_update', 'held_product', 'processing_update'].includes(type)) {
-        return 'https://nhijudyshop.github.io/n2store/orders-report/main.html';
+        return 'https://nhijudy.store/orders-report/main.html';
     }
     return null;
 }

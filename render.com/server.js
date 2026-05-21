@@ -82,7 +82,8 @@ app.use((req, res, next) => {
 app.use(
     cors({
         origin: [
-            'https://nhijudyshop.github.io', // Primary frontend
+            'https://nhijudy.store', // Primary frontend (custom domain)
+            'https://nhijudyshop.github.io', // Legacy GH Pages domain (301 → nhijudy.store)
             'http://localhost:5500', // Local development for frontend (Live Server)
             'http://localhost:3000', // Local development for this server itself
             'http://localhost:8080', // Local browser-test pattern (CLAUDE.md)
