@@ -138,7 +138,23 @@ Bump `tpos-api.js?v=20260521b`. Comment list không cần sửa — handler đã
 - [`CLAUDE.md`](../CLAUDE.md) (Bunny policy section)
 - Memory: `feedback_bunny_aikol_only.md`
 
-**Status**: 🔄 In progress — code Render backend đã commit. Chờ Render auto-deploy + prod verify upload.
+**✅ Verified prod backend** (2026-05-21 03:25–03:30 UTC, sau commit 218e85db):
+
+Backend curl tests qua `https://n2store-fallback.onrender.com/api/v2/purchase-orders/`:
+
+1. **`POST /images`** — PNG 67 bytes → HTTP 200, 229 ms, URL `…/images/8b5566f6-…` (UUID pattern PG backend ✓)
+2. **`GET /images/<id>`** — HTTP 200, `Content-Type: image/png`, size 67 bytes, MD5 byte-identical với upload ✓
+3. **`DELETE /images/<id>`** — HTTP 200, `{success: true}`
+4. **`GET /images/<id>` lần 2** — HTTP 404, `{error: "Ảnh không tồn tại"}` ✓
+5. **`POST /cleanup-orphan-images`** — HTTP 200, `{deleted: 0, liveReferences: 1}` (endpoint hoạt động lại, scan live refs đúng)
+
+End-to-end browser test qua Playwright headless ở `https://nhijudy.store/purchase-orders/index.html`:
+
+- `purchaseOrderFormModal.addLocalImages([file], "invoice")` → `pendingCount: 1`, `tAdd: 17 ms`
+- `uploadPendingImages()` → `tUp: 133 ms`, `uploadErr: null`
+- `formData.invoiceImages[0]` = `https://n2store-fallback.onrender.com/api/v2/purchase-orders/images/b28682a4-…` → `isPgBackend: true`, `isBunny: false` ✓
+
+**Status**: ✅ Done — Bunny đã không còn trong upload path mới của Purchase Orders. URLs cũ trong DB vẫn load từ Bunny CDN (legacy serve OK). Cascade-delete + cleanup-orphan hoạt động cả 2 backend.
 
 ---
 
