@@ -106,8 +106,13 @@ const log = (...a) => {
             args: launchArgs,
         });
     } else if (ARGS.ext) {
-        const extPath = path.resolve(ARGS.ext);
-        log(`Launching Chromium persistent (extension=${extPath})…`);
+        // --ext can be comma-separated list of paths (load multiple unpacked extensions)
+        const extPaths = ARGS.ext
+            .split(',')
+            .map((p) => path.resolve(p.trim()))
+            .filter(Boolean);
+        const extPath = extPaths.join(',');
+        log(`Launching Chromium persistent (extensions=${extPath})…`);
         // Extension load yêu cầu launchPersistentContext (browser.launch không support).
         // Persistent profile lưu ở /tmp để không lưu trữ lâu dài.
         const userDataDir = path.join(require('os').tmpdir(), `n2store-ext-profile-${Date.now()}`);
