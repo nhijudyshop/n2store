@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d410081` — docs(extension): full code analysis của send-message flow + bypass-24h via business.facebook.com
-**Last updated**: 2026-05-21 11:55:03 +07
-**Latest session**: [`RESUME:20260521-115503-d410081`](../20260521-115503-d410081.md)
-**Summary**: docs(extension): full code analysis của send-message flow + bypass-24h via business.facebook.com
+**Latest commit**: `d371b0a` — auto: session update
+**Last updated**: 2026-05-21 12:00:19 +07
+**Latest session**: [`RESUME:20260521-120019-d371b0a`](../20260521-120019-d371b0a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +29,7 @@
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 10:01
 - [`render.com/`](./render.com.md) — updated 2026-05-21 11:33
-- [`scripts/`](./scripts.md) — updated 2026-05-21 11:23
+- [`scripts/`](./scripts.md) — updated 2026-05-21 12:00
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
