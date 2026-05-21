@@ -3,26 +3,26 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `acae644` — fix(web2-chat): silent-success bug — sendMessage/replyComment phải check Pancake success:false
-**Last updated**: 2026-05-21 14:41:39 +07
-**Latest session**: [`RESUME:20260521-144139-acae644`](../20260521-144139-acae644.md)
-**Summary**: fix(web2-chat): silent-success bug — sendMessage/replyComment phải check Pancake success:false
+**Latest commit**: `1cd1cd8` — fix(inventory): không leak ảnh cross-đợt khi NCC trùng giữa đợt 1 và đợt 2
+**Last updated**: 2026-05-21 14:44:55 +07
+**Latest session**: [`RESUME:20260521-144455-1cd1cd8`](../20260521-144455-1cd1cd8.md)
+**Summary**: fix(inventory): không leak ảnh cross-đợt khi NCC trùng giữa đợt 1 và đợt 2
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 14:27
+- [`docs/`](./docs.md) — updated 2026-05-21 14:44
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 11:33
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-21 14:44
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
 - [`native-orders/`](./native-orders.md) — updated 2026-05-21 14:41
 - [`order-management/`](./order-management.md) — updated 2026-05-21 11:33
