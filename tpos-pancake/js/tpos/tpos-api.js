@@ -339,6 +339,20 @@ const TposApi = {
         }
 
         const model = { ...partner, ...fields };
+
+        // TPOS OData validation: sanitize partner payload before send.
+        // (1) `Childs` declared as Edm.Collection — phải là array, không được null.
+        // (2) `Status` declared as Edm.String — partner cache có khi trả -1 (number).
+        // (3) `ExtraAddress` / `ExtraProperties` / `FacebookMap` là untyped complex
+        //     objects → TPOS reject với 'untyped value ... invalid' nếu gửi mà thiếu
+        //     @odata.type annotation. Cách an toàn nhất: drop trước khi POST (TPOS
+        //     trả lại bản canonical sau khi save thành công, không cần round-trip).
+        if (!Array.isArray(model.Childs)) model.Childs = [];
+        if (typeof model.Status === 'number') model.Status = String(model.Status);
+        delete model.ExtraAddress;
+        delete model.ExtraProperties;
+        delete model.FacebookMap;
+
         const effectiveTeamId =
             teamId ||
             state.selectedTeamId ||
@@ -356,7 +370,18 @@ const TposApi = {
             body: JSON.stringify({ model, teamId: effectiveTeamId }),
         });
 
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        if (!response.ok) {
+            // Surface server error body để toast hiển thị thông tin có ý nghĩa
+            // (trước đây chỉ "API error: 400" mơ hồ → user không biết lỗi gì).
+            let detail = '';
+            try {
+                const errBody = await response.json();
+                detail = errBody?.error?.message || JSON.stringify(errBody).slice(0, 200);
+            } catch {
+                /* non-json error body */
+            }
+            throw new Error(`API ${response.status}${detail ? ': ' + detail : ''}`);
+        }
 
         const result = await response.json();
         // Update cache with returned data
