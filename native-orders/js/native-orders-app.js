@@ -490,11 +490,14 @@
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
                             ${(() => {
-                                // 3-state action buttons (slot 2-3 sau "Sửa"):
+                                // 3-state action buttons (slot sau "Sửa"):
                                 //   - cancelled: nút "Tạo PBH" (sẽ tạo PBH mới số HĐ mới, không đụng PBH cũ)
-                                //   - confirmed: nút "Huỷ PBH" (đã có PBH → cancel nó). KHÔNG cho
-                                //     "Tạo PBH bổ sung" trực tiếp ở status này — muốn thêm PBH phải
-                                //     "Tách đơn" → tạo native-order con (status=draft) → từ đó tạo PBH.
+                                //   - confirmed: KHÔNG có button trong slot này. "Huỷ PBH" (cancelPbh)
+                                //     đã bỏ vì trùng chức năng với "Huỷ đơn" (cancelOrder, slot cuối)
+                                //     khác mỗi scope: cancelOrder huỷ cả đơn web + PBH + restock,
+                                //     cancelPbh chỉ huỷ PBH giữ đơn web — UX confusing, user yêu cầu
+                                //     gom về 1 nút huỷ duy nhất (cancelOrder).
+                                //     Muốn thêm PBH ở confirmed → "Tách đơn" tạo native-order con.
                                 //   - draft: confirmDraft + createPbh
                                 if (o.status === 'cancelled') {
                                     return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
@@ -503,10 +506,8 @@
                             </button>`;
                                 }
                                 if (o.status === 'confirmed') {
-                                    return `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
-                                onclick="event.stopPropagation();NativeOrdersApp.cancelPbh('${escapeHtml(o.code)}')">
-                                <i data-lucide="receipt-text" style="width:12px;height:12px;"></i>
-                            </button>`;
+                                    // Empty slot placeholder để grid layout không lệch.
+                                    return `<span class="tpos-action-placeholder"></span>`;
                                 }
                                 // draft (default)
                                 return `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xác nhận đơn (chưa tạo PBH)" style="color:#3b82f6;"
