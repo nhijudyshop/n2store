@@ -3,21 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `eee5df1` — auto: session update
-**Last updated**: 2026-05-21 14:11:20 +07
-**Latest session**: [`RESUME:20260521-141120-eee5df1`](../20260521-141120-eee5df1.md)
-**Summary**: auto: session update
+**Latest commit**: `93a7c83` — docs(extension): full Pancake V2 protocol từ live capture + source extraction
+**Last updated**: 2026-05-21 14:27:53 +07
+**Latest session**: [`RESUME:20260521-142753-93a7c83`](../20260521-142753-93a7c83.md)
+**Summary**: docs(extension): full Pancake V2 protocol từ live capture + source extraction
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 11:55
+- [`docs/`](./docs.md) — updated 2026-05-21 14:27
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 11:33
