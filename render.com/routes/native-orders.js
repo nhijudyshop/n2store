@@ -22,9 +22,13 @@ const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
 //
 // Map: draft→draft, confirmed→confirmed, cancelled→cancel.
 // (Không dùng 'done' để giữ user-facing 'confirmed' label = "Đã XN")
+// Simplified 2-state model cho fast_sale_orders (user request):
+//   - native creates PBH → PBH state = 'done' (Hoàn thành)
+//   - native cancels PBH → PBH state = 'cancel' (Đã hủy)
+// Bỏ 'draft' và 'confirmed' khỏi fast_sale_orders — không cần intermediate state.
 const NATIVE_TO_PBH_STATE = {
-    draft: 'draft',
-    confirmed: 'confirmed',
+    draft: 'done', // edge case: PBH đã được tạo và native vẫn ở draft (shouldn't happen)
+    confirmed: 'done', // confirmed native = PBH đã active = 'done'
     cancelled: 'cancel',
     cancel: 'cancel',
 };

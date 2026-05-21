@@ -54,9 +54,12 @@
         return Promise.resolve(prompt(msg, opts?.defaultValue || ''));
     }
 
+    // Model 2-state đơn giản: 'done' (Hoàn thành) + 'cancel' (Đã hủy).
+    // Legacy 'draft'/'confirmed' từ row cũ vẫn render label cùng style với 'done'
+    // để bảng không vỡ trong khi data migrate. Tab filter chỉ còn 2 option.
     const STATE_META = {
-        draft: { label: 'Nháp', cls: 'status-draft', icon: 'file' },
-        confirmed: { label: 'Đã XN', cls: 'status-confirmed', icon: 'check' },
+        draft: { label: 'Hoàn thành', cls: 'status-delivered', icon: 'check-circle' },
+        confirmed: { label: 'Hoàn thành', cls: 'status-delivered', icon: 'check-circle' },
         done: { label: 'Hoàn thành', cls: 'status-delivered', icon: 'check-circle' },
         cancel: { label: 'Đã hủy', cls: 'status-cancelled', icon: 'x' },
     };

@@ -1107,7 +1107,7 @@ router.post('/from-native-order', async (req, res) => {
                 $17, $18, $19, $20,
                 $21, $22, $23,
                 $24, $25,
-                'draft', 'native_order', $26, $27,
+                'done', 'native_order', $26, $27,
                 $28, $29,
                 $30, $31, $32, $33,
                 $34, $35, $36,
@@ -1160,12 +1160,31 @@ router.post('/from-native-order', async (req, res) => {
             ]
         );
 
-        // Optional: mark source order as converted (update status to 'confirmed' if was 'draft')
-        if (src.status === 'draft') {
+        // Mark source order as converted — bump status sang 'confirmed' khi vừa tạo PBH.
+        // - draft → confirmed (đơn nháp giờ đã có PBH active)
+        // - cancelled → confirmed (re-issue PBH cho đơn đã huỷ: đơn quay về Đơn hàng)
+        // confirmed → giữ nguyên (đã ở state đúng)
+        if (src.status === 'draft' || src.status === 'cancelled') {
             await pool.query(
                 `UPDATE native_orders SET status = 'confirmed', updated_at = $1 WHERE id = $2`,
                 [Date.now(), src.id]
             );
+            // SSE notify để native-orders UI tự refresh status badge từ "Huỷ bỏ" → "Đơn hàng"
+            if (req.app.locals.realtimeSseNotify) {
+                try {
+                    req.app.locals.realtimeSseNotify(
+                        'web2:native-orders',
+                        {
+                            action: 'status-bumped',
+                            code: src.code,
+                            from: src.status,
+                            to: 'confirmed',
+                            ts: Date.now(),
+                        },
+                        'update'
+                    );
+                } catch {}
+            }
         }
 
         // Stock deduction — atomic across all lines. Clamp tại 0 nếu over-sell.
