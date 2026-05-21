@@ -25,6 +25,47 @@
 
 ## 2026-05-21
 
+### [web2-extension][scripts] Fork n2store-extension → Web 2.0 Messenger + browser-test --ext flag
+
+**Yêu cầu user**: Copy n2store-extension vào web 2.0 + đổi tên + thêm vào browser test để test message-sending + interactions ở panel giữa của native-orders.
+
+**Triển khai**:
+
+1. **Copy + rename**:
+    - `cp -r n2store-extension/ web2-extension/` (root, theo web2- prefix convention).
+    - `manifest.json`: name "Web 2.0 Messenger", short_name "Web2", v=2.0.0, description ghi fork.
+    - `shared/config.js`: EXTENSION_NAME = "Web 2.0 Messenger".
+    - `shared/constants.js`: VERSION="2.0.0", BUILD=200.
+    - `content/contentscript.js`: extensionName + `[WEB2-EXT]` console prefix.
+    - Thêm matches + host_permissions cho `https://nhijudy.store/*` (prod custom domain) và `http://localhost/*` (local dev).
+    - Content script set `document.documentElement.dataset.web2ExtLoaded = "1"` để page detect không cần đợi message event.
+
+2. **Browser test --ext flag** ([`scripts/n2store-browser-session.js`](../scripts/n2store-browser-session.js)):
+    - Khi `--ext PATH` truyền, switch sang `chromium.launchPersistentContext` (extension load yêu cầu persistent context, browser.launch không hỗ trợ).
+    - **Quan trọng**: `ignoreDefaultArgs: ['--disable-extensions']` — Playwright defaults block extensions, phải bỏ explicit.
+    - args: `--load-extension=PATH --disable-extensions-except=PATH`.
+    - Persistent profile ở `/tmp/n2store-ext-profile-<ts>`.
+    - Reuse `pages[0]` nếu persistent context đã open default page.
+
+**Verify prod (console-only)**:
+
+- `chrome://extensions` → "Web 2.0 Messenger" ID `kdmlaiajiokekndfefefbecnolkfnkhh`, service worker active.
+- Nav `https://nhijudy.store/native-orders/` → `document.documentElement.dataset.web2ExtLoaded === "1"` ✓.
+- `window.postMessage({type:"CHECK_EXTENSION_VERSION"},"*")` → response `EXTENSION_VERSION {name: "Web 2.0 Messenger", version: "2.0.0"}` ✓.
+- Round-trip test: `GET_BUSINESS_CONTEXT` → `GET_BUSINESS_CONTEXT_FAILURE` (expected do chưa login FB Business; bridge page → CS → SW → CS → page hoạt động đúng).
+- Modal openInteractions: `#msgInput` textarea + "Gửi" button render đúng, `window.Web2Chat` loaded, fetches pancake conversations API qua CF Worker.
+
+**Run cmd**:
+
+```bash
+node scripts/n2store-browser-session.js --user U --pass P \
+     --ext /Users/mac/Desktop/n2store/web2-extension
+```
+
+**Status**: ✅ Done. Extension fork chạy độc lập với n2store-extension cũ (khác ID, khác name). Cùng codebase, có thể fork tiếp tục khi cần Web 2.0-specific features. Chat panel UI + Web2Chat client + Pancake API flow đều hoạt động.
+
+---
+
 ### [native-orders] 4-task batch: PBH error UX + diff render + bỏ Xoá đơn + Tách đơn
 
 **Yêu cầu user (4 task)**:
