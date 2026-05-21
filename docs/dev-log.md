@@ -25,6 +25,59 @@
 
 ## 2026-05-21
 
+### [native-orders] 4-task batch: PBH error UX + diff render + bỏ Xoá đơn + Tách đơn
+
+**Yêu cầu user (4 task)**:
+
+1. Tạo PBH đang bị lỗi (toast cryptic "over_sell").
+2. Bảng giật khi SSE re-render → rối mắt.
+3. Bỏ nút "Xoá đơn" cho draft.
+4. Thêm "Tách đơn" cho draft — STT 31 → 31-1 (giỏ gốc) + 31-2 (giỏ rỗng).
+
+Follow-up sau khi triển khai: "đơn tách ra đặt kế nhau chứ? được thì dính lại với nhau".
+
+**Fix #1 — Over_sell UX**:
+Server đã trả `{error, message, violations}` đầy đủ; frontend chỉ dùng `data.error` (code) → toast "Lỗi tạo PBH: over_sell". Fix `_doCreatePbh` + bulk per-row: ưu tiên `data.message` (Vietnamese), với `error=over_sell` show `Popup.error` kèm danh sách `${code}: cần X, kho còn Y` + hint "Nhập thêm tồn kho ở trang Sản Phẩm rồi thử lại". Verified: server response check confirmed shape.
+
+**Fix #2 — Diff render**:
+Refactor `renderRows`:
+
+- Extract `_buildOrderHtml(o)` ra ngoài.
+- Thêm `_rowSignature(o)` gom mọi field hiển thị + `expanded` state + products.
+- `_rowSigs: Map<code, sig>` lưu trên tbody element (persist across renders).
+- Render flow: index existing DOM bằng `data-code`, build fragment per order: sig match → `fragment.appendChild(existingEl)` (move, không clone), sig miss → build HTML mới. Cuối cùng `tb.replaceChildren(fragment)` — single atomic swap.
+- **Root cause phát hiện sau commit đầu**: `load()` wipe `tbody.innerHTML='loading...'` mỗi lần gọi → SSE-driven reload phá DOM trước renderRows. Fix: chỉ wipe nếu chưa có rows; subsequent SSE refresh giữ DOM nguyên → diff hoạt động.
+
+Verify prod: 34 orders, PATCH 1 row → **33 reused (marker preserved), 1 rebuilt** (patched row).
+
+**Fix #3 — Bỏ nút Xoá đơn**:
+Remove HTML cho `removeOrder` button trong row actions của draft. Giữ function `removeOrder()` + export để API/bulk caller dùng được. Slot trống cho draft (không có destructive action ngẫu nhiên).
+
+**Fix #4 — Tách đơn (draft)**:
+
+- Backend migration 079: `ALTER native_orders ADD split_index INTEGER NOT NULL DEFAULT 0; CREATE INDEX (display_stt, split_index)`.
+- Endpoint `POST /api/native-orders/:code/split-order`: atomic transaction set `source.split_index=1` nếu lần đầu, INSERT new order cùng customer info giỏ rỗng `split_index = MAX(split_index over same display_stt) + 1`. Notify SSE.
+- Frontend: button icon `split-square-vertical` cho draft + handler `splitOrder()` confirm popup.
+- Display sttValue: `"${displayStt}-${splitIndex}"` khi `splitIndex > 0`.
+
+**Follow-up "đặt kế nhau"**:
+
+- Backend sort: `ORDER BY display_stt DESC NULLS LAST, split_index ASC, created_at DESC` → 33-1 trước 33-2, cả 2 kế ngay sau 34.
+- Frontend CSS: row class `is-split-family` (bo background sky-blue `#f0f9ff` + border-left 3px `#0ea5e9`), giữa 2 row liền kề chuyển border-bottom thành dashed top → "dính" thành 1 block. `data-stt-group` attribute cho future filter/highlight.
+
+Verify prod: sequence `35, 34, 33-1, 33-2, 32, ...` ✓, `splitFamilyAdjacentInDom: true` ✓.
+
+**Files**:
+
+- [`render.com/routes/native-orders.js`](../render.com/routes/native-orders.js) — migration 079, mapRowToOrder + splitIndex, endpoint split-order, sort fix
+- [`native-orders/js/native-orders-app.js`](../native-orders/js/native-orders-app.js) — \_buildOrderHtml + \_rowSignature + diff render, load() preserve DOM, \_doCreatePbh + bulk error UX, splitOrder() + button, display sttValue
+- [`native-orders/css/native-orders.css`](../native-orders/css/native-orders.css) — is-split-family group styling
+- [`native-orders/index.html`](../native-orders/index.html) — bump native-orders-app.js?v=20260521c, css?v=20260521a
+
+**Status**: ✅ All done. Verified prod (console-only, không screenshot).
+
+---
+
 ### [tpos-pancake] Bỏ auto-scroll viewport khi có comment SSE mới
 
 **Yêu cầu user**: cột TPOS đang giật về top mỗi lần SSE đẩy comment mới — khi user đang xem comment cũ ở giữa/cuối list, bị cưỡng ép scroll lên top.
