@@ -40,27 +40,21 @@
     }
 
     // ---------- Render ----------
-    function renderRows() {
-        const items = STATE.products;
-        if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
-                Chưa có sản phẩm — bấm "Thêm SP" để tạo
-            </td></tr>`;
-            return;
-        }
-        tbody().innerHTML = items
-            .map((p, idx) => {
-                const n = (STATE.page - 1) * STATE.limit + idx + 1;
-                const imgHtml = p.imageUrl
-                    ? `<img class="product-image" src="${escapeHtml(p.imageUrl)}" alt="" loading="lazy"
+    //
+    // _rowHtml(p, n) — render 1 <tr> cho 1 product với index n.
+    // Tách thành helper để dùng được cho cả full renderRows() và in-place
+    // update (tránh giật bảng khi SSE event update).
+    function _rowHtml(p, n) {
+        const imgHtml = p.imageUrl
+            ? `<img class="product-image" src="${escapeHtml(p.imageUrl)}" alt="" loading="lazy"
                        onerror="this.style.display='none';this.nextElementSibling?.style.setProperty('display','inline-flex');">` +
-                      `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
-                    : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
-                const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
-                const priceBuy = Number(p.originalPrice) || 0;
-                const priceSell = Number(p.price) || 0;
-                const variantText = (p.variant || '').trim();
-                return `
+              `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
+            : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
+        const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
+        const priceBuy = Number(p.originalPrice) || 0;
+        const priceSell = Number(p.price) || 0;
+        const variantText = (p.variant || '').trim();
+        return `
                 <tr data-code="${escapeHtml(p.code)}">
                     <td>${n}</td>
                     <td>${imgHtml}</td>
@@ -100,9 +94,42 @@
                         </div>
                     </td>
                 </tr>`;
-            })
+    }
+
+    function renderRows() {
+        const items = STATE.products;
+        if (!items.length) {
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
+                Chưa có sản phẩm — bấm "Thêm SP" để tạo
+            </td></tr>`;
+            return;
+        }
+        tbody().innerHTML = items
+            .map((p, idx) => _rowHtml(p, (STATE.page - 1) * STATE.limit + idx + 1))
             .join('');
         if (window.lucide) lucide.createIcons();
+    }
+
+    // In-place update — replace ONE row's HTML, GIỮ position trong bảng + KHÔNG
+    // re-sort. Tránh giật bảng + sản phẩm vừa edit nhảy lên đầu.
+    //   - Update STATE.products[idx] với data mới (giữ idx hiện tại)
+    //   - querySelector tr[data-code=X] → replace với row HTML mới
+    //   - Re-render lucide icons trong row đó
+    function _updateRowInPlace(code, newProduct) {
+        const idx = STATE.products.findIndex((p) => p.code === code);
+        if (idx === -1) return false; // not on current page → caller should full-reload
+        STATE.products[idx] = newProduct;
+        const tr = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
+        if (!tr) return false;
+        const stt = (STATE.page - 1) * STATE.limit + idx + 1;
+        // Parse new row HTML into a DOM node, then swap.
+        const tmp = document.createElement('tbody');
+        tmp.innerHTML = _rowHtml(newProduct, stt).trim();
+        const newTr = tmp.firstElementChild;
+        if (!newTr) return false;
+        tr.replaceWith(newTr);
+        if (window.lucide) lucide.createIcons();
+        return true;
     }
 
     function renderPagination() {
@@ -544,8 +571,12 @@
                     note: fields.note,
                     isActive: fields.isActive,
                 });
-                const idx = STATE.products.findIndex((x) => x.code === STATE.editingCode);
-                if (idx !== -1 && resp.product) STATE.products[idx] = resp.product;
+                // In-place update — KHÔNG re-render bảng để tránh giật + SP
+                // vừa sửa không nhảy lên đầu (vì backend sort by updated_at DESC).
+                if (resp.product) {
+                    const ok = _updateRowInPlace(STATE.editingCode, resp.product);
+                    if (!ok) renderRows(); // fallback nếu row không có trên page hiện tại
+                }
                 notify('Đã lưu', 'success');
                 window.Web2ProductsCache?.pushTickle?.({
                     action: 'update',
@@ -562,7 +593,6 @@
                 closeModal();
                 return;
             }
-            renderRows();
             closeModal();
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
@@ -572,9 +602,10 @@
     async function toggleActive(code, newState) {
         try {
             const resp = await window.Web2ProductsApi.update(code, { isActive: newState });
-            const idx = STATE.products.findIndex((x) => x.code === code);
-            if (idx !== -1 && resp.product) STATE.products[idx] = resp.product;
-            renderRows();
+            if (resp.product) {
+                const ok = _updateRowInPlace(code, resp.product);
+                if (!ok) renderRows();
+            }
             notify(newState ? 'Đã bật bán' : 'Đã tạm dừng', 'success');
             window.Web2ProductsCache?.pushTickle?.({ action: 'update', code });
         } catch (e) {
@@ -716,26 +747,68 @@
     }
 
     // ---------- Init ----------
-    // SSE realtime — auto reload bảng khi server thông báo mutation.
+    // SSE realtime — auto sync khi server thông báo mutation.
     // Subscribe 3 topic:
     //   - web2:products → CRUD trực tiếp (create/update/delete/stock adjust)
     //   - web2:fast-sale-orders → tạo PBH deduct stock + sync state
     //   - web2:native-orders → đổi status đơn → ảnh hưởng badge "ĐANG DÙNG"
-    // Debounce 500ms để gom nhiều event gần nhau thành 1 reload.
+    //
+    // Strategy:
+    //   - Event 'update' + code cụ thể có trong page hiện tại → fetch chỉ SP đó
+    //     và update tại chỗ (KHÔNG full load → KHÔNG giật bảng + KHÔNG re-sort).
+    //   - Event 'create' / 'delete' / không code → full load (cần ảnh hưởng total).
+    //   - fast-sale-orders / native-orders → chỉ ảnh hưởng badge "ĐANG DÙNG" →
+    //     gọi _loadUsageForCurrentPage() (cell-level update, không nháy bảng).
     let _sseReloadTimer = null;
     function _setupSse() {
         if (!window.Web2SSE?.subscribe) return;
-        const onEvent = (topic) => (msg) => {
+
+        const debouncedFullLoad = () => {
             if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
             _sseReloadTimer = setTimeout(() => {
                 _sseReloadTimer = null;
-                console.log('[Web2Products-SSE]', topic, msg.data?.action);
                 load();
             }, 500);
         };
-        window.Web2SSE.subscribe('web2:products', onEvent('web2:products'));
-        window.Web2SSE.subscribe('web2:fast-sale-orders', onEvent('web2:fast-sale-orders'));
-        window.Web2SSE.subscribe('web2:native-orders', onEvent('web2:native-orders'));
+
+        window.Web2SSE.subscribe('web2:products', async (msg) => {
+            const { action, code } = msg.data || {};
+            console.log('[Web2Products-SSE] web2:products', action, code || '');
+            // Single-product UPDATE: refresh just that row, keep position.
+            if (action === 'update' && code) {
+                const onPage = STATE.products.some((p) => p.code === code);
+                if (onPage) {
+                    try {
+                        const r = await window.Web2ProductsApi.get(code);
+                        if (r?.product) _updateRowInPlace(code, r.product);
+                        return;
+                    } catch (e) {
+                        console.warn('[Web2Products-SSE] in-place fetch failed:', e?.message);
+                        // fall through to full load
+                    }
+                }
+            }
+            // create/delete/bulk-stock → full load (total changes)
+            debouncedFullLoad();
+        });
+
+        // Topic fast-sale-orders / native-orders → chỉ ảnh hưởng cell "ĐANG DÙNG"
+        // → refresh usage map mà không re-render bảng (cell-level update in-place).
+        const refreshUsageOnly = () => {
+            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            _sseReloadTimer = setTimeout(() => {
+                _sseReloadTimer = null;
+                _loadUsageForCurrentPage();
+            }, 600);
+        };
+        window.Web2SSE.subscribe('web2:fast-sale-orders', () => {
+            console.log('[Web2Products-SSE] fast-sale-orders → refresh usage');
+            refreshUsageOnly();
+        });
+        window.Web2SSE.subscribe('web2:native-orders', () => {
+            console.log('[Web2Products-SSE] native-orders → refresh usage');
+            refreshUsageOnly();
+        });
     }
 
     function init() {
