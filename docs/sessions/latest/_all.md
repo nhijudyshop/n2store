@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bd2afac` — perf(web2-msg-template): parallel multi-worker send theo page
-**Last updated**: 2026-05-21 17:02:07 +07
-**Latest session**: [`RESUME:20260521-170207-bd2afac`](../20260521-170207-bd2afac.md)
-**Summary**: perf(web2-msg-template): parallel multi-worker send theo page
+**Latest commit**: `a67519e` — feat(native-orders): bulk-send skip đơn SL=0 (giỏ trống)
+**Last updated**: 2026-05-21 17:14:55 +07
+**Latest session**: [`RESUME:20260521-171455-a67519e`](../20260521-171455-a67519e.md)
+**Summary**: feat(native-orders): bulk-send skip đơn SL=0 (giỏ trống)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-21 15:39
-- [`docs/`](./docs.md) — updated 2026-05-21 17:02
+- [`docs/`](./docs.md) — updated 2026-05-21 17:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
@@ -39,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-21 15:39
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-21 16:54
+- [`native-orders/`](./native-orders.md) — updated 2026-05-21 17:14
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
