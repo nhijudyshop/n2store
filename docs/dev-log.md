@@ -102,6 +102,18 @@
 
 **Status**: ✅ Done — paste-image flow robust với ảnh huge/corrupt/oversize. Backend Bunny 500 cần escalation riêng.
 
+**✅ Verified prod** (2026-05-21 03:08 UTC, sau commit 243383d0):
+
+- `curl https://nhijudy.store/purchase-orders/js/lib/image-utils.js | grep MAX_CANVAS_DIMENSION` → 4 matches (deployed ✓)
+- Re-run 6 scenarios qua persistent browser ở `https://nhijudy.store/purchase-orders/index.html`:
+    - 8000×6000 → 7 KB JPEG, decoded 1200×900 ✓
+    - 15000×11000 → 7 KB JPEG, decoded 1200×880 ✓
+    - 16385×1000 → 1 KB JPEG, decoded 1200×73 ✓
+    - 16384×16384 → 9 KB JPEG, decoded 1200×1200 ✓
+    - Corrupt PNG → toast "Không đọc được nội dung ảnh (ảnh hỏng hoặc định dạng không hỗ trợ)"
+    - 50 MB file → toast "Ảnh quá lớn (50.0 MB). Vui lòng dùng ảnh ≤ 40 MB."
+- Session restore (block `## n2store_session_nhijudy.store` từ `serect_dont_push.txt`) hoạt động transparent — không bị bounce login.
+
 ---
 
 ### [web2-products][native-orders][render] Realtime cascade snapshot khi update SP
