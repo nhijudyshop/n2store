@@ -23,6 +23,38 @@
 
 ---
 
+## 2026-05-21
+
+### [native-orders][render] Backfill time prefix `[HH:mm:ss D/M/YYYY]` cho ghi chú đầu của đơn cũ
+
+**Yêu cầu user**: Bên `native-orders/index.html` các đơn từ `tpos-pancake` qua, **ghi chú đầu tiên chưa hiện thời gian tạo** — trong khi các comment merge sau đều có prefix.
+
+**Root cause**: Logic prepend `[time]` vào note đầu chỉ được thêm vào commit `0599b1dd` (2026-05-20 15:52). Các đơn tạo TRƯỚC mốc đó (vd `NW-20260520-0004` lúc 10:34) đã lưu note thô không prefix. Code mới hoạt động đúng cho đơn mới, nhưng historical data cần backfill.
+
+**Fix**: Migration 076 self-gated qua bảng tracker `native_orders_migrations`. Logic:
+
+- Find rows có `note` không-null, có nội dung, **không bắt đầu bằng `[`** (skip cả đơn đã prefix lẫn merge note `[code]`).
+- Tính prefix từ `created_at` (BIGINT ms) → `Asia/Ho_Chi_Minh` → format `[HH24:MI:SS D/M/YYYY]` (FM mode bỏ pad ngày/tháng) — khớp output của `new Date().toLocaleString('vi-VN')` trên Node.
+- Prepend prefix vào toàn bộ note (giữ nguyên các merge segment phía sau).
+- Insert marker vào `native_orders_migrations` → restart sau no-op.
+
+**Files**:
+
+- [`render.com/routes/native-orders.js`](../render.com/routes/native-orders.js#L221-L253) — thêm block migration 076 trong `ensureTables` ngay sau backfill `display_stt`.
+
+**Verify (local Postgres)**: 7 fixture cases pass:
+
+- ✓ Note thô không prefix → prepend `[time]` từ `created_at`
+- ✓ Note có merge segment phía sau → chỉ prepend prefix đầu, segment giữ nguyên
+- ✓ Note đã có `[time]` prefix → unchanged
+- ✓ Merge note `[NW-A] ...` → unchanged
+- ✓ Empty/NULL → unchanged
+- ✓ Re-run no-op (idempotent qua tracker table)
+
+**Status**: ✅ Done — push lên Render để auto-deploy + chạy backfill 1 lần khi DB pool sẵn sàng.
+
+---
+
 ## 2026-05-20
 
 ### [showroom] Viewer navigation order tuỳ chỉnh: 1 → 0 → 2 → 3 → 4 → ...

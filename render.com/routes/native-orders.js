@@ -217,6 +217,41 @@ async function ensureTables(pool) {
                 END IF;
             END $$;
         `);
+
+        // Migration 076: backfill time prefix [HH24:MI:SS D/M/YYYY] cho ghi chú đầu
+        // tiên (chưa có prefix). Bug lịch sử: orders tạo trước commit 0599b1dd (2026-05-20
+        // 15:52) không có time prefix trên dòng note đầu, chỉ comment merge sau mới có.
+        // Self-gated qua bảng tracker (chạy 1 lần duy nhất).
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS native_orders_migrations (
+                name VARCHAR(120) PRIMARY KEY,
+                run_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            DO $$
+            DECLARE r RECORD; ts_local TIMESTAMP; prefix TEXT;
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '076_backfill_note_time_prefix'
+                ) THEN
+                    FOR r IN
+                        SELECT id, note, created_at
+                        FROM native_orders
+                        WHERE note IS NOT NULL
+                          AND length(trim(note)) > 0
+                          AND note !~ '^\\['
+                    LOOP
+                        ts_local := (to_timestamp(r.created_at / 1000.0)
+                                     AT TIME ZONE 'Asia/Ho_Chi_Minh');
+                        prefix := '[' || to_char(ts_local, 'HH24:MI:SS')
+                               || ' ' || to_char(ts_local, 'FMDD/FMMM/YYYY')
+                               || '] ';
+                        UPDATE native_orders SET note = prefix || note WHERE id = r.id;
+                    END LOOP;
+                    INSERT INTO native_orders_migrations(name) VALUES ('076_backfill_note_time_prefix');
+                END IF;
+            END $$;
+        `);
         _tablesCreated = true;
         console.log(
             '[NATIVE-ORDERS] Tables created/verified (migration 068: display_stt sequence)'
