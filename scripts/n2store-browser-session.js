@@ -28,6 +28,7 @@ const path = require('path');
 const readline = require('readline');
 const { chromium } = require('playwright');
 const { ensureLocalServer } = require('./lib/ensure-local-server');
+const { restoreLoginSession } = require('./restore-login-session');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
@@ -108,21 +109,32 @@ const log = (...a) => {
         }
     });
 
-    // ── Login ────────────────────────────────────────────────────
-    log('Login →', `${BASE}/`);
-    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#username');
-    await page.fill('#username', ARGS.user);
-    await page.fill('#password', ARGS.pass);
-    await page.locator('#password').press('Enter');
-    await page
-        .waitForFunction(
-            () =>
-                !/\/n2store\/?$|\/n2store\/index\.html$/.test(location.href) ||
-                !!localStorage.getItem('loginindex_auth'),
-            { timeout: 30_000 }
-        )
-        .catch(() => {});
+    // ── Restore or Login ─────────────────────────────────────────
+    let restored = null;
+    try {
+        restored = await restoreLoginSession(ctx, { base: BASE });
+    } catch (e) {
+        log('restoreLoginSession failed:', String(e).slice(0, 200));
+    }
+    if (restored) {
+        log('Restored session from secret file. capturedAt=', restored.capturedAt);
+        await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+    } else {
+        log('Login →', `${BASE}/`);
+        await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#username');
+        await page.fill('#username', ARGS.user);
+        await page.fill('#password', ARGS.pass);
+        await page.locator('#password').press('Enter');
+        await page
+            .waitForFunction(
+                () =>
+                    !/\/n2store\/?$|\/n2store\/index\.html$/.test(location.href) ||
+                    !!localStorage.getItem('loginindex_auth'),
+                { timeout: 30_000 }
+            )
+            .catch(() => {});
+    }
     log('After login URL:', page.url());
 
     // Default: navigate to orders
