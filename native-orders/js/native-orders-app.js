@@ -369,66 +369,65 @@
         return '';
     }
 
-    function renderRows() {
-        const orders = STATE.orders;
-        if (!orders.length) {
-            tbody().innerHTML = `<tr><td colspan="16" class="empty-row">
-                Không có đơn nào khớp bộ lọc
-            </td></tr>`;
-            return;
-        }
-        tbody().innerHTML = orders
-            .map((o) => {
-                const time = formatTimeSplit(o.createdAt);
-                const isExpanded = STATE.expandedOrders.has(o.code);
-                const carrier = detectCarrier(o.phone);
-                const status = (o.partnerStatus || '').trim();
-                const statusPill =
-                    status === 'Bom hàng'
-                        ? `<span class="tpos-label tpos-label-danger m-l-xs">Bom hàng</span>`
-                        : status === 'Cảnh báo'
-                          ? `<span class="tpos-label tpos-label-warning m-l-xs">Cảnh báo</span>`
-                          : status === 'Nguy hiểm'
-                            ? `<span class="tpos-label tpos-label-danger m-l-xs">Nguy hiểm</span>`
-                            : `<span class="tpos-label tpos-label-success m-l-xs">Bình thường</span>`;
-                const tagBadges = (o.tags || [])
-                    .map((t) => {
-                        const txt = typeof t === 'string' ? t : t.name || t.label || '';
-                        if (!txt) return '';
-                        const upper = txt.toUpperCase();
-                        let cls = 'tpos-label-default';
-                        if (/CỌC|COC/.test(upper)) cls = 'tpos-label-coc';
-                        else if (/BOOM/.test(upper)) cls = 'tpos-label-boom';
-                        else if (/GIỎ|GIO/.test(upper)) cls = 'tpos-label-warning';
-                        return `<span class="tpos-label ${cls}">${escapeHtml(txt)}</span>`;
-                    })
-                    .join('');
-                const total = Number(o.totalAmount || 0).toLocaleString('vi-VN');
-                const qty = Number(o.totalQuantity || 0);
-                const campaignName = o.liveCampaignName || '';
+    // Build HTML cho 1 order — return string: main row + (optional) expand row.
+    // Tách ra để renderRows có thể diff per-code và chỉ thay row thay đổi.
+    function _buildOrderHtml(o) {
+        const time = formatTimeSplit(o.createdAt);
+        const isExpanded = STATE.expandedOrders.has(o.code);
+        const carrier = detectCarrier(o.phone);
+        const status = (o.partnerStatus || '').trim();
+        const statusPill =
+            status === 'Bom hàng'
+                ? `<span class="tpos-label tpos-label-danger m-l-xs">Bom hàng</span>`
+                : status === 'Cảnh báo'
+                  ? `<span class="tpos-label tpos-label-warning m-l-xs">Cảnh báo</span>`
+                  : status === 'Nguy hiểm'
+                    ? `<span class="tpos-label tpos-label-danger m-l-xs">Nguy hiểm</span>`
+                    : `<span class="tpos-label tpos-label-success m-l-xs">Bình thường</span>`;
+        const tagBadges = (o.tags || [])
+            .map((t) => {
+                const txt = typeof t === 'string' ? t : t.name || t.label || '';
+                if (!txt) return '';
+                const upper = txt.toUpperCase();
+                let cls = 'tpos-label-default';
+                if (/CỌC|COC/.test(upper)) cls = 'tpos-label-coc';
+                else if (/BOOM/.test(upper)) cls = 'tpos-label-boom';
+                else if (/GIỎ|GIO/.test(upper)) cls = 'tpos-label-warning';
+                return `<span class="tpos-label ${cls}">${escapeHtml(txt)}</span>`;
+            })
+            .join('');
+        const total = Number(o.totalAmount || 0).toLocaleString('vi-VN');
+        const qty = Number(o.totalQuantity || 0);
+        const campaignName = o.liveCampaignName || '';
 
-                // When merge mode is on, embed the merged sibling info inside the
-                // primary cell so user still sees it even though sibling column is hidden.
-                const mergeNameSdt = STATE.colVisibility.mergeNameSdt;
-                const mergeTotalQty = STATE.colVisibility.mergeTotalQty;
-                const mergedPhoneHtml =
-                    mergeNameSdt && o.phone
-                        ? `<a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link" style="font-size:11px;color:#6b7280;font-weight:500;" onclick="event.stopPropagation();">${escapeHtml(o.phone)}</a>`
-                        : '';
-                const mergedQtyHtml =
-                    mergeTotalQty && qty
-                        ? `<div style="font-size:11px;color:#6b7280;font-weight:500;">SL: ${qty}</div>`
-                        : '';
-                // Hiển thị STT merged "1 + 2" nếu là đơn gộp, không thì single STT
-                const sttValue =
-                    Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1
-                        ? o.mergedDisplayStt
-                              .map((n) => parseInt(n, 10))
-                              .filter(Number.isFinite)
-                              .sort((a, b) => a - b)
-                              .join(' + ')
-                        : (o.displayStt ?? o.sessionIndex ?? '');
-                const mainRow = `
+        // When merge mode is on, embed the merged sibling info inside the
+        // primary cell so user still sees it even though sibling column is hidden.
+        const mergeNameSdt = STATE.colVisibility.mergeNameSdt;
+        const mergeTotalQty = STATE.colVisibility.mergeTotalQty;
+        const mergedPhoneHtml =
+            mergeNameSdt && o.phone
+                ? `<a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link" style="font-size:11px;color:#6b7280;font-weight:500;" onclick="event.stopPropagation();">${escapeHtml(o.phone)}</a>`
+                : '';
+        const mergedQtyHtml =
+            mergeTotalQty && qty
+                ? `<div style="font-size:11px;color:#6b7280;font-weight:500;">SL: ${qty}</div>`
+                : '';
+        // Hiển thị STT:
+        //   - "1 + 2" nếu là đơn gộp (mergedDisplayStt array length > 1)
+        //   - "31-2" nếu là đơn tách (splitIndex > 0) — chia sẻ STT với các đơn cùng split family
+        //   - "31" cho đơn thường
+        const sttValue = (() => {
+            if (Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1) {
+                return o.mergedDisplayStt
+                    .map((n) => parseInt(n, 10))
+                    .filter(Number.isFinite)
+                    .sort((a, b) => a - b)
+                    .join(' + ');
+            }
+            const base = o.displayStt ?? o.sessionIndex ?? '';
+            return o.splitIndex && o.splitIndex > 0 ? `${base}-${o.splitIndex}` : base;
+        })();
+        const mainRow = `
                 <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
                     data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
                     data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
@@ -474,9 +473,9 @@
                             }
                             ${
                                 o.status === 'draft'
-                                    ? `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xoá đơn (chưa lập PBH — xoá hẳn khỏi DB)"
-                                onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${escapeHtml(o.code)}')">
-                                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách)" style="color:#0ea5e9;"
+                                onclick="event.stopPropagation();NativeOrdersApp.splitOrder('${escapeHtml(o.code)}')">
+                                <i data-lucide="split-square-vertical" style="width:12px;height:12px;"></i>
                             </button>`
                                     : o.status === 'confirmed'
                                       ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
@@ -548,11 +547,96 @@
                         ${time.date}/${new Date(Number(o.createdAt)).getFullYear()}<br>${time.hour}
                     </td>
                 </tr>`;
-                return isExpanded ? mainRow + _renderExpandRow(o) : mainRow;
-            })
-            .join('');
+        return isExpanded ? mainRow + _renderExpandRow(o) : mainRow;
+    }
+
+    // Signature cho 1 row — gồm mọi field hiển thị + trạng thái expand. SSE ping
+    // với cùng signature → reuse DOM element (no flicker, no image reload).
+    function _rowSignature(o) {
+        const expanded = STATE.expandedOrders.has(o.code) ? '1' : '0';
+        const products = (o.products || [])
+            .map(
+                (p) =>
+                    `${p.productCode || ''}|${p.quantity || 0}|${p.imageUrl || ''}|${p.name || ''}|${p.price || 0}`
+            )
+            .join(';');
+        return [
+            o.code,
+            o.displayStt ?? '',
+            o.splitIndex || 0,
+            JSON.stringify(o.mergedDisplayStt || ''),
+            o.status,
+            o.customerName || '',
+            o.phone || '',
+            o.address || '',
+            o.note || '',
+            o.totalQuantity || 0,
+            Number(o.totalAmount) || 0,
+            Number(o.deposit) || 0,
+            o.commentCount || 0,
+            o.messageCount || 0,
+            o.partnerStatus || '',
+            o.customerId || '',
+            JSON.stringify(o.tags || []),
+            expanded,
+            products,
+            o.updatedAt || 0,
+        ].join('||');
+    }
+
+    function renderRows() {
+        const orders = STATE.orders;
+        const tb = tbody();
+        if (!orders.length) {
+            tb.replaceChildren();
+            tb.insertAdjacentHTML(
+                'beforeend',
+                `<tr><td colspan="16" class="empty-row">Không có đơn nào khớp bộ lọc</td></tr>`
+            );
+            tb._rowSigs = new Map();
+            return;
+        }
+        if (!tb._rowSigs) tb._rowSigs = new Map();
+        const sigs = tb._rowSigs;
+        // Index existing DOM elements by code (main row + expand-row).
+        const existing = new Map();
+        Array.from(tb.children).forEach((el) => {
+            const code = el.dataset?.code || el.dataset?.for;
+            if (!code) return;
+            if (!existing.has(code)) existing.set(code, []);
+            existing.get(code).push(el);
+        });
+
+        const fragment = document.createDocumentFragment();
+        const newCodes = new Set();
+        let rebuiltCount = 0;
+        for (const o of orders) {
+            newCodes.add(o.code);
+            const sig = _rowSignature(o);
+            const oldSig = sigs.get(o.code);
+            if (oldSig === sig && existing.has(o.code)) {
+                // Reuse existing DOM — move to fragment (no flicker, no image reload).
+                existing.get(o.code).forEach((el) => fragment.appendChild(el));
+            } else {
+                // Build new HTML for this order and parse to nodes
+                const html = _buildOrderHtml(o);
+                const tmp = document.createElement('tbody');
+                tmp.innerHTML = html;
+                while (tmp.firstChild) fragment.appendChild(tmp.firstChild);
+                sigs.set(o.code, sig);
+                rebuiltCount++;
+            }
+        }
+        // Clean up sigs for codes no longer present
+        for (const code of Array.from(sigs.keys())) {
+            if (!newCodes.has(code)) sigs.delete(code);
+        }
+        // Single atomic swap
+        tb.replaceChildren(fragment);
+
+        // Lucide only re-processes <i data-lucide> nodes (idempotent skip <svg>).
+        // Reused rows already have <svg> rendered → no work; new rows get icons created.
         if (window.lucide) lucide.createIcons();
-        // Re-apply new-message badges idempotently after every render
         if (window.Web2NewMsgBadge?.reapply) window.Web2NewMsgBadge.reapply();
     }
 
@@ -1865,7 +1949,20 @@
                     body: JSON.stringify({ nativeOrderCode: r.code, ...extras }),
                 });
                 const data = await resp.json();
-                if (!resp.ok || !data.success) throw new Error(data.error || `HTTP ${resp.status}`);
+                if (!resp.ok || !data.success) {
+                    // Prefer server-side message (vi-VN) over error code; nếu over_sell có
+                    // violations thì gom vào message để row-error hiển thị tốt hơn.
+                    let msg = data.message || data.error || `HTTP ${resp.status}`;
+                    if (data.error === 'over_sell' && Array.isArray(data.violations)) {
+                        msg +=
+                            ' [' +
+                            data.violations
+                                .map((v) => `${v.code}:${v.requested}/${v.available}`)
+                                .join(', ') +
+                            ']';
+                    }
+                    throw new Error(msg);
+                }
                 results.push({ code: r.code, pbh: data.order.number, ok: true });
                 progressModal
                     .querySelector('#pgList')
@@ -1934,7 +2031,34 @@
                 body: JSON.stringify(body),
             });
             const data = await r.json();
-            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            if (!r.ok || !data.success) {
+                // Server trả: { error: 'over_sell', message: '...', violations: [{code, requested, available}] }
+                // hoặc { error: 'missing_phone', message: '...' } v.v. Ưu tiên message Vietnamese.
+                const baseMsg = data.message || data.error || `HTTP ${r.status}`;
+                if (
+                    data.error === 'over_sell' &&
+                    Array.isArray(data.violations) &&
+                    data.violations.length
+                ) {
+                    // Show popup với detail violations nếu có Popup, fallback toast.
+                    const list = data.violations
+                        .map((v) => `• ${v.code}: cần ${v.requested}, kho còn ${v.available}`)
+                        .join('\n');
+                    if (window.Popup?.error) {
+                        await window.Popup.error(
+                            `${baseMsg}\n\n${list}\n\nNhập thêm tồn kho ở trang Sản Phẩm rồi thử lại.`,
+                            {
+                                title: 'Không đủ tồn kho',
+                                okText: 'Đã hiểu',
+                            }
+                        );
+                    } else {
+                        notify(`${baseMsg}\n${list}`, 'error');
+                    }
+                    return;
+                }
+                throw new Error(baseMsg);
+            }
             const isIdempotent = data.idempotent;
             const pbh = data.order;
             notify(
@@ -1972,6 +2096,52 @@
             notify(`Đã xóa ${code}`, 'success');
         } catch (e) {
             notify('Lỗi xóa: ' + e.message, 'error');
+        }
+    }
+
+    // Tách đơn nháp — tạo thêm 1 đơn mới cùng KH/SĐT/địa chỉ, giỏ trống. Original
+    // giữ products. Server backfill split_index=1 cho original (nếu lần đầu) và
+    // assign split_index=N+1 cho đơn mới. Hiển thị "<STT>-N" cho cả 2.
+    async function splitOrder(code) {
+        const src = STATE.orders.find((o) => o.code === code);
+        if (!src) {
+            notify('Không tìm thấy đơn ' + code, 'error');
+            return;
+        }
+        const sttDisplay =
+            src.splitIndex && src.splitIndex > 0
+                ? `${src.displayStt}-${src.splitIndex}`
+                : String(src.displayStt ?? '');
+        const ok = await w2pConfirm(
+            `Tách thêm 1 đơn nháp từ ${code} (STT ${sttDisplay}) cho KH ${src.customerName || '—'}?\n\n` +
+                `Đơn mới sẽ có giỏ hàng RỖNG, cùng SĐT/địa chỉ. STT đơn mới: ${src.displayStt}-N (N = max split index hiện tại + 1).`,
+            {
+                title: `Tách đơn ${code}?`,
+                okText: 'Tách',
+                cancelText: 'Đóng',
+                type: 'info',
+            }
+        );
+        if (!ok) return;
+        try {
+            const r = await fetch(
+                `${WORKER_URL}/api/native-orders/${encodeURIComponent(code)}/split-order`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            );
+            const data = await r.json();
+            if (!r.ok || !data.success)
+                throw new Error(data.message || data.error || `HTTP ${r.status}`);
+            notify(
+                `Đã tách: ${data.source.code} (STT ${data.source.displayStt}-${data.source.splitIndex || 1}) + ${data.created.code} (STT ${data.created.displayStt}-${data.created.splitIndex})`,
+                'success'
+            );
+            await load();
+        } catch (e) {
+            notify('Lỗi tách đơn: ' + e.message, 'error');
+            console.error('[splitOrder]', e);
         }
     }
 
@@ -6128,6 +6298,7 @@
         confirmDraft,
         cancelOrder,
         splitPbh,
+        splitOrder,
         removeOrder,
         bulkCreatePbh,
         unselectAllOrders,

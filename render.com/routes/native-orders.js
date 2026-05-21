@@ -203,6 +203,14 @@ async function ensureTables(pool) {
             ALTER TABLE native_orders
                 ADD COLUMN IF NOT EXISTS merged_display_stt JSONB,
                 ADD COLUMN IF NOT EXISTS merged_codes JSONB;
+
+            -- Migration 079: tách đơn nháp — 1 native_order → nhiều đơn cùng STT
+            -- nhưng khác split_index (vd 31-1, 31-2). Original gốc giữ split_index=1
+            -- khi lần đầu split, đơn mới (giỏ rỗng) lấy split_index=2/3/...
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS split_index INTEGER NOT NULL DEFAULT 0;
+            CREATE INDEX IF NOT EXISTS idx_native_orders_split_lookup
+                ON native_orders(display_stt, split_index);
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -309,6 +317,7 @@ function mapRowToOrder(row) {
         displayStt: row.display_stt,
         mergedDisplayStt: row.merged_display_stt || null,
         mergedCodes: row.merged_codes || null,
+        splitIndex: Number(row.split_index) || 0,
         sessionIndex: row.session_index,
         source: row.source,
         customerName: row.customer_name,
@@ -1378,6 +1387,151 @@ router.delete('/:code', async (req, res) => {
 //   - DELETE các native_order gốc (atomic transaction)
 //   - Notify SSE web2:native-orders
 // -----------------------------------------------------
+//
+// POST /api/native-orders/:code/split-order
+// Tách 1 đơn nháp thành 2: original giữ products, new tạo với giỏ rỗng.
+//   - Source phải có status='draft'.
+//   - Nếu source.split_index = 0 → set thành 1 (đơn đầu).
+//   - New order: same customer info, products=[], split_index = MAX(split_index)+1
+//     across cùng display_stt (atomic).
+//   - Frontend hiển thị "<STT>-<split_index>" cho mọi order có split_index > 0.
+// -----------------------------------------------------
+router.post('/:code/split-order', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const code = req.params.code;
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+
+        const srcQ = await client.query(`SELECT * FROM native_orders WHERE code = $1 FOR UPDATE`, [
+            code,
+        ]);
+        if (!srcQ.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'not_found', message: 'Không tìm thấy đơn' });
+        }
+        const src = srcQ.rows[0];
+        if (src.status !== 'draft') {
+            await client.query('ROLLBACK');
+            return res
+                .status(400)
+                .json({ error: 'invalid_status', message: 'Chỉ tách được đơn nháp' });
+        }
+
+        // Compute split_index cho new order = MAX(split_index)+1 across same display_stt
+        const maxQ = await client.query(
+            `SELECT COALESCE(MAX(split_index), 0) AS max_idx
+             FROM native_orders
+             WHERE display_stt = $1`,
+            [src.display_stt]
+        );
+        const currentMax = Number(maxQ.rows[0].max_idx) || 0;
+        // Original gốc lần đầu (split_index=0) → đặt thành 1
+        if (src.split_index === 0) {
+            await client.query(
+                `UPDATE native_orders SET split_index = 1, updated_at = $2 WHERE id = $1`,
+                [src.id, Date.now()]
+            );
+        }
+        const newIndex = Math.max(currentMax, 1) + 1;
+
+        // Generate new code (NW-YYYYMMDD-XXXX) — tách dùng sequence theo ngày
+        const today = new Date();
+        const pad = (n, w = 2) => String(n).padStart(w, '0');
+        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
+        const countQ = await client.query(
+            `SELECT COUNT(*)::int AS n FROM native_orders WHERE code LIKE $1`,
+            [`NW-${ymd}-%`]
+        );
+        const nextSeq = pad(countQ.rows[0].n + 1, 4);
+        const newCode = `NW-${ymd}-${nextSeq}`;
+        const now = Date.now();
+
+        // INSERT new order: same customer/contact info, EMPTY products, split_index = newIndex,
+        // display_stt = source's display_stt (cùng STT — chỉ khác hậu tố split_index)
+        const insQ = await client.query(
+            `INSERT INTO native_orders (
+                code, session_index, display_stt, split_index, source,
+                customer_name, phone, address, note,
+                fb_user_id, fb_user_name, fb_page_id, fb_post_id, crm_team_id,
+                products, total_quantity, total_amount,
+                status, tags,
+                live_campaign_id, live_campaign_name,
+                customer_id,
+                created_by, created_by_name, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9,
+                $10, $11, $12, $13, $14,
+                '[]'::jsonb, 0, 0,
+                'draft', '[]'::jsonb,
+                $15, $16,
+                $17,
+                $18, $19, $20, $20
+            ) RETURNING *`,
+            [
+                newCode,
+                src.session_index,
+                src.display_stt,
+                newIndex,
+                src.source,
+                src.customer_name,
+                src.phone,
+                src.address,
+                src.note,
+                src.fb_user_id,
+                src.fb_user_name,
+                src.fb_page_id,
+                src.fb_post_id,
+                src.crm_team_id,
+                src.live_campaign_id,
+                src.live_campaign_name,
+                src.customer_id,
+                src.created_by,
+                src.created_by_name,
+                now,
+            ]
+        );
+
+        await client.query('COMMIT');
+
+        // Re-read source để lấy split_index sau update
+        const updatedSrcQ = await pool.query('SELECT * FROM native_orders WHERE id = $1', [src.id]);
+        const updatedSrc = mapRowToOrder(updatedSrcQ.rows[0]);
+        const newOrder = mapRowToOrder(insQ.rows[0]);
+
+        _notify('split-order', newCode);
+
+        if (req.app.locals.broadcastToClients) {
+            req.app.locals.broadcastToClients({
+                type: 'native_order:split',
+                action: 'split-order',
+                source: updatedSrc,
+                created: newOrder,
+            });
+        }
+
+        res.json({
+            success: true,
+            source: updatedSrc,
+            created: newOrder,
+            splitIndex: newIndex,
+        });
+    } catch (e) {
+        try {
+            await client.query('ROLLBACK');
+        } catch {
+            /* ignore */
+        }
+        console.error('[NATIVE-ORDERS] /split-order error:', e);
+        res.status(500).json({ error: 'internal', message: e.message });
+    } finally {
+        client.release();
+    }
+});
+
 router.post('/merge', async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
