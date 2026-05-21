@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `soluong-live/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-21 11:33:34 +07
 **Summary**: feat(domain): rewire codebase sang custom domain nhijudy.store
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`soluong-live/`)
 
-- `docs/dev-log.md`
+- `soluong-live/js/main.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `soluong-live/`
 
 - `411482c3` feat(domain): rewire codebase sang custom domain nhijudy.store _(2026-05-21)_
-- `1a957ef0` chore(session): RESUME:20260521-112350-a82a7de _(2026-05-21)_
-- `9de70089` chore(session): RESUME:20260521-111833-ca2a95d _(2026-05-21)_
-- `ca2a95dd` docs(web2-extension): dev-log entry cho fork + --ext flag _(2026-05-21)_
-- `872cf246` chore(session): RESUME:20260521-110815-8f182fc _(2026-05-21)_
+- `445c4a21` fix(invoice-compare): thêm shared/js/firebase-config.js trước token-manager _(2026-04-28)_
+- `cf93f9a0` fix(smoke phase 3 batch 2): G3 sales-report ready event + G4 null DOM guards + G5 AI widget basePath _(2026-04-28)_
+- `f8287d6a` fix(smoke-test phase 3 batch 1): G1 missing globals + G2 duplicate identifiers _(2026-04-28)_
+- `a5d44815` auto: session update _(2026-04-23)_
 
 ---
 

@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `fb-ads/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-21 11:33:34 +07
 **Summary**: feat(domain): rewire codebase sang custom domain nhijudy.store
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`fb-ads/`)
 
-- `docs/dev-log.md`
+- `fb-ads/extension/background.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `fb-ads/`
 
 - `411482c3` feat(domain): rewire codebase sang custom domain nhijudy.store _(2026-05-21)_
-- `1a957ef0` chore(session): RESUME:20260521-112350-a82a7de _(2026-05-21)_
-- `9de70089` chore(session): RESUME:20260521-111833-ca2a95d _(2026-05-21)_
-- `ca2a95dd` docs(web2-extension): dev-log entry cho fork + --ext flag _(2026-05-21)_
-- `872cf246` chore(session): RESUME:20260521-110815-8f182fc _(2026-05-21)_
+- `a5d44815` auto: session update _(2026-04-23)_
+- `d6e3faa5` auto: session update _(2026-04-22)_
+- `7bc1c4c4` fix(fb-ads): use OAuth dialog to get EAAG token — FB Ads Manager doesn't expose tokens in API calls, must go through OAuth _(2026-04-16)_
+- `10e27289` fix(fb-ads): intercept fetch/XHR in MAIN world to capture EAAG token from Facebook's internal API calls _(2026-04-16)_
 
 ---
 

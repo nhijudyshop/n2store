@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `pancake-extension/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-05-21 11:33:34 +07
 **Summary**: feat(domain): rewire codebase sang custom domain nhijudy.store
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`pancake-extension/`)
 
-- `docs/dev-log.md`
+- `pancake-extension/manifest.json`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `pancake-extension/`
 
 - `411482c3` feat(domain): rewire codebase sang custom domain nhijudy.store _(2026-05-21)_
-- `1a957ef0` chore(session): RESUME:20260521-112350-a82a7de _(2026-05-21)_
-- `9de70089` chore(session): RESUME:20260521-111833-ca2a95d _(2026-05-21)_
-- `ca2a95dd` docs(web2-extension): dev-log entry cho fork + --ext flag _(2026-05-21)_
-- `872cf246` chore(session): RESUME:20260521-110815-8f182fc _(2026-05-21)_
+- `ea059fd1` feat(docs): add #Note AI-instruction header to all HTML+JS files + module overview in dev-log _(2026-04-04)_
+- `7c27edfb` update _(2026-03-21)_
+- `ba571c40` debug: add comprehensive extension debug logging to diagnose send failure _(2026-03-20)_
+- `8880ff80` feat: add github.io domain to extension + extension bridge listener _(2026-03-20)_
 
 ---
 

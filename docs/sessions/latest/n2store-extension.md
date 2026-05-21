@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `n2store-extension/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,21 @@
 **Last updated**: 2026-05-21 11:33:34 +07
 **Summary**: feat(domain): rewire codebase sang custom domain nhijudy.store
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`n2store-extension/`)
 
-- `docs/dev-log.md`
+- `n2store-extension/background/server/notifications.js`
+- `n2store-extension/manifest.json`
+- `n2store-extension/pages/settings.js`
+- `n2store-extension/popup/popup.js`
+- `n2store-extension/shared/config.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `n2store-extension/`
 
 - `411482c3` feat(domain): rewire codebase sang custom domain nhijudy.store _(2026-05-21)_
-- `1a957ef0` chore(session): RESUME:20260521-112350-a82a7de _(2026-05-21)_
-- `9de70089` chore(session): RESUME:20260521-111833-ca2a95d _(2026-05-21)_
-- `ca2a95dd` docs(web2-extension): dev-log entry cho fork + --ext flag _(2026-05-21)_
-- `872cf246` chore(session): RESUME:20260521-110815-8f182fc _(2026-05-21)_
+- `a5d44815` auto: session update _(2026-04-23)_
+- `92e1b824` fix(cors): full sweep — route all Render calls via Cloudflare Worker _(2026-04-22)_
+- `d8abbd51` auto: session update _(2026-04-22)_
+- `5efbaa5a` feat(phone): FAB button, dialpad, drag, ext selector — open widget without calling _(2026-04-15)_
 
 ---
 
