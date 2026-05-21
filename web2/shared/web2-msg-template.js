@@ -297,7 +297,8 @@
                 <div class="w2tpl-footer">
                     <span class="w2tpl-stat"><strong id="w2tplCount">0</strong> template</span>
                     <span class="w2tpl-stat"><strong id="w2tplOrderCount">0</strong> đơn</span>
-                    <span class="w2tpl-delay">Delay <input type="number" id="w2tplDelay" value="1" min="0" max="10" /> giây</span>
+                    <span class="w2tpl-delay" title="Số đơn gửi song song (tăng = nhanh hơn nhưng dễ rate-limit FB)">Song song <input type="number" id="w2tplConcurrency" value="6" min="1" max="12" /></span>
+                    <span class="w2tpl-delay" title="Delay giữa các đợt gửi mỗi worker (0 = max speed)">Delay <input type="number" id="w2tplDelay" value="1" min="0" max="10" /> giây</span>
                     <div class="w2tpl-actions">
                         <button class="w2tpl-cancel" id="w2tplCancelBtn">Huỷ</button>
                         <button class="w2tpl-send" id="w2tplSendBtn" disabled>
@@ -480,6 +481,10 @@
             return;
         }
         const delay = Math.max(0, parseInt(document.getElementById('w2tplDelay').value) || 1);
+        const concurrency = Math.max(
+            1,
+            Math.min(12, parseInt(document.getElementById('w2tplConcurrency').value) || 6)
+        );
         const sendBtn = document.getElementById('w2tplSendBtn');
         const cancelBtn = document.getElementById('w2tplCancelBtn');
         const progEl = document.getElementById('w2tplProgress');
@@ -494,31 +499,71 @@
         cancelBtn.textContent = 'Dừng';
         progEl.classList.add('show');
 
-        let sent = 0;
-        let failed = 0;
-        const errors = [];
+        // ─── Multi-worker parallel send engine ───────────────────
+        //
+        // Phân chia đơn theo PAGE (fbPageId): mỗi page có FB session/rate-limit
+        // riêng → có thể gửi cùng lúc các page khác nhau mà không ảnh hưởng.
+        // Trong 1 page, worker pool tối đa N concurrent (config từ UI).
+        //
+        // Pancake API path KHÔNG bị FB rate-limit (Pancake server tự handle),
+        // còn extension REPLY_INBOX_PHOTO post trực tiếp lên business.facebook.com
+        // → rate-limit per FB account. Mặc định 6 song song là an toàn cho 1 KH
+        // gửi từ Business Suite (Pancake V2 ext cũng dùng 3-6 per account).
         const total = _modalOrders.length;
+        const counters = { sent: 0, failed: 0, errors: [], done: 0 };
 
-        for (let i = 0; i < total; i++) {
-            if (_cancelRequested) break;
-            const order = _modalOrders[i];
+        // Group theo page (string key)
+        const byPage = new Map();
+        for (const o of _modalOrders) {
+            const k = String(o.fbPageId || '__noPage__');
+            if (!byPage.has(k)) byPage.set(k, []);
+            byPage.get(k).push(o);
+        }
+
+        const updateProgress = () => {
+            const pct = Math.round((counters.done / total) * 100);
+            fillEl.style.width = pct + '%';
+            textEl.textContent = `${counters.sent}/${total} đã gửi · ${counters.failed} lỗi · ${counters.done - counters.sent - counters.failed} đang chạy`;
+        };
+        updateProgress();
+
+        const handleOne = async (order) => {
+            if (_cancelRequested) return;
             try {
                 const text = _fillTemplate(tpl.Content, order);
                 await _sendOneOrder(order, text);
                 _markSent(order.code);
-                sent++;
+                counters.sent++;
             } catch (e) {
-                failed++;
-                errors.push({ code: order.code, err: e?.message || String(e) });
+                counters.failed++;
+                counters.errors.push({ code: order.code, err: e?.message || String(e) });
                 console.warn('[Web2MsgTemplate] send failed', order.code, e);
             }
-            const pct = Math.round(((i + 1) / total) * 100);
-            fillEl.style.width = pct + '%';
-            textEl.textContent = `${sent}/${total} đã gửi · ${failed} lỗi`;
-            if (i < total - 1 && delay > 0 && !_cancelRequested) {
-                await _sleep(delay * 1000);
-            }
-        }
+            counters.done++;
+            updateProgress();
+        };
+
+        // 1 worker pool per page (concurrent limit = N from UI). Pages run in
+        // parallel — each page's queue drained by `concurrency` workers.
+        const pageWorkers = Array.from(byPage.values()).map((pageQueue) =>
+            (async () => {
+                const pool = new Set();
+                for (const order of pageQueue) {
+                    if (_cancelRequested) break;
+                    const task = handleOne(order);
+                    pool.add(task);
+                    task.finally(() => pool.delete(task));
+                    if (pool.size >= concurrency) {
+                        await Promise.race(pool);
+                        // Optional inter-batch delay (only when delay > 0)
+                        if (delay > 0 && !_cancelRequested) await _sleep(delay * 1000);
+                    }
+                }
+                await Promise.allSettled([...pool]);
+            })()
+        );
+
+        await Promise.all(pageWorkers);
 
         _isSending = false;
         cancelBtn.textContent = 'Đóng';
@@ -533,10 +578,10 @@
             }
         }
         const summary = _cancelRequested
-            ? `Đã dừng. Gửi: ${sent} · Lỗi: ${failed}`
-            : `Hoàn thành. Gửi: ${sent} · Lỗi: ${failed}`;
-        _toast(summary, failed === 0 && !_cancelRequested ? 'success' : 'warning');
-        if (errors.length) console.warn('[Web2MsgTemplate] errors:', errors);
+            ? `Đã dừng. Gửi: ${counters.sent} · Lỗi: ${counters.failed}`
+            : `Hoàn thành. Gửi: ${counters.sent} · Lỗi: ${counters.failed} · ${byPage.size} page × ${concurrency} worker`;
+        _toast(summary, counters.failed === 0 && !_cancelRequested ? 'success' : 'warning');
+        if (counters.errors.length) console.warn('[Web2MsgTemplate] errors:', counters.errors);
     }
 
     async function _sendOneOrder(order, text) {

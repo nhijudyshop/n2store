@@ -25,6 +25,37 @@
 
 ## 2026-05-21
 
+### [web2-msg-template] feat: parallel multi-worker send (tốc độ song song)
+
+**Trước**: Send loop sequential `for (i=0;i<total;i++) await sendOne(); sleep(delay)` — chậm với nhiều đơn (vd 100 đơn × 1s delay = 100s).
+
+**Sau**: Worker pool pattern (port từ orders-report `_processAccountQueue`):
+
+1. **Phân chia theo page** (`fbPageId`): mỗi FB page có session + rate-limit riêng → các page khác nhau gửi song song hoàn toàn (KHÔNG bị nhau ảnh hưởng). Pancake V2 extension cũng dùng pattern này.
+
+2. **Worker pool trong mỗi page**: tối đa N concurrent (config UI, default 6, max 12). Dùng `Promise.race(pool)` để giữ pool ≤ N. Khi pool đầy chờ 1 promise hoàn thành mới push tiếp.
+
+3. **UI control mới** trong footer modal:
+    - `Song song <input min=1 max=12 default=6>` — tăng = nhanh hơn nhưng dễ bị FB rate-limit
+    - `Delay <input> giây` — delay giữa các batch mỗi worker (0 = max speed)
+
+4. **Progress text** mới thêm "đang chạy" counter để user thấy worker đang chạy ngầm:
+   `15/100 đã gửi · 2 lỗi · 6 đang chạy`
+
+5. **Summary** sau khi xong show số page × worker để debug throughput:
+   `Hoàn thành. Gửi: 95 · Lỗi: 5 · 3 page × 6 worker`
+
+**Throughput ước tính** (1 send ~500ms-2s):
+
+- 100 đơn × 1 page × 6 workers = ~16 giây (vs 100s cũ)
+- 100 đơn × 3 pages × 6 workers = ~5-6 giây (18 concurrent)
+
+**Lưu ý FB rate-limit**: 6 workers/page là sweet spot Pancake V2 dùng. Lên 10-12 có thể bị FB temp-block — chỉ tăng khi user nhiều account/multiple pages.
+
+**Files**: `web2/shared/web2-msg-template.js:469-578` — rewrite `_handleSend` thành worker pool. UI footer thêm input `w2tplConcurrency`.
+
+Status: ✅ Done; ⏳ pending verify sau GH Pages deploy.
+
 ### [native-orders][web2] feat: bulk send tin nhắn template (port từ orders-report)
 
 **User request**: native-orders cần nút "Gửi tin nhắn" trong bulk action bar (giống orders-report) — chọn nhiều đơn → mở modal template → gửi hàng loạt qua extension bypass-24h.
