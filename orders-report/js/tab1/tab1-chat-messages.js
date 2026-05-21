@@ -838,10 +838,21 @@ window.sendMessage = async function () {
         console.error('[Chat-Msg] Send error:', error);
         // Show toast regardless of modal state (notification-style)
         const fb = error.fbError;
+        const extConnected = !!window.pancakeExtension?.connected;
         if (fb?.is24HourError) {
-            _showToast('Đã quá 24h. Khách cần nhắn tin trước mới gửi lại được.', 'error');
+            // 24h policy fail + extension cũng fail (đã thử trong fallback) → user CHƯA
+            // login FB Business hoặc session expired. Hướng dẫn cụ thể.
+            _showFbBusinessLoginPrompt(
+                extConnected
+                    ? 'Quá 24h và extension không gửi được (session FB Business hết hạn?). Vui lòng đăng nhập lại Facebook tại business.facebook.com để extension lấy được session, rồi thử lại.'
+                    : 'Quá 24h và extension chưa kết nối. Bạn cần đăng nhập Facebook (business.facebook.com) liên kết với Pancake — extension sẽ tự dùng session đó để gửi qua FB Business.'
+            );
         } else if (fb?.isUserUnavailable) {
             _showToast('Lỗi #551: Khách không có mặt. Extension cũng không gửi được.', 'error');
+        } else if (/Extension chưa kết nối|extension.*not.*connect/i.test(error.message || '')) {
+            _showFbBusinessLoginPrompt(
+                'Extension chưa kết nối. Vui lòng đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension hoạt động.'
+            );
         } else {
             _showToast('Lỗi gửi tin nhắn: ' + error.message, 'error');
         }
@@ -1577,6 +1588,52 @@ function _showToast(message, type) {
         window.notificationManager.show(message, type);
     } else {
     }
+}
+
+// Hiển thị modal hướng dẫn user đăng nhập Facebook (business.facebook.com)
+// liên kết với Pancake — bắt buộc trước khi extension scrape được session
+// để bypass 24h policy. Show 1 lần per session, store flag tránh spam.
+function _showFbBusinessLoginPrompt(reasonText) {
+    _showToast(reasonText, 'error');
+    if (window.__fbLoginPromptShown) return; // đã show trong session, không repeat modal
+    window.__fbLoginPromptShown = true;
+    // Modal HTML — chỉ 1 lần per page load.
+    const root = document.createElement('div');
+    root.style.cssText =
+        'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+    root.innerHTML =
+        '<div style="background:#fff;border-radius:12px;max-width:520px;padding:20px 24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+        '<span style="font-size:22px;">🔐</span>' +
+        '<strong style="font-size:16px;color:#0f172a;">Cần đăng nhập Facebook</strong>' +
+        '</div>' +
+        '<p style="margin:6px 0 12px;color:#475569;font-size:13px;line-height:1.5;">' +
+        _escapeHtml(reasonText) +
+        '</p>' +
+        '<ol style="margin:0 0 14px 18px;color:#334155;font-size:13px;line-height:1.6;">' +
+        '<li>Mở <strong>business.facebook.com</strong> ở tab mới</li>' +
+        '<li>Đăng nhập bằng tài khoản Facebook <strong>cùng quyền page</strong> với Pancake</li>' +
+        '<li>Quay lại đây và thử gửi tin nhắn lại</li>' +
+        '</ol>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px;">' +
+        '<button data-act="close" style="padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Đóng</button>' +
+        '<button data-act="open" style="padding:8px 14px;border-radius:8px;border:1px solid transparent;background:#1877f2;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Mở Facebook Business</button>' +
+        '</div>' +
+        '</div>';
+    document.body.appendChild(root);
+    const cleanup = () => root.remove();
+    root.addEventListener('click', (e) => {
+        if (e.target === root) cleanup();
+    });
+    root.querySelector('[data-act="close"]').addEventListener('click', cleanup);
+    root.querySelector('[data-act="open"]').addEventListener('click', () => {
+        window.open(
+            'https://business.facebook.com/latest/inbox/all',
+            '_blank',
+            'noopener,noreferrer'
+        );
+        cleanup();
+    });
 }
 
 // Expose escapeHtml globally (used by other modules)

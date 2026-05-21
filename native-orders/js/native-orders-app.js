@@ -261,6 +261,46 @@
         else if (type === 'error' && window.Popup) window.Popup.error(msg);
         else console.log(`[${type}]`, msg);
     }
+    // Hiển thị modal hướng dẫn user đăng nhập Facebook (business.facebook.com)
+    // liên kết với Pancake — gọi khi gửi tin nhắn lỗi 24h hoặc extension chưa
+    // ready. Một lần per page-load (flag tránh spam).
+    function _showFbBusinessLoginPrompt(reasonText) {
+        notify(reasonText, 'error');
+        if (window.__fbLoginPromptShown) return;
+        window.__fbLoginPromptShown = true;
+        if (window.Popup?.confirm) {
+            window.Popup.confirm(
+                reasonText +
+                    '\n\nCác bước:\n' +
+                    '1. Mở business.facebook.com ở tab mới\n' +
+                    '2. Đăng nhập Facebook cùng quyền page với Pancake\n' +
+                    '3. Quay lại đây và gửi lại',
+                {
+                    title: '🔐 Cần đăng nhập Facebook',
+                    okText: 'Mở Facebook Business',
+                    cancelText: 'Đóng',
+                    type: 'warning',
+                }
+            ).then((ok) => {
+                if (ok) {
+                    window.open(
+                        'https://business.facebook.com/latest/inbox/all',
+                        '_blank',
+                        'noopener,noreferrer'
+                    );
+                }
+            });
+            return;
+        }
+        // Fallback nếu không có Popup
+        if (confirm(reasonText + '\n\nMở business.facebook.com để đăng nhập?')) {
+            window.open(
+                'https://business.facebook.com/latest/inbox/all',
+                '_blank',
+                'noopener,noreferrer'
+            );
+        }
+    }
     function w2pConfirm(msg, opts) {
         return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
     }
@@ -6005,7 +6045,20 @@
                 window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
             }
         } else {
-            notify('Lỗi gửi tin nhắn: ' + (sendRes.reason || 'unknown'), 'error');
+            // Detect 24h policy fail từ Pancake (e_code:10, e_subcode:2018278) hoặc
+            // extension-not-ready → show modal hướng dẫn login FB Business.
+            const reason = String(sendRes.reason || 'unknown');
+            const is24h = /e_?code.*10|2018278|24h|ngoài khoảng thời gian/i.test(reason);
+            const extMissing = /extension.*not|chưa kết nối|not.*connected/i.test(reason);
+            if (is24h || extMissing) {
+                _showFbBusinessLoginPrompt(
+                    is24h
+                        ? 'Quá 24h và extension chưa lấy được session FB Business. Đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension scrape được session, rồi thử lại.'
+                        : 'Extension chưa kết nối. Đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension hoạt động.'
+                );
+            } else {
+                notify('Lỗi gửi tin nhắn: ' + reason, 'error');
+            }
         }
         input.disabled = false;
         input.focus();
