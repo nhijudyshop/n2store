@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ca2a95d` — docs(web2-extension): dev-log entry cho fork + --ext flag
-**Last updated**: 2026-05-21 11:18:33 +07
-**Latest session**: [`RESUME:20260521-111833-ca2a95d`](../20260521-111833-ca2a95d.md)
-**Summary**: docs(web2-extension): dev-log entry cho fork + --ext flag
+**Latest commit**: `a82a7de` — auto: session update
+**Last updated**: 2026-05-21 11:23:50 +07
+**Latest session**: [`RESUME:20260521-112350-a82a7de`](../20260521-112350-a82a7de.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2-extension/`](./web2-extension.md) — 34 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 16:54
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 10:01
 - [`render.com/`](./render.com.md) — updated 2026-05-21 10:58
-- [`scripts/`](./scripts.md) — updated 2026-05-21 11:08
+- [`scripts/`](./scripts.md) — updated 2026-05-21 11:23
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
