@@ -153,9 +153,16 @@ function setupProductImagesRealtimeSync() {
             console.log('[DATA] Product images updated via SSE');
 
             if (data && data.data) {
-                // Full update: replace all product images
+                // Full update: replace all product images.
+                // CRITICAL: must map snake_case columns (ngay_di_hang, dot_so) → camelCase
+                // so downstream readers (img.dotSo / img.ngayDiHang) keep working.
+                // Without this, every SSE event silently wiped dotSo in memory, making
+                // all đợt 2 images appear as đợt 1 to subsequent reads (and overwriting
+                // their đợt on the next modal save).
                 globalState.productImages = data.data.map((img) => ({
                     ...img,
+                    ngayDiHang: img.ngay_di_hang ? String(img.ngay_di_hang).split('T')[0] : null,
+                    dotSo: img.dot_so || 1,
                     urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : img.urls || [],
                 }));
             } else {
@@ -175,12 +182,15 @@ function setupProductImagesRealtimeSync() {
 
 /**
  * Get product images for a specific NCC within a shipment batch.
- * Image Manager maps by (đợt, ncc). When `dotSo` is provided we require
- * an exact (đợt, ncc) match — falling back across đợt would leak images
- * from one shipment đợt into another (e.g. NCC 9 đợt 1 showing up in
- * NCC 9 đợt 2 rows).
+ * Image Manager maps by (đợt, ncc) — date is just a storage detail.
+ * Match priority:
+ *   1. Exact (đợt, ncc) — wins when the user uploaded a per-đợt image
+ *   2. Any image for this NCC — fallback when only one đợt's image exists
+ *      (covers legacy data + the common case where a NCC reuses the same
+ *      product photo across đợt). The previous strict-only version made
+ *      đợt 2 rows look empty for NCCs whose images were stored under đợt 1.
  *
- * `ngayDiHang` parameter kept for backward compatibility but unused.
+ * `ngayDiHang` kept for backward compatibility but unused.
  */
 function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     if (!ncc) return [];
@@ -189,11 +199,9 @@ function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     const dotNum = dotSo ? parseInt(dotSo, 10) : null;
 
     if (dotNum) {
-        // Strict đợt-scoped match — no cross-đợt fallback.
         const byDot = images.find((img) => img.ncc === nccNum && (img.dotSo || 1) === dotNum);
-        return byDot ? byDot.urls || [] : [];
+        if (byDot) return byDot.urls || [];
     }
-    // No dotSo specified → return any image for this NCC (legacy callers).
     const any = images.find((img) => img.ncc === nccNum);
     return any ? any.urls || [] : [];
 }

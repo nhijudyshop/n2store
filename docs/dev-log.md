@@ -25,6 +25,27 @@
 
 ## 2026-05-21
 
+### [inventory] fix: SSE handler missing snake_case → camelCase mapping cho productImages (root cause "đợt 2 lệch qua đợt 1")
+
+**User report**: "đợt 2 NCC từ 1 → 46 bị mất ảnh", "dữ liệu tôi nhập đợt 2 nó bị lệch qua đợt 1".
+
+**Root cause (real bug)**: SSE realtime handler trong [`inventory-tracking/js/data-loader.js`](../inventory-tracking/js/data-loader.js) chỉ map `urls` mà KHÔNG map `ngay_di_hang → ngayDiHang` và `dot_so → dotSo`. Sau mỗi save productImages, server gửi SSE update → handler ghi đè `globalState.productImages` với object spread (snake_case fields) nhưng thiếu camelCase aliases. Code đọc `img.dotSo` → `undefined` → `(img.dotSo || 1) === dotNum` → tất cả ảnh trong memory effectively trở thành "đợt 1".
+
+**Domino effect**:
+
+1. User save (đợt 1, NCC 1-23) + (đợt 2, NCC 24-46) — DB lưu đúng
+2. SSE fire → in-memory productImages mất dotSo → tất cả thành đợt 1
+3. User mở modal lần sau → entries cho NCC 24-46 hiển thị thành đợt 1 (vì `img.dotSo || 1`)
+4. User save lần nữa → bucket dotSo=1 chứa cả NCC 1-46 → PUT replace (canonicalDate, dot=1) với 46 rows
+5. Orphan slot logic clear (date2, dot=2) → đợt 2 NCC 24-46 bị wipe
+6. User entered thêm NCC 47-81 cho đợt 2 sau đó → DB hiện có (đợt 1: NCC 1-46, đợt 2: NCC 47-81)
+
+**Fix**: SSE handler now mirrors `loadProductImages()` mapping — `dot_so → dotSo`, `ngay_di_hang → ngayDiHang`, `urls` parse JSONB.
+
+**Bonus revert**: Strict đợt match (commit `1cd1cd8b`) đã revert về fallback "any image for this NCC" khi không tìm thấy đợt-scoped match. Lý do: strict mode masked the corruption (empty rows → user nghĩ mất ảnh); fallback giúp user tiếp tục thấy ảnh (dù sai đợt) trong khi data recovery. Original semantics: per-đợt override khi có entry riêng, fallback sang đợt khác khi không.
+
+**Files**: `inventory-tracking/js/data-loader.js`. Status: ✅ Done (code fix). 🟡 PENDING: data recovery — user cần xác nhận (đợt, NCC) mapping nào là đúng để tôi viết script khôi phục.
+
 ### [extension][web2] fix: handle FB error 1545012 (BLOCKED_RETRY_SOCKET) — bypass-24h gửi tin nhắn
 
 **Bug user phát hiện**: Sau khi login `business.facebook.com` + cài web2-extension, gửi tin nhắn từ native-orders → SW POST `business.facebook.com/messaging/send/` → HTTP 200 nhưng body `{__ar:1, error:1545012, errorSummary:"Tạm thời không thực hiện được", transientError:1}` → fail straight, fallback Pancake (vẫn 24h policy).
