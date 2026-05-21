@@ -13,24 +13,26 @@
         <title>Theo Dõi Nhập Hàng SL</title>
 
         <!-- Styles -->
-        <link rel="stylesheet" href="../shared/css/modern.css" />
-        <link rel="stylesheet" href="css/modern.css?v=20260418-stats-autoupdate" />
-        <link rel="stylesheet" href="css/modal-convert-po.css" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260521a" />
+        <link rel="stylesheet" href="css/modern.css?v=20260521a" />
+        <link rel="stylesheet" href="css/modal-convert-po.css?v=20260521a" />
 
         <!-- Navigation Manager -->
         <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260521a"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write(
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260521a"><\/script>'
+                );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
             }
         </script>
-        <script defer src="../shared/js/navigation-modern.js"></script>
-        <script defer src="../shared/js/token-manager.js"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260521a"></script>
+        <script defer src="../shared/js/token-manager.js?v=20260521a"></script>
 
         <!-- Lucide Icons CDN -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -38,7 +40,7 @@
         <!-- Firebase removed — all data flows via Render REST API (inventory-tracking is Firebase-free) -->
 
         <!-- Realtime Client (SSE) for cross-device sync -->
-        <script src="../shared/js/realtime-client.js"></script>
+        <script src="../shared/js/realtime-client.js?v=20260521a"></script>
 
         <!-- XLSX for Export -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,7 +50,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521a" />
         <!-- typography:shared -->
     </head>
     <body>
@@ -1011,52 +1013,52 @@
         <div class="toast-container" id="toastContainer"></div>
 
         <!-- Scripts -->
-        <script src="js/config.js"></script>
-        <script src="js/ui-state.js"></script>
-        <script src="js/column-toggle.js"></script>
-        <script src="js/api-client.js?v=20260418-stats-autoupdate"></script>
-        <script src="js/permission-helper.js"></script>
-        <script src="js/data-loader.js?v=20260418-stats-autoupdate"></script>
-        <script src="js/text-parser.js"></script>
-        <script src="js/balance-calculator.js"></script>
-        <script src="js/table-renderer.js?v=20260418-stats-autoupdate"></script>
-        <script src="js/modal-shipment.js"></script>
-        <script src="js/modal-shortage.js"></script>
-        <script src="js/modal-variant.js"></script>
+        <script src="js/config.js?v=20260521a"></script>
+        <script src="js/ui-state.js?v=20260521a"></script>
+        <script src="js/column-toggle.js?v=20260521a"></script>
+        <script src="js/api-client.js?v=20260521a"></script>
+        <script src="js/permission-helper.js?v=20260521a"></script>
+        <script src="js/data-loader.js?v=20260521a"></script>
+        <script src="js/text-parser.js?v=20260521a"></script>
+        <script src="js/balance-calculator.js?v=20260521a"></script>
+        <script src="js/table-renderer.js?v=20260521a"></script>
+        <script src="js/modal-shipment.js?v=20260521a"></script>
+        <script src="js/modal-shortage.js?v=20260521a"></script>
+        <script src="js/modal-variant.js?v=20260521a"></script>
         <!-- Product Code Generator (shared with purchase-orders) -->
         <!-- shop-config.js exports window.ShopConfig (used by tpos-search for CompanyId) -->
-        <script src="../purchase-orders/js/lib/shop-config.js"></script>
-        <script src="../purchase-orders/js/lib/tpos-search.js"></script>
-        <script src="../purchase-orders/js/lib/supplier-detector.js"></script>
-        <script src="../purchase-orders/js/lib/product-code-generator.js"></script>
-        <script src="../shared/js/warehouse-api.js"></script>
-        <script src="../shared/js/image-cache.js?v=20260503a"></script>
-        <script src="js/po-source-tracker.js"></script>
-        <script src="js/modal-convert-po.js"></script>
-        <script src="js/modal-edit-ncc.js"></script>
-        <script src="js/image-upload.js"></script>
-        <script src="js/modal-image-manager.js"></script>
-        <script src="js/note-manager.js"></script>
-        <script src="js/crud-operations.js"></script>
-        <script src="js/finance-manager.js"></script>
-        <script src="js/modal-prepayment.js"></script>
-        <script src="js/modal-other-expense.js"></script>
-        <script src="js/modal-detail-invoice.js"></script>
-        <script src="js/modal-detail-shipping.js"></script>
-        <script src="js/filters.js"></script>
-        <script src="js/search.js"></script>
-        <script src="js/export.js"></script>
-        <script src="js/edit-history.js"></script>
-        <script src="js/order-booking-renderer.js"></script>
-        <script src="js/order-booking-crud.js"></script>
-        <script src="js/modal-order-booking.js"></script>
-        <script src="js/modal-compare.js"></script>
+        <script src="../purchase-orders/js/lib/shop-config.js?v=20260521a"></script>
+        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260521a"></script>
+        <script src="../purchase-orders/js/lib/supplier-detector.js?v=20260521a"></script>
+        <script src="../purchase-orders/js/lib/product-code-generator.js?v=20260521a"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260521a"></script>
+        <script src="../shared/js/image-cache.js?v=20260521a"></script>
+        <script src="js/po-source-tracker.js?v=20260521a"></script>
+        <script src="js/modal-convert-po.js?v=20260521a"></script>
+        <script src="js/modal-edit-ncc.js?v=20260521a"></script>
+        <script src="js/image-upload.js?v=20260521a"></script>
+        <script src="js/modal-image-manager.js?v=20260521a"></script>
+        <script src="js/note-manager.js?v=20260521a"></script>
+        <script src="js/crud-operations.js?v=20260521a"></script>
+        <script src="js/finance-manager.js?v=20260521a"></script>
+        <script src="js/modal-prepayment.js?v=20260521a"></script>
+        <script src="js/modal-other-expense.js?v=20260521a"></script>
+        <script src="js/modal-detail-invoice.js?v=20260521a"></script>
+        <script src="js/modal-detail-shipping.js?v=20260521a"></script>
+        <script src="js/filters.js?v=20260521a"></script>
+        <script src="js/search.js?v=20260521a"></script>
+        <script src="js/export.js?v=20260521a"></script>
+        <script src="js/edit-history.js?v=20260521a"></script>
+        <script src="js/order-booking-renderer.js?v=20260521a"></script>
+        <script src="js/order-booking-crud.js?v=20260521a"></script>
+        <script src="js/modal-order-booking.js?v=20260521a"></script>
+        <script src="js/modal-compare.js?v=20260521a"></script>
 
         <!-- AI Invoice Processing -->
-        <script src="js/ai-invoice-processor.js"></script>
-        <script src="js/ai-queue-manager.js"></script>
-        <script src="js/modal-ai-preview.js"></script>
+        <script src="js/ai-invoice-processor.js?v=20260521a"></script>
+        <script src="js/ai-queue-manager.js?v=20260521a"></script>
+        <script src="js/modal-ai-preview.js?v=20260521a"></script>
 
-        <script src="js/main.js?v=20260418-stats-autoupdate"></script>
+        <script src="js/main.js?v=20260521a"></script>
     </body>
 </html>

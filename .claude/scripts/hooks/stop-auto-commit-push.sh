@@ -12,6 +12,14 @@ set -u  # nhưng KHÔNG set -e — Stop hook không được fail toàn bộ khi
 
 cd /Users/mac/Desktop/n2store || exit 0
 
+# ---- 0. Auto-bump cache-bust ?v=... in any page whose JS/CSS changed ----
+# Prevents user browsers from running stale cached JS after deploy.
+# See scripts/auto-bump-cache-on-change.sh — idempotent, no-op if nothing
+# applies. Run BEFORE `git add -u` so the bumped HTML lands in same commit.
+if [[ -x scripts/auto-bump-cache-on-change.sh ]]; then
+  bash scripts/auto-bump-cache-on-change.sh >/dev/null 2>&1 || true
+fi
+
 # ---- 1. Commit & push nếu working tree dirty (tracked changes) ----
 # Reserve timestamp + dự đoán RESUME token để embed vào commit footer.
 # (SHA chưa biết — sẽ patch sau via --amend nếu cần. Tạm placeholder.)

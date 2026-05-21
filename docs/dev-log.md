@@ -25,6 +25,37 @@
 
 ## 2026-05-21
 
+### [tooling][scripts] feat: auto cache-bust `?v=YYYYMMDDx` cho JS/CSS sau mỗi deploy
+
+**User**: "fix luôn lỗi bị browser cached js cũ đi".
+
+**Bối cảnh**: Bug "đợt 2 lệch qua đợt 1" lặp lại lần 2 sau khi tôi đã fix SSE handler trên server, vì browser của user còn cache JS cũ (data-loader.js không có map dot_so→dotSo) → khi user save trên UI thì JS cũ chạy → data shift lại. Cần force browser re-fetch.
+
+**Convention sẵn có**: `native-orders/index.html` đã có `?v=20260521a` trên một số script tag. Áp dụng cho toàn bộ HTML.
+
+**Implementation**:
+
+1. **[`scripts/bump-cache-version.sh`](../scripts/bump-cache-version.sh)**: tool tay — `bash scripts/bump-cache-version.sh inventory-tracking/index.html [version]`. Tự pick version (`YYYYMMDD` + letter a→z) nếu không pass arg. Strip existing `?v=` và replace, chỉ tác động lên local refs (skip CDN/external).
+
+2. **[`scripts/auto-bump-cache-on-change.sh`](../scripts/auto-bump-cache-on-change.sh)**: smart wrapper — detect changed JS/CSS qua `git diff HEAD`, nhóm theo top-level folder, nếu folder có `index.html` dùng convention `?v=YYYYMMDD<letter>` thì bump tự động. Chỉ touch pages opt-in (không sửa pages chưa có cache-bust).
+
+3. **Wire vào Stop hook**: `.claude/scripts/hooks/stop-auto-commit-push.sh` gọi `auto-bump-cache-on-change.sh` TRƯỚC `git add -u` → bumped HTML nằm trong cùng auto-commit, không tạo extra commit.
+
+**Áp dụng ngay**: `inventory-tracking/index.html` được bump 51 references sang `?v=20260521a` (script + CSS).
+
+**Kết quả mong đợi**: lần kế tiếp browser nào load `inventory-tracking/index.html` sẽ fetch JS/CSS mới (vì query string khác = different cache key) → SSE fix sẽ thật sự active.
+
+**Files**: `scripts/bump-cache-version.sh` (new), `scripts/auto-bump-cache-on-change.sh` (new), `.claude/scripts/hooks/stop-auto-commit-push.sh` (wire), `inventory-tracking/index.html` (bumped). Status: ✅ Done.
+
+### [inventory][db] action: backup full + DELETE toàn bộ inventory_product_images
+
+User chain decisions (sau khi phát hiện đợt-shift bug + SSE fix deployed):
+
+1. Yêu cầu 1: backup + xóa đợt 1 → backup 44 rows, DELETE 44 (chỉ còn 35 đợt 2).
+2. Yêu cầu 2: backup đợt 2 + xóa hết → trong lúc tôi đang dev tabs UI, user đã thao tác trên trang nên data lại bị shift lần nữa (browser cache JS cũ → SSE bug trigger lại). DB state lúc backup: 37 đợt 1 + 1 đợt 2. Backup full (38 rows, 7.3 MB → `.local/backups/inventory_product_images_FULL_20260521-152706.sql`), DELETE all 38 rows.
+
+DB hiện tại: TRỐNG. User sẽ nhập lại từ đầu sau khi reload trang để nạp JS mới (đã thêm auto cache-bust ở entry trên).
+
 ### [inventory] feat: image-manager modal chia thành tabs theo Đợt — dễ quản lý
 
 **User**: "đợt chia ra các section tab dễ quản lý".
