@@ -25,6 +25,29 @@
 
 ## 2026-05-21
 
+### [web2-products][native-orders][render] Migration 078: backfill product snapshots cho SP update TRƯỚC cascade fix
+
+**Bug retroactive** (follow-up của cascade fix `8d89d1c0`): User update ảnh `GIÀY ĐEN SIZE 42` (code `DEMO - ADGIAY1DENS42`) tại `2026-05-21 02:13 UTC` — **trước** cascade fix deploy `~02:26 UTC`. PATCH thời điểm đó chỉ ghi `web2_products`, không cascade → 4 `native_orders` vẫn `imageUrl=null`.
+
+**Fix**: Migration 078 trong `web2-products.ensureTables` scan từng row của `web2_products`, sync `name + price + imageUrl` xuống `native_orders.products[*]` + `fast_sale_orders.order_lines[*]` matching `productCode`. Mapping: native dùng `{name, price, imageUrl}`, PBH dùng `{productName, priceUnit, imageUrl}`. Self-gated qua `native_orders_migrations` (shared tracker với migration 076/077). Check `information_schema.tables` trước khi UPDATE để tránh race với order load.
+
+**Files**:
+
+- [`render.com/routes/web2-products.js`](../render.com/routes/web2-products.js#L100-L170) — block migration 078 sau CREATE TABLE/index.
+
+**Force-sync runtime fallback**: Trong khi đợi Render redeploy migration, gọi `PATCH /api/web2-products/DEMO - ADGIAY1DENS42 {imageUrl: ...}` để trigger cascade hiện hữu (commit 8d89d1c0). Confirm `cascade: { nativeOrders: 4, fastSaleOrders: 0 }`.
+
+**Verify prod (console-only)**:
+
+- ✓ PATCH GIÀY ĐEN → cascade `nativeOrders: 4`
+- ✓ Restore base64 imageUrl (19 KB) → cascade `nativeOrders: 4`
+- ✓ Browser native-orders nav + expand `NW-20260520-0002` → `<img src="data:image/jpeg;base64,...">` (19371 bytes) khớp đúng base64 trong `web2_products`
+- ✓ Audit 33 orders × N lines: 0 mismatch image, 0 mismatch name, 0 mismatch price
+
+**Status**: ✅ Done. Migration 078 sẽ chạy tự động khi Render redeploy (commit `d2abbaaf` →); trong khi đợi, cascade fix hiện tại + manual touch đã sync state đầy đủ.
+
+---
+
 ### [purchase-orders][scripts][docs] Paste-image: fix huge dimension freeze + persistent session restore + debug-via-console rule
 
 **Yêu cầu user**: Trên https://nhijudy.store/purchase-orders/index.html, paste ảnh **lớn quá → bị lỗi** trong modal "Tạo đơn đặt hàng". Self-debug + test + commit/push tới khi sạch lỗi. Đồng thời: (1) lưu cookies đăng nhập vào `serect_dont_push.txt` để khỏi đăng nhập lại; (2) thêm rule "debug từ console, hạn chế chụp hình" vào memory/CLAUDE.md/dev-log.
