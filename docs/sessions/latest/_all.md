@@ -3,27 +3,26 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bd96bd1` — auto: session update
-**Last updated**: 2026-05-21 15:12:35 +07
-**Latest session**: [`RESUME:20260521-151235-bd96bd1`](../20260521-151235-bd96bd1.md)
-**Summary**: auto: session update
+**Latest commit**: `c9f11f0` — feat(inventory/image-mgr): split modal vào tabs theo Đợt — dễ quản lý
+**Last updated**: 2026-05-21 15:17:45 +07
+**Latest session**: [`RESUME:20260521-151745-c9f11f0`](../20260521-151745-c9f11f0.md)
+**Summary**: feat(inventory/image-mgr): split modal vào tabs theo Đợt — dễ quản lý
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
-- [`web2-extension/`](./web2-extension.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 15:12
+- [`docs/`](./docs.md) — updated 2026-05-21 15:17
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 11:33
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-21 15:12
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-21 15:17
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
 - [`native-orders/`](./native-orders.md) — updated 2026-05-21 14:41
 - [`order-management/`](./order-management.md) — updated 2026-05-21 11:33
