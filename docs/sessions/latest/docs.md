@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260521-182610-f0c49d9`
-**Session file**: [`./20260521-182610-f0c49d9.md`](../20260521-182610-f0c49d9.md)
-**Commit**: `f0c49d9` — fix(native-orders): đơn cancelled vẫn tạo PBH mới (UI + backend guard)
-**Last updated**: 2026-05-21 18:26:10 +07
-**Summary**: fix(native-orders): đơn cancelled vẫn tạo PBH mới (UI + backend guard)
+**Latest session**: `RESUME:20260521-182852-b31cc8d`
+**Session file**: [`./20260521-182852-b31cc8d.md`](../20260521-182852-b31cc8d.md)
+**Commit**: `b31cc8d` — feat(native-orders): đơn cancelled vẫn cho tạo PBH (số HĐ mới)
+**Last updated**: 2026-05-21 18:28:52 +07
+**Summary**: feat(native-orders): đơn cancelled vẫn cho tạo PBH (số HĐ mới)
 
 ## Files changed in this commit (`docs/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `b31cc8db` feat(native-orders): đơn cancelled vẫn cho tạo PBH (số HĐ mới) _(2026-05-21)_
+- `3b4022d6` chore(session): RESUME:20260521-182610-f0c49d9 _(2026-05-21)_
 - `f0c49d92` fix(native-orders): đơn cancelled vẫn tạo PBH mới (UI + backend guard) _(2026-05-21)_
 - `450d356a` chore(session): RESUME:20260521-172838-3f1cb9a _(2026-05-21)_
 - `3f1cb9a1` feat(web2-products): badge "ĐANG DÙNG" + popover orders chứa SP _(2026-05-21)_
-- `b48fe690` fix(native-orders): cancelOrder dùng WORKER*URL trực tiếp (NativeOrdersApi.\_getBaseUrl không tồn tại) *(2026-05-21)\_
-- `e53ac409` chore(session): RESUME:20260521-171455-a67519e _(2026-05-21)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260521-182610-f0c49d9` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260521-182852-b31cc8d` cho Claude walk chain theo CLAUDE.md protocol.
