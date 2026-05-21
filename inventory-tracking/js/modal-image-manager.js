@@ -4,9 +4,11 @@
 // Row-based input: each row = [images] + [NCC] + [đợt].
 // Đợt is a plain integer (1, 2, 3, ...) — user can type a
 // custom đợt even if no shipment exists yet for that đợt.
-// Server stores by (ngay_di_hang, dot_so, ncc); the client
-// picks a canonical date per đợt at save time (earliest
-// shipment date for that đợt, else today).
+//
+// Storage: server keys rows by (ngay_di_hang, dot_so, ncc).
+// Client always uses GLOBAL_LEGACY_DATE for ngay_di_hang —
+// it's a dead column kept for schema compat. Logical identity
+// is (dot_so, ncc). See _canonicalDateForDot for rationale.
 // =====================================================
 
 const ImageManager = (() => {
