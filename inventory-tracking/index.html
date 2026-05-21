@@ -880,7 +880,11 @@
             <div class="modal-container modal-lg">
                 <div class="modal-header">
                     <h3><i data-lucide="camera"></i> Quản Lý Ảnh Sản Phẩm</h3>
-                    <button class="modal-close" id="btnCloseImageManager">
+                    <button
+                        class="modal-close"
+                        id="btnCloseImageManager"
+                        onclick="ImageManager._onClose && ImageManager._onClose()"
+                    >
                         <i data-lucide="x"></i>
                     </button>
                 </div>
@@ -888,7 +892,13 @@
                     <!-- Image manager content rendered by JS -->
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline" onclick="closeModal('modalImageManager')">
+                    <button
+                        class="btn btn-outline"
+                        onclick="
+                            ImageManager._onClose && ImageManager._onClose();
+                            closeModal('modalImageManager');
+                        "
+                    >
                         Hủy
                     </button>
                     <button class="btn btn-primary" onclick="ImageManager.save()">

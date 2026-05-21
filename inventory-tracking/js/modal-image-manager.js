@@ -10,7 +10,7 @@
 // =====================================================
 
 const ImageManager = (() => {
-    const GLOBAL_LEGACY_DATE = '2026-04-10'; // canonical default date from migration 058
+    const GLOBAL_LEGACY_DATE = '2026-04-10'; // canonical save date — all rows live here
     let _rows = []; // [{ id, uploadedUrls, ncc, dotSo, mapped }]
     let _focusedRowId = null;
     let _isUploading = false;
@@ -19,30 +19,24 @@ const ImageManager = (() => {
     let _activeDotSo = null; // active tab — only one đợt shown at a time
     let _knownDotSos = []; // distinct đợt numbers from shipments (DESC) — for "Đợt mới nhất" default
     let _initialKey = new Set(); // (dotSo, originalNgay) loaded at open — used to send empty PUT on clear
-
-    function _todayVN() {
-        if (typeof todayVN === 'function') return todayVN();
-        return new Date().toISOString().slice(0, 10);
-    }
+    let _modalOpen = false; // true between open() and modal-close
+    let _saveInProgress = false; // true during save() — used to distinguish own SSE vs external
+    let _externalChangeDetected = false; // set when SSE arrives while modal open AND not from our save
 
     /**
-     * Pick the canonical save date for a given đợt:
-     * - First, the most-recent shipment date that uses this dotSo
-     * - Else, the most-recent existing image entry for this dotSo
-     * - Else, today (Vietnam tz)
+     * Canonical save date for a given đợt.
+     *
+     * Historically this picked "most-recent shipment date" per đợt, but that
+     * created date drift: adding a new shipment between modal-open and save
+     * shifted the canonical date, which made orphan-slot detection fragile
+     * (mismatch could wipe untouched entries). The `ngay_di_hang` column is
+     * just a storage detail — there's no business semantic for it beyond
+     * keying rows. Locking it to one constant makes save logic deterministic.
+     *
+     * `dotSo` arg kept for API compat with existing callers but ignored.
      */
-    function _canonicalDateForDot(dotSo) {
-        const n = parseInt(dotSo, 10);
-        if (!n) return _todayVN();
-
-        if (typeof getAllDotHangAsShipments === 'function') {
-            const ship = getAllDotHangAsShipments().find((s) => (s.dotSo || 1) === n);
-            if (ship?.ngayDiHang) return ship.ngayDiHang;
-        }
-        const img = (globalState.productImages || []).find((i) => (i.dotSo || 1) === n);
-        if (img?.ngayDiHang) return img.ngayDiHang;
-
-        return _todayVN();
+    function _canonicalDateForDot(/* dotSo */) {
+        return GLOBAL_LEGACY_DATE;
     }
 
     function _buildKnownDotSos() {
@@ -88,6 +82,8 @@ const ImageManager = (() => {
         _searchNcc = '';
         _activeDotSo = null;
         _initialKey = new Set();
+        _modalOpen = true;
+        _externalChangeDetected = false;
 
         try {
             const images = globalState.productImages || [];
@@ -589,12 +585,28 @@ const ImageManager = (() => {
      * Resize image and convert to compressed base64
      */
     function _resizeAndConvert(file, maxSize, quality) {
+        // Hard limit on source image area to avoid OOM/tab crash when user
+        // pastes screenshots from ultra-high-res displays. Above this we
+        // reject — drawImage can't safely render a > ~268M-pixel source
+        // anyway, and the resized output wouldn't gain quality.
+        const MAX_SOURCE_PIXELS = 60_000_000; // ~7745 × 7745, plenty for any phone/DSLR.
+
         return new Promise((resolve, reject) => {
             const img = new Image();
             const url = URL.createObjectURL(file);
 
             img.onload = () => {
                 URL.revokeObjectURL(url);
+
+                const srcPixels = img.width * img.height;
+                if (srcPixels > MAX_SOURCE_PIXELS) {
+                    reject(
+                        new Error(
+                            `Ảnh quá lớn (${img.width}x${img.height} = ${(srcPixels / 1e6).toFixed(0)}MP), giới hạn 60MP`
+                        )
+                    );
+                    return;
+                }
 
                 let { width, height } = img;
                 if (width > maxSize || height > maxSize) {
@@ -612,7 +624,10 @@ const ImageManager = (() => {
                 resolve(canvas.toDataURL('image/jpeg', quality));
             };
 
-            img.onerror = reject;
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Không decode được ảnh'));
+            };
             img.src = url;
         });
     }
@@ -644,6 +659,36 @@ const ImageManager = (() => {
      * behind.
      */
     async function save() {
+        // Guard 1: don't save while paste/upload encoding is mid-flight.
+        // Image base64 conversion is async; if user clicks Save during a paste of
+        // many images, the row.uploadedUrls array is still growing — saving now
+        // would drop the not-yet-encoded images.
+        if (_isUploading) {
+            window.notificationManager?.warning('Đang xử lý ảnh paste — đợi xong rồi bấm Lưu lại');
+            return;
+        }
+
+        // Guard 2: if SSE detected a concurrent update from another user/tab,
+        // refuse to save and force a reload first — otherwise this save would
+        // overwrite the other user's changes (last-write-wins lost-update race).
+        if (_externalChangeDetected) {
+            const ok = confirm(
+                '⚠ User khác vừa cập nhật ảnh sản phẩm trong lúc bạn đang mở modal.\n\n' +
+                    'Nếu Lưu bây giờ, cập nhật của họ sẽ bị ghi đè.\n\n' +
+                    'OK = Đóng modal + reload (an toàn)\nCancel = Tiếp tục Lưu (ghi đè)'
+            );
+            if (ok) {
+                _modalOpen = false;
+                closeModal('modalImageManager');
+                if (typeof loadProductImages === 'function') await loadProductImages();
+                if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+                return;
+            }
+            // User insists — clear flag and proceed.
+            _externalChangeDetected = false;
+        }
+
+        _saveInProgress = true;
         const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         try {
@@ -724,9 +769,13 @@ const ImageManager = (() => {
             // Refresh snapshot so next save doesn't re-clear
             _initialKey = seenInRows;
             // Update each row's originalDate to canonical (since DB now has them there)
+            // Refresh each surviving row's originalDate to the canonical date
+            // (now constant). Future calls to `removeRow` / `removeImage` that
+            // happen before modal close still need a consistent originalDate
+            // so the next save's orphan logic compares cleanly.
             _rows.forEach((r) => {
                 if (r.uploadedUrls.length === 0 || !parseInt(r.ncc)) return;
-                r.originalDate = _canonicalDateForDot(parseInt(r.dotSo, 10) || _defaultDotSo());
+                r.originalDate = GLOBAL_LEGACY_DATE;
             });
 
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
@@ -735,7 +784,38 @@ const ImageManager = (() => {
             window.notificationManager?.error('Không thể lưu: ' + error.message);
         } finally {
             window.notificationManager?.remove(loadingToast);
+            // Give the SSE event a brief grace window to flush before clearing
+            // the flag — otherwise our own save's notify might be misclassified
+            // as "external" and re-trigger the concurrent-edit guard.
+            setTimeout(() => {
+                _saveInProgress = false;
+            }, 1500);
         }
+    }
+
+    /**
+     * Called by data-loader SSE handler when product_images update arrives.
+     * If the modal is open AND the update did NOT originate from our own save,
+     * flag it so the next save() can warn the user about lost-update risk.
+     */
+    function _onExternalUpdate() {
+        if (!_modalOpen) return;
+        if (_saveInProgress) return; // our own save just echoed back via SSE
+        if (_externalChangeDetected) return; // already warned, skip toast spam
+        _externalChangeDetected = true;
+        window.notificationManager?.warning(
+            'User khác vừa sửa ảnh sản phẩm. Bấm Lưu sẽ ghi đè — nên Đóng modal và mở lại.',
+            { duration: 0 }
+        );
+    }
+
+    /**
+     * Called when the modal is closed (any reason). Resets state so the next
+     * open() starts clean and SSE handler stops calling _onExternalUpdate.
+     */
+    function _onClose() {
+        _modalOpen = false;
+        _externalChangeDetected = false;
     }
 
     /**
@@ -848,6 +928,8 @@ const ImageManager = (() => {
         viewNccImages,
         switchTab,
         promptNewDot,
+        _onExternalUpdate,
+        _onClose,
         _openLightbox,
         _closeLightbox,
         _navLightbox,

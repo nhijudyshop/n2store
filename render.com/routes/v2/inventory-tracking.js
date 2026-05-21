@@ -67,14 +67,18 @@ function getUserFromHeaders(req) {
         if (authData) {
             let jsonStr;
             try {
-                jsonStr = decodeURIComponent(escape(Buffer.from(authData, 'base64').toString('binary')));
+                jsonStr = decodeURIComponent(
+                    escape(Buffer.from(authData, 'base64').toString('binary'))
+                );
             } catch (_) {
                 jsonStr = authData;
             }
             const parsed = JSON.parse(jsonStr);
             return parsed.userName || parsed.userId || 'anonymous';
         }
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+        /* ignore */
+    }
     return 'anonymous';
 }
 
@@ -106,7 +110,8 @@ router.get('/user-permissions/:username', async (req, res) => {
         const row = result.rows[0];
         const detailed = row.detailed_permissions || {};
         // Support both new (detailedPermissions.inventoryTracking) and legacy (inventoryTrackingPermissions)
-        const permissions = detailed.inventoryTracking || detailed.inventoryTrackingPermissions || null;
+        const permissions =
+            detailed.inventoryTracking || detailed.inventoryTrackingPermissions || null;
 
         res.json({
             success: true,
@@ -114,8 +119,8 @@ router.get('/user-permissions/:username', async (req, res) => {
                 found: true,
                 permissions,
                 isAdmin: !!row.is_admin,
-                roleTemplate: row.role_template || 'custom'
-            }
+                roleTemplate: row.role_template || 'custom',
+            },
         });
     } catch (err) {
         console.error('[inventory] GET /user-permissions error:', err.message);
@@ -130,9 +135,7 @@ router.get('/user-permissions/:username', async (req, res) => {
 router.get('/suppliers', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query(
-            'SELECT * FROM inventory_suppliers ORDER BY stt_ncc ASC'
-        );
+        const result = await db.query('SELECT * FROM inventory_suppliers ORDER BY stt_ncc ASC');
         res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error('[inventory] GET /suppliers error:', err.message);
@@ -146,14 +149,17 @@ router.post('/suppliers', async (req, res) => {
         const { stt_ncc, ten_ncc } = req.body;
         if (!stt_ncc) return res.status(400).json({ success: false, error: 'stt_ncc required' });
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_suppliers (id, stt_ncc, ten_ncc)
             VALUES ($1, $2, $3)
             ON CONFLICT (stt_ncc) DO UPDATE SET
                 ten_ncc = COALESCE(EXCLUDED.ten_ncc, inventory_suppliers.ten_ncc),
                 updated_at = NOW()
             RETURNING *
-        `, [generateId('ncc'), stt_ncc, ten_ncc || null]);
+        `,
+            [generateId('ncc'), stt_ncc, ten_ncc || null]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -169,7 +175,15 @@ router.post('/suppliers', async (req, res) => {
 router.get('/order-bookings', async (req, res) => {
     try {
         const db = getDb(req);
-        const { date_from, date_to, stt_ncc, trang_thai, search, limit = 200, offset = 0 } = req.query;
+        const {
+            date_from,
+            date_to,
+            stt_ncc,
+            trang_thai,
+            search,
+            limit = 200,
+            offset = 0,
+        } = req.query;
 
         const conditions = [];
         const params = [];
@@ -200,7 +214,8 @@ router.get('/order-bookings', async (req, res) => {
 
         // Get count
         const countResult = await db.query(
-            `SELECT COUNT(*)::int as total FROM inventory_order_bookings ${where}`, params
+            `SELECT COUNT(*)::int as total FROM inventory_order_bookings ${where}`,
+            params
         );
 
         // Get data
@@ -213,21 +228,28 @@ router.get('/order-bookings', async (req, res) => {
         );
 
         // Status counts (within same filter scope, minus trang_thai filter)
-        const statusConditions = conditions.filter(c => !c.startsWith('trang_thai'));
+        const statusConditions = conditions.filter((c) => !c.startsWith('trang_thai'));
         const statusParams = params.slice(0, statusConditions.length);
-        const statusWhere = statusConditions.length > 0 ? 'WHERE ' + statusConditions.join(' AND ') : '';
+        const statusWhere =
+            statusConditions.length > 0 ? 'WHERE ' + statusConditions.join(' AND ') : '';
         const statusResult = await db.query(
             `SELECT trang_thai, COUNT(*)::int as count FROM inventory_order_bookings ${statusWhere} GROUP BY trang_thai`,
             statusParams
         );
         const statusCounts = {};
-        statusResult.rows.forEach(r => { statusCounts[r.trang_thai] = r.count; });
+        statusResult.rows.forEach((r) => {
+            statusCounts[r.trang_thai] = r.count;
+        });
 
         res.json({
             success: true,
             data: result.rows,
-            meta: { total: countResult.rows[0].total, limit: parseInt(limit), offset: parseInt(offset) },
-            statusCounts
+            meta: {
+                total: countResult.rows[0].total,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+            },
+            statusCounts,
         });
     } catch (err) {
         console.error('[inventory] GET /order-bookings error:', err.message);
@@ -238,8 +260,11 @@ router.get('/order-bookings', async (req, res) => {
 router.get('/order-bookings/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query('SELECT * FROM inventory_order_bookings WHERE id = $1', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        const result = await db.query('SELECT * FROM inventory_order_bookings WHERE id = $1', [
+            req.params.id,
+        ]);
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -251,26 +276,40 @@ router.post('/order-bookings', async (req, res) => {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
         const {
-            id, stt_ncc, ngay_dat_hang, ten_ncc, trang_thai = 'pending',
-            san_pham = [], tong_tien_hd = 0, tong_mon = 0,
-            anh_hoa_don = [], ghi_chu = '', linked_dot_hang_id
+            id,
+            stt_ncc,
+            ngay_dat_hang,
+            ten_ncc,
+            trang_thai = 'pending',
+            san_pham = [],
+            tong_tien_hd = 0,
+            tong_mon = 0,
+            anh_hoa_don = [],
+            ghi_chu = '',
+            linked_dot_hang_id,
         } = req.body;
 
         if (!stt_ncc || !ngay_dat_hang) {
-            return res.status(400).json({ success: false, error: 'stt_ncc and ngay_dat_hang required' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'stt_ncc and ngay_dat_hang required' });
         }
 
         // Ensure supplier exists
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO inventory_suppliers (id, stt_ncc, ten_ncc)
             VALUES ($1, $2, $3)
             ON CONFLICT (stt_ncc) DO UPDATE SET
                 ten_ncc = COALESCE(EXCLUDED.ten_ncc, inventory_suppliers.ten_ncc),
                 updated_at = NOW()
-        `, [generateId('ncc'), stt_ncc, ten_ncc || null]);
+        `,
+            [generateId('ncc'), stt_ncc, ten_ncc || null]
+        );
 
         const bookingId = id || generateId('booking');
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_order_bookings (
                 id, stt_ncc, ngay_dat_hang, ten_ncc, trang_thai,
                 san_pham, tong_tien_hd, tong_mon,
@@ -278,12 +317,23 @@ router.post('/order-bookings', async (req, res) => {
                 created_by, updated_by
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
             RETURNING *
-        `, [
-            bookingId, stt_ncc, ngay_dat_hang, ten_ncc, trang_thai,
-            JSON.stringify(san_pham), tong_tien_hd, tong_mon,
-            anh_hoa_don, ghi_chu, linked_dot_hang_id || null,
-            user, user
-        ]);
+        `,
+            [
+                bookingId,
+                stt_ncc,
+                ngay_dat_hang,
+                ten_ncc,
+                trang_thai,
+                JSON.stringify(san_pham),
+                tong_tien_hd,
+                tong_mon,
+                anh_hoa_don,
+                ghi_chu,
+                linked_dot_hang_id || null,
+                user,
+                user,
+            ]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -297,12 +347,20 @@ router.put('/order-bookings/:id', async (req, res) => {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
         const {
-            stt_ncc, ngay_dat_hang, ten_ncc, trang_thai,
-            san_pham, tong_tien_hd, tong_mon,
-            anh_hoa_don, ghi_chu, linked_dot_hang_id
+            stt_ncc,
+            ngay_dat_hang,
+            ten_ncc,
+            trang_thai,
+            san_pham,
+            tong_tien_hd,
+            tong_mon,
+            anh_hoa_don,
+            ghi_chu,
+            linked_dot_hang_id,
         } = req.body;
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_order_bookings SET
                 stt_ncc = COALESCE($2, stt_ncc),
                 ngay_dat_hang = COALESCE($3, ngay_dat_hang),
@@ -318,16 +376,25 @@ router.put('/order-bookings/:id', async (req, res) => {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-        `, [
-            req.params.id, stt_ncc, ngay_dat_hang, ten_ncc, trang_thai,
-            san_pham ? JSON.stringify(san_pham) : null,
-            tong_tien_hd, tong_mon,
-            anh_hoa_don, ghi_chu,
-            linked_dot_hang_id !== undefined ? linked_dot_hang_id : null,
-            user
-        ]);
+        `,
+            [
+                req.params.id,
+                stt_ncc,
+                ngay_dat_hang,
+                ten_ncc,
+                trang_thai,
+                san_pham ? JSON.stringify(san_pham) : null,
+                tong_tien_hd,
+                tong_mon,
+                anh_hoa_don,
+                ghi_chu,
+                linked_dot_hang_id !== undefined ? linked_dot_hang_id : null,
+                user,
+            ]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /order-bookings/:id error:', err.message);
@@ -340,14 +407,19 @@ router.patch('/order-bookings/:id/status', async (req, res) => {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
         const { trang_thai } = req.body;
-        if (!trang_thai) return res.status(400).json({ success: false, error: 'trang_thai required' });
+        if (!trang_thai)
+            return res.status(400).json({ success: false, error: 'trang_thai required' });
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_order_bookings SET trang_thai = $2, updated_by = $3, updated_at = NOW()
             WHERE id = $1 RETURNING *
-        `, [req.params.id, trang_thai, user]);
+        `,
+            [req.params.id, trang_thai, user]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -357,8 +429,12 @@ router.patch('/order-bookings/:id/status', async (req, res) => {
 router.delete('/order-bookings/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query('DELETE FROM inventory_order_bookings WHERE id = $1 RETURNING id', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        const result = await db.query(
+            'DELETE FROM inventory_order_bookings WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -398,7 +474,8 @@ router.get('/shipments', async (req, res) => {
         const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
         const countResult = await db.query(
-            `SELECT COUNT(*)::int as total FROM inventory_shipments ${where}`, params
+            `SELECT COUNT(*)::int as total FROM inventory_shipments ${where}`,
+            params
         );
 
         params.push(parseInt(limit), parseInt(offset));
@@ -412,7 +489,11 @@ router.get('/shipments', async (req, res) => {
         res.json({
             success: true,
             data: result.rows,
-            meta: { total: countResult.rows[0].total, limit: parseInt(limit), offset: parseInt(offset) }
+            meta: {
+                total: countResult.rows[0].total,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+            },
         });
     } catch (err) {
         console.error('[inventory] GET /shipments error:', err.message);
@@ -429,7 +510,9 @@ router.get('/shipments/next-dot-so', async (req, res) => {
         const db = getDb(req);
         const { date } = req.query;
         if (!date) {
-            return res.status(400).json({ success: false, error: 'date query param required (YYYY-MM-DD)' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'date query param required (YYYY-MM-DD)' });
         }
         const result = await db.query(
             `SELECT COALESCE(MAX(dot_so), 1) AS next_dot_so
@@ -446,8 +529,11 @@ router.get('/shipments/next-dot-so', async (req, res) => {
 router.get('/shipments/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query('SELECT * FROM inventory_shipments WHERE id = $1', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        const result = await db.query('SELECT * FROM inventory_shipments WHERE id = $1', [
+            req.params.id,
+        ]);
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -459,19 +545,32 @@ router.post('/shipments', async (req, res) => {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
         const {
-            id, stt_ncc, ngay_di_hang, ten_ncc,
-            kien_hang = [], tong_kien = 0, tong_kg = 0,
-            san_pham = [], tong_tien_hd = 0, tong_mon = 0,
-            so_mon_thieu = 0, ghi_chu_thieu = '',
-            anh_hoa_don = [], ghi_chu = '',
-            chi_phi_hang_ve = [], tong_chi_phi = 0,
+            id,
+            stt_ncc,
+            ngay_di_hang,
+            ten_ncc,
+            kien_hang = [],
+            tong_kien = 0,
+            tong_kg = 0,
+            san_pham = [],
+            tong_tien_hd = 0,
+            tong_mon = 0,
+            so_mon_thieu = 0,
+            ghi_chu_thieu = '',
+            anh_hoa_don = [],
+            ghi_chu = '',
+            chi_phi_hang_ve = [],
+            tong_chi_phi = 0,
             ghi_chu_admin = '',
-            thanh_toan_ck = [], ti_gia = 0,
-            dot_so
+            thanh_toan_ck = [],
+            ti_gia = 0,
+            dot_so,
         } = req.body;
 
         if (!stt_ncc || !ngay_di_hang) {
-            return res.status(400).json({ success: false, error: 'stt_ncc and ngay_di_hang required' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'stt_ncc and ngay_di_hang required' });
         }
 
         // Resolve dot_so: use provided, otherwise default to current MAX (or 1 if empty).
@@ -486,41 +585,52 @@ router.post('/shipments', async (req, res) => {
         }
 
         // Ensure supplier exists
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO inventory_suppliers (id, stt_ncc, ten_ncc)
             VALUES ($1, $2, $3)
             ON CONFLICT (stt_ncc) DO UPDATE SET
                 ten_ncc = COALESCE(EXCLUDED.ten_ncc, inventory_suppliers.ten_ncc),
                 updated_at = NOW()
-        `, [generateId('ncc'), stt_ncc, ten_ncc || null]);
+        `,
+            [generateId('ncc'), stt_ncc, ten_ncc || null]
+        );
 
         // Deduplication: if a row with same (ngay_di_hang, dot_so, LOWER(TRIM(ten_ncc)))
         // already exists and ten_ncc is non-empty, merge into it instead of inserting.
         const trimmedTen = (ten_ncc || '').trim();
         let existing = null;
         if (trimmedTen) {
-            const dup = await db.query(`
+            const dup = await db.query(
+                `
                 SELECT * FROM inventory_shipments
                 WHERE ngay_di_hang = $1 AND dot_so = $2 AND LOWER(TRIM(ten_ncc)) = LOWER($3)
                 ORDER BY created_at ASC
                 LIMIT 1
-            `, [ngay_di_hang, resolvedDotSo, trimmedTen]);
+            `,
+                [ngay_di_hang, resolvedDotSo, trimmedTen]
+            );
             existing = dup.rows[0] || null;
         }
 
         if (existing) {
             // Merge: append san_pham, sum totals, union images, keep first kien_hang
-            const existingSanPham = Array.isArray(existing.san_pham) ? existing.san_pham : JSON.parse(existing.san_pham || '[]');
+            const existingSanPham = Array.isArray(existing.san_pham)
+                ? existing.san_pham
+                : JSON.parse(existing.san_pham || '[]');
             const mergedSanPham = [...existingSanPham, ...(san_pham || [])];
             const existingImgs = existing.anh_hoa_don || [];
             const mergedImgs = Array.from(new Set([...existingImgs, ...(anh_hoa_don || [])]));
             // Keep kien_hang from first insert (this request's kien_hang merged if first was empty)
-            const existingKien = Array.isArray(existing.kien_hang) ? existing.kien_hang : JSON.parse(existing.kien_hang || '[]');
-            const mergedKien = existingKien.length > 0 ? existingKien : (kien_hang || []);
+            const existingKien = Array.isArray(existing.kien_hang)
+                ? existing.kien_hang
+                : JSON.parse(existing.kien_hang || '[]');
+            const mergedKien = existingKien.length > 0 ? existingKien : kien_hang || [];
             const mergedTongKien = mergedKien.length;
             const mergedTongKg = mergedKien.reduce((s, k) => s + (parseFloat(k.soKg) || 0), 0);
 
-            const upd = await db.query(`
+            const upd = await db.query(
+                `
                 UPDATE inventory_shipments SET
                     san_pham = $2,
                     tong_tien_hd = tong_tien_hd + $3,
@@ -544,20 +654,22 @@ router.post('/shipments', async (req, res) => {
                     updated_at = NOW()
                 WHERE id = $1
                 RETURNING *
-            `, [
-                existing.id,
-                JSON.stringify(mergedSanPham),
-                tong_tien_hd || 0,
-                tong_mon || 0,
-                so_mon_thieu || 0,
-                mergedImgs,
-                JSON.stringify(mergedKien),
-                mergedTongKien,
-                mergedTongKg,
-                ghi_chu || '',
-                ghi_chu_thieu || '',
-                user
-            ]);
+            `,
+                [
+                    existing.id,
+                    JSON.stringify(mergedSanPham),
+                    tong_tien_hd || 0,
+                    tong_mon || 0,
+                    so_mon_thieu || 0,
+                    mergedImgs,
+                    JSON.stringify(mergedKien),
+                    mergedTongKien,
+                    mergedTongKg,
+                    ghi_chu || '',
+                    ghi_chu_thieu || '',
+                    user,
+                ]
+            );
             return res.json({ success: true, data: upd.rows[0], merged: true });
         }
 
@@ -568,7 +680,7 @@ router.post('/shipments', async (req, res) => {
         // Client-provided values take precedence when non-empty.
         let effThanhToanCK = thanh_toan_ck;
         let effTiGia = ti_gia;
-        if ((!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0) || !ti_gia) {
+        if (!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0 || !ti_gia) {
             const groupRes = await db.query(
                 `SELECT thanh_toan_ck, ti_gia FROM inventory_shipments
                  WHERE dot_so = $1
@@ -578,7 +690,10 @@ router.post('/shipments', async (req, res) => {
             if (groupRes.rows[0]) {
                 if (!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0) {
                     const existing = groupRes.rows[0].thanh_toan_ck;
-                    effThanhToanCK = typeof existing === 'string' ? JSON.parse(existing || '[]') : (existing || []);
+                    effThanhToanCK =
+                        typeof existing === 'string'
+                            ? JSON.parse(existing || '[]')
+                            : existing || [];
                 }
                 if (!ti_gia) {
                     effTiGia = parseFloat(groupRes.rows[0].ti_gia) || 0;
@@ -586,7 +701,8 @@ router.post('/shipments', async (req, res) => {
             }
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_shipments (
                 id, stt_ncc, ngay_di_hang, ten_ncc,
                 kien_hang, tong_kien, tong_kg,
@@ -600,18 +716,32 @@ router.post('/shipments', async (req, res) => {
                 created_by, updated_by
             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING *
-        `, [
-            shipmentId, stt_ncc, ngay_di_hang, ten_ncc,
-            JSON.stringify(kien_hang), tong_kien, tong_kg,
-            JSON.stringify(san_pham), tong_tien_hd, tong_mon,
-            so_mon_thieu, ghi_chu_thieu,
-            anh_hoa_don, ghi_chu,
-            JSON.stringify(chi_phi_hang_ve), tong_chi_phi,
-            ghi_chu_admin,
-            JSON.stringify(effThanhToanCK), effTiGia,
-            resolvedDotSo,
-            user, user
-        ]);
+        `,
+            [
+                shipmentId,
+                stt_ncc,
+                ngay_di_hang,
+                ten_ncc,
+                JSON.stringify(kien_hang),
+                tong_kien,
+                tong_kg,
+                JSON.stringify(san_pham),
+                tong_tien_hd,
+                tong_mon,
+                so_mon_thieu,
+                ghi_chu_thieu,
+                anh_hoa_don,
+                ghi_chu,
+                JSON.stringify(chi_phi_hang_ve),
+                tong_chi_phi,
+                ghi_chu_admin,
+                JSON.stringify(effThanhToanCK),
+                effTiGia,
+                resolvedDotSo,
+                user,
+                user,
+            ]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -625,18 +755,29 @@ router.put('/shipments/:id', async (req, res) => {
         const db = getDb(req);
         const user = getUserFromHeaders(req);
         const {
-            stt_ncc, ngay_di_hang, ten_ncc,
-            kien_hang, tong_kien, tong_kg,
-            san_pham, tong_tien_hd, tong_mon,
-            so_mon_thieu, ghi_chu_thieu,
-            anh_hoa_don, ghi_chu,
-            chi_phi_hang_ve, tong_chi_phi,
+            stt_ncc,
+            ngay_di_hang,
+            ten_ncc,
+            kien_hang,
+            tong_kien,
+            tong_kg,
+            san_pham,
+            tong_tien_hd,
+            tong_mon,
+            so_mon_thieu,
+            ghi_chu_thieu,
+            anh_hoa_don,
+            ghi_chu,
+            chi_phi_hang_ve,
+            tong_chi_phi,
             ghi_chu_admin,
-            thanh_toan_ck, ti_gia,
-            dot_so
+            thanh_toan_ck,
+            ti_gia,
+            dot_so,
         } = req.body;
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_shipments SET
                 stt_ncc = COALESCE($2, stt_ncc),
                 ngay_di_hang = COALESCE($3, ngay_di_hang),
@@ -661,24 +802,34 @@ router.put('/shipments/:id', async (req, res) => {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-        `, [
-            req.params.id, stt_ncc, ngay_di_hang, ten_ncc,
-            kien_hang ? JSON.stringify(kien_hang) : null,
-            tong_kien, tong_kg,
-            san_pham ? JSON.stringify(san_pham) : null,
-            tong_tien_hd, tong_mon,
-            so_mon_thieu, ghi_chu_thieu,
-            anh_hoa_don, ghi_chu,
-            chi_phi_hang_ve ? JSON.stringify(chi_phi_hang_ve) : null,
-            tong_chi_phi,
-            ghi_chu_admin !== undefined ? ghi_chu_admin : null,
-            user,
-            (dot_so !== undefined && dot_so !== null) ? parseInt(dot_so, 10) : null,
-            thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
-            ti_gia !== undefined ? ti_gia : null
-        ]);
+        `,
+            [
+                req.params.id,
+                stt_ncc,
+                ngay_di_hang,
+                ten_ncc,
+                kien_hang ? JSON.stringify(kien_hang) : null,
+                tong_kien,
+                tong_kg,
+                san_pham ? JSON.stringify(san_pham) : null,
+                tong_tien_hd,
+                tong_mon,
+                so_mon_thieu,
+                ghi_chu_thieu,
+                anh_hoa_don,
+                ghi_chu,
+                chi_phi_hang_ve ? JSON.stringify(chi_phi_hang_ve) : null,
+                tong_chi_phi,
+                ghi_chu_admin !== undefined ? ghi_chu_admin : null,
+                user,
+                dot_so !== undefined && dot_so !== null ? parseInt(dot_so, 10) : null,
+                thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
+                ti_gia !== undefined ? ti_gia : null,
+            ]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /shipments/:id error:', err.message);
@@ -698,7 +849,8 @@ router.patch('/shipments/payment-by-dot', async (req, res) => {
             return res.status(400).json({ success: false, error: 'dot_so required' });
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_shipments SET
                 thanh_toan_ck = COALESCE($2, thanh_toan_ck),
                 ti_gia = COALESCE($3, ti_gia),
@@ -706,19 +858,21 @@ router.patch('/shipments/payment-by-dot', async (req, res) => {
                 updated_at = NOW()
             WHERE dot_so = $1
             RETURNING id, ngay_di_hang, thanh_toan_ck, ti_gia
-        `, [
-            parseInt(dot_so, 10),
-            thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
-            ti_gia !== undefined ? ti_gia : null,
-            user
-        ]);
+        `,
+            [
+                parseInt(dot_so, 10),
+                thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
+                ti_gia !== undefined ? ti_gia : null,
+                user,
+            ]
+        );
 
         res.json({
             success: true,
             data: {
                 updated: result.rows.length,
-                rows: result.rows
-            }
+                rows: result.rows,
+            },
         });
     } catch (err) {
         console.error('[inventory] PATCH /shipments/payment-by-dot error:', err.message);
@@ -732,15 +886,19 @@ router.patch('/shipments/:id/shortage', async (req, res) => {
         const user = getUserFromHeaders(req);
         const { so_mon_thieu, ghi_chu_thieu } = req.body;
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_shipments SET
                 so_mon_thieu = COALESCE($2, so_mon_thieu),
                 ghi_chu_thieu = COALESCE($3, ghi_chu_thieu),
                 updated_by = $4, updated_at = NOW()
             WHERE id = $1 RETURNING *
-        `, [req.params.id, so_mon_thieu, ghi_chu_thieu, user]);
+        `,
+            [req.params.id, so_mon_thieu, ghi_chu_thieu, user]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -750,8 +908,12 @@ router.patch('/shipments/:id/shortage', async (req, res) => {
 router.delete('/shipments/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query('DELETE FROM inventory_shipments WHERE id = $1 RETURNING id', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        const result = await db.query(
+            'DELETE FROM inventory_shipments WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -781,10 +943,13 @@ router.post('/prepayments', async (req, res) => {
             return res.status(400).json({ success: false, error: 'ngay and so_tien required' });
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_prepayments (id, ngay, so_tien, ghi_chu, created_by)
             VALUES ($1, $2, $3, $4, $5) RETURNING *
-        `, [generateId('prep'), ngay, so_tien, ghi_chu, user]);
+        `,
+            [generateId('prep'), ngay, so_tien, ghi_chu, user]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -796,14 +961,18 @@ router.put('/prepayments/:id', async (req, res) => {
     try {
         const db = getDb(req);
         const { ngay, so_tien, ghi_chu } = req.body;
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_prepayments SET
                 ngay = COALESCE($2, ngay), so_tien = COALESCE($3, so_tien),
                 ghi_chu = COALESCE($4, ghi_chu), updated_at = NOW()
             WHERE id = $1 RETURNING *
-        `, [req.params.id, ngay, so_tien, ghi_chu]);
+        `,
+            [req.params.id, ngay, so_tien, ghi_chu]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -813,8 +982,12 @@ router.put('/prepayments/:id', async (req, res) => {
 router.delete('/prepayments/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query('DELETE FROM inventory_prepayments WHERE id = $1 RETURNING id', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        const result = await db.query(
+            'DELETE FROM inventory_prepayments WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -844,10 +1017,13 @@ router.post('/other-expenses', async (req, res) => {
             return res.status(400).json({ success: false, error: 'ngay and so_tien required' });
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_other_expenses (id, ngay, loai_chi, so_tien, ghi_chu, created_by)
             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-        `, [generateId('exp'), ngay, loai_chi, so_tien, ghi_chu, user]);
+        `,
+            [generateId('exp'), ngay, loai_chi, so_tien, ghi_chu, user]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -859,15 +1035,19 @@ router.put('/other-expenses/:id', async (req, res) => {
     try {
         const db = getDb(req);
         const { ngay, loai_chi, so_tien, ghi_chu } = req.body;
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_other_expenses SET
                 ngay = COALESCE($2, ngay), loai_chi = COALESCE($3, loai_chi),
                 so_tien = COALESCE($4, so_tien), ghi_chu = COALESCE($5, ghi_chu),
                 updated_at = NOW()
             WHERE id = $1 RETURNING *
-        `, [req.params.id, ngay, loai_chi, so_tien, ghi_chu]);
+        `,
+            [req.params.id, ngay, loai_chi, so_tien, ghi_chu]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -877,8 +1057,12 @@ router.put('/other-expenses/:id', async (req, res) => {
 router.delete('/other-expenses/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const result = await db.query('DELETE FROM inventory_other_expenses WHERE id = $1 RETURNING id', [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        const result = await db.query(
+            'DELETE FROM inventory_other_expenses WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -894,10 +1078,18 @@ router.get('/finance/summary', async (req, res) => {
         const db = getDb(req);
 
         const [prepResult, invoiceResult, shippingResult, expenseResult] = await Promise.all([
-            db.query('SELECT COALESCE(SUM(so_tien), 0)::numeric as total FROM inventory_prepayments'),
-            db.query('SELECT COALESCE(SUM(tong_tien_hd), 0)::numeric as total FROM inventory_shipments'),
-            db.query('SELECT COALESCE(SUM(tong_chi_phi), 0)::numeric as total FROM inventory_shipments'),
-            db.query('SELECT COALESCE(SUM(so_tien), 0)::numeric as total FROM inventory_other_expenses'),
+            db.query(
+                'SELECT COALESCE(SUM(so_tien), 0)::numeric as total FROM inventory_prepayments'
+            ),
+            db.query(
+                'SELECT COALESCE(SUM(tong_tien_hd), 0)::numeric as total FROM inventory_shipments'
+            ),
+            db.query(
+                'SELECT COALESCE(SUM(tong_chi_phi), 0)::numeric as total FROM inventory_shipments'
+            ),
+            db.query(
+                'SELECT COALESCE(SUM(so_tien), 0)::numeric as total FROM inventory_other_expenses'
+            ),
         ]);
 
         const tongThanhToanTruoc = parseFloat(prepResult.rows[0].total);
@@ -913,8 +1105,8 @@ router.get('/finance/summary', async (req, res) => {
                 tongTienHoaDon,
                 tongChiPhiHangVe,
                 tongChiPhiKhac,
-                conLai
-            }
+                conLai,
+            },
         });
     } catch (err) {
         console.error('[inventory] GET /finance/summary error:', err.message);
@@ -956,10 +1148,21 @@ router.post('/edit-history', async (req, res) => {
         const user = getUserFromHeaders(req);
         const { action, entity_type, entity_id, stt_ncc, changes = {} } = req.body;
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_edit_history (id, action, entity_type, entity_id, stt_ncc, changes, user_name)
             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-        `, [generateId('hist'), action, entity_type, entity_id, stt_ncc || null, JSON.stringify(changes), user]);
+        `,
+            [
+                generateId('hist'),
+                action,
+                entity_type,
+                entity_id,
+                stt_ncc || null,
+                JSON.stringify(changes),
+                user,
+            ]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -998,15 +1201,19 @@ router.post('/notes', async (req, res) => {
         const user = getUserFromHeaders(req);
         const { invoice_id, note_text, note_images, is_admin = false } = req.body;
 
-        if (!invoice_id) return res.status(400).json({ success: false, error: 'invoice_id required' });
+        if (!invoice_id)
+            return res.status(400).json({ success: false, error: 'invoice_id required' });
         if (!note_text && (!note_images || note_images.length === 0)) {
             return res.status(400).json({ success: false, error: 'Note content required' });
         }
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             INSERT INTO inventory_notes (invoice_id, username, is_admin, note_text, note_images)
             VALUES ($1, $2, $3, $4, $5) RETURNING *
-        `, [invoice_id, user, is_admin, note_text || '', note_images || []]);
+        `,
+            [invoice_id, user, is_admin, note_text || '', note_images || []]
+        );
 
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -1021,12 +1228,16 @@ router.put('/notes/:id', async (req, res) => {
         const user = getUserFromHeaders(req);
         const { note_text, note_images } = req.body;
 
-        const result = await db.query(`
+        const result = await db.query(
+            `
             UPDATE inventory_notes SET note_text = $3, note_images = $4
             WHERE id = $1 AND username = $2 RETURNING *
-        `, [req.params.id, user, note_text || '', note_images || []]);
+        `,
+            [req.params.id, user, note_text || '', note_images || []]
+        );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found or not owned' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found or not owned' });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /notes/:id error:', err.message);
@@ -1044,7 +1255,8 @@ router.delete('/notes/:id', async (req, res) => {
             [req.params.id, user]
         );
 
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found or not owned' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found or not owned' });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         console.error('[inventory] DELETE /notes/:id error:', err.message);
@@ -1064,8 +1276,14 @@ router.get('/product-images', async (req, res) => {
         const conditions = [];
         const params = [];
         let i = 1;
-        if (date) { conditions.push(`ngay_di_hang = $${i++}`); params.push(date); }
-        if (dot) { conditions.push(`dot_so = $${i++}`); params.push(parseInt(dot, 10)); }
+        if (date) {
+            conditions.push(`ngay_di_hang = $${i++}`);
+            params.push(date);
+        }
+        if (dot) {
+            conditions.push(`dot_so = $${i++}`);
+            params.push(parseInt(dot, 10));
+        }
         const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
         const result = await db.query(
             `SELECT * FROM inventory_product_images ${where} ORDER BY ngay_di_hang DESC, dot_so, ncc`,
@@ -1078,13 +1296,35 @@ router.get('/product-images', async (req, res) => {
     }
 });
 
+// SSE debounce per (date, dot_so) — a single client save fires N PUTs (one per
+// đợt bucket + orphan slots). Without debounce each PUT sends its own SSE event
+// to all connected clients, causing N table re-renders for one logical save.
+// 250ms covers the typical N=2-5 parallel PUT burst.
+const _imageSseDebounce = new Map(); // key: 'all', value: { timer, data }
+
+function _scheduleImagesNotify(getLatestRows) {
+    if (_imageSseDebounce.has('all')) {
+        clearTimeout(_imageSseDebounce.get('all').timer);
+    }
+    const timer = setTimeout(async () => {
+        _imageSseDebounce.delete('all');
+        try {
+            const rows = await getLatestRows();
+            sseRouter.notifyClients('product_images', { data: rows }, 'update');
+        } catch (err) {
+            console.error('[inventory] SSE notify (debounced) failed:', err.message);
+        }
+    }, 250);
+    _imageSseDebounce.set('all', { timer });
+}
+
 router.put('/product-images', async (req, res) => {
     const pool = getDb(req);
     const db = await pool.connect();
     try {
         // body: { ngay_di_hang?, dot_so?, rows: [{ ncc, urls }] }
-        // Scoped replace if (date, dot) provided; else legacy full replace within the
-        // canonical default batch (2026-04-10, 1) — used by pre-batch-UI clients.
+        // Scoped replace within (ngay_di_hang, dot_so). Empty rows → just clear
+        // the slot (used by client's orphan-cleanup path when a đợt is emptied).
         const { ngay_di_hang, dot_so, rows } = req.body;
 
         if (!Array.isArray(rows)) {
@@ -1095,6 +1335,17 @@ router.put('/product-images', async (req, res) => {
         const resolvedDot = parseInt(dot_so, 10) || 1;
 
         await db.query('BEGIN');
+
+        // pg_advisory_xact_lock serializes concurrent writes to the same
+        // (date, dot_so) slot. Without this, two parallel PUTs to the same
+        // slot would both DELETE then both INSERT — last-writer-wins, no
+        // rollback, hard to debug. The lock is per-transaction (auto-released
+        // on COMMIT/ROLLBACK), so it never deadlocks across slots. The key
+        // is derived from a stable hash of the slot identifier so we don't
+        // need a shared lock table.
+        const lockKey = `product_images:${batchDate}:${resolvedDot}`;
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [lockKey]);
+
         // Scoped delete for that batch only — preserves other batches
         await db.query(
             `DELETE FROM inventory_product_images WHERE ngay_di_hang = $1 AND dot_so = $2`,
@@ -1117,7 +1368,16 @@ router.put('/product-images', async (req, res) => {
             'SELECT * FROM inventory_product_images ORDER BY ngay_di_hang DESC, dot_so, ncc'
         );
 
-        sseRouter.notifyClients('product_images', { data: result.rows }, 'update');
+        // Debounced SSE notify — coalesces multi-PUT bursts into one broadcast.
+        // Pass a fresh getLatestRows() so the eventual notify reflects the
+        // FINAL state after all bursting PUTs have committed, not whichever
+        // one happened to be the last to enqueue.
+        _scheduleImagesNotify(async () => {
+            const r = await pool.query(
+                'SELECT * FROM inventory_product_images ORDER BY ngay_di_hang DESC, dot_so, ncc'
+            );
+            return r.rows;
+        });
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -1136,7 +1396,8 @@ router.delete('/product-images/:id', async (req, res) => {
             'DELETE FROM inventory_product_images WHERE id = $1 RETURNING id',
             [req.params.id]
         );
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
+        if (result.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'Not found' });
 
         // Notify SSE clients for realtime sync
         sseRouter.notifyClients('product_images', { deleted: req.params.id }, 'deleted');

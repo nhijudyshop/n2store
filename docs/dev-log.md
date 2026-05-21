@@ -25,6 +25,37 @@
 
 ## 2026-05-21
 
+### [inventory] fix: 7 bug + race condition cho image manager (audit-driven)
+
+Audit toàn bộ pipeline image (modal save → API → DB → SSE → table render) phát hiện 9 issue. Fix 7 (skip L7-fallback-revert vì đã đúng + L9-cosmetic).
+
+**HIGH severity**:
+
+- **H1 — Lost-update race giữa user/tab**: User A + B cùng mở modal, A save trước, B save sau ghi đè A. Fix: modal listen SSE từ data-loader, nếu nhận event khi đang mở (và không phải từ own save) → set `_externalChangeDetected` + toast cảnh báo. Save() kế tiếp confirm dialog cho user chọn "Đóng+reload" hay "Tiếp tục ghi đè". Distinguish own save bằng `_saveInProgress` flag (1500ms grace window).
+- **H2 — Save trong khi paste/upload chưa xong**: User paste 10 ảnh, upload async, bấm save khi mới encode 3 → mất 7 ảnh còn lại. Fix: `save()` check `_isUploading` đầu hàm, return + toast warning.
+
+**MEDIUM severity**:
+
+- **M3/M4 — Canonical-date drift**: `_canonicalDateForDot` cũ trả về "most-recent shipment date for đợt" → ngày có thể đổi giữa modal-open và save → orphan-slot logic so sánh sai → có thể wipe nhầm slot. Fix: ELIMINATE concept — `_canonicalDateForDot()` luôn return `GLOBAL_LEGACY_DATE = '2026-04-10'`. `ngay_di_hang` trở thành dead storage column, không có business semantic. Save migrate cũ dates → canonical tự động qua orphan-cleanup (đã verify edge cases: move NCC giữa đợt, empty đợt, legacy dates đều OK).
+- **M5 — Server PUT không atomic giữa 2 PUT đồng thời cùng (date, dot)**: Hai PUT song song = cả hai DELETE + cả hai INSERT, last-writer-wins. Fix: `pg_advisory_xact_lock(hashtext('product_images:date:dot')::bigint)` đầu transaction → serialize per slot. Different slots không lock nhau → vẫn parallel.
+
+**LOW severity**:
+
+- **L6 — SSE notify spam**: 1 client save = N PUTs = N SSE events. Fix 2 lớp:
+    1. Server: `_scheduleImagesNotify(getLatestRows)` debounce 250ms — N PUTs cùng burst → 1 notify cuối, query DB lại để lấy state FINAL.
+    2. Client (data-loader SSE handler): debounce 200ms — coalesce nếu server vẫn fire nhiều event.
+- **L7 — Fallback "any image for NCC" sort theo date**: Có (đợt 1, NCC 5) và (đợt 3, NCC 5), render (đợt 2, NCC 5) → fallback trả về whichever có date mới hơn (counter-intuitive). Fix: sort candidates theo `Math.abs(img.dotSo - requestedDot)` ascending, tie-break đợt thấp hơn → đợt 2 fallback sang đợt 1 (closer).
+- **L8 — Image resize OOM**: User paste ảnh 20000x20000 → drawImage allocate 1.6GB → tab crash. Fix: reject sources > 60MP (~7745x7745) trước khi tạo canvas, với clear error message.
+
+**Files**:
+
+- `inventory-tracking/js/modal-image-manager.js` (M3/M4/H1/H2/L8)
+- `inventory-tracking/js/data-loader.js` (L6 client + L7)
+- `inventory-tracking/index.html` (wire \_onClose vào X button + Hủy button)
+- `render.com/routes/v2/inventory-tracking.js` (M5 advisory lock + L6 server debounce)
+
+**Verified**: `node --check` pass cả 3 file. Server-side cần redeploy Render để pick up advisory lock + debounce.
+
 ### [extension][web2] v2.0.3: add m.facebook.com mobile fallback khi 1545012 cứng đầu
 
 **Tình trạng v2.0.2**: code đúng (jazoest re-compute + \_\_comet_req=1 + retry với new otid), nhưng FB vẫn trả 1545012 cứng cho conversation HTĐ. Lý do: 1545012 = BLOCKED_RETRY_SOCKET — FB chặn HTTP `business.facebook.com/messaging/send/` cho conv này và đòi MQTT socket. Pancake có WebSocket frontend code (chạy trên pancake.vn JS, không phải SW); mình không có.

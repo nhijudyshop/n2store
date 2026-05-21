@@ -149,16 +149,21 @@ function setupProductImagesRealtimeSync() {
         const client = new RealtimeClient('https://chatomni-proxy.nhijudyshop.workers.dev');
         client.connect(['product_images']);
 
-        client.on('product_images', (data) => {
-            console.log('[DATA] Product images updated via SSE');
+        // Client-side debounce: a single modal save fires N PUTs (one per đợt
+        // bucket + orphan slots), each PUT triggers its own SSE event. Without
+        // debounce the client would re-render the table N times in a burst.
+        // 200ms is well below user-perceptible latency and coalesces a typical
+        // multi-đợt save into one update.
+        let _debounceTimer = null;
+        let _latestData = null;
 
+        const _applyUpdate = (data) => {
             if (data && data.data) {
-                // Full update: replace all product images.
-                // CRITICAL: must map snake_case columns (ngay_di_hang, dot_so) → camelCase
-                // so downstream readers (img.dotSo / img.ngayDiHang) keep working.
-                // Without this, every SSE event silently wiped dotSo in memory, making
-                // all đợt 2 images appear as đợt 1 to subsequent reads (and overwriting
-                // their đợt on the next modal save).
+                // Full update: replace all product images. CRITICAL: map
+                // snake_case columns (ngay_di_hang, dot_so) → camelCase so
+                // downstream readers (img.dotSo / img.ngayDiHang) keep
+                // working. Without this, every SSE event silently wiped
+                // dotSo in memory, making all đợt 2 images appear as đợt 1.
                 globalState.productImages = data.data.map((img) => ({
                     ...img,
                     ngayDiHang: img.ngay_di_hang ? String(img.ngay_di_hang).split('T')[0] : null,
@@ -172,9 +177,26 @@ function setupProductImagesRealtimeSync() {
 
             // Re-render table to reflect new images
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+
+            // Tell the image-manager modal (if open) so it can warn about
+            // concurrent edits — but only if this update did NOT originate
+            // from the modal's own save (modal tracks that via _saveInProgress).
+            if (typeof ImageManager !== 'undefined' && ImageManager._onExternalUpdate) {
+                ImageManager._onExternalUpdate();
+            }
+        };
+
+        client.on('product_images', (data) => {
+            console.log('[DATA] Product images SSE event received (will debounce 200ms)');
+            _latestData = data;
+            if (_debounceTimer) clearTimeout(_debounceTimer);
+            _debounceTimer = setTimeout(() => {
+                _debounceTimer = null;
+                _applyUpdate(_latestData);
+            }, 200);
         });
 
-        console.log('[DATA] Product images realtime sync enabled');
+        console.log('[DATA] Product images realtime sync enabled (debounced 200ms)');
     } catch (error) {
         console.error('[DATA] Error setting up product images realtime sync:', error);
     }
@@ -201,7 +223,22 @@ function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     if (dotNum) {
         const byDot = images.find((img) => img.ncc === nccNum && (img.dotSo || 1) === dotNum);
         if (byDot) return byDot.urls || [];
+
+        // Fallback: pick the candidate whose đợt is numerically closest to the
+        // requested one, tie-breaking towards lower đợt (older batch). This
+        // is more intuitive than "most recent date" — if user has đợt 1 and
+        // đợt 3 entries for NCC X, viewing đợt 2 should show đợt 1 (closer
+        // by 1) rather than whichever happens to have the newer date.
+        const candidates = images
+            .filter((img) => img.ncc === nccNum)
+            .map((img) => ({ img, dist: Math.abs((img.dotSo || 1) - dotNum) }))
+            .sort((a, b) => {
+                if (a.dist !== b.dist) return a.dist - b.dist;
+                return (a.img.dotSo || 1) - (b.img.dotSo || 1);
+            });
+        return candidates[0] ? candidates[0].img.urls || [] : [];
     }
+
     const any = images.find((img) => img.ncc === nccNum);
     return any ? any.urls || [] : [];
 }
