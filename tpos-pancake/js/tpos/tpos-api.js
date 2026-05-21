@@ -347,11 +347,17 @@ const TposApi = {
         //     objects → TPOS reject với 'untyped value ... invalid' nếu gửi mà thiếu
         //     @odata.type annotation. Cách an toàn nhất: drop trước khi POST (TPOS
         //     trả lại bản canonical sau khi save thành công, không cần round-trip).
+        // (4) `@odata.*` annotations (vd `@odata.context`) lọt vào cache khi response
+        //     trước đó trả. POST lại sẽ bị TPOS reject 'annotation not recognized
+        //     at current position'. Drop hết key bắt đầu '@'.
         if (!Array.isArray(model.Childs)) model.Childs = [];
         if (typeof model.Status === 'number') model.Status = String(model.Status);
         delete model.ExtraAddress;
         delete model.ExtraProperties;
         delete model.FacebookMap;
+        for (const k of Object.keys(model)) {
+            if (k.startsWith('@')) delete model[k];
+        }
 
         const effectiveTeamId =
             teamId ||
