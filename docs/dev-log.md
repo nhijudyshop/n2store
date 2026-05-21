@@ -25,6 +25,39 @@
 
 ## 2026-05-21
 
+### [web2-products][native-orders][render] Realtime cascade snapshot khi update SP
+
+**Yêu cầu user**: Cập nhật hình SP ở `web2/products/index.html` — bên `native-orders/index.html` các SP đã có sẵn trong đơn KHÔNG cập nhật hình. SSE realtime không bridge giữa 2 page.
+
+**Root cause**:
+
+1. `native_orders.products` (JSONB array) và `fast_sale_orders.order_lines` (JSONB array) lưu **denormalized snapshot** (productCode + name + price + imageUrl) tại lúc add line. PATCH `web2_products.image_url` chỉ ghi 1 row → các đơn tham chiếu vẫn giữ URL cũ.
+2. Server chỉ broadcast SSE topic `web2:products` sau PATCH; `native-orders` page chỉ subscribe `web2:native-orders` → không reload.
+
+**Fix**: Trong `PATCH /api/web2-products/:code`, sau khi UPDATE thành công, **cascade imageUrl / name / price** xuống:
+
+- `native_orders.products[*]` (map: `name`, `price`, `imageUrl`)
+- `fast_sale_orders.order_lines[*]` (map: `productName`, `priceUnit`, `imageUrl`)
+
+Cách làm: `UPDATE ... SET col = (SELECT jsonb_agg(CASE WHEN elem->>'productCode' = $1 THEN elem || jsonb_build_object(...) ELSE elem END) FROM jsonb_array_elements(col) elem) WHERE col @> jsonb_build_array(jsonb_build_object('productCode', $1::text))`. Cascade chỉ khi `req.body` có field tương ứng — stock-only PATCH **không** trigger cascade (giảm SSE noise).
+
+Sau cascade thành công → broadcast `web2:native-orders` + `web2:fast-sale-orders` (action `product-snapshot-sync`) → page đang mở auto refetch + re-render.
+
+**Files**:
+
+- [`render.com/routes/web2-products.js`](../render.com/routes/web2-products.js#L350-L470) — thêm cascade block sau `RETURNING *` trong PATCH endpoint. `pgString()` helper escape `'` cho jsonb_build_object inline (DB-trust values từ UPDATE result).
+- Native-orders client **không cần đổi** — đã sub `web2:native-orders` topic qua `_sseConnect()` → debounced `load()`.
+
+**Verify prod (browser+API console-only, no screenshots)**:
+
+- ✓ PATCH SP001 imageUrl → response `cascade.nativeOrders=3, fastSaleOrders=0`
+- ✓ 3 orders chứa SP001 đều có imageUrl mới trong `products[]`
+- ✓ Browser native-orders mở sẵn → SSE event `[NativeOrders-SSE] data event: product-snapshot-sync` xuất hiện, table auto-reload, expand row đầu → `<img src>` = URL vừa PATCH
+- ✓ Edge: stock-only PATCH → `cascade=null` (no work, no broadcast)
+- ✓ Edge: name có `'` (O'Brien Special) → SQL escape đúng, cascade thành công
+
+**Status**: ✅ Done.
+
 ### [native-orders][render] Backfill time prefix `[HH:mm:ss D/M/YYYY]` cho ghi chú đầu của đơn cũ
 
 **Yêu cầu user**: Bên `native-orders/index.html` các đơn từ `tpos-pancake` qua, **ghi chú đầu tiên chưa hiện thời gian tạo** — trong khi các comment merge sau đều có prefix.
