@@ -16,7 +16,7 @@ const ImageManager = (() => {
     let _isUploading = false;
     let _rowCounter = 0;
     let _searchNcc = ''; // NCC search filter
-    let _filterDotSo = ''; // đợt filter ('' = all)
+    let _activeDotSo = null; // active tab — only one đợt shown at a time
     let _knownDotSos = []; // distinct đợt numbers from shipments (DESC) — for "Đợt mới nhất" default
     let _initialKey = new Set(); // (dotSo, originalNgay) loaded at open — used to send empty PUT on clear
 
@@ -86,7 +86,7 @@ const ImageManager = (() => {
     async function open() {
         _rows = [];
         _searchNcc = '';
-        _filterDotSo = '';
+        _activeDotSo = null;
         _initialKey = new Set();
 
         try {
@@ -134,13 +134,33 @@ const ImageManager = (() => {
             _knownDotSos = _buildKnownDotSos();
         }
 
-        // Always add one empty row at the end in the latest đợt for new input
-        const newRow = _createRow();
+        // Pick the active tab — latest đợt with data, or latest known shipment đợt, or 1
+        const dotsWithRows = [...new Set(_rows.map((r) => r.dotSo))].sort((a, b) => b - a);
+        _activeDotSo = dotsWithRows[0] || _defaultDotSo();
+
+        // Always add one empty row in the active đợt for new input
+        const newRow = _createRow(_activeDotSo);
         _rows.push(newRow);
         _focusedRowId = newRow.id;
 
         _render();
         openModal('modalImageManager');
+    }
+
+    /**
+     * Collect distinct đợt numbers from current rows, sorted ASC.
+     * Used to render the tab bar.
+     */
+    function _allDotSos() {
+        const set = new Set(_rows.map((r) => r.dotSo));
+        return Array.from(set).sort((a, b) => a - b);
+    }
+
+    /**
+     * Count rows (NCC entries) in a given đợt — shown as a badge on each tab.
+     */
+    function _countRowsInDot(dotSo) {
+        return _rows.filter((r) => r.dotSo === dotSo).length;
     }
 
     /**
@@ -150,46 +170,38 @@ const ImageManager = (() => {
         const body = document.getElementById('imageManagerBody');
         if (!body) return;
 
-        // Apply filters
-        const visibleRows = _rows.filter((r) => {
-            if (_filterDotSo && String(r.dotSo) !== String(_filterDotSo)) return false;
-            if (_searchNcc && r.ncc && !r.ncc.includes(_searchNcc)) return false;
-            return true;
-        });
+        // Ensure active tab exists; pick first available if not
+        const dots = _allDotSos();
+        if (!dots.includes(_activeDotSo)) {
+            _activeDotSo = dots[0] || _defaultDotSo();
+        }
 
-        // Group visible rows by dotSo (preserve current order)
-        const groups = []; // [{ dotSo, rows: [] }]
-        const groupIdx = new Map();
-        visibleRows.forEach((row) => {
-            const key = String(row.dotSo);
-            if (!groupIdx.has(key)) {
-                groupIdx.set(key, groups.length);
-                groups.push({ dotSo: row.dotSo, rows: [] });
-            }
-            groups[groupIdx.get(key)].rows.push(row);
-        });
+        // Rows for active tab, optionally narrowed by NCC search
+        const visibleRows = _rows.filter(
+            (r) =>
+                r.dotSo === _activeDotSo && (!_searchNcc || (r.ncc && r.ncc.includes(_searchNcc)))
+        );
+
+        const activeGroup = { dotSo: _activeDotSo, rows: visibleRows };
 
         body.innerHTML = `
             <div class="img-mgr-toolbar">
                 <div class="img-mgr-hint">
                     <i data-lucide="info"></i>
-                    Chọn hàng → dán ảnh (Ctrl+V) hoặc chọn file → nhập NCC → nhập số Đợt (tùy chỉnh)
+                    Chọn tab Đợt → chọn hàng → dán ảnh (Ctrl+V) hoặc chọn file → nhập NCC.
                 </div>
+                ${_renderTabBar(dots)}
                 <div class="img-mgr-filter-row">
                     <div class="img-mgr-search">
                         <i data-lucide="search"></i>
                         <input type="number" id="imgMgrSearchNcc" class="img-mgr-search-input"
-                            placeholder="Tìm NCC..." value="${_searchNcc}" min="1" autocomplete="off">
-                    </div>
-                    <div class="img-mgr-search img-mgr-filter-dot">
-                        <i data-lucide="layers"></i>
-                        <input type="number" id="imgMgrFilterDot" class="img-mgr-search-input"
-                            placeholder="Lọc đợt..." value="${_filterDotSo}" min="1" autocomplete="off">
+                            placeholder="Tìm NCC trong Đợt ${_activeDotSo}..."
+                            value="${_searchNcc}" min="1" autocomplete="off">
                     </div>
                 </div>
             </div>
             <div class="img-mgr-rows">
-                ${groups.length > 0 ? groups.map((g) => _renderGroup(g)).join('') : _renderEmptyState()}
+                ${visibleRows.length > 0 ? _renderGroup(activeGroup) : _renderEmptyTab(_activeDotSo)}
             </div>
         `;
 
@@ -200,15 +212,6 @@ const ImageManager = (() => {
                 _searchNcc = e.target.value.trim();
                 _render();
                 document.getElementById('imgMgrSearchNcc')?.focus();
-            });
-        }
-        // Filter listener — đợt
-        const filterDot = body.querySelector('#imgMgrFilterDot');
-        if (filterDot) {
-            filterDot.addEventListener('input', (e) => {
-                _filterDotSo = e.target.value.trim();
-                _render();
-                document.getElementById('imgMgrFilterDot')?.focus();
             });
         }
 
