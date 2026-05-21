@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8e128d5` — feat(scripts): chrome-connect CDP attach to real Chrome n2store profile + browser-session --profile/--channel flags
-**Last updated**: 2026-05-21 13:45:55 +07
-**Latest session**: [`RESUME:20260521-134555-8e128d5`](../20260521-134555-8e128d5.md)
-**Summary**: feat(scripts): chrome-connect CDP attach to real Chrome n2store profile + browser-session --profile/--channel flags
+**Latest commit**: `eee5df1` — auto: session update
+**Last updated**: 2026-05-21 14:11:20 +07
+**Latest session**: [`RESUME:20260521-141120-eee5df1`](../20260521-141120-eee5df1.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +29,7 @@
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 10:01
 - [`render.com/`](./render.com.md) — updated 2026-05-21 11:33
-- [`scripts/`](./scripts.md) — updated 2026-05-21 13:45
+- [`scripts/`](./scripts.md) — updated 2026-05-21 14:11
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
