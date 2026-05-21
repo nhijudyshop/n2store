@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `937c317` — docs(dev-log): ✅ verify prod paste-image fix sau deploy 243383d0
-**Last updated**: 2026-05-21 10:10:24 +07
-**Latest session**: [`RESUME:20260521-101024-937c317`](../20260521-101024-937c317.md)
-**Summary**: docs(dev-log): ✅ verify prod paste-image fix sau deploy 243383d0
+**Latest commit**: `3edbf7a` — fix(tpos-pancake): savePartnerData strip @odata._ annotations + drop ExtraAddress/Properties/FacebookMap before POST
+**Last updated**: 2026-05-21 10:11:15 +07
+**Latest session**: [`RESUME:20260521-101115-3edbf7a`](../20260521-101115-3edbf7a.md)
+**Summary**: fix(tpos-pancake): savePartnerData strip @odata._ annotations + drop ExtraAddress/Properties/FacebookMap before POST
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -30,7 +29,7 @@
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-21 10:10
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-21 10:11
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
