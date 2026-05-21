@@ -25,6 +25,49 @@
 
 ## 2026-05-21
 
+### [native-orders][web2] feat: bulk send tin nhắn template (port từ orders-report)
+
+**User request**: native-orders cần nút "Gửi tin nhắn" trong bulk action bar (giống orders-report) — chọn nhiều đơn → mở modal template → gửi hàng loạt qua extension bypass-24h.
+
+**Implementation**:
+
+1. **`web2/shared/web2-msg-template.js`** (mới, ~450 dòng) — port rút gọn của orders-report's `message-template-manager.js` (2800 dòng). Self-contained, KHÔNG phụ thuộc `pancakeDataManager`, `OrderStore`, `pancakeTokenManager`. Chỉ cần `window.Web2Chat`, `window.NativeOrdersApp._extensionRequest`, `window.db` (Firestore).
+
+2. **Firestore SHARED**: dùng collection `message_templates` chung với orders-report → edit ở 1 nơi, hiện ở cả 2. Auto-seed 4 default templates lần đầu mở (cùng Name/Content như orders-report `_seedDefaultTemplates`).
+
+3. **UI**:
+    - Nút bulk **"Gửi tin nhắn"** cạnh "In bill" trong [`native-orders/index.html:269`](../native-orders/index.html#L269)
+    - Modal: gradient header tím, search input, "Mẫu mới" button, grid template cards với MESSENGER badge + edit pencil, footer footer có `template count`, `order count`, `delay input`, `Huỷ/Gửi tin nhắn`
+    - Edit/Create template inline qua modal con (Name + Content + 3 buttons Cancel/Delete/Save)
+    - Progress bar live khi gửi (% + sent/total + failed count)
+
+4. **Send flow** (per order):
+    - ROUTE 1: resolve `global_id` qua `Web2Chat.fetchMessages(pageId, convId, custUuid)` → `customers[].global_id` (Pancake biết global_id từ webhook events trước đó)
+    - POST extension `REPLY_INBOX_PHOTO` (bypass-24h) qua `window.NativeOrdersApp._extensionRequest(...)` — cùng pattern fix 1545012 từ commit `e7b5c890`
+    - Fallback `Web2Chat.sendMessage(reply_inbox)` nếu extension không có
+    - Per-order delay (default 1s) configurable
+    - Cancel button: dừng giữa loop
+
+5. **Sent tracker**: localStorage `web2_sent_message_orders` (TTL 24h, key = `order.code`). Auto skip đơn đã gửi trong 24h khi mở modal (warn user). Tách biệt với orders-report `sent_message_orders` để không nhầm lẫn cross-module.
+
+6. **Placeholders** (cùng với orders-report):
+    - `{partner.name}` → customerName
+    - `{partner.address}` → address
+    - `{partner.phone}` → phone
+    - `{order.code}` → code
+    - `{order.total}` → formatted VND
+    - `{order.details}` → multi-line lines summary
+
+**Files**:
+
+- `native-orders/index.html`: nút `#ordersBulkSendMessage` + load `web2-msg-template.js`
+- `native-orders/js/native-orders-app.js`: `bulkSendMessage()` enrich order → delegate `Web2MsgTemplate.open()`; expose `_extensionRequest` ra `window.NativeOrdersApp` để module dùng
+- `web2/shared/web2-msg-template.js`: module mới
+
+**Test**: refresh native-orders → tick nhiều đơn → bulk bar hiện → click "Gửi tin nhắn" → modal mở với 4 default templates → chọn template → "Gửi tin nhắn" → progress bar chạy.
+
+Status: ✅ Done; ⏳ pending verify on prod sau GH Pages deploy ~2-3 phút.
+
 ### [native-orders][extension] v2.0.4 + Pancake API route cho global_id (commit 497a855a follow-up)
 
 **Tình trạng sau commit 497a855a**: native-orders truyền đúng args cho GET_GLOBAL_ID_FOR_CONV nhưng:
