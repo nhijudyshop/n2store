@@ -252,6 +252,43 @@ async function ensureTables(pool) {
                 END IF;
             END $$;
         `);
+
+        // Migration 077: với merged orders (gộp đơn), inner segment '[NW-X-Y] CONTENT'
+        // nếu CONTENT không bắt đầu bằng '[' → chèn '[time] ' từ created_at của merged
+        // order. Lý do: source orders đã bị xóa khi merge → không khôi phục đúng time
+        // gốc; dùng merged.created_at làm fallback (off vài phút, nhưng có time tốt
+        // hơn không có).
+        await pool.query(`
+            DO $$
+            DECLARE r RECORD; ts_local TIMESTAMP; prefix_inner TEXT;
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '077_backfill_merged_inner_prefix'
+                ) THEN
+                    FOR r IN
+                        SELECT id, note, created_at FROM native_orders
+                        WHERE merged_codes IS NOT NULL
+                          AND note ~ '\\[NW-[0-9]+-[0-9]+\\] [^\\[]'
+                    LOOP
+                        ts_local := (to_timestamp(r.created_at / 1000.0)
+                                     AT TIME ZONE 'Asia/Ho_Chi_Minh');
+                        prefix_inner := '[' || to_char(ts_local, 'HH24:MI:SS')
+                                     || ' ' || to_char(ts_local, 'FMDD/FMMM/YYYY')
+                                     || '] ';
+                        UPDATE native_orders
+                        SET note = regexp_replace(
+                            note,
+                            '(\\[NW-[0-9]+-[0-9]+\\] )([^\\[])',
+                            '\\1' || prefix_inner || '\\2',
+                            'g'
+                        )
+                        WHERE id = r.id;
+                    END LOOP;
+                    INSERT INTO native_orders_migrations(name) VALUES ('077_backfill_merged_inner_prefix');
+                END IF;
+            END $$;
+        `);
         _tablesCreated = true;
         console.log(
             '[NATIVE-ORDERS] Tables created/verified (migration 068: display_stt sequence)'
