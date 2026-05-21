@@ -5957,34 +5957,72 @@
         // Try extension bridge first (bypasses Pancake 24h rule via FB Business)
         if (_hasExtension()) {
             try {
-                // FB Business Suite uses a "global" user id distinct from the regular
-                // fbUserId in some flows; resolve once per order then cache on the order.
+                // FB messaging/send/ cần OTHER_USER_FBID là FB Global ID (account thật, vd
+                // 100001957832900), KHÔNG phải PSID (page-scoped id như 25717004554573583).
+                // Gửi PSID → FB silent-reject với 1545012 "Tạm thời không thực hiện được".
+                // Pancake luôn resolve global_id qua extension trước khi send.
+                //
+                // Handler signature (web2-extension/background/facebook/global-id.js#L67):
+                //   GET_GLOBAL_ID_FOR_CONV cần {pageId, threadId, customerName} —
+                //   KHÔNG nhận convId/fbUserId. Không có threadId+customerName → reject.
                 let globalUserId = order._fbGlobalUserId;
-                if (!globalUserId && order.fbPageId && input.dataset.conversationId) {
+                if (
+                    !globalUserId &&
+                    order.fbPageId &&
+                    (input.dataset.threadId || order.customerName)
+                ) {
                     try {
                         const gidResp = await _extensionRequest(
                             'GET_GLOBAL_ID_FOR_CONV',
                             {
                                 pageId: order.fbPageId,
-                                convId: input.dataset.conversationId,
-                                fbUserId: order.fbUserId,
+                                threadId: input.dataset.threadId || '',
+                                customerName: order.customerName || order.fbUserName || '',
+                                isBusiness: true,
                             },
-                            8000
+                            10000
                         );
                         globalUserId =
-                            gidResp?.data?.globalUserId ||
                             gidResp?.data?.globalId ||
+                            gidResp?.data?.globalUserId ||
                             gidResp?.data?.payload?.globalUserId;
-                        if (globalUserId) order._fbGlobalUserId = globalUserId;
-                    } catch {
-                        /* fall back to fbUserId below */
+                        if (globalUserId) {
+                            order._fbGlobalUserId = globalUserId;
+                            console.log(
+                                '[NativeOrders] resolved globalUserId:',
+                                globalUserId,
+                                '(psid was',
+                                order.fbUserId + ')'
+                            );
+                        } else {
+                            console.warn(
+                                '[NativeOrders] GET_GLOBAL_ID_FOR_CONV returned no id:',
+                                gidResp
+                            );
+                        }
+                    } catch (gidErr) {
+                        console.warn(
+                            '[NativeOrders] GET_GLOBAL_ID_FOR_CONV threw:',
+                            gidErr?.message || gidErr
+                        );
                     }
                 }
+                // Pancake convId format: 't_' + threadId (vd 't_32546288751686299').
+                // Ours là pageId_psid (vd '270136663390370_25717004554573583') — chỉ dùng
+                // internally bởi Pancake API, nhưng SW REPLY_INBOX_PHOTO không đụng convId
+                // khi build POST tới FB. Vẫn nên truyền đúng format cho debug clarity.
+                const swConvId = input.dataset.threadId
+                    ? 't_' + input.dataset.threadId
+                    : input.dataset.conversationId || '';
                 const r = await _extensionRequest('REPLY_INBOX_PHOTO', {
                     pageId: order.fbPageId,
                     globalUserId: globalUserId || order.fbUserId,
                     threadId: input.dataset.threadId || '',
-                    convId: input.dataset.conversationId || '',
+                    convId: swConvId,
+                    customerName: order.customerName || order.fbUserName || '',
+                    conversationUpdatedTime: order.updatedAt
+                        ? new Date(order.updatedAt).getTime()
+                        : Date.now(),
                     message: text,
                     attachmentType: 'SEND_TEXT_ONLY',
                     platform: 'facebook',

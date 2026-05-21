@@ -25,6 +25,49 @@
 
 ## 2026-05-21
 
+### [native-orders][BUG-FIX-LỚN] root cause 1545012 = gửi PSID thay global_id cho FB
+
+**Bug user phát hiện**: Tin nhắn từ native-orders cho HTĐ liên tục fail 1545012 "Tạm thời không thực hiện được". Trong khi Pancake.vn gửi cùng conversation lại OK.
+
+**Root cause** (capture live Pancake send qua `window.postMessage` hook tại 09:26:20):
+
+Pancake page gửi REPLY_INBOX_PHOTO với:
+
+- `globalUserId: "100001957832900"` ← **FB GLOBAL ID** (account thật)
+- `convId: "t_32546288751686299"` ← prefix t\_ + threadId
+
+Native-orders cũ gửi:
+
+- `globalUserId: "25717004554573583"` ← **PSID** (page-scoped, chỉ valid trong scope page đó)
+- `convId: "270136663390370_25717004554573583"` ← pageId_psid
+
+FB `business.facebook.com/messaging/send/` endpoint yêu cầu `other_user_fbid` là **FB global account ID**, KHÔNG phải PSID. PSID là internal ID FB cấp cho mỗi cặp (user, page) — không phải account thật. Gửi PSID làm `other_user_fbid` → FB không xác định được recipient → silent reject với `error:1545012, transientError:1`.
+
+**Tại sao GET_GLOBAL_ID_FOR_CONV không cứu**:
+
+Native-orders call handler với `{pageId, convId, fbUserId}` nhưng handler chỉ destructure `{pageId, threadId, threadKey, customerName, conversationUpdatedTime}`. Không có `threadId` + `customerName` → handler reject ngay với "threadId or customerName required" → native-orders fallback dùng `order.fbUserId` (PSID).
+
+orders-report `tab1-extension-bridge.js` ĐÃ đúng (truyền threadId + customerName); chỉ native-orders bug.
+
+**Fix** ([`native-orders/js/native-orders-app.js:5957-6020`](../native-orders/js/native-orders-app.js#L5957)):
+
+1. Sửa GET_GLOBAL_ID_FOR_CONV call: truyền `{pageId, threadId, customerName, isBusiness:true}` thay vì `{pageId, convId, fbUserId}`. Timeout 8000→10000.
+2. Đổi convId format `pageId_psid` → `t_<threadId>` (match Pancake convention).
+3. Truyền thêm `customerName`, `conversationUpdatedTime` xuống REPLY_INBOX_PHOTO.
+4. Log success với psid cũ + globalUserId mới để debug.
+
+**Bằng chứng Pancake send thành công** với fix này: live capture HTĐ at 09:26:20 trả `REPLY_INBOX_PHOTO_SUCCESS, messageId: mid.$cAACvQ5Lw0GakeyDN6meSdt5Z7yP5, globalUserId: 100001957832900`.
+
+**Verify**: refresh native-orders trang → gửi HTĐ → log mong đợi:
+
+- `[NativeOrders] resolved globalUserId: 100001957832900 (psid was 25717004554573583)`
+- `[FB-Sender] Message sent successfully: mid.<xxx>`
+- Notify "Đã gửi qua N2 Extension (bypass 24h)" + tin nhắn vào inbox HTĐ.
+
+Mobile fallback v2.0.3 (commit 7bac192f) trở thành **không cần** với case HTĐ — chỉ activate khi resolve global_id fail HOÀN TOÀN (cả threadId+customerName không tìm được).
+
+Status: ✅ Done; ⏳ pending verify in-browser.
+
 ### [inventory] fix: 7 bug + race condition cho image manager (audit-driven)
 
 Audit toàn bộ pipeline image (modal save → API → DB → SSE → table render) phát hiện 9 issue. Fix 7 (skip L7-fallback-revert vì đã đúng + L9-cosmetic).
