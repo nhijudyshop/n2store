@@ -233,12 +233,12 @@ const TposRealtime = {
                     state.comments.unshift(comment);
                     window.TposCommentList.renderComments();
 
-                    // Highlight and scroll to new customer comment
+                    // Highlight new customer comment (KHÔNG auto-scroll — user request:
+                    // bỏ chức năng kéo lên đầu để giữ scroll position khi đang xem comment cũ).
                     setTimeout(() => {
                         const item = document.querySelector(`[data-comment-id="${comment.id}"]`);
                         if (item) {
                             item.classList.add('highlight');
-                            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                             setTimeout(() => item.classList.remove('highlight'), 3000);
                         }
                     }, 100);
