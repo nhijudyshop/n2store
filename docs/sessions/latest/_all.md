@@ -3,25 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b968047` — docs(web2-products): dev-log entry cho migration 078 backfill + force-sync GIÀY ĐEN
-**Last updated**: 2026-05-21 10:01:04 +07
-**Latest session**: [`RESUME:20260521-100104-b968047`](../20260521-100104-b968047.md)
-**Summary**: docs(web2-products): dev-log entry cho migration 078 backfill + force-sync GIÀY ĐEN
+**Latest commit**: `937c317` — docs(dev-log): ✅ verify prod paste-image fix sau deploy 243383d0
+**Last updated**: 2026-05-21 10:10:24 +07
+**Latest session**: [`RESUME:20260521-101024-937c317`](../20260521-101024-937c317.md)
+**Summary**: docs(dev-log): ✅ verify prod paste-image fix sau deploy 243383d0
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`purchase-orders/`](./purchase-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:01
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-20 16:28
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 10:01
+- [`docs/`](./docs.md) — updated 2026-05-21 10:10
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
@@ -33,7 +30,7 @@
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-20 15:53
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-21 10:10
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
