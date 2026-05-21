@@ -115,6 +115,32 @@ const log = (...a) => {
     const pages = ctx.pages();
     const page = pages.length > 0 ? pages[0] : await ctx.newPage();
 
+    // Console buffer (last 500 logs) — capture page console.* + uncaught errors
+    // để debug extension flow khi user tự thao tác (gửi tin nhắn, etc).
+    const consoleBuf = [];
+    const pushConsole = (level, text, location) => {
+        consoleBuf.push({ t: ts(), level, text: String(text).slice(0, 1200), location });
+        if (consoleBuf.length > 500) consoleBuf.shift();
+    };
+    const attachConsoleListeners = (target) => {
+        target.on('console', (msg) => {
+            const loc = msg.location();
+            const locStr = loc?.url ? `${loc.url.slice(-80)}:${loc.lineNumber}` : '';
+            pushConsole(msg.type(), msg.text(), locStr);
+        });
+        target.on('pageerror', (err) => pushConsole('pageerror', err.message || String(err), ''));
+        target.on('requestfailed', (req) => {
+            pushConsole(
+                'netfail',
+                `${req.method()} ${req.url().slice(-150)} — ${req.failure()?.errorText || '?'}`,
+                ''
+            );
+        });
+    };
+    attachConsoleListeners(page);
+    // Listen for new pages (popups, extension pages) so we don't miss SW logs visible there
+    ctx.on('page', (p) => attachConsoleListeners(p));
+
     // Network buffer (last 200 calls)
     const netBuf = [];
     page.on('response', async (res) => {
@@ -395,6 +421,37 @@ const log = (...a) => {
         if (cmd === 'clearnet') {
             netBuf.length = 0;
             log('Network buffer cleared.');
+            return;
+        }
+        if (cmd === 'console') {
+            // console [N|filter] — dump last N (default 30) hoặc filter substring
+            let slice;
+            const num = Number(arg);
+            if (Number.isFinite(num) && num > 0) {
+                slice = consoleBuf.slice(-num);
+            } else if (arg) {
+                slice = consoleBuf.filter((c) => c.text.includes(arg) || c.location?.includes(arg));
+            } else {
+                slice = consoleBuf.slice(-30);
+            }
+            // Compact 1-line format để dễ scan
+            const lines = slice.map(
+                (c) => `[${c.t.split('T')[1]?.slice(0, 12)}] ${c.level.padEnd(7)} ${c.text}`
+            );
+            console.log(`-- ${slice.length}/${consoleBuf.length} entries --`);
+            for (const l of lines) console.log(l);
+            return;
+        }
+        if (cmd === 'clearconsole') {
+            consoleBuf.length = 0;
+            log('Console buffer cleared.');
+            return;
+        }
+        if (cmd === 'dumpconsole') {
+            // dumpconsole <filepath> — write full buffer JSON to file
+            const p = arg || path.join(OUT_DIR, `console-${Date.now()}.json`);
+            fs.writeFileSync(p, JSON.stringify(consoleBuf, null, 2));
+            log(`Dumped ${consoleBuf.length} entries to ${p}`);
             return;
         }
         if (cmd === 'shot') {
