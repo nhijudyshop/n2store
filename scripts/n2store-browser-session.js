@@ -32,19 +32,31 @@ const { restoreLoginSession } = require('./restore-login-session');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
-    const out = { user: '', pass: '', base: 'https://nhijudyshop.github.io/n2store', ext: '' };
+    const out = {
+        user: '',
+        pass: '',
+        base: 'https://nhijudyshop.github.io/n2store',
+        ext: '',
+        profile: '', // path to Chrome user-data dir (parent của Profile X)
+        profileName: '', // tên Profile sub-dir (vd "Profile 4")
+        chromeChannel: '', // 'chrome' để dùng stable Chrome thay vì Chromium
+    };
     for (let i = 0; i < a.length; i++) {
         if (a[i] === '--user') out.user = a[++i];
         else if (a[i] === '--pass') out.pass = a[++i];
         else if (a[i] === '--base') out.base = a[++i];
         else if (a[i] === '--ext') out.ext = a[++i];
+        else if (a[i] === '--profile') out.profile = a[++i];
+        else if (a[i] === '--profile-name') out.profileName = a[++i];
+        else if (a[i] === '--channel') out.chromeChannel = a[++i];
     }
     return out;
 })();
-if (!ARGS.user || !ARGS.pass) {
+if (!ARGS.profile && (!ARGS.user || !ARGS.pass)) {
     console.error(
         'Usage: node scripts/n2store-browser-session.js --user U --pass P [--base URL]\n' +
-            '  Localhost: --base http://localhost:8080  (cần `python3 -m http.server 8080`)'
+            '  Localhost: --base http://localhost:8080  (cần `python3 -m http.server 8080`)\n' +
+            '  Existing profile: --profile /path/to/Chrome --profile-name "Profile 4" [--channel chrome]'
     );
     process.exit(1);
 }
@@ -69,7 +81,31 @@ const log = (...a) => {
 
     let browser = null;
     let ctx;
-    if (ARGS.ext) {
+    if (ARGS.profile) {
+        // Launch Chrome stable channel với existing user-data-dir (vd Profile 4 = n2store).
+        // Yêu cầu Chrome đã đóng hoàn toàn (singleton lock).
+        const userDataDir = path.resolve(ARGS.profile);
+        const channel = ARGS.chromeChannel || 'chrome';
+        log(
+            `Launching ${channel} với existing profile (${userDataDir}${ARGS.profileName ? ` / ${ARGS.profileName}` : ''})…`
+        );
+        const launchArgs = [];
+        if (ARGS.profileName) launchArgs.push(`--profile-directory=${ARGS.profileName}`);
+        if (ARGS.ext) {
+            const extPath = path.resolve(ARGS.ext);
+            // Với existing profile, KHÔNG dùng --disable-extensions-except (sẽ làm tắt
+            // các extension user đã cài). Chỉ thêm --load-extension cho web2-extension.
+            launchArgs.push(`--load-extension=${extPath}`);
+        }
+        ctx = await chromium.launchPersistentContext(userDataDir, {
+            channel,
+            headless: false,
+            viewport: { width: 1440, height: 900 },
+            bypassCSP: true,
+            ignoreDefaultArgs: ['--disable-extensions'],
+            args: launchArgs,
+        });
+    } else if (ARGS.ext) {
         const extPath = path.resolve(ARGS.ext);
         log(`Launching Chromium persistent (extension=${extPath})…`);
         // Extension load yêu cầu launchPersistentContext (browser.launch không support).
@@ -164,30 +200,37 @@ const log = (...a) => {
     });
 
     // ── Restore or Login ─────────────────────────────────────────
-    let restored = null;
-    try {
-        restored = await restoreLoginSession(ctx, { base: BASE });
-    } catch (e) {
-        log('restoreLoginSession failed:', String(e).slice(0, 200));
-    }
-    if (restored) {
-        log('Restored session from secret file. capturedAt=', restored.capturedAt);
+    // Khi dùng existing Chrome profile (--profile), KHÔNG auto-login/restore
+    // — profile đã có session, cookies, login state. Chỉ nav tới BASE và đợi.
+    if (ARGS.profile) {
+        log('Using existing Chrome profile — skipping login/restore.');
         await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     } else {
-        log('Login →', `${BASE}/`);
-        await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('#username');
-        await page.fill('#username', ARGS.user);
-        await page.fill('#password', ARGS.pass);
-        await page.locator('#password').press('Enter');
-        await page
-            .waitForFunction(
-                () =>
-                    !/\/n2store\/?$|\/n2store\/index\.html$/.test(location.href) ||
-                    !!localStorage.getItem('loginindex_auth'),
-                { timeout: 30_000 }
-            )
-            .catch(() => {});
+        let restored = null;
+        try {
+            restored = await restoreLoginSession(ctx, { base: BASE });
+        } catch (e) {
+            log('restoreLoginSession failed:', String(e).slice(0, 200));
+        }
+        if (restored) {
+            log('Restored session from secret file. capturedAt=', restored.capturedAt);
+            await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+        } else {
+            log('Login →', `${BASE}/`);
+            await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector('#username');
+            await page.fill('#username', ARGS.user);
+            await page.fill('#password', ARGS.pass);
+            await page.locator('#password').press('Enter');
+            await page
+                .waitForFunction(
+                    () =>
+                        !/\/n2store\/?$|\/n2store\/index\.html$/.test(location.href) ||
+                        !!localStorage.getItem('loginindex_auth'),
+                    { timeout: 30_000 }
+                )
+                .catch(() => {});
+        }
     }
     log('After login URL:', page.url());
 
