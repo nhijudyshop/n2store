@@ -175,13 +175,12 @@ function setupProductImagesRealtimeSync() {
 
 /**
  * Get product images for a specific NCC within a shipment batch.
- * Image Manager now maps by (đợt, ncc) — date is just a storage detail.
- * Match priority:
- *   1. (dotSo, ncc) — đợt-scoped match (preferred when dotSo provided)
- *   2. Any image for this NCC (legacy fallback for entries without đợt set)
+ * Image Manager maps by (đợt, ncc). When `dotSo` is provided we require
+ * an exact (đợt, ncc) match — falling back across đợt would leak images
+ * from one shipment đợt into another (e.g. NCC 9 đợt 1 showing up in
+ * NCC 9 đợt 2 rows).
  *
- * `ngayDiHang` parameter kept for backward compatibility with existing
- * callers but is no longer used for lookup.
+ * `ngayDiHang` parameter kept for backward compatibility but unused.
  */
 function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     if (!ncc) return [];
@@ -190,11 +189,11 @@ function getProductImagesForNcc(ncc, ngayDiHang, dotSo) {
     const dotNum = dotSo ? parseInt(dotSo, 10) : null;
 
     if (dotNum) {
-        // Exact đợt match preferred
+        // Strict đợt-scoped match — no cross-đợt fallback.
         const byDot = images.find((img) => img.ncc === nccNum && (img.dotSo || 1) === dotNum);
-        if (byDot) return byDot.urls || [];
+        return byDot ? byDot.urls || [] : [];
     }
-    // Legacy fallback: any image for this NCC
+    // No dotSo specified → return any image for this NCC (legacy callers).
     const any = images.find((img) => img.ncc === nccNum);
     return any ? any.urls || [] : [];
 }

@@ -25,6 +25,23 @@
 
 ## 2026-05-21
 
+### [inventory] fix: hết leak ảnh giữa Đợt 1 ↔ Đợt 2 trong bảng inventory-tracking
+
+**Bug user phát hiện**: trên `https://nhijudy.store/inventory-tracking/index.html`, các dòng Đợt 2 (NCC 9, 13, 16, 19, 20, 27-30, 32-35, 38-40, 45) hiển thị **ảnh từ Đợt 1** thay vì rỗng (ảnh Đợt 2 chỉ tồn tại cho NCC 47-81, không có cho 9-45).
+
+**Repro qua console** (persistent browser session, không screenshot):
+
+- `getProductImagesForNcc(9, ..., 2)` → trả 4 URL của (Đợt 1, NCC 9) thay vì `[]`
+- Test 16 NCC trong Đợt 2 → cả 16 đều leak ảnh Đợt 1 (`leak: true`)
+
+**Root cause**: `getProductImagesForNcc` trong [`inventory-tracking/js/data-loader.js`](../inventory-tracking/js/data-loader.js) có legacy fallback "any image for this NCC" chạy sau khi đợt-scoped lookup miss. Logic này từ thời ảnh chưa bắt buộc có `dotSo`. Bây giờ ảnh nào cũng có `dotSo` rõ ràng (verified `withoutDotSo: 0` trên 79 ảnh sống) → fallback cross-đợt là sai semantically.
+
+**Fix**: khi `dotSo` được truyền → strict đợt-scoped match, không fallback sang đợt khác. Giữ fallback chỉ cho callers không truyền `dotSo` (phòng hờ, hiện không có caller nào).
+
+**Verified in-browser sau patch**: 16 dòng Đợt 2 NCC 9-45 trả `[]` (correct, không leak nữa). NCC 48/50/51/53/54/55/68 vẫn trả URL của Đợt 2 (correct, vì đợt 2 có ảnh cho các NCC này).
+
+**Files**: `inventory-tracking/js/data-loader.js`. Status: ✅ Done.
+
 ### [domain][extension][cors] feat: rewire toàn bộ codebase sang custom domain `nhijudy.store`
 
 **Yêu cầu user**: Sau khi switch GH Pages → `https://nhijudy.store/`, audit toàn bộ codebase: extension manifest có cần update, có chỗ nào khác cần đổi domain.
