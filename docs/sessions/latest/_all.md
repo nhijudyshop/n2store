@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1cd1cd8` — fix(inventory): không leak ảnh cross-đợt khi NCC trùng giữa đợt 1 và đợt 2
-**Last updated**: 2026-05-21 14:44:55 +07
-**Latest session**: [`RESUME:20260521-144455-1cd1cd8`](../20260521-144455-1cd1cd8.md)
-**Summary**: fix(inventory): không leak ảnh cross-đợt khi NCC trùng giữa đợt 1 và đợt 2
+**Latest commit**: `915104f` — auto: session update
+**Last updated**: 2026-05-21 14:50:14 +07
+**Latest session**: [`RESUME:20260521-145014-915104f`](../20260521-145014-915104f.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
+- [`web2-extension/`](./web2-extension.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -36,7 +35,7 @@
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 11:33
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-21 10:21
-- [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 11:33
+- [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 14:50
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
