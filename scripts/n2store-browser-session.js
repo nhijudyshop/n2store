@@ -249,6 +249,52 @@ const log = (...a) => {
     };
     page.on('response', captureResponse);
     ctx.on('page', (p) => p.on('response', captureResponse));
+    // BrowserContext-level response listener catches Service Worker outgoing fetches
+    // (e.g. pancake-v2/web2-extension SW calling business.facebook.com/messaging/send/).
+    // Playwright ≥ 1.39 fires ctx.on('response') for SW responses.
+    ctx.on('response', captureResponse);
+    // Also attach per-SW listener as belt-and-suspenders — some SW requests
+    // (cross-origin fetches with credentials:'include') may bypass ctx event.
+    ctx.on('serviceworker', (sw) => {
+        try {
+            sw.on('request', async (req) => {
+                if (req.method() !== 'POST') return;
+                const u = req.url();
+                if (!/messaging\/send|messages\/send|api\/graphql/i.test(u)) return;
+                const body = req.postData() || '';
+                const entry = {
+                    t: ts(),
+                    sw: sw.url().slice(0, 60),
+                    method: 'POST',
+                    url: u.slice(0, 350),
+                    reqBody: body.slice(0, 5000),
+                    body: '[awaiting]',
+                };
+                netBuf.push(entry);
+                netFile.write(JSON.stringify(entry) + '\n');
+            });
+        } catch (_) {}
+    });
+    for (const sw of ctx.serviceWorkers()) {
+        try {
+            sw.on('request', async (req) => {
+                if (req.method() !== 'POST') return;
+                const u = req.url();
+                if (!/messaging\/send|messages\/send|api\/graphql/i.test(u)) return;
+                const body = req.postData() || '';
+                const entry = {
+                    t: ts(),
+                    sw: sw.url().slice(0, 60),
+                    method: 'POST',
+                    url: u.slice(0, 350),
+                    reqBody: body.slice(0, 5000),
+                    body: '[awaiting]',
+                };
+                netBuf.push(entry);
+                netFile.write(JSON.stringify(entry) + '\n');
+            });
+        } catch (_) {}
+    }
 
     // ── Restore or Login ─────────────────────────────────────────
     // Khi dùng existing Chrome profile (--profile), KHÔNG auto-login/restore
