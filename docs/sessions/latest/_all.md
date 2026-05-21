@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `93b2302` — docs(tpos-pancake): dev-log entry cho bỏ auto-scroll on new comment
-**Last updated**: 2026-05-21 10:24:28 +07
-**Latest session**: [`RESUME:20260521-102428-93b2302`](../20260521-102428-93b2302.md)
-**Summary**: docs(tpos-pancake): dev-log entry cho bỏ auto-scroll on new comment
+**Latest commit**: `7f471ee` — docs(dev-log): ✅ verify prod Bunny→PG bytea rollback sau deploy 218e85db
+**Last updated**: 2026-05-21 10:33:04 +07
+**Latest session**: [`RESUME:20260521-103304-7f471ee`](../20260521-103304-7f471ee.md)
+**Summary**: docs(dev-log): ✅ verify prod Bunny→PG bytea rollback sau deploy 218e85db
 
 ## Folders affected in this commit
 
@@ -17,7 +17,7 @@
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-20 16:28
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 10:24
+- [`docs/`](./docs.md) — updated 2026-05-21 10:33
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
