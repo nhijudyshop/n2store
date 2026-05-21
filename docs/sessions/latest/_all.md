@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e7b5c89` — fix(native-orders+ext v2.0.4): Pancake API route cho global_id + m.facebook.com permission
-**Last updated**: 2026-05-21 16:36:35 +07
-**Latest session**: [`RESUME:20260521-163635-e7b5c89`](../20260521-163635-e7b5c89.md)
-**Summary**: fix(native-orders+ext v2.0.4): Pancake API route cho global_id + m.facebook.com permission
+**Latest commit**: `b87aa5f` — docs(dev-log): bulk send tin nhắn template cho native-orders
+**Last updated**: 2026-05-21 16:54:03 +07
+**Latest session**: [`RESUME:20260521-165403-b87aa5f`](../20260521-165403-b87aa5f.md)
+**Summary**: docs(dev-log): bulk send tin nhắn template cho native-orders
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2-extension/`](./web2-extension.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-21 15:39
-- [`docs/`](./docs.md) — updated 2026-05-21 16:36
+- [`docs/`](./docs.md) — updated 2026-05-21 16:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
@@ -40,7 +40,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-21 15:39
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-21 16:36
+- [`native-orders/`](./native-orders.md) — updated 2026-05-21 16:54
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
@@ -69,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-21 15:39
+- [`web2/`](./web2.md) — updated 2026-05-21 16:54
