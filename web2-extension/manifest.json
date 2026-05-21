@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Web 2.0 Messenger",
     "short_name": "Web2",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "description": "Web 2.0 unified messaging & management extension (forked from n2store-extension)",
     "icons": {
         "16": "images/icon-16.png",

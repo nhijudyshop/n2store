@@ -5,6 +5,7 @@ import { CONFIG } from '../../shared/config.js';
 import { ATTACHMENT_TYPES, FB_ERRORS } from '../../shared/constants.js';
 import { log } from '../../shared/logger.js';
 import { initPage, getSession, clearSession } from './session.js';
+import { sendViaMobile } from './mobile-sender.js';
 import {
     parseFbRes,
     generateOfflineThreadingID,
@@ -187,7 +188,38 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
                 const retryError = extractFbError(result);
                 if (retryError) {
                     log.error(MODULE, `Retry FB error: ${JSON.stringify(retryError)}`);
-                    throw new Error(retryError.message);
+                    // Mobile fallback: cuối cùng thử m.facebook.com (Pancake's Fp class).
+                    // Endpoint khác hoàn toàn — FB Business 1545012 KHÔNG nhất thiết applies.
+                    log.info(
+                        MODULE,
+                        'Retry HTTP fail — falling back to m.facebook.com mobile send'
+                    );
+                    const mobileRes = await sendViaMobile({
+                        pageId,
+                        convId,
+                        message,
+                        attachmentType,
+                        files,
+                    });
+                    if (mobileRes.ok) {
+                        log.info(
+                            MODULE,
+                            `Mobile fallback success: mid=${mobileRes.messageId || 'unknown'}`
+                        );
+                        sendResponse({
+                            type: 'REPLY_INBOX_PHOTO_SUCCESS',
+                            taskId,
+                            messageId: mobileRes.messageId || null,
+                            timestamp: Date.now(),
+                            messageCreatedRange: null,
+                            retryReason: 'mobile_fallback',
+                        });
+                        return;
+                    }
+                    log.error(MODULE, `Mobile fallback failed: ${mobileRes.error}`);
+                    throw new Error(
+                        retryError.message + ' (mobile fallback: ' + mobileRes.error + ')'
+                    );
                 }
             } else {
                 throw new Error(errorInfo.message);
