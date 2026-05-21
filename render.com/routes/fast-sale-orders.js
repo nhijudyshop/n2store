@@ -1012,23 +1012,14 @@ router.post('/from-native-order', async (req, res) => {
             return res.status(404).json({ error: 'Native order not found' });
         const src = srcQ.rows[0];
 
-        // Reject cancelled native-orders — không cho tạo PBH mới khi đơn đã huỷ.
-        // Frontend giấu nút "Tạo PBH" cho status='cancelled' nhưng defense-in-depth
-        // backend cũng phải chặn (vd: extension/cron/API external gọi vào).
-        // Trước đây UI render nút "Tạo PBH" cả cho cancelled → POST tạo PBH số HĐ mới
-        // trong fast_sale_orders mà KHÔNG đụng PBH cũ → 2 PBH cho 1 đơn cancelled.
-        if (src.status === 'cancelled') {
-            return res.status(409).json({
-                error: 'native_order_cancelled',
-                message: `Native order ${src.code} đã ở trạng thái cancelled — không thể tạo PBH mới. Tạo đơn mới nếu cần.`,
-                nativeOrderStatus: src.status,
-            });
-        }
-
         // Idempotency vs split mode:
         // - Default (b.split !== true): nếu native-order đã có PBH → return existing (idempotent).
         // - Split mode (b.split === true): cho phép tạo PBH thứ 2, 3... với split_index tăng dần.
         //   UI hiển thị STT format "24-2", "24-3" để phân biệt.
+        // - Cancelled exception: nếu native-order ở status='cancelled', LUÔN tạo PBH mới
+        //   (số HĐ mới) — KHÔNG trả PBH cũ idempotent. PBH cũ giữ nguyên state='cancel'
+        //   (đã sync khi cancelOrder chạy). User yêu cầu behavior này để có thể re-issue
+        //   PBH mới cho đơn đã huỷ mà không phải tạo native-order mới.
         const existsQ = await pool.query(
             `SELECT *, COUNT(*) OVER() AS sibling_count FROM fast_sale_orders
              WHERE source_type = 'native_order' AND source_id = $1
@@ -1036,7 +1027,7 @@ router.post('/from-native-order', async (req, res) => {
             [src.id]
         );
         const existingPbhs = existsQ.rows;
-        const splitMode = b.split === true;
+        const splitMode = b.split === true || src.status === 'cancelled';
         if (existingPbhs.length > 0 && !splitMode) {
             return res.json({
                 success: true,

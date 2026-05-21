@@ -491,13 +491,16 @@
                             </button>
                             ${(() => {
                                 // 3-state action buttons:
-                                //   - cancelled: KHÔNG cho confirm hoặc createPBH (sẽ tạo PBH mới
-                                //     trong fastsaleorder-invoice mà KHÔNG đổi/xoá PBH cũ → bug).
-                                //     Chỉ hiển thị badge "đã huỷ" để rõ trạng thái.
+                                //   - cancelled: vẫn cho phép tạo PBH (sẽ tạo PBH mới số HĐ mới
+                                //     mà KHÔNG đụng PBH cũ — user accept behavior này). KHÔNG cho
+                                //     re-confirm vì confirm chỉ update từ draft (no-op).
                                 //   - confirmed: splitPbh + cancelPbh
                                 //   - draft (default): confirmDraft + createPbh
                                 if (o.status === 'cancelled') {
-                                    return `<span class="tpos-action-placeholder" title="Đơn đã huỷ — không thể thao tác" style="color:#94a3b8;font-size:10px;">đã huỷ</span>`;
+                                    return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
+                                onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
+                                <i data-lucide="receipt" style="width:12px;height:12px;"></i>
+                            </button>`;
                                 }
                                 if (o.status === 'confirmed') {
                                     return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH bổ sung (tách đơn — STT ${sttValue}-2, ${sttValue}-3, ...)"

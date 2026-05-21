@@ -25,6 +25,22 @@
 
 ## 2026-05-21
 
+### [native-orders][fast-sale-orders] feat: đơn cancelled vẫn cho tạo PBH (số HĐ mới, không đụng PBH cũ)
+
+User clarify (2nd reading) — original "Hủy bỏ vẫn cho tạo PBH ..." là **mô tả behavior MUỐN có**, không phải bug report. User muốn:
+
+- Đơn `cancelled` → nút "Tạo PBH" vẫn hiển thị
+- Click → tạo PBH MỚI số HĐ mới trong `fast_sale_orders`
+- PBH cũ (đã cancel khi `cancelOrder` chạy) giữ nguyên state='cancel'
+
+**Revert + adjust** commit trước (f0c49d92):
+
+1. **Frontend** ([`native-orders-app.js:492-528`](../native-orders/js/native-orders-app.js#L492)): 3-state conditional adjusted — `cancelled` show CHỈ nút "Tạo PBH" (bỏ "Xác nhận đơn" vì confirm chỉ update từ draft, no-op với cancelled). Tooltip rõ "Đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ".
+
+2. **Backend** ([`fast-sale-orders.js:1019-1036`](../render.com/routes/fast-sale-orders.js#L1019)): bỏ guard 409 trả về cho cancelled. Thay vào đó: `splitMode = b.split === true || src.status === 'cancelled'` — auto force split mode cho cancelled. Nghĩa là sẽ TẠO PBH MỚI thay vì trả về PBH cũ idempotent. PBH cũ giữ nguyên state.
+
+Use case: KH huỷ đơn rồi sau đó đổi ý muốn mua lại → click "Tạo PBH" trên đơn cancelled → PBH mới số HĐ mới được tạo + PBH cũ ghi rõ đã cancel.
+
 ### [native-orders][fast-sale-orders] fix: đơn cancelled vẫn tạo PBH mới → 2 PBH cho 1 đơn
 
 User report: "đơn này trạng thái 'Hủy bỏ' vẫn cho tạo PBH → bên 'fastsaleorder-invoice' sẽ tạo ra PBH với số HĐ mới → không xóa hay đổi trạng thái phiếu cũ bên 'fastsaleorder-invoice'".
