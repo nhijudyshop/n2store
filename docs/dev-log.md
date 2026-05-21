@@ -25,6 +25,23 @@
 
 ## 2026-05-21
 
+### [tpos-pancake] Bỏ auto-scroll viewport khi có comment SSE mới
+
+**Yêu cầu user**: cột TPOS đang giật về top mỗi lần SSE đẩy comment mới — khi user đang xem comment cũ ở giữa/cuối list, bị cưỡng ép scroll lên top.
+
+**Fix** ([`tpos-pancake/js/tpos/tpos-realtime.js`](../tpos-pancake/js/tpos/tpos-realtime.js#L228-L246) `handleSSEMessage`): bỏ dòng `item.scrollIntoView({behavior:'smooth',block:'nearest'})`. Giữ nguyên `state.comments.unshift(comment)` (comment mới ở top của array) + class `highlight` flash 3s (user nhận biết được mà không bị nhảy view).
+
+Bump `tpos-realtime.js?v=20260521a`. Không sửa `tpos-chat.js` legacy (không còn load).
+
+**Verify live (console-only)**:
+
+- `handleSSEMessage.toString()` không chứa `scrollIntoView` ✓
+- Simulate: scroll `tposCommentList` xuống 800px → `unshift` fake comment + render → scroll giữ nguyên 800px (`scrollPreserved: true`)
+
+**Status**: ✅ Done.
+
+---
+
 ### [tpos-pancake] Inline save SĐT/địa chỉ — fix TPOS OData 400 (Childs/Status/Extra*/@odata.*)
 
 **Yêu cầu user**: Trên `tpos-pancake/index.html`, click nút lưu SĐT hoặc địa chỉ inline trong comment list của KH Huỳnh Thành Đạt — toast "Lỗi lưu...: API error: 400" (sai im lặng, dữ liệu không persist).
