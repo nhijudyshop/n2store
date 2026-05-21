@@ -25,6 +25,27 @@
 
 ## 2026-05-21
 
+### [extension][web2] v2.0.3: add m.facebook.com mobile fallback khi 1545012 cứng đầu
+
+**Tình trạng v2.0.2**: code đúng (jazoest re-compute + \_\_comet_req=1 + retry với new otid), nhưng FB vẫn trả 1545012 cứng cho conversation HTĐ. Lý do: 1545012 = BLOCKED_RETRY_SOCKET — FB chặn HTTP `business.facebook.com/messaging/send/` cho conv này và đòi MQTT socket. Pancake có WebSocket frontend code (chạy trên pancake.vn JS, không phải SW); mình không có.
+
+**Reverse Pancake source** ([`/tmp/pancake-v2-crx/extracted/assets/background.formatted.js:5685-5739`](Pancake `class Fp`)) — có path thứ 2 dùng `m.facebook.com/messages/send/`:
+
+- URL: `https://m.facebook.com/messages/send/?icm=1&pageID=<pageId>&entrypoint=web%3Atrigger%3Athread_list_thread`
+- Params: `tids=cid.c.<convId>:<pageId>`, `tids[<convId>]=<convId>`, `wwwupp=C3`, `body`, `waterfall_source=message`, `action_time`, `m_sess=""` + m-specific base params (`__user`, `__req`, `__a`, `fb_dtsg`, `jazoest`)
+- Headers: `X-Requested-With: XMLHttpRequest`, `X-Response-Format: JSONStream`, `X-MSGR-Region: ATN`
+- Init: fetch `m.facebook.com/messages/?pageID=<pageId>&ref=bookmarks` → extract `fb_dtsg` từ HTML
+
+**Implementation**:
+
+- `web2-extension/background/facebook/mobile-sender.js` (mới) — port `Fp` class: `sendViaMobile({pageId,convId,message,attachmentType,files})` + `initMobileSession(pageId)` với 60-min cache
+- `sender.js`: sau retry HTTP với new otid vẫn fail → fallback `sendViaMobile`. Nếu mobile ok → return SUCCESS với `retryReason:'mobile_fallback'`
+- Bump v2.0.2 → v2.0.3
+
+**Rủi ro**: FB có thể đã sunset m.facebook.com cho desktop UA — sẽ redirect sang www.facebook.com. Code check `resp.url.includes('m.facebook.com')` và throw nếu mất. Lúc đó cần thêm declarativeNetRequest rule rewrite UA sang mobile.
+
+Status: ✅ Done; ⏳ pending verify in-browser sau reload extension v2.0.3.
+
 ### [tooling] opt-in cache-bust cho 88 page còn lại (toàn bộ project)
 
 **User**: "vậy bạn sửa các page khác luôn đi".
