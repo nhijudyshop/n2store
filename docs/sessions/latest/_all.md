@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fd7dbf9` — docs(native-orders): dev-log entry cho 4-task batch + sort/group + diff render
-**Last updated**: 2026-05-21 10:58:15 +07
-**Latest session**: [`RESUME:20260521-105815-fd7dbf9`](../20260521-105815-fd7dbf9.md)
-**Summary**: docs(native-orders): dev-log entry cho 4-task batch + sort/group + diff render
+**Latest commit**: `8f182fc` — auto: session update
+**Last updated**: 2026-05-21 11:08:15 +07
+**Latest session**: [`RESUME:20260521-110815-8f182fc`](../20260521-110815-8f182fc.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 16:54
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 10:01
 - [`render.com/`](./render.com.md) — updated 2026-05-21 10:58
-- [`scripts/`](./scripts.md) — updated 2026-05-21 10:01
+- [`scripts/`](./scripts.md) — updated 2026-05-21 11:08
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
