@@ -207,6 +207,22 @@ async function ensureTables(pool) {
 
             -- STT sequence
             CREATE SEQUENCE IF NOT EXISTS fast_sale_orders_display_stt_seq START 1;
+
+            -- Migration 080: lịch sử PBH (audit log).
+            -- Log mọi mutation: create, state-change (cancel/done/...), update fields,
+            -- print, sync-from-native, ... với snapshot products + user + source page.
+            CREATE TABLE IF NOT EXISTS fast_sale_order_history (
+                id          BIGSERIAL PRIMARY KEY,
+                pbh_number  VARCHAR(40) NOT NULL,
+                action      VARCHAR(40) NOT NULL,
+                changes     JSONB NOT NULL DEFAULT '{}'::jsonb,
+                user_id     VARCHAR(100),
+                user_name   VARCHAR(255),
+                source_page VARCHAR(60),
+                created_at  BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_fsoh_pbh     ON fast_sale_order_history(pbh_number, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_fsoh_created ON fast_sale_order_history(created_at DESC);
         `);
         _ready = true;
         console.log('[FAST-SALE-ORDERS] Tables created/verified (migration 070)');
@@ -321,6 +337,38 @@ async function nextNumber(pool) {
         if (m) seq = parseInt(m[1], 10) + 1;
     }
     return prefix + pad(seq, 4);
+}
+
+// Log 1 row vào fast_sale_order_history. Best-effort.
+async function _logPbhHistory(pool, pbhNumber, action, changes, user, sourcePage) {
+    if (!pool || !pbhNumber) return;
+    try {
+        await pool.query(
+            `INSERT INTO fast_sale_order_history (pbh_number, action, changes, user_id, user_name, source_page, created_at)
+             VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7)`,
+            [
+                pbhNumber,
+                action,
+                JSON.stringify(changes || {}),
+                user?.id || null,
+                user?.name || null,
+                sourcePage || null,
+                Date.now(),
+            ]
+        );
+    } catch (e) {
+        console.warn('[FAST-SALE-ORDERS] _logPbhHistory failed:', e.message);
+    }
+}
+function _extractPbhUser(req) {
+    const b = req.body || {};
+    return {
+        id: b.userId || b.createdBy || req.headers['x-user-id'] || null,
+        name: b.userName || b.createdByName || req.headers['x-user-name'] || null,
+    };
+}
+function _extractPbhSourcePage(req) {
+    return req.body?.sourcePage || req.headers['x-source-page'] || null;
 }
 
 // Validate stock TRƯỚC khi tạo PBH (block over-sell).
@@ -841,6 +889,45 @@ router.get('/load', async (req, res) => {
     }
 });
 
+// =====================================================
+// GET /api/fast-sale-orders/:number/history?limit=N
+// Trả timeline mọi mutation: create-from-native, cancel, state-change, ...
+// Đặt TRƯỚC route /:number để Express không match nhầm.
+// =====================================================
+router.get('/:number/history', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const num = req.params.number;
+        const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const r = await pool.query(
+            `SELECT id, pbh_number, action, changes, user_id, user_name, source_page, created_at
+             FROM fast_sale_order_history
+             WHERE pbh_number = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [num, limit]
+        );
+        res.json({
+            success: true,
+            history: r.rows.map((row) => ({
+                id: row.id,
+                pbhNumber: row.pbh_number,
+                action: row.action,
+                changes: row.changes,
+                userId: row.user_id,
+                userName: row.user_name,
+                sourcePage: row.source_page,
+                createdAt: Number(row.created_at),
+            })),
+        });
+    } catch (e) {
+        console.error('[FAST-SALE-ORDERS] history error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // -----------------------------------------------------
 // GET /:number — single PBH
 // -----------------------------------------------------
@@ -1228,6 +1315,26 @@ router.post('/from-native-order', async (req, res) => {
             });
         }
         _notify('from-native-order', o.number);
+        await _logPbhHistory(
+            pool,
+            o.number,
+            'create-from-native',
+            {
+                sourceCode: src.code,
+                splitIndex: o.splitIndex,
+                products: o.orderLines?.map((l) => ({
+                    code: l.productCode,
+                    name: l.productName,
+                    qty: l.quantity,
+                    priceUnit: l.priceUnit,
+                })),
+                totalAmount: o.totals?.total,
+                state: o.state,
+                dateInvoice: o.dateInvoice,
+            },
+            _extractPbhUser(req),
+            _extractPbhSourcePage(req) || 'native-orders'
+        );
         res.json({ success: true, order: o });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] from-native-order error:', e.message);
@@ -1429,6 +1536,21 @@ router.post('/:number/cancel', async (req, res) => {
         }
         _wsEmit(req, 'pbh:cancelled', o);
         _notify('cancel', o.number);
+        if (wasNotCancelled) {
+            await _logPbhHistory(
+                pool,
+                o.number,
+                'cancel',
+                {
+                    prevState: prevRow.state,
+                    restoredLines: restockSummary?.restored || 0,
+                    nativeSync: nativeSync?.codes || null,
+                    reason: req.body?.reason || null,
+                },
+                _extractPbhUser(req),
+                _extractPbhSourcePage(req) || 'fastsaleorder-invoice'
+            );
+        }
         res.json({ success: true, order: o, restock: restockSummary, nativeSync });
     } catch (e) {
         res.status(500).json({ error: e.message });

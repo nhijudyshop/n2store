@@ -1575,7 +1575,9 @@
                     deposit: Number(root.querySelector('#pbhDeposit').value) || 0,
                     deliveryPrice: Number(root.querySelector('#pbhDeliveryPrice').value) || 0,
                     paymentAmount: Number(root.querySelector('#pbhPaymentAmount').value) || 0,
-                    dateInvoice: root.querySelector('#pbhDateInvoice').value || null,
+                    dateInvoice: _dateInputToIsoWithNowTime(
+                        root.querySelector('#pbhDateInvoice').value
+                    ),
                     comment: root.querySelector('#pbhComment').value.trim() || null,
                     // Carrier name = label without trailing price part, used by PBH print/delivery flow
                     carrierName: selectedOpt
@@ -1659,6 +1661,26 @@
     }
 
     // Phase 15: bulk action bar — toggle visibility + count based on checked rows.
+    // Convert input[type=date] value ('YYYY-MM-DD') → full ISO với current local
+    // time. Tránh bug "Ngày HĐ" hiển thị 07:00 do PG parse 'YYYY-MM-DD' = midnight UTC.
+    // Pass-through nếu input đã có time component (datetime-local hoặc full ISO).
+    function _dateInputToIsoWithNowTime(raw) {
+        if (!raw) return null;
+        if (String(raw).includes('T') || String(raw).includes(' ')) return raw;
+        const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return raw;
+        const now = new Date();
+        const d = new Date(
+            Number(m[1]),
+            Number(m[2]) - 1,
+            Number(m[3]),
+            now.getHours(),
+            now.getMinutes(),
+            now.getSeconds()
+        );
+        return d.toISOString();
+    }
+
     function getSelectedCodes() {
         return Array.from(document.querySelectorAll('#ordersTbody .row-check:checked')).map(
             (c) => c.value
@@ -2054,7 +2076,9 @@
                         ? selectedOpt.textContent.replace(/\s*—\s*[\d.,]+đ\s*$/, '').trim()
                         : '',
                     sharedDeliveryPrice: Number(selectedOpt?.dataset?.price || 0),
-                    dateInvoice: root.querySelector('#bulkDateInvoice').value || null,
+                    dateInvoice: _dateInputToIsoWithNowTime(
+                        root.querySelector('#bulkDateInvoice').value
+                    ),
                     comment: root.querySelector('#bulkComment').value.trim() || null,
                 };
             },
