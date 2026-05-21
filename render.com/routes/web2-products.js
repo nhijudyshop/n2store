@@ -97,8 +97,73 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
         `);
+
+        // Migration 078: backfill snapshot fields (imageUrl + name + price) cho
+        // các đơn đã chọn SP. Trước commit 8d89d1c0 (2026-05-21 02:26 UTC), PATCH
+        // web2_products chỉ ghi 1 row, không cascade → snapshot trong native_orders.
+        // products[] và fast_sale_orders.order_lines[] vẫn giữ giá trị cũ.
+        // Migration scan từng SP và sync xuống tất cả đơn matching.
+        // Self-gated qua `native_orders_migrations` (tạo nếu chưa có — share table
+        // với native-orders module để 1 nguồn sự thật cho mọi migration web2.0).
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS native_orders_migrations (
+                name   VARCHAR(120) PRIMARY KEY,
+                run_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            DO $$
+            DECLARE p RECORD;
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '078_backfill_product_snapshots'
+                ) THEN
+                    -- Chỉ chạy khi 2 bảng đích tồn tại (chống lỗi khi web2-products
+                    -- ensureTables chạy trước native-orders / fast-sale-orders).
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'native_orders')
+                       AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fast_sale_orders')
+                    THEN
+                        FOR p IN SELECT code, name, price, image_url FROM web2_products LOOP
+                            UPDATE native_orders
+                            SET products = (
+                                    SELECT jsonb_agg(
+                                        CASE WHEN elem->>'productCode' = p.code
+                                            THEN elem || jsonb_build_object(
+                                                'name', to_jsonb(p.name),
+                                                'price', to_jsonb(p.price),
+                                                'imageUrl', to_jsonb(COALESCE(p.image_url, ''))
+                                            )
+                                            ELSE elem
+                                        END
+                                    ) FROM jsonb_array_elements(products) elem
+                                ),
+                                updated_at = (EXTRACT(EPOCH FROM now()) * 1000)::bigint
+                            WHERE products @> jsonb_build_array(jsonb_build_object('productCode', p.code::text));
+
+                            UPDATE fast_sale_orders
+                            SET order_lines = (
+                                    SELECT jsonb_agg(
+                                        CASE WHEN elem->>'productCode' = p.code
+                                            THEN elem || jsonb_build_object(
+                                                'productName', to_jsonb(p.name),
+                                                'priceUnit', to_jsonb(p.price),
+                                                'imageUrl', to_jsonb(COALESCE(p.image_url, ''))
+                                            )
+                                            ELSE elem
+                                        END
+                                    ) FROM jsonb_array_elements(order_lines) elem
+                                ),
+                                updated_at = (EXTRACT(EPOCH FROM now()) * 1000)::bigint
+                            WHERE order_lines @> jsonb_build_array(jsonb_build_object('productCode', p.code::text));
+                        END LOOP;
+                        INSERT INTO native_orders_migrations(name) VALUES ('078_backfill_product_snapshots');
+                        RAISE NOTICE 'Migration 078: backfilled product snapshots';
+                    END IF;
+                END IF;
+            END $$;
+        `);
+
         _tablesCreated = true;
-        console.log('[WEB2-PRODUCTS] Tables created/verified');
+        console.log('[WEB2-PRODUCTS] Tables created/verified (+ migration 078)');
     } catch (error) {
         console.error('[WEB2-PRODUCTS] Table creation error:', error.message);
     }
