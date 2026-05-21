@@ -32,11 +32,12 @@ const { restoreLoginSession } = require('./restore-login-session');
 
 const ARGS = (() => {
     const a = process.argv.slice(2);
-    const out = { user: '', pass: '', base: 'https://nhijudyshop.github.io/n2store' };
+    const out = { user: '', pass: '', base: 'https://nhijudyshop.github.io/n2store', ext: '' };
     for (let i = 0; i < a.length; i++) {
         if (a[i] === '--user') out.user = a[++i];
         else if (a[i] === '--pass') out.pass = a[++i];
         else if (a[i] === '--base') out.base = a[++i];
+        else if (a[i] === '--ext') out.ext = a[++i];
     }
     return out;
 })();
@@ -66,15 +67,39 @@ const log = (...a) => {
     // Auto-start localhost server nếu BASE là localhost (không cần user pre-launch)
     await ensureLocalServer(BASE, path.join(__dirname, '..'));
 
-    log('Launching Chromium (no-cache, headless=false)…');
-    const browser = await chromium.launch({
-        headless: false,
-        args: ['--disable-application-cache', '--disk-cache-size=0', '--media-cache-size=0'],
-    });
-    const ctx = await browser.newContext({
-        viewport: { width: 1440, height: 900 },
-        bypassCSP: true,
-    });
+    let browser = null;
+    let ctx;
+    if (ARGS.ext) {
+        const extPath = path.resolve(ARGS.ext);
+        log(`Launching Chromium persistent (extension=${extPath})…`);
+        // Extension load yêu cầu launchPersistentContext (browser.launch không support).
+        // Persistent profile lưu ở /tmp để không lưu trữ lâu dài.
+        const userDataDir = path.join(require('os').tmpdir(), `n2store-ext-profile-${Date.now()}`);
+        ctx = await chromium.launchPersistentContext(userDataDir, {
+            headless: false,
+            viewport: { width: 1440, height: 900 },
+            bypassCSP: true,
+            // Playwright default args include --disable-extensions → bỏ nó để extension load được.
+            ignoreDefaultArgs: ['--disable-extensions'],
+            args: [
+                '--disable-application-cache',
+                '--disk-cache-size=0',
+                '--media-cache-size=0',
+                `--disable-extensions-except=${extPath}`,
+                `--load-extension=${extPath}`,
+            ],
+        });
+    } else {
+        log('Launching Chromium (no-cache, headless=false)…');
+        browser = await chromium.launch({
+            headless: false,
+            args: ['--disable-application-cache', '--disk-cache-size=0', '--media-cache-size=0'],
+        });
+        ctx = await browser.newContext({
+            viewport: { width: 1440, height: 900 },
+            bypassCSP: true,
+        });
+    }
     await ctx.route('**/*.js', (route) => {
         route.continue({
             headers: {
@@ -85,7 +110,10 @@ const log = (...a) => {
         });
     });
 
-    const page = await ctx.newPage();
+    // Reuse first page if persistent context already opened one (extension mode);
+    // newPage otherwise.
+    const pages = ctx.pages();
+    const page = pages.length > 0 ? pages[0] : await ctx.newPage();
 
     // Network buffer (last 200 calls)
     const netBuf = [];
@@ -173,7 +201,8 @@ const log = (...a) => {
 
         if (cmd === 'quit' || cmd === 'exit') {
             log('Quitting.');
-            await browser.close();
+            if (browser) await browser.close();
+            else await ctx.close();
             process.exit(0);
         }
         if (cmd === 'help') {
