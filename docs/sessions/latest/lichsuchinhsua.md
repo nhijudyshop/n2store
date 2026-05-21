@@ -1,4 +1,4 @@
-# Latest Snapshot — `tpos-pancake/`
+# Latest Snapshot — `lichsuchinhsua/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,17 @@
 **Last updated**: 2026-05-21 15:39:01 +07
 **Summary**: chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b
 
-## Files changed in this commit (`tpos-pancake/`)
+## Files changed in this commit (`lichsuchinhsua/`)
 
-- `tpos-pancake/index.html`
-- `tpos-pancake/index.old.html`
+- `lichsuchinhsua/index.html`
 
-## Last 5 commits touching `tpos-pancake/`
+## Last 5 commits touching `lichsuchinhsua/`
 
 - `7cfb0132` chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b _(2026-05-21)_
-- `e1d0d4f6` auto: session update _(2026-05-21)_
-- `3edbf7ab` fix(tpos-pancake): savePartnerData strip @odata.\* annotations + drop ExtraAddress/Properties/FacebookMap before POST _(2026-05-21)_
-- `1dfd24bc` fix(tpos-pancake): savePartnerData — fix 400 'Childs/Status/Extra\*' rejected bởi TPOS OData _(2026-05-21)_
-- `0599b1dd` feat(web2): page-tag comments, frontend wire 3 endpoints, Trả hàng NCC stub _(2026-05-20)_
+- `9e588e01` style: unify typography across all pages (Inter 20px weight 600) _(2026-04-08)_
+- `ea059fd1` feat(docs): add #Note AI-instruction header to all HTML+JS files + module overview in dev-log _(2026-04-04)_
+- `59306f58` fix(firebase): upgrade SDK 10.7.1→10.14.1 + add IndexedDB corruption auto-recovery _(2026-03-30)_
+- `87aadf11` fix: add file:// protocol fallback for AuthManager in all module pages _(2026-03-21)_
 
 ---
 

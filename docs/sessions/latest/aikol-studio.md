@@ -1,4 +1,4 @@
-# Latest Snapshot — `tpos-pancake/`
+# Latest Snapshot — `aikol-studio/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,25 @@
 **Last updated**: 2026-05-21 15:39:01 +07
 **Summary**: chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b
 
-## Files changed in this commit (`tpos-pancake/`)
+## Files changed in this commit (`aikol-studio/`)
 
-- `tpos-pancake/index.html`
-- `tpos-pancake/index.old.html`
+- `aikol-studio/bulk.html`
+- `aikol-studio/campaigns.html`
+- `aikol-studio/channels.html`
+- `aikol-studio/history.html`
+- `aikol-studio/index.html`
+- `aikol-studio/library.html`
+- `aikol-studio/models.html`
+- `aikol-studio/products.html`
+- `aikol-studio/settings.html`
 
-## Last 5 commits touching `tpos-pancake/`
+## Last 5 commits touching `aikol-studio/`
 
 - `7cfb0132` chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b _(2026-05-21)_
-- `e1d0d4f6` auto: session update _(2026-05-21)_
-- `3edbf7ab` fix(tpos-pancake): savePartnerData strip @odata.\* annotations + drop ExtraAddress/Properties/FacebookMap before POST _(2026-05-21)_
-- `1dfd24bc` fix(tpos-pancake): savePartnerData — fix 400 'Childs/Status/Extra\*' rejected bởi TPOS OData _(2026-05-21)_
-- `0599b1dd` feat(web2): page-tag comments, frontend wire 3 endpoints, Trả hàng NCC stub _(2026-05-20)_
+- `2905948c` feat(aikol): default sang CF FLUX (FREE) — Gemini làm fallback _(2026-05-10)_
+- `daca7c6c` feat(aikol): free AI alternatives — Groq vision (free 14K/day) + Cloudflare FLUX (free 10K neurons/day) _(2026-05-10)_
+- `065d1fec` refactor(aikol): bỏ Veo 3 — chỉ còn Kling cho video _(2026-05-10)_
+- `77942c99` feat(aikol): Tikreel-parity — 12 scene presets, 5 framing, style strength, products page, source channels _(2026-05-10)_
 
 ---
 

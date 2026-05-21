@@ -1,4 +1,4 @@
-# Latest Snapshot — `tpos-pancake/`
+# Latest Snapshot — `phone-management/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,18 @@
 **Last updated**: 2026-05-21 15:39:01 +07
 **Summary**: chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b
 
-## Files changed in this commit (`tpos-pancake/`)
+## Files changed in this commit (`phone-management/`)
 
-- `tpos-pancake/index.html`
-- `tpos-pancake/index.old.html`
+- `phone-management/index.html`
+- `phone-management/monitor.html`
 
-## Last 5 commits touching `tpos-pancake/`
+## Last 5 commits touching `phone-management/`
 
 - `7cfb0132` chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b _(2026-05-21)_
-- `e1d0d4f6` auto: session update _(2026-05-21)_
-- `3edbf7ab` fix(tpos-pancake): savePartnerData strip @odata.\* annotations + drop ExtraAddress/Properties/FacebookMap before POST _(2026-05-21)_
-- `1dfd24bc` fix(tpos-pancake): savePartnerData — fix 400 'Childs/Status/Extra\*' rejected bởi TPOS OData _(2026-05-21)_
-- `0599b1dd` feat(web2): page-tag comments, frontend wire 3 endpoints, Trả hàng NCC stub _(2026-05-20)_
+- `a5d44815` auto: session update _(2026-04-23)_
+- `7573377f` feat(oncall): local sync daemon — GeoIP bypass cho portal pbx-ucaas.oncallcx.vn _(2026-04-22)_
+- `0057f46a` auto: session update _(2026-04-22)_
+- `61cdce73` auto: session update _(2026-04-22)_
 
 ---
 

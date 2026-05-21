@@ -1,4 +1,4 @@
-# Latest Snapshot — `tpos-pancake/`
+# Latest Snapshot — `nhanhang/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,17 @@
 **Last updated**: 2026-05-21 15:39:01 +07
 **Summary**: chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b
 
-## Files changed in this commit (`tpos-pancake/`)
+## Files changed in this commit (`nhanhang/`)
 
-- `tpos-pancake/index.html`
-- `tpos-pancake/index.old.html`
+- `nhanhang/index.html`
 
-## Last 5 commits touching `tpos-pancake/`
+## Last 5 commits touching `nhanhang/`
 
 - `7cfb0132` chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b _(2026-05-21)_
-- `e1d0d4f6` auto: session update _(2026-05-21)_
-- `3edbf7ab` fix(tpos-pancake): savePartnerData strip @odata.\* annotations + drop ExtraAddress/Properties/FacebookMap before POST _(2026-05-21)_
-- `1dfd24bc` fix(tpos-pancake): savePartnerData — fix 400 'Childs/Status/Extra\*' rejected bởi TPOS OData _(2026-05-21)_
-- `0599b1dd` feat(web2): page-tag comments, frontend wire 3 endpoints, Trả hàng NCC stub _(2026-05-20)_
+- `df9bf3f1` refactor(nhanhang): bỏ cột "Trạng thái" — 2 tabs Chưa/Đã KT đã thực hiện chức năng này _(2026-05-04)_
+- `0a3fab8a` fix(nhanhang): bug đa máy hiển thị khác nhau — fingerprint cache check + Firestore realtime listener _(2026-05-04)_
+- `37c9d0a0` chore(nhanhang): backfill 239 phiếu legacy trước 01/04/2026 → daKiemTra=true + gỡ cutoff filter _(2026-05-04)_
+- `4155728a` auto: session update _(2026-05-04)_
 
 ---
 

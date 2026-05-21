@@ -1,4 +1,4 @@
-# Latest Snapshot — `tpos-pancake/`
+# Latest Snapshot — `supplier-debt/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,18 +9,17 @@
 **Last updated**: 2026-05-21 15:39:01 +07
 **Summary**: chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b
 
-## Files changed in this commit (`tpos-pancake/`)
+## Files changed in this commit (`supplier-debt/`)
 
-- `tpos-pancake/index.html`
-- `tpos-pancake/index.old.html`
+- `supplier-debt/index.html`
 
-## Last 5 commits touching `tpos-pancake/`
+## Last 5 commits touching `supplier-debt/`
 
 - `7cfb0132` chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b _(2026-05-21)_
-- `e1d0d4f6` auto: session update _(2026-05-21)_
-- `3edbf7ab` fix(tpos-pancake): savePartnerData strip @odata.\* annotations + drop ExtraAddress/Properties/FacebookMap before POST _(2026-05-21)_
-- `1dfd24bc` fix(tpos-pancake): savePartnerData — fix 400 'Childs/Status/Extra\*' rejected bởi TPOS OData _(2026-05-21)_
-- `0599b1dd` feat(web2): page-tag comments, frontend wire 3 endpoints, Trả hàng NCC stub _(2026-05-20)_
+- `54de02e4` fix(supplier-debt): opening balance từ summary thay vì API per-row Begin _(2026-05-13)_
+- `7898cd0a` auto: session update _(2026-04-24)_
+- `cc73c825` feat(supplier-debt): cho phép kéo xếp thứ tự tất cả rows bất kể ngày _(2026-04-24)_
+- `a5d44815` auto: session update _(2026-04-23)_
 
 ---
 
