@@ -455,6 +455,25 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
+            // Pancake API returns HTTP 200 with `success:false` cho FB errors
+            // (24h policy: e_code:10/e_subcode:2018278, post gone: e_code:100,
+            // rate limit: e_subcode:3252001, ...). _fetchJson chỉ throw cho
+            // non-2xx HTTP. Phải tự check body để tránh silent-success false.
+            if (data && data.success === false) {
+                const reason =
+                    data.message || (data.e_code != null ? `FB error #${data.e_code}` : 'unknown');
+                console.warn(
+                    '[Web2Chat] sendMessage Pancake returned success:false →',
+                    JSON.stringify(data).slice(0, 300)
+                );
+                return {
+                    ok: false,
+                    reason,
+                    e_code: data.e_code,
+                    e_subcode: data.e_subcode,
+                    raw: data,
+                };
+            }
             return { ok: true, message: data?.message || data, raw: data };
         } catch (e) {
             console.warn('[Web2Chat] sendMessage failed:', e.message);
@@ -487,6 +506,22 @@
                     type: opts.mode === 'private' ? 'private' : 'public',
                 }),
             });
+            // Pancake trả HTTP 200 + success:false cho FB errors — phải check body.
+            if (data && data.success === false) {
+                const reason =
+                    data.message || (data.e_code != null ? `FB error #${data.e_code}` : 'unknown');
+                console.warn(
+                    '[Web2Chat] replyComment Pancake returned success:false →',
+                    JSON.stringify(data).slice(0, 300)
+                );
+                return {
+                    ok: false,
+                    reason,
+                    e_code: data.e_code,
+                    e_subcode: data.e_subcode,
+                    raw: data,
+                };
+            }
             return { ok: true, message: data?.message || data, raw: data };
         } catch (e) {
             console.warn('[Web2Chat] replyComment failed:', e.message);
