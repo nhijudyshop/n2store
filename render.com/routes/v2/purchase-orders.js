@@ -28,37 +28,39 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
-const path = require('path');
 const adminSettings = require('../../services/admin-settings-service');
 const bunnyStorage = require('../../services/bunny-storage-service');
 
-// PO images live in Bunny under prefix `po-images/`. Legacy DB rows are still
-// served by `GET /images/:id` until the migration script clears them.
+// PO images live in Postgres `purchase_order_images.data` (bytea). Some URLs
+// in `purchase_orders.invoice_images[]` still point at Bunny CDN from the
+// 2026-05-08 → 2026-05-21 window when uploads briefly went to Bunny — we
+// keep that backend wired for cascade-delete only (no new uploads land
+// there). See dev-log 2026-05-21 for the rollback rationale.
 const BUNNY_PO_PREFIX = 'po-images';
 
-const EXT_BY_MIME = {
-    'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-    'image/heic': 'heic',
-    'image/heif': 'heif',
-    'image/svg+xml': 'svg',
-};
-
-function extFromMime(mime, fallbackName) {
-    if (mime && EXT_BY_MIME[mime.toLowerCase()]) return EXT_BY_MIME[mime.toLowerCase()];
-    if (fallbackName) {
-        const e = path.extname(fallbackName).toLowerCase().replace('.', '');
-        if (e) return e;
-    }
-    return 'jpg';
+// Lazy schema creation. Same pattern as native-orders.ensureTables — gives
+// fresh deploys a working table without manual migration.
+let _imagesTableCreated = false;
+async function ensureImagesTable(pool) {
+    if (_imagesTableCreated) return;
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS purchase_order_images (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            data BYTEA NOT NULL,
+            content_type VARCHAR(50) NOT NULL DEFAULT 'image/jpeg',
+            filename VARCHAR(255),
+            size_bytes INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_poi_created_at
+            ON purchase_order_images(created_at DESC);
+    `);
+    _imagesTableCreated = true;
 }
 
 // Classify URLs in `invoice_images[]` so cascade-delete can route to the right backend.
-// - Bunny CDN URL: https://<cdn-host>/po-images/<id>.<ext>  → DELETE on Bunny
-// - Legacy DB URL: <base>/api/v2/purchase-orders/images/<id>  → DELETE row from purchase_order_images
+// - DB URL    : <base>/api/v2/purchase-orders/images/<id>   → DELETE row from purchase_order_images
+// - Bunny URL : https://<cdn-host>/po-images/<id>.<ext>     → DELETE on Bunny (legacy URLs only)
 function classifyImageUrls(urlArrays) {
     const dbIds = new Set();
     const bunnyKeys = new Set();
@@ -87,22 +89,17 @@ async function deleteImagesFromUrls(pool, urlArrays) {
     let deletedDb = 0;
     let deletedBunny = 0;
 
-    // Bảng `purchase_order_images` đã drop 2026-05-08 sau migration Bunny.
-    // dbIds chỉ có thể xuất hiện nếu invoice_images còn URL legacy chưa migrate —
-    // không expected, nhưng fail gracefully thay vì throw cho cả request.
     if (dbIds.length) {
-        try {
-            const r = await pool.query(
-                'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
-                [dbIds]
-            );
-            deletedDb = r.rowCount;
-        } catch (err) {
-            // Table dropped → silently noop (URL trỏ ID không tồn tại).
-            if (!String(err.message || '').includes('does not exist')) throw err;
-        }
+        await ensureImagesTable(pool);
+        const r = await pool.query(
+            'DELETE FROM purchase_order_images WHERE id = ANY($1) RETURNING id',
+            [dbIds]
+        );
+        deletedDb = r.rowCount;
     }
     if (bunnyKeys.length) {
+        // Legacy URLs from the May 8–21 Bunny window. Best-effort cleanup so
+        // the Bunny zone doesn't accumulate orphans — failures are not fatal.
         const results = await Promise.allSettled(
             bunnyKeys.map((k) => bunnyStorage.deleteObject(k))
         );
@@ -412,7 +409,7 @@ router.options('/images/:id', (_req, res) => {
 });
 
 // ========================================
-// POST /images — Upload image
+// POST /images — Upload image (Postgres bytea backend)
 // ========================================
 router.post(
     '/images',
@@ -442,51 +439,86 @@ router.post(
                 });
             }
 
-            const { buffer, mimetype, originalname, size } = req.file;
-            const id = uuidv4();
-            const ext = extFromMime(mimetype, originalname);
-            const key = `${BUNNY_PO_PREFIX}/${id}.${ext}`;
+            const pool = getDb(req);
+            await ensureImagesTable(pool);
 
-            const uploaded = await bunnyStorage.uploadBuffer(
-                buffer,
-                key,
-                mimetype || 'application/octet-stream'
+            const { buffer, mimetype, originalname, size } = req.file;
+            const result = await pool.query(
+                `INSERT INTO purchase_order_images (data, content_type, filename, size_bytes)
+                 VALUES ($1, $2, $3, $4)
+                 RETURNING id, content_type, filename, size_bytes, created_at`,
+                [buffer, mimetype, originalname || null, size || buffer.length]
             );
+            const row = result.rows[0];
 
             res.json({
                 success: true,
-                url: uploaded.cdnUrl,
+                url: `${BASE_URL}/api/v2/purchase-orders/images/${row.id}`,
                 image: {
-                    id,
-                    key: uploaded.key,
-                    contentType: mimetype,
-                    filename: originalname || null,
-                    sizeBytes: size || buffer.length,
-                    createdAt: new Date().toISOString(),
+                    id: row.id,
+                    contentType: row.content_type,
+                    filename: row.filename,
+                    sizeBytes: row.size_bytes,
+                    createdAt: row.created_at,
                 },
             });
         } catch (error) {
             console.error('[PO API] Image upload error:', error);
-            res.status(500).json({ success: false, error: 'Không thể upload ảnh' });
+            res.status(500).json({
+                success: false,
+                error: 'Không thể upload ảnh: ' + (error.message || 'lỗi không xác định'),
+            });
         }
     }
 );
 
 // ========================================
-// GET/DELETE /images/:id — Legacy endpoints. Bảng `purchase_order_images` đã drop
-// 2026-05-08 sau khi migrate sang Bunny CDN. Các URL cũ phải đã được rewrite
-// trong `purchase_orders.invoice_images[]`, nên endpoint này chỉ phục vụ
-// client cache cũ — trả 410 Gone gọn gàng.
+// GET /images/:id — Serve image from Postgres
 // ========================================
-const LEGACY_IMAGE_GONE_MSG =
-    'Endpoint deprecated. Ảnh đã chuyển sang BunnyCDN — refresh đơn để lấy URL mới.';
-
-router.get('/images/:id', (_req, res) => {
-    res.status(410).json({ success: false, error: LEGACY_IMAGE_GONE_MSG });
+router.get('/images/:id', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        await ensureImagesTable(pool);
+        const result = await pool.query(
+            'SELECT data, content_type, filename FROM purchase_order_images WHERE id = $1',
+            [req.params.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Ảnh không tồn tại' });
+        }
+        const { data, content_type, filename } = result.rows[0];
+        res.setHeader('Content-Type', content_type);
+        res.setHeader('Content-Length', data.length);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        if (filename) {
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        }
+        res.send(data);
+    } catch (error) {
+        console.error('[PO API] Image serve error:', error);
+        res.status(500).json({ success: false, error: 'Không thể tải ảnh' });
+    }
 });
 
-router.delete('/images/:id', (_req, res) => {
-    res.status(410).json({ success: false, error: LEGACY_IMAGE_GONE_MSG });
+// ========================================
+// DELETE /images/:id — Delete image from Postgres
+// ========================================
+router.delete('/images/:id', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        await ensureImagesTable(pool);
+        const result = await pool.query(
+            'DELETE FROM purchase_order_images WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, error: 'Ảnh không tồn tại' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[PO API] Image delete error:', error);
+        res.status(500).json({ success: false, error: 'Không thể xóa ảnh' });
+    }
 });
 
 // ========================================
@@ -1210,18 +1242,57 @@ router.post('/cleanup-trash', async (req, res) => {
 });
 
 // ========================================
-// POST /cleanup-orphan-images — One-shot dọn ảnh không link tới đơn nào
-// (safety net cho các đơn xóa trước khi cascade được wire)
+// POST /cleanup-orphan-images — Xóa rows trong purchase_order_images không
+// còn được tham chiếu từ bất kỳ `purchase_orders.invoice_images[]` /
+// `items[].productImages[]` / `items[].priceImages[]` nào (kể cả đơn đã
+// soft-delete vẫn được tính là sống — chỉ chạm row khi đơn hard-delete).
 // ========================================
-router.post('/cleanup-orphan-images', (_req, res) => {
-    // Bảng `purchase_order_images` đã drop 2026-05-08 sau khi migrate sang
-    // BunnyCDN. Cascade delete bytea không còn cần thiết. Bunny orphan cleanup
-    // (nếu cần trong tương lai) sẽ là endpoint riêng so sánh objects trong
-    // zone vs URLs trong invoice_images[].
-    res.status(410).json({
-        success: false,
-        error: 'Endpoint deprecated — bảng purchase_order_images đã drop sau migration Bunny.',
-    });
+router.post('/cleanup-orphan-images', async (req, res) => {
+    try {
+        const pool = getDb(req);
+        await ensureImagesTable(pool);
+        const baseSuffix = '/api/v2/purchase-orders/images/';
+        // Collect referenced image IDs from all orders (including soft-deleted).
+        const orders = await pool.query(`
+            SELECT invoice_images, items
+            FROM purchase_orders
+        `);
+        const liveIds = new Set();
+        for (const row of orders.rows) {
+            const collect = (urls) => {
+                if (!Array.isArray(urls)) return;
+                for (const u of urls) {
+                    if (typeof u !== 'string') continue;
+                    const idx = u.indexOf(baseSuffix);
+                    if (idx >= 0) {
+                        const id = u.slice(idx + baseSuffix.length).split(/[/?#]/)[0];
+                        if (id) liveIds.add(id);
+                    }
+                }
+            };
+            collect(row.invoice_images);
+            const items = Array.isArray(row.items) ? row.items : [];
+            for (const it of items) {
+                collect(it?.productImages);
+                collect(it?.priceImages);
+            }
+        }
+        const liveArr = Array.from(liveIds);
+        const result = liveArr.length
+            ? await pool.query(
+                  'DELETE FROM purchase_order_images WHERE id <> ALL($1::text[]) RETURNING id',
+                  [liveArr]
+              )
+            : await pool.query('DELETE FROM purchase_order_images RETURNING id');
+        res.json({
+            success: true,
+            deleted: result.rowCount,
+            liveReferences: liveArr.length,
+        });
+    } catch (error) {
+        console.error('[PO API] Cleanup orphan images error:', error);
+        res.status(500).json({ success: false, error: 'Cleanup failed: ' + error.message });
+    }
 });
 
 module.exports = router;

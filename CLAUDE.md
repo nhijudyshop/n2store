@@ -294,6 +294,20 @@ Chạy lại script nếu cần: `bash scripts/add-note-header.sh` (idempotent, 
 
 **Auto commit & push**: Khi hoàn thành task, tự động commit và push mà không cần hỏi user. Commit message ngắn gọn, rõ ràng.
 
+## Bunny CDN — CHỈ DÙNG cho AI KOL Studio
+
+> **Policy** (2026-05-21): Bunny CDN (`n2store-aikol.b-cdn.net`) chỉ được dùng cho **AI KOL Studio** (`aikol-studio/`, `render.com/routes/aikol*.js`, `render.com/services/aikol-*.js`).
+>
+> **Không thêm Bunny upload vào bất kỳ trang nào khác.** Trước đây Purchase Orders có dùng Bunny (2026-05-08 → 2026-05-21) nhưng đã rollback sang Postgres `purchase_order_images.data BYTEA` vì Bunny upload bị 500 trên prod và user không muốn phụ thuộc thêm vendor cho trang ngoài AI KOL.
+>
+> **Khi cần lưu ảnh cho feature mới**:
+>
+> - Default: Postgres bytea (như `purchase_order_images`) — serve qua `GET /api/v2/<route>/images/:id`, cache-immutable headers
+> - Frontend: render trực tiếp `<img src="https://n2store-fallback.onrender.com/api/v2/...">` — không cần CDN trừ khi traffic > 100K req/day
+> - Nếu cần CDN: dùng Cloudflare R2 + Workers proxy (CF account đã có), KHÔNG mở thêm Bunny zone
+>
+> **Khi sửa code đụng `bunny-storage-service.js`**: confirm chỉ phục vụ aikol routes; PO route chỉ giữ `deleteObject` để cleanup legacy URLs từ window May 8–21.
+
 ## Browser Test Scripts (Playwright)
 
 Project có **4 scripts test dự án qua Playwright** (auto-login + capture errors). Dùng để verify mọi commit lớn, repro bug, debug live.

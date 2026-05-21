@@ -80,6 +80,51 @@ Bump `tpos-api.js?v=20260521b`. Comment list không cần sửa — handler đã
 
 ---
 
+### [purchase-orders][render][docs] Rollback Bunny → Postgres bytea cho upload mới + policy "Bunny chỉ AI KOL"
+
+**Yêu cầu user**:
+
+1. "sao lại có Bunny ở đây?" — tại sao Purchase Orders dùng Bunny
+2. "dùng render hoặc firebase thôi, bỏ hoàn toàn bunny đi" — gỡ Bunny khỏi PO
+3. "1/ áp dụng upload mới, 2/ để nguyên [ảnh cũ] và note lại là đừng dùng bunny ở các trang khác"
+
+**Background**: Bunny được thêm 2026-05-08 (commit `0c612dee`) để giảm DB bloat khi `purchase_order_images` table có 88% orphan. Đã DROP table và migrate 137 đơn / 35+ URLs sang Bunny CDN. Test 2026-05-21 phát hiện POST `/images` trả 500 (Bunny `uploadBuffer` fail, 8s timeout) — front-end break.
+
+**Fix** ([render.com/routes/v2/purchase-orders.js](../render.com/routes/v2/purchase-orders.js)):
+
+- **`ensureImagesTable(pool)`** lazy self-init giống `native-orders.ensureTables`: `CREATE TABLE IF NOT EXISTS purchase_order_images` (bytea data + content_type + filename + size + created_at) + index trên created_at. Idempotent qua Render restart.
+- **`POST /images`** đảo về Postgres INSERT — return URL `${BASE_URL}/api/v2/purchase-orders/images/${row.id}`. Bỏ `bunnyStorage.uploadBuffer` + `extFromMime` + `EXT_BY_MIME` + `require('path')` + `BUNNY_PO_PREFIX` (chỉ giữ làm regex hằng cho legacy URL parser).
+- **`GET /images/:id`** restore bytea serve (Content-Type, Content-Length, `Cache-Control: public, max-age=31536000, immutable`, optional Content-Disposition).
+- **`DELETE /images/:id`** restore PG DELETE.
+- **`deleteImagesFromUrls`** giữ song song: PG bytea cho URLs mới (`/images/:id`) + Bunny `deleteObject` cho URLs legacy (May 8–21 window). Cascade khi đơn hard-delete clean cả 2 backend, no orphans.
+- **`POST /cleanup-orphan-images`** chuyển từ 410 Gone → working endpoint: scan `purchase_orders.invoice_images[] + items[].productImages[] + items[].priceImages[]` cho live IDs, DELETE WHERE id <> ALL(live).
+- **Frontend giữ nguyên** — `purchase-orders/js/service.js#uploadImage` vẫn POST tới `${API_BASE}/images`, URL endpoint không đổi.
+
+**Policy mới** ([CLAUDE.md](../CLAUDE.md) section "Bunny CDN — CHỈ DÙNG cho AI KOL Studio" + memory `feedback_bunny_aikol_only.md`):
+
+- Bunny `n2store-aikol` zone chỉ phục vụ AI KOL Studio (5 trang `/aikol-studio/*` + routes `aikol*.js`)
+- Không thêm Bunny upload cho trang khác
+- Default storage cho feature mới: Postgres bytea (như `purchase_order_images`)
+- Fallback CDN nếu cần: Cloudflare R2, không phải Bunny
+
+**Tại sao "chỉ áp dụng cho upload mới"**:
+
+- ~500 ảnh hiện đang trên Bunny URLs trong `purchase_orders.invoice_images[]` — front-end vẫn load được qua CDN (Bunny serve OK, chỉ upload fail).
+- Migrate ngược 500 ảnh cần ~1-2h + cần Render API key đọc Bunny → user quyết bỏ qua.
+- Trade-off: nếu Bunny zone bị xóa thì ảnh cũ mất luôn. Vì user owns AI KOL Studio cũng dùng zone đó nên ít rủi ro xóa nhầm.
+
+**Verify**: `node --check render.com/routes/v2/purchase-orders.js` ✅. Prod verify sẽ chạy sau Render auto-deploy.
+
+**Files**:
+
+- [`render.com/routes/v2/purchase-orders.js`](../render.com/routes/v2/purchase-orders.js)
+- [`CLAUDE.md`](../CLAUDE.md) (Bunny policy section)
+- Memory: `feedback_bunny_aikol_only.md`
+
+**Status**: 🔄 In progress — code Render backend đã commit. Chờ Render auto-deploy + prod verify upload.
+
+---
+
 ### [purchase-orders][scripts][docs] Paste-image: fix huge dimension freeze + persistent session restore + debug-via-console rule
 
 **Yêu cầu user**: Trên https://nhijudy.store/purchase-orders/index.html, paste ảnh **lớn quá → bị lỗi** trong modal "Tạo đơn đặt hàng". Self-debug + test + commit/push tới khi sạch lỗi. Đồng thời: (1) lưu cookies đăng nhập vào `serect_dont_push.txt` để khỏi đăng nhập lại; (2) thêm rule "debug từ console, hạn chế chụp hình" vào memory/CLAUDE.md/dev-log.
