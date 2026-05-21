@@ -490,12 +490,12 @@
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
                             ${(() => {
-                                // 3-state action buttons:
-                                //   - cancelled: vẫn cho phép tạo PBH (sẽ tạo PBH mới số HĐ mới
-                                //     mà KHÔNG đụng PBH cũ — user accept behavior này). KHÔNG cho
-                                //     re-confirm vì confirm chỉ update từ draft (no-op).
-                                //   - confirmed: splitPbh + cancelPbh
-                                //   - draft (default): confirmDraft + createPbh
+                                // 3-state action buttons (slot 2-3 sau "Sửa"):
+                                //   - cancelled: nút "Tạo PBH" (sẽ tạo PBH mới số HĐ mới, không đụng PBH cũ)
+                                //   - confirmed: nút "Huỷ PBH" (đã có PBH → cancel nó). KHÔNG cho
+                                //     "Tạo PBH bổ sung" trực tiếp ở status này — muốn thêm PBH phải
+                                //     "Tách đơn" → tạo native-order con (status=draft) → từ đó tạo PBH.
+                                //   - draft: confirmDraft + createPbh
                                 if (o.status === 'cancelled') {
                                     return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
@@ -503,11 +503,7 @@
                             </button>`;
                                 }
                                 if (o.status === 'confirmed') {
-                                    return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH bổ sung (tách đơn — STT ${sttValue}-2, ${sttValue}-3, ...)"
-                                onclick="event.stopPropagation();NativeOrdersApp.splitPbh('${escapeHtml(o.code)}')">
-                                <i data-lucide="copy-plus" style="width:12px;height:12px;"></i>
-                            </button>
-                            <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
+                                    return `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt-text" style="width:12px;height:12px;"></i>
                             </button>`;
@@ -531,17 +527,20 @@
                                     : '<span class="tpos-action-placeholder"></span>'
                             }
                             ${
-                                o.status === 'draft'
-                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách)" style="color:#0ea5e9;"
+                                o.status === 'draft' || o.status === 'confirmed'
+                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" style="color:#0ea5e9;"
                                 onclick="event.stopPropagation();NativeOrdersApp.splitOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="split-square-vertical" style="width:12px;height:12px;"></i>
                             </button>`
-                                    : o.status === 'confirmed'
-                                      ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
+                                    : ''
+                            }
+                            ${
+                                o.status === 'confirmed'
+                                    ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
                             </button>`
-                                      : ''
+                                    : ''
                             }
                         </div>
                     </td>

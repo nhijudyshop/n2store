@@ -25,6 +25,31 @@
 
 ## 2026-05-21
 
+### [native-orders] feat: bỏ "Tạo PBH bổ sung" (splitPbh) ở confirmed → muốn tạo phải tách đơn trước
+
+User request: "trạng thái 'Đơn hàng' sẽ không cho tạo PBH nữa → muốn tạo thì tách đơn ra".
+
+**Trước**: status='confirmed' show 2 nút:
+
+- splitPbh (copy-plus icon) — tạo PBH bổ sung trực tiếp với split_index tăng dần
+- cancelPbh — huỷ PBH
+
+**Sau**: status='confirmed' chỉ còn cancelPbh. Muốn tạo PBH thêm → workflow rõ ràng hơn:
+
+1. Click "Tách đơn" (split-square-vertical icon) — bây giờ hiển thị cả ở `confirmed` (trước chỉ draft)
+2. Tạo đơn mới `STT-N` (giỏ rỗng, cùng khách) với status='draft'
+3. Add SP vào đơn mới → confirm → "Tạo PBH" trên đơn draft
+
+Buộc user phải tạo native-order con trước khi tạo PBH → audit-trail rõ ràng hơn cho từng đơn riêng.
+
+**Files**: `native-orders/js/native-orders-app.js:492-547` — restructure 3-block action layout:
+
+- Slot 2 (sau Sửa): `cancelled` → createPbh; `confirmed` → cancelPbh; `draft` → confirmDraft + createPbh
+- Slot 4: splitOrder cho cả `draft` + `confirmed` (trước chỉ draft)
+- Slot 5: cancelOrder chỉ cho `confirmed` (như cũ)
+
+Backend `splitPbh` API (POST `/from-native-order?split=true`) vẫn giữ nguyên — chỉ frontend bỏ button. Function `NativeOrdersApp.splitPbh()` vẫn export cho code khác (vd extension).
+
 ### [native-orders][fast-sale-orders] feat: đơn cancelled vẫn cho tạo PBH (số HĐ mới, không đụng PBH cũ)
 
 User clarify (2nd reading) — original "Hủy bỏ vẫn cho tạo PBH ..." là **mô tả behavior MUỐN có**, không phải bug report. User muốn:
