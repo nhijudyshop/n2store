@@ -218,6 +218,49 @@ const log = (...a) => {
             }, `nav ${arg}`);
             return;
         }
+        if (cmd === 'addcookie') {
+            // addcookie name=value; domain=.foo.com; path=/[; secure][; httpOnly]
+            // VD: addcookie jwt=eyJ...; domain=.pancake.vn; path=/
+            await safe(async () => {
+                const parts = arg
+                    .split(';')
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                const kv = parts[0].split('=');
+                const cookie = { name: kv[0], value: parts[0].slice(kv[0].length + 1) };
+                for (let i = 1; i < parts.length; i++) {
+                    const [k, v] = parts[i].split('=');
+                    const key = k.toLowerCase();
+                    if (key === 'domain') cookie.domain = v;
+                    else if (key === 'path') cookie.path = v;
+                    else if (key === 'secure') cookie.secure = true;
+                    else if (key === 'httponly') cookie.httpOnly = true;
+                    else if (key === 'samesite') cookie.sameSite = v;
+                    else if (key === 'expires') cookie.expires = Number(v);
+                }
+                if (!cookie.path) cookie.path = '/';
+                if (cookie.expires === undefined) {
+                    cookie.expires = Math.floor(Date.now() / 1000) + 86400 * 90;
+                }
+                await ctx.addCookies([cookie]);
+                return { ok: true, name: cookie.name, domain: cookie.domain };
+            }, `addcookie`);
+            return;
+        }
+        if (cmd === 'routeblock') {
+            // routeblock <urlGlob> — abort requests matching the glob (for safety:
+            // block real send API calls while inspecting flow).
+            await safe(async () => {
+                await ctx.route(arg, (route) => {
+                    log(
+                        `[ROUTE-BLOCK] aborted ${route.request().method()} ${route.request().url().slice(0, 200)}`
+                    );
+                    route.abort('blockedbyclient');
+                });
+                return { ok: true, blocked: arg };
+            }, `routeblock`);
+            return;
+        }
         if (cmd === 'eval') {
             await safe(() => page.evaluate(`(async()=>{ ${arg} })()`), 'eval');
             return;
