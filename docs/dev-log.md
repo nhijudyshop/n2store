@@ -25,6 +25,39 @@
 
 ## 2026-05-21
 
+### [native-orders][extension] v2.0.4 + Pancake API route cho global_id (commit 497a855a follow-up)
+
+**Tình trạng sau commit 497a855a**: native-orders truyền đúng args cho GET_GLOBAL_ID_FOR_CONV nhưng:
+
+1. Extension's FB GraphQL resolve **fail** sau 30+ giây với "Could not resolve globalUserId" (cả 4 strategies findThread/ConversationPage/thread_info.php/getUserInboxByName đều fail cho HTĐ)
+2. Native-orders timeout 10s → fallback dùng PSID → vẫn 1545012
+3. Mobile fallback v2.0.3 fail `Failed to fetch` vì `m.facebook.com` thiếu host_permissions
+
+**Insight**: Pancake gửi thành công vì Pancake UI dùng **`page_customer.global_id`** từ Pancake API response (Pancake biết global_id từ webhook events trước đó). Pancake KHÔNG dùng FB GraphQL để resolve.
+
+**Fix combo**:
+
+1. **Native-orders ROUTE 1 (nhanh)** — Pancake API direct: `Web2Chat.fetchMessages(pageId, convId, customerId)` trả `customers[].global_id` và `conversation.page_customer.global_id`. Dùng cái này trước.
+
+2. **Native-orders ROUTE 2 (fallback)** — GET_GLOBAL_ID_FOR_CONV qua extension với timeout 10s→30s. Chỉ chạy nếu ROUTE 1 không có data.
+
+3. **Manifest v2.0.4** — Thêm `*://m.facebook.com/*`, `*://mbasic.facebook.com/*` vào `host_permissions` → mobile fallback (v2.0.3) hết "Failed to fetch".
+
+**Files**:
+
+- `native-orders/js/native-orders-app.js:5957-6045` — 2-route resolution
+- `web2-extension/manifest.json` — bump 2.0.3→2.0.4 + m.facebook.com permissions
+- `web2-extension/shared/constants.js` — VERSION/BUILD bump
+
+**Verify**: refresh native-orders → reload extension v2.0.4 → gửi HTĐ. Log mong đợi:
+
+- `[NativeOrders] globalUserId via Pancake API: 100001957832900 (psid was 25717004554573583)` (ROUTE 1 hit)
+- `[FB-Sender] Message sent successfully: mid.<xxx>`
+
+Nếu Pancake API không trả global_id (page_customer chưa được webhook update), fallback ROUTE 2 (extension) sẽ chạy với timeout 30s.
+
+Status: ✅ Done; ⏳ pending verify in-browser.
+
 ### [native-orders][BUG-FIX-LỚN] root cause 1545012 = gửi PSID thay global_id cho FB
 
 **Bug user phát hiện**: Tin nhắn từ native-orders cho HTĐ liên tục fail 1545012 "Tạm thời không thực hiện được". Trong khi Pancake.vn gửi cùng conversation lại OK.

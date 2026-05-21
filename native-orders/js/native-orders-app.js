@@ -5966,6 +5966,45 @@
                 //   GET_GLOBAL_ID_FOR_CONV cần {pageId, threadId, customerName} —
                 //   KHÔNG nhận convId/fbUserId. Không có threadId+customerName → reject.
                 let globalUserId = order._fbGlobalUserId;
+                // ROUTE 1: Pancake API (nhanh, reliable — Pancake biết global_id
+                // từ webhook trước). Endpoint messages?customer_id trả `customers[]`
+                // có field `global_id` (FB account thật). Cùng nguồn Pancake UI dùng.
+                if (!globalUserId && input.dataset.conversationId && window.Web2Chat) {
+                    try {
+                        const msgRes = await window.Web2Chat.fetchMessages(
+                            order.fbPageId,
+                            input.dataset.conversationId,
+                            input.dataset.customerId || null
+                        );
+                        if (msgRes?.ok) {
+                            const cust =
+                                msgRes.customers?.find?.(
+                                    (c) => c?.fb_id === order.fbUserId || c?.global_id
+                                ) || msgRes.customers?.[0];
+                            const gid =
+                                cust?.global_id ||
+                                msgRes.conversation?.page_customer?.global_id ||
+                                null;
+                            if (gid && String(gid) !== String(order.fbUserId)) {
+                                globalUserId = String(gid);
+                                order._fbGlobalUserId = globalUserId;
+                                console.log(
+                                    '[NativeOrders] globalUserId via Pancake API:',
+                                    globalUserId,
+                                    '(psid was',
+                                    order.fbUserId + ')'
+                                );
+                            }
+                        }
+                    } catch (papiErr) {
+                        console.warn(
+                            '[NativeOrders] Pancake API global_id fetch failed:',
+                            papiErr?.message || papiErr
+                        );
+                    }
+                }
+                // ROUTE 2: Extension GraphQL fallback (chậm hơn, fail nếu FB doc_ids
+                // chưa load). Chỉ chạy nếu Pancake API không trả global_id.
                 if (
                     !globalUserId &&
                     order.fbPageId &&
@@ -5980,7 +6019,7 @@
                                 customerName: order.customerName || order.fbUserName || '',
                                 isBusiness: true,
                             },
-                            10000
+                            30000
                         );
                         globalUserId =
                             gidResp?.data?.globalId ||
@@ -5989,7 +6028,7 @@
                         if (globalUserId) {
                             order._fbGlobalUserId = globalUserId;
                             console.log(
-                                '[NativeOrders] resolved globalUserId:',
+                                '[NativeOrders] globalUserId via extension:',
                                 globalUserId,
                                 '(psid was',
                                 order.fbUserId + ')'
