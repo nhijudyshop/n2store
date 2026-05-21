@@ -3,21 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3edbf7a` — fix(tpos-pancake): savePartnerData strip @odata._ annotations + drop ExtraAddress/Properties/FacebookMap before POST
-**Last updated**: 2026-05-21 10:11:15 +07
-**Latest session**: [`RESUME:20260521-101115-3edbf7a`](../20260521-101115-3edbf7a.md)
-**Summary**: fix(tpos-pancake): savePartnerData strip @odata._ annotations + drop ExtraAddress/Properties/FacebookMap before POST
+**Latest commit**: `4da5b6b` — docs(tpos-pancake): dev-log entry cho savePartnerData fix
+**Last updated**: 2026-05-21 10:15:40 +07
+**Latest session**: [`RESUME:20260521-101540-4da5b6b`](../20260521-101540-4da5b6b.md)
+**Summary**: docs(tpos-pancake): dev-log entry cho savePartnerData fix
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:01
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-20 16:28
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 10:10
+- [`docs/`](./docs.md) — updated 2026-05-21 10:15
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
