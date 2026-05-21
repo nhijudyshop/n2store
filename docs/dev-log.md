@@ -53,6 +53,21 @@
 
 **Status**: ✅ Done — push lên Render để auto-deploy + chạy backfill 1 lần khi DB pool sẵn sàng.
 
+### [native-orders][render] Migration 077: backfill prefix bên trong merged orders
+
+**Follow-up của 076**: merged order `NW-20260520-0006` còn 2 inner segment thiếu prefix (`[NW-20260520-0001] …` + `[NW-20260520-0005] …`) — vì source orders đã bị xóa lúc merge, không khôi phục được time gốc.
+
+**Fix**: Migration 077 dùng `regexp_replace` trên rows có `merged_codes IS NOT NULL`:
+
+- Match: `(\[NW-\d+-\d+\] )([^\[])`
+- Replace: `\1[<merged.created_at vi-VN>] \2`
+
+Time fallback dùng merged order's `created_at` (off vài phút so với time thật của source, nhưng đủ chính xác — better than no time).
+
+**Verify prod**: audit 29/29 rows pass — 0 single missing, 0 inner missing. Screenshot: `downloads/n2store-session/native-orders-076-077-prod.png`.
+
+**Status**: ✅ Done.
+
 ---
 
 ## 2026-05-20
@@ -64,6 +79,7 @@
 **Lý do thiết kế**: Ảnh 0.jpg là ảnh user vừa nhìn trên grid (đại diện). Mở viewer ở ảnh 1 cho user xem "tiếp theo", còn 0.jpg vẫn xem được qua next/prev nhưng không phải đầu tiên.
 
 **Files sửa** (`showroom/index.html`):
+
 - Thêm `buildSequence(total)` trả mảng `[1, 0, 2, 3, ..., total-1]`.
 - Đổi state: `currentIndex` (image number) → `currentPos` (position in sequence). State thêm `currentSeq`.
 - `openAlbum`: build sequence + `currentPos = 0`.
@@ -80,6 +96,7 @@
 **Yêu cầu user**: Click ảnh đại diện → viewer hiển thị từ ảnh 0 trở đi (gồm cả ảnh đại diện), không phải bỏ qua 0.jpg.
 
 **Files sửa** (`showroom/index.html`):
+
 - `ALBUMS`: đổi field `size` (số ảnh con sau 0.jpg) → `total` (tổng ảnh gồm cả 0.jpg). Album 1-5: `total: 5`, album 6: `total: 6`.
 - `openAlbum()`: `currentIndex = 0` (was `1`).
 - `nextImage()`: `(idx + 1) % total` — wrap về 0 sau ảnh cuối.
@@ -94,15 +111,18 @@
 ### [showroom] Xóa mock data, thay bằng 6 album thật + viewer prev/next
 
 **Yêu cầu user**:
+
 1. Xóa toàn bộ ảnh mock từ Google CDN.
 2. Mỗi card grid là 1 album (ảnh `0.jpg` làm đại diện). Click vào → mở viewer hiển thị các ảnh con `1.jpg → N.jpg`, có nút prev/next để lướt qua lại.
 3. User đã đặt sẵn 6 album trong `stitch_simple_fashion_catalog/{1..6}/` — copy vào project.
 4. Cả 6 album đều thuộc tab QUẦN, các tab ÁO/ĐẦM/SET/PHỤ KIỆN sẽ trống.
 
 **Files mới**:
+
 - `showroom/albums/{1..6}/{0..N}.jpg` — copy từ `stitch_simple_fashion_catalog/` (album 1-5 có 5 ảnh `0..4.jpg`, album 6 có 6 ảnh `0..5.jpg`).
 
 **Files sửa hoàn toàn** (`showroom/index.html`):
+
 - Bỏ 21 mock card từ code mẫu Google CDN.
 - Grid render dynamic từ `const ALBUMS = [{id, size, category}]` qua `grid.innerHTML = ALBUMS.map(...)`. Mỗi card data-album={id}, data-category="quan".
 - Overlay viewer: thay `text-center` content cũ bằng image container có nút `chevron_left`/`chevron_right` + counter `1 / N` + album label.
@@ -118,6 +138,7 @@
 **Yêu cầu user**: "bấm chuyển đổi qua lại giữa các tab quần áo đầm set không được kiểm tra lại". Tab gốc của code.html là static (chỉ visual). Cần làm filter thật.
 
 **Files sửa** (`showroom/index.html`):
+
 1. Mỗi card thêm `data-category="..."` dựa theo product name trong onclick:
     - CHIC KNIT & SKIRT SET → `set` (6 card)
     - TAILORED POWER SUIT → `set` (1 card)
@@ -136,12 +157,14 @@
 ### [showroom] Card bo góc + aspect 2:3 + object-contain + gap-1 (theo yêu cầu user)
 
 **Yêu cầu user**: Sửa card theo ảnh tham khảo:
+
 1. Bo góc cho card (look chuyên nghiệp như "bức tường ảnh thời trang").
 2. Bỏ aspect-square → dùng tỉ lệ chữ nhật đứng 2:3.
 3. `object-cover` → `object-contain` để giữ nguyên ảnh, không cắt góc.
 4. `gap-0` → `gap-1` (4px) để khoảng cách tối thiểu giữa các card.
 
 **Files sửa**:
+
 - `showroom/index.html` (3 chỗ):
     - Grid: `gap-0 w-full` → `gap-1 w-full p-1`.
     - 21 cards: `aspect-square ... bg-surface-container-low` → `aspect-[2/3] ... bg-surface-container-low rounded-2xl` (16px corner radius).
@@ -156,6 +179,7 @@
 **Yêu cầu user**: "xóa hết code đã làm, làm lại từ đầu giống HOÀN TOÀN ảnh và hướng dẫn trong `stitch_simple_fashion_catalog/`".
 
 **Hành động**:
+
 - ❌ Xóa `showroom/showroom.css` và `showroom/showroom.js`.
 - ♻️ Overwrite `showroom/index.html` = copy y hệt `stitch_simple_fashion_catalog/code.html` (264 dòng), chỉ thêm 1 line `#Note` header bắt buộc theo CLAUDE.md (chiếm chỗ dòng trống cũ).
 
@@ -172,11 +196,13 @@
 **Yêu cầu user**: User cập nhật lại DESIGN.md + screen mới trong `stitch_simple_fashion_catalog/`, yêu cầu áp dụng vào showroom (palette, layout, typography, components).
 
 **Files sửa**:
+
 - `showroom/index.html` — refactor tailwind.config sang palette prose 4-tier (`primary #1A1A1A`, `secondary #5D5F5B`, `tertiary #D9C5B2`, `accent #8C7355`); đổi `surface` sang Cream `#F5F5F0`; thêm `borderRadius DEFAULT 0.25rem` (4px) và `maxWidth.container 1280px`; nav + main wrap `max-w-container mx-auto` với `px-5 md:px-16` (margin 20/64px theo spec).
 - `showroom/showroom.css` — tab active đổi từ `1px solid #000` → **`2px solid #8C7355`** (accent taupe-gold, đúng spec "## Components — Tabs"); thêm ambient hover shadow `0 4px 24px rgba(26,26,26,0.05)` (5% charcoal) theo "## Elevation — Interactions"; border tokens đổi sang `tertiary/40`.
 - `showroom/showroom.js` — không đổi (data + render template giữ nguyên).
 
 **Quyết định khi prose & screen.png mâu thuẫn**:
+
 - Prose nói "Image Grid: 24px gutters" nhưng screen.png cho thấy ảnh dán sát edge-to-edge → giữ `gap-0` (intent "quiet gallery / album").
 - Prose nói "Product Cards: title/price below image" nhưng screen.png chỉ hiện ảnh → giữ card image-only, title/price chỉ trong overlay zoom.
 - Frontmatter cũ có `primary: #000000` còn prose `#1A1A1A` → theo prose (intent rõ ràng hơn).
@@ -190,11 +216,13 @@
 **Yêu cầu user**: Tạo trang showroom đơn giản theo design + code mẫu trong `stitch_simple_fashion_catalog/`.
 
 **Files mới**:
+
 - `showroom/index.html` — markup, Tailwind config tokens "Ethos Curated" (surface `#fbf9f9`, primary `#000`, Hanken Grotesk, scale `display-lg`/`headline-md`/`nav-link`).
 - `showroom/showroom.css` — ẩn scrollbar nav, hover scale ảnh nhẹ, fade+scale-in overlay zoom, tôn trọng `prefers-reduced-motion`.
 - `showroom/showroom.js` — data demo `PRODUCTS` 5 danh mục (QUẦN/ÁO/ĐẦM/SET/PHỤ KIỆN), render grid theo tab, click ảnh để zoom, ESC/click out để đóng, giá VNĐ (`750.000đ`).
 
 **Khác biệt với code mẫu**:
+
 - Grid: mobile 2 cột / desktop 3 cột (theo DESIGN.md), không fix 3 cột.
 - Click: event-delegation + `dataset` thay onclick inline (tránh lỗi escape ký tự đặc biệt trong tên SP).
 - Tabs: hoạt động thật (re-render grid theo category), không phải decoration.
@@ -4056,650 +4084,6 @@ cd ~/my-new-site && python3 -m http.server   # serve ngay
 **Cache bump**: `tpos-sidebar.js?v=20260514`, `native-orders-app.js?v=20260514`, plus 11 HTML pages có hard-coded sidebar version.
 
 **Status**: ✅ Live. Native alert/confirm/prompt giờ chỉ dùng làm fallback an toàn — mọi user-facing popup đều dùng custom UI.
-
----
-
-## 2026-05-13
-
-### [orders][customer-360] Phase 14: Filter list theo Customer 360 id
-
-**Mục tiêu**: từ modal Khách hàng 360°, user bấm 1 nút → list NW/PBH thu hẹp về chỉ đơn của khách đó. Mỗi filter có URL riêng để share/bookmark.
-
-**Backend** ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js) + [render.com/routes/fast-sale-orders.js](../render.com/routes/fast-sale-orders.js)):
-
-- `GET /api/native-orders/load?customerId=N`
-- `GET /api/fast-sale-orders/load?customerId=N`
-- Cả 2 `/export` endpoints cũng inherit filter để CSV chỉ chứa đơn của khách đó
-- Input validation: `Number.isFinite(parseInt(customerId, 10))` — bad input bị ignore, không throw (verified `?customerId=abc` → trả full 23 rows)
-
-**API client** ([native-orders/js/native-orders-api.js](../native-orders/js/native-orders-api.js)): `NativeOrdersApi.list({ customerId })` truyền xuống worker.
-
-**UI** (cả 2 trang [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js) + [web2/fastsaleorder-invoice/pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js)):
-
-- Modal header thêm button "🔍 Lọc đơn" (purple, `filter` icon) → `STATE.customerId = N`, `history.replaceState` URL `?customerId=N`, reload list, đóng modal
-- Purple chip "Đang lọc theo Khách hàng #N — ×" hiện trên cùng (trước `.search-info`)
-- Click `×` → clear filter + URL
-- Init parse `?customerId=` từ URL → deep-link/share/bookmark hoạt động
-- CSV export cũng inherit filter
-
-**Test live** (commit `060e83da`, Render deploy live):
-
-- NW `?customerId=6820`: chip "Đang lọc theo Khách hàng #6820 ×", filter còn 1 row (NW-20260424-0002), `clearCustomerFilter()` → chip removed + URL cleaned + 23 rows back
-- PBH `?customerId=14202`: chip hiện, 0 rows (khách chưa có PBH), clear OK
-- Bad input `?customerId=abc`: filter ignored gracefully → 23 rows
-- Export: `Content-Disposition` đúng filename, filter pass qua
-
-**Workflow user**: Top customers 360 → click 👤 mở modal → "🔍 Lọc đơn" → bay sang trang list scope theo customer → chip × để clear → hoặc share URL có `?customerId=N`.
-
-**Cache bump**: `pbh-app.js?v=20260513c`, `native-orders-api.js?v=20260513b`, `native-orders-app.js?v=20260513b`.
-
-**Status**: ✅ Live + verified end-to-end.
-
-### [reports][customer-360] Phase 13: Top khách hàng 360° unified report
-
-**Mục tiêu**: tận dụng `customer_id` FK của Phase 12 để rank khách hàng theo doanh thu hợp nhất (NW + PBH), thay vì group theo `partner_phone + partner_name` (V1 chỉ có PBH, dễ duplicate nếu cùng khách có nhiều variant phone/name).
-
-**Backend** ([render.com/routes/pbh-reports.js](../render.com/routes/pbh-reports.js)):
-
-- `GET /api/pbh-reports/top-customers-360?days=30&limit=10`
-- `FULL OUTER JOIN` 2 CTE: `nw` (native_orders by customer_id) + `pbh` (fast_sale_orders by customer_id, exclude state='cancel')
-- `LEFT JOIN customers c` → canonical name/phone/status từ Customer 360 (fallback hint từ orders nếu customer bị xóa)
-- Order by `combined_total DESC LIMIT N`
-- Trả thêm `unlinked: { native, pbh }` đếm số đơn chưa link customer_id (data-quality signal)
-- Response shape: `{ customers: [{customerId, name, phone, status, nw:{count,total}, pbh:{count,total}, combinedTotal, lastOrder}], unlinked }`
-
-**UI** ([web2/report-revenue/index.html](../web2/report-revenue/index.html)):
-
-- Panel mới full-width: "🌐 Top khách hàng 360° (NW + PBH combined)"
-- Hint line phía trên bảng: "Đơn chưa liên kết customer 360 trong N ngày: X NW + Y PBH"
-- Table cols: #, KH (+ status badge), SĐT, NW (count + amount), PBH (count + amount), Tổng combined, action 👤
-- Click 👤 → mở `#customer360Modal` (gọi `GET /api/v2/customers/:id/orders?limit=20`, render giống pattern PBH + Native pages)
-
-**Test live** (Render commit `f1d5611` live):
-
-- Endpoint trả 5 customers + `unlinked.native=15` (15 NW chưa có phone — đúng vì test orders không gắn phone)
-- UI render 7 rows, top: Phuong Huynh 100k combined
-- Modal mở thành công cho customerId=6820, title "Khách hàng #6820 — Đơn web + PBH"
-- 0 console errors, 0 fetch fails
-
-**So với V1** (`/api/pbh-reports/top-customers`):
-
-- V1: group `partner_phone + partner_name` (PBH only, không cross-source) — vẫn giữ cho backward compat
-- V13: group `customer_id` (NW + PBH combined) — recommended cho mọi report mới
-
-**Production backfill** (Phase 12 follow-up): chạy `POST /api/native-orders/backfill-customer-links` + `/api/fast-sale-orders/backfill-customer-links` — 0 new links (mọi đơn có phone đã được auto-link từ create-time). Endpoints sẵn sàng cho future cleanup.
-
-**Status**: ✅ Live, ready for further customer-aware analytics (lifetime value, cohort, RFM).
-
-### [pbh][native-orders][customer-360] Phase 12: Partner reference → Customer 360 cross-system FK
-
-**Mục tiêu**: kết nối đơn hàng (Đơn Web NW-... + PBH HD-...) với Customer 360 (table `customers`) để mọi đơn có FK đến khách hàng duy nhất, mở đường cho aggregation báo cáo "khách X có bao nhiêu đơn / tổng tiền bao nhiêu".
-
-**Migration 074** (idempotent, chạy auto qua `ensureTables` ở mỗi server start):
-
-- `native_orders.customer_id INTEGER` + `idx_native_orders_customer_id`
-- `fast_sale_orders.customer_id INTEGER` + `idx_fso_customer_id`
-- **Soft FK** (không có CONSTRAINT) — đơn vẫn sống nếu customer bị hard-delete
-
-**Helper** ([render.com/utils/customer-helpers.js](../render.com/utils/customer-helpers.js)):
-
-- `lookupCustomerIdByPhone(db, phone) → number|null` — **NO auto-create**, chỉ lookup. Khác với `getOrCreateCustomer` đã có (chuyên dùng cho "lưu khách"). Order INSERT/UPDATE chỉ link tới customer đã tồn tại.
-
-**Auto-link wired vào**:
-
-- `POST /api/native-orders/from-comment` — INSERT lấy `customer_id` từ phone lookup
-- `POST /api/native-orders/from-comment` (merge path) — `customer_id = COALESCE(customer_id, $lookup)` để fill khi merge bổ sung phone mới
-- `PATCH /api/native-orders/:code` — khi phone thay đổi → re-link
-- `POST /api/fast-sale-orders` (manual) — INSERT lấy `customer_id` từ `partnerPhone`
-- `POST /api/fast-sale-orders/from-native-order` — inherit `customer_id` từ source NW; fallback phone lookup
-- `PATCH /api/fast-sale-orders/:number` — khi `partnerPhone` thay đổi → re-link
-
-**Backfill endpoints** (admin, idempotent):
-
-- `POST /api/native-orders/backfill-customer-links` → single-query UPDATE join, trả `{ linked, codes[] }`
-- `POST /api/fast-sale-orders/backfill-customer-links` → tương tự với `partner_phone`
-
-**Aggregation endpoint** ([render.com/routes/v2/customers.js:1241](../render.com/routes/v2/customers.js)):
-
-- `GET /api/v2/customers/:id/orders` — accept numeric id HOẶC phone string
-- Query song song `native_orders` + `fast_sale_orders` WHERE `customer_id = $1 OR phone = $2` (cover orders chưa backfill)
-- Trả về `{ native[], pbh[], summary: { native: {count, totalAmount}, pbh: {count, totalAmount, byState} } }`
-
-**API response shape** (cả NW + PBH thêm field mới):
-
-- `order.customerId: number|null` — null = chưa link / không có phone hoặc phone không match customer nào trong DB
-
-**Cloudflare Worker**: không cần đổi — `/api/native-orders/*` + `/api/fast-sale-orders/*` + `/api/v2/customers/*` đã wildcard sẵn.
-
-**QA tests** ([scripts/pbh-qa-test.js](../scripts/pbh-qa-test.js)): 9 test steps Phase 12 — auto-link NW (linked + unlinked phone), PATCH re-link (null + restore), NW→PBH inherit, backfill idempotent (NW + PBH), aggregation by-id, aggregation by-phone. Test tự tạo customer với phone unique mỗi run (tránh duplicate phone trong live DB — `0123456788` tồn tại nhiều rows id=1, 14202, …, lookup `LIMIT 1` không deterministic). Cleanup hoàn toàn (`TEST-Phase12-*` prefix customer + DELETE NW/PBH).
-
-**Status**: ✅ Deployed (Render `dep-d826q3r7uimc73c57570`) + QA **60/60 pass** live worker.
-
-**UI** ([web2/fastsaleorder-invoice/pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js) + [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js)):
-
-- Mỗi row có `customerId != null` hiện thêm nút 👤 (lucide `user-circle`, tím) ngay sau "Tạo PBH"
-- Click → mở `#customer360Modal` (lazy create, body-anchored, click-outside close)
-- Modal hiện 2 KPI card (NW count + total / PBH count + total) + 2 bảng top-10 orders với mã/SL/tổng/trạng thái/chiến dịch
-- Gọi `GET /api/v2/customers/:id/orders?limit=20` (endpoint Phase 12)
-- Test live: cả 2 trang render đúng modal với title "Khách hàng #14202 — Đơn web + PBH"; 0 console errors
-- Cache: `pbh-app.js?v=20260513b`, `native-orders-app.js?v=20260513`
-
-### [tpos-pancake][native-orders][ui] Tạo đơn lặp lại cho cùng 1 khách — count badge + merge UX
-
-**Vấn đề trước đó**: khi khách bình luận nhiều lần trong cùng campaign, sau khi tạo đơn cho comment đầu, nút "Tạo đơn" bị thay bằng icon khóa `package-open` → user KHÔNG bấm được comment khác của cùng khách để gộp vào đơn cũ (dù backend Phase 6 đã hỗ trợ merge).
-
-**Files**:
-
-- `tpos-pancake/js/tpos/tpos-comment-list.js` — nút luôn hiện trên mọi comment; ID đổi từ `create-order-{fromId}` → `create-order-{fromId}-{commentId}` (unique per row); icon động (shopping-cart / plus-square / check-square) theo trạng thái; thêm count badge `📝 N`; thêm `refreshCommentItem(commentId)` re-render row hiện tại + mọi comment khác cùng `fromId` để badge cập nhật đồng loạt khi merge thành công.
-- `tpos-pancake/js/tpos/tpos-init.js` — `loadNativeOrdersForPost()` lưu thêm `commentCount` + `commentIds` vào `sessionIndexMap` (trước chỉ lưu `index/code/source`).
-- `tpos-pancake/index.html` — bump cache: `tpos-comment-list.js?v=20260513c`, `tpos-init.js?v=20260513`.
-
-**Behavior**:
-
-- Chưa có order → button `shopping-cart`, title "Tạo đơn web"
-- Đã có order, comment này CHƯA trong order → button `plus-square` (tím), title "Thêm comment vào đơn NW-... (N comments)" — click để merge
-- Đã có order, comment này ĐÃ merged → button `check-square` (xanh lá), title "Comment đã thêm vào đơn..."
-- Badge `📝 N` hiện cạnh order-code-badge khi `commentCount > 1`
-
-**Notification 3-case** (theo backend response field):
-
-- `idempotent: true` → "✓ Comment đã có trong đơn (N comments)" (info)
-- `merged: true` → "📝 Đã thêm comment vào đơn (N comments)" (info)
-- Mới hoàn toàn → "🆕 Đã tạo đơn web" (success)
-
-**Test live** (localhost:8080, persistent browser session):
-
-- 73 comments / 44 customers (5 customer có ≥2 comment trong campaign Loan Amy live)
-- Simulate `sessionIndexMap[fromId] = { commentCount:2, commentIds:[c0] }` → `refreshCommentItem(c0)` → cả 2 row của cùng customer cập nhật badge `📝 2`; row c0 hiện `check-square` "Comment đã thêm…", row c1 hiện `plus-square` "Thêm comment…" → đúng spec
-- 0 console errors, 0 fetch fails
-
-**Status**: ✅ Done — ready for Phase 12 (Partner reference → Customer 360 cross-system FK)
-
-### [pbh][export][bulk] Phase 10-11: Excel CSV export + bulk actions
-
-**Phase 10 — CSV export (Excel-compatible, UTF-8 BOM)**:
-
-- `GET /api/fast-sale-orders/export?state&search` → 24 cột: STT, số HĐ, ngày HĐ, KH, SĐT, địa chỉ chi tiết (city/district/ward), tổng SL, tổng tiền, đã thanh toán, đặt cọc, còn nợ, phí giao, COD, hãng VC, tracking, trạng thái, lần in, đơn nguồn, chiến dịch, kho, NV bán.
-- `GET /api/native-orders/export?status&search&campaignIds` → 18 cột tương tự cho Đơn Web.
-- UTF-8 BOM (`﻿`) prefix giúp Excel hiển thị tiếng Việt đúng không cần convert.
-- Filename `pbh-export-YYYY-MM-DD.csv` / `donweb-export-YYYY-MM-DD.csv`.
-- Auto inherit filter hiện tại (search/state/campaign).
-- UI: "Xuất Excel" button cả 2 trang ([fastsaleorder-invoice](../web2/fastsaleorder-invoice) + [native-orders](../native-orders)) — create `<a download>` trigger download.
-
-**Phase 11 — Bulk actions (multi-select)**:
-
-- `POST /api/fast-sale-orders/bulk-confirm` + `/bulk-cancel`: body `{ numbers: [] }`, UPDATE batch với state guard (confirm chỉ từ draft, cancel chỉ ≠ cancel). Return `{ changed, requested, orders }`.
-- Broadcast WS event `pbh:bulk-confirmed` | `pbh:bulk-cancelled` với count + numbers array.
-- UI: bulk action bar (purple background `#ede9fe`) auto hiện khi check ≥1 row, ẩn khi 0 row. Hiện count + nút: **Xác nhận tất cả** (green) / **Hủy tất cả** (warning) / **Bỏ chọn**.
-- Check-all checkbox `#pbhCheckAll` → toggle tất cả `.row-check` + update bulk bar.
-- Per-row check event delegation: bất kỳ change → recompute bulk bar.
-
-Verify live: `curl /api/fast-sale-orders/export` trả CSV với header `Content-Type: text/csv` + `Content-Disposition: attachment; filename="pbh-export-2026-05-13.csv"`. Bulk-confirm với fake number → `{ changed: 0, requested: 1 }` (graceful no-op).
-
-Status: ✅ Deploy live commits `7422f7f1` + `7ffcab32`.
-
----
-
-### [pbh][print][reports] Phase 8-9: Print HTML + Reports dashboard
-
-**Phase 8 — Print PBH** ([web2/fastsaleorder-invoice/print.html](../web2/fastsaleorder-invoice/print.html)):
-
-- Standalone printable invoice page A4 (`?number=HD-...`).
-- Layout: company header (N2 Store brand) + parties block (bên bán / khách hàng) + items table (#, SP, ĐVT, SL, đơn giá, giảm, thành tiền) + totals (untaxed/discount/tax/delivery/grand) + COD/deposit/residual + signature blocks.
-- `@media print` ẩn top-actions, font 11px.
-- Auto increment `print_count` via `/print` API on render → realtime WS `pbh:printed` event broadcast.
-- PBH list "In" button mở popup print.html thay vì alert.
-
-**Phase 9 — Reports dashboard** ([render.com/routes/pbh-reports.js](../render.com/routes/pbh-reports.js) + [web2/report-revenue](../web2/report-revenue)):
-
-- 4 endpoints: `/summary` (KPI + states), `/revenue` (daily series), `/top-customers` (ranked), `/by-campaign` (group by live_campaign).
-- UI: 6 KPI cards color-coded (today revenue/30d revenue/residual/native orders/shipping/refunds), bar chart doanh thu theo ngày với hover tooltip, 4-pie state breakdown, top customers table, campaign table.
-- Range selector 7/30/90/365 ngày.
-- **Realtime auto-refresh**: subscribe `pbh:*` + `native_order:created` (debounced 2s) → reload toàn bộ dashboard.
-
-**tpos-pancake feedback** ([tpos-comment-list.js](../tpos-pancake/js/tpos/tpos-comment-list.js)):
-
-- Phân biệt 3 trường hợp khi tạo đơn từ comment: idempotent ("đã tồn tại"), merged ("📝 Đã gộp comment vào đơn N comments"), created ("🆕 Đã tạo đơn web").
-
-Status: ✅ Deploy live commit `0041026c`. Dashboard có thể xem tại `/web2/report-revenue/index.html`.
-
----
-
-### [pbh][realtime][merge] Phase 6-7: WS realtime sync + comment-merge by campaign — QA 40/40
-
-**User**: "1/ tạo đơn ở tpos-pancake → realtime update native-orders bảng / 2/ khách đã có đơn trong chiến dịch → bấm tạo nữa thì thêm comment vào đơn cũ".
-
-**Phase 6 — Comment-merge by campaign** ([render.com/routes/native-orders.js](../render.com/routes/native-orders.js)):
-
-- Migration 073: `ADD COLUMN comment_ids JSONB DEFAULT '[]'`, `comment_count INT DEFAULT 1`.
-- `POST /from-comment`: trước khi tạo đơn mới, check có draft/confirmed order nào của cùng `fb_user_id + live_campaign_id` không. Nếu có → **APPEND** comment_id + message vào note + tăng commentCount + messageCount. Return `{ merged: true, order }`.
-- Idempotency mở rộng match cả `comment_ids @> [fbCommentId]`.
-
-**Phase 7 — Realtime WS sync**:
-
-- [server.js](../render.com/server.js): expose `broadcastToClients` lên `app.locals`.
-- 4 routes (native-orders, fast-sale-orders, delivery-invoices, refunds) emit WS events sau create/update/state-change/delete: `native_order:*`, `pbh:*`, `delivery:*`, `refund:*`.
-- [web2/shared/pbh-realtime.js](../web2/shared/pbh-realtime.js): shared WS client + debounce 500ms + auto-reconnect exponential backoff (max 30s).
-- 4 UI pages subscribe + auto reload list + show notify "🆕 mới" cho user.
-
-**QA iter 4** ([pbh-qa-test.js](../scripts/pbh-qa-test.js)): **40/40 PASS**
-
-- Phase 6 (4 tests): create #1 no-merge, create #2 same campaign → MERGE, create #3 different campaign → NEW, idempotency.
-- Phase 7 (1 test): WS connect `wss://n2store-fallback.onrender.com` → POST `/from-comment` → verify `native_order:created` event received trong 3s.
-
-Status: ✅ deploy live commit `f81d9542`.
-
----
-
-### [issue-tracking][fix] Nhận hàng RETURN_SHIPPER không trigger được — DELETE OrderLine + alreadyRefunded fallback
-
-**File**: [shared/js/api-service.js](../shared/js/api-service.js) (processRefund step 2.5)
-
-**User report**: Đơn Thu Về của khách Anna Ngọc (TV-2026-00630, tposId 430612) — bấm "Nhận hàng" → "Xác nhận" → toast lỗi `ActionInvoiceOpenV2 failed: 400 "Vui lòng thêm vài chi tiết hóa đơn"`. Lặp lại nhiều lần → tạo nhiều orphan draft refund order trên TPOS (435065/66/67/70, all 0 lines), original 430612 bị set `ReturnTotal=1` cho **cả 6 lines** → cuối cùng đơn thành "đã trả hết" mà thực tế chỉ trả 1 SP.
-
-**Root cause**: Step 2.5 partial-refund filter chỉ filter client-side (`refundDetails.OrderLines = filteredOrderLines`) rồi PUT replace. Test thực tế cho thấy PUT replace OrderLines KHÔNG xoá line subtraction server-side đúng cách — refund order kết quả có 0 lines (TPOS emptied tất cả thay vì giữ 1 line ta gửi). ActionInvoiceOpenV2 sau đó thấy invoice rỗng → reject.
-
-Side effect: mỗi failed attempt vẫn set `ReturnTotal` trên các line gốc → ActionRefund lần kế bỏ qua chúng (TPOS nghĩ đã refund) → vòng lặp tệ hơn.
-
-**Fix (2 nhánh)**:
-
-1. **DELETE từng line không match TRƯỚC khi PUT** — sau khi filter xác định `linesToRemove`, gọi `DELETE /odata/FastSaleOrderLine({Id})` cho từng line bị loại. Server-side state lúc đó chỉ còn lines target → PUT + ActionInvoiceOpenV2 work đúng.
-2. **filteredOrderLines === 0 (target đã refund elsewhere)**: SP target không có trong refund order TPOS vừa tạo (do `ReturnTotal` đã set từ failed PUT cũ / refund khác). Confirm refund order này = refund nhầm 5 SP khác. Fix: thử `DELETE /odata/FastSaleOrder({refundOrderId})` để hủy orphan, return `{ alreadyRefunded: true, refundOrderId: null }` để [script.js handleConfirmAction](../issue-tracking/js/script.js#L1905) mark ticket COMPLETED qua nhánh xử lý sẵn có.
-
-**Verify**:
-
-- Re-trigger Nhận hàng cho TV-2026-00630 sau fix → ActionRefund returns 400 "Đơn hàng này đã được trả hết" (do ReturnTotal=1 trên 6/6 lines từ các attempt fail trước) → existing handler ở step 1 fail trả `alreadyRefunded:true` → ticket auto COMPLETED. Không còn lỗi `"Vui lòng thêm vài chi tiết hóa đơn"`.
-- Orphan refund 435065/66/67/70 (0 lines) + 435073 (5 lines) cần dọn thủ công trên TPOS — fix có code DELETE FastSaleOrder() trong nhánh 2 nhưng cleanup quá khứ phải user xử lý.
-- DELETE FastSaleOrderLine endpoint verified hoạt động qua dry test (`DELETE /odata/FastSaleOrderLine(99999999)` → 500 NRE thay vì 404 → endpoint tồn tại).
-
-**Status**: ✅ Done
-
-### [orders][kpi] Dọn header doc + remove dead code Firestore trong tab KPI Hoa Hồng
-
-**File**: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js)
-
-- Header comment cũ liệt kê 4 Firestore collection (`kpi_statistics`, `kpi_audit_log`, `kpi_base`, `report_order_details`) — 3/4 đã migrate sang Render PG từ lâu, chỉ `report_order_details` + `settings/employee_ranges` còn dùng. Cập nhật lại header thành "Data sources" thực tế: Render PG (via CF Worker) + Firestore (2 collection còn dùng).
-- Remove `const db = this.getDb(); if (!db) throw new Error('Firestore not available');` trong recon function — `db` không dùng ở đâu sau đó, recon đi qua `window.kpiManager.reconcileKPI` (Render PG).
-- Giữ `getDb()` + `waitForFirebase()` vì còn cần cho `employee_ranges` (employee name fallback) + `report_order_details` (cache modal sản phẩm).
-
-**Status**: ✅ Done
-
-### [orders][kpi] Đồng bộ thứ tự dropdown "Tất cả campaign" trong tab KPI giống tab1
-
-**File**: [orders-report/js/tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js#L700-L760)
-
-**Vấn đề**: Dropdown campaign filter trong KPI tab sort alphabet (COMEBACK → NGÀN ĐƠN → T1 → T10 → T2…), khác hẳn dropdown "Cài Đặt Chiến Dịch" của tab1 vốn sort theo ngày tạo desc (T7 DEAL HOT → T6 DEAL XINH → T5 CHỐT ĐƠN → … → COMEBACK).
-
-**Fix**: Bỏ `[...campaigns].sort()` (set alphabet). Dùng insertion order: API `/api/campaigns` (render.com/routes/campaigns.js:96) trả `ORDER BY created_at DESC` — chính nguồn dùng cho dropdown tab1. Bổ sung campaign từ `statsData` append cuối list để vẫn filter được campaign đã xóa khỏi DB nhưng còn KPI history.
-
-**Status**: ✅ Done
-
-### [pbh][delivery][refund] Phase 4-5: delivery_invoices + refunds + QA 35/35 PASS
-
-**Phase 4** — Backend ([render.com/routes/delivery-invoices.js](../render.com/routes/delivery-invoices.js), [refunds.js](../render.com/routes/refunds.js)):
-
-- `delivery_invoices` (DLV-YYYYMMDD-XXXX, migration 071): từ PBH (`fso_id/number`), partner snapshot, carrier (id/name/tracking), `delivery_lines` jsonb subset, COD + delivery_fee, state machine `pending→shipping→delivered|returned|cancel` với `state_history` jsonb. `POST /from-pbh + /ship + /deliver + /return + /cancel`.
-- `refunds` (RF-YYYYMMDD-XXXX, migration 072): từ PBH, `refund_lines` với `quantityReturned`, `refund_mode` (cash|wallet|exchange), `amount_refund` auto compute, state machine `draft→approved→completed|cancel`. `POST /from-pbh + /approve + /complete + /cancel`.
-- Register `/api/delivery-invoices/*` + `/api/refunds/*` ở server + CF Worker proxy.
-
-**Phase 5** — UI list pages:
-
-- [web2/fastsaleorder-delivery](../web2/fastsaleorder-delivery): full list + filter state + paging + detail modal + 4 action buttons (ship/deliver/return/cancel) chỉ visible đúng state.
-- [web2/fastsaleorder-refund](../web2/fastsaleorder-refund): same pattern + 3 action buttons (approve/complete/cancel). Mode badge "Tiền mặt/Ví/Đổi", amount_refund highlight đỏ.
-- PBH list ([pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js)) thêm 2 action button: "Tạo phiếu giao" (info truck) + "Trả hàng" (warning undo) cho mỗi PBH ≠ cancel.
-- Cross-link UI: delivery/refund row → click số PBH → mở fastsaleorder-invoice.
-
-**QA loop** ([scripts/pbh-qa-test.js](../scripts/pbh-qa-test.js)):
-
-- Iter 1 (Phase 1-3): **25/25 PASS** — health, create native, convert, idempotency, search, confirm/print/cancel, filter state, reset-stt, browser UI.
-- Iter 2 (Phase 1-4): **33/33 PASS** — thêm delivery /health + from-pbh + state machine (3-step history), refund /health + from-pbh + amount calc + state machine.
-- Iter 3 (Phase 1-5): **35/35 PASS** — thêm browser load delivery + refund list pages (verify no console errors + tbody rows).
-
-Tất cả test có cleanup (DELETE force=1) — test data không leak prod DB.
-
-Status: ✅ Phase 1-5 deployed live commits `05c7ad18` (1-3) → `97296e10` (4 backend) → `bc70f35d` (5 UI). QA clean.
-
----
-
-### [pbh][native-orders][web2] Phase 1-3: TPOS-clone PBH (Phiếu Bán Hàng) flow
-
-**User**: "clone full TPOS chức năng PBH". Phase 1-3 deployed commit `05c7ad18`.
-
-**Research**: probe TPOS API → SaleOnline_Order 77 fields (sample đơn Huỳnh Thành Đạt 0123456788). FastSaleOrder list trả 500 (permission/server issue) — design schema riêng theo industry-standard.
-
-**Phase 1** — `native_orders` mirror TPOS SaleOnline_Order (migration 069 inline trong ensureTables):
-
-```
-ALTER TABLE native_orders ADD COLUMN
-  city_code/city_name, district_code/district_name, ward_code/ward_name,
-  partner_id, partner_code, partner_unique_id, email,
-  company_id/company_name, warehouse_name, message_count, tpos_index.
-```
-
-PATCH endpoint mở 15 field mới.
-
-**Phase 2** — `fast_sale_orders` table (migration 070, [render.com/routes/fast-sale-orders.js](../render.com/routes/fast-sale-orders.js)):
-
-- Schema: `number` (`HD-YYYYMMDD-XXXX`), `display_stt` sequence, partner snapshot (id/code/name/phone/address/email), address breakdown, `order_lines` jsonb, totals (qty/untaxed/tax/discount/total), payment (amount/deposit/residual), delivery (price/COD/carrier/tracking), state machine (`draft|confirmed|done|cancel`), source link (`source_type/id/code` → native_orders), live_campaign, warehouse, company, crm_team, assigned_user, comment, tags, print_count.
-- Routes: `GET /health|/load|/:number`, `POST /` (manual), `POST /from-native-order` (idempotent — skip nếu đã convert), `PATCH /:number`, `POST /:number/{cancel,confirm,print}`, `DELETE /:number?force=1`, `POST /reset-stt`.
-- Register `/api/fast-sale-orders/*` ở [render.com/server.js](../render.com/server.js) + [cloudflare-worker/modules/config/routes.js](../cloudflare-worker/modules/config/routes.js) + [cloudflare-worker/worker.js](../cloudflare-worker/worker.js).
-
-**Phase 3** — Convert + UI:
-
-- [native-orders/js/native-orders-app.js](../native-orders/js/native-orders-app.js): thêm action button "Tạo PBH" (xanh receipt icon) cạnh edit/delete. `createPbh(code)` → POST /from-native-order → notify + reload. NativeOrder status `draft` auto → `confirmed` sau convert.
-- [web2/fastsaleorder-invoice/index.html](../web2/fastsaleorder-invoice/index.html) + [pbh-app.js](../web2/fastsaleorder-invoice/pbh-app.js): full PBH list page — filter state + search + pagination, detail modal, confirm/cancel/print actions, reset-stt.
-
-**Verify live**:
-
-```
-NW-20260513-0001 → POST /from-native-order → HD-20260513-0001 (STT=1)
-GET /load → 1 PBH (Antina Trân, phone 0849772439, từ NW-20260513-0001, state=draft)
-```
-
-UI screenshot: PBH list hiển thị cross-link `NW-20260513-0001` (đơn nguồn) — flow tpos-pancake → native-orders → PBH hoạt động end-to-end.
-
-**Phase 4-5** (chưa làm): delivery invoice, refund, print HTML/PDF, reports, partner_id reference vào customer 360.
-
-Status: ✅ Phase 1-3 live commit `05c7ad18`.
-
----
-
-### [orders][tab3] Đối soát Excel — skip STT có tag "ĐÃ GỘP KO CHỐT" / "KHÔNG CẦN CHỐT"
-
-**User**: "trong file excel có cột 'Nhãn' -> nếu có 'ĐÃ GỘP KO CHỐT', 'KHÔNG CẦN CHỐT' -> thì không cần Đối Soát".
-
-**Implementation** ([orders-report/js/tab3/tab3-history-v2.js](../orders-report/js/tab3/tab3-history-v2.js)):
-
-1. `_fetchCampaignExcel` thay return từ `Map<sttStr,Set<codes>>` thành object `{sttToCodes, sttSkipReason}` — `sttSkipReason: Map<sttStr,string>` map STT có tag skip → tag gốc.
-2. Detect cột "Nhãn" trong Excel (regex `/^Nh[aã]n$/i` ưu tiên, fallback `/Nh[aã]n/i`).
-3. Split tag-cell theo `, ; / newline`, normalize tag (NFD strip accents + `đ→d` + lowercase + trim), compare với set `['ĐÃ GỘP KO CHỐT', 'KHÔNG CẦN CHỐT']`.
-4. Match → set `sttSkipReason.set(stt, tag-gốc)`.
-5. 3 reconcile flows xử lý skip:
-    - `_runReconcileForRecord` (post-upload): trả thêm `skippedCount` + `skipped[]` → ghi Firebase `reconcileResult.skippedCount/skipped`.
-    - `reconcileUploadWithTPOSV2` (per-record modal): truyền `sttSkipReason` vào `_renderReconcileResults`, hiển thị `⏭ N bỏ qua` trong summary + `<details>` collapsible.
-    - `reconcileAllInCampaignV2` (bulk): summary `⏭ N bỏ qua (đã gộp / không cần chốt)` + track `sttSkipByCampaign` partition theo campaign name.
-6. List card badge (line ~570): nếu `rr.skippedCount > 0` thêm suffix `(⏭ N bỏ qua)`; nếu `scannedCount=0 && skippedCount>0` → badge xám `⏭ N bỏ qua hoàn toàn`.
-
-**Verify** ([scripts/verify-skip-tags-trigger.mjs](../scripts/verify-skip-tags-trigger.mjs)) — auto-scan 20 campaigns gần nhất, build skip-stt set, find upload có overlap:
-
-```
-Trigger reconcile cho upload chạm HOUSE+STORE 15/04/2026:
-  skippedCount: 11
-  Sample skipped:
-    STT 18  · B1537B · ĐÃ GỘP KO CHỐT · HOUSE 15/04/2026
-    STT 17  · B1537B · ĐÃ GỘP KO CHỐT · STORE 15/04/2026
-    STT 5   · B1537V · KHÔNG CẦN CHỐT · HOUSE 15/04/2026
-    STT 236 · B1564  · ĐÃ GỘP KO CHỐT · STORE 15/04/2026
-    STT 197 · B1511H · ĐÃ GỘP KO CHỐT · HOUSE 15/04/2026
-
-VERDICT: ✅ PASS — recognized 2 tag variants, accent-insensitive, đúng campaign per STT
-```
-
-**Probe** ([scripts/probe-excel-tags.mjs](../scripts/probe-excel-tags.mjs)) — 15/20 campaigns recent có STTs với skip tags; tổng across all:
-
-- `ĐÃ GỘP KO CHỐT`: 80 occurrences
-- `KHÔNG CẦN CHỐT`: 241 occurrences
-
-**Status**: ✅ Done — feature triển khai trong 3 reconcile flows + list badge, không regression existing test (upload `00860050` skip=0 vì 06/05/2026 không có tag skip, vẫn 19 matched + 1 drop).
-
----
-
-### [issue-tracking] Hiển thị "Ghi chú" (Comment) + "Ghi chú giao hàng" (DeliveryNote) trong modal customer lookup
-
-**Trigger user**: ảnh TPOS → "Ghi chú: (THU VỀ 1 QUAT B1564 - 169K LỖI)" cần hiển thị trong modal tra cứu vì CSKH cần thông tin này.
-
-**Discovery** (qua browser session inspect TPOS OData):
-
-- `FastSaleOrder.Comment` = "Ghi chú" (order-level, do ops typed, vd "GG 390K", "THU VỀ 1 QUAT B1564 - 169K LỖI")
-- `FastSaleOrder.DeliveryNote` = "Ghi chú giao hàng" (thường là template boilerplate dài)
-- Cả 2 field đều CÓ SẴN trong response của `ODataService.GetView` (search list) — không cần extra fetch.
-
-**Implement**:
-
-- [issue-tracking/js/customer-orders-lookup.js](../issue-tracking/js/customer-orders-lookup.js):
-    - Map `note: o.Comment` + `deliveryNote: o.DeliveryNote` (trim) trong `fetchOrders`.
-    - `renderOrderRow`: thêm ribbon `📝 {note}` (vàng nhạt, 1 dòng ellipsis) ngay dưới grid summary nếu note non-empty — visible từ list, đỡ phải click vào từng đơn.
-    - `renderDetailsHtml(details, orderFromList)`: nhận thêm order từ state để lấy note. Block "📝 Ghi chú" (vàng amber) hiển thị full. Block "🚚 Ghi chú giao hàng" (xanh blue) dùng `<details>` element collapsible (default đóng) vì DeliveryNote thường dài + boilerplate.
-- [issue-tracking/css/style.css](../issue-tracking/css/style.css): +70 dòng — `.customer-order-note` ribbon (gradient yellow, ellipsis, padding-left 44px align với code col), `.order-note-block` blocks với `border-left` semantic (amber cho note, blue cho delivery), `<details>` chevron rotation animation.
-
-**Verify (local)**:
-
-- ✅ Search SĐT 0123456788: 79/143 đơn có Comment, ribbon render đúng 79 lần.
-- ✅ Expand đơn `434176` (NJD/2026/65932): note="GG 390K" hiển thị main block, delivery note collapsible 'KHÔNG ĐƯỢC TỰ Ý HOÀN...' nhấp mở/đóng được.
-- ✅ Screenshot xác nhận layout sạch, hierarchy rõ.
-
-**Status**: ✅ Done
-
----
-
-### [issue-tracking] Fix: cột "Mã đơn" đè tên khách trong modal customer lookup
-
-**Trigger user**: ảnh chụp → "NJD/2026/63950" rộng > 100px cell → overflow đè "Huỳnh Thành Đạt".
-
-**Fix** [issue-tracking/css/style.css](../issue-tracking/css/style.css):
-
-- `.customer-order-summary` grid: `auto 100px 1.2fr 1fr 100px 110px 24px` → `22px 150px 1.2fr 1.1fr 110px 100px` (mở rộng code 100→150px, bỏ trailing 24px empty cell, gap 12→14px).
-- `.customer-order-summary > * { min-width: 0 }` để grid item respect column width (không spillover).
-- `.order-code`, `.order-cust`, `.order-code-sub`: `overflow:hidden; text-overflow:ellipsis; white-space:nowrap` — text dài cắt gọn thay vì đè.
-- `.order-channel-carrier`: line-clamp 2 dòng (carrier name "THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú,...)" rất dài, clamp giúp gọn).
-
-**Verify**: screenshot local sau fix — code "NJD/2026/65932" tách hẳn khỏi "Huỳnh Thành Đạt", carrier address clamp 2 dòng có "…", layout đều.
-
-**Status**: ✅ Done
-
----
-
-### [tag-sync][merge] Rename TPOS tag "ĐÃ GỘP KO CHỐT" → "ĐÃ GỘP KHÔNG CHỐT" (đồng bộ XL label)
-
-**Trigger user**: "TAG XL 'ĐÃ GỘP KHÔNG CHỐT' sẽ auto gán cho TAG tpos 'ĐÃ GỘP KHÔNG CHỐT'" — trước đây XL label đầy đủ "ĐÃ GỘP KHÔNG CHỐT" nhưng sync sang TPOS lại viết tắt "ĐÃ GỘP KO CHỐT". User muốn tên TPOS = tên XL chính xác.
-
-**Fix**:
-
-- `orders-report/js/tab1/tab1-tag-sync.js`:
-    - `SUBTAG_TO_TPOS.DA_GOP_KHONG_CHOT`: `'ĐÃ GỘP KO CHỐT'` → `'ĐÃ GỘP KHÔNG CHỐT'`.
-    - `TPOS_ALIASES` thêm legacy `'ĐÃ GỘP KO CHỐT': 'subtag:DA_GOP_KHONG_CHOT'` → reverse-sync vẫn nhận dạng đơn cũ.
-- `orders-report/js/tab1/tab1-merge.js`:
-    - `MERGED_ORDER_TAG_NAME`: `'ĐÃ GỘP KO CHỐT'` → `'ĐÃ GỘP KHÔNG CHỐT'`.
-    - Thêm `MERGED_ORDER_LEGACY_TAG_NAMES = new Set(['ĐÃ GỘP KO CHỐT', 'ĐÃ GỘP KHÔNG CHỐT'])` để `shouldExcludeTag()` của `calculateMergedTagsPreview` + `calculateSourceTagsPreview` filter cả 2 spelling.
-    - Confirm modal message: "tag KO CHỐT" → "tag KHÔNG CHỐT".
-- `orders-report/js/tab1/tab1-bulk-tags.js`: `hasBlockedTag` check `t.Name === 'ĐÃ GỘP KHÔNG CHỐT' || t.Name === 'ĐÃ GỘP KO CHỐT'` (đơn merge cũ vẫn redirect).
-- `orders-report/js/tab1/tab1-processing-tags.js`: cập nhật log message.
-
-**Backward-compat**:
-
-- Đơn merge cũ trên TPOS có tag "ĐÃ GỘP KO CHỐT" vẫn được nhận dạng (reverse sync + bulk-tag block + merge preview filter).
-- Merge mới tạo tag "ĐÃ GỘP KHÔNG CHỐT" qua `_findOrCreateTPOSTag()` (tạo tag mới nếu chưa có).
-
-**Verify localhost**: source check confirms `SUBTAG_TO_TPOS.DA_GOP_KHONG_CHOT === 'ĐÃ GỘP KHÔNG CHỐT'` + alias entry loaded.
-
-Status: ✅ XL ↔ TPOS tag name đồng bộ, legacy đơn cũ KHÔNG bị xoá oan.
-
----
-
-### [issue-tracking] Tra cứu nhanh tất cả đơn hàng của khách (SĐT/tên)
-
-**Trigger user**: "cho 1 input nhập sđt hoặc tên khách hàng (không phân biệt tiếng việt không dấu, có dấu) -> mở modal coi được tất cả đơn hàng của khách đó, bấm vào đơn sẽ expand coi được chi tiết bên trong".
-
-**Implement**:
-
-- [issue-tracking/index.html](../issue-tracking/index.html): thêm `customer-lookup-bar` (input + button "Tra cứu") ngay dưới header + modal `modal-customer-orders` với stats pills, filter tabs (Tất cả/Mở/Đã TT/Hủy-Nháp), range select (60/180/365/730 ngày).
-- [issue-tracking/js/customer-orders-lookup.js](../issue-tracking/js/customer-orders-lookup.js) **(file mới, IIFE)**: gọi TPOS OData `/FastSaleOrder/ODataService.GetView` qua `window.tokenManager.authenticatedFetch` — phone dùng `contains(Phone,...)`, tên dùng `contains(PartnerNameNoSign,...)` (đã strip diacritics + `đ→d`). Detect mode tự động: digit-only → phone, else → name. Click row expand load chi tiết qua `ApiService.getOrderDetails(orderId)` (cache trong Map, không re-fetch).
-- [issue-tracking/css/style.css](../issue-tracking/css/style.css): thêm 230 dòng style cho lookup bar + modal grid layout + status pills (open/paid/cancel/draft) + chevron rotate animation + responsive grid-area cho mobile <800px.
-
-**Verify (local Playwright)**:
-
-- ✅ Search SĐT `0123456788` → 142 đơn, modal show, subtitle đúng "180 ngày gần nhất".
-- ✅ Search tên `Huỳnh Thành Đạt` (có dấu) → 141 đơn. Search `huynh thanh dat` (không dấu) → 141 đơn (cùng kết quả).
-- ✅ Search SĐT không tồn tại `0999999999` → "Không tìm thấy đơn nào".
-- ✅ Click expand row → load 8 row sản phẩm + grid info + totals row. Click lại → collapse.
-- ✅ Filter tabs: All=142, Open=0 (empty msg), Cancel=142.
-- ✅ Range change 180→60 → re-search auto, 60 ngày = 132 đơn.
-- ✅ ESC đóng modal.
-- ✅ Visual: modal căn giữa, stat pills color-coded, status pills semantic (HỦY = đỏ).
-
-**Status**: ✅ Done
-
----
-
-### [tpos-pancake] Bỏ Confirm/Cancel đơn TPOS — trang này không cần
-
-**Trigger user**: "bỏ luôn phần Confirm/Cancel đơn TPOS đi vì đâu có cần" — trang `tpos-pancake/` đã chuyển tạo đơn sang NATIVE_WEB (Postgres Render), 2 action TPOS này còn sót lại.
-
-**Fix**:
-
-- [tpos-pancake/js/tpos/tpos-api.js](../tpos-pancake/js/tpos/tpos-api.js): xoá `confirmOrder()` + `cancelOrder()` (2 endpoint `SaleOnline_Order/ODataService.ActionConfirm` & `ActionCancel`).
-- [tpos-pancake/js/tpos/tpos-customer-panel.js](../tpos-pancake/js/tpos/tpos-customer-panel.js): xoá block button "Xác nhận đơn"/"Hủy đơn" (chỉ show khi `order.StatusText === 'Nháp'`) + 2 handler tương ứng.
-
-**Status**: ✅ Done. Modal khách hàng còn nút "Đóng" + "Mở trên TPOS" (link sang tomato.tpos.vn — không phải API call).
-
----
-
-### [orders][kpi] Đơn Hủy bỏ → ẩn HOÀN TOÀN khỏi modal KPI (không tính, không hiển thị)
-
-**Trigger user**: "phần kpi đơn nào trạng thái 'HỦY' thì không tính vào và không cần hiển thị" — fix trước chỉ exclude khỏi KPI gross nhưng VẪN hiển thị với pill "✗ Hủy bỏ" trong tab "Đơn loại". User muốn tàng hình hoàn toàn.
-
-**Fix**: filter cancelled invoices NGAY TỪ `applyFilters` → không order nào với invoice cancelled lọt vào `state.filteredData.orders`:
-
-```js
-const inv = this._invoiceCache?.get(order.orderId);
-if (this._isInvoiceCancelled(inv)) continue;
-```
-
-→ Mọi downstream code (summary cards, main table, modal L1, recon) không thấy chúng. Cleanup theo cascading:
-
-- Remove `_getKpiExclusionKind` (không còn 'cancel' branch).
-- `renderEmployeeOrdersTable`: revert về isRefunded only, bỏ pill "✗ Hủy bỏ".
-- `renderKPITable`: remove pre-compute cancelledKpi (emp.totalKPI đã đúng).
-- `_indexReconResults` + `_applyL1ReconCache` + `_hydrateL1ReconCachesForEmployees`: bỏ `_isInvoiceCancelled` check (orders đã filter).
-- HTML labels revert: "Đơn loại" → "Đơn hoàn", "Loại" col → "Hoàn".
-
-`_isInvoiceCancelled` giữ làm helper detect.
-
-**Test localhost** (Hạnh 30 ngày):
-
-- Trước fix v1 (no exclude): Tổng 25 / OK 25 / Gross 150k / Net 150k ❌
-- Sau fix v2 (exclude nhưng hiển thị): Tổng 26 / OK 24 / Đơn loại 2 / Gross 150k / Loại 5k / Net 145k
-- Sau fix v3 (filter source): **Tổng 24 / OK 24 / Đơn hoàn 0 / Gross 145k / Net 145k** ✓
-- `hasHuyBo: false` — không còn text "Hủy bỏ" ở bất kỳ đâu trong modal ✓ ([downloads/n2store-session/kpi-no-cancel-1.png](downloads/n2store-session/kpi-no-cancel-1.png)).
-
-Status: ✅ đơn Hủy bỏ tàng hình hoàn toàn khỏi KPI modal.
-
----
-
-### [supplier-debt] Fix running balance lệch theo filter — opening balance từ summary
-
-**Trigger user**: So sánh 2 filter B9 Diễm My — DateFrom=01/05/2026 vs 30/04/2026 → tổng "Phát sinh" và "Nợ cuối kỳ" detail table khác nhau (lệch 720.000), trong khi summary row B9 hiển thị End=17.468.000 ổn cả hai. "Web lấy dữ liệu từ tpos nhưng có hệ thống tính toán riêng".
-
-**Root cause** (xác minh qua API direct + UI test):
-
-- `renderCongNoTab` trong [supplier-debt/js/main.js](supplier-debt/js/main.js) khởi tạo `runningBalance` cho page 1 = `congNo[0].Begin` (Begin của row đầu từ TPOS `Report/PartnerDebtReportDetail`).
-- TPOS API trả `Begin` **không nhất quán** khi DateFrom rơi mid-period: filter 01/05 → 5.749.000 (sai, đáng lẽ 5.029.000); filter 30/04 → 4.613.000 (đúng).
-- Hệ quả: cuối row cuối cùng detail = 18.188.000 thay vì 17.468.000 (lệch 720k, không khớp summary End).
-
-**Fix**: Thay vì tin `congNo[0].Begin`, tính opening balance từ summary row (`Report/PartnerDebtReport`):
-
-```
-Opening = Summary.End − Summary.Debit + Summary.Credit
-```
-
-Công thức đúng vì summary End là authoritative; Debit/Credit là tổng phát sinh trong kỳ.
-
-```js
-// supplier-debt/js/main.js — renderCongNoTab (page 1 init)
-if (page > 1 && prevPageEndBalance !== undefined) {
-    runningBalance = prevPageEndBalance;
-} else {
-    const summaryEnd = Number(partnerData.End) || 0;
-    const summaryDebit = Number(partnerData.Debit) || 0;
-    const summaryCredit = Number(partnerData.Credit) || 0;
-    runningBalance = summaryEnd - summaryDebit + summaryCredit;
-}
-```
-
-**Test localhost** (`http://localhost:8080/supplier-debt/index.html` qua persistent browser session):
-
-- Direct API probe B9 (PartnerId=568371) cả 2 filter:
-    - 01/05–12/05: `apiFirstBegin=5.749.000` ❌ / `sumDerivedBegin=5.029.000` ✓ → last End `apiBegin=18.188.000` ❌ vs `sumDerived=17.468.000` ✓ (match summary).
-    - 30/04–12/05: `apiFirstBegin=4.613.000` ✓ / `sumDerivedBegin=4.613.000` ✓ → last End 17.468.000 ✓ (cả hai phương án đều đúng — không regression).
-- UI smoke 4 filter × 10 supplier = **40 pass / 0 fail** (`lastEnd === summary.End` ở mọi case).
-- **Verify online** sau push commit `54de02e4` + GH Pages deploy: smoke lặp lại trên `https://nhijudyshop.github.io/n2store/supplier-debt/index.html` = **40 pass / 0 fail** (cùng benchmark localhost, không regression production).
-
-**Files**: [supplier-debt/js/main.js:1618-1641](supplier-debt/js/main.js) (~+13 net, comment dài giải thích quirk TPOS).
-
-Status: ✅ Fixed + verified online — detail running balance luôn khớp summary End bất kể DateFrom.
-
----
-
-### [orders][kpi] Tab "Tin nhắn" KPI — render inline messages thật (Pancake API)
-
-**Trigger user**: "tại sao không lấy được tin nhắn mà phải mở pancake? bạn coi tab1 order cách hiển thị tin nhắn đi" — MVP trước chỉ render meta + deep link, user muốn inline messages như tab1-orders chat modal.
-
-**Fix**: Load đầy đủ Pancake stack vào KPI iframe, copy flow từ `tab1-chat-core.js`:
-
-- HTML `orders-report/tab-kpi-commission.html`: thêm 2 script trước `tab-kpi-commission.js`:
-    ```html
-    <script src="../shared/js/pancake-token-manager.js"></script>
-    <script src="js/managers/pancake-data-manager.js"></script>
-    ```
-    → `window.pancakeTokenManager` + `window.pancakeDataManager` available trong iframe.
-- JS `renderInboxTab`: thay vì gọi `fetchInboxPreview` / fallback `/api/pancake/.../by-psid/...` (route worker không tồn tại) → dùng 2 bước:
-    1. `pdm.fetchConversationsByCustomerFbId(pageId, psid)` → lấy conversations list, prefer type=INBOX.
-    2. Nếu pageId derived sai → `pdm.fetchConversationsByCustomerIdMultiPage(psid)` để search across all pages, lấy `usedPageId` từ conv.page_id.
-    3. `pdm.fetchMessages(usedPageId, convId, null, customerId)` → messages array.
-- `_renderInboxMessages`: parse Pancake Public API v1 shape — `original_message` (raw) ưu tiên hơn `message` (HTML), strip HTML qua `_stripHtml`. Distinguish image/video/file attachments. Sort theo `inserted_at` ASC. Auto scroll bottom.
-
-**Test localhost** (order `260501516` của Hạnh, khách Thanh Vân · 0915555178):
-
-- PDM loaded: `hasPdm=true`, `hasTm=true`, `pdmTmReady=true`, JWT trong localStorage ✓.
-- Click tab "Tin nhắn" → render đầy đủ 6 messages thật trong bubble layout:
-    - Customer bubbles (trắng trái): "Áo yếm bữa trước 169 còn đen...", "Ok", "Ok e"
-    - Page bubbles (tím phải): "dạ để e báo bạn thêm vào đơn cho c ạ NV.Bo", "dạ mẫu áo yếm e nhận về hàng tầm 2 ngày...", "dạ e nhận đơn c ạ Nv. Hạnh"
-    - Mỗi bubble có sender name + timestamp ([downloads/n2store-session/kpi-inbox-real-1.png](downloads/n2store-session/kpi-inbox-real-1.png)).
-
-**Cơ chế hoạt động**:
-
-- Pancake JWT đã có sẵn trong localStorage (do user login từ tab1 hoặc inbox cùng origin) → `pancakeTokenManager` đọc instant.
-- Page Access Token cache trong `pancake_page_access_tokens` (negative-cache 15 phút cho page subscription expired).
-- Tab1 và KPI share cùng PDM cache (`_messagesCache`) → mở chat từ tab1 trước thì KPI load instant SWR.
-
-Files: `orders-report/tab-kpi-commission.html` (+5), `orders-report/js/tab-kpi-commission.js` (~+50 thay logic fetch).
-
-Status: ✅ inline messages production-ready.
-
----
-
-### [orders][kpi] Tab "Tin nhắn" trong modal chi tiết đơn — meta + Pancake link
-
-**Trigger user**: "bấm vào đơn modal có tab hiển thị tin nhắn inbox" — click 1 đơn ở modal L1 → modal L2 mở ra → cần tab xem messages của khách đặt đơn.
-
-**Fix**:
-
-- HTML: thêm tab `[data-order-tab="inbox"]` (icon `message-square`) + body `#tabInbox` chứa loading/empty/content stages.
-- JS:
-    - `_getKpiTposAuthHeader()` — helper auth chung (tokenManager → fallback POST `/api/token` với credential nội tuyến + cache 50 phút).
-    - `_fetchSaleOnlineOrderForInbox(orderId)` — fetch `${WORKER}/api/odata/SaleOnline_Order(${orderId})?$expand=Partner`, cache 5 phút.
-    - `renderInboxTab(orderId)`:
-        - Pageid resolution: `order.Facebook_PageId || order.Facebook_PostId.split('_')[0]` (fallback vì `Facebook_PageId` thường null cho đơn từ LIVE).
-        - Render meta: tên khách, SĐT, page ID, PSID, nút "Mở trên Pancake" (`https://pages.fm/#!/conversation/<pageId>/inbox?psid=<psid>`).
-        - Fetch messages: ưu tiên `pdm.fetchInboxPreview(pageId, customerId)` → fallback `/api/pancake/pages/<pageId>/conversations/by-psid/<psid>/messages?limit=30` qua worker.
-        - Render bubble style (page=tím phải, customer=trắng trái) với time + attachments. Auto scroll bottom.
-- CSS: `.inbox-meta`, `.inbox-msg-{customer,page}`, `.inbox-attach-img`, `.inbox-pancake-link` (gradient + hover states).
-
-**Test localhost** (order `260500568` — Hủy bỏ, Hạnh):
-
-- TPOS SaleOnline_Order(GUID)?$expand=Partner ✓ (sau khi sửa auth header).
-- `Facebook_PageId=null`, `Facebook_PostId="270136663390370_948890684420411"` → derive pageId `270136663390370` ✓.
-- Meta render: "Uyen Nhi Le · 0907777701" + Page ID + PSID + nút Pancake ✓ [downloads/n2store-session/kpi-test-9-inbox-loaded.png](downloads/n2store-session/kpi-test-9-inbox-loaded.png).
-- Messages empty (worker chưa có route `/api/pancake/.../by-psid/...`) → hiển thị empty state với link "Mở trực tiếp trên Pancake" ✓.
-
-**Limitations & next**:
-
-- Inline messages cần thêm route worker proxy `/api/pancake/pages/<pageId>/conversations/by-psid/<psid>/messages` HOẶC dùng JWT từ tokenManager để fetch trực tiếp Pancake. MVP hiện tại: meta + deep link.
-- `pdm.fetchInboxPreview` chỉ work nếu KPI iframe có `window.pancakeDataManager` (chưa wired vào KPI iframe).
-
-Files: `orders-report/js/tab-kpi-commission.js` (+200), `orders-report/tab-kpi-commission.html` (+30), `orders-report/css/tab-kpi-commission.css` (+130).
-
-Status: 🔄 MVP done — meta + Pancake deep link. Inline messages cần thêm worker route ở iteration sau.
 
 ---
 
