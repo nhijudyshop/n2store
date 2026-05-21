@@ -25,6 +25,24 @@
 
 ## 2026-05-21
 
+### [inventory] feat: image-manager modal chia thành tabs theo Đợt — dễ quản lý
+
+**User**: "đợt chia ra các section tab dễ quản lý".
+
+**Trước**: modal "Quản Lý Ảnh Sản Phẩm" hiển thị tất cả đợt cùng lúc trong cùng 1 list scroll dài, có ô "Lọc đợt..." để filter. Khi nhiều đợt + nhiều NCC thì lướt mỏi.
+
+**Sau**: tab bar nằm trên cùng, mỗi tab = 1 đợt + badge đếm số NCC. Click tab để switch — chỉ rows của đợt đó hiển thị. Có nút "+ Đợt mới" ở cuối tab bar để tạo đợt tùy chỉnh (prompt số đợt, suggest = max+1).
+
+**Behavior chi tiết**:
+
+- Tab active mặc định: đợt cao nhất có data (hoặc đợt mới nhất từ shipments)
+- Search NCC giờ scoped trong active tab (reset khi switch)
+- Đổi đợt trên 1 row qua input → row "follow" về đợt mới + active tab tự switch theo
+- Empty tab: hiện "Đợt N chưa có NCC nào" + nút "Thêm NCC vào Đợt N"
+- Tab custom (đợt không có shipment thật) hiện ★ vàng
+
+**Files**: `inventory-tracking/js/modal-image-manager.js` (replace `_filterDotSo` → `_activeDotSo`, add `_renderTabBar` + `switchTab` + `promptNewDot`), `inventory-tracking/css/modern.css` (`.img-mgr-tabs`, `.img-mgr-tab[-active|-count|-new]`). Status: ✅ Done.
+
 ### [extension][web2] fix: jazoest phải re-compute từ fb_dtsg + \_\_comet_req=1 cho Business Suite
 
 **Triệu chứng**: Sau khi reload extension v2.0.1 (đã có retry strategy), gửi tin nhắn vẫn fail 1545012 cả lần đầu lẫn lần retry (verified trong console-1779347418060.log lúc 08:04:41 — `Retrying with session restart (strategy=retryUsingSocket)...` chạy đúng, fb_dtsg đổi qua 3 versions khác nhau, nhưng FB vẫn 1545012). Trong khi Pancake V2 extension dùng cùng endpoint thì gửi thành công.

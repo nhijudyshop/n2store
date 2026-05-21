@@ -246,6 +246,8 @@ const ImageManager = (() => {
                         return;
                     }
                     row.dotSo = n;
+                    // Follow the row to its new đợt — otherwise it would disappear from view.
+                    _activeDotSo = n;
                     _render();
                 });
             }
@@ -255,17 +257,102 @@ const ImageManager = (() => {
         window.ImageCache?.applyTo?.(body);
     }
 
-    function _renderEmptyState() {
+    /**
+     * Render the horizontal tab bar with one tab per đợt + "+ Đợt mới" button.
+     */
+    function _renderTabBar(dots) {
+        const tabs = dots
+            .map((d) => {
+                const isActive = d === _activeDotSo;
+                const isKnown = _knownDotSos.includes(d);
+                const count = _countRowsInDot(d);
+                const customBadge = isKnown
+                    ? ''
+                    : '<span class="img-mgr-dot-custom" title="Đợt tùy chỉnh">★</span>';
+                return `
+                    <button class="img-mgr-tab ${isActive ? 'img-mgr-tab-active' : ''}"
+                            onclick="ImageManager.switchTab(${d})"
+                            title="Đợt ${d}">
+                        <span>Đợt ${d}</span>
+                        ${customBadge}
+                        <span class="img-mgr-tab-count">${count}</span>
+                    </button>
+                `;
+            })
+            .join('');
+
         return `
-            <div class="img-mgr-empty">
-                <i data-lucide="image-off"></i>
-                <div>Chưa có ảnh — thêm hàng để bắt đầu</div>
-                <button class="btn btn-outline" style="margin-top:12px"
-                        onclick="ImageManager.addRow()">
-                    <i data-lucide="plus"></i> Thêm NCC
+            <div class="img-mgr-tabs" role="tablist">
+                ${tabs}
+                <button class="img-mgr-tab-new"
+                        onclick="ImageManager.promptNewDot()"
+                        title="Tạo đợt mới">
+                    <i data-lucide="plus"></i> <span>Đợt mới</span>
                 </button>
             </div>
         `;
+    }
+
+    /**
+     * Empty state for the currently-active tab (no rows match filters or
+     * the đợt has no entries yet).
+     */
+    function _renderEmptyTab(dotSo) {
+        const hasSearch = !!_searchNcc;
+        return `
+            <div class="img-mgr-empty">
+                <i data-lucide="image-off"></i>
+                <div>
+                    ${
+                        hasSearch
+                            ? `Không có NCC nào khớp <strong>"${_searchNcc}"</strong> trong Đợt ${dotSo}`
+                            : `Đợt ${dotSo} chưa có NCC nào`
+                    }
+                </div>
+                <button class="btn btn-outline" style="margin-top:12px"
+                        onclick="ImageManager.addRowInDot(${dotSo})">
+                    <i data-lucide="plus"></i> Thêm NCC vào Đợt ${dotSo}
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * Switch active tab — called from tab button click.
+     */
+    function switchTab(dotSo) {
+        const n = parseInt(dotSo, 10);
+        if (!n || n < 1) return;
+        if (n === _activeDotSo) return;
+        _activeDotSo = n;
+        _searchNcc = ''; // reset NCC filter when changing đợt
+        _render();
+    }
+
+    /**
+     * Prompt for a brand-new đợt number, then create an empty row in it
+     * and switch the active tab there.
+     */
+    function promptNewDot() {
+        const existing = _allDotSos();
+        const suggested = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+        const raw = prompt(`Tạo đợt mới (gợi ý: ${suggested}):`, String(suggested));
+        if (raw === null) return;
+        const n = parseInt(String(raw).trim(), 10);
+        if (!n || n < 1) {
+            window.notificationManager?.error('Số đợt phải là số nguyên >= 1');
+            return;
+        }
+        if (existing.includes(n)) {
+            _activeDotSo = n; // just switch
+            _render();
+            return;
+        }
+        const row = _createRow(n);
+        _rows.push(row);
+        _focusedRowId = row.id;
+        _activeDotSo = n;
+        _render();
     }
 
     /**
@@ -383,22 +470,25 @@ const ImageManager = (() => {
     }
 
     /**
-     * Add a new row (default to latest đợt)
+     * Add a new row in the currently active đợt tab.
      */
     function addRow() {
-        const row = _createRow();
+        const row = _createRow(_activeDotSo || _defaultDotSo());
         _rows.push(row);
         _focusedRowId = row.id;
         _render();
     }
 
     /**
-     * Add a new row in a specific đợt (called from section header "Thêm NCC")
+     * Add a new row in a specific đợt (called from group footer button or
+     * empty-tab CTA). Also switches the active tab to that đợt.
      */
     function addRowInDot(dotSo) {
-        const row = _createRow(parseInt(dotSo, 10) || _defaultDotSo());
+        const n = parseInt(dotSo, 10) || _defaultDotSo();
+        const row = _createRow(n);
         _rows.push(row);
         _focusedRowId = row.id;
+        _activeDotSo = n;
         _render();
     }
 
@@ -756,6 +846,8 @@ const ImageManager = (() => {
         handleFileSelect,
         removeImage,
         viewNccImages,
+        switchTab,
+        promptNewDot,
         _openLightbox,
         _closeLightbox,
         _navLightbox,
