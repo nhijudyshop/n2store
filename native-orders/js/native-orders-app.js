@@ -776,9 +776,15 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="16" class="loading-row">
-            <div class="spinner"></div>Đang tải dữ liệu...
-        </td></tr>`;
+        // CHỈ wipe tbody khi chưa có row nào — để giữ DOM nodes cho diff render
+        // (SSE-driven reload bảo toàn DOM, sig diff chỉ thay row thay đổi).
+        const tb = tbody();
+        const hasExistingRows = tb && tb.querySelector('tr.order-row');
+        if (!hasExistingRows) {
+            tb.innerHTML = `<tr><td colspan="16" class="loading-row">
+                <div class="spinner"></div>Đang tải dữ liệu...
+            </td></tr>`;
+        }
         try {
             const resp = await window.NativeOrdersApi.list({
                 status: STATE.status,
@@ -798,9 +804,13 @@
             renderCustomerChip();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="16" class="empty-row" style="color:#ef4444;">
-                Lỗi tải dữ liệu: ${escapeHtml(e.message)}
-            </td></tr>`;
+            // Chỉ hiển thị error row nếu chưa có dữ liệu (first load failed). SSE
+            // refresh fail → giữ DOM cũ + toast notify.
+            if (!hasExistingRows) {
+                tbody().innerHTML = `<tr><td colspan="16" class="empty-row" style="color:#ef4444;">
+                    Lỗi tải dữ liệu: ${escapeHtml(e.message)}
+                </td></tr>`;
+            }
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
         } finally {
             STATE.loading = false;
