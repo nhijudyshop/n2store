@@ -716,9 +716,32 @@
     }
 
     // ---------- Init ----------
+    // SSE realtime — auto reload bảng khi server thông báo mutation.
+    // Subscribe 3 topic:
+    //   - web2:products → CRUD trực tiếp (create/update/delete/stock adjust)
+    //   - web2:fast-sale-orders → tạo PBH deduct stock + sync state
+    //   - web2:native-orders → đổi status đơn → ảnh hưởng badge "ĐANG DÙNG"
+    // Debounce 500ms để gom nhiều event gần nhau thành 1 reload.
+    let _sseReloadTimer = null;
+    function _setupSse() {
+        if (!window.Web2SSE?.subscribe) return;
+        const onEvent = (topic) => (msg) => {
+            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+            _sseReloadTimer = setTimeout(() => {
+                _sseReloadTimer = null;
+                console.log('[Web2Products-SSE]', topic, msg.data?.action);
+                load();
+            }, 500);
+        };
+        window.Web2SSE.subscribe('web2:products', onEvent('web2:products'));
+        window.Web2SSE.subscribe('web2:fast-sale-orders', onEvent('web2:fast-sale-orders'));
+        window.Web2SSE.subscribe('web2:native-orders', onEvent('web2:native-orders'));
+    }
+
     function init() {
         if (window.lucide) lucide.createIcons();
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
+        _setupSse();
 
         // Upload + Ctrl+V paste + drag-drop cho field ảnh trong modal.
         // Khi nhận ảnh → ghi base64 vào input #pmImage + cập nhật preview.

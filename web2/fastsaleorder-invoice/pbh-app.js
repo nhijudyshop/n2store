@@ -683,6 +683,22 @@
                 },
             });
         }
+        // SSE bridge — belt-and-suspenders bên cạnh PbhRealtime (WS broker).
+        // Khi native-orders cancel/create PBH → backend emit qua realtimeSseNotify
+        // sang `web2:fast-sale-orders` + `web2:native-orders` → tự reload bảng.
+        if (window.Web2SSE?.subscribe) {
+            let sseTimer = null;
+            const reload = (topic) => (msg) => {
+                if (sseTimer) clearTimeout(sseTimer);
+                sseTimer = setTimeout(() => {
+                    sseTimer = null;
+                    console.log('[PBH-SSE]', topic, msg.data?.action);
+                    load();
+                }, 500);
+            };
+            window.Web2SSE.subscribe('web2:fast-sale-orders', reload('fast-sale-orders'));
+            window.Web2SSE.subscribe('web2:native-orders', reload('native-orders'));
+        }
         $('#pbhExportCsv').addEventListener('click', exportCsv);
         // Bulk-confirm: bỏ — PBH state auto theo native-orders. Hide nút trong DOM nếu tồn tại.
         const bcBtn = $('#pbhBulkConfirm');

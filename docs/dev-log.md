@@ -25,6 +25,24 @@
 
 ## 2026-05-21
 
+### [web2-products][PBH] feat: SSE realtime auto-reload (không cần F5)
+
+User report: "Bên native-orders và product hoặc các trang khác chưa cập nhật realtime UI, table... theo server SSE realtime → phải F5 lại để lấy dữ liệu mới".
+
+**Trước**: chỉ native-orders có `Web2SSE.subscribe('web2:native-orders')` → mutation ở orders khác hoặc tạo PBH ở orders-report không tự refresh bảng products + PBH.
+
+**Sau**:
+
+1. **web2/products** ([`web2-products-app.js:719`](../web2/products/js/web2-products-app.js#L719)): `_setupSse()` subscribe 3 topic:
+    - `web2:products` — CRUD direct (create/update/delete/stock adjust)
+    - `web2:fast-sale-orders` — tạo PBH deduct stock + sync state → ảnh hưởng tồn kho
+    - `web2:native-orders` — đổi status đơn → ảnh hưởng badge "ĐANG DÙNG"
+      Debounce 500ms gom multi-mutation thành 1 reload.
+
+2. **web2/fastsaleorder-invoice** ([`pbh-app.js:686`](../web2/fastsaleorder-invoice/pbh-app.js#L686)): subscribe `web2:fast-sale-orders` + `web2:native-orders` — bên cạnh `PbhRealtime` (WS broker). Belt-and-suspenders nếu WS down. Khi native-orders cancel/createPBH/cancel → bảng PBH tự reload.
+
+3. **Backend bổ sung notify** trong `from-native-order` (commit trước f2c10d49): khi tạo PBH bump native từ cancelled→confirmed → emit `web2:native-orders` action 'status-bumped'.
+
 ### [native-orders] feat: bỏ "Tạo PBH bổ sung" (splitPbh) ở confirmed → muốn tạo phải tách đơn trước
 
 User request: "trạng thái 'Đơn hàng' sẽ không cho tạo PBH nữa → muốn tạo thì tách đơn ra".
