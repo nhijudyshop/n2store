@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a67519e` — feat(native-orders): bulk-send skip đơn SL=0 (giỏ trống)
-**Last updated**: 2026-05-21 17:14:55 +07
-**Latest session**: [`RESUME:20260521-171455-a67519e`](../20260521-171455-a67519e.md)
-**Summary**: feat(native-orders): bulk-send skip đơn SL=0 (giỏ trống)
+**Latest commit**: `3f1cb9a` — feat(web2-products): badge "ĐANG DÙNG" + popover orders chứa SP
+**Last updated**: 2026-05-21 17:28:38 +07
+**Latest session**: [`RESUME:20260521-172838-3f1cb9a`](../20260521-172838-3f1cb9a.md)
+**Summary**: feat(web2-products): badge "ĐANG DÙNG" + popover orders chứa SP
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
 - [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-21 15:39
-- [`docs/`](./docs.md) — updated 2026-05-21 17:14
+- [`docs/`](./docs.md) — updated 2026-05-21 17:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
@@ -39,7 +41,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-21 15:39
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-21 17:14
+- [`native-orders/`](./native-orders.md) — updated 2026-05-21 17:28
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
@@ -50,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-21 16:26
+- [`render.com/`](./render.com.md) — updated 2026-05-21 17:28
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-21 16:26
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-21 17:02
+- [`web2/`](./web2.md) — updated 2026-05-21 17:28
