@@ -3,23 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260520-100708-ac49c9e`
-**Session file**: [`./20260520-100708-ac49c9e.md`](../20260520-100708-ac49c9e.md)
-**Commit**: `ac49c9e` — feat(domain): setup nhijudy.store DNS via GoDaddy API + update OG URLs
-**Last updated**: 2026-05-20 10:07:08 +07
-**Summary**: feat(domain): setup nhijudy.store DNS via GoDaddy API + update OG URLs
+**Latest session**: `RESUME:20260521-100104-b968047`
+**Session file**: [`./20260521-100104-b968047.md`](../20260521-100104-b968047.md)
+**Commit**: `b968047` — docs(web2-products): dev-log entry cho migration 078 backfill + force-sync GIÀY ĐEN
+**Last updated**: 2026-05-21 10:01:04 +07
+**Summary**: docs(web2-products): dev-log entry cho migration 078 backfill + force-sync GIÀY ĐEN
 
 ## Files changed in this commit (`_root/`)
 
-- `index.html`
+- `CLAUDE.md`
 
 ## Last 5 commits touching `_root/`
 
-- `ac49c9e4` feat(domain): setup nhijudy.store DNS via GoDaddy API + update OG URLs _(2026-05-20)_
-- `31cafa32` auto: session update _(2026-05-20)_
-- `324935e8` fix(auth): bỏ prompt "Lưu mật khẩu" của browser trên các page có password input _(2026-04-22)_
-- `9e588e01` style: unify typography across all pages (Inter 20px weight 600) _(2026-04-08)_
-- `ea059fd1` feat(docs): add #Note AI-instruction header to all HTML+JS files + module overview in dev-log _(2026-04-04)_
+- `243383d0` fix(purchase-orders): paste image lớn không bị lỗi nữa + persistent session restore + debug-via-console rule _(2026-05-21)_
+- `ae200b35` docs(web2): SSE realtime pattern guide + cập nhật CLAUDE.md/MEMORY rule bắt buộc _(2026-05-19)_
+- `cc2c8ff4` refactor(web2): move web2-products + web2-variants into web2/ _(2026-05-18)_
+- `7eb39f57` refactor(web2): move web2-shared to web2/shared (consolidate Web 2.0) _(2026-05-18)_
+- `c049756e` feat(web2): filter cancelled PBH + pagination + stock tracking + SePay endpoint + WEB2.0 markers _(2026-05-18)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260520-100708-ac49c9e` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260521-100104-b968047` cho Claude walk chain theo CLAUDE.md protocol.

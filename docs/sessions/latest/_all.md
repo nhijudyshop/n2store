@@ -3,33 +3,33 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f97ef68` — auto: session update
-**Last updated**: 2026-05-21 09:45:54 +07
-**Latest session**: [`RESUME:20260521-094554-f97ef68`](../20260521-094554-f97ef68.md)
-**Summary**: auto: session update
+**Latest commit**: `b968047` — docs(web2-products): dev-log entry cho migration 078 backfill + force-sync GIÀY ĐEN
+**Last updated**: 2026-05-21 10:01:04 +07
+**Latest session**: [`RESUME:20260521-100104-b968047`](../20260521-100104-b968047.md)
+**Summary**: docs(web2-products): dev-log entry cho migration 078 backfill + force-sync GIÀY ĐEN
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`showroom/`](./showroom.md) — 32 file(s)
+- [`purchase-orders/`](./purchase-orders.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 2 file(s)
 
 ## All folder snapshots
 
-- [`_root/`](./_root.md) — updated 2026-05-20 10:07
+- [`_root/`](./_root.md) — updated 2026-05-21 10:01
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-20 16:28
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 09:45
+- [`docs/`](./docs.md) — updated 2026-05-21 10:01
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
 - [`native-orders/`](./native-orders.md) — updated 2026-05-20 17:14
 - [`orders-report/`](./orders-report.md) — updated 2026-05-19 16:54
-- [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-19 10:26
-- [`render.com/`](./render.com.md) — updated 2026-05-21 09:45
-- [`scripts/`](./scripts.md) — updated 2026-05-21 09:45
+- [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 10:01
+- [`render.com/`](./render.com.md) — updated 2026-05-21 10:01
+- [`scripts/`](./scripts.md) — updated 2026-05-21 10:01
 - [`shared/`](./shared.md) — updated 2026-05-18 14:04
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-19 18:50
