@@ -74,6 +74,17 @@ export function buildFbHeaders(referer, msgrRegion) {
 }
 
 /**
+ * Compute jazoest from fb_dtsg — sum of char codes (calcJazoestV2 in Pancake).
+ * Pancake always re-derives jazoest from current fb_dtsg; stale jazoest = 1545012.
+ */
+export function calcJazoest(fbDtsg) {
+    if (!fbDtsg) return '';
+    let sum = 0;
+    for (let i = 0; i < fbDtsg.length; i++) sum += fbDtsg.charCodeAt(i);
+    return '2' + sum;
+}
+
+/**
  * Build base Facebook form params
  * Only includes params that have actual values (Facebook 500s on empty required params)
  */
@@ -87,7 +98,9 @@ export function buildBaseParams(dtsgData) {
         __beoa: '0',
         dpr: dtsgData.pr || '2',
         __ccg: 'EXCELLENT',
-        __comet_req: '0',
+        // Business Suite (bizweb_comet_pkg) là Comet React app → is_comet=1.
+        // Hardcode '0' từ trước là sai — FB validate __comet_req khớp pkg.
+        __comet_req: '1',
         __s: generateWebSessionId(),
     };
 
@@ -102,7 +115,9 @@ export function buildBaseParams(dtsgData) {
 
     // fb_dtsg + jazoest + lsd (always at the end like Pancake)
     params.fb_dtsg = dtsgData.token;
-    if (dtsgData.jazoest) params.jazoest = dtsgData.jazoest;
+    // Pancake luôn compute jazoest = sum(charCodes(fb_dtsg)) prefix "2".
+    // Phải re-compute, KHÔNG dùng jazoest extracted từ HTML — sẽ stale sau session restart.
+    params.jazoest = calcJazoest(dtsgData.token);
     if (dtsgData.lsd) params.lsd = dtsgData.lsd;
     params.__usid = 'null';
 

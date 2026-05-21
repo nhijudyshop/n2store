@@ -25,6 +25,36 @@
 
 ## 2026-05-21
 
+### [extension][web2] fix: jazoest phải re-compute từ fb_dtsg + \_\_comet_req=1 cho Business Suite
+
+**Triệu chứng**: Sau khi reload extension v2.0.1 (đã có retry strategy), gửi tin nhắn vẫn fail 1545012 cả lần đầu lẫn lần retry (verified trong console-1779347418060.log lúc 08:04:41 — `Retrying with session restart (strategy=retryUsingSocket)...` chạy đúng, fb_dtsg đổi qua 3 versions khác nhau, nhưng FB vẫn 1545012). Trong khi Pancake V2 extension dùng cùng endpoint thì gửi thành công.
+
+**Root cause** (reverse từ Pancake source `/tmp/pancake-v2-crx/extracted/assets/background.formatted.js:325-329`):
+
+Pancake `buildParams` (Base class) **luôn re-compute** `jazoest` từ fb_dtsg hiện tại bằng `calcJazoestV2`:
+
+```js
+calcJazoestV2(e){
+    let t=0;
+    for(let a=0; a<e.length; a++) t += e.charCodeAt(a);
+    return "2" + t;  // (default sprinkle_config.should_randomize=false → prefix "2")
+}
+```
+
+Code web2-extension cũ ở [`web2-extension/background/facebook/utils.js`](../web2-extension/background/facebook/utils.js) chỉ extract `jazoest` 1 lần từ HTML lúc `initPage`, rồi giữ nguyên — sau khi session refresh `fb_dtsg` (lần 2, lần 3 trong retry), jazoest vẫn là giá trị cũ → chữ ký không khớp → FB silent-reject với 1545012 "Tạm thời không thực hiện được".
+
+Bonus: `__comet_req: '0'` cũng sai — Business Suite chạy `bizweb_comet_pkg` (Comet React app, `is_comet=true`) nên Pancake gửi `__comet_req=1`. Hardcode `'0'` làm FB strict-validate fail.
+
+**Fix**:
+
+1. Thêm `calcJazoest(fbDtsg)` export trong utils.js — sum charCodes, prefix "2".
+2. `buildBaseParams`: bỏ `if (dtsgData.jazoest)` gate, **luôn** set `params.jazoest = calcJazoest(dtsgData.token)`.
+3. `__comet_req`: hardcode `'1'`.
+
+**Files**: `web2-extension/background/facebook/utils.js` (+ bump manifest 2.0.1→2.0.2, constants VERSION/BUILD). Status: ✅ Done; ⏳ pending verify in-browser sau reload extension.
+
+**Verify**: gửi lại tin nhắn cho Huỳnh Thành Đạt → log mong đợi `Message sent successfully: <mid>` ngay lần đầu, KHÔNG cần retry. Nếu vẫn fail → so sánh request body của Pancake V2 vs ours (đặt breakpoint hoặc xem Network tab DevTools), tìm field nào khác.
+
 ### [inventory] fix: SSE handler missing snake_case → camelCase mapping cho productImages (root cause "đợt 2 lệch qua đợt 1")
 
 **User report**: "đợt 2 NCC từ 1 → 46 bị mất ảnh", "dữ liệu tôi nhập đợt 2 nó bị lệch qua đợt 1".
