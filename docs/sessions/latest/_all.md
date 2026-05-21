@@ -3,21 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `915104f` — auto: session update
-**Last updated**: 2026-05-21 14:50:14 +07
-**Latest session**: [`RESUME:20260521-145014-915104f`](../20260521-145014-915104f.md)
-**Summary**: auto: session update
+**Latest commit**: `a9060fc` — docs(dev-log): document FB error 1545012 (BLOCKED_RETRY_SOCKET) fix in web2-extension
+**Last updated**: 2026-05-21 14:52:23 +07
+**Latest session**: [`RESUME:20260521-145223-a9060fc`](../20260521-145223-a9060fc.md)
+**Summary**: docs(dev-log): document FB error 1545012 (BLOCKED_RETRY_SOCKET) fix in web2-extension
 
 ## Folders affected in this commit
 
-- [`web2-extension/`](./web2-extension.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 14:44
+- [`docs/`](./docs.md) — updated 2026-05-21 14:52
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 11:33
