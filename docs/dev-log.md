@@ -25,6 +25,12 @@
 
 ## 2026-05-21
 
+### [native-orders] feat: bulk-send filter SL=0 (giỏ trống)
+
+User request: "bỏ qua các đơn hàng SL 0" — không gửi tin "đã đặt SP gồm:..." cho đơn không sản phẩm vì kỳ.
+
+Filter trong [`native-orders/js/native-orders-app.js:1814-1838`](../native-orders/js/native-orders-app.js#L1814): sau khi resolve `rawOrders` từ STATE, tính `totalQty = sum(products[].quantity)`. Skip đơn `totalQty <= 0`. Notify số đơn bỏ qua + còn lại; nếu tất cả đều SL=0 → warning + return.
+
 ### [web2-msg-template] feat: parallel multi-worker send (tốc độ song song)
 
 **Trước**: Send loop sequential `for (i=0;i<total;i++) await sendOne(); sleep(delay)` — chậm với nhiều đơn (vd 100 đơn × 1s delay = 100s).

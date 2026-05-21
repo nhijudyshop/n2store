@@ -1811,9 +1811,31 @@
             notify('Web2MsgTemplate chưa load — kiểm tra script', 'error');
             return;
         }
-        const orders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
-        if (!orders.length) {
+        const rawOrders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
+        if (!rawOrders.length) {
             notify('Không tìm thấy đơn', 'error');
+            return;
+        }
+        // Bỏ qua đơn SL=0 (giỏ trống — chưa nhập sản phẩm hoặc draft rỗng). Gửi
+        // tin nhắn "đã đặt sản phẩm gồm: ..." cho đơn không sản phẩm rất kỳ.
+        const orders = [];
+        let skippedEmpty = 0;
+        for (const o of rawOrders) {
+            const totalQty = (o.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
+            if (totalQty <= 0) {
+                skippedEmpty++;
+                continue;
+            }
+            orders.push(o);
+        }
+        if (skippedEmpty > 0) {
+            notify(
+                `Bỏ qua ${skippedEmpty} đơn SL=0 (giỏ trống) · còn ${orders.length} đơn để gửi`,
+                'info'
+            );
+        }
+        if (!orders.length) {
+            notify('Tất cả đơn được chọn đều SL=0 — không có gì để gửi', 'warning');
             return;
         }
         // Convert sang shape Web2MsgTemplate cần. Conversation lookup: nếu order
