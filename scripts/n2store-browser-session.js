@@ -151,53 +151,99 @@ const log = (...a) => {
     const pages = ctx.pages();
     const page = pages.length > 0 ? pages[0] : await ctx.newPage();
 
-    // Console buffer (last 500 logs) — capture page console.* + uncaught errors
-    // để debug extension flow khi user tự thao tác (gửi tin nhắn, etc).
+    // Console buffer + persistent file logging — capture page console.*, SW console,
+    // uncaught errors. Để debug extension flow khi user tự thao tác.
     const consoleBuf = [];
-    const pushConsole = (level, text, location) => {
-        consoleBuf.push({ t: ts(), level, text: String(text).slice(0, 1200), location });
-        if (consoleBuf.length > 500) consoleBuf.shift();
+    const consoleFile = fs.createWriteStream(path.join(OUT_DIR, `console-${Date.now()}.log`), {
+        flags: 'a',
+    });
+    const pushConsole = (level, text, location, source = 'page') => {
+        const entry = {
+            t: ts(),
+            source,
+            level,
+            text: String(text).slice(0, 1200),
+            location,
+        };
+        consoleBuf.push(entry);
+        if (consoleBuf.length > 1000) consoleBuf.shift();
+        // Append to file for persistence (even if buffer overflows)
+        consoleFile.write(
+            `[${entry.t}] ${source}:${level.padEnd(7)} ${entry.text}${location ? ' @ ' + location : ''}\n`
+        );
     };
-    const attachConsoleListeners = (target) => {
+    const attachConsoleListeners = (target, source = 'page') => {
         target.on('console', (msg) => {
             const loc = msg.location();
             const locStr = loc?.url ? `${loc.url.slice(-80)}:${loc.lineNumber}` : '';
-            pushConsole(msg.type(), msg.text(), locStr);
+            pushConsole(msg.type(), msg.text(), locStr, source);
         });
-        target.on('pageerror', (err) => pushConsole('pageerror', err.message || String(err), ''));
+        target.on('pageerror', (err) =>
+            pushConsole('pageerror', err.message || String(err), '', source)
+        );
         target.on('requestfailed', (req) => {
             pushConsole(
                 'netfail',
                 `${req.method()} ${req.url().slice(-150)} — ${req.failure()?.errorText || '?'}`,
-                ''
+                '',
+                source
             );
         });
     };
-    attachConsoleListeners(page);
-    // Listen for new pages (popups, extension pages) so we don't miss SW logs visible there
-    ctx.on('page', (p) => attachConsoleListeners(p));
+    attachConsoleListeners(page, 'page');
+    // Listen for new pages (popups, extension pages)
+    ctx.on('page', (p) => attachConsoleListeners(p, 'popup'));
+    // Listen for service workers (extensions' background scripts)
+    ctx.on('serviceworker', (sw) => {
+        log(`Service worker registered: ${sw.url().slice(0, 120)}`);
+        attachConsoleListeners(sw, 'sw');
+    });
+    // Capture already-registered SWs
+    for (const sw of ctx.serviceWorkers()) {
+        attachConsoleListeners(sw, 'sw');
+        log(`Pre-existing SW attached: ${sw.url().slice(0, 120)}`);
+    }
 
-    // Network buffer (last 200 calls)
+    // Network buffer + persistent file — capture relevant API calls + FB Graph + Pancake.
     const netBuf = [];
-    page.on('response', async (res) => {
+    const netFile = fs.createWriteStream(path.join(OUT_DIR, `network-${Date.now()}.log`), {
+        flags: 'a',
+    });
+    const captureResponse = async (res) => {
         const u = res.url();
         if (
-            /by-phone|fb-global-id|conversations|messages|switchChatPage|api\/realtime|api\/v2|search|customers/i.test(
+            /by-phone|fb-global-id|conversations|messages|switchChatPage|api\/realtime|api\/v2|search|customers|facebook\.com|pancake\.vn|pages\.fm|graph\.facebook|business\.facebook|messaging\/send|mercury\/upload|api\/graphql/i.test(
                 u
             )
         ) {
             try {
-                const json = await res.json().catch(() => null);
-                netBuf.push({
+                const status = res.status();
+                const method = res.request().method();
+                const txt = await res.text().catch(() => '');
+                let body = txt;
+                // Pretty for JSON-like
+                try {
+                    const parsed = JSON.parse(txt);
+                    body = JSON.stringify(parsed);
+                } catch {}
+                const reqHeaders = res.request().headers();
+                const reqBody = res.request().postData() || '';
+                const entry = {
                     t: ts(),
-                    status: res.status(),
-                    url: u.slice(0, 250),
-                    body: json ? JSON.stringify(json).slice(0, 600) : null,
-                });
-                if (netBuf.length > 200) netBuf.shift();
+                    status,
+                    method,
+                    url: u.slice(0, 350),
+                    reqBody: reqBody.slice(0, 1500),
+                    body: body.slice(0, 2000),
+                };
+                netBuf.push(entry);
+                if (netBuf.length > 500) netBuf.shift();
+                netFile.write(JSON.stringify(entry) + '\n');
             } catch (_) {}
         }
-    });
+    };
+    page.on('response', captureResponse);
+    ctx.on('page', (p) => p.on('response', captureResponse));
 
     // ── Restore or Login ─────────────────────────────────────────
     // Khi dùng existing Chrome profile (--profile), KHÔNG auto-login/restore
