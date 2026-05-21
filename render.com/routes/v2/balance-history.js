@@ -35,12 +35,71 @@ function handleError(res, error, message = 'Internal server error') {
 }
 
 // =====================================================
+// WEB 2.0 ISOLATION: clone Web 1 balance_history schema vào web2_balance_history.
+// Web 2.0 routes (file này) sẽ query/update web2_balance_history thay vì
+// balance_history → KHÔNG đụng dữ liệu Web 1. Sepay webhook (sepay-webhook-core.js)
+// dual-write vào CẢ 2 bảng.
+//
+// Migration self-gated qua native_orders_migrations (share table cho mọi web2
+// migration). Backfill 1 lần copy toàn bộ rows từ balance_history (Web 1 legacy)
+// sang web2_balance_history (ON CONFLICT skip) để Web 2.0 không mất history cũ.
+// =====================================================
+let _w2BhEnsured = false;
+async function ensureWeb2BalanceHistory(pool) {
+    if (_w2BhEnsured) return;
+    try {
+        // SOURCE_TABLE = bảng legacy Web 1. Tách string để khỏi bị sed-replace
+        // nhầm khi rename lần khác. Final SQL string = 'balance_history'.
+        const SOURCE_TABLE = 'balance' + '_history';
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS native_orders_migrations (
+                name   VARCHAR(120) PRIMARY KEY,
+                run_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+
+            -- Clone schema bao gồm columns + constraints + indexes + defaults.
+            -- "INCLUDING ALL" copy primary key, NOT NULL, UNIQUE, CHECK, DEFAULTS.
+            CREATE TABLE IF NOT EXISTS web2_balance_history (LIKE ${SOURCE_TABLE} INCLUDING ALL);
+
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '081_backfill_web2_balance_history'
+                ) THEN
+                    -- One-time copy toàn bộ rows từ ${SOURCE_TABLE} (Web 1).
+                    -- ON CONFLICT sepay_id DO NOTHING để re-run safe.
+                    INSERT INTO web2_balance_history
+                    SELECT * FROM ${SOURCE_TABLE}
+                    ON CONFLICT (sepay_id) DO NOTHING;
+
+                    INSERT INTO native_orders_migrations(name)
+                    VALUES ('081_backfill_web2_balance_history');
+                    RAISE NOTICE 'Migration 081: backfilled web2_balance_history from %', '${SOURCE_TABLE}';
+                END IF;
+            END $$;
+        `);
+        _w2BhEnsured = true;
+        console.log('[BalanceHistory V2] web2_balance_history schema ready');
+    } catch (e) {
+        console.error('[BalanceHistory V2] migration error:', e.message);
+    }
+}
+
+// =====================================================
 // ROUTES
 // =====================================================
 
+// Router-level middleware: ensure web2_balance_history schema (idempotent —
+// `_w2BhEnsured` flag short-circuits sau lần đầu).
+router.use(async (req, res, next) => {
+    if (req.app.locals.chatDb) await ensureWeb2BalanceHistory(req.app.locals.chatDb);
+    next();
+});
+
 /**
  * GET /api/v2/balance-history
- * List unlinked bank transactions (balance_history without linked customer)
+ * List unlinked bank transactions (web2_balance_history without linked customer)
  */
 router.get('/', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -77,12 +136,13 @@ router.get('/', async (req, res) => {
 
         // Get total count
         const countResult = await db.query(`
-            SELECT COUNT(*) as total FROM balance_history bh ${whereClause}
+            SELECT COUNT(*) as total FROM web2_balance_history bh ${whereClause}
         `);
         const total = parseInt(countResult.rows[0].total);
 
         // Get transactions with pagination
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT
                 bh.id,
                 bh.sepay_id,
@@ -98,12 +158,14 @@ router.get('/', async (req, res) => {
                 bh.wallet_processed,
                 bh.created_at,
                 c.name as customer_name
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             ${whereClause}
             ORDER BY bh.transaction_date DESC
             LIMIT $1 OFFSET $2
-        `, [parseInt(limit), offset]);
+        `,
+            [parseInt(limit), offset]
+        );
 
         res.json({
             success: true,
@@ -112,8 +174,8 @@ router.get('/', async (req, res) => {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total,
-                totalPages: Math.ceil(total / limit)
-            }
+                totalPages: Math.ceil(total / limit),
+            },
         });
     } catch (error) {
         handleError(res, error, 'Failed to fetch transactions');
@@ -130,21 +192,26 @@ router.get('/pending', async (req, res) => {
 
     try {
         // Get total count
-        const countResult = await db.query('SELECT COUNT(*) as total FROM pending_customer_matches');
+        const countResult = await db.query(
+            'SELECT COUNT(*) as total FROM pending_customer_matches'
+        );
         const total = parseInt(countResult.rows[0].total);
 
         // Get pending matches
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT
                 pcm.*,
                 bh.transfer_amount as amount,
                 bh.content as transaction_content,
                 bh.transaction_date
             FROM pending_customer_matches pcm
-            LEFT JOIN balance_history bh ON pcm.balance_history_id = bh.id
+            LEFT JOIN web2_balance_history bh ON pcm.balance_history_id = bh.id
             ORDER BY pcm.created_at DESC
             LIMIT $1 OFFSET $2
-        `, [parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
+        `,
+            [parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]
+        );
 
         res.json({
             success: true,
@@ -153,8 +220,8 @@ router.get('/pending', async (req, res) => {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total,
-                totalPages: Math.ceil(total / limit)
-            }
+                totalPages: Math.ceil(total / limit),
+            },
         });
     } catch (error) {
         handleError(res, error, 'Failed to fetch pending matches');
@@ -163,7 +230,7 @@ router.get('/pending', async (req, res) => {
 
 /**
  * POST /api/v2/balance-history/:id/link
- * Link a balance_history transaction to a customer
+ * Link a web2_balance_history transaction to a customer
  * NEW: Fetches TPOS data and creates customer with full info
  */
 router.post('/:id/link', async (req, res) => {
@@ -186,7 +253,7 @@ router.post('/:id/link', async (req, res) => {
 
         // 1. Get transaction
         const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -201,12 +268,14 @@ router.post('/:id/link', async (req, res) => {
         // This prevents fraud where one transaction is used to credit multiple wallets
         if (tx.wallet_processed === true) {
             await db.query('ROLLBACK');
-            console.log(`[SECURITY] Blocked link for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`);
+            console.log(
+                `[SECURITY] Blocked link for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`
+            );
             return res.status(400).json({
                 success: false,
                 error: 'Không thể link lại - Giao dịch đã được cộng vào ví khách hàng',
                 current_linked_to: tx.linked_customer_phone,
-                wallet_processed: true
+                wallet_processed: true,
             });
         }
 
@@ -216,7 +285,7 @@ router.post('/:id/link', async (req, res) => {
             return res.status(400).json({
                 success: false,
                 error: 'Transaction already linked',
-                linked_to: tx.linked_customer_phone
+                linked_to: tx.linked_customer_phone,
             });
         }
 
@@ -229,7 +298,9 @@ router.post('/:id/link', async (req, res) => {
             if (tposResult.success && tposResult.customer) {
                 tposData = tposResult.customer;
                 customerName = tposData.name || customerName || tx.content;
-                console.log(`[BalanceHistory V2] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`);
+                console.log(
+                    `[BalanceHistory V2] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`
+                );
             }
         } catch (e) {
             console.log('[BalanceHistory V2] TPOS fetch failed, using provided name:', e.message);
@@ -243,30 +314,37 @@ router.post('/:id/link', async (req, res) => {
         // 3. Create/update customer with full TPOS data
         const customerResult = await getOrCreateCustomerFromTPOS(db, normalizedPhone, tposData);
         const customerId = customerResult.customerId;
-        console.log(`[BalanceHistory V2] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+        console.log(
+            `[BalanceHistory V2] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`
+        );
 
         // 4. Link transaction to customer
         // Set verification_status = 'PENDING_VERIFICATION' for manual entries
         // This requires accountant approval before wallet is credited
-        await db.query(`
-            UPDATE balance_history
+        await db.query(
+            `
+            UPDATE web2_balance_history
             SET linked_customer_phone = $1,
                 customer_id = $2,
                 match_method = 'manual_entry',
                 verification_status = 'PENDING_VERIFICATION',
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $3
-        `, [normalizedPhone, customerId, id]);
+        `,
+            [normalizedPhone, customerId, id]
+        );
 
         // 5. Manual entries require accountant approval - DO NOT auto deposit
         // The wallet will be credited when accountant calls /approve endpoint
         let depositResult = {
             deposited: false,
             requires_approval: true,
-            message: 'Giao dịch nhập tay cần kế toán duyệt trước khi nạp ví'
+            message: 'Giao dịch nhập tay cần kế toán duyệt trước khi nạp ví',
         };
 
-        console.log(`[BalanceHistory V2] ⏳ Transaction ${id} linked with PENDING_VERIFICATION - awaiting accountant approval`);
+        console.log(
+            `[BalanceHistory V2] ⏳ Transaction ${id} linked with PENDING_VERIFICATION - awaiting accountant approval`
+        );
 
         // Remove from pending matches if exists
         await db.query('DELETE FROM pending_customer_matches WHERE balance_history_id = $1', [id]);
@@ -282,10 +360,9 @@ router.post('/:id/link', async (req, res) => {
                 customer_name: customerResult.customerName || customerName,
                 phone: normalizedPhone,
                 tpos_id: tposData?.id || null,
-                deposit: depositResult
-            }
+                deposit: depositResult,
+            },
         });
-
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to link transaction');
@@ -306,7 +383,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
     try {
         const result = await withTransaction(pool, async (client) => {
             const txResult = await client.query(
-                'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+                'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
                 [parseInt(id)]
             );
 
@@ -317,15 +394,30 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
             const tx = txResult.rows[0];
 
             if (!tx.linked_customer_phone) {
-                return { status: 400, body: { success: false, error: 'Transaction is not linked to any customer. Use /link first.' } };
+                return {
+                    status: 400,
+                    body: {
+                        success: false,
+                        error: 'Transaction is not linked to any customer. Use /link first.',
+                    },
+                };
             }
 
             if (tx.wallet_processed === true) {
-                return { status: 400, body: { success: false, error: 'Wallet already processed for this transaction' } };
+                return {
+                    status: 400,
+                    body: {
+                        success: false,
+                        error: 'Wallet already processed for this transaction',
+                    },
+                };
             }
 
             if (tx.transfer_amount <= 0) {
-                return { status: 400, body: { success: false, error: 'Transaction amount must be greater than 0' } };
+                return {
+                    status: 400,
+                    body: { success: false, error: 'Transaction amount must be greater than 0' },
+                };
             }
 
             const walletResult = await processDeposit(
@@ -339,11 +431,14 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
                 tx.sepay_id
             );
 
-            await client.query(`
-                UPDATE balance_history
+            await client.query(
+                `
+                UPDATE web2_balance_history
                 SET wallet_processed = TRUE
                 WHERE id = $1
-            `, [id]);
+            `,
+                [id]
+            );
 
             // Log activity only when wallet was actually updated (not when sepay_id was skipped)
             if (!walletResult.skipped) {
@@ -352,11 +447,11 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
                     tx.customer_id,
                     `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
                     `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - xử lý lại`,
-                    id
+                    id,
                 ];
                 const reprocessActivityQuery = `
                     INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color${tx.transaction_date ? ', created_at' : ''})
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'web2_balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
                 `;
                 if (tx.transaction_date) {
                     reprocessActivityParams.push(tx.transaction_date);
@@ -364,22 +459,26 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
                 await client.query(reprocessActivityQuery, reprocessActivityParams);
             }
 
-            console.log(`[BalanceHistory V2] ✅ Reprocessed wallet: ${tx.linked_customer_phone} +${tx.transfer_amount}${walletResult.skipped ? ' (skipped: duplicate sepay_id)' : ''}`);
+            console.log(
+                `[BalanceHistory V2] ✅ Reprocessed wallet: ${tx.linked_customer_phone} +${tx.transfer_amount}${walletResult.skipped ? ' (skipped: duplicate sepay_id)' : ''}`
+            );
 
             return {
                 status: 200,
                 body: {
                     success: true,
-                    message: walletResult.skipped ? 'Đã đánh dấu xử lý, giao dịch đã từng được cộng ví trước đó' : 'Đã cộng tiền vào ví thành công',
+                    message: walletResult.skipped
+                        ? 'Đã đánh dấu xử lý, giao dịch đã từng được cộng ví trước đó'
+                        : 'Đã cộng tiền vào ví thành công',
                     data: {
                         transaction_id: id,
                         phone: tx.linked_customer_phone,
                         amount: parseFloat(tx.transfer_amount),
                         wallet_tx_id: walletResult.transactionId,
                         new_balance: walletResult.wallet?.balance,
-                        skipped: !!walletResult.skipped
-                    }
-                }
+                        skipped: !!walletResult.skipped,
+                    },
+                },
             };
         });
 
@@ -403,7 +502,7 @@ router.post('/:id/unlink', async (req, res) => {
 
         // Get transaction
         const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -418,50 +517,65 @@ router.post('/:id/unlink', async (req, res) => {
         // Unlink would allow re-linking and double-crediting
         if (tx.wallet_processed === true) {
             await db.query('ROLLBACK');
-            console.log(`[SECURITY] Blocked unlink for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`);
+            console.log(
+                `[SECURITY] Blocked unlink for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`
+            );
             return res.status(400).json({
                 success: false,
                 error: 'Không thể hủy liên kết - Giao dịch đã được cộng vào ví khách hàng',
                 wallet_processed: true,
                 linked_customer_phone: tx.linked_customer_phone,
-                suggestion: 'Sử dụng chức năng "Điều chỉnh công nợ" để hoàn tiền nếu cần'
+                suggestion: 'Sử dụng chức năng "Điều chỉnh công nợ" để hoàn tiền nếu cần',
             });
         }
 
         if (!tx.linked_customer_phone) {
             await db.query('ROLLBACK');
-            return res.status(400).json({ success: false, error: 'Transaction is not linked to any customer' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Transaction is not linked to any customer' });
         }
 
         // If wallet was processed, need to reverse the deposit
         if (tx.wallet_processed && tx.transfer_amount > 0) {
-            await db.query(`
+            await db.query(
+                `
                 UPDATE customer_wallets
                 SET balance = balance - $2, total_deposited = total_deposited - $2, updated_at = NOW()
                 WHERE phone = $1
-            `, [tx.linked_customer_phone, tx.transfer_amount]);
+            `,
+                [tx.linked_customer_phone, tx.transfer_amount]
+            );
 
             // Log reversal transaction
-            await db.query(`
+            await db.query(
+                `
                 INSERT INTO wallet_transactions (
                     phone, type, amount, source, reference_type, reference_id, note
                 )
-                VALUES ($1, 'ADJUSTMENT', $2, 'MANUAL_ADJUSTMENT', 'balance_history', $3, $4)
-            `, [
-                tx.linked_customer_phone, -tx.transfer_amount, id,
-                `Hoàn tác liên kết giao dịch ${tx.code || tx.reference_code}`
-            ]);
+                VALUES ($1, 'ADJUSTMENT', $2, 'MANUAL_ADJUSTMENT', 'web2_balance_history', $3, $4)
+            `,
+                [
+                    tx.linked_customer_phone,
+                    -tx.transfer_amount,
+                    id,
+                    `Hoàn tác liên kết giao dịch ${tx.code || tx.reference_code}`,
+                ]
+            );
         }
 
         // Unlink transaction
-        await db.query(`
-            UPDATE balance_history
+        await db.query(
+            `
+            UPDATE web2_balance_history
             SET linked_customer_phone = NULL,
                 customer_id = NULL,
                 wallet_processed = FALSE,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
-        `, [id]);
+        `,
+            [id]
+        );
 
         await db.query('COMMIT');
 
@@ -471,10 +585,9 @@ router.post('/:id/unlink', async (req, res) => {
             data: {
                 transaction_id: id,
                 previous_phone: tx.linked_customer_phone,
-                reversed_amount: tx.wallet_processed ? tx.transfer_amount : 0
-            }
+                reversed_amount: tx.wallet_processed ? tx.transfer_amount : 0,
+            },
         });
-
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to unlink transaction');
@@ -505,7 +618,7 @@ router.get('/stats', async (req, res) => {
                 COALESCE(SUM(transfer_amount) FILTER (WHERE transfer_type = 'in'), 0) as total_in,
                 COALESCE(SUM(transfer_amount) FILTER (WHERE transfer_type = 'out'), 0) as total_out,
                 COALESCE(SUM(transfer_amount) FILTER (WHERE wallet_processed = TRUE), 0) as total_processed_to_wallet
-            FROM balance_history
+            FROM web2_balance_history
         `);
 
         res.json({ success: true, data: result.rows[0] });
@@ -526,7 +639,15 @@ router.get('/stats', async (req, res) => {
  */
 router.get('/verification-queue', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { page = 1, limit = 20, status = 'PENDING_VERIFICATION', startDate, endDate, search, overdueOnly } = req.query;
+    const {
+        page = 1,
+        limit = 20,
+        status = 'PENDING_VERIFICATION',
+        startDate,
+        endDate,
+        search,
+        overdueOnly,
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
@@ -561,17 +682,20 @@ router.get('/verification-queue', async (req, res) => {
 
         // Search filter
         if (search) {
-            whereConditions.push(`(bh.content ILIKE $${paramCount} OR bh.transfer_amount::text ILIKE $${paramCount} OR c.name ILIKE $${paramCount} OR bh.linked_customer_phone ILIKE $${paramCount})`);
+            whereConditions.push(
+                `(bh.content ILIKE $${paramCount} OR bh.transfer_amount::text ILIKE $${paramCount} OR c.name ILIKE $${paramCount} OR bh.linked_customer_phone ILIKE $${paramCount})`
+            );
             queryParams.push(`%${search}%`);
             paramCount++;
         }
 
-        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        const whereClause =
+            whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
         // Get total count
         const countQuery = `
             SELECT COUNT(*) as total
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             ${whereClause}
         `;
@@ -605,7 +729,7 @@ router.get('/verification-queue', async (req, res) => {
                 c.name as customer_name,
                 pcm.matched_customers,
                 pcm.extracted_phone
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN pending_customer_matches pcm ON pcm.transaction_id = bh.id
             ${whereClause}
@@ -622,8 +746,8 @@ router.get('/verification-queue', async (req, res) => {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total,
-                totalPages: Math.ceil(total / limit)
-            }
+                totalPages: Math.ceil(total / limit),
+            },
         });
     } catch (error) {
         handleError(res, error, 'Failed to fetch verification queue');
@@ -648,7 +772,7 @@ router.post('/:id/approve', async (req, res) => {
         const result = await withTransaction(pool, async (client) => {
             // 1. Get transaction with real row lock (held until COMMIT)
             const txResult = await client.query(
-                'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+                'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
                 [parseInt(id)]
             );
 
@@ -658,13 +782,16 @@ router.post('/:id/approve', async (req, res) => {
 
             const tx = txResult.rows[0];
 
-            if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
+            if (
+                tx.verification_status !== 'PENDING_VERIFICATION' &&
+                tx.verification_status !== 'PENDING'
+            ) {
                 return {
                     status: 400,
                     body: {
                         success: false,
-                        error: `Transaction is not pending verification. Current status: ${tx.verification_status}`
-                    }
+                        error: `Transaction is not pending verification. Current status: ${tx.verification_status}`,
+                    },
                 };
             }
 
@@ -673,8 +800,8 @@ router.post('/:id/approve', async (req, res) => {
                     status: 400,
                     body: {
                         success: false,
-                        error: 'Transaction is not linked to any customer. Link customer first.'
-                    }
+                        error: 'Transaction is not linked to any customer. Link customer first.',
+                    },
                 };
             }
 
@@ -683,7 +810,7 @@ router.post('/:id/approve', async (req, res) => {
             let updateParams;
             if (verification_image_url) {
                 updateQuery = `
-                    UPDATE balance_history
+                    UPDATE web2_balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
                         verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
@@ -694,7 +821,7 @@ router.post('/:id/approve', async (req, res) => {
                 updateParams = [id, verified_by, note, verification_image_url];
             } else {
                 updateQuery = `
-                    UPDATE balance_history
+                    UPDATE web2_balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
                         verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
@@ -724,11 +851,14 @@ router.post('/:id/approve', async (req, res) => {
 
                     // Mark as wallet processed (only if wallet deposit actually happened, not skipped)
                     if (!walletResult?.skipped) {
-                        await client.query(`
-                            UPDATE balance_history
+                        await client.query(
+                            `
+                            UPDATE web2_balance_history
                             SET wallet_processed = TRUE
                             WHERE id = $1
-                        `, [id]);
+                        `,
+                            [id]
+                        );
 
                         const activityParams = [
                             tx.linked_customer_phone,
@@ -736,31 +866,41 @@ router.post('/:id/approve', async (req, res) => {
                             `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
                             `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
                             id,
-                            verified_by || 'system'
+                            verified_by || 'system',
                         ];
                         const activityQuery = `
                             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by${tx.transaction_date ? ', created_at' : ''})
-                            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
+                            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'web2_balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
                         `;
                         if (tx.transaction_date) {
                             activityParams.push(tx.transaction_date);
                         }
                         await client.query(activityQuery, activityParams);
 
-                        console.log(`[BalanceHistory V2] ✅ Approved & wallet updated: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
+                        console.log(
+                            `[BalanceHistory V2] ✅ Approved & wallet updated: ${tx.linked_customer_phone} +${tx.transfer_amount}`
+                        );
                     } else {
                         // Wallet was already credited by another path (ON CONFLICT on sepay_id).
                         // Still mark as processed so future runs don't retry.
-                        await client.query(`
-                            UPDATE balance_history
+                        await client.query(
+                            `
+                            UPDATE web2_balance_history
                             SET wallet_processed = TRUE
                             WHERE id = $1
-                        `, [id]);
-                        console.log(`[BalanceHistory V2] ⚠️ Approved but wallet credit skipped (already processed via sepay_id=${tx.sepay_id})`);
+                        `,
+                            [id]
+                        );
+                        console.log(
+                            `[BalanceHistory V2] ⚠️ Approved but wallet credit skipped (already processed via sepay_id=${tx.sepay_id})`
+                        );
                     }
                 } catch (walletErr) {
-                    console.error('[BalanceHistory V2] Wallet update failed — rolling back approval:', walletErr.message);
-                    // Rethrow so withTransaction rolls back — keeps balance_history + wallet consistent
+                    console.error(
+                        '[BalanceHistory V2] Wallet update failed — rolling back approval:',
+                        walletErr.message
+                    );
+                    // Rethrow so withTransaction rolls back — keeps web2_balance_history + wallet consistent
                     throw walletErr;
                 }
             }
@@ -777,9 +917,9 @@ router.post('/:id/approve', async (req, res) => {
                         verification_status: 'APPROVED',
                         verified_by,
                         wallet_processed: !!walletResult && !walletResult.skipped,
-                        new_balance: walletResult?.wallet?.balance
-                    }
-                }
+                        new_balance: walletResult?.wallet?.balance,
+                    },
+                },
             };
         });
 
@@ -813,7 +953,7 @@ router.post('/:id/reject', async (req, res) => {
 
         // Get transaction
         const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -825,34 +965,45 @@ router.post('/:id/reject', async (req, res) => {
         const tx = txResult.rows[0];
 
         // Check if it's pending verification
-        if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
+        if (
+            tx.verification_status !== 'PENDING_VERIFICATION' &&
+            tx.verification_status !== 'PENDING'
+        ) {
             await db.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: `Transaction is not pending verification. Current status: ${tx.verification_status}`
+                error: `Transaction is not pending verification. Current status: ${tx.verification_status}`,
             });
         }
 
         // Update verification status to REJECTED
-        await db.query(`
-            UPDATE balance_history
+        await db.query(
+            `
+            UPDATE web2_balance_history
             SET verification_status = 'REJECTED',
                 verified_by = $2,
                 verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                 verification_note = $3
             WHERE id = $1
-        `, [id, verified_by, `REJECTED: ${reason}`]);
+        `,
+            [id, verified_by, `REJECTED: ${reason}`]
+        );
 
         // Also update pending_customer_matches if exists
-        await db.query(`
+        await db.query(
+            `
             UPDATE pending_customer_matches
             SET status = 'rejected'
             WHERE transaction_id = $1
-        `, [id]);
+        `,
+            [id]
+        );
 
         await db.query('COMMIT');
 
-        console.log(`[BalanceHistory V2] ❌ Rejected transaction ${id} by ${verified_by}: ${reason}`);
+        console.log(
+            `[BalanceHistory V2] ❌ Rejected transaction ${id} by ${verified_by}: ${reason}`
+        );
 
         res.json({
             success: true,
@@ -861,10 +1012,9 @@ router.post('/:id/reject', async (req, res) => {
                 transaction_id: id,
                 verification_status: 'REJECTED',
                 verified_by,
-                reason
-            }
+                reason,
+            },
         });
-
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to reject transaction');
@@ -898,7 +1048,7 @@ router.post('/:id/resolve-match', async (req, res) => {
 
         // 1. Get transaction
         const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -913,12 +1063,14 @@ router.post('/:id/resolve-match', async (req, res) => {
         // This prevents changing customer after wallet has been credited
         if (tx.wallet_processed === true) {
             await db.query('ROLLBACK');
-            console.log(`[SECURITY] Blocked resolve-match for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`);
+            console.log(
+                `[SECURITY] Blocked resolve-match for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`
+            );
             return res.status(400).json({
                 success: false,
                 error: 'Không thể chọn lại - Giao dịch đã được cộng vào ví',
                 wallet_processed: true,
-                current_phone: tx.linked_customer_phone
+                current_phone: tx.linked_customer_phone,
             });
         }
 
@@ -928,7 +1080,7 @@ router.post('/:id/resolve-match', async (req, res) => {
             return res.status(400).json({
                 success: false,
                 error: 'Transaction already resolved and approved',
-                linked_to: tx.linked_customer_phone
+                linked_to: tx.linked_customer_phone,
             });
         }
 
@@ -955,29 +1107,46 @@ router.post('/:id/resolve-match', async (req, res) => {
         const customerId = customerResult.customerId;
 
         // 4. Link transaction and set PENDING_VERIFICATION (needs accountant approval)
-        await db.query(`
-            UPDATE balance_history
+        await db.query(
+            `
+            UPDATE web2_balance_history
             SET linked_customer_phone = $2,
                 customer_id = $3,
                 verification_status = 'PENDING_VERIFICATION',
                 match_method = 'pending_match',
                 verification_note = $4
             WHERE id = $1
-        `, [id, normalizedPhone, customerId, `NV chọn: ${performed_by || 'Unknown'} - ${note || ''}`]);
+        `,
+            [
+                id,
+                normalizedPhone,
+                customerId,
+                `NV chọn: ${performed_by || 'Unknown'} - ${note || ''}`,
+            ]
+        );
 
         // 5. Update pending_customer_matches
-        await db.query(`
+        await db.query(
+            `
             UPDATE pending_customer_matches
             SET status = 'resolved',
                 selected_customer = $2,
                 resolved_at = CURRENT_TIMESTAMP,
                 resolved_by = $3
             WHERE transaction_id = $1
-        `, [id, JSON.stringify({ phone: normalizedPhone, name: customerName, id: customerId }), performed_by]);
+        `,
+            [
+                id,
+                JSON.stringify({ phone: normalizedPhone, name: customerName, id: customerId }),
+                performed_by,
+            ]
+        );
 
         await db.query('COMMIT');
 
-        console.log(`[BalanceHistory V2] ✅ Resolved match for ${id} to ${normalizedPhone}, awaiting accountant approval`);
+        console.log(
+            `[BalanceHistory V2] ✅ Resolved match for ${id} to ${normalizedPhone}, awaiting accountant approval`
+        );
 
         res.json({
             success: true,
@@ -988,10 +1157,9 @@ router.post('/:id/resolve-match', async (req, res) => {
                 customer_id: customerId,
                 customer_name: customerName || customerResult.customerName,
                 verification_status: 'PENDING_VERIFICATION',
-                note: 'Chờ kế toán duyệt để cộng tiền vào ví'
-            }
+                note: 'Chờ kế toán duyệt để cộng tiền vào ví',
+            },
         });
-
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to resolve match');
@@ -1019,50 +1187,67 @@ router.get('/accountant/stats', async (req, res) => {
         tomorrow.setDate(tomorrow.getDate() + 1);
 
         // Parallel queries for stats
-        const [pendingResult, pendingOverdueResult, approvedTodayResult, rejectedTodayResult, adjustmentsTodayResult, walletApprovedTodayResult] = await Promise.all([
+        const [
+            pendingResult,
+            pendingOverdueResult,
+            approvedTodayResult,
+            rejectedTodayResult,
+            adjustmentsTodayResult,
+            walletApprovedTodayResult,
+        ] = await Promise.all([
             // Pending verification count
             db.query(`
                 SELECT COUNT(*) as count
-                FROM balance_history
+                FROM web2_balance_history
                 WHERE verification_status = 'PENDING_VERIFICATION'
                   AND transfer_type = 'in'
             `),
             // Pending > 24h count
             db.query(`
                 SELECT COUNT(*) as count
-                FROM balance_history
+                FROM web2_balance_history
                 WHERE verification_status = 'PENDING_VERIFICATION'
                   AND transfer_type = 'in'
                   AND created_at < NOW() - INTERVAL '24 hours'
             `),
             // Approved today count (sepay only)
-            db.query(`
+            db.query(
+                `
                 SELECT COUNT(*) as count
-                FROM balance_history
+                FROM web2_balance_history
                 WHERE verification_status = 'APPROVED'
                   AND transfer_type = 'in'
                   AND verified_at >= $1
                   AND verified_at < $2
-            `, [today, tomorrow]),
+            `,
+                [today, tomorrow]
+            ),
             // Rejected today count
-            db.query(`
+            db.query(
+                `
                 SELECT COUNT(*) as count
-                FROM balance_history
+                FROM web2_balance_history
                 WHERE verification_status = 'REJECTED'
                   AND transfer_type = 'in'
                   AND verified_at >= $1
                   AND verified_at < $2
-            `, [today, tomorrow]),
+            `,
+                [today, tomorrow]
+            ),
             // Manual adjustments today count
-            db.query(`
+            db.query(
+                `
                 SELECT COUNT(*) as count
                 FROM wallet_transactions
                 WHERE type = 'MANUAL_ADJUSTMENT'
                   AND created_at >= $1
                   AND created_at < $2
-            `, [today, tomorrow]),
+            `,
+                [today, tomorrow]
+            ),
             // Wallet +tiền nội bộ hôm nay (mirror filter của /approved-today UNION nhánh wt)
-            db.query(`
+            db.query(
+                `
                 SELECT COUNT(*) as count
                 FROM wallet_transactions
                 WHERE amount > 0
@@ -1070,10 +1255,12 @@ router.get('/accountant/stats', async (req, res) => {
                     type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
                     OR (type = 'DEPOSIT' AND source = 'ORDER_CANCEL_REFUND')
                   )
-                  AND (reference_type IS DISTINCT FROM 'balance_history')
+                  AND (reference_type IS DISTINCT FROM 'web2_balance_history')
                   AND created_at >= $1
                   AND created_at < $2
-            `, [today, tomorrow])
+            `,
+                [today, tomorrow]
+            ),
         ]);
 
         const approvedTodayBh = parseInt(approvedTodayResult.rows[0].count);
@@ -1086,10 +1273,9 @@ router.get('/accountant/stats', async (req, res) => {
                 pendingOverdue: parseInt(pendingOverdueResult.rows[0].count),
                 approvedToday: approvedTodayBh + approvedTodayWt,
                 rejectedToday: parseInt(rejectedTodayResult.rows[0].count),
-                adjustmentsToday: parseInt(adjustmentsTodayResult.rows[0].count)
-            }
+                adjustmentsToday: parseInt(adjustmentsTodayResult.rows[0].count),
+            },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to fetch accountant stats');
     }
@@ -1102,7 +1288,18 @@ router.get('/accountant/stats', async (req, res) => {
  */
 router.get('/approved-today', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { date, startDate, endDate, search, page = 1, limit = 50, source, verifier, checked, adjusted } = req.query;
+    const {
+        date,
+        startDate,
+        endDate,
+        search,
+        page = 1,
+        limit = 50,
+        source,
+        verifier,
+        checked,
+        adjusted,
+    } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
@@ -1129,7 +1326,7 @@ router.get('/approved-today', async (req, res) => {
             targetEnd = new Date(targetStart);
             targetEnd.setDate(targetEnd.getDate() + 1);
         } else {
-            // Default: Both unset -> Default to today? 
+            // Default: Both unset -> Default to today?
             // Or if explicit filtering is not requested, maybe last 30 days is safer?
             // Existing logic defaulted to today. Let's keep today default if no date param is present.
             const today = new Date();
@@ -1146,7 +1343,9 @@ router.get('/approved-today', async (req, res) => {
 
         // Search filter
         if (search) {
-            whereConditions.push(`(bh.content ILIKE $${paramCount} OR bh.transfer_amount::text ILIKE $${paramCount} OR c.name ILIKE $${paramCount} OR bh.linked_customer_phone ILIKE $${paramCount} OR bh.verified_by ILIKE $${paramCount})`);
+            whereConditions.push(
+                `(bh.content ILIKE $${paramCount} OR bh.transfer_amount::text ILIKE $${paramCount} OR c.name ILIKE $${paramCount} OR bh.linked_customer_phone ILIKE $${paramCount} OR bh.verified_by ILIKE $${paramCount})`
+            );
             queryParams.push(`%${search}%`);
             paramCount++;
         }
@@ -1158,7 +1357,9 @@ router.get('/approved-today', async (req, res) => {
             } else if (source === 'selected') {
                 whereConditions.push(`bh.match_method = 'pending_match'`);
             } else if (source === 'auto') {
-                whereConditions.push(`(bh.match_method IN ('qr_code', 'exact_phone', 'single_match') OR bh.extraction_note LIKE 'MOMO:%' OR bh.extraction_note LIKE 'VCB:%')`);
+                whereConditions.push(
+                    `(bh.match_method IN ('qr_code', 'exact_phone', 'single_match') OR bh.extraction_note LIKE 'MOMO:%' OR bh.extraction_note LIKE 'VCB:%')`
+                );
             } else if (source === 'khach_ck') {
                 // Tất cả bh rows (sepay deposit) — không filter thêm
             } else if (source === 'thu_ve' || source === 'cong_no_ao' || source === 'hoan_tien') {
@@ -1184,7 +1385,9 @@ router.get('/approved-today', async (req, res) => {
         if (adjusted === 'adjusted') {
             whereConditions.push(`bh.verification_note LIKE '%[Đã điều chỉnh:%'`);
         } else if (adjusted === 'unadjusted') {
-            whereConditions.push(`(bh.verification_note NOT LIKE '%[Đã điều chỉnh:%' OR bh.verification_note IS NULL)`);
+            whereConditions.push(
+                `(bh.verification_note NOT LIKE '%[Đã điều chỉnh:%' OR bh.verification_note IS NULL)`
+            );
         }
 
         const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
@@ -1192,7 +1395,7 @@ router.get('/approved-today', async (req, res) => {
         // Get total count
         const countQuery = `
             SELECT COUNT(*) as total
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             ${whereClause}
         `;
@@ -1222,7 +1425,7 @@ router.get('/approved-today', async (req, res) => {
                 bh.reviewed_at,
                 c.name as customer_name,
                 wa.created_by as adjusted_by
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
             ${whereClause}
@@ -1236,7 +1439,9 @@ router.get('/approved-today', async (req, res) => {
         } catch (queryError) {
             // If verification_image_url column doesn't exist, retry without it
             if (queryError.message.includes('verification_image_url')) {
-                console.log('[BalanceHistory V2] Column verification_image_url not found, retrying without it');
+                console.log(
+                    '[BalanceHistory V2] Column verification_image_url not found, retrying without it'
+                );
                 paramCount = paramCount - 2; // Reset paramCount
                 dataQuery = `
                     SELECT
@@ -1255,7 +1460,7 @@ router.get('/approved-today', async (req, res) => {
                         bh.reviewed_at,
                         c.name as customer_name,
                         wa.created_by as adjusted_by
-                    FROM balance_history bh
+                    FROM web2_balance_history bh
                     LEFT JOIN customers c ON bh.customer_id = c.id
                     LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
                     ${whereClause}
@@ -1271,25 +1476,31 @@ router.get('/approved-today', async (req, res) => {
         // Enrich with full wallet_adjustments metadata + 2-leg snapshots from wallet_transactions.
         // Wrapped in try/catch — if enrich fails, return rows with only the existing JOIN data.
         try {
-            const bhIds = result.rows.map(r => r.id).filter(Number.isInteger);
+            const bhIds = result.rows.map((r) => r.id).filter(Number.isInteger);
             if (bhIds.length > 0) {
-                const waResult = await db.query(`
+                const waResult = await db.query(
+                    `
                     SELECT original_transaction_id, adjustment_type, wrong_customer_phone,
                            correct_customer_phone, adjustment_amount, reason, created_by,
                            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
                     FROM wallet_adjustments
                     WHERE original_transaction_id = ANY($1::int[])
-                `, [bhIds]);
-                const waMap = new Map(waResult.rows.map(w => [w.original_transaction_id, w]));
+                `,
+                    [bhIds]
+                );
+                const waMap = new Map(waResult.rows.map((w) => [w.original_transaction_id, w]));
 
                 const bhIdsAsText = bhIds.map(String);
-                const legsResult = await db.query(`
+                const legsResult = await db.query(
+                    `
                     SELECT reference_id, phone, amount, balance_before, balance_after
                     FROM wallet_transactions
-                    WHERE reference_type = 'balance_history'
+                    WHERE reference_type = 'web2_balance_history'
                       AND type = 'ADJUSTMENT'
                       AND reference_id = ANY($1::text[])
-                `, [bhIdsAsText]);
+                `,
+                    [bhIdsAsText]
+                );
                 const legsMap = new Map();
                 for (const l of legsResult.rows) {
                     const key = parseInt(l.reference_id, 10);
@@ -1314,7 +1525,10 @@ router.get('/approved-today', async (req, res) => {
                 }
             }
         } catch (enrichErr) {
-            console.error('[balance-history.js] Approved adjustment enrich failed:', enrichErr.message);
+            console.error(
+                '[balance-history.js] Approved adjustment enrich failed:',
+                enrichErr.message
+            );
         }
 
         // Stamp src='bh' for frontend dispatcher (Đã Duyệt sẽ phân biệt với 'wt' rows phía dưới)
@@ -1326,7 +1540,7 @@ router.get('/approved-today', async (req, res) => {
         // ============================================================
         // UNION: thêm các +tiền nội bộ từ wallet_transactions (không phải sepay)
         // Type whitelist: VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT
-        // Filter trùng: bỏ qua các wt đã link sang balance_history (sepay đã ở nhánh trên)
+        // Filter trùng: bỏ qua các wt đã link sang web2_balance_history (sepay đã ở nhánh trên)
         // Idempotent ALTER guard cho columns mới (manager_reviewed, …)
         // ============================================================
         let walletTxRows = [];
@@ -1346,14 +1560,16 @@ router.get('/approved-today', async (req, res) => {
                 `wt.amount > 0`,
                 `(wt.type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
                   OR (wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND'))`,
-                `(wt.reference_type IS DISTINCT FROM 'balance_history')`,
+                `(wt.reference_type IS DISTINCT FROM 'web2_balance_history')`,
                 `wt.created_at >= $1`,
                 `wt.created_at < $2`,
             ];
 
             // Search filter cho wt
             if (search) {
-                wtConds.push(`(wt.note ILIKE $${wtParamCount} OR wt.amount::text ILIKE $${wtParamCount} OR c.name ILIKE $${wtParamCount} OR wt.phone ILIKE $${wtParamCount} OR wt.created_by ILIKE $${wtParamCount})`);
+                wtConds.push(
+                    `(wt.note ILIKE $${wtParamCount} OR wt.amount::text ILIKE $${wtParamCount} OR c.name ILIKE $${wtParamCount} OR wt.phone ILIKE $${wtParamCount} OR wt.created_by ILIKE $${wtParamCount})`
+                );
                 wtParams.push(`%${search}%`);
                 wtParamCount++;
             }
@@ -1374,10 +1590,14 @@ router.get('/approved-today', async (req, res) => {
             // Source filter cho wt side: xử lý các option wallet-internal mới.
             // Các option bh-side (manual/selected/auto/khach_ck) → SKIP wt entirely.
             if (source === 'thu_ve') {
-                wtConds.push(`(wt.type = 'VIRTUAL_CREDIT' AND (wt.source = 'VIRTUAL_CREDIT_ISSUE' OR wt.note ILIKE '%Thu Về%'))`);
+                wtConds.push(
+                    `(wt.type = 'VIRTUAL_CREDIT' AND (wt.source = 'VIRTUAL_CREDIT_ISSUE' OR wt.note ILIKE '%Thu Về%'))`
+                );
             } else if (source === 'cong_no_ao') {
                 // VIRTUAL_CREDIT không phải từ Thu về (manual virtual credit)
-                wtConds.push(`(wt.type = 'VIRTUAL_CREDIT' AND wt.source <> 'VIRTUAL_CREDIT_ISSUE' AND (wt.note IS NULL OR wt.note NOT ILIKE '%Thu Về%'))`);
+                wtConds.push(
+                    `(wt.type = 'VIRTUAL_CREDIT' AND wt.source <> 'VIRTUAL_CREDIT_ISSUE' AND (wt.note IS NULL OR wt.note NOT ILIKE '%Thu Về%'))`
+                );
             } else if (source === 'hoan_tien') {
                 wtConds.push(`(wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND')`);
             } else if (source && source !== '') {
@@ -1456,7 +1676,6 @@ router.get('/approved-today', async (req, res) => {
                 totalPages: Math.ceil(grandTotal / limit),
             },
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to fetch approved transactions');
     }
@@ -1487,7 +1706,7 @@ router.post('/bulk-approve', async (req, res) => {
         try {
             const outcome = await withTransaction(pool, async (client) => {
                 const txResult = await client.query(
-                    'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+                    'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
                     [parseInt(txId)]
                 );
 
@@ -1501,7 +1720,10 @@ router.post('/bulk-approve', async (req, res) => {
                     return { success: false, error: 'Already processed' };
                 }
 
-                if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
+                if (
+                    tx.verification_status !== 'PENDING_VERIFICATION' &&
+                    tx.verification_status !== 'PENDING'
+                ) {
                     return { success: false, error: `Status: ${tx.verification_status}` };
                 }
 
@@ -1520,21 +1742,24 @@ router.post('/bulk-approve', async (req, res) => {
                     tx.sepay_id
                 );
 
-                await client.query(`
-                    UPDATE balance_history
+                await client.query(
+                    `
+                    UPDATE web2_balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
                         verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                         wallet_processed = TRUE,
                         verification_note = 'Bulk approved'
                     WHERE id = $1
-                `, [txId, verified_by]);
+                `,
+                    [txId, verified_by]
+                );
 
                 return {
                     success: true,
                     amount: parseFloat(tx.transfer_amount),
                     new_balance: walletResult.wallet?.balance,
-                    skipped: !!walletResult.skipped
+                    skipped: !!walletResult.skipped,
                 };
             });
 
@@ -1559,7 +1784,7 @@ router.post('/bulk-approve', async (req, res) => {
         approved,
         failed,
         total: transaction_ids.length,
-        results
+        results,
     });
 });
 
@@ -1578,25 +1803,23 @@ router.get('/wallet/balance', async (req, res) => {
     const normalizedPhone = normalizePhone(phone);
 
     try {
-        const result = await db.query(
-            'SELECT balance FROM customer_wallets WHERE phone = $1',
-            [normalizedPhone]
-        );
+        const result = await db.query('SELECT balance FROM customer_wallets WHERE phone = $1', [
+            normalizedPhone,
+        ]);
 
         if (result.rows.length === 0) {
             return res.json({
                 success: true,
                 balance: 0,
-                exists: false
+                exists: false,
             });
         }
 
         res.json({
             success: true,
             balance: parseFloat(result.rows[0].balance),
-            exists: true
+            exists: true,
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to fetch balance');
     }
@@ -1622,7 +1845,7 @@ router.get('/settings/auto-approve', async (req, res) => {
             enabled,
             description: enabled
                 ? 'Đang BẬT - GD QR/SĐT chính xác/1 KH khớp tự động cộng ví'
-                : 'Đang TẮT - Tất cả GD cần kế toán duyệt trước khi cộng ví'
+                : 'Đang TẮT - Tất cả GD cần kế toán duyệt trước khi cộng ví',
         });
     } catch (error) {
         handleError(res, error, 'Failed to get auto-approve setting');
@@ -1642,14 +1865,14 @@ router.put('/settings/auto-approve', async (req, res) => {
     if (typeof enabled !== 'boolean') {
         return res.status(400).json({
             success: false,
-            error: 'enabled must be boolean'
+            error: 'enabled must be boolean',
         });
     }
 
     if (!updated_by) {
         return res.status(400).json({
             success: false,
-            error: 'updated_by is required'
+            error: 'updated_by is required',
         });
     }
 
@@ -1668,7 +1891,7 @@ router.put('/settings/auto-approve', async (req, res) => {
             enabled,
             message: enabled
                 ? 'Đã BẬT tự động duyệt - GD QR/SĐT chính xác sẽ tự cộng ví'
-                : 'Đã TẮT tự động duyệt - Tất cả GD cần kế toán duyệt'
+                : 'Đã TẮT tự động duyệt - Tất cả GD cần kế toán duyệt',
         });
     } catch (error) {
         handleError(res, error, 'Failed to update auto-approve setting');
@@ -1716,7 +1939,9 @@ router.post('/:id/manager-review', async (req, res) => {
             );
             if (r.rows.length === 0) {
                 await db.query('ROLLBACK');
-                return res.status(404).json({ success: false, error: 'Wallet transaction not found' });
+                return res
+                    .status(404)
+                    .json({ success: false, error: 'Wallet transaction not found' });
             }
             if (r.rows[0].manager_reviewed) {
                 await db.query('ROLLBACK');
@@ -1764,7 +1989,7 @@ router.post('/:id/manager-review', async (req, res) => {
 
         // 1. Get transaction and verify it exists and is approved
         const txResult = await db.query(
-            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -1780,7 +2005,7 @@ router.post('/:id/manager-review', async (req, res) => {
             await db.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: `Chỉ có thể kiểm tra giao dịch đã được duyệt. Trạng thái hiện tại: ${tx.verification_status}`
+                error: `Chỉ có thể kiểm tra giao dịch đã được duyệt. Trạng thái hiện tại: ${tx.verification_status}`,
             });
         }
 
@@ -1791,23 +2016,28 @@ router.post('/:id/manager-review', async (req, res) => {
                 success: false,
                 error: 'Giao dịch này đã được kiểm tra trước đó',
                 reviewed_by: tx.reviewed_by,
-                reviewed_at: tx.reviewed_at
+                reviewed_at: tx.reviewed_at,
             });
         }
 
         // 2. Update transaction with manager review info
         // Append manager note to verification_note with marker for frontend styling
-        const managerNoteText = manager_review_note ? `\n[QL: ${manager_review_note}]` : '\n[QL: Đã kiểm tra]';
+        const managerNoteText = manager_review_note
+            ? `\n[QL: ${manager_review_note}]`
+            : '\n[QL: Đã kiểm tra]';
 
-        await db.query(`
-            UPDATE balance_history
+        await db.query(
+            `
+            UPDATE web2_balance_history
             SET manager_reviewed = TRUE,
                 manager_review_note = $2,
                 reviewed_by = $3,
                 reviewed_at = NOW(),
                 verification_note = COALESCE(verification_note, '') || $4
             WHERE id = $1
-        `, [id, manager_review_note || '', reviewed_by, managerNoteText]);
+        `,
+            [id, manager_review_note || '', reviewed_by, managerNoteText]
+        );
 
         await db.query('COMMIT');
 
@@ -1821,10 +2051,9 @@ router.post('/:id/manager-review', async (req, res) => {
                 manager_reviewed: true,
                 manager_review_note: manager_review_note || '',
                 reviewed_by,
-                reviewed_at: new Date().toISOString()
-            }
+                reviewed_at: new Date().toISOString(),
+            },
         });
-
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to mark transaction as reviewed');
@@ -1856,7 +2085,9 @@ router.delete('/:id/manager-review', async (req, res) => {
             );
             if (r.rows.length === 0) {
                 await db.query('ROLLBACK');
-                return res.status(404).json({ success: false, error: 'Wallet transaction not found' });
+                return res
+                    .status(404)
+                    .json({ success: false, error: 'Wallet transaction not found' });
             }
             await db.query(
                 `UPDATE wallet_transactions
@@ -1869,7 +2100,11 @@ router.delete('/:id/manager-review', async (req, res) => {
             );
             await db.query('COMMIT');
             console.log(`[MANAGER REVIEW REVERT] wt:${id}`);
-            return res.json({ success: true, message: 'Đã revert manager review', data: { id: parseInt(id), src: 'wt' } });
+            return res.json({
+                success: true,
+                message: 'Đã revert manager review',
+                data: { id: parseInt(id), src: 'wt' },
+            });
         } catch (error) {
             await db.query('ROLLBACK').catch(() => {});
             return handleError(res, error, 'Failed to revert wt manager review');
@@ -1882,7 +2117,7 @@ router.delete('/:id/manager-review', async (req, res) => {
     try {
         await db.query('BEGIN');
         const r = await db.query(
-            'SELECT id, manager_reviewed, verification_note FROM balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT id, manager_reviewed, verification_note FROM web2_balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
         if (r.rows.length === 0) {
@@ -1890,9 +2125,11 @@ router.delete('/:id/manager-review', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Transaction not found' });
         }
         // Strip [QL: ...] marker from verification_note
-        const cleanedNote = (r.rows[0].verification_note || '').replace(/\n?\[QL:[^\]]*\]/g, '').trim();
+        const cleanedNote = (r.rows[0].verification_note || '')
+            .replace(/\n?\[QL:[^\]]*\]/g, '')
+            .trim();
         await db.query(
-            `UPDATE balance_history
+            `UPDATE web2_balance_history
              SET manager_reviewed = FALSE,
                  manager_review_note = NULL,
                  reviewed_by = NULL,
@@ -1903,7 +2140,11 @@ router.delete('/:id/manager-review', async (req, res) => {
         );
         await db.query('COMMIT');
         console.log(`[MANAGER REVIEW REVERT] bh:${id}`);
-        return res.json({ success: true, message: 'Đã revert manager review', data: { id: parseInt(id), src: 'bh' } });
+        return res.json({
+            success: true,
+            message: 'Đã revert manager review',
+            data: { id: parseInt(id), src: 'bh' },
+        });
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to revert manager review');
@@ -1937,7 +2178,8 @@ router.get('/:id/can-adjust', async (req, res) => {
 
     try {
         // 1. Lấy thông tin giao dịch
-        const txResult = await db.query(`
+        const txResult = await db.query(
+            `
             SELECT
                 bh.id,
                 bh.transfer_amount,
@@ -1950,15 +2192,17 @@ router.get('/:id/can-adjust', async (req, res) => {
                 bh.content,
                 bh.code as transaction_code,
                 c.name as customer_name
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             WHERE bh.id = $1
-        `, [id]);
+        `,
+            [id]
+        );
 
         if (txResult.rows.length === 0) {
             return res.status(404).json({
                 success: false,
-                error: 'Không tìm thấy giao dịch'
+                error: 'Không tìm thấy giao dịch',
             });
         }
 
@@ -1970,7 +2214,7 @@ router.get('/:id/can-adjust', async (req, res) => {
                 success: true,
                 canAdjust: false,
                 reason: 'Giao dịch chưa được cộng vào ví, không cần điều chỉnh',
-                transaction: tx
+                transaction: tx,
             });
         }
 
@@ -1980,38 +2224,47 @@ router.get('/:id/can-adjust', async (req, res) => {
                 success: true,
                 canAdjust: false,
                 reason: 'Giao dịch không có thông tin khách hàng',
-                transaction: tx
+                transaction: tx,
             });
         }
 
         // 4. Lấy số dư ví KH
-        const walletResult = await db.query(`
+        const walletResult = await db.query(
+            `
             SELECT balance, virtual_balance
             FROM customer_wallets
             WHERE phone = $1
-        `, [tx.linked_customer_phone]);
+        `,
+            [tx.linked_customer_phone]
+        );
 
         const wallet = walletResult.rows[0] || { balance: 0, virtual_balance: 0 };
         const currentBalance = parseFloat(wallet.balance || 0);
         const depositedAmount = parseFloat(tx.transfer_amount);
 
         // 5. Kiểm tra có giao dịch WITHDRAW sau deposit không
-        const withdrawResult = await db.query(`
+        const withdrawResult = await db.query(
+            `
             SELECT COUNT(*) as count
             FROM wallet_transactions
             WHERE phone = $1
             AND type IN ('WITHDRAW', 'ORDER_PAYMENT', 'VIRTUAL_DEBIT')
             AND created_at > $2
-        `, [tx.linked_customer_phone, tx.verified_at]);
+        `,
+            [tx.linked_customer_phone, tx.verified_at]
+        );
 
         const hasWithdrawals = parseInt(withdrawResult.rows[0].count) > 0;
 
         // 6. Kiểm tra đã có adjustment cho GD này chưa
-        const adjResult = await db.query(`
+        const adjResult = await db.query(
+            `
             SELECT COUNT(*) as count
             FROM wallet_adjustments
             WHERE original_transaction_id = $1
-        `, [id]);
+        `,
+            [id]
+        );
 
         const hasAdjustment = parseInt(adjResult.rows[0].count) > 0;
 
@@ -2022,7 +2275,8 @@ router.get('/:id/can-adjust', async (req, res) => {
 
         if (hasWithdrawals) {
             canAdjust = false;
-            reason = 'Khách hàng đã có giao dịch rút/thanh toán sau khi nạp tiền. Liên hệ Admin để cộng/trừ riêng lẻ.';
+            reason =
+                'Khách hàng đã có giao dịch rút/thanh toán sau khi nạp tiền. Liên hệ Admin để cộng/trừ riêng lẻ.';
         } else if (currentBalance < depositedAmount) {
             canAdjust = false;
             usedAmount = depositedAmount - currentBalance;
@@ -2044,18 +2298,17 @@ router.get('/:id/can-adjust', async (req, res) => {
                 verified_at: tx.verified_at,
                 verified_by: tx.verified_by,
                 transaction_code: tx.transaction_code,
-                content: tx.content
+                content: tx.content,
             },
             wallet: {
                 current_balance: currentBalance,
                 deposited_amount: depositedAmount,
                 used_amount: usedAmount,
-                can_withdraw: currentBalance
+                can_withdraw: currentBalance,
             },
             hasWithdrawals,
-            hasAdjustment
+            hasAdjustment,
         });
-
     } catch (error) {
         handleError(res, error, 'Failed to check adjustment eligibility');
     }
@@ -2075,26 +2328,20 @@ router.get('/:id/can-adjust', async (req, res) => {
 router.post('/:id/adjust', async (req, res) => {
     const pool = req.app.locals.chatDb;
     const { id } = req.params;
-    const {
-        adjustment_type,
-        correct_customer_phone,
-        amount,
-        reason,
-        performed_by
-    } = req.body;
+    const { adjustment_type, correct_customer_phone, amount, reason, performed_by } = req.body;
 
     // Validate input
     if (!reason || reason.length < 10) {
         return res.status(400).json({
             success: false,
-            error: 'Lý do điều chỉnh phải có ít nhất 10 ký tự'
+            error: 'Lý do điều chỉnh phải có ít nhất 10 ký tự',
         });
     }
 
     if (!performed_by) {
         return res.status(400).json({
             success: false,
-            error: 'Thiếu thông tin người thực hiện'
+            error: 'Thiếu thông tin người thực hiện',
         });
     }
 
@@ -2102,14 +2349,14 @@ router.post('/:id/adjust', async (req, res) => {
     if (!validTypes.includes(adjustment_type)) {
         return res.status(400).json({
             success: false,
-            error: `Loại điều chỉnh không hợp lệ. Cho phép: ${validTypes.join(', ')}`
+            error: `Loại điều chỉnh không hợp lệ. Cho phép: ${validTypes.join(', ')}`,
         });
     }
 
     if (adjustment_type === 'transfer_to_correct' && !correct_customer_phone) {
         return res.status(400).json({
             success: false,
-            error: 'Thiếu SĐT khách hàng đúng'
+            error: 'Thiếu SĐT khách hàng đúng',
         });
     }
 
@@ -2118,7 +2365,8 @@ router.post('/:id/adjust', async (req, res) => {
         await db.query('BEGIN');
 
         // 1. Lấy thông tin GD và lock row
-        const txResult = await db.query(`
+        const txResult = await db.query(
+            `
             SELECT
                 bh.id,
                 bh.transfer_amount,
@@ -2127,11 +2375,13 @@ router.post('/:id/adjust', async (req, res) => {
                 bh.wallet_processed,
                 bh.verified_at,
                 c.name as customer_name
-            FROM balance_history bh
+            FROM web2_balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             WHERE bh.id = $1
             FOR UPDATE OF bh
-        `, [id]);
+        `,
+            [id]
+        );
 
         if (txResult.rows.length === 0) {
             await db.query('ROLLBACK');
@@ -2145,33 +2395,39 @@ router.post('/:id/adjust', async (req, res) => {
             await db.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: 'Giao dịch chưa được cộng vào ví, không thể điều chỉnh'
+                error: 'Giao dịch chưa được cộng vào ví, không thể điều chỉnh',
             });
         }
 
         // 3. Kiểm tra có thể điều chỉnh không (security check)
-        const walletResult = await db.query(`
+        const walletResult = await db.query(
+            `
             SELECT balance FROM customer_wallets WHERE phone = $1 FOR UPDATE
-        `, [tx.linked_customer_phone]);
+        `,
+            [tx.linked_customer_phone]
+        );
 
         const currentBalance = parseFloat(walletResult.rows[0]?.balance || 0);
         const depositedAmount = parseFloat(tx.transfer_amount);
         const adjustAmount = amount ? parseFloat(amount) : depositedAmount;
 
         // 4. Kiểm tra có WITHDRAW sau deposit không
-        const withdrawResult = await db.query(`
+        const withdrawResult = await db.query(
+            `
             SELECT COUNT(*) as count
             FROM wallet_transactions
             WHERE phone = $1
             AND type IN ('WITHDRAW', 'ORDER_PAYMENT', 'VIRTUAL_DEBIT')
             AND created_at > $2
-        `, [tx.linked_customer_phone, tx.verified_at]);
+        `,
+            [tx.linked_customer_phone, tx.verified_at]
+        );
 
         if (parseInt(withdrawResult.rows[0].count) > 0) {
             await db.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: 'Khách hàng đã có giao dịch rút/thanh toán. Liên hệ Admin để điều chỉnh thủ công.'
+                error: 'Khách hàng đã có giao dịch rút/thanh toán. Liên hệ Admin để điều chỉnh thủ công.',
             });
         }
 
@@ -2180,20 +2436,23 @@ router.post('/:id/adjust', async (req, res) => {
             await db.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: `Số dư không đủ để trừ. Số dư hiện tại: ${currentBalance.toLocaleString()}đ, cần trừ: ${adjustAmount.toLocaleString()}đ`
+                error: `Số dư không đủ để trừ. Số dư hiện tại: ${currentBalance.toLocaleString()}đ, cần trừ: ${adjustAmount.toLocaleString()}đ`,
             });
         }
 
         // 6. Kiểm tra đã có adjustment chưa
-        const existingAdj = await db.query(`
+        const existingAdj = await db.query(
+            `
             SELECT id FROM wallet_adjustments WHERE original_transaction_id = $1
-        `, [id]);
+        `,
+            [id]
+        );
 
         if (existingAdj.rows.length > 0) {
             await db.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: 'Giao dịch này đã được điều chỉnh trước đó'
+                error: 'Giao dịch này đã được điều chỉnh trước đó',
             });
         }
 
@@ -2203,14 +2462,18 @@ router.post('/:id/adjust', async (req, res) => {
 
         // 7a. Trừ ví KH sai
         const newBalance = currentBalance - adjustAmount;
-        await db.query(`
+        await db.query(
+            `
             UPDATE customer_wallets
             SET balance = $1, updated_at = NOW()
             WHERE phone = $2
-        `, [newBalance, tx.linked_customer_phone]);
+        `,
+            [newBalance, tx.linked_customer_phone]
+        );
 
         // Log wallet transaction (use valid type and source from CHECK constraints)
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO wallet_transactions (
                 phone, wallet_id, type, amount,
                 balance_before, balance_after,
@@ -2218,21 +2481,23 @@ router.post('/:id/adjust', async (req, res) => {
             )
             SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
                    $3::numeric, $4::numeric,
-                   'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
+                   'MANUAL_ADJUSTMENT'::text, 'web2_balance_history'::text, $5::text, $6::text
             FROM customer_wallets WHERE phone = $1::text
-        `, [
-            tx.linked_customer_phone,
-            -adjustAmount,  // Negative for debit
-            currentBalance,
-            newBalance,
-            String(id),
-            `Điều chỉnh trừ ví KH sai: ${reason}`
-        ]);
+        `,
+            [
+                tx.linked_customer_phone,
+                -adjustAmount, // Negative for debit
+                currentBalance,
+                newBalance,
+                String(id),
+                `Điều chỉnh trừ ví KH sai: ${reason}`,
+            ]
+        );
 
         adjustments.push({
             type: 'DEBIT',
             phone: tx.linked_customer_phone,
-            amount: -adjustAmount
+            amount: -adjustAmount,
         });
 
         // 7b. Nếu chuyển sang KH đúng
@@ -2241,46 +2506,63 @@ router.post('/:id/adjust', async (req, res) => {
 
             // Lấy hoặc tạo KH đúng
             const correctCustomer = await getOrCreateCustomerFromTPOS(db, normalizedCorrectPhone);
-            console.log(`[ADJUSTMENT] Transfer target customer: ID=${correctCustomer.customerId}, name=${correctCustomer.customerName}, created=${correctCustomer.created}, phone=${normalizedCorrectPhone}`);
+            console.log(
+                `[ADJUSTMENT] Transfer target customer: ID=${correctCustomer.customerId}, name=${correctCustomer.customerName}, created=${correctCustomer.created}, phone=${normalizedCorrectPhone}`
+            );
 
             if (!correctCustomer || !correctCustomer.customerId) {
                 await db.query('ROLLBACK');
                 return res.status(500).json({
                     success: false,
-                    error: `Không thể tạo/tìm khách hàng với SĐT ${normalizedCorrectPhone}`
+                    error: `Không thể tạo/tìm khách hàng với SĐT ${normalizedCorrectPhone}`,
                 });
             }
 
             // Lấy ví KH đúng
-            let correctWallet = await db.query(`
+            let correctWallet = await db.query(
+                `
                 SELECT id, balance FROM customer_wallets WHERE phone = $1 FOR UPDATE
-            `, [normalizedCorrectPhone]);
+            `,
+                [normalizedCorrectPhone]
+            );
 
             if (correctWallet.rows.length === 0) {
                 // Tạo ví mới
-                await db.query(`
+                await db.query(
+                    `
                     INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
                     VALUES ($1, $2, 0, 0)
                     ON CONFLICT (phone) DO NOTHING
-                `, [normalizedCorrectPhone, correctCustomer.customerId]);
-                correctWallet = await db.query(`
+                `,
+                    [normalizedCorrectPhone, correctCustomer.customerId]
+                );
+                correctWallet = await db.query(
+                    `
                     SELECT id, balance FROM customer_wallets WHERE phone = $1
-                `, [normalizedCorrectPhone]);
-                console.log(`[ADJUSTMENT] Created new wallet for ${normalizedCorrectPhone}, wallet_id=${correctWallet.rows[0]?.id}`);
+                `,
+                    [normalizedCorrectPhone]
+                );
+                console.log(
+                    `[ADJUSTMENT] Created new wallet for ${normalizedCorrectPhone}, wallet_id=${correctWallet.rows[0]?.id}`
+                );
             }
 
             const correctCurrentBalance = parseFloat(correctWallet.rows[0].balance);
             const correctNewBalance = correctCurrentBalance + adjustAmount;
 
             // Cộng ví KH đúng
-            await db.query(`
+            await db.query(
+                `
                 UPDATE customer_wallets
                 SET balance = $1, updated_at = NOW()
                 WHERE phone = $2
-            `, [correctNewBalance, normalizedCorrectPhone]);
+            `,
+                [correctNewBalance, normalizedCorrectPhone]
+            );
 
             // Log wallet transaction (use valid type and source from CHECK constraints)
-            await db.query(`
+            await db.query(
+                `
                 INSERT INTO wallet_transactions (
                     phone, wallet_id, type, amount,
                     balance_before, balance_after,
@@ -2288,31 +2570,35 @@ router.post('/:id/adjust', async (req, res) => {
                 )
                 SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
                        $3::numeric, $4::numeric,
-                       'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
+                       'MANUAL_ADJUSTMENT'::text, 'web2_balance_history'::text, $5::text, $6::text
                 FROM customer_wallets WHERE phone = $1::text
-            `, [
-                normalizedCorrectPhone,
-                adjustAmount,  // Positive for credit
-                correctCurrentBalance,
-                correctNewBalance,
-                String(id),
-                `Nhận điều chỉnh từ GD #${id}: ${reason}`
-            ]);
+            `,
+                [
+                    normalizedCorrectPhone,
+                    adjustAmount, // Positive for credit
+                    correctCurrentBalance,
+                    correctNewBalance,
+                    String(id),
+                    `Nhận điều chỉnh từ GD #${id}: ${reason}`,
+                ]
+            );
 
             adjustments.push({
                 type: 'CREDIT',
                 phone: normalizedCorrectPhone,
-                amount: adjustAmount
+                amount: adjustAmount,
             });
         }
 
         // 8. Ghi nhận adjustment vào bảng wallet_adjustments
         // Map adjustment_type từ frontend sang DB constraint
-        const dbAdjustmentType = adjustment_type === 'transfer_to_correct'
-            ? 'WRONG_MAPPING_DEBIT'  // Vì ta trừ từ KH sai và cộng cho KH đúng
-            : 'WRONG_MAPPING_DEBIT'; // debit_only = chỉ trừ từ KH sai
+        const dbAdjustmentType =
+            adjustment_type === 'transfer_to_correct'
+                ? 'WRONG_MAPPING_DEBIT' // Vì ta trừ từ KH sai và cộng cho KH đúng
+                : 'WRONG_MAPPING_DEBIT'; // debit_only = chỉ trừ từ KH sai
 
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO wallet_adjustments (
                 original_transaction_id,
                 adjustment_type,
@@ -2323,65 +2609,80 @@ router.post('/:id/adjust', async (req, res) => {
                 created_by,
                 created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        `, [
-            id,
-            dbAdjustmentType,
-            tx.linked_customer_phone,
-            adjustment_type === 'transfer_to_correct' ? normalizePhone(correct_customer_phone) : null,
-            adjustAmount,
-            reason,
-            performed_by,
-            now
-        ]);
+        `,
+            [
+                id,
+                dbAdjustmentType,
+                tx.linked_customer_phone,
+                adjustment_type === 'transfer_to_correct'
+                    ? normalizePhone(correct_customer_phone)
+                    : null,
+                adjustAmount,
+                reason,
+                performed_by,
+                now,
+            ]
+        );
 
-        // 9. Cập nhật balance_history với flag has_adjustment
-        await db.query(`
-            UPDATE balance_history
+        // 9. Cập nhật web2_balance_history với flag has_adjustment
+        await db.query(
+            `
+            UPDATE web2_balance_history
             SET verification_note = COALESCE(verification_note, '') || ' [Đã điều chỉnh: ' || $1 || ']'
             WHERE id = $2
-        `, [reason.substring(0, 50), id]);
+        `,
+            [reason.substring(0, 50), id]
+        );
 
         // 10. Log customer activities for both wrong and correct customers
         // Log debit activity for wrong customer
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, icon, color, created_by)
             SELECT $1::text, id, 'WALLET_WITHDRAW'::text, $2::text, $3::text, 'tune', 'red', $4::text
             FROM customers WHERE phone = $1::text
-        `, [
-            tx.linked_customer_phone,
-            'Điều chỉnh công nợ (trừ ví sai)',
-            `Trừ ${adjustAmount.toLocaleString()}đ từ GD #${id} - ${reason}`,
-            performed_by || 'system'
-        ]);
+        `,
+            [
+                tx.linked_customer_phone,
+                'Điều chỉnh công nợ (trừ ví sai)',
+                `Trừ ${adjustAmount.toLocaleString()}đ từ GD #${id} - ${reason}`,
+                performed_by || 'system',
+            ]
+        );
 
         // Log credit activity for correct customer (if transfer_to_correct)
         if (adjustment_type === 'transfer_to_correct') {
             const normalizedCorrectPhone = normalizePhone(correct_customer_phone);
-            await db.query(`
+            await db.query(
+                `
                 INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, icon, color, created_by)
                 SELECT $1::text, id, 'WALLET_DEPOSIT'::text, $2::text, $3::text, 'tune', 'green', $4::text
                 FROM customers WHERE phone = $1::text
-            `, [
-                normalizedCorrectPhone,
-                `Nạp tiền: ${adjustAmount.toLocaleString()}đ`,
-                `Nhận điều chỉnh từ GD #${id} - ${reason}`,
-                performed_by || 'system'
-            ]);
+            `,
+                [
+                    normalizedCorrectPhone,
+                    `Nạp tiền: ${adjustAmount.toLocaleString()}đ`,
+                    `Nhận điều chỉnh từ GD #${id} - ${reason}`,
+                    performed_by || 'system',
+                ]
+            );
         }
 
         await db.query('COMMIT');
 
-        console.log(`[ADJUSTMENT] Created adjustment for tx ${id} by ${performed_by}: ${adjustment_type}, amount: ${adjustAmount}`);
+        console.log(
+            `[ADJUSTMENT] Created adjustment for tx ${id} by ${performed_by}: ${adjustment_type}, amount: ${adjustAmount}`
+        );
 
         res.json({
             success: true,
-            message: adjustment_type === 'transfer_to_correct'
-                ? `Đã điều chỉnh ${adjustAmount.toLocaleString()}đ từ ${tx.linked_customer_phone} sang ${correct_customer_phone}`
-                : `Đã trừ ${adjustAmount.toLocaleString()}đ từ ví ${tx.linked_customer_phone}`,
+            message:
+                adjustment_type === 'transfer_to_correct'
+                    ? `Đã điều chỉnh ${adjustAmount.toLocaleString()}đ từ ${tx.linked_customer_phone} sang ${correct_customer_phone}`
+                    : `Đã trừ ${adjustAmount.toLocaleString()}đ từ ví ${tx.linked_customer_phone}`,
             adjustments,
-            original_transaction_id: id
+            original_transaction_id: id,
         });
-
     } catch (error) {
         await db.query('ROLLBACK').catch(() => {});
         handleError(res, error, 'Failed to create adjustment');

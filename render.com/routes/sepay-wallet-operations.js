@@ -38,20 +38,20 @@ function registerRoutes(router, helpers) {
             if (result.rows.length === 0) {
                 return res.json({
                     success: true,
-                    data: null
+                    data: null,
                 });
             }
 
             res.json({
                 success: true,
-                data: result.rows[0]
+                data: result.rows[0],
             });
         } catch (error) {
             console.error('[CUSTOMER-INFO] Error fetching:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch customer info',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -69,19 +69,20 @@ function registerRoutes(router, helpers) {
             if (!uniqueCode) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Missing required field: uniqueCode'
+                    error: 'Missing required field: uniqueCode',
                 });
             }
 
             console.log('[CUSTOMER-INFO] Processing:', {
                 uniqueCode,
                 customerName,
-                customerPhone
+                customerPhone,
             });
 
             // Luu vao balance_customer_info (can thiet de processDebtUpdate co the
             // tim phone tu QR code khi giao dich den qua webhook)
-            await db.query(`
+            await db.query(
+                `
                 INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone, updated_at)
                 VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
                 ON CONFLICT (unique_code)
@@ -89,7 +90,9 @@ function registerRoutes(router, helpers) {
                     customer_name = COALESCE(NULLIF($2, ''), balance_customer_info.customer_name),
                     customer_phone = COALESCE(NULLIF($3, ''), balance_customer_info.customer_phone),
                     updated_at = CURRENT_TIMESTAMP
-            `, [uniqueCode, customerName || null, customerPhone || null]);
+            `,
+                [uniqueCode, customerName || null, customerPhone || null]
+            );
             console.log('[CUSTOMER-INFO] Saved to balance_customer_info:', uniqueCode);
 
             // PHASE 1.3: Chi tao/cap nhat customer trong bang customers (Source of Truth)
@@ -99,30 +102,38 @@ function registerRoutes(router, helpers) {
                     // Truyen customerName de dam bao ten KH duoc luu vao customers table
                     // ngay ca khi TPOS API khong kha dung luc nay
                     const tposHint = customerName ? { name: customerName } : null;
-                    const customerResult = await getOrCreateCustomerFromTPOS(db, customerPhone, tposHint);
+                    const customerResult = await getOrCreateCustomerFromTPOS(
+                        db,
+                        customerPhone,
+                        tposHint
+                    );
                     customerId = customerResult.customerId;
 
                     // Neu co ten tu frontend (da tim tren TPOS) nhung customer chua co ten,
                     // cap nhat truc tiep de dam bao ten luon duoc luu
                     if (customerName && customerId) {
-                        await db.query(`
+                        await db.query(
+                            `
                             UPDATE customers
                             SET name = $2, updated_at = CURRENT_TIMESTAMP
                             WHERE id = $1 AND (name IS NULL OR name = 'Khách hàng mới')
-                        `, [customerId, customerName]);
+                        `,
+                            [customerId, customerName]
+                        );
                     }
 
                     console.log('[CUSTOMER-INFO] Also synced to customers table:', {
                         phone: customerPhone,
                         customerId,
                         created: customerResult.created,
-                        customerName: customerName || '(no name)'
+                        customerName: customerName || '(no name)',
                     });
 
-                    // Cap nhat balance_history neu tim thay giao dich da co QR code nay
+                    // Cap nhat balance_history (Web 1 legacy) neu tim thay giao dich da co QR code nay
                     // Dat match_method va display_name luon de tranh race condition voi processDebtUpdate
                     if (!uniqueCode.startsWith('PHONE')) {
-                        const updateResult = await db.query(`
+                        const updateResult = await db.query(
+                            `
                             UPDATE balance_history
                             SET customer_id = $1,
                                 linked_customer_phone = $2,
@@ -131,16 +142,56 @@ function registerRoutes(router, helpers) {
                                 updated_at = CURRENT_TIMESTAMP
                             WHERE (content LIKE '%' || $3 || '%' OR reference_code = $3)
                               AND customer_id IS NULL
-                        `, [customerId, customerPhone, uniqueCode, customerName || null]);
+                        `,
+                            [customerId, customerPhone, uniqueCode, customerName || null]
+                        );
 
                         if (updateResult.rowCount > 0) {
-                            console.log('[CUSTOMER-INFO] Linked', updateResult.rowCount, 'balance_history records to customer');
+                            console.log(
+                                '[CUSTOMER-INFO] Linked',
+                                updateResult.rowCount,
+                                'balance_history records to customer'
+                            );
+                        }
+
+                        // Cùng update web2_balance_history (Web 2.0 isolated table)
+                        // để 2 layer đồng bộ customer link. Best-effort — fail không chặn.
+                        try {
+                            const w2Update = await db.query(
+                                `
+                                UPDATE web2_balance_history
+                                SET customer_id = $1,
+                                    linked_customer_phone = $2,
+                                    match_method = COALESCE(match_method, 'qr_code'),
+                                    display_name = COALESCE(display_name, $4),
+                                    updated_at = CURRENT_TIMESTAMP
+                                WHERE (content LIKE '%' || $3 || '%' OR reference_code = $3)
+                                  AND customer_id IS NULL
+                            `,
+                                [customerId, customerPhone, uniqueCode, customerName || null]
+                            );
+                            if (w2Update.rowCount > 0) {
+                                console.log(
+                                    '[CUSTOMER-INFO] Mirrored',
+                                    w2Update.rowCount,
+                                    'web2_balance_history records'
+                                );
+                            }
+                        } catch (w2Err) {
+                            if (!String(w2Err.message).includes('does not exist')) {
+                                console.warn('[CUSTOMER-INFO] web2 mirror failed:', w2Err.message);
+                            }
                         }
                     } else {
-                        console.log('[CUSTOMER-INFO] uniqueCode is phone-based, skipping balance_history update');
+                        console.log(
+                            '[CUSTOMER-INFO] uniqueCode is phone-based, skipping balance_history update'
+                        );
                     }
                 } catch (customerError) {
-                    console.error('[CUSTOMER-INFO] Failed to sync to customers table:', customerError.message);
+                    console.error(
+                        '[CUSTOMER-INFO] Failed to sync to customers table:',
+                        customerError.message
+                    );
                 }
             }
 
@@ -149,16 +200,16 @@ function registerRoutes(router, helpers) {
                 data: {
                     unique_code: uniqueCode,
                     customer_name: customerName,
-                    customer_phone: customerPhone
+                    customer_phone: customerPhone,
                 },
-                customerId
+                customerId,
             });
         } catch (error) {
             console.error('[CUSTOMER-INFO] Error saving:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to save customer info',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -177,14 +228,14 @@ function registerRoutes(router, helpers) {
 
             res.json({
                 success: true,
-                data: result.rows
+                data: result.rows,
             });
         } catch (error) {
             console.error('[CUSTOMER-INFO] Error fetching all:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch customer info',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -200,7 +251,7 @@ function registerRoutes(router, helpers) {
         if (!uniqueCode) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required parameter: uniqueCode'
+                error: 'Missing required parameter: uniqueCode',
             });
         }
 
@@ -233,7 +284,7 @@ function registerRoutes(router, helpers) {
                 return res.json({
                     success: true,
                     data: null,
-                    message: 'No transaction found with this unique code'
+                    message: 'No transaction found with this unique code',
                 });
             }
 
@@ -241,20 +292,19 @@ function registerRoutes(router, helpers) {
                 uniqueCode,
                 id: result.rows[0].id,
                 transfer_type: result.rows[0].transfer_type,
-                transfer_amount: result.rows[0].transfer_amount
+                transfer_amount: result.rows[0].transfer_amount,
             });
 
             res.json({
                 success: true,
-                data: result.rows[0]
+                data: result.rows[0],
             });
-
         } catch (error) {
             console.error('[TRANSACTION-BY-CODE] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch transaction',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -271,7 +321,7 @@ function registerRoutes(router, helpers) {
         if (!phone) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required parameter: phone'
+                error: 'Missing required parameter: phone',
             });
         }
 
@@ -314,7 +364,7 @@ function registerRoutes(router, helpers) {
             let totalInCount = 0;
             let totalOutCount = 0;
 
-            result.rows.forEach(row => {
+            result.rows.forEach((row) => {
                 if (row.transfer_type === 'in') {
                     totalIn += parseInt(row.transfer_amount) || 0;
                     totalInCount++;
@@ -328,7 +378,7 @@ function registerRoutes(router, helpers) {
                 phone,
                 count: result.rows.length,
                 totalIn,
-                totalOut
+                totalOut,
             });
 
             res.json({
@@ -340,20 +390,19 @@ function registerRoutes(router, helpers) {
                     total_out_count: totalOutCount,
                     total_in: totalIn,
                     total_out: totalOut,
-                    net_change: totalIn - totalOut
+                    net_change: totalIn - totalOut,
                 },
                 customer: {
                     phone: phone,
-                    name: result.rows.length > 0 ? result.rows[0].customer_name : null
-                }
+                    name: result.rows.length > 0 ? result.rows[0].customer_name : null,
+                },
             });
-
         } catch (error) {
             console.error('[TRANSACTIONS-BY-PHONE] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch transactions',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -371,7 +420,9 @@ function registerRoutes(router, helpers) {
             const offsetCount = parseInt(offset) || 0;
             const includeTotals = include_totals === 'true';
 
-            console.log(`[PHONE-DATA] Fetching phone data: limit=${limitCount}, offset=${offsetCount}, include_totals=${includeTotals}`);
+            console.log(
+                `[PHONE-DATA] Fetching phone data: limit=${limitCount}, offset=${offsetCount}, include_totals=${includeTotals}`
+            );
 
             // Get total count
             const countResult = await db.query(
@@ -446,16 +497,15 @@ function registerRoutes(router, helpers) {
                     total,
                     limit: limitCount,
                     offset: offsetCount,
-                    returned: dataResult.rows.length
-                }
+                    returned: dataResult.rows.length,
+                },
             });
-
         } catch (error) {
             console.error('[PHONE-DATA] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch phone data',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -468,16 +518,20 @@ function registerRoutes(router, helpers) {
         const { unique_code } = req.params;
         const { customer_name, name_fetch_status } = req.body;
 
-        console.log(`[UPDATE-CUSTOMER-INFO] DEPRECATED - Skipping update to balance_customer_info for ${unique_code}:`, {
-            customer_name,
-            name_fetch_status
-        });
+        console.log(
+            `[UPDATE-CUSTOMER-INFO] DEPRECATED - Skipping update to balance_customer_info for ${unique_code}:`,
+            {
+                customer_name,
+                name_fetch_status,
+            }
+        );
 
         // Return success for backward compatibility
         res.json({
             success: true,
             deprecated: true,
-            message: 'balance_customer_info is now a snapshot table. Customer data is stored in customers table.'
+            message:
+                'balance_customer_info is now a snapshot table. Customer data is stored in customers table.',
         });
     });
 
@@ -501,7 +555,7 @@ function registerRoutes(router, helpers) {
             is_accountant_correction = false,
             note,
             verification_image_url,
-            staff_note
+            staff_note,
         } = req.body;
 
         try {
@@ -509,14 +563,14 @@ function registerRoutes(router, helpers) {
             if (!id || isNaN(id)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid transaction ID'
+                    error: 'Invalid transaction ID',
                 });
             }
 
             if (!phone) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Phone number is required'
+                    error: 'Phone number is required',
                 });
             }
 
@@ -529,7 +583,7 @@ function registerRoutes(router, helpers) {
             if (currentResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Transaction not found'
+                    error: 'Transaction not found',
                 });
             }
 
@@ -539,7 +593,9 @@ function registerRoutes(router, helpers) {
 
             // SECURITY: Block phone change if transaction already credited to wallet
             if (currentTx.wallet_processed === true) {
-                console.log(`[SECURITY] Blocked phone change for tx ${id} - already credited to wallet of ${oldPhone}`);
+                console.log(
+                    `[SECURITY] Blocked phone change for tx ${id} - already credited to wallet of ${oldPhone}`
+                );
                 return res.status(400).json({
                     success: false,
                     error: 'Khong the doi SDT - Giao dich da duoc cong vao vi khach hang',
@@ -547,8 +603,9 @@ function registerRoutes(router, helpers) {
                         transaction_id: parseInt(id),
                         current_phone: oldPhone,
                         wallet_processed: true,
-                        suggestion: 'Su dung chuc nang "Dieu chinh cong no" de tru vi cu va cong vi moi'
-                    }
+                        suggestion:
+                            'Su dung chuc nang "Dieu chinh cong no" de tru vi cu va cong vi moi',
+                    },
                 });
             }
 
@@ -566,8 +623,15 @@ function registerRoutes(router, helpers) {
                         staff_note = COALESCE($4, staff_note)
                     WHERE id = $2
                     RETURNING *`;
-                updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`, staff_note || null];
-                console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval${staff_note ? `, staff_note: "${staff_note}"` : ''}`);
+                updateParams = [
+                    newPhone,
+                    id,
+                    `Manual entry by ${entered_by} at ${new Date().toISOString()}`,
+                    staff_note || null,
+                ];
+                console.log(
+                    `[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval${staff_note ? `, staff_note: "${staff_note}"` : ''}`
+                );
             } else if (is_accountant_correction) {
                 const finalNote = note || `Thay doi SDT boi ${entered_by}`;
                 updateQuery = `UPDATE balance_history
@@ -581,8 +645,17 @@ function registerRoutes(router, helpers) {
                         verification_image_url = COALESCE($6, verification_image_url)
                     WHERE id = $2
                     RETURNING *`;
-                updateParams = [newPhone, id, entered_by, finalNote, customer_name || name || null, verification_image_url || null];
-                console.log(`[TRANSACTION-PHONE-UPDATE] Accountant correction with custom note/image - auto-approving`);
+                updateParams = [
+                    newPhone,
+                    id,
+                    entered_by,
+                    finalNote,
+                    customer_name || name || null,
+                    verification_image_url || null,
+                ];
+                console.log(
+                    `[TRANSACTION-PHONE-UPDATE] Accountant correction with custom note/image - auto-approving`
+                );
             } else {
                 updateQuery = `UPDATE balance_history
                     SET linked_customer_phone = $1,
@@ -593,13 +666,20 @@ function registerRoutes(router, helpers) {
                         verification_note = $4
                     WHERE id = $2
                     RETURNING *`;
-                updateParams = [newPhone, id, entered_by, `Auto-approved by accountant ${entered_by} at ${new Date().toISOString()}`];
+                updateParams = [
+                    newPhone,
+                    id,
+                    entered_by,
+                    `Auto-approved by accountant ${entered_by} at ${new Date().toISOString()}`,
+                ];
                 console.log(`[TRANSACTION-PHONE-UPDATE] Accountant edit - auto-approving`);
             }
 
             const updateResult = await db.query(updateQuery, updateParams);
 
-            console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} -> ${newPhone} (manual_entry=${is_manual_entry})`);
+            console.log(
+                `[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} -> ${newPhone} (manual_entry=${is_manual_entry})`
+            );
 
             // Clear any pending_customer_matches for this transaction
             const deletePendingResult = await db.query(
@@ -607,7 +687,10 @@ function registerRoutes(router, helpers) {
                 [id]
             );
             if (deletePendingResult.rows.length > 0) {
-                console.log(`[TRANSACTION-PHONE-UPDATE] Cleared pending_customer_matches:`, deletePendingResult.rows[0]);
+                console.log(
+                    `[TRANSACTION-PHONE-UPDATE] Cleared pending_customer_matches:`,
+                    deletePendingResult.rows[0]
+                );
             }
 
             // Try to get customer name - priority: request body > TPOS lookup
@@ -621,16 +704,23 @@ function registerRoutes(router, helpers) {
                     tposResult = await searchTPOSByPartialPhone(newPhone, fetchWithTimeout);
 
                     if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                        const phoneData = tposResult.uniquePhones.find(p => p.phone === newPhone);
+                        const phoneData = tposResult.uniquePhones.find((p) => p.phone === newPhone);
                         if (phoneData && phoneData.customers.length > 0) {
                             customerName = phoneData.customers[0].name;
-                            console.log(`[TRANSACTION-PHONE-UPDATE] Found customer from TPOS: ${customerName}`);
+                            console.log(
+                                `[TRANSACTION-PHONE-UPDATE] Found customer from TPOS: ${customerName}`
+                            );
                         }
                     } else {
-                        console.log(`[TRANSACTION-PHONE-UPDATE] No customer found in TPOS for: ${newPhone}`);
+                        console.log(
+                            `[TRANSACTION-PHONE-UPDATE] No customer found in TPOS for: ${newPhone}`
+                        );
                     }
                 } catch (tposError) {
-                    console.error(`[TRANSACTION-PHONE-UPDATE] TPOS lookup error:`, tposError.message);
+                    console.error(
+                        `[TRANSACTION-PHONE-UPDATE] TPOS lookup error:`,
+                        tposError.message
+                    );
                 }
             } else {
                 console.log(`[TRANSACTION-PHONE-UPDATE] Using provided name: ${customerName}`);
@@ -642,17 +732,27 @@ function registerRoutes(router, helpers) {
                 const customerResult = await getOrCreateCustomerFromTPOS(db, newPhone, null);
                 customerId = customerResult.customerId;
                 customerName = customerResult.name || customerName;
-                console.log(`[TRANSACTION-PHONE-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, Name: ${customerName}`);
+                console.log(
+                    `[TRANSACTION-PHONE-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, Name: ${customerName}`
+                );
 
                 // Update balance_history with customer_id
-                await db.query(`
+                await db.query(
+                    `
                     UPDATE balance_history
                     SET customer_id = $1
                     WHERE id = $2
-                `, [customerId, id]);
-                console.log(`[TRANSACTION-PHONE-UPDATE] Updated balance_history with customer_id: ${customerId}`);
+                `,
+                    [customerId, id]
+                );
+                console.log(
+                    `[TRANSACTION-PHONE-UPDATE] Updated balance_history with customer_id: ${customerId}`
+                );
             } catch (customerError) {
-                console.error(`[TRANSACTION-PHONE-UPDATE] Failed to create/find customer:`, customerError.message);
+                console.error(
+                    `[TRANSACTION-PHONE-UPDATE] Failed to create/find customer:`,
+                    customerError.message
+                );
             }
 
             // For accountant edit (is_manual_entry = false), credit wallet immediately
@@ -662,7 +762,9 @@ function registerRoutes(router, helpers) {
 
             if (!is_manual_entry && tx.transfer_amount > 0 && !tx.wallet_processed) {
                 try {
-                    console.log(`[TRANSACTION-PHONE-UPDATE] Accountant edit - crediting wallet for ${newPhone}`);
+                    console.log(
+                        `[TRANSACTION-PHONE-UPDATE] Accountant edit - crediting wallet for ${newPhone}`
+                    );
 
                     walletResult = await processDeposit(
                         db,
@@ -676,28 +778,39 @@ function registerRoutes(router, helpers) {
                     );
 
                     // Mark as wallet processed
-                    await db.query(`
+                    await db.query(
+                        `
                         UPDATE balance_history
                         SET wallet_processed = TRUE
                         WHERE id = $1
-                    `, [id]);
+                    `,
+                        [id]
+                    );
 
                     // Log activity
-                    await db.query(`
+                    await db.query(
+                        `
                         INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
                         VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
-                    `, [
-                        newPhone,
-                        customerId || tx.customer_id,
-                        `Nap tien: ${parseFloat(tx.transfer_amount).toLocaleString()}d`,
-                        `Chuyen khoan ngan hang (${tx.code || tx.reference_code}) - Auto-approved by ${entered_by}`,
-                        id
-                    ]);
+                    `,
+                        [
+                            newPhone,
+                            customerId || tx.customer_id,
+                            `Nap tien: ${parseFloat(tx.transfer_amount).toLocaleString()}d`,
+                            `Chuyen khoan ngan hang (${tx.code || tx.reference_code}) - Auto-approved by ${entered_by}`,
+                            id,
+                        ]
+                    );
 
                     walletCredited = true;
-                    console.log(`[TRANSACTION-PHONE-UPDATE] Wallet credited: ${newPhone} +${tx.transfer_amount}`);
+                    console.log(
+                        `[TRANSACTION-PHONE-UPDATE] Wallet credited: ${newPhone} +${tx.transfer_amount}`
+                    );
                 } catch (walletErr) {
-                    console.error(`[TRANSACTION-PHONE-UPDATE] Wallet credit failed:`, walletErr.message);
+                    console.error(
+                        `[TRANSACTION-PHONE-UPDATE] Wallet credit failed:`,
+                        walletErr.message
+                    );
                 }
             }
 
@@ -716,15 +829,14 @@ function registerRoutes(router, helpers) {
                 verification_status: is_manual_entry ? 'PENDING_VERIFICATION' : 'APPROVED',
                 wallet_credited: walletCredited,
                 wallet_amount: walletCredited ? tx.transfer_amount : null,
-                new_balance: walletResult?.wallet?.balance || null
+                new_balance: walletResult?.wallet?.balance || null,
             });
-
         } catch (error) {
             console.error('[TRANSACTION-PHONE-UPDATE] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to update transaction phone',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -743,24 +855,26 @@ function registerRoutes(router, helpers) {
             if (!id || isNaN(id)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid transaction ID'
+                    error: 'Invalid transaction ID',
                 });
             }
 
             if (typeof hidden !== 'boolean') {
                 return res.status(400).json({
                     success: false,
-                    error: 'hidden must be a boolean'
+                    error: 'hidden must be a boolean',
                 });
             }
 
             // Update the transaction's hidden status and staff_note if provided
             let query, params;
             if (staff_note !== undefined) {
-                query = 'UPDATE balance_history SET is_hidden = $1, staff_note = $2 WHERE id = $3 RETURNING id, is_hidden, staff_note';
+                query =
+                    'UPDATE balance_history SET is_hidden = $1, staff_note = $2 WHERE id = $3 RETURNING id, is_hidden, staff_note';
                 params = [hidden, staff_note, id];
             } else {
-                query = 'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden, staff_note';
+                query =
+                    'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden, staff_note';
                 params = [hidden, id];
             }
 
@@ -769,23 +883,24 @@ function registerRoutes(router, helpers) {
             if (updateResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Transaction not found'
+                    error: 'Transaction not found',
                 });
             }
 
-            console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}${staff_note ? `, staff_note = "${staff_note}"` : ''}`);
+            console.log(
+                `[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}${staff_note ? `, staff_note = "${staff_note}"` : ''}`
+            );
 
             res.json({
                 success: true,
-                data: updateResult.rows[0]
+                data: updateResult.rows[0],
             });
-
         } catch (error) {
             console.error('[TRANSACTION-HIDDEN] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to update transaction hidden status',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -802,8 +917,12 @@ function registerRoutes(router, helpers) {
 
         try {
             // Ensure ts columns exist in balance_history
-            await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`);
-            await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
+            await db.query(
+                `ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`
+            );
+            await db.query(
+                `ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`
+            );
             await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
             const result = await db.query(`
@@ -837,13 +956,13 @@ function registerRoutes(router, helpers) {
             res.json({
                 success: true,
                 data: result.rows,
-                total: result.rows.length
+                total: result.rows.length,
             });
         } catch (error) {
             console.error('[TRANSFER-STATS] Error fetching:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to fetch transfer stats'
+                error: 'Failed to fetch transfer stats',
             });
         }
     });
@@ -854,8 +973,12 @@ function registerRoutes(router, helpers) {
 
         try {
             // Ensure ts columns exist in balance_history
-            await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`);
-            await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
+            await db.query(
+                `ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_checked BOOLEAN DEFAULT FALSE`
+            );
+            await db.query(
+                `ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`
+            );
             await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
             const result = await db.query(`
@@ -869,13 +992,13 @@ function registerRoutes(router, helpers) {
             res.json({
                 success: true,
                 total: parseInt(result.rows[0].total) || 0,
-                unchecked: parseInt(result.rows[0].unchecked) || 0
+                unchecked: parseInt(result.rows[0].unchecked) || 0,
             });
         } catch (error) {
             console.error('[TRANSFER-STATS] Error counting:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to count'
+                error: 'Failed to count',
             });
         }
     });
@@ -887,17 +1010,20 @@ function registerRoutes(router, helpers) {
         const { checked } = req.body;
 
         try {
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 UPDATE balance_history
                 SET ts_checked = $1
                 WHERE id = $2
                 RETURNING *
-            `, [checked, id]);
+            `,
+                [checked, id]
+            );
 
             if (result.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Not found'
+                    error: 'Not found',
                 });
             }
 
@@ -905,13 +1031,13 @@ function registerRoutes(router, helpers) {
 
             res.json({
                 success: true,
-                data: result.rows[0]
+                data: result.rows[0],
             });
         } catch (error) {
             console.error('[TRANSFER-STATS] Error updating:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to update'
+                error: 'Failed to update',
             });
         }
     });
@@ -923,31 +1049,36 @@ function registerRoutes(router, helpers) {
         const { verified } = req.body;
 
         try {
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 UPDATE balance_history
                 SET ts_verified = $1
                 WHERE id = $2
                 RETURNING *
-            `, [verified, id]);
+            `,
+                [verified, id]
+            );
 
             if (result.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Not found'
+                    error: 'Not found',
                 });
             }
 
-            console.log(`[TRANSFER-STATS] Marked #${id} as ${verified ? 'verified' : 'unverified'}`);
+            console.log(
+                `[TRANSFER-STATS] Marked #${id} as ${verified ? 'verified' : 'unverified'}`
+            );
 
             res.json({
                 success: true,
-                data: result.rows[0]
+                data: result.rows[0],
             });
         } catch (error) {
             console.error('[TRANSFER-STATS] Error updating verified:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to update'
+                error: 'Failed to update',
             });
         }
     });
@@ -960,29 +1091,32 @@ function registerRoutes(router, helpers) {
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
             return res.status(400).json({
                 success: false,
-                error: 'ids array is required'
+                error: 'ids array is required',
             });
         }
 
         try {
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 UPDATE balance_history
                 SET ts_checked = TRUE
                 WHERE id = ANY($1)
                 RETURNING id
-            `, [ids]);
+            `,
+                [ids]
+            );
 
             console.log(`[TRANSFER-STATS] Marked ${result.rows.length} items as checked`);
 
             res.json({
                 success: true,
-                updated: result.rows.length
+                updated: result.rows.length,
             });
         } catch (error) {
             console.error('[TRANSFER-STATS] Error marking all:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to mark all'
+                error: 'Failed to mark all',
             });
         }
     });
@@ -994,19 +1128,22 @@ function registerRoutes(router, helpers) {
         const { customer_name, customer_phone, notes } = req.body;
 
         try {
-            const result = await db.query(`
+            const result = await db.query(
+                `
                 UPDATE balance_history
                 SET customer_name = COALESCE($1, customer_name),
                     linked_customer_phone = COALESCE($2, linked_customer_phone),
                     ts_notes = $3
                 WHERE id = $4
                 RETURNING *
-            `, [customer_name, customer_phone, notes || null, id]);
+            `,
+                [customer_name, customer_phone, notes || null, id]
+            );
 
             if (result.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Not found'
+                    error: 'Not found',
                 });
             }
 
@@ -1014,13 +1151,13 @@ function registerRoutes(router, helpers) {
 
             res.json({
                 success: true,
-                data: result.rows[0]
+                data: result.rows[0],
             });
         } catch (error) {
             console.error('[TRANSFER-STATS] Error editing:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to edit'
+                error: 'Failed to edit',
             });
         }
     });
@@ -1044,7 +1181,7 @@ function registerRoutes(router, helpers) {
             if (normalizedPhone.length !== 10) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid phone number'
+                    error: 'Invalid phone number',
                 });
             }
 
@@ -1058,7 +1195,7 @@ function registerRoutes(router, helpers) {
                     success: true,
                     phone: normalizedPhone,
                     name: null,
-                    aliases: []
+                    aliases: [],
                 });
             }
 
@@ -1081,14 +1218,13 @@ function registerRoutes(router, helpers) {
                 success: true,
                 phone: normalizedPhone,
                 name: customer.name,
-                aliases: aliases
+                aliases: aliases,
             });
-
         } catch (error) {
             console.error('[ALIASES] Error getting aliases:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to get aliases'
+                error: 'Failed to get aliases',
             });
         }
     });
@@ -1107,7 +1243,7 @@ function registerRoutes(router, helpers) {
             if (!alias || alias.trim() === '') {
                 return res.status(400).json({
                     success: false,
-                    error: 'Alias is required'
+                    error: 'Alias is required',
                 });
             }
 
@@ -1116,7 +1252,7 @@ function registerRoutes(router, helpers) {
             if (normalizedPhone.length !== 10) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid phone number'
+                    error: 'Invalid phone number',
                 });
             }
 
@@ -1129,15 +1265,15 @@ function registerRoutes(router, helpers) {
             if (customerResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Customer not found'
+                    error: 'Customer not found',
                 });
             }
 
             // Add alias using the SQL function
-            const addResult = await db.query(
-                'SELECT add_customer_alias($1, $2) as added',
-                [normalizedPhone, alias.trim()]
-            );
+            const addResult = await db.query('SELECT add_customer_alias($1, $2) as added', [
+                normalizedPhone,
+                alias.trim(),
+            ]);
 
             const added = addResult.rows[0]?.added ?? false;
 
@@ -1148,22 +1284,20 @@ function registerRoutes(router, helpers) {
             }
 
             // Get updated aliases
-            const updatedResult = await db.query(
-                'SELECT aliases FROM customers WHERE phone = $1',
-                [normalizedPhone]
-            );
+            const updatedResult = await db.query('SELECT aliases FROM customers WHERE phone = $1', [
+                normalizedPhone,
+            ]);
 
             res.json({
                 success: true,
                 added: added,
-                aliases: updatedResult.rows[0]?.aliases || []
+                aliases: updatedResult.rows[0]?.aliases || [],
             });
-
         } catch (error) {
             console.error('[ALIASES] Error adding alias:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to add alias'
+                error: 'Failed to add alias',
             });
         }
     });
@@ -1182,7 +1316,7 @@ function registerRoutes(router, helpers) {
             if (!alias || alias.trim() === '') {
                 return res.status(400).json({
                     success: false,
-                    error: 'Alias is required'
+                    error: 'Alias is required',
                 });
             }
 
@@ -1191,15 +1325,15 @@ function registerRoutes(router, helpers) {
             if (normalizedPhone.length !== 10) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid phone number'
+                    error: 'Invalid phone number',
                 });
             }
 
             // Remove alias using the SQL function
-            const removeResult = await db.query(
-                'SELECT remove_customer_alias($1, $2) as removed',
-                [normalizedPhone, alias.trim()]
-            );
+            const removeResult = await db.query('SELECT remove_customer_alias($1, $2) as removed', [
+                normalizedPhone,
+                alias.trim(),
+            ]);
 
             const removed = removeResult.rows[0]?.removed ?? false;
 
@@ -1210,22 +1344,20 @@ function registerRoutes(router, helpers) {
             }
 
             // Get updated aliases
-            const updatedResult = await db.query(
-                'SELECT aliases FROM customers WHERE phone = $1',
-                [normalizedPhone]
-            );
+            const updatedResult = await db.query('SELECT aliases FROM customers WHERE phone = $1', [
+                normalizedPhone,
+            ]);
 
             res.json({
                 success: true,
                 removed: removed,
-                aliases: updatedResult.rows[0]?.aliases || []
+                aliases: updatedResult.rows[0]?.aliases || [],
             });
-
         } catch (error) {
             console.error('[ALIASES] Error removing alias:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to remove alias'
+                error: 'Failed to remove alias',
             });
         }
     });
@@ -1244,7 +1376,7 @@ function registerRoutes(router, helpers) {
             if (!display_name || display_name.trim() === '') {
                 return res.status(400).json({
                     success: false,
-                    error: 'Display name is required'
+                    error: 'Display name is required',
                 });
             }
 
@@ -1257,28 +1389,30 @@ function registerRoutes(router, helpers) {
             if (txResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Transaction not found'
+                    error: 'Transaction not found',
                 });
             }
 
             const tx = txResult.rows[0];
 
             // Update display_name
-            await db.query(
-                'UPDATE balance_history SET display_name = $1 WHERE id = $2',
-                [display_name.trim(), id]
-            );
+            await db.query('UPDATE balance_history SET display_name = $1 WHERE id = $2', [
+                display_name.trim(),
+                id,
+            ]);
 
             console.log(`[ALIASES] Updated display_name for TX #${id}: "${display_name}"`);
 
             // Optionally add to customer aliases if phone is linked
             if (add_to_aliases && tx.linked_customer_phone) {
                 try {
-                    await db.query(
-                        'SELECT add_customer_alias($1, $2)',
-                        [tx.linked_customer_phone, display_name.trim()]
+                    await db.query('SELECT add_customer_alias($1, $2)', [
+                        tx.linked_customer_phone,
+                        display_name.trim(),
+                    ]);
+                    console.log(
+                        `[ALIASES] Also added "${display_name}" to aliases for ${tx.linked_customer_phone}`
                     );
-                    console.log(`[ALIASES] Also added "${display_name}" to aliases for ${tx.linked_customer_phone}`);
                 } catch (aliasError) {
                     console.error('[ALIASES] Could not add to aliases:', aliasError.message);
                 }
@@ -1287,19 +1421,18 @@ function registerRoutes(router, helpers) {
             res.json({
                 success: true,
                 transaction_id: id,
-                display_name: display_name.trim()
+                display_name: display_name.trim(),
             });
-
         } catch (error) {
             console.error('[ALIASES] Error updating display_name:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to update display name'
+                error: 'Failed to update display name',
             });
         }
     });
 }
 
 module.exports = {
-    registerRoutes
+    registerRoutes,
 };

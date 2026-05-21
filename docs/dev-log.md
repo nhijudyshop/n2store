@@ -25,6 +25,42 @@
 
 ## 2026-05-21
 
+### [web2-balance-history] feat: tách bảng `web2_balance_history` — isolate khỏi Web 1
+
+User request: "tạo db render riêng cho web 2.0 đi, tôi không muốn chỉnh sửa dữ liệu của web 1.0 → vẫn dùng webhook sepay vì không ảnh hưởng db".
+
+**Approach**: Cùng Render DB instance (tránh tăng cost + maintain 2 connection strings) nhưng tách bảng riêng `web2_balance_history` schema clone từ `balance_history` legacy. Webhook dual-write vào CẢ 2 bảng → 2 layer độc lập read/write.
+
+**Migration 081** ([`v2/balance-history.js#ensureWeb2BalanceHistory`](../render.com/routes/v2/balance-history.js)):
+
+- `CREATE TABLE web2_balance_history (LIKE balance_history INCLUDING ALL)` — clone columns + indexes + constraints + defaults
+- One-time backfill: `INSERT INTO web2_balance_history SELECT * FROM balance_history ON CONFLICT (sepay_id) DO NOTHING`
+- Self-gated qua `native_orders_migrations` table
+
+**Sepay webhook dual-write** ([`sepay-webhook-core.js`](../render.com/routes/sepay-webhook-core.js)):
+
+- Helper `_mirrorToWeb2BalanceHistory(db, sepayId)` — sau mỗi INSERT thành công vào `balance_history`, copy row sang `web2_balance_history` (best-effort, async, không chặn webhook).
+- Hook vào 4 INSERT spots (main webhook handler, failed_webhook_queue retry, gap fill, recovery).
+
+**Web 2.0 routes** ([`v2/balance-history.js`](../render.com/routes/v2/balance-history.js)):
+
+- Sed-replace `balance_history` → `web2_balance_history` ở 50 references (queries trong 10 endpoints: list, pending, link, reprocess-wallet, unlink, stats, verification-queue, approve, reject, resolve-match, ...).
+- Router-level middleware tự gọi `ensureWeb2BalanceHistory` mỗi request (cheap sau lần đầu).
+
+**Customer-info sync** ([`sepay-wallet-operations.js`](../render.com/routes/sepay-wallet-operations.js)):
+
+- `POST /api/sepay/customer-info` (shared endpoint cho QR scan) — sau UPDATE `balance_history` thêm parallel UPDATE `web2_balance_history` cùng WHERE clause → 2 bảng đồng bộ customer link.
+
+**Files**: `v2/balance-history.js` (+migration +middleware +sed table), `sepay-webhook-core.js` (+helper +4 hook points), `sepay-wallet-operations.js` (+dual UPDATE customer-info).
+
+**Verify sau deploy**:
+
+1. Server log: `[BalanceHistory V2] web2_balance_history schema ready` lúc lần đầu hit `/api/v2/balance-history/*`
+2. Migration log: `NOTICE: Migration 081: backfilled web2_balance_history from balance_history`
+3. Frontend `web2/balance-history/index.html` hoạt động bình thường (cùng endpoint, đổi backing table)
+4. Sepay webhook mới đến: row xuất hiện trong CẢ 2 bảng
+5. User actions ở Web 2.0 page (verify/approve/reject) chỉ thay đổi `web2_balance_history`, không touch `balance_history` (Web 1).
+
 ### [web2-products][PBH] feat: SSE realtime auto-reload (không cần F5)
 
 User report: "Bên native-orders và product hoặc các trang khác chưa cập nhật realtime UI, table... theo server SSE realtime → phải F5 lại để lấy dữ liệu mới".

@@ -6,6 +6,35 @@
 // =====================================================
 
 const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
+
+// =====================================================
+// WEB 2.0 ISOLATION: dual-write Sepay transactions vào CẢ 2 bảng.
+// Mỗi lần webhook INSERT vào balance_history (Web 1 legacy), gọi helper này
+// để copy sang web2_balance_history. Best-effort — fail không chặn webhook
+// flow. Idempotent (ON CONFLICT sepay_id DO NOTHING).
+// Web 2.0 routes (v2/balance-history.js) chỉ đọc/sửa web2_balance_history → KHÔNG
+// đụng dữ liệu Web 1. Sepay vẫn dùng webhook cũ, KHÔNG cần đổi endpoint.
+// =====================================================
+async function _mirrorToWeb2BalanceHistory(db, sepayId) {
+    if (!db || !sepayId) return;
+    try {
+        // Copy row vừa INSERT sang web2_ table. Schema giống hệt (CREATE LIKE
+        // INCLUDING ALL trong v2/balance-history.js#ensureWeb2BalanceHistory).
+        await db.query(
+            `INSERT INTO web2_balance_history
+             SELECT * FROM balance_history
+             WHERE sepay_id = $1
+             ON CONFLICT (sepay_id) DO NOTHING`,
+            [sepayId]
+        );
+    } catch (e) {
+        // Web 2.0 bảng chưa tồn tại (route v2/balance-history chưa hit lần nào
+        // → ensureWeb2BalanceHistory chưa chạy). Log warning, không throw.
+        if (!String(e.message).includes('does not exist')) {
+            console.warn('[SEPAY-WEBHOOK] mirror to web2 failed:', e.message);
+        }
+    }
+}
 const aikolTelegram = (() => {
     try {
         return require('../services/aikol-telegram-service');
@@ -458,6 +487,9 @@ function registerRoutes(router, deps) {
             }
 
             const insertedId = result.rows[0].id;
+
+            // Dual-write sang Web 2.0 isolation table (best-effort, async).
+            _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
 
             console.log('[SEPAY-WEBHOOK] Transaction saved:', {
                 id: insertedId,
@@ -1120,6 +1152,8 @@ function registerRoutes(router, deps) {
             const result = await db.query(insertQuery, values);
 
             if (result.rows.length > 0) {
+                // Dual-write sang Web 2.0 (best-effort)
+                _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
                 // Success - update queue status
                 await db.query(
                     `
@@ -1238,6 +1272,9 @@ function registerRoutes(router, deps) {
                             JSON.stringify(webhookData),
                         ]
                     );
+
+                    // Dual-write sang Web 2.0 (best-effort)
+                    _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
 
                     await db.query(
                         `
@@ -1470,6 +1507,9 @@ function registerRoutes(router, deps) {
             const result = await db.query(insertQuery, values);
 
             if (result.rows.length > 0) {
+                // Dual-write sang Web 2.0 (best-effort)
+                _mirrorToWeb2BalanceHistory(db, transaction.id).catch(() => {});
+
                 // Mark gap as resolved
                 await db.query(
                     `
