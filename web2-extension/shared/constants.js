@@ -160,5 +160,5 @@ export const FB_ERRORS = {
 };
 
 // Extension version — Web 2.0 fork bump 2.0.x
-export const VERSION = '2.0.0';
-export const BUILD = 200;
+export const VERSION = '2.0.1';
+export const BUILD = 201;

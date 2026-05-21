@@ -4,7 +4,7 @@
 import { CONFIG } from '../../shared/config.js';
 import { ATTACHMENT_TYPES, FB_ERRORS } from '../../shared/constants.js';
 import { log } from '../../shared/logger.js';
-import { initPage, getSession } from './session.js';
+import { initPage, getSession, clearSession } from './session.js';
 import {
     parseFbRes,
     generateOfflineThreadingID,
@@ -101,25 +101,9 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
             `[DEBUG] Params: globalUserId=${globalUserId}, threadId=${threadId}, attachmentType=${attachmentType}, body_len=${(message || '').length}`
         );
 
-        // Check cookies
-        try {
-            const cookies = await chrome.cookies.getAll({ domain: '.facebook.com' });
-            const cookieNames = cookies.map((c) => c.name);
-            const hasCUser = cookieNames.includes('c_user');
-            const hasXs = cookieNames.includes('xs');
-            log.info(
-                MODULE,
-                `[DEBUG] Cookies: total=${cookies.length}, c_user=${hasCUser}, xs=${hasXs}`
-            );
-            if (!hasCUser || !hasXs) {
-                log.error(
-                    MODULE,
-                    '[DEBUG] CRITICAL: Missing Facebook session cookies! User may not be logged in.'
-                );
-            }
-        } catch (e) {
-            log.warn(MODULE, `[DEBUG] Cannot read cookies: ${e.message}`);
-        }
+        // Cookies API trong MV3 thường bị partition isolation — không reliable để check login.
+        // Bỏ check này: nếu session.token (fb_dtsg) đã extract thành công từ Business Suite HTML
+        // thì có nghĩa cookies đang valid (fetch credentials:'include' đã đính kèm cookie jar).
 
         log.info(MODULE, `[DEBUG] Request body (first 500): ${body.substring(0, 500)}`);
 
@@ -175,10 +159,19 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
 
             // Determine retry strategy
             const strategy = getRetryStrategy(errorInfo);
-            if (strategy === 'restartInbox') {
-                log.info(MODULE, 'Retrying with session restart...');
+            // BLOCKED_RETRY_SOCKET (1545012) là transient — Pancake retry qua MQTT socket,
+            // mình không có socket fallback nên restart session + refresh fb_dtsg + retry HTTP.
+            // TEMPORARY_ERROR (1390008) cũng đi cùng path.
+            if (strategy === 'restartInbox' || strategy === 'retryUsingSocket') {
+                log.info(MODULE, `Retrying with session restart (strategy=${strategy})...`);
+                clearSession(pageId);
                 session = await initPage(pageId);
                 params.fb_dtsg = session.token;
+                // Tạo offline_threading_id mới để tránh dedupe phía FB
+                const newOtid = generateOfflineThreadingID();
+                params.offline_threading_id = newOtid;
+                params.message_id = newOtid;
+                params.timestamp = Date.now().toString();
                 const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
                     method: 'POST',
                     headers: buildFbHeaders(referer, session.msgrRegion),
@@ -186,9 +179,16 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
                     credentials: 'include',
                 });
                 const retryText = await retryRes.text();
+                log.info(
+                    MODULE,
+                    `[DEBUG] Retry response (${retryText.length} chars): ${retryText.substring(0, 500)}`
+                );
                 result = parseFbRes(retryText);
                 const retryError = extractFbError(result);
-                if (retryError) throw new Error(retryError.message);
+                if (retryError) {
+                    log.error(MODULE, `Retry FB error: ${JSON.stringify(retryError)}`);
+                    throw new Error(retryError.message);
+                }
             } else {
                 throw new Error(errorInfo.message);
             }
