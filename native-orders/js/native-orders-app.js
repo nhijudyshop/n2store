@@ -1797,6 +1797,69 @@
         notify(`Đang mở popup in ${pbhs.length} bill...`, 'info');
     }
 
+    // Bulk send template message — port từ orders-report MessageTemplateManager.
+    // Lookup order data → convert sang shape mà Web2MsgTemplate hiểu →
+    // delegate cho `Web2MsgTemplate.open({orders})`. Module này tự handle UI
+    // template + send loop + global_id resolution + extension fallback chain.
+    async function bulkSendMessage() {
+        const codes = getSelectedCodes();
+        if (!codes.length) {
+            notify('Chưa chọn đơn nào', 'warning');
+            return;
+        }
+        if (!window.Web2MsgTemplate?.open) {
+            notify('Web2MsgTemplate chưa load — kiểm tra script', 'error');
+            return;
+        }
+        const orders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
+        if (!orders.length) {
+            notify('Không tìm thấy đơn', 'error');
+            return;
+        }
+        // Convert sang shape Web2MsgTemplate cần. Conversation lookup: nếu order
+        // chưa có conversationId (truth nguồn từ Pancake), fetch nhanh qua Web2Chat.
+        const enriched = [];
+        for (const o of orders) {
+            const lines = (o.products || []).map((p) => ({
+                productName: p.name || p.productName || p.productCode || '?',
+                qty: Number(p.quantity) || 1,
+                price: Number(p.price) || 0,
+            }));
+            let conversationId = null;
+            let customerUuid = null;
+            let threadId = null;
+            if (window.Web2Chat && o.fbPageId && o.fbUserId) {
+                try {
+                    const r = await window.Web2Chat.fetchConversations(o.fbPageId, o.fbUserId);
+                    if (r?.ok && r.conversations?.length) {
+                        const conv = r.conversations[0];
+                        conversationId = conv.id || null;
+                        customerUuid = r.customerUuid || conv.customers?.[0]?.id || null;
+                        threadId = conv.thread_id || conv.threadId || null;
+                    }
+                } catch (_) {
+                    /* skip */
+                }
+            }
+            const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
+            enriched.push({
+                code: o.code,
+                customerName: o.customerName || '',
+                fbUserName: o.fbUserName || '',
+                phone: o.phone || '',
+                address: o.address || '',
+                fbPageId: o.fbPageId || '',
+                fbUserId: o.fbUserId || '',
+                conversationId,
+                customerUuid,
+                threadId,
+                lines,
+                total,
+            });
+        }
+        await window.Web2MsgTemplate.open({ orders: enriched });
+    }
+
     // Phase 15: bulk-create PBH. Opens a management modal that lists every
     // selected order with its readiness status; user can apply shared
     // delivery / date / note OR per-row override (just delivery for now),
@@ -2425,6 +2488,7 @@
         $('#ordersBulkPbh')?.addEventListener('click', bulkCreatePbh);
         $('#ordersBulkMerge')?.addEventListener('click', bulkMergeOrders);
         $('#ordersBulkPrintBill')?.addEventListener('click', bulkPrintBills);
+        $('#ordersBulkSendMessage')?.addEventListener('click', bulkSendMessage);
         $('#ordersBulkUnselect')?.addEventListener('click', unselectAllOrders);
 
         // Phase 16: column show/hide toggle
@@ -6446,6 +6510,10 @@
         splitOrder,
         removeOrder,
         bulkCreatePbh,
+        bulkSendMessage,
+        // Exposed for Web2MsgTemplate (port từ orders-report) — gọi extension
+        // qua window.postMessage bridge với promise wrapper + timeout.
+        _extensionRequest,
         unselectAllOrders,
         copyCode,
         goPage,
