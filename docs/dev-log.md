@@ -25,6 +25,38 @@
 
 ## 2026-05-21
 
+### [tpos-pancake] Inline save SĐT/địa chỉ — fix TPOS OData 400 (Childs/Status/Extra*/@odata.*)
+
+**Yêu cầu user**: Trên `tpos-pancake/index.html`, click nút lưu SĐT hoặc địa chỉ inline trong comment list của KH Huỳnh Thành Đạt — toast "Lỗi lưu...: API error: 400" (sai im lặng, dữ liệu không persist).
+
+**Root cause** (debug qua intercept `fetch` capture request + response body):
+
+1. `partner.Childs = null` trong cache → TPOS expect `Edm.Collection` (array): _"A node of type 'PrimitiveValue' was read ... however, a 'StartArray' node was expected"_.
+2. `partner.Status = -1` (number) → TPOS expect `Edm.String`: _"Cannot convert the literal '-1' to the expected type 'Edm.String'"_.
+3. `ExtraAddress` / `ExtraProperties` / `FacebookMap` (untyped complex objects trả từ TPOS GET) → TPOS reject `'untyped value ... invalid. Consider using a OData type annotation explicitly'` khi POST mà không kèm `@odata.type`.
+4. Round-2: TPOS response trả `@odata.context` kèm canonical model. `partnerCache.set(userId, result)` lưu nguyên field này. Save lần sau spread lại → TPOS reject `'annotation odata.context not recognized at current position'`.
+
+**Fix** ([`tpos-pancake/js/tpos/tpos-api.js`](../tpos-pancake/js/tpos/tpos-api.js#L334) `savePartnerData`):
+
+- `if (!Array.isArray(model.Childs)) model.Childs = []`
+- `if (typeof model.Status === 'number') model.Status = String(model.Status)`
+- `delete model.ExtraAddress; delete model.ExtraProperties; delete model.FacebookMap`
+- Drop hết key bắt đầu bằng `@` (`@odata.context`, `@odata.type`, …)
+- Khi `response.ok = false` → parse body `error.message` để toast hiển thị nguyên nhân thực (trước chỉ "API error: 400" mơ hồ)
+
+Bump `tpos-api.js?v=20260521b`. Comment list không cần sửa — handler đã dùng `savePartnerData`, fix tập trung 1 chỗ.
+
+**Verify live (console-only)**:
+
+- ✓ 4 consecutive saves (phone V1, addr V1, phone V2, addr V2): all status 200
+- ✓ Idempotent: lần save thứ 2 không bị 400 dù cache đã có `@odata.context` (sanitize drop trước POST)
+- ✓ Partner cache state sau test: Phone="0908123456" (giữ), Street test value, ChildsIsArray=false (raw cache), StatusType=string (response trả "-1") — sanitize chỉ tác động lúc gửi
+- ✓ Restore: set `Street=""` qua UI handler → status 200, partner.Street = ""
+
+**Status**: ✅ Done.
+
+---
+
 ### [web2-products][native-orders][render] Migration 078: backfill product snapshots cho SP update TRƯỚC cascade fix
 
 **Bug retroactive** (follow-up của cascade fix `8d89d1c0`): User update ảnh `GIÀY ĐEN SIZE 42` (code `DEMO - ADGIAY1DENS42`) tại `2026-05-21 02:13 UTC` — **trước** cascade fix deploy `~02:26 UTC`. PATCH thời điểm đó chỉ ghi `web2_products`, không cascade → 4 `native_orders` vẫn `imageUrl=null`.
