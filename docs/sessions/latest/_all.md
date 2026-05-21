@@ -3,24 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e1d0d4f` — auto: session update
-**Last updated**: 2026-05-21 10:21:26 +07
-**Latest session**: [`RESUME:20260521-102126-e1d0d4f`](../20260521-102126-e1d0d4f.md)
-**Summary**: auto: session update
+**Latest commit**: `93b2302` — docs(tpos-pancake): dev-log entry cho bỏ auto-scroll on new comment
+**Last updated**: 2026-05-21 10:24:28 +07
+**Latest session**: [`RESUME:20260521-102428-93b2302`](../20260521-102428-93b2302.md)
+**Summary**: docs(tpos-pancake): dev-log entry cho bỏ auto-scroll on new comment
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-20 16:28
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 10:21
+- [`docs/`](./docs.md) — updated 2026-05-21 10:24
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-20 09:30
