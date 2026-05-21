@@ -3,31 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `411482c` — feat(domain): rewire codebase sang custom domain nhijudy.store
-**Last updated**: 2026-05-21 11:33:34 +07
-**Latest session**: [`RESUME:20260521-113334-411482c`](../20260521-113334-411482c.md)
-**Summary**: feat(domain): rewire codebase sang custom domain nhijudy.store
+**Latest commit**: `d410081` — docs(extension): full code analysis của send-message flow + bypass-24h via business.facebook.com
+**Last updated**: 2026-05-21 11:55:03 +07
+**Latest session**: [`RESUME:20260521-115503-d410081`](../20260521-115503-d410081.md)
+**Summary**: docs(extension): full code analysis của send-message flow + bypass-24h via business.facebook.com
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`fb-ads/`](./fb-ads.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 5 file(s)
-- [`order-management/`](./order-management.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 1 file(s)
-- [`pancake-extension/`](./pancake-extension.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`soluong-live/`](./soluong-live.md) — 1 file(s)
-- [`web2-extension/`](./web2-extension.md) — 4 file(s)
 
 ## All folder snapshots
 
 - [`_root/`](./_root.md) — updated 2026-05-21 10:21
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-20 11:24
-- [`docs/`](./docs.md) — updated 2026-05-21 11:33
+- [`docs/`](./docs.md) — updated 2026-05-21 11:55
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-20 15:53
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 11:33
