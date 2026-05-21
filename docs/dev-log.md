@@ -25,6 +25,36 @@
 
 ## 2026-05-21
 
+### [web2-products][native-orders] feat: badge "ĐANG DÙNG" + popover orders dùng SP
+
+User request: "Sản phẩm được thêm vào đơn nào ở native-orders thì sản phẩm đó bên products sẽ hiện chi tiết đang nằm ở chiến dịch, STT, khách nào — bấm vào để xem đơn đó luôn"
+
+**Backend** ([`render.com/routes/web2-products.js`](../render.com/routes/web2-products.js)):
+
+- Mới: `GET /api/web2-products/usage?codes=A,B,C` — SQL `JOIN jsonb_array_elements(native_orders.products)` filter `productCode = ANY($1)` + `status != 'cancelled'`, ORDER BY display_stt DESC. Trả map `{code: [{orderCode, displayStt, mergedDisplayStt, customerName, phone, status, campaignId, campaignName, fbPostId, qty, unitPrice, addedAt, createdAt}]}`.
+- Đặt TRƯỚC route `/:code` để Express không match nhầm.
+
+**Frontend products page**:
+
+- Column mới **"ĐANG DÙNG"** (giữa Tồn kho và Ghi chú), colspan 11→12
+- Badge:
+    - `usage-loading` (placeholder `...` chấm pulse) khi đang fetch
+    - `usage-empty` (`0 đơn`) khi chưa đơn nào dùng
+    - `usage-has` (link button tím — gradient, hover lift) hiển thị `<N> đơn · <X> cái`
+- Click badge → `openUsagePopover(code, ev)`:
+    - Position absolute bên dưới badge
+    - Group theo campaign (`campaignName || fbPostId`)
+    - Mỗi item: `STT XX | Tên KH · SĐT | ×qty | [Status badge]`
+    - Click → mở `native-orders/index.html?search=<orderCode>` tab mới
+- Background fetch sau `load()`: gọi `Web2ProductsApi.usage(codes)` cho TOÀN BỘ page hiện tại, update từng cell in-place (không re-render bảng → giữ scroll, tránh nháy)
+- CSS mới ~120 dòng cho badge + popover (gradient header tím như msg-template modal).
+
+**Native-orders**: hydrate `?search=<code>` từ URL → fill `#filterSearch` + `STATE.search` → tự apply filter khi load. Cho phép popover link "deep-link" vào đúng đơn.
+
+**Files**: `render.com/routes/web2-products.js` (+ endpoint), `web2/products/index.html` (header + colspan), `web2/products/js/web2-products-app.js` (~150 dòng mới: renderUsageBadge, \_loadUsageForCurrentPage, openUsagePopover), `web2/products/js/web2-products-api.js` (`usage()` method), `web2/products/css/web2-products.css` (+120 dòng), `native-orders/js/native-orders-app.js` (URL `?search=` hydration).
+
+Verify: web2/products → bảng load → badge "..." 1s → fetch xong → badge tím "N đơn · X cái" → click → popover hiện list grouped by campaign → click order → tab mới native-orders filter đúng đơn.
+
 ### [native-orders] fix: Huỷ đơn (cancelOrder) — `_getBaseUrl` không tồn tại
 
 User report: "Hủy đơn này không được" cho NW-20260521-0004.

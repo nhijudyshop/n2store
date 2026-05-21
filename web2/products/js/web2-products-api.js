@@ -44,6 +44,15 @@
         async get(code) {
             return _fetchJson(`${BASE}/${encodeURIComponent(code)}`);
         },
+        /**
+         * GET /api/web2-products/usage?codes=A,B,C
+         * Returns {success, usage: { code: [{orderCode, displayStt, customerName, ...}] }}
+         */
+        async usage(codes) {
+            if (!Array.isArray(codes) || !codes.length) return { success: true, usage: {} };
+            const qs = new URLSearchParams({ codes: codes.join(',') });
+            return _fetchJson(`${BASE}/usage?${qs}`);
+        },
         async create(payload) {
             return _fetchJson(BASE, {
                 method: 'POST',

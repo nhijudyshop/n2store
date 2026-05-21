@@ -2407,6 +2407,13 @@
         const urlParams = new URLSearchParams(location.search);
         const urlCid = parseInt(urlParams.get('customerId'), 10);
         if (Number.isFinite(urlCid)) STATE.customerId = urlCid;
+        // Hydrate search box from `?search=...` (vd link từ web2-products usage popover)
+        const urlSearch = urlParams.get('search');
+        if (urlSearch) {
+            const inp = document.getElementById('filterSearch');
+            if (inp) inp.value = urlSearch;
+            STATE.search = urlSearch;
+        }
         rtConnect();
         _sseConnect();
 

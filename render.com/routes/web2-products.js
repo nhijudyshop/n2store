@@ -294,6 +294,84 @@ router.get('/pending', async (req, res) => {
     }
 });
 
+// =====================================================
+// GET /api/web2-products/usage?codes=A,B,C
+// Returns map: productCode → array of native-orders that currently contain
+// that product (excluding cancelled). Each entry includes order code,
+// display STT, customer name, status, campaign info, qty, addedAt.
+//
+// Used by web2/products page to show "Đang dùng ở N đơn" badge per product
+// and a popover listing every (campaign, STT, customer) using it. Click an
+// order → jump to native-orders với filter ?search=<code>.
+//
+// NOTE: phải đặt TRƯỚC /:code để không bị Express route catch /usage → code='usage'.
+// =====================================================
+router.get('/usage', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        const codesRaw = String(req.query.codes || '').trim();
+        if (!codesRaw) return res.json({ success: true, usage: {} });
+        const codes = codesRaw
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        if (!codes.length) return res.json({ success: true, usage: {} });
+
+        // Đơn cancelled bỏ qua — user không cần biết. STT lớn nhất trước (mới).
+        const sql = `
+            SELECT
+                n.code           AS order_code,
+                n.display_stt    AS display_stt,
+                n.merged_display_stt AS merged_display_stt,
+                n.customer_name  AS customer_name,
+                n.phone          AS phone,
+                n.status         AS order_status,
+                n.live_campaign_id AS campaign_id,
+                n.live_campaign_name AS campaign_name,
+                n.fb_post_id     AS fb_post_id,
+                n.created_at     AS created_at,
+                prod->>'productCode' AS product_code,
+                COALESCE((prod->>'quantity')::int, 1) AS qty,
+                COALESCE((prod->>'price')::bigint, 0) AS unit_price,
+                (prod->>'addedAt')::bigint AS added_at
+            FROM native_orders n,
+                 jsonb_array_elements(n.products) prod
+            WHERE prod->>'productCode' = ANY($1::text[])
+              AND n.status != 'cancelled'
+            ORDER BY n.display_stt DESC NULLS LAST, prod->>'addedAt' DESC NULLS LAST
+        `;
+        const r = await pool.query(sql, [codes]);
+
+        const usage = {};
+        for (const row of r.rows) {
+            const pc = row.product_code;
+            if (!pc) continue;
+            if (!usage[pc]) usage[pc] = [];
+            usage[pc].push({
+                orderCode: row.order_code,
+                displayStt: row.display_stt,
+                mergedDisplayStt: row.merged_display_stt,
+                customerName: row.customer_name,
+                phone: row.phone,
+                status: row.order_status,
+                campaignId: row.campaign_id,
+                campaignName: row.campaign_name,
+                fbPostId: row.fb_post_id,
+                qty: row.qty,
+                unitPrice: Number(row.unit_price) || 0,
+                addedAt: row.added_at,
+                createdAt: row.created_at,
+            });
+        }
+
+        res.json({ success: true, usage });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] usage error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // -----------------------------------------------------
 // GET /api/web2/products/:code
 // -----------------------------------------------------

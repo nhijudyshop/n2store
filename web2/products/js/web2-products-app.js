@@ -15,6 +15,7 @@
         activeOnly: false, // 'all' (false) vs 'true' (active only)
         loading: false,
         editingCode: null, // null = creating, string = editing
+        usage: {}, // productCode → array of order entries (from /usage endpoint)
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -42,7 +43,7 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="11" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
             return;
@@ -73,6 +74,7 @@
                     <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>
                     <td class="price-cell price-sell">${fmtPrice(priceSell)}</td>
                     <td class="stock-cell ${stockClass}">${p.stock ?? 0}</td>
+                    <td class="usage-cell">${renderUsageBadge(p.code)}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
                         ${(() => {
@@ -144,11 +146,158 @@
         if (sc) sc.textContent = t;
     }
 
+    // ---------- Usage badge (đơn nào đang chứa SP này) ----------
+    //
+    // Render placeholder badge ngay khi table render. Background fetch
+    // `/api/web2-products/usage?codes=...` cho TOÀN BỘ code trên page hiện tại
+    // → khi data về, update từng cell bằng innerHTML (KHÔNG re-render cả bảng
+    // để giữ scroll + tránh nháy).
+
+    function renderUsageBadge(code) {
+        const entries = STATE.usage[code];
+        if (!entries) {
+            // Chưa load — placeholder
+            return `<span class="usage-badge usage-loading" data-code="${escapeHtml(code)}"><span class="usage-dot"></span>...</span>`;
+        }
+        if (!entries.length) {
+            return `<span class="usage-badge usage-empty" data-code="${escapeHtml(code)}">0 đơn</span>`;
+        }
+        const totalQty = entries.reduce((s, e) => s + (e.qty || 0), 0);
+        return `<button class="usage-badge usage-has" data-code="${escapeHtml(code)}" onclick="Web2ProductsApp.openUsagePopover('${escapeHtml(code)}', event)" title="${entries.length} đơn × ${totalQty} cái — bấm xem chi tiết"><i data-lucide="link"></i><strong>${entries.length}</strong> đơn · ${totalQty} cái</button>`;
+    }
+
+    async function _loadUsageForCurrentPage() {
+        const codes = STATE.products.map((p) => p.code).filter(Boolean);
+        if (!codes.length) return;
+        try {
+            const r = await window.Web2ProductsApi.usage(codes);
+            if (!r?.success) return;
+            // Merge into STATE.usage (don't wipe — keep previously-loaded codes)
+            for (const code of codes) {
+                STATE.usage[code] = r.usage?.[code] || [];
+            }
+            // Replace each usage cell in-place
+            for (const code of codes) {
+                const row = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
+                if (!row) continue;
+                const cell = row.querySelector('.usage-cell');
+                if (cell) cell.innerHTML = renderUsageBadge(code);
+            }
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            console.warn('[Web2Products] usage load failed:', e?.message || e);
+        }
+    }
+
+    function cssEscape(s) {
+        if (window.CSS?.escape) return window.CSS.escape(s);
+        return String(s).replace(/[^a-zA-Z0-9_-]/g, (m) => '\\' + m);
+    }
+
+    function openUsagePopover(code, ev) {
+        ev?.stopPropagation?.();
+        const entries = STATE.usage[code] || [];
+        // Remove any existing popover
+        document.querySelectorAll('.usage-popover').forEach((el) => el.remove());
+        if (!entries.length) {
+            notify('Sản phẩm này chưa được dùng trong đơn nào', 'info');
+            return;
+        }
+
+        const pop = document.createElement('div');
+        pop.className = 'usage-popover';
+        const productName = STATE.products.find((p) => p.code === code)?.name || code;
+
+        // Group by campaign (fbPostId or campaignId)
+        const groups = new Map(); // key = campaign signature
+        for (const e of entries) {
+            const k = e.campaignId || e.fbPostId || '__no_campaign__';
+            if (!groups.has(k)) {
+                groups.set(k, {
+                    campaignId: e.campaignId,
+                    campaignName: e.campaignName,
+                    fbPostId: e.fbPostId,
+                    items: [],
+                });
+            }
+            groups.get(k).items.push(e);
+        }
+
+        const statusColors = {
+            draft: '#64748b',
+            confirmed: '#0ea5e9',
+            sent: '#16a34a',
+        };
+
+        let html = `
+            <div class="usage-popover-header">
+                <strong>${escapeHtml(productName)}</strong>
+                <span class="usage-popover-sub">${escapeHtml(code)} · ${entries.length} đơn</span>
+                <button class="usage-popover-close" onclick="this.closest('.usage-popover').remove()">×</button>
+            </div>
+            <div class="usage-popover-body">`;
+
+        for (const [_, g] of groups) {
+            const campTitle = g.campaignName || g.fbPostId || '(không có chiến dịch)';
+            html += `<div class="usage-camp-group">
+                <div class="usage-camp-title"><i data-lucide="megaphone"></i>${escapeHtml(campTitle)}</div>`;
+            for (const item of g.items) {
+                const stt =
+                    item.mergedDisplayStt && item.mergedDisplayStt.length
+                        ? item.mergedDisplayStt.join('+')
+                        : item.displayStt || '?';
+                const statusColor = statusColors[item.status] || '#64748b';
+                const statusLabel =
+                    item.status === 'draft'
+                        ? 'Nháp'
+                        : item.status === 'confirmed'
+                          ? 'Đơn hàng'
+                          : item.status === 'sent'
+                            ? 'Đã gửi'
+                            : item.status;
+                html += `<a class="usage-order-row" href="../../native-orders/index.html?search=${encodeURIComponent(item.orderCode)}" target="_blank" rel="noopener" title="Mở đơn ${escapeHtml(item.orderCode)}">
+                    <span class="usage-stt">STT ${escapeHtml(String(stt))}</span>
+                    <span class="usage-cust"><strong>${escapeHtml(item.customerName || '?')}</strong>${item.phone ? ` · ${escapeHtml(item.phone)}` : ''}</span>
+                    <span class="usage-qty">×${item.qty}</span>
+                    <span class="usage-status" style="background:${statusColor}20;color:${statusColor};">${escapeHtml(statusLabel)}</span>
+                </a>`;
+            }
+            html += `</div>`;
+        }
+        html += `</div>`;
+        pop.innerHTML = html;
+
+        // Position popover relative to clicked button
+        const target = ev?.currentTarget || ev?.target;
+        const rect = target?.getBoundingClientRect?.();
+        if (rect) {
+            pop.style.left = Math.max(8, Math.min(window.innerWidth - 480, rect.left)) + 'px';
+            pop.style.top = rect.bottom + window.scrollY + 6 + 'px';
+        } else {
+            pop.style.left = '50%';
+            pop.style.top = '50%';
+            pop.style.transform = 'translate(-50%,-50%)';
+        }
+        document.body.appendChild(pop);
+        if (window.lucide) lucide.createIcons();
+
+        // Click outside → close
+        setTimeout(() => {
+            const onDocClick = (e) => {
+                if (!pop.contains(e.target)) {
+                    pop.remove();
+                    document.removeEventListener('click', onDocClick);
+                }
+            };
+            document.addEventListener('click', onDocClick);
+        }, 50);
+    }
+
     // ---------- Data load ----------
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="11" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="12" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -163,9 +312,12 @@
             renderRows();
             renderPagination();
             renderCounters();
+            // Sau khi render bảng → fetch usage (background, non-blocking).
+            // Badge "ĐANG DÙNG" sẽ tự update khi data về.
+            _loadUsageForCurrentPage();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -650,7 +802,14 @@
         }
     }
 
-    window.Web2ProductsApp = { openEdit, toggleActive, remove, copyCode, goPage };
+    window.Web2ProductsApp = {
+        openEdit,
+        toggleActive,
+        remove,
+        copyCode,
+        goPage,
+        openUsagePopover,
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
