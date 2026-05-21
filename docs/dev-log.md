@@ -25,6 +25,27 @@
 
 ## 2026-05-21
 
+### [extension][web2] fix: handle FB error 1545012 (BLOCKED_RETRY_SOCKET) — bypass-24h gửi tin nhắn
+
+**Bug user phát hiện**: Sau khi login `business.facebook.com` + cài web2-extension, gửi tin nhắn từ native-orders → SW POST `business.facebook.com/messaging/send/` → HTTP 200 nhưng body `{__ar:1, error:1545012, errorSummary:"Tạm thời không thực hiện được", transientError:1}` → fail straight, fallback Pancake (vẫn 24h policy).
+
+**Root cause** (đọc log `downloads/n2store-session/console-1779347418060.log`):
+
+- `getRetryStrategy` trong [`web2-extension/background/facebook/sender.js`](../web2-extension/background/facebook/sender.js) map subcode 1545012 → `'retryUsingSocket'` (FB_ERRORS.BLOCKED_RETRY_SOCKET).
+- Nhưng caller chỉ implement branch `'restartInbox'` — các strategy khác (retryUsingSocket, reuploadPhotos, cannotRetry) đều fall through tới `throw new Error(errorInfo.message)`.
+- 1545012 thực ra là **transient** (Pancake retry qua MQTT socket; mình không có socket fallback) → retry HTTP với fb_dtsg mới + offline_threading_id mới thường thành công.
+
+**Fix**:
+
+1. Branch `restartInbox || retryUsingSocket` → clear session cache → re-init page → refresh `fb_dtsg` → generate new `offline_threading_id` + `message_id` + `timestamp` → retry POST. (Quan trọng: phải đổi `offline_threading_id` vì FB dedupe theo field này; nếu reuse cùng id, retry sẽ vẫn fail cùng error.)
+2. Bỏ block `chrome.cookies.getAll` check — MV3 partition isolation thường return 0 cookies dù `fetch(credentials:'include')` vẫn gửi cookie jar. Log `CRITICAL: Missing Facebook session cookies! User may not be logged in.` là misleading (session vẫn valid).
+
+**Files**: `web2-extension/background/facebook/sender.js` (+ bump `manifest.json` 2.0.0→2.0.1, `shared/constants.js` VERSION/BUILD).
+
+**Verify (sau reload extension)**: gửi tin nhắn từ native-orders cho Huỳnh Thành Đạt → SW phải log `Retrying with session restart (strategy=retryUsingSocket)...` rồi `Message sent successfully: ...`. Nếu retry vẫn fail → bug khác (page admin lost / FB rate-limit cứng).
+
+**Không touch** `n2store-extension/` (production) per MEMORY rule — sẽ áp port sau khi user verify fix web2-extension ok. Status: ✅ Done web2-extension; ⏳ Pending verify in-browser.
+
 ### [inventory] fix: hết leak ảnh giữa Đợt 1 ↔ Đợt 2 trong bảng inventory-tracking
 
 **Bug user phát hiện**: trên `https://nhijudy.store/inventory-tracking/index.html`, các dòng Đợt 2 (NCC 9, 13, 16, 19, 20, 27-30, 32-35, 38-40, 45) hiển thị **ảnh từ Đợt 1** thay vì rỗng (ảnh Đợt 2 chỉ tồn tại cho NCC 47-81, không có cho 9-45).
