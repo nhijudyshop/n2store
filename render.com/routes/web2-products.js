@@ -18,6 +18,62 @@ let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
     _notifyClients = notifyClients;
 }
+// Insert 1 row vào web2_product_history. Best-effort — không chặn flow chính.
+//   action: 'create' | 'update' | 'delete' | 'stock-adjust' | 'toggle-active' | ...
+//   changes: với 'create' = full snapshot; với 'update' = {field: {before, after}}; với 'delete' = full prev snapshot
+//   user: {id, name} từ req.body / req.headers
+//   sourcePage: req.body.sourcePage || req.headers['x-source-page'] (vd 'products', 'so-order', 'inventory-tracking')
+async function _logHistory(pool, productCode, action, changes, user, sourcePage) {
+    if (!pool || !productCode) return;
+    try {
+        await pool.query(
+            `INSERT INTO web2_product_history (product_code, action, changes, user_id, user_name, source_page, created_at)
+             VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7)`,
+            [
+                productCode,
+                action,
+                JSON.stringify(changes || {}),
+                user?.id || null,
+                user?.name || null,
+                sourcePage || null,
+                Date.now(),
+            ]
+        );
+    } catch (e) {
+        console.warn('[WEB2-PRODUCTS] _logHistory failed:', e.message);
+    }
+}
+
+// Diff helper: trả {field: {before, after}} cho mỗi field khác nhau.
+// Bỏ qua field 'updated_at' (luôn thay đổi) và 'created_at' (không bao giờ đổi).
+const HIST_IGNORE_FIELDS = new Set(['updated_at', 'created_at', 'id']);
+function _diff(prev, next) {
+    const out = {};
+    const keys = new Set([...Object.keys(prev || {}), ...Object.keys(next || {})]);
+    for (const k of keys) {
+        if (HIST_IGNORE_FIELDS.has(k)) continue;
+        const a = prev?.[k];
+        const b = next?.[k];
+        // JSON-compare để xử lý JSONB array/object
+        if (JSON.stringify(a) !== JSON.stringify(b)) {
+            out[k] = { before: a, after: b };
+        }
+    }
+    return out;
+}
+
+// Extract user info từ request — accept body/header. Fallback null.
+function _extractUser(req) {
+    const b = req.body || {};
+    return {
+        id: b.userId || b.createdBy || req.headers['x-user-id'] || null,
+        name: b.userName || b.createdByName || req.headers['x-user-name'] || null,
+    };
+}
+function _extractSourcePage(req) {
+    return req.body?.sourcePage || req.headers['x-source-page'] || null;
+}
+
 function _notify(action, code) {
     if (!_notifyClients) return;
     try {
@@ -96,6 +152,24 @@ async function ensureTables(pool) {
 
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
+
+            -- Migration 079: lịch sử chỉnh sửa SP (audit log).
+            -- Mỗi mutation create/update/delete/stock-adjust ghi 1 row với
+            -- before+after JSONB + user info + source page. Dùng cho modal
+            -- "Lịch sử" trong web2/products edit.
+            CREATE TABLE IF NOT EXISTS web2_product_history (
+                id          BIGSERIAL PRIMARY KEY,
+                product_code VARCHAR(40) NOT NULL,
+                action      VARCHAR(30) NOT NULL,     -- create|update|delete|stock-adjust|toggle-active|confirm-purchase|upsert-pending
+                changes     JSONB NOT NULL DEFAULT '{}'::jsonb,  -- {field: {before, after}} cho update; full snapshot cho create
+                user_id     VARCHAR(100),
+                user_name   VARCHAR(255),
+                source_page VARCHAR(60),              -- 'products' | 'so-order' | 'inventory-tracking' | 'native-orders' | ...
+                created_at  BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_w2ph_code    ON web2_product_history(product_code, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_w2ph_created ON web2_product_history(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_w2ph_user    ON web2_product_history(user_id);
         `);
 
         // Migration 078: backfill snapshot fields (imageUrl + name + price) cho
@@ -372,6 +446,47 @@ router.get('/usage', async (req, res) => {
     }
 });
 
+// =====================================================
+// GET /api/web2-products/:code/history?limit=50
+// Lịch sử chỉnh sửa SP: ai, khi nào, đổi field gì (before/after).
+// Mới nhất trước.
+// NOTE: phải đặt TRƯỚC route /:code để không match nhầm.
+// =====================================================
+router.get('/:code/history', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const code = req.params.code;
+        const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const r = await pool.query(
+            `SELECT id, product_code, action, changes, user_id, user_name, source_page, created_at
+             FROM web2_product_history
+             WHERE product_code = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [code, limit]
+        );
+        res.json({
+            success: true,
+            history: r.rows.map((row) => ({
+                id: row.id,
+                code: row.product_code,
+                action: row.action,
+                changes: row.changes,
+                userId: row.user_id,
+                userName: row.user_name,
+                sourcePage: row.source_page,
+                createdAt: Number(row.created_at),
+            })),
+            total: r.rows.length,
+        });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] history error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // -----------------------------------------------------
 // GET /api/web2/products/:code
 // -----------------------------------------------------
@@ -432,6 +547,14 @@ router.post('/', async (req, res) => {
                 ]
             );
             _notify('create', r.rows[0].code);
+            await _logHistory(
+                pool,
+                r.rows[0].code,
+                'create',
+                { snapshot: mapRow(r.rows[0]) },
+                _extractUser(req),
+                _extractSourcePage(req) || 'products'
+            );
             res.json({ success: true, product: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -481,6 +604,12 @@ router.patch('/:code', async (req, res) => {
         sets.push(`updated_at = $${params.length}`);
         params.push(req.params.code);
 
+        // Fetch previous row for history diff (cần trước UPDATE).
+        const prevQ = await pool.query(`SELECT * FROM web2_products WHERE code = $1`, [
+            req.params.code,
+        ]);
+        const prevMapped = prevQ.rows[0] ? mapRow(prevQ.rows[0]) : null;
+
         const r = await pool.query(
             `UPDATE web2_products SET ${sets.join(', ')}
              WHERE code = $${params.length}
@@ -488,6 +617,20 @@ router.patch('/:code', async (req, res) => {
             params
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+
+        // Log diff vào history (chỉ field actually changed).
+        const newMapped = mapRow(r.rows[0]);
+        const changes = prevMapped ? _diff(prevMapped, newMapped) : { snapshot: newMapped };
+        if (Object.keys(changes).length > 0) {
+            await _logHistory(
+                pool,
+                r.rows[0].code,
+                'update',
+                changes,
+                _extractUser(req),
+                _extractSourcePage(req) || 'products'
+            );
+        }
 
         // Cascade snapshot fields (imageUrl + name + price) sang các đơn đã chọn
         // sản phẩm này. native_orders.products[] và fast_sale_orders.order_lines[]
@@ -714,6 +857,14 @@ router.delete('/:code', async (req, res) => {
         }
         await pool.query(`DELETE FROM web2_products WHERE code = $1`, [req.params.code]);
         _notify('delete', cur.code);
+        await _logHistory(
+            pool,
+            cur.code,
+            'delete',
+            { snapshot: mapRow(cur) },
+            _extractUser(req),
+            _extractSourcePage(req) || 'products'
+        );
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });

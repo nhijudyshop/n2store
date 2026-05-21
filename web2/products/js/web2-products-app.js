@@ -90,6 +90,7 @@
                         <div class="row-actions">
                             <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(p.code)}')"><i data-lucide="pencil"></i></button>
                             <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(p.code)}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
+                            <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(p.code)}')"><i data-lucide="history"></i></button>
                             <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(p.code)}')"><i data-lucide="trash-2"></i></button>
                         </div>
                     </td>
@@ -514,6 +515,130 @@
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
     }
+    // ─── History modal ───────────────────────────────────────────
+    //
+    // Mở modal "Lịch sử chỉnh sửa SP {code}" — list timeline mọi mutation
+    // (create/update/delete/stock-adjust) với who/when/source/diff.
+    async function openHistory(code) {
+        document.querySelectorAll('.w2p-history-modal').forEach((el) => el.remove());
+        const productName = STATE.products.find((p) => p.code === code)?.name || code;
+
+        const m = document.createElement('div');
+        m.className = 'w2p-history-modal';
+        m.innerHTML = `
+            <div class="w2p-history-box">
+                <div class="w2p-history-head">
+                    <i data-lucide="history" style="width:18px;height:18px;"></i>
+                    <div style="flex:1;min-width:0;">
+                        <strong style="display:block;font-size:14px;">${escapeHtml(productName)}</strong>
+                        <span style="font-size:11px;opacity:.85;">${escapeHtml(code)} · Lịch sử chỉnh sửa</span>
+                    </div>
+                    <button class="w2p-history-close">×</button>
+                </div>
+                <div class="w2p-history-body" id="w2pHistList">
+                    <div class="w2p-history-loading"><div class="spinner"></div>Đang tải lịch sử...</div>
+                </div>
+            </div>`;
+        document.body.appendChild(m);
+        m.querySelector('.w2p-history-close').onclick = () => m.remove();
+        m.addEventListener('click', (e) => {
+            if (e.target === m) m.remove();
+        });
+        if (window.lucide) lucide.createIcons();
+
+        try {
+            const r = await fetch(
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-products/${encodeURIComponent(code)}/history?limit=100`
+            );
+            const data = await r.json();
+            const list = data?.history || [];
+            const listEl = m.querySelector('#w2pHistList');
+            if (!list.length) {
+                listEl.innerHTML = `<div class="w2p-history-empty">Chưa có lịch sử nào.</div>`;
+                return;
+            }
+            listEl.innerHTML = list.map(renderHistEntry).join('');
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            m.querySelector('#w2pHistList').innerHTML =
+                `<div class="w2p-history-empty" style="color:#dc2626;">Lỗi tải: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+
+    function renderHistEntry(h) {
+        const time = new Date(h.createdAt).toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+        const actionMeta = {
+            create: { label: 'Tạo mới', color: '#16a34a', icon: 'plus-circle' },
+            update: { label: 'Cập nhật', color: '#3b82f6', icon: 'pencil' },
+            delete: { label: 'Xoá', color: '#dc2626', icon: 'trash-2' },
+            'stock-adjust': { label: 'Điều chỉnh tồn', color: '#f59e0b', icon: 'package' },
+            'toggle-active': { label: 'Đổi trạng thái', color: '#8b5cf6', icon: 'toggle-left' },
+            'confirm-purchase': { label: 'Mua hàng', color: '#0ea5e9', icon: 'shopping-cart' },
+            'upsert-pending': { label: 'Đặt nháp', color: '#94a3b8', icon: 'clock' },
+        };
+        const am = actionMeta[h.action] || { label: h.action, color: '#64748b', icon: 'circle' };
+
+        let changesHtml = '';
+        if (h.action === 'create' || h.action === 'delete') {
+            const snap = h.changes?.snapshot || h.changes || {};
+            const keys = ['code', 'name', 'variant', 'price', 'originalPrice', 'stock', 'note'];
+            changesHtml = keys
+                .filter((k) => snap[k] != null && snap[k] !== '' && snap[k] !== 0)
+                .map(
+                    (k) =>
+                        `<div class="w2p-hist-field"><span class="w2p-hist-field-name">${k}</span>: <span class="w2p-hist-after">${escapeHtml(String(snap[k]).slice(0, 60))}</span></div>`
+                )
+                .join('');
+        } else {
+            // update — diff format {field: {before, after}}
+            changesHtml = Object.entries(h.changes || {})
+                .map(([field, diff]) => {
+                    if (!diff || typeof diff !== 'object' || !('before' in diff)) return '';
+                    const fmt = (v) => {
+                        if (v == null || v === '') return '<em>(rỗng)</em>';
+                        const s = String(v);
+                        if (s.startsWith('data:image')) return '<em>(ảnh base64)</em>';
+                        return escapeHtml(s.slice(0, 80));
+                    };
+                    return `<div class="w2p-hist-field">
+                        <span class="w2p-hist-field-name">${escapeHtml(field)}</span>:
+                        <span class="w2p-hist-before">${fmt(diff.before)}</span>
+                        <i data-lucide="arrow-right" style="width:11px;height:11px;color:#94a3b8;"></i>
+                        <span class="w2p-hist-after">${fmt(diff.after)}</span>
+                    </div>`;
+                })
+                .join('');
+            if (!changesHtml)
+                changesHtml =
+                    '<div class="w2p-hist-field" style="color:#94a3b8;font-style:italic;">(không có thay đổi field)</div>';
+        }
+
+        const user = h.userName || h.userId || '<em>không rõ</em>';
+        const sourceBadge = h.sourcePage
+            ? `<span class="w2p-hist-source" title="Trang chỉnh sửa">${escapeHtml(h.sourcePage)}</span>`
+            : '';
+        return `<div class="w2p-hist-entry">
+            <div class="w2p-hist-marker" style="background:${am.color}20;color:${am.color};">
+                <i data-lucide="${am.icon}" style="width:14px;height:14px;"></i>
+            </div>
+            <div class="w2p-hist-content">
+                <div class="w2p-hist-meta">
+                    <strong style="color:${am.color};">${am.label}</strong>
+                    <span class="w2p-hist-user"><i data-lucide="user" style="width:10px;height:10px;"></i>${user}</span>
+                    ${sourceBadge}
+                    <span class="w2p-hist-time">${time}</span>
+                </div>
+                <div class="w2p-hist-changes">${changesHtml}</div>
+            </div>
+        </div>`;
+    }
+
     function closeModal() {
         STATE.editingCode = null;
         modal().classList.remove('active');
@@ -558,6 +683,12 @@
             }
         }
 
+        // History audit info — user + source page (cho backend log).
+        const histMeta = {
+            userId: user.uid || user.email || null,
+            userName: user.displayName || user.email || null,
+            sourcePage: 'products',
+        };
         try {
             if (STATE.editingCode) {
                 const resp = await window.Web2ProductsApi.update(STATE.editingCode, {
@@ -570,6 +701,7 @@
                     imageUrl: fields.imageUrl,
                     note: fields.note,
                     isActive: fields.isActive,
+                    ...histMeta,
                 });
                 // In-place update — KHÔNG re-render bảng để tránh giật + SP
                 // vừa sửa không nhảy lên đầu (vì backend sort by updated_at DESC).
@@ -586,6 +718,7 @@
                 await window.Web2ProductsApi.create({
                     ...fields,
                     createdBy: user.uid || user.email || null,
+                    ...histMeta,
                 });
                 notify(`Đã tạo SP ${fields.code}`, 'success');
                 window.Web2ProductsCache?.pushTickle?.({ action: 'create', code: fields.code });
@@ -601,7 +734,13 @@
 
     async function toggleActive(code, newState) {
         try {
-            const resp = await window.Web2ProductsApi.update(code, { isActive: newState });
+            const u = window.AuthManager?.getCurrentUser?.() || {};
+            const resp = await window.Web2ProductsApi.update(code, {
+                isActive: newState,
+                userId: u.uid || u.email || null,
+                userName: u.displayName || u.email || null,
+                sourcePage: 'products',
+            });
             if (resp.product) {
                 const ok = _updateRowInPlace(code, resp.product);
                 if (!ok) renderRows();
@@ -905,6 +1044,7 @@
         copyCode,
         goPage,
         openUsagePopover,
+        openHistory,
     };
 
     if (document.readyState === 'loading') {

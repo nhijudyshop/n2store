@@ -1099,7 +1099,12 @@ router.post('/from-native-order', async (req, res) => {
                 comment, tags, created_by, created_by_name,
                 customer_id, split_index
             ) VALUES (
-                $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
+                -- PBH display_stt = native_order.display_stt (giữ đồng bộ với
+                -- bên native-orders). Hiển thị "{native.stt}-{split_index}"
+                -- (vd 35-4 = PBH thứ 4 cho native STT 35). Trước đây dùng
+                -- nextval('fast_sale_orders_display_stt_seq') → STT lệch.
+                -- Fallback nextval nếu native không có display_stt (manual PBH).
+                $1, COALESCE($43::integer, nextval('fast_sale_orders_display_stt_seq')), 'NATIVE_WEB',
                 COALESCE($2::timestamptz, NOW()),
                 $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
@@ -1157,6 +1162,7 @@ router.post('/from-native-order', async (req, res) => {
                 b.createdByName || src.created_by_name,
                 customerId,
                 splitIndex,
+                src.display_stt || null, // $43 — sync STT từ native-order
             ]
         );
 
