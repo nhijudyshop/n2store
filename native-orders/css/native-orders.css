@@ -617,6 +617,36 @@ body {
     border-top: 0;
 }
 
+/* Split family — visually nhóm các đơn cùng STT đã tách (vd 33-1, 33-2). */
+.data-table tbody tr.order-row.is-split-family > td {
+    background: #f0f9ff;
+    border-left: 3px solid #0ea5e9;
+}
+.data-table tbody tr.order-row.is-split-family > td:first-child {
+    padding-left: 9px;
+}
+/* First col gets the left accent; others stay un-offset */
+.data-table tbody tr.order-row.is-split-family > td:not(:first-child) {
+    border-left: 0;
+}
+.data-table tbody tr.order-row.is-split-family:nth-child(even) > td {
+    background: #e0f2fe;
+}
+.data-table tbody tr.order-row.is-split-family:hover > td {
+    background: #d6ecfc;
+}
+/* Loại bỏ border-bottom giữa 2 đơn cùng split-family kế nhau → "dính" với nhau */
+.data-table
+    tbody
+    tr.order-row.is-split-family
+    + tr.order-row.is-split-family[data-stt-group]:not([data-stt-group=''])
+    > td {
+    border-top: 1px dashed #7dd3fc;
+}
+.data-table tbody tr.order-row.is-split-family:has(+ tr.order-row.is-split-family) > td {
+    border-bottom-color: transparent;
+}
+
 /* Column widths */
 .col-check {
     width: 40px;

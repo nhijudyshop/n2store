@@ -427,8 +427,13 @@
             const base = o.displayStt ?? o.sessionIndex ?? '';
             return o.splitIndex && o.splitIndex > 0 ? `${base}-${o.splitIndex}` : base;
         })();
+        // is-split-family: visually nhóm các đơn cùng display_stt với split_index > 0.
+        // splitTopcap / splitBotcap để border-radius hợp lý: 33-1 chỉ bo trên, 33-2 chỉ bo dưới.
+        const splitClass = o.splitIndex && o.splitIndex > 0 ? ' is-split-family' : '';
         const mainRow = `
-                <tr class="order-row ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
+                <tr class="order-row${splitClass} ${isExpanded ? 'is-expanded' : ''}" data-code="${escapeHtml(o.code)}"
+                    data-stt-group="${o.splitIndex && o.splitIndex > 0 ? escapeHtml(String(o.displayStt)) : ''}"
+                    data-split-index="${o.splitIndex || 0}"
                     data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
                     data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
                     onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">

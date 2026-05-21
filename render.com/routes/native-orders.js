@@ -1062,9 +1062,12 @@ router.get('/load', async (req, res) => {
         const total = countR.rows[0].n;
 
         const listParams = [...params, limitNum, offset];
+        // Sort: ưu tiên các đơn có STT lớn (mới) ở trên (display_stt DESC).
+        // Cùng display_stt thì split_index ASC (33-1 trước 33-2). Cuối cùng
+        // created_at DESC để đơn mới (nếu trùng) vẫn hiển thị trước.
         const listR = await pool.query(
             `SELECT * FROM native_orders ${where}
-             ORDER BY created_at DESC
+             ORDER BY display_stt DESC NULLS LAST, split_index ASC, created_at DESC
              LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
             listParams
         );
