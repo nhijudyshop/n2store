@@ -345,12 +345,150 @@ router.patch('/:code', async (req, res) => {
             params
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+
+        // Cascade snapshot fields (imageUrl + name + price) sang các đơn đã chọn
+        // sản phẩm này. native_orders.products[] và fast_sale_orders.order_lines[]
+        // đều JSONB array có productCode → cập nhật cùng key. Cascade chỉ khi user
+        // explicitly set field (req.body có), tránh ghi đè khi PATCH chỉ chỉnh stock.
+        const cascadeMap = {
+            imageUrl: 'imageUrl',
+            name: 'productName', // fast_sale_orders dùng productName key
+            price: 'priceUnit', // fast_sale_orders dùng priceUnit; native dùng price
+        };
+        const cascadeFields = Object.keys(cascadeMap).filter((k) => req.body[k] !== undefined);
+        const cascadeCounts = {
+            nativeOrders: 0,
+            fastSaleOrders: 0,
+        };
+        if (cascadeFields.length > 0) {
+            const newProd = r.rows[0];
+            const code = newProd.code;
+            const now = Date.now();
+
+            // Build SET expressions for native_orders.products (key shape: productCode)
+            // products[*] có: productCode, name, price, imageUrl
+            try {
+                const setNative = [];
+                if (req.body.imageUrl !== undefined) {
+                    setNative.push(`'imageUrl', to_jsonb(${pgString(newProd.image_url)}::text)`);
+                }
+                if (req.body.name !== undefined) {
+                    setNative.push(`'name', to_jsonb(${pgString(newProd.name)}::text)`);
+                }
+                if (req.body.price !== undefined) {
+                    setNative.push(`'price', to_jsonb(${Number(newProd.price) || 0}::numeric)`);
+                }
+                if (setNative.length > 0) {
+                    const updNative = await pool.query(
+                        `UPDATE native_orders
+                         SET products = (
+                                SELECT jsonb_agg(
+                                    CASE
+                                        WHEN elem->>'productCode' = $1
+                                            THEN elem || jsonb_build_object(${setNative.join(', ')})
+                                        ELSE elem
+                                    END
+                                )
+                                FROM jsonb_array_elements(products) elem
+                            ),
+                            updated_at = $2
+                         WHERE products @> jsonb_build_array(jsonb_build_object('productCode', $1::text))
+                         RETURNING code`,
+                        [code, now]
+                    );
+                    cascadeCounts.nativeOrders = updNative.rowCount;
+                    if (updNative.rowCount > 0 && _notifyClients) {
+                        try {
+                            _notifyClients(
+                                'web2:native-orders',
+                                {
+                                    action: 'product-snapshot-sync',
+                                    productCode: code,
+                                    affected: updNative.rowCount,
+                                    ts: now,
+                                },
+                                'update'
+                            );
+                        } catch {}
+                    }
+                }
+            } catch (cascadeErr) {
+                console.warn('[WEB2-PRODUCTS] cascade native_orders failed:', cascadeErr.message);
+            }
+
+            // Cascade tới fast_sale_orders.order_lines (key: productCode, productName, priceUnit)
+            try {
+                const setPbh = [];
+                if (req.body.imageUrl !== undefined) {
+                    setPbh.push(`'imageUrl', to_jsonb(${pgString(newProd.image_url)}::text)`);
+                }
+                if (req.body.name !== undefined) {
+                    setPbh.push(`'productName', to_jsonb(${pgString(newProd.name)}::text)`);
+                }
+                if (req.body.price !== undefined) {
+                    setPbh.push(`'priceUnit', to_jsonb(${Number(newProd.price) || 0}::numeric)`);
+                }
+                if (setPbh.length > 0) {
+                    const updPbh = await pool.query(
+                        `UPDATE fast_sale_orders
+                         SET order_lines = (
+                                SELECT jsonb_agg(
+                                    CASE
+                                        WHEN elem->>'productCode' = $1
+                                            THEN elem || jsonb_build_object(${setPbh.join(', ')})
+                                        ELSE elem
+                                    END
+                                )
+                                FROM jsonb_array_elements(order_lines) elem
+                            ),
+                            updated_at = $2
+                         WHERE order_lines @> jsonb_build_array(jsonb_build_object('productCode', $1::text))
+                         RETURNING number`,
+                        [code, now]
+                    );
+                    cascadeCounts.fastSaleOrders = updPbh.rowCount;
+                    if (updPbh.rowCount > 0 && _notifyClients) {
+                        try {
+                            _notifyClients(
+                                'web2:fast-sale-orders',
+                                {
+                                    action: 'product-snapshot-sync',
+                                    productCode: code,
+                                    affected: updPbh.rowCount,
+                                    ts: now,
+                                },
+                                'update'
+                            );
+                        } catch {}
+                    }
+                }
+            } catch (cascadeErr) {
+                console.warn(
+                    '[WEB2-PRODUCTS] cascade fast_sale_orders failed:',
+                    cascadeErr.message
+                );
+            }
+        }
+
         _notify('update', r.rows[0].code);
-        res.json({ success: true, product: mapRow(r.rows[0]) });
+        res.json({
+            success: true,
+            product: mapRow(r.rows[0]),
+            cascade: cascadeFields.length > 0 ? cascadeCounts : undefined,
+        });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
+
+// SQL-safe string literal builder cho cascade jsonb_build_object — chỉ dùng cho
+// giá trị đã trust (lấy từ DB row sau UPDATE thành công). Vì jsonb_build_object
+// args là expressions không phải $-params, ta phải embed inline. Escape ' bằng
+// '' và quote literal.
+function pgString(s) {
+    if (s == null) return 'NULL';
+    return "'" + String(s).replace(/'/g, "''") + "'";
+}
 
 // -----------------------------------------------------
 // POST /api/web2/products/adjust-stock
