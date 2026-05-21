@@ -489,25 +489,36 @@
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
-                            ${
-                                o.status === 'confirmed'
-                                    ? `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH bổ sung (tách đơn — STT ${sttValue}-2, ${sttValue}-3, ...)"
+                            ${(() => {
+                                // 3-state action buttons:
+                                //   - cancelled: KHÔNG cho confirm hoặc createPBH (sẽ tạo PBH mới
+                                //     trong fastsaleorder-invoice mà KHÔNG đổi/xoá PBH cũ → bug).
+                                //     Chỉ hiển thị badge "đã huỷ" để rõ trạng thái.
+                                //   - confirmed: splitPbh + cancelPbh
+                                //   - draft (default): confirmDraft + createPbh
+                                if (o.status === 'cancelled') {
+                                    return `<span class="tpos-action-placeholder" title="Đơn đã huỷ — không thể thao tác" style="color:#94a3b8;font-size:10px;">đã huỷ</span>`;
+                                }
+                                if (o.status === 'confirmed') {
+                                    return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH bổ sung (tách đơn — STT ${sttValue}-2, ${sttValue}-3, ...)"
                                 onclick="event.stopPropagation();NativeOrdersApp.splitPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="copy-plus" style="width:12px;height:12px;"></i>
                             </button>
                             <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Huỷ PBH đã tạo"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt-text" style="width:12px;height:12px;"></i>
-                            </button>`
-                                    : `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xác nhận đơn (chưa tạo PBH)" style="color:#3b82f6;"
+                            </button>`;
+                                }
+                                // draft (default)
+                                return `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xác nhận đơn (chưa tạo PBH)" style="color:#3b82f6;"
                                 onclick="event.stopPropagation();NativeOrdersApp.confirmDraft('${escapeHtml(o.code)}')">
                                 <i data-lucide="check-circle" style="width:12px;height:12px;"></i>
                             </button>
                             <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
-                            </button>`
-                            }
+                            </button>`;
+                            })()}
                             ${
                                 o.customerId
                                     ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"

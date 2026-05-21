@@ -25,6 +25,33 @@
 
 ## 2026-05-21
 
+### [native-orders][fast-sale-orders] fix: đơn cancelled vẫn tạo PBH mới → 2 PBH cho 1 đơn
+
+User report: "đơn này trạng thái 'Hủy bỏ' vẫn cho tạo PBH → bên 'fastsaleorder-invoice' sẽ tạo ra PBH với số HĐ mới → không xóa hay đổi trạng thái phiếu cũ bên 'fastsaleorder-invoice'".
+
+**Root cause** ở UI render: ternary `o.status === 'confirmed' ? ... : ELSE` rơi vào ELSE branch cho cả `draft` lẫn `cancelled`. Nút "Xác nhận đơn" (confirmDraft) + "Tạo PBH" (createPbh) cùng render → user click "Tạo PBH" → POST `/api/fast-sale-orders/from-native-order` → backend không check `status='cancelled'` → tạo PBH số HĐ mới + giữ PBH cũ → 2 PBH ổn đề.
+
+**Fix frontend** ([`native-orders-app.js:492-525`](../native-orders/js/native-orders-app.js#L492)): tách conditional thành 3 state:
+
+- `cancelled` → chỉ hiển thị badge `<span>đã huỷ</span>` (no action button)
+- `confirmed` → splitPbh + cancelPbh (như cũ)
+- `draft` (default) → confirmDraft + createPbh (như cũ)
+
+**Fix backend defense-in-depth** ([`fast-sale-orders.js:1014`](../render.com/routes/fast-sale-orders.js#L1014)): trong POST `/from-native-order` thêm guard sau khi fetch `src`:
+
+```js
+if (src.status === 'cancelled') {
+    return res.status(409).json({
+        error: 'native_order_cancelled',
+        message: 'Native order ... đã cancelled — không tạo PBH mới. Tạo đơn mới nếu cần.',
+    });
+}
+```
+
+Chặn cả external caller (extension/cron) — không chỉ UI.
+
+Status: ✅ Done.
+
 ### [web2-products][native-orders] feat: badge "ĐANG DÙNG" + popover orders dùng SP
 
 User request: "Sản phẩm được thêm vào đơn nào ở native-orders thì sản phẩm đó bên products sẽ hiện chi tiết đang nằm ở chiến dịch, STT, khách nào — bấm vào để xem đơn đó luôn"
