@@ -25,6 +25,24 @@
 
 ## 2026-05-22
 
+### [inventory] feat: đợt section tabs + stats theo tab + audit logging
+
+**User request**: "Stats card không chính xác (có thể do DB duplicate) + chia section tab theo từng đợt, cache tab đã chọn".
+
+**Đã làm**:
+
+- **`js/dot-tabs.js` (NEW)**: module `window.DotTabs` (render + select). Auto-generate pill buttons từ unique `dotSo` trong `globalState.shipments`. Sort DESC nên đợt mới nhất bên trái. Khi data thay đổi (CRUD/refresh) gọi lại `DotTabs.render()` từ `flattenNCCData`. Default fallback: chọn `dotSo` lớn nhất nếu không có saved tab hoặc saved tab không còn.
+- **`css/dot-tabs.css` (NEW)**: pill style hài hoà với `.tab-btn` của tracking tab (blue accent), có hover/focus/active states. Bar sẽ ẩn hoàn toàn khi chưa có đợt nào.
+- **`js/ui-state.js`**: thêm `getActiveDotTab/setActiveDotTab`, persist vào `n2store_inv_ui_state_v1` localStorage key.
+- **`js/filters.js`**: filter pipeline `applyFiltersAndRender` thêm bước lọc theo `UIState.getActiveDotTab()`. Cũng gọi `updateInventoryStatsBar()` để stats luôn theo scope filter.
+- **`js/table-renderer.js`**: `updateInventoryStatsBar` đổi nguồn data — khi có active đợt tab thì dùng `filteredShipments` + chỉ scoped đợt entries từ `getAllDotsAggregated`. Không có thì dùng full set như cũ.
+- **`js/data-loader.js`**: thêm `auditShipmentsData()` log raw vs aggregated (số rows, sum KG/HĐ/CP, danh sách duplicate `(date, dotSo, NCC)`, drift check). Chạy mỗi lần `flattenNCCData`. Output ở console (`[AUDIT] inventory_shipments — raw vs aggregated`). Thêm helper `getAvailableDotSoList()` cho tabs.
+- **`index.html`**: thêm `<div class="dot-tabs-bar hidden" id="dotTabsBar">` giữa filter section và `action-bar`. Link CSS + JS file mới.
+
+**Test (localhost qua persistent browser session)**: Đợt 1+2 hiển thị, default chọn Đợt 2 (lớn nhất); click Đợt 1 → filteredCount 5/14, stats update (KG 396→323, HĐ 72k→70k, TT 0→420k); refresh → Đợt 1 vẫn được restore từ localStorage. Audit log chạy ở console mỗi reload — user check số nếu nghi DB duplicate.
+
+**Status**: ✅ Done
+
 ### [web2] feat: hiện thực 12 features Future Development (Sprint 0 + F01-F12)
 
 User request: "Làm tất cả → phần nào dư xóa đi, và đây là web 2.0 nên đừng động vào những phần của web 1.0".

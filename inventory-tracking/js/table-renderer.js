@@ -555,7 +555,15 @@ function updateInventoryStatsBar() {
         return;
     }
 
-    const shipments = globalState.shipments || [];
+    // Stats bar scope follows the active đợt section tab (and other filters).
+    // - If a đợt tab is active → use filteredShipments + only that đợt's payment entries.
+    // - Else → use all shipments + all aggregated đợt entries.
+    const activeDot = window.UIState?.getActiveDotTab?.();
+    const hasDotFilter = Number.isFinite(activeDot) && activeDot > 0;
+    const shipments = hasDotFilter
+        ? globalState.filteredShipments || []
+        : globalState.shipments || [];
+
     let tongKg = 0,
         tongHD = 0,
         tongCP = 0;
@@ -576,7 +584,8 @@ function updateInventoryStatsBar() {
         tongTTVnd = 0;
     if (typeof getAllDotsAggregated === 'function') {
         const dotEntries = getAllDotsAggregated();
-        dotEntries.forEach((e) => {
+        const scoped = hasDotFilter ? dotEntries.filter((e) => e.dotSo === activeDot) : dotEntries;
+        scoped.forEach((e) => {
             const payments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
             const tg = parseFloat(e.tiGia) || 0;
             const tt = payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
