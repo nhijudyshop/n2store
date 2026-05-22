@@ -25,6 +25,49 @@
 
 ## 2026-05-22
 
+### [tpos-pancake][native-orders][v2/cart] Refactor: 1 nguồn = native_orders.products
+
+**User đề xuất** sau khi review 3 bug stale-noc/sync race liên tiếp: "cho giỏ TPOS panel dùng chung native_orders.products đi -> nếu cần thì thêm cột dữ liệu bên native_orders.product".
+
+**Trước**: `web2_cart_items` ↔ `native_orders.products` là 2 nguồn data, mỗi action add/remove/clear/PBH phải sync 2 chiều qua `_syncNativeOrderProducts` → fragile, sinh ra fix #1/#2/#3 liên tiếp.
+
+**Sau**: 1 nguồn duy nhất là `native_orders.products`. TPOS panel cart đọc trực tiếp từ đó (filter `status='draft'`). Khi PBH tạo → status đổi `'confirmed'` → TPOS panel tự ẩn (filter). Không còn dual-write.
+
+**Backend (`render.com/routes/v2/cart.js`)** — rewrite:
+
+- `GET /:commentId`: SELECT products FROM native_orders WHERE fb_user_id=$1 AND status='draft'
+- `GET /batch/counts`: SUM total_quantity từ draft orders
+- `POST /:commentId/add`: tạo draft via `/from-comment` nếu chưa có + UPDATE products array (qty++ nếu trùng code)
+- `POST /:commentId/:code/remove`: filter products array; nếu rỗng → DELETE native_order; SSE delete event
+- `POST /:commentId/clear`: DELETE native_order
+- `PATCH /:commentId/:code`: update qty
+- `POST /:commentId/commit`: DEPRECATED no-op (back-compat)
+- `clearCartByCustomerId` (gọi từ fast-sale-orders trên PBH): chỉ còn log audit — PBH route đã set status='confirmed' rồi → TPOS panel tự ẩn qua filter
+- Drop `web2_cart_items` khỏi schema migration (giữ table cũ không xóa, rollback safe)
+- Mọi sản phẩm ghi cả `quantity` lẫn `qty` (back-compat với native-orders modal dùng `quantity`)
+
+**Frontend (`tpos-pancake/js/pancake/inventory-panel.js`)**:
+
+- Xóa `_doCommit` + `_pendingCommits` + 5s commit timer (`/add` ghi thẳng vào DB)
+- 5s undo toast thuần UX — undo gọi `/remove`
+- Replace `confirm()` → `window.Popup.confirm()` (Web2Popup auto-loaded qua `tpos-sidebar.js`)
+- Subscribe thêm SSE topic `web2:native-orders` → badge tự refresh khi modal Đơn Web sửa products
+- Bump cache `v=20260522n`
+
+**Browser test PASS** (commit `1aa81b75c` + Render deploy verified):
+
+- ✅ Drag 1 SP → tạo `NW-20260522-0010` ngay (write immediate, fbPageId/fbPostId/fbCommentId đầy đủ)
+- ✅ Drag 2 SP nữa → 3 products, totalQty=3, ghi cả qty + quantity
+- ✅ PATCH native_orders.products từ ngoài → TPOS panel `/batch/counts` thấy số đúng (cùng nguồn)
+- ✅ POST `/clear` → DELETE native_order → SSE `web2:native-orders {action:delete}` + `web2:cart`
+- ✅ Tạo PBH → native_order.status='confirmed' → TPOS panel `/batch/counts` trả `{}` (filter ẩn)
+- ✅ `window.Popup.confirm()` loaded
+- ✅ SSE 2-tab realtime: native-orders create/update/delete + cart
+
+**Status**: ✅ Done — Files: `render.com/routes/v2/cart.js` (rewrite), `tpos-pancake/js/pancake/inventory-panel.js`, `tpos-pancake/index.html`
+
+---
+
 ### [tpos-pancake][native-orders] Fix #3: /add bỏ qua soft-deleted noc + /clear null out native_order_code
 
 **Khi browser test full flow** (drag → tạo đơn → multi-product → clear → drag lại): drag sau clear-cart không tạo đơn mới, dù SSE log thấy commit fire. Cart counts hiển thị 1 SP nhưng `by-user` trả null.
