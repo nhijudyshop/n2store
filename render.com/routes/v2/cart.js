@@ -427,7 +427,9 @@ router.post('/:commentId/commit', async (req, res) => {
                         fbPageId: b.fbPageId,
                         fbPageName: b.fbPageName,
                         fbPostId: b.fbPostId,
-                        fbCommentId: commentId,
+                        // commentId URL param = customerId (fbUserId) sau khi refactor
+                        // cart-per-customer. fb_comment_id thật phải lấy từ body.fbCommentId.
+                        fbCommentId: b.fbCommentId || null,
                         crmTeamId: b.crmTeamId,
                         liveCampaignId: b.liveCampaignId,
                         liveCampaignName: b.liveCampaignName,

@@ -25,6 +25,28 @@
 
 ## 2026-05-22
 
+### [tpos-pancake][native-orders] Fix: đơn tạo bằng drag SP thiếu fbPageId/fbPostId → không mở được inbox/chat
+
+**User báo**: Mấy đơn tạo bằng drag SP (NW-20260522-0009/0010/0011) báo "Đơn không có Facebook user ID hoặc page ID — không thể chat" khi mở native-orders modal.
+
+**Root cause**: Sau commit refactor `cart-per-customer` (ea3553cd5), `groupKey = customer.id` (= fbUserId) được dùng làm URL param cho cart endpoint VÀ làm `commentId` biến nội bộ trong `addToCart`. Khi resolve FB context:
+
+- `_resolveCommitContext(commentId, …)` search `TposState.comments.find(x => x.id === commentId)` với `commentId = fbUserId` → KHÔNG MATCH → ctx trả về `fbPageId: null, fbPostId: null, crmTeamId: null`.
+- DOM `querySelector('[data-comment-id=fbUserId]')` cũng không tìm thấy row → row=null.
+- Sau 5s commit fire → POST /api/native-orders/from-comment với fbPageId/fbPostId NULL → native_order tạo với `fb_page_id IS NULL` → modal không mở được chat.
+
+**Fix:**
+
+- `tpos-pancake/js/pancake/inventory-panel.js` (`addToCart`): dùng `commentIdMeta` (comment thật từ row drop) để query DOM + resolve context, KHÔNG dùng `groupKey`. Set `ctx.fbCommentId = realCommentId`.
+- `_resolveCommitContext`: thêm field `fbCommentId` vào ctx shape.
+- `render.com/routes/v2/cart.js` (POST /:commentId/commit): dùng `b.fbCommentId || null` thay vì URL `commentId` (= fbUserId) khi truyền xuống from-comment, để `fb_comment_id` column lưu đúng giá trị comment thật.
+
+**Existing broken orders (NW-20260522-0009/0010/0011 + các draft khác có fb_page_id IS NULL)**: User cần xóa manual và recreate qua drag. Order tạo từ giờ trở đi sẽ có đầy đủ FB context.
+
+**Status**: ✅ Done — Files: `tpos-pancake/js/pancake/inventory-panel.js`, `render.com/routes/v2/cart.js`
+
+---
+
 ### [balance-history] Fix #2: GD Live Mode "Xác nhận" treo do hai bảng `balance_history` ↔ `web2_balance_history` lệch dữ liệu
 
 **User báo**: Fix trước (commit `66595d41`) push frontend OK nhưng GD mới gán SĐT + Xác nhận vẫn KHÔNG xuất hiện ở tab Kế Toán → Chờ Duyệt. KT không có cách nào duyệt cộng ví. GD bị treo luôn.

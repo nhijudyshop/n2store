@@ -322,6 +322,7 @@
             fbPageId: null,
             fbPageName: null,
             fbPostId: null,
+            fbCommentId: commentId || null,
             crmTeamId: null,
             liveCampaignId: null,
             liveCampaignName: null,
@@ -364,10 +365,11 @@
         }
     }
 
-    // groupKey = customerId (fbUserId) — cart gắn theo khách.
-    // commentIdMeta = comment_id của row vừa drop, pass vào body cho audit/history.
+    // groupKey = customerId (fbUserId) — cart gắn theo khách (URL param + cart key).
+    // commentIdMeta = comment_id thật của row vừa drop — dùng để resolve FB page/post
+    // từ TposState.comments + truyền xuống native_order.fb_comment_id (audit + chat link).
     async function addToCart(groupKey, product, customer, commentIdMeta) {
-        const commentId = groupKey; // URL param semantic
+        const commentId = groupKey;
         // Optimistic: tăng badge ngay (rollback nếu API fail)
         const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
         const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
@@ -395,10 +397,13 @@
             // Nếu native_order_code đã tồn tại (committed trước đó) → SP đã được sync
             // sang native-orders tự động qua backend. Vẫn show toast Undo cho UX.
             const alreadyCommitted = !!d.native_order_code;
+            // ⚠ Resolve FB context theo commentIdMeta (comment thật), KHÔNG phải groupKey (fbUserId)
+            const realCommentId = commentIdMeta || commentId;
             const row = document.querySelector(
-                `.tpos-conversation-item[data-comment-id="${CSS.escape(commentId)}"]`
+                `.tpos-conversation-item[data-comment-id="${CSS.escape(realCommentId)}"]`
             );
-            const ctx = _resolveCommitContext(commentId, row, customer);
+            const ctx = _resolveCommitContext(realCommentId, row, customer);
+            ctx.fbCommentId = realCommentId;
 
             // Schedule commit sau 5s nếu chưa committed (đơn mới chưa tạo)
             if (!alreadyCommitted) {
