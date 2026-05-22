@@ -787,15 +787,16 @@
                 });
                 // In-place update — KHÔNG re-render bảng để tránh giật + SP
                 // vừa sửa không nhảy lên đầu (vì backend sort by updated_at DESC).
+                //
+                // KHÔNG gọi pushTickle: nó internal trigger _loadList() → emit
+                // 'refresh' → app subscriber gọi full load() → SP nhảy lên đầu.
+                // SSE notify ('web2:products' với by!=clientId) đã handle cross-tab
+                // qua handler riêng (_setupSse), gọi _updateRowInPlace trên client khác.
                 if (resp.product) {
                     const ok = _updateRowInPlace(STATE.editingCode, resp.product);
                     if (!ok) renderRows(); // fallback nếu row không có trên page hiện tại
                 }
                 notify('Đã lưu', 'success');
-                window.Web2ProductsCache?.pushTickle?.({
-                    action: 'update',
-                    code: STATE.editingCode,
-                });
             } else {
                 await window.Web2ProductsApi.create({
                     ...fields,
@@ -828,7 +829,8 @@
                 if (!ok) renderRows();
             }
             notify(newState ? 'Đã bật bán' : 'Đã tạm dừng', 'success');
-            window.Web2ProductsCache?.pushTickle?.({ action: 'update', code });
+            // KHÔNG pushTickle — tránh _scheduleRefresh → emit 'refresh' → full load.
+            // SSE notify cross-tab đã tự handle in-place qua _setupSse handler.
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
         }
@@ -1117,12 +1119,15 @@
 
         load();
 
-        // Realtime cross-machine sync via Firestore tickler. Khi máy khác
-        // (hoặc tab khác) thay đổi kho SP, ta auto reload list.
+        // Realtime cross-machine sync — SSE handler đã set up ở _setupSse() và
+        // làm in-place update cho 'update' event, full load cho 'create/delete'.
+        // Cache subscriber chỉ giữ cho legacy Firestore tickler ('tickle' reason).
+        // KHÔNG nên gọi load() trên 'refresh' vì pushTickle/loadList nội bộ
+        // cũng emit 'refresh' → tạo loop full-reload sau mỗi mutation local.
         if (window.Web2ProductsCache) {
             window.Web2ProductsCache.init().then(() => {
                 window.Web2ProductsCache.subscribe((reason) => {
-                    if (reason === 'tickle' || reason === 'refresh') load();
+                    if (reason === 'tickle') load();
                 });
             });
         }
