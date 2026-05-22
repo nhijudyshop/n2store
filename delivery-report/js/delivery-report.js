@@ -138,8 +138,14 @@
     }
 
     // Elements that lite mode hides until user triple-clicks the title.
-    // Note: drFilterSection + drStatsBar stay visible (auto-expanded on entry per UX).
-    const LITE_REVEAL_IDS = ['drTableWrapper', 'drCancelSection', 'drAssignmentStatus'];
+    // drFilterSection stays visible (auto-expanded). drStatsBar follows table — no point showing
+    // numbers when the user can't see the underlying rows.
+    const LITE_REVEAL_IDS = [
+        'drStatsBar',
+        'drTableWrapper',
+        'drCancelSection',
+        'drAssignmentStatus',
+    ];
 
     function applyLiteRevealVisibility() {
         const state = DeliveryReportState;
