@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ea3553c` — fix(tpos-pancake/inv): cart gắn theo CUSTOMER (fbUserId), không phải comment_id
-**Last updated**: 2026-05-22 16:49:51 +07
-**Latest session**: [`RESUME:20260522-164951-ea3553c`](../20260522-164951-ea3553c.md)
-**Summary**: fix(tpos-pancake/inv): cart gắn theo CUSTOMER (fbUserId), không phải comment_id
+**Latest commit**: `ea15fb9` — feat(tpos-pancake/cart + native-orders): giữ cart 15 ngày + auto-clear khi tạo PBH + stock sync
+**Last updated**: 2026-05-22 16:58:25 +07
+**Latest session**: [`RESUME:20260522-165825-ea15fb9`](../20260522-165825-ea15fb9.md)
+**Summary**: feat(tpos-pancake/cart + native-orders): giữ cart 15 ngày + auto-clear khi tạo PBH + stock sync
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -51,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-22 16:49
+- [`render.com/`](./render.com.md) — updated 2026-05-22 16:58
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-22 13:52
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -63,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 16:49
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 16:58
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
