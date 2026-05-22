@@ -10,7 +10,7 @@ const router = express.Router();
 // Trả 0_30/31_60/61_90/90_plus tổng cho toàn shop, plus per-supplier list.
 router.get('/summary', async (req, res) => {
     try {
-        const pool = req.app.locals.pool;
+        const pool = req.app.locals.chatDb;
         const ref = req.query.ref ? new Date(req.query.ref) : new Date();
         const hasPO = await pool
             .query(

@@ -23,7 +23,7 @@ function _tableExists(pool, table) {
 // GET /list?entity=&user=&from=&to=&limit=100&offset=0
 router.get('/list', async (req, res) => {
     try {
-        const pool = req.app.locals.pool;
+        const pool = req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 100, 500);
         const offset = Number(req.query.offset) || 0;
         const filterEntity = req.query.entity || null;
@@ -135,7 +135,7 @@ router.get('/list', async (req, res) => {
 
 // GET /entities — danh sách entity types có data
 router.get('/entities', async (req, res) => {
-    const pool = req.app.locals.pool;
+    const pool = req.app.locals.chatDb;
     const out = [];
     const map = [
         ['product', 'web2_product_history'],

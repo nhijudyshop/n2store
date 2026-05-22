@@ -57,7 +57,7 @@ function _scoreCandidate({ tx, candidate }) {
 // GET /:txId — suggest top 3 candidates for SePay transaction
 router.get('/:txId', async (req, res) => {
     try {
-        const pool = req.app.locals.pool;
+        const pool = req.app.locals.chatDb;
         const txRs = await pool.query(
             `SELECT id, amount, description, content, transaction_date
              FROM web2_balance_history WHERE id = $1`,

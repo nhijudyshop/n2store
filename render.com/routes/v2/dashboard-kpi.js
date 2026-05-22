@@ -13,7 +13,7 @@ const _cache = { ts: 0, data: null };
 
 router.get('/', async (req, res) => {
     try {
-        const pool = req.app.locals.pool;
+        const pool = req.app.locals.chatDb;
         const now = Date.now();
         if (_cache.data && now - _cache.ts < 30_000) {
             return res.json({ success: true, cached: true, ..._cache.data });
