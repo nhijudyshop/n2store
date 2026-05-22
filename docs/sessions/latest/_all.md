@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cf99d8b` — feat(web2): COLOR UPGRADE PACK — gradient buttons, stat cards, status pills, table zebra, modal accents
-**Last updated**: 2026-05-22 09:44:33 +07
-**Latest session**: [`RESUME:20260522-094433-cf99d8b`](../20260522-094433-cf99d8b.md)
-**Summary**: feat(web2): COLOR UPGRADE PACK — gradient buttons, stat cards, status pills, table zebra, modal accents
+**Latest commit**: `d06031d` — auto: session update
+**Last updated**: 2026-05-22 10:15:51 +07
+**Latest session**: [`RESUME:20260522-101551-d06031d`](../20260522-101551-d06031d.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
-- [`web2/`](./web2.md) — 10 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-21 15:39
-- [`docs/`](./docs.md) — updated 2026-05-22 09:44
+- [`docs/`](./docs.md) — updated 2026-05-22 10:15
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
