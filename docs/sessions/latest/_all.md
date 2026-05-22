@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `af5bcfc` — docs(dev-log): Kho SP panel + drag-drop cart vào comment Pancake (backend + frontend)
-**Last updated**: 2026-05-22 15:17:17 +07
-**Latest session**: [`RESUME:20260522-151717-af5bcfc`](../20260522-151717-af5bcfc.md)
-**Summary**: docs(dev-log): Kho SP panel + drag-drop cart vào comment Pancake (backend + frontend)
+**Latest commit**: `086e42c` — feat(tpos-pancake/inv): viền xanh comment khách có đơn + restrict drop target
+**Last updated**: 2026-05-22 15:27:56 +07
+**Latest session**: [`RESUME:20260522-152756-086e42c`](../20260522-152756-086e42c.md)
+**Summary**: feat(tpos-pancake/inv): viền xanh comment khách có đơn + restrict drop target
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 4 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -63,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 15:17
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 15:27
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
