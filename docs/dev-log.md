@@ -25,6 +25,42 @@
 
 ## 2026-05-22
 
+### [web2-overview] feat: trang Tổng quan Web 2.0 — mô tả chi tiết 13 trang badge
+
+User request: "Trang tổng quan viết chi tiết chức năng các trang có badge WEB 2.0 → có thể làm gì, tất cả chức năng các nút, dữ liệu chuyển qua lại giữa các WEB 2.0, cơ sở dữ liệu, chức năng có thể phát triển".
+
+**Files mới**:
+
+- [`web2/overview/index.html`](../web2/overview/index.html) — single-page overview, structured 5 sections: Hero · Pipelines · 13 page cards · Data flow + SSE topics · Database · Future development.
+- [`web2/overview/overview.css`](../web2/overview/overview.css) — page-specific overlay (~520 dòng) dùng token từ `web2-tpos-theme.css`.
+
+**Nội dung 6 sections**:
+
+1. **Hero** — badge WEB 2.0 + 4 stat cards (13 trang, 9 bảng web2\_\*, 10+ SSE topic, 3 pipeline).
+2. **Pipelines (3 card)**:
+    - Bán hàng (FB comment → native-orders → PBH → reconcile → customer-wallet)
+    - Mua hàng (so-order → pending → web2-products → purchase-refund → supplier-debt + ví NCC)
+    - Tiền (SePay → web2_balance_history → match → ví KH/NCC)
+3. **13 page cards** — mỗi card: mục đích · cột chính · nút & action · API endpoint · Postgres tables · SSE topic · liên kết data. Số thứ tự + color variant + nút "Mở trang →" gradient.
+4. **Data flow map** — 4 ASCII flow block (Money, Sell, Buy, Master+Auth) + 10 SSE topic pills.
+5. **Database** — 3 card (Postgres web2\_\*, Legacy thuộc Web 2.0, Firestore collections) + lưu ý không dùng Firestore listener nữa.
+6. **Future development** — 12 card gợi ý (Dashboard KPI, báo cáo công nợ + ví, bulk import Excel, mobile view, audit trail UI, notification center, customer 360 NCC, print/export hàng loạt, smart match SePay, variants matrix UI, inventory forecasting, permission matrix).
+
+**Sidebar update** ([`web2/shared/tpos-sidebar.js`](../web2/shared/tpos-sidebar.js)):
+
+- Mục "Tổng quan" home → đổi từ `../native-orders/index.html` sang `../web2/overview/index.html`.
+- Thêm `web2/overview/index.html` vào `WEB2_PAGES` allow-list → có badge "- WEB 2.0".
+- Bump cache `v=20260521x → v=20260522e` ở 17 trang dùng sidebar.
+
+**Design**:
+
+- Tuân thủ COLOR UPGRADE PACK (gradient buttons, soft tints, accent strips).
+- 13 page card head có 13 color variant (blue/purple/green/orange/cyan/red/pink/emerald/teal/amber/indigo/violet/slate).
+- Compositor-friendly transitions (transform + opacity), `prefers-reduced-motion` respected.
+- Responsive: TOC 2 cột > 720px, 1 cột mobile; pipeline + future grid auto-fit.
+
+**Status**: ✅ Done — pending GH Pages deploy (~3 min). Test bằng cách click "Tổng quan" trên sidebar.
+
 ### [delivery-report] fix: thống kê (đơn + tiền) follow theo mode/tab đang hiển thị
 
 User request: "chỗ bộ lọc → thống kê bao nhiêu đơn, tiền → logic theo ẩn hiện giao diện".

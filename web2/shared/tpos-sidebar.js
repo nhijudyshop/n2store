@@ -52,7 +52,7 @@
             label: 'Tổng quan',
             icon: 'home',
             single: true,
-            our: '../native-orders/index.html',
+            our: '../web2/overview/index.html',
             tpos: '#/app/dashboard',
         },
         {
@@ -617,6 +617,7 @@
     // Thêm vào set khi user code xong 1 trang mới. Page mới ban đầu KHÔNG có
     // badge — chỉ thêm vào set khi user xác nhận đã hoàn thành.
     const WEB2_PAGES = new Set([
+        'web2/overview/index.html',
         'web2/fastsaleorder-invoice/index.html',
         'web2/reconcile/index.html',
         'native-orders/index.html',
