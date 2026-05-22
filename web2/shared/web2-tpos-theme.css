@@ -1,0 +1,462 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — shared TPOS theme overlay. */
+/* =====================================================
+ * WEB 2.0 SHARED TPOS THEME OVERLAY
+ *
+ * Chuẩn UI cho TOÀN BỘ trang Web 2.0 user đã code thật (13 trang trong
+ * sidebar allow-list). Lấy native-orders/css/ làm baseline:
+ *   - native-orders.css → layout, typography, tab, filter, table, button
+ *   - tpos-theme.css    → color tokens TPOS
+ *
+ * File này load SAU 2 file trên để override universal selectors mà các
+ * trang khác có tendency tự define (.btn, .modal, .stats-grid, .tab,
+ * .badge, .pagination, ...).
+ *
+ * USAGE — thêm 3 dòng vào <head> mỗi trang:
+ *   <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260522c">
+ *   <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260522c">
+ *   <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522c">
+ *
+ * (Đường dẫn `../../` cho trang dưới web2/<sub>/. Trang root level vd
+ * native-orders/, so-order/ dùng `../`.)
+ *
+ * PERFORMANCE NOTES (modal anti-lag — user explicit concern):
+ *   - KHÔNG dùng `backdrop-filter: blur()` — kill GPU performance trên
+ *     mobile/Firefox/Chromium cũ.
+ *   - Transitions CHỈ trên transform + opacity (compositor thread).
+ *   - Modal mở: scale(0.96) → 1 + opacity 0 → 1 (GPU-accelerated).
+ *   - Hover: tránh transform + box-shadow nặng combined. Dùng
+ *     border-color/background swap thay shadow lift.
+ *   - will-change CHỈ trên modal-content khi animate, KHÔNG permanent.
+ *   - content-visibility: auto cho long lists/kanban → defer offscreen.
+ *
+ * Reference: https://web.dev/articles/animations-guide (compositor props).
+ * ===================================================== */
+
+/* ─── Color tokens (idempotent — same values như native-orders.css) ─── */
+:root {
+    --tpos-primary: #7266ba;
+    --tpos-primary-hover: #5e51ac;
+    --tpos-success: #27c24c;
+    --tpos-success-hover: #20a73e;
+    --tpos-info: #23b7e5;
+    --tpos-info-hover: #1ba0cb;
+    --tpos-warning: #fad733;
+    --tpos-danger: #f05050;
+    --tpos-danger-hover: #e23b3b;
+    --tpos-text: #333;
+    --tpos-text-2: #4c4c4c;
+    --tpos-text-3: #58666e;
+    --tpos-text-faded: #808080;
+    --tpos-border: #cccccc;
+    --tpos-border-btn: #dee5e7;
+    --tpos-bg-app: #f0f3f4;
+    --tpos-bg-light: #edf1f2;
+    --tpos-bg-cell-head: #f0eeee;
+    --tpos-link: #337ab7;
+    --tpos-link-hover: #245a8c;
+}
+
+/* ─── Base typography — TPOS Segoe UI (force) ───────── */
+body.tpos-theme,
+body:has(.web2-shell) {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    color: var(--tpos-text-2);
+}
+
+/* ─── Generic .btn family — clone .tpos-btn ─────────── */
+.tpos-theme .btn,
+body:has(.web2-shell) .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.42857;
+    color: var(--tpos-text-3);
+    text-align: center;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid var(--tpos-border-btn);
+    border-radius: 2px;
+    user-select: none;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
+}
+.tpos-theme .btn-sm,
+body:has(.web2-shell) .btn-sm {
+    padding: 4px 8px;
+    font-size: 11.5px;
+}
+.tpos-theme .btn i,
+body:has(.web2-shell) .btn i {
+    width: 13px;
+    height: 13px;
+    margin-right: 2px;
+}
+.tpos-theme .btn:hover,
+body:has(.web2-shell) .btn:hover {
+    background: #f5f7f8;
+    border-color: #b0bcc1;
+    color: var(--tpos-text);
+}
+.tpos-theme .btn-primary,
+body:has(.web2-shell) .btn-primary {
+    background: var(--tpos-primary);
+    color: #fff;
+    border-color: var(--tpos-primary);
+}
+.tpos-theme .btn-primary:hover,
+body:has(.web2-shell) .btn-primary:hover {
+    background: var(--tpos-primary-hover);
+    border-color: var(--tpos-primary-hover);
+    color: #fff;
+}
+.tpos-theme .btn-secondary,
+body:has(.web2-shell) .btn-secondary {
+    background: #fff;
+    color: var(--tpos-text-3);
+    border-color: var(--tpos-border-btn);
+}
+.tpos-theme .btn-secondary:hover,
+body:has(.web2-shell) .btn-secondary:hover {
+    background: #f5f7f8;
+    color: var(--tpos-text);
+    border-color: #b0bcc1;
+}
+.tpos-theme .btn-success,
+body:has(.web2-shell) .btn-success {
+    background: var(--tpos-success);
+    color: #fff;
+    border-color: var(--tpos-success);
+}
+.tpos-theme .btn-success:hover,
+body:has(.web2-shell) .btn-success:hover {
+    background: var(--tpos-success-hover);
+    border-color: var(--tpos-success-hover);
+}
+.tpos-theme .btn-danger,
+body:has(.web2-shell) .btn-danger {
+    background: var(--tpos-danger);
+    color: #fff;
+    border-color: var(--tpos-danger);
+}
+.tpos-theme .btn-danger:hover,
+body:has(.web2-shell) .btn-danger:hover {
+    background: var(--tpos-danger-hover);
+    border-color: var(--tpos-danger-hover);
+}
+.tpos-theme .btn-info,
+body:has(.web2-shell) .btn-info {
+    background: var(--tpos-info);
+    color: #fff;
+    border-color: var(--tpos-info);
+}
+.tpos-theme .btn-info:hover,
+body:has(.web2-shell) .btn-info:hover {
+    background: var(--tpos-info-hover);
+    border-color: var(--tpos-info-hover);
+}
+
+/* ─── Generic tables ────────────────────────────────── */
+.tpos-theme .data-table,
+.tpos-theme .balance-table,
+body:has(.web2-shell) .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 13px;
+}
+.tpos-theme .data-table thead th,
+.tpos-theme .balance-table thead th,
+body:has(.web2-shell) .data-table thead th {
+    background: var(--tpos-bg-cell-head);
+    color: var(--tpos-text-3);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 9px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--tpos-border);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.tpos-theme .data-table tbody td,
+.tpos-theme .balance-table tbody td,
+body:has(.web2-shell) .data-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+    color: var(--tpos-text);
+}
+.tpos-theme .data-table tbody tr,
+.tpos-theme .balance-table tbody tr,
+body:has(.web2-shell) .data-table tbody tr {
+    transition: background 0.1s;
+}
+.tpos-theme .data-table tbody tr:hover,
+.tpos-theme .balance-table tbody tr:hover,
+body:has(.web2-shell) .data-table tbody tr:hover {
+    background: var(--tpos-bg-light);
+}
+
+/* ─── Generic filter/search row ─────────────────────── */
+.tpos-theme .filters-section input[type='text'],
+.tpos-theme .filters-section input[type='search'],
+.tpos-theme .filters-section input[type='date'],
+.tpos-theme .filters-section input[type='time'],
+.tpos-theme .filters-section select,
+.tpos-theme .filters input[type='text'],
+.tpos-theme .filters input[type='search'],
+.tpos-theme .filters input[type='date'],
+.tpos-theme .filters input[type='time'],
+.tpos-theme .filters select {
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid var(--tpos-border-btn);
+    border-radius: 3px;
+    font-size: 12.5px;
+    font-family: inherit;
+    background: #fff;
+    color: var(--tpos-text);
+    outline: none;
+    transition: border-color 0.12s;
+}
+.tpos-theme .filters-section input:focus,
+.tpos-theme .filters input:focus,
+.tpos-theme .filters select:focus {
+    border-color: var(--tpos-primary);
+    box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
+}
+
+/* ─── Pagination ────────────────────────────────────── */
+.tpos-theme .pagination,
+body:has(.web2-shell) .pagination {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    padding: 12px 18px;
+    background: #fff;
+    border-top: 1px solid var(--tpos-border-btn);
+}
+.tpos-theme .page-btn,
+body:has(.web2-shell) .page-btn {
+    min-width: 30px;
+    height: 30px;
+    border: 1px solid var(--tpos-border-btn);
+    background: #fff;
+    color: var(--tpos-text-3);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 500;
+    font-family: inherit;
+    padding: 0 9px;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
+}
+.tpos-theme .page-btn:hover:not(:disabled),
+body:has(.web2-shell) .page-btn:hover:not(:disabled) {
+    background: var(--tpos-bg-light);
+    color: var(--tpos-primary);
+    border-color: var(--tpos-primary);
+}
+.tpos-theme .page-btn.active,
+body:has(.web2-shell) .page-btn.active {
+    background: var(--tpos-primary);
+    color: #fff;
+    border-color: var(--tpos-primary);
+}
+
+/* ─── Type/status badges ────────────────────────────── */
+.tpos-theme .badge,
+.tpos-theme .status-pill,
+.tpos-theme .type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+.tpos-theme .type-in,
+.tpos-theme .badge-in {
+    background: var(--tpos-success);
+    color: #fff;
+}
+.tpos-theme .type-out,
+.tpos-theme .badge-out {
+    background: var(--tpos-danger);
+    color: #fff;
+}
+
+/* ─── Stats cards ───────────────────────────────────── */
+.tpos-theme .stats-grid,
+.tpos-theme .stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    padding: 12px 18px;
+    background: #fff;
+}
+.tpos-theme .stat-card {
+    background: #fff;
+    border: 1px solid var(--tpos-border-btn);
+    border-radius: 3px;
+    padding: 10px 12px;
+    transition: border-color 0.12s;
+}
+.tpos-theme .stat-card:hover {
+    border-color: var(--tpos-primary);
+}
+.tpos-theme .stat-card .stat-label,
+.tpos-theme .stat-card .label {
+    font-size: 11px;
+    color: var(--tpos-text-3);
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+.tpos-theme .stat-card .stat-value,
+.tpos-theme .stat-card .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--tpos-text);
+}
+
+/* =====================================================
+ * MODAL ANTI-LAG PACK
+ * Áp dụng cho mọi modal trong Web 2.0 — fix lag khi mở.
+ * ===================================================== */
+
+/* Overlay: KHÔNG backdrop-filter (kill GPU perf) */
+.tpos-theme .modal-overlay,
+.tpos-theme .modal-backdrop,
+.tpos-theme [class*='modal-overlay'] {
+    background: rgba(15, 23, 42, 0.42) !important;
+    /* @WARNING: KHÔNG dùng backdrop-filter blur — lag nặng. */
+}
+
+/* Modal content: GPU compositor hint + transition compositor-only */
+.tpos-theme .modal-content,
+.tpos-theme .modal-dialog,
+.tpos-theme [class*='modal-content'],
+.tpos-theme [class*='modal-dialog'] {
+    will-change: transform, opacity;
+    transition:
+        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.18s ease;
+}
+
+/* Closed → scale 0.96 + opacity 0 */
+.tpos-theme .modal:not(.show):not(.active) .modal-content,
+.tpos-theme .modal:not(.show):not(.active) .modal-dialog {
+    opacity: 0;
+    transform: scale(0.96);
+}
+.tpos-theme .modal.show .modal-content,
+.tpos-theme .modal.active .modal-content,
+.tpos-theme .modal.show .modal-dialog,
+.tpos-theme .modal.active .modal-dialog {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Lock body scroll khi modal mở */
+.tpos-theme body.modal-open,
+body.tpos-theme.modal-open {
+    overflow: hidden;
+}
+
+/* Modal body — cách ly reflow */
+.tpos-theme .modal-body,
+.tpos-theme .modal-content {
+    contain: layout style;
+}
+
+/* Modal inputs — focus chỉ border-color (compositor friendly) */
+.tpos-theme .modal input,
+.tpos-theme .modal select,
+.tpos-theme .modal textarea {
+    transition: border-color 0.12s;
+}
+
+/* =====================================================
+ * ANIMATIONS — chỉ compositor-friendly keyframes
+ * ===================================================== */
+
+@keyframes w2-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes w2-pulse {
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+@keyframes w2-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+@keyframes w2-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tpos-theme .w2-anim-spin {
+    animation: w2-spin 1s linear infinite;
+}
+.tpos-theme .w2-anim-pulse {
+    animation: w2-pulse 1.4s ease-in-out infinite;
+}
+.tpos-theme .w2-anim-fade-in {
+    animation: w2-fade-in 0.18s ease;
+}
+.tpos-theme .w2-anim-slide-up {
+    animation: w2-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Long list optimization (kanban, table > 100 rows) ─ */
+.tpos-theme [data-content-visibility='auto'] > * {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 80px;
+}
+
+/* ─── Reduce motion accessibility ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .tpos-theme *,
+    .tpos-theme *::before,
+    .tpos-theme *::after,
+    body:has(.web2-shell) *,
+    body:has(.web2-shell) *::before,
+    body:has(.web2-shell) *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}
