@@ -9,6 +9,10 @@
         <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.js" defer></script>
+        <!-- Firebase compat (đọc Firestore so_order_v2 + supplier_wallet_v1 — Web 2.0 source) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
         <style>
             .age-main {
                 padding: 20px 28px;
@@ -178,20 +182,112 @@
         <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
         <script>
             (function () {
-                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/supplier-aging';
                 let aChart = null,
                     tChart = null;
                 let currentData = null;
                 function fmt(n) {
                     return Number(n || 0).toLocaleString('vi-VN');
                 }
+                function rateToVnd(currency, tab) {
+                    if (!currency || currency === 'VND') return 1;
+                    return Number(tab?.exchangeRate) || 1;
+                }
+                // FIFO aging: sort shipments asc → apply payments oldest-first → remaining unpaid bucketed by age.
+                function computeAging(soData, walletData, refDateStr) {
+                    const refDate = new Date(refDateStr);
+                    const refMs = refDate.getTime();
+                    // Map supplier → { shipments: [{ date, amount }], paid: number }
+                    const byName = {};
+                    const tabs = soData?.tabs || [];
+                    for (const tab of tabs) {
+                        const rate = rateToVnd(tab.currency, tab);
+                        for (const sh of tab.shipments || []) {
+                            for (const r of sh.rows || []) {
+                                const sup = (r.supplier || '').trim();
+                                if (!sup) continue;
+                                const qty = Number(r.qty) || 0;
+                                const cost = (Number(r.costPrice) || 0) * rate;
+                                const amt = qty * cost;
+                                if (amt <= 0) continue;
+                                if (!byName[sup]) byName[sup] = { shipments: [], paid: 0 };
+                                byName[sup].shipments.push({ date: sh.date, amount: amt });
+                            }
+                        }
+                    }
+                    const wallets = walletData?.wallets || {};
+                    for (const sup of Object.keys(wallets)) {
+                        if (!byName[sup]) byName[sup] = { shipments: [], paid: 0 };
+                        for (const tx of wallets[sup].transactions || []) {
+                            if (tx.type !== 'payment' && tx.type !== 'return') continue;
+                            byName[sup].paid += Number(tx.amount) || 0;
+                        }
+                    }
+                    const total = { b0_30: 0, b31_60: 0, b61_90: 0, b90_plus: 0, total: 0 };
+                    const suppliers = [];
+                    for (const [name, s] of Object.entries(byName)) {
+                        // sort oldest first
+                        s.shipments.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+                        let remaining = s.paid;
+                        const buckets = { b0_30: 0, b31_60: 0, b61_90: 0, b90_plus: 0 };
+                        for (const sh of s.shipments) {
+                            if (!sh.date) continue;
+                            let unpaid = sh.amount;
+                            if (remaining > 0) {
+                                const used = Math.min(remaining, unpaid);
+                                unpaid -= used;
+                                remaining -= used;
+                            }
+                            if (unpaid <= 0) continue;
+                            const shDate = new Date(sh.date);
+                            const ageDays = Math.floor((refMs - shDate.getTime()) / 86400000);
+                            if (ageDays < 0) continue;
+                            if (ageDays <= 30) buckets.b0_30 += unpaid;
+                            else if (ageDays <= 60) buckets.b31_60 += unpaid;
+                            else if (ageDays <= 90) buckets.b61_90 += unpaid;
+                            else buckets.b90_plus += unpaid;
+                        }
+                        const tot =
+                            buckets.b0_30 + buckets.b31_60 + buckets.b61_90 + buckets.b90_plus;
+                        if (tot <= 0) continue;
+                        total.b0_30 += buckets.b0_30;
+                        total.b31_60 += buckets.b31_60;
+                        total.b61_90 += buckets.b61_90;
+                        total.b90_plus += buckets.b90_plus;
+                        total.total += tot;
+                        suppliers.push({ name, ...buckets, total: tot });
+                    }
+                    suppliers.sort((a, b) => b.total - a.total);
+                    return { ref: refDate.toISOString(), buckets: total, suppliers };
+                }
                 async function load() {
+                    if (typeof firebase === 'undefined' || !firebase.firestore) {
+                        document.getElementById('ageBody').innerHTML =
+                            '<tr><td colspan="6" style="text-align:center; padding:20px; color:#dc2626">Firebase chưa load — F5 lại</td></tr>';
+                        return;
+                    }
                     const ref =
                         document.getElementById('refDate').value ||
                         new Date().toISOString().slice(0, 10);
-                    const r = await fetch(API + '/summary?ref=' + ref, { credentials: 'include' });
-                    const d = await r.json();
-                    if (!d.success) return;
+                    document.getElementById('ageBody').innerHTML =
+                        '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8">Đang tải Firestore so_order_v2 + supplier_wallet_v1…</td></tr>';
+                    let soData = null,
+                        walletData = null;
+                    try {
+                        const db = firebase.firestore();
+                        const [soSnap, walletSnap] = await Promise.all([
+                            db.collection('so_order_v2').doc('main').get(),
+                            db.collection('supplier_wallet_v1').doc('main').get(),
+                        ]);
+                        soData = soSnap.exists ? soSnap.data()?.data || null : null;
+                        walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
+                    } catch (e) {
+                        document.getElementById('ageBody').innerHTML =
+                            '<tr><td colspan="6" style="text-align:center; padding:20px; color:#dc2626">Lỗi Firestore: ' +
+                            esc(e.message) +
+                            '</td></tr>';
+                        return;
+                    }
+                    const d = computeAging(soData, walletData, ref);
                     currentData = d;
                     const b = d.buckets;
                     document.getElementById('ageSummary').innerHTML = `
