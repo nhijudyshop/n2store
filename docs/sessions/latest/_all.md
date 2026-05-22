@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bf4defa` — auto: session update
-**Last updated**: 2026-05-22 13:31:26 +07
-**Latest session**: [`RESUME:20260522-133126-bf4defa`](../20260522-133126-bf4defa.md)
+**Latest commit**: `d12eaf2` — auto: session update
+**Last updated**: 2026-05-22 13:33:15 +07
+**Latest session**: [`RESUME:20260522-133315-d12eaf2`](../20260522-133315-d12eaf2.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -23,7 +23,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:24
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:33
 - [`docs/`](./docs.md) — updated 2026-05-22 13:21
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
