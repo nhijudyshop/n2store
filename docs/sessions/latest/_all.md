@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `29064cf` — docs(dev-log): tpos-pancake/inv — 4 vòng debug viền có đơn + restrict drop + detection + popover
-**Last updated**: 2026-05-22 15:50:34 +07
-**Latest session**: [`RESUME:20260522-155034-29064cf`](../20260522-155034-29064cf.md)
-**Summary**: docs(dev-log): tpos-pancake/inv — 4 vòng debug viền có đơn + restrict drop + detection + popover
+**Latest commit**: `29e2004` — fix(tpos-pancake/inv): drag không fire do inner elements bắt mousedown + lọc SL=0
+**Last updated**: 2026-05-22 15:55:29 +07
+**Latest session**: [`RESUME:20260522-155529-29e2004`](../20260522-155529-29e2004.md)
+**Summary**: fix(tpos-pancake/inv): drag không fire do inner elements bắt mousedown + lọc SL=0
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -62,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 15:50
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 15:55
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
