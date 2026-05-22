@@ -1547,9 +1547,12 @@ router.post('/:number/cancel', async (req, res) => {
     const pool = req.app.locals.chatDb;
     try {
         await ensureTables(pool);
-        // Lấy state cũ + lines TRƯỚC khi đổi state — quyết định có restock không.
+        // Lấy state cũ + lines + source_* TRƯỚC khi đổi state — quyết định có
+        // restock + sync ngược native_order.status không. source_type/source_code
+        // bắt buộc để syncNativeOrderStatusFromPbh tìm đơn web revert về cancelled.
         const prev = await pool.query(
-            `SELECT id, state, stock_restored, order_lines FROM fast_sale_orders WHERE number = $1`,
+            `SELECT id, state, stock_restored, order_lines, source_type, source_code
+             FROM fast_sale_orders WHERE number = $1`,
             [req.params.number]
         );
         if (prev.rows.length === 0) return res.status(404).json({ error: 'Not found' });
