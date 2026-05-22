@@ -3,14 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c2d065c` — docs(dev-log): ghi web2-wallet-isolation (Postgres trigger mirror customer_wallets/transactions/adjustments)
-**Last updated**: 2026-05-22 13:44:03 +07
-**Latest session**: [`RESUME:20260522-134403-c2d065c`](../20260522-134403-c2d065c.md)
-**Summary**: docs(dev-log): ghi web2-wallet-isolation (Postgres trigger mirror customer_wallets/transactions/adjustments)
+**Latest commit**: `8976f12` — fix(delivery-report): excel buttons + export content match active groups (lite=TOMATO+SHOP)
+**Last updated**: 2026-05-22 13:51:58 +07
+**Latest session**: [`RESUME:20260522-135158-8976f12`](../20260522-135158-8976f12.md)
+**Summary**: fix(delivery-report): excel buttons + export content match active groups (lite=TOMATO+SHOP)
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -23,8 +27,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:42
-- [`docs/`](./docs.md) — updated 2026-05-22 13:44
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:51
+- [`docs/`](./docs.md) — updated 2026-05-22 13:51
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
@@ -49,9 +53,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-22 13:42
+- [`render.com/`](./render.com.md) — updated 2026-05-22 13:51
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-22 13:38
+- [`scripts/`](./scripts.md) — updated 2026-05-22 13:51
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -67,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 13:31
+- [`web2/`](./web2.md) — updated 2026-05-22 13:51
