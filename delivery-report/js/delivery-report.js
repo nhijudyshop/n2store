@@ -24,7 +24,9 @@
         traSoatMode: false,
         scannedNumbers: new Set(),
         hiddenNumbers: new Set(),
-        activeTab: 'all', // 'city', 'province', 'shop', 'all'
+        activeTab: 'all', // 'city', 'province', 'shop', 'all', 'combo', 'zero', 'return'
+        uiMode: 'lite', // 'full' (phuoc-authenticated) | 'lite' (others)
+        liteExpanded: false, // triple-click title to expand lite mode
         scanFilter: 'unscanned', // 'unscanned' | 'scanned'
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
         _provinceGroupsLoaded: false,
@@ -87,6 +89,78 @@
         return false;
     }
 
+    // userType === 'phuoc-authenticated' → 'full' (Interface 1 — all 5 groups)
+    // anyone else (incl admin) → 'lite' (Interface 2 — only TOMATO + SHOP by default)
+    function detectInterfaceMode() {
+        try {
+            const info = window.authManager?.getUserInfo?.();
+            if (info?.userType === 'phuoc-authenticated') return 'full';
+        } catch (_) {}
+        // Fallback: read storage directly in case authManager not ready
+        try {
+            const raw =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth');
+            if (raw) {
+                const data = JSON.parse(raw);
+                if (data?.userType === 'phuoc-authenticated') return 'full';
+            }
+        } catch (_) {}
+        return 'lite';
+    }
+
+    // In lite-collapsed only [combo, zero] are visible.
+    // Triple-click title flips liteExpanded → these become visible too.
+    // 'all' tab in lite belongs to the expanded set (lite default has no "Tất cả").
+    const LITE_HIDDEN_TABS = new Set(['city', 'province', 'shop', 'return', 'all']);
+
+    function applyTabVisibility() {
+        const state = DeliveryReportState;
+        const bar = document.getElementById('drTraSoatBar');
+        if (!bar) return;
+        bar.querySelectorAll('.dr-trasoat-tab').forEach((btn) => {
+            const tab = btn.dataset.tab;
+            let show = true;
+            if (state.uiMode === 'full') {
+                // Hide lite-only combo tab
+                show = tab !== 'combo';
+            } else {
+                // lite mode
+                if (LITE_HIDDEN_TABS.has(tab)) {
+                    show = state.liteExpanded;
+                } else {
+                    show = true;
+                }
+            }
+            btn.style.display = show ? '' : 'none';
+        });
+    }
+
+    // Triple-click title to expand lite mode (no visual hint by design)
+    function setupTitleTripleClick() {
+        const el = document.getElementById('drMainTitle');
+        if (!el || el.dataset.tripleClickBound === '1') return;
+        el.dataset.tripleClickBound = '1';
+        let clicks = 0;
+        let timer = null;
+        el.addEventListener('click', () => {
+            clicks++;
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                clicks = 0;
+            }, 600);
+            if (clicks >= 3) {
+                clicks = 0;
+                if (timer) clearTimeout(timer);
+                const state = DeliveryReportState;
+                if (state.uiMode !== 'lite' || !state.traSoatMode) return;
+                if (state.liteExpanded) return; // already expanded
+                state.liteExpanded = true;
+                applyTabVisibility();
+            }
+        });
+    }
+
     // =====================================================
     // INITIALIZATION
     // =====================================================
@@ -108,6 +182,7 @@
         loadHiddenNumbers().finally(() => fetchData());
 
         HoverPreview.init();
+        setupTitleTripleClick();
     }
 
     // =====================================================
@@ -219,9 +294,7 @@
                         return col
                             .doc(sanitizeDocId(payload.number))
                             .set(payload, { merge: true })
-                            .catch((e) =>
-                                console.warn('[ORDER-CHECK] backfill failed:', e)
-                            );
+                            .catch((e) => console.warn('[ORDER-CHECK] backfill failed:', e));
                     })
                 );
                 saveToLocal();
@@ -336,7 +409,9 @@
             </div>`;
         document.body.appendChild(el);
 
-        const hide = () => { el.style.display = 'none'; };
+        const hide = () => {
+            el.style.display = 'none';
+        };
         el.querySelector('#dr-check-history-close').addEventListener('click', hide);
         el.addEventListener('click', (e) => {
             if (e.target === el) hide();
@@ -361,21 +436,14 @@
         const filtered = !search
             ? all
             : all.filter((entry) => {
-                  const blob = [
-                      entry.number,
-                      entry.customerName,
-                      entry.phone,
-                      entry.checkedBy,
-                  ]
+                  const blob = [entry.number, entry.customerName, entry.phone, entry.checkedBy]
                       .filter(Boolean)
                       .join(' ')
                       .toLowerCase();
                   return blob.includes(search);
               });
 
-        countEl.textContent = search
-            ? `(${filtered.length}/${all.length})`
-            : `(${all.length} đơn)`;
+        countEl.textContent = search ? `(${filtered.length}/${all.length})` : `(${all.length} đơn)`;
 
         if (!filtered.length) {
             body.innerHTML = `
@@ -387,9 +455,7 @@
 
         body.innerHTML = filtered
             .map((entry, idx) => {
-                const ts = entry.checkedAt
-                    ? new Date(entry.checkedAt).toLocaleString('vi-VN')
-                    : '';
+                const ts = entry.checkedAt ? new Date(entry.checkedAt).toLocaleString('vi-VN') : '';
                 return `<tr style="border-bottom:1px solid #f3f4f6;">
                     <td style="padding:8px 10px;color:#6b7280;">${idx + 1}</td>
                     <td style="padding:8px 10px;font-weight:600;color:#111827;">${escapeHtml(entry.number || '')}</td>
@@ -1545,13 +1611,17 @@
         const bar = document.getElementById('drTraSoatBar');
 
         if (state.traSoatMode) {
-            // Enter scan mode
+            // Enter scan mode — detect interface mode each entry (reflects current login)
+            state.uiMode = detectInterfaceMode();
+            state.liteExpanded = false;
+
             if (btn) {
                 btn.classList.add('dr-btn-active');
                 btn.innerHTML = '<i class="fas fa-times"></i> Tắt tra soát';
             }
             if (bar) bar.style.display = '';
-            state.activeTab = 'all';
+            // Default tab: full → 'all', lite → 'combo' (TOMATO + SHOP)
+            state.activeTab = state.uiMode === 'full' ? 'all' : 'combo';
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
 
@@ -1559,6 +1629,7 @@
             await loadScannedNumbers();
             await ensureProvinceGroups();
 
+            applyTabVisibility();
             updateTabUI();
             updateProvinceExportButtons();
             document.addEventListener('keydown', onBarcodeKeydown);
@@ -1586,6 +1657,7 @@
             state.activeTab = 'all';
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
+            state.liteExpanded = false;
             document.removeEventListener('keydown', onBarcodeKeydown);
             updateProvinceExportButtons();
             renderTable();
@@ -1604,7 +1676,10 @@
         if (tab === 'province' && DeliveryReportState.traSoatMode) {
             await ensureProvinceGroups();
             renderProvinceView();
-        } else if ((tab === 'all' || tab === 'zero') && DeliveryReportState.traSoatMode) {
+        } else if (
+            (tab === 'all' || tab === 'zero' || tab === 'combo') &&
+            DeliveryReportState.traSoatMode
+        ) {
             await ensureProvinceGroups();
             renderAllGroupsView();
         } else {
@@ -2326,6 +2401,7 @@
     // ALL GROUPS VIEW - 5-Column Layout (TOMATO/NAP/CITY/SHOP/RETURN)
     // =====================================================
     function renderAllGroupsView() {
+        const state = DeliveryReportState;
         const view = document.getElementById('drProvinceView');
         const grid = document.getElementById('drProvinceGrid');
         const tableWrapper = document.getElementById('drTableWrapper');
@@ -2335,24 +2411,47 @@
         if (tableWrapper) tableWrapper.style.display = 'none';
         if (grid) grid.classList.add('all-groups');
 
-        // Use tab-filtered data (respects 'zero' tab to show only 0đ items)
-        const isZeroTab = DeliveryReportState.activeTab === 'zero';
-        const allData = isZeroTab
-            ? (DeliveryReportState.allData || []).filter((item) => isZeroCOD(item))
-            : DeliveryReportState.allData || [];
-        const groups = DeliveryReportState.provinceGroups;
-        const scanned = DeliveryReportState.scannedNumbers;
-        const showScanned = DeliveryReportState.scanFilter === 'scanned';
+        // Mode + tab determine which groups to show and how to pre-filter items.
+        // - full: 5 cols (TOMATO/NAP/CITY/SHOP/RETURN); 'zero' tab pre-filters to 0đ
+        // - lite: 2 cols (TOMATO/SHOP); 'combo' excludes 0đ, 'zero' only 0đ, 'all' includes all
+        const isLite = state.uiMode === 'lite';
+        const groupKeys = isLite ? ['tomato', 'shop'] : ['tomato', 'nap', 'city', 'shop', 'return'];
 
-        // Classify all items into 5 groups
-        const grouped = { tomato: [], nap: [], city: [], shop: [], return: [] };
+        const liteItemFilter = (() => {
+            if (!isLite) return null;
+            if (state.activeTab === 'combo') return (item) => !isZeroCOD(item);
+            if (state.activeTab === 'zero') return (item) => isZeroCOD(item);
+            return null; // 'all'
+        })();
+
+        const isZeroTabFull = !isLite && state.activeTab === 'zero';
+        let allData = state.allData || [];
+        if (isZeroTabFull) {
+            allData = allData.filter((item) => isZeroCOD(item));
+        } else if (liteItemFilter) {
+            allData = allData.filter(liteItemFilter);
+        }
+
+        const scanned = state.scannedNumbers;
+        const showScanned = state.scanFilter === 'scanned';
+
+        // Hide all province columns first; only the active groupKeys re-show below.
+        Object.values(GROUP_COL_MAP).forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+
+        // Classify items into the active groups only
+        const grouped = {};
+        groupKeys.forEach((k) => {
+            grouped[k] = [];
+        });
         allData.forEach((item) => {
             const g = getItemGroup(item);
             if (grouped[g]) grouped[g].push(item);
         });
 
         // Render each column
-        const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
         groupKeys.forEach((key) => {
             const colEl = document.getElementById(GROUP_COL_MAP[key]);
             if (!colEl) return;
@@ -2730,7 +2829,8 @@
             state.traSoatMode &&
             (state.activeTab === 'all' ||
                 state.activeTab === 'zero' ||
-                state.activeTab === 'province')
+                state.activeTab === 'province' ||
+                state.activeTab === 'combo')
         ) {
             return buildPrintGroups();
         }
@@ -2746,11 +2846,17 @@
 
     function buildPrintGroups() {
         const state = DeliveryReportState;
+        const isLite = state.uiMode === 'lite';
         const isZeroTab = state.activeTab === 'zero';
         const isProvinceTab = state.activeTab === 'province';
-        const allData = isZeroTab
-            ? (state.allData || []).filter((item) => isZeroCOD(item))
-            : state.allData || [];
+        const isComboTab = state.activeTab === 'combo';
+        let allData = state.allData || [];
+        if (!isLite && isZeroTab) {
+            allData = allData.filter((item) => isZeroCOD(item));
+        } else if (isLite) {
+            if (isComboTab) allData = allData.filter((item) => !isZeroCOD(item));
+            else if (isZeroTab) allData = allData.filter((item) => isZeroCOD(item));
+        }
         const showScanned = state.scanFilter === 'scanned';
 
         // Classify
@@ -2760,9 +2866,10 @@
             if (grouped[g]) grouped[g].push(item);
         });
 
-        const groupKeys = isProvinceTab
-            ? ['tomato', 'nap']
-            : ['tomato', 'nap', 'city', 'shop', 'return'];
+        let groupKeys;
+        if (isProvinceTab) groupKeys = ['tomato', 'nap'];
+        else if (isLite) groupKeys = ['tomato', 'shop'];
+        else groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
         let html = '<div class="drp-grid">';
 
         groupKeys.forEach((key) => {
@@ -3177,7 +3284,10 @@
                         /Hoàn tiền từ ticket TV-|RETURN_CLIENT|Công Nợ Ảo Từ Khách Gửi/i.test(note)
                     ) {
                         label = 'Khách Gửi';
-                    } else if (source === 'ORDER_CANCEL_REFUND' || /ORDER_CANCEL_REFUND|hoàn hủy/i.test(source || note)) {
+                    } else if (
+                        source === 'ORDER_CANCEL_REFUND' ||
+                        /ORDER_CANCEL_REFUND|hoàn hủy/i.test(source || note)
+                    ) {
                         label = 'Hoàn Hủy Đơn';
                     } else {
                         label = 'Nạp tiền';
@@ -3419,8 +3529,7 @@
                 const orderCode = orderMatch ? orderMatch[1] : tx.reference_id || '';
                 const tvMatch = note.match(/TV-\d{4}-\d+/i);
                 const tvCode = tvMatch ? tvMatch[0] : '';
-                const createdBy =
-                    tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+                const createdBy = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
 
                 const isReturnClient =
                     tx.type === 'DEPOSIT' &&
@@ -3432,8 +3541,7 @@
                     tx.type === 'VIRTUAL_CREDIT' &&
                     (source === 'VIRTUAL_CREDIT_ISSUE' ||
                         /Công Nợ Ảo Từ Thu Về|RETURN_SHIPPER/i.test(note));
-                const isCancelRefund =
-                    tx.type === 'DEPOSIT' && source === 'ORDER_CANCEL_REFUND';
+                const isCancelRefund = tx.type === 'DEPOSIT' && source === 'ORDER_CANCEL_REFUND';
 
                 if (!isReturnClient && !isReturnShipper && !isCancelRefund) {
                     return { html: '', isHtml: false };
@@ -4229,10 +4337,7 @@
                 if (!raw) return false;
                 const auth = JSON.parse(raw);
                 if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true;
-                return (
-                    auth?.detailedPermissions?.['delivery-report']?.canMarkOrderChecked ===
-                    true
-                );
+                return auth?.detailedPermissions?.['delivery-report']?.canMarkOrderChecked === true;
             } catch (e) {
                 return false;
             }

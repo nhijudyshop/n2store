@@ -23,6 +23,33 @@
 
 ---
 
+## 2026-05-22
+
+### [delivery-report] feat: 2 chế độ giao diện theo userType + triple-click title bung tab ẩn
+
+User request: `delivery-report/index.html` cần 2 chế độ:
+
+- **Interface 1** — `userType === 'phuoc-authenticated'`: giữ nguyên 6 tab tra soát hiện tại (Thành phố, Tỉnh, Bán hàng shop, Thu về, ĐƠN 0đ, Tất cả) + render 5 cột TOMATO/NAP/CITY/SHOP/RETURN.
+- **Interface 2** — mọi user khác (kể cả admin): mặc định chỉ 2 tab: "TOMATO + BÁN HÀNG SHOP" (combo) và "ĐƠN 0đ" — render 2 cột TOMATO + SHOP. Triple-click vào tiêu đề `Thống Kê Giao Hàng` (no visual hint) sẽ bung thêm tab city/province/shop/return + "Tất cả". Refresh / tắt Tra soát → reset về collapsed.
+
+**Logic lite render** (`renderAllGroupsView` + `buildPrintGroups`):
+
+- combo tab → 2 cột, filter `!isZeroCOD`
+- zero tab → 2 cột, filter `isZeroCOD`
+- all tab (chỉ visible khi expanded) → 2 cột, không filter (gồm cả 0đ với badge inline)
+
+**Files**:
+
+- `delivery-report/index.html` — `id="drMainTitle"`, tab `data-tab="combo"`, bump `?v=20260522a` (17 references)
+- `delivery-report/js/delivery-report.js` — state `uiMode` + `liteExpanded`, helpers `detectInterfaceMode()` `applyTabVisibility()` `setupTitleTripleClick()` `LITE_HIDDEN_TABS`. Sửa `traSoat()` set default tab theo mode, `setTab()` route 'combo' → `renderAllGroupsView`. Sửa `renderAllGroupsView()` + `buildPrintGroups()` chọn groupKeys + filter items theo mode/tab.
+- `delivery-report/css/delivery-report.css` — `.dr-trasoat-tab.dr-tab-combo.active` gradient TOMATO→SHOP, `#drMainTitle { user-select: none }` (không lộ hint).
+
+**Verified**: `node -c` JS syntax OK; curl-grep confirm HTML/JS changes serve qua `localhost:8080`.
+
+Status: ✅ Done
+
+---
+
 ## 2026-05-21
 
 ### [web2-shared] feat: color upgrade pack cho `web2-tpos-theme.css` — nổi bật + tone hài hoà

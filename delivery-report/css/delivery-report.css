@@ -937,6 +937,18 @@
     border-bottom: 2px solid #c4b5fd;
 }
 
+/* Lite-combo tab — visually consistent with TOMATO+SHOP gradient */
+.dr-trasoat-tab.dr-tab-combo.active {
+    background: linear-gradient(90deg, #fee2e2 0%, #d1fae5 100%);
+    color: #1f2937;
+    border-color: transparent;
+}
+
+/* Title: silent triple-click target — no visual hint by design */
+#drMainTitle {
+    user-select: none;
+}
+
 /* All-groups stacked rows for "Tất cả" tab */
 .dr-province-grid.all-groups {
     grid-template-columns: 1fr;
