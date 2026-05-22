@@ -843,12 +843,22 @@ function registerRoutes(router, helpers) {
 
     /**
      * PUT /api/sepay/transaction/:id/hidden
-     * Toggle hidden status of a transaction
+     * Toggle hidden status of a transaction.
+     * Body:
+     *   - hidden (boolean, required)
+     *   - staff_note (string, optional)
+     *   - pending_verification (boolean, optional) — chỉ áp dụng khi hidden=true.
+     *     Khi NV bấm "Xác nhận" trong Live Mode (auto-matched/đã gán SĐT), đẩy GD
+     *     qua tab Kế Toán -> Chờ Duyệt bằng cách hạ verification_status xuống
+     *     'PENDING_VERIFICATION'. KHÔNG đụng wallet_processed — nếu ví đã
+     *     auto-credit thì approve flow ở /:id/approve sẽ tự skip (guard
+     *     `!wallet_processed`). Không downgrade trạng thái cuối 'APPROVED' /
+     *     'REJECTED' để tránh re-open giao dịch đã kết thúc.
      */
     router.put('/transaction/:id/hidden', async (req, res) => {
         const db = req.app.locals.chatDb;
         const { id } = req.params;
-        const { hidden, staff_note } = req.body;
+        const { hidden, staff_note, pending_verification } = req.body;
 
         try {
             // Validate inputs
@@ -866,17 +876,27 @@ function registerRoutes(router, helpers) {
                 });
             }
 
-            // Update the transaction's hidden status and staff_note if provided
-            let query, params;
+            // Build update query dynamically
+            const sets = ['is_hidden = $1'];
+            const params = [hidden];
+            let paramIdx = 2;
+
             if (staff_note !== undefined) {
-                query =
-                    'UPDATE balance_history SET is_hidden = $1, staff_note = $2 WHERE id = $3 RETURNING id, is_hidden, staff_note';
-                params = [hidden, staff_note, id];
-            } else {
-                query =
-                    'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden, staff_note';
-                params = [hidden, id];
+                sets.push(`staff_note = $${paramIdx++}`);
+                params.push(staff_note);
             }
+
+            const downgradeToPending = pending_verification === true && hidden === true;
+            if (downgradeToPending) {
+                sets.push(
+                    "verification_status = CASE " +
+                    "WHEN verification_status IN ('APPROVED', 'REJECTED') THEN verification_status " +
+                    "ELSE 'PENDING_VERIFICATION' END"
+                );
+            }
+
+            params.push(id);
+            const query = `UPDATE balance_history SET ${sets.join(', ')} WHERE id = $${paramIdx} RETURNING id, is_hidden, staff_note, verification_status`;
 
             const updateResult = await db.query(query, params);
 
@@ -888,7 +908,7 @@ function registerRoutes(router, helpers) {
             }
 
             console.log(
-                `[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}${staff_note ? `, staff_note = "${staff_note}"` : ''}`
+                `[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden=${hidden}${staff_note ? `, staff_note="${staff_note}"` : ''}${downgradeToPending ? `, verification_status=${updateResult.rows[0].verification_status} (->Chờ Duyệt)` : ''}`
             );
 
             res.json({

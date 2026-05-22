@@ -25,6 +25,39 @@
 
 ## 2026-05-22
 
+### [balance-history] Fix: Live Mode "Xác nhận" auto-matched không nhảy qua Kế Toán Chờ Duyệt
+
+**Bug user báo**: NV bấm "Xác nhận" ở Live Mode (cards "Tự động gán") → GD chỉ bị ẩn khỏi kanban, KHÔNG xuất hiện ở tab Kế Toán → Chờ Duyệt.
+
+**Nguyên nhân**:
+
+- `auto_approve_enabled` setting mặc định = TRUE (`admin-settings-service.js` backward compat) → tx auto-match (qr_code/exact_phone/single_match) được set `verification_status = 'AUTO_APPROVED'` + auto-credit ví ngay khi SePay webhook về.
+- Tab Kế Toán "Chờ Duyệt" filter `verification_status = 'PENDING_VERIFICATION'` → AUTO_APPROVED bị bỏ qua hoàn toàn.
+- `confirmAutoMatched` (live-mode.js) chỉ gọi `PUT /api/sepay/transaction/:id/hidden` set `is_hidden=true` — không đụng `verification_status` → GD bị ẩn nhưng vẫn AUTO_APPROVED, vĩnh viễn không qua Chờ Duyệt.
+
+**Flow user mong muốn**: Tiền vào SePay → Live Mode (auto-match hoặc gán SĐT) → NV bấm Xác nhận → GD qua Kế Toán Chờ Duyệt → KT review → approve = cộng ví KH. KT là chốt cuối.
+
+**Files thay đổi**:
+
+- `render.com/routes/sepay-wallet-operations.js` — `PUT /api/sepay/transaction/:id/hidden` nhận thêm field optional `pending_verification`. Khi `pending_verification=true && hidden=true` → SQL `CASE WHEN verification_status IN ('APPROVED','REJECTED') THEN verification_status ELSE 'PENDING_VERIFICATION' END`. Không downgrade trạng thái cuối. KHÔNG đụng `wallet_processed` (approve flow đã có guard `!wallet_processed` nên ví đã auto-credit sẽ không bị double).
+- `balance-history/js/live-mode.js` — `confirmAutoMatched` gửi `pending_verification: true` trong body PUT hidden. Update local state `tx.verification_status` từ response. Toast đổi thành "Đã xác nhận — đã đẩy qua Kế Toán Chờ Duyệt".
+- `web2/balance-history/js/live-mode.js` — apply cùng change (đồng bộ với legacy theo convention WEB2 module).
+
+**Edge cases**:
+
+- GD APPROVED/REJECTED đã chốt → CASE giữ nguyên, không re-open.
+- Auto-match đã credit ví (`wallet_processed=TRUE`) → KT approve sẽ skip processDeposit (guard `if (!tx.wallet_processed && tx.transfer_amount > 0)`) → an toàn.
+- `assignManual` & `assignFromDropdown` không cần đổi: chúng đã gọi endpoint `/phone?is_manual_entry=true` hoặc `/pending-matches/:id/resolve` set sẵn `verification_status = 'PENDING_VERIFICATION'`.
+
+**Test plan (sau deploy Render ~3 phút)**:
+
+1. Mở `/balance-history/index.html` → tab Live Mode → tìm card auto-matched (cột "Tự động gán").
+2. Bấm "Xác nhận" → toast "Đã đẩy qua Kế Toán Chờ Duyệt".
+3. Sang tab Kế Toán → Chờ Duyệt → GD hiện ra với SĐT/tên đã gán.
+4. KT bấm Duyệt → status APPROVED, nếu ví chưa credit thì cộng ví, đã credit thì skip.
+
+**Status**: ✅ DONE (chờ push + Render deploy verify).
+
 ### [inventory] feat: đợt section tabs + stats theo tab + audit logging
 
 **User request**: "Stats card không chính xác (có thể do DB duplicate) + chia section tab theo từng đợt, cache tab đã chọn".

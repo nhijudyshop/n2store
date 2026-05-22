@@ -945,13 +945,23 @@ const LiveModeModule = (function () {
         setCardProcessing(txId, true);
 
         try {
+            // pending_verification=true: đẩy GD qua Kế Toán -> Chờ Duyệt cho KT review cuối.
+            // Auto-match có thể đã AUTO_APPROVED + auto-credit ví; approve flow guard
+            // !wallet_processed nên không double-credit.
             const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true, staff_note: staffNote }),
+                body: JSON.stringify({
+                    hidden: true,
+                    staff_note: staffNote,
+                    pending_verification: true,
+                }),
             });
 
             if (!response.ok) throw new Error('Xác nhận thất bại');
+
+            const result = await response.json().catch(() => ({}));
+            const newStatus = result?.data?.verification_status;
 
             // Move item from autoMatchedItems to confirmedItems locally
             const txIndex = state.autoMatchedItems.findIndex((t) => String(t.id) === String(txId));
@@ -959,11 +969,12 @@ const LiveModeModule = (function () {
                 const tx = state.autoMatchedItems[txIndex];
                 tx.is_hidden = true; // Mark as confirmed
                 tx.staff_note = staffNote;
+                if (newStatus) tx.verification_status = newStatus;
                 state.autoMatchedItems.splice(txIndex, 1);
                 state.confirmedItems.unshift(tx); // Add to top of confirmed list
             }
 
-            showNotification('Đã xác nhận giao dịch!', 'success');
+            showNotification('Đã xác nhận — đã đẩy qua Kế Toán Chờ Duyệt', 'success');
 
             // Audit logging - xác nhận khách live-mode
             try {
