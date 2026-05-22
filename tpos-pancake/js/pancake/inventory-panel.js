@@ -102,6 +102,9 @@
 
         STATE.filtered = STATE.products.filter((p) => {
             if (p.isActive === false) return false;
+            // Bỏ SP hết hàng (SL=0) khỏi panel — user request không cho drag
+            const stock = Number(p.stock) || 0;
+            if (stock <= 0) return false;
             // Tab filter: exact supplier
             if (tabUpper) {
                 const sup = asciiUpper(p.supplier || '');

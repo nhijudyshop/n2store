@@ -147,7 +147,10 @@
     padding: 32px 12px;
 }
 
-/* SP card — compact, drag-friendly */
+/* SP card — compact, drag-friendly.
+   IMPORTANT: inner elements (img/text/div) phải `pointer-events:none` để
+   mousedown lúc nào cũng đến card root → HTML5 drag mới fire. Nếu để default,
+   browser sẽ ưu tiên text-selection / image-drag native thay vì element drag. */
 .inv-card {
     display: flex;
     gap: 8px;
@@ -157,10 +160,16 @@
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     cursor: grab;
+    user-select: none;
+    -webkit-user-drag: element;
     transition:
-        transform 100ms,
         box-shadow 100ms,
         border-color 100ms;
+}
+.inv-card * {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
 }
 .inv-card:hover {
     border-color: #7266ba;
@@ -171,7 +180,6 @@
 }
 .inv-card.dragging {
     opacity: 0.45;
-    transform: scale(0.98);
 }
 .inv-img,
 .inv-img-placeholder {
