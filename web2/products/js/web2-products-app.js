@@ -373,34 +373,77 @@
         load();
     }
 
-    // ---------- Supplier suggestion ----------
-    function collectExistingSuppliers() {
-        const set = new Set();
-        for (const p of STATE.products) {
-            const s = (p.supplier || '').trim();
-            if (s) set.add(s);
-            // Cũng parse note nếu chứa tên NCC (dạng "HÀ NỘI", "HƯƠNG CHÂU")
-            const note = (p.note || '').trim();
-            if (
-                note &&
-                note.length < 30 &&
-                /^[A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ\s]+$/i.test(
-                    note
-                )
-            ) {
-                set.add(note);
+    // ---------- Supplier dropdown — nguồn DUY NHẤT là tabs trong Sổ Order ----------
+    // Cache list NCC từ Firestore so_order_v2/main. Load lazy + reload khi mở modal.
+    let _suppliersFromSoOrder = null;
+    let _suppliersLoadPromise = null;
+
+    async function loadSuppliersFromSoOrder(force) {
+        if (!force && Array.isArray(_suppliersFromSoOrder)) return _suppliersFromSoOrder;
+        if (_suppliersLoadPromise && !force) return _suppliersLoadPromise;
+        _suppliersLoadPromise = (async () => {
+            try {
+                if (typeof firebase === 'undefined' || !firebase.firestore) {
+                    console.warn('[products] Firebase chưa load — fallback empty supplier list');
+                    return [];
+                }
+                const snap = await firebase.firestore().collection('so_order_v2').doc('main').get();
+                if (!snap.exists) return [];
+                const data = snap.data()?.data || {};
+                const set = new Set();
+                // Tabs[*].shipments[*].rows[*].supplier
+                for (const tab of data.tabs || []) {
+                    for (const sh of tab.shipments || []) {
+                        for (const r of sh.rows || []) {
+                            const s = (r.supplier || '').trim();
+                            if (s) set.add(s);
+                        }
+                    }
+                }
+                // Tabs[*].label nếu là tên NCC (vd "HÀ NỘI" có thể là label tab)
+                for (const tab of data.tabs || []) {
+                    const lbl = (tab.label || tab.name || '').trim();
+                    if (lbl) set.add(lbl);
+                }
+                _suppliersFromSoOrder = Array.from(set).sort();
+                return _suppliersFromSoOrder;
+            } catch (e) {
+                console.warn('[products] load suppliers từ so_order_v2 fail:', e.message);
+                return [];
             }
-        }
-        return Array.from(set).sort();
+        })();
+        return _suppliersLoadPromise;
     }
 
-    function populateSupplierDatalist() {
-        const list = $('#pmSupplierList');
-        if (!list) return;
-        const suppliers = collectExistingSuppliers();
-        list.innerHTML = suppliers
-            .map((s) => `<option value="${escapeHtml(s)}"></option>`)
-            .join('');
+    // Synchronous accessor — sau khi loadSuppliersFromSoOrder() đã chạy
+    function collectExistingSuppliers() {
+        return Array.isArray(_suppliersFromSoOrder) ? _suppliersFromSoOrder.slice() : [];
+    }
+
+    async function populateSupplierDropdown() {
+        const sel = $('#pmSupplier');
+        if (!sel) return;
+        const currentVal = sel.value;
+        const suppliers = await loadSuppliersFromSoOrder();
+        const opts = ['<option value="">— Chọn NCC từ Sổ Order —</option>'];
+        // Nếu SP đang edit có supplier không nằm trong list so-order (legacy) →
+        // prepend làm option riêng để tránh mất giá trị khi save lại.
+        if (currentVal && !suppliers.includes(currentVal)) {
+            opts.push(
+                `<option value="${escapeHtml(currentVal)}" selected>${escapeHtml(currentVal)} (legacy — không có trong Sổ Order)</option>`
+            );
+        }
+        for (const s of suppliers) {
+            opts.push(
+                `<option value="${escapeHtml(s)}"${s === currentVal ? ' selected' : ''}>${escapeHtml(s)}</option>`
+            );
+        }
+        if (!suppliers.length) {
+            opts.push(
+                '<option value="" disabled>(Sổ Order chưa có NCC nào — thêm tab + dòng trong so-order trước)</option>'
+            );
+        }
+        sel.innerHTML = opts.join('');
     }
 
     // Cache color shortmap — đọc TRỰC TIẾP từ variant.shortCode (locked tại DB)
@@ -433,22 +476,32 @@
 
     // Auto-sinh mã SP từ NCC + Tên SP + variants. KHÔNG phải "gợi ý" —
     // mã được generate trực tiếp từ các phần đã có (NCC tab, tên SP keyword,
-    // màu short_code từ variants, size). User KHÔNG nhập prefix tay riêng —
-    // nếu SP tạo ngoài Sổ Order, user điền NCC tay vào ô NCC như bình thường.
-    function suggestProductCode() {
+    // màu short_code từ variants, size). NCC bắt buộc chọn từ dropdown so-order.
+    //
+    // @param {boolean} silent — true = chạy auto-trigger (không notify warning
+    //                          khi field thiếu); false = user click button (full notify).
+    function suggestProductCode(silent) {
         if (!window.Web2ProductCode) {
-            notify('Module sinh mã chưa load', 'error');
+            if (!silent) notify('Module sinh mã chưa load', 'error');
             return;
         }
         const supplierName = ($('#pmSupplier')?.value || '').trim();
-        const productName = ($('#pmName')?.value || '').trim();
-        if (!productName) {
-            notify('Cần điền Tên sản phẩm trước', 'warning');
+        const productNameRaw = ($('#pmName')?.value || '').trim();
+        const variantText = ($('#pmVariant')?.value || '').trim();
+        // Concat variant vào tên SP để color/size extractor pick up.
+        // Vd: name="GIÀY", variant="Đen / Size 32" → "GIÀY Đen Size 32"
+        const productName = variantText
+            ? `${productNameRaw} ${variantText.replace(/[\/,;|]/g, ' ')}`.trim()
+            : productNameRaw;
+        if (!productNameRaw) {
+            if (!silent) notify('Cần điền Tên sản phẩm trước', 'warning');
             return;
         }
         if (!supplierName) {
-            notify('Cần điền NCC trước (SP ngoài Sổ Order: nhập tay tên NCC vào ô NCC)', 'warning');
-            $('#pmSupplier')?.focus();
+            if (!silent) {
+                notify('Cần chọn NCC từ dropdown (lấy từ tabs Sổ Order)', 'warning');
+                $('#pmSupplier')?.focus();
+            }
             return;
         }
         const suppliers = collectExistingSuppliers();
@@ -466,7 +519,7 @@
                 colorShortMap: getColorShortMap(),
             });
         } catch (e) {
-            notify('Không sinh được mã: ' + e.message, 'error');
+            if (!silent) notify('Không sinh được mã: ' + e.message, 'error');
             return;
         }
         $('#pmCode').value = result.code;
@@ -502,7 +555,7 @@
         $('#pmNote').value = '';
         $('#pmIsActive').value = 'true';
         updateImagePreview('');
-        populateSupplierDatalist();
+        populateSupplierDropdown();
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
         setTimeout(() => $('#pmSupplier')?.focus(), 50);
@@ -526,7 +579,7 @@
         $('#pmNote').value = p.note || '';
         $('#pmIsActive').value = p.isActive ? 'true' : 'false';
         updateImagePreview(p.imageUrl || '');
-        populateSupplierDatalist();
+        populateSupplierDropdown();
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
     }
@@ -1020,16 +1073,19 @@
         $('#btnCancelProduct')?.addEventListener('click', closeModal);
         $('#btnSaveProduct')?.addEventListener('click', saveModal);
         $('#pmSuggestCode')?.addEventListener('click', suggestProductCode);
-        // Auto-suggest khi nhập xong cả NCC + Tên SP (nếu Mã SP vẫn trống)
-        const autoSuggest = () => {
-            if (STATE.editingCode) return; // chỉ auto khi tạo mới
-            if (($('#pmCode')?.value || '').trim()) return; // đừng đè nếu user đã gõ mã
-            const sup = ($('#pmSupplier')?.value || '').trim();
-            const name = ($('#pmName')?.value || '').trim();
-            if (sup && name) suggestProductCode();
+        // Auto-regenerate mã KHI: NCC / Tên / Biến thể thay đổi (mode tạo mới).
+        // Mode edit: pmCode disabled → KHÔNG đổi mã (mã là khóa chính, không sửa).
+        // Debounce 300ms để không gen liên tục mỗi keystroke
+        let _autoRegenTimer = null;
+        const autoRegen = () => {
+            if (STATE.editingCode) return; // edit: mã đã lock, không regenerate
+            clearTimeout(_autoRegenTimer);
+            _autoRegenTimer = setTimeout(() => suggestProductCode(true), 300);
         };
-        $('#pmSupplier')?.addEventListener('change', autoSuggest);
-        $('#pmName')?.addEventListener('blur', autoSuggest);
+        $('#pmSupplier')?.addEventListener('change', autoRegen);
+        $('#pmName')?.addEventListener('input', autoRegen);
+        $('#pmVariant')?.addEventListener('input', autoRegen);
+        $('#pmVariant')?.addEventListener('change', autoRegen);
         // Intentionally NOT closing on overlay click — protect in-progress data.
         // Only X button / Hủy button / ESC close the modal.
         document.addEventListener('keydown', (e) => {

@@ -25,6 +25,34 @@
 
 ## 2026-05-22
 
+### [web2/products] feat: NCC dropdown từ so_order_v2 + auto-regen mã khi đổi NCC/Tên/Biến thể
+
+User: "phần NCC cho chọn dropdown lấy theo tất cả tên NCC trong sổ order chứ đừng cho nhập input" + "chọn biến thể, chỉnh sửa tên, NCC thì phải generator mã lại cho chính xác".
+
+**Changes** [`web2/products/index.html`](../web2/products/index.html):
+
+- `<input list="pmSupplierList">` + `<datalist>` → `<select id="pmSupplier">` thuần
+- Label hint: "(chọn từ tab Sổ Order)" thay "(SP ngoài Sổ Order: nhập tên NCC tay)"
+
+**Changes** [`web2/products/js/web2-products-app.js`](../web2/products/js/web2-products-app.js):
+
+1. **NCC source**: thay `collectExistingSuppliers()` đọc `STATE.products + note` bằng `loadSuppliersFromSoOrder()` đọc Firestore `so_order_v2/main`:
+    - Iterate `data.tabs[*].shipments[*].rows[*].supplier` + `tab.label/name`
+    - Cache `_suppliersFromSoOrder` + `_suppliersLoadPromise` (lazy load)
+    - Fallback `[]` nếu Firebase chưa load / Firestore fail
+
+2. **`populateSupplierDropdown()`**: populate `<select>` với options:
+    - "— Chọn NCC từ Sổ Order —" (empty value)
+    - Legacy SP có supplier không nằm so-order → prepend option "(legacy — không có trong Sổ Order)" để không mất giá trị khi edit
+    - List NCC từ so-order
+    - Nếu so-order rỗng → option disabled hint
+
+3. **Auto-regen mã**: bind listener `change` / `input` cho `#pmSupplier`, `#pmName`, `#pmVariant`. Debounce 300ms. Mode edit (`STATE.editingCode`) → skip (mã là khóa chính, không đổi).
+
+4. **Variant ảnh hưởng mã**: concat `pmVariant` vào `productName` trước khi gọi `Web2ProductCode.suggest()` → color/size extractor pick up từ variant. Vd `name="GIÀY"` + `variant="Đen / Size 32"` → effective `"GIÀY Đen Size 32"` → `HNMMDENS32`.
+
+5. **`silent` param** cho `suggestProductCode()`: auto-trigger gọi `silent=true` → không notify warning khi field thiếu (tránh spam). User click button "Sinh mã" → `silent=false` → notify đầy đủ.
+
 ### [issue-tracking] Fix: ép giờ hiển thị về UTC+7 (Asia/Ho_Chi_Minh)
 
 **Bug user báo (ảnh kèm)**: Timestamps trên danh sách phiếu/đơn (vd `22/05/2026, 03:51`) hiển thị sai múi giờ vì `toLocaleDateString/TimeString('vi-VN')` không có `timeZone` → fallback vào timezone của browser/máy chạy → khi browser ở UTC hoặc khác Asia/Ho_Chi_Minh sẽ lệch 7 tiếng.
