@@ -25,6 +25,43 @@
 
 ## 2026-05-22
 
+### [tpos-pancake/inv] fix: 4 vòng debug — viền có đơn + restrict drop + detection + popover
+
+User: "cho viền các khách đã có đơn hàng → browser test kéo thả sản phẩm vào khách đã có đơn".
+
+**4 vòng fix qua browser test prod**:
+
+1. **`086e42c29`** — CSS viền xanh + restrict drop:
+    - `.inv-has-order`: border-left 3px #16a34a + ::after `✓ có đơn` badge
+    - `.inv-drop-hover`: gradient tím + scale (hợp lệ)
+    - `.inv-drop-deny`: gradient đỏ + ::before `🚫 Khách chưa có đơn` + cursor not-allowed + toast warning
+    - Drop handler restrict: `dataTransfer.dropEffect='none'` nếu row không có `inv-has-order`
+
+2. **`a982d0167`** — Detection field thực tế:
+    - Browser test cho thấy Pancake conv list KHÔNG có `customer.order_count`, chỉ có `customers[0] = {fb_id, id, name}`
+    - Conv-level fields: `has_livestream_order`, `has_phone`, `recent_phone_numbers`, `tags`
+    - Heuristic any-of: `has_livestream_order=true` OR cart count>0 OR (has_phone + tags non-empty)
+    - data-order-reason debug attribute
+
+3. **`d35fdf05c`** — Lazy attach observer (Pancake load async):
+    - `init()` chạy trước khi `.pk-conversation-list` xuất hiện trong DOM → MutationObserver không attach
+    - Polling cũ 30s không đủ vì conv-list xuất hiện sau page select
+    - Fix: `setInterval` 2s kiểm tra + attach observer khi list xuất hiện; sau 2 phút giảm xuống 5s indefinite
+    - `list.dataset.invObserved='1'` tránh double-attach
+
+4. **`eba99ec9e`** — Popover không bị đóng ngay khi click badge:
+    - `renderCartPopover()` attach outside-click listener (capture:true) → badge.click() bubble vào listener vừa attach → pop.contains(badge)=false → remove ngay
+    - Fix: `setTimeout(0)` wrap addEventListener — attach SAU khi click hiện tại finish
+
+**Browser test verified end-to-end** (prod nhijudy.store):
+
+- ✓ Mode switcher render + Kho default
+- ✓ 14 conv loaded, 1 row detected `inv-has-order` (phone+tag)
+- ✓ Drag SP `HNQUAN2DEN` → drop "Trang Doan" → POST `/api/v2/cart/add` → success
+- ✓ Badge `🛒 2` (qty after 2 lần add)
+- ✓ Click badge → popover mở với 1 item + total
+- ✓ Click `×` remove → soft delete → badge biến mất
+
 ### [tpos-pancake] feat: Kho SP panel + drag-drop SP vào comment khách + cart Postgres
 
 User request: trang tpos-pancake bên panel Pancake có **tab switcher** giữa Chat & Kho SP. Panel Kho có section tabs NCC từ Sổ Order (HÀ NỘI, HƯƠNG CHÂU…), search, danh sách SP. Kéo SP qua comment khách → thêm vào giỏ + lưu lịch sử. Cho phép xóa SP khỏi giỏ.
