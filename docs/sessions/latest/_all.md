@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7dddd02` — feat(sidebar): "- WEB 2.0" suffix + group badge cho page có code thật
-**Last updated**: 2026-05-22 09:24:26 +07
-**Latest session**: [`RESUME:20260522-092426-7dddd02`](../20260522-092426-7dddd02.md)
-**Summary**: feat(sidebar): "- WEB 2.0" suffix + group badge cho page có code thật
+**Latest commit**: `7508914` — perf+style(balance-history): TPOS-clone theme + modal anti-lag
+**Last updated**: 2026-05-22 09:29:21 +07
+**Latest session**: [`RESUME:20260522-092921-7508914`](../20260522-092921-7508914.md)
+**Summary**: perf+style(balance-history): TPOS-clone theme + modal anti-lag
 
 ## Folders affected in this commit
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 09:24
+- [`web2/`](./web2.md) — updated 2026-05-22 09:29
