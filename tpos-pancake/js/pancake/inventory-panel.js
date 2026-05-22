@@ -298,6 +298,59 @@
         return { id: u.uid || u.email || null, name: u.displayName || u.email || null };
     }
 
+    // Pending commit timers — commentId → setTimeout handle (5s)
+    const _pendingCommits = new Map();
+
+    function _resolveCommitContext(commentId, row, customer) {
+        const ctx = {
+            fbUserId: customer?.id || null,
+            fbUserName: customer?.name || null,
+            phone: customer?.phone || '',
+            fbPageId: null,
+            fbPageName: null,
+            fbPostId: null,
+            crmTeamId: null,
+            liveCampaignId: null,
+            liveCampaignName: null,
+            message: '',
+        };
+        try {
+            const st = global.TposState;
+            const c = st?.comments?.find((x) => x.id === commentId);
+            if (c) {
+                const pageObj = c._pageObj || st.selectedPage;
+                const camp = c._campaignId
+                    ? st.liveCampaigns?.find((x) => x.Id === c._campaignId)
+                    : st.selectedCampaign;
+                ctx.fbPageId = pageObj?.Facebook_PageId || pageObj?.FacebookPageId || null;
+                ctx.fbPageName = pageObj?.Name || pageObj?.PageName || null;
+                ctx.fbPostId = camp?.Facebook_LiveId || null;
+                ctx.crmTeamId = pageObj?.Id || null;
+                ctx.liveCampaignId = camp?.Id ? String(camp.Id) : null;
+                ctx.liveCampaignName = camp?.Name || null;
+                ctx.message = c.message || '';
+            }
+        } catch {}
+        return ctx;
+    }
+
+    async function _doCommit(commentId, ctx) {
+        try {
+            const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/commit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ ...ctx, user: _user() }),
+            });
+            const d = await r.json();
+            if (d.success) {
+                console.log('[InventoryPanel] commit OK:', d.native_order_code);
+            }
+        } catch (e) {
+            console.warn('[InventoryPanel] commit fail:', e.message);
+        }
+    }
+
     async function addToCart(commentId, product, customer) {
         // Optimistic: tăng badge ngay (rollback nếu API fail)
         const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
@@ -323,17 +376,44 @@
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'unknown');
 
+            // Nếu native_order_code đã tồn tại (committed trước đó) → SP đã được sync
+            // sang native-orders tự động qua backend. Vẫn show toast Undo cho UX.
+            const alreadyCommitted = !!d.native_order_code;
+            const row = document.querySelector(
+                `.tpos-conversation-item[data-comment-id="${CSS.escape(commentId)}"]`
+            );
+            const ctx = _resolveCommitContext(commentId, row, customer);
+
+            // Schedule commit sau 5s nếu chưa committed (đơn mới chưa tạo)
+            if (!alreadyCommitted) {
+                if (_pendingCommits.has(commentId)) {
+                    clearTimeout(_pendingCommits.get(commentId));
+                }
+                const tHandle = setTimeout(() => {
+                    _pendingCommits.delete(commentId);
+                    _doCommit(commentId, ctx);
+                }, 5000);
+                _pendingCommits.set(commentId, tHandle);
+            }
+
             // Show toast với Undo (5s)
             _showUndoToast({
                 title: wasEmpty
-                    ? `✓ Tạo đơn mới + thêm "${product.code}"`
-                    : `✓ Thêm "${product.code}" vào đơn`,
+                    ? `✓ Tạo đơn mới + thêm "${product.code}" (5s)`
+                    : alreadyCommitted
+                      ? `✓ Thêm "${product.code}" vào đơn`
+                      : `✓ Thêm "${product.code}" vào đơn nháp (5s)`,
                 onUndo: async () => {
+                    // Cancel pending commit nếu có
+                    if (_pendingCommits.has(commentId)) {
+                        clearTimeout(_pendingCommits.get(commentId));
+                        _pendingCommits.delete(commentId);
+                    }
                     await removeFromCart(commentId, product.code, { silent: true });
                     _showToast('↶ Đã hoàn tác', 'ok');
                 },
             });
-            // Sync với server thực tế (in case của discrepancy)
+            // Sync server real state
             refreshCartCounts([commentId]);
         } catch (e) {
             // Rollback optimistic
