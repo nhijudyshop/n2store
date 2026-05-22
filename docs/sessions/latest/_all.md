@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1015d5b` — feat(web2/products): NCC dropdown từ so_order_v2 + auto-regen mã khi đổi NCC/Tên/Biến thể
-**Last updated**: 2026-05-22 14:45:51 +07
-**Latest session**: [`RESUME:20260522-144551-1015d5b`](../20260522-144551-1015d5b.md)
-**Summary**: feat(web2/products): NCC dropdown từ so_order_v2 + auto-regen mã khi đổi NCC/Tên/Biến thể
+**Latest commit**: `fd69447` — fix(web2/products): variant click đóng dropdown + override mã bằng variant shortCode
+**Last updated**: 2026-05-22 14:51:10 +07
+**Latest session**: [`RESUME:20260522-145110-fd69447`](../20260522-145110-fd69447.md)
+**Summary**: fix(web2/products): variant click đóng dropdown + override mã bằng variant shortCode
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -69,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 14:45
+- [`web2/`](./web2.md) — updated 2026-05-22 14:51
