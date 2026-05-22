@@ -10,7 +10,8 @@
 //   - "HƯƠNG CHÂU"  → HC
 //   - "HẢI CHÂU"    → HC1    (trùng HC → append 1, 2, 3…)
 //   - 1 từ          → 2 chữ đầu ("ADIDAS"→AD)
-//   - KHÔNG có NCC  → 'SP'   (SP tạo từ chỗ khác, không phải Sổ Order)
+//   - KHÔNG có NCC  → BẮT BUỘC truyền opts.customPrefix tay (UI Web 2.0 sẽ
+//                     bắt user nhập). Không có customPrefix → throw Error.
 //
 // LOẠI SP (chỉ 6 keyword, còn lại fallback MM):
 //   ÁO   → AO
@@ -38,8 +39,8 @@
 //   HƯƠNG CHÂU / ÁO ĐỎ                → HC + AO + DO            → HCAODO
 //   HẢI CHÂU / QUẦN XANH DƯƠNG SIZE 5 → HC1 + QUAN + XD + S5    → HC1QUANXDS5
 //   HÀ NỘI / ĐẦM HỒNG                 → HN + DAM + HONG         → HNDAMHONG
-//   (no NCC) / GIÀY ĐEN SIZE 32       → SP + MM + DEN + S32     → SPMMDENS32
-//   (no NCC) / ÁO ĐỎ                  → SP + AO + DO            → SPAODO
+//   customPrefix='ABC' / ÁO ĐỎ        → ABC + AO + DO           → ABCAODO  (caller nhập tay)
+//   no NCC + no customPrefix          → throw Error             (UI bắt user nhập)
 //
 // Usage:
 //   const code = Web2ProductCode.suggest({
@@ -148,12 +149,22 @@
      * @param {string} supplierName
      * @returns {string} prefix (chưa xét trùng)
      */
+    /**
+     * Tạo prefix từ tên NCC.
+     * BẮT BUỘC có supplierName — nếu tạo SP ngoài Sổ Order, caller PHẢI tự
+     * nhập prefix tay (truyền qua opts.customPrefix). Hàm này throw nếu thiếu.
+     */
     function basePrefix(supplierName) {
-        // KHÔNG có NCC → SP tạo từ chỗ khác (không phải Sổ Order) → prefix mặc định 'SP'
-        if (!supplierName) return 'SP';
+        if (!supplierName) {
+            throw new Error(
+                'supplierName bắt buộc — SP tạo ngoài Sổ Order phải nhập prefix tay (opts.customPrefix)'
+            );
+        }
         const cleaned = clean(supplierName);
         const words = cleaned.split(' ').filter(Boolean);
-        if (words.length === 0) return 'SP';
+        if (words.length === 0) {
+            throw new Error('supplierName không hợp lệ sau khi normalize');
+        }
         if (words.length === 1) {
             const w = words[0];
             return w.length >= 2 ? w.slice(0, 2) : (w + 'X').slice(0, 2);
@@ -168,9 +179,14 @@
      * Xử lý collision: prefix giống với NCC khác → append số.
      * @param {string} supplierName
      * @param {Object<string,string>} supplierPrefixMap — { 'HÀ NỘI': 'HN', … }
+     * @param {string} [customPrefix] — caller-supplied prefix (khi không có NCC)
      * @returns {string} prefix final (đã unique)
      */
-    function resolvePrefix(supplierName, supplierPrefixMap) {
+    function resolvePrefix(supplierName, supplierPrefixMap, customPrefix) {
+        // Caller nhập tay prefix → dùng luôn, KHÔNG check collision
+        if (customPrefix) {
+            return clean(customPrefix).replace(/\s+/g, '');
+        }
         const map = supplierPrefixMap || {};
         // Đã có trong map → trả về luôn
         if (map[supplierName]) return map[supplierName];
@@ -324,8 +340,9 @@
         const productName = (opts && opts.productName) || '';
         const existingCodes = (opts && opts.existingCodes) || [];
         const supplierPrefixMap = (opts && opts.supplierPrefixMap) || {};
+        const customPrefix = (opts && opts.customPrefix) || '';
 
-        const prefix = resolvePrefix(supplierName, supplierPrefixMap);
+        const prefix = resolvePrefix(supplierName, supplierPrefixMap, customPrefix);
         const nameClean = clean(productName);
 
         // Theo thứ tự: extract type → color → size từ name
@@ -510,8 +527,9 @@
         const productName = (opts && opts.productName) || '';
         const existingCodes = (opts && opts.existingCodes) || [];
         const supplierPrefixMap = (opts && opts.supplierPrefixMap) || {};
+        const customPrefix = (opts && opts.customPrefix) || '';
 
-        const prefix = resolvePrefix(supplierName, supplierPrefixMap);
+        const prefix = resolvePrefix(supplierName, supplierPrefixMap, customPrefix);
         const nameClean = clean(productName);
 
         const { type, rest: r1 } = extractType(nameClean);

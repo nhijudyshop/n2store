@@ -25,6 +25,35 @@
 
 ## 2026-05-22
 
+### [web2/shared/web2-product-code] fix: bỏ SP default — bắt buộc nhập prefix tay khi không có NCC
+
+User: "bỏ logic ngoại lệ là SP đi → bắt buộc điền tay phần prefix NCC nếu tạo ở phần khác sổ order".
+
+**Changes** [`web2/shared/web2-product-code.js`](../web2/shared/web2-product-code.js):
+
+1. **`basePrefix(null/'')`** giờ throw Error thay vì trả `'SP'`:
+    ```
+    Error: supplierName bắt buộc — SP tạo ngoài Sổ Order phải nhập prefix tay (opts.customPrefix)
+    ```
+2. Thêm option **`opts.customPrefix`** vào `suggest()` / `suggestWithMap()` / `resolvePrefix()`. Khi truyền → bypass NCC inference + collision check, normalize uppercase no-diacritic.
+3. Doc header rewrite + example bỏ `SP`, thêm example `customPrefix='ABC' → ABCAODO`.
+
+**Web 2.0 consumer** [`web2/products/js/web2-products-app.js`](../web2/products/js/web2-products-app.js):
+
+- `suggestProductCode()`: khi user click "Gợi ý mã" mà NCC trống → `prompt()` hỏi prefix tay. Cancel/empty → notify warning, không gen.
+- Try/catch `suggest()` để catch Error từ shared module.
+
+**Verified 6 unit test** (node -e):
+
+| Input                                 | Output         | Status |
+| ------------------------------------- | -------------- | ------ |
+| no NCC, no customPrefix               | throw Error ✓  | đúng   |
+| customPrefix='XYZ' / ÁO ĐỎ            | `XYZAODO`      | ✓      |
+| customPrefix='NJD' / GIÀY ĐEN SIZE 32 | `NJDMMDENS32`  | ✓      |
+| 2nd SP same customPrefix              | `NJDMM2DENS33` | ✓      |
+| customPrefix='shop nhi' (normalize)   | `SHOPNHIAODO`  | ✓      |
+| NCC=HÀ NỘI (regression)               | `HNAODO`       | ✓      |
+
 ### [web2/shared/web2-product-code] feat: update rule theo spec shop (6 keyword + MM fallback + HC1 collision)
 
 User clarify: "đã có logic tạo mã sản phẩm web 2.0 cũ → coi sản phẩm bên so-order tạo ở tab gì ví dụ HÀ NỘI=HN, HƯƠNG CHÂU=HC, HẢI CHÂU trùng HƯƠNG CHÂU=HC1 → viết tắt màu biến thể trong web2/variants → tên sản phẩm có 'ÁO', 'QUẦN', 'GUỐC', 'ĐẦM', 'TLQD', 'TDQD' còn lại không có các trường hợp trên là 'MM' → HNGIAYDENS32".

@@ -438,22 +438,43 @@
         }
         const supplierName = ($('#pmSupplier')?.value || '').trim();
         const productName = ($('#pmName')?.value || '').trim();
-        if (!supplierName || !productName) {
-            notify('Cần điền NCC + Tên sản phẩm để gợi ý mã', 'warning');
+        if (!productName) {
+            notify('Cần điền Tên sản phẩm để gợi ý mã', 'warning');
             return;
         }
+        // Nếu KHÔNG có NCC (SP tạo ngoài Sổ Order) → bắt buộc nhập prefix tay
+        let customPrefix = '';
+        if (!supplierName) {
+            customPrefix = (
+                prompt('SP không có NCC từ Sổ Order — nhập prefix mã tay (vd: NJD, ABC, SHOP1):') ||
+                ''
+            ).trim();
+            if (!customPrefix) {
+                notify('Cần nhập prefix tay hoặc chọn NCC để gợi ý mã', 'warning');
+                return;
+            }
+        }
         const suppliers = collectExistingSuppliers();
-        const prefixMap = window.Web2ProductCode.buildPrefixMap(
-            suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
-        );
+        const prefixMap = supplierName
+            ? window.Web2ProductCode.buildPrefixMap(
+                  suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
+              )
+            : {};
         const existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
-        const result = window.Web2ProductCode.suggest({
-            supplierName,
-            productName,
-            existingCodes,
-            supplierPrefixMap: prefixMap,
-            colorShortMap: getColorShortMap(),
-        });
+        let result;
+        try {
+            result = window.Web2ProductCode.suggest({
+                supplierName,
+                productName,
+                existingCodes,
+                supplierPrefixMap: prefixMap,
+                colorShortMap: getColorShortMap(),
+                customPrefix,
+            });
+        } catch (e) {
+            notify('Không gợi ý được mã: ' + e.message, 'error');
+            return;
+        }
         $('#pmCode').value = result.code;
         const hint = $('#pmCodeHint');
         if (hint) {
