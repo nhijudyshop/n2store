@@ -138,7 +138,14 @@
     }
 
     // Elements that lite mode hides until user triple-clicks the title.
-    const LITE_REVEAL_IDS = ['drTableWrapper', 'drCancelSection', 'drAssignmentStatus'];
+    // Filter + stats follow the table visibility — all share the same reveal toggle.
+    const LITE_REVEAL_IDS = [
+        'drFilterSection',
+        'drStatsBar',
+        'drTableWrapper',
+        'drCancelSection',
+        'drAssignmentStatus',
+    ];
 
     function applyLiteRevealVisibility() {
         const state = DeliveryReportState;
