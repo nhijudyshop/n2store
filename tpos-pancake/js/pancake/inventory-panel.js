@@ -528,16 +528,20 @@
                     }
                 };
             });
-            document.addEventListener(
-                'click',
-                function _outside(ev) {
-                    if (!pop.contains(ev.target)) {
-                        pop.remove();
-                        document.removeEventListener('click', _outside);
-                    }
-                },
-                { capture: true }
-            );
+            // Attach outside-click AFTER current click finishes — tránh badge.click()
+            // tự bubble vào listener mới attach → đóng popover ngay tức thì.
+            setTimeout(() => {
+                document.addEventListener(
+                    'click',
+                    function _outside(ev) {
+                        if (!pop.contains(ev.target)) {
+                            pop.remove();
+                            document.removeEventListener('click', _outside);
+                        }
+                    },
+                    { capture: true }
+                );
+            }, 0);
         } catch (e) {
             console.warn('[InventoryPanel] popover fail:', e.message);
         }
