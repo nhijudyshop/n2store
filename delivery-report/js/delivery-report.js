@@ -1395,7 +1395,22 @@
         return: { name: 'THUVE', sheet: 'Thu về' },
         zero: { name: 'DON0D', sheet: 'ĐƠN 0đ' },
         all: { name: 'TATCA', sheet: 'Tất cả' },
+        combo: { name: 'TOMATO_SHOP', sheet: 'TOMATO + SHOP' },
     };
+
+    // Groups currently visible in the active view (Tra soát + mode + tab)
+    function getActiveGroups() {
+        const state = DeliveryReportState;
+        if (!state.traSoatMode) return ['tomato', 'nap', 'city', 'shop', 'return'];
+        const tab = state.activeTab;
+        if (tab === 'province') return ['tomato', 'nap'];
+        if (tab === 'city') return ['city'];
+        if (tab === 'shop') return ['shop'];
+        if (tab === 'return') return ['return'];
+        // all/zero/combo → multi-group views
+        if (state.uiMode === 'lite') return ['tomato', 'shop'];
+        return ['tomato', 'nap', 'city', 'shop', 'return'];
+    }
 
     function buildExcelRows(items) {
         const wsData = [['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ']];
@@ -1478,8 +1493,8 @@
                 return;
             }
 
-            if (tab === 'all' && state.traSoatMode) {
-                // Tất cả tab: export 5 sheets
+            if ((tab === 'all' || tab === 'combo') && state.traSoatMode) {
+                // Tất cả / Combo tab: export sheets for the active groups (lite=2, full=5)
                 exportExcelAllGroups();
                 return;
             }
@@ -1547,9 +1562,14 @@
     }
 
     function exportExcelAllGroups() {
-        const allData = DeliveryReportState.allData || [];
+        const state = DeliveryReportState;
+        let allData = state.allData || [];
+        // For 'combo' tab in lite, exclude 0đ (matches view filter)
+        if (state.activeTab === 'combo') {
+            allData = allData.filter((item) => !isZeroCOD(item));
+        }
         const wb = XLSX.utils.book_new();
-        const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
+        const groupKeys = getActiveGroups();
 
         groupKeys.forEach((key) => {
             const items = allData.filter((item) => getItemGroup(item) === key);
@@ -1560,7 +1580,13 @@
             XLSX.utils.book_append_sheet(wb, ws, GROUP_LABELS[key]);
         });
 
-        XLSX.writeFile(wb, makeFileName('TATCA'));
+        const fileName =
+            state.activeTab === 'combo'
+                ? 'TOMATO_SHOP'
+                : state.uiMode === 'lite'
+                  ? 'TATCA_TOMATO_SHOP'
+                  : 'TATCA';
+        XLSX.writeFile(wb, makeFileName(fileName));
     }
 
     function exportExcelGroup(group) {
@@ -1598,9 +1624,8 @@
     function exportExcelZeroDong() {
         const allData = (DeliveryReportState.allData || []).filter((item) => isZeroCOD(item));
         const wb = XLSX.utils.book_new();
-        // Include 'tomato' so 0đ items with a locked TOMATO assignment (legacy/manual override)
-        // still appear in the export instead of being silently dropped.
-        const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
+        // Limit to groups visible in current view (lite = TOMATO+SHOP, full = all 5).
+        const groupKeys = getActiveGroups();
         let hasData = false;
 
         groupKeys.forEach((key) => {
@@ -1614,11 +1639,12 @@
         });
 
         if (!hasData) {
-            alert('Không có đơn 0đ để xuất.');
+            alert('Không có đơn 0đ trong các nhóm đang hiển thị để xuất.');
             return;
         }
 
-        XLSX.writeFile(wb, makeFileName('DON0D'));
+        const fileName = DeliveryReportState.uiMode === 'lite' ? 'DON0D_TOMATO_SHOP' : 'DON0D';
+        XLSX.writeFile(wb, makeFileName(fileName));
     }
 
     // =====================================================
@@ -1742,19 +1768,32 @@
     }
 
     function updateProvinceExportButtons() {
+        const state = DeliveryReportState;
         const tomatoBtn = document.getElementById('drBtnExportTomato');
         const napBtn = document.getElementById('drBtnExportNap');
-        const isProvince =
-            DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode;
+        const isProvince = state.activeTab === 'province' && state.traSoatMode;
         if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
         if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
 
-        // All-groups export buttons
-        const isAll =
-            (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') &&
-            DeliveryReportState.traSoatMode;
-        document.querySelectorAll('.dr-btn-group-export').forEach((btn) => {
-            btn.style.display = isAll ? '' : 'none';
+        // All-groups (multi-column) export buttons: visible only for the groups
+        // currently rendered in the view (matches column visibility).
+        const isMulti =
+            state.traSoatMode &&
+            (state.activeTab === 'all' ||
+                state.activeTab === 'zero' ||
+                state.activeTab === 'combo');
+        const activeGroups = new Set(isMulti ? getActiveGroups() : []);
+        const btnGroupMap = {
+            drBtnExportGrpTomato: 'tomato',
+            drBtnExportGrpNap: 'nap',
+            drBtnExportGrpCity: 'city',
+            drBtnExportGrpShop: 'shop',
+            drBtnExportGrpReturn: 'return',
+        };
+        Object.entries(btnGroupMap).forEach(([id, group]) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.style.display = activeGroups.has(group) ? '' : 'none';
         });
     }
 
