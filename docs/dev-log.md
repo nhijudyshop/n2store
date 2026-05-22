@@ -25,6 +25,44 @@
 
 ## 2026-05-22
 
+### [tpos-pancake] feat: Kho SP panel + drag-drop SP vào comment khách + cart Postgres
+
+User request: trang tpos-pancake bên panel Pancake có **tab switcher** giữa Chat & Kho SP. Panel Kho có section tabs NCC từ Sổ Order (HÀ NỘI, HƯƠNG CHÂU…), search, danh sách SP. Kéo SP qua comment khách → thêm vào giỏ + lưu lịch sử. Cho phép xóa SP khỏi giỏ.
+
+User decisions (đã confirm):
+
+1. Filter: exact `supplier === tabName` (force supplier required khi tạo SP, có endpoint backfill SP cũ qua prefix code)
+2. Cart storage: **Postgres** (Render DB) — bảng `web2_cart_items` + `web2_cart_history`
+3. Drop target: chỉ comment đã có đơn (resolve customer từ PancakeState)
+4. Tab nằm INSIDE Pancake column (không phải column riêng); default = "Kho", state lưu localStorage
+
+**Backend** (commit `804ab29db`):
+
+- [`render.com/routes/v2/cart.js`](../render.com/routes/v2/cart.js) (~280 dòng):
+    - 2 bảng + migration idempotent: `web2_cart_items` (UNIQUE comment_id+product_code) + `web2_cart_history` (append-only log)
+    - Endpoints: GET/:cid · POST/:cid/add (upsert qty++) · POST/:cid/:code/remove (soft delete + log) · PATCH (qty change) · GET/:cid/history · GET/batch/counts · GET/history/all
+    - SSE notify `web2:cart` cross-tab sync
+- [`render.com/routes/web2-products.js`](../render.com/routes/web2-products.js): POST `/` require `supplier` non-empty + endpoint mới `POST /backfill-supplier` với prefixMap để fill SP cũ chưa có supplier
+- Mount `/api/v2/cart` trong server.js + init SSE notifier
+
+**Frontend** (commit `741e2203a`):
+
+- [`tpos-pancake/css/inventory-panel.css`](../tpos-pancake/css/inventory-panel.css) (~340 dòng): switcher gradient, tabs NCC pill, product cards drag-friendly, drop hover, cart badge gradient amber, cart popover floating, toasts
+- [`tpos-pancake/js/pancake/inventory-panel.js`](../tpos-pancake/js/pancake/inventory-panel.js) (~370 dòng):
+    - Load NCC tabs từ Firestore `so_order_v2/main`
+    - Load SP từ `/api/web2-products/list?limit=2000`
+    - Filter ASCII-normalize exact supplier + AND-token search
+    - HTML5 drag/drop với `application/x-web2-product` MIME
+    - Cart API: add/remove/list/badge counts qua `/api/v2/cart`
+    - SSE subscribe `web2:cart` (badge refresh) + `web2:products` (SP list refresh debounce)
+    - Cart popover floating overlay
+- [`tpos-pancake/js/pancake/pancake-mode-switcher.js`](../tpos-pancake/js/pancake/pancake-mode-switcher.js) (~100 dòng):
+    - Non-invasive: poll-wrap `#pancakeContent` sau khi Pancake render shell
+    - 2 mode-content slots: chat (giữ pancake-chat-container nguyên) + kho (lazy init InventoryPanel khi switch lần đầu)
+    - State `localStorage.tpos_pancake_active_tab`, default `'kho'`
+
+**Status**: Backend deployed Render (auto), frontend đợi GH Pages deploy ~3 phút. Test: mở `tpos-pancake/index.html` → thấy mode switcher top Pancake column → default Kho → tabs HÀ NỘI/HƯƠNG CHÂU... → search "ao bi den" → kéo SP qua comment row → badge cart hiện 🛒N → click badge xem giỏ + xóa.
+
 ### [web2/products] feat: NCC dropdown từ so_order_v2 + auto-regen mã khi đổi NCC/Tên/Biến thể
 
 User: "phần NCC cho chọn dropdown lấy theo tất cả tên NCC trong sổ order chứ đừng cho nhập input" + "chọn biến thể, chỉnh sửa tên, NCC thì phải generator mã lại cho chính xác".
