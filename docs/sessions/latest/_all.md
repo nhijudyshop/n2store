@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0b33d0b` — feat(delivery-report): 2-mode UI — phuoc-authenticated full / others lite + triple-click expand
-**Last updated**: 2026-05-22 10:33:43 +07
-**Latest session**: [`RESUME:20260522-103343-0b33d0b`](../20260522-103343-0b33d0b.md)
-**Summary**: feat(delivery-report): 2-mode UI — phuoc-authenticated full / others lite + triple-click expand
+**Latest commit**: `eb7d449` — fix(delivery-report): stats follow active mode/tab — lite restricts to TOMATO+SHOP groups
+**Last updated**: 2026-05-22 10:37:57 +07
+**Latest session**: [`RESUME:20260522-103757-eb7d449`](../20260522-103757-eb7d449.md)
+**Summary**: fix(delivery-report): stats follow active mode/tab — lite restricts to TOMATO+SHOP groups
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 3 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
@@ -24,8 +24,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 10:33
-- [`docs/`](./docs.md) — updated 2026-05-22 10:33
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 10:37
+- [`docs/`](./docs.md) — updated 2026-05-22 10:37
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
