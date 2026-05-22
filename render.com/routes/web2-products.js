@@ -518,6 +518,13 @@ router.post('/', async (req, res) => {
         if (!b.code || !b.name) {
             return res.status(400).json({ error: 'code + name required' });
         }
+        // Web 2.0 rule (2026-05-22): SP mới BẮT BUỘC có supplier để filter tab NCC
+        // hoạt động đúng ở tpos-pancake inventory panel.
+        if (!b.supplier || !String(b.supplier).trim()) {
+            return res.status(400).json({
+                error: 'supplier (NCC) bắt buộc — chọn từ tab Sổ Order trước khi tạo SP',
+            });
+        }
         const now = Date.now();
         try {
             const r = await pool.query(
@@ -1160,6 +1167,40 @@ router.post('/confirm-purchase', async (req, res) => {
     } catch (e) {
         console.error('[WEB2-PRODUCTS] confirm-purchase error:', e.message);
         res.status(500).json({ error: e.message });
+    }
+});
+
+// Backfill supplier cho SP cũ chưa có supplier field.
+// Body: { prefixMap: { 'HN': 'HÀ NỘI', 'HC': 'HƯƠNG CHÂU', 'HC1': 'HẢI CHÂU', ... } }
+// Match longer prefix first (HC1 trước HC để tránh prefix collision).
+router.post('/backfill-supplier', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        const prefixMap = (req.body && req.body.prefixMap) || {};
+        const entries = Object.entries(prefixMap).sort((a, b) => b[0].length - a[0].length);
+        if (!entries.length) {
+            return res.status(400).json({ error: 'prefixMap rỗng' });
+        }
+        let updated = 0;
+        const perPrefix = {};
+        for (const [prefix, supplier] of entries) {
+            const r = await pool.query(
+                `UPDATE web2_products
+                 SET supplier = $1, updated_at = $2
+                 WHERE (supplier IS NULL OR supplier = '')
+                   AND code LIKE $3
+                 RETURNING code`,
+                [supplier, Date.now(), prefix + '%']
+            );
+            perPrefix[prefix] = { supplier, updated: r.rowCount };
+            updated += r.rowCount;
+        }
+        _notify('backfill-supplier', null);
+        res.json({ success: true, total: updated, perPrefix });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] backfill-supplier error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

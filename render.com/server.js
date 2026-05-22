@@ -486,6 +486,8 @@ const web2InventoryForecastRoutes = require('./routes/v2/inventory-forecast');
 app.use('/api/v2/inventory-forecast', web2InventoryForecastRoutes); // WEB2.0 forecast (F11)
 const web2Supplier360Routes = require('./routes/v2/supplier-360');
 app.use('/api/v2/supplier-360', web2Supplier360Routes); // WEB2.0 NCC 360 (F07)
+const web2CartRoutes = require('./routes/v2/cart');
+app.use('/api/v2/cart', web2CartRoutes); // WEB2.0 Pancake comment cart (drag-drop SP)
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
 app.use(
@@ -567,6 +569,9 @@ if (web2NotificationsRoutes.initializeNotifiers) {
 }
 if (web2DashboardRoutes.initializeNotifiers) {
     web2DashboardRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+if (web2CartRoutes.initializeNotifiers) {
+    web2CartRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in order-notes routes
