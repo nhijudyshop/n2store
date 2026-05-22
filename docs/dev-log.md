@@ -25,6 +25,36 @@
 
 ## 2026-05-22
 
+### [web2] fix: 5 vòng debug backend + frontend cho 12 features mới — test sạch
+
+User request: "Browser test lại các tính năng mới vừa thêm → tự debug, test lỗi → commit push lặp lại tới khi hết lỗi hoàn toàn".
+
+**Quy trình**: persistent Playwright session (localhost:8765) → nav 11 trang → eval state + console.error + netlast → fix → commit + push → đợi Render auto-deploy (~2 phút) → re-test → lặp.
+
+**5 vòng fix**:
+
+1. `req.app.locals.pool` → `req.app.locals.chatDb` ở 7 route v2 (notifications/audit-log/supplier-aging/dashboard-kpi/smart-match/inventory-forecast/supplier-360) — undefined pool → 500. Commit `4e4ed9564`.
+2. `web2_products.active` → `is_active` (column thực tế) ở 3 route + supplier-aging rewrite dùng `final_amount + status IN (DRAFT/CONFIRMED/PARTIAL/PENDING)` thay vì `total_due` (không tồn tại). Commit `2a1610ddb`.
+3. `fast_sale_orders` field names: `date_created/date_invoice` (BIGINT epoch) không phải `created_at`, `partner_name/partner_phone` không phải `customer_*`. Bỏ `pick_state` (không có) — dùng `tracking_ref` placeholder. Commit `9e689ae9c`.
+4. `pbh_fulfillment_logs.event_type` → `action`, `wallet_adjustments.customer_phone` → `wrong_customer_phone`, `web2_balance_history.amount` → `transfer_amount`. Audit-log union cast `to_timestamp(BIGINT/1000.0)`. Commit `794039b2a`.
+5. Frontend: `variants-matrix` API trả `{variants:[{value, groupName, shortCode}]}` không phải `{items:[]}`. Mobile hamburger `.w2-mobile-menu-btn` mặc định `display:none` (trước hiện cả desktop). Commit `0cdca0fbf`.
+
+**Verified clean** (cuối):
+
+- 11 trang HTTP 200 (curl localhost:8765)
+- 10 API v2 trả `{"success":true}` qua CF proxy
+- Browser eval: errs=0 cho 7+ trang test interactively
+    - dashboard: KPI hiện 3 stock + 10 recent PBH + 2 chart
+    - audit-log: 43 rows real data
+    - supplier-aging: 1 NCC nợ 1.440.000đ
+    - inventory-forecast: 52 rows
+    - notifications: 5 rows từ scan
+    - smart-match: GD #4546 load OK
+    - variants-matrix: 28 sizes + 80 colors, build 2×2 = 4 cells
+- Sidebar: 26 item badge "- WEB 2.0", group "Tính năng mới" expand OK, hamburger ẩn desktop
+
+**Status**: ✅ All 12 features clean. KHÔNG đụng web 1.0.
+
 ### [balance-history] Fix: Live Mode "Xác nhận" auto-matched không nhảy qua Kế Toán Chờ Duyệt
 
 **Bug user báo**: NV bấm "Xác nhận" ở Live Mode (cards "Tự động gán") → GD chỉ bị ẩn khỏi kanban, KHÔNG xuất hiện ở tab Kế Toán → Chờ Duyệt.
