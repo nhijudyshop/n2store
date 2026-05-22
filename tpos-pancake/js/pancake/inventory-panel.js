@@ -311,9 +311,6 @@
         return { id: u.uid || u.email || null, name: u.displayName || u.email || null };
     }
 
-    // Pending commit timers — commentId → setTimeout handle (5s)
-    const _pendingCommits = new Map();
-
     function _resolveCommitContext(commentId, row, customer) {
         const ctx = {
             fbUserId: customer?.id || null,
@@ -348,26 +345,12 @@
         return ctx;
     }
 
-    async function _doCommit(commentId, ctx) {
-        try {
-            const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/commit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ ...ctx, user: _user() }),
-            });
-            const d = await r.json();
-            if (d.success) {
-                console.log('[InventoryPanel] commit OK:', d.native_order_code);
-            }
-        } catch (e) {
-            console.warn('[InventoryPanel] commit fail:', e.message);
-        }
-    }
-
     // groupKey = customerId (fbUserId) — cart gắn theo khách (URL param + cart key).
     // commentIdMeta = comment_id thật của row vừa drop — dùng để resolve FB page/post
     // từ TposState.comments + truyền xuống native_order.fb_comment_id (audit + chat link).
+    //
+    // SAU REFACTOR 2026-05-22: backend /add ghi thẳng vào native_orders.products
+    // ngay → không còn commit timer. 5s undo chỉ là UX window — undo = call /remove.
     async function addToCart(groupKey, product, customer, commentIdMeta) {
         const commentId = groupKey;
         // Optimistic: tăng badge ngay (rollback nếu API fail)
@@ -379,9 +362,7 @@
         };
         renderBadges();
 
-        // ⚠ Resolve FB context theo commentIdMeta (comment thật), KHÔNG phải groupKey (fbUserId).
-        // Resolve TRƯỚC khi POST /add để backend tự heal native_order broken (fb_page_id NULL)
-        // nếu cart đã linked với native_order_code cũ.
+        // Resolve FB context để backend tạo native_order nếu chưa có (lần drag đầu cho KH).
         const realCommentId = commentIdMeta || commentId;
         const row = document.querySelector(
             `.tpos-conversation-item[data-comment-id="${CSS.escape(realCommentId)}"]`
@@ -399,7 +380,6 @@
                     customer,
                     user: _user(),
                     qty: 1,
-                    // FB context cho backend self-heal native_order khi cart đã linked
                     fbContext: {
                         fbUserId: ctx.fbUserId,
                         fbUserName: ctx.fbUserName,
@@ -410,41 +390,20 @@
                         crmTeamId: ctx.crmTeamId,
                         liveCampaignId: ctx.liveCampaignId,
                         liveCampaignName: ctx.liveCampaignName,
+                        message: ctx.message,
                     },
                 }),
             });
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'unknown');
 
-            // Nếu native_order_code đã tồn tại (committed trước đó) → SP đã được sync
-            // sang native-orders tự động qua backend. Vẫn show toast Undo cho UX.
-            const alreadyCommitted = !!d.native_order_code;
-
-            // Schedule commit sau 5s nếu chưa committed (đơn mới chưa tạo)
-            if (!alreadyCommitted) {
-                if (_pendingCommits.has(commentId)) {
-                    clearTimeout(_pendingCommits.get(commentId));
-                }
-                const tHandle = setTimeout(() => {
-                    _pendingCommits.delete(commentId);
-                    _doCommit(commentId, ctx);
-                }, 5000);
-                _pendingCommits.set(commentId, tHandle);
-            }
-
-            // Show toast với Undo (5s)
+            // Show toast với Undo (5s) — undo = POST /remove → backend xóa khỏi
+            // products array (DELETE đơn nếu products rỗng).
             _showUndoToast({
                 title: wasEmpty
-                    ? `✓ Tạo đơn mới + thêm "${product.code}" (5s)`
-                    : alreadyCommitted
-                      ? `✓ Thêm "${product.code}" vào đơn`
-                      : `✓ Thêm "${product.code}" vào đơn nháp (5s)`,
+                    ? `✓ Tạo đơn mới + thêm "${product.code}"`
+                    : `✓ Thêm "${product.code}" vào đơn`,
                 onUndo: async () => {
-                    // Cancel pending commit nếu có
-                    if (_pendingCommits.has(commentId)) {
-                        clearTimeout(_pendingCommits.get(commentId));
-                        _pendingCommits.delete(commentId);
-                    }
                     await removeFromCart(commentId, product.code, { silent: true });
                     _showToast('↶ Đã hoàn tác', 'ok');
                 },
@@ -685,18 +644,20 @@
                     removeFromCart(commentId, code);
                 };
             });
-            // Xóa toàn bộ đơn — CÓ confirm
+            // Xóa toàn bộ đơn — CÓ confirm (Web2Popup, không phải native confirm)
             const clearBtn = pop.querySelector('.inv-cart-pop-clear');
             if (clearBtn) {
-                clearBtn.onclick = (e) => {
+                clearBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    if (
-                        confirm(
-                            `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`
-                        )
-                    ) {
-                        clearOrder(commentId);
-                    }
+                    const ok = global.Popup
+                        ? await global.Popup.confirm(
+                              `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`,
+                              { type: 'warning', okText: 'Xóa đơn', cancelText: 'Hủy' }
+                          )
+                        : confirm(
+                              `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`
+                          );
+                    if (ok) clearOrder(commentId);
                 };
             }
             // Lịch sử cart
@@ -841,6 +802,13 @@
             const cid = msg?.data?.commentId;
             if (cid) refreshCartCounts([cid]);
             else refreshCartCounts();
+        });
+        // Sau refactor 1-nguồn: native_orders.products là source. Khi modal
+        // Đơn Web edit/delete/PATCH products → backend fire web2:native-orders →
+        // TPOS panel cart badge phải re-fetch counts để đồng bộ.
+        global.Web2SSE.subscribe('web2:native-orders', () => {
+            clearTimeout(_subscribeSSE._noTimer);
+            _subscribeSSE._noTimer = setTimeout(() => refreshCartCounts(), 200);
         });
         // SP update → reload list
         global.Web2SSE.subscribe('web2:products', () => {

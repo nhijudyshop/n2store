@@ -1,16 +1,22 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
-// WEB 2.0 — Cart per CUSTOMER (gắn theo khách, không phải comment)
-// Trang tpos-pancake panel "Kho SP" → kéo thả SP vào TPOS comment → giỏ hàng
-// được lưu Postgres để KHÔNG mất data + cross-tab/cross-machine sync qua SSE.
+// WEB 2.0 — Giỏ TPOS panel = native_orders.products (status='draft')
 //
-// LƯU Ý SEMANTIC: cột `comment_id` trong web2_cart_items thực ra LƯU customerId
-// (fbUserId). Một customer có nhiều comment trong TPOS → cùng 1 cart. Frontend
-// pass customer.id làm URL param `:commentId` (rename `:customerId` trong code mới).
+// REFACTOR 2026-05-22: 1 nguồn dữ liệu — giỏ TPOS panel + Đơn Web (modal/list) đều
+// đọc/ghi cùng `native_orders.products`. Bỏ web2_cart_items (legacy, không còn ghi).
+//
+// Lý do: trước đây cart_items ↔ native_orders.products là 2 nguồn, mỗi action phải
+// sync 2 chiều → sinh bug stale noc, dual-write race. Khi PBH tạo, ta chỉ cần
+// chuyển native_order.status → 'confirmed' (đã có sẵn ở fast-sale-orders.js) →
+// TPOS panel tự ẩn (filter status='draft').
+//
+// URL semantic GIỮ NGUYÊN backward-compat:
+//   :commentId trong URL = customerId (fbUserId). Frontend pass `customer.id`.
+//   Một customer N TPOS comments → 1 draft order = 1 cart.
 //
 // Tables:
-//   web2_cart_items     — active SP đang trong giỏ (UNIQUE customer_id + product_code, qty++)
-//   web2_cart_history   — append-only log mọi add/remove/qty-change
+//   native_orders            — source of truth (products JSONB + status)
+//   web2_cart_history        — append-only audit log mọi add/remove/clear/PBH
 // =====================================================
 
 const express = require('express');
@@ -25,34 +31,6 @@ let _migrationDone = false;
 async function ensureSchema(pool) {
     if (_migrationDone || !pool) return;
     await pool.query(`
-        CREATE TABLE IF NOT EXISTS web2_cart_items (
-            id BIGSERIAL PRIMARY KEY,
-            comment_id TEXT NOT NULL,
-            customer_id TEXT,
-            customer_name TEXT,
-            customer_phone TEXT,
-            page_id TEXT,
-            product_code TEXT NOT NULL,
-            product_name TEXT,
-            product_image_url TEXT,
-            price NUMERIC DEFAULT 0,
-            qty INTEGER NOT NULL DEFAULT 1,
-            added_by_id TEXT,
-            added_by_name TEXT,
-            added_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW(),
-            removed_at TIMESTAMPTZ,
-            native_order_code VARCHAR(40),
-            committed_at TIMESTAMPTZ,
-            CONSTRAINT uq_w2_cart_comment_code UNIQUE (comment_id, product_code)
-        );
-        -- Migration: add columns nếu bảng đã có (idempotent)
-        ALTER TABLE web2_cart_items ADD COLUMN IF NOT EXISTS native_order_code VARCHAR(40);
-        ALTER TABLE web2_cart_items ADD COLUMN IF NOT EXISTS committed_at TIMESTAMPTZ;
-        CREATE INDEX IF NOT EXISTS idx_w2_cart_comment_active
-            ON web2_cart_items(comment_id) WHERE removed_at IS NULL;
-        CREATE INDEX IF NOT EXISTS idx_w2_cart_added ON web2_cart_items(added_at DESC);
-
         CREATE TABLE IF NOT EXISTS web2_cart_history (
             id BIGSERIAL PRIMARY KEY,
             comment_id TEXT NOT NULL,
@@ -75,16 +53,7 @@ async function ensureSchema(pool) {
             ON web2_cart_history(created_at DESC);
     `);
     _migrationDone = true;
-    console.log('[web2-cart] schema ready');
-    // Trigger 1st cleanup ngay sau schema ready
-    _autoCleanupOldItems(pool).catch(() => {});
-    // Schedule cleanup mỗi 6 giờ
-    if (!ensureSchema._cleanupTimer) {
-        ensureSchema._cleanupTimer = setInterval(
-            () => _autoCleanupOldItems(pool).catch(() => {}),
-            6 * 60 * 60 * 1000
-        );
-    }
+    console.log('[web2-cart] schema ready (history-only, products live in native_orders)');
 }
 
 router.use(async (req, res, next) => {
@@ -96,59 +65,22 @@ router.use(async (req, res, next) => {
     }
 });
 
-function _notify(commentId) {
+function _notifyCart(customerId) {
     if (!_notifyClients) return;
     try {
-        _notifyClients('web2:cart', { commentId, ts: Date.now() }, 'update');
+        _notifyClients('web2:cart', { commentId: customerId, ts: Date.now() }, 'update');
     } catch {}
 }
 
-// Sync cart_items → native_orders.products. Gọi sau mỗi thay đổi (add/remove/qty).
-// Idempotent: lấy hết items active của comment, replace products array của native_order.
-async function _syncNativeOrderProducts(pool, commentId, nativeOrderCode) {
-    if (!nativeOrderCode) return;
+function _notifyNativeOrders(action, code) {
+    if (!_notifyClients) return;
     try {
-        const itemsRs = await pool.query(
-            `SELECT product_code, product_name, product_image_url, price, qty
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND removed_at IS NULL
-             ORDER BY added_at ASC`,
-            [commentId]
+        _notifyClients(
+            'web2:native-orders',
+            { action, code: code || null, ts: Date.now() },
+            'update'
         );
-        const products = itemsRs.rows.map((it) => ({
-            code: it.product_code,
-            name: it.product_name,
-            imageUrl: it.product_image_url,
-            price: Number(it.price) || 0,
-            qty: Number(it.qty) || 1,
-        }));
-        const totalQty = products.reduce((s, p) => s + (Number(p.qty) || 0), 0);
-        const totalAmount = products.reduce(
-            (s, p) => s + (Number(p.price) || 0) * (Number(p.qty) || 0),
-            0
-        );
-        await pool.query(
-            `UPDATE native_orders
-             SET products = $1::jsonb,
-                 total_quantity = $2,
-                 total_amount = $3,
-                 updated_at = $4
-             WHERE code = $5`,
-            [JSON.stringify(products), totalQty, totalAmount, Date.now(), nativeOrderCode]
-        );
-        // Notify native-orders SSE để page native-orders refresh
-        if (_notifyClients) {
-            try {
-                _notifyClients(
-                    'web2:native-orders',
-                    { action: 'update', code: nativeOrderCode, ts: Date.now() },
-                    'update'
-                );
-            } catch {}
-        }
-    } catch (e) {
-        console.warn('[web2-cart] sync native-order products fail:', e.message);
-    }
+    } catch {}
 }
 
 async function _logHistory(pool, payload) {
@@ -177,26 +109,121 @@ async function _logHistory(pool, payload) {
     }
 }
 
-// GET /cart/:commentId — list active items
+// Lấy giá trị qty từ product (chấp nhận cả 'quantity' lẫn 'qty' cho back-compat
+// với native-orders modal cũ ghi 'quantity' và cart cũ ghi 'qty').
+function _qtyOf(p) {
+    const n = Number(p?.quantity ?? p?.qty);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function _totalsOf(products) {
+    let qty = 0,
+        amt = 0;
+    for (const p of products || []) {
+        const q = _qtyOf(p);
+        qty += q;
+        amt += q * (Number(p.price) || 0);
+    }
+    return { qty, amt };
+}
+
+// Build product object cho native_orders.products[].
+// Ghi CẢ `quantity` lẫn `qty` để vừa khớp native-orders modal (quantity) vừa
+// khớp legacy PBH/sync code (qty). Khi đọc luôn dùng _qtyOf().
+function _buildProduct(input, qty, user) {
+    return {
+        code: input.code,
+        name: input.name || null,
+        imageUrl: input.imageUrl || input.image_url || null,
+        price: Number(input.price) || 0,
+        quantity: qty,
+        qty: qty,
+        addedAt: Date.now(),
+        addedBy: user?.name || null,
+    };
+}
+
+// Tìm draft native_order theo customerId (= fb_user_id).
+// Đây là source of truth cho TPOS panel cart.
+async function _findDraft(pool, customerId) {
+    const r = await pool.query(
+        `SELECT * FROM native_orders
+         WHERE fb_user_id = $1 AND status = 'draft'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [customerId]
+    );
+    return r.rows[0] || null;
+}
+
+// Tạo draft native_order qua /from-comment (đầy đủ self-heal + idempotency check)
+// Loopback HTTP để dùng đúng business rules của native-orders.
+async function _createDraftViaFromComment(req, customerId, customer, fbContext, user) {
+    const NATIVE_API =
+        req.app.locals.web2BaseUrl ||
+        process.env.SELF_URL ||
+        'http://localhost:' + (process.env.PORT || 3000);
+    const fc = fbContext || {};
+    const fetchFn = global.fetch || (await import('node-fetch')).default;
+    const r = await fetchFn(`${NATIVE_API}/api/native-orders/from-comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fbUserId: customerId,
+            fbUserName: customer?.name || fc.fbUserName || null,
+            fbPageId: fc.fbPageId || null,
+            fbPageName: fc.fbPageName || null,
+            fbPostId: fc.fbPostId || null,
+            fbCommentId: fc.fbCommentId || null,
+            crmTeamId: fc.crmTeamId || null,
+            liveCampaignId: fc.liveCampaignId || null,
+            liveCampaignName: fc.liveCampaignName || null,
+            message: fc.message || '',
+            phone: customer?.phone || '',
+            address: '',
+            createdBy: user?.id || null,
+            createdByName: user?.name || null,
+        }),
+    });
+    const data = await r.json();
+    if (!data?.order) throw new Error('from-comment did not return order');
+    return data.order;
+}
+
+// =====================================================
+// READ endpoints
+// =====================================================
+
+// GET /:commentId — list items trong cart (= products array của draft native_order)
 router.get('/:commentId', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const r = await pool.query(
-            `SELECT id, comment_id, customer_id, customer_name, customer_phone, page_id,
-                    product_code, product_name, product_image_url, price, qty,
-                    added_by_id, added_by_name, added_at, updated_at
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND removed_at IS NULL
-             ORDER BY added_at ASC`,
-            [req.params.commentId]
-        );
-        res.json({ success: true, items: r.rows });
+        const draft = await _findDraft(pool, req.params.commentId);
+        if (!draft) return res.json({ success: true, items: [], native_order_code: null });
+        const items = (draft.products || []).map((p) => ({
+            id: p.code,
+            comment_id: req.params.commentId,
+            customer_id: req.params.commentId,
+            customer_name: draft.customer_name || draft.fb_user_name,
+            customer_phone: draft.phone,
+            page_id: draft.fb_page_id,
+            product_code: p.code,
+            product_name: p.name,
+            product_image_url: p.imageUrl || p.image_url,
+            price: Number(p.price) || 0,
+            qty: _qtyOf(p),
+            added_by_name: p.addedBy || null,
+            added_at: p.addedAt ? new Date(p.addedAt).toISOString() : null,
+            native_order_code: draft.code,
+        }));
+        res.json({ success: true, items, native_order_code: draft.code });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
-// GET /counts?commentIds=a,b,c — batch counts cho badge
+// GET /batch/counts?commentIds=fbUid1,fbUid2,...
+// Trả qty của draft order cho mỗi customer (fbUserId).
 router.get('/batch/counts', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
@@ -206,15 +233,18 @@ router.get('/batch/counts', async (req, res) => {
             .filter(Boolean);
         if (!ids.length) return res.json({ success: true, counts: {} });
         const r = await pool.query(
-            `SELECT comment_id, COUNT(*)::int AS c, SUM(qty)::int AS total_qty
-             FROM web2_cart_items
-             WHERE comment_id = ANY($1::text[]) AND removed_at IS NULL
-             GROUP BY comment_id`,
+            `SELECT fb_user_id, products, total_quantity
+             FROM native_orders
+             WHERE fb_user_id = ANY($1::text[]) AND status = 'draft'`,
             [ids]
         );
         const counts = {};
         for (const row of r.rows) {
-            counts[row.comment_id] = { items: row.c, qty: row.total_qty };
+            const fbUid = row.fb_user_id;
+            const products = Array.isArray(row.products) ? row.products : [];
+            const totalQty =
+                Number(row.total_quantity) || products.reduce((s, p) => s + _qtyOf(p), 0);
+            counts[fbUid] = { items: products.length, qty: totalQty };
         }
         res.json({ success: true, counts });
     } catch (e) {
@@ -222,8 +252,12 @@ router.get('/batch/counts', async (req, res) => {
     }
 });
 
-// POST /cart/:commentId/add  body: { product, customer, user, page_id }
-// Upsert (qty++ nếu đã có)
+// =====================================================
+// WRITE endpoints — direct mutation trên native_orders.products
+// =====================================================
+
+// POST /:commentId/add  body: { product, customer, user, qty?, fbContext, page_id? }
+// Tạo draft order nếu chưa có + append SP vào products array.
 router.post('/:commentId/add', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
@@ -234,70 +268,62 @@ router.post('/:commentId/add', async (req, res) => {
         const cust = b.customer || {};
         const user = b.user || {};
         const qtyAdd = Number(b.qty) || 1;
-        const commentId = req.params.commentId;
+        const customerId = req.params.commentId;
 
-        // Get existing (incl removed) để xử lý qty + un-soft-delete
-        const existing = await pool.query(
-            `SELECT id, qty, removed_at FROM web2_cart_items
-             WHERE comment_id = $1 AND product_code = $2`,
-            [commentId, p.code]
-        );
-
-        let qtyBefore = 0;
-        let qtyAfter = qtyAdd;
-        if (existing.rowCount > 0) {
-            const row = existing.rows[0];
-            qtyBefore = row.removed_at ? 0 : Number(row.qty) || 0;
-            qtyAfter = qtyBefore + qtyAdd;
-            await pool.query(
-                `UPDATE web2_cart_items
-                 SET qty = $1, removed_at = NULL, updated_at = NOW(),
-                     product_name = COALESCE($2, product_name),
-                     product_image_url = COALESCE($3, product_image_url),
-                     price = COALESCE($4, price),
-                     customer_name = COALESCE($5, customer_name),
-                     customer_phone = COALESCE($6, customer_phone),
-                     customer_id = COALESCE($7, customer_id),
-                     page_id = COALESCE($8, page_id)
-                 WHERE id = $9`,
-                [
-                    qtyAfter,
-                    p.name || null,
-                    p.imageUrl || p.image_url || null,
-                    Number(p.price) || null,
-                    cust.name || null,
-                    cust.phone || null,
-                    cust.id || null,
-                    b.page_id || null,
-                    row.id,
-                ]
+        // 1. Lấy hoặc tạo draft
+        let draft = await _findDraft(pool, customerId);
+        if (!draft) {
+            const order = await _createDraftViaFromComment(
+                req,
+                customerId,
+                cust,
+                b.fbContext,
+                user
             );
-        } else {
-            await pool.query(
-                `INSERT INTO web2_cart_items
-                 (comment_id, customer_id, customer_name, customer_phone, page_id,
-                  product_code, product_name, product_image_url, price, qty,
-                  added_by_id, added_by_name)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-                [
-                    commentId,
-                    cust.id || null,
-                    cust.name || null,
-                    cust.phone || null,
-                    b.page_id || null,
-                    p.code,
-                    p.name || null,
-                    p.imageUrl || p.image_url || null,
-                    Number(p.price) || 0,
-                    qtyAdd,
-                    user.id || null,
-                    user.name || null,
-                ]
-            );
+            // Re-fetch row để có raw DB shape (products JSONB)
+            const r = await pool.query('SELECT * FROM native_orders WHERE code = $1', [order.code]);
+            draft = r.rows[0];
+        }
+        if (!draft) {
+            return res.status(500).json({ success: false, error: 'failed to obtain draft order' });
         }
 
+        // 2. Merge SP vào products (qty++ nếu trùng code)
+        const products = Array.isArray(draft.products) ? [...draft.products] : [];
+        const idx = products.findIndex((x) => x.code === p.code);
+        let qtyBefore = 0;
+        let qtyAfter;
+        if (idx >= 0) {
+            qtyBefore = _qtyOf(products[idx]);
+            qtyAfter = qtyBefore + qtyAdd;
+            products[idx] = {
+                ...products[idx],
+                name: products[idx].name || p.name || null,
+                imageUrl: products[idx].imageUrl || p.imageUrl || p.image_url || null,
+                price: Number(p.price) || products[idx].price || 0,
+                quantity: qtyAfter,
+                qty: qtyAfter,
+                addedAt: Date.now(),
+                addedBy: user.name || products[idx].addedBy,
+            };
+        } else {
+            qtyAfter = qtyAdd;
+            products.push(_buildProduct(p, qtyAdd, user));
+        }
+        const t = _totalsOf(products);
+
+        await pool.query(
+            `UPDATE native_orders
+             SET products = $1::jsonb,
+                 total_quantity = $2,
+                 total_amount = $3,
+                 updated_at = $4
+             WHERE code = $5`,
+            [JSON.stringify(products), t.qty, t.amt, Date.now(), draft.code]
+        );
+
         await _logHistory(pool, {
-            comment_id: commentId,
+            comment_id: customerId,
             customer_name: cust.name,
             customer_phone: cust.phone,
             page_id: b.page_id,
@@ -310,62 +336,13 @@ router.post('/:commentId/add', async (req, res) => {
             user_name: user.name,
         });
 
-        // Nếu comment đã có native_order_code linked với row ACTIVE (chưa removed) → sync products.
-        // KHÔNG kế thừa noc từ row đã soft-deleted (clear cart trước đó) — order đó đã DELETE.
-        const existingNoc = await pool.query(
-            `SELECT native_order_code FROM web2_cart_items
-             WHERE comment_id = $1 AND native_order_code IS NOT NULL
-               AND removed_at IS NULL LIMIT 1`,
-            [commentId]
-        );
-        const noc = existingNoc.rows[0]?.native_order_code;
-        if (noc) {
-            // Mark new item as committed too
-            await pool.query(
-                `UPDATE web2_cart_items SET native_order_code = $1, committed_at = NOW()
-                 WHERE comment_id = $2 AND product_code = $3`,
-                [noc, commentId, p.code]
-            );
-            await _syncNativeOrderProducts(pool, commentId, noc);
-            // Self-heal native_order khi cart đã linked nhưng order broken
-            // (fb_page_id NULL từ window bug 2026-05-22 trước fix 6b05bc3cb).
-            // COALESCE-update FB context — KHÔNG override nếu đã có giá trị.
-            const fc = b.fbContext || {};
-            if (fc.fbPageId || fc.fbPostId || fc.fbCommentId) {
-                try {
-                    await pool.query(
-                        `UPDATE native_orders SET
-                            fb_user_name = COALESCE(fb_user_name, $2),
-                            fb_page_id   = COALESCE(fb_page_id,   $3),
-                            fb_page_name = COALESCE(fb_page_name, $4),
-                            fb_post_id   = COALESCE(fb_post_id,   $5),
-                            fb_comment_id= COALESCE(fb_comment_id,$6),
-                            crm_team_id  = COALESCE(crm_team_id,  $7),
-                            live_campaign_id   = COALESCE(live_campaign_id,   $8),
-                            live_campaign_name = COALESCE(live_campaign_name, $9),
-                            updated_at = $10
-                         WHERE code = $1`,
-                        [
-                            noc,
-                            fc.fbUserName || null,
-                            fc.fbPageId || null,
-                            fc.fbPageName || null,
-                            fc.fbPostId || null,
-                            fc.fbCommentId || null,
-                            fc.crmTeamId || null,
-                            fc.liveCampaignId || null,
-                            fc.liveCampaignName || null,
-                            Date.now(),
-                        ]
-                    );
-                } catch (e) {
-                    console.warn('[web2-cart] self-heal native_order fail:', e.message);
-                }
-            }
-        }
-
-        _notify(commentId);
-        res.json({ success: true, qty: qtyAfter, native_order_code: noc || null });
+        _notifyCart(customerId);
+        _notifyNativeOrders('update', draft.code);
+        res.json({
+            success: true,
+            qty: qtyAfter,
+            native_order_code: draft.code,
+        });
     } catch (e) {
         console.error('[web2-cart] add error:', e.message);
         res.status(500).json({ success: false, error: e.message });
@@ -373,142 +350,30 @@ router.post('/:commentId/add', async (req, res) => {
 });
 
 // POST /:commentId/:productCode/remove  body: { user }
+// Xóa SP khỏi products. Nếu products còn lại = [] → DELETE native_order.
 router.post('/:commentId/:productCode/remove', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const { commentId, productCode } = req.params;
+        const customerId = req.params.commentId;
+        const productCode = req.params.productCode;
         const user = (req.body && req.body.user) || {};
-        const existing = await pool.query(
-            `SELECT id, qty, product_name, customer_name, customer_phone, page_id, native_order_code
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND product_code = $2 AND removed_at IS NULL`,
-            [commentId, productCode]
-        );
-        if (!existing.rowCount) {
-            return res.json({ success: true, alreadyRemoved: true });
-        }
-        const row = existing.rows[0];
-        await pool.query(
-            `UPDATE web2_cart_items SET removed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [row.id]
-        );
-        await _logHistory(pool, {
-            comment_id: commentId,
-            customer_name: row.customer_name,
-            customer_phone: row.customer_phone,
-            page_id: row.page_id,
-            product_code: productCode,
-            product_name: row.product_name,
-            action: 'remove',
-            qty_before: row.qty,
-            qty_after: 0,
-            user_id: user.id,
-            user_name: user.name,
-        });
-        // Sync products array của native_order (xóa SP khỏi đơn)
-        if (row.native_order_code) {
-            await _syncNativeOrderProducts(pool, commentId, row.native_order_code);
-        }
-        _notify(commentId);
-        res.json({ success: true, native_order_code: row.native_order_code || null });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
 
-// POST /:commentId/commit
-// Sau 5s không undo → tạo native_order qua /api/native-orders/from-comment + PATCH products.
-// Body: { fbUserId, fbUserName, fbPageId, fbPageName, fbPostId, crmTeamId,
-//         liveCampaignId, liveCampaignName, message, phone, address, user }
-router.post('/:commentId/commit', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        const { commentId } = req.params;
-        const b = req.body || {};
+        const draft = await _findDraft(pool, customerId);
+        if (!draft) return res.json({ success: true, alreadyRemoved: true });
+        const products = Array.isArray(draft.products) ? draft.products : [];
+        const removed = products.find((p) => p.code === productCode);
+        if (!removed) return res.json({ success: true, alreadyRemoved: true });
+        const newProducts = products.filter((p) => p.code !== productCode);
 
-        // 1. Get active cart items
-        const cartRs = await pool.query(
-            `SELECT id, product_code, product_name, product_image_url, price, qty,
-                    customer_name, customer_phone, native_order_code
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND removed_at IS NULL
-             ORDER BY added_at ASC`,
-            [commentId]
-        );
-        if (!cartRs.rowCount) {
-            return res.json({ success: true, skipped: 'empty cart' });
-        }
-        const items = cartRs.rows;
-        let nativeOrderCode = items.find((r) => r.native_order_code)?.native_order_code || null;
-        const customer_name = items[0].customer_name || null;
-        const customer_phone = items[0].customer_phone || null;
-
-        // 2. Tạo native_order qua POST /api/native-orders/from-comment (idempotent)
-        if (!nativeOrderCode) {
-            const NATIVE_API =
-                req.app.locals.web2BaseUrl ||
-                process.env.SELF_URL ||
-                'http://localhost:' + (process.env.PORT || 3000);
-            // Gọi inline qua chính server (proxy localhost) — tránh CF/loopback round-trip
-            const nativeRouter = require('../native-orders');
-            // Use Pool query trực tiếp thay vì HTTP — gọi nội bộ nhanh hơn + đỡ flaky
-            // Tuy nhiên createFromComment có nhiều side-effect, cách an toàn nhất vẫn là HTTP loopback.
-            try {
-                const fetchFn = global.fetch || (await import('node-fetch')).default;
-                const r = await fetchFn(`${NATIVE_API}/api/native-orders/from-comment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fbUserId: b.fbUserId,
-                        fbUserName: b.fbUserName,
-                        fbPageId: b.fbPageId,
-                        fbPageName: b.fbPageName,
-                        fbPostId: b.fbPostId,
-                        // commentId URL param = customerId (fbUserId) sau khi refactor
-                        // cart-per-customer. fb_comment_id thật phải lấy từ body.fbCommentId.
-                        fbCommentId: b.fbCommentId || null,
-                        crmTeamId: b.crmTeamId,
-                        liveCampaignId: b.liveCampaignId,
-                        liveCampaignName: b.liveCampaignName,
-                        message: b.message || '',
-                        phone: b.phone || customer_phone || '',
-                        address: b.address || '',
-                        createdBy: (b.user && b.user.id) || null,
-                        createdByName: (b.user && b.user.name) || null,
-                    }),
-                });
-                const data = await r.json();
-                if (data?.order?.code) {
-                    nativeOrderCode = data.order.code;
-                } else {
-                    return res.status(500).json({
-                        success: false,
-                        error: 'createFromComment did not return order code',
-                        upstream: data,
-                    });
-                }
-            } catch (e) {
-                return res.status(500).json({
-                    success: false,
-                    error: 'native-orders createFromComment failed: ' + e.message,
-                });
-            }
-        }
-
-        // 3. PATCH products vào native_order: replace products array với items hiện tại
-        try {
-            const products = items.map((it) => ({
-                code: it.product_code,
-                name: it.product_name,
-                imageUrl: it.product_image_url,
-                price: Number(it.price) || 0,
-                qty: Number(it.qty) || 1,
-            }));
-            const totalQty = products.reduce((s, p) => s + (Number(p.qty) || 0), 0);
-            const totalAmount = products.reduce(
-                (s, p) => s + (Number(p.price) || 0) * (Number(p.qty) || 0),
-                0
-            );
+        let nativeOrderCode = draft.code;
+        let nativeDeleted = false;
+        if (newProducts.length === 0) {
+            // Cart rỗng → xóa luôn native_order (UX: kéo nhầm rồi undo → đơn biến mất)
+            await pool.query(`DELETE FROM native_orders WHERE code = $1`, [draft.code]);
+            nativeDeleted = true;
+            _notifyNativeOrders('delete', draft.code);
+        } else {
+            const t = _totalsOf(newProducts);
             await pool.query(
                 `UPDATE native_orders
                  SET products = $1::jsonb,
@@ -516,104 +381,28 @@ router.post('/:commentId/commit', async (req, res) => {
                      total_amount = $3,
                      updated_at = $4
                  WHERE code = $5`,
-                [JSON.stringify(products), totalQty, totalAmount, Date.now(), nativeOrderCode]
+                [JSON.stringify(newProducts), t.qty, t.amt, Date.now(), draft.code]
             );
-        } catch (e) {
-            console.warn('[web2-cart commit] PATCH products fail:', e.message);
+            _notifyNativeOrders('update', draft.code);
         }
 
-        // 4. Mark cart items committed + store native_order_code
-        await pool.query(
-            `UPDATE web2_cart_items
-             SET native_order_code = $1, committed_at = NOW(), updated_at = NOW()
-             WHERE comment_id = $2 AND removed_at IS NULL`,
-            [nativeOrderCode, commentId]
-        );
-
-        _notify(commentId);
-        if (_notifyClients) {
-            try {
-                _notifyClients(
-                    'web2:native-orders',
-                    { action: 'create', code: nativeOrderCode, ts: Date.now() },
-                    'update'
-                );
-            } catch {}
-        }
-        res.json({ success: true, native_order_code: nativeOrderCode, items: items.length });
-    } catch (e) {
-        console.error('[web2-cart] commit error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// POST /:commentId/clear  body: { user, reason? }
-// Xóa toàn bộ SP active của comment (xóa đơn). Soft delete + log mỗi item.
-router.post('/:commentId/clear', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        const { commentId } = req.params;
-        const user = (req.body && req.body.user) || {};
-        const reason = (req.body && req.body.reason) || 'clear-order';
-        const items = await pool.query(
-            `SELECT id, product_code, product_name, qty, customer_name, customer_phone, page_id, native_order_code
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND removed_at IS NULL`,
-            [commentId]
-        );
-        if (!items.rowCount) {
-            return res.json({ success: true, removed: 0 });
-        }
-        const nativeOrderCode = items.rows.find((r) => r.native_order_code)?.native_order_code;
-        // Clear cũng null out native_order_code → cart sau này sẽ thấy là "đơn mới"
-        // thay vì cố sync vào order đã DELETE.
-        await pool.query(
-            `UPDATE web2_cart_items
-             SET removed_at = NOW(), updated_at = NOW(), native_order_code = NULL
-             WHERE comment_id = $1 AND removed_at IS NULL`,
-            [commentId]
-        );
-        for (const row of items.rows) {
-            await _logHistory(pool, {
-                comment_id: commentId,
-                customer_name: row.customer_name,
-                customer_phone: row.customer_phone,
-                page_id: row.page_id,
-                product_code: row.product_code,
-                product_name: row.product_name,
-                action: 'clear-order',
-                qty_before: row.qty,
-                qty_after: 0,
-                user_id: user.id,
-                user_name: user.name,
-            });
-        }
-        // DELETE native_order nếu đã committed
-        let nativeDeleted = false;
-        if (nativeOrderCode) {
-            try {
-                const r = await pool.query(`DELETE FROM native_orders WHERE code = $1`, [
-                    nativeOrderCode,
-                ]);
-                nativeDeleted = r.rowCount > 0;
-                if (nativeDeleted && _notifyClients) {
-                    try {
-                        _notifyClients(
-                            'web2:native-orders',
-                            { action: 'delete', code: nativeOrderCode, ts: Date.now() },
-                            'update'
-                        );
-                    } catch {}
-                }
-            } catch (e) {
-                console.warn('[web2-cart clear] DELETE native_order fail:', e.message);
-            }
-        }
-        _notify(commentId);
+        await _logHistory(pool, {
+            comment_id: customerId,
+            customer_name: draft.customer_name,
+            customer_phone: draft.phone,
+            page_id: draft.fb_page_id,
+            product_code: productCode,
+            product_name: removed.name,
+            action: 'remove',
+            qty_before: _qtyOf(removed),
+            qty_after: 0,
+            user_id: user.id,
+            user_name: user.name,
+        });
+        _notifyCart(customerId);
         res.json({
             success: true,
-            removed: items.rowCount,
-            native_order_code: nativeOrderCode || null,
+            native_order_code: nativeOrderCode,
             native_deleted: nativeDeleted,
         });
     } catch (e) {
@@ -621,56 +410,128 @@ router.post('/:commentId/clear', async (req, res) => {
     }
 });
 
-// PATCH /:commentId/:productCode  body: { qty, user }
+// POST /:commentId/clear  body: { user, reason? }
+// Xóa hết SP của khách = DELETE draft native_order (tương đương xóa đơn).
+router.post('/:commentId/clear', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const customerId = req.params.commentId;
+        const user = (req.body && req.body.user) || {};
+        const reason = (req.body && req.body.reason) || 'clear-order';
+
+        const draft = await _findDraft(pool, customerId);
+        if (!draft) return res.json({ success: true, removed: 0 });
+        const products = Array.isArray(draft.products) ? draft.products : [];
+
+        await pool.query(`DELETE FROM native_orders WHERE code = $1`, [draft.code]);
+        _notifyNativeOrders('delete', draft.code);
+
+        for (const p of products) {
+            await _logHistory(pool, {
+                comment_id: customerId,
+                customer_name: draft.customer_name,
+                customer_phone: draft.phone,
+                page_id: draft.fb_page_id,
+                product_code: p.code,
+                product_name: p.name,
+                action: reason,
+                qty_before: _qtyOf(p),
+                qty_after: 0,
+                user_id: user.id,
+                user_name: user.name,
+            });
+        }
+        _notifyCart(customerId);
+        res.json({
+            success: true,
+            removed: products.length,
+            native_order_code: draft.code,
+            native_deleted: true,
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// PATCH /:commentId/:productCode  body: { qty, user }  — update qty cho 1 SP
 router.patch('/:commentId/:productCode', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const { commentId, productCode } = req.params;
+        const customerId = req.params.commentId;
+        const productCode = req.params.productCode;
         const b = req.body || {};
         const user = b.user || {};
         const newQty = Math.max(1, Number(b.qty) || 1);
-        const existing = await pool.query(
-            `SELECT id, qty, product_name, customer_name, customer_phone, page_id
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND product_code = $2 AND removed_at IS NULL`,
-            [commentId, productCode]
+
+        const draft = await _findDraft(pool, customerId);
+        if (!draft) return res.status(404).json({ success: false, error: 'no draft order' });
+        const products = Array.isArray(draft.products) ? [...draft.products] : [];
+        const idx = products.findIndex((p) => p.code === productCode);
+        if (idx < 0) return res.status(404).json({ success: false, error: 'product not in cart' });
+        const qtyBefore = _qtyOf(products[idx]);
+        products[idx] = {
+            ...products[idx],
+            quantity: newQty,
+            qty: newQty,
+            updatedAt: Date.now(),
+        };
+        const t = _totalsOf(products);
+        await pool.query(
+            `UPDATE native_orders
+             SET products = $1::jsonb,
+                 total_quantity = $2,
+                 total_amount = $3,
+                 updated_at = $4
+             WHERE code = $5`,
+            [JSON.stringify(products), t.qty, t.amt, Date.now(), draft.code]
         );
-        if (!existing.rowCount) {
-            return res.status(404).json({ success: false, error: 'not in cart' });
-        }
-        const row = existing.rows[0];
-        const qtyBefore = Number(row.qty) || 0;
-        await pool.query(`UPDATE web2_cart_items SET qty = $1, updated_at = NOW() WHERE id = $2`, [
-            newQty,
-            row.id,
-        ]);
+
         await _logHistory(pool, {
-            comment_id: commentId,
-            customer_name: row.customer_name,
-            customer_phone: row.customer_phone,
-            page_id: row.page_id,
+            comment_id: customerId,
+            customer_name: draft.customer_name,
+            customer_phone: draft.phone,
+            page_id: draft.fb_page_id,
             product_code: productCode,
-            product_name: row.product_name,
+            product_name: products[idx].name,
             action: 'qty-change',
             qty_before: qtyBefore,
             qty_after: newQty,
             user_id: user.id,
             user_name: user.name,
         });
-        _notify(commentId);
-        res.json({ success: true, qty: newQty });
+        _notifyCart(customerId);
+        _notifyNativeOrders('update', draft.code);
+        res.json({ success: true, qty: newQty, native_order_code: draft.code });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
-// GET /:commentId/history?limit=200
+// POST /:commentId/commit — DEPRECATED no-op (back-compat).
+// Trước đây fire sau 5s undo để chuyển từ cart_items → native_order. Bây giờ /add
+// ghi thẳng vào native_orders nên không cần commit nữa. Vẫn return success cho
+// frontend cũ chưa update.
+router.post('/:commentId/commit', async (req, res) => {
+    const draft = await _findDraft(req.app.locals.chatDb, req.params.commentId);
+    res.json({
+        success: true,
+        deprecated: true,
+        native_order_code: draft?.code || null,
+        items: Array.isArray(draft?.products) ? draft.products.length : 0,
+    });
+});
+
+// =====================================================
+// History
+// =====================================================
+
+// GET /:commentId/history?limit=N
 router.get('/:commentId/history', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 200, 1000);
         const r = await pool.query(
-            `SELECT id, comment_id, customer_name, customer_phone, product_code, product_name,
+            `SELECT id, customer_name, customer_phone, product_code, product_name,
                     action, qty_before, qty_after, user_name, created_at
              FROM web2_cart_history
              WHERE comment_id = $1
@@ -704,68 +565,50 @@ router.get('/history/all', async (req, res) => {
 });
 
 // =====================================================
-// Auto-cleanup: cart_items > 15 ngày → hard delete (giải phóng DB).
-// History (15+ ngày) vẫn giữ nguyên — bảng append-only cho audit.
-// Chạy mỗi 6h một lần qua setInterval khi module load + 1 lần khi schema ready.
-// =====================================================
-async function _autoCleanupOldItems(pool) {
-    if (!pool) return;
-    try {
-        const r = await pool.query(
-            `DELETE FROM web2_cart_items
-             WHERE added_at < NOW() - INTERVAL '15 days'
-                OR (removed_at IS NOT NULL AND removed_at < NOW() - INTERVAL '15 days')`
-        );
-        if (r.rowCount > 0) {
-            console.log(`[web2-cart] auto-cleanup deleted ${r.rowCount} items > 15 days`);
-        }
-    } catch (e) {
-        console.warn('[web2-cart] auto-cleanup fail:', e.message);
-    }
-}
-
 // Helper exported — gọi từ fast-sale-orders khi PBH tạo thành công.
-// Soft delete toàn bộ cart items active của customer (fbUserId làm group key).
+//
+// SAU REFACTOR: PBH route đã UPDATE native_orders.status = 'confirmed' rồi nên
+// TPOS panel tự ẩn (filter status='draft'). Hàm này chỉ còn:
+//   - Log audit history với reason='pbh-created'
+//   - Fire SSE web2:cart để badge tpos panel refresh ngay (không đợi SSE
+//     web2:native-orders propagate)
+// Giữ signature cũ để fast-sale-orders.js không cần đổi.
+// =====================================================
 async function clearCartByCustomerId(pool, customerId, opts) {
     if (!pool || !customerId) return { removed: 0 };
     opts = opts || {};
     try {
-        const itemsRs = await pool.query(
-            `SELECT id, product_code, product_name, qty, customer_name, customer_phone, page_id
-             FROM web2_cart_items
-             WHERE comment_id = $1 AND removed_at IS NULL`,
-            [customerId]
-        );
-        if (!itemsRs.rowCount) return { removed: 0 };
-        // Cũng null out native_order_code → cart sau này thấy là đơn mới, không
-        // cố sync vào order đã DELETE / PBH.
-        await pool.query(
-            `UPDATE web2_cart_items
-             SET removed_at = NOW(), updated_at = NOW(), native_order_code = NULL
-             WHERE comment_id = $1 AND removed_at IS NULL`,
-            [customerId]
-        );
-        for (const row of itemsRs.rows) {
+        // Log audit từ draft đã chuyển status='confirmed'. Lookup theo PBH context
+        // nếu có, fallback fb_user_id để ghi history rõ ràng.
+        const orderQ = opts.nativeOrderCode
+            ? await pool.query(`SELECT * FROM native_orders WHERE code = $1`, [
+                  opts.nativeOrderCode,
+              ])
+            : await pool.query(
+                  `SELECT * FROM native_orders
+                   WHERE fb_user_id = $1
+                   ORDER BY updated_at DESC LIMIT 1`,
+                  [customerId]
+              );
+        const order = orderQ.rows[0];
+        const products = order && Array.isArray(order.products) ? order.products : [];
+        for (const p of products) {
             await _logHistory(pool, {
                 comment_id: customerId,
-                customer_name: row.customer_name,
-                customer_phone: row.customer_phone,
-                page_id: row.page_id,
-                product_code: row.product_code,
-                product_name: row.product_name,
-                action: opts.reason || 'auto-clear',
-                qty_before: row.qty,
+                customer_name: order.customer_name,
+                customer_phone: order.phone,
+                page_id: order.fb_page_id,
+                product_code: p.code,
+                product_name: p.name,
+                action: opts.reason || 'pbh-created',
+                qty_before: _qtyOf(p),
                 qty_after: 0,
                 user_id: null,
-                user_name: opts.pbhNumber
-                    ? `PBH ${opts.pbhNumber}`
-                    : opts.nativeOrderCode
-                      ? `NO ${opts.nativeOrderCode}`
-                      : null,
+                user_name: opts.pbhNumber ? `PBH ${opts.pbhNumber}` : null,
             });
         }
-        _notify(customerId);
-        return { removed: itemsRs.rowCount };
+        _notifyCart(customerId);
+        return { removed: products.length };
     } catch (e) {
         console.warn('[web2-cart] clearCartByCustomerId fail:', e.message);
         return { removed: 0, error: e.message };
@@ -775,4 +618,3 @@ async function clearCartByCustomerId(pool, customerId, opts) {
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.clearCartByCustomerId = clearCartByCustomerId;
-module.exports.autoCleanupOldItems = _autoCleanupOldItems;
