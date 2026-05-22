@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `47dee19` — docs(dev-log): NCC search lọc cả hoaDon[] trong card
-**Last updated**: 2026-05-22 14:18:21 +07
-**Latest session**: [`RESUME:20260522-141821-47dee19`](../20260522-141821-47dee19.md)
-**Summary**: docs(dev-log): NCC search lọc cả hoaDon[] trong card
+**Latest commit**: `0e1cb1f` — fix(web2/product-code): bỏ SP default — bắt buộc nhập prefix tay khi không có NCC
+**Last updated**: 2026-05-22 14:33:49 +07
+**Latest session**: [`RESUME:20260522-143349-0e1cb1f`](../20260522-143349-0e1cb1f.md)
+**Summary**: fix(web2/product-code): bỏ SP default — bắt buộc nhập prefix tay khi không có NCC
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:52
-- [`docs/`](./docs.md) — updated 2026-05-22 14:18
+- [`docs/`](./docs.md) — updated 2026-05-22 14:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 14:16
+- [`web2/`](./web2.md) — updated 2026-05-22 14:33
