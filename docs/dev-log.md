@@ -25,6 +25,34 @@
 
 ## 2026-05-22
 
+### [web2/products] fix: bỏ `customPrefix` + prompt() — chỉ dùng ô NCC làm single source
+
+User: "gợi ý mã là gì? mã tự động generator theo các phần đã có mà".
+
+Hiểu đúng: mã được **auto-generate** (không phải "gợi ý") từ NCC + tên SP + biến thể. SP tạo ngoài Sổ Order → user **nhập tay tên NCC vào ô NCC** (không phải prefix riêng qua prompt).
+
+**Revert** việc thêm `opts.customPrefix` (commit `0e1cb1f45`):
+
+- `web2/shared/web2-product-code.js`: bỏ tham số `customPrefix` khỏi `resolvePrefix` / `suggest` / `suggestWithMap`. Doc rewrite + bỏ error message reference `(opts.customPrefix)`.
+- `web2/products/js/web2-products-app.js`:
+    - Bỏ `prompt()` hỏi prefix tay
+    - Validation đơn giản: NCC trống → notify + focus ô NCC
+    - Đổi notify message: "Module sinh mã" thay "Module gợi ý mã"
+    - Thêm comment giải thích flow: mã auto-gen, không "suggest"
+- `web2/products/index.html`:
+    - Label NCC thêm `*` (required) + hint "(SP ngoài Sổ Order: nhập tên NCC tay)"
+    - Button "Gợi ý" → **"Sinh mã"** (icon sparkles giữ)
+    - Title button: "Sinh mã tự động từ NCC + Tên SP + Biến thể"
+
+**Test pass** (6/6):
+
+- `HÀ NỘI / GIÀY ĐEN SIZE 32` → `HNMMDENS32`
+- `HÀ NỘI / GIÀY ĐEN SIZE 33 (2nd)` → `HNMM2DENS33`
+- `HƯƠNG CHÂU / ÁO ĐỎ` → `HCAODO`
+- `HẢI CHÂU / ÁO ĐEN (collision)` → `HC1AODEN`
+- `SHOP NHI / ĐẦM HỒNG` (NCC nhập tay) → `SNDAMHONG`
+- no NCC → throw Error đúng
+
 ### [web2/shared/web2-product-code] fix: bỏ SP default — bắt buộc nhập prefix tay khi không có NCC
 
 User: "bỏ logic ngoại lệ là SP đi → bắt buộc điền tay phần prefix NCC nếu tạo ở phần khác sổ order".

@@ -5,13 +5,13 @@
 // Sinh mã SP tự động theo công thức:
 //   <PREFIX_NCC><LOAI><SỐ?><MÀU><SIZE?>
 //
-// PREFIX NCC (tab Sổ Order):
+// PREFIX NCC (tab Sổ Order hoặc user nhập tay vào ô NCC):
 //   - "HÀ NỘI"      → HN     (mỗi từ 1 chữ)
 //   - "HƯƠNG CHÂU"  → HC
 //   - "HẢI CHÂU"    → HC1    (trùng HC → append 1, 2, 3…)
 //   - 1 từ          → 2 chữ đầu ("ADIDAS"→AD)
-//   - KHÔNG có NCC  → BẮT BUỘC truyền opts.customPrefix tay (UI Web 2.0 sẽ
-//                     bắt user nhập). Không có customPrefix → throw Error.
+//   - KHÔNG có NCC  → throw Error. UI Web 2.0 BẮT user điền ô NCC trước khi
+//                     gọi suggest() — kể cả SP tạo ngoài Sổ Order.
 //
 // LOẠI SP (chỉ 6 keyword, còn lại fallback MM):
 //   ÁO   → AO
@@ -39,8 +39,7 @@
 //   HƯƠNG CHÂU / ÁO ĐỎ                → HC + AO + DO            → HCAODO
 //   HẢI CHÂU / QUẦN XANH DƯƠNG SIZE 5 → HC1 + QUAN + XD + S5    → HC1QUANXDS5
 //   HÀ NỘI / ĐẦM HỒNG                 → HN + DAM + HONG         → HNDAMHONG
-//   customPrefix='ABC' / ÁO ĐỎ        → ABC + AO + DO           → ABCAODO  (caller nhập tay)
-//   no NCC + no customPrefix          → throw Error             (UI bắt user nhập)
+//   no NCC                            → throw Error             (UI bắt user điền ô NCC)
 //
 // Usage:
 //   const code = Web2ProductCode.suggest({
@@ -151,14 +150,12 @@
      */
     /**
      * Tạo prefix từ tên NCC.
-     * BẮT BUỘC có supplierName — nếu tạo SP ngoài Sổ Order, caller PHẢI tự
-     * nhập prefix tay (truyền qua opts.customPrefix). Hàm này throw nếu thiếu.
+     * BẮT BUỘC có supplierName. SP tạo ngoài Sổ Order → user nhập tên NCC tay
+     * vào ô NCC (UI Web 2.0 sẽ bắt). Hàm throw nếu thiếu.
      */
     function basePrefix(supplierName) {
         if (!supplierName) {
-            throw new Error(
-                'supplierName bắt buộc — SP tạo ngoài Sổ Order phải nhập prefix tay (opts.customPrefix)'
-            );
+            throw new Error('supplierName bắt buộc — UI phải bắt user điền ô NCC trước');
         }
         const cleaned = clean(supplierName);
         const words = cleaned.split(' ').filter(Boolean);
@@ -179,14 +176,9 @@
      * Xử lý collision: prefix giống với NCC khác → append số.
      * @param {string} supplierName
      * @param {Object<string,string>} supplierPrefixMap — { 'HÀ NỘI': 'HN', … }
-     * @param {string} [customPrefix] — caller-supplied prefix (khi không có NCC)
      * @returns {string} prefix final (đã unique)
      */
-    function resolvePrefix(supplierName, supplierPrefixMap, customPrefix) {
-        // Caller nhập tay prefix → dùng luôn, KHÔNG check collision
-        if (customPrefix) {
-            return clean(customPrefix).replace(/\s+/g, '');
-        }
+    function resolvePrefix(supplierName, supplierPrefixMap) {
         const map = supplierPrefixMap || {};
         // Đã có trong map → trả về luôn
         if (map[supplierName]) return map[supplierName];
@@ -340,9 +332,8 @@
         const productName = (opts && opts.productName) || '';
         const existingCodes = (opts && opts.existingCodes) || [];
         const supplierPrefixMap = (opts && opts.supplierPrefixMap) || {};
-        const customPrefix = (opts && opts.customPrefix) || '';
 
-        const prefix = resolvePrefix(supplierName, supplierPrefixMap, customPrefix);
+        const prefix = resolvePrefix(supplierName, supplierPrefixMap);
         const nameClean = clean(productName);
 
         // Theo thứ tự: extract type → color → size từ name
@@ -527,9 +518,8 @@
         const productName = (opts && opts.productName) || '';
         const existingCodes = (opts && opts.existingCodes) || [];
         const supplierPrefixMap = (opts && opts.supplierPrefixMap) || {};
-        const customPrefix = (opts && opts.customPrefix) || '';
 
-        const prefix = resolvePrefix(supplierName, supplierPrefixMap, customPrefix);
+        const prefix = resolvePrefix(supplierName, supplierPrefixMap);
         const nameClean = clean(productName);
 
         const { type, rest: r1 } = extractType(nameClean);

@@ -431,35 +431,30 @@
         });
     }
 
+    // Auto-sinh mã SP từ NCC + Tên SP + variants. KHÔNG phải "gợi ý" —
+    // mã được generate trực tiếp từ các phần đã có (NCC tab, tên SP keyword,
+    // màu short_code từ variants, size). User KHÔNG nhập prefix tay riêng —
+    // nếu SP tạo ngoài Sổ Order, user điền NCC tay vào ô NCC như bình thường.
     function suggestProductCode() {
         if (!window.Web2ProductCode) {
-            notify('Module gợi ý mã chưa load', 'error');
+            notify('Module sinh mã chưa load', 'error');
             return;
         }
         const supplierName = ($('#pmSupplier')?.value || '').trim();
         const productName = ($('#pmName')?.value || '').trim();
         if (!productName) {
-            notify('Cần điền Tên sản phẩm để gợi ý mã', 'warning');
+            notify('Cần điền Tên sản phẩm trước', 'warning');
             return;
         }
-        // Nếu KHÔNG có NCC (SP tạo ngoài Sổ Order) → bắt buộc nhập prefix tay
-        let customPrefix = '';
         if (!supplierName) {
-            customPrefix = (
-                prompt('SP không có NCC từ Sổ Order — nhập prefix mã tay (vd: NJD, ABC, SHOP1):') ||
-                ''
-            ).trim();
-            if (!customPrefix) {
-                notify('Cần nhập prefix tay hoặc chọn NCC để gợi ý mã', 'warning');
-                return;
-            }
+            notify('Cần điền NCC trước (SP ngoài Sổ Order: nhập tay tên NCC vào ô NCC)', 'warning');
+            $('#pmSupplier')?.focus();
+            return;
         }
         const suppliers = collectExistingSuppliers();
-        const prefixMap = supplierName
-            ? window.Web2ProductCode.buildPrefixMap(
-                  suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
-              )
-            : {};
+        const prefixMap = window.Web2ProductCode.buildPrefixMap(
+            suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
+        );
         const existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
         let result;
         try {
@@ -469,10 +464,9 @@
                 existingCodes,
                 supplierPrefixMap: prefixMap,
                 colorShortMap: getColorShortMap(),
-                customPrefix,
             });
         } catch (e) {
-            notify('Không gợi ý được mã: ' + e.message, 'error');
+            notify('Không sinh được mã: ' + e.message, 'error');
             return;
         }
         $('#pmCode').value = result.code;
