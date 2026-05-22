@@ -104,3 +104,8 @@ render.com/bin/
 backups/
 *.dump
 *.sql.gz
+
+# Local Chrome profiles + browser session cache (committed by accident 2026-05-22)
+.local/
+downloads/n2store-session/console-*.json
+downloads/n2store-session/smoke-report-*.json
