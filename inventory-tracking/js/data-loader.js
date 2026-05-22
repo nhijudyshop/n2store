@@ -259,11 +259,115 @@ function flattenNCCData() {
         `[DATA] Flattened: ${globalState.orderBookings.length} datHang, ${globalState.shipments.length} shipments`
     );
 
+    // Audit raw vs aggregated totals to surface DB/aggregation duplication issues.
+    if (typeof auditShipmentsData === 'function') {
+        try {
+            auditShipmentsData();
+        } catch (e) {
+            console.error('[AUDIT] failed:', e);
+        }
+    }
+
     // Keep the horizontal stats bar in sync with any data mutation
     // (chi phí, tiền HĐ, tổng món, kiện/KG, payment changes, etc.)
     if (typeof updateInventoryStatsBar === 'function') {
         updateInventoryStatsBar();
     }
+}
+
+/**
+ * Audit raw DB dotHang rows vs aggregated shipment groups.
+ * Surfaces three classes of issues:
+ *   1. DUPLICATE rows: same (date, dotSo, sttNCC) appearing >1 time (Postgres dedup PK missing?)
+ *   2. CP duplication: chiPhiHangVe stored on >1 NCC row per đợt (should be only first row)
+ *   3. Aggregate drift: sum(raw.tongTienHD) ≠ sum(shipment.tongTienHoaDon)
+ * Outputs a single console.group so user can copy/paste back if numbers feel wrong.
+ */
+function auditShipmentsData() {
+    const allDotHang = getAllDotHang();
+    const shipments = globalState.shipments || [];
+
+    const dupKeyCount = {};
+    let rawTongKg = 0;
+    let rawHD = 0;
+    let rawCP = 0;
+    let cpDuplicatedRows = 0;
+    const cpByDotSo = {};
+
+    allDotHang.forEach((d) => {
+        const key = `${d.ngayDiHang}|${d.dotSo || 1}|${d.sttNCC || 0}|${d.tenNCC || ''}`;
+        dupKeyCount[key] = (dupKeyCount[key] || 0) + 1;
+        rawTongKg += parseFloat(d.tongKg) || 0;
+        const products = d.sanPham || [];
+        const _q = window.getProductEffectiveQty || ((p) => p.tongSoLuong || p.soLuong || 0);
+        const hd =
+            products.length > 0
+                ? products.reduce((s, p) => s + _q(p) * (parseFloat(p.giaDonVi) || 0), 0)
+                : parseFloat(d.tongTienHD) || 0;
+        rawHD += hd;
+        const cp = parseFloat(d.tongChiPhi) || 0;
+        rawCP += cp;
+        const cpHas = Array.isArray(d.chiPhiHangVe) && d.chiPhiHangVe.length > 0;
+        if (cpHas) {
+            const dotKey = `${d.ngayDiHang}|${d.dotSo || 1}`;
+            cpByDotSo[dotKey] = (cpByDotSo[dotKey] || 0) + 1;
+            if (cpByDotSo[dotKey] > 1) cpDuplicatedRows++;
+        }
+    });
+
+    const duplicateKeys = Object.entries(dupKeyCount).filter(([, n]) => n > 1);
+
+    // Aggregated (what stats bar consumes)
+    let aggKg = 0;
+    let aggHD = 0;
+    let aggCP = 0;
+    shipments.forEach((s) => {
+        aggKg += parseFloat(s.tongKg) || 0;
+        aggHD += parseFloat(s.tongTienHoaDon) || 0;
+        aggCP += parseFloat(s.tongChiPhi) || 0;
+    });
+
+    console.groupCollapsed(`[AUDIT] inventory_shipments — raw vs aggregated (click to expand)`);
+    console.log('Raw rows:', allDotHang.length, '| Aggregated shipment groups:', shipments.length);
+    console.log('Tổng KG  — raw:', rawTongKg.toFixed(2), '| aggregated:', aggKg.toFixed(2));
+    console.log('Tổng HĐ  — raw:', rawHD.toFixed(2), '| aggregated:', aggHD.toFixed(2));
+    console.log('Tổng CP  — raw:', rawCP.toFixed(2), '| aggregated:', aggCP.toFixed(2));
+    if (duplicateKeys.length > 0) {
+        console.warn(
+            `⚠ ${duplicateKeys.length} (date, dotSo, NCC) keys appear >1 time — DB duplicate rows`
+        );
+        console.table(
+            duplicateKeys.slice(0, 30).map(([key, n]) => {
+                const [date, dotSo, sttNCC, tenNCC] = key.split('|');
+                return { date, dotSo, sttNCC, tenNCC, count: n };
+            })
+        );
+    }
+    if (cpDuplicatedRows > 0) {
+        console.warn(
+            `⚠ ${cpDuplicatedRows} dot rows store chiPhiHangVe redundantly (should be first NCC only per đợt)`
+        );
+    }
+    if (Math.abs(rawHD - aggHD) > 0.5) {
+        console.warn(`⚠ Tổng HĐ drift: raw=${rawHD.toFixed(2)} vs agg=${aggHD.toFixed(2)}`);
+    }
+    if (Math.abs(rawCP - aggCP) > 0.5) {
+        console.warn(`⚠ Tổng CP drift: raw=${rawCP.toFixed(2)} vs agg=${aggCP.toFixed(2)}`);
+    }
+    console.groupEnd();
+}
+
+/**
+ * List of distinct dotSo values present in current shipments, sorted ASC.
+ * Used by the đợt section tabs.
+ */
+function getAvailableDotSoList() {
+    const set = new Set();
+    (globalState.shipments || []).forEach((s) => {
+        const n = parseInt(s.dotSo, 10);
+        if (Number.isFinite(n) && n > 0) set.add(n);
+    });
+    return [...set].sort((a, b) => a - b);
 }
 
 /**

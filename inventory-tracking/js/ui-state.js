@@ -13,15 +13,25 @@ window.UIState = (function () {
     function _load() {
         try {
             const raw = localStorage.getItem(KEY);
-            if (!raw) return { expanded: [], detailsVisible: false, hiddenCols: [] };
+            if (!raw)
+                return {
+                    expanded: [],
+                    detailsVisible: false,
+                    hiddenCols: [],
+                    activeDotTab: null,
+                };
             const p = JSON.parse(raw);
             return {
                 expanded: Array.isArray(p.expanded) ? p.expanded.map(String) : [],
                 detailsVisible: !!p.detailsVisible,
                 hiddenCols: Array.isArray(p.hiddenCols) ? p.hiddenCols.filter(Boolean) : [],
+                activeDotTab:
+                    typeof p.activeDotTab === 'number' && p.activeDotTab > 0
+                        ? p.activeDotTab
+                        : null,
             };
         } catch (_) {
-            return { expanded: [], detailsVisible: false, hiddenCols: [] };
+            return { expanded: [], detailsVisible: false, hiddenCols: [], activeDotTab: null };
         }
     }
 
@@ -93,6 +103,16 @@ window.UIState = (function () {
         _save();
     }
 
+    // -------- Active đợt tab (section tab theo dotSo) --------
+    function getActiveDotTab() {
+        return state.activeDotTab;
+    }
+    function setActiveDotTab(dotSo) {
+        const n = parseInt(dotSo, 10);
+        state.activeDotTab = Number.isFinite(n) && n > 0 ? n : null;
+        _save();
+    }
+
     return {
         isExpanded,
         setExpanded,
@@ -105,6 +125,8 @@ window.UIState = (function () {
         hideCol,
         showCol,
         clearHiddenCols,
+        getActiveDotTab,
+        setActiveDotTab,
     };
 })();
 

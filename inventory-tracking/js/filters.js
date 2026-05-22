@@ -403,6 +403,12 @@ function applyFiltersAndRender() {
         );
     }
 
+    // Filter by active đợt section tab — drives the section view + stats card scope.
+    const activeDot = window.UIState?.getActiveDotTab?.();
+    if (Number.isFinite(activeDot) && activeDot > 0) {
+        filtered = filtered.filter((s) => (parseInt(s.dotSo, 10) || 1) === activeDot);
+    }
+
     // Filter by product code search
     if (searchQuery) {
         const query = searchQuery.toUpperCase();
@@ -422,6 +428,11 @@ function applyFiltersAndRender() {
     // Always render shipments for tracking tab
     if (typeof renderShipments === 'function') {
         renderShipments(filtered);
+    }
+
+    // Stats bar must follow the same filter scope (đợt tab + others)
+    if (typeof updateInventoryStatsBar === 'function') {
+        updateInventoryStatsBar();
     }
 
     // Update count
