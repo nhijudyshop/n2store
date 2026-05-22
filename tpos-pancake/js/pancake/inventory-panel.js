@@ -50,6 +50,16 @@
     function fmtPrice(n) {
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
+    function _relTime(d) {
+        if (!d) return '';
+        const date = d instanceof Date ? d : new Date(d);
+        const diff = (Date.now() - date.getTime()) / 1000;
+        if (diff < 60) return 'vừa xong';
+        if (diff < 3600) return Math.floor(diff / 60) + ' phút';
+        if (diff < 86400) return Math.floor(diff / 3600) + ' giờ';
+        if (diff < 86400 * 7) return Math.floor(diff / 86400) + ' ngày';
+        return date.toLocaleDateString('vi-VN');
+    }
 
     // ─────────────────────────────────────────────────────────
     // Load NCC tabs từ Firestore so_order_v2
@@ -611,22 +621,25 @@
             );
             const itemsHtml =
                 (d.items || [])
-                    .map(
-                        (
-                            it
-                        ) => `<div class="inv-cart-item" data-code="${escapeHtml(it.product_code)}">
-                        <span class="inv-cart-item-code">${escapeHtml(it.product_code)}</span>
-                        <span class="inv-cart-item-name" title="${escapeHtml(it.product_name || '')}">${escapeHtml(it.product_name || '')}</span>
-                        <span class="inv-cart-item-qty">×${it.qty}</span>
-                        <span class="inv-cart-item-price">${fmtPrice((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>
-                        <button class="inv-cart-item-remove" data-action="remove" title="Xóa">×</button>
-                    </div>`
-                    )
+                    .map((it) => {
+                        const addedAt = it.added_at ? new Date(it.added_at) : null;
+                        const addedRel = addedAt ? _relTime(addedAt) : '';
+                        const addedAbs = addedAt ? addedAt.toLocaleString('vi-VN') : '';
+                        return `<div class="inv-cart-item" data-code="${escapeHtml(it.product_code)}">
+                            <span class="inv-cart-item-code">${escapeHtml(it.product_code)}</span>
+                            <span class="inv-cart-item-name" title="${escapeHtml(it.product_name || '')}">${escapeHtml(it.product_name || '')}</span>
+                            <span class="inv-cart-item-qty">×${it.qty}</span>
+                            <span class="inv-cart-item-price">${fmtPrice((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>
+                            <span class="inv-cart-item-time" title="Thêm vào: ${escapeHtml(addedAbs)}">${escapeHtml(addedRel)}</span>
+                            <button class="inv-cart-item-remove" data-action="remove" title="Xóa">×</button>
+                        </div>`;
+                    })
                     .join('') || '<div class="inv-cart-empty">Giỏ trống</div>';
             pop.innerHTML = `
                 <div class="inv-cart-pop-head">
                     <strong>🛒 Đơn hàng (${d.items?.length || 0} SP)</strong>
                     <span class="inv-cart-pop-total">Tổng: ${fmtPrice(total)}</span>
+                    <button class="inv-cart-pop-history" title="Xem lịch sử (15 ngày)">⏱ Lịch sử</button>
                     ${
                         (d.items?.length || 0) > 0
                             ? '<button class="inv-cart-pop-clear" title="Xóa toàn bộ đơn (kéo nhầm)">Xóa đơn</button>'
@@ -635,6 +648,9 @@
                     <button class="inv-cart-pop-close">×</button>
                 </div>
                 <div class="inv-cart-pop-body">${itemsHtml}</div>
+                <div class="inv-cart-pop-foot">
+                    Cart được giữ 15 ngày · auto xóa khi PBH tạo thành công
+                </div>
             `;
             document.body.appendChild(pop);
             const rect = row.getBoundingClientRect();
@@ -661,6 +677,14 @@
                     ) {
                         clearOrder(commentId);
                     }
+                };
+            }
+            // Lịch sử cart
+            const histBtn = pop.querySelector('.inv-cart-pop-history');
+            if (histBtn) {
+                histBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    openCartHistory(commentId);
                 };
             }
             // Attach outside-click AFTER current click finishes — tránh badge.click()
@@ -713,6 +737,67 @@
                 console.warn(e);
             }
         };
+    }
+
+    async function openCartHistory(commentId) {
+        try {
+            const r = await fetch(
+                API + '/cart/' + encodeURIComponent(commentId) + '/history?limit=200',
+                { credentials: 'include' }
+            );
+            const d = await r.json();
+            const back = document.createElement('div');
+            back.className = 'inv-hist-backdrop';
+            const items = d.items || [];
+            const rowsHtml = items.length
+                ? items
+                      .map((h) => {
+                          const t = h.created_at ? new Date(h.created_at) : null;
+                          const tStr = t ? t.toLocaleString('vi-VN') : '';
+                          const actionLabel =
+                              {
+                                  add: '➕ Thêm',
+                                  remove: '➖ Xóa SP',
+                                  'qty-change': '✏ Đổi SL',
+                                  'clear-order': '🗑 Xóa đơn',
+                                  'pbh-created': '✅ Tạo PBH',
+                                  'auto-clear': '⏳ Auto',
+                              }[h.action] || h.action;
+                          return `<tr>
+                            <td class="t">${escapeHtml(tStr)}</td>
+                            <td>${escapeHtml(actionLabel)}</td>
+                            <td><code>${escapeHtml(h.product_code || '')}</code></td>
+                            <td>${escapeHtml(h.product_name || '')}</td>
+                            <td class="n">${h.qty_before ?? '—'} → ${h.qty_after ?? '—'}</td>
+                            <td>${escapeHtml(h.user_name || '—')}</td>
+                          </tr>`;
+                      })
+                      .join('')
+                : '<tr><td colspan="6" class="empty">Chưa có lịch sử</td></tr>';
+            back.innerHTML = `
+                <div class="inv-hist-modal">
+                    <div class="inv-hist-head">
+                        <strong>⏱ Lịch sử cart (15 ngày)</strong>
+                        <span class="inv-hist-sub">${items.length} entries</span>
+                        <button class="inv-hist-close">×</button>
+                    </div>
+                    <div class="inv-hist-body">
+                        <table class="inv-hist-tbl">
+                            <thead><tr><th>Thời gian</th><th>Action</th><th>Mã SP</th><th>Tên</th><th>SL</th><th>User</th></tr></thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(back);
+            const close = () => back.remove();
+            back.querySelector('.inv-hist-close').onclick = close;
+            back.onclick = (e) => {
+                if (e.target === back) close();
+            };
+        } catch (e) {
+            _showToast('Lỗi load history: ' + e.message, 'err');
+        }
     }
 
     function _showToast(msg, type) {

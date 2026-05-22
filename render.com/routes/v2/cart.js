@@ -76,6 +76,15 @@ async function ensureSchema(pool) {
     `);
     _migrationDone = true;
     console.log('[web2-cart] schema ready');
+    // Trigger 1st cleanup ngay sau schema ready
+    _autoCleanupOldItems(pool).catch(() => {});
+    // Schedule cleanup mỗi 6 giờ
+    if (!ensureSchema._cleanupTimer) {
+        ensureSchema._cleanupTimer = setInterval(
+            () => _autoCleanupOldItems(pool).catch(() => {}),
+            6 * 60 * 60 * 1000
+        );
+    }
 }
 
 router.use(async (req, res, next) => {
@@ -653,5 +662,74 @@ router.get('/history/all', async (req, res) => {
     }
 });
 
+// =====================================================
+// Auto-cleanup: cart_items > 15 ngày → hard delete (giải phóng DB).
+// History (15+ ngày) vẫn giữ nguyên — bảng append-only cho audit.
+// Chạy mỗi 6h một lần qua setInterval khi module load + 1 lần khi schema ready.
+// =====================================================
+async function _autoCleanupOldItems(pool) {
+    if (!pool) return;
+    try {
+        const r = await pool.query(
+            `DELETE FROM web2_cart_items
+             WHERE added_at < NOW() - INTERVAL '15 days'
+                OR (removed_at IS NOT NULL AND removed_at < NOW() - INTERVAL '15 days')`
+        );
+        if (r.rowCount > 0) {
+            console.log(`[web2-cart] auto-cleanup deleted ${r.rowCount} items > 15 days`);
+        }
+    } catch (e) {
+        console.warn('[web2-cart] auto-cleanup fail:', e.message);
+    }
+}
+
+// Helper exported — gọi từ fast-sale-orders khi PBH tạo thành công.
+// Soft delete toàn bộ cart items active của customer (fbUserId làm group key).
+async function clearCartByCustomerId(pool, customerId, opts) {
+    if (!pool || !customerId) return { removed: 0 };
+    opts = opts || {};
+    try {
+        const itemsRs = await pool.query(
+            `SELECT id, product_code, product_name, qty, customer_name, customer_phone, page_id
+             FROM web2_cart_items
+             WHERE comment_id = $1 AND removed_at IS NULL`,
+            [customerId]
+        );
+        if (!itemsRs.rowCount) return { removed: 0 };
+        await pool.query(
+            `UPDATE web2_cart_items
+             SET removed_at = NOW(), updated_at = NOW()
+             WHERE comment_id = $1 AND removed_at IS NULL`,
+            [customerId]
+        );
+        for (const row of itemsRs.rows) {
+            await _logHistory(pool, {
+                comment_id: customerId,
+                customer_name: row.customer_name,
+                customer_phone: row.customer_phone,
+                page_id: row.page_id,
+                product_code: row.product_code,
+                product_name: row.product_name,
+                action: opts.reason || 'auto-clear',
+                qty_before: row.qty,
+                qty_after: 0,
+                user_id: null,
+                user_name: opts.pbhNumber
+                    ? `PBH ${opts.pbhNumber}`
+                    : opts.nativeOrderCode
+                      ? `NO ${opts.nativeOrderCode}`
+                      : null,
+            });
+        }
+        _notify(customerId);
+        return { removed: itemsRs.rowCount };
+    } catch (e) {
+        console.warn('[web2-cart] clearCartByCustomerId fail:', e.message);
+        return { removed: 0, error: e.message };
+    }
+}
+
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
+module.exports.clearCartByCustomerId = clearCartByCustomerId;
+module.exports.autoCleanupOldItems = _autoCleanupOldItems;

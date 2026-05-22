@@ -377,7 +377,7 @@
 }
 .inv-cart-item {
     display: grid;
-    grid-template-columns: 90px 1fr 40px 80px 30px;
+    grid-template-columns: 90px 1fr 40px 80px 60px 30px;
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
@@ -425,6 +425,137 @@
     text-align: center;
     color: #94a3b8;
     font-size: 13px;
+}
+
+.inv-cart-pop-history {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    color: #1d4ed8;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.inv-cart-pop-history:hover {
+    background: #dbeafe;
+}
+.inv-cart-pop-foot {
+    padding: 6px 14px;
+    border-top: 1px dashed #e5e7eb;
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-style: italic;
+    text-align: center;
+    background: #fafafa;
+}
+.inv-cart-item-time {
+    font-size: 10.5px;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+/* History modal */
+.inv-hist-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 9500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: invHistFade 160ms ease;
+}
+@keyframes invHistFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.inv-hist-modal {
+    background: #fff;
+    border-radius: 10px;
+    width: min(880px, 92vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.32);
+}
+.inv-hist-head {
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #f0f9ff, #fff);
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.inv-hist-head strong {
+    font-size: 14px;
+    color: #1c1f25;
+}
+.inv-hist-sub {
+    font-size: 11px;
+    color: #58666e;
+    margin-left: 4px;
+}
+.inv-hist-close {
+    margin-left: auto;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-size: 20px;
+    color: #58666e;
+    padding: 0 6px;
+}
+.inv-hist-body {
+    flex: 1;
+    overflow: auto;
+    padding: 4px 0;
+}
+.inv-hist-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.inv-hist-tbl th {
+    background: #f8fafc;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+    color: #58666e;
+    position: sticky;
+    top: 0;
+}
+.inv-hist-tbl td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.inv-hist-tbl tr:hover td {
+    background: #fafbfc;
+}
+.inv-hist-tbl td.t {
+    color: #58666e;
+    white-space: nowrap;
+}
+.inv-hist-tbl td.n {
+    font-variant-numeric: tabular-nums;
+}
+.inv-hist-tbl td.empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 24px;
+}
+.inv-hist-tbl code {
+    background: rgba(15, 23, 42, 0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'SFMono-Regular', ui-monospace, monospace;
+    font-size: 11px;
+    color: #5e51ac;
 }
 
 /* Nút xóa đơn trong popover head */

@@ -1066,10 +1066,39 @@ router.post('/', async (req, res) => {
                 customerId,
             ]
         );
+        // Stock deduction — same logic as /from-native-order (line 1283).
+        // Trừ stock atomic, clamp tại 0. Best-effort: lỗi không chặn flow.
+        try {
+            const now = Date.now();
+            for (const line of lines) {
+                const code = line.productCode || line.product_code;
+                const qty = Number(line.quantity || line.qty) || 0;
+                if (!code || qty <= 0) continue;
+                await pool.query(
+                    `UPDATE web2_products
+                     SET stock = GREATEST(0, stock - $1), updated_at = $2
+                     WHERE code = $3`,
+                    [qty, now, code]
+                );
+            }
+        } catch (e) {
+            console.warn('[FAST-SALE-ORDERS] manual create stock deduct warn:', e.message);
+        }
+
         const o = mapRow(r.rows[0]);
         if (req.app.locals.broadcastToClients)
             req.app.locals.broadcastToClients({ type: 'pbh:created', order: o, manual: true });
         _notify('create', o.number);
+        // SSE notify web2:products để products page refresh stock
+        if (_notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:products',
+                    { action: 'pbh-stock-deduct', code: null, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         res.json({ success: true, order: o });
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] create error:', e.message);
@@ -1299,6 +1328,16 @@ router.post('/from-native-order', async (req, res) => {
         } catch (e) {
             console.warn('[FAST-SALE-ORDERS] stock deduction warn:', e.message);
         }
+        // SSE notify web2:products → products page refresh stock
+        if (_notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:products',
+                    { action: 'pbh-stock-deduct', code: null, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
 
         const o = mapRow(r.rows[0]);
         if (req.app.locals.broadcastToClients) {
@@ -1315,6 +1354,26 @@ router.post('/from-native-order', async (req, res) => {
             });
         }
         _notify('from-native-order', o.number);
+
+        // Tự xóa cart bên TPOS panel (Kho SP) khi PBH tạo thành công.
+        // Cart gắn theo customer (fbUserId) → query native_order.fb_user_id để biết
+        // customerId. Soft delete tất cả cart_items active của customer này.
+        try {
+            const fbUserId = src.fb_user_id;
+            if (fbUserId) {
+                const cartRoute = require('./v2/cart');
+                if (cartRoute.clearCartByCustomerId) {
+                    await cartRoute.clearCartByCustomerId(pool, fbUserId, {
+                        reason: 'pbh-created',
+                        nativeOrderCode: src.code,
+                        pbhNumber: o.number,
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[FAST-SALE-ORDERS] auto-clear cart fail:', e.message);
+        }
+
         await _logPbhHistory(
             pool,
             o.number,
@@ -1510,6 +1569,16 @@ router.post('/:number/cancel', async (req, res) => {
                 console.log(
                     `[FAST-SALE-ORDERS] cancel ${o.number} → restocked ${restockSummary.restored} lines`
                 );
+                // SSE notify web2:products → products page refresh stock
+                if (restockSummary.restored > 0 && _notifyClients) {
+                    try {
+                        _notifyClients(
+                            'web2:products',
+                            { action: 'pbh-cancel-restock', code: null, ts: Date.now() },
+                            'update'
+                        );
+                    } catch {}
+                }
             } catch (e) {
                 console.error('[FAST-SALE-ORDERS] restock fail:', e.message);
             }
@@ -1590,6 +1659,15 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
             console.log(
                 `[FAST-SALE-ORDERS] cancel-by-source ${number} → restocked ${restockSummary.restored} lines`
             );
+            if (restockSummary.restored > 0 && _notifyClients) {
+                try {
+                    _notifyClients(
+                        'web2:products',
+                        { action: 'pbh-cancel-restock', code: null, ts: Date.now() },
+                        'update'
+                    );
+                } catch {}
+            }
         } catch (e) {
             console.error('[FAST-SALE-ORDERS] restock fail:', e.message);
         }
