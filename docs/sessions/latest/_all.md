@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c6507df` — feat(web2): tách bảng web2_balance_history — isolate Web 2.0 khỏi Web 1 (migration 081 + sepay dual-write + 50 sed refs)
-**Last updated**: 2026-05-21 19:54:55 +07
-**Latest session**: [`RESUME:20260521-195455-c6507df`](../20260521-195455-c6507df.md)
-**Summary**: feat(web2): tách bảng web2_balance_history — isolate Web 2.0 khỏi Web 1 (migration 081 + sepay dual-write + 50...
+**Latest commit**: `12856d3` — feat(web2-balance-history): UI overlay theo phong cách Web 2.0
+**Last updated**: 2026-05-22 09:13:34 +07
+**Latest session**: [`RESUME:20260522-091334-12856d3`](../20260522-091334-12856d3.md)
+**Summary**: feat(web2-balance-history): UI overlay theo phong cách Web 2.0
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -68,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-21 19:33
+- [`web2/`](./web2.md) — updated 2026-05-22 09:13
