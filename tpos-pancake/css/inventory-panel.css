@@ -236,10 +236,58 @@
     font-weight: 600;
 }
 
-/* Drop hover on conversation row */
+/* Viền nổi bật cho conversation row khách ĐÃ CÓ ĐƠN (drop target hợp lệ) */
+.pk-conversation-item.inv-has-order {
+    border-left: 3px solid #16a34a !important;
+    background: linear-gradient(90deg, rgba(22, 163, 74, 0.06), transparent);
+    position: relative;
+}
+.pk-conversation-item.inv-has-order::after {
+    content: '✓ có đơn';
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #16a34a;
+    background: #dcfce7;
+    padding: 1px 5px;
+    border-radius: 999px;
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+/* Drop hover OK (khách có đơn) — gradient tím */
 .pk-conversation-item.inv-drop-hover {
-    background: linear-gradient(90deg, rgba(114, 102, 186, 0.15), transparent) !important;
-    box-shadow: inset 3px 0 0 #7266ba;
+    background: linear-gradient(
+        90deg,
+        rgba(114, 102, 186, 0.2),
+        rgba(22, 163, 74, 0.08)
+    ) !important;
+    box-shadow:
+        inset 3px 0 0 #7266ba,
+        0 0 0 2px rgba(114, 102, 186, 0.32);
+    transform: scale(1.005);
+    z-index: 2;
+}
+
+/* Drop deny (khách chưa có đơn) — gradient đỏ + cursor not-allowed */
+.pk-conversation-item.inv-drop-deny {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), transparent) !important;
+    box-shadow: inset 3px 0 0 #ef4444;
+    cursor: not-allowed;
+}
+.pk-conversation-item.inv-drop-deny::before {
+    content: '🚫 Khách chưa có đơn';
+    position: absolute;
+    inset: auto auto 4px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #dc2626;
+    background: #fef2f2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
 }
 
 /* Cart badge trên conversation row */

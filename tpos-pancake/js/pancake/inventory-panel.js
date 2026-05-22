@@ -242,23 +242,38 @@
         const list = document.querySelector('.pk-conversation-list, #pkConversationList');
         if (!list) return;
 
-        // Event delegation — listen on container, check target row
+        // Event delegation — listen on container, check target row.
+        // CHỈ accept drop trên row có class .inv-has-order (khách đã có đơn).
         list.addEventListener('dragover', (e) => {
             const row = e.target.closest('.pk-conversation-item');
             if (!row) return;
+            if (!row.classList.contains('inv-has-order')) {
+                // Khách chưa có đơn → set dropEffect=none + visual deny
+                e.dataTransfer.dropEffect = 'none';
+                row.classList.add('inv-drop-deny');
+                return;
+            }
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
             row.classList.add('inv-drop-hover');
         });
         list.addEventListener('dragleave', (e) => {
             const row = e.target.closest('.pk-conversation-item');
-            if (row) row.classList.remove('inv-drop-hover');
+            if (row) {
+                row.classList.remove('inv-drop-hover');
+                row.classList.remove('inv-drop-deny');
+            }
         });
         list.addEventListener('drop', async (e) => {
             const row = e.target.closest('.pk-conversation-item');
             if (!row) return;
-            e.preventDefault();
             row.classList.remove('inv-drop-hover');
+            row.classList.remove('inv-drop-deny');
+            if (!row.classList.contains('inv-has-order')) {
+                _showToast('Khách chưa có đơn — không thể thêm SP', 'err');
+                return;
+            }
+            e.preventDefault();
             const json = e.dataTransfer.getData('application/x-web2-product');
             if (!json) return;
             let product;
@@ -371,10 +386,37 @@
             if (d.success) {
                 STATE.cartCounts = d.counts || {};
                 renderBadges();
+                _markHasOrderRows();
             }
         } catch (e) {
             console.warn('[InventoryPanel] refreshCartCounts:', e.message);
         }
+    }
+
+    // Mark conversation rows of customers đã có đơn (order_count > 0)
+    // → bsng CSS class `inv-has-order` để show visible border + cho phép drop.
+    function _markHasOrderRows() {
+        const st = global.PancakeState;
+        if (!st || !Array.isArray(st.conversations)) return;
+        const byId = new Map();
+        for (const c of st.conversations) byId.set(c.id, c);
+        document.querySelectorAll('.pk-conversation-item').forEach((row) => {
+            const cid = row.dataset.convId;
+            if (!cid) return;
+            const c = byId.get(cid);
+            if (!c) return;
+            const customer = c.customers?.[0] || c.from || {};
+            const orderCnt =
+                Number(customer.success_order_count) ||
+                Number(customer.order_count) ||
+                Number(c.order_count) ||
+                0;
+            // Cũng cho cart count > 0 → có đơn local trong giỏ
+            const cartCnt = STATE.cartCounts[cid]?.qty || 0;
+            const hasOrder = orderCnt > 0 || cartCnt > 0;
+            row.classList.toggle('inv-has-order', hasOrder);
+            row.dataset.orderCount = orderCnt;
+        });
     }
 
     function renderBadges() {
