@@ -459,6 +459,20 @@ app.use('/api/web2', web2GenericRoutes);
 app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits for ví NCC/KH
 app.use('/api/purchase-refund', purchaseRefundRoutes); // WEB2.0 Trả hàng NCC state machine + stock
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
+const web2NotificationsRoutes = require('./routes/v2/notifications');
+app.use('/api/v2/notifications', web2NotificationsRoutes); // WEB2.0 notification center (F06)
+const web2AuditLogRoutes = require('./routes/v2/audit-log');
+app.use('/api/v2/audit-log', web2AuditLogRoutes); // WEB2.0 audit trail union view (F05)
+const web2SupplierAgingRoutes = require('./routes/v2/supplier-aging');
+app.use('/api/v2/supplier-aging', web2SupplierAgingRoutes); // WEB2.0 aging buckets (F02)
+const web2DashboardRoutes = require('./routes/v2/dashboard-kpi');
+app.use('/api/v2/dashboard-kpi', web2DashboardRoutes); // WEB2.0 dashboard aggregate (F01)
+const web2SmartMatchRoutes = require('./routes/v2/smart-match');
+app.use('/api/v2/smart-match', web2SmartMatchRoutes); // WEB2.0 SePay smart match (F09)
+const web2InventoryForecastRoutes = require('./routes/v2/inventory-forecast');
+app.use('/api/v2/inventory-forecast', web2InventoryForecastRoutes); // WEB2.0 forecast (F11)
+const web2Supplier360Routes = require('./routes/v2/supplier-360');
+app.use('/api/v2/supplier-360', web2Supplier360Routes); // WEB2.0 NCC 360 (F07)
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
 app.use(
@@ -534,6 +548,12 @@ if (reconcileRoutes.initializeNotifiers) {
 const web2UsersRoutes = require('./routes/web2-users');
 if (web2UsersRoutes.initializeNotifiers) {
     web2UsersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+if (web2NotificationsRoutes.initializeNotifiers) {
+    web2NotificationsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+if (web2DashboardRoutes.initializeNotifiers) {
+    web2DashboardRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in order-notes routes

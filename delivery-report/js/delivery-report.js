@@ -2317,7 +2317,11 @@
         view.style.display = '';
         if (grid) grid.classList.remove('all-groups');
         if (tableWrapper) tableWrapper.style.display = 'none';
-        // Hide city/shop/return columns (only used in "all" tab)
+        // Ensure TOMATO + NAP columns are visible; hide others (only used in "all" tab)
+        ['drColTomato', 'drColNap'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
         ['drColCity', 'drColShop', 'drColReturn'].forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
