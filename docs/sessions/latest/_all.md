@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cc68e4c` — fix(delivery-report): drStatShippingCount/drStatFailCount nay tinh dung — match table view
-**Last updated**: 2026-05-22 13:34:28 +07
-**Latest session**: [`RESUME:20260522-133428-cc68e4c`](../20260522-133428-cc68e4c.md)
-**Summary**: fix(delivery-report): drStatShippingCount/drStatFailCount nay tinh dung — match table view
+**Latest commit**: `9d6fb62` — fix(delivery-report): filter+stats luon visible (auto-expanded), khong follow lite-hide
+**Last updated**: 2026-05-22 13:38:33 +07
+**Latest session**: [`RESUME:20260522-133833-9d6fb62`](../20260522-133833-9d6fb62.md)
+**Summary**: fix(delivery-report): filter+stats luon visible (auto-expanded), khong follow lite-hide
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
@@ -23,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:33
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:38
 - [`docs/`](./docs.md) — updated 2026-05-22 13:21
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -51,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-22 13:28
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-22 13:34
+- [`scripts/`](./scripts.md) — updated 2026-05-22 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
