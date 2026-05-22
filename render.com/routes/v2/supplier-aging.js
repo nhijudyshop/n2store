@@ -1,13 +1,13 @@
 // #Note: WEB2.0 module.
 // F02 — Supplier aging buckets endpoint.
-// Mock backend cho phase 1: Firestore-based data fetched ở client.
-// Backend chỉ aggregate Postgres-side (purchase_orders nếu có) làm fallback.
+// purchase_orders thực tế dùng final_amount + status. Coi đơn DRAFT/PARTIAL/CONFIRMED là "chưa
+// thanh toán" cho NCC → cộng vào aging. Status COMPLETED hoặc CANCELLED loại khỏi nợ.
 
 const express = require('express');
 const router = express.Router();
 
-// GET /summary?ref=YYYY-MM-DD
-// Trả 0_30/31_60/61_90/90_plus tổng cho toàn shop, plus per-supplier list.
+const UNPAID_STATUSES = ['DRAFT', 'CONFIRMED', 'PARTIAL', 'PENDING'];
+
 router.get('/summary', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
@@ -25,22 +25,27 @@ router.get('/summary', async (req, res) => {
                 ref: ref.toISOString(),
                 buckets: { b0_30: 0, b31_60: 0, b61_90: 0, b90_plus: 0, total: 0 },
                 suppliers: [],
-                note: 'purchase_orders chưa có — dùng Firestore data client-side',
+                note: 'purchase_orders chưa có',
             });
         }
-        // SQL aging — assume `total_due` chưa thanh toán, `supplier_name`, `created_at`.
+        const refDate = ref.toISOString().slice(0, 10);
+        const statusList = UNPAID_STATUSES.map((s, i) => `$${i + 2}`).join(',');
+        const params = [refDate, ...UNPAID_STATUSES];
         const rs = await pool.query(
-            `SELECT supplier_name,
-                    SUM(CASE WHEN $1::date - created_at::date BETWEEN 0 AND 30 THEN COALESCE(total_due, 0) ELSE 0 END) AS b0_30,
-                    SUM(CASE WHEN $1::date - created_at::date BETWEEN 31 AND 60 THEN COALESCE(total_due, 0) ELSE 0 END) AS b31_60,
-                    SUM(CASE WHEN $1::date - created_at::date BETWEEN 61 AND 90 THEN COALESCE(total_due, 0) ELSE 0 END) AS b61_90,
-                    SUM(CASE WHEN $1::date - created_at::date > 90 THEN COALESCE(total_due, 0) ELSE 0 END) AS b90_plus
+            `SELECT
+                supplier_name,
+                SUM(CASE WHEN $1::date - order_date::date BETWEEN 0 AND 30 THEN COALESCE(final_amount, 0) ELSE 0 END) AS b0_30,
+                SUM(CASE WHEN $1::date - order_date::date BETWEEN 31 AND 60 THEN COALESCE(final_amount, 0) ELSE 0 END) AS b31_60,
+                SUM(CASE WHEN $1::date - order_date::date BETWEEN 61 AND 90 THEN COALESCE(final_amount, 0) ELSE 0 END) AS b61_90,
+                SUM(CASE WHEN $1::date - order_date::date > 90 THEN COALESCE(final_amount, 0) ELSE 0 END) AS b90_plus
              FROM purchase_orders
-             WHERE COALESCE(total_due, 0) > 0
+             WHERE COALESCE(final_amount, 0) > 0
+               AND status IN (${statusList})
+               AND supplier_name IS NOT NULL AND supplier_name <> ''
              GROUP BY supplier_name
-             ORDER BY (SUM(COALESCE(total_due, 0))) DESC
+             ORDER BY (SUM(COALESCE(final_amount, 0))) DESC
              LIMIT 200`,
-            [ref.toISOString().slice(0, 10)]
+            params
         );
         const total = { b0_30: 0, b31_60: 0, b61_90: 0, b90_plus: 0, total: 0 };
         const suppliers = rs.rows.map((r) => {

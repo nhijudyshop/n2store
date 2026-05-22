@@ -83,7 +83,7 @@ router.get('/list', async (req, res) => {
                     ELSE NULL END AS days_left
              FROM web2_products p
              LEFT JOIN web2_product_velocity v ON v.code = p.code
-             WHERE p.active = true
+             WHERE p.is_active = true
              ORDER BY (CASE WHEN COALESCE(v.daily_avg, 0) > 0 THEN p.stock / v.daily_avg ELSE 9999 END) ASC
              LIMIT 200`
         );

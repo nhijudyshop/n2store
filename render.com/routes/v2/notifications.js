@@ -199,7 +199,7 @@ router.get('/scan', async (req, res) => {
         // 4. Stock < 5 (only active)
         const stockRs = await pool.query(
             `SELECT code, name, stock FROM web2_products
-             WHERE active = true AND stock < 5 AND stock >= 0
+             WHERE is_active = true AND stock < 5 AND stock >= 0
              LIMIT 50`
         );
         for (const r of stockRs.rows) {

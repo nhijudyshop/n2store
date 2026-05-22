@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
         try {
             const r = await pool.query(
                 `SELECT COUNT(*)::int AS c FROM web2_products
-                 WHERE active = true AND stock < 5 AND stock >= 0`
+                 WHERE is_active = true AND stock < 5 AND stock >= 0`
             );
             out.stock_low_count = Number(r.rows[0]?.c || 0);
         } catch {
