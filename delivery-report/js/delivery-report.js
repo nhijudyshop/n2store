@@ -1635,6 +1635,7 @@
             document.addEventListener('keydown', onBarcodeKeydown);
             startSyncPolling();
             renderAllGroupsView();
+            renderStats();
             updateScanCount();
         } else {
             // Exit scan mode
@@ -1686,6 +1687,7 @@
             renderTable();
             renderPagination();
         }
+        renderStats();
         updateScanCount();
     }
 
@@ -1723,7 +1725,9 @@
         if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
             renderProvinceView();
         } else if (
-            (DeliveryReportState.activeTab === 'all' || DeliveryReportState.activeTab === 'zero') &&
+            (DeliveryReportState.activeTab === 'all' ||
+                DeliveryReportState.activeTab === 'zero' ||
+                DeliveryReportState.activeTab === 'combo') &&
             DeliveryReportState.traSoatMode
         ) {
             renderAllGroupsView();
@@ -1731,6 +1735,7 @@
             renderTable();
             renderPagination();
         }
+        renderStats();
         updateScanCount();
     }
 
@@ -1831,9 +1836,17 @@
     };
 
     function getTabFilteredData() {
-        let data = DeliveryReportState.allData || [];
+        const state = DeliveryReportState;
+        let data = state.allData || [];
         // Apply tab filter
-        const tab = DeliveryReportState.activeTab;
+        const tab = state.activeTab;
+        const isLite = state.uiMode === 'lite';
+        // Lite mode hides NAP/CITY/RETURN groups → restrict tab data to visible groups
+        const inLiteGroups = (item) => {
+            const g = getItemGroup(item);
+            return g === 'tomato' || g === 'shop';
+        };
+
         if (tab === 'city') {
             data = data.filter(
                 (item) => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ' && !isReturnItem(item)
@@ -1851,8 +1864,17 @@
         } else if (tab === 'return') {
             data = data.filter((item) => isReturnItem(item));
         } else if (tab === 'zero') {
-            data = data.filter((item) => isZeroCOD(item));
+            data = isLite
+                ? data.filter((item) => isZeroCOD(item) && inLiteGroups(item))
+                : data.filter((item) => isZeroCOD(item));
+        } else if (tab === 'combo') {
+            // Lite-only: TOMATO+SHOP groups, exclude 0đ
+            data = data.filter((item) => !isZeroCOD(item) && inLiteGroups(item));
+        } else if (tab === 'all' && isLite) {
+            // Lite expanded: TOMATO+SHOP groups, include 0đ
+            data = data.filter(inLiteGroups);
         }
+        // 'all' in full mode → no extra filter
         return data;
     }
 

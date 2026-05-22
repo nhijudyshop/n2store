@@ -25,6 +25,22 @@
 
 ## 2026-05-22
 
+### [delivery-report] fix: thống kê (đơn + tiền) follow theo mode/tab đang hiển thị
+
+User request: "chỗ bộ lọc → thống kê bao nhiêu đơn, tiền → logic theo ẩn hiện giao diện".
+
+Stats bar (5 ô: Giao hàng thu tiền / Đã thanh toán / Trả hàng / Đang giao / Đối soát không thành công) trước đây không phân biệt lite/full, không cập nhật khi đổi tab.
+
+**Sửa**:
+
+- `getTabFilteredData()` mở rộng: handle tab `combo` (lite TOMATO+SHOP non-0đ), `zero` (lite chỉ TOMATO+SHOP 0đ vs full toàn 0đ), `all` lite (TOMATO+SHOP cả 0đ).
+- Thêm gọi `renderStats()` ở `setTab()`, `setScanFilter()`, `traSoat()` enter → stats đồng bộ ngay khi đổi tab / chế độ quét.
+- `setScanFilter()` đồng thời handle tab 'combo' để re-render đúng view.
+
+**Verified**: `node -c` JS syntax OK.
+
+Status: ✅ Done
+
 ### [delivery-report] feat: 2 chế độ giao diện theo userType + triple-click title bung tab ẩn
 
 User request: `delivery-report/index.html` cần 2 chế độ:
