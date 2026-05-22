@@ -289,10 +289,25 @@
     }
 
     // ─────────────────────────────────────────────────────────
-    // Cart API
+    // Cart API — Optimistic UI: cập nhật badge NGAY khi drop, rollback nếu fail.
+    // Drop vào comment chưa có đơn → tự tạo đơn (entry đầu tiên trong cart_items).
+    // Mỗi action add → show toast "Hoàn tác" 5s, click hoàn tác → remove ngay.
     // ─────────────────────────────────────────────────────────
+    function _user() {
+        const u = global.AuthManager?.getCurrentUser?.() || {};
+        return { id: u.uid || u.email || null, name: u.displayName || u.email || null };
+    }
+
     async function addToCart(commentId, product, customer) {
-        const user = global.AuthManager?.getCurrentUser?.() || {};
+        // Optimistic: tăng badge ngay (rollback nếu API fail)
+        const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
+        const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
+        STATE.cartCounts[commentId] = {
+            items: prev.items + 1,
+            qty: prev.qty + 1,
+        };
+        renderBadges();
+
         try {
             const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
                 method: 'POST',
@@ -301,24 +316,53 @@
                 body: JSON.stringify({
                     product,
                     customer,
-                    user: { id: user.uid || user.email, name: user.displayName || user.email },
+                    user: _user(),
                     qty: 1,
                 }),
             });
             const d = await r.json();
-            if (d.success) {
-                _showToast(`✓ Thêm "${product.code}" vào giỏ`, 'ok');
-                await refreshCartCounts([commentId]);
-            } else {
-                _showToast(`✗ Lỗi: ${d.error || ''}`, 'err');
-            }
+            if (!d.success) throw new Error(d.error || 'unknown');
+
+            // Show toast với Undo (5s)
+            _showUndoToast({
+                title: wasEmpty
+                    ? `✓ Tạo đơn mới + thêm "${product.code}"`
+                    : `✓ Thêm "${product.code}" vào đơn`,
+                onUndo: async () => {
+                    await removeFromCart(commentId, product.code, { silent: true });
+                    _showToast('↶ Đã hoàn tác', 'ok');
+                },
+            });
+            // Sync với server thực tế (in case của discrepancy)
+            refreshCartCounts([commentId]);
         } catch (e) {
+            // Rollback optimistic
+            STATE.cartCounts[commentId] = prev;
+            renderBadges();
             _showToast(`✗ Lỗi: ${e.message}`, 'err');
         }
     }
 
-    async function removeFromCart(commentId, productCode) {
-        const user = global.AuthManager?.getCurrentUser?.() || {};
+    async function removeFromCart(commentId, productCode, opts) {
+        opts = opts || {};
+        // Optimistic: giảm badge ngay
+        const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
+        const newQty = Math.max(0, prev.qty - 1);
+        const newItems = Math.max(0, prev.items - 1);
+        STATE.cartCounts[commentId] =
+            newQty > 0 ? { items: newItems, qty: newQty } : { items: 0, qty: 0 };
+        renderBadges();
+        // Re-render popover nếu đang mở
+        const openPop = document.querySelector(
+            `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
+        );
+        if (openPop) {
+            const itemRow = openPop.querySelector(
+                `.inv-cart-item[data-code="${CSS.escape(productCode)}"]`
+            );
+            if (itemRow) itemRow.remove();
+        }
+
         try {
             await fetch(
                 API +
@@ -331,15 +375,45 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        user: { id: user.uid || user.email, name: user.displayName || user.email },
-                    }),
+                    body: JSON.stringify({ user: _user() }),
                 }
             );
-            await refreshCartCounts([commentId]);
-            await renderCartPopover(commentId); // re-render if open
+            // Sync hard
+            refreshCartCounts([commentId]);
+            if (!opts.silent) _showToast(`Đã xóa "${productCode}"`, 'ok');
         } catch (e) {
+            STATE.cartCounts[commentId] = prev; // rollback
+            renderBadges();
             _showToast(`✗ Lỗi xóa: ${e.message}`, 'err');
+        }
+    }
+
+    // Xóa toàn bộ đơn (clear order) — có confirm
+    async function clearOrder(commentId) {
+        // Optimistic
+        const prev = STATE.cartCounts[commentId];
+        STATE.cartCounts[commentId] = { items: 0, qty: 0 };
+        renderBadges();
+        const openPop = document.querySelector(
+            `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
+        );
+        if (openPop) openPop.remove();
+
+        try {
+            const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ user: _user() }),
+            });
+            const d = await r.json();
+            if (!d.success) throw new Error(d.error || 'clear failed');
+            _showToast(`✓ Đã xóa đơn (${d.removed} SP)`, 'ok');
+            refreshCartCounts([commentId]);
+        } catch (e) {
+            STATE.cartCounts[commentId] = prev;
+            renderBadges();
+            _showToast(`✗ Lỗi xóa đơn: ${e.message}`, 'err');
         }
     }
 
@@ -458,8 +532,13 @@
                     .join('') || '<div class="inv-cart-empty">Giỏ trống</div>';
             pop.innerHTML = `
                 <div class="inv-cart-pop-head">
-                    <strong>🛒 Giỏ hàng (${d.items?.length || 0})</strong>
+                    <strong>🛒 Đơn hàng (${d.items?.length || 0} SP)</strong>
                     <span class="inv-cart-pop-total">Tổng: ${fmtPrice(total)}</span>
+                    ${
+                        (d.items?.length || 0) > 0
+                            ? '<button class="inv-cart-pop-clear" title="Xóa toàn bộ đơn (kéo nhầm)">Xóa đơn</button>'
+                            : ''
+                    }
                     <button class="inv-cart-pop-close">×</button>
                 </div>
                 <div class="inv-cart-pop-body">${itemsHtml}</div>
@@ -469,15 +548,28 @@
             pop.style.top = rect.bottom + 4 + 'px';
             pop.style.left = rect.left + 'px';
             pop.querySelector('.inv-cart-pop-close').onclick = () => pop.remove();
+            // Xóa SP khỏi đơn — KHÔNG confirm (UX nhanh)
             pop.querySelectorAll('[data-action="remove"]').forEach((btn) => {
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     const code = btn.closest('[data-code]').dataset.code;
-                    if (confirm('Xóa SP ' + code + ' khỏi giỏ?')) {
-                        removeFromCart(commentId, code);
-                    }
+                    removeFromCart(commentId, code);
                 };
             });
+            // Xóa toàn bộ đơn — CÓ confirm
+            const clearBtn = pop.querySelector('.inv-cart-pop-clear');
+            if (clearBtn) {
+                clearBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (
+                        confirm(
+                            `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`
+                        )
+                    ) {
+                        clearOrder(commentId);
+                    }
+                };
+            }
             // Attach outside-click AFTER current click finishes — tránh badge.click()
             // tự bubble vào listener mới attach → đóng popover ngay tức thì.
             setTimeout(() => {
@@ -495,6 +587,39 @@
         } catch (e) {
             console.warn('[InventoryPanel] popover fail:', e.message);
         }
+    }
+
+    // Toast với nút Hoàn tác — tự đóng sau 5s, click Hoàn tác → callback
+    function _showUndoToast({ title, onUndo }) {
+        // Bỏ toast cũ cùng kiểu (chỉ 1 undo toast tại 1 lúc)
+        document.querySelectorAll('.inv-toast-undo').forEach((t) => t.remove());
+        const t = document.createElement('div');
+        t.className = 'inv-toast inv-toast-undo';
+        t.innerHTML = `
+            <span class="inv-toast-msg">${escapeHtml(title)}</span>
+            <button class="inv-toast-undo-btn">↶ Hoàn tác</button>
+            <span class="inv-toast-countdown">5</span>
+        `;
+        document.body.appendChild(t);
+        let remain = 5;
+        const cd = t.querySelector('.inv-toast-countdown');
+        const tick = setInterval(() => {
+            remain--;
+            if (cd) cd.textContent = String(remain);
+            if (remain <= 0) {
+                clearInterval(tick);
+                t.remove();
+            }
+        }, 1000);
+        t.querySelector('.inv-toast-undo-btn').onclick = () => {
+            clearInterval(tick);
+            t.remove();
+            try {
+                onUndo && onUndo();
+            } catch (e) {
+                console.warn(e);
+            }
+        };
     }
 
     function _showToast(msg, type) {

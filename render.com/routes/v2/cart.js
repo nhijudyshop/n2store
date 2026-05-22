@@ -291,6 +291,51 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
     }
 });
 
+// POST /:commentId/clear  body: { user, reason? }
+// Xóa toàn bộ SP active của comment (xóa đơn). Soft delete + log mỗi item.
+router.post('/:commentId/clear', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const { commentId } = req.params;
+        const user = (req.body && req.body.user) || {};
+        const reason = (req.body && req.body.reason) || 'clear-order';
+        const items = await pool.query(
+            `SELECT id, product_code, product_name, qty, customer_name, customer_phone, page_id
+             FROM web2_cart_items
+             WHERE comment_id = $1 AND removed_at IS NULL`,
+            [commentId]
+        );
+        if (!items.rowCount) {
+            return res.json({ success: true, removed: 0 });
+        }
+        await pool.query(
+            `UPDATE web2_cart_items
+             SET removed_at = NOW(), updated_at = NOW()
+             WHERE comment_id = $1 AND removed_at IS NULL`,
+            [commentId]
+        );
+        for (const row of items.rows) {
+            await _logHistory(pool, {
+                comment_id: commentId,
+                customer_name: row.customer_name,
+                customer_phone: row.customer_phone,
+                page_id: row.page_id,
+                product_code: row.product_code,
+                product_name: row.product_name,
+                action: 'clear-order',
+                qty_before: row.qty,
+                qty_after: 0,
+                user_id: user.id,
+                user_name: user.name,
+            });
+        }
+        _notify(commentId);
+        res.json({ success: true, removed: items.rowCount });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // PATCH /:commentId/:productCode  body: { qty, user }
 router.patch('/:commentId/:productCode', async (req, res) => {
     try {

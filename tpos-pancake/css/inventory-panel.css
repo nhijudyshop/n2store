@@ -427,6 +427,65 @@
     font-size: 13px;
 }
 
+/* Nút xóa đơn trong popover head */
+.inv-cart-pop-clear {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 120ms;
+}
+.inv-cart-pop-clear:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+}
+
+/* Undo toast (sticky 5s với nút hoàn tác) */
+.inv-toast-undo {
+    background: #1c1f25 !important;
+    padding: 10px 14px !important;
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    max-width: 480px;
+}
+.inv-toast-undo .inv-toast-msg {
+    flex: 1;
+    font-size: 13px;
+}
+.inv-toast-undo-btn {
+    background: #f59e0b;
+    color: #1c1f25;
+    border: 0;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(245, 158, 11, 0.5);
+    transition: transform 100ms;
+}
+.inv-toast-undo-btn:hover {
+    transform: scale(1.04);
+}
+.inv-toast-countdown {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
 /* Toast */
 .inv-toast {
     position: fixed;
