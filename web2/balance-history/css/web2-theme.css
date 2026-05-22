@@ -1,0 +1,547 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — theme overlay cho balance-history. */
+/* =====================================================
+ * WEB 2.0 THEME OVERLAY — balance-history
+ *
+ * Map ngoại quan trang balance-history sang phong cách thống nhất với
+ * native-orders / products / fastsaleorder-invoice:
+ *   - Background nhẹ + Inter font
+ *   - Tab strip → pills gradient tím khi active
+ *   - Button hệ TPOS (primary/default/success/warning/danger) màu nhất quán
+ *   - Table TPOS theme (header xám, row hover, padding gọn)
+ *   - Input chip-select + search-input
+ *   - Card / panel chìm nhẹ với border-radius lớn
+ *
+ * KHÔNG sửa logic JS, chỉ override CSS bằng selector cụ thể đủ specificity
+ * để thắng modern.css + styles.css cũ.
+ * ===================================================== */
+
+/* ─── Base / layout ─────────────────────────────────── */
+body.tpos-theme {
+    font-family:
+        'Inter',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        system-ui,
+        sans-serif;
+    color: #0f172a;
+    background: linear-gradient(180deg, #faf5ff 0%, #f8fafc 220px, #f8fafc 100%);
+    margin: 0;
+}
+.tpos-theme .container {
+    max-width: none;
+    padding: 16px 22px 32px;
+    margin: 0;
+}
+.tpos-theme .main-content {
+    background: transparent;
+}
+
+/* ─── Main tabs — gradient pills ────────────────────── */
+.tpos-theme .main-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 18px;
+    padding: 6px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    flex-wrap: wrap;
+}
+.tpos-theme .main-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: 9px;
+    border: 0;
+    background: transparent;
+    color: #475569;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+.tpos-theme .main-tab i {
+    width: 15px;
+    height: 15px;
+}
+.tpos-theme .main-tab:hover {
+    background: #f5f3ff;
+    color: #6d28d9;
+}
+.tpos-theme .main-tab.active {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.22);
+}
+.tpos-theme .main-tab.active:hover {
+    filter: brightness(1.06);
+}
+.tpos-theme .unchecked-badge {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+.tpos-theme .main-tab.active .unchecked-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+/* ─── Panel cards ───────────────────────────────────── */
+.tpos-theme .main-tab-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+.tpos-theme .main-tab-panel:not(.active) {
+    display: none;
+}
+
+/* ─── Header inside Balance History panel ───────────── */
+.tpos-theme #balanceHistoryPanel .header {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+    padding: 16px 22px;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0;
+}
+.tpos-theme #balanceHistoryPanel .header h1 {
+    color: #fff;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px !important;
+}
+.tpos-theme #balanceHistoryPanel .header h1 i {
+    width: 18px;
+    height: 18px;
+}
+.tpos-theme #balanceHistoryPanel .header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+}
+.tpos-theme .inline-qr-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(4px);
+}
+.tpos-theme .inline-input,
+.tpos-theme .inline-qr-form input {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 0 !important;
+    color: #0f172a !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    font-size: 12.5px !important;
+    height: 30px;
+}
+.tpos-theme .inline-input::placeholder {
+    color: #94a3b8 !important;
+}
+
+/* ─── Buttons ───────────────────────────────────────── */
+.tpos-theme .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 0;
+    font-weight: 600;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+.tpos-theme .btn-sm {
+    padding: 5px 11px;
+    font-size: 11.5px;
+}
+.tpos-theme .btn i {
+    width: 13px;
+    height: 13px;
+}
+.tpos-theme .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.22);
+}
+.tpos-theme .btn-primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+.tpos-theme .btn-secondary {
+    background: #fff;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+.tpos-theme .btn-secondary:hover {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border-color: #c4b5fd;
+}
+.tpos-theme .btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.tpos-theme .btn-icon:hover {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+.tpos-theme .btn-icon i {
+    width: 14px;
+    height: 14px;
+}
+
+/* ─── Filter / search bar ───────────────────────────── */
+.tpos-theme .filters-section,
+.tpos-theme .filters,
+.tpos-theme .search-section {
+    padding: 12px 22px;
+    background: #fafafa;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+.tpos-theme .filters-section input[type='text'],
+.tpos-theme .filters-section input[type='search'],
+.tpos-theme .filters-section input[type='date'],
+.tpos-theme .filters-section input[type='time'],
+.tpos-theme .filters-section select,
+.tpos-theme .filters input[type='text'],
+.tpos-theme .filters input[type='search'],
+.tpos-theme .filters input[type='date'],
+.tpos-theme .filters input[type='time'],
+.tpos-theme .filters select {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    font-size: 12.5px;
+    background: #fff;
+    color: #0f172a;
+    outline: none;
+}
+.tpos-theme .filters-section input:focus,
+.tpos-theme .filters input:focus,
+.tpos-theme .filters select:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+/* ─── Tables ────────────────────────────────────────── */
+.tpos-theme .balance-table,
+.tpos-theme .data-table,
+.tpos-theme .table-section table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+.tpos-theme .balance-table thead th,
+.tpos-theme .data-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 11px 12px;
+    text-align: left;
+    border-bottom: 1.5px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.tpos-theme .balance-table tbody td,
+.tpos-theme .data-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 12.5px;
+    color: #0f172a;
+}
+.tpos-theme .balance-table tbody tr:hover,
+.tpos-theme .data-table tbody tr:hover {
+    background: #fafafa;
+}
+
+/* ─── Status / type badges ──────────────────────────── */
+.tpos-theme .badge,
+.tpos-theme .status-pill,
+.tpos-theme .type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+.tpos-theme .type-in,
+.tpos-theme .badge-in {
+    background: #dcfce7;
+    color: #15803d;
+}
+.tpos-theme .type-out,
+.tpos-theme .badge-out {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* ─── Counter / stats cards ─────────────────────────── */
+.tpos-theme .stats-grid,
+.tpos-theme .stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 14px 22px;
+    background: #fff;
+    border-bottom: 1px solid #f1f5f9;
+}
+.tpos-theme .stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: all 0.15s ease;
+}
+.tpos-theme .stat-card:hover {
+    border-color: #c4b5fd;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.1);
+}
+.tpos-theme .stat-card .stat-label,
+.tpos-theme .stat-card .label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.tpos-theme .stat-card .stat-value,
+.tpos-theme .stat-card .value {
+    font-size: 19px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* ─── Live mode panel ───────────────────────────────── */
+.tpos-theme .live-mode-header {
+    padding: 14px 22px;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+    border-radius: 14px 14px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+.tpos-theme .live-mode-header .live-indicator {
+    background: #dc2626;
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.tpos-theme .live-mode-header .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    animation: pulse-anim 1.4s ease-in-out infinite;
+}
+@keyframes pulse-anim {
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+.tpos-theme .live-search input {
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f172a;
+    border: 0;
+    border-radius: 7px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    min-width: 200px;
+}
+.tpos-theme .sse-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 999px;
+}
+.tpos-theme .sse-status.disconnected {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fca5a5;
+}
+.tpos-theme .sse-status.connected {
+    background: rgba(34, 197, 94, 0.18);
+    color: #86efac;
+}
+.tpos-theme .sse-status .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ─── Pagination ────────────────────────────────────── */
+.tpos-theme .pagination,
+.tpos-theme .page-btn {
+    font-family: inherit;
+}
+.tpos-theme .pagination {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 14px 22px;
+    background: #fff;
+    border-top: 1px solid #f1f5f9;
+}
+.tpos-theme .page-btn {
+    min-width: 32px;
+    height: 32px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 0 9px;
+}
+.tpos-theme .page-btn:hover:not(:disabled) {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border-color: #c4b5fd;
+}
+.tpos-theme .page-btn.active {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+    border-color: #7c3aed;
+}
+.tpos-theme .page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Kanban (live mode) ────────────────────────────── */
+.tpos-theme .kanban-board {
+    background: #f8fafc;
+    padding: 16px;
+    min-height: 400px;
+}
+.tpos-theme .kanban-loading {
+    text-align: center;
+    color: #94a3b8;
+    padding: 60px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+.tpos-theme .kanban-loading i {
+    width: 32px;
+    height: 32px;
+    color: #c4b5fd;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from {
+        transform: rotate(0);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ─── Verification (Kế Toán) tab ────────────────────── */
+.tpos-theme .verification-stats,
+.tpos-theme .verification-header {
+    padding: 14px 22px;
+}
+.tpos-theme .verification-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    background: #fff;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* ─── Hide scrollbar in tab strip on small screens ──── */
+.tpos-theme .main-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.tpos-theme .main-tabs::-webkit-scrollbar {
+    height: 6px;
+}
+.tpos-theme .main-tabs::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 999px;
+}
+
+/* ─── Tighter spacing trên mobile ───────────────────── */
+@media (max-width: 768px) {
+    .tpos-theme .container {
+        padding: 12px;
+    }
+    .tpos-theme #balanceHistoryPanel .header {
+        padding: 12px 16px;
+    }
+    .tpos-theme .filters-section,
+    .tpos-theme .filters,
+    .tpos-theme .search-section {
+        padding: 10px 16px;
+    }
+    .tpos-theme .balance-table thead th,
+    .tpos-theme .balance-table tbody td,
+    .tpos-theme .data-table thead th,
+    .tpos-theme .data-table tbody td {
+        padding: 8px 10px;
+        font-size: 11.5px;
+    }
+}
