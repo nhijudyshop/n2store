@@ -905,7 +905,16 @@ body:has(.web2-shell) textarea:focus {
    Áp dụng từ <=900px: sidebar off-canvas drawer, table scrollable,
    buttons stack, padding gọn lại.
    ============================================================ */
+/* Desktop default: ẩn hamburger + scrim — chỉ hiện trên mobile */
+.w2-mobile-menu-btn,
+.web2-aside-scrim {
+    display: none;
+}
+
 @media (max-width: 900px) {
+    .w2-mobile-menu-btn {
+        display: block;
+    }
     body:has(.web2-shell) .web2-shell {
         flex-direction: column;
     }

@@ -175,7 +175,12 @@
                     try {
                         const r = await fetch(VAPI + '/list', { credentials: 'include' });
                         const d = await r.json();
-                        const items = d.items || [];
+                        // API trả { variants: [{ value, groupName, shortCode }] }
+                        const items = (d.variants || d.items || []).map((v) => ({
+                            name: v.name || v.value,
+                            group: v.group || v.groupName,
+                            short_code: v.short_code || v.shortCode,
+                        }));
                         const sizes = items.filter((v) => /size/i.test(v.group || ''));
                         const colors = items.filter((v) => /màu|color/i.test(v.group || ''));
                         availableSizes = sizes;
