@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1acd14b` — fix(sidebar): "- WEB 2.0" allow-list chỉ 13 page user xác nhận
-**Last updated**: 2026-05-22 09:31:08 +07
-**Latest session**: [`RESUME:20260522-093108-1acd14b`](../20260522-093108-1acd14b.md)
-**Summary**: fix(sidebar): "- WEB 2.0" allow-list chỉ 13 page user xác nhận
+**Latest commit**: `0c84e2f` — feat(web2): áp dụng TPOS theme chuẩn cho 11 trang Web 2.0
+**Last updated**: 2026-05-22 09:35:28 +07
+**Latest session**: [`RESUME:20260522-093528-0c84e2f`](../20260522-093528-0c84e2f.md)
+**Summary**: feat(web2): áp dụng TPOS theme chuẩn cho 11 trang Web 2.0
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`web2/`](./web2.md) — 10 file(s)
 
 ## All folder snapshots
 
@@ -55,16 +57,16 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-21 15:39
+- [`so-order/`](./so-order.md) — updated 2026-05-22 09:35
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-21 15:39
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 09:35
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 09:31
+- [`web2/`](./web2.md) — updated 2026-05-22 09:35
