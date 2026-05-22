@@ -588,9 +588,13 @@
         attachDropTargets();
         _subscribeSSE();
 
-        // Refresh badges + has-order khi conversation list re-render (Pancake updates)
-        const list = document.querySelector('.pk-conversation-list, #pkConversationList');
-        if (list && global.MutationObserver) {
+        // Watch khi `.pk-conversation-list` xuất hiện trong DOM (Pancake load async).
+        // Khi tìm thấy → attach inner MutationObserver + run mark ngay.
+        function _wireListObserver() {
+            const list = document.querySelector('.pk-conversation-list, #pkConversationList');
+            if (!list) return false;
+            if (list.dataset.invObserved) return true;
+            list.dataset.invObserved = '1';
             new MutationObserver(() => {
                 clearTimeout(init._mTimer);
                 init._mTimer = setTimeout(() => {
@@ -598,17 +602,32 @@
                     _markHasOrderRows();
                 }, 200);
             }).observe(list, { childList: true, subtree: false });
+            // Initial mark
+            refreshCartCounts();
+            _markHasOrderRows();
+            return true;
         }
 
-        // Bootstrap polling: PancakeState.conversations có thể chưa sẵn sàng khi
-        // Kho panel init lần đầu. Poll mỗi 1.5s trong 30s đầu để mark has-order.
+        // Poll DOM mỗi 2s cho đến khi list xuất hiện + đã có conv (PancakeState.convs ready).
+        // Sau khi attach observer + có data → vẫn poll thêm mỗi 5s cho safety (rows có thể
+        // re-render mà không qua observer khi Pancake apply filter).
         let pollTries = 0;
         const pollTimer = setInterval(() => {
             pollTries++;
-            _markHasOrderRows();
-            refreshCartCounts();
-            if (pollTries >= 20) clearInterval(pollTimer);
-        }, 1500);
+            const observed = _wireListObserver();
+            if (observed) {
+                refreshCartCounts();
+                _markHasOrderRows();
+            }
+            // Sau 60 lần (~2 phút) → giảm tần suất xuống 5s
+            if (pollTries === 60) {
+                clearInterval(pollTimer);
+                setInterval(() => {
+                    _wireListObserver();
+                    _markHasOrderRows();
+                }, 5000);
+            }
+        }, 2000);
     }
 
     global.PancakeInventoryPanel = {
