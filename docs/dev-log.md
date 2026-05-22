@@ -25,6 +25,45 @@
 
 ## 2026-05-22
 
+### [web2/wallet] feat: cô lập triệt để wallet khỏi Web 1.0 — trigger-based mirror
+
+User request: "customer_wallets + wallet_adjustments là phần nào có chức năng gì? … làm triệt để đi".
+
+**Context**: 2 bảng `customer_wallets` (ví KH, balance/virtual_balance) + `wallet_adjustments` (audit khi sai mapping SePay) là SHARED giữa Web 1.0 (orders-report tab1, balance-history accountant cũ) và Web 2.0 (web2/balance-history, web2/customer-wallet, dashboard-kpi, audit-log). Trước đây Web 2.0 read trực tiếp 2 bảng này → vi phạm cô lập layer.
+
+**Solution**: dùng **Postgres TRIGGER** thay vì sửa ~15 write site:
+
+**File mới**: [`render.com/services/web2-wallet-isolation.js`](../render.com/services/web2-wallet-isolation.js)
+
+1. Tạo 3 bảng mirror riêng (`CREATE TABLE LIKE legacy INCLUDING ALL`):
+    - `web2_customer_wallets` ← `customer_wallets`
+    - `web2_wallet_transactions` ← `wallet_transactions`
+    - `web2_wallet_adjustments` ← `wallet_adjustments`
+    - `DROP id DEFAULT` (id luôn từ legacy)
+2. 3 trigger function PL/pgSQL `web2_mirror_*` — `INSERT INTO web2_X SELECT NEW.* ON CONFLICT(id) DO UPDATE`. EXCEPTION handler dùng `RAISE WARNING` → KHÔNG fail Web 1.0 write nếu mirror fail.
+3. 3 trigger `AFTER INSERT OR UPDATE` trên 3 bảng legacy.
+4. Backfill 1 lần qua `INSERT ... SELECT FROM legacy ON CONFLICT DO NOTHING` — chỉ chạy khi web2\_\* rỗng (avoid duplicate backfill).
+5. Mount migration trong `server.js` sau DB connect (idempotent).
+
+**Update 2 Web 2.0 readers** (đã không còn touch legacy):
+
+- `dashboard-kpi.js`: `FROM customer_wallets` → `FROM web2_customer_wallets`
+- `audit-log.js`: `FROM wallet_adjustments` → `FROM web2_wallet_adjustments`
+
+**Verified sau deploy** (prod API):
+
+- `/api/v2/dashboard-kpi/` → `wallet_overdraft: 0` ✓
+- `/api/v2/audit-log/entities` → bao gồm `wallet` (detect `web2_wallet_adjustments` exists) ✓
+- `/api/v2/audit-log/list?entity=wallet` → 3 items real data từ `web2_wallet_adjustments` (backfill OK) ✓
+
+**Effect**:
+
+- Web 1.0 KHÔNG sửa 1 dòng code. orders-report tab1 / wallet-event-processor / routes/v2/wallets / routes/v2/tickets tiếp tục write legacy như cũ.
+- Mỗi write commit → trigger fire → mirror sang web2\_\* trong cùng transaction.
+- Web 2.0 readers cô lập triệt để.
+
+**Pattern thống nhất** với migration 081 (web2_balance_history) đã làm trước — chỉ khác chỗ dùng trigger thay vì dual-write helper trong code (vì wallet có quá nhiều write site).
+
 ### [web2] fix: 5 vòng debug backend + frontend cho 12 features mới — test sạch
 
 User request: "Browser test lại các tính năng mới vừa thêm → tự debug, test lỗi → commit push lặp lại tới khi hết lỗi hoàn toàn".
