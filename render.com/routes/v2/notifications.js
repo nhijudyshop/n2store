@@ -180,7 +180,7 @@ router.get('/scan', async (req, res) => {
         // 1. PBH draft > 24h
         const draftRs = await pool.query(
             `SELECT number FROM fast_sale_orders
-             WHERE state = 'draft' AND created_at < NOW() - INTERVAL '24 hours'
+             WHERE state = 'draft' AND date_created < NOW() - INTERVAL '24 hours'
              LIMIT 50`
         );
         for (const r of draftRs.rows) {

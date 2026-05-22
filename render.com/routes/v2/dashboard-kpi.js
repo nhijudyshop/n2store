@@ -20,12 +20,12 @@ router.get('/', async (req, res) => {
         }
         const out = {};
 
-        // Revenue today (PBH state=done)
+        // Revenue today (PBH state=done) — dùng date_invoice (ngày HĐ, đã có timezone fix)
         try {
             const r = await pool.query(
                 `SELECT COALESCE(SUM(amount_total), 0)::bigint AS s, COUNT(*)::int AS c
                  FROM fast_sale_orders
-                 WHERE state = 'done' AND created_at::date = CURRENT_DATE`
+                 WHERE state = 'done' AND date_invoice::date = CURRENT_DATE`
             );
             out.revenue_today = Number(r.rows[0]?.s || 0);
             out.pbh_done_today = Number(r.rows[0]?.c || 0);
@@ -37,9 +37,9 @@ router.get('/', async (req, res) => {
         // Revenue 7 days
         try {
             const r = await pool.query(
-                `SELECT created_at::date AS d, COALESCE(SUM(amount_total), 0)::bigint AS s
+                `SELECT date_invoice::date AS d, COALESCE(SUM(amount_total), 0)::bigint AS s
                  FROM fast_sale_orders
-                 WHERE state = 'done' AND created_at > NOW() - INTERVAL '7 days'
+                 WHERE state = 'done' AND date_invoice > NOW() - INTERVAL '7 days'
                  GROUP BY d ORDER BY d`
             );
             out.revenue_7d = r.rows.map((x) => ({ date: x.d, amount: Number(x.s) }));
@@ -47,11 +47,11 @@ router.get('/', async (req, res) => {
             out.revenue_7d = [];
         }
 
-        // PBH pending pack
+        // PBH pending pack — state=done chưa hết delivery (placeholder: chưa hết tracking_ref)
         try {
             const r = await pool.query(
-                `SELECT COUNT(*)::int AS c FROM fast_sale_orders WHERE state = 'done' AND
-                 (pick_state IS NULL OR pick_state <> 'delivered')`
+                `SELECT COUNT(*)::int AS c FROM fast_sale_orders WHERE state = 'done'
+                 AND (tracking_ref IS NULL OR tracking_ref = '')`
             );
             out.pbh_pending_pack = Number(r.rows[0]?.c || 0);
         } catch {
@@ -83,7 +83,7 @@ router.get('/', async (req, res) => {
         try {
             const r = await pool.query(
                 `SELECT state, COUNT(*)::int AS c FROM fast_sale_orders
-                 WHERE created_at > NOW() - INTERVAL '30 days'
+                 WHERE date_created > NOW() - INTERVAL '30 days'
                  GROUP BY state`
             );
             out.pbh_by_state = r.rows.map((x) => ({ state: x.state, count: Number(x.c) }));
@@ -91,11 +91,12 @@ router.get('/', async (req, res) => {
             out.pbh_by_state = [];
         }
 
-        // Recent PBH
+        // Recent PBH — alias partner_name → customer_name + date_created → created_at để client cũ chạy được
         try {
             const r = await pool.query(
-                `SELECT number, customer_name, amount_total, state, created_at
-                 FROM fast_sale_orders ORDER BY created_at DESC LIMIT 10`
+                `SELECT number, partner_name AS customer_name, amount_total, state,
+                        date_created AS created_at
+                 FROM fast_sale_orders ORDER BY date_created DESC LIMIT 10`
             );
             out.recent_pbh = r.rows;
         } catch {

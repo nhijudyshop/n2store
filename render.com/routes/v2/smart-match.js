@@ -73,12 +73,16 @@ router.get('/:txId', async (req, res) => {
         const lo = Math.floor(amt * 0.9);
         const hi = Math.ceil(amt * 1.1);
         const candRs = await pool.query(
-            `SELECT number, customer_name, customer_phone, amount_total, created_at
+            `SELECT number,
+                    partner_name AS customer_name,
+                    partner_phone AS customer_phone,
+                    amount_total,
+                    date_created AS created_at
              FROM fast_sale_orders
              WHERE state = 'done'
-               AND created_at > NOW() - INTERVAL '30 days'
+               AND date_created > NOW() - INTERVAL '30 days'
                AND amount_total BETWEEN $1 AND $2
-             ORDER BY created_at DESC
+             ORDER BY date_created DESC
              LIMIT 30`,
             [lo, hi]
         );
