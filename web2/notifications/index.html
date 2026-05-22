@@ -1,0 +1,198 @@
+<!-- #Note: WEB2.0 module. F06 Notification Center full page. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Thông báo - WEB 2.0</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="../shared/web2-notification-bell.css?v=20260522a" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <style>
+            .noti-main {
+                padding: 20px 28px;
+            }
+            .noti-toolbar {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 14px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .noti-toolbar select,
+            .noti-toolbar button {
+                padding: 7px 12px;
+                border-radius: 6px;
+                border: 1px solid #d1d5db;
+                background: #fff;
+                font-size: 13px;
+                cursor: pointer;
+            }
+            .noti-toolbar button.primary {
+                background: linear-gradient(135deg, #7266ba, #5e51ac);
+                color: #fff;
+                border: 0;
+                font-weight: 600;
+            }
+            .noti-list {
+                background: #fff;
+                border-radius: 10px;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+                overflow: hidden;
+            }
+            .noti-row {
+                display: flex;
+                gap: 12px;
+                padding: 12px 18px;
+                border-bottom: 1px solid #f3f4f6;
+                text-decoration: none;
+                color: #1c1f25;
+            }
+            .noti-row.unread {
+                background: #f5f1ff;
+            }
+            .noti-row:hover {
+                background: #f9fafb;
+            }
+            .noti-row .dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #7266ba;
+                margin-top: 8px;
+                flex-shrink: 0;
+            }
+            .noti-row.read .dot {
+                background: transparent;
+            }
+            .noti-title {
+                font-weight: 600;
+                font-size: 14px;
+            }
+            .noti-body {
+                font-size: 13px;
+                color: #58666e;
+                margin-top: 3px;
+            }
+            .noti-meta {
+                font-size: 11.5px;
+                color: #94a3b8;
+                margin-top: 4px;
+            }
+            .noti-empty {
+                padding: 60px 20px;
+                text-align: center;
+                color: #94a3b8;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main noti-main">
+                <h1 style="margin: 0 0 6px; font-size: 22px">Trung tâm thông báo</h1>
+                <p style="color: #58666e; margin: 0 0 18px; font-size: 13px">
+                    Toàn bộ cảnh báo Web 2.0 — PBH cần xác nhận, hàng sắp hết, ví âm, SePay pending.
+                </p>
+                <div class="noti-toolbar">
+                    <select id="filterUnread">
+                        <option value="0">Tất cả</option>
+                        <option value="1">Chưa đọc</option>
+                    </select>
+                    <button id="btnScan" title="Quét lại từ DB ngay">Quét noti mới</button>
+                    <button id="btnMarkAll" class="primary">Đánh dấu tất cả đã đọc</button>
+                </div>
+                <div class="noti-list" id="notiList">
+                    <div class="noti-empty">Đang tải…</div>
+                </div>
+            </main>
+        </div>
+        <script src="../shared/web2-auth.js?v=20260522f"></script>
+        <script src="../shared/web2-sse-topics.js?v=20260522a"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260522a"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            (function () {
+                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/notifications';
+                let unreadOnly = false;
+                async function load() {
+                    const r = await fetch(
+                        API + '/list?limit=100&unreadOnly=' + (unreadOnly ? '1' : '0'),
+                        {
+                            credentials: 'include',
+                        }
+                    );
+                    const d = await r.json();
+                    const list = document.getElementById('notiList');
+                    if (!d.success || !d.items.length) {
+                        list.innerHTML = '<div class="noti-empty">Không có thông báo</div>';
+                        return;
+                    }
+                    list.innerHTML = d.items
+                        .map((it) => {
+                            const cls = it.read_at ? 'read' : 'unread';
+                            const meta = new Date(it.created_at).toLocaleString('vi-VN');
+                            return `<a class="noti-row ${cls}" href="${escAttr(it.url || '#')}" data-id="${it.id}">
+                            <span class="dot"></span>
+                            <div>
+                                <div class="noti-title">${esc(it.title)}</div>
+                                ${it.body ? `<div class="noti-body">${esc(it.body)}</div>` : ''}
+                                <div class="noti-meta">${esc(meta)} · ${esc(it.severity || 'info')}</div>
+                            </div>
+                        </a>`;
+                        })
+                        .join('');
+                    list.querySelectorAll('.noti-row').forEach((el) => {
+                        el.onclick = () => {
+                            const id = el.getAttribute('data-id');
+                            fetch(API + '/' + id + '/read', {
+                                method: 'POST',
+                                credentials: 'include',
+                            });
+                        };
+                    });
+                }
+                document.getElementById('filterUnread').onchange = (e) => {
+                    unreadOnly = e.target.value === '1';
+                    load();
+                };
+                document.getElementById('btnMarkAll').onclick = async () => {
+                    await fetch(API + '/mark-all-read', { method: 'POST', credentials: 'include' });
+                    load();
+                };
+                document.getElementById('btnScan').onclick = async () => {
+                    const btn = document.getElementById('btnScan');
+                    btn.disabled = true;
+                    btn.textContent = 'Đang quét…';
+                    try {
+                        await fetch(API + '/scan', { credentials: 'include' });
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = 'Quét noti mới';
+                        load();
+                    }
+                };
+                function esc(s) {
+                    const d = document.createElement('div');
+                    d.textContent = String(s ?? '');
+                    return d.innerHTML;
+                }
+                function escAttr(s) {
+                    return String(s ?? '').replace(
+                        /[<>"']/g,
+                        (c) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+                    );
+                }
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (window.Web2Sidebar)
+                        Web2Sidebar.mount('#web2Aside', { activeRoute: 'notifications' });
+                    load();
+                    if (window.Web2SSE) {
+                        Web2SSE.subscribe('web2:notifications', () => load());
+                    }
+                });
+            })();
+        </script>
+    </body>
+</html>

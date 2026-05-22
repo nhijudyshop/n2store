@@ -1,0 +1,153 @@
+/* #Note: WEB2.0 module. Modal styling cho bulk-import. */
+.w2-bulk-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: w2bulkFadeIn 160ms ease;
+}
+.w2-bulk-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: min(880px, 92vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+.w2-bulk-head {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #f3eefe, #fff);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.w2-bulk-head h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #1c1f25;
+}
+.w2-bulk-close {
+    background: transparent;
+    border: 0;
+    font-size: 22px;
+    cursor: pointer;
+    color: #58666e;
+    padding: 0 6px;
+}
+.w2-bulk-body {
+    padding: 18px;
+    overflow: auto;
+    flex: 1;
+}
+.w2-bulk-hint {
+    margin: 0 0 12px;
+    color: #58666e;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.w2-bulk-hint code {
+    padding: 1px 5px;
+    background: rgba(15, 23, 42, 0.06);
+    border-radius: 3px;
+    font-size: 12px;
+}
+.w2-bulk-file {
+    margin-bottom: 14px;
+    font-size: 14px;
+}
+.w2-bulk-preview {
+    margin-top: 12px;
+}
+.w2-bulk-stats {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+}
+.w2-bulk-ok {
+    color: #16a34a;
+    font-weight: 600;
+}
+.w2-bulk-bad {
+    color: #dc2626;
+    font-weight: 600;
+}
+.w2-bulk-loading,
+.w2-bulk-done {
+    padding: 8px 10px;
+    background: #f9fafb;
+    border-radius: 4px;
+    font-size: 13px;
+    margin: 6px 0;
+}
+.w2-bulk-done {
+    background: #e3f7e8;
+    color: #14532d;
+}
+.w2-bulk-errtbl,
+.w2-bulk-prevtbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin: 8px 0;
+}
+.w2-bulk-errtbl th,
+.w2-bulk-prevtbl th {
+    background: #f0eeee;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+.w2-bulk-errtbl td,
+.w2-bulk-prevtbl td {
+    padding: 5px 8px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.w2-bulk-errtbl td:last-child {
+    color: #b91c1c;
+}
+.w2-bulk-foot {
+    padding: 12px 18px;
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: #fafafa;
+}
+.w2-bulk-cancel,
+.w2-bulk-submit {
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.w2-bulk-cancel {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+.w2-bulk-submit {
+    background: linear-gradient(135deg, #7266ba, #5e51ac);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(114, 102, 186, 0.28);
+}
+.w2-bulk-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+@keyframes w2bulkFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}

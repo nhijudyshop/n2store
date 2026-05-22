@@ -1,0 +1,283 @@
+<!-- #Note: WEB2.0 module. F01 Dashboard KPI tổng. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Dashboard - WEB 2.0</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.js" defer></script>
+        <style>
+            .dash-main {
+                padding: 20px 28px;
+            }
+            .kpi-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 14px;
+                margin-bottom: 22px;
+            }
+            .kpi-card {
+                padding: 16px 18px;
+                border-radius: 10px;
+                background: #fff;
+                border-left: 4px solid;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+                transition: transform 200ms;
+            }
+            .kpi-card:hover {
+                transform: translateY(-2px);
+            }
+            .kpi-card .lab {
+                font-size: 11px;
+                text-transform: uppercase;
+                color: #58666e;
+                font-weight: 600;
+            }
+            .kpi-card .val {
+                font-size: 26px;
+                font-weight: 700;
+                margin-top: 4px;
+            }
+            .kpi-card .sub {
+                font-size: 11.5px;
+                color: #94a3b8;
+                margin-top: 4px;
+            }
+            .kpi-revenue {
+                border-left-color: #7266ba;
+            }
+            .kpi-pending {
+                border-left-color: #f59e0b;
+            }
+            .kpi-stock {
+                border-left-color: #ef4444;
+            }
+            .kpi-wallet {
+                border-left-color: #14b8a6;
+            }
+            .kpi-revenue .val {
+                color: #5e51ac;
+            }
+            .kpi-pending .val {
+                color: #d97706;
+            }
+            .kpi-stock .val {
+                color: #dc2626;
+            }
+            .kpi-wallet .val {
+                color: #0f766e;
+            }
+            .dash-row {
+                display: grid;
+                gap: 14px;
+                grid-template-columns: 2fr 1fr;
+                margin-bottom: 22px;
+            }
+            @media (max-width: 880px) {
+                .dash-row {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .dash-panel {
+                background: #fff;
+                padding: 16px 18px;
+                border-radius: 10px;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+            }
+            .dash-panel h3 {
+                margin: 0 0 12px;
+                font-size: 14px;
+            }
+            canvas {
+                max-height: 240px;
+            }
+            table.recent {
+                width: 100%;
+                font-size: 13px;
+                border-collapse: collapse;
+            }
+            table.recent th,
+            table.recent td {
+                padding: 6px 8px;
+                border-bottom: 1px solid #f3f4f6;
+                text-align: left;
+            }
+            .state-done {
+                color: #16a34a;
+                font-weight: 600;
+            }
+            .state-cancel {
+                color: #dc2626;
+                font-weight: 600;
+            }
+            .state-draft {
+                color: #d97706;
+                font-weight: 600;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main dash-main">
+                <h1 style="margin: 0 0 6px">Dashboard KPI</h1>
+                <p style="color: #58666e; margin: 0 0 16px; font-size: 13px">
+                    Tổng quan realtime · cache 30s · subscribe SSE <code>web2:kpi-dashboard</code>
+                </p>
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-revenue">
+                        <div class="lab">Doanh thu hôm nay</div>
+                        <div class="val" id="kpiRevenue">…</div>
+                        <div class="sub" id="kpiRevSub">— đơn</div>
+                    </div>
+                    <div class="kpi-card kpi-pending">
+                        <div class="lab">PBH cần đóng gói</div>
+                        <div class="val" id="kpiPending">…</div>
+                        <div class="sub">Đã done, chưa giao</div>
+                    </div>
+                    <div class="kpi-card kpi-stock">
+                        <div class="lab">SP sắp hết hàng</div>
+                        <div class="val" id="kpiStock">…</div>
+                        <div class="sub">stock &lt; 5</div>
+                    </div>
+                    <div class="kpi-card kpi-wallet">
+                        <div class="lab">Ví KH âm</div>
+                        <div class="val" id="kpiWallet">…</div>
+                        <div class="sub">balance &lt; 0</div>
+                    </div>
+                </div>
+
+                <div class="dash-row">
+                    <div class="dash-panel">
+                        <h3>Doanh thu 7 ngày</h3>
+                        <canvas id="chartRevenue"></canvas>
+                    </div>
+                    <div class="dash-panel">
+                        <h3>PBH theo trạng thái (30 ngày)</h3>
+                        <canvas id="chartState"></canvas>
+                    </div>
+                </div>
+
+                <div class="dash-panel">
+                    <h3>10 PBH gần nhất</h3>
+                    <table class="recent">
+                        <thead>
+                            <tr>
+                                <th>Số HĐ</th>
+                                <th>Khách</th>
+                                <th>Tiền</th>
+                                <th>State</th>
+                                <th>Thời gian</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentBody"></tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+        <script src="../shared/web2-auth.js?v=20260522f"></script>
+        <script src="../shared/web2-sse-topics.js?v=20260522a"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260522a"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            (function () {
+                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/dashboard-kpi';
+                let chartRev = null,
+                    chartState = null;
+                function fmt(n) {
+                    return Number(n || 0).toLocaleString('vi-VN');
+                }
+                async function load() {
+                    try {
+                        const r = await fetch(API + '/', { credentials: 'include' });
+                        const d = await r.json();
+                        if (!d.success) return;
+                        document.getElementById('kpiRevenue').textContent =
+                            fmt(d.revenue_today) + 'đ';
+                        document.getElementById('kpiRevSub').textContent =
+                            `${d.pbh_done_today || 0} đơn`;
+                        document.getElementById('kpiPending').textContent = fmt(d.pbh_pending_pack);
+                        document.getElementById('kpiStock').textContent = fmt(d.stock_low_count);
+                        document.getElementById('kpiWallet').textContent = fmt(d.wallet_overdraft);
+                        // Recent PBH
+                        document.getElementById('recentBody').innerHTML = (d.recent_pbh || [])
+                            .map(
+                                (p) => `
+                        <tr><td><a href="../fastsaleorder-invoice/index.html?search=${esc(p.number)}">${esc(p.number)}</a></td>
+                        <td>${esc(p.customer_name || '')}</td>
+                        <td>${fmt(p.amount_total)}đ</td>
+                        <td class="state-${esc(p.state)}">${esc(p.state)}</td>
+                        <td>${esc(new Date(p.created_at).toLocaleString('vi-VN'))}</td></tr>
+                    `
+                            )
+                            .join('');
+                        // Charts
+                        if (window.Chart) {
+                            const rev7 = d.revenue_7d || [];
+                            if (chartRev) chartRev.destroy();
+                            chartRev = new Chart(document.getElementById('chartRevenue'), {
+                                type: 'line',
+                                data: {
+                                    labels: rev7.map((x) => x.date),
+                                    datasets: [
+                                        {
+                                            label: 'Doanh thu',
+                                            data: rev7.map((x) => x.amount),
+                                            borderColor: '#7266ba',
+                                            backgroundColor: 'rgba(114, 102, 186, 0.12)',
+                                            tension: 0.3,
+                                            fill: true,
+                                        },
+                                    ],
+                                },
+                                options: {
+                                    plugins: { legend: { display: false } },
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                },
+                            });
+                            const states = d.pbh_by_state || [];
+                            if (chartState) chartState.destroy();
+                            chartState = new Chart(document.getElementById('chartState'), {
+                                type: 'doughnut',
+                                data: {
+                                    labels: states.map((s) => s.state),
+                                    datasets: [
+                                        {
+                                            data: states.map((s) => s.count),
+                                            backgroundColor: [
+                                                '#7266ba',
+                                                '#16a34a',
+                                                '#dc2626',
+                                                '#d97706',
+                                                '#0891b2',
+                                            ],
+                                        },
+                                    ],
+                                },
+                                options: { responsive: true, maintainAspectRatio: false },
+                            });
+                        }
+                    } catch (err) {
+                        console.warn(err);
+                    }
+                }
+                function esc(s) {
+                    const d = document.createElement('div');
+                    d.textContent = String(s ?? '');
+                    return d.innerHTML;
+                }
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (window.Web2Sidebar)
+                        Web2Sidebar.mount('#web2Aside', { activeRoute: 'dashboard' });
+                    load();
+                    if (window.Web2SSE) Web2SSE.subscribe('web2:kpi-dashboard', () => load());
+                    setInterval(load, 60000);
+                });
+            })();
+        </script>
+    </body>
+</html>

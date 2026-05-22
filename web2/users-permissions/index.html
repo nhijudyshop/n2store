@@ -1,0 +1,235 @@
+<!-- #Note: WEB2.0 module. F12 — Permission matrix UI. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Phân quyền - WEB 2.0</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <style>
+            .perm-main {
+                padding: 20px 28px;
+            }
+            .perm-tools {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 14px;
+                align-items: center;
+            }
+            .perm-tools select,
+            .perm-tools button {
+                padding: 7px 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                background: #fff;
+                cursor: pointer;
+                font-size: 13px;
+            }
+            .perm-tools button.primary {
+                background: linear-gradient(135deg, #7266ba, #5e51ac);
+                color: #fff;
+                border: 0;
+                font-weight: 600;
+            }
+            table.perm-tbl {
+                width: 100%;
+                background: #fff;
+                border-collapse: collapse;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+                font-size: 13px;
+            }
+            table.perm-tbl th {
+                background: #f0eeee;
+                padding: 8px;
+                text-align: center;
+            }
+            table.perm-tbl td {
+                padding: 6px 10px;
+                border-top: 1px solid #f3f4f6;
+            }
+            td.page-cell {
+                text-align: left;
+            }
+            td input[type='checkbox'] {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+            }
+            .grp-row td {
+                background: linear-gradient(135deg, #ece9f7, #fff);
+                font-weight: 600;
+                padding: 8px 10px;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main perm-main">
+                <h1 style="margin: 0 0 6px">Ma trận phân quyền Web 2.0</h1>
+                <p style="color: #58666e; margin: 0 0 16px; font-size: 13px">
+                    Chọn người dùng → tick quyền view/edit/admin cho từng trang → Save.
+                </p>
+                <div class="perm-tools">
+                    <select id="userPick">
+                        <option value="">Chọn user…</option>
+                    </select>
+                    <select id="rolePick">
+                        <option value="">Áp role template…</option>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="staff">Staff</option>
+                    </select>
+                    <button id="btnClear">Xoá tất cả</button>
+                    <button id="btnSave" class="primary">Save</button>
+                </div>
+                <table class="perm-tbl">
+                    <thead>
+                        <tr>
+                            <th>Trang</th>
+                            <th>View</th>
+                            <th>Edit</th>
+                            <th>Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody id="permBody"></tbody>
+                </table>
+            </main>
+        </div>
+        <script src="../shared/web2-auth.js?v=20260522f"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            (function () {
+                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-users';
+                const PAGE_GROUPS = {
+                    'Bán hàng': [
+                        'native-orders',
+                        'fastsaleorder-invoice',
+                        'reconcile',
+                        'tpos-pancake',
+                    ],
+                    'Mua hàng': [
+                        'so-order',
+                        'purchase-refund',
+                        'supplier-debt',
+                        'supplier-wallet',
+                        'supplier-aging',
+                        'supplier-360',
+                    ],
+                    'Tài chính': ['balance-history', 'customer-wallet'],
+                    'Kho hàng': ['products', 'variants', 'product-category', 'inventory-forecast'],
+                    'Báo cáo': ['dashboard', 'audit-log', 'notifications', 'overview'],
+                    'Hệ thống': ['users', 'users-permissions'],
+                };
+                async function loadUsers() {
+                    try {
+                        const r = await fetch(API + '/list', { credentials: 'include' });
+                        const d = await r.json();
+                        const sel = document.getElementById('userPick');
+                        if (Array.isArray(d?.items)) {
+                            sel.innerHTML =
+                                '<option value="">Chọn user…</option>' +
+                                d.items
+                                    .map(
+                                        (u) =>
+                                            `<option value="${u.id}">${esc(u.username || u.email || u.id)}</option>`
+                                    )
+                                    .join('');
+                        }
+                    } catch {}
+                }
+                function renderTable(perm) {
+                    const body = document.getElementById('permBody');
+                    const html = [];
+                    for (const [grp, pages] of Object.entries(PAGE_GROUPS)) {
+                        html.push(`<tr class="grp-row"><td colspan="4">${esc(grp)}</td></tr>`);
+                        for (const p of pages) {
+                            const pp = perm[p] || {};
+                            html.push(`<tr data-page="${esc(p)}">
+                            <td class="page-cell">${esc(p)}</td>
+                            <td style="text-align:center"><input type="checkbox" data-r="view" ${pp.view ? 'checked' : ''}/></td>
+                            <td style="text-align:center"><input type="checkbox" data-r="edit" ${pp.edit ? 'checked' : ''}/></td>
+                            <td style="text-align:center"><input type="checkbox" data-r="admin" ${pp.admin ? 'checked' : ''}/></td>
+                        </tr>`);
+                        }
+                    }
+                    body.innerHTML = html.join('');
+                }
+                async function loadPerm(uid) {
+                    try {
+                        const r = await fetch(API + '/' + uid, { credentials: 'include' });
+                        const d = await r.json();
+                        renderTable(d?.permissions || {});
+                    } catch {
+                        renderTable({});
+                    }
+                }
+                function collectPerm() {
+                    const out = {};
+                    document.querySelectorAll('#permBody tr[data-page]').forEach((tr) => {
+                        const p = tr.dataset.page;
+                        out[p] = {};
+                        tr.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+                            out[p][cb.dataset.r] = cb.checked;
+                        });
+                    });
+                    return out;
+                }
+                function applyRole(role) {
+                    const sets = {
+                        admin: { view: true, edit: true, admin: true },
+                        manager: { view: true, edit: true, admin: false },
+                        staff: { view: true, edit: false, admin: false },
+                    };
+                    const cfg = sets[role];
+                    if (!cfg) return;
+                    document.querySelectorAll('#permBody tr[data-page]').forEach((tr) => {
+                        tr.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+                            cb.checked = cfg[cb.dataset.r];
+                        });
+                    });
+                }
+                function esc(s) {
+                    const d = document.createElement('div');
+                    d.textContent = String(s ?? '');
+                    return d.innerHTML;
+                }
+                document.getElementById('userPick').onchange = (e) => {
+                    if (e.target.value) loadPerm(e.target.value);
+                };
+                document.getElementById('rolePick').onchange = (e) => {
+                    if (e.target.value) applyRole(e.target.value);
+                    e.target.value = '';
+                };
+                document.getElementById('btnClear').onclick = () => {
+                    document
+                        .querySelectorAll('#permBody input[type=checkbox]')
+                        .forEach((cb) => (cb.checked = false));
+                };
+                document.getElementById('btnSave').onclick = async () => {
+                    const uid = document.getElementById('userPick').value;
+                    if (!uid) return alert('Chọn user trước');
+                    const perm = collectPerm();
+                    const r = await fetch(API + '/' + uid + '/permissions', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ permissions: perm }),
+                    });
+                    const d = await r.json();
+                    alert(d.success ? 'Lưu thành công' : 'Lỗi: ' + (d.error || ''));
+                };
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (window.Web2Sidebar)
+                        Web2Sidebar.mount('#web2Aside', { activeRoute: 'users-permissions' });
+                    loadUsers();
+                    renderTable({});
+                });
+            })();
+        </script>
+    </body>
+</html>

@@ -1163,5 +1163,64 @@ router.post('/confirm-purchase', async (req, res) => {
     }
 });
 
+// F10 — Bulk create matrix (base SP + nhiều biến thể).
+// Body: { base: {code, name, price_buy, price_sell}, variants: [{code, name, stock, price_buy, price_sell, parent_code, variant_size, variant_color}] }
+router.post('/bulk-create-matrix', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const { base, variants } = req.body || {};
+        if (!base?.code || !base?.name || !Array.isArray(variants) || !variants.length) {
+            return res.status(400).json({ success: false, error: 'base + variants[] required' });
+        }
+        const now = Date.now();
+        let created = 0;
+        // Insert base
+        await pool
+            .query(
+                `INSERT INTO web2_products (code, name, price, original_price, stock, is_active, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, 0, true, $5, $5)
+                 ON CONFLICT (code) DO NOTHING`,
+                [
+                    base.code,
+                    base.name,
+                    Number(base.price_sell) || 0,
+                    Number(base.price_buy) || 0,
+                    now,
+                ]
+            )
+            .catch(() => {});
+        // Insert each variant
+        for (const v of variants) {
+            try {
+                await pool.query(
+                    `INSERT INTO web2_products
+                     (code, name, price, original_price, stock, is_active, variant, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, true, $6, $7, $7)
+                     ON CONFLICT (code) DO NOTHING`,
+                    [
+                        v.code,
+                        v.name,
+                        Number(v.price_sell) || 0,
+                        Number(v.price_buy) || 0,
+                        Number(v.stock) || 0,
+                        `${v.variant_size || ''}/${v.variant_color || ''}`,
+                        now,
+                    ]
+                );
+                created++;
+            } catch (e) {
+                console.warn('[WEB2-PRODUCTS] matrix variant fail:', v.code, e.message);
+            }
+        }
+        _notify('bulk-matrix', base.code);
+        res.json({ success: true, created, base: base.code });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] bulk-create-matrix error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.initializeNotifiers = initializeNotifiers;
 module.exports = router;

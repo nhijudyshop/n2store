@@ -1,0 +1,198 @@
+<!-- #Note: WEB2.0 module. F05 Audit Trail UI. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Lịch sử thao tác - WEB 2.0</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <style>
+            .audit-main {
+                padding: 20px 28px;
+            }
+            .audit-filters {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 14px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .audit-filters input,
+            .audit-filters select {
+                padding: 7px 10px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 13px;
+            }
+            .audit-filters button {
+                padding: 7px 14px;
+                background: linear-gradient(135deg, #7266ba, #5e51ac);
+                color: #fff;
+                border: 0;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+            }
+            table.audit-tbl {
+                width: 100%;
+                border-collapse: collapse;
+                background: #fff;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+                font-size: 13px;
+            }
+            table.audit-tbl th {
+                background: #f0eeee;
+                padding: 9px 10px;
+                text-align: left;
+                font-weight: 600;
+            }
+            table.audit-tbl td {
+                padding: 8px 10px;
+                border-top: 1px solid #f3f4f6;
+                vertical-align: top;
+            }
+            tr:nth-child(even) td {
+                background: #fafafa;
+            }
+            .pill {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            .pill.product {
+                background: #e0f4fc;
+                color: #0891b2;
+            }
+            .pill.pbh {
+                background: #f5f1ff;
+                color: #7266ba;
+            }
+            .pill.reconcile {
+                background: #e3f7e8;
+                color: #16a34a;
+            }
+            .pill.wallet {
+                background: #fffbeb;
+                color: #d97706;
+            }
+            pre.diff {
+                font-size: 11px;
+                max-width: 360px;
+                max-height: 90px;
+                overflow: auto;
+                background: #f8fafc;
+                border: 1px dashed #e5e7eb;
+                padding: 6px;
+                margin: 0;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main audit-main">
+                <h1 style="margin: 0 0 6px">Lịch sử thao tác</h1>
+                <p style="color: #58666e; margin: 0 0 14px; font-size: 13px">
+                    Union view qua các bảng audit: web2_product_history, fast_sale_order_history,
+                    pbh_fulfillment_logs, wallet_adjustments.
+                </p>
+                <div class="audit-filters">
+                    <select id="fEntity">
+                        <option value="">Tất cả entity</option>
+                        <option value="product">Sản phẩm</option>
+                        <option value="pbh">PBH</option>
+                        <option value="reconcile">Đối soát</option>
+                        <option value="wallet">Ví</option>
+                    </select>
+                    <input id="fUser" type="text" placeholder="User…" />
+                    <input id="fFrom" type="date" />
+                    <input id="fTo" type="date" />
+                    <button id="btnLoad">Tải</button>
+                </div>
+                <table class="audit-tbl">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Entity</th>
+                            <th>ID</th>
+                            <th>Action</th>
+                            <th>User</th>
+                            <th>Page</th>
+                            <th>Changes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditBody">
+                        <tr>
+                            <td
+                                colspan="7"
+                                style="padding: 20px; text-align: center; color: #94a3b8"
+                            >
+                                Bấm "Tải"…
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </main>
+        </div>
+        <script src="../shared/web2-auth.js?v=20260522f"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            (function () {
+                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/audit-log';
+                async function load() {
+                    const e = document.getElementById('fEntity').value;
+                    const u = document.getElementById('fUser').value;
+                    const f = document.getElementById('fFrom').value;
+                    const t = document.getElementById('fTo').value;
+                    const q = new URLSearchParams();
+                    if (e) q.set('entity', e);
+                    if (u) q.set('user', u);
+                    if (f) q.set('from', f);
+                    if (t) q.set('to', t);
+                    q.set('limit', '200');
+                    const r = await fetch(API + '/list?' + q.toString(), {
+                        credentials: 'include',
+                    });
+                    const d = await r.json();
+                    const body = document.getElementById('auditBody');
+                    if (!d.success || !d.items.length) {
+                        body.innerHTML =
+                            '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8">Không có data</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = d.items
+                        .map(
+                            (it) => `<tr>
+                    <td>${esc(new Date(it.created_at).toLocaleString('vi-VN'))}</td>
+                    <td><span class="pill ${esc(it.entity)}">${esc(it.entity)}</span></td>
+                    <td><code>${esc(it.entity_id || '')}</code></td>
+                    <td>${esc(it.action || '')}</td>
+                    <td>${esc(it.user_name || it.user_id || '—')}</td>
+                    <td>${esc(it.source_page || '—')}</td>
+                    <td><pre class="diff">${esc(JSON.stringify(it.changes, null, 2)).slice(0, 600)}</pre></td>
+                </tr>`
+                        )
+                        .join('');
+                }
+                function esc(s) {
+                    const d = document.createElement('div');
+                    d.textContent = String(s ?? '');
+                    return d.innerHTML;
+                }
+                document.getElementById('btnLoad').onclick = load;
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (window.Web2Sidebar)
+                        Web2Sidebar.mount('#web2Aside', { activeRoute: 'audit-log' });
+                    load();
+                });
+            })();
+        </script>
+    </body>
+</html>

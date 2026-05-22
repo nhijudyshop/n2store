@@ -25,6 +25,73 @@
 
 ## 2026-05-22
 
+### [web2] feat: hiện thực 12 features Future Development (Sprint 0 + F01-F12)
+
+User request: "Làm tất cả → phần nào dư xóa đi, và đây là web 2.0 nên đừng động vào những phần của web 1.0".
+
+**11 trang Web 2.0 mới** (đều có badge "- WEB 2.0", mount qua sidebar, KHÔNG đụng web 1.0):
+
+| Code | Trang                        | Path                       |
+| ---- | ---------------------------- | -------------------------- |
+| F01  | Dashboard KPI                | `web2/dashboard/`          |
+| F02  | Aging công nợ NCC            | `web2/supplier-aging/`     |
+| F03  | Bulk import Excel            | `web2/bulk-import/`        |
+| F05  | Lịch sử thao tác (audit log) | `web2/audit-log/`          |
+| F06  | Trung tâm thông báo          | `web2/notifications/`      |
+| F07  | NCC 360°                     | `web2/supplier-360/`       |
+| F08  | Print / Export hub           | `web2/print-export/`       |
+| F09  | Smart Match SePay            | `web2/smart-match/`        |
+| F10  | Matrix biến thể              | `web2/variants-matrix/`    |
+| F11  | Dự báo tồn kho               | `web2/inventory-forecast/` |
+| F12  | Phân quyền matrix            | `web2/users-permissions/`  |
+
+**Backend routes mới** (Render `routes/v2/`):
+
+- `notifications.js` (F06) — bảng `web2_notifications`, list/unread-count/read/mark-all-read/create/scan
+- `audit-log.js` (F05) — union view qua 5 bảng audit hiện có
+- `supplier-aging.js` (F02) — aggregate aging buckets từ Postgres
+- `dashboard-kpi.js` (F01) — aggregate 8 metric, cache 30s
+- `smart-match.js` (F09) — score function pure, top-3 suggestion
+- `inventory-forecast.js` (F11) — bảng `web2_product_velocity`, recompute + list
+- `supplier-360.js` (F07) — bảng `web2_supplier_ratings`, summary + rating
+
+**DB migrations mới** (idempotent, auto-run):
+
+- `web2_notifications` (+ 3 index)
+- `web2_product_velocity`
+- `web2_supplier_ratings`
+
+**Shared helpers mới** (`web2/shared/`):
+
+- `web2-sse-topics.js` — registry constants (PRODUCTS, NOTIFICATIONS, KPI_DASHBOARD, …)
+- `web2-aging.js` — pure `bucketByAge` cho F02 + F07
+- `web2-bulk-import.js` + `web2-bulk-import.css` — SheetJS lazy modal, validate, chunked upload
+- `web2-export-helpers.js` — toExcel · toPDFBarcodes (jsPDF + JsBarcode) · printHTML
+- `web2-notification-bell.js` + `.css` — bell mountable bất cứ trang nào (chưa auto-mount default, page tự pick up)
+
+**F04 Mobile responsive CSS** (extend `web2-tpos-theme.css`):
+
+- @media ≤900px: sidebar off-canvas drawer, hamburger button auto-inject
+- Tables font 12.5px + horizontal scroll wrapper
+- Modal full-screen
+- Hero stat grid 2-col
+- TOC single column
+
+**F10 backend bổ sung**: `POST /api/web2-products/bulk-create-matrix` — tạo base SP + bulk variants.
+
+**Sidebar updates** ([`web2/shared/tpos-sidebar.js`](../web2/shared/tpos-sidebar.js)):
+
+- Thêm group "Tính năng mới" với 11 item (icon sparkles)
+- WEB2_PAGES allow-list +11 entries → có badge "- WEB 2.0"
+- Mobile hamburger button auto-inject khi mount (close on nav click)
+- Cache bump `v=20260522e → v=20260522f` cho 30 trang
+
+**Server mount points**: 7 route mới được mount vào `/api/v2/` ở `render.com/server.js` (notifications/dashboard có notifier hook).
+
+**Cleanup**: KHÔNG đụng inventory-tracking/, orders-report/ hoặc bất cứ folder web 1.0 nào. Restore inventory-tracking về HEAD trước commit để tránh lẫn unrelated changes.
+
+**Status**: ✅ Done — frontend 11 trang load OK (verified curl localhost), backend syntax OK (node -c pass). Pending deploy Render + GH Pages.
+
 ### [delivery-report] fix: NAP column không hiện khi click tab "Tỉnh" sau khi đã ở tab khác
 
 Phát hiện qua browser test localhost: trong lite expanded, click tab "Tỉnh" sau khi đang ở tab `zero`/`combo` thì cột NAP bị ẩn (chỉ thấy TOMATO).

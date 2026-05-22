@@ -1,0 +1,158 @@
+<!-- #Note: WEB2.0 module. F03 — Bulk import launcher. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Bulk Import - WEB 2.0</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="../shared/web2-bulk-import.css?v=20260522a" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <style>
+            .bi-main {
+                padding: 20px 28px;
+            }
+            .bi-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 14px;
+            }
+            .bi-card {
+                padding: 18px;
+                background: #fff;
+                border-radius: 10px;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+                cursor: pointer;
+                transition:
+                    transform 200ms,
+                    box-shadow 200ms;
+                border-left: 4px solid var(--accent, #7266ba);
+            }
+            .bi-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+            }
+            .bi-card h3 {
+                margin: 0 0 6px;
+                font-size: 15px;
+            }
+            .bi-card p {
+                margin: 0;
+                color: #58666e;
+                font-size: 13px;
+            }
+            .bi-fields {
+                margin-top: 10px;
+                font-size: 12px;
+                color: #94a3b8;
+            }
+            .bi-fields code {
+                background: #f3f4f6;
+                padding: 1px 5px;
+                border-radius: 3px;
+                margin-right: 4px;
+            }
+            .bi-1 {
+                --accent: #7266ba;
+            }
+            .bi-2 {
+                --accent: #16a34a;
+            }
+            .bi-3 {
+                --accent: #f59e0b;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main bi-main">
+                <h1 style="margin: 0 0 6px">Bulk Import từ Excel/CSV</h1>
+                <p style="color: #58666e; margin: 0 0 16px; font-size: 13px">
+                    Chọn loại data → upload file → preview → import. Validate dòng lỗi trước khi gửi
+                    server.
+                </p>
+                <div class="bi-grid">
+                    <div class="bi-card bi-1" data-entity="products">
+                        <h3>Sản phẩm (web2_products)</h3>
+                        <p>Import danh sách SP — mã, tên, giá, tồn.</p>
+                        <div class="bi-fields">
+                            Cột yêu cầu: <code>Mã*</code> <code>Tên*</code> <code>Giá bán</code>
+                            <code>Tồn</code>
+                        </div>
+                    </div>
+                    <div class="bi-card bi-2" data-entity="variants">
+                        <h3>Biến thể (web2_variants)</h3>
+                        <p>Import size/màu — viết tắt, nhóm, thứ tự.</p>
+                        <div class="bi-fields">
+                            Cột yêu cầu: <code>Tên*</code> <code>Nhóm*</code> <code>Viết tắt</code>
+                        </div>
+                    </div>
+                    <div class="bi-card bi-3" data-entity="productcategory">
+                        <h3>Nhóm SP (productcategory)</h3>
+                        <p>Import cây phân loại sản phẩm.</p>
+                        <div class="bi-fields">
+                            Cột yêu cầu: <code>Mã*</code> <code>Tên nhóm*</code>
+                            <code>Nhóm cha</code>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        <script src="../shared/web2-auth.js?v=20260522f"></script>
+        <script src="../shared/web2-bulk-import.js?v=20260522a"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            (function () {
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const SCHEMAS = {
+                    products: {
+                        schema: [
+                            { field: 'code', label: 'Mã', required: true },
+                            { field: 'name', label: 'Tên', required: true },
+                            { field: 'price', label: 'Giá bán', type: 'number' },
+                            { field: 'stock', label: 'Tồn', type: 'number' },
+                            { field: 'category', label: 'Nhóm' },
+                        ],
+                        endpoint: PROXY + '/api/web2-products/bulk-create',
+                    },
+                    variants: {
+                        schema: [
+                            { field: 'name', label: 'Tên', required: true },
+                            { field: 'group', label: 'Nhóm', required: true },
+                            { field: 'short_code', label: 'Viết tắt' },
+                            { field: 'sort_order', label: 'Thứ tự', type: 'number' },
+                        ],
+                        endpoint: PROXY + '/api/web2-variants/bulk-create',
+                    },
+                    productcategory: {
+                        schema: [
+                            { field: 'code', label: 'Mã', required: true },
+                            { field: 'name', label: 'Tên nhóm', required: true },
+                            { field: 'parent', label: 'Nhóm cha' },
+                        ],
+                        endpoint: PROXY + '/api/web2/productcategory/bulk-create',
+                    },
+                };
+                document.querySelectorAll('.bi-card').forEach((c) => {
+                    c.onclick = () => {
+                        const entity = c.dataset.entity;
+                        const cfg = SCHEMAS[entity];
+                        if (!cfg || !window.Web2BulkImport) return alert('Bulk import chưa load');
+                        Web2BulkImport.openModal({
+                            entity,
+                            schema: cfg.schema,
+                            endpoint: cfg.endpoint,
+                            onDone: (res) => console.log('[bulk-import] done', res),
+                        });
+                    };
+                });
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (window.Web2Sidebar)
+                        Web2Sidebar.mount('#web2Aside', { activeRoute: 'bulk-import' });
+                });
+            })();
+        </script>
+    </body>
+</html>

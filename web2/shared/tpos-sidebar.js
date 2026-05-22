@@ -56,6 +56,23 @@
             tpos: '#/app/dashboard',
         },
         {
+            label: 'Tính năng mới',
+            icon: 'sparkles',
+            children: [
+                { label: 'Dashboard KPI', our: '../web2/dashboard/index.html', tpos: '' },
+                { label: 'Thông báo', our: '../web2/notifications/index.html', tpos: '' },
+                { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html', tpos: '' },
+                { label: 'Aging công nợ NCC', our: '../web2/supplier-aging/index.html', tpos: '' },
+                { label: 'NCC 360°', our: '../web2/supplier-360/index.html', tpos: '' },
+                { label: 'Dự báo tồn kho', our: '../web2/inventory-forecast/index.html', tpos: '' },
+                { label: 'Matrix biến thể', our: '../web2/variants-matrix/index.html', tpos: '' },
+                { label: 'Bulk Import Excel', our: '../web2/bulk-import/index.html', tpos: '' },
+                { label: 'Print / Export', our: '../web2/print-export/index.html', tpos: '' },
+                { label: 'Smart Match SePay', our: '../web2/smart-match/index.html', tpos: '' },
+                { label: 'Phân quyền', our: '../web2/users-permissions/index.html', tpos: '' },
+            ],
+        },
+        {
             label: 'Bán Hàng',
             icon: 'shopping-bag',
             children: [
@@ -631,6 +648,18 @@
         'web2/variants/index.html',
         'web2/product-category/index.html',
         'web2/users/index.html',
+        // F01-F12 future-development pages
+        'web2/dashboard/index.html',
+        'web2/notifications/index.html',
+        'web2/audit-log/index.html',
+        'web2/supplier-aging/index.html',
+        'web2/supplier-360/index.html',
+        'web2/inventory-forecast/index.html',
+        'web2/variants-matrix/index.html',
+        'web2/bulk-import/index.html',
+        'web2/print-export/index.html',
+        'web2/smart-match/index.html',
+        'web2/users-permissions/index.html',
     ]);
     function isWeb2Item(item) {
         if (!item || !item.our) return false;
@@ -819,6 +848,31 @@
                 setCollapsed(!isCollapsed());
             });
             if (window.lucide) lucide.createIcons();
+            // F04 mobile: inject hamburger + scrim if <=900px
+            if (!document.querySelector('.w2-mobile-menu-btn')) {
+                const btn = document.createElement('button');
+                btn.className = 'w2-mobile-menu-btn';
+                btn.setAttribute('aria-label', 'Mở menu');
+                document.body.appendChild(btn);
+                const scrim = document.createElement('div');
+                scrim.className = 'web2-aside-scrim';
+                document.body.appendChild(scrim);
+                btn.onclick = () => {
+                    el.classList.add('w2-aside-open');
+                    scrim.classList.add('show');
+                };
+                scrim.onclick = () => {
+                    el.classList.remove('w2-aside-open');
+                    scrim.classList.remove('show');
+                };
+                // Auto-close on nav click (mobile)
+                el.addEventListener('click', (e) => {
+                    if (e.target.closest('a') && window.innerWidth <= 900) {
+                        el.classList.remove('w2-aside-open');
+                        scrim.classList.remove('show');
+                    }
+                });
+            }
         },
         renderUserFooter,
         alertSoon(label, tpos) {
