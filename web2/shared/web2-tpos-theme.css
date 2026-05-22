@@ -447,6 +447,445 @@ body.tpos-theme.modal-open {
     contain-intrinsic-size: 1px 80px;
 }
 
+/* =====================================================
+ * COLOR UPGRADE PACK — harmonious palette + visual hierarchy
+ *
+ * User: "Cho css nó màu sắc, nổi bật các phần quan trọng, màu sắc
+ *  tông hài hòa với nhau".
+ *
+ * Strategy:
+ *   - Giữ baseline TPOS gray (#f0f3f4, #58666e) làm canvas trung tính.
+ *   - Thêm "accent surfaces" tone-on-tone (soft tint cùng hue với primary)
+ *     cho các vùng quan trọng (header, primary actions, stat values,
+ *     selected rows, active filters).
+ *   - Primary button: gradient subtle + shadow tím nhạt (8% opacity)
+ *     → button "Thêm/Tạo" rõ ràng nổi bật giữa table neutral.
+ *   - Stat cards: 4 màu theo loại (primary tím / success xanh /
+ *     info cyan / warning vàng) — soft border-left strip + bg tint
+ *     để KH liếc qua thấy ngay loại data.
+ *   - "Money" cells (.amount, .price, .total) → font-weight 700 +
+ *     color tích cực/tiêu cực rõ ràng (in xanh / out đỏ).
+ *   - Table: row sọc nhẹ (#fafbfc) + selected row tint tím nhạt.
+ *   - Status pill: 5 màu mã hóa (success/info/warning/danger/neutral)
+ *     với soft bg + bold text — tonal harmony cùng primary palette.
+ *   - Section dividers: thin border + label-pill thay vì heavy line.
+ *
+ * Tone harmony: tất cả accent đều dịch sang HSL same lightness ~85-92%
+ * (soft tint) cho background, ~30-50% cho text → contrast WCAG AA pass
+ * mà không bị "loè".
+ * ===================================================== */
+
+/* ─── Extended color tokens (soft surfaces) ──────────── */
+:root {
+    /* Soft tints — alpha 8-15% của primary palette để overlay surface */
+    --tpos-primary-soft: #ece9f7; /* primary @ 92% L */
+    --tpos-primary-soft-2: #ddd6f3; /* primary @ 87% L */
+    --tpos-primary-tint: rgba(114, 102, 186, 0.08);
+    --tpos-success-soft: #e3f7e8;
+    --tpos-success-soft-2: #c8efd3;
+    --tpos-success-tint: rgba(39, 194, 76, 0.08);
+    --tpos-info-soft: #e0f4fc;
+    --tpos-info-soft-2: #bfe7f5;
+    --tpos-info-tint: rgba(35, 183, 229, 0.08);
+    --tpos-warning-soft: #fdf4d3;
+    --tpos-warning-soft-2: #fce99b;
+    --tpos-warning-tint: rgba(250, 215, 51, 0.12);
+    --tpos-danger-soft: #fde2e2;
+    --tpos-danger-soft-2: #f9bdbd;
+    --tpos-danger-tint: rgba(240, 80, 80, 0.08);
+    --tpos-neutral-soft: #eef1f3;
+    /* Money colors */
+    --tpos-money-in: #1ca73f; /* darker green for readability */
+    --tpos-money-out: #d63838;
+    /* Shadow soft */
+    --tpos-shadow-primary: 0 2px 8px rgba(114, 102, 186, 0.18);
+    --tpos-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+/* ─── Body canvas — soft gradient cho không gian rộng ─ */
+body.tpos-theme,
+body:has(.web2-shell) {
+    background:
+        linear-gradient(180deg, var(--tpos-primary-soft) 0%, var(--tpos-bg-app) 180px),
+        var(--tpos-bg-app);
+}
+
+/* ─── Primary button — gradient subtle + accent shadow ─ */
+.tpos-theme .btn-primary,
+body:has(.web2-shell) .btn-primary {
+    background: linear-gradient(180deg, #7e72c4, var(--tpos-primary));
+    box-shadow: var(--tpos-shadow-primary);
+}
+.tpos-theme .btn-primary:hover,
+body:has(.web2-shell) .btn-primary:hover {
+    background: linear-gradient(180deg, var(--tpos-primary), var(--tpos-primary-hover));
+    box-shadow: 0 3px 12px rgba(114, 102, 186, 0.28);
+}
+.tpos-theme .btn-success,
+body:has(.web2-shell) .btn-success {
+    background: linear-gradient(180deg, #34d05a, var(--tpos-success));
+    box-shadow: 0 2px 8px rgba(39, 194, 76, 0.18);
+}
+.tpos-theme .btn-success:hover,
+body:has(.web2-shell) .btn-success:hover {
+    background: linear-gradient(180deg, var(--tpos-success), var(--tpos-success-hover));
+}
+.tpos-theme .btn-danger,
+body:has(.web2-shell) .btn-danger {
+    background: linear-gradient(180deg, #f56565, var(--tpos-danger));
+    box-shadow: 0 2px 8px rgba(240, 80, 80, 0.18);
+}
+.tpos-theme .btn-info,
+body:has(.web2-shell) .btn-info {
+    background: linear-gradient(180deg, #36c2eb, var(--tpos-info));
+    box-shadow: 0 2px 8px rgba(35, 183, 229, 0.18);
+}
+
+/* Outline variant cho secondary action — clear hierarchy */
+.tpos-theme .btn-outline-primary,
+body:has(.web2-shell) .btn-outline-primary {
+    background: #fff;
+    color: var(--tpos-primary);
+    border-color: var(--tpos-primary);
+}
+.tpos-theme .btn-outline-primary:hover,
+body:has(.web2-shell) .btn-outline-primary:hover {
+    background: var(--tpos-primary-soft);
+    color: var(--tpos-primary-hover);
+}
+
+/* ─── Headers & section titles — accent strip trái ────── */
+.tpos-theme .page-head-mini,
+.tpos-theme .pr-header,
+.tpos-theme .header {
+    background: #fff;
+    border-bottom: 1px solid var(--tpos-border-btn);
+    position: relative;
+}
+.tpos-theme .page-head-mini::before,
+.tpos-theme .pr-header::before,
+.tpos-theme .header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--tpos-primary), var(--tpos-info));
+}
+.tpos-theme .page-head-title,
+.tpos-theme h1 {
+    color: var(--tpos-text);
+}
+.tpos-theme .page-head-title i,
+.tpos-theme .header h1 i {
+    color: var(--tpos-primary);
+}
+
+/* ─── Tables — zebra striping + selected row tint ───── */
+.tpos-theme .data-table tbody tr:nth-child(even),
+.tpos-theme .balance-table tbody tr:nth-child(even),
+body:has(.web2-shell) .data-table tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+.tpos-theme .data-table tbody tr:hover,
+.tpos-theme .balance-table tbody tr:hover,
+body:has(.web2-shell) .data-table tbody tr:hover {
+    background: var(--tpos-primary-soft) !important;
+}
+.tpos-theme .data-table tbody tr.selected,
+.tpos-theme .data-table tbody tr.is-selected,
+.tpos-theme .data-table tbody tr.active,
+body:has(.web2-shell) .data-table tbody tr.selected {
+    background: var(--tpos-primary-tint) !important;
+    border-left: 3px solid var(--tpos-primary);
+}
+
+/* Money / amount columns — bold + color-coded */
+.tpos-theme .data-table .col-amount,
+.tpos-theme .data-table .col-money,
+.tpos-theme .data-table .col-total,
+.tpos-theme .data-table .col-price,
+.tpos-theme .data-table td[data-money],
+.tpos-theme .amount,
+.tpos-theme .money-cell,
+.tpos-theme .total-cell {
+    font-weight: 700;
+    color: var(--tpos-text);
+    font-variant-numeric: tabular-nums;
+}
+.tpos-theme .money-in,
+.tpos-theme .amount.money-in,
+.tpos-theme td.money-in {
+    color: var(--tpos-money-in);
+}
+.tpos-theme .money-out,
+.tpos-theme .amount.money-out,
+.tpos-theme td.money-out {
+    color: var(--tpos-money-out);
+}
+
+/* ─── Stats cards — color-coded với border strip trái ─ */
+.tpos-theme .stat-card,
+body:has(.web2-shell) .stat-card {
+    background: #fff;
+    border: 1px solid var(--tpos-border-btn);
+    border-left: 3px solid var(--tpos-text-3);
+    border-radius: 4px;
+    padding: 12px 14px;
+    transition:
+        border-color 0.12s,
+        transform 0.12s ease;
+}
+.tpos-theme .stat-card:hover {
+    border-color: var(--tpos-primary);
+    transform: translateY(-1px);
+}
+.tpos-theme .stat-card.stat-primary,
+.tpos-theme .stat-card[data-type='primary'] {
+    border-left-color: var(--tpos-primary);
+    background: linear-gradient(135deg, var(--tpos-primary-soft) 0%, #fff 60%);
+}
+.tpos-theme .stat-card.stat-success,
+.tpos-theme .stat-card[data-type='success'] {
+    border-left-color: var(--tpos-success);
+    background: linear-gradient(135deg, var(--tpos-success-soft) 0%, #fff 60%);
+}
+.tpos-theme .stat-card.stat-info,
+.tpos-theme .stat-card[data-type='info'] {
+    border-left-color: var(--tpos-info);
+    background: linear-gradient(135deg, var(--tpos-info-soft) 0%, #fff 60%);
+}
+.tpos-theme .stat-card.stat-warning,
+.tpos-theme .stat-card[data-type='warning'] {
+    border-left-color: #e0a800;
+    background: linear-gradient(135deg, var(--tpos-warning-soft) 0%, #fff 60%);
+}
+.tpos-theme .stat-card.stat-danger,
+.tpos-theme .stat-card[data-type='danger'] {
+    border-left-color: var(--tpos-danger);
+    background: linear-gradient(135deg, var(--tpos-danger-soft) 0%, #fff 60%);
+}
+.tpos-theme .stat-card .stat-value,
+.tpos-theme .stat-card .value {
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 800;
+    color: var(--tpos-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─── Counter pill — accent gradient subtle ─────────── */
+.tpos-theme .counter-pill,
+body:has(.web2-shell) .counter-pill {
+    background: var(--tpos-primary-soft);
+    color: var(--tpos-primary-hover);
+    border: 1px solid var(--tpos-primary-soft-2);
+    font-weight: 700;
+}
+
+/* ─── Status pills — 5 colors with soft bg + bold ────── */
+.tpos-theme .status-pill,
+.tpos-theme .badge,
+.tpos-theme .type-badge,
+.tpos-theme .label-pill {
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    text-transform: none;
+    line-height: 1.5;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.tpos-theme .status-success,
+.tpos-theme .badge-success,
+.tpos-theme .status-done,
+.tpos-theme .status-delivered {
+    background: var(--tpos-success-soft);
+    color: var(--tpos-success-hover);
+    border: 1px solid var(--tpos-success-soft-2);
+}
+.tpos-theme .status-info,
+.tpos-theme .badge-info,
+.tpos-theme .status-active,
+.tpos-theme .status-confirmed {
+    background: var(--tpos-info-soft);
+    color: var(--tpos-info-hover);
+    border: 1px solid var(--tpos-info-soft-2);
+}
+.tpos-theme .status-warning,
+.tpos-theme .badge-warning,
+.tpos-theme .status-pending,
+.tpos-theme .status-draft {
+    background: var(--tpos-warning-soft);
+    color: #a68211;
+    border: 1px solid var(--tpos-warning-soft-2);
+}
+.tpos-theme .status-danger,
+.tpos-theme .badge-danger,
+.tpos-theme .status-error,
+.tpos-theme .status-cancelled,
+.tpos-theme .status-rejected {
+    background: var(--tpos-danger-soft);
+    color: var(--tpos-danger-hover);
+    border: 1px solid var(--tpos-danger-soft-2);
+}
+.tpos-theme .status-neutral,
+.tpos-theme .badge-neutral,
+.tpos-theme .status-default {
+    background: var(--tpos-neutral-soft);
+    color: var(--tpos-text-3);
+    border: 1px solid var(--tpos-border-btn);
+}
+/* In/out type giữ solid để rõ ràng */
+.tpos-theme .type-in,
+.tpos-theme .badge-in {
+    background: var(--tpos-success);
+    color: #fff;
+    border: 0;
+}
+.tpos-theme .type-out,
+.tpos-theme .badge-out {
+    background: var(--tpos-danger);
+    color: #fff;
+    border: 0;
+}
+
+/* ─── Active tab — gradient underline với glow nhẹ ────── */
+.tpos-theme .tab-button.active::after,
+.tpos-theme .main-tab.active::after {
+    background: linear-gradient(90deg, var(--tpos-primary), var(--tpos-info));
+    box-shadow: 0 1px 4px rgba(114, 102, 186, 0.25);
+}
+
+/* ─── Filter chips active state ────────────────────── */
+.tpos-theme .chip-select-primary,
+.tpos-theme .chip-label-primary {
+    background: var(--tpos-primary-soft);
+    color: var(--tpos-primary-hover);
+    border: 1px solid var(--tpos-primary-soft-2);
+}
+.tpos-theme .chip-select:focus-within,
+.tpos-theme .chip-select-wrapper:focus-within {
+    box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
+}
+
+/* ─── Bulk action toolbar — accent row khi đã chọn ───── */
+.tpos-theme .ordersBulkBar,
+.tpos-theme #ordersBulkBar,
+.tpos-theme .bulk-action-bar {
+    background: linear-gradient(90deg, var(--tpos-primary-soft) 0%, #fff 80%) !important;
+    border: 1px solid var(--tpos-primary-soft-2) !important;
+    border-left: 3px solid var(--tpos-primary) !important;
+}
+
+/* ─── Form inputs — focus ring tinh tế (compositor-only) ─ */
+.tpos-theme input:focus,
+.tpos-theme select:focus,
+.tpos-theme textarea:focus,
+body:has(.web2-shell) input:focus,
+body:has(.web2-shell) select:focus,
+body:has(.web2-shell) textarea:focus {
+    border-color: var(--tpos-primary);
+    box-shadow: 0 0 0 3px rgba(114, 102, 186, 0.12);
+    outline: none;
+}
+
+/* ─── Card section — generic block container ─────────── */
+.tpos-theme .web2-card,
+.tpos-theme .section-card {
+    background: #fff;
+    border: 1px solid var(--tpos-border-btn);
+    border-radius: 4px;
+    padding: 14px 16px;
+    box-shadow: var(--tpos-shadow-card);
+    transition: box-shadow 0.12s;
+}
+.tpos-theme .web2-card:hover,
+.tpos-theme .section-card:hover {
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+/* ─── Section title — accent dot ────────────────────── */
+.tpos-theme .section-title {
+    font-weight: 700;
+    color: var(--tpos-text);
+    font-size: 13px;
+    margin: 0 0 10px;
+    padding-left: 10px;
+    border-left: 3px solid var(--tpos-primary);
+    line-height: 1.6;
+}
+
+/* ─── Empty state — friendly accent ─────────────────── */
+.tpos-theme .empty-state,
+.tpos-theme .empty-row {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--tpos-text-faded);
+    font-size: 13px;
+}
+.tpos-theme .empty-state-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--tpos-primary-soft-2);
+    margin: 0 auto 8px;
+    display: block;
+}
+.tpos-theme .empty-state-title {
+    font-weight: 700;
+    color: var(--tpos-text-3);
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+/* ─── Modal header — accent gradient strip ────────────── */
+.tpos-theme .modal-header,
+.tpos-theme [class*='modal-header'] {
+    background: linear-gradient(180deg, var(--tpos-primary-soft) 0%, #fff 100%);
+    border-bottom: 1px solid var(--tpos-border-btn);
+    position: relative;
+}
+.tpos-theme .modal-header::after,
+.tpos-theme [class*='modal-header']::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--tpos-primary), var(--tpos-info));
+}
+
+/* ─── Notification/toast — color-coded surface ──────── */
+.tpos-theme .toast-success,
+.tpos-theme .notification-success {
+    background: linear-gradient(135deg, var(--tpos-success-soft), #fff);
+    border-left: 3px solid var(--tpos-success);
+    color: var(--tpos-success-hover);
+}
+.tpos-theme .toast-error,
+.tpos-theme .notification-error {
+    background: linear-gradient(135deg, var(--tpos-danger-soft), #fff);
+    border-left: 3px solid var(--tpos-danger);
+    color: var(--tpos-danger-hover);
+}
+.tpos-theme .toast-warning,
+.tpos-theme .notification-warning {
+    background: linear-gradient(135deg, var(--tpos-warning-soft), #fff);
+    border-left: 3px solid #e0a800;
+    color: #a68211;
+}
+.tpos-theme .toast-info,
+.tpos-theme .notification-info {
+    background: linear-gradient(135deg, var(--tpos-info-soft), #fff);
+    border-left: 3px solid var(--tpos-info);
+    color: var(--tpos-info-hover);
+}
+
 /* ─── Reduce motion accessibility ───────────────────── */
 @media (prefers-reduced-motion: reduce) {
     .tpos-theme *,

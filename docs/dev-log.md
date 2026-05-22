@@ -25,6 +25,43 @@
 
 ## 2026-05-21
 
+### [web2-shared] feat: color upgrade pack cho `web2-tpos-theme.css` — nổi bật + tone hài hoà
+
+User request: "Cho css nó màu sắc, nổi bật các phần quan trọng, màu sắc tông hài hòa với nhau,...".
+
+**File**: [`web2/shared/web2-tpos-theme.css`](../web2/shared/web2-tpos-theme.css) (+439 lines COLOR UPGRADE PACK).
+
+**Token mở rộng** (HSL lightness 85-92% cho background tint, 30-50% cho text → WCAG AA pass mà không bị "loè"):
+
+- `--tpos-primary-soft` / `-soft-2` / `-tint` cho 5 màu primary/success/info/warning/danger + neutral
+- `--tpos-money-in` `#1ca73f` (đậm hơn success xanh để cell tiền vào dễ thấy) / `--tpos-money-out` `#d63838`
+- `--tpos-shadow-primary` + `--tpos-shadow-card` cho card depth
+
+**Áp dụng**:
+
+- Body: linear-gradient soft 2 tone trắng → tint
+- Header / page-head: 3px gradient left strip (primary → info)
+- Button: gradient primary/success/danger/info + box-shadow nhẹ + outline variant
+- Table: zebra `tr:nth-child(even)`, hover `--tpos-primary-soft`, selected row border-left
+- Money cell: `.money-in` (đậm xanh) / `.money-out` (đậm đỏ) bold
+- Stat-card: 5 variants (primary/success/info/warning/danger) — border-left strip 3px + linear-gradient tonal background
+- Status pill: 5 màu (success/info/warning/danger/neutral) soft-bg + bold-text
+- Tab active: underline linear-gradient(90deg, primary, info) + box-shadow glow
+- Filter chip active: gradient primary
+- Bulk action toolbar: accent gradient
+- Form input focus: ring 3px `rgba(114, 102, 186, 0.12)`
+- `.web2-card` / `.section-card`: hover shadow lift
+- `.section-title`: border-left 3px accent
+- `.empty-state`: friendly + icon accent
+- Modal header: `--tpos-primary-soft` background + `::after` 60px gradient underline
+- Toast: 4 variants với border-left
+
+**Cache bump** `v=20260522c → v=20260522d` ở 11 page index.html: fastsaleorder-invoice, reconcile, so-order, tpos-pancake, purchase-refund, supplier-debt, supplier-wallet, products, variants, product-category, users.
+
+**Performance vẫn an toàn**: KHÔNG đụng modal anti-lag (transform + opacity only), KHÔNG dùng backdrop-filter, gradient chỉ ở background-image (compositor-friendly), `will-change` không dùng permanent.
+
+**Status**: ✅ Done — pending GH Pages deploy (~3 min).
+
 ### [web2-balance-history] feat: tách bảng `web2_balance_history` — isolate khỏi Web 1
 
 User request: "tạo db render riêng cho web 2.0 đi, tôi không muốn chỉnh sửa dữ liệu của web 1.0 → vẫn dùng webhook sepay vì không ảnh hưởng db".
