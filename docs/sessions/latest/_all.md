@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e66a862` — fix(web2/supplier-aging): bỏ query purchase_orders (Web 1.0 table)
-**Last updated**: 2026-05-22 13:28:44 +07
-**Latest session**: [`RESUME:20260522-132844-e66a862`](../20260522-132844-e66a862.md)
-**Summary**: fix(web2/supplier-aging): bỏ query purchase_orders (Web 1.0 table)
+**Latest commit**: `bf4defa` — auto: session update
+**Last updated**: 2026-05-22 13:31:26 +07
+**Latest session**: [`RESUME:20260522-133126-bf4defa`](../20260522-133126-bf4defa.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 13:17
+- [`web2/`](./web2.md) — updated 2026-05-22 13:31
