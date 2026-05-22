@@ -572,6 +572,9 @@ router.post('/from-comment', async (req, res) => {
                 if (mergedPhone && !mergedCustomerId) {
                     mergedCustomerId = await lookupCustomerIdByPhone(pool, mergedPhone);
                 }
+                // Self-heal FB context: nếu draft cũ thiếu fb_page_id/fb_post_id
+                // (vd đơn tạo từ drag SP trước fix 6b05bc3cb có ctx NULL), điền
+                // từ request mới — KHÔNG override nếu draft đã có giá trị.
                 const updated = await pool.query(
                     `UPDATE native_orders
                      SET note = $1,
@@ -579,6 +582,13 @@ router.post('/from-comment', async (req, res) => {
                          comment_count = comment_count + 1,
                          message_count = COALESCE(message_count, 0) + 1,
                          customer_id = COALESCE(customer_id, $5),
+                         fb_user_name = COALESCE(fb_user_name, $6),
+                         fb_page_id   = COALESCE(fb_page_id,   $7),
+                         fb_page_name = COALESCE(fb_page_name, $8),
+                         fb_post_id   = COALESCE(fb_post_id,   $9),
+                         fb_comment_id= COALESCE(fb_comment_id,$10),
+                         crm_team_id  = COALESCE(crm_team_id,  $11),
+                         live_campaign_name = COALESCE(live_campaign_name, $12),
                          updated_at = $3
                      WHERE id = $4
                      RETURNING *`,
@@ -588,6 +598,13 @@ router.post('/from-comment', async (req, res) => {
                         Date.now(),
                         src.id,
                         mergedCustomerId,
+                        b.fbUserName || null,
+                        b.fbPageId || null,
+                        b.fbPageName || null,
+                        b.fbPostId || null,
+                        b.fbCommentId || null,
+                        b.crmTeamId || null,
+                        b.liveCampaignName || null,
                     ]
                 );
                 const order = mapRowToOrder(updated.rows[0]);
