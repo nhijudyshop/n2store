@@ -25,6 +25,24 @@
 
 ## 2026-05-22
 
+### [web2/variants-matrix] revert: gỡ F10 — bỏ cách tạo mã SP auto `<base>-<size>-<color>`
+
+User request: "bạn revert lại cách tạo mã sản phẩm đi".
+
+F10 trang `web2/variants-matrix/` tự sinh mã theo công thức `<base_code>-<size>-<color>` không khớp với chuẩn `ProductCodeGenerator` của Web 1.0 (prefix mapping + max-number increment qua API). Revert toàn bộ feature thay vì cố sửa cho khớp.
+
+**Removed**:
+
+- 🗑 Folder `web2/variants-matrix/` (xoá hẳn)
+- 🗑 Endpoint `POST /api/web2-products/bulk-create-matrix` (~60 dòng trong [`render.com/routes/web2-products.js`](../render.com/routes/web2-products.js))
+- 🗑 Menu item "Matrix biến thể" trong sidebar group "Tính năng mới"
+- 🗑 Entry `'web2/variants-matrix/index.html'` trong `WEB2_PAGES` allow-list
+- 🗑 Card F10 trong section "Future development" của trang `web2/overview/`
+
+Còn lại 11 trang trong group "Tính năng mới" (F01, F02, F03, F05, F06, F07, F08, F09, F11, F12 + overview).
+
+Nếu sau này cần làm lại matrix → dùng `ProductCodeGenerator` từ Web 1 hoặc cho user nhập tay mã.
+
 ### [web2/wallet] feat: cô lập triệt để wallet khỏi Web 1.0 — trigger-based mirror
 
 User request: "customer_wallets + wallet_adjustments là phần nào có chức năng gì? … làm triệt để đi".
