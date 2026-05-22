@@ -25,6 +25,46 @@
 
 ## 2026-05-22
 
+### [balance-history] Fix #2: GD Live Mode "Xác nhận" treo do hai bảng `balance_history` ↔ `web2_balance_history` lệch dữ liệu
+
+**User báo**: Fix trước (commit `66595d41`) push frontend OK nhưng GD mới gán SĐT + Xác nhận vẫn KHÔNG xuất hiện ở tab Kế Toán → Chờ Duyệt. KT không có cách nào duyệt cộng ví. GD bị treo luôn.
+
+**Root cause (đào từ commit `c6507df3` ngày 2026-05-21 "tách bảng web2_balance_history")**:
+
+- SePay webhook INSERT vào `balance_history` → mirror INSERT sang `web2_balance_history` (helper `_mirrorToWeb2BalanceHistory`, best-effort, silent fail).
+- Matching engine (`sepay-transaction-matching.js`) **UPDATE** `balance_history` set `verification_status = 'PENDING_VERIFICATION'`, `linked_customer_phone`, `match_method` — KHÔNG mirror.
+- Live Mode endpoints `/transaction/:id/phone` và `/transaction/:id/hidden` (`sepay-wallet-operations.js`) **UPDATE** `balance_history` — KHÔNG mirror.
+- Tab "Chờ Duyệt" (`/api/v2/balance-history/verification-queue` ở `v2/balance-history.js`) sau commit kia đã sed-replace toàn bộ query sang `FROM web2_balance_history` → đọc dữ liệu STALE từ lúc INSERT đầu (verification_status NULL/PENDING, no phone).
+- Kết quả: balance_history có status `PENDING_VERIFICATION` nhưng web2_balance_history vẫn `PENDING`/NULL → tab Chờ Duyệt rỗng dù Live Mode hiển thị đầy đủ.
+
+**Cách user dùng**: chỉ trang legacy `/balance-history/index.html`. Không muốn đụng web2 frontend (`web2/balance-history/*`). Fix phải làm ở backend.
+
+**Fix:**
+
+- `render.com/routes/sepay-wallet-operations.js`:
+    - Thêm helper `_syncWeb2BalanceHistory(db, balanceHistoryId)` — UPDATE editable columns trên `web2_balance_history` qua `JOIN balance_history ON sepay_id`. Best-effort + fallback INSERT...ON CONFLICT DO NOTHING nếu row web2 missing.
+    - Gọi sau UPDATE ở `/transaction/:id/phone` (assignManual + accountant correction + auto-link).
+    - Gọi sau UPDATE ở `/transaction/:id/hidden` (covers confirmAutoMatched + assignManual hide + assignFromDropdown hide).
+- `render.com/routes/v2/balance-history.js`:
+    - Thêm Migration 082 trong `ensureWeb2BalanceHistory` — one-time bulk UPDATE web2 set editable columns từ balance_history cho mọi row có sepay_id match VÀ chưa đồng bộ (DISTINCT FROM check verification_status / phone / is_hidden / wallet_processed / customer_id). Tự self-heal toàn bộ GD stuck từ ngày tách bảng đến giờ.
+    - Gated qua `native_orders_migrations` table → idempotent.
+
+**Tại sao chỉ 2 endpoint là đủ**: user flow Live Mode luôn kết thúc bằng `/hidden` (Xác nhận button) HOẶC `/phone` (Gán SĐT). Cả 3 cases (assignManual / assignFromDropdown / confirmAutoMatched) đều fire một trong 2 endpoint này. Sync trong endpoint sẽ pull TẤT CẢ updated columns từ balance_history (kể cả những thay đổi do matching engine làm trước đó) → web2 sync 1 phát đủ.
+
+**Không đụng `web2/balance-history/*` frontend** (đúng yêu cầu user). Backend dual-write giữ 2 bảng đồng bộ. Web2 page tiếp tục đọc/ghi `web2_balance_history` bình thường.
+
+**Test plan sau Render deploy (~3 phút)**:
+
+1. Lần đầu hit `/api/v2/balance-history/*` từ tab Kế Toán → log Render hiển thị `[BalanceHistory V2] web2_balance_history schema ready` + `NOTICE: Migration 082: resynced web2_balance_history editable columns from balance_history`.
+2. Refresh tab Chờ Duyệt → các GD stuck từ trước hiện ra full (với SĐT, tên, thời gian).
+3. Tạo GD mới ở Live Mode: Xác nhận hoặc gán SĐT mới → toast → sang Chờ Duyệt thấy GD ngay.
+4. KT bấm Duyệt → status APPROVED + ví cộng (vì web2.wallet_processed=FALSE, processDeposit chạy).
+5. (Optional) `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/balance-history/accountant/stats` → `pending_verification` > 0.
+
+**Followup chưa làm (out of scope)**: matching engine `sepay-transaction-matching.js` UPDATE spots cũng nên dual-write. Hiện tại OK vì user luôn click /phone hoặc /hidden sau, mang theo full state. Nếu sau này có flow không qua 2 endpoint này, sẽ stuck lại.
+
+**Status**: ✅ DONE (chờ deploy verify).
+
 ### [tpos-pancake/inv] fix: 4 vòng debug — viền có đơn + restrict drop + detection + popover
 
 User: "cho viền các khách đã có đơn hàng → browser test kéo thả sản phẩm vào khách đã có đơn".

@@ -77,6 +77,52 @@ async function ensureWeb2BalanceHistory(pool) {
                     VALUES ('081_backfill_web2_balance_history');
                     RAISE NOTICE 'Migration 081: backfilled web2_balance_history from %', '${SOURCE_TABLE}';
                 END IF;
+
+                -- Migration 082: re-sync editable columns. Backfill 081 chỉ chạy
+                -- 1 lần lúc setup web2 table, nhưng SAU đó:
+                --   • Matching engine UPDATE balance_history (set verification_status,
+                --     linked_customer_phone…) → KHÔNG mirror sang web2.
+                --   • Live Mode UPDATE balance_history (Xác nhận, gán SĐT) → cũng
+                --     KHÔNG mirror sang web2 (helper _syncWeb2BalanceHistory mới thêm).
+                -- Hậu quả: các GD từ ngày tách bảng (2026-05-21) đến trước fix này
+                -- có web2.verification_status = NULL/'PENDING' nhưng balance_history
+                -- đã 'PENDING_VERIFICATION' → tab "Chờ Duyệt" không thấy.
+                -- One-time: copy editable columns từ balance_history → web2 cho
+                -- các row stuck.
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '082_resync_web2_editable_columns'
+                ) THEN
+                    UPDATE web2_balance_history w2
+                    SET linked_customer_phone   = src.linked_customer_phone,
+                        customer_id             = src.customer_id,
+                        customer_name           = src.customer_name,
+                        display_name            = src.display_name,
+                        match_method            = src.match_method,
+                        verification_status     = src.verification_status,
+                        verification_note       = src.verification_note,
+                        verification_image_url  = src.verification_image_url,
+                        verified_by             = src.verified_by,
+                        verified_at             = src.verified_at,
+                        wallet_processed        = src.wallet_processed,
+                        is_hidden               = src.is_hidden,
+                        staff_note              = src.staff_note,
+                        debt_added              = src.debt_added,
+                        updated_at              = NOW()
+                    FROM ${SOURCE_TABLE} src
+                    WHERE w2.sepay_id = src.sepay_id
+                      AND (
+                          w2.verification_status     IS DISTINCT FROM src.verification_status
+                          OR w2.linked_customer_phone IS DISTINCT FROM src.linked_customer_phone
+                          OR w2.is_hidden            IS DISTINCT FROM src.is_hidden
+                          OR w2.wallet_processed     IS DISTINCT FROM src.wallet_processed
+                          OR w2.customer_id          IS DISTINCT FROM src.customer_id
+                      );
+
+                    INSERT INTO native_orders_migrations(name)
+                    VALUES ('082_resync_web2_editable_columns');
+                    RAISE NOTICE 'Migration 082: resynced web2_balance_history editable columns from %', '${SOURCE_TABLE}';
+                END IF;
             END $$;
         `);
         _w2BhEnsured = true;

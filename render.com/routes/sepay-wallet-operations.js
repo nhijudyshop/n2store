@@ -9,6 +9,59 @@ const tposTokenManager = require('../services/tpos-token-manager');
 const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
 
+// =====================================================
+// WEB 2.0 SYNC HELPER
+// Sau khi Live Mode UPDATE balance_history (Web 1 legacy), mirror các editable
+// columns sang web2_balance_history (Web 2.0 isolated table) qua sepay_id.
+// Vì các endpoint Web 2.0 (`/api/v2/balance-history/verification-queue`,
+// `accountant/stats`, …) đọc/UPDATE từ web2_balance_history → nếu không sync,
+// KT mở tab "Chờ Duyệt" sẽ KHÔNG thấy GD vừa được NV xác nhận ở Live Mode
+// (mặc dù balance_history đã có verification_status = 'PENDING_VERIFICATION').
+//
+// Best-effort: lỗi "does not exist" (web2 bảng chưa tạo) được swallow im lặng.
+// =====================================================
+async function _syncWeb2BalanceHistory(db, balanceHistoryId) {
+    if (!db || !balanceHistoryId) return;
+    try {
+        const result = await db.query(
+            `UPDATE web2_balance_history w2
+             SET linked_customer_phone   = src.linked_customer_phone,
+                 customer_id             = src.customer_id,
+                 customer_name           = src.customer_name,
+                 display_name            = src.display_name,
+                 match_method            = src.match_method,
+                 verification_status     = src.verification_status,
+                 verification_note       = src.verification_note,
+                 verification_image_url  = src.verification_image_url,
+                 verified_by             = src.verified_by,
+                 verified_at             = src.verified_at,
+                 wallet_processed        = src.wallet_processed,
+                 is_hidden               = src.is_hidden,
+                 staff_note              = src.staff_note,
+                 debt_added              = src.debt_added,
+                 updated_at              = NOW()
+             FROM balance_history src
+             WHERE src.id = $1 AND w2.sepay_id = src.sepay_id`,
+            [balanceHistoryId]
+        );
+
+        // Nếu row chưa tồn tại trong web2 (mirror INSERT khi webhook fail) →
+        // fallback INSERT để self-heal.
+        if (result.rowCount === 0) {
+            await db.query(
+                `INSERT INTO web2_balance_history
+                 SELECT * FROM balance_history WHERE id = $1
+                 ON CONFLICT (sepay_id) DO NOTHING`,
+                [balanceHistoryId]
+            );
+        }
+    } catch (e) {
+        if (!String(e.message).includes('does not exist')) {
+            console.warn('[SYNC-W2-BH] mirror update failed:', e.message);
+        }
+    }
+}
+
 /**
  * Register wallet operation routes on the given router
  * @param {express.Router} router - Express router instance
@@ -681,6 +734,10 @@ function registerRoutes(router, helpers) {
                 `[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} -> ${newPhone} (manual_entry=${is_manual_entry})`
             );
 
+            // Mirror sang web2_balance_history để KT thấy GD ở tab Chờ Duyệt
+            // (verification-queue endpoint đọc web2 table, không phải legacy).
+            await _syncWeb2BalanceHistory(db, id);
+
             // Clear any pending_customer_matches for this transaction
             const deletePendingResult = await db.query(
                 'DELETE FROM pending_customer_matches WHERE transaction_id = $1 RETURNING id, status',
@@ -906,6 +963,10 @@ function registerRoutes(router, helpers) {
                     error: 'Transaction not found',
                 });
             }
+
+            // Mirror sang web2_balance_history để KT thấy GD vừa "Xác nhận"
+            // ở tab Chờ Duyệt (verification-queue endpoint đọc web2 table).
+            await _syncWeb2BalanceHistory(db, id);
 
             console.log(
                 `[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden=${hidden}${staff_note ? `, staff_note="${staff_note}"` : ''}${downgradeToPending ? `, verification_status=${updateResult.rows[0].verification_status} (->Chờ Duyệt)` : ''}`
