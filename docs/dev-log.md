@@ -25,6 +25,57 @@
 
 ## 2026-05-22
 
+### [web2/shared/web2-product-code] feat: update rule theo spec shop (6 keyword + MM fallback + HC1 collision)
+
+User clarify: "đã có logic tạo mã sản phẩm web 2.0 cũ → coi sản phẩm bên so-order tạo ở tab gì ví dụ HÀ NỘI=HN, HƯƠNG CHÂU=HC, HẢI CHÂU trùng HƯƠNG CHÂU=HC1 → viết tắt màu biến thể trong web2/variants → tên sản phẩm có 'ÁO', 'QUẦN', 'GUỐC', 'ĐẦM', 'TLQD', 'TDQD' còn lại không có các trường hợp trên là 'MM' → HNGIAYDENS32".
+
+**Đã update** [`web2/shared/web2-product-code.js`](../web2/shared/web2-product-code.js):
+
+1. **TYPE_MAP** — chỉ giữ 6 keyword:
+    - `ÁO` → `AO`
+    - `QUẦN` → `QUAN`
+    - `GUỐC` → `GUOC`
+    - `ĐẦM` → `DAM`
+    - `TLQD` → `TLQD`
+    - `TDQD` → `TDQD`
+    - Default fallback `MM` (cho mọi tên SP không match — vd "GIÀY ĐEN" → MM)
+    - Bỏ các keyword cũ: VÁY, ÁO KHOÁC, ÁO THUN, ÁO SƠ MI, ÁO LEN, ÁO DÀI, QUẦN JEAN/TÂY/SHORT/LÓT, TÚI, GIÀY, DÉP, MŨ, NÓN.
+
+2. **Collision counter** từ `2` → `1`:
+    - "HƯƠNG CHÂU" (first) = HC
+    - "HẢI CHÂU" (collide) = HC1 (không phải HC2 như trước)
+    - Sửa ở 2 chỗ: `resolvePrefix()` + `buildPrefixMap()`
+
+3. **SP default prefix** khi không có NCC (SP tạo từ chỗ khác, không phải Sổ Order):
+    - `basePrefix(null/'')` → `'SP'` (thay vì `'XX'` cũ)
+    - Vd: SP tạo trực tiếp ở `web2/products/` → `SPMMDENS32`
+
+4. **Counter SP đầu tiên không có số**:
+    - SP 1st của (NCC, type) → không số (vd `HNMMDENS32`)
+    - SP 2nd+ → số bắt đầu từ 2 (vd `HNMM2DENS33`)
+    - Trước: luôn có số "1" (`HNMM1DENS32`). Comment cũ nói "đầu tiên không có số" nhưng code không khớp.
+
+5. **Doc header** rewrite với example mới theo spec user + clarification rule.
+
+**Verified bằng 12 unit test** (node -e):
+
+| Input                                          | Output              | Expected |
+| ---------------------------------------------- | ------------------- | -------- |
+| HÀ NỘI / GIÀY ĐEN SIZE 32 (1st)                | `HNMMDENS32`        | ✓        |
+| HÀ NỘI / GIÀY ĐEN SIZE 33 (2nd)                | `HNMM2DENS33`       | ✓        |
+| HƯƠNG CHÂU / ÁO ĐỎ                             | `HCAODO`            | ✓        |
+| HÀ NỘI / ĐẦM HỒNG                              | `HNDAMHONG`         | ✓        |
+| HÀ NỘI / QUẦN XANH DƯƠNG SIZE 5                | `HNQUANXDS5`        | ✓        |
+| HẢI CHÂU / ÁO ĐEN (collision)                  | `HC1AODEN`          | ✓        |
+| buildPrefixMap(HC, HẢI CHÂU, BẢO LỘC, BẾN TRE) | `{HC, HC1, BL, BT}` | ✓        |
+| (no NCC) / GIÀY ĐEN SIZE 32                    | `SPMMDENS32`        | ✓        |
+| (no NCC) / ÁO ĐỎ                               | `SPAODO`            | ✓        |
+| (no NCC) / GIÀY ĐEN S33 (2nd)                  | `SPMM2DENS33`       | ✓        |
+| (no NCC) / ĐẦM HỒNG                            | `SPDAMHONG`         | ✓        |
+| (no NCC) / QUẦN XANH SIZE 5                    | `SPQUANXANHS5`      | ✓        |
+
+Trang `web2/products/` đã gọi `Web2ProductCode.suggest()` — không cần đổi code consumer.
+
 ### [web2/variants-matrix] revert: gỡ F10 — bỏ cách tạo mã SP auto `<base>-<size>-<color>`
 
 User request: "bạn revert lại cách tạo mã sản phẩm đi".

@@ -1,38 +1,54 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
-// WEB 2.0 — PRODUCT CODE SUGGESTION
+// WEB 2.0 — PRODUCT CODE SUGGESTION (rule shop 2026-05-22)
 // =====================================================
 // Sinh mã SP tự động theo công thức:
 //   <PREFIX_NCC><LOAI><SỐ?><MÀU><SIZE?>
 //
+// PREFIX NCC (tab Sổ Order):
+//   - "HÀ NỘI"      → HN     (mỗi từ 1 chữ)
+//   - "HƯƠNG CHÂU"  → HC
+//   - "HẢI CHÂU"    → HC1    (trùng HC → append 1, 2, 3…)
+//   - 1 từ          → 2 chữ đầu ("ADIDAS"→AD)
+//   - KHÔNG có NCC  → 'SP'   (SP tạo từ chỗ khác, không phải Sổ Order)
+//
+// LOẠI SP (chỉ 6 keyword, còn lại fallback MM):
+//   ÁO   → AO
+//   QUẦN → QUAN
+//   GUỐC → GUOC
+//   ĐẦM  → DAM
+//   TLQD → TLQD
+//   TDQD → TDQD
+//   (Không match) → MM
+//
+// MÀU: lấy short_code từ kho Biến Thể Web 2.0 (`web2_variants`).
+//   Build colorShortMap qua Web2ProductCode.buildColorShortMap(allColorNames)
+//   - Tự xử lý collision (XAM ĐẬM vs XANH ĐẬM)
+//   - Truyền opts.colorShortMap vào suggest()
+//
+// SIZE: SIZE 3 → S3, SIZE 32 → S32. Letter size S/M/L/XL giữ nguyên.
+//
+// COUNTER:
+//   - SP đầu tiên (NCC + type) → KHÔNG có số (HNMMDENS32)
+//   - SP thứ 2 trở đi → bắt đầu từ 2 (HNMM2DENS32, HNMM3...)
+//
 // Ví dụ:
-//   HÀ NỘI          ÁO   ĐỎ            → HN AO 1 DO       → HNAO1DO     (7)
-//   HÀ NỘI          ÁO   XANH  SIZE 3  → HN AO 2 XANH S3  → HNAO2XANHS3 (11)
-//   HƯƠNG CHÂU      QUẦN XANH DƯƠNG S5 → HC QUAN 1 XD S5  → HCQUAN1XDS5 (11)
-//   HẢI CHÂU        ÁO   ĐEN           → HC2 AO 1 DEN     → HC2AO1DEN   (8)
-//
-// QUY TẮC RÚT NGẮN:
-//   1. Bỏ dấu tiếng Việt (đỏ→DO, đen→DEN, trắng→TRANG)
-//   2. Màu 1 từ: lấy nguyên (DO, XANH, VANG, TRANG, DEN, HONG, TIM, NAU, XAM, CAM)
-//   3. Màu nhiều từ: lấy chữ cái đầu mỗi từ (XANH DƯƠNG→XD, XANH LÁ→XL, XÁM TRO→XT)
-//   4. Loại SP: ÁO→AO, QUẦN→QUAN, VÁY→VAY, ĐẦM→DAM, ÁO KHOÁC→AK, ÁO THUN→AT, …
-//   5. Size số: SIZE 3→S3, size 12→S12. Size chữ S/M/L/XL: giữ nguyên.
-//   6. Số thứ tự: đếm loại SP của cùng NCC. SP đầu tiên KHÔNG có số (gọn).
-//      SP thứ 2 trở đi có số. (Ví dụ user: AO1, AO2 — có thể bỏ số cho cái đầu)
-//
-// PREFIX NCC:
-//   - Lấy chữ cái đầu mỗi từ. "HÀ NỘI"→HN, "HƯƠNG CHÂU"→HC, "HẢI CHÂU"→HC (trùng).
-//   - Trùng: append số. HC trước → HC, HC sau → HC2, HC3, …
-//   - 1 từ: lấy 2 chữ đầu. "ADIDAS"→AD.
+//   HÀ NỘI / GIÀY ĐEN SIZE 32 (1st)   → HN + MM + DEN + S32     → HNMMDENS32
+//   HÀ NỘI / GIÀY ĐEN SIZE 33 (2nd)   → HN + MM2 + DEN + S33    → HNMM2DENS33
+//   HƯƠNG CHÂU / ÁO ĐỎ                → HC + AO + DO            → HCAODO
+//   HẢI CHÂU / QUẦN XANH DƯƠNG SIZE 5 → HC1 + QUAN + XD + S5    → HC1QUANXDS5
+//   HÀ NỘI / ĐẦM HỒNG                 → HN + DAM + HONG         → HNDAMHONG
+//   (no NCC) / GIÀY ĐEN SIZE 32       → SP + MM + DEN + S32     → SPMMDENS32
+//   (no NCC) / ÁO ĐỎ                  → SP + AO + DO            → SPAODO
 //
 // Usage:
 //   const code = Web2ProductCode.suggest({
-//     supplierName: 'HƯƠNG CHÂU',
-//     productName: 'QUẦN XANH DƯƠNG SIZE 5',
-//     existingCodes: ['HCQUAN1DO', 'HCAO1XANH'],
-//     supplierPrefixMap: { 'HÀ NỘI': 'HN', 'HƯƠNG CHÂU': 'HC', 'HẢI CHÂU': 'HC2' },
+//     supplierName: 'HÀ NỘI',
+//     productName: 'GIÀY ĐEN SIZE 32',
+//     existingCodes: ['HNMMDENS31'],  // có 1 → SP mới sẽ là HNMM2DENS32
+//     supplierPrefixMap: { 'HÀ NỘI': 'HN', 'HƯƠNG CHÂU': 'HC', 'HẢI CHÂU': 'HC1' },
+//     colorShortMap: { 'DEN': 'DEN', 'XANH DUONG': 'XD', ... }, // từ web2_variants
 //   });
-//   // → 'HCQUAN2XDS5'
 
 (function (global) {
     'use strict';
@@ -41,32 +57,25 @@
 
     // ─────────────────────────────────────────────────────────
     // Bảng từ loại SP (Vietnamese → ASCII shortcode)
+    // CHỈ 6 keyword theo rule shop (2026-05-22):
+    //   ÁO, QUẦN, GUỐC, ĐẦM, TLQD, TDQD
+    // Tên SP KHÔNG match keyword nào → fallback 'MM' (xem extractType).
     // ─────────────────────────────────────────────────────────
     const TYPE_MAP = {
         ÁO: 'AO',
         AO: 'AO',
         QUẦN: 'QUAN',
         QUAN: 'QUAN',
-        VÁY: 'VAY',
-        VAY: 'VAY',
+        GUỐC: 'GUOC',
+        GUOC: 'GUOC',
         ĐẦM: 'DAM',
         DAM: 'DAM',
-        'ÁO KHOÁC': 'AK',
-        'ÁO THUN': 'AT',
-        'ÁO SƠ MI': 'ASM',
-        'ÁO LEN': 'AL',
-        'ÁO DÀI': 'AD',
-        QUẦN: 'QUAN',
-        'QUẦN JEAN': 'QJ',
-        'QUẦN TÂY': 'QT',
-        'QUẦN SHORT': 'QS',
-        'QUẦN LÓT': 'QL',
-        TÚI: 'TUI',
-        GIÀY: 'GIAY',
-        DÉP: 'DEP',
-        MŨ: 'MU',
-        NÓN: 'NON',
+        TLQD: 'TLQD',
+        TDQD: 'TDQD',
     };
+
+    // Fallback khi tên SP không match keyword nào trong TYPE_MAP
+    const DEFAULT_TYPE = 'MM';
 
     // ─────────────────────────────────────────────────────────
     // Bảng màu (single word — giữ nguyên ASCII; multi-word — viết tắt)
@@ -140,10 +149,11 @@
      * @returns {string} prefix (chưa xét trùng)
      */
     function basePrefix(supplierName) {
-        if (!supplierName) return 'XX';
+        // KHÔNG có NCC → SP tạo từ chỗ khác (không phải Sổ Order) → prefix mặc định 'SP'
+        if (!supplierName) return 'SP';
         const cleaned = clean(supplierName);
         const words = cleaned.split(' ').filter(Boolean);
-        if (words.length === 0) return 'XX';
+        if (words.length === 0) return 'SP';
         if (words.length === 1) {
             const w = words[0];
             return w.length >= 2 ? w.slice(0, 2) : (w + 'X').slice(0, 2);
@@ -169,8 +179,8 @@
         const usedPrefixes = new Set(Object.values(map));
         if (!usedPrefixes.has(base)) return base;
 
-        // Trùng → append số 2, 3, …
-        let n = 2;
+        // Trùng → append số 1, 2, 3, … (HƯƠNG CHÂU=HC, HẢI CHÂU=HC1, third=HC2…)
+        let n = 1;
         while (usedPrefixes.has(base + n)) n++;
         return base + n;
     }
@@ -185,8 +195,8 @@
      */
     function extractType(productNameClean) {
         // Sort by length desc để match longest first.
-        // Chỉ match ở ĐẦU tên SP (convention VN: "ÁO ĐỎ", "QUẦN XANH", "VÁY HỒNG"...).
-        // Tránh false match như "HỒNG ĐẬM" → DAM (đầm) khi ĐẬM là tính từ.
+        // Chỉ match ở ĐẦU tên SP (convention VN: "ÁO ĐỎ", "QUẦN XANH", "ĐẦM HỒNG"...).
+        // Tránh false match như "HỒNG ĐẬM" → DAM khi ĐẬM là tính từ.
         const keys = Object.keys(TYPE_MAP).sort((a, b) => b.length - a.length);
         for (const key of keys) {
             const keyAscii = clean(key);
@@ -196,7 +206,8 @@
                 return { type: TYPE_MAP[key], rest };
             }
         }
-        return { type: null, rest: productNameClean };
+        // KHÔNG match → fallback MM, giữ nguyên tên SP (không cắt prefix)
+        return { type: DEFAULT_TYPE, rest: productNameClean };
     }
 
     // ─────────────────────────────────────────────────────────
@@ -322,18 +333,31 @@
         const { sizeShort, rest: r2 } = extractSize(r1);
         const { colorShort, rest: r3 } = extractColor(r2);
 
-        // Đếm số thứ tự loại SP của NCC. Luôn bắt đầu từ 1 (kể cả SP đầu tiên).
-        // Tránh ambiguity về sau khi tạo SP thứ 2.
+        // Đếm số thứ tự loại SP của NCC.
+        // SP ĐẦU TIÊN của (NCC, type) → KHÔNG có số (vd HNMMDENS32, không HNMM1DENS32).
+        // SP thứ 2 trở đi → số bắt đầu từ 2 (HNMM2DENS32, HNMM3...).
         let counter = '';
         if (type) {
             const typePrefix = prefix + type;
-            const re = new RegExp(`^${typePrefix}(\\d+)`);
+            // Match cả pattern không số (đầu tiên) lẫn có số (HNMM2DENS32)
+            const reNumbered = new RegExp(`^${typePrefix}(\\d+)`);
+            const reBare = new RegExp(`^${typePrefix}(?!\\d)`);
             let maxN = 0;
+            let hasBare = false;
             for (const c of existingCodes) {
-                const m = c.match(re);
-                if (m && m[1]) maxN = Math.max(maxN, parseInt(m[1], 10));
+                const m = c.match(reNumbered);
+                if (m && m[1]) {
+                    maxN = Math.max(maxN, parseInt(m[1], 10));
+                } else if (reBare.test(c)) {
+                    hasBare = true;
+                }
             }
-            counter = String(maxN + 1);
+            // Nếu chưa có SP nào → bare (no counter)
+            // Nếu có bare nhưng chưa có numbered → counter = 2
+            // Nếu có numbered → counter = maxN + 1
+            if (maxN > 0) counter = String(maxN + 1);
+            else if (hasBare) counter = '2';
+            else counter = '';
         }
 
         const code = prefix + (type || '') + counter + (colorShort || '') + (sizeShort || '');
@@ -357,7 +381,7 @@
     // ─────────────────────────────────────────────────────────
     /**
      * @param {string[]} supplierNames
-     * @returns {Object<string,string>} { 'HÀ NỘI': 'HN', 'HƯƠNG CHÂU': 'HC', 'HẢI CHÂU': 'HC2', … }
+     * @returns {Object<string,string>} { 'HÀ NỘI': 'HN', 'HƯƠNG CHÂU': 'HC', 'HẢI CHÂU': 'HC1', … }
      */
     function buildPrefixMap(supplierNames) {
         const map = {};
@@ -366,7 +390,7 @@
             if (!name || map[name]) continue;
             let base = basePrefix(name);
             let prefix = base;
-            let n = 2;
+            let n = 1;
             while (used.has(prefix)) {
                 prefix = base + n;
                 n++;
@@ -494,16 +518,22 @@
         const { sizeShort, rest: r2 } = extractSize(r1);
         const { colorShort, rest: r3 } = extractColorWithMap(r2, colorShortMap);
 
+        // Counter: SP đầu tiên (NCC, type) không có số; SP thứ 2 trở đi từ 2
         let counter = '';
         if (type) {
             const typePrefix = prefix + type;
-            const re = new RegExp(`^${typePrefix}(\\d+)`);
+            const reNumbered = new RegExp(`^${typePrefix}(\\d+)`);
+            const reBare = new RegExp(`^${typePrefix}(?!\\d)`);
             let maxN = 0;
+            let hasBare = false;
             for (const c of existingCodes) {
-                const m = c.match(re);
+                const m = c.match(reNumbered);
                 if (m && m[1]) maxN = Math.max(maxN, parseInt(m[1], 10));
+                else if (reBare.test(c)) hasBare = true;
             }
-            counter = String(maxN + 1);
+            if (maxN > 0) counter = String(maxN + 1);
+            else if (hasBare) counter = '2';
+            else counter = '';
         }
 
         const code = prefix + (type || '') + counter + (colorShort || '') + (sizeShort || '');
