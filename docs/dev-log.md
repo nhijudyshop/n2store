@@ -25,6 +25,31 @@
 
 ## 2026-05-22
 
+### [delivery-report] fix: NAP column không hiện khi click tab "Tỉnh" sau khi đã ở tab khác
+
+Phát hiện qua browser test localhost: trong lite expanded, click tab "Tỉnh" sau khi đang ở tab `zero`/`combo` thì cột NAP bị ẩn (chỉ thấy TOMATO).
+
+**Root cause**: `renderAllGroupsView()` ẩn tất cả cột trước khi show lại các cột active (`Object.values(GROUP_COL_MAP).forEach(...)style.display='none'`). Khi sang `renderProvinceView()`, function chỉ ẩn `drColCity/Shop/Return` nhưng KHÔNG re-show `drColTomato + drColNap` → nếu trước đó NAP bị ẩn (lite mode chỉ show tomato+shop), nó vẫn ẩn.
+
+**Fix**: `renderProvinceView()` explicitly set `drColTomato` và `drColNap` về `display=''` trước khi render content (đối xứng với pattern hide city/shop/return).
+
+File: `delivery-report/js/delivery-report.js:2320-2323` (block reset cột TOMATO/NAP).
+
+**Verified end-to-end via Playwright** trên `localhost:8080`:
+
+- ✅ Admin: lite collapsed (combo + zero) → click combo → 2 cols TOMATO+SHOP, stats 2/640.000
+- ✅ Admin: zero tab → all stats=0, scan 0/0 (không có 0đ trong TOMATO+SHOP)
+- ✅ Admin: triple-click title → bung đủ 7 tab, cursor=auto (no hint), userSelect=none
+- ✅ Lite expanded: Tỉnh → TOMATO + NAP visible (sau fix), city/shop/return hidden
+- ✅ Lite expanded: city tab → table 3 rows, stats 3/780.000
+- ✅ Lite expanded: Tất cả → 2 cols TOMATO+SHOP (lite version), stats 2/640.000
+- ✅ Tắt → bật lại Tra soát: liteExpanded reset, chỉ thấy combo+zero
+- ✅ Switch userType=phuoc-authenticated + reload: combo ẩn, 6 tab + 5 cols visible
+- ✅ Restore admin: default lite trở lại
+- ✅ Bộ lọc click: filter section + stats bar visible
+
+Status: ✅ Done
+
 ### [scripts] feat: HTTP/SSE realtime API cho `n2store-browser-session.js` + compound `do` command
 
 User hỏi: "Browser test có bật server realtime thu thập dữ liệu nhận từ browser đọc liên tục để tương tác chính xác và nhanh nhất chưa?" → tối ưu khả thi.
