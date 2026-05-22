@@ -234,60 +234,25 @@
     }
 
     // ─────────────────────────────────────────────────────────
-    // Drop target: TPOS COMMENTS panel (left column).
-    //
-    // User chọn phương án C: drag SP từ Kho (Pancake column, right) →
-    // drop vào TPOS comments (left column). TPOS comments đều đã link với
-    // session/order TPOS nên mặc định là "đã có đơn".
-    //
-    // Wire event delegation trên document để handle dynamic re-render của
-    // TPOS comment list (TposCommentList re-renders entire #tposContent).
+    // Drop target: CHỈ TPOS COMMENTS panel (left column).
+    // Pancake conv rows KHÔNG nhận drop (user explicit request).
     // ─────────────────────────────────────────────────────────
     function attachDropTargets() {
-        // Delegate qua document để bắt cả TPOS comments (#tposContent) lẫn
-        // Pancake conv list (.pk-conversation-list) — vẫn giữ Pancake làm
-        // fallback nếu user dùng kết hợp.
         document.addEventListener('dragover', (e) => {
-            const row =
-                e.target.closest('.tpos-conversation-item') ||
-                e.target.closest('.pk-conversation-item');
+            const row = e.target.closest('.tpos-conversation-item');
             if (!row) return;
-            // TPOS rows luôn allow drop (đều có đơn). Pancake rows cần
-            // .inv-has-order (legacy check).
-            const isTpos = row.classList.contains('tpos-conversation-item');
-            const isAllowed = isTpos || row.classList.contains('inv-has-order');
-            if (!isAllowed) {
-                e.dataTransfer.dropEffect = 'none';
-                row.classList.add('inv-drop-deny');
-                return;
-            }
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
             row.classList.add('inv-drop-hover');
         });
         document.addEventListener('dragleave', (e) => {
-            const row =
-                e.target.closest('.tpos-conversation-item') ||
-                e.target.closest('.pk-conversation-item');
-            if (row) {
-                row.classList.remove('inv-drop-hover');
-                row.classList.remove('inv-drop-deny');
-            }
+            const row = e.target.closest('.tpos-conversation-item');
+            if (row) row.classList.remove('inv-drop-hover');
         });
         document.addEventListener('drop', async (e) => {
-            const row =
-                e.target.closest('.tpos-conversation-item') ||
-                e.target.closest('.pk-conversation-item');
+            const row = e.target.closest('.tpos-conversation-item');
             if (!row) return;
             row.classList.remove('inv-drop-hover');
-            row.classList.remove('inv-drop-deny');
-
-            const isTpos = row.classList.contains('tpos-conversation-item');
-            const isAllowed = isTpos || row.classList.contains('inv-has-order');
-            if (!isAllowed) {
-                _showToast('Khách chưa có đơn — không thể thêm SP', 'err');
-                return;
-            }
             e.preventDefault();
             const json = e.dataTransfer.getData('application/x-web2-product');
             if (!json) return;
@@ -297,13 +262,9 @@
             } catch {
                 return;
             }
-            // commentId: TPOS row dùng data-comment-id; Pancake row dùng data-conv-id
-            const commentId = row.dataset.commentId || row.dataset.convId;
+            const commentId = row.dataset.commentId;
             if (!commentId) return;
-
-            const customer = isTpos
-                ? _resolveTposCustomer(commentId, row)
-                : _resolveCustomer(commentId, row);
+            const customer = _resolveTposCustomer(commentId, row);
             await addToCart(commentId, product, customer);
         });
     }
@@ -321,26 +282,6 @@
                         row.querySelector('.tpos-conv-name, .from-name')?.textContent?.trim() ||
                         null;
                     cust.phone = c.phone || c.customer_phone || null;
-                }
-            }
-        } catch {}
-        return cust;
-    }
-
-    function _resolveCustomer(commentId, row) {
-        const cust = { id: null, name: null, phone: null };
-        try {
-            const st = global.PancakeState;
-            if (st && Array.isArray(st.conversations)) {
-                const c = st.conversations.find((x) => x.id === commentId);
-                if (c) {
-                    cust.id = c.from?.id || c.from_psid || c.customer?.id || null;
-                    cust.name =
-                        c.from?.name ||
-                        c.customer?.name ||
-                        row.querySelector('.pk-conversation-name')?.textContent?.trim() ||
-                        null;
-                    cust.phone = c.customer?.phone || c.phone || null;
                 }
             }
         } catch {}
@@ -404,14 +345,11 @@
 
     async function refreshCartCounts(commentIds) {
         if (!commentIds || !commentIds.length) {
-            // Batch: collect IDs từ CẢ TPOS comment rows VÀ Pancake conv rows
-            const tposIds = [...document.querySelectorAll('.tpos-conversation-item')].map(
-                (r) => r.dataset.commentId
-            );
-            const pkIds = [...document.querySelectorAll('.pk-conversation-item')].map(
-                (r) => r.dataset.convId
-            );
-            commentIds = [...new Set([...tposIds, ...pkIds].filter(Boolean))].slice(0, 200);
+            // CHỈ TPOS comment IDs (drop target duy nhất)
+            commentIds = [...document.querySelectorAll('.tpos-conversation-item')]
+                .map((r) => r.dataset.commentId)
+                .filter(Boolean)
+                .slice(0, 200);
         }
         if (!commentIds.length) return;
         try {
@@ -439,58 +377,19 @@
     //   - customer.success_order_count > 0 (sau khi fetch customer detail)
     //   - has_phone === true && có tag (đã extract SĐT + đã được sale gán tag → coi như đơn)
     //   - cart count > 0 (đã có SP trong giỏ local — cho phép drop tiếp)
+    // Mark TPOS comment rows = drop target. Tất cả TPOS rows đều mặc định
+    // được drop (TPOS chỉ show comment đã link session/order).
     function _markHasOrderRows() {
-        // TPOS comments: all rows = drop target hợp lệ (TPOS chỉ show comment đã link order)
         document.querySelectorAll('.tpos-conversation-item').forEach((row) => {
             row.classList.add('inv-has-order');
             row.dataset.orderReason = 'tpos-comment';
         });
-
-        // Pancake conv list (legacy fallback): vẫn detect qua signal cũ
-        const st = global.PancakeState;
-        if (!st || !Array.isArray(st.conversations)) return;
-        const byId = new Map();
-        for (const c of st.conversations) byId.set(c.id, c);
-        document.querySelectorAll('.pk-conversation-item').forEach((row) => {
-            const cid = row.dataset.convId;
-            if (!cid) return;
-            const c = byId.get(cid);
-            if (!c) return;
-            const customer = c.customers?.[0] || c.from || {};
-            const orderCnt =
-                Number(customer.success_order_count) ||
-                Number(customer.order_count) ||
-                Number(c.order_count) ||
-                0;
-            const cartCnt = STATE.cartCounts[cid]?.qty || 0;
-            const hasLiveOrder = c.has_livestream_order === true;
-            const hasPhone =
-                c.has_phone === true ||
-                (Array.isArray(c.recent_phone_numbers) && c.recent_phone_numbers.length > 0);
-            const hasTag = c.tags && Object.keys(c.tags).length > 0;
-            const hasOrder = hasLiveOrder || orderCnt > 0 || cartCnt > 0 || (hasPhone && hasTag);
-            row.classList.toggle('inv-has-order', hasOrder);
-            row.dataset.orderCount = orderCnt;
-            row.dataset.orderReason = hasLiveOrder
-                ? 'livestream-order'
-                : orderCnt > 0
-                  ? 'success-order'
-                  : cartCnt > 0
-                    ? 'in-cart'
-                    : hasPhone && hasTag
-                      ? 'phone+tag'
-                      : '';
-        });
     }
 
     function renderBadges() {
-        // Render badge cho CẢ TPOS rows VÀ Pancake rows
-        const rows = [
-            ...document.querySelectorAll('.tpos-conversation-item'),
-            ...document.querySelectorAll('.pk-conversation-item'),
-        ];
-        rows.forEach((row) => {
-            const cid = row.dataset.commentId || row.dataset.convId;
+        // CHỈ TPOS comment rows nhận badge
+        document.querySelectorAll('.tpos-conversation-item').forEach((row) => {
+            const cid = row.dataset.commentId;
             if (!cid) return;
             const cnt = STATE.cartCounts[cid];
             let badge = row.querySelector('.inv-cart-badge');
@@ -503,11 +402,7 @@
                         e.stopPropagation();
                         togglePopover(cid, row);
                     });
-                    // TPOS row: chèn vào header. Pancake row: chèn vào actions div.
-                    const slot =
-                        row.querySelector('.tpos-conv-header-info') ||
-                        row.querySelector('.pk-conversation-actions') ||
-                        row;
+                    const slot = row.querySelector('.tpos-conv-header-info') || row;
                     slot.appendChild(badge);
                 }
                 badge.textContent = '🛒 ' + cnt.qty;
@@ -647,28 +542,8 @@
         attachDropTargets();
         _subscribeSSE();
 
-        // Watch khi `.pk-conversation-list` xuất hiện trong DOM (Pancake load async).
-        // Khi tìm thấy → attach inner MutationObserver + run mark ngay.
-        function _wireListObserver() {
-            const list = document.querySelector('.pk-conversation-list, #pkConversationList');
-            if (!list) return false;
-            if (list.dataset.invObserved) return true;
-            list.dataset.invObserved = '1';
-            new MutationObserver(() => {
-                clearTimeout(init._mTimer);
-                init._mTimer = setTimeout(() => {
-                    refreshCartCounts();
-                    _markHasOrderRows();
-                }, 200);
-            }).observe(list, { childList: true, subtree: false });
-            // Initial mark
-            refreshCartCounts();
-            _markHasOrderRows();
-            return true;
-        }
-
         // Wire MutationObserver cho TPOS comments container (#tposContent) —
-        // drop target chính của user. Watch subtree để bắt re-render của TposCommentList.
+        // drop target DUY NHẤT. Watch subtree để bắt re-render của TposCommentList.
         function _wireTposObserver() {
             const tposRoot = document.getElementById('tposContent');
             if (!tposRoot) return false;
@@ -686,21 +561,17 @@
             return true;
         }
 
-        // Poll DOM mỗi 2s cho đến khi list xuất hiện + đã có conv (PancakeState.convs ready).
-        // Sau khi attach observer + có data → vẫn poll thêm mỗi 5s cho safety (rows có thể
-        // re-render mà không qua observer khi Pancake apply filter).
+        // Poll DOM mỗi 2s cho đến khi #tposContent có rows (TposCommentList load async).
+        // Sau 2 phút giảm xuống 5s safety check.
         let pollTries = 0;
         const pollTimer = setInterval(() => {
             pollTries++;
-            _wireListObserver();
             _wireTposObserver();
             refreshCartCounts();
             _markHasOrderRows();
-            // Sau 60 lần (~2 phút) → giảm tần suất xuống 5s
             if (pollTries === 60) {
                 clearInterval(pollTimer);
                 setInterval(() => {
-                    _wireListObserver();
                     _wireTposObserver();
                     _markHasOrderRows();
                 }, 5000);
