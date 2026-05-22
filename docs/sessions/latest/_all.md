@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c35e5d5` — fix(delivery-report): stats follow table visibility (hide together in lite default)
-**Last updated**: 2026-05-22 13:42:53 +07
-**Latest session**: [`RESUME:20260522-134253-c35e5d5`](../20260522-134253-c35e5d5.md)
-**Summary**: fix(delivery-report): stats follow table visibility (hide together in lite default)
+**Latest commit**: `c2d065c` — docs(dev-log): ghi web2-wallet-isolation (Postgres trigger mirror customer_wallets/transactions/adjustments)
+**Last updated**: 2026-05-22 13:44:03 +07
+**Latest session**: [`RESUME:20260522-134403-c2d065c`](../20260522-134403-c2d065c.md)
+**Summary**: docs(dev-log): ghi web2-wallet-isolation (Postgres trigger mirror customer_wallets/transactions/adjustments)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:42
-- [`docs/`](./docs.md) — updated 2026-05-22 13:21
+- [`docs/`](./docs.md) — updated 2026-05-22 13:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
