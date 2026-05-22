@@ -196,6 +196,20 @@ User request: "Browser test lại các tính năng mới vừa thêm → tự de
 
 **Status**: ✅ DONE (chờ push + Render deploy verify).
 
+### [inventory] fix: NCC search cũng phải lọc hoaDon[] trong card, không lộ NCC khác
+
+User: "ví dụ tôi tìm 19 thì chỉ ra mỗi NCC 19 thôi đừng ra các nhà khác trong expand ngày".
+
+Trước đây filter chỉ làm shipment-level (chỉ giữ shipments có ít nhất 1 hoaDon match) → khi expand vẫn thấy toàn bộ NCC trong cùng ngày/đợt. Fix:
+
+- **`js/filters.js`**: khi NCC filter active, tạo clone shipment với `hoaDon` đã filter. Recompute `tongTienHoaDon`/`tongSoMon`/`tongMonThieu` cho stats card khớp với data hiển thị. Mở rộng match: case-insensitive substring trên `tenNCC` (vd "Q24" match "Q24 THÊM 17/1") + exact `sttNCC` cho số. Mỗi hoaDon clone gắn `_origInvoiceIdx` để click handler vẫn tra cứu đúng row gốc.
+- **`js/table-renderer.js` renderInvoicesSection`**: dùng `hd._origInvoiceIdx ?? loopIdx` thay vì loop index trực tiếp → `showSubInvoice`/`viewInvoiceImages`/`deleteInvoiceImage` resolve về `globalState.shipments[].hoaDon[origIdx]` đúng.
+- **`js/ncc-search.js` \_resolveFilterValue**: thêm 2 path đầu — `NCC <num>` (label fallback) và pure number → resolve trực tiếp sang sttNCC. Trước đó gõ "19" rớt xuống fallback free-text, không khớp tenNCC trống của các NCC chỉ có số.
+
+Test localhost (NCC 19 có 3 shipments — 1 Đợt 1 ngoài range date filter, 2 Đợt 2): gõ "19" + chuyển Đợt 2 → filteredCount=2, mỗi shipment chỉ còn 1 hoaDon (STT 19), `_origInvoiceIdx` được giữ (0 và 3) để click handler vẫn đúng. tongHD recomputed (6781, 1420) khớp với hoaDon còn lại.
+
+**Status**: ✅ Done
+
 ### [inventory] feat: tìm kiếm theo NCC (compact search bên cạnh đợt tabs)
 
 User request: "cho tìm kiếm theo NCC". Trước đây có `<select id="filterNCC">` nhưng nằm trong `.filters-navigation` đã ẩn — giờ thêm input search compact ngay cạnh đợt tabs để gọn + tìm nhanh.
