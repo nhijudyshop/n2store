@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `44f60e4` — fix(web2/products): bỏ customPrefix + prompt — mã auto-gen từ NCC, không phải 'gợi ý'
-**Last updated**: 2026-05-22 14:38:23 +07
-**Latest session**: [`RESUME:20260522-143823-44f60e4`](../20260522-143823-44f60e4.md)
-**Summary**: fix(web2/products): bỏ customPrefix + prompt — mã auto-gen từ NCC, không phải 'gợi ý'
+**Latest commit**: `1015d5b` — feat(web2/products): NCC dropdown từ so_order_v2 + auto-regen mã khi đổi NCC/Tên/Biến thể
+**Last updated**: 2026-05-22 14:45:51 +07
+**Latest session**: [`RESUME:20260522-144551-1015d5b`](../20260522-144551-1015d5b.md)
+**Summary**: feat(web2/products): NCC dropdown từ so_order_v2 + auto-regen mã khi đổi NCC/Tên/Biến thể
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:52
-- [`docs/`](./docs.md) — updated 2026-05-22 14:38
+- [`docs/`](./docs.md) — updated 2026-05-22 14:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
@@ -36,7 +37,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-22 14:16
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-21 15:39
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
 - [`native-orders/`](./native-orders.md) — updated 2026-05-22 11:46
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 14:38
+- [`web2/`](./web2.md) — updated 2026-05-22 14:45
