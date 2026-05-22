@@ -1,9 +1,12 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
 // WEB 2.0 — Audit Log (F05)
-// Union view qua 5 bảng audit hiện có:
-//   web2_product_history · fast_sale_order_history · pbh_fulfillment_logs ·
-//   wallet_adjustments · native_orders_migrations
+// Union view qua 4 bảng audit hiện có:
+//   web2_product_history · fast_sale_order_history (created_at BIGINT epoch ms)
+//   pbh_fulfillment_logs (created_at BIGINT)
+//   wallet_adjustments (created_at TIMESTAMPTZ)
+//
+// Cast tất cả created_at về to_timestamp(BIGINT/1000) hoặc giữ nguyên TIMESTAMPTZ.
 // =====================================================
 
 const express = require('express');
@@ -33,63 +36,72 @@ router.get('/list', async (req, res) => {
 
         const blocks = [];
 
-        // 1. web2_product_history
+        // 1. web2_product_history (created_at BIGINT epoch ms)
         if (await _tableExists(pool, 'web2_product_history')) {
             blocks.push(`
                 SELECT
-                    'product' AS entity,
+                    'product'::text AS entity,
                     product_code AS entity_id,
                     action,
                     user_id, user_name,
                     source_page,
                     changes,
-                    created_at
+                    to_timestamp(created_at / 1000.0) AS created_at
                 FROM web2_product_history
             `);
         }
 
-        // 2. fast_sale_order_history (PBH audit)
+        // 2. fast_sale_order_history (created_at BIGINT)
         if (await _tableExists(pool, 'fast_sale_order_history')) {
             blocks.push(`
                 SELECT
-                    'pbh' AS entity,
+                    'pbh'::text AS entity,
                     pbh_number AS entity_id,
                     action,
                     user_id, user_name,
                     source_page,
                     changes,
-                    created_at
+                    to_timestamp(created_at / 1000.0) AS created_at
                 FROM fast_sale_order_history
             `);
         }
 
-        // 3. pbh_fulfillment_logs (reconcile workflow)
+        // 3. pbh_fulfillment_logs (created_at BIGINT, columns: action, payload, state_before/after, user_id, user_name)
         if (await _tableExists(pool, 'pbh_fulfillment_logs')) {
             blocks.push(`
                 SELECT
-                    'reconcile' AS entity,
+                    'reconcile'::text AS entity,
                     pbh_number AS entity_id,
-                    event_type AS action,
-                    NULL::text AS user_id,
-                    actor AS user_name,
-                    'reconcile' AS source_page,
-                    payload AS changes,
-                    created_at
+                    action,
+                    user_id,
+                    user_name,
+                    'reconcile'::text AS source_page,
+                    jsonb_build_object(
+                        'payload', payload,
+                        'state_before', state_before,
+                        'state_after', state_after
+                    ) AS changes,
+                    to_timestamp(created_at / 1000.0) AS created_at
                 FROM pbh_fulfillment_logs
             `);
         }
 
-        // 4. wallet_adjustments
+        // 4. wallet_adjustments (created_at TIMESTAMPTZ, columns: adjustment_type, wrong_customer_phone, adjustment_amount, reason, created_by)
         if (await _tableExists(pool, 'wallet_adjustments')) {
             blocks.push(`
                 SELECT
-                    'wallet' AS entity,
-                    customer_phone AS entity_id,
+                    'wallet'::text AS entity,
+                    COALESCE(wrong_customer_phone, correct_customer_phone, original_transaction_id::text) AS entity_id,
                     adjustment_type AS action,
                     NULL::text AS user_id,
-                    adjusted_by AS user_name,
-                    'balance-history' AS source_page,
-                    jsonb_build_object('amount', amount, 'reason', reason) AS changes,
+                    created_by AS user_name,
+                    'balance-history'::text AS source_page,
+                    jsonb_build_object(
+                        'amount', adjustment_amount,
+                        'reason', reason,
+                        'wrong_phone', wrong_customer_phone,
+                        'correct_phone', correct_customer_phone
+                    ) AS changes,
                     created_at
                 FROM wallet_adjustments
             `);
