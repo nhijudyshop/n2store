@@ -393,8 +393,13 @@
         }
     }
 
-    // Mark conversation rows of customers đã có đơn (order_count > 0)
-    // → bsng CSS class `inv-has-order` để show visible border + cho phép drop.
+    // Mark conversation rows của khách ĐÃ CÓ ĐƠN.
+    // Pancake conversation list shape: `has_livestream_order` + `has_phone` + customer fields.
+    // Signal heuristic (any-of):
+    //   - has_livestream_order === true (Pancake xác nhận đơn live)
+    //   - customer.success_order_count > 0 (sau khi fetch customer detail)
+    //   - has_phone === true && có tag (đã extract SĐT + đã được sale gán tag → coi như đơn)
+    //   - cart count > 0 (đã có SP trong giỏ local — cho phép drop tiếp)
     function _markHasOrderRows() {
         const st = global.PancakeState;
         if (!st || !Array.isArray(st.conversations)) return;
@@ -411,11 +416,24 @@
                 Number(customer.order_count) ||
                 Number(c.order_count) ||
                 0;
-            // Cũng cho cart count > 0 → có đơn local trong giỏ
             const cartCnt = STATE.cartCounts[cid]?.qty || 0;
-            const hasOrder = orderCnt > 0 || cartCnt > 0;
+            const hasLiveOrder = c.has_livestream_order === true;
+            const hasPhone =
+                c.has_phone === true ||
+                (Array.isArray(c.recent_phone_numbers) && c.recent_phone_numbers.length > 0);
+            const hasTag = c.tags && Object.keys(c.tags).length > 0;
+            const hasOrder = hasLiveOrder || orderCnt > 0 || cartCnt > 0 || (hasPhone && hasTag);
             row.classList.toggle('inv-has-order', hasOrder);
             row.dataset.orderCount = orderCnt;
+            row.dataset.orderReason = hasLiveOrder
+                ? 'livestream-order'
+                : orderCnt > 0
+                  ? 'success-order'
+                  : cartCnt > 0
+                    ? 'in-cart'
+                    : hasPhone && hasTag
+                      ? 'phone+tag'
+                      : '';
         });
     }
 
