@@ -588,14 +588,27 @@
         attachDropTargets();
         _subscribeSSE();
 
-        // Refresh badges khi conversation list re-render (Pancake updates)
+        // Refresh badges + has-order khi conversation list re-render (Pancake updates)
         const list = document.querySelector('.pk-conversation-list, #pkConversationList');
         if (list && global.MutationObserver) {
             new MutationObserver(() => {
                 clearTimeout(init._mTimer);
-                init._mTimer = setTimeout(() => refreshCartCounts(), 200);
+                init._mTimer = setTimeout(() => {
+                    refreshCartCounts();
+                    _markHasOrderRows();
+                }, 200);
             }).observe(list, { childList: true, subtree: false });
         }
+
+        // Bootstrap polling: PancakeState.conversations có thể chưa sẵn sàng khi
+        // Kho panel init lần đầu. Poll mỗi 1.5s trong 30s đầu để mark has-order.
+        let pollTries = 0;
+        const pollTimer = setInterval(() => {
+            pollTries++;
+            _markHasOrderRows();
+            refreshCartCounts();
+            if (pollTries >= 20) clearInterval(pollTimer);
+        }, 1500);
     }
 
     global.PancakeInventoryPanel = {
