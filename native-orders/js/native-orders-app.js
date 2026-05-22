@@ -1058,8 +1058,26 @@
         STATE.editingCode = code;
         EDIT_LINES = Array.isArray(o.products) ? o.products.map((p) => ({ ...p })) : [];
 
-        modalTitle().innerHTML = `<i data-lucide="pencil"></i><span>Chỉnh sửa đơn ${escapeHtml(code)}</span>`;
-        modalBody().innerHTML = `
+        // LOCK edit khi status='confirmed' (đã PBH thành công). User phải hủy
+        // PBH hoặc tạo đơn mới (drag SP lại) để chỉnh sửa SP.
+        const isLocked = o.status === 'confirmed';
+        const lockBanner = isLocked
+            ? `<div class="lock-banner" style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start;">
+                <i data-lucide="lock" style="width:20px;height:20px;color:#92400e;flex-shrink:0;margin-top:1px;"></i>
+                <div style="flex:1;font-size:13px;color:#78350f;line-height:1.5;">
+                    <strong>Đơn đã tạo PBH — không thể chỉnh sửa giỏ sản phẩm.</strong><br>
+                    Để sửa SP, hãy <strong>hủy PBH</strong> rồi mở lại, hoặc <strong>kéo SP mới</strong> từ TPOS panel lên cùng khách để tạo đơn mới (PBH mới).
+                </div>
+                <button type="button" class="btn-primary" style="background:#dc2626;font-size:12px;padding:6px 12px;flex-shrink:0;" onclick="NativeOrdersApp.cancelPbhFromEdit('${escapeHtml(code)}')">
+                    <i data-lucide="x-circle" style="width:14px;height:14px;"></i> Hủy PBH
+                </button>
+            </div>`
+            : '';
+
+        modalTitle().innerHTML = `<i data-lucide="${isLocked ? 'lock' : 'pencil'}"></i><span>${isLocked ? 'Xem đơn' : 'Chỉnh sửa đơn'} ${escapeHtml(code)}</span>`;
+        modalBody().innerHTML =
+            lockBanner +
+            `
             <div class="field-row-grid">
                 <div class="field-row">
                     <label>Tên khách</label>
@@ -1091,16 +1109,19 @@
             </div>
 
             <!-- ========== PRODUCTS SECTION ========== -->
-            <div class="products-section">
+            <div class="products-section${isLocked ? ' is-locked' : ''}">
                 <div class="products-header">
                     <span class="products-title">
-                        <i data-lucide="package"></i>
-                        Sản phẩm trong đơn
+                        <i data-lucide="${isLocked ? 'lock' : 'package'}"></i>
+                        Sản phẩm trong đơn ${isLocked ? '(đã khóa)' : ''}
                     </span>
                     <span class="products-totals" id="editProductsTotals">—</span>
                 </div>
 
-                <div class="product-picker">
+                ${
+                    isLocked
+                        ? ''
+                        : `<div class="product-picker">
                     <div class="search-wrapper" style="flex:1;max-width:100%;">
                         <i data-lucide="search" class="search-icon"></i>
                         <input type="text" id="productPickerInput" class="search-input"
@@ -1112,7 +1133,8 @@
                         <i data-lucide="external-link"></i> Kho SP
                     </a>
                 </div>
-                <div class="product-picker-results" id="productPickerResults" style="display:none;"></div>
+                <div class="product-picker-results" id="productPickerResults" style="display:none;"></div>`
+                }
 
                 <div class="order-lines-wrapper">
                     <table class="order-lines-table">
@@ -1312,8 +1334,14 @@
         const totals = $('#editProductsTotals');
         if (!tb) return;
 
+        // Lock check: re-derive từ STATE.editingCode + orders (cùng logic openEdit)
+        const editingOrder = STATE.editingCode
+            ? STATE.orders.find((x) => x.code === STATE.editingCode)
+            : null;
+        const isLocked = editingOrder?.status === 'confirmed';
+
         if (!EDIT_LINES.length) {
-            tb.innerHTML = `<tr><td colspan="7" class="empty-lines">Chưa có sản phẩm — gõ mã/tên SP ở trên để tìm và thêm</td></tr>`;
+            tb.innerHTML = `<tr><td colspan="7" class="empty-lines">${isLocked ? 'Đơn không có sản phẩm.' : 'Chưa có sản phẩm — gõ mã/tên SP ở trên để tìm và thêm'}</td></tr>`;
             if (totals) totals.textContent = '0 SP · 0đ';
             return;
         }
@@ -1330,6 +1358,19 @@
                 ? `<img src="${escapeHtml(l.imageUrl)}" class="line-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
                    <span class="line-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
                 : `<span class="line-img-ph"><i data-lucide="image"></i></span>`;
+            // Locked → disable qty buttons + remove button, hiển thị read-only.
+            const qtyCell = isLocked
+                ? `<div class="qty-ctl" style="opacity:0.6;pointer-events:none;">
+                       <span style="font-weight:600;padding:0 10px;">${qty}</span>
+                   </div>`
+                : `<div class="qty-ctl">
+                       <button onclick="NativeOrdersApp.changeLineQty(${i}, -1)"><i data-lucide="minus"></i></button>
+                       <input type="number" min="1" value="${qty}" onchange="NativeOrdersApp.setLineQty(${i}, this.value)">
+                       <button onclick="NativeOrdersApp.changeLineQty(${i}, 1)"><i data-lucide="plus"></i></button>
+                   </div>`;
+            const actionCell = isLocked
+                ? `<span title="Đơn đã PBH — không thể xóa SP" style="opacity:0.4;"><i data-lucide="lock"></i></span>`
+                : `<button class="btn-action act-delete" title="Xóa" onclick="NativeOrdersApp.removeLine(${i})"><i data-lucide="trash-2"></i></button>`;
             return `
                 <tr data-idx="${i}">
                     <td>${i + 1}</td>
@@ -1338,18 +1379,10 @@
                         <div class="line-name">${escapeHtml(l.name || '—')}</div>
                         <div class="line-code">${escapeHtml(l.productCode || '')}</div>
                     </td>
-                    <td>
-                        <div class="qty-ctl">
-                            <button onclick="NativeOrdersApp.changeLineQty(${i}, -1)"><i data-lucide="minus"></i></button>
-                            <input type="number" min="1" value="${qty}" onchange="NativeOrdersApp.setLineQty(${i}, this.value)">
-                            <button onclick="NativeOrdersApp.changeLineQty(${i}, 1)"><i data-lucide="plus"></i></button>
-                        </div>
-                    </td>
+                    <td>${qtyCell}</td>
                     <td class="line-price">${price.toLocaleString('vi-VN')}đ</td>
                     <td class="line-amount">${amount.toLocaleString('vi-VN')}đ</td>
-                    <td>
-                        <button class="btn-action act-delete" title="Xóa" onclick="NativeOrdersApp.removeLine(${i})"><i data-lucide="trash-2"></i></button>
-                    </td>
+                    <td>${actionCell}</td>
                 </tr>`;
         }).join('');
 
@@ -1384,14 +1417,19 @@
 
     async function saveEdit() {
         if (!STATE.editingCode) return;
+        const editingOrder = STATE.orders.find((x) => x.code === STATE.editingCode);
+        const isLocked = editingOrder?.status === 'confirmed';
+        // Lock: chỉ cho save text fields (note, address...) — KHÔNG ghi products
+        // khi đơn đã PBH. Tránh ghi đè products array của đơn confirmed.
         const fields = {
             customerName: $('#editCustomerName').value.trim(),
             phone: $('#editPhone').value.trim(),
             address: $('#editAddress').value.trim(),
             note: $('#editNote').value.trim(),
             status: $('#editStatus').value,
-            // Send current working copy — backend recomputes totalQuantity/totalAmount.
-            products: EDIT_LINES.map((l) => ({
+        };
+        if (!isLocked) {
+            fields.products = EDIT_LINES.map((l) => ({
                 productCode: l.productCode,
                 name: l.name,
                 price: Number(l.price) || 0,
@@ -1400,8 +1438,8 @@
                 note: l.note || null,
                 total: (Number(l.price) || 0) * (Number(l.quantity) || 0),
                 addedAt: l.addedAt || Date.now(),
-            })),
-        };
+            }));
+        }
         try {
             const resp = await window.NativeOrdersApi.update(STATE.editingCode, fields);
             const idx = STATE.orders.findIndex((x) => x.code === STATE.editingCode);
@@ -2198,6 +2236,14 @@
             notify('Lỗi huỷ PBH: ' + e.message, 'error');
             console.error('[cancelPbh]', e);
         }
+    }
+
+    // Gọi từ nút "Hủy PBH" trong banner lock của modal edit. Sau khi hủy PBH,
+    // status đơn về 'cancelled' → user phải kéo SP mới để tạo native_order
+    // mới (status='draft') vì current đã thành 'cancelled' (sync ngược).
+    async function cancelPbhFromEdit(code) {
+        await cancelPbh(code);
+        closeEdit();
     }
 
     async function _doCreatePbh(code, extras) {
@@ -6573,6 +6619,7 @@
         quickStatus,
         createPbh,
         cancelPbh,
+        cancelPbhFromEdit,
         confirmDraft,
         cancelOrder,
         splitPbh,

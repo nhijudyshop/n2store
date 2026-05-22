@@ -541,11 +541,15 @@ router.post('/from-comment', async (req, res) => {
         // không tạo đơn mới.
         // ============================================================
         if (b.fbUserId && b.liveCampaignId) {
+            // CHỈ merge vào đơn 'draft' — KHÔNG merge vào 'confirmed' (đã PBH).
+            // Lý do: sau khi PBH success, đơn phải bị LOCK. User muốn thêm SP nữa
+            // phải tạo đơn mới (drag SP lên TPOS panel → cart tạo draft mới) hoặc
+            // hủy PBH. Trước đây cho merge 'confirmed' → vô tình unlock đơn đã PBH.
             const draft = await pool.query(
                 `SELECT * FROM native_orders
                  WHERE fb_user_id = $1
                    AND live_campaign_id = $2
-                   AND status IN ('draft', 'confirmed')
+                   AND status = 'draft'
                  ORDER BY created_at DESC
                  LIMIT 1`,
                 [b.fbUserId, b.liveCampaignId]
