@@ -1,11 +1,15 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
-// WEB 2.0 — Cart per Pancake Comment
-// Trang tpos-pancake panel "Kho SP" → kéo thả SP vào comment khách → giỏ hàng
+// WEB 2.0 — Cart per CUSTOMER (gắn theo khách, không phải comment)
+// Trang tpos-pancake panel "Kho SP" → kéo thả SP vào TPOS comment → giỏ hàng
 // được lưu Postgres để KHÔNG mất data + cross-tab/cross-machine sync qua SSE.
 //
+// LƯU Ý SEMANTIC: cột `comment_id` trong web2_cart_items thực ra LƯU customerId
+// (fbUserId). Một customer có nhiều comment trong TPOS → cùng 1 cart. Frontend
+// pass customer.id làm URL param `:commentId` (rename `:customerId` trong code mới).
+//
 // Tables:
-//   web2_cart_items     — active SP đang trong giỏ (UNIQUE comment_id + product_code, qty++)
+//   web2_cart_items     — active SP đang trong giỏ (UNIQUE customer_id + product_code, qty++)
 //   web2_cart_history   — append-only log mọi add/remove/qty-change
 // =====================================================
 

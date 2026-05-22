@@ -265,7 +265,10 @@
             const commentId = row.dataset.commentId;
             if (!commentId) return;
             const customer = _resolveTposCustomer(commentId, row);
-            await addToCart(commentId, product, customer);
+            // Cart gắn theo CUSTOMER (fbUserId), không phải comment_id.
+            // 1 khách có nhiều comment → share 1 cart. Fallback commentId nếu thiếu.
+            const groupKey = customer.id || commentId;
+            await addToCart(groupKey, product, customer, commentId);
         });
     }
 
@@ -351,7 +354,10 @@
         }
     }
 
-    async function addToCart(commentId, product, customer) {
+    // groupKey = customerId (fbUserId) — cart gắn theo khách.
+    // commentIdMeta = comment_id của row vừa drop, pass vào body cho audit/history.
+    async function addToCart(groupKey, product, customer, commentIdMeta) {
+        const commentId = groupKey; // URL param semantic
         // Optimistic: tăng badge ngay (rollback nếu API fail)
         const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
         const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
@@ -499,11 +505,16 @@
 
     async function refreshCartCounts(commentIds) {
         if (!commentIds || !commentIds.length) {
-            // CHỈ TPOS comment IDs (drop target duy nhất)
-            commentIds = [...document.querySelectorAll('.tpos-conversation-item')]
-                .map((r) => r.dataset.commentId)
-                .filter(Boolean)
-                .slice(0, 200);
+            // Collect CUSTOMER IDs (fbUserId) — dedupe vì 1 khách có nhiều comments.
+            const set = new Set();
+            document.querySelectorAll('.tpos-conversation-item').forEach((row) => {
+                const cmt = row.dataset.commentId;
+                if (!cmt) return;
+                const customer = _resolveTposCustomer(cmt, row);
+                const k = customer.id || cmt;
+                if (k) set.add(k);
+            });
+            commentIds = [...set].slice(0, 200);
         }
         if (!commentIds.length) return;
         try {
@@ -541,10 +552,12 @@
     }
 
     function renderBadges() {
-        // CHỈ TPOS comment rows nhận badge
+        // Badge resolve theo CUSTOMER (fbUserId). 1 khách có N comments → mọi row hiện badge.
         document.querySelectorAll('.tpos-conversation-item').forEach((row) => {
-            const cid = row.dataset.commentId;
-            if (!cid) return;
+            const commentId = row.dataset.commentId;
+            if (!commentId) return;
+            const customer = _resolveTposCustomer(commentId, row);
+            const cid = customer.id || commentId; // fallback
             const cnt = STATE.cartCounts[cid];
             let badge = row.querySelector('.inv-cart-badge');
             if (cnt && cnt.qty > 0) {
