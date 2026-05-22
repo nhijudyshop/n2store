@@ -25,6 +25,41 @@
 
 ## 2026-05-22
 
+### [docs/plans] feat: plan chi tiết 12 features future development cho Web 2.0
+
+User request: "Lên plan cho phần Future development — 12 gợi ý: Dashboard KPI · Báo cáo công nợ+ví · Bulk import Excel · Mobile view · Audit trail UI · Notification center · Customer 360 NCC · Print/Export hàng loạt · Smart match SePay · Variants matrix · Inventory forecasting · Permission matrix".
+
+**File mới**: [`docs/plans/web2-future-features-plan.md`](plans/web2-future-features-plan.md) (~685 dòng).
+
+**Cấu trúc 10 sections**:
+
+1. Executive summary — tổng 46 ngày dev × 4 sprint
+2. Priority matrix — Impact × Effort 3×3
+3. Sprint mapping — 4 sprint × ~12 ngày, sequenced theo dependency
+4. Cross-cutting infrastructure — 4 helper shared (SSE registry, bulk-import, export, aging) build 1 lần reuse cho nhiều feature
+5. 12 feature plans chi tiết — mỗi feature: Why · Scope · Tech approach · Files mới/sửa · Dependencies · Risks · Acceptance criteria · Estimated days
+6. Migration/DB changes summary — 3 bảng mới (web2_notifications, web2_supplier_ratings, web2_product_velocity)
+7. SSE topics changes — 2 topic mới (web2:notifications, web2:kpi-dashboard)
+8. Open questions — 8 câu hỏi cần user confirm trước Sprint 1 (priority, mobile scope, noti channels, auto-link, schema check, NCC 360 v1, design system, testing)
+9. Risks tổng thể — scope creep, schema concurrent, SSE throughput, bundle size, cache version
+10. Progress tracking + approval checklist
+
+**Sprint sequence proposed**:
+
+- Sprint 1 (foundation + quick wins): F06 Noti · F12 Perm matrix · F05 Audit · F03 Bulk import
+- Sprint 2 (reports + intel): F02 Aging · F09 SmartMatch · F08 Print/Export
+- Sprint 3 (dashboard + UX): F01 Dashboard · F10 Variants matrix · F07 NCC 360 v1
+- Sprint 4 (long-form + mobile): F04 Mobile · F11 Forecasting + polish/GA
+
+**Priority lý do**:
+
+- F06 Noti #1 vì pain point hiện tại + dùng được sẵn SSE infra
+- F05 + F12 quick win (data/endpoint đã có, chỉ thiếu UI)
+- F03 Bulk import unblock data entry bottleneck
+- F04 Mobile để cuối vì invest lớn, cần stable feature trước
+
+**Status**: ✅ Draft v1 done. Chờ user trả lời 8 open questions ở section 7 để refine & kick off Sprint 1 F06.
+
 ### [web2-overview] feat: trang Tổng quan Web 2.0 — mô tả chi tiết 13 trang badge
 
 User request: "Trang tổng quan viết chi tiết chức năng các trang có badge WEB 2.0 → có thể làm gì, tất cả chức năng các nút, dữ liệu chuyển qua lại giữa các WEB 2.0, cơ sở dữ liệu, chức năng có thể phát triển".
