@@ -817,7 +817,7 @@ function showOrderSelectionList(orders) {
                         ${o.tposCode} | COD: ${formatCurrency(o.cod)} | ${o.carrier || 'N/A'}
                     </div>
                     <div style="font-size:11px;color:#94a3b8;margin-top:2px">
-                        ${new Date(o.createdAt).toLocaleDateString('vi-VN')} -
+                        ${new Date(o.createdAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} -
                         <span style="color:#3b82f6;font-weight:500;">${translateState(o.status)}</span> |
                         <span style="color:${o.stateCode === 'CrossCheckComplete' ? '#10b981' : '#f59e0b'};">${translateStateCode(o.stateCode)}</span>
                     </div>
@@ -3847,25 +3847,32 @@ function getStatusBadgeHTML(status) {
     return `<span class="status-badge-sm ${info.cls}">${info.text}</span>`;
 }
 
+// Múi giờ chuẩn cho mọi timestamp hiển thị (UTC+7 Hà Nội).
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+
 /**
- * Format date short (dd/MM/yyyy)
+ * Format date short (dd/MM/yyyy) — luôn theo giờ Hà Nội.
  */
 function formatDateShort(timestamp) {
     if (!timestamp) return '---';
     const d = new Date(timestamp);
-    return d.toLocaleDateString('vi-VN');
+    return d.toLocaleDateString('vi-VN', { timeZone: VN_TZ });
 }
 
 /**
- * Format date with time (dd/MM/yyyy HH:mm)
+ * Format date with time (dd/MM/yyyy HH:mm) — luôn theo giờ Hà Nội.
  */
 function formatDateTime(timestamp) {
     if (!timestamp) return '---';
     const d = new Date(timestamp);
     return (
-        d.toLocaleDateString('vi-VN') +
+        d.toLocaleDateString('vi-VN', { timeZone: VN_TZ }) +
         ' ' +
-        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        d.toLocaleTimeString('vi-VN', {
+            timeZone: VN_TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+        })
     );
 }
 

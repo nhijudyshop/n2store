@@ -25,6 +25,25 @@
 
 ## 2026-05-22
 
+### [issue-tracking] Fix: ép giờ hiển thị về UTC+7 (Asia/Ho_Chi_Minh)
+
+**Bug user báo (ảnh kèm)**: Timestamps trên danh sách phiếu/đơn (vd `22/05/2026, 03:51`) hiển thị sai múi giờ vì `toLocaleDateString/TimeString('vi-VN')` không có `timeZone` → fallback vào timezone của browser/máy chạy → khi browser ở UTC hoặc khác Asia/Ho_Chi_Minh sẽ lệch 7 tiếng.
+
+**Files:**
+
+- `issue-tracking/js/script.js` — thêm hằng `VN_TZ = 'Asia/Ho_Chi_Minh'`; ép `timeZone` cho `formatDateShort`, `formatDateTime`, và call `new Date(o.createdAt).toLocaleDateString('vi-VN', …)` trong block render đơn (line ~820).
+- `issue-tracking/js/customer-orders-lookup.js` — thêm `VN_TZ` local trong IIFE; ép `timeZone` cho `formatDate` + `formatDateTime` của modal "Đơn của khách".
+
+**Chi tiết:**
+
+- Mọi `toLocaleDateString` / `toLocaleTimeString` liên quan timestamp đều truyền `{ timeZone: 'Asia/Ho_Chi_Minh', … }` → bất kể browser/server ở múi giờ nào, list/timeline/modal đều hiển thị giờ Hà Nội đúng.
+- `money.toLocaleString()` không đụng (đó là format tiền, không phải timestamp).
+- Filter date range (line 3760-3765) dùng `new Date(dateFrom).getTime()` vẫn parse "YYYY-MM-DD" theo UTC midnight → có sai lệch nhỏ ở biên ngày khi user filter, nhưng user chưa report nên giữ nguyên, sẽ fix khi có nhu cầu thực tế.
+
+**Status**: DONE.
+
+---
+
 ### [web2/products] fix: bỏ `customPrefix` + prompt() — chỉ dùng ô NCC làm single source
 
 User: "gợi ý mã là gì? mã tự động generator theo các phần đã có mà".

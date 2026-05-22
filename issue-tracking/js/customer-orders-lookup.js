@@ -72,11 +72,15 @@
         return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
     }
 
+    // Mọi timestamp hiển thị đều theo UTC+7 Hà Nội.
+    const VN_TZ = 'Asia/Ho_Chi_Minh';
+
     function formatDate(ts) {
         if (!ts) return '—';
         const d = new Date(ts);
         if (Number.isNaN(d.getTime())) return '—';
         return d.toLocaleDateString('vi-VN', {
+            timeZone: VN_TZ,
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -89,12 +93,14 @@
         if (Number.isNaN(d.getTime())) return '—';
         return (
             d.toLocaleDateString('vi-VN', {
+                timeZone: VN_TZ,
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
             }) +
             ' ' +
             d.toLocaleTimeString('vi-VN', {
+                timeZone: VN_TZ,
                 hour: '2-digit',
                 minute: '2-digit',
             })
