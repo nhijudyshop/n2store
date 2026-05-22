@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d12eaf2` — auto: session update
-**Last updated**: 2026-05-22 13:33:15 +07
-**Latest session**: [`RESUME:20260522-133315-d12eaf2`](../20260522-133315-d12eaf2.md)
-**Summary**: auto: session update
+**Latest commit**: `cc68e4c` — fix(delivery-report): drStatShippingCount/drStatFailCount nay tinh dung — match table view
+**Last updated**: 2026-05-22 13:34:28 +07
+**Latest session**: [`RESUME:20260522-133428-cc68e4c`](../20260522-133428-cc68e4c.md)
+**Summary**: fix(delivery-report): drStatShippingCount/drStatFailCount nay tinh dung — match table view
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -51,7 +51,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-22 13:28
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-22 13:24
+- [`scripts/`](./scripts.md) — updated 2026-05-22 13:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
