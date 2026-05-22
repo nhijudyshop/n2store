@@ -48,8 +48,8 @@ window.DotTabs = (function () {
             window.UIState?.setActiveDotTab?.(active);
         }
 
-        // Order DESC so newest đợt is first (matches list sort).
-        const ordered = [...available].sort((a, b) => b - a);
+        // Order ASC: Đợt 1, Đợt 2, Đợt 3, ... (theo yêu cầu user).
+        const ordered = [...available].sort((a, b) => a - b);
 
         bar.innerHTML = ordered
             .map(

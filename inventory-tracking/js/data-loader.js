@@ -268,6 +268,17 @@ function flattenNCCData() {
         }
     }
 
+    // Rebuild đợt section tabs from current data (idempotent — safe to call
+    // on every CRUD). Must happen BEFORE the stats bar so the active dotSo
+    // is resolved when stats compute.
+    if (window.DotTabs?.render) {
+        try {
+            window.DotTabs.render();
+        } catch (e) {
+            console.error('[DOT-TABS] render failed:', e);
+        }
+    }
+
     // Keep the horizontal stats bar in sync with any data mutation
     // (chi phí, tiền HĐ, tổng món, kiện/KG, payment changes, etc.)
     if (typeof updateInventoryStatsBar === 'function') {
