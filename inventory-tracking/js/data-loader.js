@@ -776,6 +776,9 @@ function updateNCCFilterOptions() {
         filterNCC.value = currentValue || 'all';
     }
 
+    // Refresh datalist của NCC search box (compact input bên cạnh đợt tabs).
+    if (window.NCCSearch?.populate) window.NCCSearch.populate();
+
     if (filterBookingNCC) {
         const currentValue = filterBookingNCC.value;
         filterBookingNCC.innerHTML = '<option value="all">Tất cả NCC</option>';

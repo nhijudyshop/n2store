@@ -145,6 +145,20 @@ User request: "Browser test lại các tính năng mới vừa thêm → tự de
 
 **Status**: ✅ DONE (chờ push + Render deploy verify).
 
+### [inventory] feat: tìm kiếm theo NCC (compact search bên cạnh đợt tabs)
+
+User request: "cho tìm kiếm theo NCC". Trước đây có `<select id="filterNCC">` nhưng nằm trong `.filters-navigation` đã ẩn — giờ thêm input search compact ngay cạnh đợt tabs để gọn + tìm nhanh.
+
+- **`js/ncc-search.js` (NEW)**: module `window.NCCSearch.{init,populate,clear}`. Datalist autocomplete từ `globalState.nccList` (tên NCC + fallback `NCC ${sttNCC}` cho row tenNCC rỗng). Resolve logic: exact match → resolve sttNCC; substring single match → resolve sttNCC; else fallback free-text (pipeline đã có OR match sttNCC|tenNCC includes). Esc clear. Debounce 200ms. Sync với legacy `#filterNCC` select để không phá `applyFilters()`.
+- **`css/dot-tabs.css`**: thêm `.dot-tabs-row` (flex space-between, đợt tabs trái + search phải), `.ncc-search-box` pill input style (focus ring blue, has-value blue tint), `.ncc-search-clear` (X button).
+- **`index.html`**: bọc `dot-tabs-bar` vào `.dot-tabs-row` cùng `.ncc-search-box` (input + datalist + clear button).
+- **`js/main.js` setupUI**: gọi `NCCSearch.init()` sau khi DOM sẵn sàng.
+- **`js/data-loader.js` updateNCCFilterOptions**: gọi `NCCSearch.populate()` để refresh datalist cùng lúc với legacy select.
+
+Test localhost (67 NCCs, 14 shipments): datalist render 67 options ✓; gõ "Q24" → resolve free-text → match 2 shipments hoaDon có Q24/Q24 THÊM ✓; click clear → input rỗng, has-value off, filterNcc='all', filteredCount restore ✓.
+
+**Status**: ✅ Done
+
 ### [inventory] feat: payment-CK slide-over panel cũng có section tabs (sync với main)
 
 Mở rộng yêu cầu trước: panel "Thanh Toán CK Theo Đợt" (slide-over) trước đó stack tất cả đợt vertical → giờ có pill tabs `Đợt 1 | Đợt 2 | Đợt 3 | ...` trên đầu, chỉ render section của đợt đang chọn.

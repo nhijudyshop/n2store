@@ -96,6 +96,9 @@ class InventoryTrackingApp {
 
         // Load saved language preference
         this.loadLanguagePreference();
+
+        // NCC search box (compact input bên cạnh đợt tabs)
+        if (window.NCCSearch?.init) window.NCCSearch.init();
     }
 
     /**
