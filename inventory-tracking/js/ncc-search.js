@@ -68,7 +68,15 @@ window.NCCSearch = (function () {
         const list = globalState?.nccList || [];
         const lower = q.toLowerCase();
 
-        // Exact match (case-insensitive)
+        // Pattern "NCC 19" / "ncc 19" — datalist fallback label cho NCC chưa
+        // có tên (tenNCC null) → bóc số ra dùng làm sttNCC filter.
+        const nccPattern = q.match(/^\s*ncc\s+(\d+)\s*$/i);
+        if (nccPattern) return String(parseInt(nccPattern[1], 10));
+
+        // Pure number "19" → coi như sttNCC trực tiếp.
+        if (/^\d+$/.test(q)) return q;
+
+        // Exact tenNCC match (case-insensitive)
         const exact = list.find((n) => (n.tenNCC || '').toLowerCase() === lower);
         if (exact) {
             return exact.sttNCC > 0 ? String(exact.sttNCC) : exact.tenNCC;
@@ -81,8 +89,8 @@ window.NCCSearch = (function () {
             return m.sttNCC > 0 ? String(m.sttNCC) : m.tenNCC;
         }
 
-        // Fallback: free-text — pass through as tenNCC substring (filter pipeline
-        // already does an OR match on sttNCC|tenNCC includes).
+        // Fallback: free-text — pass through; pipeline làm case-insensitive
+        // substring match trên tenNCC.
         return q;
     }
 

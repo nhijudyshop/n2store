@@ -392,15 +392,50 @@ function applyFiltersAndRender() {
         filtered = filtered.filter((s) => s.ngayDiHang <= filters.dateTo);
     }
 
-    // Filter by NCC (skip if "all" is selected)
+    // Filter by NCC (skip if "all" is selected). Khi NCC match → cũng lọc
+    // hoaDon[] trong từng shipment để chỉ render đúng NCC đó (không lộ NCC
+    // khác trong card expand) + recompute totals cho stats bar.
     if (filters.ncc && filters.ncc !== 'all') {
-        const nccFilter = filters.ncc;
-        const nccNum = parseInt(nccFilter);
-        filtered = filtered.filter((s) =>
-            (s.hoaDon || []).some(
-                (hd) => (!isNaN(nccNum) && hd.sttNCC === nccNum) || hd.tenNCC === nccFilter
-            )
-        );
+        const nccFilter = String(filters.ncc).trim();
+        const nccNum = parseInt(nccFilter, 10);
+        const lower = nccFilter.toLowerCase();
+        const matchesNcc = (hd) => {
+            if (Number.isFinite(nccNum) && hd.sttNCC === nccNum) return true;
+            const name = (hd.tenNCC || '').toLowerCase();
+            // Empty filter or NaN-num → no name match path. Substring match
+            // (case-insensitive) keeps free-text search useful (vd "Q24"
+            // match "Q24 THÊM 17/1").
+            return name && name.includes(lower);
+        };
+
+        filtered = filtered
+            .filter((s) => (s.hoaDon || []).some(matchesNcc))
+            .map((s) => {
+                // Preserve _origInvoiceIdx so click handlers (xem ảnh, sub-invoice)
+                // resolve về đúng row trong globalState.shipments gốc.
+                const filteredHoaDon = (s.hoaDon || [])
+                    .map((hd, idx) => ({ ...hd, _origInvoiceIdx: idx }))
+                    .filter(matchesNcc);
+                const tongTienHoaDon = filteredHoaDon.reduce(
+                    (sum, hd) => sum + (parseFloat(hd.tongTienHD) || 0),
+                    0
+                );
+                const tongSoMon = filteredHoaDon.reduce(
+                    (sum, hd) => sum + (parseInt(hd.tongMon, 10) || 0),
+                    0
+                );
+                const tongMonThieu = filteredHoaDon.reduce(
+                    (sum, hd) => sum + (parseInt(hd.soMonThieu, 10) || 0),
+                    0
+                );
+                return {
+                    ...s,
+                    hoaDon: filteredHoaDon,
+                    tongTienHoaDon,
+                    tongSoMon,
+                    tongMonThieu,
+                };
+            });
     }
 
     // Filter by active đợt section tab — drives the section view + stats card scope.

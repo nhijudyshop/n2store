@@ -811,7 +811,12 @@ function renderInvoicesSection(shipment) {
     let allRows = [];
     let absoluteRowIdx = 0; // Track row index across all invoices for cost assignment
 
-    invoices.forEach((hd, invoiceIdx) => {
+    invoices.forEach((hd, loopIdx) => {
+        // Khi shipment đã filter theo NCC, loopIdx ≠ original index trong
+        // globalState.shipments. Dùng _origInvoiceIdx để click handlers
+        // (showSubInvoice, viewInvoiceImages, deleteInvoiceImage) tra cứu
+        // đúng row gốc. Nếu chưa filter thì fallback loopIdx === original.
+        const invoiceIdx = hd._origInvoiceIdx ?? loopIdx;
         const products = hd.sanPham || [];
         const imageCount = hd.anhHoaDon?.length || 0;
         const invoiceClass = invoiceIdx % 2 === 0 ? 'invoice-even' : 'invoice-odd';
