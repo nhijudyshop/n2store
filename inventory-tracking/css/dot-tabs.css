@@ -72,3 +72,14 @@
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: #fff;
 }
+
+/* Payment slide-over variant — same pills, no top "Đợt:" hint label, */
+/* tighter padding để khớp với chiều rộng panel */
+.payment-dot-tabs-bar {
+    padding: 4px 0 14px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--gray-200, #e5e7eb);
+}
+.payment-dot-tabs-bar::before {
+    display: none;
+}

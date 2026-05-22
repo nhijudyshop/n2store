@@ -26,7 +26,8 @@
         hiddenNumbers: new Set(),
         activeTab: 'all', // 'city', 'province', 'shop', 'all', 'combo', 'zero', 'return'
         uiMode: 'lite', // 'full' (phuoc-authenticated) | 'lite' (others)
-        liteExpanded: false, // triple-click title to expand lite mode
+        liteExpanded: false, // in tra soát: triple-click title shows hidden tabs
+        liteRevealed: false, // outside tra soát: triple-click title shows hidden table/cancel/status
         scanFilter: 'unscanned', // 'unscanned' | 'scanned'
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
         _provinceGroupsLoaded: false,
@@ -136,6 +137,27 @@
         });
     }
 
+    // Elements that lite mode hides until user triple-clicks the title.
+    const LITE_REVEAL_IDS = ['drTableWrapper', 'drCancelSection', 'drAssignmentStatus'];
+
+    function applyLiteRevealVisibility() {
+        const state = DeliveryReportState;
+        // Full mode or already revealed → no hiding. Tra soát mode owns table visibility separately.
+        const shouldHide = state.uiMode === 'lite' && !state.liteRevealed && !state.traSoatMode;
+        LITE_REVEAL_IDS.forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (shouldHide) {
+                el.dataset.liteHidden = '1';
+                el.style.display = 'none';
+            } else if (el.dataset.liteHidden === '1') {
+                // Only restore the elements we hid; preserve other visibility logic
+                el.dataset.liteHidden = '';
+                el.style.display = '';
+            }
+        });
+    }
+
     // Triple-click title to expand lite mode (no visual hint by design)
     function setupTitleTripleClick() {
         const el = document.getElementById('drMainTitle');
@@ -153,10 +175,18 @@
                 clicks = 0;
                 if (timer) clearTimeout(timer);
                 const state = DeliveryReportState;
-                if (state.uiMode !== 'lite' || !state.traSoatMode) return;
-                if (state.liteExpanded) return; // already expanded
-                state.liteExpanded = true;
-                applyTabVisibility();
+                if (state.uiMode !== 'lite') return;
+                if (state.traSoatMode) {
+                    // In tra soát: reveal hidden tabs
+                    if (state.liteExpanded) return;
+                    state.liteExpanded = true;
+                    applyTabVisibility();
+                } else {
+                    // Outside tra soát: reveal hidden table/cancel/status
+                    if (state.liteRevealed) return;
+                    state.liteRevealed = true;
+                    applyLiteRevealVisibility();
+                }
             }
         });
     }
@@ -171,6 +201,11 @@
         bindFilterableHeaders();
         applyColumnVisibility();
         loadFiltersFromStorage();
+
+        // Detect interface mode + hide table/cancel/status if lite (until triple-click reveal)
+        DeliveryReportState.uiMode = detectInterfaceMode();
+        DeliveryReportState.liteRevealed = false;
+        applyLiteRevealVisibility();
 
         // Ẩn nút tra soát nếu không có quyền
         if (!canTraSoat()) {
@@ -1016,13 +1051,17 @@
             return;
         }
 
-        // Ensure normal table is visible
+        // Ensure normal table is visible (unless lite-hide active outside Tra soát)
         const provinceView = document.getElementById('drProvinceView');
         const tableWrapper = document.getElementById('drTableWrapper');
         const grid = document.getElementById('drProvinceGrid');
         if (provinceView) provinceView.style.display = 'none';
         if (grid) grid.classList.remove('all-groups');
-        if (tableWrapper) tableWrapper.style.display = '';
+        if (tableWrapper) {
+            const s = DeliveryReportState;
+            const liteHide = s.uiMode === 'lite' && !s.liteRevealed && !s.traSoatMode;
+            tableWrapper.style.display = liteHide ? 'none' : '';
+        }
 
         const tbody = document.getElementById('drTableBody');
         const tfoot = document.getElementById('drTableFoot');
@@ -1650,8 +1689,6 @@
             if (provinceView) provinceView.style.display = 'none';
             const grid = document.getElementById('drProvinceGrid');
             if (grid) grid.classList.remove('all-groups');
-            const tableWrapper = document.getElementById('drTableWrapper');
-            if (tableWrapper) tableWrapper.style.display = '';
 
             stopSyncPolling();
             state.scannedNumbers = new Set();
@@ -1664,6 +1701,8 @@
             renderTable();
             renderStats();
             renderPagination();
+            // Restore lite hide-state for table/cancel/status (or show in full mode)
+            applyLiteRevealVisibility();
         }
     }
 
@@ -2298,7 +2337,10 @@
             if (lockedCount > 0) parts.push(`<i class="fas fa-lock"></i> ${lockedCount} đã khóa`);
             if (newCount > 0) parts.push(`<i class="fas fa-plus-circle"></i> ${newCount} mới`);
             el.innerHTML = parts.join(' &middot; ');
-            el.style.display = '';
+            const s = DeliveryReportState;
+            const liteHide = s.uiMode === 'lite' && !s.liteRevealed && !s.traSoatMode;
+            el.style.display = liteHide ? 'none' : '';
+            if (liteHide) el.dataset.liteHidden = '1';
         } else {
             el.style.display = 'none';
         }

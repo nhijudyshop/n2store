@@ -2773,7 +2773,54 @@ function renderPaymentSlideOverBody() {
     if (entries.length === 0) {
         return '<div class="payment-empty">Chưa có đợt hàng nào. Thêm đợt hàng trước.</div>';
     }
-    return entries.map(renderPaymentDotSection).join('');
+
+    // Pick active đợt: prefer main page selection (UIState), else default to
+    // smallest dotSo (entries sorted ASC by getAllDotsAggregated). Tabs are
+    // synced with main page so the panel always shows the same đợt context.
+    const available = entries.map((e) => e.dotSo).sort((a, b) => a - b);
+    const saved = window.UIState?.getActiveDotTab?.();
+    const active = saved && available.includes(saved) ? saved : available[0];
+
+    const tabsHtml = available
+        .map(
+            (n) => `
+            <button
+                type="button"
+                class="dot-tab payment-dot-tab${n === active ? ' active' : ''}"
+                data-dot-so="${n}"
+                onclick="selectPaymentDotTab(${n})"
+                title="Xem thanh toán Đợt ${n}"
+            >Đợt ${n}</button>`
+        )
+        .join('');
+
+    const activeEntry = entries.find((e) => e.dotSo === active);
+    const sectionHtml = activeEntry ? renderPaymentDotSection(activeEntry) : '';
+
+    return `
+        <div class="dot-tabs-bar payment-dot-tabs-bar">${tabsHtml}</div>
+        ${sectionHtml}
+    `;
+}
+
+/**
+ * Switch payment panel tab. Syncs with main page DotTabs so stats card +
+ * shipment list also update — keeps the UX consistent (panel is just a
+ * scoped view of the active đợt).
+ */
+function selectPaymentDotTab(dotSo) {
+    const n = parseInt(dotSo, 10);
+    if (!Number.isFinite(n) || n <= 0) return;
+    window.UIState?.setActiveDotTab?.(n);
+
+    // Update main page tabs visual + stats + list
+    if (window.DotTabs?.render) window.DotTabs.render();
+    if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+
+    // Re-render panel body to show the newly-selected đợt section
+    const body = document.getElementById('paymentSlideOverBody');
+    if (body) body.innerHTML = renderPaymentSlideOverBody();
+    if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 
 function togglePaymentDotSection(headEl) {
@@ -3062,3 +3109,4 @@ window.togglePaymentDotSection = togglePaymentDotSection;
 window.togglePaymentBreakdown = togglePaymentBreakdown;
 window.openPaymentSlideOver = openPaymentSlideOver;
 window.closePaymentSlideOver = closePaymentSlideOver;
+window.selectPaymentDotTab = selectPaymentDotTab;

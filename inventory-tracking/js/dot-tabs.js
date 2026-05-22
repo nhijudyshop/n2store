@@ -95,6 +95,17 @@ window.DotTabs = (function () {
         if (typeof applyFiltersAndRender === 'function') {
             applyFiltersAndRender();
         }
+
+        // If payment panel is open, refresh it so its tabs + section follow
+        // the new active đợt (one source of truth: UIState.activeDotTab).
+        const slide = document.getElementById('paymentSlideOver');
+        if (slide && slide.classList.contains('open')) {
+            const body = slide.querySelector('#paymentSlideOverBody');
+            if (body && typeof renderPaymentSlideOverBody === 'function') {
+                body.innerHTML = renderPaymentSlideOverBody();
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            }
+        }
     }
 
     return { render, select };
