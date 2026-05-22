@@ -88,6 +88,19 @@ User request: "Browser test lại các tính năng mới vừa thêm → tự de
 
 **Status**: ✅ DONE (chờ push + Render deploy verify).
 
+### [inventory] feat: payment-CK slide-over panel cũng có section tabs (sync với main)
+
+Mở rộng yêu cầu trước: panel "Thanh Toán CK Theo Đợt" (slide-over) trước đó stack tất cả đợt vertical → giờ có pill tabs `Đợt 1 | Đợt 2 | Đợt 3 | ...` trên đầu, chỉ render section của đợt đang chọn.
+
+- **`js/table-renderer.js`** `renderPaymentSlideOverBody`: insert hàng `<div class="dot-tabs-bar payment-dot-tabs-bar">` ở đầu, lấy active từ `UIState.getActiveDotTab()` (đồng bộ với main page). Chỉ render `renderPaymentDotSection(activeEntry)` thay vì map tất cả.
+- **`js/table-renderer.js`** `selectPaymentDotTab(dotSo)` (NEW + export `window.selectPaymentDotTab`): cập nhật UIState, gọi `DotTabs.render()` + `applyFiltersAndRender()` để main view sync, rồi re-render panel body.
+- **`js/dot-tabs.js`** `DotTabs.select`: thêm step refresh `paymentSlideOverBody` nếu panel đang mở → click main tab cũng update panel.
+- **`css/dot-tabs.css`**: variant `.payment-dot-tabs-bar` (ẩn "Đợt:" label trước, padding chặt hơn để khớp panel width).
+
+Test localhost: click tab `Đợt 1` trong panel → panelTabs[Đợt 1 active], visibleSections=["1"], mainTabs[Đợt 1 active], filteredCount=5. Sync 2 chiều OK (click panel ↔ click main đều cập nhật lẫn nhau).
+
+**Status**: ✅ Done
+
 ### [inventory] feat: đợt section tabs + stats theo tab + audit logging
 
 **User request**: "Stats card không chính xác (có thể do DB duplicate) + chia section tab theo từng đợt, cache tab đã chọn".
