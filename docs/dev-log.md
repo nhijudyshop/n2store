@@ -25,6 +25,27 @@
 
 ## 2026-05-22
 
+### [fast-sale-orders] Fix cancel PBH: sync ngược native_order về 'cancelled' (thiếu source_code SELECT)
+
+**Browser test PBH lifecycle (2 tabs: products + native-orders)**: tạo PBH OK, stock deduct OK, hủy PBH thì stock restock OK + PBH state='cancel' OK, NHƯNG native_order vẫn stuck ở 'confirmed' → TPOS panel không hiện lại đơn sau khi hủy PBH; SSE `web2:native-orders pbh-state-sync` không fire.
+
+**Root cause** (`fast-sale-orders.js:1551`): `prev = SELECT id, state, stock_restored, order_lines FROM fast_sale_orders` — thiếu `source_type` + `source_code`. `syncNativeOrderStatusFromPbh(prevRow, 'cancel')` check `!pbhRow?.source_code || pbhRow.source_type !== 'native_order'` → cả 2 undefined → early return `{synced:0}` → KHÔNG UPDATE native_orders.
+
+**Fix**: thêm `source_type, source_code` vào SELECT prev. Confirm endpoint không bị (dùng `r.rows[0]` từ `_stateChange` RETURNING \* có đủ cột).
+
+**Verified live**:
+
+- Stock: 6 → 5 (PBH) → 6 (cancel) ✓
+- Native_order: draft → confirmed (PBH) → cancelled (cancel) ✓
+- SSE chain đầy đủ:
+    - PBH: `web2:native-orders status-bumped`, `web2:products pbh-stock-deduct`, `web2:fast-sale-orders from-native-order`, `web2:cart`
+    - Cancel: `web2:products pbh-cancel-restock`, **`web2:native-orders pbh-state-sync state=cancel codes=[NW-20260522-0011]`** ✓, `web2:fast-sale-orders cancel`
+- 2 tabs (products + native-orders) đều nhận SSE realtime → tự refresh UI
+
+**Status**: ✅ Done — Files: `render.com/routes/fast-sale-orders.js`
+
+---
+
 ### [tpos-pancake][native-orders][v2/cart] Refactor: 1 nguồn = native_orders.products
 
 **User đề xuất** sau khi review 3 bug stale-noc/sync race liên tiếp: "cho giỏ TPOS panel dùng chung native_orders.products đi -> nếu cần thì thêm cột dữ liệu bên native_orders.product".
