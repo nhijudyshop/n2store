@@ -86,8 +86,8 @@ router.get('/list', async (req, res) => {
             `);
         }
 
-        // 4. wallet_adjustments (created_at TIMESTAMPTZ, columns: adjustment_type, wrong_customer_phone, adjustment_amount, reason, created_by)
-        if (await _tableExists(pool, 'wallet_adjustments')) {
+        // 4. web2_wallet_adjustments (isolated Web 2.0 copy — sync từ legacy qua Postgres trigger)
+        if (await _tableExists(pool, 'web2_wallet_adjustments')) {
             blocks.push(`
                 SELECT
                     'wallet'::text AS entity,
@@ -103,7 +103,7 @@ router.get('/list', async (req, res) => {
                         'correct_phone', correct_customer_phone
                     ) AS changes,
                     created_at
-                FROM wallet_adjustments
+                FROM web2_wallet_adjustments
             `);
         }
 
@@ -153,7 +153,7 @@ router.get('/entities', async (req, res) => {
         ['product', 'web2_product_history'],
         ['pbh', 'fast_sale_order_history'],
         ['reconcile', 'pbh_fulfillment_logs'],
-        ['wallet', 'wallet_adjustments'],
+        ['wallet', 'web2_wallet_adjustments'],
     ];
     for (const [name, tbl] of map) {
         if (await _tableExists(pool, tbl)) out.push(name);

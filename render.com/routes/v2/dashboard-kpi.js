@@ -69,10 +69,11 @@ router.get('/', async (req, res) => {
             out.stock_low_count = 0;
         }
 
-        // Wallet overdraft
+        // Wallet overdraft — đọc web2_customer_wallets (isolated Web 2.0 copy
+        // được sync tự động từ legacy customer_wallets qua Postgres trigger).
         try {
             const r = await pool.query(
-                `SELECT COUNT(*)::int AS c FROM customer_wallets WHERE balance < 0`
+                `SELECT COUNT(*)::int AS c FROM web2_customer_wallets WHERE balance < 0`
             );
             out.wallet_overdraft = Number(r.rows[0]?.c || 0);
         } catch {

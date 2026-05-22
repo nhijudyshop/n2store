@@ -138,6 +138,19 @@ chatDbPool
         if (typeof ensurePhoneManagementTables === 'function') {
             ensurePhoneManagementTables(chatDbPool).catch(() => {});
         }
+        // WEB 2.0 — wallet isolation: tạo web2_customer_wallets/transactions/adjustments
+        // + Postgres triggers AFTER INSERT/UPDATE để mirror legacy → web2_* tự động.
+        // Web 1.0 KHÔNG đổi code; Web 2.0 readers chỉ touch web2_*.
+        try {
+            const {
+                ensureSchema: ensureWalletIsolation,
+            } = require('./services/web2-wallet-isolation');
+            ensureWalletIsolation(chatDbPool).catch((e) =>
+                console.warn('[web2-wallet-isolation] init warn:', e.message)
+            );
+        } catch (e) {
+            console.warn('[web2-wallet-isolation] require failed:', e.message);
+        }
     })
     .catch((err) => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
