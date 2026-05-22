@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ffdf184` — auto: session update
-**Last updated**: 2026-05-22 10:42:51 +07
-**Latest session**: [`RESUME:20260522-104251-ffdf184`](../20260522-104251-ffdf184.md)
-**Summary**: auto: session update
+**Latest commit**: `23b4dbc` — docs(plans): plan chi tiết 12 features future development Web 2.0
+**Last updated**: 2026-05-22 10:55:04 +07
+**Latest session**: [`RESUME:20260522-105504-23b4dbc`](../20260522-105504-23b4dbc.md)
+**Summary**: docs(plans): plan chi tiết 12 features future development Web 2.0
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
-- [`web2/`](./web2.md) — 22 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 10:37
-- [`docs/`](./docs.md) — updated 2026-05-22 10:42
+- [`docs/`](./docs.md) — updated 2026-05-22 10:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-21 09:45
