@@ -477,6 +477,63 @@ body.web2-sidebar-collapsed .web2-aside .icon {
     text-transform: uppercase;
 }
 
+/* WEB 2.0 marker — tag inline cạnh tên page có code thật trong project */
+.web2-nav-w2tag {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(124, 58, 237, 0.18));
+    color: #d8b4fe;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    letter-spacing: 0.4px;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+.web2-nav-link.active .web2-nav-w2tag,
+.web2-nav-sub-link.active .web2-nav-w2tag {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+}
+/* Ẩn label "- WEB 2.0" khi sidebar collapsed (icon-only mode) */
+body.web2-sidebar-collapsed .web2-aside .web2-nav-w2tag {
+    display: none;
+}
+
+/* Badge số lượng trang Web 2.0 trên group head — báo cho user biết group nào
+   có page có code thật để mở rộng. */
+.web2-nav-w2badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 999px;
+    margin-left: 6px;
+    vertical-align: middle;
+    box-shadow: 0 1px 3px rgba(124, 58, 237, 0.35);
+}
+.web2-nav-group.is-open .web2-nav-w2badge {
+    background: linear-gradient(135deg, #a855f7, #c084fc);
+}
+body.web2-sidebar-collapsed .web2-aside .web2-nav-w2badge {
+    /* Trong collapsed mode (icon only), badge floats trên icon ở góc trên-phải */
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 14px;
+    height: 14px;
+    font-size: 8.5px;
+    padding: 0 3px;
+    margin: 0;
+}
+
 /* Main content area */
 .web2-main {
     overflow: auto;

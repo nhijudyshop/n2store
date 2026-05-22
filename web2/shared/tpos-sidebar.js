@@ -608,6 +608,24 @@
         return '../' + projectRel;
     }
 
+    // Detect "đây là page Web 2.0" qua URL pattern. Tất cả page Web 2.0 có
+    // code thật của project nằm ở:
+    //   - web2/<feature>/index.html  (folder web2/)
+    //   - native-orders/index.html, so-order/index.html, tpos-pancake/index.html
+    //     (các folder root được mark là Web 2.0 trong CLAUDE.md)
+    // Page TPOS-clone chưa implement (item.our = null) → KHÔNG phải Web 2.0
+    // (vẫn còn placeholder "soon").
+    function isWeb2Item(item) {
+        if (!item || !item.our) return false;
+        const url = String(item.our);
+        return (
+            url.includes('web2/') ||
+            url.includes('native-orders/') ||
+            url.includes('so-order/') ||
+            url.includes('tpos-pancake/')
+        );
+    }
+
     function renderItem(item, activeUrl) {
         const isImpl = isOurRoute(item);
         const href = isImpl ? resolveOur(item.our) : '#';
@@ -618,7 +636,9 @@
             ? ''
             : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(item.label)}','${escapeHtml(item.tpos || '')}')"`;
         const soon = isImpl ? '' : ' <span class="web2-nav-soon">soon</span>';
-        return `<li><a href="${escapeHtml(href)}" class="${cls}" ${onclick}>${escapeHtml(item.label)}${soon}</a></li>`;
+        // Đuôi " - WEB 2.0" cho item có code thật trong project (per user request).
+        const w2Tag = isWeb2Item(item) ? ' <span class="web2-nav-w2tag">- WEB 2.0</span>' : '';
+        return `<li><a href="${escapeHtml(href)}" class="${cls}" ${onclick}>${escapeHtml(item.label)}${w2Tag}${soon}</a></li>`;
     }
 
     function renderGroup(g, activeUrl) {
@@ -631,20 +651,27 @@
             const onclick = isImpl
                 ? ''
                 : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(g.label)}','${escapeHtml(g.tpos || '')}')"`;
+            const w2Tag = isWeb2Item(g) ? ' <span class="web2-nav-w2tag">- WEB 2.0</span>' : '';
             return `<a href="${escapeHtml(href)}" class="${cls}" ${onclick}>
                 <i data-lucide="${g.icon}" class="icon"></i>
-                <span class="label">${escapeHtml(g.label)}</span>
+                <span class="label">${escapeHtml(g.label)}${w2Tag}</span>
             </a>`;
         }
         const hasOurChild = (g.children || []).some(isOurRoute);
         const open = (g.children || []).some(
             (c) => isOurRoute(c) && activeUrl && activeUrl.endsWith(c.our.replace(/^(\.\.\/)+/, ''))
         );
+        // Badge số trang Web 2.0 trong group — hiển thị bên cạnh chevron để user
+        // biết group nào có page có code thật mà không cần expand.
+        const web2Count = (g.children || []).filter(isWeb2Item).length;
+        const web2Badge = web2Count
+            ? ` <span class="web2-nav-w2badge" title="${web2Count} trang Web 2.0 có code thật">${web2Count}</span>`
+            : '';
         return `
             <div class="web2-nav-group${open ? ' is-open' : ''}">
                 <div class="web2-nav-group-head" onclick="this.parentElement.classList.toggle('is-open')">
                     <i data-lucide="${g.icon}" class="icon"></i>
-                    <span class="label">${escapeHtml(g.label)}${hasOurChild ? '' : ' <span class="web2-nav-soon">soon</span>'}</span>
+                    <span class="label">${escapeHtml(g.label)}${hasOurChild ? '' : ' <span class="web2-nav-soon">soon</span>'}${web2Badge}</span>
                     <i data-lucide="chevron-right" class="caret"></i>
                 </div>
                 <ul class="web2-nav-sub">
