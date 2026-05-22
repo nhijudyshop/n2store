@@ -25,6 +25,31 @@
 
 ## 2026-05-22
 
+### [tpos-pancake][native-orders] Fix #3: /add bỏ qua soft-deleted noc + /clear null out native_order_code
+
+**Khi browser test full flow** (drag → tạo đơn → multi-product → clear → drag lại): drag sau clear-cart không tạo đơn mới, dù SSE log thấy commit fire. Cart counts hiển thị 1 SP nhưng `by-user` trả null.
+
+**Root cause**: Sau clear cart, row `web2_cart_items` được soft-delete (`removed_at=NOW()`) NHƯNG vẫn giữ `native_order_code = NW-…`. /add endpoint query existingNoc KHÔNG filter `removed_at IS NULL` → tìm thấy noc cũ → trả về frontend → `alreadyCommitted=true` → frontend SKIP 5s commit timer → SP mới chỉ có cart row, không có native_order (order đó đã DELETE).
+
+**Fix (commit `f3680e29c`)**:
+
+- `v2/cart.js` POST `/:commentId/add`: SELECT existingNoc thêm `AND removed_at IS NULL` → chỉ lấy noc từ row active.
+- `v2/cart.js` POST `/:commentId/clear` + `clearCartByCustomerId`: UPDATE thêm `native_order_code = NULL` khi soft-delete → cart sạch hẳn link với order đã DELETE/PBH.
+
+**Verified browser test (Lucky Nguyen, fbUserId=9056377284400888)**:
+
+- ✅ Drag 1 SP → 5s timer → tạo `NW-20260522-0009` với fbPageId/fbPostId/fbCommentId filled
+- ✅ Drag 2 SP nữa → native-order sync 3 products, totalQty=3
+- ✅ Modal native-orders mở chat OK (FB context có đủ)
+- ✅ `POST /clear` → `native_deleted:true`, by-user → null
+- ✅ Drag lại sau clear → tạo đơn mới (không bị stuck vì stale noc)
+- ✅ Tạo PBH (`from-native-order`) → cart counts về `{}` ngay (auto-clear)
+- ✅ SSE multi-tab realtime: `web2:cart`, `web2:native-orders {action:create/update/delete}`
+
+**Status**: ✅ Done — Files: `render.com/routes/v2/cart.js`
+
+---
+
 ### [tpos-pancake][native-orders] Fix #2: self-heal native_order broken qua /add + merge
 
 **User báo tiếp (sau fix #1)**: "bị mất chức năng drag sản phẩm vào giỏ bên native-orders".
