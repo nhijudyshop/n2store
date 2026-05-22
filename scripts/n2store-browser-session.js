@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
-// Persistent Playwright browser session — login 1 lần, giữ open, run nhiều task qua REPL/CLI mà không tắt.
+// Persistent Playwright browser session — login 1 lần, giữ open, run nhiều task qua REPL/CLI/HTTP mà không tắt.
 //
 // Chạy:
 //   node scripts/n2store-browser-session.js --user U --pass P
+//   node scripts/n2store-browser-session.js --user U --pass P --http-port 9999
 //
 // Khi browser đã sẵn sàng, gõ command ở stdin (Enter để gửi):
 //   nav <url>                     — điều hướng trang chính (vd: nav https://nhijudyshop.github.io/n2store/orders-report/main.html)
@@ -18,12 +19,21 @@
 //   netlast [N]                   — show last N captured network calls (default 10)
 //   clearnet                      — clear network log buffer
 //   shot <path>                   — full-page screenshot
+//   do <cmd1> ;; <cmd2> ;; …      — compound: chạy chuỗi command tuần tự, log tổng hợp
 //   help                          — list commands
 //   quit                          — close browser & exit
+//
+// Realtime HTTP API (khi có --http-port):
+//   GET  /events                  — SSE stream realtime: console/network/pageerror push ngay khi xảy ra
+//   GET  /events?types=console,pageerror  — filter loại event
+//   GET  /state?net=20&console=30 — JSON snapshot: last N network + console + chatstate
+//   GET  /health                  — `{ ok, url, pid, uptimeSec }`
+//   POST /cmd  body: {"cmd":"netlast 20"}   — chạy command, return `{ ok, output, durationMs }`
 //
 // Mọi command đều log thời gian, ghi network calls vào buffer.
 
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const readline = require('readline');
 const { chromium } = require('playwright');
@@ -40,6 +50,7 @@ const ARGS = (() => {
         profile: '', // path to Chrome user-data dir (parent của Profile X)
         profileName: '', // tên Profile sub-dir (vd "Profile 4")
         chromeChannel: '', // 'chrome' để dùng stable Chrome thay vì Chromium
+        httpPort: 0, // 0 = disabled; e.g. 9999 to expose realtime HTTP/SSE API
     };
     for (let i = 0; i < a.length; i++) {
         if (a[i] === '--user') out.user = a[++i];
@@ -49,6 +60,7 @@ const ARGS = (() => {
         else if (a[i] === '--profile') out.profile = a[++i];
         else if (a[i] === '--profile-name') out.profileName = a[++i];
         else if (a[i] === '--channel') out.chromeChannel = a[++i];
+        else if (a[i] === '--http-port') out.httpPort = Number(a[++i]) || 0;
     }
     return out;
 })();
@@ -69,10 +81,30 @@ const SESSION_LOG = path.join(OUT_DIR, 'session.log');
 
 const logFile = fs.createWriteStream(SESSION_LOG, { flags: 'a' });
 const ts = () => new Date().toISOString();
+// Ring buffer of recent log lines — used by HTTP /cmd to return command output.
+const recentLog = [];
 const log = (...a) => {
     const line = `[${ts()}] ${a.join(' ')}`;
     console.log(line);
     logFile.write(line + '\n');
+    recentLog.push(line);
+    if (recentLog.length > 2000) recentLog.shift();
+};
+
+// SSE bus — every captured event (console/network/pageerror/cmd-result) is
+// fan-out to subscribed HTTP clients. Bus is silent (no overhead) when no
+// client connected.
+const sseClients = new Set();
+const sseEmit = (type, data) => {
+    if (sseClients.size === 0) return;
+    const payload = JSON.stringify({ t: ts(), type, ...data });
+    for (const res of sseClients) {
+        try {
+            res.write(`event: ${type}\ndata: ${payload}\n\n`);
+        } catch (_) {
+            sseClients.delete(res);
+        }
+    }
 };
 
 (async () => {
@@ -176,6 +208,8 @@ const log = (...a) => {
         consoleFile.write(
             `[${entry.t}] ${source}:${level.padEnd(7)} ${entry.text}${location ? ' @ ' + location : ''}\n`
         );
+        // Realtime fan-out to SSE subscribers (cheap if no clients)
+        sseEmit(level === 'pageerror' ? 'pageerror' : 'console', { entry });
     };
     const attachConsoleListeners = (target, source = 'page') => {
         target.on('console', (msg) => {
@@ -244,6 +278,7 @@ const log = (...a) => {
                 netBuf.push(entry);
                 if (netBuf.length > 500) netBuf.shift();
                 netFile.write(JSON.stringify(entry) + '\n');
+                sseEmit('network', { entry });
             } catch (_) {}
         }
     };
@@ -352,15 +387,26 @@ const log = (...a) => {
         }
     };
 
-    // ── REPL ─────────────────────────────────────────────────────
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: false,
-    });
-    rl.on('line', async (raw) => {
-        const line = raw.trim();
+    // ── Command dispatcher ───────────────────────────────────────
+    // Shared by REPL (stdin/FIFO) and HTTP /cmd endpoint. Returns when the
+    // command finishes (or sets up its background listener for `routeblock`).
+    async function dispatchCommand(raw) {
+        const line = String(raw || '').trim();
         if (!line) return;
+        // Compound: `do <cmd1> ;; <cmd2> ;; …` runs sequentially.
+        if (/^do\s+/i.test(line)) {
+            const parts = line
+                .slice(3)
+                .split(/\s*;;\s*/)
+                .map((s) => s.trim())
+                .filter(Boolean);
+            log(`do (${parts.length} steps)`);
+            for (let i = 0; i < parts.length; i++) {
+                log(`  step ${i + 1}/${parts.length}: ${parts[i].slice(0, 100)}`);
+                await dispatchCommand(parts[i]);
+            }
+            return;
+        }
         const idx = line.indexOf(' ');
         const cmd = (idx === -1 ? line : line.slice(0, idx)).toLowerCase();
         const arg = idx === -1 ? '' : line.slice(idx + 1).trim();
@@ -373,7 +419,10 @@ const log = (...a) => {
         }
         if (cmd === 'help') {
             console.log(
-                'Commands: nav <url> | eval <js> | feval <js> | filter <key|null> | flag <key> | search <q> | openchat <selector> | switchpage <id|name> | chatstate | netlast [N] | clearnet | shot <path> | help | quit'
+                'Commands: nav <url> | eval <js> | feval <js> | filter <key|null> | flag <key> | search <q> | openchat <selector> | switchpage <id|name> | chatstate | netlast [N] | clearnet | console [N|filter] | clearconsole | dumpconsole [path] | shot <path> | storage [path] | addcookie | routeblock <glob> | do <cmd1> ;; <cmd2> | help | quit'
+            );
+            console.log(
+                'HTTP (with --http-port): GET /events (SSE) | GET /state?net=20&console=30 | POST /cmd {"cmd":"…"} | GET /health'
             );
             return;
         }
@@ -620,7 +669,164 @@ const log = (...a) => {
             return;
         }
         log(`Unknown command: ${cmd}. Type help.`);
+    }
+
+    // ── REPL ─────────────────────────────────────────────────────
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false,
     });
+    rl.on('line', (raw) => {
+        dispatchCommand(raw).catch((e) => log('dispatchCommand ERROR:', String(e).slice(0, 300)));
+    });
+
+    // ── HTTP / SSE ──────────────────────────────────────────────
+    if (ARGS.httpPort > 0) {
+        const httpServer = http.createServer((req, res) => {
+            // CORS for local tooling
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'content-type');
+            if (req.method === 'OPTIONS') {
+                res.writeHead(204);
+                return res.end();
+            }
+            const u = new URL(req.url, `http://localhost:${ARGS.httpPort}`);
+            const route = u.pathname;
+
+            if (route === '/health' && req.method === 'GET') {
+                res.writeHead(200, { 'content-type': 'application/json' });
+                return res.end(
+                    JSON.stringify({
+                        ok: true,
+                        url: page.url(),
+                        pid: process.pid,
+                        uptimeSec: Math.round(process.uptime()),
+                        netBuf: netBuf.length,
+                        consoleBuf: consoleBuf.length,
+                        sseClients: sseClients.size,
+                    })
+                );
+            }
+
+            if (route === '/state' && req.method === 'GET') {
+                const nNet = Math.max(0, Math.min(500, Number(u.searchParams.get('net')) || 20));
+                const nCon = Math.max(
+                    0,
+                    Math.min(1000, Number(u.searchParams.get('console')) || 30)
+                );
+                res.writeHead(200, { 'content-type': 'application/json' });
+                return res.end(
+                    JSON.stringify({
+                        t: ts(),
+                        url: page.url(),
+                        network: netBuf.slice(-nNet),
+                        console: consoleBuf.slice(-nCon),
+                    })
+                );
+            }
+
+            if (route === '/events' && req.method === 'GET') {
+                const filter = (u.searchParams.get('types') || '')
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                res.writeHead(200, {
+                    'content-type': 'text/event-stream',
+                    'cache-control': 'no-cache, no-transform',
+                    connection: 'keep-alive',
+                });
+                res.write(
+                    `event: hello\ndata: ${JSON.stringify({ t: ts(), pid: process.pid })}\n\n`
+                );
+                // Filter wrapper: if `types=` provided, only forward matching events.
+                const wrappedWrite = res.write.bind(res);
+                if (filter.length) {
+                    res._allowedTypes = new Set(filter);
+                    res.write = (chunk) => {
+                        const str = String(chunk);
+                        const m = /^event: (\w+)/m.exec(str);
+                        if (
+                            !m ||
+                            res._allowedTypes.has(m[1]) ||
+                            m[1] === 'hello' ||
+                            m[1] === 'ping'
+                        )
+                            return wrappedWrite(chunk);
+                        return true;
+                    };
+                }
+                sseClients.add(res);
+                const ping = setInterval(() => {
+                    try {
+                        wrappedWrite(`event: ping\ndata: {"t":"${ts()}"}\n\n`);
+                    } catch (_) {}
+                }, 25_000);
+                req.on('close', () => {
+                    clearInterval(ping);
+                    sseClients.delete(res);
+                });
+                return;
+            }
+
+            if (route === '/cmd' && req.method === 'POST') {
+                let body = '';
+                req.on('data', (chunk) => {
+                    body += chunk;
+                    if (body.length > 200_000) {
+                        req.destroy();
+                    }
+                });
+                req.on('end', async () => {
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(body || '{}');
+                    } catch (e) {
+                        res.writeHead(400, { 'content-type': 'application/json' });
+                        return res.end(JSON.stringify({ ok: false, error: 'bad json' }));
+                    }
+                    const cmd = String(parsed.cmd || '').trim();
+                    if (!cmd) {
+                        res.writeHead(400, { 'content-type': 'application/json' });
+                        return res.end(JSON.stringify({ ok: false, error: 'missing cmd' }));
+                    }
+                    const startIdx = recentLog.length;
+                    const startMs = Date.now();
+                    try {
+                        await dispatchCommand(cmd);
+                        // Allow microtasks (safe() log) to flush
+                        await new Promise((r) => setImmediate(r));
+                        const output = recentLog.slice(startIdx).join('\n');
+                        res.writeHead(200, { 'content-type': 'application/json' });
+                        res.end(
+                            JSON.stringify({
+                                ok: true,
+                                cmd,
+                                durationMs: Date.now() - startMs,
+                                output,
+                            })
+                        );
+                    } catch (e) {
+                        res.writeHead(500, { 'content-type': 'application/json' });
+                        res.end(JSON.stringify({ ok: false, error: String(e).slice(0, 500) }));
+                    }
+                });
+                return;
+            }
+
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'not found', route }));
+        });
+        httpServer.listen(ARGS.httpPort, '127.0.0.1', () => {
+            log(`HTTP API listening on http://127.0.0.1:${ARGS.httpPort}`);
+            log(`  GET  /events           — SSE realtime (console/network/pageerror)`);
+            log(`  GET  /state?net=20     — JSON snapshot`);
+            log(`  POST /cmd {"cmd":"…"}  — run command, return output`);
+            log(`  GET  /health           — status`);
+        });
+        httpServer.on('error', (e) => log('HTTP server error:', String(e).slice(0, 300)));
+    }
 })().catch((e) => {
     console.error('FATAL', e);
     process.exit(1);

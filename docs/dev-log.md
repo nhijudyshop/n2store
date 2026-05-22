@@ -25,6 +25,56 @@
 
 ## 2026-05-22
 
+### [scripts] feat: HTTP/SSE realtime API cho `n2store-browser-session.js` + compound `do` command
+
+User hỏi: "Browser test có bật server realtime thu thập dữ liệu nhận từ browser đọc liên tục để tương tác chính xác và nhanh nhất chưa?" → tối ưu khả thi.
+
+**Trước đó**: pull-only model qua FIFO. Claude phải gửi `echo "netlast 20"` → đợi stdout. Không biết khi nào page hit error mới, phải poll.
+
+**Sau khi sửa**: thêm realtime push channel. Mỗi event (console/network/pageerror) fan-out tới SSE clients ngay khi xảy ra. Pull snapshot + chạy command qua HTTP cũng dùng được.
+
+**Files sửa**: [`scripts/n2store-browser-session.js`](../scripts/n2store-browser-session.js)
+
+**Thêm**:
+
+- `--http-port <port>` (default 0 = disabled). Khi set, mount HTTP server ở `127.0.0.1:<port>`.
+- 4 HTTP endpoints:
+    - `GET /events` — SSE stream realtime mọi event. Filter qua query `?types=console,pageerror,network`.
+    - `GET /state?net=20&console=30` — JSON snapshot last N items + url hiện tại.
+    - `POST /cmd {"cmd":"…"}` — chạy command qua dispatcher chia sẻ với REPL, return `{ ok, output, durationMs }`.
+    - `GET /health` — `{ ok, url, pid, uptimeSec, netBuf, consoleBuf, sseClients }`.
+- `dispatchCommand(line)` reusable function — REPL stdin và HTTP `/cmd` cùng dùng.
+- Compound `do <cmd1> ;; <cmd2> ;; …` — chạy chuỗi command tuần tự, log gộp.
+- `recentLog` ring buffer (2000 lines) — `/cmd` slice từ `startIdx` để return output đúng turn.
+- `sseEmit(type, data)` — hook vào `pushConsole` (console/pageerror) + `captureResponse` (network). Silent (no overhead) khi `sseClients.size === 0`.
+
+**Smoke test** (verified live):
+
+```bash
+node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8088 --http-port 9999
+
+curl -s http://127.0.0.1:9999/health
+# → {"ok":true,"url":"…","pid":38835,"uptimeSec":22,"netBuf":10,"consoleBuf":82,"sseClients":0}
+
+curl -s 'http://127.0.0.1:9999/state?net=2&console=5'
+# → JSON với network + console arrays
+
+curl -s -X POST http://127.0.0.1:9999/cmd -H 'content-type: application/json' \
+  -d '{"cmd":"do eval return location.href ;; eval return document.title"}'
+# → {"ok":true,"durationMs":4,"output":"…step 1/2…\n…step 2/2…"}
+
+curl -N http://127.0.0.1:9999/events
+# → SSE stream: hello → console → console → network → network …
+```
+
+**Workflow mới cho Claude**:
+
+- **Subscribe SSE 1 lần** qua `Monitor http://127.0.0.1:9999/events` → mọi error/network mới push ngay, không cần poll.
+- **Compound `do`** giảm round-trip cho pattern hay dùng (`do nav <url> ;; eval <state>`).
+- **FIFO vẫn dùng được** — backwards compatible. Có thể chạy không `--http-port`.
+
+**Status**: ✅ Done — syntax OK, smoke test 4/4 endpoints pass, SSE marker `SSE-TEST-MARKER-42` arrived <100ms.
+
 ### [docs/plans] feat: plan chi tiết 12 features future development cho Web 2.0
 
 User request: "Lên plan cho phần Future development — 12 gợi ý: Dashboard KPI · Báo cáo công nợ+ví · Bulk import Excel · Mobile view · Audit trail UI · Notification center · Customer 360 NCC · Print/Export hàng loạt · Smart match SePay · Variants matrix · Inventory forecasting · Permission matrix".
