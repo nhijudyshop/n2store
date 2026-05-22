@@ -608,22 +608,34 @@
         return '../' + projectRel;
     }
 
-    // Detect "đây là page Web 2.0" qua URL pattern. Tất cả page Web 2.0 có
-    // code thật của project nằm ở:
-    //   - web2/<feature>/index.html  (folder web2/)
-    //   - native-orders/index.html, so-order/index.html, tpos-pancake/index.html
-    //     (các folder root được mark là Web 2.0 trong CLAUDE.md)
-    // Page TPOS-clone chưa implement (item.our = null) → KHÔNG phải Web 2.0
-    // (vẫn còn placeholder "soon").
+    // Explicit allow-list: chỉ những page user MUỐN có "- WEB 2.0" badge.
+    // KHÔNG auto-detect URL pattern (web2/*) vì nhiều trang dưới web2/ vẫn là
+    // TPOS-clone (chưa code thật) — user chỉ muốn mark các trang user đã đầu tư
+    // code thật + custom logic.
+    //
+    // Quy ước: path tương đối từ project root (bỏ leading ../../ hoặc ../).
+    // Thêm vào set khi user code xong 1 trang mới. Page mới ban đầu KHÔNG có
+    // badge — chỉ thêm vào set khi user xác nhận đã hoàn thành.
+    const WEB2_PAGES = new Set([
+        'web2/fastsaleorder-invoice/index.html',
+        'web2/reconcile/index.html',
+        'native-orders/index.html',
+        'so-order/index.html',
+        'tpos-pancake/index.html',
+        'web2/purchase-refund/index.html',
+        'web2/supplier-debt/index.html',
+        'web2/supplier-wallet/index.html',
+        'web2/balance-history/index.html',
+        'web2/products/index.html',
+        'web2/variants/index.html',
+        'web2/product-category/index.html',
+        'web2/users/index.html',
+    ]);
     function isWeb2Item(item) {
         if (!item || !item.our) return false;
-        const url = String(item.our);
-        return (
-            url.includes('web2/') ||
-            url.includes('native-orders/') ||
-            url.includes('so-order/') ||
-            url.includes('tpos-pancake/')
-        );
+        // Normalize: strip leading ../ or ../../ levels.
+        const path = String(item.our).replace(/^(\.\.\/)+/, '');
+        return WEB2_PAGES.has(path);
     }
 
     function renderItem(item, activeUrl) {
