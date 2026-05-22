@@ -508,11 +508,16 @@
         return extractColor(productNameClean);
     }
 
-    // Override suggest() to accept colorShortMap
+    // Override suggest() to accept colorShortMap + override color/size từ variant cache.
+    // Variant đã chọn từ Kho Biến Thể có shortCode chính xác → priority cao hơn
+    // màu/size extract từ tên SP.
     const _originalSuggest = suggest;
     function suggestWithMap(opts) {
         const colorShortMap = (opts && opts.colorShortMap) || null;
-        if (!colorShortMap) return _originalSuggest(opts);
+        const overrideColorShort = (opts && opts.overrideColorShort) || null;
+        const overrideSizeShort = (opts && opts.overrideSizeShort) || null;
+        if (!colorShortMap && !overrideColorShort && !overrideSizeShort)
+            return _originalSuggest(opts);
 
         const supplierName = (opts && opts.supplierName) || '';
         const productName = (opts && opts.productName) || '';
@@ -523,8 +528,14 @@
         const nameClean = clean(productName);
 
         const { type, rest: r1 } = extractType(nameClean);
-        const { sizeShort, rest: r2 } = extractSize(r1);
-        const { colorShort, rest: r3 } = extractColorWithMap(r2, colorShortMap);
+        let { sizeShort, rest: r2 } = extractSize(r1);
+        let { colorShort, rest: r3 } = colorShortMap
+            ? extractColorWithMap(r2, colorShortMap)
+            : extractColor(r2);
+
+        // Variant override: nếu user đã chọn biến thể từ Kho → priority cao hơn name extraction
+        if (overrideColorShort) colorShort = overrideColorShort;
+        if (overrideSizeShort) sizeShort = overrideSizeShort;
 
         // Counter: SP đầu tiên (NCC, type) không có số; SP thứ 2 trở đi từ 2
         let counter = '';

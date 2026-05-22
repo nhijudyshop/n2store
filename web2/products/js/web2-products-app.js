@@ -486,16 +486,28 @@
             return;
         }
         const supplierName = ($('#pmSupplier')?.value || '').trim();
-        const productNameRaw = ($('#pmName')?.value || '').trim();
+        const productName = ($('#pmName')?.value || '').trim();
         const variantText = ($('#pmVariant')?.value || '').trim();
-        // Concat variant vào tên SP để color/size extractor pick up.
-        // Vd: name="GIÀY", variant="Đen / Size 32" → "GIÀY Đen Size 32"
-        const productName = variantText
-            ? `${productNameRaw} ${variantText.replace(/[\/,;|]/g, ' ')}`.trim()
-            : productNameRaw;
-        if (!productNameRaw) {
+        if (!productName) {
             if (!silent) notify('Cần điền Tên sản phẩm trước', 'warning');
             return;
+        }
+        // Lookup variant shortCode từ Kho Biến Thể.
+        // Biến thể group "Màu" → override color; group "Size/Cỡ" → override size.
+        // Priority cao hơn extract từ tên SP (vd "QUẦN ĐEN" + variant "Màu Beo" → QUAN + BEO).
+        let overrideColorShort = null;
+        let overrideSizeShort = null;
+        if (variantText && window.Web2VariantsCache?.findByValueExact) {
+            const v = window.Web2VariantsCache.findByValueExact(variantText);
+            if (v && v.shortCode) {
+                const grp = (v.groupName || '').toLowerCase();
+                if (grp.includes('size') || grp.includes('cỡ') || grp.includes('co')) {
+                    overrideSizeShort = v.shortCode.toUpperCase();
+                } else {
+                    // Default: treat as màu (Màu, Color, hoặc group khác)
+                    overrideColorShort = v.shortCode.toUpperCase();
+                }
+            }
         }
         if (!supplierName) {
             if (!silent) {
@@ -517,6 +529,8 @@
                 existingCodes,
                 supplierPrefixMap: prefixMap,
                 colorShortMap: getColorShortMap(),
+                overrideColorShort,
+                overrideSizeShort,
             });
         } catch (e) {
             if (!silent) notify('Không sinh được mã: ' + e.message, 'error');
@@ -907,8 +921,10 @@
             const cache = window.Web2VariantsCache;
             if (!cache) {
                 dropdown.hidden = true;
+                dropdown.style.display = 'none';
                 return;
             }
+            dropdown.style.display = ''; // reset (clear hard-force từ click handler)
             const items = cache.findByValue(query || '', 10);
             if (!items.length) {
                 dropdown.innerHTML = `<div class="variant-suggest-empty">
@@ -936,6 +952,10 @@
                     input.value = btn.dataset.val;
                     _renderHintFor(input.value);
                     dropdown.hidden = true;
+                    dropdown.style.display = 'none'; // hard force
+                    input.blur(); // bỏ focus khỏi input
+                    // Fire 'change' để autoRegen mã (programmatic value set không tự fire)
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
                 });
             });
         }
