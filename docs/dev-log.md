@@ -25,7 +25,24 @@
 
 ## 2026-05-22
 
-### [tpos-pancake][native-orders] Fix: đơn tạo bằng drag SP thiếu fbPageId/fbPostId → không mở được inbox/chat
+### [tpos-pancake][native-orders] Fix #2: self-heal native_order broken qua /add + merge
+
+**User báo tiếp (sau fix #1)**: "bị mất chức năng drag sản phẩm vào giỏ bên native-orders".
+
+**Root cause**: Cart đã có `native_order_code` linked từ trước (commit lúc `fb_page_id` NULL). Frontend `addToCart` thấy `alreadyCommitted=true` → KHÔNG fire 5s commit timer → không có cơ hội tạo đơn mới hoặc heal đơn cũ. User thấy drag không tạo entry mới.
+
+**Fix 2-layer (commit `cf7c4897c` + `e5fcbff20`):**
+
+1. **Merge path** (`native-orders.js` POST `/from-comment`): khi merge SP mới vào draft cũ cùng `fb_user_id` + `live_campaign_id`, COALESCE-update `fb_user_name`/`fb_page_id`/`fb_page_name`/`fb_post_id`/`fb_comment_id`/`crm_team_id`/`live_campaign_name` từ request body. Idempotent — không override field đã có giá trị.
+2. **Add path** (`v2/cart.js` POST `/:commentId/add`): frontend gửi `body.fbContext` (resolve TRƯỚC khi POST). Backend khi `noc` tồn tại → COALESCE-update `native_orders` cùng các field FB. Tự heal đơn broken mà không cần xóa.
+
+**Kết quả**: Kéo SP thêm 1 lần lên KH có draft broken cũ → backend tự fill `fb_page_id`/`fb_post_id`/`fb_comment_id` → modal native-orders mở chat OK ngay. Đơn mới sau fix #1 vẫn đầy đủ FB context.
+
+**Status**: ✅ Done — Files: `render.com/routes/native-orders.js`, `render.com/routes/v2/cart.js`, `tpos-pancake/js/pancake/inventory-panel.js`
+
+---
+
+### [tpos-pancake][native-orders] Fix #1: đơn tạo bằng drag SP thiếu fbPageId/fbPostId → không mở được inbox/chat
 
 **User báo**: Mấy đơn tạo bằng drag SP (NW-20260522-0009/0010/0011) báo "Đơn không có Facebook user ID hoặc page ID — không thể chat" khi mở native-orders modal.
 
