@@ -310,10 +310,12 @@ router.post('/:commentId/add', async (req, res) => {
             user_name: user.name,
         });
 
-        // Nếu comment đã có native_order_code (committed trước đó) → sync products
+        // Nếu comment đã có native_order_code linked với row ACTIVE (chưa removed) → sync products.
+        // KHÔNG kế thừa noc từ row đã soft-deleted (clear cart trước đó) — order đó đã DELETE.
         const existingNoc = await pool.query(
             `SELECT native_order_code FROM web2_cart_items
-             WHERE comment_id = $1 AND native_order_code IS NOT NULL LIMIT 1`,
+             WHERE comment_id = $1 AND native_order_code IS NOT NULL
+               AND removed_at IS NULL LIMIT 1`,
             [commentId]
         );
         const noc = existingNoc.rows[0]?.native_order_code;
@@ -563,9 +565,11 @@ router.post('/:commentId/clear', async (req, res) => {
             return res.json({ success: true, removed: 0 });
         }
         const nativeOrderCode = items.rows.find((r) => r.native_order_code)?.native_order_code;
+        // Clear cũng null out native_order_code → cart sau này sẽ thấy là "đơn mới"
+        // thay vì cố sync vào order đã DELETE.
         await pool.query(
             `UPDATE web2_cart_items
-             SET removed_at = NOW(), updated_at = NOW()
+             SET removed_at = NOW(), updated_at = NOW(), native_order_code = NULL
              WHERE comment_id = $1 AND removed_at IS NULL`,
             [commentId]
         );
@@ -733,9 +737,11 @@ async function clearCartByCustomerId(pool, customerId, opts) {
             [customerId]
         );
         if (!itemsRs.rowCount) return { removed: 0 };
+        // Cũng null out native_order_code → cart sau này thấy là đơn mới, không
+        // cố sync vào order đã DELETE / PBH.
         await pool.query(
             `UPDATE web2_cart_items
-             SET removed_at = NOW(), updated_at = NOW()
+             SET removed_at = NOW(), updated_at = NOW(), native_order_code = NULL
              WHERE comment_id = $1 AND removed_at IS NULL`,
             [customerId]
         );
