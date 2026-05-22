@@ -325,6 +325,41 @@ router.post('/:commentId/add', async (req, res) => {
                 [noc, commentId, p.code]
             );
             await _syncNativeOrderProducts(pool, commentId, noc);
+            // Self-heal native_order khi cart đã linked nhưng order broken
+            // (fb_page_id NULL từ window bug 2026-05-22 trước fix 6b05bc3cb).
+            // COALESCE-update FB context — KHÔNG override nếu đã có giá trị.
+            const fc = b.fbContext || {};
+            if (fc.fbPageId || fc.fbPostId || fc.fbCommentId) {
+                try {
+                    await pool.query(
+                        `UPDATE native_orders SET
+                            fb_user_name = COALESCE(fb_user_name, $2),
+                            fb_page_id   = COALESCE(fb_page_id,   $3),
+                            fb_page_name = COALESCE(fb_page_name, $4),
+                            fb_post_id   = COALESCE(fb_post_id,   $5),
+                            fb_comment_id= COALESCE(fb_comment_id,$6),
+                            crm_team_id  = COALESCE(crm_team_id,  $7),
+                            live_campaign_id   = COALESCE(live_campaign_id,   $8),
+                            live_campaign_name = COALESCE(live_campaign_name, $9),
+                            updated_at = $10
+                         WHERE code = $1`,
+                        [
+                            noc,
+                            fc.fbUserName || null,
+                            fc.fbPageId || null,
+                            fc.fbPageName || null,
+                            fc.fbPostId || null,
+                            fc.fbCommentId || null,
+                            fc.crmTeamId || null,
+                            fc.liveCampaignId || null,
+                            fc.liveCampaignName || null,
+                            Date.now(),
+                        ]
+                    );
+                } catch (e) {
+                    console.warn('[web2-cart] self-heal native_order fail:', e.message);
+                }
+            }
         }
 
         _notify(commentId);

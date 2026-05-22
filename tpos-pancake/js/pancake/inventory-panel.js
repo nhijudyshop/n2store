@@ -379,6 +379,16 @@
         };
         renderBadges();
 
+        // ⚠ Resolve FB context theo commentIdMeta (comment thật), KHÔNG phải groupKey (fbUserId).
+        // Resolve TRƯỚC khi POST /add để backend tự heal native_order broken (fb_page_id NULL)
+        // nếu cart đã linked với native_order_code cũ.
+        const realCommentId = commentIdMeta || commentId;
+        const row = document.querySelector(
+            `.tpos-conversation-item[data-comment-id="${CSS.escape(realCommentId)}"]`
+        );
+        const ctx = _resolveCommitContext(realCommentId, row, customer);
+        ctx.fbCommentId = realCommentId;
+
         try {
             const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
                 method: 'POST',
@@ -389,6 +399,18 @@
                     customer,
                     user: _user(),
                     qty: 1,
+                    // FB context cho backend self-heal native_order khi cart đã linked
+                    fbContext: {
+                        fbUserId: ctx.fbUserId,
+                        fbUserName: ctx.fbUserName,
+                        fbPageId: ctx.fbPageId,
+                        fbPageName: ctx.fbPageName,
+                        fbPostId: ctx.fbPostId,
+                        fbCommentId: ctx.fbCommentId,
+                        crmTeamId: ctx.crmTeamId,
+                        liveCampaignId: ctx.liveCampaignId,
+                        liveCampaignName: ctx.liveCampaignName,
+                    },
                 }),
             });
             const d = await r.json();
@@ -397,13 +419,6 @@
             // Nếu native_order_code đã tồn tại (committed trước đó) → SP đã được sync
             // sang native-orders tự động qua backend. Vẫn show toast Undo cho UX.
             const alreadyCommitted = !!d.native_order_code;
-            // ⚠ Resolve FB context theo commentIdMeta (comment thật), KHÔNG phải groupKey (fbUserId)
-            const realCommentId = commentIdMeta || commentId;
-            const row = document.querySelector(
-                `.tpos-conversation-item[data-comment-id="${CSS.escape(realCommentId)}"]`
-            );
-            const ctx = _resolveCommitContext(realCommentId, row, customer);
-            ctx.fbCommentId = realCommentId;
 
             // Schedule commit sau 5s nếu chưa committed (đơn mới chưa tạo)
             if (!alreadyCommitted) {
