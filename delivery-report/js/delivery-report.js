@@ -1199,7 +1199,7 @@
         let failControlCount = 0;
         let failControlAmount = 0;
 
-        // Stats from ALL data (accurate)
+        // Stats from current view data (matches table after lite/tab/scan filters)
         data.forEach((item) => {
             totalCOD += item.CashOnDelivery || 0;
             if (item.ShipStatus === 'done') {
@@ -1211,6 +1211,10 @@
             } else {
                 shippingCount++;
                 shippingAmount += item.CashOnDelivery || 0;
+            }
+            if (item.ShipPaymentStatus === 'fail') {
+                failControlCount++;
+                failControlAmount += item.CashOnDelivery || 0;
             }
         });
 
@@ -1224,7 +1228,7 @@
         updateStatElement('drStatReturnCount', `${formatNumber(returnCount)} Hóa đơn`);
         updateStatElement('drStatReturnValue', formatMoney(returnAmount));
 
-        updateStatElement('drStatShippingCount', `${formatNumber(totalCount)} Hóa đơn`);
+        updateStatElement('drStatShippingCount', `${formatNumber(shippingCount)} Hóa đơn`);
         updateStatElement('drStatShippingValue', formatMoney(shippingAmount));
 
         updateStatElement('drStatFailCount', `${formatNumber(failControlCount)} Hóa đơn`);
