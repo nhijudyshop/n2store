@@ -377,8 +377,8 @@
             // switch). Nếu đã share → stop + remove iframe.
             if (STATE.captureStream) {
                 stopRealSnap();
-                const iframe = document.getElementById('tpos-snap-fb-embed');
-                if (iframe) iframe.remove();
+                const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+                if (wrapper) wrapper.remove();
                 _setSnapMode(MODE_LAZY);
                 _toast('⏱️ Đã ngắt — auto-snap dùng metadata only', 'ok');
                 return;
@@ -834,21 +834,63 @@ Throttle 30s/KH. Click để tắt.`;
     // User chỉ bấm 1 lần "BẤM 1 LẦN", không bao giờ rời tpos-pancake tab.
     // -----------------------------------------------------
     function _ensureEmbeddedIframe(camp) {
-        let iframe = document.getElementById('tpos-snap-fb-embed');
-        if (iframe) return iframe;
+        let wrapper = document.getElementById('tpos-snap-fb-wrapper');
+        if (wrapper) return wrapper.querySelector('iframe');
         const fbVideoUrl = _buildFbLiveUrl(camp);
         if (!fbVideoUrl) return null;
+        // mute=1 + autoplay=1 → FB plugin tự muted theo policy (autoplay yêu cầu muted).
         const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=560&autoplay=1&mute=1`;
-        iframe = document.createElement('iframe');
+        wrapper = document.createElement('div');
+        wrapper.id = 'tpos-snap-fb-wrapper';
+        wrapper.style.cssText =
+            'position:fixed;bottom:8px;right:8px;width:280px;height:158px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;transition:all 0.2s ease;';
+        const iframe = document.createElement('iframe');
         iframe.id = 'tpos-snap-fb-embed';
         iframe.src = embedUrl;
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
         iframe.scrolling = 'no';
         iframe.frameBorder = '0';
-        // Visible nhưng nhỏ ở góc dưới phải. Sau khi connect có thể fade.
-        iframe.style.cssText =
-            'position:fixed;bottom:8px;right:8px;width:280px;height:158px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-        document.body.appendChild(iframe);
+        iframe.style.cssText = 'width:100%;height:100%;display:block;border:0;';
+        wrapper.appendChild(iframe);
+        // Overlay nút minimize ở góc trên phải.
+        const minBtn = document.createElement('button');
+        minBtn.type = 'button';
+        minBtn.id = 'tpos-snap-fb-min';
+        minBtn.textContent = '–';
+        minBtn.title = 'Ẩn iframe (stream vẫn chạy)';
+        minBtn.style.cssText =
+            'position:absolute;top:4px;right:4px;width:24px;height:24px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
+        wrapper.appendChild(minBtn);
+        minBtn.onclick = () => {
+            const minimized = wrapper.dataset.minimized === '1';
+            if (minimized) {
+                // Expand
+                wrapper.style.width = '280px';
+                wrapper.style.height = '158px';
+                iframe.style.display = 'block';
+                minBtn.textContent = '–';
+                minBtn.title = 'Ẩn iframe (stream vẫn chạy)';
+                delete wrapper.dataset.minimized;
+            } else {
+                // Minimize → pill nhỏ (stream KHÔNG dừng).
+                wrapper.dataset.minimized = '1';
+                wrapper.style.width = '44px';
+                wrapper.style.height = '44px';
+                wrapper.style.borderRadius = '50%';
+                iframe.style.display = 'none';
+                minBtn.textContent = '🎬';
+                minBtn.title = 'Mở lại iframe';
+                minBtn.style.fontSize = '18px';
+                minBtn.style.top = '50%';
+                minBtn.style.right = '50%';
+                minBtn.style.transform = 'translate(50%,-50%)';
+                minBtn.style.background = '#dc2626';
+                minBtn.style.width = '44px';
+                minBtn.style.height = '44px';
+                minBtn.style.borderRadius = '50%';
+            }
+        };
+        document.body.appendChild(wrapper);
         return iframe;
     }
 
@@ -862,14 +904,20 @@ Throttle 30s/KH. Click để tắt.`;
             _toast('Không có live nào đang chạy', 'err');
             return false;
         }
+        const wrapperExisted = !!document.getElementById('tpos-snap-fb-wrapper');
         const iframe = _ensureEmbeddedIframe(camp);
         if (!iframe) {
             _toast('Không tạo được iframe embed', 'err');
             return false;
         }
-        // Đợi 4s cho iframe load + FB player start playing.
-        _toast('⏳ Đang load FB live trong iframe (4s)...', 'ok');
-        await new Promise((r) => setTimeout(r, 4000));
+        // Nếu iframe vừa tạo mới → đợi 4s cho FB load + play.
+        // Nếu đã tồn tại (auto-start inject sớm) → chỉ đợi 500ms.
+        if (!wrapperExisted) {
+            _toast('⏳ Đang load FB live trong iframe (4s)...', 'ok');
+            await new Promise((r) => setTimeout(r, 4000));
+        } else {
+            await new Promise((r) => setTimeout(r, 500));
+        }
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
@@ -916,50 +964,54 @@ Throttle 30s/KH. Click để tắt.`;
             _startFrameBuffer();
             renderRealSnapChip();
             renderAutoModeChip();
-            _toast('✅ Auto-snap đã kết nối (iframe embed, no tab switch)', 'ok');
+            // Remove hint label sau khi connect (đã share rồi).
+            const hint = document.getElementById('tpos-snap-fb-hint');
+            if (hint) hint.remove();
+            _toast('✅ Auto-snap đã kết nối — frame thật unique per comment', 'ok');
             return true;
         } catch (e) {
             console.warn('[snap-embed] fail:', e?.message);
             _toast('Hủy share: ' + e.message, 'err');
-            // Cleanup iframe nếu user hủy.
-            iframe.remove();
+            // Cleanup wrapper nếu user hủy.
+            const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+            if (wrapper) wrapper.remove();
             return false;
         }
     }
 
-    // Banner auto trên page load nếu live đang chạy + chưa connect.
+    // AUTO-START: có live → inject iframe + nút BẬT to overlay trên iframe.
+    // Browser BẮT BUỘC 1 click rõ ràng — không thể bypass. Bỏ click-trap
+    // (quá intrusive: mọi click trên page đều trigger share dialog).
     function _maybeShowAutoSnapBanner() {
-        if (STATE.captureStream) return; // đã connect
-        if (document.getElementById('tpos-snap-auto-banner')) return;
-        if (localStorage.getItem('tpos_snap_banner_dismissed_session') === '1') return;
+        if (STATE.captureStream) return;
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
-        const banner = document.createElement('div');
-        banner.id = 'tpos-snap-auto-banner';
-        banner.style.cssText =
-            'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99500;font-family:Inter,system-ui,sans-serif;';
-        banner.innerHTML = `
-            <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;background:linear-gradient(90deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-width:560px;">
-                <span style="font-size:32px;">🎬</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:14px;font-weight:700;color:#78350f;line-height:1.3;">Live đang chạy — bật auto-snap?</div>
-                    <div style="font-size:11px;color:#92400e;margin-top:2px;line-height:1.4;">1 click → mọi comment mới có ảnh thật từ buffer. <strong>Không nhảy tab</strong> (FB chạy trong iframe ẩn).</div>
-                </div>
-                <button id="tpos-snap-banner-go" type="button" style="background:#dc2626;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">BẤM 1 LẦN</button>
-                <button id="tpos-snap-banner-skip" type="button" style="background:transparent;color:#78350f;font-size:12px;padding:4px 8px;border:none;cursor:pointer;">×</button>
-            </div>
-        `;
-        document.body.appendChild(banner);
-        document.getElementById('tpos-snap-banner-go').onclick = async () => {
-            banner.remove();
-            await _enableEmbeddedLiveCapture();
+        _ensureEmbeddedIframe(camp);
+        const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+        if (!wrapper || wrapper.querySelector('#tpos-snap-fb-go')) return;
+        const goBtn = document.createElement('button');
+        goBtn.id = 'tpos-snap-fb-go';
+        goBtn.type = 'button';
+        goBtn.title =
+            'Browser bắt buộc 1 click — không bypass được. Bấm để bật auto-snap frame thật.';
+        goBtn.innerHTML =
+            '<span style="display:block;font-size:20px;margin-bottom:2px;">🎬</span>BẬT AUTO-SNAP';
+        goBtn.style.cssText =
+            'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#dc2626;color:#fff;font-weight:700;font-size:12px;padding:14px 18px;border:none;border-radius:10px;cursor:pointer;z-index:2;box-shadow:0 4px 16px rgba(0,0,0,0.5);text-align:center;line-height:1.2;letter-spacing:0.3px;';
+        wrapper.appendChild(goBtn);
+        goBtn.onclick = async (e) => {
+            e.stopPropagation();
+            goBtn.disabled = true;
+            goBtn.innerHTML = '⏳ Đang kết nối...';
+            const ok = await _enableEmbeddedLiveCapture();
+            if (ok) {
+                goBtn.remove();
+            } else {
+                goBtn.disabled = false;
+                goBtn.innerHTML =
+                    '<span style="display:block;font-size:20px;margin-bottom:2px;">🎬</span>BẬT AUTO-SNAP';
+            }
         };
-        document.getElementById('tpos-snap-banner-skip').onclick = () => {
-            banner.remove();
-            sessionStorage.setItem('tpos_snap_banner_dismissed_session', '1');
-        };
-        // Auto-dismiss sau 60s.
-        setTimeout(() => banner.remove(), 60000);
     }
 
     async function toggleRealSnap() {
@@ -1077,6 +1129,9 @@ Throttle 30s/KH. Click để tắt.`;
         if (STATE.captureVideo) {
             STATE.captureVideo.srcObject = null;
         }
+        // Remove iframe wrapper (FB embed + minimize button).
+        const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+        if (wrapper) wrapper.remove();
         renderRealSnapChip();
         renderAutoModeChip();
     }
