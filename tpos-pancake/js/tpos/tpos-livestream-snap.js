@@ -33,7 +33,7 @@
     // Fallback pageId numeric → FB tự redirect, vẫn work nhưng URL xấu.
     const PAGE_VANITY = {
         117267091364524: 'NhiJudyHouse.VietNam', // Nhi Judy House
-        // '<pageId Store>': 'NhiJudyStore.x', — extend khi biết
+        270136663390370: 'NhiJudyStore', // NhiJudy Store
     };
     // Lookup vanity từ pageObj. Ưu tiên: explicit fields → mapping → null.
     function _resolvePageVanity(pageObj) {
