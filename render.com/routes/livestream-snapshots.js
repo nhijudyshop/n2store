@@ -127,16 +127,28 @@ async function _fetchFbThumbnail(liveVideoId) {
 }
 
 // Compute FB deep-link URL.
-// Format: https://www.facebook.com/{pageId}/videos/{liveVideoId}/?t={seconds}
-function _computeLivestreamUrl(pageId, liveVideoId, offsetSec) {
+// Format chuẩn: https://www.facebook.com/{pageSlugOrId}/videos/{videoId}/?t={seconds}
+//
+// QUAN TRỌNG: TPOS trả Facebook_LiveId dạng `{pageId}_{videoId}` (vd
+// "117267091364524_973749988973335"). URL FB chỉ cần phần videoId SAU dấu
+// `_`. Nếu để nguyên compound → URL `/videos/{pageId}_{videoId}` → FB 404.
+//
+// pageSlug ưu tiên: vanity username (vd "NhiJudyHouse.VietNam") đẹp hơn.
+// Fallback: pageId numeric — FB tự redirect về vanity.
+function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     if (!liveVideoId) return null;
-    const base = pageId
-        ? `https://www.facebook.com/${encodeURIComponent(pageId)}/videos/${encodeURIComponent(liveVideoId)}/`
-        : `https://www.facebook.com/watch/live/?v=${encodeURIComponent(liveVideoId)}`;
+    // Strip {pageId}_ prefix nếu liveVideoId compound.
+    let videoId = String(liveVideoId);
+    const m = videoId.match(/^\d+_(\d+)$/);
+    if (m) videoId = m[1];
+    const base = pageSlugOrId
+        ? `https://www.facebook.com/${encodeURIComponent(pageSlugOrId)}/videos/${encodeURIComponent(videoId)}/`
+        : `https://www.facebook.com/watch/live/?v=${encodeURIComponent(videoId)}`;
+    const qs = ['locale=vi_VN'];
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
-        return `${base}?t=${Math.floor(offsetSec)}`;
+        qs.push(`t=${Math.floor(offsetSec)}`);
     }
-    return base;
+    return `${base}?${qs.join('&')}`;
 }
 
 function _mapRow(row) {
@@ -182,7 +194,12 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
         }
         const capturedAt = Number(b.capturedAt) || Date.now();
         const offsetSec = Number.isFinite(b.offsetSeconds) ? Math.floor(b.offsetSeconds) : null;
-        const livestreamUrl = _computeLivestreamUrl(b.pageId, b.liveVideoId, offsetSec);
+        // Ưu tiên pageUsername (vanity) cho URL đẹp, fallback pageId numeric.
+        const livestreamUrl = _computeLivestreamUrl(
+            b.pageUsername || b.pageId,
+            b.liveVideoId,
+            offsetSec
+        );
         // Image source priority:
         //   1. b.imageBase64 (Phase 3 — frontend captured frame qua getDisplayMedia)
         //   2. Server-side fetch FB Graph thumbnail (default — user KHÔNG cần FB tab)

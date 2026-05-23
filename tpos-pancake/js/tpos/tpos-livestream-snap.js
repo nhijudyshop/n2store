@@ -29,6 +29,23 @@
     //            Ảnh lag 5-30s do FB CDN refresh.
     const MODE_LIVE = 'live';
     const MODE_LAZY = 'lazy';
+    // FB vanity URL mapping cho deep-link đẹp. Known từ user feedback.
+    // Fallback pageId numeric → FB tự redirect, vẫn work nhưng URL xấu.
+    const PAGE_VANITY = {
+        117267091364524: 'NhiJudyHouse.VietNam', // Nhi Judy House
+        // '<pageId Store>': 'NhiJudyStore.x', — extend khi biết
+    };
+    // Lookup vanity từ pageObj. Ưu tiên: explicit fields → mapping → null.
+    function _resolvePageVanity(pageObj) {
+        if (!pageObj) return null;
+        return (
+            pageObj.Facebook_UserName ||
+            pageObj.Username ||
+            pageObj.Vanity ||
+            PAGE_VANITY[pageObj.Facebook_PageId] ||
+            null
+        );
+    }
     const STATE = {
         counts: {}, // customerFbUserId → count
         cacheList: new Map(), // customerFbUserId → snapshots[]
@@ -456,6 +473,7 @@
                     customerName,
                     pageId: pageObj.Facebook_PageId,
                     pageName: pageObj.Name,
+                    pageUsername: _resolvePageVanity(pageObj),
                     liveCampaignId,
                     liveVideoId,
                     capturedAt: now,
