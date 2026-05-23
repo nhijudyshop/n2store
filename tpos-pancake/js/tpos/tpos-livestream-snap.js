@@ -114,6 +114,9 @@
     const STATE = {
         counts: {}, // customerFbUserId → count
         cacheList: new Map(), // customerFbUserId → snapshots[]
+        snapByComment: new Map(), // commentId → { thumbnailUrl, livestreamUrl, offsetSeconds, id }
+        snapByCommentPending: new Set(), // commentIds chờ fetch (debounce gom batch)
+        snapByCommentTimer: null,
         popoverOpen: null, // customerFbUserId
         // Phase 3 — persistent screen capture stream
         captureStream: null, // MediaStream
@@ -1113,6 +1116,110 @@ Throttle 30s/KH. Click để tắt.`;
     }
 
     // -----------------------------------------------------
+    // Inline thumbnail strip — hiển thị ảnh snapshot ngay dưới mỗi comment row
+    // -----------------------------------------------------
+    function _queueSnapByComment(commentId) {
+        if (!commentId || STATE.snapByComment.has(commentId)) return;
+        STATE.snapByCommentPending.add(commentId);
+        if (STATE.snapByCommentTimer) return;
+        // Debounce gom 300ms → 1 batch fetch tối đa 200 IDs.
+        STATE.snapByCommentTimer = setTimeout(_flushSnapByCommentBatch, 300);
+    }
+
+    async function _flushSnapByCommentBatch() {
+        STATE.snapByCommentTimer = null;
+        const ids = Array.from(STATE.snapByCommentPending);
+        STATE.snapByCommentPending.clear();
+        if (!ids.length) return;
+        // Chia chunks 100 IDs để tránh URL quá dài.
+        const chunks = [];
+        for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+        for (const chunk of chunks) {
+            try {
+                const r = await fetch(
+                    API +
+                        '/api/livestream/snapshots/by-comment-ids?commentIds=' +
+                        encodeURIComponent(chunk.join(',')),
+                    { credentials: 'omit' }
+                );
+                const d = await r.json();
+                const map = d.byCommentId || {};
+                for (const id of chunk) {
+                    // Lưu cả null để không re-fetch nếu comment không có snap.
+                    STATE.snapByComment.set(id, map[id] || null);
+                    _renderThumbStripFor(id);
+                }
+            } catch (e) {
+                console.warn('[snap] by-comment-ids fail:', e.message);
+            }
+        }
+    }
+
+    function _renderThumbStripFor(commentId) {
+        const row = document.querySelector(
+            `.tpos-conversation-item[data-comment-id="${CSS.escape(commentId)}"]`
+        );
+        if (!row) return;
+        const data = STATE.snapByComment.get(commentId);
+        let strip = row.querySelector('.tpos-snap-thumb-strip');
+        if (!data) {
+            // Không có snap → xóa strip nếu có (vd snap mới bị delete).
+            if (strip) strip.remove();
+            return;
+        }
+        const offsetText =
+            Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
+                ? `${Math.floor(data.offsetSeconds / 60)}m${data.offsetSeconds % 60}s`
+                : '?';
+        const thumbHtml = data.thumbnailUrl
+            ? `<img src="${_esc(data.thumbnailUrl)}" alt="" loading="lazy" style="width:80px;height:48px;object-fit:cover;border-radius:6px;background:#f1f5f9;flex-shrink:0;" onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />`
+            : `<div style="width:80px;height:48px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📷</div>`;
+        const stripHtml = `
+            <a href="${_esc(data.livestreamUrl || '#')}" target="_blank" rel="noopener"
+               class="tpos-snap-thumb-link"
+               title="Xem live tại giây ${data.offsetSeconds ?? '?'} (${offsetText})"
+               style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:#0c4a6e;">
+                ${thumbHtml}
+                <span style="font-size:11px;color:#475569;font-weight:500;">
+                    📍 Live @ <b>${offsetText}</b> — click để xem
+                </span>
+            </a>
+        `;
+        if (strip) {
+            strip.innerHTML = stripHtml;
+            return;
+        }
+        strip = document.createElement('div');
+        strip.className = 'tpos-snap-thumb-strip';
+        // Thụt vào trái ~52px để align với khu vực message (sau avatar).
+        strip.style.cssText =
+            'margin:6px 0 4px 52px;padding:4px 8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;';
+        strip.innerHTML = stripHtml;
+        strip.addEventListener('click', (e) => e.stopPropagation());
+        // Mount sau .tpos-conv-info (phone/address row), fallback append cuối.
+        const info = row.querySelector('.tpos-conv-info');
+        if (info) info.insertAdjacentElement('afterend', strip);
+        else row.appendChild(strip);
+    }
+
+    // Update strip cho mọi visible row của customerFbUserId — gọi sau auto-snap mới.
+    function _refreshThumbStripsForCustomer(customerFbUserId) {
+        document
+            .querySelectorAll(
+                `.tpos-conversation-item[data-customer-fb-id="${CSS.escape(customerFbUserId)}"], .tpos-conversation-item .tpos-snap-btn[data-customer-id="${CSS.escape(customerFbUserId)}"]`
+            )
+            .forEach((el) => {
+                const row = el.closest('.tpos-conversation-item');
+                if (!row) return;
+                const cid = row.dataset.commentId;
+                if (!cid) return;
+                // Invalidate + refetch
+                STATE.snapByComment.delete(cid);
+                _queueSnapByComment(cid);
+            });
+    }
+
+    // -----------------------------------------------------
     // Popover — list snapshots
     // -----------------------------------------------------
     async function togglePopover(customerFbUserId, customerName, anchor) {
@@ -1365,6 +1472,12 @@ Throttle 30s/KH. Click để tắt.`;
             badge.textContent = cached;
             btn.appendChild(badge);
         }
+        // Queue thumbnail strip lookup — render dưới row khi data về.
+        if (STATE.snapByComment.has(commentId)) {
+            _renderThumbStripFor(commentId);
+        } else {
+            _queueSnapByComment(commentId);
+        }
     }
 
     // -----------------------------------------------------
@@ -1469,6 +1582,8 @@ Throttle 30s/KH. Click để tắt.`;
             if (STATE.popoverOpen === customerFbUserId) {
                 _refreshPopoverContent(customerFbUserId);
             }
+            // Invalidate thumbnail strip cache → re-fetch để hiện ảnh mới.
+            _refreshThumbStripsForCustomer(customerFbUserId);
         });
     }
 

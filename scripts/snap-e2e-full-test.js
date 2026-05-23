@@ -417,6 +417,28 @@ function record(name, ok, detail) {
     });
     record('C16: Auto-mode ON → click camera = mở popover (no shift)', c16.ok, JSON.stringify(c16));
 
+    // Check 18: by-comment-ids endpoint trả thumbnail/livestreamUrl/offset đúng.
+    const c18 = await page.evaluate(
+        async ({ commentId, API: apiBase, expectedOffset }) => {
+            const r = await fetch(
+                `${apiBase}/api/livestream/snapshots/by-comment-ids?commentIds=${commentId}`,
+                { credentials: 'omit' }
+            );
+            const d = await r.json();
+            const entry = d.byCommentId?.[commentId];
+            return {
+                ok:
+                    !!entry &&
+                    entry.offsetSeconds === expectedOffset &&
+                    !!entry.thumbnailUrl &&
+                    entry.livestreamUrl?.includes(`t=${expectedOffset}`),
+                entry,
+            };
+        },
+        { commentId: fakeCommentId, API, expectedOffset }
+    );
+    record('C18: by-comment-ids batch lookup returns snap data', c18.ok, JSON.stringify(c18));
+
     // Check 17: Perf — load page mới, đo thời gian từ navigate → 4 chips mounted.
     // Mục tiêu < 8s (TPOS init + chips render).
     const perfStart = Date.now();

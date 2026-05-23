@@ -472,6 +472,46 @@ router.get('/snapshots/batch-counts', async (req, res) => {
     }
 });
 
+// GET /snapshots/by-comment-ids?commentIds=ID1,ID2,... — batch lookup snap theo commentId.
+// Trả về map { commentId: { id, thumbnailUrl, livestreamUrl, offsetSeconds, capturedAt } }.
+// Dùng cho inline thumbnail strip dưới mỗi comment row.
+router.get('/snapshots/by-comment-ids', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const idsRaw = String(req.query.commentIds || '').trim();
+        if (!idsRaw) return res.json({ success: true, byCommentId: {} });
+        const ids = idsRaw
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        if (!ids.length) return res.json({ success: true, byCommentId: {} });
+        // Limit max ids để tránh DoS (caller chia batch nhỏ).
+        const limited = ids.slice(0, 200);
+        const r = await pool.query(
+            `SELECT id, comment_id, thumbnail_url, livestream_url, offset_seconds, captured_at
+             FROM livestream_snapshots
+             WHERE comment_id = ANY($1::text[])`,
+            [limited]
+        );
+        const byCommentId = {};
+        for (const row of r.rows) {
+            // Nếu cùng comment_id có nhiều snap (edge case), giữ snap mới nhất.
+            const existing = byCommentId[row.comment_id];
+            if (existing && Number(existing.capturedAt) > Number(row.captured_at)) continue;
+            byCommentId[row.comment_id] = {
+                id: row.id,
+                thumbnailUrl: row.thumbnail_url,
+                livestreamUrl: row.livestream_url,
+                offsetSeconds: row.offset_seconds,
+                capturedAt: Number(row.captured_at),
+            };
+        }
+        res.json({ success: true, byCommentId });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // DELETE /snapshot/:id
 // POST /offline-batch — Feature 2: backfill snapshots cho list comments
 // Body: {
