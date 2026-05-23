@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `98dc943` — test(snap-e2e): mock getDisplayMedia + set tutorial flag pre-load
-**Last updated**: 2026-05-23 15:18:46 +07
-**Latest session**: [`RESUME:20260523-151846-98dc943`](../20260523-151846-98dc943.md)
-**Summary**: test(snap-e2e): mock getDisplayMedia + set tutorial flag pre-load
+**Latest commit**: `c822fa6` — feat(snap): button '📸 Chụp' cho comment không có bytea snap
+**Last updated**: 2026-05-23 15:31:24 +07
+**Latest session**: [`RESUME:20260523-153124-c822fa6`](../20260523-153124-c822fa6.md)
+**Summary**: feat(snap): button '📸 Chụp' cho comment không có bytea snap
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 3 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -52,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-23 14:36
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-23 15:18
+- [`scripts/`](./scripts.md) — updated 2026-05-23 15:31
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -62,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 15:18
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 15:31
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
