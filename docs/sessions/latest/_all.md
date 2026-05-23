@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2e11654` — feat(snap): Phase 3 (smart fill + SSE + DRM badge) + GMT+7 force
-**Last updated**: 2026-05-23 16:17:59 +07
-**Latest session**: [`RESUME:20260523-161759-2e11654`](../20260523-161759-2e11654.md)
-**Summary**: feat(snap): Phase 3 (smart fill + SSE + DRM badge) + GMT+7 force
+**Latest commit**: `7f510eb` — fix(snap): cleanup frontend refresh-thumbnail call + E2E updates
+**Last updated**: 2026-05-23 16:40:02 +07
+**Latest session**: [`RESUME:20260523-164002-7f510eb`](../20260523-164002-7f510eb.md)
+**Summary**: fix(snap): cleanup frontend refresh-thumbnail call + E2E updates
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
@@ -51,9 +51,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 16:18
+- [`render.com/`](./render.com.md) — updated 2026-05-23 16:40
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-23 16:18
+- [`scripts/`](./scripts.md) — updated 2026-05-23 16:40
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -63,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 16:18
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 16:40
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
