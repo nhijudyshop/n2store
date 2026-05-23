@@ -629,8 +629,15 @@ Throttle 30s/KH. Click để tắt.`;
         STATE.autoLastSnap.set(customerFbUserId, now);
         try {
             if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
-                // Path 1: real-frame capture từ FB tab đã share
-                await snap(customerFbUserId, customerName, commentId, null);
+                // Path 1: real-frame capture từ FB tab đã share.
+                // Pass comment.created_time để offset_seconds tính từ moment
+                // comment, không phải thời điểm capture frame.
+                const commentTimeMs = new Date(
+                    comment.created_time || comment.createdTime || Date.now()
+                ).getTime();
+                await snap(customerFbUserId, customerName, commentId, null, {
+                    commentTime: commentTimeMs,
+                });
             } else {
                 // Path 2: offline computed offset — không cần FB tab.
                 // commentTime ưu tiên từ comment.created_time (chính xác từ FB),
@@ -881,20 +888,39 @@ Throttle 30s/KH. Click để tắt.`;
     // -----------------------------------------------------
     // Snap action — POST /api/livestream/snapshot
     // -----------------------------------------------------
-    async function snap(customerFbUserId, customerName, commentId, sourceBtn) {
-        const pageObj = _resolvePageObj();
+    async function snap(customerFbUserId, customerName, commentId, sourceBtn, opts = {}) {
+        // Resolve page + campaign — ưu tiên từ comment đang xét (qua STATE.comments
+        // hoặc opts), fallback page pref (Store/House). Vì 1 button = 1 comment cụ
+        // thể, phải dùng đúng broadcastStart của video chứa comment đó.
+        const st = global.TposState;
+        const commentRef =
+            opts.comment || (commentId && st?.comments?.find((x) => x.id === commentId)) || null;
+        let camp = null;
+        let pageObj = null;
+        if (commentRef) {
+            camp = _resolveCampaignForComment(commentRef);
+            if (camp) {
+                pageObj =
+                    st?.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId) || null;
+            }
+        }
+        if (!pageObj) pageObj = _resolvePageObj();
         if (!pageObj) {
             _toast('Chưa chọn page — vào TPOS chọn page trước', 'err');
             return;
         }
-        const camp = _resolveActiveCampaign(pageObj);
+        if (!camp) camp = _resolveActiveCampaign(pageObj);
         if (!camp) {
             _toast(`Page "${pageObj.Name}" chưa có live campaign active`, 'err');
             return;
         }
         const liveVideoId = camp.Facebook_LiveId || null;
         const liveCampaignId = camp.Id ? String(camp.Id) : null;
-        const now = Date.now();
+        // capturedAt = thời điểm comment xảy ra (đại diện moment trong livestream).
+        // Ưu tiên opts.commentTime do caller truyền (= comment.created_time từ FB).
+        // Fallback Date.now() chỉ khi không có (vd snap thủ công không gắn comment).
+        const referenceMs =
+            opts.commentTime && Number.isFinite(opts.commentTime) ? opts.commentTime : Date.now();
         // Ưu tiên: TPOS livevideo channelCreatedTime (= FB broadcast_start_time
         // chính xác từ Graph API qua TPOS proxy, đã cache 5 phút per liveVideoId).
         // Fallback: campaign.DateCreated (gần đúng, có thể lệch vài phút).
@@ -920,7 +946,8 @@ Throttle 30s/KH. Click để tắt.`;
                 startSource = 'tpos-campaign(' + (camp.DateCreated ? 'DateCreated' : 'other') + ')';
             }
         }
-        const offsetSec = startMs && now > startMs ? Math.floor((now - startMs) / 1000) : null;
+        const offsetSec =
+            startMs && referenceMs > startMs ? Math.floor((referenceMs - startMs) / 1000) : null;
         console.log(
             '[snap] offset:',
             offsetSec,
@@ -983,7 +1010,7 @@ Throttle 30s/KH. Click để tắt.`;
                     pageUsername: _resolvePageVanity(pageObj),
                     liveCampaignId,
                     liveVideoId,
-                    capturedAt: now,
+                    capturedAt: referenceMs,
                     offsetSeconds: offsetSec,
                     // FB CDN signed URL từ TPOS livevideo (FB Graph picture endpoint
                     // trả 400 từ 05/2026). Cached qua _fetchLiveVideoInfo.
@@ -995,7 +1022,7 @@ Throttle 30s/KH. Click để tắt.`;
             });
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'snap failed');
-            const t = new Date(now).toLocaleTimeString('vi-VN', { hour12: false });
+            const t = new Date(referenceMs).toLocaleTimeString('vi-VN', { hour12: false });
             _toast(`📸 Đã chụp lúc ${t}${offsetSec ? ' (offset ' + offsetSec + 's)' : ''}`);
             // Invalidate cached list nếu đang mở popover
             STATE.cacheList.delete(customerFbUserId);
@@ -1260,16 +1287,27 @@ Throttle 30s/KH. Click để tắt.`;
         btn.type = 'button';
         btn.className = 'tpos-snap-btn';
         btn.dataset.customerId = customerFbUserId;
-        btn.title = `📸 Snap livestream cho KH ${customerName}\nClick: chụp ngay\nShift+click / right-click: xem list snapshots`;
+        btn.title = `📸 Snap livestream cho KH ${customerName}\nAuto mode ON: click → xem list snapshots (đã tự động chụp)\nAuto mode OFF: click → chụp ngay\nShift+click / right-click: luôn xem list`;
         btn.innerHTML = `<i data-lucide="camera" style="width:11px;height:11px;vertical-align:-1px;"></i>`;
         btn.style.cssText =
             'display:inline-flex;align-items:center;gap:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px;line-height:1;position:relative;';
         btn.onclick = (e) => {
             e.stopPropagation();
-            if (e.shiftKey) {
+            // Auto mode ON (default) → click → view popover (snap đã chạy tự động
+            // qua eventBus, không cần snap thủ công nữa). Shift / right-click vẫn
+            // luôn view list. Auto OFF → click → snap thủ công như cũ.
+            if (e.shiftKey || _isAutoMode()) {
                 togglePopover(customerFbUserId, customerName, btn);
             } else {
-                snap(customerFbUserId, customerName, commentId, btn);
+                const commentTime = c?.created_time
+                    ? new Date(c.created_time).getTime()
+                    : c?.createdTime
+                      ? Number(c.createdTime)
+                      : null;
+                snap(customerFbUserId, customerName, commentId, btn, {
+                    commentTime: commentTime && Number.isFinite(commentTime) ? commentTime : null,
+                    comment: c || undefined,
+                });
             }
         };
         // Right-click → show popover

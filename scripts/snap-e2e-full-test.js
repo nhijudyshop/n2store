@@ -308,6 +308,111 @@ function record(name, ok, detail) {
         consoleErrors.slice(0, 3).join(' | ')
     );
 
+    // Check 15: Manual snap (TposLivestreamSnap.snap call) uses comment time, not Date.now().
+    // Inject a PAST comment vào STATE.comments (offset 456s từ broadcastStart)
+    // → invoke TposLivestreamSnap.snap với { commentTime } → verify offset stored = 456.
+    const manualExpectedOffset = 456;
+    const manualCustomerFbUserId = `e2e_manual_${Date.now()}`;
+    const manualCommentId = `e2e_manual_c_${Date.now()}`;
+    const manualCommentTimeMs = broadcastStartMs + manualExpectedOffset * 1000;
+    const manualSnapResult = await page.evaluate(
+        async ({
+            customerFbUserId,
+            commentId,
+            commentTime,
+            customerName,
+            campaignId,
+            pageId,
+            API: apiBase,
+        }) => {
+            // Truyền cả comment để snap() resolve đúng campaign theo comment
+            // (giống click button thật: button gắn vào row có _campaignId/_pageId).
+            const fakeComment = {
+                id: commentId,
+                from: { id: customerFbUserId, name: customerName },
+                created_time: new Date(commentTime).toISOString(),
+                message: 'e2e manual',
+                _campaignId: campaignId,
+                _pageId: pageId,
+            };
+            await window.TposLivestreamSnap.snap(customerFbUserId, customerName, commentId, null, {
+                commentTime,
+                comment: fakeComment,
+            });
+            await new Promise((r) => setTimeout(r, 4000));
+            const r = await fetch(
+                `${apiBase}/api/livestream/snapshots?customerFbUserId=${customerFbUserId}`,
+                { credentials: 'omit' }
+            );
+            const j = await r.json();
+            return j.snapshots?.[0] || null;
+        },
+        {
+            customerFbUserId: manualCustomerFbUserId,
+            commentId: manualCommentId,
+            commentTime: manualCommentTimeMs,
+            customerName: 'E2E Manual KH',
+            campaignId: camp.id,
+            pageId: camp.pageId,
+            API,
+        }
+    );
+    record(
+        `C15: Manual snap uses commentTime → offset == ${manualExpectedOffset}`,
+        manualSnapResult?.offsetSeconds === manualExpectedOffset,
+        manualSnapResult
+            ? `actual=${manualSnapResult.offsetSeconds} id=${manualSnapResult.id}`
+            : 'no snap'
+    );
+    // Cleanup manual snap
+    if (manualSnapResult?.id) {
+        await page.evaluate(
+            async ({ id, API: apiBase }) => {
+                await fetch(`${apiBase}/api/livestream/snapshot/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'omit',
+                });
+            },
+            { id: manualSnapResult.id, API }
+        );
+    }
+
+    // Check 16: Auto-mode ON → normal click trên snap button → mở popover (không snap)
+    // Tìm 1 .tpos-snap-btn đang render trên page (sau khi comment list render xong).
+    const c16 = await page.evaluate(async () => {
+        const btn = document.querySelector('.tpos-snap-btn[data-customer-id]');
+        if (!btn) return { ok: false, reason: 'no snap button rendered' };
+        const auto = localStorage.getItem('tpos_snap_auto');
+        if (auto && auto !== 'on') return { ok: false, reason: 'auto-mode off' };
+        // Track snap POST → fail nếu auto-mode click vẫn trigger snap.
+        let snapTriggered = false;
+        const origFetch = window.fetch;
+        window.fetch = function (url, ...rest) {
+            if (
+                typeof url === 'string' &&
+                url.includes('/api/livestream/snapshot') &&
+                rest[0]?.method === 'POST' &&
+                !url.includes('refresh-thumbnail')
+            ) {
+                snapTriggered = true;
+            }
+            return origFetch.call(this, url, ...rest);
+        };
+        const before = document.querySelectorAll('.tpos-snap-popover').length;
+        btn.click(); // no shift
+        await new Promise((r) => setTimeout(r, 1500));
+        const after = document.querySelectorAll('.tpos-snap-popover').length;
+        window.fetch = origFetch;
+        return {
+            ok: after > before && !snapTriggered,
+            before,
+            after,
+            popoverOpened: after > before,
+            snapTriggered,
+        };
+    });
+    record('C16: Auto-mode ON → click camera = mở popover (no shift)', c16.ok, JSON.stringify(c16));
+
     // Cleanup
     await page.evaluate(
         async ({ id, API }) => {
