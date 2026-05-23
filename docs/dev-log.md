@@ -23,6 +23,47 @@
 
 ---
 
+## 2026-05-23
+
+### [tpos-pancake][livestream-snapshots] feat: Livestream Snapshot per Customer (📸 button + popover)
+
+**Use case**: comment livestream nhiều quá user xử lý không kịp → cần freeze moment livestream lúc KH bình luận để review sau khi rảnh → xác định SP rồi drag vào cart.
+
+**Phase 1 + 2 shipped** (commit `e015ee36d`):
+
+**Backend** (`render.com/routes/livestream-snapshots.js` new):
+
+- Table `livestream_snapshots` (id, customer_fb_user_id, page_id, live_video_id, captured_at, offset_seconds, livestream_url, thumbnail_url, captured_by, ...)
+- Endpoints: POST `/api/livestream/snapshot`, GET `/snapshots?customerFbUserId=...`, GET `/snapshots/batch-counts`, DELETE `/snapshot/:id`
+- `livestream_url` = `https://fb.com/{pageId}/videos/{liveVideoId}/?t={offsetSec}` — FB deep-link replay
+- `thumbnail_url` = `https://graph.facebook.com/{liveVideoId}/picture?type=large` — FB public, không cần token
+- SSE topic `web2:livestream-snapshots`
+
+**Frontend** (`tpos-pancake/js/tpos/tpos-livestream-snap.js` new):
+
+- Header chip "📡 Snap live: Store ▼" — toggle Store/House, default Store, localStorage `tpos_snap_live_page`
+- Mỗi `.tpos-conversation-item` auto-inject 📸 button qua MutationObserver
+- Click 📸 → resolve liveCampaign từ `TposState.liveCampaigns` → POST snapshot, optimistic counter + toast confirm
+- Shift+click / right-click 📸 → popover list snapshots với thumbnail + thời gian + nút "▶ Xem" (FB deep-link new tab) + nút "Xóa"
+- Badge count đỏ trên button (📸³)
+- Snap-flash animation: scale(1.25) + glow vàng 400ms
+
+**Per-customer**: 1 KH có nhiều comment trong cùng live → share snap list theo `customer_fb_user_id`.
+
+**Backend smoke verified live**:
+
+- POST `/api/livestream/snapshot` → tạo OK, trả livestreamUrl + thumbnailUrl đúng format
+- GET list + batch-counts: OK
+- DELETE: OK
+
+**Phase 3** (real screenshot via getDisplayMedia) defer — chỉ làm nếu user cần snap chính xác moment thay vì FB Graph thumbnail.
+
+**Files**: `render.com/routes/livestream-snapshots.js`, `render.com/server.js`, `tpos-pancake/js/tpos/tpos-livestream-snap.js`, `tpos-pancake/index.html`, `tpos-pancake/css/tpos/tpos-comments.css`
+
+**Status**: ✅ Done
+
+---
+
 ## 2026-05-22
 
 ### [fast-sale-orders] Fix cancel PBH: sync ngược native_order về 'cancelled' (thiếu source_code SELECT)
