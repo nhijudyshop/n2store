@@ -720,6 +720,47 @@ router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res)
     }
 });
 
+// GET /extract-diag — chẩn đoán deps + thử extract sample.
+router.get('/extract-diag', async (req, res) => {
+    const out = { ffmpegStatic: null, ytdlp: null, error: null };
+    try {
+        try {
+            out.ffmpegStatic = require('ffmpeg-static');
+        } catch (e) {
+            out.ffmpegStaticError = e.message;
+        }
+        try {
+            const ytdlp = require('youtube-dl-exec');
+            out.ytdlpLoaded = !!ytdlp;
+            // Try a simple version check
+            try {
+                const ver = await ytdlp(null, { version: true });
+                out.ytdlpVersion = String(ver).slice(0, 200);
+            } catch (e2) {
+                out.ytdlpVersionError = String(e2.message || e2).slice(0, 500);
+            }
+        } catch (e) {
+            out.ytdlpError = e.message;
+        }
+        // Check ffmpeg executable
+        if (out.ffmpegStatic) {
+            try {
+                const { execFileSync } = require('child_process');
+                const ver = execFileSync(out.ffmpegStatic, ['-version'], {
+                    encoding: 'utf8',
+                    timeout: 5000,
+                });
+                out.ffmpegVersion = ver.split('\n')[0];
+            } catch (e) {
+                out.ffmpegExecError = String(e.message || e).slice(0, 500);
+            }
+        }
+    } catch (e) {
+        out.error = e.message;
+    }
+    res.json(out);
+});
+
 // GET /extract-status?batchId=X
 router.get('/extract-status', (req, res) => {
     const batchId = String(req.query.batchId || '');

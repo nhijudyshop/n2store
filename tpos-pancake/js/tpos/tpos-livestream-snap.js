@@ -759,6 +759,9 @@ Throttle 30s/KH. Click để tắt.`;
                 });
             }
             STATE.autoStats.total++;
+            // Visible feedback: toast khi auto-snap thành công + auto-trigger
+            // backend extract-frame (path 2) để fill bytea trong background.
+            _toast(`🤖 Auto-snap: ${customerName}`, 'ok');
         } catch (e) {
             STATE.autoStats.errors++;
             console.warn('[snap-auto] fail:', e.message);
@@ -826,6 +829,18 @@ Throttle 30s/KH. Click để tắt.`;
         if (d.summary?.created > 0) {
             STATE.counts[customerFbUserId] = (STATE.counts[customerFbUserId] || 0) + 1;
             _renderBadgeFor(customerFbUserId);
+        }
+        // Auto-trigger backend extract-frame cho snap vừa tạo (path 2:
+        // yt-dlp + ffmpeg lấy frame thật) — fire-and-forget. SSE 'extract-done'
+        // sẽ refresh thumb khi xong.
+        const newSnapId = d.created?.[0]?.snapshotId;
+        if (newSnapId) {
+            fetch(API + '/api/livestream/extract-frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify({ snapshotIds: [Number(newSnapId)] }),
+            }).catch(() => {});
         }
         return d;
     }
