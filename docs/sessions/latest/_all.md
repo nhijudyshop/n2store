@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f23eeff` — feat(native-orders): lock edit khi status='confirmed' (đã tạo PBH) + bỏ merge confirmed
-**Last updated**: 2026-05-23 08:26:40 +07
-**Latest session**: [`RESUME:20260523-082640-f23eeff`](../20260523-082640-f23eeff.md)
-**Summary**: feat(native-orders): lock edit khi status='confirmed' (đã tạo PBH) + bỏ merge confirmed
+**Latest commit**: `c58df73` — feat(native-orders): ghi chú từng SP (note inline) — sửa được kể cả khi đã PBH
+**Last updated**: 2026-05-23 08:34:04 +07
+**Latest session**: [`RESUME:20260523-083404-c58df73`](../20260523-083404-c58df73.md)
+**Summary**: feat(native-orders): ghi chú từng SP (note inline) — sửa được kể cả khi đã PBH
 
 ## Folders affected in this commit
 
 - [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:26
+- [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
