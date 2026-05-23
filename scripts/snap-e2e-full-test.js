@@ -212,10 +212,13 @@ function record(name, ok, detail) {
     // Check 7: thumbnailUrl từ FB CDN (not Graph)
     const isFbCdn = snap.thumbnailUrl?.includes('scontent') || snap.thumbnailUrl?.includes('fbcdn');
     const isGraph = snap.thumbnailUrl?.includes('graph.facebook.com');
+    // Auto-snap path 2 KHÔNG lưu URL generic nữa (user req 2026-05-23). Accept
+    // null thumbnailUrl OR FB CDN (legacy). Cấm Graph URL (đã chết 400).
+    const okC7 = (snap.thumbnailUrl == null && !isGraph) || (isFbCdn && !isGraph);
     record(
-        'C7: thumbnailUrl từ FB CDN (not Graph 400)',
-        isFbCdn && !isGraph,
-        snap.thumbnailUrl?.slice(0, 80)
+        'C7: thumbnailUrl null hoặc FB CDN (not Graph 400)',
+        okC7,
+        snap.thumbnailUrl?.slice(0, 80) || 'null'
     );
 
     // Check 8: livestreamUrl vanity (no encoded chars)
@@ -236,16 +239,21 @@ function record(name, ok, detail) {
         snap.livestreamUrl?.includes('locale=vi_VN');
     record('C9: livestreamUrl có ?t=offset & locale', urlOk, '');
 
-    // Check 10: Thumbnail HEAD fetch OK (browser can load)
-    const thumbStatus = await page.evaluate(async (url) => {
-        try {
-            const r = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-            return { ok: true, type: r.type };
-        } catch (e) {
-            return { ok: false, err: e.message };
-        }
-    }, snap.thumbnailUrl);
-    record('C10: Thumbnail URL loadable from browser', thumbStatus.ok, JSON.stringify(thumbStatus));
+    // Check 10: Thumbnail HEAD fetch OK (skip nếu null — auto-snap không lưu URL)
+    let thumbStatus;
+    if (snap.thumbnailUrl) {
+        thumbStatus = await page.evaluate(async (url) => {
+            try {
+                const r = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+                return { ok: true, type: r.type };
+            } catch (e) {
+                return { ok: false, err: e.message };
+            }
+        }, snap.thumbnailUrl);
+    } else {
+        thumbStatus = { ok: true, skipped: 'no URL — auto-snap không lưu generic' };
+    }
+    record('C10: Thumbnail URL loadable hoặc null', thumbStatus.ok, JSON.stringify(thumbStatus));
 
     // Check 11: Refresh-thumbnail endpoint với TPOS URL
     const refreshResp = await page.evaluate(

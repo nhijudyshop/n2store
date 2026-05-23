@@ -201,6 +201,36 @@
         return matching[0] || st.liveCampaigns[0] || null;
     }
 
+    // Tìm campaign đang LIVE (statusLive=1). Ưu tiên: matching pref page > most recent.
+    // Dùng cho 1-click "🎬 Bắt đầu chụp live" — auto chọn live đang chạy.
+    function _findActiveLiveCampaign() {
+        const st = global.TposState;
+        if (!st?.liveCampaigns?.length) return null;
+        // Sort by DateCreated desc → live mới nhất trước.
+        const sorted = [...st.liveCampaigns].sort(
+            (a, b) => new Date(b.DateCreated || 0) - new Date(a.DateCreated || 0)
+        );
+        // Ưu tiên live của page pref (Store/House).
+        const pref = _getSnapPagePref();
+        const prefMatch = sorted.find((c) => {
+            const pageObj = st.allPages?.find((p) => p.Facebook_PageId === c.Facebook_UserId);
+            if (!pageObj) return false;
+            const n = (pageObj.Name || '').toLowerCase();
+            return pref === 'house' ? n.includes('house') : n.includes('store');
+        });
+        return prefMatch || sorted[0] || null;
+    }
+
+    // Build URL FB live page video — dùng vanity slug nếu có.
+    function _buildFbLiveUrl(camp) {
+        if (!camp?.Facebook_LiveId) return null;
+        const st = global.TposState;
+        const pageObj = st?.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId);
+        const slug = _resolvePageVanity(pageObj) || camp.Facebook_UserId;
+        const videoIdShort = String(camp.Facebook_LiveId).replace(/^\d+_/, '');
+        return `https://www.facebook.com/${slug}/videos/${videoIdShort}/`;
+    }
+
     // Resolve TOP-2 latest campaigns across ALL pages (user req 2026-05-23).
     // Cho auto-snap: nếu comment đến từ comment.from.id thuộc page A,
     // match campaign của page A trong top 2. Fallback campaign top 1.
@@ -347,19 +377,45 @@
         // Click chip = đổi mode (NOT toggle stream). Stream tự bật khi user
         // click 📸 trong mode='live' (lazy initialization, OS picker chỉ hiện
         // khi cần thật sự).
-        chip.addEventListener('click', () => {
-            const next = _getSnapMode() === MODE_LIVE ? MODE_LAZY : MODE_LIVE;
-            _setSnapMode(next);
-            // Nếu chuyển sang lazy → tắt stream cũ
-            if (next === MODE_LAZY && STATE.captureStream) {
+        chip.addEventListener('click', async () => {
+            // Click 🎬 = 1-click toggle linked stream:
+            //   • Đang share → stop (mode về LAZY).
+            //   • Chưa share → tự mở FB live tab + 3s sau prompt share → stream
+            //     + buffer running → mọi auto-snap dùng frame thật.
+            if (STATE.captureStream) {
                 stopRealSnap();
+                _setSnapMode(MODE_LAZY);
+                _toast('⏱️ Đã ngắt share — auto-snap dùng URL generic', 'ok');
+                return;
             }
-            _toast(
-                next === MODE_LIVE
-                    ? '🎬 Đã đổi sang Chụp Live (lần đầu bấm 📸 sẽ hỏi tab FB)'
-                    : '⏱️ Đã đổi sang Lưu Time (không cần FB tab)',
-                'ok'
-            );
+            _setSnapMode(MODE_LIVE);
+            // Tìm live đang active để mở đúng URL.
+            const camp = _findActiveLiveCampaign();
+            if (camp) {
+                const fbUrl = _buildFbLiveUrl(camp);
+                if (fbUrl) {
+                    try {
+                        window.open(fbUrl, '_blank');
+                        _toast(
+                            '📺 FB live đã mở — chọn tab vừa mở khi browser hỏi share (sau 3s)',
+                            'ok'
+                        );
+                        // Cho FB load + seek 3s trước khi prompt picker để user
+                        // không bị overlay 2 dialog.
+                        await new Promise((r) => setTimeout(r, 3000));
+                    } catch (e) {
+                        console.warn('[snap-real] window.open fail:', e.message);
+                    }
+                }
+            } else {
+                _toast('🎬 Không tìm thấy live đang chạy — chọn tab FB live trong picker', 'ok');
+            }
+            try {
+                await ensureCaptureStream();
+                _toast('✅ Stream linked — auto-snap dùng frame thật từ buffer', 'ok');
+            } catch (e) {
+                console.log('[snap-real] share denied:', e?.message);
+            }
         });
         host.appendChild(chip);
         renderRealSnapChip();
@@ -369,34 +425,28 @@
     function renderRealSnapChip() {
         const chip = document.getElementById('tpos-snap-real-chip');
         if (!chip) return;
-        const mode = _getSnapMode();
         const streamReady = !!STATE.captureStream;
-        if (mode === MODE_LIVE) {
-            if (streamReady) {
-                chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Mode: <strong>🎬 Chụp Live</strong> · sẵn sàng`;
-                chip.style.background = '#fee2e2';
-                chip.style.borderColor = '#fca5a5';
-                chip.style.color = '#991b1b';
-                chip.title =
-                    'Click bấm 📸 sẽ chụp ảnh thật từ FB live tab. Click chip để đổi sang ⏱️ Lưu Time mode.';
-            } else {
-                chip.innerHTML = `🎬 Mode: <strong>Chụp Live</strong> · click bấm 📸 sẽ hỏi chọn FB tab`;
-                chip.style.background = '#fef3c7';
-                chip.style.borderColor = '#fcd34d';
-                chip.style.color = '#92400e';
-                chip.title =
-                    'Mode Chụp Live: cần mở thêm 1 tab FB live + chọn tab khi browser hỏi. Ảnh exact moment, 1280x720. Click chip để đổi sang ⏱️ Lưu Time.';
-            }
+        const bufSize = STATE.frameBuffer?.length || 0;
+        if (streamReady) {
+            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> 🎬 LIVE linked · ${bufSize} frames`;
+            chip.style.background = '#fee2e2';
+            chip.style.borderColor = '#fca5a5';
+            chip.style.color = '#991b1b';
+            chip.title = `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
+Click chip để NGẮT stream.`;
         } else {
-            // MODE_LAZY
-            chip.innerHTML = `⏱️ Mode: <strong>Lưu Time</strong> · click chip đổi sang Chụp Live`;
-            chip.style.background = '#dbeafe';
-            chip.style.borderColor = '#93c5fd';
-            chip.style.color = '#1e40af';
-            chip.title =
-                'Mode Lưu Time: chỉ lưu thời gian, không chụp ảnh. Mở popover sẽ tự fetch FB Graph thumb (lag 5-30s). Không cần mở FB tab. Click để đổi sang 🎬 Chụp Live.';
+            chip.innerHTML = `🎬 Bắt đầu chụp live · click 1 cái mở FB + share`;
+            chip.style.background = '#fef3c7';
+            chip.style.borderColor = '#fcd34d';
+            chip.style.color = '#92400e';
+            chip.title = `Click: tự mở tab FB live + 3s sau prompt share. Sau khi share, frame buffer chạy → mọi auto-snap dùng frame thật. Không cần làm gì thêm.`;
         }
     }
+
+    // Update buffer count trong chip mỗi 5s khi stream active.
+    setInterval(() => {
+        if (STATE.captureStream) renderRealSnapChip();
+    }, 5000);
 
     // -----------------------------------------------------
     // Auto-mode chip — khi mới có comment, tự động snap
