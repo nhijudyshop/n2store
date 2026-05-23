@@ -393,6 +393,10 @@ router.get('/usage', async (req, res) => {
         if (!codes.length) return res.json({ success: true, usage: {} });
 
         // Đơn cancelled bỏ qua — user không cần biết. STT lớn nhất trước (mới).
+        // COALESCE 'productCode' vs 'code' vì products[] có 2 shape khác nhau:
+        //   - cart (v2/cart.js refactor): {code, name, quantity, qty, price, ...}
+        //   - native-orders modal saveEdit: {productCode, name, quantity, price, ...}
+        // Read cả 2 + đọc cả `quantity` lẫn `qty` cho qty (cùng lý do back-compat).
         const sql = `
             SELECT
                 n.code           AS order_code,
@@ -405,13 +409,13 @@ router.get('/usage', async (req, res) => {
                 n.live_campaign_name AS campaign_name,
                 n.fb_post_id     AS fb_post_id,
                 n.created_at     AS created_at,
-                prod->>'productCode' AS product_code,
-                COALESCE((prod->>'quantity')::int, 1) AS qty,
+                COALESCE(prod->>'productCode', prod->>'code') AS product_code,
+                COALESCE((prod->>'quantity')::int, (prod->>'qty')::int, 1) AS qty,
                 COALESCE((prod->>'price')::bigint, 0) AS unit_price,
                 (prod->>'addedAt')::bigint AS added_at
             FROM native_orders n,
                  jsonb_array_elements(n.products) prod
-            WHERE prod->>'productCode' = ANY($1::text[])
+            WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
               AND n.status != 'cancelled'
             ORDER BY n.display_stt DESC NULLS LAST, prod->>'addedAt' DESC NULLS LAST
         `;

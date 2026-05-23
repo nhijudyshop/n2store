@@ -130,9 +130,12 @@ function _totalsOf(products) {
 // Build product object cho native_orders.products[].
 // Ghi CẢ `quantity` lẫn `qty` để vừa khớp native-orders modal (quantity) vừa
 // khớp legacy PBH/sync code (qty). Khi đọc luôn dùng _qtyOf().
+// Ghi CẢ `code` lẫn `productCode` để products /usage SQL + saveEdit modal khớp
+// (modal trước viết `productCode`, cart cũ viết `code`).
 function _buildProduct(input, qty, user) {
     return {
         code: input.code,
+        productCode: input.code, // alias cho native-orders modal compat
         name: input.name || null,
         imageUrl: input.imageUrl || input.image_url || null,
         price: Number(input.price) || 0,
@@ -288,9 +291,11 @@ router.post('/:commentId/add', async (req, res) => {
             return res.status(500).json({ success: false, error: 'failed to obtain draft order' });
         }
 
-        // 2. Merge SP vào products (qty++ nếu trùng code)
+        // 2. Merge SP vào products (qty++ nếu trùng code). Match cả 'code' lẫn
+        // 'productCode' vì products[] cũ có thể chỉ có productCode (từ modal).
         const products = Array.isArray(draft.products) ? [...draft.products] : [];
-        const idx = products.findIndex((x) => x.code === p.code);
+        const codeOf = (x) => x?.code || x?.productCode || null;
+        const idx = products.findIndex((x) => codeOf(x) === p.code);
         let qtyBefore = 0;
         let qtyAfter;
         if (idx >= 0) {
@@ -298,6 +303,8 @@ router.post('/:commentId/add', async (req, res) => {
             qtyAfter = qtyBefore + qtyAdd;
             products[idx] = {
                 ...products[idx],
+                code: products[idx].code || p.code,
+                productCode: products[idx].productCode || p.code,
                 name: products[idx].name || p.name || null,
                 imageUrl: products[idx].imageUrl || p.imageUrl || p.image_url || null,
                 price: Number(p.price) || products[idx].price || 0,
@@ -361,9 +368,9 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
         const draft = await _findDraft(pool, customerId);
         if (!draft) return res.json({ success: true, alreadyRemoved: true });
         const products = Array.isArray(draft.products) ? draft.products : [];
-        const removed = products.find((p) => p.code === productCode);
+        const removed = products.find((p) => (p.code || p.productCode) === productCode);
         if (!removed) return res.json({ success: true, alreadyRemoved: true });
-        const newProducts = products.filter((p) => p.code !== productCode);
+        const newProducts = products.filter((p) => (p.code || p.productCode) !== productCode);
 
         let nativeOrderCode = draft.code;
         let nativeDeleted = false;
@@ -466,7 +473,7 @@ router.patch('/:commentId/:productCode', async (req, res) => {
         const draft = await _findDraft(pool, customerId);
         if (!draft) return res.status(404).json({ success: false, error: 'no draft order' });
         const products = Array.isArray(draft.products) ? [...draft.products] : [];
-        const idx = products.findIndex((p) => p.code === productCode);
+        const idx = products.findIndex((p) => (p.code || p.productCode) === productCode);
         if (idx < 0) return res.status(404).json({ success: false, error: 'product not in cart' });
         const qtyBefore = _qtyOf(products[idx]);
         products[idx] = {

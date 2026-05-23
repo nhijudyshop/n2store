@@ -1161,6 +1161,9 @@ router.post('/from-native-order', async (req, res) => {
             Array.isArray(b.orderLines) && b.orderLines.length > 0
                 ? b.orderLines
                 : src.products || [];
+        // Back-compat: native_orders.products[] có thể có 2 shape khác nhau
+        // (cart v2 ghi 'code'+'qty', modal saveEdit ghi 'productCode'+'quantity').
+        // COALESCE cả 2 fallback chain.
         const lines = sourceLines.map((p, idx) => ({
             position: idx + 1,
             productId: p.productId || p.product_id || null,
@@ -1168,7 +1171,7 @@ router.post('/from-native-order', async (req, res) => {
             productName: p.productName || p.product_name || p.name || null,
             uomId: p.uomId || p.uom_id || null,
             uomName: p.uomName || p.uom_name || null,
-            quantity: Number(p.quantity || 0),
+            quantity: Number(p.quantity || p.qty || 0),
             priceUnit: Number(p.priceUnit ?? p.price ?? 0),
             discount: Number(p.discount || 0),
             discountAmount: Number(p.discountAmount || p.discount_amount || 0),
