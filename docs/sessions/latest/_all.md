@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5e5ec53` — fix(web2/products SSE): tách \_sseReloadTimer + \_sseUsageTimer riêng
-**Last updated**: 2026-05-23 09:04:49 +07
-**Latest session**: [`RESUME:20260523-090449-5e5ec53`](../20260523-090449-5e5ec53.md)
-**Summary**: fix(web2/products SSE): tách \_sseReloadTimer + \_sseUsageTimer riêng
+**Latest commit**: `9807454` — docs(dev-log): livestream snapshot feature (phase 1+2) + backend smoke verified
+**Last updated**: 2026-05-23 09:26:14 +07
+**Latest session**: [`RESUME:20260523-092614-9807454`](../20260523-092614-9807454.md)
+**Summary**: docs(dev-log): livestream snapshot feature (phase 1+2) + backend smoke verified
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:52
-- [`docs/`](./docs.md) — updated 2026-05-22 19:44
+- [`docs/`](./docs.md) — updated 2026-05-23 09:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-22 19:29
@@ -50,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 08:49
+- [`render.com/`](./render.com.md) — updated 2026-05-23 09:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-23 09:04
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-22 19:29
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 09:26
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04

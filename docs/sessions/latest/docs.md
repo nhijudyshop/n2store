@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260522-194441-be76373`
-**Session file**: [`./20260522-194441-be76373.md`](../20260522-194441-be76373.md)
-**Commit**: `be76373` — docs(dev-log): fix cancel PBH source_code SELECT + 2-tab realtime verified
-**Last updated**: 2026-05-22 19:44:41 +07
-**Summary**: docs(dev-log): fix cancel PBH source_code SELECT + 2-tab realtime verified
+**Latest session**: `RESUME:20260523-092614-9807454`
+**Session file**: [`./20260523-092614-9807454.md`](../20260523-092614-9807454.md)
+**Commit**: `9807454` — docs(dev-log): livestream snapshot feature (phase 1+2) + backend smoke verified
+**Last updated**: 2026-05-23 09:26:14 +07
+**Summary**: docs(dev-log): livestream snapshot feature (phase 1+2) + backend smoke verified
 
 ## Files changed in this commit (`docs/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
-- `be7637306` docs(dev-log): fix cancel PBH source*code SELECT + 2-tab realtime verified *(2026-05-22)\_
-- `1904356c0` chore(session): RESUME:20260522-192933-bdf9cde _(2026-05-22)_
-- `d4bbc8312` docs(dev-log): refactor 1-nguồn native*orders.products + browser test PASS *(2026-05-22)\_
-- `6634ddb46` chore(session): RESUME:20260522-190327-0e97c62 _(2026-05-22)_
-- `0e97c62e6` docs(dev-log): note fix #3 + verified browser test full flow drag/multi/clear/PBH _(2026-05-22)_
+- `9807454d4` docs(dev-log): livestream snapshot feature (phase 1+2) + backend smoke verified _(2026-05-23)_
+- `bd896f809` chore(session): RESUME:20260523-090449-5e5ec53 _(2026-05-23)_
+- `db2c2eae7` chore(session): RESUME:20260523-084909-3276a05 _(2026-05-23)_
+- `4ef6c05de` chore(session): RESUME:20260523-083404-c58df73 _(2026-05-23)_
+- `b203c465a` chore(session): RESUME:20260523-082640-f23eeff _(2026-05-23)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260522-194441-be76373` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260523-092614-9807454` cho Claude walk chain theo CLAUDE.md protocol.
