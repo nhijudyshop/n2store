@@ -108,15 +108,27 @@
     // -----------------------------------------------------
     // Header chip — Snap page selector
     // -----------------------------------------------------
+    // Find/create a floating host container ở góc trên tpos-pancake page khi
+    // không có header thật để mount chip. Cách này đảm bảo chip luôn hiển thị.
+    function _ensureFloatingHost() {
+        let host = document.getElementById('tpos-snap-floating-host');
+        if (host) return host;
+        host = document.createElement('div');
+        host.id = 'tpos-snap-floating-host';
+        host.style.cssText =
+            'position:fixed;top:8px;right:8px;z-index:1000;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,0.95);padding:4px 6px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.12);';
+        document.body.appendChild(host);
+        return host;
+    }
     function ensureHeaderChip() {
         let chip = document.getElementById('tpos-snap-page-chip');
         if (chip) return chip;
-        // Try mount in TPOS header area
+        // Try mount in TPOS header area; fallback floating host (always visible).
         const host =
             document.querySelector('.tpos-header-bar') ||
             document.querySelector('.tpos-toolbar') ||
             document.querySelector('#tposCommentHeader') ||
-            document.querySelector('#tposContent');
+            _ensureFloatingHost();
         if (!host) return null;
         chip = document.createElement('div');
         chip.id = 'tpos-snap-page-chip';
@@ -155,7 +167,7 @@
             document.querySelector('.tpos-header-bar') ||
             document.querySelector('.tpos-toolbar') ||
             document.querySelector('#tposCommentHeader') ||
-            document.querySelector('#tposContent');
+            _ensureFloatingHost();
         if (!host) return null;
         chip = document.createElement('div');
         chip.id = 'tpos-snap-real-chip';
@@ -702,22 +714,28 @@
     function setupObserver() {
         const target = document.body;
         const obs = new MutationObserver((muts) => {
-            let dirty = false;
+            // 2-tier strategy:
+            //   1. Inject snap button IMMEDIATELY cho row mới (đồng bộ, no debounce).
+            //      Tránh "nhấp nháy" khi TPOS re-render comment list lúc init.
+            //   2. Debounce refresh counts (network call) 250ms — gom nhiều render.
+            let newRows = [];
             for (const m of muts) {
                 for (const n of m.addedNodes) {
                     if (n.nodeType !== 1) continue;
-                    if (
-                        n.matches?.('.tpos-conversation-item') ||
-                        n.querySelector?.('.tpos-conversation-item')
-                    ) {
-                        dirty = true;
+                    if (n.matches?.('.tpos-conversation-item')) {
+                        newRows.push(n);
+                    } else if (n.querySelector) {
+                        const inner = n.querySelectorAll('.tpos-conversation-item');
+                        if (inner.length) newRows.push(...inner);
                     }
                 }
             }
-            if (dirty) {
+            if (newRows.length) {
+                // Inject NGAY cho từng row mới — no debounce → no flicker
+                newRows.forEach(injectSnapButton);
+                // Debounce refresh counts (network)
                 clearTimeout(setupObserver._t);
                 setupObserver._t = setTimeout(() => {
-                    injectSnapButtonsAll();
                     refreshCounts();
                 }, 250);
             }
@@ -746,11 +764,29 @@
     // Init
     // -----------------------------------------------------
     function init() {
-        ensureHeaderChip();
-        ensureRealSnapChip();
         setupObserver();
         subscribeSSE();
-        // Initial inject + count fetch (delay để TPOS render trước)
+        // Retry mount chip 10s — TPOS header (#tposContent / .tpos-header-bar)
+        // có thể chưa render tại DOMContentLoaded. Retry interval 500ms tới khi
+        // host appears, max 20 attempts.
+        let attempts = 0;
+        const mountTimer = setInterval(() => {
+            attempts++;
+            const c1 = ensureHeaderChip();
+            const c2 = ensureRealSnapChip();
+            if ((c1 && c2) || attempts >= 20) {
+                clearInterval(mountTimer);
+                if (c1 && c2) {
+                    console.log('[snap] header chips mounted after', attempts, 'attempts');
+                } else {
+                    console.warn('[snap] header chips mount failed after 20 attempts');
+                }
+            }
+        }, 500);
+        // Initial inject ngay cho rows hiện có (nếu TPOS đã render trước script).
+        // Observer sẽ handle rows mới sau đó. Refresh counts sau 1.5s để cho TPOS
+        // populate comments rồi mới fetch.
+        injectSnapButtonsAll();
         setTimeout(() => {
             injectSnapButtonsAll();
             refreshCounts();
