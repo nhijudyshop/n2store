@@ -988,7 +988,15 @@
     //   - Event 'create' / 'delete' / không code → full load (cần ảnh hưởng total).
     //   - fast-sale-orders / native-orders → chỉ ảnh hưởng badge "ĐANG DÙNG" →
     //     gọi _loadUsageForCurrentPage() (cell-level update, không nháy bảng).
+    // ⚠ Cần 2 timer RIÊNG biệt — KHÔNG share giữa fullLoad vs refreshUsageOnly.
+    // Khi PBH tạo, server fire 3 topics liên tiếp:
+    //   web2:native-orders status-bumped → muốn refreshUsageOnly
+    //   web2:products pbh-stock-deduct  → muốn debouncedFullLoad (stock thay đổi)
+    //   web2:fast-sale-orders from-native-order → muốn refreshUsageOnly
+    // Nếu share timer → web2:fast-sale-orders event đến SAU sẽ clearTimeout của
+    // debouncedFullLoad → stock cell không update, chỉ usage update.
     let _sseReloadTimer = null;
+    let _sseUsageTimer = null;
     function _setupSse() {
         if (!window.Web2SSE?.subscribe) return;
 
@@ -1023,10 +1031,11 @@
 
         // Topic fast-sale-orders / native-orders → chỉ ảnh hưởng cell "ĐANG DÙNG"
         // → refresh usage map mà không re-render bảng (cell-level update in-place).
+        // Dùng _sseUsageTimer RIÊNG, KHÔNG share với _sseReloadTimer của fullLoad.
         const refreshUsageOnly = () => {
-            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
-            _sseReloadTimer = setTimeout(() => {
-                _sseReloadTimer = null;
+            if (_sseUsageTimer) clearTimeout(_sseUsageTimer);
+            _sseUsageTimer = setTimeout(() => {
+                _sseUsageTimer = null;
                 _loadUsageForCurrentPage();
             }, 600);
         };
