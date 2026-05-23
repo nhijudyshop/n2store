@@ -1195,9 +1195,10 @@ Throttle 30s/KH. Click để tắt.`;
         const ids = Array.from(STATE.snapByCommentPending);
         STATE.snapByCommentPending.clear();
         if (!ids.length) return;
-        // Chia chunks 100 IDs để tránh URL quá dài.
+        // Bước 1: bulk fetch exact snap (frozen bytea image) theo comment_id.
         const chunks = [];
         for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+        const exactMap = new Map();
         for (const chunk of chunks) {
             try {
                 const r = await fetch(
@@ -1208,15 +1209,67 @@ Throttle 30s/KH. Click để tắt.`;
                 );
                 const d = await r.json();
                 const map = d.byCommentId || {};
-                for (const id of chunk) {
-                    // Lưu cả null để không re-fetch nếu comment không có snap.
-                    STATE.snapByComment.set(id, map[id] || null);
-                    _renderThumbStripFor(id);
-                }
+                for (const id of chunk) if (map[id]) exactMap.set(id, map[id]);
             } catch (e) {
                 console.warn('[snap] by-comment-ids fail:', e.message);
             }
         }
+        // Bước 2: cho mỗi commentId thiếu exact snap → compute từ comment.time
+        // + broadcastStartMs (cached qua _fetchLiveVideoInfo) → tạo data có cùng
+        // shape { thumbnailUrl, livestreamUrl, offsetSeconds } nhưng source='computed'.
+        for (const id of ids) {
+            const exact = exactMap.get(id);
+            if (exact) {
+                STATE.snapByComment.set(id, exact);
+                _renderThumbStripFor(id);
+                continue;
+            }
+            // Compute path (async — không block batch).
+            _computeAndRenderForComment(id).catch(() => {});
+        }
+    }
+
+    // Compute snapshot-equivalent data cho 1 comment: offset_seconds derived từ
+    // comment.created_time - broadcastStartMs, URL với ?t={offset}, thumbnail từ
+    // videoInfo.thumbnailUrl (FB CDN signed). Không hit DB — tính client-side.
+    async function _computeAndRenderForComment(commentId) {
+        const st = global.TposState;
+        const c = st?.comments?.find((x) => x.id === commentId);
+        if (!c?.from?.id) {
+            STATE.snapByComment.set(commentId, null);
+            return;
+        }
+        const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
+        const tMs = rawT ? new Date(rawT).getTime() : NaN;
+        if (!Number.isFinite(tMs)) {
+            STATE.snapByComment.set(commentId, null);
+            return;
+        }
+        const camp = _resolveCampaignForComment(c);
+        if (!camp?.Facebook_LiveId) {
+            STATE.snapByComment.set(commentId, null);
+            return;
+        }
+        const pageId = camp.Facebook_UserId;
+        const liveVideoId = camp.Facebook_LiveId;
+        const videoInfo = await _fetchLiveVideoInfo(pageId, liveVideoId);
+        if (!videoInfo?.broadcastStartMs) {
+            STATE.snapByComment.set(commentId, null);
+            return;
+        }
+        const offsetSec = Math.max(0, Math.floor((tMs - videoInfo.broadcastStartMs) / 1000));
+        const pageObj = st.allPages?.find((p) => p.Facebook_PageId === pageId);
+        const slug = _resolvePageVanity(pageObj) || pageId;
+        const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
+        const url = `https://www.facebook.com/${encodeURIComponent(slug)}/videos/${encodeURIComponent(videoIdShort)}/?locale=vi_VN&t=${offsetSec}`;
+        STATE.snapByComment.set(commentId, {
+            thumbnailUrl: videoInfo.thumbnailUrl || null,
+            livestreamUrl: url,
+            offsetSeconds: offsetSec,
+            capturedAt: tMs,
+            source: 'computed',
+        });
+        _renderThumbStripFor(commentId);
     }
 
     function _renderThumbStripFor(commentId) {

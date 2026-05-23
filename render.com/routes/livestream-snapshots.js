@@ -473,8 +473,7 @@ router.get('/snapshots/batch-counts', async (req, res) => {
 });
 
 // GET /snapshots/by-comment-ids?commentIds=ID1,ID2,... — batch lookup snap theo commentId.
-// Trả về map { commentId: { id, thumbnailUrl, livestreamUrl, offsetSeconds, capturedAt } }.
-// Dùng cho inline thumbnail strip dưới mỗi comment row.
+// (Legacy GET: chỉ exact match by comment_id.)
 router.get('/snapshots/by-comment-ids', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
@@ -485,7 +484,6 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
             .map((s) => s.trim())
             .filter(Boolean);
         if (!ids.length) return res.json({ success: true, byCommentId: {} });
-        // Limit max ids để tránh DoS (caller chia batch nhỏ).
         const limited = ids.slice(0, 200);
         const r = await pool.query(
             `SELECT id, comment_id, thumbnail_url, livestream_url, offset_seconds, captured_at
@@ -495,7 +493,6 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
         );
         const byCommentId = {};
         for (const row of r.rows) {
-            // Nếu cùng comment_id có nhiều snap (edge case), giữ snap mới nhất.
             const existing = byCommentId[row.comment_id];
             if (existing && Number(existing.capturedAt) > Number(row.captured_at)) continue;
             byCommentId[row.comment_id] = {
@@ -504,6 +501,7 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
                 livestreamUrl: row.livestream_url,
                 offsetSeconds: row.offset_seconds,
                 capturedAt: Number(row.captured_at),
+                source: 'exact',
             };
         }
         res.json({ success: true, byCommentId });
