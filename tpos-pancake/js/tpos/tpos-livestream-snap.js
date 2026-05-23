@@ -408,7 +408,7 @@
             const r = await fetch(API + '/api/livestream/snapshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+                credentials: 'omit',
                 body: JSON.stringify({
                     commentId,
                     customerFbUserId,
@@ -486,7 +486,7 @@
                 API +
                     '/api/livestream/snapshots/batch-counts?customerIds=' +
                     encodeURIComponent(ids.join(',')),
-                { credentials: 'include' }
+                { credentials: 'omit' }
             );
             const d = await r.json();
             const counts = d.counts || {};
@@ -555,7 +555,7 @@
                     '/api/livestream/snapshots?customerFbUserId=' +
                     encodeURIComponent(customerFbUserId) +
                     '&limit=30',
-                { credentials: 'include' }
+                { credentials: 'omit' }
             );
             const d = await r.json();
             const list = d.snapshots || [];
@@ -603,7 +603,7 @@
                     try {
                         const r = await fetch(
                             API + '/api/livestream/snapshot/' + id + '/refresh-thumbnail',
-                            { method: 'POST', credentials: 'include' }
+                            { method: 'POST', credentials: 'omit' }
                         );
                         const d = await r.json();
                         if (!d.success) throw new Error(d.error);
@@ -625,7 +625,7 @@
                     try {
                         const r = await fetch(API + '/api/livestream/snapshot/' + id, {
                             method: 'DELETE',
-                            credentials: 'include',
+                            credentials: 'omit',
                         });
                         const d = await r.json();
                         if (!d.success) throw new Error(d.error);
