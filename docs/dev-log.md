@@ -25,6 +25,45 @@
 
 ## 2026-05-23
 
+### [tpos-pancake][livestream-snapshots] Phase 3: server-side FB Graph freeze + optional getDisplayMedia
+
+**User hỏi** "có cách nào không cần bật tab FB livestream không?" → 2-path approach:
+
+**Default (no FB tab needed)**:
+
+- Backend khi nhận POST `/snapshot` → server-side fetch `https://graph.facebook.com/{liveVideoId}/picture?type=large&redirect=true` → download bytea → save `image_data`
+- thumbnail_url absolute = `${req.protocol}://${req.get('host')}/api/livestream/snapshot/:id/image`
+- Ảnh FROZEN trong DB, popover sau N giờ vẫn hiện đúng moment
+- Trade-off: ảnh lag 5-30s do FB CDN, ~640x360
+
+**Advanced toggle "🔴 Bật snap thật"**:
+
+- Frontend chip 2 trong header
+- Click → `getDisplayMedia({video:{cursor:'never',displaySurface:'browser',width:{ideal:1920}}})` picker
+- Stream + hidden `<video>` element; mỗi 📸 → canvas drawImage → JPEG base64 (0.72 quality, downscale 1280) → POST `imageBase64`
+- Listen track 'ended' → auto revert khi user "Stop sharing"
+- Trade-off: ảnh exact moment 1280x720, cần FB tab open
+
+**Schema** (idempotent):
+
+```sql
+ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_data BYTEA;
+ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_mime VARCHAR(50);
+ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_size INTEGER;
+```
+
+**Endpoint mới**: `GET /api/livestream/snapshot/:id/image` — Cache-Control `immutable, max-age=31536000`.
+
+**Smoke verified** (commit `7e0a36292` + `<latest>`):
+
+- imageBase64 path: JPEG saved → GET trả image/jpeg 200 ✓
+- thumbnail_url absolute đúng origin Render ✓
+- Default FB Graph fetch: placeholder reject (size < 1024 bytes) → fallback URL ✓
+
+**Files**: `render.com/routes/livestream-snapshots.js`, `tpos-pancake/js/tpos/tpos-livestream-snap.js`, `tpos-pancake/css/tpos/tpos-comments.css`, `tpos-pancake/index.html` (v=20260523b)
+
+---
+
 ### [tpos-pancake][livestream-snapshots] feat: Livestream Snapshot per Customer (📸 button + popover)
 
 **Use case**: comment livestream nhiều quá user xử lý không kịp → cần freeze moment livestream lúc KH bình luận để review sau khi rảnh → xác định SP rồi drag vào cart.
