@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `328ed27` — feat(snap): tutorial modal 3 bước trước khi mở getDisplayMedia picker
-**Last updated**: 2026-05-23 10:16:40 +07
-**Latest session**: [`RESUME:20260523-101640-328ed27`](../20260523-101640-328ed27.md)
-**Summary**: feat(snap): tutorial modal 3 bước trước khi mở getDisplayMedia picker
+**Latest commit**: `ade7b08` — fix(snap URL): strip {pageId}_ prefix + vanity username + locale=vi_VN
+**Last updated**: 2026-05-23 10:23:16 +07
+**Latest session**: [`RESUME:20260523-102316-ade7b08`](../20260523-102316-ade7b08.md)
+**Summary**: fix(snap URL): strip {pageId}_ prefix + vanity username + locale=vi_VN
 
 ## Folders affected in this commit
 
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 09:55
+- [`render.com/`](./render.com.md) — updated 2026-05-23 10:23
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-23 10:11
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -61,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:16
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:23
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
