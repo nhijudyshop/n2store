@@ -578,6 +578,35 @@ function record(name, ok, detail) {
     });
     record('C21: Comment không bytea snap → button "📸 Chụp" render', c21.ok, JSON.stringify(c21));
 
+    // C22: POST /extract-frame endpoint (Phase 2 — backend yt-dlp + ffmpeg).
+    // Test enqueue cho snap đã có bytea sẵn → backend skip (queued=0).
+    const c22 = await page.evaluate(
+        async ({ snapId, API: apiBase }) => {
+            const r = await fetch(`${apiBase}/api/livestream/extract-frame`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify({ snapshotIds: [snapId] }),
+            });
+            const d = await r.json();
+            return { status: r.status, ok: r.status === 200 && d.success, body: d };
+        },
+        { snapId: Number(snap.id), API }
+    );
+    record('C22: POST /extract-frame endpoint live', c22.ok, JSON.stringify(c22).slice(0, 200));
+
+    // C23: GET /extract-status?batchId=X — invalid batchId → 404
+    const c23 = await page.evaluate(
+        async ({ API: apiBase }) => {
+            const r = await fetch(`${apiBase}/api/livestream/extract-status?batchId=nonexistent`, {
+                credentials: 'omit',
+            });
+            return { status: r.status, ok: r.status === 404 };
+        },
+        { API }
+    );
+    record('C23: GET /extract-status invalid batchId → 404', c23.ok, JSON.stringify(c23));
+
     // Check 17: Perf — load page mới, đo thời gian từ navigate → 4 chips mounted.
     // Mục tiêu < 8s (TPOS init + chips render).
     const perfStart = Date.now();

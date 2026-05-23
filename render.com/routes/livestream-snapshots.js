@@ -208,6 +208,7 @@ function _mapRow(row) {
         livestreamUrl: row.livestream_url,
         thumbnailUrl: row.thumbnail_url,
         note: row.note,
+        extractStatus: row.extract_status,
         createdAt: row.created_at,
     };
 }

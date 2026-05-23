@@ -1235,7 +1235,10 @@ Throttle 30s/KH. Click để tắt.`;
             });
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'snap failed');
-            const t = new Date(referenceMs).toLocaleTimeString('vi-VN', { hour12: false });
+            const t = new Date(referenceMs).toLocaleTimeString('vi-VN', {
+                hour12: false,
+                timeZone: 'Asia/Ho_Chi_Minh',
+            });
             _toast(`📸 Đã chụp lúc ${t}${offsetSec ? ' (offset ' + offsetSec + 's)' : ''}`);
             // Invalidate cached list nếu đang mở popover
             STATE.cacheList.delete(customerFbUserId);
@@ -1445,7 +1448,7 @@ Throttle 30s/KH. Click để tắt.`;
             Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
         );
 
-        // Path A: đã có stream active + buffered frame nearest → dùng luôn (no user action).
+        // Path A: đã có stream active + buffered frame nearest → dùng luôn (instant).
         if (STATE.captureStream && STATE.frameBuffer?.length) {
             const buffered = _findNearestBufferedFrame(commentTimeMs, 60000);
             if (buffered?.jpegBase64) {
@@ -1466,7 +1469,48 @@ Throttle 30s/KH. Click để tắt.`;
             }
         }
 
-        // Path B: mở FB tab @ offset → user share → capture.
+        // Path B: backend yt-dlp + ffmpeg extract (no user action, 5-15s).
+        // Tạo snap metadata trước → enqueue extract-frame backend → SSE
+        // 'extract-done' tự render thumb. KHÔNG cần share FB tab.
+        _toast('⏳ Backend đang extract frame (5-15s)...', 'ok');
+        const snapId = await _createMetadataSnap({
+            commentId,
+            customerFbUserId: c.from.id,
+            customerName: c.from.name || '?',
+            commentTimeMs,
+            offsetSec,
+            pageObj,
+            camp,
+            videoInfo,
+            message: c.message,
+        });
+        if (snapId) {
+            try {
+                const r = await fetch(API + '/api/livestream/extract-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'omit',
+                    body: JSON.stringify({ snapshotIds: [snapId] }),
+                });
+                const d = await r.json();
+                if (d.success && d.queued > 0) {
+                    // SSE sẽ notify 'extract-done' → strip auto-refresh.
+                    return;
+                }
+                if (r.status === 503) {
+                    _toast(
+                        '⚠ Backend extract chưa sẵn sàng (đang deploy) — dùng path manual',
+                        'err'
+                    );
+                } else {
+                    console.warn('[snap] extract-frame skip:', d.error || 'unknown');
+                }
+            } catch (e) {
+                console.warn('[snap] extract-frame fail, fallback path C:', e.message);
+            }
+        }
+
+        // Path C: mở FB tab @ offset → user share → capture (last resort).
         const slug = _resolvePageVanity(pageObj) || pageObj.Facebook_PageId;
         const videoIdShort = String(camp.Facebook_LiveId).replace(/^\d+_/, '');
         const fbUrl = `https://www.facebook.com/${slug}/videos/${videoIdShort}/?t=${offsetSec}&locale=vi_VN`;
@@ -1502,6 +1546,46 @@ Throttle 30s/KH. Click để tắt.`;
             message: c.message,
         });
         _toast('✅ Đã chụp + lưu snapshot', 'ok');
+    }
+
+    // Tạo snap metadata-only (no image_data) → trả về snapshotId để dùng cho
+    // extract-frame backend. Idempotent qua skipExisting (offline-batch).
+    async function _createMetadataSnap(p) {
+        try {
+            const r = await fetch(API + '/api/livestream/offline-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify({
+                    pageId: p.pageObj.Facebook_PageId,
+                    pageName: p.pageObj.Name,
+                    pageUsername: _resolvePageVanity(p.pageObj),
+                    liveCampaignId: p.camp.Id ? String(p.camp.Id) : null,
+                    liveVideoId: p.camp.Facebook_LiveId,
+                    broadcastStartMs: p.videoInfo.broadcastStartMs,
+                    thumbnailUrl: undefined, // KHÔNG lưu URL generic
+                    comments: [
+                        {
+                            commentId: p.commentId,
+                            customerFbUserId: p.customerFbUserId,
+                            customerName: p.customerName,
+                            createdTime: p.commentTimeMs,
+                            message: p.message ? String(p.message).slice(0, 200) : '',
+                        },
+                    ],
+                    skipExisting: true,
+                    user: _user(),
+                }),
+            });
+            const d = await r.json();
+            if (!d.success) return null;
+            // Trả về snap ID (created mới hoặc đã exist).
+            const id = d.created?.[0]?.snapshotId || d.skipped?.[0]?.snapshotId;
+            return id ? Number(id) : null;
+        } catch (e) {
+            console.warn('[snap] create metadata fail:', e.message);
+            return null;
+        }
     }
 
     async function _postCapturedSnap(p) {
@@ -1655,21 +1739,54 @@ Throttle 30s/KH. Click để tắt.`;
             const d = await r.json();
             const list = d.snapshots || [];
             STATE.cacheList.set(customerFbUserId, list);
+            // Phase 3 G: smart auto-fill — snap không có bytea + chưa extract →
+            // enqueue background extract. UI sẽ tự update khi SSE 'extract-done'.
+            const needExtract = list
+                .filter((s) => {
+                    const hasBytea =
+                        s.thumbnailUrl && s.thumbnailUrl.includes('/api/livestream/snapshot/');
+                    const alreadyTried = ['pending', 'fail', 'drm_blocked'].includes(
+                        s.extractStatus
+                    );
+                    return !hasBytea && !alreadyTried;
+                })
+                .map((s) => Number(s.id))
+                .filter(Number.isFinite);
+            if (needExtract.length) {
+                fetch(API + '/api/livestream/extract-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'omit',
+                    body: JSON.stringify({ snapshotIds: needExtract }),
+                }).catch(() => {});
+            }
             if (!list.length) {
                 body.innerHTML = `<div style="color:#94a3b8;font-style:italic;text-align:center;padding:14px 0;">Chưa có snapshot nào.<br>Bấm 📸 trên comment để bắt đầu.</div>`;
                 return;
             }
             body.innerHTML = list
                 .map((s) => {
-                    const t = new Date(s.capturedAt).toLocaleString('vi-VN', { hour12: false });
+                    const t = new Date(s.capturedAt).toLocaleString('vi-VN', {
+                        hour12: false,
+                        timeZone: 'Asia/Ho_Chi_Minh',
+                    });
                     const url = s.livestreamUrl || '#';
                     // CHỈ hiển thị thumbnail nếu là URL self-served (frozen bytea — ảnh thật).
                     // URL khác (FB CDN signed, FB Graph) đều coi như chưa có → placeholder.
                     const isFrozenThumb =
                         s.thumbnailUrl && s.thumbnailUrl.includes('/api/livestream/snapshot/');
-                    const thumb = isFrozenThumb
-                        ? `<img src="${_esc(s.thumbnailUrl)}" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:6px;background:#f1f5f9;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span style="display:none;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`
-                        : `<span title="Chưa có ảnh — bấm 📸 trên comment để chụp" style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef3c7;color:#92400e;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fcd34d;">📸</span>`;
+                    let thumb;
+                    if (isFrozenThumb) {
+                        thumb = `<img src="${_esc(s.thumbnailUrl)}" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:6px;background:#f1f5f9;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span style="display:none;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`;
+                    } else if (s.extractStatus === 'drm_blocked') {
+                        thumb = `<span title="Video bị DRM bảo vệ — không extract được tự động. Share FB tab khi đang live để dùng buffered frame." style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef2f2;color:#991b1b;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fca5a5;">🔒</span>`;
+                    } else if (s.extractStatus === 'pending') {
+                        thumb = `<span title="Backend đang extract frame (5-15s)..." style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#eff6ff;color:#1e40af;align-items:center;justify-content:center;font-size:18px;border:1px dashed #93c5fd;">⏳</span>`;
+                    } else if (s.extractStatus === 'fail') {
+                        thumb = `<span title="Extract fail — bấm 📸 trên comment để thử lại manual" style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef3c7;color:#92400e;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fcd34d;">⚠</span>`;
+                    } else {
+                        thumb = `<span title="Chưa có ảnh — backend sẽ tự extract" style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef3c7;color:#92400e;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fcd34d;">📸</span>`;
+                    }
                     const pageBadge = s.pageName
                         ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;font-weight:600;">${_esc(s.pageName.replace(/^Nhi Judy /, '').replace(/^NhiJudy /, ''))}</span>`
                         : '';
@@ -1953,15 +2070,28 @@ Throttle 30s/KH. Click để tắt.`;
     function subscribeSSE() {
         if (!global.Web2SSE?.subscribe) return;
         global.Web2SSE.subscribe('web2:livestream-snapshots', (msg) => {
-            const { customerFbUserId, action } = msg?.data || {};
+            const data = msg?.data || {};
+            const { customerFbUserId, action, snapshotId } = data;
+            // Extract-done (Phase 2): backend ffmpeg vừa lưu bytea cho snapshot →
+            // invalidate cache + re-render strip để hiện thumb thật.
+            if (action === 'extract-done' && snapshotId) {
+                // Tìm comment id của snap này (cache by-comment-ids đã có).
+                for (const [cid, snap] of STATE.snapByComment) {
+                    if (snap?.id === snapshotId || String(snap?.id) === String(snapshotId)) {
+                        STATE.snapByComment.delete(cid);
+                        _queueSnapByComment(cid);
+                        break;
+                    }
+                }
+                _toast('✅ Frame extract xong (backend)', 'ok');
+                return;
+            }
             if (!customerFbUserId) return;
-            // Invalidate cache + refetch count
             STATE.cacheList.delete(customerFbUserId);
             refreshCounts([customerFbUserId]);
             if (STATE.popoverOpen === customerFbUserId) {
                 _refreshPopoverContent(customerFbUserId);
             }
-            // Invalidate thumbnail strip cache → re-fetch để hiện ảnh mới.
             _refreshThumbStripsForCustomer(customerFbUserId);
         });
     }
