@@ -108,6 +108,18 @@
         }
     }
 
+    // Format offset seconds → human-readable: "+1h23m45s" / "+5m12s" / "+45s".
+    function _fmtOffset(sec) {
+        const n = Number(sec);
+        if (!Number.isFinite(n) || n <= 0) return '';
+        const h = Math.floor(n / 3600);
+        const m = Math.floor((n % 3600) / 60);
+        const s = n % 60;
+        if (h) return `+${h}h${String(m).padStart(2, '0')}m${String(s).padStart(2, '0')}s`;
+        if (m) return `+${m}m${String(s).padStart(2, '0')}s`;
+        return `+${s}s`;
+    }
+
     function _esc(s) {
         return String(s || '').replace(
             /[&<>"']/g,
@@ -418,10 +430,27 @@
         }
         const liveVideoId = camp.Facebook_LiveId || null;
         const liveCampaignId = camp.Id ? String(camp.Id) : null;
-        const startedTime = camp.StartedTime || camp.StartedDate || camp.Started_At || null;
+        // TPOS exposes DateCreated cho campaign — với live broadcast, đây
+        // thường gần với thời điểm bắt đầu phát. Fallback chain ưu tiên:
+        // các field chỉ start_time → DateCreated cuối.
+        const startedTime =
+            camp.StartedTime ||
+            camp.StartedDate ||
+            camp.Started_At ||
+            camp.StartDate ||
+            camp.LiveAt ||
+            camp.LiveStartedAt ||
+            camp.Facebook_LiveStartedTime ||
+            camp.DateCreated ||
+            null;
         const startMs = startedTime ? new Date(startedTime).getTime() : null;
         const now = Date.now();
         const offsetSec = startMs && now > startMs ? Math.floor((now - startMs) / 1000) : null;
+        if (startedTime) {
+            console.log('[snap] camp start:', startedTime, '→ offset:', offsetSec, 's');
+        } else {
+            console.warn('[snap] no campaign start time found. fields:', Object.keys(camp));
+        }
 
         // Optimistic: increment badge count NGAY
         STATE.counts[customerFbUserId] = (STATE.counts[customerFbUserId] || 0) + 1;
@@ -633,8 +662,11 @@
                     const pageBadge = s.pageName
                         ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;font-weight:600;">${_esc(s.pageName.replace(/^Nhi Judy /, '').replace(/^NhiJudy /, ''))}</span>`
                         : '';
-                    const offsetTxt = s.offsetSeconds
-                        ? ` <span style="color:#64748b;font-size:10px;">+${s.offsetSeconds}s</span>`
+                    // Hiển thị offset dạng human-readable "+1h23m45s" với tooltip
+                    // = giây tuyệt đối + chỉ thị "giây thứ N của video livestream".
+                    const offsetHuman = _fmtOffset(s.offsetSeconds);
+                    const offsetTxt = offsetHuman
+                        ? ` <span title="Tại giây thứ ${s.offsetSeconds} của video livestream" style="color:#0c4a6e;font-size:10px;background:#e0f2fe;padding:1px 5px;border-radius:4px;font-weight:600;">${offsetHuman}</span>`
                         : '';
                     return `
                         <div class="snap-pop-row" data-id="${s.id}" style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;align-items:center;">
