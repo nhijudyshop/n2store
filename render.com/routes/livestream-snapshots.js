@@ -322,12 +322,15 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
 });
 
 // POST /snapshot/:id/refresh-thumbnail
-// Fetch FB Graph thumb hiện tại → save bytea → update thumbnail_url về
-// self-served endpoint (freeze ảnh vĩnh viễn). Hữu ích khi:
-//   - Live đã kết thúc → FB Graph trả final thumb đẹp → user muốn keep
-//   - User lo FB sẽ xóa video → freeze trước
-// Idempotent: gọi nhiều lần sẽ replace ảnh cũ bằng ảnh mới nhất từ FB.
-router.post('/snapshot/:id/refresh-thumbnail', async (req, res) => {
+// 2 paths:
+//   1. Body có thumbnailUrl (TPOS video.thumbnail.url, FB CDN signed) →
+//      fetch URL đó → save bytea + thumbnail_url = self-served (frozen).
+//   2. Body trống → fallback fetch FB Graph picture (giờ trả 400 từ 05/2026,
+//      effectively broken — giữ làm fallback nhưng sẽ fail).
+//
+// User flow: frontend click 🔄 → resolve TPOS thumbnail.url qua
+// _fetchLiveVideoInfo → gọi endpoint này với thumbnailUrl trong body.
+router.post('/snapshot/:id/refresh-thumbnail', express.json({ limit: '1mb' }), async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         const r0 = await pool.query(
@@ -343,11 +346,30 @@ router.post('/snapshot/:id/refresh-thumbnail', async (req, res) => {
                 .status(400)
                 .json({ success: false, error: 'snapshot không có live_video_id' });
         }
-        const result = await _fetchFbThumbnail(liveVideoId);
+        // Source URL: body.thumbnailUrl (TPOS CDN) → FB Graph fallback.
+        const sourceUrl =
+            (req.body && req.body.thumbnailUrl) ||
+            `https://graph.facebook.com/${encodeURIComponent(liveVideoId)}/picture?type=large&redirect=true`;
+        const fetchFn = global.fetch || (await import('node-fetch')).default;
+        let result = null;
+        try {
+            const r = await fetchFn(sourceUrl, { redirect: 'follow' });
+            if (r.ok) {
+                const ct = r.headers.get('content-type') || 'image/jpeg';
+                if (ct.startsWith('image/')) {
+                    const buf = Buffer.from(await r.arrayBuffer());
+                    if (buf.length >= 512) {
+                        result = { buffer: buf, mime: ct };
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[lss] refresh-thumbnail fetch error:', e.message);
+        }
         if (!result) {
             return res.status(502).json({
                 success: false,
-                error: 'không lấy được thumb từ FB Graph (có thể video private/đã xóa)',
+                error: 'không lấy được ảnh (URL CDN có thể hết hạn signed token, video private hoặc đã xóa)',
             });
         }
         const selfBase =
@@ -357,10 +379,10 @@ router.post('/snapshot/:id/refresh-thumbnail', async (req, res) => {
         const selfImageUrl = `${selfBase}/api/livestream/snapshot/${req.params.id}/image`;
         const r1 = await pool.query(
             `UPDATE livestream_snapshots
-             SET image_data = $1, image_mime = $2, image_size = $3,
-                 thumbnail_url = $4
-             WHERE id = $5
-             RETURNING *`,
+                 SET image_data = $1, image_mime = $2, image_size = $3,
+                     thumbnail_url = $4
+                 WHERE id = $5
+                 RETURNING *`,
             [result.buffer, result.mime, result.buffer.length, selfImageUrl, req.params.id]
         );
         const snap = _mapRow(r1.rows[0]);

@@ -1164,7 +1164,10 @@ Throttle 30s/KH. Click để tắt.`;
                         </div>`;
                 })
                 .join('');
-            // 🔄 Refresh thumb: backend fetch FB Graph hiện tại → freeze ảnh
+            // 🔄 Refresh thumb: resolve TPOS thumbnail.url (FB CDN signed) →
+            // POST với URL đó trong body. Backend fetch URL + save bytea.
+            // FB Graph picture endpoint trả 400 từ 05/2026 → cần thumbnail
+            // URL từ TPOS proxy (TPOS token).
             body.querySelectorAll('.snap-pop-refresh').forEach((btn) => {
                 btn.onclick = async (e) => {
                     e.stopPropagation();
@@ -1173,14 +1176,28 @@ Throttle 30s/KH. Click để tắt.`;
                     btn.textContent = '...';
                     btn.disabled = true;
                     try {
+                        // Find snap row → get pageId + liveVideoId → resolve fresh
+                        // TPOS thumbnail.url. Snap data đã có trong STATE.cacheList.
+                        const list = STATE.cacheList.get(customerFbUserId) || [];
+                        const snap = list.find((s) => String(s.id) === String(id));
+                        let bodyThumbUrl = null;
+                        if (snap?.pageId && snap?.liveVideoId) {
+                            const info = await _fetchLiveVideoInfo(snap.pageId, snap.liveVideoId);
+                            if (info?.thumbnailUrl) bodyThumbUrl = info.thumbnailUrl;
+                        }
                         const r = await fetch(
                             API + '/api/livestream/snapshot/' + id + '/refresh-thumbnail',
-                            { method: 'POST', credentials: 'omit' }
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'omit',
+                                body: JSON.stringify({ thumbnailUrl: bodyThumbUrl }),
+                            }
                         );
                         const d = await r.json();
                         if (!d.success) throw new Error(d.error);
                         STATE.cacheList.delete(customerFbUserId);
-                        _toast('🔄 Đã cập nhật thumb từ FB Graph', 'ok');
+                        _toast('🔄 Đã cập nhật thumb', 'ok');
                         _refreshPopoverContent(customerFbUserId);
                     } catch (err) {
                         _toast('Refresh fail: ' + err.message, 'err');
