@@ -1302,49 +1302,180 @@ Throttle 30s/KH. Click để tắt.`;
         );
         if (!row) return;
         let strip = row.querySelector('.tpos-snap-thumb-strip');
-        // Toggle OFF → xóa nếu có, không render.
         if (!_isInlineThumbOn()) {
             if (strip) strip.remove();
             return;
         }
         const data = STATE.snapByComment.get(commentId);
-        if (!data || !data.thumbnailUrl) {
-            if (strip) strip.remove();
-            return;
-        }
-        const offsetText =
-            Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
-                ? `${Math.floor(data.offsetSeconds / 60)}m${data.offsetSeconds % 60}s`
-                : '?';
+        // Mount slot 1 lần.
         if (!strip) {
             strip = document.createElement('div');
             strip.className = 'tpos-snap-thumb-strip';
-            // Mount INSIDE .tpos-conv-info để cùng row với phone/address.
-            // Address (flex:1) sẽ tự thu lại nhường chỗ → bố cục gọn 1 dòng.
             strip.style.cssText =
                 'display:inline-flex;align-items:center;flex-shrink:0;margin-left:4px;';
             const info = row.querySelector('.tpos-conv-info');
             if (info) info.appendChild(strip);
             else row.appendChild(strip);
         }
+        // Có DB snap với frozen bytea (self-served URL) → render thumbnail thật.
+        if (data?.thumbnailUrl?.includes('/api/livestream/snapshot/')) {
+            const offsetText =
+                Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
+                    ? `${Math.floor(data.offsetSeconds / 60)}m${data.offsetSeconds % 60}s`
+                    : '?';
+            strip.innerHTML = `
+                <img src="${_esc(data.thumbnailUrl)}"
+                     alt=""
+                     loading="lazy"
+                     class="tpos-snap-thumb-img"
+                     data-snap-url="${_esc(data.livestreamUrl || '')}"
+                     data-snap-offset="${data.offsetSeconds ?? ''}"
+                     title="Snapshot lúc Live @ ${offsetText} — click để zoom"
+                     style="width:56px;height:32px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;"
+                     onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
+            `;
+            const img = strip.querySelector('img');
+            if (img) {
+                img.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    _openSnapLightbox(data);
+                });
+            }
+            return;
+        }
+        // Không có bytea → render button "📸 Chụp" → click mở FB tab @ offset + share + capture.
         strip.innerHTML = `
-            <img src="${_esc(data.thumbnailUrl)}"
-                 alt=""
-                 loading="lazy"
-                 class="tpos-snap-thumb-img"
-                 data-snap-url="${_esc(data.livestreamUrl || '')}"
-                 data-snap-offset="${data.offsetSeconds ?? ''}"
-                 title="Snapshot lúc Live @ ${offsetText} — click để zoom"
-                 style="width:56px;height:32px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;"
-                 onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
+            <button type="button"
+                    class="tpos-snap-capture-btn"
+                    data-comment-id="${_esc(commentId)}"
+                    title="Mở tab FB tại đúng giây comment + share để chụp frame thật"
+                    style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;line-height:1;height:28px;">
+                📸 <span>Chụp</span>
+            </button>
         `;
-        const img = strip.querySelector('img');
-        if (img) {
-            img.addEventListener('click', (e) => {
+        const btn = strip.querySelector('button');
+        if (btn) {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                _openSnapLightbox(data);
+                _captureAtCommentTime(commentId).catch((err) => {
+                    console.warn('[snap-capture] fail:', err.message);
+                    _toast('Lỗi chụp: ' + err.message, 'err');
+                });
             });
         }
+    }
+
+    // Chụp frame của FB live tại đúng moment 1 comment.
+    // Flow:
+    //   1. Resolve campaign + offset_seconds từ comment.
+    //   2. Nếu STATE.captureStream đã active + có buffered frame nearest → dùng luôn.
+    //   3. Nếu không → mở tab FB tại ?t={offset} (FB seek tới đó), prompt user
+    //      share tab → capture frame hiện tại của FB tab → POST /snapshot.
+    async function _captureAtCommentTime(commentId) {
+        const st = global.TposState;
+        const c = st?.comments?.find((x) => x.id === commentId);
+        if (!c?.from?.id) throw new Error('comment không tồn tại trong state');
+        const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
+        const commentTimeMs = rawT ? new Date(rawT).getTime() : NaN;
+        if (!Number.isFinite(commentTimeMs)) throw new Error('comment thiếu thời gian');
+        const camp = _resolveCampaignForComment(c);
+        if (!camp?.Facebook_LiveId) throw new Error('không tìm được campaign');
+        const pageObj = st.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId);
+        if (!pageObj) throw new Error('không tìm được page');
+        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, camp.Facebook_LiveId);
+        if (!videoInfo?.broadcastStartMs) throw new Error('không có broadcastStart');
+        const offsetSec = Math.max(
+            0,
+            Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
+        );
+
+        // Path A: đã có stream active + buffered frame nearest → dùng luôn (no user action).
+        if (STATE.captureStream && STATE.frameBuffer?.length) {
+            const buffered = _findNearestBufferedFrame(commentTimeMs, 60000);
+            if (buffered?.jpegBase64) {
+                _toast('⚡ Dùng buffered frame...', 'ok');
+                await _postCapturedSnap({
+                    commentId,
+                    customerFbUserId: c.from.id,
+                    customerName: c.from.name || '?',
+                    commentTimeMs,
+                    offsetSec,
+                    pageObj,
+                    camp,
+                    videoInfo,
+                    imageBase64: buffered.jpegBase64,
+                    message: c.message,
+                });
+                return;
+            }
+        }
+
+        // Path B: mở FB tab @ offset → user share → capture.
+        const slug = _resolvePageVanity(pageObj) || pageObj.Facebook_PageId;
+        const videoIdShort = String(camp.Facebook_LiveId).replace(/^\d+_/, '');
+        const fbUrl = `https://www.facebook.com/${slug}/videos/${videoIdShort}/?t=${offsetSec}&locale=vi_VN`;
+        const fbWin = window.open(fbUrl, '_blank');
+        if (!fbWin) {
+            throw new Error('Trình duyệt chặn popup. Cho phép popup rồi thử lại.');
+        }
+        _toast(
+            `📺 Đã mở FB tại ${Math.floor(offsetSec / 60)}m${offsetSec % 60}s — chọn tab vừa mở khi browser hỏi share`,
+            'ok'
+        );
+        // Đợi 4s để FB load + seek tới offset trước khi prompt share.
+        await new Promise((r) => setTimeout(r, 4000));
+        try {
+            await ensureCaptureStream();
+        } catch (e) {
+            throw new Error('User hủy share: ' + e.message);
+        }
+        // Đợi thêm 1.5s cho video render frame sau share.
+        await new Promise((r) => setTimeout(r, 1500));
+        const imageBase64 = await _captureFrameJpeg(0.72, 1280);
+        if (!imageBase64) throw new Error('Capture frame fail (video chưa load?)');
+        await _postCapturedSnap({
+            commentId,
+            customerFbUserId: c.from.id,
+            customerName: c.from.name || '?',
+            commentTimeMs,
+            offsetSec,
+            pageObj,
+            camp,
+            videoInfo,
+            imageBase64,
+            message: c.message,
+        });
+        _toast('✅ Đã chụp + lưu snapshot', 'ok');
+    }
+
+    async function _postCapturedSnap(p) {
+        const r = await fetch(API + '/api/livestream/snapshot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'omit',
+            body: JSON.stringify({
+                commentId: p.commentId,
+                customerFbUserId: p.customerFbUserId,
+                customerName: p.customerName,
+                pageId: p.pageObj.Facebook_PageId,
+                pageName: p.pageObj.Name,
+                pageUsername: _resolvePageVanity(p.pageObj),
+                liveCampaignId: p.camp.Id ? String(p.camp.Id) : null,
+                liveVideoId: p.camp.Facebook_LiveId,
+                capturedAt: p.commentTimeMs,
+                offsetSeconds: p.offsetSec,
+                thumbnailUrl: p.videoInfo.thumbnailUrl || undefined,
+                user: _user(),
+                imageBase64: p.imageBase64,
+                imageMime: 'image/jpeg',
+                note: p.message ? String(p.message).slice(0, 200) : null,
+            }),
+        });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.error || 'snapshot create fail');
+        // Invalidate cache + re-render strip (sẽ thấy ảnh self-served).
+        STATE.snapByComment.delete(p.commentId);
+        _queueSnapByComment(p.commentId);
     }
 
     // Lightbox zoom — modal full-screen mở ảnh snapshot + nút "Xem live tại giây X".

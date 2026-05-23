@@ -542,6 +542,34 @@ function record(name, ok, detail) {
         JSON.stringify(c20)
     );
 
+    // C21: Comment KHÔNG có bytea snap → render button "📸 Chụp" (không phải thumb).
+    const c21 = await page.evaluate(() => {
+        // Inject fake row với comment_id chưa có DB snap.
+        const fakeId = `e2e_nobtn_${Date.now()}`;
+        const row = document.createElement('div');
+        row.className = 'tpos-conversation-item';
+        row.dataset.commentId = fakeId;
+        row.innerHTML = '<div class="tpos-conv-info"></div>';
+        document.body.appendChild(row);
+        // Set cache với null (no bytea) → render path button.
+        if (window.TposLivestreamSnap?._setInlineThumb) {
+            window.TposLivestreamSnap._setInlineThumb(true);
+        }
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const btn = row.querySelector('.tpos-snap-capture-btn');
+                const result = {
+                    ok: !!btn,
+                    hasBtn: !!btn,
+                    hasImg: !!row.querySelector('.tpos-snap-thumb-img'),
+                };
+                row.remove();
+                resolve(result);
+            }, 1500);
+        });
+    });
+    record('C21: Comment không bytea snap → button "📸 Chụp" render', c21.ok, JSON.stringify(c21));
+
     // Check 17: Perf — load page mới, đo thời gian từ navigate → 4 chips mounted.
     // Mục tiêu < 8s (TPOS init + chips render).
     const perfStart = Date.now();
