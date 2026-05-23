@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `13f17c6` — feat(snap): toggle chip inline thumb (default OFF) + move thumb inline với phone/address
-**Last updated**: 2026-05-23 14:25:47 +07
-**Latest session**: [`RESUME:20260523-142547-13f17c6`](../20260523-142547-13f17c6.md)
-**Summary**: feat(snap): toggle chip inline thumb (default OFF) + move thumb inline với phone/address
+**Latest commit**: `5ebfbf0` — fix(snap): mọi comment có thumb (compute offset từ comment.time client-side)
+**Last updated**: 2026-05-23 14:36:00 +07
+**Latest session**: [`RESUME:20260523-143600-5ebfbf0`](../20260523-143600-5ebfbf0.md)
+**Summary**: fix(snap): mọi comment có thumb (compute offset từ comment.time client-side)
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 14:07
+- [`render.com/`](./render.com.md) — updated 2026-05-23 14:36
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-23 14:25
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -62,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 14:25
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 14:36
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
