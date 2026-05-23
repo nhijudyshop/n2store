@@ -35,6 +35,53 @@
         117267091364524: 'NhiJudyHouse.VietNam', // Nhi Judy House
         270136663390370: 'NhiJudyStore', // NhiJudy Store
     };
+    // Cache broadcast_start_time per liveVideoId (memory). Broadcast start
+    // không đổi suốt phiên live → fetch 1 lần đầu, reuse cho mọi snap sau.
+    // Key: liveVideoId raw (compound hoặc stripped).
+    const _liveVideoInfoCache = new Map();
+
+    // Fetch live video metadata từ TPOS proxy → return channelCreatedTime ms.
+    // Endpoint: GET /facebook/livevideo?pageid=X&limit=50 (TPOS auth required).
+    // Cache 5 phút per pageId. Match video bằng objectId.
+    // Returns: { broadcastStartMs, title, statusLive } | null
+    async function _fetchLiveVideoInfo(pageId, liveVideoId) {
+        if (!pageId || !liveVideoId) return null;
+        const cacheKey = `${pageId}:${liveVideoId}`;
+        const cached = _liveVideoInfoCache.get(cacheKey);
+        if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) return cached.info;
+        try {
+            const st = global.TposState;
+            const proxyBase = st?.proxyBaseUrl;
+            if (!proxyBase || !global.TposApi?.authenticatedFetch) return null;
+            const r = await global.TposApi.authenticatedFetch(
+                `${proxyBase}/facebook/livevideo?pageid=${encodeURIComponent(pageId)}&limit=50`
+            );
+            if (!r.ok) return null;
+            const json = await r.json();
+            const videos = json?.data?.data || [];
+            // TPOS objectId có thể là videoId raw HOẶC compound — match cả 2 dạng.
+            const videoId = String(liveVideoId).replace(/^\d+_/, '');
+            const match = videos.find((v) => v.objectId === liveVideoId || v.objectId === videoId);
+            if (!match) {
+                console.warn('[snap] video not found in TPOS livevideo list:', liveVideoId);
+                return null;
+            }
+            const info = {
+                broadcastStartMs: match.channelCreatedTime
+                    ? Number(match.channelCreatedTime)
+                    : null,
+                title: match.title || null,
+                statusLive: match.statusLive,
+            };
+            _liveVideoInfoCache.set(cacheKey, { info, fetchedAt: Date.now() });
+            console.log('[snap] live video info:', info);
+            return info;
+        } catch (e) {
+            console.warn('[snap] fetch live video info fail:', e.message);
+            return null;
+        }
+    }
+
     // Lookup vanity từ pageObj. Ưu tiên: explicit fields → mapping → null.
     function _resolvePageVanity(pageObj) {
         if (!pageObj) return null;
@@ -430,27 +477,41 @@
         }
         const liveVideoId = camp.Facebook_LiveId || null;
         const liveCampaignId = camp.Id ? String(camp.Id) : null;
-        // TPOS exposes DateCreated cho campaign — với live broadcast, đây
-        // thường gần với thời điểm bắt đầu phát. Fallback chain ưu tiên:
-        // các field chỉ start_time → DateCreated cuối.
-        const startedTime =
-            camp.StartedTime ||
-            camp.StartedDate ||
-            camp.Started_At ||
-            camp.StartDate ||
-            camp.LiveAt ||
-            camp.LiveStartedAt ||
-            camp.Facebook_LiveStartedTime ||
-            camp.DateCreated ||
-            null;
-        const startMs = startedTime ? new Date(startedTime).getTime() : null;
         const now = Date.now();
-        const offsetSec = startMs && now > startMs ? Math.floor((now - startMs) / 1000) : null;
-        if (startedTime) {
-            console.log('[snap] camp start:', startedTime, '→ offset:', offsetSec, 's');
+        // Ưu tiên: TPOS livevideo channelCreatedTime (= FB broadcast_start_time
+        // chính xác từ Graph API qua TPOS proxy, đã cache 5 phút per liveVideoId).
+        // Fallback: campaign.DateCreated (gần đúng, có thể lệch vài phút).
+        let startMs = null;
+        let startSource = null;
+        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, liveVideoId);
+        if (videoInfo?.broadcastStartMs) {
+            startMs = videoInfo.broadcastStartMs;
+            startSource = 'fb-graph(channelCreatedTime)';
         } else {
-            console.warn('[snap] no campaign start time found. fields:', Object.keys(camp));
+            const startedTime =
+                camp.StartedTime ||
+                camp.StartedDate ||
+                camp.Started_At ||
+                camp.StartDate ||
+                camp.LiveAt ||
+                camp.LiveStartedAt ||
+                camp.Facebook_LiveStartedTime ||
+                camp.DateCreated ||
+                null;
+            if (startedTime) {
+                startMs = new Date(startedTime).getTime();
+                startSource = 'tpos-campaign(' + (camp.DateCreated ? 'DateCreated' : 'other') + ')';
+            }
         }
+        const offsetSec = startMs && now > startMs ? Math.floor((now - startMs) / 1000) : null;
+        console.log(
+            '[snap] offset:',
+            offsetSec,
+            's | source:',
+            startSource || 'NONE',
+            '| startMs:',
+            startMs
+        );
 
         // Optimistic: increment badge count NGAY
         STATE.counts[customerFbUserId] = (STATE.counts[customerFbUserId] || 0) + 1;
