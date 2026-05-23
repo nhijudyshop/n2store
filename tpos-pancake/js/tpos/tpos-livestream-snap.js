@@ -1162,8 +1162,7 @@ Throttle 30s/KH. Click để tắt.`;
         if (!row) return;
         const data = STATE.snapByComment.get(commentId);
         let strip = row.querySelector('.tpos-snap-thumb-strip');
-        if (!data) {
-            // Không có snap → xóa strip nếu có (vd snap mới bị delete).
+        if (!data || !data.thumbnailUrl) {
             if (strip) strip.remove();
             return;
         }
@@ -1171,35 +1170,75 @@ Throttle 30s/KH. Click để tắt.`;
             Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
                 ? `${Math.floor(data.offsetSeconds / 60)}m${data.offsetSeconds % 60}s`
                 : '?';
-        const thumbHtml = data.thumbnailUrl
-            ? `<img src="${_esc(data.thumbnailUrl)}" alt="" loading="lazy" style="width:80px;height:48px;object-fit:cover;border-radius:6px;background:#f1f5f9;flex-shrink:0;" onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />`
-            : `<div style="width:80px;height:48px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📷</div>`;
-        const stripHtml = `
-            <a href="${_esc(data.livestreamUrl || '#')}" target="_blank" rel="noopener"
-               class="tpos-snap-thumb-link"
-               title="Xem live tại giây ${data.offsetSeconds ?? '?'} (${offsetText})"
-               style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:#0c4a6e;">
-                ${thumbHtml}
-                <span style="font-size:11px;color:#475569;font-weight:500;">
-                    📍 Live @ <b>${offsetText}</b> — click để xem
-                </span>
-            </a>
-        `;
-        if (strip) {
-            strip.innerHTML = stripHtml;
-            return;
+        if (!strip) {
+            strip = document.createElement('div');
+            strip.className = 'tpos-snap-thumb-strip';
+            // Thụt vào trái ~52px để align với khu vực message (sau avatar).
+            // Compact: chỉ thumbnail nhỏ, click → zoom lightbox.
+            strip.style.cssText = 'margin:4px 0 2px 52px;display:inline-block;';
+            const info = row.querySelector('.tpos-conv-info');
+            if (info) info.insertAdjacentElement('afterend', strip);
+            else row.appendChild(strip);
         }
-        strip = document.createElement('div');
-        strip.className = 'tpos-snap-thumb-strip';
-        // Thụt vào trái ~52px để align với khu vực message (sau avatar).
-        strip.style.cssText =
-            'margin:6px 0 4px 52px;padding:4px 8px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;';
-        strip.innerHTML = stripHtml;
-        strip.addEventListener('click', (e) => e.stopPropagation());
-        // Mount sau .tpos-conv-info (phone/address row), fallback append cuối.
-        const info = row.querySelector('.tpos-conv-info');
-        if (info) info.insertAdjacentElement('afterend', strip);
-        else row.appendChild(strip);
+        strip.innerHTML = `
+            <img src="${_esc(data.thumbnailUrl)}"
+                 alt=""
+                 loading="lazy"
+                 class="tpos-snap-thumb-img"
+                 data-snap-url="${_esc(data.livestreamUrl || '')}"
+                 data-snap-offset="${data.offsetSeconds ?? ''}"
+                 title="Snapshot lúc Live @ ${offsetText} — click để zoom"
+                 style="width:64px;height:40px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;"
+                 onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
+        `;
+        const img = strip.querySelector('img');
+        if (img) {
+            img.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _openSnapLightbox(data);
+            });
+        }
+    }
+
+    // Lightbox zoom — modal full-screen mở ảnh snapshot + nút "Xem live tại giây X".
+    function _openSnapLightbox(data) {
+        const existing = document.querySelector('.tpos-snap-lightbox');
+        if (existing) existing.remove();
+        const lb = document.createElement('div');
+        lb.className = 'tpos-snap-lightbox';
+        lb.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;';
+        const offsetText =
+            Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
+                ? `${Math.floor(data.offsetSeconds / 60)}m${data.offsetSeconds % 60}s`
+                : '?';
+        lb.innerHTML = `
+            <img src="${_esc(data.thumbnailUrl)}"
+                 alt=""
+                 style="max-width:90vw;max-height:78vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);cursor:default;" />
+            <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
+                <a href="${_esc(data.livestreamUrl || '#')}" target="_blank" rel="noopener"
+                   style="background:#3b82f6;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;">
+                   🔗 Xem live tại giây ${data.offsetSeconds ?? '?'} (${offsetText})
+                </a>
+                <button type="button"
+                        style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+                   ✕ Đóng
+                </button>
+            </div>
+        `;
+        lb.querySelector('img').addEventListener('click', (e) => e.stopPropagation());
+        lb.querySelector('a').addEventListener('click', (e) => e.stopPropagation());
+        lb.querySelector('button').addEventListener('click', () => lb.remove());
+        lb.addEventListener('click', () => lb.remove());
+        const escClose = (e) => {
+            if (e.key === 'Escape') {
+                lb.remove();
+                document.removeEventListener('keydown', escClose);
+            }
+        };
+        document.addEventListener('keydown', escClose);
+        document.body.appendChild(lb);
     }
 
     // Update strip cho mọi visible row của customerFbUserId — gọi sau auto-snap mới.

@@ -439,6 +439,28 @@ function record(name, ok, detail) {
     );
     record('C18: by-comment-ids batch lookup returns snap data', c18.ok, JSON.stringify(c18));
 
+    // Check 19: Inline thumb img render + click → lightbox mở
+    // Wait tối đa 6s cho strip render (batch fetch debounce 300ms + network).
+    let c19Img = null;
+    for (let i = 0; i < 24; i++) {
+        c19Img = await page.evaluate(() => !!document.querySelector('.tpos-snap-thumb-img'));
+        if (c19Img) break;
+        await page.waitForTimeout(250);
+    }
+    const c19 = await page.evaluate(async () => {
+        const img = document.querySelector('.tpos-snap-thumb-img');
+        if (!img) return { ok: false, reason: 'no thumb img rendered after wait' };
+        document.querySelectorAll('.tpos-snap-lightbox').forEach((x) => x.remove());
+        img.click();
+        await new Promise((r) => setTimeout(r, 400));
+        const lb = document.querySelector('.tpos-snap-lightbox');
+        const hasImg = !!lb?.querySelector('img');
+        const hasLiveBtn = !!lb?.querySelector('a[href*="facebook.com"]');
+        if (lb) lb.remove();
+        return { ok: !!lb && hasImg && hasLiveBtn, lightboxOpened: !!lb, hasImg, hasLiveBtn };
+    });
+    record('C19: Click thumb → lightbox zoom mở (có ảnh + link live)', c19.ok, JSON.stringify(c19));
+
     // Check 17: Perf — load page mới, đo thời gian từ navigate → 4 chips mounted.
     // Mục tiêu < 8s (TPOS init + chips render).
     const perfStart = Date.now();
