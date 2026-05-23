@@ -68,10 +68,13 @@
                 console.warn('[snap] video not found in TPOS livevideo list:', liveVideoId);
                 return null;
             }
+            // channelCreatedTime có thể là ISO string ('2026-05-23T12:01:51+07:00')
+            // hoặc number ms. Dùng new Date().getTime() handle cả 2.
+            const startMs = match.channelCreatedTime
+                ? new Date(match.channelCreatedTime).getTime()
+                : null;
             const info = {
-                broadcastStartMs: match.channelCreatedTime
-                    ? Number(match.channelCreatedTime)
-                    : null,
+                broadcastStartMs: Number.isFinite(startMs) ? startMs : null,
                 title: match.title || null,
                 statusLive: match.statusLive,
             };
@@ -148,14 +151,52 @@
         );
     }
 
-    // Resolve active live campaign cho page đã chọn.
+    // Resolve active live campaign cho page đã chọn — strict mode (1 page).
     function _resolveActiveCampaign(pageObj) {
         const st = global.TposState;
         if (!st?.liveCampaigns?.length || !pageObj) return null;
-        // Lấy campaign mới nhất (selectedCampaign nếu cùng page, else đầu list)
         const sel = st.selectedCampaign;
         if (sel && sel._pageObj?.Facebook_PageId === pageObj.Facebook_PageId) return sel;
-        return st.liveCampaigns[0] || null;
+        // Tìm campaign matching page, sắp xếp DateCreated desc (mới nhất trước)
+        const matching = st.liveCampaigns
+            .filter((c) => c.Facebook_UserId === pageObj.Facebook_PageId)
+            .sort((a, b) => new Date(b.DateCreated || 0) - new Date(a.DateCreated || 0));
+        return matching[0] || st.liveCampaigns[0] || null;
+    }
+
+    // Resolve TOP-2 latest campaigns across ALL pages (user req 2026-05-23).
+    // Cho auto-snap: nếu comment đến từ comment.from.id thuộc page A,
+    // match campaign của page A trong top 2. Fallback campaign top 1.
+    function _resolveTopCampaigns(limit = 2) {
+        const st = global.TposState;
+        if (!st?.liveCampaigns?.length) return [];
+        return st.liveCampaigns
+            .slice()
+            .sort((a, b) => new Date(b.DateCreated || 0) - new Date(a.DateCreated || 0))
+            .slice(0, limit);
+    }
+
+    // Resolve campaign cho 1 comment cụ thể (auto-snap path):
+    // 1. Nếu comment._campaignId set → dùng (đã match từ tpos-init)
+    // 2. Else match qua comment._pageId với top-2 campaigns
+    // 3. Fallback campaign mới nhất
+    function _resolveCampaignForComment(comment) {
+        const st = global.TposState;
+        if (!st?.liveCampaigns?.length) return null;
+        // Path 1: comment đã có _campaignId
+        if (comment._campaignId) {
+            const found = st.liveCampaigns.find((c) => c.Id === comment._campaignId);
+            if (found) return found;
+        }
+        // Path 2: match qua pageId
+        const top = _resolveTopCampaigns(2);
+        const commentPageId = comment._pageId || comment.from?.id;
+        if (commentPageId) {
+            const match = top.find((c) => c.Facebook_UserId === commentPageId);
+            if (match) return match;
+        }
+        // Path 3: campaign mới nhất
+        return top[0] || null;
     }
 
     function _user() {
@@ -588,6 +629,7 @@ Throttle 30s/KH. Click để tắt.`;
                     customerName,
                     commentTime,
                     message: comment.message,
+                    comment, // pass full comment để resolve campaign theo _campaignId / _pageId
                 });
             }
             STATE.autoStats.total++;
@@ -607,11 +649,21 @@ Throttle 30s/KH. Click để tắt.`;
         customerName,
         commentTime,
         message,
+        comment,
     }) {
-        const pageObj = _resolvePageObj();
-        if (!pageObj) throw new Error('no page selected');
-        const camp = _resolveActiveCampaign(pageObj);
-        if (!camp || !camp.Facebook_LiveId) throw new Error('no live campaign active');
+        // Resolve campaign theo comment (deep extract pageId + videoId + campaign).
+        // User req: 'all pages + 2 campaigns mới nhất'. Logic:
+        //   1. comment._campaignId / comment._pageId → exact match
+        //   2. fallback: top-2 campaigns mới nhất, match qua pageId
+        //   3. fallback: campaign mới nhất bất kỳ
+        const camp = comment ? _resolveCampaignForComment(comment) : _resolveTopCampaigns(1)[0];
+        if (!camp || !camp.Facebook_LiveId) throw new Error('no live campaign matching comment');
+        // Resolve pageObj từ campaign.Facebook_UserId (page sở hữu live)
+        const st = global.TposState;
+        const pageObj =
+            st?.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId) ||
+            st?.selectedPage;
+        if (!pageObj) throw new Error('cannot resolve pageObj from campaign');
         const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, camp.Facebook_LiveId);
         if (!videoInfo?.broadcastStartMs) throw new Error('no broadcast_start_time');
         const payload = {
@@ -641,7 +693,6 @@ Throttle 30s/KH. Click để tắt.`;
         });
         const d = await r.json();
         if (!d.success) throw new Error(d.error || 'batch failed');
-        // Refresh count + badge (optimistic-ish)
         if (d.summary?.created > 0) {
             STATE.counts[customerFbUserId] = (STATE.counts[customerFbUserId] || 0) + 1;
             _renderBadgeFor(customerFbUserId);
