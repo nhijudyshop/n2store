@@ -243,10 +243,51 @@
         return _requestCaptureStream();
     }
 
+    // Hiển thị modal hướng dẫn 3 bước trước khi mở picker. Chỉ show 1 lần đầu
+    // (localStorage flag), những lần sau skip để user không bị phiền.
+    function _showPickerTutorial() {
+        if (localStorage.getItem('tpos_snap_picker_tutorial_seen')) return Promise.resolve();
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText =
+                'position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,0.7);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:480px;box-shadow:0 24px 60px rgba(0,0,0,0.3);">
+                    <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;color:#0f172a;">📷 Cách chụp livestream lần đầu</h3>
+                    <p style="margin:0 0 14px;font-size:13px;color:#475569;line-height:1.5;">
+                        Sau khi bấm "Tiếp tục", browser sẽ hiện 1 cửa sổ chọn tab.
+                        Làm theo 3 bước:
+                    </p>
+                    <ol style="margin:0 0 16px 18px;padding:0;font-size:13px;color:#334155;line-height:1.7;">
+                        <li><strong>Click hàng "(...) Facebook"</strong> trong cột trái</li>
+                        <li>Cột phải sẽ hiện preview tab FB</li>
+                        <li>Click nút <strong>Share</strong> (góc phải dưới)</li>
+                    </ol>
+                    <p style="margin:0 0 16px;font-size:12px;color:#94a3b8;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #f59e0b;">
+                        💡 Lần sau bạn KHÔNG cần làm lại — stream giữ nguyên suốt phiên.
+                    </p>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button class="snap-tut-skip" style="background:transparent;border:1px solid #cbd5e1;color:#475569;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">Bỏ qua, không hỏi lại</button>
+                        <button class="snap-tut-ok" style="background:#7c3aed;border:none;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Tiếp tục</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            const close = (remember) => {
+                if (remember) localStorage.setItem('tpos_snap_picker_tutorial_seen', '1');
+                overlay.remove();
+                resolve();
+            };
+            overlay.querySelector('.snap-tut-ok').onclick = () => close(false);
+            overlay.querySelector('.snap-tut-skip').onclick = () => close(true);
+        });
+    }
+
     async function _requestCaptureStream() {
         try {
-            // Hint user trước khi mở picker
-            _toast('⚙ Browser sẽ mở picker — chọn tab FB live + bấm Share', 'ok');
+            await _showPickerTutorial();
+            // Hint user trước khi mở picker (notification toast)
+            _toast('⚙ Browser mở picker — click tab Facebook + bấm Share', 'ok');
             // getDisplayMedia với preferences: prefer browser tab, no audio, no cursor
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
