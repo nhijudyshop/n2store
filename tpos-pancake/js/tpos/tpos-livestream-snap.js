@@ -73,10 +73,16 @@
             const startMs = match.channelCreatedTime
                 ? new Date(match.channelCreatedTime).getTime()
                 : null;
+            // TPOS exposes video.thumbnail.url (FB CDN signed URL, public) —
+            // dùng làm thumbnail vì FB Graph picture endpoint giờ trả 400 cho
+            // mọi video (FB policy change 2026-05).
+            const thumbnailUrl =
+                match.thumbnail?.url || match.thumbnail?.uri || match.thumbnailUrl || null;
             const info = {
                 broadcastStartMs: Number.isFinite(startMs) ? startMs : null,
                 title: match.title || null,
                 statusLive: match.statusLive,
+                thumbnailUrl,
             };
             _liveVideoInfoCache.set(cacheKey, { info, fetchedAt: Date.now() });
             console.log('[snap] live video info:', info);
@@ -464,6 +470,7 @@ Throttle 30s/KH. Click để tắt.`;
             liveCampaignId: camp.Id ? String(camp.Id) : null,
             liveVideoId,
             broadcastStartMs: videoInfo.broadcastStartMs,
+            thumbnailUrl: videoInfo.thumbnailUrl || undefined,
             comments: comments.map((c) => ({
                 commentId: c.id,
                 customerFbUserId: c.from.id,
@@ -532,6 +539,7 @@ Throttle 30s/KH. Click để tắt.`;
             liveCampaignId: camp.Id ? String(camp.Id) : null,
             liveVideoId: camp.Facebook_LiveId,
             broadcastStartMs: videoInfo.broadcastStartMs,
+            thumbnailUrl: videoInfo.thumbnailUrl || undefined,
             comments: [
                 {
                     commentId: `manual_${Date.now()}`,
@@ -673,6 +681,8 @@ Throttle 30s/KH. Click để tắt.`;
             liveCampaignId: camp.Id ? String(camp.Id) : null,
             liveVideoId: camp.Facebook_LiveId,
             broadcastStartMs: videoInfo.broadcastStartMs,
+            // FB CDN signed URL từ TPOS (FB Graph picture endpoint trả 400)
+            thumbnailUrl: videoInfo.thumbnailUrl || undefined,
             comments: [
                 {
                     commentId,
@@ -968,6 +978,9 @@ Throttle 30s/KH. Click để tắt.`;
                     liveVideoId,
                     capturedAt: now,
                     offsetSeconds: offsetSec,
+                    // FB CDN signed URL từ TPOS livevideo (FB Graph picture endpoint
+                    // trả 400 từ 05/2026). Cached qua _fetchLiveVideoInfo.
+                    thumbnailUrl: videoInfo?.thumbnailUrl || undefined,
                     user: _user(),
                     imageBase64,
                     imageMime: imageBase64 ? 'image/jpeg' : undefined,

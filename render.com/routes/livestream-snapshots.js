@@ -263,11 +263,11 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
             }
         }
         // Thumbnail URL strategy (lazy fetch):
-        //   Default → FB Graph URL = always-fresh (browser resolves tại view-time):
-        //     · Live đang chạy: FB CDN trả thumb mới nhất
-        //     · Live kết thúc: FB Graph trả FINAL thumb (clean, không phải frame stale)
-        //   Real-snap → self-served `/api/.../image/:id` (frozen bytea từ getDisplayMedia)
-        let thumbnailUrl = _computeThumbnailUrl(b.liveVideoId);
+        //   Priority: b.thumbnailUrl (FB CDN signed URL từ TPOS video.thumbnail.url) →
+        //     fallback FB Graph picture URL (FB đã trả 400 từ 05/2026 → effectively
+        //     broken, giữ làm cuối cùng).
+        //   Real-snap → self-served `/api/.../image/:id` (frozen bytea getDisplayMedia)
+        let thumbnailUrl = b.thumbnailUrl || _computeThumbnailUrl(b.liveVideoId);
         const user = b.user || {};
         const r = await pool.query(
             `INSERT INTO livestream_snapshots
@@ -512,7 +512,11 @@ router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) =
                     b.liveVideoId,
                     offsetSec
                 );
-                const thumbnailUrl = _computeThumbnailUrl(b.liveVideoId);
+                // FB Graph picture endpoint giờ trả 400 cho video (FB policy 05/2026).
+                // Ưu tiên b.thumbnailUrl từ frontend (lấy từ TPOS video.thumbnail.url
+                // — FB CDN signed URL, public). Fallback FB Graph URL (sẽ 400 nhưng
+                // giữ structure cũ để rollback an toàn).
+                const thumbnailUrl = b.thumbnailUrl || _computeThumbnailUrl(b.liveVideoId);
                 const r = await pool.query(
                     `INSERT INTO livestream_snapshots
                      (comment_id, customer_fb_user_id, customer_name, page_id, page_name,
