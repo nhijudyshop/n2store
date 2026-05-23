@@ -20,6 +20,8 @@
     const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
     const LS_KEY_SNAP_PAGE = 'tpos_snap_live_page'; // 'store' | 'house'
     const LS_KEY_SNAP_MODE = 'tpos_snap_mode'; // 'live' (default) | 'lazy'
+    const LS_KEY_AUTO_MODE = 'tpos_snap_auto'; // 'on' | 'off' (default off)
+    const AUTO_THROTTLE_MS = 30 * 1000; // 30s per customer — tránh spam khi 1 KH spam comment
     // Mode definitions:
     //   'live' = 🎬 Chụp Live — getDisplayMedia capture frame từ tab FB live đã share
     //            (cần user mở FB live tab + chọn tab trong picker 1 lần đầu phiên).
@@ -101,6 +103,9 @@
         captureStream: null, // MediaStream
         captureVideo: null, // <video> element (hidden, dùng draw frame)
         captureCanvas: null, // <canvas> element (cached)
+        // Auto-mode — throttle per customer
+        autoLastSnap: new Map(), // customerFbUserId → lastTs (ms)
+        autoStats: { total: 0, throttled: 0, errors: 0 }, // session counter
     };
 
     function _getSnapPagePref() {
@@ -116,6 +121,14 @@
     function _setSnapMode(v) {
         localStorage.setItem(LS_KEY_SNAP_MODE, v);
         renderRealSnapChip();
+        renderAutoModeChip();
+    }
+    function _isAutoMode() {
+        return localStorage.getItem(LS_KEY_AUTO_MODE) === 'on';
+    }
+    function _setAutoMode(on) {
+        localStorage.setItem(LS_KEY_AUTO_MODE, on ? 'on' : 'off');
+        renderAutoModeChip();
     }
 
     // Resolve page object từ allPages dựa trên snap page preference.
@@ -269,6 +282,7 @@
         });
         host.appendChild(chip);
         renderRealSnapChip();
+        renderAutoModeChip();
         return chip;
     }
     function renderRealSnapChip() {
@@ -301,6 +315,108 @@
             chip.title =
                 'Mode Lưu Time: chỉ lưu thời gian, không chụp ảnh. Mở popover sẽ tự fetch FB Graph thumb (lag 5-30s). Không cần mở FB tab. Click để đổi sang 🎬 Chụp Live.';
         }
+    }
+
+    // -----------------------------------------------------
+    // Auto-mode chip — khi mới có comment, tự động snap
+    // -----------------------------------------------------
+    function ensureAutoModeChip() {
+        let chip = document.getElementById('tpos-snap-auto-chip');
+        if (chip) return chip;
+        const host = _ensureFloatingHost();
+        if (!host) return null;
+        chip = document.createElement('div');
+        chip.id = 'tpos-snap-auto-chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;';
+        chip.addEventListener('click', () => {
+            const next = !_isAutoMode();
+            // Pre-check khi bật: cần Mode='live' + có captureStream để chụp thật
+            if (next) {
+                if (_getSnapMode() !== MODE_LIVE) {
+                    _toast('Auto-mode cần Mode = 🎬 Chụp Live (đổi mode trước)', 'err');
+                    return;
+                }
+                if (!STATE.captureStream) {
+                    _toast(
+                        'Auto-mode cần stream FB live đang share — click 📸 1 lần để chọn tab trước',
+                        'err'
+                    );
+                    return;
+                }
+            }
+            _setAutoMode(next);
+            _toast(
+                next
+                    ? '🤖 Auto-snap ON — KH mới comment sẽ tự chụp (throttle 30s/KH)'
+                    : '🤖 Auto-snap OFF',
+                'ok'
+            );
+        });
+        host.appendChild(chip);
+        renderAutoModeChip();
+        return chip;
+    }
+    function renderAutoModeChip() {
+        const chip = document.getElementById('tpos-snap-auto-chip');
+        if (!chip) return;
+        const on = _isAutoMode();
+        const streamOk = !!STATE.captureStream;
+        if (on && streamOk) {
+            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#16a34a;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Auto: <strong>ON</strong> · ${STATE.autoStats.total} snaps`;
+            chip.style.background = '#dcfce7';
+            chip.style.borderColor = '#86efac';
+            chip.style.color = '#166534';
+            chip.title = `Auto-snap ON. Throttle 30s/KH. Session: ${STATE.autoStats.total} OK, ${STATE.autoStats.throttled} throttled, ${STATE.autoStats.errors} errors. Click để tắt.`;
+        } else if (on && !streamOk) {
+            chip.innerHTML = `⚠️ Auto: <strong>ON (no stream)</strong>`;
+            chip.style.background = '#fef3c7';
+            chip.style.borderColor = '#fcd34d';
+            chip.style.color = '#92400e';
+            chip.title = 'Auto-mode đã bật nhưng stream FB chưa share. Click 📸 1 lần để chọn tab.';
+        } else {
+            chip.innerHTML = `🤖 Auto: <strong>OFF</strong> · click bật`;
+            chip.style.background = '#f3f4f6';
+            chip.style.borderColor = '#d1d5db';
+            chip.style.color = '#374151';
+            chip.title =
+                'Auto-mode OFF. Khi bật, mỗi comment KH mới sẽ tự snap (cần Mode Chụp Live + stream đã share).';
+        }
+    }
+
+    // -----------------------------------------------------
+    // Auto-snap handler — gắn vào eventBus.on('tpos:newComment')
+    // -----------------------------------------------------
+    async function _handleNewCommentAuto(payload) {
+        if (!_isAutoMode()) return;
+        if (_getSnapMode() !== MODE_LIVE) return;
+        if (!STATE.captureStream) {
+            // Stream lost → silent skip (chip sẽ chuyển trạng thái warning sau)
+            return;
+        }
+        const comment = payload?.comment;
+        if (!comment || payload.isStaff) return; // skip staff/page replies
+        const customerFbUserId = comment.from?.id;
+        const customerName = comment.from?.name || '?';
+        const commentId = comment.id;
+        if (!customerFbUserId) return;
+        // Throttle per customer
+        const lastTs = STATE.autoLastSnap.get(customerFbUserId) || 0;
+        const now = Date.now();
+        if (now - lastTs < AUTO_THROTTLE_MS) {
+            STATE.autoStats.throttled++;
+            renderAutoModeChip();
+            return;
+        }
+        STATE.autoLastSnap.set(customerFbUserId, now);
+        try {
+            await snap(customerFbUserId, customerName, commentId, null);
+            STATE.autoStats.total++;
+        } catch (e) {
+            STATE.autoStats.errors++;
+            console.warn('[snap-auto] fail:', e.message);
+        }
+        renderAutoModeChip();
     }
 
     // Init capture stream (no-op nếu đã có). Trả về stream hoặc throw.
@@ -397,6 +513,7 @@
                 });
             });
             renderRealSnapChip();
+            renderAutoModeChip();
             _toast('🔴 Snap thật ON — mỗi 📸 sẽ chụp thật từ tab đã chọn', 'ok');
         } catch (e) {
             console.warn('[snap-real] getDisplayMedia rejected:', e?.message);
@@ -407,6 +524,7 @@
             }
             STATE.captureStream = null;
             renderRealSnapChip();
+            renderAutoModeChip();
         }
     }
 
@@ -419,6 +537,7 @@
             STATE.captureVideo.srcObject = null;
         }
         renderRealSnapChip();
+        renderAutoModeChip();
     }
 
     // Capture 1 frame từ stream → JPEG base64. Return null nếu stream chưa sẵn.
@@ -918,6 +1037,22 @@
     function init() {
         setupObserver();
         subscribeSSE();
+        // Subscribe TPOS new-comment event cho auto-mode (lazy — eventBus có thể
+        // chưa setup tại DOMContentLoaded, fail-safe retry)
+        const subscribeNewComment = () => {
+            if (global.eventBus?.on) {
+                global.eventBus.on('tpos:newComment', _handleNewCommentAuto);
+                console.log('[snap] subscribed to tpos:newComment for auto-mode');
+                return true;
+            }
+            return false;
+        };
+        if (!subscribeNewComment()) {
+            const evTimer = setInterval(() => {
+                if (subscribeNewComment()) clearInterval(evTimer);
+            }, 500);
+            setTimeout(() => clearInterval(evTimer), 10000);
+        }
         // Retry mount chip 10s — TPOS header (#tposContent / .tpos-header-bar)
         // có thể chưa render tại DOMContentLoaded. Retry interval 500ms tới khi
         // host appears, max 20 attempts.
@@ -926,12 +1061,13 @@
             attempts++;
             const c1 = ensureHeaderChip();
             const c2 = ensureRealSnapChip();
-            if ((c1 && c2) || attempts >= 20) {
+            const c3 = ensureAutoModeChip();
+            if ((c1 && c2 && c3) || attempts >= 20) {
                 clearInterval(mountTimer);
-                if (c1 && c2) {
-                    console.log('[snap] header chips mounted after', attempts, 'attempts');
+                if (c1 && c2 && c3) {
+                    console.log('[snap] all chips mounted after', attempts, 'attempts');
                 } else {
-                    console.warn('[snap] header chips mount failed after 20 attempts');
+                    console.warn('[snap] chips mount partial after 20 attempts');
                 }
             }
         }, 500);
