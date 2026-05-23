@@ -478,13 +478,17 @@ Throttle 30s/KH. Click để tắt.`;
             liveVideoId,
             broadcastStartMs: videoInfo.broadcastStartMs,
             thumbnailUrl: videoInfo.thumbnailUrl || undefined,
-            comments: comments.map((c) => ({
-                commentId: c.id,
-                customerFbUserId: c.from.id,
-                customerName: c.from.name || '?',
-                createdTime: new Date(c.created_time || c.createdTime || Date.now()).getTime(),
-                message: c.message || '',
-            })),
+            comments: comments.map((c) => {
+                const raw = c.created_time || c.createdTime || c.inserted_at || c.created_at;
+                const t = raw ? new Date(raw).getTime() : NaN;
+                return {
+                    commentId: c.id,
+                    customerFbUserId: c.from.id,
+                    customerName: c.from.name || '?',
+                    createdTime: Number.isFinite(t) ? t : Date.now(),
+                    message: c.message || '',
+                };
+            }),
             skipExisting: opts.skipExisting !== false,
             user: _user(),
         };
@@ -632,19 +636,34 @@ Throttle 30s/KH. Click để tắt.`;
                 // Path 1: real-frame capture từ FB tab đã share.
                 // Pass comment.created_time để offset_seconds tính từ moment
                 // comment, không phải thời điểm capture frame.
-                const commentTimeMs = new Date(
-                    comment.created_time || comment.createdTime || Date.now()
-                ).getTime();
+                const rawT =
+                    comment.created_time ||
+                    comment.createdTime ||
+                    comment.inserted_at ||
+                    comment.created_at;
+                const parsedT = rawT ? new Date(rawT).getTime() : NaN;
+                const commentTimeMs = Number.isFinite(parsedT) ? parsedT : Date.now();
                 await snap(customerFbUserId, customerName, commentId, null, {
                     commentTime: commentTimeMs,
+                    comment,
                 });
             } else {
                 // Path 2: offline computed offset — không cần FB tab.
-                // commentTime ưu tiên từ comment.created_time (chính xác từ FB),
-                // fallback Date.now() nếu SSE event chậm.
-                const commentTime = new Date(
-                    comment.created_time || comment.createdTime || Date.now()
-                ).getTime();
+                // commentTime ưu tiên FB created_time (chính xác từ FB), fallback
+                // Pancake inserted_at, last resort Date.now() (sẽ log warning).
+                const rawTime =
+                    comment.created_time ||
+                    comment.createdTime ||
+                    comment.inserted_at ||
+                    comment.created_at;
+                const parsed = rawTime ? new Date(rawTime).getTime() : NaN;
+                const commentTime = Number.isFinite(parsed) ? parsed : Date.now();
+                if (!Number.isFinite(parsed)) {
+                    console.warn(
+                        '[snap-auto] comment missing valid created_time, falling back Date.now(). Comment keys:',
+                        Object.keys(comment).join(',')
+                    );
+                }
                 await _offlineSnapOne({
                     commentId,
                     customerFbUserId,
