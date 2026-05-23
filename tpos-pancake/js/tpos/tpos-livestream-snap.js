@@ -19,6 +19,16 @@
 
     const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
     const LS_KEY_SNAP_PAGE = 'tpos_snap_live_page'; // 'store' | 'house'
+    const LS_KEY_SNAP_MODE = 'tpos_snap_mode'; // 'live' (default) | 'lazy'
+    // Mode definitions:
+    //   'live' = 🎬 Chụp Live — getDisplayMedia capture frame từ tab FB live đã share
+    //            (cần user mở FB live tab + chọn tab trong picker 1 lần đầu phiên).
+    //            Ảnh exact moment, 1280x720, lưu bytea Postgres.
+    //   'lazy' = ⏱️ Lưu Time — chỉ lưu metadata (time, video_id, offset). Browser
+    //            lazy-fetch FB Graph picture URL khi mở popover. Không cần FB tab.
+    //            Ảnh lag 5-30s do FB CDN refresh.
+    const MODE_LIVE = 'live';
+    const MODE_LAZY = 'lazy';
     const STATE = {
         counts: {}, // customerFbUserId → count
         cacheList: new Map(), // customerFbUserId → snapshots[]
@@ -35,6 +45,13 @@
     function _setSnapPagePref(v) {
         localStorage.setItem(LS_KEY_SNAP_PAGE, v);
         renderHeaderChip();
+    }
+    function _getSnapMode() {
+        return localStorage.getItem(LS_KEY_SNAP_MODE) || MODE_LIVE;
+    }
+    function _setSnapMode(v) {
+        localStorage.setItem(LS_KEY_SNAP_MODE, v);
+        renderRealSnapChip();
     }
 
     // Resolve page object từ allPages dựa trên snap page preference.
@@ -145,7 +162,23 @@
         chip.className = 'tpos-snap-real-chip';
         chip.style.cssText =
             'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;color:#374151;cursor:pointer;margin-left:6px;user-select:none;';
-        chip.addEventListener('click', toggleRealSnap);
+        // Click chip = đổi mode (NOT toggle stream). Stream tự bật khi user
+        // click 📸 trong mode='live' (lazy initialization, OS picker chỉ hiện
+        // khi cần thật sự).
+        chip.addEventListener('click', () => {
+            const next = _getSnapMode() === MODE_LIVE ? MODE_LAZY : MODE_LIVE;
+            _setSnapMode(next);
+            // Nếu chuyển sang lazy → tắt stream cũ
+            if (next === MODE_LAZY && STATE.captureStream) {
+                stopRealSnap();
+            }
+            _toast(
+                next === MODE_LIVE
+                    ? '🎬 Đã đổi sang Chụp Live (lần đầu bấm 📸 sẽ hỏi tab FB)'
+                    : '⏱️ Đã đổi sang Lưu Time (không cần FB tab)',
+                'ok'
+            );
+        });
         host.appendChild(chip);
         renderRealSnapChip();
         return chip;
@@ -153,19 +186,32 @@
     function renderRealSnapChip() {
         const chip = document.getElementById('tpos-snap-real-chip');
         if (!chip) return;
-        const active = !!STATE.captureStream;
-        if (active) {
-            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Snap thật: <strong>ON</strong> · click để tắt`;
-            chip.style.background = '#fee2e2';
-            chip.style.borderColor = '#fca5a5';
-            chip.style.color = '#991b1b';
-            chip.title = 'Đang share screen. 📸 click sẽ chụp ảnh thật từ tab đã chọn.';
+        const mode = _getSnapMode();
+        const streamReady = !!STATE.captureStream;
+        if (mode === MODE_LIVE) {
+            if (streamReady) {
+                chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Mode: <strong>🎬 Chụp Live</strong> · sẵn sàng`;
+                chip.style.background = '#fee2e2';
+                chip.style.borderColor = '#fca5a5';
+                chip.style.color = '#991b1b';
+                chip.title =
+                    'Click bấm 📸 sẽ chụp ảnh thật từ FB live tab. Click chip để đổi sang ⏱️ Lưu Time mode.';
+            } else {
+                chip.innerHTML = `🎬 Mode: <strong>Chụp Live</strong> · click bấm 📸 sẽ hỏi chọn FB tab`;
+                chip.style.background = '#fef3c7';
+                chip.style.borderColor = '#fcd34d';
+                chip.style.color = '#92400e';
+                chip.title =
+                    'Mode Chụp Live: cần mở thêm 1 tab FB live + chọn tab khi browser hỏi. Ảnh exact moment, 1280x720. Click chip để đổi sang ⏱️ Lưu Time.';
+            }
         } else {
-            chip.innerHTML = `⚪ Snap thật: <strong>OFF</strong> · click bật`;
-            chip.style.background = '#f3f4f6';
-            chip.style.borderColor = '#d1d5db';
-            chip.style.color = '#374151';
-            chip.title = 'Click để bật chế độ chụp ảnh thật (cần chọn tab FB live).';
+            // MODE_LAZY
+            chip.innerHTML = `⏱️ Mode: <strong>Lưu Time</strong> · click chip đổi sang Chụp Live`;
+            chip.style.background = '#dbeafe';
+            chip.style.borderColor = '#93c5fd';
+            chip.style.color = '#1e40af';
+            chip.title =
+                'Mode Lưu Time: chỉ lưu thời gian, không chụp ảnh. Mở popover sẽ tự fetch FB Graph thumb (lag 5-30s). Không cần mở FB tab. Click để đổi sang 🎬 Chụp Live.';
         }
     }
 
@@ -576,13 +622,16 @@
         const customerFbUserId = c.from.id;
         const customerName = c.from.name || '?';
 
+        // Mount kế bên badge "Ẩn" / orderBadge trong .tpos-conv-header (user yêu cầu).
+        // Tag style để fit visually với các badge khác (House, Ẩn, Cảnh báo).
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'tpos-action-btn tpos-snap-btn';
+        btn.className = 'tpos-snap-btn';
         btn.dataset.customerId = customerFbUserId;
-        btn.title = `Snap livestream cho KH ${customerName} (click giữ Shift để xem list)`;
-        btn.innerHTML = `<i data-lucide="camera" style="width:13px;height:13px;"></i>`;
-        btn.style.cssText = 'color:#dc2626;position:relative;';
+        btn.title = `📸 Snap livestream cho KH ${customerName}\nClick: chụp ngay\nShift+click / right-click: xem list snapshots`;
+        btn.innerHTML = `<i data-lucide="camera" style="width:11px;height:11px;vertical-align:-1px;"></i>`;
+        btn.style.cssText =
+            'display:inline-flex;align-items:center;gap:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px;line-height:1;position:relative;';
         btn.onclick = (e) => {
             e.stopPropagation();
             if (e.shiftKey) {
@@ -598,13 +647,19 @@
             togglePopover(customerFbUserId, customerName, btn);
         };
 
-        // Mount: sau nút create-order nếu có, fallback action-buttons container
-        const actions =
-            row.querySelector('.tpos-action-buttons') ||
-            row.querySelector('.tpos-actions') ||
-            row.querySelector('[class*="action"]');
-        if (actions) actions.appendChild(btn);
-        else row.appendChild(btn);
+        // Mount: cuối .tpos-conv-header (cạnh badge "Ẩn") theo yêu cầu user.
+        // Fallback các action-buttons container nếu header không tìm thấy.
+        const header = row.querySelector('.tpos-conv-header');
+        if (header) {
+            header.appendChild(btn);
+        } else {
+            const actions =
+                row.querySelector('.tpos-action-buttons') ||
+                row.querySelector('.tpos-actions') ||
+                row.querySelector('[class*="action"]');
+            if (actions) actions.appendChild(btn);
+            else row.appendChild(btn);
+        }
 
         if (global.lucide) global.lucide.createIcons();
         _renderBadgeFor(customerFbUserId);

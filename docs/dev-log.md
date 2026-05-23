@@ -25,6 +25,27 @@
 
 ## 2026-05-23
 
+### [tpos-pancake][livestream-snapshots] Refactor default: lazy fetch tại view-time + 🔄 manual freeze
+
+**User insight**: "default mode chụp lưu snapshot time -> mai mốt vào xem thì fetch lấy hình lúc đó của video livestream".
+
+Trước đây default eager-fetch FB Graph thumb tại snap-time → save bytea → freeze. Vấn đề: FB CDN stale 5-30s → freeze sớm khoá frame xấu, mất cơ hội lấy thumb fresh sau khi live ends (FB Graph trả final thumb đẹp).
+
+**Strategy mới**:
+
+- **Default snap**: KHÔNG fetch ảnh server-side. Save metadata + `thumbnail_url` = FB Graph URL trực tiếp. Browser `<img>` lazy-resolve tại view-time → fresh FB CDN.
+- **Real-snap toggle** (getDisplayMedia): vẫn save bytea ngay (exact frame).
+- **Opt-in eager fetch**: POST body `fetchFbThumbnail: true` → backend fetch + freeze tại snap-time.
+- **Manual freeze**: POST `/api/livestream/snapshot/:id/refresh-thumbnail` → fetch FB Graph hiện tại → save bytea → update thumbnail_url. Hữu ích sau khi live ends hoặc lo FB xóa video.
+
+**Frontend**: popover row thêm nút 🔄 (giữa ▶ Xem và Xóa).
+
+**Smoke verified**: POST `/snapshot` không có imageBase64 → `thumbnailUrl: https://graph.facebook.com/.../picture` ✓ LAZY, no bytea storage.
+
+Cache bump `v=20260523c`.
+
+---
+
 ### [tpos-pancake][livestream-snapshots] Phase 3: server-side FB Graph freeze + optional getDisplayMedia
 
 **User hỏi** "có cách nào không cần bật tab FB livestream không?" → 2-path approach:
