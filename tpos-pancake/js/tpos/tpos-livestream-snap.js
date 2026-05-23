@@ -215,11 +215,23 @@
         }
     }
 
+    // Init capture stream (no-op nếu đã có). Trả về stream hoặc throw.
+    // Tách khỏi toggleRealSnap (đã deprecated trong chip click) để snap() có
+    // thể lazy-init mà không sợ stop nhầm stream sẵn có.
+    async function ensureCaptureStream() {
+        if (STATE.captureStream) return STATE.captureStream;
+        return _requestCaptureStream();
+    }
+
     async function toggleRealSnap() {
         if (STATE.captureStream) {
             stopRealSnap();
             return;
         }
+        return _requestCaptureStream();
+    }
+
+    async function _requestCaptureStream() {
         try {
             // Hint user trước khi mở picker
             _toast('⚙ Browser sẽ mở picker — chọn tab FB live + bấm Share', 'ok');
@@ -350,14 +362,33 @@
             setTimeout(() => sourceBtn.classList.remove('snap-flash'), 400);
         }
 
-        // Phase 3: nếu real-snap toggle ON + stream sẵn → capture frame, gửi base64.
-        // Else backend tự fetch FB Graph thumb server-side → freeze moment.
+        // Mode = 'live' (🎬 Chụp Live, default) → auto-prompt getDisplayMedia
+        // ở lần đầu phiên (lazy init). User chọn FB tab → stream lưu vào STATE.
+        // Mọi snap sau đó tự dùng stream → không hỏi lại.
+        // Mode = 'lazy' (⏱️ Lưu Time) → skip capture, backend lazy fetch FB Graph
+        // sau (browser <img src=thumbnailUrl> resolve tại view-time).
+        const mode = _getSnapMode();
         let imageBase64 = null;
-        if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
-            try {
-                imageBase64 = await _captureFrameJpeg(0.72, 1280);
-            } catch (e) {
-                console.warn('[snap-real] capture frame failed:', e.message);
+        if (mode === MODE_LIVE) {
+            // Lazy init stream nếu chưa có
+            if (!STATE.captureStream) {
+                try {
+                    await ensureCaptureStream(); // sẽ mở picker (lazy init)
+                } catch (e) {
+                    console.warn('[snap-live] init stream fail:', e.message);
+                }
+            }
+            // Nếu stream giờ đã sẵn → capture frame
+            if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
+                try {
+                    imageBase64 = await _captureFrameJpeg(0.72, 1280);
+                } catch (e) {
+                    console.warn('[snap-live] capture frame failed:', e.message);
+                }
+            }
+            // Nếu user hủy picker → imageBase64 = null → fallback lazy mode cho snap này
+            if (!imageBase64) {
+                console.log('[snap-live] no frame → fallback lazy (FB Graph URL)');
             }
         }
 
