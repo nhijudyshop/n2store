@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `05ecba7` — fix(snap): backfill + auto offline KHÔNG lưu thumbnail generic nữa
-**Last updated**: 2026-05-23 15:38:28 +07
-**Latest session**: [`RESUME:20260523-153828-05ecba7`](../20260523-153828-05ecba7.md)
-**Summary**: fix(snap): backfill + auto offline KHÔNG lưu thumbnail generic nữa
+**Latest commit**: `2e11654` — feat(snap): Phase 3 (smart fill + SSE + DRM badge) + GMT+7 force
+**Last updated**: 2026-05-23 16:17:59 +07
+**Latest session**: [`RESUME:20260523-161759-2e11654`](../20260523-161759-2e11654.md)
+**Summary**: feat(snap): Phase 3 (smart fill + SSE + DRM badge) + GMT+7 force
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -50,9 +51,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 15:38
+- [`render.com/`](./render.com.md) — updated 2026-05-23 16:18
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-23 15:31
+- [`scripts/`](./scripts.md) — updated 2026-05-23 16:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 15:38
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 16:18
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
