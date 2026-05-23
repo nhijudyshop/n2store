@@ -579,10 +579,12 @@ async function _resolveM3u8Url(liveVideoId, pageId) {
     if (cached && Date.now() - cached.fetchedAt < _M3U8_CACHE_TTL) return cached.url;
     const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
     const fbUrl = `https://www.facebook.com/${pageId}/videos/${videoIdShort}/`;
+    // FB live serves HLS m3u8 — KHÔNG filter format (mp4 hay m3u8 đều OK).
+    // yt-dlp tự pick best available.
     try {
         const result = await _ytdlp(fbUrl, {
             getUrl: true,
-            format: 'best[ext=mp4]/best',
+            // Không set format → yt-dlp pick 'best' default (m3u8 cho live).
             noWarnings: true,
             noCheckCertificate: true,
         });
@@ -753,7 +755,6 @@ router.post('/extract-test', express.json({ limit: '50kb' }), async (req, res) =
         try {
             const result = await _ytdlp(fbUrl, {
                 getUrl: true,
-                format: 'best[ext=mp4]/best',
                 noWarnings: true,
                 noCheckCertificate: true,
             });
