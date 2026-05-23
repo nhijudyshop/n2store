@@ -38,6 +38,17 @@ function record(name, ok, detail) {
     });
 
     console.log('\n=== STEP 1: Load tpos-pancake ===');
+    // Set flag tutorial trước khi load → tránh modal block C15 manual snap.
+    await ctx.addInitScript(() => {
+        try {
+            localStorage.setItem('tpos_snap_picker_tutorial_seen', '1');
+        } catch {}
+        // Mock getDisplayMedia: reject ngay để tránh OS picker block headless test.
+        if (navigator.mediaDevices) {
+            navigator.mediaDevices.getDisplayMedia = () =>
+                Promise.reject(new DOMException('Permission denied by user', 'NotAllowedError'));
+        }
+    });
     await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
