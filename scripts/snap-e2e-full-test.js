@@ -65,18 +65,17 @@ function record(name, ok, detail) {
     console.log('Trigger CRM team change:', JSON.stringify(triggered));
     await page.waitForTimeout(12000); // wait live-campaigns API
 
-    // Check 1: 5 chips mounted (page+mode+auto+backfill+thumb)
+    // Check 1: 4 chips mounted (Thumb chip removed per user req)
     const chipsInfo = await page.evaluate(() => {
         const c1 = !!document.getElementById('tpos-snap-page-chip');
         const c2 = !!document.getElementById('tpos-snap-real-chip');
         const c3 = !!document.getElementById('tpos-snap-auto-chip');
         const c4 = !!document.getElementById('tpos-snap-backfill-chip');
-        const c5 = !!document.getElementById('tpos-snap-thumb-chip');
-        return { c1, c2, c3, c4, c5 };
+        return { c1, c2, c3, c4 };
     });
     record(
-        'C1: 5 chips mounted (page+mode+auto+backfill+thumb)',
-        chipsInfo.c1 && chipsInfo.c2 && chipsInfo.c3 && chipsInfo.c4 && chipsInfo.c5,
+        'C1: 4 chips mounted (page+mode+auto+backfill) — no thumb toggle',
+        chipsInfo.c1 && chipsInfo.c2 && chipsInfo.c3 && chipsInfo.c4,
         JSON.stringify(chipsInfo)
     );
 
@@ -255,47 +254,61 @@ function record(name, ok, detail) {
     }
     record('C10: Thumbnail URL loadable hoặc null', thumbStatus.ok, JSON.stringify(thumbStatus));
 
-    // Check 11: Refresh-thumbnail endpoint với TPOS URL
+    // Check 11: Legacy refresh-thumbnail endpoint trả 410 Gone (deprecated).
     const refreshResp = await page.evaluate(
-        async ({ id, thumbnailUrl, API }) => {
+        async ({ id, API }) => {
             const r = await fetch(`${API}/api/livestream/snapshot/${id}/refresh-thumbnail`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'omit',
-                body: JSON.stringify({ thumbnailUrl }),
+                body: JSON.stringify({}),
             });
-            const status = r.status;
-            const body = await r.json();
-            return { status, body };
+            const body = await r.json().catch(() => ({}));
+            return { status: r.status, body };
         },
-        { id: snap.id, thumbnailUrl: liveInfo.thumbnailUrl, API }
+        { id: snap.id, API }
     );
     record(
-        'C11: refresh-thumbnail OK với TPOS URL',
-        refreshResp.status === 200 && refreshResp.body.success,
-        `status=${refreshResp.status} error=${refreshResp.body.error || ''}`
+        'C11: refresh-thumbnail endpoint deprecated (410)',
+        refreshResp.status === 410,
+        `status=${refreshResp.status}`
     );
 
-    // Check 12: After refresh, snapshot has image_data + self-served thumbnail_url
-    const afterRefresh = await page.evaluate(
-        async ({ customerFbUserId, API }) => {
-            const r = await fetch(
-                `${API}/api/livestream/snapshots?customerFbUserId=${customerFbUserId}`,
-                { credentials: 'omit' }
-            );
+    // C12: Manual freeze bytea qua direct DB UPDATE (test infra) → simulate
+    // "frame đã extract" state, để C13 verify GET /image trả bytes hợp lệ.
+    // Simulate bằng cách POST 1 snap MỚI với imageBase64 (path 1 path).
+    const fakeJpegB64 =
+        '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAr/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/AP/Z';
+    const c12Snap = await page.evaluate(
+        async ({ customerFbUserId, commentId, API, b64 }) => {
+            const r = await fetch(`${API}/api/livestream/snapshot`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify({
+                    customerFbUserId,
+                    customerName: 'E2E frame test',
+                    commentId: commentId + '_withframe',
+                    pageId: 'test',
+                    liveVideoId: 'test_vid',
+                    capturedAt: Date.now(),
+                    offsetSeconds: 0,
+                    imageBase64: b64,
+                    imageMime: 'image/jpeg',
+                }),
+            });
             return r.json();
         },
-        { customerFbUserId, API }
+        { customerFbUserId, commentId: fakeCommentId, API, b64: fakeJpegB64 }
     );
-    const refreshedSnap = afterRefresh.snapshots?.[0];
-    const isSelfServed = refreshedSnap?.thumbnailUrl?.includes('/api/livestream/snapshot/');
+    const isSelfServed = c12Snap.snapshot?.thumbnailUrl?.includes('/api/livestream/snapshot/');
+    const refreshedSnap = c12Snap.snapshot;
     record(
-        'C12: After refresh, thumbnail_url = self-served (frozen bytea)',
+        'C12: POST snap với imageBase64 → thumbnail_url self-served',
         isSelfServed,
-        refreshedSnap?.thumbnailUrl?.slice(0, 80)
+        refreshedSnap?.thumbnailUrl?.slice(0, 80) || 'null'
     );
 
-    // Check 13: Self-served image actually serves an image
     if (isSelfServed) {
         // Force HTTPS to avoid mixed-content (backend may return http:// behind proxy).
         const httpsUrl = refreshedSnap.thumbnailUrl.replace(/^http:\/\//, 'https://');
@@ -628,8 +641,7 @@ function record(name, ok, detail) {
             const c2 = !!document.getElementById('tpos-snap-real-chip');
             const c3 = !!document.getElementById('tpos-snap-auto-chip');
             const c4 = !!document.getElementById('tpos-snap-backfill-chip');
-            const c5 = !!document.getElementById('tpos-snap-thumb-chip');
-            return c1 && c2 && c3 && c4 && c5 ? Date.now() : null;
+            return c1 && c2 && c3 && c4 ? Date.now() : null;
         });
         if (ready) {
             chipsReadyMs = ready - perfStart;

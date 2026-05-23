@@ -126,44 +126,12 @@ router.use(async (req, res, next) => {
     }
 });
 
-// LEGACY: FB Graph picture endpoint trả 400 từ 05/2026. Giữ tên function
-// để không break import nhưng luôn trả null. Frontend ưu tiên TPOS
-// thumbnail.url qua _fetchLiveVideoInfo, hoặc chỉ lưu metadata (no thumb)
-// và để user click button '📸 Chụp' manual.
-function _computeThumbnailUrl(_liveVideoId) {
-    return null;
-}
-
-// Server-side fetch FB Graph thumbnail, return Buffer | null.
-// Dùng cho default snap path (user KHÔNG cần mở FB live tab) — backend tự kéo
-// frame mới nhất từ FB CDN tại moment user bấm 📸 → freeze vào DB.
-async function _fetchFbThumbnail(liveVideoId) {
-    if (!liveVideoId) return null;
-    const url = `https://graph.facebook.com/${encodeURIComponent(liveVideoId)}/picture?type=large&redirect=true`;
-    try {
-        const fetchFn = global.fetch || (await import('node-fetch')).default;
-        const r = await fetchFn(url, { redirect: 'follow' });
-        if (!r.ok) {
-            console.warn('[lss] FB thumb fetch fail:', r.status, url);
-            return null;
-        }
-        const ct = r.headers.get('content-type') || 'image/jpeg';
-        if (!ct.startsWith('image/')) {
-            console.warn('[lss] FB thumb not image:', ct);
-            return null;
-        }
-        const buf = Buffer.from(await r.arrayBuffer());
-        // Validate min size — FB sometimes returns 1×1 placeholder if video private/ended
-        if (buf.length < 1024) {
-            console.warn('[lss] FB thumb too small (likely placeholder):', buf.length);
-            return null;
-        }
-        return { buffer: buf, mime: ct };
-    } catch (e) {
-        console.warn('[lss] FB thumb fetch error:', e.message);
-        return null;
-    }
-}
+// REMOVED per user req 'bỏ hết chức năng lấy thumbnail đi':
+// - _computeThumbnailUrl: trả FB Graph URL — đã chết 400 từ 05/2026.
+// - _fetchFbThumbnail: backend fetch URL → bytea.
+// Frame thật giờ ONLY qua:
+//   • Frontend imageBase64 (path 1 buffer / path 3 share+capture).
+//   • Backend POST /extract-frame (path 2 yt-dlp + ffmpeg).
 
 // Compute FB deep-link URL.
 // Format chuẩn: https://www.facebook.com/{pageSlugOrId}/videos/{videoId}/?t={seconds}
@@ -263,24 +231,11 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
                     .status(400)
                     .json({ success: false, error: 'invalid imageBase64: ' + e.message });
             }
-        } else if (b.liveVideoId && b.fetchFbThumbnail === true) {
-            // Opt-in: backend fetch FB Graph thumb để freeze moment user bấm 📸.
-            // KHÔNG default — vì FB CDN trả thumb stale 5-30s, freeze sớm sẽ
-            // mất cơ hội lấy thumb tươi hơn lúc view (đặc biệt sau khi live ends
-            // FB Graph trả final thumb đẹp hơn frame stale lúc snap).
-            const result = await _fetchFbThumbnail(b.liveVideoId);
-            if (result) {
-                imageBuffer = result.buffer;
-                imageMime = result.mime;
-                imageSize = result.buffer.length;
-            }
         }
-        // Thumbnail URL strategy (lazy fetch):
-        //   Priority: b.thumbnailUrl (FB CDN signed URL từ TPOS video.thumbnail.url) →
-        //     fallback FB Graph picture URL (FB đã trả 400 từ 05/2026 → effectively
-        //     broken, giữ làm cuối cùng).
-        //   Real-snap → self-served `/api/.../image/:id` (frozen bytea getDisplayMedia)
-        let thumbnailUrl = b.thumbnailUrl || _computeThumbnailUrl(b.liveVideoId);
+        // KHÔNG fetch thumbnail URL (TPOS / FB Graph generic) nữa — chỉ lưu
+        // metadata + frame bytea nếu có. thumbnail_url chỉ set khi có bytea
+        // (self-served URL). User req: 'bỏ hết chức năng lấy thumbnail'.
+        let thumbnailUrl = null;
         const user = b.user || {};
         const r = await pool.query(
             `INSERT INTO livestream_snapshots
@@ -332,74 +287,14 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
     }
 });
 
-// POST /snapshot/:id/refresh-thumbnail
-// 2 paths:
-//   1. Body có thumbnailUrl (TPOS video.thumbnail.url, FB CDN signed) →
-//      fetch URL đó → save bytea + thumbnail_url = self-served (frozen).
-//   2. Body trống → fallback fetch FB Graph picture (giờ trả 400 từ 05/2026,
-//      effectively broken — giữ làm fallback nhưng sẽ fail).
-//
-// User flow: frontend click 🔄 → resolve TPOS thumbnail.url qua
-// _fetchLiveVideoInfo → gọi endpoint này với thumbnailUrl trong body.
-router.post('/snapshot/:id/refresh-thumbnail', express.json({ limit: '1mb' }), async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        const r0 = await pool.query(
-            `SELECT id, live_video_id FROM livestream_snapshots WHERE id = $1`,
-            [req.params.id]
-        );
-        if (r0.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'snapshot not found' });
-        }
-        const liveVideoId = r0.rows[0].live_video_id;
-        if (!liveVideoId) {
-            return res
-                .status(400)
-                .json({ success: false, error: 'snapshot không có live_video_id' });
-        }
-        // Source URL: body.thumbnailUrl (TPOS CDN) → FB Graph fallback.
-        const sourceUrl =
-            (req.body && req.body.thumbnailUrl) ||
-            `https://graph.facebook.com/${encodeURIComponent(liveVideoId)}/picture?type=large&redirect=true`;
-        const fetchFn = global.fetch || (await import('node-fetch')).default;
-        let result = null;
-        try {
-            const r = await fetchFn(sourceUrl, { redirect: 'follow' });
-            if (r.ok) {
-                const ct = r.headers.get('content-type') || 'image/jpeg';
-                if (ct.startsWith('image/')) {
-                    const buf = Buffer.from(await r.arrayBuffer());
-                    if (buf.length >= 512) {
-                        result = { buffer: buf, mime: ct };
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('[lss] refresh-thumbnail fetch error:', e.message);
-        }
-        if (!result) {
-            return res.status(502).json({
-                success: false,
-                error: 'không lấy được ảnh (URL CDN có thể hết hạn signed token, video private hoặc đã xóa)',
-            });
-        }
-        const selfBase =
-            req.app.locals.web2BaseUrl || process.env.SELF_URL || _resolveSelfBase(req);
-        const selfImageUrl = `${selfBase}/api/livestream/snapshot/${req.params.id}/image`;
-        const r1 = await pool.query(
-            `UPDATE livestream_snapshots
-                 SET image_data = $1, image_mime = $2, image_size = $3,
-                     thumbnail_url = $4
-                 WHERE id = $5
-                 RETURNING *`,
-            [result.buffer, result.mime, result.buffer.length, selfImageUrl, req.params.id]
-        );
-        const snap = _mapRow(r1.rows[0]);
-        _notify('refresh-thumbnail', { customerFbUserId: snap.customerFbUserId, id: snap.id });
-        res.json({ success: true, snapshot: snap });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
+// LEGACY: POST /snapshot/:id/refresh-thumbnail — REMOVED per user req
+// 'bỏ hết chức năng lấy thumbnail'. Frame thật giờ qua POST /extract-frame
+// (yt-dlp + ffmpeg server-side) hoặc imageBase64 từ frontend buffer.
+router.post('/snapshot/:id/refresh-thumbnail', (req, res) => {
+    res.status(410).json({
+        success: false,
+        error: 'deprecated — use POST /api/livestream/extract-frame instead',
+    });
 });
 
 // GET /snapshot/:id/image — serve image bytea với Cache-Control immutable.
@@ -581,11 +476,9 @@ router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) =
                     b.liveVideoId,
                     offsetSec
                 );
-                // FB Graph picture endpoint giờ trả 400 cho video (FB policy 05/2026).
-                // Ưu tiên b.thumbnailUrl từ frontend (lấy từ TPOS video.thumbnail.url
-                // — FB CDN signed URL, public). Fallback FB Graph URL (sẽ 400 nhưng
-                // giữ structure cũ để rollback an toàn).
-                const thumbnailUrl = b.thumbnailUrl || _computeThumbnailUrl(b.liveVideoId);
+                // Offline-batch chỉ lưu metadata — KHÔNG lưu thumbnail URL.
+                // Backend POST /extract-frame sẽ điền bytea sau (user req).
+                const thumbnailUrl = null;
                 const r = await pool.query(
                     `INSERT INTO livestream_snapshots
                      (comment_id, customer_fb_user_id, customer_name, page_id, page_name,

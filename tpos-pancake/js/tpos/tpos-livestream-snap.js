@@ -153,25 +153,20 @@
         localStorage.setItem(LS_KEY_AUTO_MODE, on ? 'on' : 'off');
         renderAutoModeChip();
     }
-    // Toggle hiển thị inline thumbnail strip dưới mỗi comment. Default OFF.
+    // Inline frame display LUÔN BẬT — bỏ toggle theo yêu cầu user.
+    // Hiển thị frame thật khi có bytea, status badge khi chưa có / pending /
+    // drm_blocked / fail. KHÔNG hiển thị thumbnail URL generic.
     function _isInlineThumbOn() {
-        return localStorage.getItem(LS_KEY_INLINE_THUMB) === 'on';
+        return true;
     }
-    function _setInlineThumb(on) {
-        localStorage.setItem(LS_KEY_INLINE_THUMB, on ? 'on' : 'off');
-        renderInlineThumbChip();
-        if (on) {
-            // Bật → queue tất cả visible commentIds để fetch + render strip.
-            document.querySelectorAll('.tpos-conversation-item[data-comment-id]').forEach((row) => {
-                const cid = row.dataset.commentId;
-                if (!cid) return;
-                if (STATE.snapByComment.has(cid)) _renderThumbStripFor(cid);
-                else _queueSnapByComment(cid);
-            });
-        } else {
-            // Tắt → xóa toàn bộ strip hiện có.
-            document.querySelectorAll('.tpos-snap-thumb-strip').forEach((s) => s.remove());
-        }
+    function _setInlineThumb(_on) {
+        // No-op — toggle removed.
+        document.querySelectorAll('.tpos-conversation-item[data-comment-id]').forEach((row) => {
+            const cid = row.dataset.commentId;
+            if (!cid) return;
+            if (STATE.snapByComment.has(cid)) _renderThumbStripFor(cid);
+            else _queueSnapByComment(cid);
+        });
     }
 
     // Resolve page object từ allPages dựa trên snap page preference.
@@ -497,48 +492,12 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
-    // Toggle chip: bật/tắt hiển thị thumbnail snapshot inline trong comment row.
+    // Toggle chip REMOVED — inline frame display luôn bật (user req
+    // 'bỏ hết chức năng lấy thumbnail').
     function ensureInlineThumbChip() {
-        let chip = document.getElementById('tpos-snap-thumb-chip');
-        if (chip) return chip;
-        const host = _ensureFloatingHost();
-        if (!host) return null;
-        chip = document.createElement('div');
-        chip.id = 'tpos-snap-thumb-chip';
-        chip.style.cssText =
-            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;';
-        chip.addEventListener('click', () => {
-            const next = !_isInlineThumbOn();
-            _setInlineThumb(next);
-            _toast(
-                next ? '🖼 Inline thumb ON — hiện ảnh dưới comment' : '🖼 Inline thumb OFF',
-                'ok'
-            );
-        });
-        host.appendChild(chip);
-        renderInlineThumbChip();
-        return chip;
+        return null;
     }
-    function renderInlineThumbChip() {
-        const chip = document.getElementById('tpos-snap-thumb-chip');
-        if (!chip) return;
-        const on = _isInlineThumbOn();
-        if (on) {
-            chip.innerHTML = `🖼 Thumb: <strong>ON</strong>`;
-            chip.style.background = '#dbeafe';
-            chip.style.borderColor = '#93c5fd';
-            chip.style.color = '#1e40af';
-            chip.title =
-                'Inline thumbnail ON. Mỗi comment có snap sẽ hiện ảnh nhỏ trong row. Click ảnh để zoom.';
-        } else {
-            chip.innerHTML = `🖼 Thumb: <strong>OFF</strong>`;
-            chip.style.background = '#f3f4f6';
-            chip.style.borderColor = '#d1d5db';
-            chip.style.color = '#374151';
-            chip.title =
-                'Inline thumbnail OFF. Click bật để hiện ảnh snapshot trực tiếp trong từng row comment.';
-        }
-    }
+    function renderInlineThumbChip() {}
 
     // -----------------------------------------------------
     // Feature 2 — Offline batch backfill snapshots
@@ -2128,8 +2087,7 @@ Throttle 30s/KH. Click để tắt.`;
             const c2 = ensureRealSnapChip();
             const c3 = ensureAutoModeChip();
             const c4 = ensureBackfillChip();
-            const c5 = ensureInlineThumbChip();
-            if ((c1 && c2 && c3 && c4 && c5) || attempts >= 20) {
+            if ((c1 && c2 && c3 && c4) || attempts >= 20) {
                 clearInterval(mountTimer);
                 console.log('[snap] chips mount done after', attempts, 'attempts');
             }
