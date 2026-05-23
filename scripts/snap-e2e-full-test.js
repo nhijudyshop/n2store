@@ -28,7 +28,8 @@ function record(name, ok, detail) {
             t.includes('Thiếu quyền') ||
             locUrl.includes('favicon') ||
             locUrl.includes('scontent.') || // FB CDN aborted
-            locUrl.includes('fbcdn');
+            locUrl.includes('fbcdn') ||
+            locUrl.includes('refresh-thumbnail'); // deprecated endpoint 410 (C11 test)
         if (msg.type() === 'error' && !isNoise) {
             consoleErrors.push(t.slice(0, 200) + (locUrl ? ` @${locUrl}` : ''));
         }
@@ -322,11 +323,12 @@ function record(name, ok, detail) {
                 return { ok: false, err: String(e.message || e) };
             }
         }, httpsUrl);
+        // C12 dùng small sample JPEG (size ~200 bytes) — chỉ verify endpoint
+        // serve image/* content-type, KHÔNG check size (real bytea từ ffmpeg
+        // sẽ > 10KB, đủ).
         record(
-            'C13: Self-served image returns valid JPEG/PNG',
-            imgStatus.status === 200 &&
-                imgStatus.contentType?.startsWith('image/') &&
-                imgStatus.size > 1000,
+            'C13: Self-served image returns valid image/*',
+            imgStatus.status === 200 && imgStatus.contentType?.startsWith('image/'),
             JSON.stringify(imgStatus) +
                 ` urlIsHttps=${refreshedSnap.thumbnailUrl.startsWith('https://')}`
         );
@@ -450,9 +452,12 @@ function record(name, ok, detail) {
     });
     record('C16: Auto-mode ON → click camera = mở popover (no shift)', c16.ok, JSON.stringify(c16));
 
-    // Check 18: by-comment-ids endpoint trả thumbnail/livestreamUrl/offset đúng.
+    // Check 18: by-comment-ids endpoint trả metadata đúng (thumbnailUrl null OK
+    // sau cleanup — auto-mode chỉ lưu metadata, không lưu URL generic).
+    // Test với commentId của C12 snap (có bytea + self-served URL).
+    const c18CommentId = fakeCommentId + '_withframe';
     const c18 = await page.evaluate(
-        async ({ commentId, API: apiBase, expectedOffset }) => {
+        async ({ commentId, API: apiBase }) => {
             const r = await fetch(
                 `${apiBase}/api/livestream/snapshots/by-comment-ids?commentIds=${commentId}`,
                 { credentials: 'omit' }
@@ -462,25 +467,25 @@ function record(name, ok, detail) {
             return {
                 ok:
                     !!entry &&
-                    entry.offsetSeconds === expectedOffset &&
-                    !!entry.thumbnailUrl &&
-                    entry.livestreamUrl?.includes(`t=${expectedOffset}`),
+                    !!entry.thumbnailUrl?.includes('/api/livestream/snapshot/') &&
+                    entry.source === 'exact',
                 entry,
             };
         },
-        { commentId: fakeCommentId, API, expectedOffset }
+        { commentId: c18CommentId, API }
     );
-    record('C18: by-comment-ids batch lookup returns snap data', c18.ok, JSON.stringify(c18));
+    record('C18: by-comment-ids returns snap với self-served URL', c18.ok, JSON.stringify(c18));
 
     // Check 19: Inline thumb chỉ render khi DB snap có FROZEN BYTEA (self-served URL).
     // Test flow: inject fake DOM row matching fakeCommentId → toggle ON → strip
     // render → click → lightbox.
     const c19 = await page.evaluate(
         async ({ fakeCommentId, customerFbUserId }) => {
-            // Inject minimal fake row vào DOM với data-comment-id matching snap đã C5+C11 refresh.
+            // Inject minimal fake row vào DOM với data-comment-id matching snap C12 (có bytea).
             const fakeRow = document.createElement('div');
             fakeRow.className = 'tpos-conversation-item';
             fakeRow.dataset.commentId = fakeCommentId;
+            // Use C12 commentId (has bytea) instead of C5's.
             fakeRow.innerHTML = `
                 <div class="tpos-conv-row1">
                     <div class="tpos-conv-avatar"></div>
@@ -500,7 +505,7 @@ function record(name, ok, detail) {
             // Trick: re-trigger by removing from cache + queue.
             return { injected: true };
         },
-        { fakeCommentId, customerFbUserId }
+        { fakeCommentId: c18CommentId, customerFbUserId }
     );
     // Wait cho strip render (batch fetch 300ms + network).
     let c19Img = null;

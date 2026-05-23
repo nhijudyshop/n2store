@@ -1770,10 +1770,8 @@ Throttle 30s/KH. Click để tắt.`;
                         </div>`;
                 })
                 .join('');
-            // 🔄 Refresh thumb: resolve TPOS thumbnail.url (FB CDN signed) →
-            // POST với URL đó trong body. Backend fetch URL + save bytea.
-            // FB Graph picture endpoint trả 400 từ 05/2026 → cần thumbnail
-            // URL từ TPOS proxy (TPOS token).
+            // 🔄 button giờ trigger backend extract-frame (yt-dlp + ffmpeg) thay vì
+            // fetch thumbnail URL. Frame extract tại đúng offset_seconds → bytea.
             body.querySelectorAll('.snap-pop-refresh').forEach((btn) => {
                 btn.onclick = async (e) => {
                     e.stopPropagation();
@@ -1782,31 +1780,19 @@ Throttle 30s/KH. Click để tắt.`;
                     btn.textContent = '...';
                     btn.disabled = true;
                     try {
-                        // Find snap row → get pageId + liveVideoId → resolve fresh
-                        // TPOS thumbnail.url. Snap data đã có trong STATE.cacheList.
-                        const list = STATE.cacheList.get(customerFbUserId) || [];
-                        const snap = list.find((s) => String(s.id) === String(id));
-                        let bodyThumbUrl = null;
-                        if (snap?.pageId && snap?.liveVideoId) {
-                            const info = await _fetchLiveVideoInfo(snap.pageId, snap.liveVideoId);
-                            if (info?.thumbnailUrl) bodyThumbUrl = info.thumbnailUrl;
-                        }
-                        const r = await fetch(
-                            API + '/api/livestream/snapshot/' + id + '/refresh-thumbnail',
-                            {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'omit',
-                                body: JSON.stringify({ thumbnailUrl: bodyThumbUrl }),
-                            }
-                        );
+                        const r = await fetch(API + '/api/livestream/extract-frame', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'omit',
+                            body: JSON.stringify({ snapshotIds: [Number(id)] }),
+                        });
                         const d = await r.json();
                         if (!d.success) throw new Error(d.error);
-                        STATE.cacheList.delete(customerFbUserId);
-                        _toast('🔄 Đã cập nhật thumb', 'ok');
-                        _refreshPopoverContent(customerFbUserId);
+                        _toast('⏳ Backend đang extract (5-15s)...', 'ok');
+                        // SSE 'extract-done' sẽ refresh popover tự động.
                     } catch (err) {
-                        _toast('Refresh fail: ' + err.message, 'err');
+                        _toast('Extract fail: ' + err.message, 'err');
+                    } finally {
                         btn.textContent = origText;
                         btn.disabled = false;
                     }
