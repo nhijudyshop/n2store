@@ -93,16 +93,23 @@
         }
     }
 
-    // Lookup vanity từ pageObj. Ưu tiên: explicit fields → mapping → null.
+    // Vanity URL slug check — phải URL-safe (ASCII, no spaces, dots OK).
+    // TPOS Facebook_UserName là DISPLAY NAME (vd "Yến Nhi") → KHÔNG dùng được
+    // làm vanity. Chỉ chấp nhận giá trị match regex slug.
+    function _isVanitySlug(v) {
+        return typeof v === 'string' && /^[A-Za-z0-9._-]+$/.test(v) && v.length >= 3;
+    }
     function _resolvePageVanity(pageObj) {
         if (!pageObj) return null;
-        return (
-            pageObj.Facebook_UserName ||
-            pageObj.Username ||
-            pageObj.Vanity ||
-            PAGE_VANITY[pageObj.Facebook_PageId] ||
-            null
-        );
+        // Ưu tiên PAGE_VANITY mapping (known good) → các field potential khác phải
+        // pass _isVanitySlug check trước khi dùng.
+        const mapping = PAGE_VANITY[pageObj.Facebook_PageId];
+        if (mapping) return mapping;
+        for (const f of ['Username', 'Vanity', 'Facebook_UserName']) {
+            const v = pageObj[f];
+            if (_isVanitySlug(v)) return v;
+        }
+        return null;
     }
     const STATE = {
         counts: {}, // customerFbUserId → count
