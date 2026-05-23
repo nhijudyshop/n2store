@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d39d7c7` — feat(snap): offset chính xác via TPOS /facebook/livevideo channelCreatedTime
-**Last updated**: 2026-05-23 10:37:41 +07
-**Latest session**: [`RESUME:20260523-103741-d39d7c7`](../20260523-103741-d39d7c7.md)
-**Summary**: feat(snap): offset chính xác via TPOS /facebook/livevideo channelCreatedTime
+**Latest commit**: `dcae338` — feat(snap): Feature 2 offline batch + 30d auto-cleanup
+**Last updated**: 2026-05-23 10:57:22 +07
+**Latest session**: [`RESUME:20260523-105722-dcae338`](../20260523-105722-dcae338.md)
+**Summary**: feat(snap): Feature 2 offline batch + 30d auto-cleanup
 
 ## Folders affected in this commit
 
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 10:23
+- [`render.com/`](./render.com.md) — updated 2026-05-23 10:57
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-23 10:11
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -61,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:37
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:57
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
