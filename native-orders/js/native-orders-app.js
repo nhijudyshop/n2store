@@ -1371,6 +1371,17 @@
             const actionCell = isLocked
                 ? `<span title="Đơn đã PBH — không thể xóa SP" style="opacity:0.4;"><i data-lucide="lock"></i></span>`
                 : `<button class="btn-action act-delete" title="Xóa" onclick="NativeOrdersApp.removeLine(${i})"><i data-lucide="trash-2"></i></button>`;
+            // Ghi chú SP — ALWAYS editable (kể cả khi locked). User cần ghi
+            // size/màu/yêu cầu đóng gói lên line ngay cả sau khi đã PBH.
+            const noteCell = `
+                <div class="line-note-wrap" style="margin-top:4px;">
+                    <input type="text" class="line-note-input"
+                        value="${escapeHtml(l.note || '')}"
+                        placeholder="Ghi chú SP (size/màu/đóng gói…)"
+                        oninput="NativeOrdersApp.setLineNote(${i}, this.value)"
+                        style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569;background:#f8fafc;"
+                    />
+                </div>`;
             return `
                 <tr data-idx="${i}">
                     <td>${i + 1}</td>
@@ -1378,6 +1389,7 @@
                     <td>
                         <div class="line-name">${escapeHtml(l.name || '—')}</div>
                         <div class="line-code">${escapeHtml(l.productCode || '')}</div>
+                        ${noteCell}
                     </td>
                     <td>${qtyCell}</td>
                     <td class="line-price">${price.toLocaleString('vi-VN')}đ</td>
@@ -1415,12 +1427,18 @@
         renderOrderLines();
     }
 
+    // Cập nhật ghi chú SP — KHÔNG re-render (giữ caret position khi đang gõ).
+    // EDIT_LINES[idx].note sẽ được saveEdit gửi lên backend.
+    function setLineNote(idx, val) {
+        const line = EDIT_LINES[idx];
+        if (!line) return;
+        line.note = val || null;
+    }
+
     async function saveEdit() {
         if (!STATE.editingCode) return;
         const editingOrder = STATE.orders.find((x) => x.code === STATE.editingCode);
         const isLocked = editingOrder?.status === 'confirmed';
-        // Lock: chỉ cho save text fields (note, address...) — KHÔNG ghi products
-        // khi đơn đã PBH. Tránh ghi đè products array của đơn confirmed.
         const fields = {
             customerName: $('#editCustomerName').value.trim(),
             phone: $('#editPhone').value.trim(),
@@ -1428,18 +1446,20 @@
             note: $('#editNote').value.trim(),
             status: $('#editStatus').value,
         };
-        if (!isLocked) {
-            fields.products = EDIT_LINES.map((l) => ({
-                productCode: l.productCode,
-                name: l.name,
-                price: Number(l.price) || 0,
-                quantity: Number(l.quantity) || 0,
-                imageUrl: l.imageUrl || null,
-                note: l.note || null,
-                total: (Number(l.price) || 0) * (Number(l.quantity) || 0),
-                addedAt: l.addedAt || Date.now(),
-            }));
-        }
+        // Locked → vẫn cho gửi products để LƯU GHI CHÚ TỪNG SP (note inline).
+        // Frontend chỉ enable note input khi locked (qty/code/price không sửa được
+        // qua UI), nên EDIT_LINES giữ nguyên qty/price gốc; chỉ note có thể đổi.
+        // Backend trust frontend — PATCH /:code ghi đè products.
+        fields.products = EDIT_LINES.map((l) => ({
+            productCode: l.productCode,
+            name: l.name,
+            price: Number(l.price) || 0,
+            quantity: Number(l.quantity) || 0,
+            imageUrl: l.imageUrl || null,
+            note: l.note || null,
+            total: (Number(l.price) || 0) * (Number(l.quantity) || 0),
+            addedAt: l.addedAt || Date.now(),
+        }));
         try {
             const resp = await window.NativeOrdersApi.update(STATE.editingCode, fields);
             const idx = STATE.orders.findIndex((x) => x.code === STATE.editingCode);
@@ -6620,6 +6640,7 @@
         createPbh,
         cancelPbh,
         cancelPbhFromEdit,
+        setLineNote,
         confirmDraft,
         cancelOrder,
         splitPbh,
